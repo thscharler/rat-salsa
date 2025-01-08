@@ -9,8 +9,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::style::Style;
 use ratatui::text::Span;
-use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
-use std::cmp::min;
+use ratatui::widgets::{Block, StatefulWidget, Widget};
+use std::cmp::{max, min};
+use unicode_display_width::width as unicode_width;
 
 /// Render the navigation for one or more [Pager](crate::pager::Pager) widgets.
 #[derive(Debug, Clone)]
@@ -20,6 +21,10 @@ pub struct PageNavigation<'a> {
     style: Style,
     nav_style: Option<Style>,
     title_style: Option<Style>,
+    next_page: &'a str,
+    prev_page: &'a str,
+    first_page: &'a str,
+    last_page: &'a str,
 }
 
 /// Widget state.
@@ -65,6 +70,10 @@ impl Default for PageNavigation<'_> {
             style: Default::default(),
             nav_style: Default::default(),
             title_style: Default::default(),
+            next_page: ">>>",
+            prev_page: "<<<",
+            first_page: "[·]",
+            last_page: "[·]",
         }
     }
 }
@@ -109,6 +118,26 @@ impl<'a> PageNavigation<'a> {
         self
     }
 
+    pub fn next_page_mark(mut self, txt: &'a str) -> Self {
+        self.next_page = txt;
+        self
+    }
+
+    pub fn prev_page_mark(mut self, txt: &'a str) -> Self {
+        self.prev_page = txt;
+        self
+    }
+
+    pub fn first_page_mark(mut self, txt: &'a str) -> Self {
+        self.first_page = txt;
+        self
+    }
+
+    pub fn last_page_mark(mut self, txt: &'a str) -> Self {
+        self.last_page = txt;
+        self
+    }
+
     /// Set all styles.
     pub fn styles(mut self, styles: PagerStyle) -> Self {
         self.style = styles.style;
@@ -121,6 +150,19 @@ impl<'a> PageNavigation<'a> {
         if let Some(block) = styles.block {
             self.block = Some(block);
         }
+        if let Some(txt) = styles.next_page_mark {
+            self.next_page = txt;
+        }
+        if let Some(txt) = styles.prev_page_mark {
+            self.prev_page = txt;
+        }
+        if let Some(txt) = styles.first_page_mark {
+            self.first_page = txt;
+        }
+        if let Some(txt) = styles.last_page_mark {
+            self.last_page = txt;
+        }
+        //todo
         self.block = self.block.map(|v| v.style(styles.style));
         self
     }
@@ -162,22 +204,54 @@ impl StatefulWidget for PageNavigation<'_> {
             column_area.x += column_area.width;
         }
 
-        let p1 = 5;
-        let p4 = widget_area.width.saturating_sub(p1);
-        state.prev_area = Rect::new(widget_area.x, area.y, p1, 1);
-        state.next_area = Rect::new(widget_area.x + p4, area.y, p1, 1);
+        if state.page > 0 {
+            state.prev_area = Rect::new(
+                widget_area.x,
+                area.y,
+                unicode_width(self.prev_page) as u16,
+                1,
+            );
+        } else {
+            state.prev_area = Rect::new(
+                widget_area.x,
+                area.y,
+                unicode_width(self.first_page) as u16,
+                1,
+            );
+        }
+        if (state.page + self.pages as usize) < state.page_count {
+            let p = unicode_width(self.next_page) as u16;
+            state.next_area = Rect::new(
+                widget_area.x + widget_area.width.saturating_sub(p),
+                area.y,
+                p,
+                1,
+            );
+        } else {
+            let p = unicode_width(self.last_page) as u16;
+            state.next_area = Rect::new(
+                widget_area.x + widget_area.width.saturating_sub(p),
+                area.y,
+                p,
+                1,
+            );
+        }
 
         // render
-        let title = format!(" {}/{} ", state.page + 1, state.page_count);
-        let block = self
-            .block
-            .unwrap_or_else(|| Block::new().borders(Borders::TOP).style(self.style))
-            .title_bottom(title)
-            .title_alignment(Alignment::Right);
-        let block = if let Some(title_style) = self.title_style {
-            block.title_style(title_style)
+        let block = if state.page_count > 1 {
+            let title = format!(" {}/{} ", state.page + 1, state.page_count);
+            let block = self
+                .block
+                .unwrap_or_else(|| Block::new().style(self.style))
+                .title_bottom(title)
+                .title_alignment(Alignment::Right);
+            if let Some(title_style) = self.title_style {
+                block.title_style(title_style)
+            } else {
+                block
+            }
         } else {
-            block
+            self.block.unwrap_or_else(|| Block::new().style(self.style))
         };
         block.render(area, buf);
 
@@ -189,9 +263,9 @@ impl StatefulWidget for PageNavigation<'_> {
             buf.set_style(state.prev_area, nav_style);
         }
         if state.page > 0 {
-            Span::from(" <<< ").render(state.prev_area, buf);
+            Span::from(self.prev_page).render(state.prev_area, buf);
         } else {
-            Span::from(" [·] ").render(state.prev_area, buf);
+            Span::from(self.first_page).render(state.prev_area, buf);
         }
         if matches!(state.mouse.hover.get(), Some(1)) {
             buf.set_style(state.next_area, revert_style(nav_style));
@@ -199,9 +273,9 @@ impl StatefulWidget for PageNavigation<'_> {
             buf.set_style(state.next_area, nav_style);
         }
         if (state.page + self.pages as usize) < state.page_count {
-            Span::from(" >>> ").render(state.next_area, buf);
+            Span::from(self.next_page).render(state.next_area, buf);
         } else {
-            Span::from(" [·] ").render(state.next_area, buf);
+            Span::from(self.last_page).render(state.next_area, buf);
         }
     }
 }

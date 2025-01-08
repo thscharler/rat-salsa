@@ -12,6 +12,10 @@ pub struct PagerStyle {
     pub navigation: Option<Style>,
     pub title: Option<Style>,
     pub block: Option<Block<'static>>,
+    pub next_page_mark: Option<&'static str>,
+    pub prev_page_mark: Option<&'static str>,
+    pub first_page_mark: Option<&'static str>,
+    pub last_page_mark: Option<&'static str>,
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -24,6 +28,10 @@ impl Default for PagerStyle {
             navigation: None,
             title: None,
             block: None,
+            next_page_mark: None,
+            prev_page_mark: None,
+            first_page_mark: None,
+            last_page_mark: None,
             non_exhaustive: NonExhaustive,
         }
     }

@@ -113,6 +113,26 @@ where
         self
     }
 
+    pub fn next_page_mark(mut self, txt: &'a str) -> Self {
+        self.page_nav = self.page_nav.next_page_mark(txt);
+        self
+    }
+
+    pub fn prev_page_mark(mut self, txt: &'a str) -> Self {
+        self.page_nav = self.page_nav.prev_page_mark(txt);
+        self
+    }
+
+    pub fn first_page_mark(mut self, txt: &'a str) -> Self {
+        self.page_nav = self.page_nav.first_page_mark(txt);
+        self
+    }
+
+    pub fn last_page_mark(mut self, txt: &'a str) -> Self {
+        self.page_nav = self.page_nav.last_page_mark(txt);
+        self
+    }
+
     /// Set all styles.
     pub fn styles(mut self, styles: PagerStyle) -> Self {
         self.pager = self.pager.styles(styles.clone());
