@@ -22,10 +22,6 @@ log = "0.4"
 rat-event = { version = "1.0", path = "../rat-event" }
 rat-reloc = { version = "1.0", path = "../rat-reloc" }
 
-[dev-dependencies.tui-tree-widget]
-version = "0.23"
-features = []
-
 [dev-dependencies]
 fern = "0.7"
 anyhow = "1.0"

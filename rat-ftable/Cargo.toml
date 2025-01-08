@@ -29,7 +29,6 @@ rat-scrolled = { version = "1.0", path = "../rat-scrolled" }
 
 [dev-dependencies]
 fern = "0.7"
-humantime = "2.1"
 rand = "0.8.5"
 anyhow = "1.0"
 format_num_pattern = "0.9.2"
