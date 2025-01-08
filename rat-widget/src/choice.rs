@@ -757,6 +757,11 @@ where
         &self.keys[self.selected]
     }
 
+    /// Select item number 0.
+    pub fn clear(&mut self) -> bool {
+        self.move_to(0)
+    }
+
     /// Select the item.
     pub fn select(&mut self, select: usize) -> bool {
         let old_selected = self.selected;
