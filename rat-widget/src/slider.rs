@@ -36,7 +36,7 @@ use ratatui::widgets::{Block, Widget};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
-use unicode_width::UnicodeWidthStr;
+use unicode_display_width::width as unicode_width;
 
 /// Slider widget for a type T.
 ///
@@ -458,12 +458,12 @@ where
                 let lower_width = self
                     .lower_bound
                     .as_ref()
-                    .map(|v| v.width() as u16)
+                    .map(|v| unicode_width(v) as u16)
                     .unwrap_or_default();
                 let upper_width = self
                     .upper_bound
                     .as_ref()
-                    .map(|v| v.width() as u16)
+                    .map(|v| unicode_width(v) as u16)
                     .unwrap_or_default();
 
                 state.lower_bound = Rect::new(inner.x, inner.y, lower_width, inner.height);
@@ -481,12 +481,12 @@ where
                 state.track =
                     Rect::new(state.lower_bound.right(), inner.y, track_len, inner.height);
 
-                let knob_width = self
-                    .render_knob_str(inner.height, false)
-                    .split('\n')
-                    .next()
-                    .expect("one knob")
-                    .width() as u16;
+                let knob_width = unicode_width(
+                    self.render_knob_str(inner.height, false)
+                        .split('\n')
+                        .next()
+                        .expect("one knob"),
+                ) as u16;
                 state.scale_len = track_len.saturating_sub(knob_width);
 
                 if let Some(knob_pos) = state.value.map_range(state.range, (0, state.scale_len)) {
