@@ -472,3 +472,58 @@ macro_rules! match_focus {
         $(else { $final })?
     }};
 }
+
+/// Create the implementation of HasFocus for the
+/// given list of struct members.
+#[macro_export]
+macro_rules! impl_has_focus {
+    ($cc:ident:$area:ident: $($n:ident),* for $ty:ty) => {
+        impl $crate::HasFocus for $ty {
+            fn build(&self, builder: &mut FocusBuilder) {
+                let tag = builder.start(self);
+                $(builder.widget(&self.$n);)*
+                builder.end(tag);
+            }
+
+            fn focus(&self) -> FocusFlag {
+                self.$cc.clone()
+            }
+
+            fn area(&self) -> Rect {
+                self.$area
+            }
+        }
+    };
+    ($cc:ident: $($n:ident),* for $ty:ty) => {
+        impl $crate::HasFocus for $ty {
+            fn build(&self, builder: &mut FocusBuilder) {
+                let tag = builder.start(self);
+                $(builder.widget(&self.$n);)*
+                builder.end(tag);
+            }
+
+            fn focus(&self) -> FocusFlag {
+                self.$cc.clone()
+            }
+
+            fn area(&self) -> Rect {
+                Rect::default()
+            }
+        }
+    };
+    ($($n:ident),* for $ty:ty) => {
+        impl $crate::HasFocus for $ty {
+            fn build(&self, builder: &mut FocusBuilder) {
+                $(builder.widget(&self.$n);)*
+            }
+
+            fn focus(&self) -> FocusFlag {
+                unimplemented!("not defined")
+            }
+
+            fn area(&self) -> Rect {
+                unimplemented!("not defined")
+            }
+        }
+    };
+}

@@ -28,8 +28,8 @@ pub mod event {
 /// For details see [rat-focus](https://docs.rs/rat-focus)
 pub mod focus {
     pub use rat_focus::{
-        handle_focus, match_focus, on_gained, on_lost, Focus, FocusBuilder, FocusFlag, HasFocus,
-        Navigation,
+        handle_focus, impl_has_focus, match_focus, on_gained, on_lost, Focus, FocusBuilder,
+        FocusFlag, HasFocus, Navigation,
     };
 }
 
