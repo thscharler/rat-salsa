@@ -10,7 +10,7 @@ use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
-use std::cmp::{max, min};
+use std::cmp::min;
 use unicode_display_width::width as unicode_width;
 
 /// Render the navigation for one or more [Pager](crate::pager::Pager) widgets.
