@@ -267,41 +267,55 @@ pub struct TableStyle {
 #[derive(Debug)]
 pub struct TableState<Selection> {
     /// Current focus state.
+    /// __read+write__
     pub focus: FocusFlag,
 
     /// Total area.
+    /// __read only__ Renewed with each render.
     pub area: Rect,
     /// Area inside the border and scrollbars
+    /// __read only__ Renewed with each render.
     pub inner: Rect,
 
     /// Total header area.
+    /// __read only__ Renewed with each render.
     pub header_area: Rect,
     /// Total table area.
+    /// __read only__ Renewed with each render.
     pub table_area: Rect,
     /// Area per visible row. The first element is at row_offset.
+    /// __read only__ Renewed with each render.
     pub row_areas: Vec<Rect>,
     /// Area for each column plus the following spacer if any.
     /// Invisible columns have width 0, height is the height of the table_area.
+    /// __read only__ Renewed with each render.
     pub column_areas: Vec<Rect>,
     /// Layout areas for each column plus the following spacer if any.
     /// Positions are 0-based, y and height are 0.
+    /// __read only__ Renewed with each render.
     pub column_layout: Vec<Rect>,
     /// Total footer area.
+    /// __read only__ Renewed with each render.
     pub footer_area: Rect,
 
     /// Row count.
+    /// __read+write__ Renewed with each render anyway.
     pub rows: usize,
     // debug info
     pub _counted_rows: usize,
     /// Column count.
+    /// __read only__ Renewed with each render.
     pub columns: usize,
 
     /// Row scrolling data.
+    /// __read+write__ max_offset set with each render.
     pub vscroll: ScrollState,
     /// Column scrolling data.
+    /// __read+write__ max_offset set with each render.
     pub hscroll: ScrollState,
 
     /// Selection data.
+    /// __read+write__ selection model. selection is not bound by rows.
     pub selection: Selection,
 
     /// Helper for mouse interactions.
@@ -1970,13 +1984,14 @@ impl TableState<RowSelection> {
     }
 
     /// Selected row.
+    /// The selected row is not constrained by the row-count.
     #[inline]
     pub fn selected(&self) -> Option<usize> {
         self.selection.selected()
     }
 
     /// Return the selected row and ensure it is in the
-    /// range 0..rows
+    /// range 0..rows.
     #[inline]
     pub fn selected_checked(&self) -> Option<usize> {
         if let Some(selected) = self.selection.selected() {
@@ -1991,6 +2006,7 @@ impl TableState<RowSelection> {
     }
 
     /// Select the row.
+    /// The selection is not constrained by the row-count.
     #[inline]
     pub fn select(&mut self, row: Option<usize>) -> bool {
         self.selection.select(row)
@@ -2008,7 +2024,7 @@ impl TableState<RowSelection> {
     }
 
     /// Move the selection to the given row.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_to(&mut self, row: usize) -> bool {
         let r = self.selection.move_to(row, self.rows.saturating_sub(1));
@@ -2017,7 +2033,7 @@ impl TableState<RowSelection> {
     }
 
     /// Move the selection up n rows.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_up(&mut self, n: usize) -> bool {
         let r = self.selection.move_up(n, self.rows.saturating_sub(1));
@@ -2026,7 +2042,7 @@ impl TableState<RowSelection> {
     }
 
     /// Move the selection down n rows.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_down(&mut self, n: usize) -> bool {
         let r = self.selection.move_down(n, self.rows.saturating_sub(1));
