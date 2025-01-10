@@ -167,7 +167,6 @@ fn repaint_input(
         }
 
         state.layout = Rc::new(form_layout.paged(layout_size, Padding::default()));
-        debug!("layout {} {:?}", state.layout.page_count(), et.elapsed()?);
         state
             .page_nav
             .set_page_count((state.layout.page_count() + 1) / 2);
@@ -241,7 +240,6 @@ fn render_page(
     }
 
     // pager done.
-    debug!("{:12}{:>12?}", "render", et.elapsed()?);
 
     Ok(())
 }
@@ -272,11 +270,6 @@ fn handle_input(
     let tt = et.elapsed()?;
     state.t_focus += tt.as_secs_f64();
     state.n_focus += 1f64;
-    debug!(
-        "{:12}{:>12.2?}",
-        "focus",
-        state.t_focus / state.n_focus * 1e6f64
-    );
 
     let f = focus.handle(event, Regular);
 

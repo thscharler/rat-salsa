@@ -165,21 +165,14 @@ fn repaint_input(
         state.pager.set_layout(Rc::new(
             form_layout.endless(layout_size.width, Padding::default()),
         ));
-        debug!(
-            "layout {} {:?}",
-            state.pager.layout.page_count(),
-            et.elapsed()?
-        );
     }
 
     // Render
-    let et = SystemTime::now();
     let mut pager = pager.into_buffer(l2[1], &mut state.pager);
     render_page(&mut pager, state)?;
     pager
         .into_widget()
         .render(l2[1], frame.buffer_mut(), &mut state.pager);
-    debug!("{:12}{:>12?}", "render", et.elapsed()?);
 
     let menu1 = MenuLine::new()
         .title("#.#")
@@ -246,11 +239,6 @@ fn handle_input(
     let tt = et.elapsed()?;
     state.t_focus += tt.as_secs_f64();
     state.n_focus += 1f64;
-    debug!(
-        "{:12}{:>12.2?}",
-        "focus",
-        state.t_focus / state.n_focus * 1e6f64
-    );
 
     let f = focus.handle(event, Regular);
 

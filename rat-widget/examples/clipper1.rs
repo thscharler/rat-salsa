@@ -99,7 +99,6 @@ fn repaint_input(
             row += 2;
         }
 
-        // debug!("layout {:#?}", gen_layout);
         state.clipper.set_layout(Rc::new(gen_layout));
     }
 

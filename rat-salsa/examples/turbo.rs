@@ -237,7 +237,6 @@ pub mod app {
                 }
             };
 
-            debug!("R0 {:?}", r);
             r = r.or_else_try(|| self.turbo.event(&event, ctx))?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
