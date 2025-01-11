@@ -133,7 +133,7 @@ fn repaint_table(
             Constraint::Length(3),
         ])
         // auto works with the stated column widths.
-        .auto_layout_width(true)
+        .auto_layout_width()
         // or use a fixed total.
         // .layout_width(150)
         .column_spacing(1)

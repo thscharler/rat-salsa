@@ -214,7 +214,7 @@ fn repaint_table(
         },
         Table::default()
             .column_spacing(1)
-            .auto_layout_width(true)
+            .auto_layout_width()
             .block(
                 Block::bordered()
                     .border_type(block::BorderType::Rounded)

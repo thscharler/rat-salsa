@@ -676,8 +676,8 @@ impl<'a, Selection> Table<'a, Selection> {
     /// Rendering will panic, if any constraint other than Constraint::Length(),
     /// Constraint::Min() or Constraint::Max() is used.
     #[inline]
-    pub fn auto_layout_width(mut self, auto: bool) -> Self {
-        self.auto_layout_width = auto;
+    pub fn auto_layout_width(mut self) -> Self {
+        self.auto_layout_width = true;
         self
     }
 

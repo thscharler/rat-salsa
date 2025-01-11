@@ -207,7 +207,7 @@ fn repaint_input(
                 fmt2: NumberFormat::news("##########", NumberSymbols::numeric(state.loc))?,
             })
             .column_spacing(1)
-            .auto_layout_width(true)
+            .auto_layout_width()
             .block(
                 Block::bordered()
                     .border_type(block::BorderType::Rounded)
