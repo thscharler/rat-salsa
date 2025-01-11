@@ -1036,29 +1036,13 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, Outcome> for Choi
         };
 
         r2 = r2.or_else(|| match event {
-            ct_event!(mouse any for m) if self.mouse.doubleclick(self.popup.widget_area, m) => {
-                if let Some(n) = item_at(&self.item_areas, m.column, m.row) {
-                    let r = self.move_to(self.offset() + n).into();
-                    let s = self.set_popup_active(false).into();
-                    max(r, s)
-                } else {
-                    Outcome::Unchanged
-                }
-            }
             ct_event!(mouse down Left for x,y)
                 if self.popup.widget_area.contains((*x, *y).into()) =>
             {
                 if let Some(n) = item_at(&self.item_areas, *x, *y) {
-                    self.move_to(self.offset() + n).into()
-                } else {
-                    Outcome::Unchanged
-                }
-            }
-            ct_event!(mouse drag Left for x,y)
-                if self.popup.widget_area.contains((*x, *y).into()) =>
-            {
-                if let Some(n) = item_at(&self.item_areas, *x, *y) {
-                    self.move_to(self.offset() + n).into()
+                    let r = self.move_to(self.offset() + n).into();
+                    let s = self.set_popup_active(false).into();
+                    max(r, s)
                 } else {
                     Outcome::Unchanged
                 }
