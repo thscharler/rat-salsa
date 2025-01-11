@@ -383,7 +383,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
 
     // first line may omit a few days
     state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.inner);
-    Span::from(day.format_localized("%W", widget.loc).to_string())
+    Span::from(day.format_localized("%V", widget.loc).to_string())
         .style(week_style)
         .render(state.area_weeks[w], buf);
 
@@ -441,7 +441,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
 
     while month == day.month() {
         state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.inner);
-        Span::from(day.format_localized("%W", widget.loc).to_string())
+        Span::from(day.format_localized("%V", widget.loc).to_string())
             .style(week_style)
             .render(state.area_weeks[w], buf);
 
