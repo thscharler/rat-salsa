@@ -1157,7 +1157,7 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome> fo
             r => r.into(),
         };
 
-        let mut r2 = match self.behave_select {
+        let r2 = match self.behave_select {
             ChoiceSelect::MouseScroll => {
                 let mut sas = ScrollAreaState::new()
                     .area(self.popup.area)
