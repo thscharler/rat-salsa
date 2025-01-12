@@ -173,5 +173,5 @@ fn handle_table(
 
     let r = state.table.handle(event, Regular);
 
-    Ok(max(f, r))
+    Ok(max(f, r.into()))
 }

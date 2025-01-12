@@ -292,5 +292,5 @@ fn handle_table(
     };
 
     let r1 = rowselection::handle_events(&mut state.table, true, event);
-    Ok(max(r0, r1))
+    Ok(max(r0, r1.into()))
 }

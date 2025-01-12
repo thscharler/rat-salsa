@@ -13,8 +13,8 @@ use rat_theme::dark_theme::DarkTheme;
 use rat_theme::dark_themes;
 use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{
-    ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Outcome,
-    Popup, ReadOnly, Regular,
+    ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
+    ReadOnly, Regular, TableOutcome,
 };
 use rat_widget::focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_widget::list::selection::RowSelection;
@@ -606,13 +606,13 @@ impl FilesState {
             r => r.into(),
         });
         try_flow!(match self.w_files.handle(event, Regular) {
-            Outcome::Changed => {
+            TableOutcome::Selected => {
                 self.show_file(ctx)?
             }
             r => r.into(),
         });
         try_flow!(match self.w_dirs.handle(event, Regular) {
-            Outcome::Changed => {
+            TableOutcome::Selected => {
                 self.show_dir()?
             }
             v => Control::from(v),

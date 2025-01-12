@@ -162,5 +162,5 @@ fn handle_table(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let r = rowselection::handle_events(&mut state.table, true, event);
-    Ok(r)
+    Ok(r.into())
 }

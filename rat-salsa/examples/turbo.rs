@@ -96,7 +96,6 @@ pub mod app {
     use crate::turbo::{Turbo, TurboState};
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
-    use log::debug;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
