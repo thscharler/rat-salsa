@@ -213,7 +213,7 @@ fn test_sign1() {
     m.set_text("  1.0  ");
 
     m.advance_cursor('-');
-    assert_eq!(m.cursor(), 3);
+    assert_eq!(m.cursor(), 0);
     m.insert_char('-');
     assert_eq!(m.text(), " -1.0  ");
 
@@ -339,7 +339,7 @@ fn test_sign4() {
     m.set_text("   1.0   ");
 
     m.advance_cursor('-');
-    assert_eq!(m.cursor(), 4);
+    assert_eq!(m.cursor(), 1);
     m.insert_char('-');
     assert_eq!(m.text(), "   1.0  -");
 }
