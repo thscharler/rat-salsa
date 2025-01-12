@@ -1,4 +1,4 @@
-use crate::event::Outcome;
+use crate::event::TableOutcome;
 use crate::{TableSelection, TableState};
 use crossterm::event::KeyModifiers;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
@@ -192,57 +192,137 @@ impl RowSetSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableState<RowSetSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _: Regular) -> Outcome {
+impl HandleEvent<crossterm::event::Event, Regular, TableOutcome> for TableState<RowSetSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _: Regular) -> TableOutcome {
         let res = if self.is_focused() {
             match event {
-                ct_event!(keycode press Up) => self.move_up(1, false).into(),
-                ct_event!(keycode press Down) => self.move_down(1, false).into(),
+                ct_event!(keycode press Up) => {
+                    if self.move_up(1, false) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Down) => {
+                    if self.move_down(1, false) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press CONTROL-Up)
                 | ct_event!(keycode press CONTROL-Home)
-                | ct_event!(keycode press Home) => self.move_to(0, false).into(),
+                | ct_event!(keycode press Home) => {
+                    if self.move_to(0, false) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press CONTROL-Down)
                 | ct_event!(keycode press CONTROL-End)
                 | ct_event!(keycode press End) => {
-                    self.move_to(self.rows.saturating_sub(1), false).into()
+                    if self.move_to(self.rows.saturating_sub(1), false) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
-                ct_event!(keycode press PageUp) => self
-                    .move_up(max(1, self.page_len().saturating_sub(1)), false)
-                    .into(),
-                ct_event!(keycode press PageDown) => self
-                    .move_down(max(1, self.page_len().saturating_sub(1)), false)
-                    .into(),
-
-                ct_event!(keycode press SHIFT-Up) => self.move_up(1, true).into(),
-                ct_event!(keycode press SHIFT-Down) => self.move_down(1, true).into(),
+                ct_event!(keycode press PageUp) => {
+                    if self.move_up(max(1, self.page_len().saturating_sub(1)), false) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press PageDown) => {
+                    if self.move_down(max(1, self.page_len().saturating_sub(1)), false) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press SHIFT-Up) => {
+                    if self.move_up(1, true) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press SHIFT-Down) => {
+                    if self.move_down(1, true) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press CONTROL_SHIFT-Up)
                 | ct_event!(keycode press CONTROL_SHIFT-Home)
-                | ct_event!(keycode press SHIFT-Home) => self.move_to(0, true).into(),
+                | ct_event!(keycode press SHIFT-Home) => {
+                    if self.move_to(0, true) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press CONTROL_SHIFT-Down)
                 | ct_event!(keycode press CONTROL_SHIFT-End)
                 | ct_event!(keycode press SHIFT-End) => {
-                    self.move_to(self.rows.saturating_sub(1), true).into()
+                    if self.move_to(self.rows.saturating_sub(1), true) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
-                ct_event!(keycode press SHIFT-PageUp) => self
-                    .move_up(max(1, self.page_len().saturating_sub(1)), true)
-                    .into(),
-                ct_event!(keycode press SHIFT-PageDown) => self
-                    .move_down(max(1, self.page_len().saturating_sub(1)), true)
-                    .into(),
-
-                ct_event!(keycode press Left) => self.scroll_left(1).into(),
-                ct_event!(keycode press Right) => self.scroll_right(1).into(),
-                ct_event!(keycode press CONTROL-Left) => self.scroll_to_x(0).into(),
+                ct_event!(keycode press SHIFT-PageUp) => {
+                    if self.move_up(max(1, self.page_len().saturating_sub(1)), true) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press SHIFT-PageDown) => {
+                    if self.move_down(max(1, self.page_len().saturating_sub(1)), true) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Left) => {
+                    if self.scroll_left(1) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Right) => {
+                    if self.scroll_right(1) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press CONTROL-Left) => {
+                    if self.scroll_to_x(0) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press CONTROL-Right) => {
-                    self.scroll_to_x(self.x_max_offset()).into()
+                    if self.scroll_to_x(self.x_max_offset()) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
-                _ => Outcome::Continue,
+                _ => TableOutcome::Continue,
             }
         } else {
-            Outcome::Continue
+            TableOutcome::Continue
         };
 
-        if res == Outcome::Continue {
+        if res == TableOutcome::Continue {
             self.handle(event, MouseOnly)
         } else {
             res
@@ -250,38 +330,49 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableState<RowSe
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<RowSetSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> Outcome {
+impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableState<RowSetSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> TableOutcome {
         flow!(match event {
             ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)
                 if self.mouse.drag(self.table_area, m)
                     || self.mouse.drag2(self.table_area, m, KeyModifiers::CONTROL) =>
             {
-                self.move_to(self.row_at_drag((m.column, m.row)), true)
-                    .into()
+                if self.move_to(self.row_at_drag((m.column, m.row)), true) {
+                    TableOutcome::Selected
+                } else {
+                    TableOutcome::Unchanged
+                }
             }
             ct_event!(mouse down Left for column, row) => {
                 let pos = (*column, *row);
                 if self.table_area.contains(pos.into()) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.move_to(new_row, false).into()
+                        if self.move_to(new_row, false) {
+                            TableOutcome::Selected
+                        } else {
+                            TableOutcome::Unchanged
+                        }
                     } else {
-                        Outcome::Continue
+                        TableOutcome::Continue
                     }
                 } else {
-                    Outcome::Continue
+                    TableOutcome::Continue
                 }
             }
             ct_event!(mouse down ALT-Left for column, row) => {
                 let pos = (*column, *row);
                 if self.area.contains(pos.into()) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.move_to(new_row, true).into()
+                        if self.move_to(new_row, true) {
+                            TableOutcome::Selected
+                        } else {
+                            TableOutcome::Unchanged
+                        }
                     } else {
-                        Outcome::Continue
+                        TableOutcome::Continue
                     }
                 } else {
-                    Outcome::Continue
+                    TableOutcome::Continue
                 }
             }
             ct_event!(mouse down CONTROL-Left for column, row) => {
@@ -294,15 +385,15 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<Row
                         } else {
                             self.move_to(new_row, true);
                         }
-                        Outcome::Changed
+                        TableOutcome::Selected
                     } else {
-                        Outcome::Continue
+                        TableOutcome::Continue
                     }
                 } else {
-                    Outcome::Continue
+                    TableOutcome::Continue
                 }
             }
-            _ => Outcome::Continue,
+            _ => TableOutcome::Continue,
         });
 
         let mut sas = ScrollAreaState::new()
@@ -310,22 +401,54 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<Row
             .h_scroll(&mut self.hscroll)
             .v_scroll(&mut self.vscroll);
         let r = match sas.handle(event, MouseOnly) {
-            ScrollOutcome::Up(v) => self.scroll_up(v),
-            ScrollOutcome::Down(v) => self.scroll_down(v),
-            ScrollOutcome::VPos(v) => self.set_row_offset(v),
-            ScrollOutcome::Left(v) => self.scroll_left(v),
-            ScrollOutcome::Right(v) => self.scroll_right(v),
-            ScrollOutcome::HPos(v) => self.set_x_offset(v),
+            ScrollOutcome::Up(v) => {
+                if self.scroll_up(v) {
+                    TableOutcome::Changed
+                } else {
+                    TableOutcome::Unchanged
+                }
+            }
+            ScrollOutcome::Down(v) => {
+                if self.scroll_down(v) {
+                    TableOutcome::Changed
+                } else {
+                    TableOutcome::Unchanged
+                }
+            }
+            ScrollOutcome::VPos(v) => {
+                if self.set_row_offset(v) {
+                    TableOutcome::Changed
+                } else {
+                    TableOutcome::Unchanged
+                }
+            }
+            ScrollOutcome::Left(v) => {
+                if self.scroll_left(v) {
+                    TableOutcome::Changed
+                } else {
+                    TableOutcome::Unchanged
+                }
+            }
+            ScrollOutcome::Right(v) => {
+                if self.scroll_right(v) {
+                    TableOutcome::Changed
+                } else {
+                    TableOutcome::Unchanged
+                }
+            }
+            ScrollOutcome::HPos(v) => {
+                if self.set_x_offset(v) {
+                    TableOutcome::Changed
+                } else {
+                    TableOutcome::Unchanged
+                }
+            }
 
-            ScrollOutcome::Continue => false,
-            ScrollOutcome::Unchanged => false,
-            ScrollOutcome::Changed => true,
+            ScrollOutcome::Continue => TableOutcome::Continue,
+            ScrollOutcome::Unchanged => TableOutcome::Unchanged,
+            ScrollOutcome::Changed => TableOutcome::Changed,
         };
-        if r {
-            return Outcome::Changed;
-        }
-
-        Outcome::Unchanged
+        r
     }
 }
 
@@ -336,7 +459,7 @@ pub fn handle_events(
     state: &mut TableState<RowSetSelection>,
     focus: bool,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> TableOutcome {
     state.focus.set(focus);
     state.handle(event, Regular)
 }
@@ -345,6 +468,6 @@ pub fn handle_events(
 pub fn handle_mouse_events(
     state: &mut TableState<RowSetSelection>,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> TableOutcome {
     state.handle(event, MouseOnly)
 }

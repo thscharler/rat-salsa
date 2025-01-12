@@ -9,13 +9,13 @@
 
 use crate::_private::NonExhaustive;
 use crate::edit::{Mode, TableEditor, TableEditorState};
-use crate::event::EditOutcome;
+use crate::event::{EditOutcome, TableOutcome};
 use crate::rowselection::RowSelection;
 use crate::{Table, TableSelection, TableState};
 use log::warn;
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, HandleEvent, Outcome, Regular};
+use rat_event::{ct_event, flow, HandleEvent, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
@@ -434,9 +434,10 @@ where
             }
 
             match self.table.handle(event, Regular) {
-                Outcome::Continue => EditOutcome::Continue,
-                Outcome::Unchanged => EditOutcome::Unchanged,
-                Outcome::Changed => EditOutcome::Changed,
+                TableOutcome::Continue => EditOutcome::Continue,
+                TableOutcome::Unchanged => EditOutcome::Unchanged,
+                TableOutcome::Changed => EditOutcome::Changed,
+                TableOutcome::Selected => EditOutcome::Changed,
             }
         }
     }

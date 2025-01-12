@@ -1,6 +1,6 @@
-use crate::event::Outcome;
+use crate::event::TableOutcome;
 use crate::{TableSelection, TableState};
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
+use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocus;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::ScrollAreaState;
@@ -150,42 +150,90 @@ impl CellSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableState<CellSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+impl HandleEvent<crossterm::event::Event, Regular, TableOutcome> for TableState<CellSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TableOutcome {
         let res = if self.is_focused() {
             match event {
-                ct_event!(keycode press Up) => self.move_up(1).into(),
-                ct_event!(keycode press Down) => self.move_down(1).into(),
+                ct_event!(keycode press Up) => {
+                    if self.move_up(1) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Down) => {
+                    if self.move_down(1) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press CONTROL-Home) => {
-                    self.move_to_row(0).into()
+                    if self.move_to_row(0) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press CONTROL-End) => {
-                    self.move_to_row(self.rows.saturating_sub(1)).into()
+                    if self.move_to_row(self.rows.saturating_sub(1)) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
 
-                ct_event!(keycode press PageUp) => self
-                    .move_up(max(1, self.page_len().saturating_sub(1)))
-                    .into(),
-                ct_event!(keycode press PageDown) => self
-                    .move_down(max(1, self.page_len().saturating_sub(1)))
-                    .into(),
+                ct_event!(keycode press PageUp) => {
+                    if self.move_up(max(1, self.page_len().saturating_sub(1))) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press PageDown) => {
+                    if self.move_down(max(1, self.page_len().saturating_sub(1))) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
 
-                ct_event!(keycode press Left) => self.move_left(1).into(),
-                ct_event!(keycode press Right) => self.move_right(1).into(),
+                ct_event!(keycode press Left) => {
+                    if self.move_left(1) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Right) => {
+                    if self.move_right(1) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press Home) => {
-                    self.move_to_col(0).into()
+                    if self.move_to_col(0) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
                 ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press End) => {
-                    self.move_to_col(self.columns.saturating_sub(1)).into()
+                    if self.move_to_col(self.columns.saturating_sub(1)) {
+                        TableOutcome::Selected
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
 
-                _ => Outcome::Continue,
+                _ => TableOutcome::Continue,
             }
         } else {
-            Outcome::Continue
+            TableOutcome::Continue
         };
 
-        if res == Outcome::Continue {
+        if res == TableOutcome::Continue {
             self.handle(event, MouseOnly)
         } else {
             res
@@ -193,47 +241,88 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableState<CellS
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<CellSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        flow!(match event {
+impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableState<CellSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TableOutcome {
+        let mut r = match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
-                self.move_to(self.cell_at_drag((m.column, m.row))).into()
+                if self.move_to(self.cell_at_drag((m.column, m.row))) {
+                    TableOutcome::Selected
+                } else {
+                    TableOutcome::Unchanged
+                }
             }
             ct_event!(mouse down Left for column, row) => {
                 if self.area.contains((*column, *row).into()) {
                     if let Some(new_cell) = self.cell_at_clicked((*column, *row)) {
-                        self.move_to(new_cell).into()
+                        if self.move_to(new_cell) {
+                            TableOutcome::Selected
+                        } else {
+                            TableOutcome::Unchanged
+                        }
                     } else {
-                        Outcome::Continue
+                        TableOutcome::Continue
                     }
                 } else {
-                    Outcome::Continue
+                    TableOutcome::Continue
                 }
             }
-            _ => Outcome::Continue,
-        });
-
-        let mut sas = ScrollAreaState::new()
-            .area(self.inner)
-            .h_scroll(&mut self.hscroll)
-            .v_scroll(&mut self.vscroll);
-        let r = match sas.handle(event, MouseOnly) {
-            ScrollOutcome::Up(v) => self.scroll_up(v),
-            ScrollOutcome::Down(v) => self.scroll_down(v),
-            ScrollOutcome::VPos(v) => self.set_row_offset(v),
-            ScrollOutcome::Left(v) => self.scroll_left(v),
-            ScrollOutcome::Right(v) => self.scroll_right(v),
-            ScrollOutcome::HPos(v) => self.set_x_offset(v),
-
-            ScrollOutcome::Continue => false,
-            ScrollOutcome::Unchanged => false,
-            ScrollOutcome::Changed => true,
+            _ => TableOutcome::Continue,
         };
-        if r {
-            return Outcome::Changed;
-        }
 
-        Outcome::Unchanged
+        r = r.or_else(|| {
+            let mut sas = ScrollAreaState::new()
+                .area(self.inner)
+                .h_scroll(&mut self.hscroll)
+                .v_scroll(&mut self.vscroll);
+            match sas.handle(event, MouseOnly) {
+                ScrollOutcome::Up(v) => {
+                    if self.scroll_up(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ScrollOutcome::Down(v) => {
+                    if self.scroll_down(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ScrollOutcome::VPos(v) => {
+                    if self.set_row_offset(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ScrollOutcome::Left(v) => {
+                    if self.scroll_left(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ScrollOutcome::Right(v) => {
+                    if self.scroll_right(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ScrollOutcome::HPos(v) => {
+                    if self.set_x_offset(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
+                }
+                ScrollOutcome::Continue => TableOutcome::Continue,
+                ScrollOutcome::Unchanged => TableOutcome::Unchanged,
+                ScrollOutcome::Changed => TableOutcome::Changed,
+            }
+        });
+        r
     }
 }
 
@@ -244,7 +333,7 @@ pub fn handle_events(
     state: &mut TableState<CellSelection>,
     focus: bool,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> TableOutcome {
     state.focus.set(focus);
     state.handle(event, Regular)
 }
@@ -253,6 +342,6 @@ pub fn handle_events(
 pub fn handle_mouse_events(
     state: &mut TableState<CellSelection>,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> TableOutcome {
     state.handle(event, MouseOnly)
 }

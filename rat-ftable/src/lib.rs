@@ -230,6 +230,37 @@ pub mod selection {
 pub mod event {
     pub use rat_event::*;
 
+    /// Result value for event-handling.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[non_exhaustive]
+    pub enum TableOutcome {
+        /// The given event was not handled at all.
+        Continue,
+        /// The event was handled, no repaint necessary.
+        Unchanged,
+        /// The event was handled, repaint necessary.
+        Changed,
+        /// The selection has changed.
+        Selected,
+    }
+
+    impl ConsumedEvent for TableOutcome {
+        fn is_consumed(&self) -> bool {
+            *self != TableOutcome::Continue
+        }
+    }
+
+    impl From<TableOutcome> for Outcome {
+        fn from(value: TableOutcome) -> Self {
+            match value {
+                TableOutcome::Continue => Outcome::Continue,
+                TableOutcome::Unchanged => Outcome::Unchanged,
+                TableOutcome::Changed => Outcome::Changed,
+                TableOutcome::Selected => Outcome::Changed,
+            }
+        }
+    }
+
     /// Result type for double-click event-handling.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum DoubleClickOutcome {
