@@ -441,6 +441,10 @@ impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenubarState
                     }
                     r
                 }
+                r @ MenuOutcome::Activated(_) => {
+                    self.popup.flip_active();
+                    r
+                }
                 r => r,
             }
         } else {
