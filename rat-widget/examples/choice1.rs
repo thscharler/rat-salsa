@@ -1,11 +1,12 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
+use log::debug;
 use rat_event::{ConsumedEvent, HandleEvent, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::choice::{Choice, ChoiceState};
-use rat_widget::event::Outcome;
+use rat_widget::event::{ChoiceOutcome, Outcome};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
@@ -41,7 +42,7 @@ struct Data {}
 struct State {
     c1: ChoiceState,
     c2: ChoiceState,
-    c3: ChoiceState,
+    c3: ChoiceState<Option<usize>>,
     menu: MenuLineState,
 }
 
@@ -102,11 +103,11 @@ fn repaint_input(
         .into_widgets();
     w.render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
-    let (w, p3) = Choice::new()
+    let (w, p3) = Choice::<Option<usize>>::new()
         .styles(THEME.choice_style())
-        .auto_item("red")
-        .auto_item("blue")
-        .auto_item("green")
+        .item(None, "red")
+        .item(Some(0), "blue")
+        .item(Some(1), "green")
         .block(Block::bordered().border_type(BorderType::Rounded))
         .popup_block(Block::bordered().border_type(BorderType::Rounded))
         .popup_boundary(l1[0])
@@ -133,7 +134,6 @@ fn focus(state: &mut State) -> Focus {
     fb.widget(&state.c2);
     fb.widget(&state.c3);
     let f = fb.build();
-    f.enable_log();
     f
 }
 
@@ -149,12 +149,24 @@ fn handle_input(
     // popup handling first
     let r: Outcome = state.c1.handle(event, Popup).into();
     let r = r.or_else(|| state.c2.handle(event, Popup).into());
-    let r = r.or_else(|| state.c3.handle(event, Popup).into());
+    let r = r.or_else(|| match state.c3.handle(event, Popup) {
+        ChoiceOutcome::Value => {
+            debug!("c3 {:?}", state.c3.value());
+            Outcome::Changed
+        }
+        r => r.into(),
+    });
 
     // regular later...
     let r = r.or_else(|| state.c1.handle(event, Regular).into());
     let r = r.or_else(|| state.c2.handle(event, Regular).into());
-    let r = r.or_else(|| state.c3.handle(event, Regular).into());
+    let r = r.or_else(|| match state.c3.handle(event, Regular) {
+        ChoiceOutcome::Value => {
+            debug!("c3 {:?}", state.c3.value());
+            Outcome::Changed
+        }
+        r => r.into(),
+    });
     let r = r.or_else(|| match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(v) => {
             match v {
