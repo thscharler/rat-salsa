@@ -31,6 +31,7 @@
 //! ```
 //!
 use crate::_private::NonExhaustive;
+use crate::choice::core::ChoiceCore;
 use crate::event::ChoiceOutcome;
 use crate::util::{block_size, revert_style};
 use rat_event::util::{item_at, mouse_trap, MouseFlags};
@@ -87,9 +88,10 @@ pub enum ChoiceClose {
 #[derive(Debug, Clone)]
 pub struct Choice<'a, T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     keys: Rc<RefCell<Vec<T>>>,
+    default_key: Option<T>,
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
@@ -113,6 +115,7 @@ where
     T: PartialEq,
 {
     keys: Rc<RefCell<Vec<T>>>,
+    default_key: Option<T>,
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
@@ -168,7 +171,7 @@ pub struct ChoiceStyle {
 #[derive(Debug)]
 pub struct ChoiceState<T = usize>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     /// Total area.
     /// __read only__. renewed with each render.
@@ -176,9 +179,6 @@ where
     /// First char of each item for navigation.
     /// __read only__. renewed with each render.
     pub nav_char: Vec<Vec<char>>,
-    /// Key for each item.
-    /// __read only__. renewed with each render.
-    pub keys: Vec<T>,
     /// Item area in the main widget.
     /// __read only__. renewed with each render.
     pub item_area: Rect,
@@ -188,9 +188,8 @@ where
     /// Visible items in the popup.
     /// __read only__. renewed with each render.
     pub item_areas: Vec<Rect>,
-    /// Select item.
-    /// __read+write__
-    pub selected: usize,
+    /// Core
+    pub core: ChoiceCore<T>,
     /// Popup state.
     pub popup: PopupCoreState,
     /// Behaviour for selecting from the choice popup.
@@ -255,6 +254,139 @@ pub(crate) mod event {
     }
 }
 
+pub mod core {
+    #[derive(Debug, Default, Clone)]
+    pub struct ChoiceCore<T>
+    where
+        T: PartialEq + Clone + Default,
+    {
+        /// Keys.
+        /// __read only__. renewed for each render.
+        keys: Vec<T>,
+        /// Can return to default with a user interaction.
+        default_key: T,
+        /// Value set with set_value() if there are no keys.
+        no_keys_value: T,
+        /// Selected state.
+        /// Is guaranteed to be Some(v) if keys is not empty.
+        selected: Option<usize>,
+    }
+
+    impl<T> ChoiceCore<T>
+    where
+        T: PartialEq + Clone + Default,
+    {
+        pub fn set_keys(&mut self, keys: Vec<T>) {
+            self.keys = keys;
+            // ensure integrity
+            if self.keys.is_empty() {
+                self.selected = None;
+                self.no_keys_value = self.default_key.clone();
+            } else {
+                if let Some(selected) = self.selected {
+                    if selected > self.keys.len() {
+                        self.selected = Some(0);
+                    }
+                } else {
+                    self.selected = Some(0);
+                }
+            }
+        }
+
+        pub fn keys(&self) -> &[T] {
+            &self.keys
+        }
+
+        pub fn set_default_key(&mut self, default_key: T) {
+            self.default_key = default_key.clone();
+            self.no_keys_value = default_key;
+        }
+
+        pub fn default_key(&self) -> &T {
+            &self.default_key
+        }
+
+        pub fn selected(&self) -> Option<usize> {
+            self.selected
+        }
+
+        pub fn set_selected(&mut self, select: usize) -> bool {
+            let old_sel = self.selected;
+            if self.keys.is_empty() {
+                self.selected = None;
+            } else {
+                assert!(select < self.keys.len());
+                self.selected = Some(select);
+            }
+            old_sel != self.selected
+        }
+
+        pub fn set_value(&mut self, key: T) -> bool {
+            if self.keys().is_empty() {
+                self.set_no_keys_value(key)
+            } else {
+                'f: {
+                    for (i, k) in self.keys().iter().enumerate() {
+                        if key == *k {
+                            break 'f self.set_selected(i);
+                        }
+                    }
+                    for (i, k) in self.keys().iter().enumerate() {
+                        if self.default_key() == k {
+                            break 'f self.set_selected(i);
+                        }
+                    }
+                    self.set_selected(0)
+                }
+            }
+        }
+
+        pub fn value(&self) -> T {
+            if self.keys().is_empty() {
+                self.no_keys_value().clone()
+            } else {
+                let selected = *self.selected().as_ref().expect("selected");
+                self.keys()[selected].clone()
+            }
+        }
+
+        pub fn clear(&mut self) -> bool {
+            let old_selected = self.selected;
+
+            if !self.keys.is_empty() {
+                'f: {
+                    for (i, k) in self.keys.iter().enumerate() {
+                        if self.default_key == *k {
+                            self.selected = Some(i);
+                            break 'f;
+                        }
+                    }
+                    self.selected = Some(0);
+                }
+            } else {
+                self.selected = None;
+                self.no_keys_value = self.default_key.clone();
+            }
+
+            old_selected != self.selected
+        }
+
+        pub fn set_no_keys_value(&mut self, no_keys_value: T) -> bool {
+            let old_value = self.no_keys_value.clone();
+
+            assert!(self.keys.is_empty());
+            self.no_keys_value = no_keys_value;
+
+            old_value != self.no_keys_value
+        }
+
+        pub fn no_keys_value(&self) -> &T {
+            assert!(self.keys.is_empty());
+            &self.no_keys_value
+        }
+    }
+}
+
 impl Default for ChoiceStyle {
     fn default() -> Self {
         Self {
@@ -274,11 +406,12 @@ impl Default for ChoiceStyle {
 
 impl<T> Default for Choice<'_, T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     fn default() -> Self {
         Self {
             keys: Default::default(),
+            default_key: Default::default(),
             items: Default::default(),
             style: Default::default(),
             button_style: Default::default(),
@@ -325,7 +458,7 @@ impl<'a> Choice<'a, usize> {
 
 impl<'a, T> Choice<'a, T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     pub fn new() -> Self {
         Self::default()
@@ -354,6 +487,12 @@ where
     pub fn item(self, key: T, item: impl Into<Line<'a>>) -> Self {
         self.keys.borrow_mut().push(key);
         self.items.borrow_mut().push(item.into());
+        self
+    }
+
+    /// Can return to default with user interaction.
+    pub fn default_key(mut self, default: T) -> Self {
+        self.default_key = Some(default);
         self
     }
 
@@ -525,6 +664,7 @@ where
         (
             ChoiceWidget {
                 keys: self.keys,
+                default_key: self.default_key,
                 items: self.items.clone(),
                 style: self.style,
                 button_style: self.button_style,
@@ -555,24 +695,30 @@ impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T> {
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_choice(self, area, buf, state);
 
-        state.keys = self.keys.borrow().clone();
+        state.core.set_keys(self.keys.borrow().clone());
+        if let Some(default_key) = self.default_key.clone() {
+            state.core.set_default_key(default_key);
+        }
     }
 }
 
 impl<T> StatefulWidget for ChoiceWidget<'_, T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     type State = ChoiceState<T>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_choice(&self, area, buf, state);
 
-        state.keys = self.keys.take();
+        state.core.set_keys(self.keys.take());
+        if let Some(default_key) = self.default_key {
+            state.core.set_default_key(default_key);
+        }
     }
 }
 
-fn render_choice<T: PartialEq>(
+fn render_choice<T: PartialEq + Clone + Default>(
     widget: &ChoiceWidget<'_, T>,
     area: Rect,
     buf: &mut Buffer,
@@ -588,7 +734,9 @@ fn render_choice<T: PartialEq>(
             .unwrap_or_else(|| min(5, widget.items.borrow().len()) as u16);
         state.popup.v_scroll.max_offset = widget.items.borrow().len().saturating_sub(len as usize);
         state.popup.v_scroll.page_len = len as usize;
-        state.popup.v_scroll.scroll_to_pos(state.selected);
+        if let Some(selected) = state.core.selected() {
+            state.popup.v_scroll.scroll_to_pos(selected);
+        }
     }
 
     state.nav_char.clear();
@@ -632,8 +780,10 @@ fn render_choice<T: PartialEq>(
         }
     }
 
-    if let Some(item) = widget.items.borrow().get(state.selected) {
-        item.render(state.item_area, buf);
+    if let Some(selected) = state.core.selected() {
+        if let Some(item) = widget.items.borrow().get(selected) {
+            item.render(state.item_area, buf);
+        }
     }
 
     let dy = if (state.button_area.height & 1) == 1 {
@@ -654,7 +804,7 @@ fn render_choice<T: PartialEq>(
 
 impl<T> StatefulWidget for ChoicePopup<'_, T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     type State = ChoiceState<T>;
 
@@ -663,7 +813,7 @@ where
     }
 }
 
-fn render_popup<T: PartialEq>(
+fn render_popup<T: PartialEq + Clone + Default>(
     widget: &ChoicePopup<'_, T>,
     area: Rect,
     buf: &mut Buffer,
@@ -704,7 +854,7 @@ fn render_popup<T: PartialEq>(
             state.item_areas.push(item_area);
 
             if let Some(item) = widget.items.borrow().get(idx) {
-                let style = if state.selected == idx {
+                let style = if state.core.selected() == Some(idx) {
                     widget.select_style.unwrap_or(revert_style(widget.style))
                 } else {
                     popup_style
@@ -726,17 +876,16 @@ fn render_popup<T: PartialEq>(
 
 impl<T> Clone for ChoiceState<T>
 where
-    T: Clone + PartialEq,
+    T: PartialEq + Clone + Default,
 {
     fn clone(&self) -> Self {
         Self {
             area: self.area,
             nav_char: self.nav_char.clone(),
-            keys: self.keys.clone(),
             item_area: self.item_area,
             button_area: self.button_area,
             item_areas: self.item_areas.clone(),
-            selected: self.selected,
+            core: self.core.clone(),
             popup: self.popup.clone(),
             behave_select: self.behave_select,
             behave_close: self.behave_close,
@@ -749,17 +898,16 @@ where
 
 impl<T> Default for ChoiceState<T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     fn default() -> Self {
         Self {
             area: Default::default(),
             nav_char: Default::default(),
-            keys: Default::default(),
             item_area: Default::default(),
             button_area: Default::default(),
             item_areas: Default::default(),
-            selected: 0,
+            core: Default::default(),
             popup: Default::default(),
             behave_select: Default::default(),
             behave_close: Default::default(),
@@ -772,7 +920,7 @@ where
 
 impl<T> HasFocus for ChoiceState<T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.append_flags(self.focus(), self.area(), 0, self.navigable());
@@ -790,7 +938,7 @@ where
 
 impl<T> RelocatableState for ChoiceState<T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
@@ -803,7 +951,7 @@ where
 
 impl<T> ChoiceState<T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     pub fn new() -> Self {
         Self::default()
@@ -839,63 +987,38 @@ where
     /// no items, or nothing changed.
     ///
     /// Doesn't change the selection if the given key doesn't exist.
-    pub fn set_value(&mut self, key: &T) -> bool
-    where
-        T: PartialEq,
-    {
-        let old_selected = self.selected;
-        for (i, k) in self.keys.iter().enumerate() {
-            if key == k {
-                self.selected = i;
-                return old_selected != self.selected;
-            }
-        }
-        old_selected != self.selected
-    }
-
-    /// Get the selected value or None if there are no items.
-    pub fn try_value_ref(&self) -> Option<&T> {
-        if self.selected < self.keys.len() {
-            Some(&self.keys[self.selected])
-        } else {
-            None
-        }
+    pub fn set_value(&mut self, key: T) -> bool {
+        self.core.set_value(key)
     }
 
     /// Get the selected value.
-    ///
-    /// __Panic__
-    ///
-    /// Panics if there is no selection or no items.
-    pub fn value_ref(&self) -> &T {
-        &self.keys[self.selected]
+    pub fn value(&self) -> T {
+        self.core.value()
     }
 
     /// Select item number 0.
     pub fn clear(&mut self) -> bool {
-        self.move_to(0)
+        self.core.clear()
     }
 
     /// Select the item.
     pub fn select(&mut self, select: usize) -> bool {
-        let old_selected = self.selected;
-        self.selected = select.clamp(0, self.keys.len().saturating_sub(1));
-        old_selected != self.selected
+        self.core.set_selected(select)
     }
 
     /// Selected
-    pub fn selected(&self) -> usize {
-        self.selected
+    pub fn selected(&self) -> Option<usize> {
+        self.core.selected()
     }
 
     /// Items?
     pub fn is_empty(&self) -> bool {
-        self.keys.is_empty()
+        self.core.keys().is_empty()
     }
 
     /// Number of items.
     pub fn len(&self) -> usize {
-        self.keys.len()
+        self.core.keys().len()
     }
 
     /// Scroll offset for the item list.
@@ -930,53 +1053,17 @@ where
 
     /// Scroll the item list to the selected value.
     pub fn scroll_to_selected(&mut self) -> bool {
-        self.popup.v_scroll.scroll_to_pos(self.selected)
-    }
-}
-
-impl<T> ChoiceState<T>
-where
-    T: PartialEq + Clone,
-{
-    /// Get the selected value or None there are no items.
-    #[allow(clippy::manual_map)]
-    pub fn try_value(&self) -> Option<T> {
-        if self.selected < self.keys.len() {
-            Some(self.keys[self.selected].clone())
+        if let Some(selected) = self.core.selected() {
+            self.popup.v_scroll.scroll_to_pos(selected)
         } else {
-            None
+            false
         }
-    }
-
-    /// Get the selected value.
-    ///
-    /// __Panic__
-    ///
-    /// Panics if there are no items.
-    pub fn value(&self) -> T {
-        self.keys[self.selected].clone()
     }
 }
 
 impl<T> ChoiceState<T>
 where
     T: PartialEq + Clone + Default,
-{
-    /// Get the selected value or T::default() if there
-    /// are no items.
-    #[allow(clippy::manual_map)]
-    pub fn value_or_default(&self) -> T {
-        if self.selected < self.keys.len() {
-            self.keys[self.selected].clone()
-        } else {
-            T::default()
-        }
-    }
-}
-
-impl<T> ChoiceState<T>
-where
-    T: PartialEq,
 {
     /// Select by first character.
     pub fn select_by_char(&mut self, c: char) -> bool {
@@ -985,17 +1072,17 @@ where
         }
 
         let c = c.to_lowercase().collect::<Vec<_>>();
-        let mut idx = self.selected + 1;
+        let mut idx = self.core.selected().expect("selected") + 1;
         loop {
             if idx >= self.nav_char.len() {
                 idx = 0;
             }
-            if idx == self.selected {
+            if Some(idx) == self.core.selected() {
                 break;
             }
 
             if self.nav_char[idx] == c {
-                self.selected = idx;
+                self.core.set_selected(idx);
                 return true;
             }
 
@@ -1013,29 +1100,39 @@ where
 
     /// Select next entry.
     pub fn move_down(&mut self, n: usize) -> bool {
-        let old_selected = self.selected;
+        let old_selected = self.core.selected();
 
-        self.selected = (self.selected + n).clamp(0, self.keys.len().saturating_sub(1));
-        let r2 = self.scroll_to_selected();
+        let r2 = if let Some(selected) = self.core.selected() {
+            let select = (selected + n).clamp(0, self.core.keys().len().saturating_sub(1));
+            self.core.set_selected(select);
+            self.scroll_to_selected()
+        } else {
+            false
+        };
 
-        old_selected != self.selected || r2
+        old_selected != self.core.selected() || r2
     }
 
     /// Select prev entry.
     pub fn move_up(&mut self, n: usize) -> bool {
-        let old_selected = self.selected;
+        let old_selected = self.core.selected();
 
-        self.selected = self
-            .selected
-            .saturating_sub(n)
-            .clamp(0, self.keys.len().saturating_sub(1));
-        let r2 = self.scroll_to_selected();
+        let r2 = if let Some(selected) = self.core.selected() {
+            let select =
+                (selected.saturating_sub(n)).clamp(0, self.core.keys().len().saturating_sub(1));
+            self.core.set_selected(select);
+            self.scroll_to_selected()
+        } else {
+            false
+        };
 
-        old_selected != self.selected || r2
+        old_selected != self.core.selected() || r2
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, ChoiceOutcome> for ChoiceState<T> {
+impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Regular, ChoiceOutcome>
+    for ChoiceState<T>
+{
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> ChoiceOutcome {
         if self.lost_focus() {
             self.set_popup_active(false);
@@ -1072,7 +1169,7 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, ChoiceOutcome> 
                     }
                 }
                 ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
-                    self.move_to(0);
+                    self.clear();
                     ChoiceOutcome::Value
                 }
                 ct_event!(keycode press Down) => {
@@ -1119,7 +1216,7 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, ChoiceOutcome> 
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, ChoiceOutcome>
+impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, MouseOnly, ChoiceOutcome>
     for ChoiceState<T>
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ChoiceOutcome {
@@ -1147,7 +1244,9 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, ChoiceOutcome
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome> for ChoiceState<T> {
+impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome>
+    for ChoiceState<T>
+{
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> ChoiceOutcome {
         let r1 = match self.popup.handle(event, Popup) {
             PopupOutcome::Hide => {
@@ -1220,35 +1319,39 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome> fo
             }
             ChoiceSelect::MouseMove => {
                 // effect: move the content below the mouse and keep visible selection.
-                let rel_sel = self.selected.saturating_sub(self.offset());
-                let mut sas = ScrollAreaState::new()
-                    .area(self.popup.area)
-                    .v_scroll(&mut self.popup.v_scroll);
-                let mut r = match sas.handle(event, MouseOnly) {
-                    ScrollOutcome::Up(n) => {
-                        self.popup.v_scroll.scroll_up(n);
-                        if self.select(self.offset() + rel_sel) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
+                let mut r = if let Some(selected) = self.core.selected() {
+                    let rel_sel = selected.saturating_sub(self.offset());
+                    let mut sas = ScrollAreaState::new()
+                        .area(self.popup.area)
+                        .v_scroll(&mut self.popup.v_scroll);
+                    match sas.handle(event, MouseOnly) {
+                        ScrollOutcome::Up(n) => {
+                            self.popup.v_scroll.scroll_up(n);
+                            if self.select(self.offset() + rel_sel) {
+                                ChoiceOutcome::Value
+                            } else {
+                                ChoiceOutcome::Unchanged
+                            }
                         }
-                    }
-                    ScrollOutcome::Down(n) => {
-                        self.popup.v_scroll.scroll_down(n);
-                        if self.select(self.offset() + rel_sel) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
+                        ScrollOutcome::Down(n) => {
+                            self.popup.v_scroll.scroll_down(n);
+                            if self.select(self.offset() + rel_sel) {
+                                ChoiceOutcome::Value
+                            } else {
+                                ChoiceOutcome::Unchanged
+                            }
                         }
-                    }
-                    ScrollOutcome::VPos(n) => {
-                        if self.popup.v_scroll.set_offset(n) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
+                        ScrollOutcome::VPos(n) => {
+                            if self.popup.v_scroll.set_offset(n) {
+                                ChoiceOutcome::Value
+                            } else {
+                                ChoiceOutcome::Unchanged
+                            }
                         }
+                        _ => ChoiceOutcome::Continue,
                     }
-                    _ => ChoiceOutcome::Continue,
+                } else {
+                    ChoiceOutcome::Continue
                 };
 
                 r = r.or_else(|| match event {
@@ -1390,7 +1493,7 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome> fo
 /// Handle events for the popup.
 /// Call before other handlers to deal with intersections
 /// with other widgets.
-pub fn handle_popup<T: PartialEq>(
+pub fn handle_popup<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
     focus: bool,
     event: &crossterm::event::Event,
@@ -1402,7 +1505,7 @@ pub fn handle_popup<T: PartialEq>(
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events<T: PartialEq>(
+pub fn handle_events<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
     focus: bool,
     event: &crossterm::event::Event,
@@ -1412,7 +1515,7 @@ pub fn handle_events<T: PartialEq>(
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events<T: PartialEq>(
+pub fn handle_mouse_events<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
     event: &crossterm::event::Event,
 ) -> ChoiceOutcome {

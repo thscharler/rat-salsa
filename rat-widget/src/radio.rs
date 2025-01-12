@@ -1,4 +1,5 @@
 use crate::_private::NonExhaustive;
+use crate::choice::core::ChoiceCore;
 use crate::event::RadioOutcome;
 use crate::util::{block_size, fill_buf_area, revert_style, union_non_empty};
 use rat_event::util::{item_at, MouseFlags};
@@ -30,15 +31,13 @@ pub enum RadioLayout {
 #[derive(Debug, Clone)]
 pub struct Radio<'a, T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     keys: Vec<T>,
+    default_key: Option<T>,
     items: Vec<Text<'a>>,
     direction: Direction,
     layout: RadioLayout,
-
-    // Can return to default with a user interaction.
-    default_key: Option<T>,
 
     true_str: Span<'a>,
     false_str: Span<'a>,
@@ -79,7 +78,7 @@ pub struct RadioStyle {
 #[derive(Debug)]
 pub struct RadioState<T = usize>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     /// Complete area
     /// __read only__. renewed for each render.
@@ -101,15 +100,9 @@ where
     /// Area for the texts.
     /// __read only__. renewed for each render.
     pub text_areas: Vec<Rect>,
-    /// Keys.
-    /// __read only__. renewed for each render.
-    pub keys: Vec<T>,
 
-    /// Can return to default with a user interaction.
-    pub default_key: Option<T>,
-
-    /// Selected state.
-    pub selected: usize,
+    /// Core
+    pub core: ChoiceCore<T>,
 
     /// Current focus state.
     /// __read+write__
@@ -172,14 +165,17 @@ impl Default for RadioStyle {
     }
 }
 
-impl<T: PartialEq> Default for Radio<'_, T> {
+impl<T> Default for Radio<'_, T>
+where
+    T: PartialEq + Clone + Default,
+{
     fn default() -> Self {
         Self {
             keys: Default::default(),
             items: Default::default(),
             direction: Default::default(),
             layout: Default::default(),
-            default_key: None,
+            default_key: Default::default(),
             true_str: Span::from("\u{2B24}"),
             false_str: Span::from("\u{25EF}"),
             continue_str: Span::from("...").on_yellow(),
@@ -219,7 +215,7 @@ impl<'a> Radio<'a, usize> {
 
 impl<'a, T> Radio<'a, T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     /// New.
     pub fn new() -> Self {
@@ -357,7 +353,7 @@ where
 
 impl<T> Radio<'_, T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     /// Length of the check
     fn check_len(&self) -> u16 {
@@ -694,7 +690,7 @@ where
 
 impl<T> StatefulWidget for Radio<'_, T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     type State = RadioState<T>;
 
@@ -718,8 +714,10 @@ where
             }
         }
 
-        state.keys = self.keys;
-        state.default_key = self.default_key;
+        state.core.set_keys(self.keys);
+        if let Some(default_key) = self.default_key {
+            state.core.set_default_key(default_key);
+        }
 
         let focus_style = if let Some(focus_style) = self.focus_style {
             focus_style
@@ -743,7 +741,7 @@ where
         }
 
         for (i, item) in self.items.iter().enumerate() {
-            if i == state.selected {
+            if Some(i) == state.core.selected() {
                 buf.set_style(
                     union_non_empty(state.check_areas[i], state.text_areas[i]),
                     if state.is_focused() {
@@ -768,7 +766,7 @@ where
 
 impl<T> Clone for RadioState<T>
 where
-    T: Clone + PartialEq,
+    T: PartialEq + Clone + Default,
 {
     fn clone(&self) -> Self {
         Self {
@@ -778,9 +776,7 @@ where
             continue_area: self.continue_area,
             check_areas: self.check_areas.clone(),
             text_areas: self.text_areas.clone(),
-            keys: self.keys.clone(),
-            default_key: self.default_key.clone(),
-            selected: self.selected,
+            core: self.core.clone(),
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -788,26 +784,30 @@ where
     }
 }
 
-impl<T: PartialEq> Default for RadioState<T> {
+impl<T> Default for RadioState<T>
+where
+    T: PartialEq + Clone + Default,
+{
     fn default() -> Self {
         Self {
             area: Default::default(),
             inner: Default::default(),
             marker_area: Default::default(),
             continue_area: Default::default(),
-            check_areas: vec![],
-            text_areas: vec![],
-            keys: vec![],
-            selected: 0,
+            check_areas: Default::default(),
+            text_areas: Default::default(),
+            core: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
-            default_key: None,
         }
     }
 }
 
-impl<T: PartialEq> HasFocus for RadioState<T> {
+impl<T> HasFocus for RadioState<T>
+where
+    T: PartialEq + Clone + Default,
+{
     fn build(&self, builder: &mut FocusBuilder) {
         builder.append_leaf(self);
     }
@@ -821,7 +821,10 @@ impl<T: PartialEq> HasFocus for RadioState<T> {
     }
 }
 
-impl<T: PartialEq> RelocatableState for RadioState<T> {
+impl<T> RelocatableState for RadioState<T>
+where
+    T: PartialEq + Clone + Default,
+{
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
         self.inner = relocate_area(self.inner, shift, clip);
@@ -832,7 +835,7 @@ impl<T: PartialEq> RelocatableState for RadioState<T> {
 
 impl<T> RadioState<T>
 where
-    T: PartialEq,
+    T: PartialEq + Clone + Default,
 {
     pub fn new() -> Self {
         Self::default()
@@ -853,91 +856,97 @@ where
         self.text_areas.len()
     }
 
-    pub fn selected(&self) -> usize {
-        self.selected
+    /// Returns the selected index.
+    ///
+    /// Will only return None if there are no keys at all.
+    pub fn selected(&self) -> Option<usize> {
+        self.core.selected()
     }
 
+    /// Select the value at index.
+    ///
+    /// __Panic__
+    /// Will panic if the value of select is out of bounds.
     pub fn select(&mut self, select: usize) -> bool {
-        let old_sel = self.selected;
-        self.selected = select;
-        old_sel != self.selected
+        self.core.set_selected(select)
     }
 
     /// Set the default value.
-    pub fn set_default_value(&mut self) -> bool {
-        if let Some(default_key) = &self.default_key {
-            for (i, k) in self.keys.iter().enumerate() {
-                if default_key == k {
-                    self.selected = i;
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    /// Select the given value.
-    pub fn set_value(&mut self, key: &T) -> bool
-    where
-        T: PartialEq,
-    {
-        for (i, k) in self.keys.iter().enumerate() {
-            if key == k {
-                self.selected = i;
-                return true;
-            }
-        }
-        false
-    }
-
-    /// Get the selected value or None if no value
-    /// is selected or there are no options.
-    pub fn value_ref(&self) -> &T {
-        &self.keys[self.selected]
+    pub fn clear(&mut self) -> bool {
+        self.core.clear()
     }
 
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> bool {
-        let old_sel = self.selected;
-
-        self.selected = if self.text_areas.is_empty() {
-            0
-        } else if self.selected + 1 >= self.text_areas.len() {
-            0
+        if self.core.keys().is_empty() {
+            self.core.clear()
         } else {
-            self.selected + 1
-        };
-
-        old_sel != self.selected
+            let selected = self.core.selected().expect("selected");
+            if selected + 1 >= self.core.keys().len() {
+                self.core.set_selected(0)
+            } else {
+                self.core.set_selected(selected + 1)
+            }
+        }
     }
 
     pub fn prev(&mut self) -> bool {
-        let old_sel = self.selected;
-
-        self.selected = if self.text_areas.is_empty() {
-            0
-        } else if self.selected == 0 {
-            self.text_areas.len() - 1
+        if self.core.keys().is_empty() {
+            self.core.clear()
         } else {
-            self.selected - 1
-        };
-
-        old_sel != self.selected
+            let selected = self.core.selected().expect("selected");
+            if selected == 0 {
+                self.core.set_selected(self.core.keys().len() - 1)
+            } else {
+                self.core.set_selected(selected - 1)
+            }
+        }
     }
-}
 
-impl<T> RadioState<T>
-where
-    T: PartialEq + Clone,
-{
+    /// Select the given value.
+    ///
+    /// If the key doesn't exist, it will select the default.
+    /// If there is no default-value it falls back to T::default().
+    /// If that doesn't work out, it uses index 0.
+    ///
+    /// If there are no keys at all, it will store the key as is, and
+    /// return it when calling value().
+    pub fn set_value(&mut self, key: T) -> bool {
+        if self.core.keys().is_empty() {
+            self.core.set_no_keys_value(key)
+        } else {
+            'f: {
+                for (i, k) in self.core.keys().iter().enumerate() {
+                    if key == *k {
+                        break 'f self.core.set_selected(i);
+                    }
+                }
+                for (i, k) in self.core.keys().iter().enumerate() {
+                    if self.core.default_key() == k {
+                        break 'f self.core.set_selected(i);
+                    }
+                }
+                self.core.set_selected(0)
+            }
+        }
+    }
+
     /// Get the selected value or None if no value
     /// is selected or there are no options.
     pub fn value(&self) -> T {
-        self.keys[self.selected].clone()
+        if self.core.keys().is_empty() {
+            self.core.no_keys_value().clone()
+        } else {
+            let selected = *self.core.selected().as_ref().expect("selected");
+            self.core.keys()[selected].clone()
+        }
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, RadioOutcome> for RadioState<T> {
+impl<T> HandleEvent<crossterm::event::Event, Regular, RadioOutcome> for RadioState<T>
+where
+    T: PartialEq + Clone + Default,
+{
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> RadioOutcome {
         let r = if self.is_focused() {
             match event {
@@ -988,14 +997,10 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, RadioOutcome> f
                     }
                 }
                 ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
-                    if self.default_key.is_some() {
-                        if self.set_default_value() {
-                            RadioOutcome::Value
-                        } else {
-                            RadioOutcome::Unchanged
-                        }
+                    if self.clear() {
+                        RadioOutcome::Value
                     } else {
-                        RadioOutcome::Continue
+                        RadioOutcome::Unchanged
                     }
                 }
                 _ => RadioOutcome::Continue,
@@ -1012,7 +1017,10 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, RadioOutcome> f
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, RadioOutcome> for RadioState<T> {
+impl<T> HandleEvent<crossterm::event::Event, MouseOnly, RadioOutcome> for RadioState<T>
+where
+    T: PartialEq + Clone + Default,
+{
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> RadioOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
@@ -1049,7 +1057,7 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, RadioOutcome>
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events<T: PartialEq>(
+pub fn handle_events<T: PartialEq + Clone + Default>(
     state: &mut RadioState<T>,
     focus: bool,
     event: &crossterm::event::Event,
@@ -1059,7 +1067,7 @@ pub fn handle_events<T: PartialEq>(
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events<T: PartialEq>(
+pub fn handle_mouse_events<T: PartialEq + Clone + Default>(
     state: &mut RadioState<T>,
     event: &crossterm::event::Event,
 ) -> RadioOutcome {
