@@ -53,6 +53,26 @@ use std::cmp::{max, min};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
+/// Enum controling the behaviour of the Choice.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ChoiceSelect {
+    /// Change the selection with the mouse-wheel.
+    #[default]
+    MouseScroll,
+    /// Change the selection just by moving.
+    MouseMove,
+}
+
+/// Enum controlling the behaviour of the Choice.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ChoiceClose {
+    /// Close the popup with a single click.
+    #[default]
+    SingleClick,
+    /// Close the popup with double-click.
+    DoubleClick,
+}
+
 /// Choice.
 ///
 /// Select one of a list. No editable mode for this widget.
@@ -78,6 +98,9 @@ where
     popup_placement: Placement,
     popup_len: Option<u16>,
     popup: PopupCore<'a>,
+
+    behave_select: ChoiceSelect,
+    behave_close: ChoiceClose,
 }
 
 /// Renders the main widget.
@@ -94,6 +117,9 @@ where
     focus_style: Option<Style>,
     block: Option<Block<'a>>,
     len: Option<u16>,
+
+    behave_select: ChoiceSelect,
+    behave_close: ChoiceClose,
 
     _phantom: PhantomData<T>,
 }
@@ -129,6 +155,9 @@ pub struct ChoiceStyle {
     pub popup: PopupStyle,
     pub popup_len: Option<u16>,
 
+    pub behave_select: Option<ChoiceSelect>,
+    pub behave_close: Option<ChoiceClose>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -161,6 +190,12 @@ where
     pub selected: usize,
     /// Popup state.
     pub popup: PopupCoreState,
+    /// Behaviour for selecting from the choice popup.
+    /// __read only__ renewed with each render.
+    pub behave_select: ChoiceSelect,
+    /// Behaviour for closing the choice popup.
+    /// __read only__ renewed with each render.
+    pub behave_close: ChoiceClose,
 
     /// Focus flag.
     /// __read+write__
@@ -181,6 +216,8 @@ impl Default for ChoiceStyle {
             block: None,
             popup: Default::default(),
             popup_len: None,
+            behave_select: None,
+            behave_close: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -195,13 +232,15 @@ where
             keys: Default::default(),
             items: Default::default(),
             style: Default::default(),
-            button_style: None,
-            select_style: None,
-            focus_style: None,
-            block: None,
-            popup_len: None,
+            button_style: Default::default(),
+            select_style: Default::default(),
+            focus_style: Default::default(),
+            block: Default::default(),
+            popup_len: Default::default(),
             popup_placement: Placement::BelowOrAbove,
             popup: Default::default(),
+            behave_select: Default::default(),
+            behave_close: Default::default(),
         }
     }
 }
@@ -283,6 +322,12 @@ where
         }
         if styles.block.is_some() {
             self.block = styles.block;
+        }
+        if let Some(select) = styles.behave_select {
+            self.behave_select = select;
+        }
+        if let Some(close) = styles.behave_close {
+            self.behave_close = close;
         }
         self.block = self.block.map(|v| v.style(self.style));
         if let Some(placement) = styles.popup.placement {
@@ -394,6 +439,18 @@ where
         self
     }
 
+    /// Sets the behaviour for selecting from the list.
+    pub fn behave_select(mut self, select: ChoiceSelect) -> Self {
+        self.behave_select = select;
+        self
+    }
+
+    /// Sets the behaviour for closing the list.
+    pub fn behave_close(mut self, close: ChoiceClose) -> Self {
+        self.behave_close = close;
+        self
+    }
+
     /// Inherent width.
     pub fn width(&self) -> u16 {
         let w = self
@@ -425,6 +482,8 @@ where
                 focus_style: self.focus_style,
                 block: self.block,
                 len: self.popup_len,
+                behave_select: self.behave_select,
+                behave_close: self.behave_close,
                 _phantom: Default::default(),
             },
             ChoicePopup {
@@ -471,6 +530,8 @@ fn render_choice<T: PartialEq>(
     state: &mut ChoiceState<T>,
 ) {
     state.area = area;
+    state.behave_select = widget.behave_select;
+    state.behave_close = widget.behave_close;
 
     if !state.popup.is_active() {
         let len = widget
@@ -628,6 +689,8 @@ where
             item_areas: self.item_areas.clone(),
             selected: self.selected,
             popup: self.popup.clone(),
+            behave_select: self.behave_select,
+            behave_close: self.behave_close,
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -649,6 +712,8 @@ where
             item_areas: Default::default(),
             selected: 0,
             popup: Default::default(),
+            behave_select: Default::default(),
+            behave_close: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -1025,29 +1090,100 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, Outcome> for Choi
             r => r.into(),
         };
 
-        let mut sas = ScrollAreaState::new()
-            .area(self.popup.area)
-            .v_scroll(&mut self.popup.v_scroll);
-        let mut r2 = match sas.handle(event, MouseOnly) {
-            ScrollOutcome::Up(n) => self.move_up(n).into(),
-            ScrollOutcome::Down(n) => self.move_down(n).into(),
-            ScrollOutcome::VPos(n) => self.move_to(n).into(),
-            _ => Outcome::Continue,
-        };
-
-        r2 = r2.or_else(|| match event {
-            ct_event!(mouse down Left for x,y)
-                if self.popup.widget_area.contains((*x, *y).into()) =>
-            {
-                if let Some(n) = item_at(&self.item_areas, *x, *y) {
-                    let r = self.move_to(self.offset() + n).into();
-                    let s = self.set_popup_active(false).into();
-                    max(r, s)
-                } else {
-                    Outcome::Unchanged
+        let mut r2 = match self.behave_select {
+            ChoiceSelect::MouseScroll => {
+                let mut sas = ScrollAreaState::new()
+                    .area(self.popup.area)
+                    .v_scroll(&mut self.popup.v_scroll);
+                match sas.handle(event, MouseOnly) {
+                    ScrollOutcome::Up(n) => self.move_up(n).into(),
+                    ScrollOutcome::Down(n) => self.move_down(n).into(),
+                    ScrollOutcome::VPos(n) => self.move_to(n).into(),
+                    _ => Outcome::Continue,
                 }
             }
-            _ => Outcome::Continue,
+            ChoiceSelect::MouseMove => {
+                // effect: move the content below the mouse and keep visible selection.
+                let rel_sel = self.selected.saturating_sub(self.offset());
+                let mut sas = ScrollAreaState::new()
+                    .area(self.popup.area)
+                    .v_scroll(&mut self.popup.v_scroll);
+                let mut r = match sas.handle(event, MouseOnly) {
+                    ScrollOutcome::Up(n) => {
+                        let r = self.popup.v_scroll.scroll_up(n);
+                        self.select(self.offset() + rel_sel);
+                        r.into()
+                    }
+                    ScrollOutcome::Down(n) => {
+                        let r = self.popup.v_scroll.scroll_down(n);
+                        self.select(self.offset() + rel_sel);
+                        r.into()
+                    }
+                    ScrollOutcome::VPos(n) => self.popup.v_scroll.set_offset(n).into(),
+                    _ => Outcome::Continue,
+                };
+
+                r = r.or_else(|| match event {
+                    ct_event!(mouse moved for x,y)
+                        if self.popup.widget_area.contains((*x, *y).into()) =>
+                    {
+                        if let Some(n) = item_at(&self.item_areas, *x, *y) {
+                            self.move_to(self.offset() + n).into()
+                        } else {
+                            Outcome::Unchanged
+                        }
+                    }
+                    _ => Outcome::Continue,
+                });
+                r
+            }
+        };
+
+        r2 = r2.or_else(|| match self.behave_close {
+            ChoiceClose::SingleClick => match event {
+                ct_event!(mouse down Left for x,y)
+                    if self.popup.widget_area.contains((*x, *y).into()) =>
+                {
+                    if let Some(n) = item_at(&self.item_areas, *x, *y) {
+                        let r = self.move_to(self.offset() + n).into();
+                        let s = self.set_popup_active(false).into();
+                        max(r, s)
+                    } else {
+                        Outcome::Unchanged
+                    }
+                }
+                _ => Outcome::Continue,
+            },
+            ChoiceClose::DoubleClick => match event {
+                ct_event!(mouse any for m) if self.mouse.doubleclick(self.popup.widget_area, m) => {
+                    if let Some(n) = item_at(&self.item_areas, m.column, m.row) {
+                        let r = self.move_to(self.offset() + n).into();
+                        let s = self.set_popup_active(false).into();
+                        max(r, s)
+                    } else {
+                        Outcome::Unchanged
+                    }
+                }
+                ct_event!(mouse down Left for x,y)
+                    if self.popup.widget_area.contains((*x, *y).into()) =>
+                {
+                    if let Some(n) = item_at(&self.item_areas, *x, *y) {
+                        self.move_to(self.offset() + n).into()
+                    } else {
+                        Outcome::Unchanged
+                    }
+                }
+                ct_event!(mouse drag Left for x,y)
+                    if self.popup.widget_area.contains((*x, *y).into()) =>
+                {
+                    if let Some(n) = item_at(&self.item_areas, *x, *y) {
+                        self.move_to(self.offset() + n).into()
+                    } else {
+                        Outcome::Unchanged
+                    }
+                }
+                _ => Outcome::Continue,
+            },
         });
 
         r2 = r2.or_else(|| mouse_trap(event, self.popup.area));
