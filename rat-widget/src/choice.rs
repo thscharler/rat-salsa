@@ -62,6 +62,8 @@ pub enum ChoiceSelect {
     MouseScroll,
     /// Change the selection just by moving.
     MouseMove,
+    /// Change the selection with a click only
+    MouseClick,
 }
 
 /// Enum controlling the behaviour of the Choice.
@@ -1054,7 +1056,15 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, ChoiceOutcome> 
                         ChoiceOutcome::Unchanged
                     }
                 }
-                ct_event!(keycode press Enter) | ct_event!(keycode press Esc) => {
+                ct_event!(keycode press Enter) => {
+                    self.flip_popup_active();
+                    if !self.is_popup_active() {
+                        ChoiceOutcome::Value
+                    } else {
+                        ChoiceOutcome::Changed
+                    }
+                }
+                ct_event!(keycode press Esc) => {
                     if self.set_popup_active(false) {
                         ChoiceOutcome::Value
                     } else {
@@ -1152,7 +1162,7 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome> fo
                 let mut sas = ScrollAreaState::new()
                     .area(self.popup.area)
                     .v_scroll(&mut self.popup.v_scroll);
-                match sas.handle(event, MouseOnly) {
+                let mut r = match sas.handle(event, MouseOnly) {
                     ScrollOutcome::Up(n) => {
                         if self.move_up(n) {
                             ChoiceOutcome::Value
@@ -1175,7 +1185,38 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome> fo
                         }
                     }
                     _ => ChoiceOutcome::Continue,
-                }
+                };
+
+                r = r.or_else(|| match event {
+                    ct_event!(mouse down Left for x,y)
+                        if self.popup.widget_area.contains((*x, *y).into()) =>
+                    {
+                        if let Some(n) = item_at(&self.item_areas, *x, *y) {
+                            if self.move_to(self.offset() + n) {
+                                ChoiceOutcome::Value
+                            } else {
+                                ChoiceOutcome::Unchanged
+                            }
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    ct_event!(mouse drag Left for x,y)
+                        if self.popup.widget_area.contains((*x, *y).into()) =>
+                    {
+                        if let Some(n) = item_at(&self.item_areas, *x, *y) {
+                            if self.move_to(self.offset() + n) {
+                                ChoiceOutcome::Value
+                            } else {
+                                ChoiceOutcome::Unchanged
+                            }
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    _ => ChoiceOutcome::Continue,
+                });
+                r
             }
             ChoiceSelect::MouseMove => {
                 // effect: move the content below the mouse and keep visible selection.
@@ -1228,9 +1269,70 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome> fo
                 });
                 r
             }
+            ChoiceSelect::MouseClick => {
+                // effect: move the content below the mouse and keep visible selection.
+                let mut sas = ScrollAreaState::new()
+                    .area(self.popup.area)
+                    .v_scroll(&mut self.popup.v_scroll);
+                let mut r = match sas.handle(event, MouseOnly) {
+                    ScrollOutcome::Up(n) => {
+                        if self.popup.v_scroll.scroll_up(n) {
+                            ChoiceOutcome::Changed
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    ScrollOutcome::Down(n) => {
+                        if self.popup.v_scroll.scroll_down(n) {
+                            ChoiceOutcome::Changed
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    ScrollOutcome::VPos(n) => {
+                        if self.popup.v_scroll.set_offset(n) {
+                            ChoiceOutcome::Changed
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    _ => ChoiceOutcome::Continue,
+                };
+
+                r = r.or_else(|| match event {
+                    ct_event!(mouse down Left for x,y)
+                        if self.popup.widget_area.contains((*x, *y).into()) =>
+                    {
+                        if let Some(n) = item_at(&self.item_areas, *x, *y) {
+                            if self.move_to(self.offset() + n) {
+                                ChoiceOutcome::Value
+                            } else {
+                                ChoiceOutcome::Unchanged
+                            }
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    ct_event!(mouse drag Left for x,y)
+                        if self.popup.widget_area.contains((*x, *y).into()) =>
+                    {
+                        if let Some(n) = item_at(&self.item_areas, *x, *y) {
+                            if self.move_to(self.offset() + n) {
+                                ChoiceOutcome::Value
+                            } else {
+                                ChoiceOutcome::Unchanged
+                            }
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    _ => ChoiceOutcome::Continue,
+                });
+                r
+            }
         };
 
-        r2 = r2.or_else(|| match self.behave_close {
+        let r3 = match self.behave_close {
             ChoiceClose::SingleClick => match event {
                 ct_event!(mouse down Left for x,y)
                     if self.popup.widget_area.contains((*x, *y).into()) =>
@@ -1271,43 +1373,17 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome> fo
                         ChoiceOutcome::Unchanged
                     }
                 }
-                ct_event!(mouse down Left for x,y)
-                    if self.popup.widget_area.contains((*x, *y).into()) =>
-                {
-                    if let Some(n) = item_at(&self.item_areas, *x, *y) {
-                        if self.move_to(self.offset() + n) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
-                        }
-                    } else {
-                        ChoiceOutcome::Unchanged
-                    }
-                }
-                ct_event!(mouse drag Left for x,y)
-                    if self.popup.widget_area.contains((*x, *y).into()) =>
-                {
-                    if let Some(n) = item_at(&self.item_areas, *x, *y) {
-                        if self.move_to(self.offset() + n) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
-                        }
-                    } else {
-                        ChoiceOutcome::Unchanged
-                    }
-                }
                 _ => ChoiceOutcome::Continue,
             },
-        });
+        };
 
-        r2 = r2.or_else(|| match mouse_trap(event, self.popup.area) {
+        let mut r = max(r1, max(r2, r3));
+        r = r.or_else(|| match mouse_trap(event, self.popup.area) {
             Outcome::Continue => ChoiceOutcome::Continue,
             Outcome::Unchanged => ChoiceOutcome::Unchanged,
             Outcome::Changed => ChoiceOutcome::Changed,
         });
-
-        max(r1, r2)
+        r
     }
 }
 
