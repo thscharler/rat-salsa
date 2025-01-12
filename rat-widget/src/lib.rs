@@ -13,11 +13,16 @@ pub mod event {
 
     pub use rat_event::*;
 
+    pub use crate::button::event::ButtonOutcome;
     pub use crate::calendar::event::CalOutcome;
+    pub use crate::checkbox::event::CheckOutcome;
+    pub use crate::choice::event::ChoiceOutcome;
     pub use crate::file_dialog::event::FileOutcome;
     pub use crate::pager::event::PagerOutcome;
+    pub use crate::radio::event::RadioOutcome;
+    pub use crate::slider::event::SliderOutcome;
     pub use crate::tabbed::event::TabbedOutcome;
-    pub use rat_ftable::event::{DoubleClickOutcome, EditOutcome};
+    pub use rat_ftable::event::{DoubleClickOutcome, EditOutcome, TableOutcome};
     pub use rat_menu::event::MenuOutcome;
     pub use rat_popup::event::PopupOutcome;
     pub use rat_scrolled::event::ScrollOutcome;

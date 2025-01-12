@@ -1,7 +1,8 @@
 use crate::_private::NonExhaustive;
+use crate::event::RadioOutcome;
 use crate::util::{block_size, fill_buf_area, revert_style, union_non_empty};
 use rat_event::util::{item_at, MouseFlags};
-use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
@@ -119,6 +120,40 @@ where
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+pub(crate) mod event {
+    use rat_event::{ConsumedEvent, Outcome};
+
+    /// Result value for event-handling.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum RadioOutcome {
+        /// The given event was not handled at all.
+        Continue,
+        /// The event was handled, no repaint necessary.
+        Unchanged,
+        /// The event was handled, repaint necessary.
+        Changed,
+        /// An item has been selected.
+        Value,
+    }
+
+    impl ConsumedEvent for RadioOutcome {
+        fn is_consumed(&self) -> bool {
+            *self != RadioOutcome::Continue
+        }
+    }
+
+    impl From<RadioOutcome> for Outcome {
+        fn from(value: RadioOutcome) -> Self {
+            match value {
+                RadioOutcome::Continue => Outcome::Continue,
+                RadioOutcome::Unchanged => Outcome::Unchanged,
+                RadioOutcome::Changed => Outcome::Changed,
+                RadioOutcome::Value => Outcome::Changed,
+            }
+        }
+    }
 }
 
 impl Default for RadioStyle {
@@ -902,37 +937,74 @@ where
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for RadioState<T> {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, RadioOutcome> for RadioState<T> {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> RadioOutcome {
         let r = if self.is_focused() {
             match event {
-                ct_event!(keycode press Left) => self.prev().into(),
-                ct_event!(keycode press Right) => self.next().into(),
-                ct_event!(keycode press Up) => self.prev().into(),
-                ct_event!(keycode press Down) => self.next().into(),
-                ct_event!(keycode press Home) => self.select(0).into(),
+                ct_event!(keycode press Left) => {
+                    if self.prev() {
+                        RadioOutcome::Value
+                    } else {
+                        RadioOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Right) => {
+                    if self.next() {
+                        RadioOutcome::Value
+                    } else {
+                        RadioOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Up) => {
+                    if self.prev() {
+                        RadioOutcome::Value
+                    } else {
+                        RadioOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Down) => {
+                    if self.next() {
+                        RadioOutcome::Value
+                    } else {
+                        RadioOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Home) => {
+                    if self.select(0) {
+                        RadioOutcome::Value
+                    } else {
+                        RadioOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press End) => {
                     if !self.is_empty() {
-                        self.select(self.len() - 1).into()
+                        if self.select(self.len() - 1) {
+                            RadioOutcome::Value
+                        } else {
+                            RadioOutcome::Unchanged
+                        }
                     } else {
-                        Outcome::Unchanged
+                        RadioOutcome::Unchanged
                     }
                 }
                 ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
                     if self.default_key.is_some() {
-                        self.set_default_value();
-                        Outcome::Changed
+                        if self.set_default_value() {
+                            RadioOutcome::Value
+                        } else {
+                            RadioOutcome::Unchanged
+                        }
                     } else {
-                        Outcome::Continue
+                        RadioOutcome::Continue
                     }
                 }
-                _ => Outcome::Continue,
+                _ => RadioOutcome::Continue,
             }
         } else {
-            Outcome::Continue
+            RadioOutcome::Continue
         };
 
-        if r == Outcome::Continue {
+        if r == RadioOutcome::Continue {
             HandleEvent::handle(self, event, MouseOnly)
         } else {
             r
@@ -940,28 +1012,36 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for Ra
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RadioState<T> {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, RadioOutcome> for RadioState<T> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> RadioOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
                 if let Some(sel) = item_at(self.text_areas.as_slice(), m.column, m.row)
                     .or_else(|| item_at(self.check_areas.as_slice(), m.column, m.row))
                 {
-                    self.select(sel).into()
+                    if self.select(sel) {
+                        RadioOutcome::Value
+                    } else {
+                        RadioOutcome::Unchanged
+                    }
                 } else {
-                    Outcome::Unchanged
+                    RadioOutcome::Unchanged
                 }
             }
             ct_event!(mouse down Left for x,y) if self.area.contains((*x, *y).into()) => {
                 if let Some(sel) = item_at(self.text_areas.as_slice(), *x, *y)
                     .or_else(|| item_at(self.check_areas.as_slice(), *x, *y))
                 {
-                    self.select(sel).into()
+                    if self.select(sel) {
+                        RadioOutcome::Value
+                    } else {
+                        RadioOutcome::Unchanged
+                    }
                 } else {
-                    Outcome::Unchanged
+                    RadioOutcome::Unchanged
                 }
             }
-            _ => Outcome::Continue,
+            _ => RadioOutcome::Continue,
         }
     }
 }
@@ -973,7 +1053,7 @@ pub fn handle_events<T: PartialEq>(
     state: &mut RadioState<T>,
     focus: bool,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> RadioOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
@@ -982,6 +1062,6 @@ pub fn handle_events<T: PartialEq>(
 pub fn handle_mouse_events<T: PartialEq>(
     state: &mut RadioState<T>,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> RadioOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

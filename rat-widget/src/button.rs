@@ -3,9 +3,10 @@
 //!
 
 use crate::_private::NonExhaustive;
+use crate::button::event::ButtonOutcome;
 use crate::util::{block_size, revert_style};
 use rat_event::util::have_keyboard_enhancement;
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
 use ratatui::buffer::Buffer;
@@ -316,34 +317,38 @@ impl RelocatableState for ButtonState {
     }
 }
 
-/// Result value for event-handling.
-///
-/// Adds `Pressed` to the general Outcome.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ButtonOutcome {
-    /// The given event was not handled at all.
-    Continue,
-    /// The event was handled, no repaint necessary.
-    Unchanged,
-    /// The event was handled, repaint necessary.
-    Changed,
-    /// Button has been pressed.
-    Pressed,
-}
+pub(crate) mod event {
+    use rat_event::{ConsumedEvent, Outcome};
 
-impl ConsumedEvent for ButtonOutcome {
-    fn is_consumed(&self) -> bool {
-        *self != ButtonOutcome::Continue
+    /// Result value for event-handling.
+    ///
+    /// Adds `Pressed` to the general Outcome.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum ButtonOutcome {
+        /// The given event was not handled at all.
+        Continue,
+        /// The event was handled, no repaint necessary.
+        Unchanged,
+        /// The event was handled, repaint necessary.
+        Changed,
+        /// Button has been pressed.
+        Pressed,
     }
-}
 
-impl From<ButtonOutcome> for Outcome {
-    fn from(value: ButtonOutcome) -> Self {
-        match value {
-            ButtonOutcome::Continue => Outcome::Continue,
-            ButtonOutcome::Unchanged => Outcome::Unchanged,
-            ButtonOutcome::Changed => Outcome::Changed,
-            ButtonOutcome::Pressed => Outcome::Changed,
+    impl ConsumedEvent for ButtonOutcome {
+        fn is_consumed(&self) -> bool {
+            *self != ButtonOutcome::Continue
+        }
+    }
+
+    impl From<ButtonOutcome> for Outcome {
+        fn from(value: ButtonOutcome) -> Self {
+            match value {
+                ButtonOutcome::Continue => Outcome::Continue,
+                ButtonOutcome::Unchanged => Outcome::Unchanged,
+                ButtonOutcome::Changed => Outcome::Changed,
+                ButtonOutcome::Pressed => Outcome::Changed,
+            }
         }
     }
 }

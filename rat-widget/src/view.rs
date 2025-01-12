@@ -47,15 +47,13 @@
 //!
 //! ```
 
-mod view_style;
-
 use std::cmp::{max, min};
-pub use view_style::*;
 
+use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_reloc::RelocatableState;
-use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Widget};
@@ -105,6 +103,15 @@ pub struct ViewWidget<'a> {
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
+}
+
+/// All styles for a xview.
+#[derive(Debug)]
+pub struct ViewStyle {
+    pub block: Option<Block<'static>>,
+    pub scroll: Option<ScrollStyle>,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 /// View state.
@@ -427,6 +434,16 @@ impl StatefulWidget for ViewWidget<'_> {
 
         // keep buffer
         state.buffer = Some(self.buffer);
+    }
+}
+
+impl Default for ViewStyle {
+    fn default() -> Self {
+        Self {
+            block: None,
+            scroll: None,
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 

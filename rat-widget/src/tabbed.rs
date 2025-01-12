@@ -139,7 +139,6 @@ pub(crate) mod event {
 
     /// Result of event handling.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-    #[non_exhaustive]
     pub enum TabbedOutcome {
         /// The given event has not been used at all.
         Continue,

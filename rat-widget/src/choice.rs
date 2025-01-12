@@ -31,6 +31,7 @@
 //! ```
 //!
 use crate::_private::NonExhaustive;
+use crate::event::ChoiceOutcome;
 use crate::util::{block_size, revert_style};
 use rat_event::util::{item_at, mouse_trap, MouseFlags};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
@@ -204,6 +205,52 @@ where
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+pub(crate) mod event {
+    use rat_event::{ConsumedEvent, Outcome};
+    use rat_popup::event::PopupOutcome;
+
+    /// Result value for event-handling.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum ChoiceOutcome {
+        /// The given event was not handled at all.
+        Continue,
+        /// The event was handled, no repaint necessary.
+        Unchanged,
+        /// The event was handled, repaint necessary.
+        Changed,
+        /// An item has been selected.
+        Value,
+    }
+
+    impl ConsumedEvent for ChoiceOutcome {
+        fn is_consumed(&self) -> bool {
+            *self != ChoiceOutcome::Continue
+        }
+    }
+
+    impl From<ChoiceOutcome> for Outcome {
+        fn from(value: ChoiceOutcome) -> Self {
+            match value {
+                ChoiceOutcome::Continue => Outcome::Continue,
+                ChoiceOutcome::Unchanged => Outcome::Unchanged,
+                ChoiceOutcome::Changed => Outcome::Changed,
+                ChoiceOutcome::Value => Outcome::Changed,
+            }
+        }
+    }
+
+    impl From<PopupOutcome> for ChoiceOutcome {
+        fn from(value: PopupOutcome) -> Self {
+            match value {
+                PopupOutcome::Continue => ChoiceOutcome::Continue,
+                PopupOutcome::Unchanged => ChoiceOutcome::Unchanged,
+                PopupOutcome::Changed => ChoiceOutcome::Changed,
+                PopupOutcome::Hide => ChoiceOutcome::Changed,
+            }
+        }
+    }
 }
 
 impl Default for ChoiceStyle {
@@ -986,8 +1033,8 @@ where
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for ChoiceState<T> {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, ChoiceOutcome> for ChoiceState<T> {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> ChoiceOutcome {
         if self.lost_focus() {
             self.set_popup_active(false);
             // focus change triggers the repaint.
@@ -997,51 +1044,59 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for Ch
             match event {
                 ct_event!(key press ' ') => {
                     self.flip_popup_active();
-                    Outcome::Changed
+                    ChoiceOutcome::Changed
                 }
                 ct_event!(key press c) => {
                     if self.select_by_char(*c) {
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        ChoiceOutcome::Value
                     } else {
-                        Outcome::Unchanged
+                        ChoiceOutcome::Unchanged
                     }
                 }
                 ct_event!(keycode press Enter) | ct_event!(keycode press Esc) => {
                     if self.set_popup_active(false) {
-                        Outcome::Changed
+                        ChoiceOutcome::Value
                     } else {
-                        Outcome::Continue
+                        ChoiceOutcome::Continue
                     }
                 }
                 ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
                     self.move_to(0);
-                    Outcome::Changed
+                    ChoiceOutcome::Value
                 }
                 ct_event!(keycode press Down) => {
                     let r0 = if !self.popup.is_active() {
                         self.popup.set_active(true);
-                        Outcome::Changed
+                        ChoiceOutcome::Changed
                     } else {
-                        Outcome::Continue
+                        ChoiceOutcome::Continue
                     };
-                    let r1 = self.move_down(1).into();
+                    let r1 = if self.move_down(1) {
+                        ChoiceOutcome::Value
+                    } else {
+                        ChoiceOutcome::Unchanged
+                    };
                     max(r0, r1)
                 }
                 ct_event!(keycode press Up) => {
                     let r0 = if !self.popup.is_active() {
                         self.popup.set_active(true);
-                        Outcome::Changed
+                        ChoiceOutcome::Changed
                     } else {
-                        Outcome::Continue
+                        ChoiceOutcome::Continue
                     };
-                    let r1 = self.move_up(1).into();
+                    let r1 = if self.move_up(1) {
+                        ChoiceOutcome::Value
+                    } else {
+                        ChoiceOutcome::Unchanged
+                    };
                     max(r0, r1)
                 }
-                _ => Outcome::Continue,
+                _ => ChoiceOutcome::Continue,
             }
         } else {
-            Outcome::Continue
+            ChoiceOutcome::Continue
         };
 
         let r = if !r.is_consumed() {
@@ -1054,8 +1109,10 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for Ch
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ChoiceState<T> {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
+impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, ChoiceOutcome>
+    for ChoiceState<T>
+{
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ChoiceOutcome {
         let r = match event {
             ct_event!(mouse down Left for x,y)
                 if self.item_area.contains((*x, *y).into())
@@ -1063,14 +1120,14 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for 
             {
                 if !self.gained_focus() && !self.is_popup_active() && !self.popup.active.lost() {
                     self.set_popup_active(true);
-                    Outcome::Changed
+                    ChoiceOutcome::Changed
                 } else {
                     // hide is down by self.popup.handle() as this click
                     // is outside the popup area!!
-                    Outcome::Continue
+                    ChoiceOutcome::Continue
                 }
             }
-            _ => Outcome::Continue,
+            _ => ChoiceOutcome::Continue,
         };
 
         self.popup.active.set_lost(false);
@@ -1080,12 +1137,12 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for 
     }
 }
 
-impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, Outcome> for ChoiceState<T> {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> Outcome {
+impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome> for ChoiceState<T> {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> ChoiceOutcome {
         let r1 = match self.popup.handle(event, Popup) {
             PopupOutcome::Hide => {
                 self.set_popup_active(false);
-                Outcome::Changed
+                ChoiceOutcome::Changed
             }
             r => r.into(),
         };
@@ -1096,10 +1153,28 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, Outcome> for Choi
                     .area(self.popup.area)
                     .v_scroll(&mut self.popup.v_scroll);
                 match sas.handle(event, MouseOnly) {
-                    ScrollOutcome::Up(n) => self.move_up(n).into(),
-                    ScrollOutcome::Down(n) => self.move_down(n).into(),
-                    ScrollOutcome::VPos(n) => self.move_to(n).into(),
-                    _ => Outcome::Continue,
+                    ScrollOutcome::Up(n) => {
+                        if self.move_up(n) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    ScrollOutcome::Down(n) => {
+                        if self.move_down(n) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    ScrollOutcome::VPos(n) => {
+                        if self.move_to(n) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    _ => ChoiceOutcome::Continue,
                 }
             }
             ChoiceSelect::MouseMove => {
@@ -1110,17 +1185,29 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, Outcome> for Choi
                     .v_scroll(&mut self.popup.v_scroll);
                 let mut r = match sas.handle(event, MouseOnly) {
                     ScrollOutcome::Up(n) => {
-                        let r = self.popup.v_scroll.scroll_up(n);
-                        self.select(self.offset() + rel_sel);
-                        r.into()
+                        self.popup.v_scroll.scroll_up(n);
+                        if self.select(self.offset() + rel_sel) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
                     }
                     ScrollOutcome::Down(n) => {
-                        let r = self.popup.v_scroll.scroll_down(n);
-                        self.select(self.offset() + rel_sel);
-                        r.into()
+                        self.popup.v_scroll.scroll_down(n);
+                        if self.select(self.offset() + rel_sel) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
                     }
-                    ScrollOutcome::VPos(n) => self.popup.v_scroll.set_offset(n).into(),
-                    _ => Outcome::Continue,
+                    ScrollOutcome::VPos(n) => {
+                        if self.popup.v_scroll.set_offset(n) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
+                    }
+                    _ => ChoiceOutcome::Continue,
                 };
 
                 r = r.or_else(|| match event {
@@ -1128,12 +1215,16 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, Outcome> for Choi
                         if self.popup.widget_area.contains((*x, *y).into()) =>
                     {
                         if let Some(n) = item_at(&self.item_areas, *x, *y) {
-                            self.move_to(self.offset() + n).into()
+                            if self.move_to(self.offset() + n) {
+                                ChoiceOutcome::Value
+                            } else {
+                                ChoiceOutcome::Unchanged
+                            }
                         } else {
-                            Outcome::Unchanged
+                            ChoiceOutcome::Unchanged
                         }
                     }
-                    _ => Outcome::Continue,
+                    _ => ChoiceOutcome::Continue,
                 });
                 r
             }
@@ -1145,48 +1236,76 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Popup, Outcome> for Choi
                     if self.popup.widget_area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&self.item_areas, *x, *y) {
-                        let r = self.move_to(self.offset() + n).into();
-                        let s = self.set_popup_active(false).into();
+                        let r = if self.move_to(self.offset() + n) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        };
+                        let s = if self.set_popup_active(false) {
+                            ChoiceOutcome::Changed
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        };
                         max(r, s)
                     } else {
-                        Outcome::Unchanged
+                        ChoiceOutcome::Unchanged
                     }
                 }
-                _ => Outcome::Continue,
+                _ => ChoiceOutcome::Continue,
             },
             ChoiceClose::DoubleClick => match event {
                 ct_event!(mouse any for m) if self.mouse.doubleclick(self.popup.widget_area, m) => {
                     if let Some(n) = item_at(&self.item_areas, m.column, m.row) {
-                        let r = self.move_to(self.offset() + n).into();
-                        let s = self.set_popup_active(false).into();
+                        let r = if self.move_to(self.offset() + n) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        };
+                        let s = if self.set_popup_active(false) {
+                            ChoiceOutcome::Changed
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        };
                         max(r, s)
                     } else {
-                        Outcome::Unchanged
+                        ChoiceOutcome::Unchanged
                     }
                 }
                 ct_event!(mouse down Left for x,y)
                     if self.popup.widget_area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&self.item_areas, *x, *y) {
-                        self.move_to(self.offset() + n).into()
+                        if self.move_to(self.offset() + n) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
                     } else {
-                        Outcome::Unchanged
+                        ChoiceOutcome::Unchanged
                     }
                 }
                 ct_event!(mouse drag Left for x,y)
                     if self.popup.widget_area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&self.item_areas, *x, *y) {
-                        self.move_to(self.offset() + n).into()
+                        if self.move_to(self.offset() + n) {
+                            ChoiceOutcome::Value
+                        } else {
+                            ChoiceOutcome::Unchanged
+                        }
                     } else {
-                        Outcome::Unchanged
+                        ChoiceOutcome::Unchanged
                     }
                 }
-                _ => Outcome::Continue,
+                _ => ChoiceOutcome::Continue,
             },
         });
 
-        r2 = r2.or_else(|| mouse_trap(event, self.popup.area));
+        r2 = r2.or_else(|| match mouse_trap(event, self.popup.area) {
+            Outcome::Continue => ChoiceOutcome::Continue,
+            Outcome::Unchanged => ChoiceOutcome::Unchanged,
+            Outcome::Changed => ChoiceOutcome::Changed,
+        });
 
         max(r1, r2)
     }
@@ -1199,7 +1318,7 @@ pub fn handle_popup<T: PartialEq>(
     state: &mut ChoiceState<T>,
     focus: bool,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> ChoiceOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Popup)
 }
@@ -1211,7 +1330,7 @@ pub fn handle_events<T: PartialEq>(
     state: &mut ChoiceState<T>,
     focus: bool,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> ChoiceOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
@@ -1220,6 +1339,6 @@ pub fn handle_events<T: PartialEq>(
 pub fn handle_mouse_events<T: PartialEq>(
     state: &mut ChoiceState<T>,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> ChoiceOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

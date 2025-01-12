@@ -19,10 +19,11 @@
 
 use crate::_private::NonExhaustive;
 use crate::range_op::RangeOp;
+use crate::slider::event::SliderOutcome;
 use crate::util::revert_style;
 use map_range_int::MapRange;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
 use ratatui::buffer::Buffer;
@@ -154,6 +155,40 @@ where
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+pub(crate) mod event {
+    use rat_event::{ConsumedEvent, Outcome};
+
+    /// Result value for event-handling.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum SliderOutcome {
+        /// The given event was not handled at all.
+        Continue,
+        /// The event was handled, no repaint necessary.
+        Unchanged,
+        /// The event was handled, repaint necessary.
+        Changed,
+        /// The value has changed.
+        Value,
+    }
+
+    impl ConsumedEvent for SliderOutcome {
+        fn is_consumed(&self) -> bool {
+            *self != SliderOutcome::Continue
+        }
+    }
+
+    impl From<SliderOutcome> for Outcome {
+        fn from(value: SliderOutcome) -> Self {
+            match value {
+                SliderOutcome::Continue => Outcome::Continue,
+                SliderOutcome::Unchanged => Outcome::Unchanged,
+                SliderOutcome::Changed => Outcome::Changed,
+                SliderOutcome::Value => Outcome::Changed,
+            }
+        }
+    }
 }
 
 impl Default for SliderStyle {
@@ -968,44 +1003,80 @@ where
     }
 }
 
-impl<T> HandleEvent<crossterm::event::Event, Regular, Outcome> for SliderState<T>
+impl<T> HandleEvent<crossterm::event::Event, Regular, SliderOutcome> for SliderState<T>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> SliderOutcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press CONTROL-Left)
                 | ct_event!(keycode press CONTROL-Up)
-                | ct_event!(keycode press Home) => self.set_value(self.range.0).into(),
+                | ct_event!(keycode press Home) => {
+                    if self.set_value(self.range.0) {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
+                }
 
                 ct_event!(keycode press CONTROL-Right)
                 | ct_event!(keycode press CONTROL-Down)
-                | ct_event!(keycode press End) => self.set_value(self.range.1).into(),
+                | ct_event!(keycode press End) => {
+                    if self.set_value(self.range.1) {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
+                }
 
                 ct_event!(keycode press Up)
                 | ct_event!(keycode press Left)
-                | ct_event!(key press '-') => self.prev().into(),
+                | ct_event!(key press '-') => {
+                    if self.prev() {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press Down)
                 | ct_event!(keycode press Right)
-                | ct_event!(key press '+') => self.next().into(),
+                | ct_event!(key press '+') => {
+                    if self.next() {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
+                }
 
                 ct_event!(keycode press PageUp)
                 | ct_event!(keycode press ALT-Up)
                 | ct_event!(keycode press ALT-Left)
-                | ct_event!(key press ALT-'-') => self.prev_major().into(),
+                | ct_event!(key press ALT-'-') => {
+                    if self.prev_major() {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press PageDown)
                 | ct_event!(keycode press ALT-Down)
                 | ct_event!(keycode press ALT-Right)
-                | ct_event!(key press ALT-'+') => self.next_major().into(),
-                _ => Outcome::Continue,
+                | ct_event!(key press ALT-'+') => {
+                    if self.next_major() {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
+                }
+                _ => SliderOutcome::Continue,
             }
         } else {
-            Outcome::Continue
+            SliderOutcome::Continue
         };
 
-        if r == Outcome::Continue {
+        if r == SliderOutcome::Continue {
             HandleEvent::handle(self, event, MouseOnly)
         } else {
             r
@@ -1013,49 +1084,69 @@ where
     }
 }
 
-impl<T> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for SliderState<T>
+impl<T> HandleEvent<crossterm::event::Event, MouseOnly, SliderOutcome> for SliderState<T>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> SliderOutcome {
         match event {
             ct_event!(mouse drag Left for x,y) | ct_event!(mouse down Left for x,y) => {
                 if self.inner.contains(Position::new(*x, *y)) {
-                    self.clicked_at(*x, *y).into()
+                    if self.clicked_at(*x, *y) {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
                 } else {
-                    Outcome::Continue
+                    SliderOutcome::Continue
                 }
             }
             ct_event!(scroll down for x,y) => {
                 if self.track.contains(Position::new(*x, *y)) {
-                    self.next().into()
+                    if self.next() {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
                 } else {
-                    Outcome::Continue
+                    SliderOutcome::Continue
                 }
             }
             ct_event!(scroll up for x,y) => {
                 if self.track.contains(Position::new(*x, *y)) {
-                    self.prev().into()
+                    if self.prev() {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
                 } else {
-                    Outcome::Continue
+                    SliderOutcome::Continue
                 }
             }
             ct_event!(scroll ALT down for x,y) => {
                 if self.track.contains(Position::new(*x, *y)) {
-                    self.next_major().into()
+                    if self.next_major() {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
                 } else {
-                    Outcome::Continue
+                    SliderOutcome::Continue
                 }
             }
             ct_event!(scroll ALT up for x,y) => {
                 if self.track.contains(Position::new(*x, *y)) {
-                    self.prev_major().into()
+                    if self.prev_major() {
+                        SliderOutcome::Value
+                    } else {
+                        SliderOutcome::Unchanged
+                    }
                 } else {
-                    Outcome::Continue
+                    SliderOutcome::Continue
                 }
             }
-            _ => Outcome::Continue,
+            _ => SliderOutcome::Continue,
         }
     }
 }
@@ -1067,7 +1158,7 @@ pub fn handle_events<T>(
     state: &mut SliderState<T>,
     focus: bool,
     event: &crossterm::event::Event,
-) -> Outcome
+) -> SliderOutcome
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
@@ -1080,7 +1171,7 @@ where
 pub fn handle_mouse_events<T>(
     state: &mut SliderState<T>,
     event: &crossterm::event::Event,
-) -> Outcome
+) -> SliderOutcome
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,

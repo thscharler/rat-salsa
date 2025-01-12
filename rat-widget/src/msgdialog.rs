@@ -3,7 +3,8 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
+use crate::button::{Button, ButtonState, ButtonStyle};
+use crate::event::ButtonOutcome;
 use crate::layout::{layout_dialog, DialogItem};
 use crate::paragraph::{Paragraph, ParagraphState};
 use crate::util::{block_padding2, reset_buf_area};

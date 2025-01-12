@@ -3,8 +3,8 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
-use crate::event::{FileOutcome, TextOutcome};
+use crate::button::{Button, ButtonState, ButtonStyle};
+use crate::event::{ButtonOutcome, FileOutcome, TextOutcome};
 use crate::layout::{layout_dialog, layout_grid, DialogItem};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;

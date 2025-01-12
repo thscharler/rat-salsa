@@ -21,9 +21,10 @@
 //! ```
 //!
 use crate::_private::NonExhaustive;
+use crate::checkbox::event::CheckOutcome;
 use crate::util::{block_size, revert_style};
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
 use ratatui::buffer::Buffer;
@@ -100,6 +101,40 @@ pub struct CheckboxState {
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+pub(crate) mod event {
+    use rat_event::{ConsumedEvent, Outcome};
+
+    /// Result value for event-handling.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CheckOutcome {
+        /// The given event was not handled at all.
+        Continue,
+        /// The event was handled, no repaint necessary.
+        Unchanged,
+        /// The event was handled, repaint necessary.
+        Changed,
+        /// Checkbox has been checked or unchecked.
+        Value,
+    }
+
+    impl ConsumedEvent for CheckOutcome {
+        fn is_consumed(&self) -> bool {
+            *self != CheckOutcome::Continue
+        }
+    }
+
+    impl From<CheckOutcome> for Outcome {
+        fn from(value: CheckOutcome) -> Self {
+            match value {
+                CheckOutcome::Continue => Outcome::Continue,
+                CheckOutcome::Unchanged => Outcome::Unchanged,
+                CheckOutcome::Changed => Outcome::Changed,
+                CheckOutcome::Value => Outcome::Changed,
+            }
+        }
+    }
 }
 
 impl Default for CheckboxStyle {
@@ -376,21 +411,21 @@ impl CheckboxState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for CheckboxState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl HandleEvent<crossterm::event::Event, Regular, CheckOutcome> for CheckboxState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CheckOutcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Enter) | ct_event!(key press ' ') => {
                     self.flip_checked();
-                    Outcome::Changed
+                    CheckOutcome::Value
                 }
-                _ => Outcome::Continue,
+                _ => CheckOutcome::Continue,
             }
         } else {
-            Outcome::Continue
+            CheckOutcome::Continue
         };
 
-        if r == Outcome::Continue {
+        if r == CheckOutcome::Continue {
             HandleEvent::handle(self, event, MouseOnly)
         } else {
             r
@@ -398,14 +433,14 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for CheckboxState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for CheckboxState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+impl HandleEvent<crossterm::event::Event, MouseOnly, CheckOutcome> for CheckboxState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> CheckOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.area, m) => {
                 self.flip_checked();
-                Outcome::Changed
+                CheckOutcome::Value
             }
-            _ => Outcome::Continue,
+            _ => CheckOutcome::Continue,
         }
     }
 }
@@ -417,12 +452,15 @@ pub fn handle_events(
     state: &mut CheckboxState,
     focus: bool,
     event: &crossterm::event::Event,
-) -> Outcome {
+) -> CheckOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(state: &mut CheckboxState, event: &crossterm::event::Event) -> Outcome {
+pub fn handle_mouse_events(
+    state: &mut CheckboxState,
+    event: &crossterm::event::Event,
+) -> CheckOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

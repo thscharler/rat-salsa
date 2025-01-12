@@ -279,11 +279,11 @@ fn handle_input(
     let f = focus.handle(event, Regular);
 
     let r = Outcome::Continue;
-    let r = r.or_else(|| state.c1.handle(event, Regular));
-    let r = r.or_else(|| state.c2.handle(event, Regular));
-    let r = r.or_else(|| state.r.handle(event, Regular));
-    let r = r.or_else(|| state.g.handle(event, Regular));
-    let r = r.or_else(|| state.b.handle(event, Regular));
+    let r = r.or_else(|| state.c1.handle(event, Regular).into());
+    let r = r.or_else(|| state.c2.handle(event, Regular).into());
+    let r = r.or_else(|| state.r.handle(event, Regular).into());
+    let r = r.or_else(|| state.g.handle(event, Regular).into());
+    let r = r.or_else(|| state.b.handle(event, Regular).into());
 
     let r = r.or_else(|| match event {
         ct_event!(keycode press F(2)) => {

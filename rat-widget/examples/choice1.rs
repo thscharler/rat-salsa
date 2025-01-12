@@ -147,14 +147,14 @@ fn handle_input(
     let f = focus.handle(event, Regular);
 
     // popup handling first
-    let r = state.c1.handle(event, Popup);
-    let r = r.or_else(|| state.c2.handle(event, Popup));
-    let r = r.or_else(|| state.c3.handle(event, Popup));
+    let r: Outcome = state.c1.handle(event, Popup).into();
+    let r = r.or_else(|| state.c2.handle(event, Popup).into());
+    let r = r.or_else(|| state.c3.handle(event, Popup).into());
 
     // regular later...
-    let r = r.or_else(|| state.c1.handle(event, Regular));
-    let r = r.or_else(|| state.c2.handle(event, Regular));
-    let r = r.or_else(|| state.c3.handle(event, Regular));
+    let r = r.or_else(|| state.c1.handle(event, Regular).into());
+    let r = r.or_else(|| state.c2.handle(event, Regular).into());
+    let r = r.or_else(|| state.c3.handle(event, Regular).into());
     let r = r.or_else(|| match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(v) => {
             match v {

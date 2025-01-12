@@ -3,7 +3,6 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use log::debug;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
@@ -97,8 +96,6 @@ fn repaint_input(
     let layout_size = pager.layout_size(l2[1], &state.pager);
     // rebuild layout
     if state.pager.layout.size_changed(layout_size) {
-        let et = SystemTime::now();
-
         let mut form_layout = LayoutForm::new()
             .spacing(1)
             .flex(state.flex)

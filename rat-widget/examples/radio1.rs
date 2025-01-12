@@ -163,9 +163,9 @@ fn handle_input(
         _ => Outcome::Continue,
     };
 
-    let r = r.or_else(|| state.c1.handle(event, Regular));
-    let r = r.or_else(|| state.c2.handle(event, Regular));
-    let r = r.or_else(|| state.c3.handle(event, Regular));
+    let r: Outcome = r.or_else(|| state.c1.handle(event, Regular).into());
+    let r = r.or_else(|| state.c2.handle(event, Regular).into());
+    let r = r.or_else(|| state.c3.handle(event, Regular).into());
     let r = r.or_else(|| match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(v) => {
             match v {
