@@ -479,7 +479,7 @@ macro_rules! match_focus {
 macro_rules! impl_has_focus {
     ($cc:ident:$area:ident: $($n:ident),* for $ty:ty) => {
         impl $crate::HasFocus for $ty {
-            fn build(&self, builder: &mut FocusBuilder) {
+            fn build(&self, builder: &mut $crate::FocusBuilder) {
                 let tag = builder.start(self);
                 $(builder.widget(&self.$n);)*
                 builder.end(tag);
@@ -496,7 +496,7 @@ macro_rules! impl_has_focus {
     };
     ($cc:ident: $($n:ident),* for $ty:ty) => {
         impl $crate::HasFocus for $ty {
-            fn build(&self, builder: &mut FocusBuilder) {
+            fn build(&self, builder: &mut $crate::FocusBuilder) {
                 let tag = builder.start(self);
                 $(builder.widget(&self.$n);)*
                 builder.end(tag);
@@ -513,7 +513,7 @@ macro_rules! impl_has_focus {
     };
     ($($n:ident),* for $ty:ty) => {
         impl $crate::HasFocus for $ty {
-            fn build(&self, builder: &mut FocusBuilder) {
+            fn build(&self, builder: &mut $crate::FocusBuilder) {
                 $(builder.widget(&self.$n);)*
             }
 
