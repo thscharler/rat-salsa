@@ -45,6 +45,7 @@ pub struct Checkbox<'a> {
 
     // Check state override.
     checked: Option<bool>,
+    default: Option<bool>,
 
     true_str: Span<'a>,
     false_str: Span<'a>,
@@ -91,6 +92,10 @@ pub struct CheckboxState {
     /// Checked state.
     /// __read+write__
     pub checked: bool,
+
+    /// Default state.
+    /// __read+write__ Maybe overriden by a default set for the widget.
+    pub default: bool,
 
     /// Current focus state.
     /// __read+write__
@@ -155,6 +160,7 @@ impl Default for Checkbox<'_> {
         Self {
             text: Default::default(),
             checked: None,
+            default: None,
             true_str: Span::from("[\u{2713}]"),
             false_str: Span::from("[ ]"),
             style: Default::default(),
@@ -213,6 +219,12 @@ impl<'a> Checkbox<'a> {
     /// Checked state. If set overrides the value from the state.
     pub fn checked(mut self, checked: bool) -> Self {
         self.checked = Some(checked);
+        self
+    }
+
+    /// Default state. If set overrides the value from the state.
+    pub fn default(mut self, default: bool) -> Self {
+        self.default = Some(default);
         self
     }
 
@@ -291,6 +303,9 @@ fn render_ref(widget: &Checkbox<'_>, area: Rect, buf: &mut Buffer, state: &mut C
     if let Some(checked) = widget.checked {
         state.checked = checked;
     }
+    if let Some(default) = widget.default {
+        state.default = default;
+    }
 
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -328,6 +343,7 @@ impl Clone for CheckboxState {
             check_area: self.check_area,
             text_area: self.text_area,
             checked: self.checked,
+            default: self.default,
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -343,6 +359,7 @@ impl Default for CheckboxState {
             check_area: Default::default(),
             text_area: Default::default(),
             checked: false,
+            default: false,
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -383,14 +400,28 @@ impl CheckboxState {
         }
     }
 
-    /// Get the checked value, disregarding of the default state.
+    /// Get the value.
     pub fn checked(&self) -> bool {
         self.checked
     }
 
-    /// Set checked value. Always sets default to false.
-    pub fn set_checked(&mut self, checked: bool) {
+    /// Set the value.
+    pub fn set_checked(&mut self, checked: bool) -> bool {
+        let old_value = self.checked;
         self.checked = checked;
+        old_value != self.checked
+    }
+
+    /// Get the default value.
+    pub fn default_(&self) -> bool {
+        self.default
+    }
+
+    /// Set the default value.
+    pub fn set_default(&mut self, default: bool) -> bool {
+        let old_value = self.default;
+        self.default = default;
+        old_value != self.default
     }
 
     /// Get the checked value, disregarding of the default state.
@@ -399,8 +430,10 @@ impl CheckboxState {
     }
 
     /// Set checked value. Always sets default to false.
-    pub fn set_value(&mut self, checked: bool) {
+    pub fn set_value(&mut self, checked: bool) -> bool {
+        let old_value = self.checked;
         self.checked = checked;
+        old_value != self.checked
     }
 
     /// Flip the checkbox.
@@ -417,6 +450,10 @@ impl HandleEvent<crossterm::event::Event, Regular, CheckOutcome> for CheckboxSta
             match event {
                 ct_event!(keycode press Enter) | ct_event!(key press ' ') => {
                     self.flip_checked();
+                    CheckOutcome::Value
+                }
+                ct_event!(keycode press Backspace) | ct_event!(keycode press Delete) => {
+                    self.set_value(self.default);
                     CheckOutcome::Value
                 }
                 _ => CheckOutcome::Continue,

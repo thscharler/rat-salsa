@@ -896,7 +896,11 @@ where
         }
     }
 
-    /// Change the value.
+    /// Set the value.
+    ///
+    /// Any value you set is good, there will be no bounds check.
+    /// Without user interaction the same value will be returned
+    /// by value().
     pub fn set_value(&mut self, value: T) -> bool {
         let old_value = self.value;
         self.value = value;
