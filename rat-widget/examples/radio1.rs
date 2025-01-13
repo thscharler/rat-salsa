@@ -93,7 +93,7 @@ fn repaint_input(
         .item("P", "🥔Potatoes")
         .item("O", "🧅Onions")
         .item("L", "Peas\n&\nLentils")
-        .default_key("C")
+        .default_value("C")
         .render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     Radio::new()

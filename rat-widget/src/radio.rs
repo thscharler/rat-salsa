@@ -33,8 +33,8 @@ pub struct Radio<'a, T>
 where
     T: PartialEq + Clone + Default,
 {
-    keys: Vec<T>,
-    default_key: Option<T>,
+    values: Vec<T>,
+    default_value: Option<T>,
     items: Vec<Text<'a>>,
     direction: Direction,
     layout: RadioLayout,
@@ -171,11 +171,11 @@ where
 {
     fn default() -> Self {
         Self {
-            keys: Default::default(),
+            values: Default::default(),
             items: Default::default(),
             direction: Default::default(),
             layout: Default::default(),
-            default_key: Default::default(),
+            default_value: Default::default(),
             true_str: Span::from("\u{2B24}"),
             false_str: Span::from("\u{25EF}"),
             continue_str: Span::from("...").on_yellow(),
@@ -188,15 +188,15 @@ where
 }
 
 impl<'a> Radio<'a, usize> {
-    /// Add items with auto-generated keys.
+    /// Add items with auto-generated values.
     #[inline]
     pub fn auto_items<V: Into<Text<'a>>>(mut self, items: impl IntoIterator<Item = V>) -> Self {
         {
-            self.keys.clear();
+            self.values.clear();
             self.items.clear();
 
             for (k, v) in items.into_iter().enumerate() {
-                self.keys.push(k);
+                self.values.push(k);
                 self.items.push(v.into());
             }
         }
@@ -204,10 +204,10 @@ impl<'a> Radio<'a, usize> {
         self
     }
 
-    /// Add an item with an auto generated key.
+    /// Add an item with an auto generated value.
     pub fn auto_item(mut self, item: impl Into<Text<'a>>) -> Self {
-        let idx = self.keys.len();
-        self.keys.push(idx);
+        let idx = self.values.len();
+        self.values.push(idx);
         self.items.push(item.into());
         self
     }
@@ -286,11 +286,11 @@ where
     #[inline]
     pub fn items<V: Into<Text<'a>>>(mut self, items: impl IntoIterator<Item = (T, V)>) -> Self {
         {
-            self.keys.clear();
+            self.values.clear();
             self.items.clear();
 
             for (k, v) in items.into_iter() {
-                self.keys.push(k);
+                self.values.push(k);
                 self.items.push(v.into());
             }
         }
@@ -299,15 +299,15 @@ where
     }
 
     /// Add an item.
-    pub fn item(mut self, key: T, item: impl Into<Text<'a>>) -> Self {
-        self.keys.push(key);
+    pub fn item(mut self, value: T, item: impl Into<Text<'a>>) -> Self {
+        self.values.push(value);
         self.items.push(item.into());
         self
     }
 
     /// Can return to default with user interaction.
-    pub fn default_key(mut self, default: T) -> Self {
-        self.default_key = Some(default);
+    pub fn default_value(mut self, default: T) -> Self {
+        self.default_value = Some(default);
         self
     }
 
@@ -714,9 +714,9 @@ where
             }
         }
 
-        state.core.set_keys(self.keys);
-        if let Some(default_key) = self.default_key {
-            state.core.set_default_key(default_key);
+        state.core.set_values(self.values);
+        if let Some(default_value) = self.default_value {
+            state.core.set_default_value(default_value);
         }
 
         let focus_style = if let Some(focus_style) = self.focus_style {
@@ -856,17 +856,25 @@ where
         self.text_areas.len()
     }
 
-    /// Returns the selected index.
+    /// Returns the selected index or None if the
+    /// value is not in the list or the list is empty.
     ///
-    /// Will only return None if there are no keys at all.
+    /// You can still get the value set with set_value() though.
     pub fn selected(&self) -> Option<usize> {
         self.core.selected()
     }
 
-    /// Select the value at index.
+    /// Select the value at index. This will set the value
+    /// to the given index in the value-list. If the index is
+    /// out of bounds or the value-list is empty it will
+    /// set selected to None and leave the value as is.
+    /// The list is empty before the first render so this
+    /// may not work as expected.
     ///
-    /// __Panic__
-    /// Will panic if the value of select is out of bounds.
+    /// The selected index is a best effort artefact, the main
+    /// thing is the value itself.
+    ///
+    /// Use of set_value() is preferred.
     pub fn select(&mut self, select: usize) -> bool {
         self.core.set_selected(select)
     }
@@ -876,70 +884,59 @@ where
         self.core.clear()
     }
 
+    /// Select the next item.
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> bool {
-        if self.core.keys().is_empty() {
-            self.core.clear()
+        if self.core.values().is_empty() {
+            false // noop
         } else {
-            let selected = self.core.selected().expect("selected");
-            if selected + 1 >= self.core.keys().len() {
-                self.core.set_selected(0)
+            if let Some(selected) = self.core.selected() {
+                if selected + 1 >= self.core.values().len() {
+                    self.core.set_selected(0)
+                } else {
+                    self.core.set_selected(selected + 1)
+                }
             } else {
-                self.core.set_selected(selected + 1)
+                self.core.set_selected(0)
             }
         }
     }
 
+    /// Select the previous item.
     pub fn prev(&mut self) -> bool {
-        if self.core.keys().is_empty() {
-            self.core.clear()
+        if self.core.values().is_empty() {
+            false // noop
         } else {
-            let selected = self.core.selected().expect("selected");
-            if selected == 0 {
-                self.core.set_selected(self.core.keys().len() - 1)
+            if let Some(selected) = self.core.selected() {
+                if selected == 0 {
+                    self.core.set_selected(self.core.values().len() - 1)
+                } else {
+                    self.core.set_selected(selected - 1)
+                }
             } else {
-                self.core.set_selected(selected - 1)
+                self.core.set_selected(self.core.values().len() - 1)
             }
         }
     }
 
-    /// Select the given value.
+    /// Set the given value.
     ///
-    /// If the key doesn't exist, it will select the default.
-    /// If there is no default-value it falls back to T::default().
-    /// If that doesn't work out, it uses index 0.
-    ///
-    /// If there are no keys at all, it will store the key as is, and
-    /// return it when calling value().
-    pub fn set_value(&mut self, key: T) -> bool {
-        if self.core.keys().is_empty() {
-            self.core.set_no_keys_value(key)
-        } else {
-            'f: {
-                for (i, k) in self.core.keys().iter().enumerate() {
-                    if key == *k {
-                        break 'f self.core.set_selected(i);
-                    }
-                }
-                for (i, k) in self.core.keys().iter().enumerate() {
-                    if self.core.default_key() == k {
-                        break 'f self.core.set_selected(i);
-                    }
-                }
-                self.core.set_selected(0)
-            }
-        }
+    /// If the value doesn't exist in the list or the list is
+    /// empty the value will still be set, but selected will be
+    /// None. The list will be empty before the first render, but
+    /// the first thing render will do is set the list of values.
+    /// This will adjust the selected index if possible.
+    /// It's still ok to set a value here that can not be represented.
+    /// As long as there is no user interaction, the same value
+    /// will be returned by value().
+    pub fn set_value(&mut self, value: T) -> bool {
+        self.core.set_value(value)
     }
 
     /// Get the selected value or None if no value
     /// is selected or there are no options.
     pub fn value(&self) -> T {
-        if self.core.keys().is_empty() {
-            self.core.no_keys_value().clone()
-        } else {
-            let selected = *self.core.selected().as_ref().expect("selected");
-            self.core.keys()[selected].clone()
-        }
+        self.core.value()
     }
 }
 

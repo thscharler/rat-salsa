@@ -90,8 +90,8 @@ pub struct Choice<'a, T>
 where
     T: PartialEq + Clone + Default,
 {
-    keys: Rc<RefCell<Vec<T>>>,
-    default_key: Option<T>,
+    values: Rc<RefCell<Vec<T>>>,
+    default_value: Option<T>,
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
@@ -114,8 +114,8 @@ pub struct ChoiceWidget<'a, T>
 where
     T: PartialEq,
 {
-    keys: Rc<RefCell<Vec<T>>>,
-    default_key: Option<T>,
+    values: Rc<RefCell<Vec<T>>>,
+    default_value: Option<T>,
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
@@ -260,15 +260,17 @@ pub mod core {
     where
         T: PartialEq + Clone + Default,
     {
-        /// Keys.
+        /// Values.
         /// __read only__. renewed for each render.
-        keys: Vec<T>,
+        values: Vec<T>,
         /// Can return to default with a user interaction.
-        default_key: T,
-        /// Value set with set_value() if there are no keys.
-        no_keys_value: T,
-        /// Selected state.
-        /// Is guaranteed to be Some(v) if keys is not empty.
+        default_value: T,
+        /// Selected value, or a value set with set_value().
+        /// There may be a value and still no selected index,
+        /// if the values-vec is empty, or if the value is not in
+        /// values.
+        value: T,
+        /// Index of value.
         selected: Option<usize>,
     }
 
@@ -276,113 +278,88 @@ pub mod core {
     where
         T: PartialEq + Clone + Default,
     {
-        pub fn set_keys(&mut self, keys: Vec<T>) {
-            self.keys = keys;
+        pub fn set_values(&mut self, values: Vec<T>) {
+            self.values = values;
             // ensure integrity
-            if self.keys.is_empty() {
+            if self.values.is_empty() {
                 self.selected = None;
-                self.no_keys_value = self.default_key.clone();
             } else {
-                if let Some(selected) = self.selected {
-                    if selected > self.keys.len() {
-                        self.selected = Some(0);
-                    }
-                } else {
-                    self.selected = Some(0);
-                }
+                self.selected = self.values.position(&self.value);
             }
         }
 
-        pub fn keys(&self) -> &[T] {
-            &self.keys
+        /// List of values.
+        pub fn values(&self) -> &[T] {
+            &self.values
         }
 
-        pub fn set_default_key(&mut self, default_key: T) {
-            self.default_key = default_key.clone();
-            self.no_keys_value = default_key;
+        /// Set a default-value other than T::default()
+        pub fn set_default_value(&mut self, default_value: T) {
+            self.default_value = default_value.clone();
         }
 
-        pub fn default_key(&self) -> &T {
-            &self.default_key
+        /// A default value.
+        pub fn default_value(&self) -> &T {
+            &self.default_value
         }
 
+        /// Selected item index.
+        ///
+        /// This may be None and there may still be a valid value.
+        /// This can happen if a value is not in the value-list,
+        /// or if the value-list is empty before the first render.
+        ///
+        /// Use of value() is preferred.
         pub fn selected(&self) -> Option<usize> {
             self.selected
         }
 
+        /// Set the selected item by index.
+        ///
+        /// If the select-idx doesn't match the list of values,
+        /// selected will be None. This may happen before the
+        /// first render, while values is still empty.
+        ///
+        /// Use of set_value() is preferred.
         pub fn set_selected(&mut self, select: usize) -> bool {
             let old_sel = self.selected;
-            if self.keys.is_empty() {
+            if self.values.is_empty() {
                 self.selected = None;
             } else {
-                assert!(select < self.keys.len());
+                assert!(select < self.values.len());
                 self.selected = Some(select);
             }
             old_sel != self.selected
         }
 
-        pub fn set_value(&mut self, key: T) -> bool {
-            if self.keys().is_empty() {
-                self.set_no_keys_value(key)
-            } else {
-                'f: {
-                    for (i, k) in self.keys().iter().enumerate() {
-                        if key == *k {
-                            break 'f self.set_selected(i);
-                        }
-                    }
-                    for (i, k) in self.keys().iter().enumerate() {
-                        if self.default_key() == k {
-                            break 'f self.set_selected(i);
-                        }
-                    }
-                    self.set_selected(0)
-                }
-            }
+        /// Set the value for this Choice.
+        ///
+        /// The value will be retained even if it is not in
+        /// the value-list. This can happen before the first
+        /// render while the value-list is still empty.
+        /// Or because a divergent value is set here.
+        pub fn set_value(&mut self, value: T) -> bool {
+            let old_value = self.value.clone();
+
+            self.value = value;
+            self.selected = self.values.position(&self.value);
+
+            old_value != self.value
         }
 
+        /// Return the selected value, or any value set with set_value()
         pub fn value(&self) -> T {
-            if self.keys().is_empty() {
-                self.no_keys_value().clone()
-            } else {
-                let selected = *self.selected().as_ref().expect("selected");
-                self.keys()[selected].clone()
-            }
+            self.value.clone()
         }
 
         pub fn clear(&mut self) -> bool {
             let old_selected = self.selected;
+            let old_value = self.value.clone();
 
-            if !self.keys.is_empty() {
-                'f: {
-                    for (i, k) in self.keys.iter().enumerate() {
-                        if self.default_key == *k {
-                            self.selected = Some(i);
-                            break 'f;
-                        }
-                    }
-                    self.selected = Some(0);
-                }
-            } else {
-                self.selected = None;
-                self.no_keys_value = self.default_key.clone();
-            }
+            self.value = self.default_value.clone();
+            self.selected = self.values.position(&self.value);
 
-            old_selected != self.selected
-        }
-
-        pub fn set_no_keys_value(&mut self, no_keys_value: T) -> bool {
-            let old_value = self.no_keys_value.clone();
-
-            assert!(self.keys.is_empty());
-            self.no_keys_value = no_keys_value;
-
-            old_value != self.no_keys_value
-        }
-
-        pub fn no_keys_value(&self) -> &T {
-            assert!(self.keys.is_empty());
-            &self.no_keys_value
+            old_selected != self.selected || old_value != self.value
         }
     }
 }
@@ -410,8 +387,8 @@ where
 {
     fn default() -> Self {
         Self {
-            keys: Default::default(),
-            default_key: Default::default(),
+            values: Default::default(),
+            default_value: Default::default(),
             items: Default::default(),
             style: Default::default(),
             button_style: Default::default(),
@@ -428,18 +405,18 @@ where
 }
 
 impl<'a> Choice<'a, usize> {
-    /// Add items with auto-generated keys.
+    /// Add items with auto-generated values.
     #[inline]
     pub fn auto_items<V: Into<Line<'a>>>(self, items: impl IntoIterator<Item = V>) -> Self {
         {
-            let mut keys = self.keys.borrow_mut();
+            let mut values = self.values.borrow_mut();
             let mut itemz = self.items.borrow_mut();
 
-            keys.clear();
+            values.clear();
             itemz.clear();
 
             for (k, v) in items.into_iter().enumerate() {
-                keys.push(k);
+                values.push(k);
                 itemz.push(v.into());
             }
         }
@@ -447,10 +424,10 @@ impl<'a> Choice<'a, usize> {
         self
     }
 
-    /// Add an item with an auto generated key.
+    /// Add an item with an auto generated value.
     pub fn auto_item(self, item: impl Into<Line<'a>>) -> Self {
-        let idx = self.keys.borrow().len();
-        self.keys.borrow_mut().push(idx);
+        let idx = self.values.borrow().len();
+        self.values.borrow_mut().push(idx);
         self.items.borrow_mut().push(item.into());
         self
     }
@@ -468,14 +445,14 @@ where
     #[inline]
     pub fn items<V: Into<Line<'a>>>(self, items: impl IntoIterator<Item = (T, V)>) -> Self {
         {
-            let mut keys = self.keys.borrow_mut();
+            let mut values = self.values.borrow_mut();
             let mut itemz = self.items.borrow_mut();
 
-            keys.clear();
+            values.clear();
             itemz.clear();
 
             for (k, v) in items.into_iter() {
-                keys.push(k);
+                values.push(k);
                 itemz.push(v.into());
             }
         }
@@ -484,15 +461,15 @@ where
     }
 
     /// Add an item.
-    pub fn item(self, key: T, item: impl Into<Line<'a>>) -> Self {
-        self.keys.borrow_mut().push(key);
+    pub fn item(self, value: T, item: impl Into<Line<'a>>) -> Self {
+        self.values.borrow_mut().push(value);
         self.items.borrow_mut().push(item.into());
         self
     }
 
     /// Can return to default with user interaction.
-    pub fn default_key(mut self, default: T) -> Self {
-        self.default_key = Some(default);
+    pub fn default_value(mut self, default: T) -> Self {
+        self.default_value = Some(default);
         self
     }
 
@@ -663,8 +640,8 @@ where
     pub fn into_widgets(self) -> (ChoiceWidget<'a, T>, ChoicePopup<'a, T>) {
         (
             ChoiceWidget {
-                keys: self.keys,
-                default_key: self.default_key,
+                values: self.values,
+                default_value: self.default_value,
                 items: self.items.clone(),
                 style: self.style,
                 button_style: self.button_style,
@@ -695,9 +672,9 @@ impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T> {
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_choice(self, area, buf, state);
 
-        state.core.set_keys(self.keys.borrow().clone());
-        if let Some(default_key) = self.default_key.clone() {
-            state.core.set_default_key(default_key);
+        state.core.set_values(self.values.borrow().clone());
+        if let Some(default_value) = self.default_value.clone() {
+            state.core.set_default_value(default_value);
         }
     }
 }
@@ -711,9 +688,9 @@ where
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_choice(&self, area, buf, state);
 
-        state.core.set_keys(self.keys.take());
-        if let Some(default_key) = self.default_key {
-            state.core.set_default_key(default_key);
+        state.core.set_values(self.values.take());
+        if let Some(default_value) = self.default_value {
+            state.core.set_default_value(default_value);
         }
     }
 }
@@ -983,12 +960,16 @@ where
 
     /// Select the given value.
     ///
-    /// Returns false if there is no such value, or
-    /// no items, or nothing changed.
-    ///
-    /// Doesn't change the selection if the given key doesn't exist.
-    pub fn set_value(&mut self, key: T) -> bool {
-        self.core.set_value(key)
+    /// If the value doesn't exist in the list or the list is
+    /// empty the value will still be set, but selected will be
+    /// None. The list will be empty before the first render, but
+    /// the first thing render will do is set the list of values.
+    /// This will adjust the selected index if possible.
+    /// It's still ok to set a value here that can not be represented.
+    /// As long as there is no user interaction, the same value
+    /// will be returned by value().
+    pub fn set_value(&mut self, value: T) -> bool {
+        self.core.set_value(value)
     }
 
     /// Get the selected value.
@@ -996,29 +977,42 @@ where
         self.core.value()
     }
 
-    /// Select item number 0.
+    /// Select the default value.
     pub fn clear(&mut self) -> bool {
         self.core.clear()
     }
 
-    /// Select the item.
+    /// Select the value at index. This will set the value
+    /// to the given index in the value-list. If the index is
+    /// out of bounds or the value-list is empty it will
+    /// set selected to None and leave the value as is.
+    /// The list is empty before the first render so this
+    /// may not work as expected.
+    ///
+    /// The selected index is a best effort artefact, the main
+    /// thing is the value itself.
+    ///
+    /// Use of set_value() is preferred.
     pub fn select(&mut self, select: usize) -> bool {
         self.core.set_selected(select)
     }
 
-    /// Selected
+    /// Returns the selected index or None if the
+    /// value is not in the list or the list is empty.
+    ///
+    /// You can still get the value set with set_value() though.
     pub fn selected(&self) -> Option<usize> {
         self.core.selected()
     }
 
-    /// Items?
+    /// Any items?
     pub fn is_empty(&self) -> bool {
-        self.core.keys().is_empty()
+        self.core.values().is_empty()
     }
 
     /// Number of items.
     pub fn len(&self) -> usize {
-        self.core.keys().len()
+        self.core.values().len()
     }
 
     /// Scroll offset for the item list.
@@ -1103,7 +1097,7 @@ where
         let old_selected = self.core.selected();
 
         let r2 = if let Some(selected) = self.core.selected() {
-            let select = (selected + n).clamp(0, self.core.keys().len().saturating_sub(1));
+            let select = (selected + n).clamp(0, self.core.values().len().saturating_sub(1));
             self.core.set_selected(select);
             self.scroll_to_selected()
         } else {
@@ -1119,7 +1113,7 @@ where
 
         let r2 = if let Some(selected) = self.core.selected() {
             let select =
-                (selected.saturating_sub(n)).clamp(0, self.core.keys().len().saturating_sub(1));
+                (selected.saturating_sub(n)).clamp(0, self.core.values().len().saturating_sub(1));
             self.core.set_selected(select);
             self.scroll_to_selected()
         } else {
