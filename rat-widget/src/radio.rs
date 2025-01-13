@@ -716,7 +716,7 @@ where
 
         state.core.set_values(self.values);
         if let Some(default_value) = self.default_value {
-            state.core.set_default_value(default_value);
+            state.core.set_default_value(Some(default_value));
         }
 
         let focus_style = if let Some(focus_style) = self.focus_style {
@@ -856,6 +856,43 @@ where
         self.text_areas.len()
     }
 
+    /// Set a default-value other than T::default()
+    ///
+    /// The starting value will still be T::default()
+    /// after this. You must call clear() to use this
+    /// default.
+    ///
+    /// This default will be overridden by a default set
+    /// on the widget.
+    pub fn set_default_value(&mut self, default_value: Option<T>) {
+        self.core.set_default_value(default_value);
+    }
+
+    /// A default value.
+    pub fn default_value(&self) -> &Option<T> {
+        self.core.default_value()
+    }
+
+    /// Set the given value.
+    ///
+    /// If the value doesn't exist in the list or the list is
+    /// empty the value will still be set, but selected will be
+    /// None. The list will be empty before the first render, but
+    /// the first thing render will do is set the list of values.
+    /// This will adjust the selected index if possible.
+    /// It's still ok to set a value here that can not be represented.
+    /// As long as there is no user interaction, the same value
+    /// will be returned by value().
+    pub fn set_value(&mut self, value: T) -> bool {
+        self.core.set_value(value)
+    }
+
+    /// Get the selected value or None if no value
+    /// is selected or there are no options.
+    pub fn value(&self) -> T {
+        self.core.value()
+    }
+
     /// Returns the selected index or None if the
     /// value is not in the list or the list is empty.
     ///
@@ -879,7 +916,7 @@ where
         self.core.set_selected(select)
     }
 
-    /// Set the default value.
+    /// Set the default value or T::default()
     pub fn clear(&mut self) -> bool {
         self.core.clear()
     }
@@ -917,26 +954,6 @@ where
                 self.core.set_selected(self.core.values().len() - 1)
             }
         }
-    }
-
-    /// Set the given value.
-    ///
-    /// If the value doesn't exist in the list or the list is
-    /// empty the value will still be set, but selected will be
-    /// None. The list will be empty before the first render, but
-    /// the first thing render will do is set the list of values.
-    /// This will adjust the selected index if possible.
-    /// It's still ok to set a value here that can not be represented.
-    /// As long as there is no user interaction, the same value
-    /// will be returned by value().
-    pub fn set_value(&mut self, value: T) -> bool {
-        self.core.set_value(value)
-    }
-
-    /// Get the selected value or None if no value
-    /// is selected or there are no options.
-    pub fn value(&self) -> T {
-        self.core.value()
     }
 }
 

@@ -264,7 +264,7 @@ pub mod core {
         /// __read only__. renewed for each render.
         values: Vec<T>,
         /// Can return to default with a user interaction.
-        default_value: T,
+        default_value: Option<T>,
         /// Selected value, or a value set with set_value().
         /// There may be a value and still no selected index,
         /// if the values-vec is empty, or if the value is not in
@@ -284,7 +284,7 @@ pub mod core {
             if self.values.is_empty() {
                 self.selected = None;
             } else {
-                self.selected = self.values.position(&self.value);
+                self.selected = self.values.iter().position(|v| *v == self.value);
             }
         }
 
@@ -294,12 +294,16 @@ pub mod core {
         }
 
         /// Set a default-value other than T::default()
-        pub fn set_default_value(&mut self, default_value: T) {
+        ///
+        /// The starting value will still be T::default()
+        /// after this. You must call clear() to use this
+        /// default.
+        pub fn set_default_value(&mut self, default_value: Option<T>) {
             self.default_value = default_value.clone();
         }
 
         /// A default value.
-        pub fn default_value(&self) -> &T {
+        pub fn default_value(&self) -> &Option<T> {
             &self.default_value
         }
 
@@ -326,8 +330,13 @@ pub mod core {
             if self.values.is_empty() {
                 self.selected = None;
             } else {
-                assert!(select < self.values.len());
-                self.selected = Some(select);
+                if let Some(value) = self.values.get(select) {
+                    self.value = value.clone();
+                    self.selected = Some(select);
+                } else {
+                    // don't change value
+                    self.selected = None;
+                }
             }
             old_sel != self.selected
         }
@@ -338,11 +347,13 @@ pub mod core {
         /// the value-list. This can happen before the first
         /// render while the value-list is still empty.
         /// Or because a divergent value is set here.
+        ///
+        /// The starting value will be T::default().
         pub fn set_value(&mut self, value: T) -> bool {
             let old_value = self.value.clone();
 
             self.value = value;
-            self.selected = self.values.position(&self.value);
+            self.selected = self.values.iter().position(|v| *v == self.value);
 
             old_value != self.value
         }
@@ -356,8 +367,11 @@ pub mod core {
             let old_selected = self.selected;
             let old_value = self.value.clone();
 
-            self.value = self.default_value.clone();
-            self.selected = self.values.position(&self.value);
+            if let Some(default_value) = &self.default_value {
+                self.value = default_value.clone();
+            }
+
+            self.selected = self.values.iter().position(|v| *v == self.value);
 
             old_selected != self.selected || old_value != self.value
         }
@@ -690,7 +704,7 @@ where
 
         state.core.set_values(self.values.take());
         if let Some(default_value) = self.default_value {
-            state.core.set_default_value(default_value);
+            state.core.set_default_value(Some(default_value));
         }
     }
 }
@@ -958,6 +972,23 @@ where
         old_active != active
     }
 
+    /// Set a default-value other than T::default()
+    ///
+    /// The starting value will still be T::default()
+    /// after this. You must call clear() to use this
+    /// default.
+    ///
+    /// This default will be overridden by a default set
+    /// on the widget.
+    pub fn set_default_value(&mut self, default_value: Option<T>) {
+        self.core.set_default_value(default_value);
+    }
+
+    /// A default value.
+    pub fn default_value(&self) -> &Option<T> {
+        self.core.default_value()
+    }
+
     /// Select the given value.
     ///
     /// If the value doesn't exist in the list or the list is
@@ -977,7 +1008,7 @@ where
         self.core.value()
     }
 
-    /// Select the default value.
+    /// Select the default value or T::default.
     pub fn clear(&mut self) -> bool {
         self.core.clear()
     }

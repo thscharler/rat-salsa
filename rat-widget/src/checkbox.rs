@@ -223,7 +223,7 @@ impl<'a> Checkbox<'a> {
     }
 
     /// Default state. If set overrides the value from the state.
-    pub fn default(mut self, default: bool) -> Self {
+    pub fn default_(mut self, default: bool) -> Self {
         self.default = Some(default);
         self
     }
