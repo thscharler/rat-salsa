@@ -6,9 +6,9 @@
 use crate::_private::NonExhaustive;
 use crate::calendar::event::CalOutcome;
 use crate::util::{block_size, revert_style};
-use chrono::{Datelike, NaiveDate, Weekday};
+use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
+use rat_event::{ct_event, flow, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
@@ -19,6 +19,7 @@ use ratatui::widgets::block::Title;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
+use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -26,7 +27,7 @@ use std::fmt::Debug;
 #[derive(Debug, Default, Clone)]
 pub struct Month<'a> {
     /// Start date of the month.
-    start_date: NaiveDate,
+    start_date: Option<NaiveDate>,
 
     /// Base style.
     style: Style,
@@ -134,11 +135,11 @@ impl<'a> Month<'a> {
         Self::default()
     }
 
-    /// Sets the starting date.
-    /// This can be any date of the month.
+    /// Sets the starting date. This can be any date of the month.
+    /// If no date is set, the start_date of the state is used.
     #[inline]
     pub fn date(mut self, s: NaiveDate) -> Self {
-        self.start_date = s.with_day(1).expect("day");
+        self.start_date = Some(s.with_day(1).expect("day"));
         self
     }
 
@@ -270,10 +271,17 @@ impl<'a> Month<'a> {
     /// Inherent height for the widget.
     /// Can vary with the number of months.
     #[inline]
-    pub fn height(&self) -> u16 {
-        let r = MonthState::count_weeks(self.start_date) as u16;
+    pub fn height(&self, state: &MonthState) -> u16 {
+        let start_date = if let Some(start_date) = self.start_date {
+            start_date
+        } else {
+            state.start_date
+        };
+
+        let r = MonthState::count_weeks(start_date) as u16;
         let w = if self.show_weekdays { 1 } else { 0 };
-        r + w + block_size(&self.block).height
+        let b = max(1, block_size(&self.block).height);
+        r + w + b
     }
 }
 
@@ -296,11 +304,13 @@ impl StatefulWidget for Month<'_> {
 
 fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut MonthState) {
     state.area = area;
-    state.start_date = widget.start_date;
+    if let Some(start_date) = widget.start_date {
+        state.start_date = start_date;
+    }
     state.day_selection = widget.day_selection;
     state.week_selection = widget.week_selection;
 
-    let mut day = widget.start_date;
+    let mut day = state.start_date;
 
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
     let select_style = if let Some(select_style) = widget.select_style {
@@ -351,7 +361,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
     state.inner = block.inner(area);
     block.render(area, buf);
 
-    let month = widget.start_date.month();
+    let month = state.start_date.month();
     let mut w = 0;
     let mut x = state.inner.x;
     let mut y = state.inner.y;
@@ -811,19 +821,28 @@ impl MonthState {
         let mut day = day.with_day0(0).expect("date");
         let month = day.month();
 
-        let mut w = 0;
-
+        let mut weeks = 1;
+        for weekday in [
+            Weekday::Mon,
+            Weekday::Tue,
+            Weekday::Wed,
+            Weekday::Thu,
+            Weekday::Fri,
+            Weekday::Sat,
+            Weekday::Sun,
+        ] {
+            // run through first week
+            if day.weekday() == weekday {
+                day += chrono::Duration::try_days(1).expect("days");
+            }
+        }
+        // count mondays
         while month == day.month() {
+            weeks += 1;
             day += chrono::Duration::try_days(7).expect("days");
-            w += 1;
-        }
-        // last week might be next month
-        let week = day.week(Weekday::Mon);
-        if week.first_day().month() != month {
-            w -= 1;
         }
 
-        w
+        weeks
     }
 }
 
@@ -849,8 +868,6 @@ pub(crate) mod event {
         /// Day selected.
         /// Selected tab should be closed.
         Day(NaiveDate),
-        /// Month in a list of months selected.
-        Month(usize),
     }
 
     impl ConsumedEvent for CalOutcome {
@@ -888,7 +905,6 @@ pub(crate) mod event {
                 CalOutcome::Changed => Outcome::Changed,
                 CalOutcome::Week(_) => Outcome::Changed,
                 CalOutcome::Day(_) => Outcome::Changed,
-                CalOutcome::Month(_) => Outcome::Changed,
             }
         }
     }
@@ -992,173 +1008,297 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState 
     }
 }
 
+fn scroll_up_month_list(months: &mut [MonthState], delta: u32) {
+    // change start dates
+    let mut start = months[0]
+        .start_date
+        .checked_sub_months(Months::new(delta))
+        .expect("date");
+    for i in 0..months.len() {
+        months[i].start_date = start;
+        start = start.checked_add_months(Months::new(1)).expect("date");
+    }
+}
+
+fn scroll_down_month_list(months: &mut [MonthState], delta: u32) {
+    // change start dates
+    let mut start = months[0]
+        .start_date
+        .checked_add_months(Months::new(delta))
+        .expect("date");
+    for i in 0..months.len() {
+        months[i].start_date = start;
+        start = start.checked_add_months(Months::new(1)).expect("date");
+    }
+}
+
 impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthState] {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
-        for i in 0..self.len() {
-            let month = &mut self[i];
-            if month.is_focused() {
-                let r = match month.handle(event, Regular) {
-                    CalOutcome::Week(date) => {
-                        for j in 0..self.len() {
-                            if i != j {
-                                self[j].clear_selection();
-                            }
-                        }
-                        if i > 0 {
-                            self[i - 1].select_week_by_date(Some(date));
-                        }
-                        if i + 1 < self.len() {
-                            self[i + 1].select_week_by_date(Some(date));
-                        }
-                        CalOutcome::Week(date)
-                    }
-                    CalOutcome::Day(date) => {
-                        for j in 0..self.len() {
-                            if i != j {
-                                self[j].clear_selection();
-                            }
-                        }
-                        CalOutcome::Day(date)
-                    }
-                    CalOutcome::Continue => match event {
-                        ct_event!(keycode press Up) => {
-                            if !self[i].day_selection {
-                                return CalOutcome::Continue;
+        let r = 'f: {
+            for i in 0..self.len() {
+                let month = &mut self[i];
+                if month.is_focused() {
+                    let r = match month.handle(event, Regular) {
+                        CalOutcome::Week(date) => {
+                            for j in 0..self.len() {
+                                if i != j {
+                                    self[j].clear_selection();
+                                }
                             }
                             if i > 0 {
-                                if let Some(date) = self[i].selected_day_as_date() {
-                                    let new_date =
-                                        date - chrono::Duration::try_days(7).expect("days");
+                                self[i - 1].select_week_by_date(Some(date));
+                            }
+                            if i + 1 < self.len() {
+                                self[i + 1].select_week_by_date(Some(date));
+                            }
+                            CalOutcome::Week(date)
+                        }
+                        CalOutcome::Day(date) => {
+                            for j in 0..self.len() {
+                                if i != j {
+                                    self[j].clear_selection();
+                                }
+                            }
+                            CalOutcome::Day(date)
+                        }
+                        CalOutcome::Continue => match event {
+                            ct_event!(keycode press Up) => {
+                                if !self[i].day_selection {
+                                    return CalOutcome::Continue;
+                                }
+                                if i > 0 {
+                                    if let Some(date) = self[i].selected_day_as_date() {
+                                        let new_date =
+                                            date - chrono::Duration::try_days(7).expect("days");
+                                        self[i].select_day(None);
+                                        self[i].focus.clear();
+                                        self[i - 1].select_date(Some(new_date));
+                                        self[i - 1].focus.set(true);
+                                        CalOutcome::Day(new_date)
+                                    } else {
+                                        // ?? what is this. invalid day??
+                                        CalOutcome::Continue
+                                    }
+                                } else {
+                                    if let Some(date) = self[i].selected_day_as_date() {
+                                        let new_date =
+                                            date - chrono::Duration::try_days(7).expect("days");
+                                        scroll_up_month_list(self, 1);
+                                        self[0].select_date(Some(new_date));
+                                        CalOutcome::Day(new_date)
+                                    } else {
+                                        CalOutcome::Continue
+                                    }
+                                }
+                            }
+                            ct_event!(keycode press Down) => {
+                                if !self[i].day_selection {
+                                    return CalOutcome::Continue;
+                                }
+                                if i + 1 < self.len() {
+                                    if let Some(date) = self[i].selected_day_as_date() {
+                                        let new_date =
+                                            date + chrono::Duration::try_days(7).expect("days");
+                                        self[i].select_day(None);
+                                        self[i].focus.clear();
+                                        self[i + 1].select_date(Some(new_date));
+                                        self[i + 1].focus.set(true);
+                                        CalOutcome::Day(new_date)
+                                    } else {
+                                        CalOutcome::Continue
+                                    }
+                                } else {
+                                    if let Some(date) = self[i].selected_day_as_date() {
+                                        let new_date =
+                                            date + chrono::Duration::try_days(7).expect("days");
+                                        scroll_down_month_list(self, 1);
+                                        self[i].select_date(Some(new_date));
+                                        CalOutcome::Day(new_date)
+                                    } else {
+                                        CalOutcome::Continue
+                                    }
+                                }
+                            }
+                            ct_event!(keycode press Left) => {
+                                if !self[i].day_selection {
+                                    return CalOutcome::Continue;
+                                }
+                                if i > 0 {
+                                    let prev_day = self[i]
+                                        .start_date
+                                        .checked_sub_days(Days::new(1))
+                                        .expect("date");
+
                                     self[i].select_day(None);
-                                    self[i - 1].select_date(Some(new_date));
-                                    CalOutcome::Month(i - 1)
+                                    self[i].focus.clear();
+                                    self[i - 1].select_date(Some(prev_day));
+                                    self[i - 1].focus.set(true);
+
+                                    CalOutcome::Day(prev_day)
                                 } else {
-                                    CalOutcome::Continue
+                                    let prev_day = self[i]
+                                        .start_date
+                                        .checked_sub_days(Days::new(1))
+                                        .expect("date");
+                                    scroll_up_month_list(self, 1);
+                                    self[i].select_date(Some(prev_day));
+
+                                    CalOutcome::Day(prev_day)
                                 }
-                            } else {
-                                CalOutcome::Continue
                             }
-                        }
-                        ct_event!(keycode press Down) => {
-                            if !self[i].day_selection {
-                                return CalOutcome::Continue;
-                            }
-                            if i + 1 < self.len() {
-                                if let Some(date) = self[i].selected_day_as_date() {
-                                    let new_date =
-                                        date + chrono::Duration::try_days(7).expect("days");
+                            ct_event!(keycode press Right) => {
+                                if !self[i].day_selection {
+                                    return CalOutcome::Continue;
+                                }
+                                if i + 1 < self.len() {
+                                    let next_day = self[i]
+                                        .start_date
+                                        .checked_add_months(Months::new(1))
+                                        .expect("date");
+
                                     self[i].select_day(None);
-                                    self[i + 1].select_date(Some(new_date));
-                                    CalOutcome::Month(i + 1)
-                                } else {
-                                    CalOutcome::Continue
-                                }
-                            } else {
-                                CalOutcome::Continue
-                            }
-                        }
-                        ct_event!(keycode press Left) => {
-                            if !self[i].day_selection {
-                                return CalOutcome::Continue;
-                            }
-                            if i > 0 {
-                                self[i].select_day(None);
-                                self[i - 1].select_day(None);
-                                if self[i - 1].prev_day(1) {
-                                    CalOutcome::Month(i - 1)
-                                } else {
-                                    CalOutcome::Continue
-                                }
-                            } else {
-                                CalOutcome::Continue
-                            }
-                        }
-                        ct_event!(keycode press Right) => {
-                            if !self[i].day_selection {
-                                return CalOutcome::Continue;
-                            }
-                            if i + 1 < self.len() {
-                                self[i].select_day(None);
-                                self[i + 1].select_day(None);
-                                if self[i + 1].next_day(1) {
-                                    CalOutcome::Month(i + 1)
-                                } else {
-                                    CalOutcome::Continue
-                                }
-                            } else {
-                                CalOutcome::Continue
-                            }
-                        }
-                        ct_event!(keycode press ALT-Up) => {
-                            if !self[i].week_selection {
-                                return CalOutcome::Continue;
-                            }
-                            if i > 0 {
-                                if let Some(date) = self[i].selected_week_as_date() {
-                                    let new_date =
-                                        date - chrono::Duration::try_days(7).expect("days");
+                                    self[i].focus.clear();
+                                    self[i + 1].select_date(Some(next_day));
+                                    self[i + 1].focus.set(true);
 
-                                    self[i].select_week_by_date(Some(new_date));
-                                    self[i - 1].select_week_by_date(Some(new_date));
-                                    CalOutcome::Month(i - 1)
+                                    CalOutcome::Day(next_day)
                                 } else {
-                                    CalOutcome::Continue
-                                }
-                            } else {
-                                CalOutcome::Continue
-                            }
-                        }
-                        ct_event!(keycode press ALT-Down) => {
-                            if !self[i].week_selection {
-                                return CalOutcome::Continue;
-                            }
-                            if i + 1 < self.len() {
-                                if let Some(date) = self[i].selected_week_as_date() {
-                                    let new_date =
-                                        date + chrono::Duration::try_days(7).expect("days");
+                                    let next_day = self[i]
+                                        .start_date
+                                        .checked_add_months(Months::new(1))
+                                        .expect("date");
+                                    scroll_down_month_list(self, 1);
+                                    self[i].select_date(Some(next_day));
 
-                                    self[i].select_week_by_date(Some(new_date));
-                                    self[i + 1].select_week_by_date(Some(new_date));
-                                    CalOutcome::Month(i + 1)
+                                    CalOutcome::Day(next_day)
+                                }
+                            }
+                            ct_event!(keycode press ALT-Up) => {
+                                if !self[i].week_selection {
+                                    return CalOutcome::Continue;
+                                }
+                                if i > 0 {
+                                    if let Some(date) = self[i].selected_week_as_date() {
+                                        let new_date =
+                                            date - chrono::Duration::try_days(7).expect("days");
+
+                                        self[i].select_week_by_date(Some(new_date));
+                                        self[i].focus.clear();
+                                        self[i - 1].select_week_by_date(Some(new_date));
+                                        self[i - 1].focus.set(true);
+                                        CalOutcome::Week(new_date)
+                                    } else {
+                                        // ?? invalid date
+                                        CalOutcome::Continue
+                                    }
                                 } else {
-                                    CalOutcome::Continue
+                                    if let Some(date) = self[i].selected_week_as_date() {
+                                        let new_date =
+                                            date - chrono::Duration::try_days(7).expect("days");
+                                        scroll_up_month_list(self, 1);
+                                        self[i].select_week_by_date(Some(new_date));
+                                        CalOutcome::Week(new_date)
+                                    } else {
+                                        // ?? invalid date
+                                        CalOutcome::Continue
+                                    }
                                 }
-                            } else {
-                                CalOutcome::Continue
                             }
-                        }
-                        _ => CalOutcome::Continue,
-                    },
-                    r => r,
-                };
+                            ct_event!(keycode press ALT-Down) => {
+                                if !self[i].week_selection {
+                                    return CalOutcome::Continue;
+                                }
+                                if i + 1 < self.len() {
+                                    if let Some(date) = self[i].selected_week_as_date() {
+                                        let new_date =
+                                            date + chrono::Duration::try_days(7).expect("days");
 
-                return r;
+                                        self[i].select_week_by_date(Some(new_date));
+                                        self[i].focus.clear();
+                                        self[i + 1].select_week_by_date(Some(new_date));
+                                        self[i + 1].focus.set(true);
+                                        CalOutcome::Week(new_date)
+                                    } else {
+                                        // ?? invalid date
+                                        CalOutcome::Continue
+                                    }
+                                } else {
+                                    if let Some(date) = self[i].selected_week_as_date() {
+                                        let new_date =
+                                            date + chrono::Duration::try_days(7).expect("days");
+                                        scroll_down_month_list(self, 1);
+                                        self[i].select_week_by_date(Some(new_date));
+                                        CalOutcome::Week(new_date)
+                                    } else {
+                                        // ?? invalid date
+                                        CalOutcome::Continue
+                                    }
+                                }
+                            }
+                            _ => CalOutcome::Continue,
+                        },
+                        r => r,
+                    };
+
+                    break 'f r;
+                }
             }
-        }
 
-        for i in 0..self.len() {
-            let month = &mut self[i];
-            if !month.is_focused() {
-                flow!(match month.handle(event, MouseOnly) {
-                    CalOutcome::Week(d) => {
-                        if month.selected_week == Some(0) {
-                            if i > 0 {
-                                self[i - 1].select_week_by_date(Some(d));
+            CalOutcome::Continue
+        };
+
+        let s = 'f: {
+            for i in 0..self.len() {
+                if !self[i].is_focused() {
+                    let r = match self[i].handle(event, MouseOnly) {
+                        CalOutcome::Week(d) => {
+                            if self[i].selected_week == Some(0) {
+                                if i > 0 {
+                                    self[i - 1].select_week_by_date(Some(d));
+                                }
+                            } else if self[i].selected_week == Some(self[i].week_len() - 1) {
+                                if i < self.len() {
+                                    self[i + 1].select_week_by_date(Some(d));
+                                }
                             }
-                        } else if month.selected_week == Some(month.week_len() - 1) {
-                            if i < self.len() {
-                                self[i + 1].select_week_by_date(Some(d));
+
+                            // transfer focus
+                            for k in 0..self.len() {
+                                if self[k].is_focused() {
+                                    self[k].select_day(None);
+                                    self[k].focus.clear();
+                                    self[i].focus.set(true);
+                                } else if i != k {
+                                    self[k].select_day(None);
+                                }
                             }
+
+                            CalOutcome::Week(d)
                         }
-                        CalOutcome::Week(d)
-                    }
-                    r => {
-                        r
-                    }
-                });
-            }
-        }
+                        CalOutcome::Day(d) => {
+                            // transfer focus
+                            for k in 0..self.len() {
+                                if self[k].is_focused() {
+                                    self[k].select_day(None);
+                                    self[k].focus.clear();
+                                    self[i].focus.set(true);
+                                } else if i != k {
+                                    self[k].select_day(None);
+                                }
+                            }
 
-        CalOutcome::Continue
+                            CalOutcome::Day(d)
+                        }
+                        r => r,
+                    };
+                    if r.is_consumed() {
+                        break 'f r;
+                    }
+                }
+            }
+            CalOutcome::Continue
+        };
+
+        max(r, s)
     }
 }
