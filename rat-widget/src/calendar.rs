@@ -9,7 +9,7 @@ use crate::util::{block_size, revert_style};
 use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, ConsumedEvent, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
@@ -1032,8 +1032,16 @@ fn scroll_down_month_list(months: &mut [MonthState], delta: u32) {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthState] {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
+/// Multi-month event-handling.
+///
+/// The parameter gives the shift of the calendar in months, if
+/// the newly selected date is not visible with the current settings.
+///
+/// This also needs the Focus, as it changes the focused month if necessary.
+pub struct MultiMonth<'a>(pub &'a Focus, pub u32);
+
+impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [MonthState] {
+    fn handle(&mut self, event: &crossterm::event::Event, arg: MultiMonth<'_>) -> CalOutcome {
         let r = 'f: {
             for i in 0..self.len() {
                 let month = &mut self[i];
@@ -1071,9 +1079,8 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                         let new_date =
                                             date - chrono::Duration::try_days(7).expect("days");
                                         self[i].select_day(None);
-                                        self[i].focus.clear();
                                         self[i - 1].select_date(Some(new_date));
-                                        self[i - 1].focus.set(true);
+                                        arg.0.focus(&self[i - 1]);
                                         CalOutcome::Day(new_date)
                                     } else {
                                         // ?? what is this. invalid day??
@@ -1083,8 +1090,16 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                     if let Some(date) = self[i].selected_day_as_date() {
                                         let new_date =
                                             date - chrono::Duration::try_days(7).expect("days");
-                                        scroll_up_month_list(self, 1);
-                                        self[0].select_date(Some(new_date));
+                                        scroll_up_month_list(self, arg.1);
+                                        // date may be anywhere (even nowhere) after the shift.
+                                        for i in 0..self.len() {
+                                            self[i].select_date(Some(new_date));
+                                        }
+                                        for i in 0..self.len() {
+                                            if self[i].selected_day_as_date().is_some() {
+                                                arg.0.focus(&self[i]);
+                                            }
+                                        }
                                         CalOutcome::Day(new_date)
                                     } else {
                                         CalOutcome::Continue
@@ -1100,9 +1115,8 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                         let new_date =
                                             date + chrono::Duration::try_days(7).expect("days");
                                         self[i].select_day(None);
-                                        self[i].focus.clear();
                                         self[i + 1].select_date(Some(new_date));
-                                        self[i + 1].focus.set(true);
+                                        arg.0.focus(&self[i + 1]);
                                         CalOutcome::Day(new_date)
                                     } else {
                                         CalOutcome::Continue
@@ -1111,8 +1125,16 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                     if let Some(date) = self[i].selected_day_as_date() {
                                         let new_date =
                                             date + chrono::Duration::try_days(7).expect("days");
-                                        scroll_down_month_list(self, 1);
-                                        self[i].select_date(Some(new_date));
+                                        scroll_down_month_list(self, arg.1);
+                                        // date may be anywhere (even nowhere) after the shift.
+                                        for i in 0..self.len() {
+                                            self[i].select_date(Some(new_date));
+                                        }
+                                        for i in 0..self.len() {
+                                            if self[i].selected_day_as_date().is_some() {
+                                                arg.0.focus(&self[i]);
+                                            }
+                                        }
                                         CalOutcome::Day(new_date)
                                     } else {
                                         CalOutcome::Continue
@@ -1130,20 +1152,26 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                         .expect("date");
 
                                     self[i].select_day(None);
-                                    self[i].focus.clear();
                                     self[i - 1].select_date(Some(prev_day));
-                                    self[i - 1].focus.set(true);
+                                    arg.0.focus(&self[i - 1]);
 
                                     CalOutcome::Day(prev_day)
                                 } else {
-                                    let prev_day = self[i]
+                                    let new_date = self[i]
                                         .start_date
                                         .checked_sub_days(Days::new(1))
                                         .expect("date");
                                     scroll_up_month_list(self, 1);
-                                    self[i].select_date(Some(prev_day));
-
-                                    CalOutcome::Day(prev_day)
+                                    // date may be anywhere (even nowhere) after the shift.
+                                    for i in 0..self.len() {
+                                        self[i].select_date(Some(new_date));
+                                    }
+                                    for i in 0..self.len() {
+                                        if self[i].selected_day_as_date().is_some() {
+                                            arg.0.focus(&self[i]);
+                                        }
+                                    }
+                                    CalOutcome::Day(new_date)
                                 }
                             }
                             ct_event!(keycode press Right) => {
@@ -1157,20 +1185,26 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                         .expect("date");
 
                                     self[i].select_day(None);
-                                    self[i].focus.clear();
                                     self[i + 1].select_date(Some(next_day));
-                                    self[i + 1].focus.set(true);
+                                    arg.0.focus(&self[i + 1]);
 
                                     CalOutcome::Day(next_day)
                                 } else {
-                                    let next_day = self[i]
+                                    let new_date = self[i]
                                         .start_date
                                         .checked_add_months(Months::new(1))
                                         .expect("date");
                                     scroll_down_month_list(self, 1);
-                                    self[i].select_date(Some(next_day));
-
-                                    CalOutcome::Day(next_day)
+                                    // date may be anywhere (even nowhere) after the shift.
+                                    for i in 0..self.len() {
+                                        self[i].select_date(Some(new_date));
+                                    }
+                                    for i in 0..self.len() {
+                                        if self[i].selected_day_as_date().is_some() {
+                                            arg.0.focus(&self[i]);
+                                        }
+                                    }
+                                    CalOutcome::Day(new_date)
                                 }
                             }
                             ct_event!(keycode press ALT-Up) => {
@@ -1183,9 +1217,8 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                             date - chrono::Duration::try_days(7).expect("days");
 
                                         self[i].select_week_by_date(Some(new_date));
-                                        self[i].focus.clear();
                                         self[i - 1].select_week_by_date(Some(new_date));
-                                        self[i - 1].focus.set(true);
+                                        arg.0.focus(&self[i - 1]);
                                         CalOutcome::Week(new_date)
                                     } else {
                                         // ?? invalid date
@@ -1195,8 +1228,16 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                     if let Some(date) = self[i].selected_week_as_date() {
                                         let new_date =
                                             date - chrono::Duration::try_days(7).expect("days");
-                                        scroll_up_month_list(self, 1);
-                                        self[i].select_week_by_date(Some(new_date));
+                                        scroll_up_month_list(self, arg.1);
+                                        // date may be anywhere (even nowhere) after the shift.
+                                        for i in 0..self.len() {
+                                            self[i].select_week_by_date(Some(new_date));
+                                        }
+                                        for i in 0..self.len() {
+                                            if self[i].selected_week().is_some() {
+                                                arg.0.focus(&self[i]);
+                                            }
+                                        }
                                         CalOutcome::Week(new_date)
                                     } else {
                                         // ?? invalid date
@@ -1214,9 +1255,8 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                             date + chrono::Duration::try_days(7).expect("days");
 
                                         self[i].select_week_by_date(Some(new_date));
-                                        self[i].focus.clear();
                                         self[i + 1].select_week_by_date(Some(new_date));
-                                        self[i + 1].focus.set(true);
+                                        arg.0.focus(&self[i + 1]);
                                         CalOutcome::Week(new_date)
                                     } else {
                                         // ?? invalid date
@@ -1226,8 +1266,16 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                                     if let Some(date) = self[i].selected_week_as_date() {
                                         let new_date =
                                             date + chrono::Duration::try_days(7).expect("days");
-                                        scroll_down_month_list(self, 1);
-                                        self[i].select_week_by_date(Some(new_date));
+                                        scroll_down_month_list(self, arg.1);
+                                        // date may be anywhere (even nowhere) after the shift.
+                                        for i in 0..self.len() {
+                                            self[i].select_week_by_date(Some(new_date));
+                                        }
+                                        for i in 0..self.len() {
+                                            if self[i].selected_week().is_some() {
+                                                arg.0.focus(&self[i]);
+                                            }
+                                        }
                                         CalOutcome::Week(new_date)
                                     } else {
                                         // ?? invalid date
@@ -1266,8 +1314,7 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                             for k in 0..self.len() {
                                 if self[k].is_focused() {
                                     self[k].select_day(None);
-                                    self[k].focus.clear();
-                                    self[i].focus.set(true);
+                                    arg.0.focus(&self[i]);
                                 } else if i != k {
                                     self[k].select_day(None);
                                 }
@@ -1280,8 +1327,7 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                             for k in 0..self.len() {
                                 if self[k].is_focused() {
                                     self[k].select_day(None);
-                                    self[k].focus.clear();
-                                    self[i].focus.set(true);
+                                    arg.0.focus(&self[i]);
                                 } else if i != k {
                                     self[k].select_day(None);
                                 }
@@ -1299,6 +1345,23 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
             CalOutcome::Continue
         };
 
-        max(r, s)
+        let all_areas = self.iter().map(|v| v.area).reduce(|v, w| v.union(w));
+        let t = if let Some(all_areas) = all_areas {
+            match event {
+                ct_event!(scroll down for x,y) if all_areas.contains((*x, *y).into()) => {
+                    scroll_down_month_list(self, arg.1);
+                    CalOutcome::Changed
+                }
+                ct_event!(scroll up for x,y) if all_areas.contains((*x, *y).into()) => {
+                    scroll_up_month_list(self, arg.1);
+                    CalOutcome::Changed
+                }
+                _ => CalOutcome::Continue,
+            }
+        } else {
+            CalOutcome::Continue
+        };
+
+        max(r, max(s, t))
     }
 }
