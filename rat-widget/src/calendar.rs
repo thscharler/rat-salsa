@@ -89,20 +89,17 @@ pub struct MonthState {
     /// __readonly__. renewed for each render.
     pub area_weeks: [Rect; 6],
     /// Startdate
-    /// __readonly__. renewed for each render.
-    pub start_date: NaiveDate,
+    start_date: NaiveDate,
 
     /// Day selection enabled
-    /// __readonly__. renewed for each render.
     day_selection: bool,
     /// Week selection enabled
-    /// __readonly__. renewed for each render.
     week_selection: bool,
 
     /// Selected week
-    pub selected_week: Option<usize>,
+    selected_week: Option<usize>,
     /// Selected day
-    pub selected_day: Option<usize>,
+    selected_day: Option<usize>,
 
     /// Focus
     /// __read+write__
@@ -575,6 +572,21 @@ impl MonthState {
             focus: FocusFlag::named(name),
             ..Self::default()
         }
+    }
+
+    /// Sets the start-date of the calendar. You can set every date, it
+    /// will always be changed to the first of the month.
+    ///
+    /// Setting this will be useless if the date is set with the Month widget.
+    pub fn set_start_date(&mut self, date: NaiveDate) -> bool {
+        let old_value = self.start_date;
+        self.start_date = date.with_day(1).expect("date");
+        old_value != self.start_date
+    }
+
+    /// Start date of this month. Will always be the first.
+    pub fn start_date(&self) -> NaiveDate {
+        self.start_date
     }
 
     /// Removes all selection.
