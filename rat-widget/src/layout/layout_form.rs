@@ -957,8 +957,8 @@ impl Page {
             FormWidget::WideStretchXY(_, h) => *h,
         };
 
-        let stretch_width = self.container_right.saturating_sub(pos.widget_x + 1);
-        let total_stretch_width = self.container_right.saturating_sub(pos.label_x + 1);
+        let stretch_width = self.container_right.saturating_sub(pos.widget_x);
+        let total_stretch_width = self.container_right.saturating_sub(pos.label_x);
 
         if stacked {
             let max_height = self
