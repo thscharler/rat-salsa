@@ -15,9 +15,9 @@ where
     Event: 'static + Send,
     Error: 'static + Send,
 {
-    rt: Rc<RefCell<Runtime>>,
-    pending: Rc<RefCell<Vec<JoinHandle<Result<Control<Event>, Error>>>>>,
-    send_queue: Sender<Result<Control<Event>, Error>>,
+    pub(crate) rt: Rc<RefCell<Runtime>>,
+    pub(crate) pending: Rc<RefCell<Vec<JoinHandle<Result<Control<Event>, Error>>>>>,
+    pub(crate) send_queue: Sender<Result<Control<Event>, Error>>,
 }
 
 impl<Event, Error> TokioSpawn<Event, Error>
