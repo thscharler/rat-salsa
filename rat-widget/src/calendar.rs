@@ -631,7 +631,7 @@ impl MonthState {
     }
 
     /// Selected week
-    pub fn selected_week_as_date(&mut self) -> Option<NaiveDate> {
+    pub fn selected_week_as_date(&self) -> Option<NaiveDate> {
         self.selected_week.map(|v| self.week_day(v))
     }
 
@@ -666,7 +666,7 @@ impl MonthState {
     }
 
     /// Selected day
-    pub fn selected_day_as_date(&mut self) -> Option<NaiveDate> {
+    pub fn selected_day_as_date(&self) -> Option<NaiveDate> {
         self.selected_day.map(|v| self.month_day(v))
     }
 
@@ -1362,11 +1362,31 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
             match event {
                 ct_event!(scroll down for x,y) if all_areas.contains((*x, *y).into()) => {
                     scroll_down_month_list(self, arg.1);
-                    CalOutcome::Changed
+
+                    'f: {
+                        for m in self.iter() {
+                            if let Some(d) = m.selected_week_as_date() {
+                                break 'f CalOutcome::Week(d);
+                            } else if let Some(d) = m.selected_day_as_date() {
+                                break 'f CalOutcome::Day(d);
+                            }
+                        }
+                        CalOutcome::Changed
+                    }
                 }
                 ct_event!(scroll up for x,y) if all_areas.contains((*x, *y).into()) => {
                     scroll_up_month_list(self, arg.1);
-                    CalOutcome::Changed
+
+                    'f: {
+                        for m in self.iter() {
+                            if let Some(d) = m.selected_week_as_date() {
+                                break 'f CalOutcome::Week(d);
+                            } else if let Some(d) = m.selected_day_as_date() {
+                                break 'f CalOutcome::Day(d);
+                            }
+                        }
+                        CalOutcome::Changed
+                    }
                 }
                 _ => CalOutcome::Continue,
             }
