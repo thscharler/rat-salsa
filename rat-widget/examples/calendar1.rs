@@ -2,15 +2,15 @@
 
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use chrono::{Datelike, Months, NaiveDate};
+use chrono::{Datelike, Local, Months, NaiveDate};
 use pure_rust_locales::Locale;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::button::{Button, ButtonState};
-use rat_widget::calendar::{Month, MonthState};
-use rat_widget::event::{ButtonOutcome, CalOutcome, Outcome};
+use rat_widget::calendar::{Month, MonthState, MultiMonth};
+use rat_widget::event::{ButtonOutcome, Outcome};
 use rat_widget::statusline::StatusLineState;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -19,41 +19,26 @@ use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::cmp::max;
 use std::collections::HashMap;
-use std::ops::{Add, Sub};
 
 mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {
-        date: chrono::offset::Local::now().date_naive(),
-    };
-
-    let mut state = State {
-        months: Default::default(),
-        prev: Default::default(),
-        next: Default::default(),
-        menu: Default::default(),
-        status: Default::default(),
-    };
+    let mut state = State::new();
     state.menu.focus.set(true);
 
     run_ui(
         "calendar1",
         handle_input,
         repaint_input,
-        &mut data,
+        &mut (),
         &mut state,
     )
 }
 
-struct Data {
-    date: NaiveDate,
-}
-
 struct State {
-    months: [MonthState; 5],
+    months: [MonthState; 3],
 
     prev: ButtonState,
     next: ButtonState,
@@ -62,38 +47,54 @@ struct State {
     status: StatusLineState,
 }
 
-impl Data {
-    fn prev_month(&mut self) {
-        self.date = self.date.sub(Months::new(1));
-    }
-
-    fn next_month(&mut self) {
-        self.date = self.date.add(Months::new(1));
-    }
-}
-
 impl State {
+    fn new() -> Self {
+        let mut s = Self {
+            months: Default::default(),
+            prev: Default::default(),
+            next: Default::default(),
+            menu: Default::default(),
+            status: Default::default(),
+        };
+
+        let today = Local::now().date_naive().with_day(1).expect("date");
+        s.months[0].set_start_date(today.checked_sub_months(Months::new(1)).expect("date"));
+        s.months[1].set_start_date(today);
+        s.months[2].set_start_date(today.checked_add_months(Months::new(1)).expect("date"));
+        s
+    }
+
+    fn set_start_date(&mut self, date: NaiveDate) {
+        self.months[0].set_start_date(date.checked_sub_months(Months::new(1)).expect("date"));
+        self.months[1].set_start_date(date);
+        self.months[2].set_start_date(date.checked_add_months(Months::new(1)).expect("date"));
+    }
+
+    fn start_date(&self) -> NaiveDate {
+        self.months[1].start_date()
+    }
+
     fn prev_month(&mut self) {
-        self.months.swap(4, 3);
-        self.months.swap(3, 2);
-        self.months.swap(2, 1);
-        self.months.swap(1, 0);
-        self.months[0] = Default::default();
+        let prev = self
+            .start_date()
+            .checked_sub_months(Months::new(1))
+            .expect("date");
+        self.set_start_date(prev);
     }
 
     fn next_month(&mut self) {
-        self.months.swap(0, 1);
-        self.months.swap(1, 2);
-        self.months.swap(2, 3);
-        self.months.swap(3, 4);
-        self.months[4] = Default::default();
+        let prev = self
+            .start_date()
+            .checked_add_months(Months::new(1))
+            .expect("date");
+        self.set_start_date(prev);
     }
 }
 
 fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
-    data: &mut Data,
+    _data: &mut (),
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
@@ -132,25 +133,16 @@ fn repaint_input(
         NaiveDate::from_ymd_opt(2024, 9, 1).expect("some"),
         Style::default().red(),
     );
-    date_styles.insert(chrono::offset::Local::now().date_naive(), THEME.redpink(3));
+    date_styles.insert(Local::now().date_naive(), THEME.redpink(3));
 
-    let date1 = data.date.with_day(1).expect("date");
-    let date_b = date1.sub(Months::new(2));
-    let date0 = date1.sub(Months::new(1));
-    let date2 = date1.add(Months::new(1));
-    let date_a = date1.add(Months::new(2));
-
-    state.months[0].start_date = date_b.with_day(1).unwrap();
-    state.months[4].start_date = date_a.with_day(1).unwrap();
-
-    let title = if date0.year() != date2.year() {
+    let title = if state.months[0].start_date().year() != state.months[2].start_date().year() {
         format!(
             "{} / {}",
-            date0.format("%Y").to_string(),
-            date2.format("%Y").to_string()
+            state.months[0].start_date().format("%Y").to_string(),
+            state.months[2].start_date().format("%Y").to_string()
         )
     } else {
-        date0.format("%Y").to_string()
+        state.months[0].start_date().format("%Y").to_string()
     };
 
     Line::from(title)
@@ -159,7 +151,6 @@ fn repaint_input(
         .render(l4[2], frame.buffer_mut());
 
     Month::new()
-        .date(date0)
         .locale(Locale::de_AT_euro)
         .styles(THEME.month_style())
         .title_align(Alignment::Left)
@@ -168,10 +159,9 @@ fn repaint_input(
         .week_selection()
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[1], frame.buffer_mut(), &mut state.months[1]);
+        .render(l2[1], frame.buffer_mut(), &mut state.months[0]);
 
     Month::new()
-        .date(date1)
         .locale(Locale::de_AT_euro)
         .styles(THEME.month_style())
         .title_align(Alignment::Left)
@@ -180,10 +170,9 @@ fn repaint_input(
         .week_selection()
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[2], frame.buffer_mut(), &mut state.months[2]);
+        .render(l2[2], frame.buffer_mut(), &mut state.months[1]);
 
     Month::new()
-        .date(date2)
         .locale(Locale::de_AT_euro)
         .styles(THEME.month_style())
         .title_align(Alignment::Left)
@@ -192,7 +181,7 @@ fn repaint_input(
         .week_selection()
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[3], frame.buffer_mut(), &mut state.months[3]);
+        .render(l2[3], frame.buffer_mut(), &mut state.months[2]);
 
     Button::new("<<<").styles(THEME.button_style()).render(
         l4[1],
@@ -218,54 +207,27 @@ fn repaint_input(
 
 fn focus(state: &State) -> Focus {
     let mut fb = FocusBuilder::default();
-    fb.widget(&state.months[1])
+    fb.widget(&state.months[0])
+        .widget(&state.months[1])
         .widget(&state.months[2])
-        .widget(&state.months[3])
         .widget(&state.menu);
     fb.build()
 }
 
 fn handle_input(
     event: &crossterm::event::Event,
-    data: &mut Data,
+    _data: &mut (),
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
     let f = focus.handle(event, Regular);
 
-    let r: Outcome = match state.months.as_mut_slice().handle(event, Regular) {
-        CalOutcome::Month(0) => {
-            data.prev_month();
-            state.prev_month();
-            // renew focus
-            let focus = crate::focus(state);
-            focus.focus(&state.months[1]);
-
-            Outcome::Changed
-        }
-        CalOutcome::Month(1) => {
-            focus.focus(&state.months[1]);
-            Outcome::Changed
-        }
-        CalOutcome::Month(2) => {
-            focus.focus(&state.months[2]);
-            Outcome::Changed
-        }
-        CalOutcome::Month(3) => {
-            focus.focus(&state.months[3]);
-            Outcome::Changed
-        }
-        CalOutcome::Month(4) => {
-            data.next_month();
-            state.next_month();
-            // renew focus
-            let focus = crate::focus(state);
-            focus.focus(&state.months[3]);
-            Outcome::Changed
-        }
-        r => r.into(),
-    };
+    let r: Outcome = state
+        .months
+        .as_mut_slice()
+        .handle(event, MultiMonth(&focus, 1))
+        .into();
 
     let r = r.or_else(|| match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
@@ -277,7 +239,6 @@ fn handle_input(
 
     let r = r.or_else(|| match state.prev.handle(event, Regular) {
         ButtonOutcome::Pressed => {
-            data.prev_month();
             state.prev_month();
             Outcome::Changed
         }
@@ -285,7 +246,6 @@ fn handle_input(
     });
     let r = r.or_else(|| match state.next.handle(event, Regular) {
         ButtonOutcome::Pressed => {
-            data.next_month();
             state.next_month();
             Outcome::Changed
         }
@@ -293,22 +253,10 @@ fn handle_input(
     });
     let r = r.or_else(|| match event {
         ct_event!(keycode press PageUp) => {
-            data.prev_month();
             state.prev_month();
             Outcome::Changed
         }
         ct_event!(keycode press PageDown) => {
-            data.next_month();
-            state.next_month();
-            Outcome::Changed
-        }
-        ct_event!(scroll up for _x,_y) => {
-            data.prev_month();
-            state.prev_month();
-            Outcome::Changed
-        }
-        ct_event!(scroll down for _x,_y) => {
-            data.next_month();
             state.next_month();
             Outcome::Changed
         }
