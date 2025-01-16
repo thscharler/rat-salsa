@@ -29,6 +29,12 @@ macro_rules! impl_relocatable_state {
     };
 }
 
+impl RelocatableState for Rect {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        *self = relocate_area(*self, shift, clip);
+    }
+}
+
 /// Shift the area by offset and clip it.
 pub fn relocate_areas(area: &mut [Rect], shift: (i16, i16), clip: Rect) {
     for a in area {
