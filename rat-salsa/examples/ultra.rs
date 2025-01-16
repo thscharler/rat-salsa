@@ -1,5 +1,5 @@
 use anyhow::Error;
-use rat_salsa::poll::PollCrossterm;
+use rat_salsa::poll_events::PollCrossterm;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme::{dark_theme::DarkTheme, scheme::IMPERIAL};
 use rat_widget::event::ct_event;

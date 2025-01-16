@@ -1,4 +1,4 @@
-use crate::poll::PollEvents;
+use crate::poll_events::PollEvents;
 use crate::terminal::{CrosstermTerminal, Terminal};
 use crate::AppWidget;
 use crossbeam::channel::TryRecvError;

@@ -1,6 +1,4 @@
-//!
-//! The thread-pool for the background tasks.
-//!
+//! Thread pool.
 
 use crate::Control;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};

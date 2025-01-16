@@ -13,7 +13,7 @@ use crate::message::TurboEvent;
 
 use crate::theme::TurboTheme;
 use anyhow::Error;
-use rat_salsa::poll::PollCrossterm;
+use rat_salsa::poll_events::PollCrossterm;
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::scheme::BASE16;
 

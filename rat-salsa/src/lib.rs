@@ -1,7 +1,13 @@
 #![doc = include_str!("../readme.md")]
 
+use crate::framework::control_queue::ControlQueue;
+use crate::thread_pool::{Cancel, ThreadPool};
+use crate::timer::{TimerDef, TimerHandle, Timers};
+#[cfg(feature = "async")]
+use crate::tokio_tasks::TokioSpawn;
 use crossbeam::channel::{SendError, Sender};
 use rat_widget::event::{ConsumedEvent, Outcome};
+use rat_widget::focus::Focus;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::cmp::Ordering;
@@ -12,29 +18,36 @@ use std::mem;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 
-pub(crate) mod control_queue;
 mod framework;
-pub mod poll;
-pub(crate) mod poll_queue;
+mod poll_events;
+pub mod rendered;
 mod run_config;
 pub mod terminal;
-mod threadpool;
+pub mod thread_pool;
 pub mod timer;
 #[cfg(feature = "async")]
 mod tokio_tasks;
 
-use crate::control_queue::ControlQueue;
-use crate::threadpool::ThreadPool;
-use crate::timer::{TimerDef, TimerHandle, Timers};
-#[cfg(feature = "async")]
-use crate::tokio_tasks::TokioSpawn;
-use rat_widget::focus::Focus;
+/// Event sources.
+pub mod poll {
+    mod crossterm;
+    mod rendered;
+    mod thread_pool;
+    mod timer;
+    #[cfg(feature = "async")]
+    mod tokio_tasks;
 
-pub use framework::*;
-pub use run_config::*;
-pub use threadpool::Cancel;
-#[cfg(feature = "async")]
-pub use tokio_tasks::PollTokio;
+    pub use crossterm::PollCrossterm;
+    pub use rendered::PollRendered;
+    pub use thread_pool::PollTasks;
+    pub use timer::PollTimers;
+    #[cfg(feature = "async")]
+    pub use tokio_tasks::PollTokio;
+}
+
+pub use framework::run_tui;
+pub use poll_events::PollEvents;
+pub use run_config::RunConfig;
 
 /// Result enum for event handling.
 ///
@@ -175,9 +188,6 @@ where
         ctx: &mut RenderContext<'_, Global>,
     ) -> Result<(), Error>;
 }
-
-/// Event sent immediately after rendering.
-pub struct RenderedEvent;
 
 ///
 /// AppState executes events and has some init and error-handling.

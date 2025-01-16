@@ -1,7 +1,6 @@
 //!
 //! Support for timers.
 //!
-
 use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
 

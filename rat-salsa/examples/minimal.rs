@@ -3,7 +3,7 @@ use crate::event::MinimalEvent;
 use crate::global::GlobalState;
 use crate::scenery::{Scenery, SceneryState};
 use anyhow::Error;
-use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
+use rat_salsa::poll_events::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;

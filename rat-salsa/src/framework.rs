@@ -1,18 +1,21 @@
-use crate::control_queue::ControlQueue;
-use crate::poll::{PollRendered, PollTasks, PollTimers};
-use crate::poll_queue::PollQueue;
-use crate::run_config::RunConfig;
-use crate::threadpool::ThreadPool;
-use crate::timer::Timers;
+use crate::framework::control_queue::ControlQueue;
 #[cfg(feature = "async")]
-use crate::tokio_tasks::PollTokio;
+use crate::poll::PollTokio;
+use crate::poll::{PollRendered, PollTasks, PollTimers};
+use crate::run_config::RunConfig;
+use crate::thread_pool::ThreadPool;
+use crate::timer::Timers;
 use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
 use crossbeam::channel::{SendError, TryRecvError};
+use poll_queue::PollQueue;
 use std::any::TypeId;
 use std::cmp::min;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::time::Duration;
 use std::{io, thread};
+
+pub(crate) mod control_queue;
+mod poll_queue;
 
 const SLEEP: u64 = 250_000; // µs
 const BACKOFF: u64 = 10_000; // µs

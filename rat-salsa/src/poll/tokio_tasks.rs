@@ -1,21 +1,18 @@
-use crate::poll::PollEvents;
-use crate::{AppContext, AppState, Control};
+use crate::tokio_tasks::TokioSpawn;
+use crate::{AppContext, AppState, Control, PollEvents};
 use log::error;
 use std::any::Any;
 use std::cell::RefCell;
-use std::future::Future;
 use std::rc::Rc;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::task::{AbortHandle, JoinHandle};
+use tokio::task::JoinHandle;
 
 /// Add PollTokio to the configuration to enable spawning
 /// async operations from the application.
 ///
 /// You cannot work with `tokio-main` but need to initialize
 /// the runtime manually.
-///
-///
 ///
 #[derive(Debug)]
 pub struct PollTokio<Event, Error>
@@ -27,37 +24,6 @@ where
     pending: Rc<RefCell<Vec<JoinHandle<Result<Control<Event>, Error>>>>>,
     send_queue: Sender<Result<Control<Event>, Error>>,
     recv_queue: Receiver<Result<Control<Event>, Error>>,
-}
-
-#[derive(Debug)]
-pub(crate) struct TokioSpawn<Event, Error>
-where
-    Event: 'static + Send,
-    Error: 'static + Send,
-{
-    rt: Rc<RefCell<Runtime>>,
-    pending: Rc<RefCell<Vec<JoinHandle<Result<Control<Event>, Error>>>>>,
-    send_queue: Sender<Result<Control<Event>, Error>>,
-}
-
-impl<Event, Error> TokioSpawn<Event, Error>
-where
-    Event: 'static + Send,
-    Error: 'static + Send,
-{
-    pub(crate) fn spawn(
-        &self,
-        future: Box<dyn Future<Output = Result<Control<Event>, Error>> + Send>,
-    ) -> AbortHandle {
-        let h = self.rt.borrow().spawn(Box::into_pin(future));
-        let ah = h.abort_handle();
-        self.pending.borrow_mut().push(h);
-        ah
-    }
-
-    pub(crate) fn sender(&self) -> Sender<Result<Control<Event>, Error>> {
-        self.send_queue.clone()
-    }
 }
 
 impl<Event, Error> PollTokio<Event, Error>
