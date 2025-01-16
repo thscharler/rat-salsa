@@ -309,13 +309,14 @@ where
         // resize buffer to fit all visible widgets.
         let buffer_area = ext_area;
         // resize buffer to fit the layout.
-        let buffer = if let Some(mut buffer) = state.buffer.take() {
+        let mut buffer = if let Some(mut buffer) = state.buffer.take() {
             buffer.reset();
             buffer.resize(buffer_area);
             buffer
         } else {
             Buffer::empty(buffer_area)
         };
+        buffer.set_style(buffer_area, self.style);
 
         ClipperBuffer {
             layout: state.layout.clone(),
