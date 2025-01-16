@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::button::event::ButtonOutcome;
 use crate::util::{block_size, revert_style};
-use rat_event::util::have_keyboard_enhancement;
+use rat_event::util::{have_keyboard_enhancement, MouseFlags};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
@@ -26,6 +26,7 @@ pub struct Button<'a> {
     text: Text<'a>,
     style: Style,
     focus_style: Option<Style>,
+    hover_style: Option<Style>,
     armed_style: Option<Style>,
     armed_delay: Option<Duration>,
     block: Option<Block<'a>>,
@@ -40,6 +41,8 @@ pub struct ButtonStyle {
     pub focus: Option<Style>,
     /// Armed style
     pub armed: Option<Style>,
+    /// Hover style
+    pub hover: Option<Style>,
     /// Button border
     pub block: Option<Block<'static>>,
     /// Some terminals repaint too fast to see the click.
@@ -60,6 +63,8 @@ pub struct ButtonState {
     /// __readonly__. renewed for each render.
     pub inner: Rect,
 
+    /// Hover is enabled?
+    pub hover_enabled: bool,
     /// Button has been clicked but not released yet.
     /// __used for mouse interaction__
     pub armed: bool,
@@ -74,6 +79,8 @@ pub struct ButtonState {
     /// __read+write__
     pub focus: FocusFlag,
 
+    pub mouse: MouseFlags,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -83,6 +90,7 @@ impl Default for ButtonStyle {
             style: Default::default(),
             focus: None,
             armed: None,
+            hover: None,
             block: None,
             armed_delay: None,
             non_exhaustive: NonExhaustive,
@@ -118,6 +126,9 @@ impl<'a> Button<'a> {
         if styles.armed_delay.is_some() {
             self.armed_delay = styles.armed_delay;
         }
+        if styles.hover.is_some() {
+            self.hover_style = styles.hover;
+        }
         if let Some(block) = styles.block {
             self.block = Some(block);
         }
@@ -151,6 +162,12 @@ impl<'a> Button<'a> {
     /// armed to clicked.
     pub fn armed_delay(mut self, delay: Duration) -> Self {
         self.armed_delay = Some(delay);
+        self
+    }
+
+    /// Style for hover over the button.
+    pub fn hover_style(mut self, style: impl Into<Style>) -> Self {
+        self.hover_style = Some(style.into());
         self
     }
 
@@ -213,6 +230,7 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
     state.armed_delay = widget.armed_delay;
+    state.hover_enabled = widget.hover_style.is_some();
 
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -235,7 +253,9 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
         buf.set_style(area, widget.style);
     }
 
-    if state.focus.get() {
+    if state.mouse.hover.get() && widget.hover_style.is_some() {
+        buf.set_style(state.inner, widget.hover_style.expect("style"))
+    } else if state.is_focused() {
         buf.set_style(state.inner, focus_style);
     }
 
@@ -260,9 +280,11 @@ impl Clone for ButtonState {
         Self {
             area: self.area,
             inner: self.inner,
+            hover_enabled: false,
             armed: self.armed,
             armed_delay: self.armed_delay,
             focus: FocusFlag::named(self.focus.name()),
+            mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -273,9 +295,11 @@ impl Default for ButtonState {
         Self {
             area: Default::default(),
             inner: Default::default(),
+            hover_enabled: false,
             armed: false,
             armed_delay: None,
             focus: Default::default(),
+            mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -425,6 +449,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for ButtonSt
                     }
                 }
             }
+            ct_event!(mouse any for m) if self.mouse.hover(self.area, m) => ButtonOutcome::Changed,
             _ => ButtonOutcome::Continue,
         }
     }
