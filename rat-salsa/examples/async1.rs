@@ -3,9 +3,9 @@ use crate::event::Async1Event;
 use crate::global::GlobalState;
 use crate::scenery::{Scenery, SceneryState};
 use anyhow::Error;
-use rat_salsa::poll_events::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 #[cfg(feature = "async")]
-use rat_salsa::PollTokio;
+use rat_salsa::poll::PollTokio;
+use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
@@ -76,8 +76,8 @@ pub mod config {
 
 /// Application wide messages.
 pub mod event {
+    use rat_salsa::rendered::RenderedEvent;
     use rat_salsa::timer::TimeOut;
-    use rat_salsa::RenderedEvent;
 
     #[derive(Debug)]
     pub enum Async1Event {

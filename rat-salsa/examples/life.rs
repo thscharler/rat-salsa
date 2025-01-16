@@ -12,7 +12,7 @@ use crate::config::LifeConfig;
 use crate::global::{GlobalState, PollTick};
 use crate::message::LifeEvent;
 use anyhow::Error;
-use rat_salsa::poll_events::PollCrossterm;
+use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
@@ -61,7 +61,7 @@ pub mod global {
     use crate::config::LifeConfig;
     use crate::game::LifeGameState;
     use crate::message::LifeEvent;
-    use rat_salsa::poll_events::PollEvents;
+    use rat_salsa::PollEvents;
     use rat_salsa::{AppContext, AppState, Control};
     use rat_theme::dark_theme::DarkTheme;
     use rat_widget::msgdialog::MsgDialogState;

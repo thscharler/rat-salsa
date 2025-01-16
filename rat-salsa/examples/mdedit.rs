@@ -5,9 +5,10 @@
 use crate::facilities::MDFileDialogState;
 use crate::root::{MDRoot, MDRootState};
 use anyhow::Error;
-use rat_salsa::poll_events::{PollCrossterm, PollRendered, PollTasks, PollTimers};
+use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
+use rat_salsa::rendered::RenderedEvent;
 use rat_salsa::timer::TimeOut;
-use rat_salsa::{run_tui, RenderedEvent, RunConfig};
+use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use rat_theme::Scheme;

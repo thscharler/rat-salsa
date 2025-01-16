@@ -3,7 +3,7 @@
 use crate::mask0::{Mask0, Mask0State};
 use anyhow::Error;
 use crossterm::event::Event;
-use rat_salsa::poll_events::{PollCrossterm, PollTasks, PollTimers};
+use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
