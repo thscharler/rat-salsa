@@ -15,9 +15,9 @@ use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
 #[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::fmt::Debug;
