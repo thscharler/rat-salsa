@@ -150,7 +150,7 @@ impl<'a> StrGraphemes<'a> {
     }
 }
 
-impl<'a> Cursor for StrGraphemes<'a> {
+impl Cursor for StrGraphemes<'_> {
     fn prev(&mut self) -> Option<Self::Item> {
         let start = self.cursor.cur_cursor();
         let prev = self.cursor.prev_boundary(self.text, 0).unwrap()?;
@@ -203,7 +203,7 @@ impl<'a> Iterator for RevStrGraphemes<'a> {
     }
 }
 
-impl<'a> Cursor for RevStrGraphemes<'a> {
+impl Cursor for RevStrGraphemes<'_> {
     #[inline]
     fn prev(&mut self) -> Option<Self::Item> {
         self.it.next()
@@ -426,7 +426,7 @@ impl<'a> Iterator for RevRopeGraphemes<'a> {
     }
 }
 
-impl<'a> Cursor for RevRopeGraphemes<'a> {
+impl Cursor for RevRopeGraphemes<'_> {
     #[inline]
     fn prev(&mut self) -> Option<Self::Item> {
         self.it.next()

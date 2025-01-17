@@ -750,7 +750,7 @@ impl<'a, Selection> Table<'a, Selection> {
             self.block = styles.block;
         }
         if let Some(styles) = styles.scroll {
-            self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
+            self.hscroll = self.hscroll.map(|v| v.styles(styles));
             self.vscroll = self.vscroll.map(|v| v.styles(styles));
         }
         self
@@ -1993,6 +1993,7 @@ impl TableState<RowSelection> {
     /// Return the selected row and ensure it is in the
     /// range 0..rows.
     #[inline]
+    #[allow(clippy::manual_filter)]
     pub fn selected_checked(&self) -> Option<usize> {
         if let Some(selected) = self.selection.selected() {
             if selected < self.rows {

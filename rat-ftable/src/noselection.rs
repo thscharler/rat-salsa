@@ -128,7 +128,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableStat
             .area(self.inner)
             .h_scroll(&mut self.hscroll)
             .v_scroll(&mut self.vscroll);
-        let r = match sas.handle(event, MouseOnly) {
+
+        match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => {
                 if self.scroll_up(v) {
                     TableOutcome::Changed
@@ -174,8 +175,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableStat
             ScrollOutcome::Continue => TableOutcome::Continue,
             ScrollOutcome::Unchanged => TableOutcome::Unchanged,
             ScrollOutcome::Changed => TableOutcome::Changed,
-        };
-        r
+        }
     }
 }
 

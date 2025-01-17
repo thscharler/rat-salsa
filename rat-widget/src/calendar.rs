@@ -1020,6 +1020,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState 
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn scroll_up_month_list(months: &mut [MonthState], delta: u32) {
     // change start dates
     let mut start = months[0]
@@ -1032,6 +1033,7 @@ fn scroll_up_month_list(months: &mut [MonthState], delta: u32) {
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn scroll_down_month_list(months: &mut [MonthState], delta: u32) {
     // change start dates
     let mut start = months[0]

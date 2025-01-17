@@ -142,7 +142,9 @@ pub enum Navigation {
 /// - build()
 /// - focus()
 /// - area()
+///
 /// and optionally
+///
 /// - area_z() and navigable()
 ///
 /// ```rust no_run

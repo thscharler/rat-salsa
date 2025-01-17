@@ -10,6 +10,9 @@ keywords = ["ratatui", "table", "large"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "ftable.gif"]
 
+[lints.clippy]
+collapsible_else_if = "allow"
+
 [features]
 unstable-widget-ref = [
     "ratatui/unstable-widget-ref",

@@ -38,7 +38,7 @@ static GLOBAL_CLIPBOARD: OnceLock<StaticClipboard> = OnceLock::new();
 
 /// Get a Clone of the global default clipboard.
 pub fn global_clipboard() -> Box<dyn Clipboard> {
-    let c = GLOBAL_CLIPBOARD.get_or_init(|| StaticClipboard::default());
+    let c = GLOBAL_CLIPBOARD.get_or_init(StaticClipboard::default);
     Box::new(c.clone())
 }
 

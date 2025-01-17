@@ -1234,13 +1234,11 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Regula
             ChoiceOutcome::Continue
         };
 
-        let r = if !r.is_consumed() {
+        if !r.is_consumed() {
             self.handle(event, MouseOnly)
         } else {
             r
-        };
-
-        r
+        }
     }
 }
 
