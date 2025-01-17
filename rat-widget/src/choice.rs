@@ -680,7 +680,10 @@ where
 }
 
 #[cfg(feature = "unstable-widget-ref")]
-impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T> {
+impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T>
+where
+    T: PartialEq + Clone + Default,
+{
     type State = ChoiceState<T>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -688,7 +691,7 @@ impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T> {
 
         state.core.set_values(self.values.borrow().clone());
         if let Some(default_value) = self.default_value.clone() {
-            state.core.set_default_value(default_value);
+            state.core.set_default_value(Some(default_value));
         }
     }
 }

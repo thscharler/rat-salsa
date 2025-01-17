@@ -13,8 +13,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, ListDirection, ListItem, StatefulWidget};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::min;
 use std::collections::HashSet;
 use std::marker::PhantomData;

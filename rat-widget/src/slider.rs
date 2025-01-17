@@ -567,7 +567,11 @@ where
 }
 
 #[cfg(feature = "unstable-widget-ref")]
-impl<'a, T> StatefulWidgetRef for Slider<'a, T> {
+impl<'a, T> StatefulWidgetRef for Slider<'a, T>
+where
+    T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
+    u16: MapRange<T>,
+{
     type State = SliderState<T>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
