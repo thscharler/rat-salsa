@@ -2,7 +2,6 @@
 #![allow(dead_code)]
 #![allow(unreachable_pub)]
 
-use crate::facilities::MDFileDialogState;
 use crate::root::{MDRoot, MDRootState};
 use anyhow::Error;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
@@ -12,10 +11,9 @@ use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use rat_theme::Scheme;
-use rat_widget::msgdialog::MsgDialogState;
-use rat_widget::statusline::StatusLineState;
 use std::fs;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 mod mdedit_parts;
 
@@ -58,32 +56,19 @@ fn main() -> Result<(), Error> {
 #[derive(Debug)]
 pub struct GlobalState {
     pub cfg: MDConfig,
-    pub theme: DarkTheme,
-
-    pub status: StatusLineState,
-    pub error_dlg: MsgDialogState,
-    pub message_dlg: MsgDialogState,
-    pub file_dlg: MDFileDialogState,
+    pub theme: Rc<DarkTheme>,
 }
 
 impl GlobalState {
     fn new(cfg: MDConfig, theme: DarkTheme) -> Self {
         Self {
             cfg,
-            theme,
-            status: Default::default(),
-            error_dlg: Default::default(),
-            message_dlg: Default::default(),
-            file_dlg: Default::default(),
+            theme: Rc::new(theme),
         }
     }
 
-    fn theme(&self) -> &DarkTheme {
-        &self.theme
-    }
-
     fn scheme(&self) -> &Scheme {
-        self.theme.scheme()
+        &self.theme.scheme()
     }
 }
 
@@ -98,8 +83,8 @@ pub enum MDEvent {
     Event(crossterm::event::Event),
     TimeOut(TimeOut),
     Rendered,
-
     Message(String),
+    Status(usize, String),
 
     MenuNew,
     MenuOpen,
@@ -152,7 +137,7 @@ mod root {
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, ConsumedEvent};
     use rat_widget::focus::FocusBuilder;
-    use rat_widget::statusline::StatusLine;
+    use rat_widget::statusline::{StatusLine, StatusLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::StatefulWidget;
@@ -164,6 +149,7 @@ mod root {
     #[derive(Debug, Default)]
     pub struct MDRootState {
         pub app: MDAppState,
+        pub status: StatusLineState,
     }
 
     impl AppWidget<GlobalState, MDEvent, Error> for MDRoot {
@@ -177,6 +163,7 @@ mod root {
             ctx: &mut RenderContext<'_, GlobalState>,
         ) -> Result<(), Error> {
             let t0 = SystemTime::now();
+            let theme = ctx.g.theme.clone();
 
             let r = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
             let s = Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
@@ -185,7 +172,7 @@ mod root {
             MDApp.render(area, buf, &mut state.app, ctx)?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(2, format!("R {:.0?}", el).to_string());
+            state.status.status(2, format!("R {:.0?}", el).to_string());
 
             let status = StatusLine::new()
                 .layout([
@@ -196,13 +183,13 @@ mod root {
                     Constraint::Length(7),
                 ])
                 .styles(vec![
-                    ctx.g.theme.status_base(),
-                    ctx.g.theme.deepblue(3),
-                    ctx.g.theme.deepblue(2),
-                    ctx.g.theme.deepblue(1),
-                    ctx.g.theme.deepblue(0),
+                    theme.status_base(),
+                    theme.deepblue(3),
+                    theme.deepblue(2),
+                    theme.deepblue(1),
+                    theme.deepblue(0),
                 ]);
-            status.render(s[1], buf, &mut ctx.g.status);
+            status.render(s[1], buf, &mut state.status);
 
             Ok(())
         }
@@ -235,6 +222,10 @@ mod root {
                     ctx.focus = Some(FocusBuilder::rebuild_for(&self.app, ctx.focus.take()));
                     Control::Continue
                 }
+                MDEvent::Status(n, s) => {
+                    self.status.status(*n, s);
+                    Control::Changed
+                }
                 _ => Control::Continue,
             };
 
@@ -242,7 +233,7 @@ mod root {
 
             if r == Control::Changed {
                 let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-                ctx.g.status.status(4, format!("T {:.0?}", el).to_string());
+                self.status.status(4, format!("T {:.0?}", el).to_string());
             }
 
             Ok(r)
@@ -356,7 +347,7 @@ pub mod facilities {
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 mod app {
-    use crate::facilities::{Facility, MDFileDialog};
+    use crate::facilities::{Facility, MDFileDialog, MDFileDialogState};
     use crate::mdedit::{MDEdit, MDEditState};
     use crate::{AppContext, GlobalState, MDEvent, CHEAT, HELP};
     use anyhow::Error;
@@ -368,13 +359,14 @@ mod app {
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::layout::layout_middle;
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState, Separator};
-    use rat_widget::msgdialog::MsgDialog;
+    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
     use rat_widget::popup::Placement;
     use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{StatefulWidget, Style};
     use ratatui::widgets::{Block, BorderType, Padding};
+    use std::rc::Rc;
     use std::str::from_utf8;
 
     #[derive(Debug)]
@@ -437,6 +429,10 @@ mod app {
     pub struct MDAppState {
         pub editor: MDEditState,
         pub menu: MenubarState,
+
+        pub message_dlg: MsgDialogState,
+        pub error_dlg: MsgDialogState,
+        pub file_dlg: MDFileDialogState,
     }
 
     impl Default for MDAppState {
@@ -444,6 +440,9 @@ mod app {
             let s = Self {
                 editor: MDEditState::default(),
                 menu: MenubarState::named("menu"),
+                message_dlg: Default::default(),
+                error_dlg: Default::default(),
+                file_dlg: Default::default(),
             };
             s
         }
@@ -459,6 +458,8 @@ mod app {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_, GlobalState>,
         ) -> Result<(), Error> {
+            let theme = ctx.g.theme.clone();
+
             let r = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
             let s = Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
                 .split(r[1]);
@@ -474,7 +475,7 @@ mod app {
                 .popup_width(25)
                 .popup_block(Block::bordered())
                 .popup_placement(Placement::Above)
-                .styles(ctx.g.theme.menu_style())
+                .styles(theme.menu_style())
                 .into_widgets();
             menu.render(s[0], buf, &mut state.menu);
 
@@ -485,14 +486,16 @@ mod app {
                 Constraint::Percentage(39),
                 Constraint::Length(0),
             );
-            MDFileDialog::new()
-                .style(ctx.g.theme.file_dialog_style())
-                .render(l_fd, buf, &mut ctx.g.file_dlg);
-            ctx.set_screen_cursor(ctx.g.file_dlg.screen_cursor());
+            MDFileDialog::new().style(theme.file_dialog_style()).render(
+                l_fd,
+                buf,
+                &mut state.file_dlg,
+            );
+            ctx.set_screen_cursor(state.file_dlg.screen_cursor());
 
             menu_popup.render(s[0], buf, &mut state.menu);
 
-            if ctx.g.error_dlg.active() {
+            if state.error_dlg.active() {
                 let l_msg = layout_middle(
                     r[0],
                     Constraint::Percentage(19),
@@ -503,16 +506,16 @@ mod app {
                 let err = MsgDialog::new()
                     .block(
                         Block::bordered()
-                            .style(ctx.g.theme.dialog_base())
+                            .style(theme.dialog_base())
                             .border_type(BorderType::Rounded)
                             .title_style(Style::new().fg(ctx.g.scheme().red[0]))
                             .padding(Padding::new(1, 1, 1, 1)),
                     )
-                    .styles(ctx.g.theme.msg_dialog_style());
-                err.render(l_msg, buf, &mut ctx.g.error_dlg);
+                    .styles(theme.msg_dialog_style());
+                err.render(l_msg, buf, &mut state.error_dlg);
             }
 
-            if ctx.g.message_dlg.active() {
+            if state.message_dlg.active() {
                 let l_msg = layout_middle(
                     r[0],
                     Constraint::Percentage(4),
@@ -521,19 +524,19 @@ mod app {
                     Constraint::Percentage(4),
                 );
                 let err = MsgDialog::new()
-                .block(
-                    Block::bordered()
-                        .style(
-                            Style::default() //
-                                .fg(ctx.g.theme.scheme().white[2])
-                                .bg(ctx.g.theme.scheme().deepblue[0]),
-                        )
-                        .border_type(BorderType::Rounded)
-                        .title_style(Style::new().fg(ctx.g.scheme().bluegreen[0]))
-                        .padding(Padding::new(1, 1, 1, 1)),
-                )
-                .styles(ctx.g.theme.msg_dialog_style());
-                err.render(l_msg, buf, &mut ctx.g.message_dlg);
+                    .block(
+                        Block::bordered()
+                            .style(
+                                Style::default() //
+                                    .fg(theme.scheme().white[2])
+                                    .bg(theme.scheme().deepblue[0]),
+                            )
+                            .border_type(BorderType::Rounded)
+                            .title_style(Style::new().fg(ctx.g.scheme().bluegreen[0]))
+                            .padding(Padding::new(1, 1, 1, 1)),
+                    )
+                    .styles(theme.msg_dialog_style());
+                err.render(l_msg, buf, &mut state.message_dlg);
             }
 
             Ok(())
@@ -583,8 +586,8 @@ mod app {
         }
 
         fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<MDEvent>, Error> {
-            ctx.g.error_dlg.title("Error occured");
-            ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
+            self.error_dlg.title("Error occured");
+            self.error_dlg.append(format!("{:?}", &*event).as_str());
             Ok(Control::Changed)
         }
     }
@@ -595,9 +598,9 @@ mod app {
             event: &crossterm::event::Event,
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MDEvent>, Error> {
-            try_flow!(ctx.g.error_dlg.handle(event, Dialog));
-            try_flow!(ctx.g.message_dlg.handle(event, Dialog));
-            try_flow!(ctx.g.file_dlg.handle(event)?);
+            try_flow!(self.error_dlg.handle(event, Dialog));
+            try_flow!(self.message_dlg.handle(event, Dialog));
+            try_flow!(self.file_dlg.handle(event)?);
 
             let f = Control::from(ctx.focus_mut().handle(event, Regular));
             ctx.queue(f);
@@ -624,7 +627,7 @@ mod app {
                         txt2.push_str(l);
                         txt2.push('\n');
                     }
-                    ctx.g.message_dlg.append(&txt2);
+                    self.message_dlg.append(&txt2);
                     Control::Changed
                 }
                 ct_event!(keycode press F(2)) => {
@@ -634,7 +637,7 @@ mod app {
                         txt2.push_str(l);
                         txt2.push('\n');
                     }
-                    ctx.g.message_dlg.append(&txt2);
+                    self.message_dlg.append(&txt2);
                     Control::Changed
                 }
                 _ => Control::Continue,
@@ -666,18 +669,19 @@ mod app {
                     Control::Message(MDEvent::CfgShowCtrl)
                 }
                 MenuOutcome::MenuActivated(2, 1) => {
-                    if ctx.g.cfg.new_line == "\r\n" {
-                        ctx.g.cfg.new_line = "\n".into();
+                    let changed = if ctx.g.cfg.new_line.as_str() == "\r\n" {
+                        "\n".into()
                     } else {
-                        ctx.g.cfg.new_line = "\r\n".into();
-                    }
+                        "\r\n".into()
+                    };
+                    ctx.g.cfg.new_line = changed;
                     Control::Message(MDEvent::CfgNewline)
                 }
                 MenuOutcome::MenuActivated(2, 2) => Control::Message(MDEvent::Split),
                 MenuOutcome::MenuActivated(2, 3) => Control::Message(MDEvent::JumpToFiles),
                 MenuOutcome::MenuActivated(2, 4) => Control::Message(MDEvent::HideFiles),
                 MenuOutcome::MenuSelected(3, n) => {
-                    ctx.g.theme = dark_themes()[n].clone();
+                    ctx.g.theme = Rc::new(dark_themes()[n].clone());
                     Control::Changed
                 }
                 r => r.into(),
@@ -698,11 +702,11 @@ mod app {
         ) -> Result<Control<MDEvent>, Error> {
             try_flow!(match event {
                 MDEvent::Message(s) => {
-                    ctx.g.status.status(0, &*s);
+                    self.error_dlg.append(s);
                     Control::Changed
                 }
                 MDEvent::MenuNew => {
-                    ctx.g.file_dlg.engage(
+                    self.file_dlg.engage(
                         |w| {
                             w.save_dialog_ext(".", "", "md")?;
                             Ok(Control::Changed)
@@ -711,7 +715,7 @@ mod app {
                     )?
                 }
                 MDEvent::MenuOpen => {
-                    ctx.g.file_dlg.engage(
+                    self.file_dlg.engage(
                         |w| {
                             w.open_dialog(".")?;
                             Ok(Control::Changed)
@@ -723,7 +727,7 @@ mod app {
                     Control::Message(MDEvent::Save)
                 }
                 MDEvent::MenuSaveAs => {
-                    ctx.g.file_dlg.engage(
+                    self.file_dlg.engage(
                         |w| {
                             w.save_dialog(".", "")?;
                             Ok(Control::Changed)
@@ -806,12 +810,14 @@ pub mod mdfile {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_, GlobalState>,
         ) -> Result<(), Error> {
+            let theme = &ctx.g.theme;
+
             let line_nr = LineNumbers::new()
                 .start(state.edit.offset().1 as upos_type)
                 .end(state.edit.len_lines())
                 .cursor(state.edit.cursor().y)
                 // .relative(true)
-                .styles(ctx.g.theme.line_nr_style());
+                .styles(theme.line_nr_style());
 
             let line_nr_area = Rect::new(area.x, area.y, line_nr.width(), area.height);
             let text_area = Rect::new(
@@ -824,7 +830,7 @@ pub mod mdfile {
             line_nr.render(line_nr_area, buf, &mut state.linenr);
 
             TextArea::new()
-                .styles(ctx.g.theme.textarea_style())
+                .styles(theme.textarea_style())
                 .block(
                     Block::new()
                         .border_type(BorderType::Rounded)
@@ -833,26 +839,11 @@ pub mod mdfile {
                 .vscroll(
                     Scroll::new()
                         .start_margin(self.start_margin)
-                        .styles(ctx.g.theme.scroll_style()),
+                        .styles(theme.scroll_style()),
                 )
                 .text_style(text_style(ctx))
                 .render(text_area, buf, &mut state.edit);
             ctx.set_screen_cursor(state.edit.screen_cursor());
-
-            if state.is_focused() {
-                let cursor = state.edit.cursor();
-
-                let sel = state.edit.selection();
-                let sel_len = if sel.start.y == sel.end.y {
-                    sel.end.x.saturating_sub(sel.start.x)
-                } else {
-                    sel.end.y.saturating_sub(sel.start.y) + 1
-                };
-
-                ctx.g
-                    .status
-                    .status(1, format!("{}:{}|{}", cursor.x, cursor.y, sel_len));
-            }
 
             Ok(())
         }
@@ -964,13 +955,29 @@ pub mod mdfile {
                 }
                 MDEvent::Event(event) => {
                     // call markdown event-handling instead of regular.
-                    match self.edit.handle(event, MarkDown) {
+                    let r = match self.edit.handle(event, MarkDown) {
                         TextOutcome::TextChanged => self.text_changed(ctx),
                         r => r.into(),
+                    };
+
+                    if self.edit.is_focused() && r == Control::Changed {
+                        let cursor = self.edit.cursor();
+                        let sel = self.edit.selection();
+                        let sel_len = if sel.start.y == sel.end.y {
+                            sel.end.x.saturating_sub(sel.start.x)
+                        } else {
+                            sel.end.y.saturating_sub(sel.start.y) + 1
+                        };
+                        ctx.queue(Control::Message(MDEvent::Status(
+                            1,
+                            format!("{}:{}|{}", cursor.x, cursor.y, sel_len),
+                        )));
                     }
+
+                    r
                 }
                 MDEvent::CfgNewline => {
-                    self.edit.set_newline(&ctx.g.cfg.new_line);
+                    self.edit.set_newline(ctx.g.cfg.new_line.as_str());
                     Control::Continue
                 }
                 MDEvent::CfgShowCtrl => {
@@ -999,7 +1006,7 @@ pub mod mdfile {
                     .as_ref(),
             );
             text_area.set_clipboard(Some(CliClipboard));
-            text_area.set_newline(&ctx.g.cfg.new_line);
+            text_area.set_newline(ctx.g.cfg.new_line.as_str());
             text_area.set_show_ctrl(ctx.g.cfg.show_ctrl);
             text_area.set_tab_width(4);
 
@@ -1025,7 +1032,7 @@ pub mod mdfile {
             text_area.set_clipboard(Some(CliClipboard));
             let t = fs::read_to_string(&path)?;
             text_area.set_text(t.as_str());
-            text_area.set_newline(&ctx.g.cfg.new_line);
+            text_area.set_newline(ctx.g.cfg.new_line.as_str());
             text_area.set_show_ctrl(ctx.g.cfg.show_ctrl);
             text_area.set_tab_width(4);
 
@@ -1152,11 +1159,13 @@ pub mod split_tab {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_, GlobalState>,
         ) -> Result<(), Error> {
+            let theme = ctx.g.theme.clone();
+
             let (s0, s1) = Split::new()
                 .constraints(vec![Constraint::Fill(1); state.tabbed.len()])
                 .mark_offset(0)
                 .split_type(SplitType::Scroll)
-                .styles(ctx.g.theme.split_style())
+                .styles(theme.split_style())
                 .direction(Direction::Horizontal)
                 .into_widgets();
 
@@ -1167,23 +1176,23 @@ pub mod split_tab {
                 let select_style = if let Some((sel_pos, md)) = state.selected() {
                     if sel_pos.0 == idx_split {
                         if state.tabbed[idx_split].is_focused() {
-                            ctx.g.theme.tabbed_style().focus.expect("style")
+                            theme.tabbed_style().focus.expect("style")
                         } else if md.is_focused() {
-                            ctx.g.theme.primary(1)
+                            theme.primary(1)
                         } else {
-                            ctx.g.theme.tabbed_style().select.expect("style")
+                            theme.tabbed_style().select.expect("style")
                         }
                     } else {
-                        ctx.g.theme.tabbed_style().select.expect("style")
+                        theme.tabbed_style().select.expect("style")
                     }
                 } else {
-                    ctx.g.theme.tabbed_style().select.expect("style")
+                    theme.tabbed_style().select.expect("style")
                 };
 
                 Tabbed::new()
                     .tab_type(TabType::Attached)
                     .closeable(true)
-                    .styles(ctx.g.theme.tabbed_style())
+                    .styles(theme.tabbed_style())
                     .select_style(select_style)
                     .tabs(state.tabs[idx_split].iter().map(|v| {
                         let title = v.path.file_name().unwrap_or_default().to_string_lossy();
@@ -1572,14 +1581,16 @@ pub mod file_list {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_, GlobalState>,
         ) -> Result<(), Error> {
+            let theme = &ctx.g.theme;
+
             let l_file_list =
                 Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).split(area);
 
-            buf.set_style(l_file_list[0], ctx.g.theme.container_base());
+            buf.set_style(l_file_list[0], theme.container_base());
 
             List::default()
-                .styles(ctx.g.theme.list_style())
-                .scroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
+                .styles(theme.list_style())
+                .scroll(Scroll::new().styles(theme.scroll_style()))
                 .items(state.files.iter().map(|v| {
                     if let Some(name) = v.file_name() {
                         Line::from(name.to_string_lossy().to_string())
@@ -1591,7 +1602,7 @@ pub mod file_list {
 
             if state.popup.is_active() {
                 PopupMenu::new()
-                    .styles(ctx.g.theme.menu_style())
+                    .styles(theme.menu_style())
                     .block(Block::bordered())
                     .constraint(PopupConstraint::RightTop(Rect::new(
                         state.popup_pos.0,
@@ -1814,8 +1825,10 @@ pub mod mdedit {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_, GlobalState>,
         ) -> Result<(), Error> {
+            let theme = &ctx.g.theme;
+
             let (s0, s1) = Split::new()
-                .styles(ctx.g.theme.split_style())
+                .styles(theme.split_style())
                 .mark_offset(0)
                 .constraints([Constraint::Length(15), Constraint::Fill(1)])
                 .direction(Direction::Horizontal)
@@ -1839,10 +1852,6 @@ pub mod mdedit {
             )?;
 
             s1.render(area, buf, &mut state.split_files);
-
-            if state.window_cmd {
-                ctx.g.status.status(1, "^W");
-            }
 
             Ok(())
         }
@@ -1881,6 +1890,7 @@ pub mod mdedit {
                         try_flow!(match event {
                             ct_event!(key release CONTROL-'w') => {
                                 self.window_cmd = true;
+                                ctx.queue(Control::Message(MDEvent::Status(1, "^W".into())));
                                 Control::Changed
                             }
                             ct_event!(keycode press Left) => {

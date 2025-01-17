@@ -16,6 +16,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
 use std::fmt::Debug;
 use std::fs;
+use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, ThemeEvent, Error>;
@@ -50,18 +51,14 @@ fn main() -> Result<(), Error> {
 #[derive(Debug)]
 pub struct GlobalState {
     pub cfg: MinimalConfig,
-    pub theme: DarkTheme,
-    pub status: StatusLineState,
-    pub error_dlg: MsgDialogState,
+    pub theme: Rc<DarkTheme>,
 }
 
 impl GlobalState {
     fn new(cfg: MinimalConfig, theme: DarkTheme) -> Self {
         Self {
             cfg,
-            theme,
-            status: Default::default(),
-            error_dlg: Default::default(),
+            theme: Rc::new(theme),
         }
     }
 }
@@ -76,6 +73,7 @@ pub enum ThemeEvent {
     Event(crossterm::event::Event),
     TimeOut(TimeOut),
     Message(String),
+    Status(usize, String),
 }
 
 impl From<crossterm::event::Event> for ThemeEvent {
@@ -98,6 +96,8 @@ struct MinimalApp;
 #[derive(Debug, Default)]
 struct MinimalState {
     mask0: Mask0State,
+    status: StatusLineState,
+    error_dlg: MsgDialogState,
 }
 
 impl AppWidget<GlobalState, ThemeEvent, Error> for MinimalApp {
@@ -111,6 +111,7 @@ impl AppWidget<GlobalState, ThemeEvent, Error> for MinimalApp {
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
+        let theme = ctx.g.theme.clone();
 
         let layout = Layout::new(
             Direction::Vertical,
@@ -120,13 +121,13 @@ impl AppWidget<GlobalState, ThemeEvent, Error> for MinimalApp {
 
         Mask0.render(area, buf, &mut state.mask0, ctx)?;
 
-        if ctx.g.error_dlg.active() {
-            let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(layout[0], buf, &mut ctx.g.error_dlg);
+        if state.error_dlg.active() {
+            let err = MsgDialog::new().styles(theme.msg_dialog_style());
+            err.render(layout[0], buf, &mut state.error_dlg);
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(1, format!("R {:.3?}", el).to_string());
+        state.status.status(1, format!("R {:.3?}", el).to_string());
 
         let layout_status =
             Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
@@ -138,8 +139,8 @@ impl AppWidget<GlobalState, ThemeEvent, Error> for MinimalApp {
                 Constraint::Length(12),
                 Constraint::Length(12),
             ])
-            .styles(ctx.g.theme.statusline_style());
-        status.render(layout_status[1], buf, &mut ctx.g.status);
+            .styles(theme.statusline_style());
+        status.render(layout_status[1], buf, &mut state.status);
 
         Ok(())
     }
@@ -166,8 +167,8 @@ impl AppState<GlobalState, ThemeEvent, Error> for MinimalState {
                 });
 
                 try_flow!({
-                    if ctx.g.error_dlg.active() {
-                        ctx.g.error_dlg.handle(&event, Dialog).into()
+                    if self.error_dlg.active() {
+                        self.error_dlg.handle(&event, Dialog).into()
                     } else {
                         Control::Continue
                     }
@@ -176,7 +177,11 @@ impl AppState<GlobalState, ThemeEvent, Error> for MinimalState {
                 Control::Continue
             }
             ThemeEvent::Message(s) => {
-                ctx.g.status.status(0, &*s);
+                self.error_dlg.append(s.as_str());
+                Control::Changed
+            }
+            ThemeEvent::Status(n, s) => {
+                self.status.status(*n, s);
                 Control::Changed
             }
             _ => Control::Continue,
@@ -185,13 +190,13 @@ impl AppState<GlobalState, ThemeEvent, Error> for MinimalState {
         try_flow!(self.mask0.event(&event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(3, format!("H {:.3?}", el).to_string());
+        self.status.status(3, format!("H {:.3?}", el).to_string());
 
         Ok(r)
     }
 
     fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<ThemeEvent>, Error> {
-        ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
+        self.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Changed)
     }
 }
@@ -211,6 +216,7 @@ pub mod mask0 {
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::widgets::{Block, StatefulWidget};
     use std::fmt::Debug;
+    use std::rc::Rc;
 
     #[derive(Debug)]
     pub struct Mask0;
@@ -268,6 +274,8 @@ pub mod mask0 {
         ) -> Result<(), Error> {
             // TODO: repaint_mask
 
+            let theme = ctx.g.theme.clone();
+
             let layout = Layout::new(
                 Direction::Vertical,
                 [Constraint::Fill(1), Constraint::Length(1)],
@@ -276,7 +284,7 @@ pub mod mask0 {
 
             let view = View::new()
                 .block(Block::bordered())
-                .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()));
+                .vscroll(Scroll::new().styles(theme.scroll_style()));
             let view_area = view.inner(layout[0], &mut state.scroll);
 
             let mut v_buf = view
@@ -284,7 +292,7 @@ pub mod mask0 {
                 .into_buffer(layout[0], &mut state.scroll);
 
             v_buf.render_stateful(
-                ShowScheme::new(ctx.g.theme.name(), ctx.g.theme.scheme()),
+                ShowScheme::new(theme.name(), theme.scheme()),
                 Rect::new(0, 0, view_area.width, 38),
                 &mut state.scheme,
             );
@@ -297,7 +305,7 @@ pub mod mask0 {
                 Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
                     .split(layout[1]);
             let menu = Menubar::new(&Menu)
-                .styles(ctx.g.theme.menu_style())
+                .styles(theme.menu_style())
                 .popup_placement(Placement::Above)
                 .into_widgets();
             menu.0.render(layout_menu[0], buf, &mut state.menu);
@@ -317,11 +325,11 @@ pub mod mask0 {
                 ThemeEvent::Event(event) => {
                     try_flow!(match self.menu.handle(event, Popup) {
                         MenuOutcome::MenuSelected(0, n) => {
-                            ctx.g.theme = dark_themes()[n].clone();
+                            ctx.g.theme = Rc::new(dark_themes()[n].clone());
                             Control::Changed
                         }
                         MenuOutcome::MenuActivated(0, n) => {
-                            ctx.g.theme = dark_themes()[n].clone();
+                            ctx.g.theme = Rc::new(dark_themes()[n].clone());
                             Control::Changed
                         }
                         r => r.into(),

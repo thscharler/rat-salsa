@@ -45,24 +45,19 @@ fn main() -> Result<(), Error> {
 pub mod global {
     use crate::config::MinimalConfig;
     use rat_theme::dark_theme::DarkTheme;
-    use rat_widget::msgdialog::MsgDialogState;
-    use rat_widget::statusline::StatusLineState;
+    use std::rc::Rc;
 
     #[derive(Debug)]
     pub struct GlobalState {
         pub cfg: MinimalConfig,
-        pub theme: DarkTheme,
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
+        pub theme: Rc<DarkTheme>,
     }
 
     impl GlobalState {
         pub fn new(cfg: MinimalConfig, theme: DarkTheme) -> Self {
             Self {
                 cfg,
-                theme,
-                status: Default::default(),
-                error_dlg: Default::default(),
+                theme: Rc::new(theme),
             }
         }
     }
@@ -85,6 +80,7 @@ pub mod event {
         Event(crossterm::event::Event),
         Rendered,
         Message(String),
+        Status(usize, String),
         FromAsync(String),
         AsyncTick(u32),
     }
@@ -118,8 +114,8 @@ pub mod scenery {
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
-    use rat_widget::msgdialog::MsgDialog;
-    use rat_widget::statusline::StatusLine;
+    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+    use rat_widget::statusline::{StatusLine, StatusLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::widgets::StatefulWidget;
@@ -131,6 +127,8 @@ pub mod scenery {
     #[derive(Debug, Default)]
     pub struct SceneryState {
         pub async1: Async1State,
+        pub status: StatusLineState,
+        pub error_dlg: MsgDialogState,
     }
 
     impl AppWidget<GlobalState, Async1Event, Error> for Scenery {
@@ -144,13 +142,14 @@ pub mod scenery {
             ctx: &mut RenderContext<'_>,
         ) -> Result<(), Error> {
             let t0 = SystemTime::now();
+            let theme = ctx.g.theme.clone();
 
             let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
             Async1.render(area, buf, &mut state.async1, ctx)?;
 
-            if ctx.g.error_dlg.active() {
-                let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
+            if state.error_dlg.active() {
+                let err = MsgDialog::new().styles(theme.msg_dialog_style());
                 err.render(
                     layout_middle(
                         layout[0],
@@ -160,12 +159,12 @@ pub mod scenery {
                         Constraint::Length(1),
                     ),
                     buf,
-                    &mut ctx.g.error_dlg,
+                    &mut state.error_dlg,
                 );
             }
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(1, format!("R {:.0?}", el).to_string());
+            state.status.status(1, format!("R {:.0?}", el).to_string());
 
             let status_layout =
                 Layout::horizontal([Constraint::Fill(61), Constraint::Fill(39)]).split(layout[1]);
@@ -175,8 +174,8 @@ pub mod scenery {
                     Constraint::Length(8),
                     Constraint::Length(8),
                 ])
-                .styles(ctx.g.theme.statusline_style());
-            status.render(status_layout[1], buf, &mut ctx.g.status);
+                .styles(theme.statusline_style());
+            status.render(status_layout[1], buf, &mut state.status);
 
             Ok(())
         }
@@ -205,8 +204,8 @@ pub mod scenery {
                     };
 
                     r = r.or_else(|| {
-                        if ctx.g.error_dlg.active() {
-                            ctx.g.error_dlg.handle(event, Dialog).into()
+                        if self.error_dlg.active() {
+                            self.error_dlg.handle(event, Dialog).into()
                         } else {
                             Control::Continue
                         }
@@ -222,7 +221,11 @@ pub mod scenery {
                     Control::Continue
                 }
                 Async1Event::Message(s) => {
-                    ctx.g.status.status(0, &*s);
+                    self.error_dlg.append(&*s);
+                    Control::Changed
+                }
+                Async1Event::Status(n, s) => {
+                    self.status.status(*n, s);
                     Control::Changed
                 }
                 _ => Control::Continue,
@@ -231,7 +234,7 @@ pub mod scenery {
             r = r.or_else_try(|| self.async1.event(event, ctx))?;
 
             let el = t0.elapsed()?;
-            ctx.g.status.status(2, format!("E {:.0?}", el).to_string());
+            self.status.status(2, format!("E {:.0?}", el).to_string());
 
             Ok(r)
         }
@@ -239,9 +242,9 @@ pub mod scenery {
         fn error(
             &self,
             event: Error,
-            ctx: &mut AppContext<'_>,
+            _ctx: &mut AppContext<'_>,
         ) -> Result<Control<Async1Event>, Error> {
-            ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
+            self.error_dlg.append(format!("{:?}", &*event).as_str());
             Ok(Control::Changed)
         }
     }
@@ -278,6 +281,7 @@ pub mod async1 {
             ctx: &mut RenderContext<'_>,
         ) -> Result<(), Error> {
             // TODO: repaint_mask
+            let theme = ctx.g.theme.clone();
 
             let r = Layout::new(
                 Direction::Vertical,
@@ -289,7 +293,7 @@ pub mod async1 {
             .split(area);
 
             let menu = MenuLine::new()
-                .styles(ctx.g.theme.menu_style())
+                .styles(theme.menu_style())
                 .item_parsed("_Simple Async")
                 .item_parsed("_Long Running")
                 .item_parsed("_Quit");
@@ -368,12 +372,10 @@ pub mod async1 {
                 },
                 Async1Event::FromAsync(s) => {
                     // receive result from async operation
-                    ctx.g.error_dlg.append(s);
-                    Control::Changed
+                    Control::Message(Async1Event::Message(s.clone()))
                 }
                 Async1Event::AsyncTick(n) => {
-                    ctx.g.status.status(0, format!("--- {} ---", n));
-                    Control::Changed
+                    Control::Message(Async1Event::Status(0, format!("--- {} ---", n)))
                 }
                 _ => Control::Continue,
             };

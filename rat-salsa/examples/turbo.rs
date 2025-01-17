@@ -44,24 +44,19 @@ fn main() -> Result<(), Error> {
 pub mod global {
     use crate::config::TurboConfig;
     use crate::theme::TurboTheme;
-    use rat_widget::msgdialog::MsgDialogState;
-    use rat_widget::statusline::StatusLineState;
+    use std::rc::Rc;
 
     #[derive(Debug)]
     pub struct GlobalState {
         pub cfg: TurboConfig,
-        pub theme: TurboTheme,
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
+        pub theme: Rc<TurboTheme>,
     }
 
     impl GlobalState {
         pub fn new(cfg: TurboConfig, theme: TurboTheme) -> Self {
             Self {
                 cfg,
-                theme,
-                status: Default::default(),
-                error_dlg: Default::default(),
+                theme: Rc::new(theme),
             }
         }
     }
@@ -81,6 +76,7 @@ pub mod message {
     pub enum TurboEvent {
         Event(crossterm::event::Event),
         Message(String),
+        Status(usize, String),
     }
 
     impl From<crossterm::event::Event> for TurboEvent {
@@ -99,8 +95,8 @@ pub mod app {
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
-    use rat_widget::msgdialog::MsgDialog;
-    use rat_widget::statusline::StatusLine;
+    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+    use rat_widget::statusline::{StatusLine, StatusLineState};
     use rat_widget::util::fill_buf_area;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -113,6 +109,8 @@ pub mod app {
     #[derive(Debug, Default)]
     pub struct SceneryState {
         pub turbo: TurboState,
+        pub status: StatusLineState,
+        pub error_dlg: MsgDialogState,
     }
 
     impl AppWidget<GlobalState, TurboEvent, Error> for Scenery {
@@ -126,6 +124,7 @@ pub mod app {
             ctx: &mut RenderContext<'_>,
         ) -> Result<(), Error> {
             let t0 = SystemTime::now();
+            let theme = ctx.g.theme.clone();
 
             let layout = Layout::vertical([
                 Constraint::Length(1),
@@ -134,11 +133,11 @@ pub mod app {
             ])
             .split(area);
 
-            fill_buf_area(buf, layout[1], " ", ctx.g.theme.data());
+            fill_buf_area(buf, layout[1], " ", theme.data());
 
             Turbo.render(area, buf, &mut state.turbo, ctx)?;
 
-            if ctx.g.error_dlg.active() {
+            if state.error_dlg.active() {
                 let layout_error = layout_middle(
                     layout[1],
                     Constraint::Percentage(19),
@@ -146,12 +145,12 @@ pub mod app {
                     Constraint::Length(2),
                     Constraint::Length(2),
                 );
-                let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-                err.render(layout_error, buf, &mut ctx.g.error_dlg);
+                let err = MsgDialog::new().styles(theme.msg_dialog_style());
+                err.render(layout_error, buf, &mut state.error_dlg);
             }
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(1, format!("R {:.0?}", el).to_string());
+            state.status.status(1, format!("R {:.0?}", el).to_string());
 
             let status = StatusLine::new()
                 .layout([
@@ -159,8 +158,8 @@ pub mod app {
                     Constraint::Length(8),
                     Constraint::Length(8),
                 ])
-                .styles(ctx.g.theme.statusline_style());
-            status.render(layout[2], buf, &mut ctx.g.status);
+                .styles(theme.statusline_style());
+            status.render(layout[2], buf, &mut state.status);
 
             Ok(())
         }
@@ -193,7 +192,7 @@ pub mod app {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
             ctx.focus = Some(FocusBuilder::build_for(&self.turbo));
             self.turbo.init(ctx)?;
-            ctx.g.status.status(0, "Ctrl-Q to quit.");
+            self.status.status(0, "Ctrl-Q to quit.");
             Ok(())
         }
 
@@ -214,8 +213,8 @@ pub mod app {
                     };
 
                     r = r.or_else(|| {
-                        if ctx.g.error_dlg.active() {
-                            ctx.g.error_dlg.handle(&event, Dialog).into()
+                        if self.error_dlg.active() {
+                            self.error_dlg.handle(&event, Dialog).into()
                         } else {
                             Control::Continue
                         }
@@ -231,7 +230,11 @@ pub mod app {
                     r
                 }
                 TurboEvent::Message(s) => {
-                    ctx.g.status.status(0, &*s);
+                    self.error_dlg.append(s.as_str());
+                    Control::Changed
+                }
+                TurboEvent::Status(n, s) => {
+                    self.status.status(*n, s);
                     Control::Changed
                 }
             };
@@ -239,7 +242,7 @@ pub mod app {
             r = r.or_else_try(|| self.turbo.event(&event, ctx))?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(2, format!("H {:.0?}", el).to_string());
+            self.status.status(2, format!("H {:.0?}", el).to_string());
 
             Ok(r)
         }
@@ -247,9 +250,9 @@ pub mod app {
         fn error(
             &self,
             event: Error,
-            ctx: &mut AppContext<'_>,
+            _ctx: &mut AppContext<'_>,
         ) -> Result<Control<TurboEvent>, Error> {
-            ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
+            self.error_dlg.append(format!("{:?}", &*event).as_str());
             Ok(Control::Changed)
         }
     }
@@ -457,6 +460,7 @@ pub mod turbo {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_>,
         ) -> Result<(), Error> {
+            let theme = ctx.g.theme.clone();
             // TODO: repaint_mask
 
             let r = Layout::new(
@@ -470,10 +474,10 @@ pub mod turbo {
             .split(area);
 
             let (menubar, popup) = Menubar::new(&Menu)
-                .styles(ctx.g.theme.menu_style())
+                .styles(theme.menu_style())
                 .title("  ")
                 .popup_placement(Placement::Below)
-                .popup_block(Block::bordered().style(ctx.g.theme.menu_style().style))
+                .popup_block(Block::bordered().style(theme.menu_style().style))
                 .into_widgets();
             menubar.render(r[0], buf, &mut state.menu);
             popup.render(r[0], buf, &mut state.menu);
@@ -495,7 +499,7 @@ pub mod turbo {
                     .unwrap_or_default();
 
                 PopupMenu::new()
-                    .styles(ctx.g.theme.menu_style())
+                    .styles(theme.menu_style())
                     .item_parsed("_Preferences...")
                     .item_parsed("_Editor...")
                     .item_parsed("_Mouse...")
@@ -577,7 +581,9 @@ pub mod turbo {
                                 }
                                 MenuOutcome::MenuActivated(6, 0) => {
                                     for _ in 0..50 {
-                                        ctx.g.error_dlg.append("Hello!");
+                                        ctx.queue(Control::Message(TurboEvent::Message(
+                                            "Hello!".into(),
+                                        )));
                                     }
                                     Control::Changed
                                 }

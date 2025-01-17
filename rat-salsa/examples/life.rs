@@ -64,8 +64,6 @@ pub mod global {
     use rat_salsa::PollEvents;
     use rat_salsa::{AppContext, AppState, Control};
     use rat_theme::dark_theme::DarkTheme;
-    use rat_widget::msgdialog::MsgDialogState;
-    use rat_widget::statusline::StatusLineState;
     use std::any::Any;
     use std::cell::RefCell;
     use std::fmt::Debug;
@@ -96,13 +94,10 @@ pub mod global {
     #[derive(Debug)]
     pub struct GlobalState {
         pub cfg: LifeConfig,
-        pub theme: DarkTheme,
+        pub theme: Rc<DarkTheme>,
 
         pub running: bool,
         pub tick: Rc<RefCell<Duration>>,
-
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
     }
 
     #[derive(Debug)]
@@ -155,11 +150,9 @@ pub mod global {
         pub fn new(cfg: LifeConfig, theme: DarkTheme, tick: Duration) -> Self {
             Self {
                 cfg,
-                theme,
+                theme: Rc::new(theme),
                 running: true,
                 tick: Rc::new(RefCell::new(tick)),
-                status: Default::default(),
-                error_dlg: Default::default(),
             }
         }
     }
@@ -180,6 +173,7 @@ pub mod message {
         Event(crossterm::event::Event),
         Tick,
         Message(String),
+        Status(usize, String),
     }
 
     impl From<crossterm::event::Event> for LifeEvent {
@@ -199,8 +193,8 @@ pub mod app {
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
-    use rat_widget::msgdialog::MsgDialog;
-    use rat_widget::statusline::StatusLine;
+    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+    use rat_widget::statusline::{StatusLine, StatusLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::style::Style;
@@ -214,6 +208,8 @@ pub mod app {
     pub struct SceneryState {
         pub life: LifeState,
         pub rt: SystemTime,
+        pub status: StatusLineState,
+        pub error_dlg: MsgDialogState,
     }
 
     impl Default for SceneryState {
@@ -221,6 +217,8 @@ pub mod app {
             Self {
                 life: Default::default(),
                 rt: SystemTime::now(),
+                status: Default::default(),
+                error_dlg: Default::default(),
             }
         }
     }
@@ -246,23 +244,25 @@ pub mod app {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_>,
         ) -> Result<(), Error> {
+            let theme = ctx.g.theme.clone();
+
             let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
             Life::new()
-                .style(ctx.g.theme.limegreen(2))
+                .style(theme.limegreen(2))
                 .render(area, buf, &mut state.life, ctx)?;
 
-            if ctx.g.error_dlg.active() {
-                let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-                err.render(layout[0], buf, &mut ctx.g.error_dlg);
+            if state.error_dlg.active() {
+                let err = MsgDialog::new().styles(theme.msg_dialog_style());
+                err.render(layout[0], buf, &mut state.error_dlg);
             }
 
             let el = state.rt.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(2, format!("R {:.0?}", el).to_string());
+            state.status.status(2, format!("R {:.0?}", el).to_string());
 
             let status_layout =
                 Layout::horizontal([Constraint::Fill(61), Constraint::Fill(39)]).split(layout[1]);
-            let scheme = ctx.g.theme.scheme();
+            let scheme = theme.scheme();
             let status = StatusLine::new()
                 .layout([
                     Constraint::Fill(1),
@@ -271,7 +271,7 @@ pub mod app {
                     Constraint::Length(8),
                 ])
                 .styles(vec![
-                    ctx.g.theme.status_base(),
+                    theme.status_base(),
                     Style::default()
                         .fg(scheme.text_color(scheme.white[0]))
                         .bg(scheme.orange[2]),
@@ -285,7 +285,7 @@ pub mod app {
                         .fg(scheme.text_color(scheme.white[0]))
                         .bg(scheme.blue[1]),
                 ]);
-            status.render(status_layout[1], buf, &mut ctx.g.status);
+            status.render(status_layout[1], buf, &mut state.status);
 
             state.rt = SystemTime::now();
 
@@ -310,7 +310,11 @@ pub mod app {
             let mut r = match event {
                 LifeEvent::Event(event) => self.crossterm(event, ctx),
                 LifeEvent::Message(s) => {
-                    ctx.g.status.status(0, &*s);
+                    self.error_dlg.append(s);
+                    Ok(Control::Changed)
+                }
+                LifeEvent::Status(n, s) => {
+                    self.status.status(*n, s);
                     Ok(Control::Changed)
                 }
                 _ => Ok(Control::Continue),
@@ -319,7 +323,7 @@ pub mod app {
             r = r.or_else_try(|| self.life.event(event, ctx))?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(3, format!("H {:.0?}", el).to_string());
+            self.status.status(3, format!("H {:.0?}", el).to_string());
 
             Ok(r)
         }
@@ -327,9 +331,9 @@ pub mod app {
         fn error(
             &self,
             event: Error,
-            ctx: &mut AppContext<'_>,
+            _ctx: &mut AppContext<'_>,
         ) -> Result<Control<LifeEvent>, Error> {
-            ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
+            self.error_dlg.append(format!("{:?}", &*event).as_str());
             Ok(Control::Changed)
         }
     }
@@ -350,8 +354,8 @@ pub mod app {
             };
 
             r = r.or_else(|| {
-                if ctx.g.error_dlg.active() {
-                    ctx.g.error_dlg.handle(&event, Dialog).into()
+                if self.error_dlg.active() {
+                    self.error_dlg.handle(&event, Dialog).into()
                 } else {
                     Control::Continue
                 }
@@ -429,6 +433,8 @@ pub mod life {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_>,
         ) -> Result<(), Error> {
+            let theme = ctx.g.theme.clone();
+
             let r = Layout::new(
                 Direction::Vertical,
                 [
@@ -441,7 +447,7 @@ pub mod life {
             LifeGame.render(r[0], buf, &mut state.game);
 
             let menu = MenuLine::new()
-                .styles(ctx.g.theme.menu_style())
+                .styles(theme.menu_style())
                 .title(format!("--({})>", state.game.name))
                 .item_parsed(if ctx.g.running { "Pau_se" } else { "_Start" })
                 .item_parsed("_Next")
@@ -493,8 +499,7 @@ pub mod life {
                         }
                         MenuOutcome::Activated(1) => {
                             self.game.turn();
-                            ctx.g.status.status(1, self.game.round.to_string());
-                            Control::Changed
+                            Control::Message(LifeEvent::Status(1, self.game.round.to_string()))
                         }
                         MenuOutcome::Activated(2) => {
                             let mut tick = *ctx.g.tick.borrow();
@@ -508,8 +513,7 @@ pub mod life {
                                 tick -= Duration::from_millis(100);
                             }
                             *ctx.g.tick.borrow_mut() = tick;
-                            ctx.g.status.status(0, format!("Tick {:#?}", tick));
-                            Control::Changed
+                            Control::Message(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
                         }
                         MenuOutcome::Activated(3) => {
                             let mut tick = *ctx.g.tick.borrow();
@@ -521,8 +525,7 @@ pub mod life {
                                 tick += Duration::from_millis(100);
                             }
                             *ctx.g.tick.borrow_mut() = tick;
-                            ctx.g.status.status(0, format!("Tick {:#?}", tick));
-                            Control::Changed
+                            Control::Message(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
                         }
                         MenuOutcome::Activated(4) => {
                             self.game.restart();
@@ -542,8 +545,10 @@ pub mod life {
                 LifeEvent::Tick => {
                     if ctx.g.running {
                         self.game.turn();
-                        ctx.g.status.status(1, self.game.round.to_string());
-                        Ok(Control::Changed)
+                        Ok(Control::Message(LifeEvent::Status(
+                            1,
+                            self.game.round.to_string(),
+                        )))
                     } else {
                         Ok(Control::Continue)
                     }

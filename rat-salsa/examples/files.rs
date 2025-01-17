@@ -1,7 +1,6 @@
 #![allow(unused_variables)]
 #![allow(unreachable_pub)]
 
-use crate::FilesEvent::{Message, ReadDir, Update, UpdateFile};
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
@@ -39,6 +38,7 @@ use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use sysinfo::Disks;
@@ -74,18 +74,14 @@ fn main() -> Result<(), Error> {
 #[derive(Debug)]
 pub struct GlobalState {
     pub cfg: FilesConfig,
-    pub theme: DarkTheme,
-    pub status: StatusLineState,
-    pub error_dlg: MsgDialogState,
+    pub theme: Rc<DarkTheme>,
 }
 
 impl GlobalState {
     fn new(cfg: FilesConfig, theme: DarkTheme) -> Self {
         Self {
             cfg,
-            theme,
-            status: Default::default(),
-            error_dlg: Default::default(),
+            theme: Rc::new(theme),
         }
     }
 }
@@ -99,6 +95,7 @@ pub struct FilesConfig {}
 pub enum FilesEvent {
     Event(crossterm::event::Event),
     Message(String),
+    Status(usize, String),
     ReadDir(Relative, PathBuf, Option<OsString>),
     Update(
         Relative,
@@ -145,6 +142,9 @@ pub struct FilesState {
     pub w_data: TextAreaState,
 
     pub w_menu: MenubarState,
+
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,
 }
 
 #[allow(dead_code)]
@@ -304,6 +304,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
+        let theme = ctx.g.theme.clone();
 
         let r = Layout::new(
             Direction::Vertical,
@@ -334,7 +335,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
         // -----------------------------------------------------
         Text::from(state.main_dir.to_string_lossy())
             .alignment(Alignment::Right)
-            .style(ctx.g.theme.black(3).fg(ctx.g.theme.scheme().secondary[2]))
+            .style(theme.black(3).fg(theme.scheme().secondary[2]))
             .render(r[0], buf);
 
         let (split, split_overlay) = Split::new()
@@ -345,7 +346,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
                 Constraint::Fill(1),
             ])
             .split_type(SplitType::Scroll)
-            .styles(ctx.g.theme.split_style())
+            .styles(theme.split_style())
             .into_widgets();
         split.render(r[1], buf, &mut state.w_split);
 
@@ -354,7 +355,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
                 dir: Some(state.main_dir.clone()),
                 dirs: &state.sub_dirs,
             })
-            .styles(ctx.g.theme.table_style())
+            .styles(theme.table_style())
             .block(
                 Block::new()
                     .borders(Borders::RIGHT)
@@ -362,7 +363,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
             )
             .vscroll(
                 Scroll::new()
-                    .styles(ctx.g.theme.scroll_style())
+                    .styles(theme.scroll_style())
                     .start_margin(2)
                     .scroll_by(1),
             )
@@ -373,10 +374,10 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
                 dir: state.current_dir(),
                 files: &state.files,
                 err: &state.err,
-                dir_style: ctx.g.theme.gray(0),
-                err_style: ctx.g.theme.red(1),
+                dir_style: theme.gray(0),
+                err_style: theme.red(1),
             })
-            .styles(ctx.g.theme.table_style())
+            .styles(theme.table_style())
             .block(
                 Block::new()
                     .borders(Borders::RIGHT)
@@ -384,14 +385,14 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
             )
             .vscroll(
                 Scroll::new()
-                    .styles(ctx.g.theme.scroll_style())
+                    .styles(theme.scroll_style())
                     .start_margin(2)
                     .scroll_by(1),
             )
             .render(state.w_split.widget_areas[1], buf, &mut state.w_files);
 
         let title = if state.w_data.is_focused() {
-            Title::from(Line::from("Content").style(ctx.g.theme.focus()))
+            Title::from(Line::from("Content").style(theme.focus()))
         } else {
             Title::from("Content")
         };
@@ -406,16 +407,16 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
             horizontal_bottom: " ",
         };
 
-        let mut content_style = ctx.g.theme.textarea_style();
-        content_style.style = ctx.g.theme.black(2);
+        let mut content_style = theme.textarea_style();
+        content_style.style = theme.black(2);
         TextArea::new()
             .styles(content_style)
-            .scroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
+            .scroll(Scroll::new().styles(theme.scroll_style()))
             .block(
                 Block::bordered()
                     .borders(Borders::TOP)
                     .border_set(set)
-                    .style(ctx.g.theme.container_base())
+                    .style(theme.container_base())
                     .title(title),
             )
             .render(state.w_split.widget_areas[2], buf, &mut state.w_data);
@@ -427,20 +428,20 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
             .title("[-.-]")
             .popup_block(Block::bordered())
             .popup_placement(Placement::Above)
-            .styles(ctx.g.theme.menu_style())
+            .styles(theme.menu_style())
             .into_widgets();
         menu.render(m[0], buf, &mut state.w_menu);
         menu_popup.render(m[0], buf, &mut state.w_menu);
 
         // -----------------------------------------------------
 
-        if ctx.g.error_dlg.active() {
-            let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(r[1], buf, &mut ctx.g.error_dlg);
+        if state.error_dlg.active() {
+            let err = MsgDialog::new().styles(theme.msg_dialog_style());
+            err.render(r[1], buf, &mut state.error_dlg);
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(1, format!("R {:.3?}", el).to_string());
+        state.status.status(1, format!("R {:.3?}", el).to_string());
 
         let status = StatusLine::new()
             .layout([
@@ -449,8 +450,8 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
                 Constraint::Length(12),
                 Constraint::Length(12),
             ])
-            .styles(ctx.g.theme.statusline_style());
-        status.render(m[1], buf, &mut ctx.g.status);
+            .styles(theme.statusline_style());
+        status.render(m[1], buf, &mut state.status);
 
         Ok(())
     }
@@ -463,7 +464,11 @@ impl AppState<GlobalState, FilesEvent, Error> for FilesState {
         } else {
             PathBuf::from(".")
         };
-        ctx.queue(Control::Message(ReadDir(Full, self.main_dir.clone(), None)));
+        ctx.queue(Control::Message(FilesEvent::ReadDir(
+            Full,
+            self.main_dir.clone(),
+            None,
+        )));
 
         self.w_dirs.set_scroll_selection(true);
         self.w_dirs.focus().set(true);
@@ -481,27 +486,31 @@ impl AppState<GlobalState, FilesEvent, Error> for FilesState {
 
         let r = match event {
             FilesEvent::Event(event) => self.crossterm(event, ctx)?,
-            Message(s) => {
-                ctx.g.status.status(0, &*s);
+            FilesEvent::Message(s) => {
+                self.error_dlg.append(&*s);
                 Control::Changed
             }
-            ReadDir(rel, path, sub) => {
+            FilesEvent::Status(n, s) => {
+                self.status.status(*n, s);
+                Control::Changed
+            }
+            FilesEvent::ReadDir(rel, path, sub) => {
                 self.read_dir(*rel, path, sub, ctx)? //
             }
-            Update(rel, path, subdir, ddd, fff, err) => {
+            FilesEvent::Update(rel, path, subdir, ddd, fff, err) => {
                 self.update_dirs(*rel, path, subdir, ddd, fff, err, ctx)?
             }
-            UpdateFile(path, text) => self.update_preview(path, text, ctx)?,
+            FilesEvent::UpdateFile(path, text) => self.update_preview(path, text, ctx)?,
         };
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
+        self.status.status(2, format!("H {:.3?}", el).to_string());
 
         Ok(r)
     }
 
     fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
-        ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
+        self.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Changed)
     }
 }
@@ -519,8 +528,8 @@ impl FilesState {
         });
 
         try_flow!({
-            if ctx.g.error_dlg.active() {
-                ctx.g.error_dlg.handle(&event, Dialog).into()
+            if self.error_dlg.active() {
+                self.error_dlg.handle(&event, Dialog).into()
             } else {
                 Control::Continue
             }
@@ -549,16 +558,20 @@ impl FilesState {
             MenuOutcome::MenuActivated(0, n) => {
                 if let Some(root) = fs_roots().get(n) {
                     self.main_dir = root.1.clone();
-                    ctx.queue(Control::Message(ReadDir(Full, self.main_dir.clone(), None)));
+                    ctx.queue(Control::Message(FilesEvent::ReadDir(
+                        Full,
+                        self.main_dir.clone(),
+                        None,
+                    )));
                 }
                 Control::Changed
             }
             MenuOutcome::MenuSelected(1, n) => {
-                ctx.g.theme = dark_themes()[n].clone();
+                ctx.g.theme = Rc::new(dark_themes()[n].clone());
                 Control::Changed
             }
             MenuOutcome::MenuActivated(1, n) => {
-                ctx.g.theme = dark_themes()[n].clone();
+                ctx.g.theme = Rc::new(dark_themes()[n].clone());
                 Control::Changed
             }
             r => r.into(),
@@ -629,19 +642,19 @@ impl FilesState {
         if let Some(n) = self.w_dirs.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from(".") {
-                    Ok(Control::Message(ReadDir(
+                    Ok(Control::Message(FilesEvent::ReadDir(
                         Current,
                         self.main_dir.clone(),
                         None,
                     )))
                 } else if sub == &OsString::from("..") {
-                    Ok(Control::Message(ReadDir(
+                    Ok(Control::Message(FilesEvent::ReadDir(
                         Parent,
                         self.main_dir.clone(),
                         None,
                     )))
                 } else {
-                    Ok(Control::Message(ReadDir(
+                    Ok(Control::Message(FilesEvent::ReadDir(
                         SubDir,
                         self.main_dir.clone(),
                         Some(sub.clone()),
@@ -777,7 +790,7 @@ impl FilesState {
                             }
                         }
                     }
-                    Ok(Control::Message(Update(
+                    Ok(Control::Message(FilesEvent::Update(
                         rel,
                         path.clone(),
                         sub.clone(),
@@ -788,7 +801,7 @@ impl FilesState {
                 }
                 Err(e) => {
                     let msg = format!("{:?}", e);
-                    Ok(Control::Message(Update(
+                    Ok(Control::Message(FilesEvent::Update(
                         rel,
                         path.clone(),
                         sub.clone(),
@@ -808,18 +821,22 @@ impl FilesState {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from("..") {
                     if let Some(file) = self.main_dir.parent() {
-                        ctx.queue(Control::Message(ReadDir(
+                        ctx.queue(Control::Message(FilesEvent::ReadDir(
                             Full,
                             file.to_path_buf(),
                             Some(OsString::from("..")),
                         )));
-                        ctx.queue(Control::Message(ReadDir(Parent, file.to_path_buf(), None)));
+                        ctx.queue(Control::Message(FilesEvent::ReadDir(
+                            Parent,
+                            file.to_path_buf(),
+                            None,
+                        )));
                     }
                 } else if sub == &OsString::from(".") {
                     // noop
                 } else {
                     let file = self.main_dir.join(sub);
-                    ctx.queue(Control::Message(ReadDir(Full, file, None)))
+                    ctx.queue(Control::Message(FilesEvent::ReadDir(Full, file, None)))
                 }
             }
         }
@@ -873,9 +890,9 @@ impl FilesState {
                 let cancel_show = ctx.spawn(move |can, snd| match fs::read(&file) {
                     Ok(data) => {
                         let str_data = FilesState::display_text(can, snd, &file, &data)?;
-                        Ok(Control::Message(UpdateFile(file, str_data)))
+                        Ok(Control::Message(FilesEvent::UpdateFile(file, str_data)))
                     }
-                    Err(e) => Ok(Control::Message(UpdateFile(
+                    Err(e) => Ok(Control::Message(FilesEvent::UpdateFile(
                         file,
                         format!("{:?}", e).to_string(),
                     ))),
@@ -964,7 +981,7 @@ impl FilesState {
                     mega = v.len() / 1_000_000;
 
                     if mega == 1 {
-                        _ = snd.send(Ok(Control::Message(UpdateFile(
+                        _ = snd.send(Ok(Control::Message(FilesEvent::UpdateFile(
                             file.to_path_buf(),
                             v.clone(),
                         ))));
@@ -989,8 +1006,12 @@ impl FilesState {
 
         if let Some(file) = file {
             if file.metadata()?.is_dir() {
-                ctx.queue(Control::Message(ReadDir(Full, file.clone(), None)));
-                ctx.queue(Control::Message(ReadDir(Parent, file, None)));
+                ctx.queue(Control::Message(FilesEvent::ReadDir(
+                    Full,
+                    file.clone(),
+                    None,
+                )));
+                ctx.queue(Control::Message(FilesEvent::ReadDir(Parent, file, None)));
             }
         };
         Ok(Control::Changed)

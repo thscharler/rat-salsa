@@ -28,8 +28,7 @@ fn _run_tui<App, Global, Event, Error>(
     cfg: &mut RunConfig<App, Global, Event, Error>,
 ) -> Result<(), Error>
 where
-    App: AppWidget<Global, Event, Error>,
-    App: 'static,
+    App: AppWidget<Global, Event, Error> + 'static,
     Global: 'static,
     Event: Send + 'static,
     Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
