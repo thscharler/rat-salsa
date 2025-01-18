@@ -610,10 +610,8 @@ mod core {
             }
         }
 
-        /// Add the given widgets flags. Doesn't call the
-        /// build() function of HasFocus as widget() would, instead
-        /// it uses focus(), area(), area_z() and navigable() of the
-        /// given widget and appends them.
+        /// Directly add the given widget's flags. Doesn't call
+        /// build() instead it uses focus(), etc. and appends a single widget.
         pub fn append_leaf(&mut self, widget: &dyn HasFocus) -> &mut Self {
             self.append_flags(
                 widget.focus(),
