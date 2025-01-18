@@ -651,11 +651,19 @@ impl ScrollState {
         let old = self.offset;
         // start of range first
         if range.start >= self.offset + self.page_len {
-            self.offset = range.start - self.page_len + 1;
+            if range.end - range.start < self.page_len {
+                self.offset = range.end - self.page_len + 1;
+            } else {
+                self.offset = range.start;
+            }
         } else if range.start < self.offset {
             self.offset = range.start;
         } else if range.end >= self.offset + self.page_len {
-            self.offset = range.end - self.page_len;
+            if range.end - range.start < self.page_len {
+                self.offset = range.end - self.page_len + 1;
+            } else {
+                self.offset = range.start;
+            }
         }
         old != self.offset
     }
