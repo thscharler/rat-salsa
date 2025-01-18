@@ -606,6 +606,11 @@ impl ScrollState {
         self.orientation.is_horizontal()
     }
 
+    /// Resets the offset to 0.
+    pub fn clear(&mut self) {
+        self.offset = 0;
+    }
+
     /// Current vertical offset.
     #[inline]
     pub fn offset(&self) -> usize {
