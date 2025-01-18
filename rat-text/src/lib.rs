@@ -132,6 +132,7 @@ pub struct TextStyle {
 
     pub scroll: Option<ScrollStyle>,
     pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -147,6 +148,7 @@ impl Default for TextStyle {
             on_focus_lost: None,
             scroll: None,
             block: None,
+            border_style: None,
             non_exhaustive: NonExhaustive,
         }
     }

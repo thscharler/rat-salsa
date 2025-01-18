@@ -138,6 +138,10 @@ impl<'a> TextInput<'a> {
         if let Some(of) = styles.on_focus_lost {
             self.on_focus_lost = of;
         }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if styles.block.is_some() {
             self.block = styles.block;
         }
@@ -149,6 +153,7 @@ impl<'a> TextInput<'a> {
     #[inline]
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 

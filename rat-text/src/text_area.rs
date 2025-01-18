@@ -161,18 +161,22 @@ impl<'a> TextArea<'a> {
 
     /// Set the combined style.
     #[inline]
-    pub fn styles(mut self, style: TextStyle) -> Self {
-        self.style = style.style;
-        if style.focus.is_some() {
-            self.focus_style = style.focus;
+    pub fn styles(mut self, styles: TextStyle) -> Self {
+        self.style = styles.style;
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
         }
-        if style.select.is_some() {
-            self.select_style = style.select;
+        if styles.select.is_some() {
+            self.select_style = styles.select;
         }
-        if style.block.is_some() {
-            self.block = style.block;
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
         }
-        if let Some(styles) = style.scroll {
+        self.block = self.block.map(|v| v.style(self.style));
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(styles) = styles.scroll {
             self.hscroll = self.hscroll.map(|v| v.styles(styles));
             self.vscroll = self.vscroll.map(|v| v.styles(styles));
         }
@@ -188,6 +192,7 @@ impl<'a> TextArea<'a> {
     /// Style when focused.
     pub fn focus_style(mut self, style: Style) -> Self {
         self.focus_style = Some(style);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
