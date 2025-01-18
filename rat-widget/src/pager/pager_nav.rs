@@ -296,6 +296,12 @@ impl PageNavigationState {
         Self::default()
     }
 
+    /// Reset page and page-count.
+    pub fn clear(&mut self) {
+        self.page = 0;
+        self.page_count = 0;
+    }
+
     /// Show the page.
     pub fn set_page(&mut self, page: usize) -> bool {
         let old_page = self.page;

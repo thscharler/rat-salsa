@@ -96,6 +96,20 @@ where
         }
     }
 
+    /// Clear all data.
+    pub fn clear(&mut self) {
+        self.area = Rect::default();
+        self.page_size = Size::default();
+        self.page_count = 0;
+        self.widgets.clear();
+        self.rwidgets.clear();
+        self.widget_areas.clear();
+        self.labels.clear();
+        self.label_areas.clear();
+        self.block_areas.clear();
+        self.blocks.clear();
+    }
+
     /// Set the area used for this layout.
     /// The area may or may not have anything to do with the page-size.
     pub fn set_area(&mut self, area: Rect) {

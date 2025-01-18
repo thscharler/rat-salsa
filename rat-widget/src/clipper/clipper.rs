@@ -12,6 +12,7 @@ use ratatui::prelude::{Style, Widget};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::borrow::Cow;
+use std::cell::{Ref, RefCell};
 use std::cmp::{max, min};
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -36,7 +37,7 @@ pub struct ClipperBuffer<'a, W>
 where
     W: Eq + Clone + Hash,
 {
-    layout: Rc<GenericLayout<W>>,
+    layout: Rc<RefCell<GenericLayout<W>>>,
 
     // offset from buffer to scroll area
     offset: Position,
@@ -82,7 +83,7 @@ where
 
     /// Page layout.
     /// __read only__ renewed for each render.
-    pub layout: Rc<GenericLayout<W>>,
+    pub layout: Rc<RefCell<GenericLayout<W>>>,
 
     /// Horizontal scroll
     /// __read+write__
@@ -225,7 +226,7 @@ where
     }
 
     fn layout(&self, area: Rect, state: &mut ClipperState<W>) -> (Rect, Position) {
-        let layout = state.layout.clone();
+        let layout = state.layout.borrow();
 
         let view = Rect::new(
             state.hscroll.offset() as u16,
@@ -339,20 +340,22 @@ where
 {
     /// Is the widget visible.
     pub fn is_visible(&self, widget: W) -> bool {
-        let Some(idx) = self.layout.try_index_of(widget) else {
+        let layout = self.layout.borrow();
+        let Some(idx) = layout.try_index_of(widget) else {
             return false;
         };
-        let area = self.layout.widget(idx);
+        let area = layout.widget(idx);
         self.buffer.area.intersects(area)
     }
 
     /// Render the label with the set style and alignment.
     #[inline(always)]
     fn render_auto_label(&mut self, idx: usize) -> bool {
-        let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
+        let layout = self.layout.borrow();
+        let Some(label_area) = self.locate_area(layout.label(idx)) else {
             return false;
         };
-        let Some(label_str) = self.layout.label_str(idx) else {
+        let Some(label_str) = layout.label_str(idx) else {
             return false;
         };
 
@@ -373,13 +376,14 @@ where
         FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
         WW: Widget,
     {
-        let Some(idx) = self.layout.try_index_of(widget) else {
+        let layout = self.layout.borrow();
+        let Some(idx) = layout.try_index_of(widget) else {
             return false;
         };
-        let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
+        let Some(label_area) = self.locate_area(layout.label(idx)) else {
             return false;
         };
-        let label_str = self.layout.label_str(idx);
+        let label_str = layout.label_str(idx);
 
         render_fn(label_str).render(label_area, &mut self.buffer);
 
@@ -393,13 +397,13 @@ where
         FN: FnOnce() -> WW,
         WW: Widget,
     {
-        let Some(idx) = self.layout.try_index_of(widget) else {
+        let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return false;
         };
 
         self.render_auto_label(idx);
 
-        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
+        let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
             return false;
         };
         render_fn().render(widget_area, &mut self.buffer);
@@ -415,13 +419,13 @@ where
         WW: StatefulWidget<State = SS>,
         SS: RelocatableState,
     {
-        let Some(idx) = self.layout.try_index_of(widget) else {
+        let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return false;
         };
 
         self.render_auto_label(idx);
 
-        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
+        let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
             self.hidden(state);
             return false;
         };
@@ -433,9 +437,10 @@ where
 
     /// Render all visible blocks.
     pub fn render_block(&mut self) {
-        for (idx, block_area) in self.layout.block_area_iter().enumerate() {
+        let layout = self.layout.borrow();
+        for (idx, block_area) in layout.block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
-                self.layout.block(idx).render(block_area, &mut self.buffer);
+                layout.block(idx).render(block_area, &mut self.buffer);
             }
         }
     }
@@ -444,20 +449,22 @@ where
     #[inline]
     #[allow(clippy::question_mark)]
     pub fn locate_widget(&self, widget: W) -> Option<Rect> {
-        let Some(idx) = self.layout.try_index_of(widget) else {
+        let layout = self.layout.borrow();
+        let Some(idx) = layout.try_index_of(widget) else {
             return None;
         };
-        self.locate_area(self.layout.widget(idx))
+        self.locate_area(layout.widget(idx))
     }
 
     /// Get the buffer coordinates for the label of the given widget.
     #[inline]
     #[allow(clippy::question_mark)]
     pub fn locate_label(&self, widget: W) -> Option<Rect> {
-        let Some(idx) = self.layout.try_index_of(widget) else {
+        let layout = self.layout.borrow();
+        let Some(idx) = layout.try_index_of(widget) else {
             return None;
         };
-        self.locate_area(self.layout.label(idx))
+        self.locate_area(layout.label(idx))
     }
 
     /// Relocate the area from layout coordinates to buffer coordinates,
@@ -661,23 +668,37 @@ where
         Self::default()
     }
 
+    /// Clear the layout data and reset any scroll
+    pub fn clear(&mut self) {
+        self.layout.borrow_mut().clear();
+        self.hscroll.clear();
+        self.vscroll.clear();
+    }
+
+    /// Layout needs to change?
+    pub fn valid_layout(&self, size: Size) -> bool {
+        let layout = self.layout.borrow();
+        !layout.size_changed(size) && !layout.is_empty()
+    }
+
     /// Set the layout.
-    pub fn set_layout(&mut self, layout: Rc<GenericLayout<W>>) {
-        self.layout = layout;
+    pub fn set_layout(&mut self, layout: GenericLayout<W>) {
+        self.layout = Rc::new(RefCell::new(layout));
     }
 
     /// Layout.
-    pub fn layout(&self) -> Rc<GenericLayout<W>> {
-        self.layout.clone()
+    pub fn layout(&self) -> Ref<'_, GenericLayout<W>> {
+        self.layout.borrow()
     }
 
     /// Show the area for the given handle.
     pub fn show(&mut self, widget: W) {
-        let Some(idx) = self.layout.try_index_of(widget) else {
+        let layout = self.layout.borrow();
+        let Some(idx) = layout.try_index_of(widget) else {
             return;
         };
-        let widget_area = self.layout.widget(idx);
-        let label_area = self.layout.label(idx);
+        let widget_area = layout.widget(idx);
+        let label_area = layout.label(idx);
 
         let area = if !widget_area.is_empty() {
             if !label_area.is_empty() {
@@ -705,6 +726,8 @@ where
     /// This uses insertion order of the widgets, not
     /// any graphical ordering.
     pub fn first(&self) -> Option<W> {
+        let layout = self.layout.borrow();
+
         let area = Rect::new(
             self.hscroll.offset() as u16,
             self.vscroll.offset() as u16,
@@ -712,9 +735,9 @@ where
             self.widget_area.height,
         );
 
-        for idx in 0..self.layout.widget_len() {
-            if self.layout.widget(idx).intersects(area) {
-                return Some(self.layout.widget_key(idx).clone());
+        for idx in 0..layout.widget_len() {
+            if layout.widget(idx).intersects(area) {
+                return Some(layout.widget_key(idx).clone());
             }
         }
 

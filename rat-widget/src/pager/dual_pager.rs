@@ -9,7 +9,7 @@ use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::{Block, Widget};
 use std::borrow::Cow;
-use std::cell::{RefCell, RefMut};
+use std::cell::{Ref, RefCell, RefMut};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -46,7 +46,7 @@ where
 {
     /// Page layout
     /// __read+write__ renewed with each render.
-    pub layout: Rc<GenericLayout<W>>,
+    pub layout: Rc<RefCell<GenericLayout<W>>>,
 
     /// PageNavigationState holds most of our state.
     /// __read+write__
@@ -133,7 +133,7 @@ where
         buf: &'a mut Buffer,
         state: &mut DualPagerState<W>,
     ) -> DualPagerBuffer<'a, W> {
-        state.nav.page_count = (state.layout.page_count() + 1) / 2;
+        state.nav.page_count = (state.layout.borrow().page_count() + 1) / 2;
         state.nav.set_page(state.nav.page);
 
         self.page_nav.render(area, buf, &mut state.nav);
@@ -393,31 +393,43 @@ where
         Self::default()
     }
 
+    /// Clear the layout data and reset the page/page-count.
+    pub fn clear(&mut self) {
+        self.layout.borrow_mut().clear();
+        self.nav.clear();
+    }
+
+    /// Layout needs to change?
+    pub fn valid_layout(&self, size: Size) -> bool {
+        let layout = self.layout.borrow();
+        !layout.size_changed(size) && !layout.is_empty()
+    }
+
     /// Set the layout.
-    pub fn set_layout(&mut self, layout: Rc<GenericLayout<W>>) {
-        self.layout = layout;
+    pub fn set_layout(&mut self, layout: GenericLayout<W>) {
+        self.layout = Rc::new(RefCell::new(layout));
     }
 
     /// Layout.
-    pub fn layout(&self) -> Rc<GenericLayout<W>> {
-        self.layout.clone()
+    pub fn layout(&self) -> Ref<'_, GenericLayout<W>> {
+        self.layout.borrow()
     }
 
     /// Show the page for this rect.
     pub fn show(&mut self, widget: W) {
-        if let Some(page) = self.layout.page_of(widget) {
+        if let Some(page) = self.layout.borrow().page_of(widget) {
             self.nav.set_page(page / 2);
         }
     }
 
     /// Returns the first widget for the given page.
     pub fn first(&self, page: usize) -> Option<W> {
-        self.layout.first(page * 2)
+        self.layout.borrow().first(page * 2)
     }
 
     /// Calculates the page of the widget.
     pub fn page_of(&self, widget: W) -> Option<usize> {
-        self.layout.page_of(widget).map(|v| v / 2)
+        self.layout.borrow().page_of(widget).map(|v| v / 2)
     }
 
     /// Set the visible page.
