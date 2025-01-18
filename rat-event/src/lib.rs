@@ -178,9 +178,10 @@ where
 ///
 /// A widget can define its own type, if it has more things to report.
 /// It would be nice if those types are convertible to/from Outcome.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Outcome {
     /// The given event has not been used at all.
+    #[default]
     Continue,
     /// The event has been recognized, but nothing noticeable has changed.
     /// Further processing for this event may stop.
