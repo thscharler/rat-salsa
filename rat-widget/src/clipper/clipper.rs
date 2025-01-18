@@ -785,6 +785,18 @@ where
         self.vscroll.scroll_to_pos(pos)
     }
 
+    /// Scroll the widget to visible.
+    pub fn scroll_to(&mut self, widget: W) -> bool {
+        let area = self.layout.borrow().widget_for(widget);
+        let r0 = self
+            .vscroll
+            .scroll_to_range(area.top() as usize..area.bottom() as usize);
+        let r1 = self
+            .hscroll
+            .scroll_to_range(area.left() as usize..area.right() as usize);
+        r0 || r1
+    }
+
     pub fn scroll_up(&mut self, delta: usize) -> bool {
         self.vscroll.scroll_up(delta)
     }
@@ -809,14 +821,12 @@ where
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         let r = if self.container.is_focused() {
             match event {
-                ct_event!(keycode press ALT-PageUp) => {
-                    self.scroll_up(self.vscroll.page_len()).into()
-                }
-                ct_event!(keycode press ALT-PageDown) => {
+                ct_event!(keycode press PageUp) => self.scroll_up(self.vscroll.page_len()).into(),
+                ct_event!(keycode press PageDown) => {
                     self.scroll_down(self.vscroll.page_len()).into()
                 }
-                ct_event!(keycode press ALT-Home) => self.vertical_scroll_to(0).into(),
-                ct_event!(keycode press ALT-End) => {
+                ct_event!(keycode press Home) => self.vertical_scroll_to(0).into(),
+                ct_event!(keycode press End) => {
                     self.vertical_scroll_to(self.vscroll.max_offset()).into()
                 }
                 _ => Outcome::Continue,
