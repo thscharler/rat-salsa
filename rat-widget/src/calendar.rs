@@ -626,7 +626,7 @@ impl MonthState {
     }
 
     /// Selected week
-    pub fn selected_week(&mut self) -> Option<usize> {
+    pub fn selected_week(&self) -> Option<usize> {
         self.selected_week
     }
 
@@ -661,7 +661,7 @@ impl MonthState {
     }
 
     /// Selected day
-    pub fn selected_day(&mut self) -> Option<usize> {
+    pub fn selected_day(&self) -> Option<usize> {
         self.selected_day
     }
 
@@ -1084,6 +1084,89 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                             CalOutcome::Day(date)
                         }
                         CalOutcome::Continue => match event {
+                            ct_event!(keycode press PageUp) => {
+                                if !self[i].day_selection {
+                                    return CalOutcome::Continue;
+                                }
+                                if i > 0 {
+                                    if let Some(date) = self[i]
+                                        .selected_day_as_date()
+                                        .or_else(|| self[i].selected_week_as_date())
+                                    {
+                                        let new_date =
+                                            date.checked_sub_months(Months::new(1)).expect("days");
+                                        self[i].select_day(None);
+                                        self[i - 1].select_date(Some(new_date));
+                                        arg.0.focus(&self[i - 1]);
+                                        CalOutcome::Day(new_date)
+                                    } else {
+                                        // ?? what is this. invalid day??
+                                        CalOutcome::Continue
+                                    }
+                                } else {
+                                    if let Some(date) = self[i]
+                                        .selected_day_as_date()
+                                        .or_else(|| self[i].selected_week_as_date())
+                                    {
+                                        let new_date =
+                                            date.checked_sub_months(Months::new(1)).expect("days");
+                                        scroll_up_month_list(self, arg.1);
+                                        // date may be anywhere (even nowhere) after the shift.
+                                        for i in 0..self.len() {
+                                            self[i].select_date(Some(new_date));
+                                        }
+                                        for i in 0..self.len() {
+                                            if self[i].selected_day_as_date().is_some() {
+                                                arg.0.focus(&self[i]);
+                                            }
+                                        }
+                                        CalOutcome::Day(new_date)
+                                    } else {
+                                        CalOutcome::Continue
+                                    }
+                                }
+                            }
+                            ct_event!(keycode press PageDown) => {
+                                if !self[i].day_selection {
+                                    return CalOutcome::Continue;
+                                }
+                                if i + 1 < self.len() {
+                                    if let Some(date) = self[i]
+                                        .selected_day_as_date()
+                                        .or_else(|| self[i].selected_week_as_date())
+                                    {
+                                        let new_date =
+                                            date.checked_add_months(Months::new(1)).expect("days");
+                                        self[i].select_day(None);
+                                        self[i + 1].select_date(Some(new_date));
+                                        arg.0.focus(&self[i + 1]);
+                                        CalOutcome::Day(new_date)
+                                    } else {
+                                        CalOutcome::Continue
+                                    }
+                                } else {
+                                    if let Some(date) = self[i]
+                                        .selected_day_as_date()
+                                        .or_else(|| self[i].selected_week_as_date())
+                                    {
+                                        let new_date =
+                                            date.checked_add_months(Months::new(1)).expect("days");
+                                        scroll_down_month_list(self, arg.1);
+                                        // date may be anywhere (even nowhere) after the shift.
+                                        for i in 0..self.len() {
+                                            self[i].select_date(Some(new_date));
+                                        }
+                                        for i in 0..self.len() {
+                                            if self[i].selected_day_as_date().is_some() {
+                                                arg.0.focus(&self[i]);
+                                            }
+                                        }
+                                        CalOutcome::Day(new_date)
+                                    } else {
+                                        CalOutcome::Continue
+                                    }
+                                }
+                            }
                             ct_event!(keycode press Up) => {
                                 if !self[i].day_selection {
                                     return CalOutcome::Continue;
