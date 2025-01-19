@@ -112,23 +112,17 @@ fn handle_input(
                 state.menu.set_popup_active(false);
                 Outcome::Changed
             }
+            MenuOutcome::Selected(v) => {
+                istate.status[0] = format!("Selected {}", v);
+                Outcome::Changed
+            }
+            MenuOutcome::Activated(v) => {
+                istate.status[0] = format!("Activated {}", v);
+                Outcome::Changed
+            }
             r => r.into(),
         }
     );
-
-    try_flow!(match menubar::handle_events(&mut state.menu, true, event) {
-        MenuOutcome::Selected(v) => {
-            istate.status[0] = format!("Selected {}", v);
-            Outcome::Changed
-        }
-        MenuOutcome::Activated(v) => {
-            istate.status[0] = format!("Activated {}", v);
-            Outcome::Changed
-        }
-        r => {
-            r.into()
-        }
-    });
 
     Ok(Outcome::Continue)
 }

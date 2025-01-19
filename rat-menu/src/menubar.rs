@@ -18,7 +18,7 @@ use crate::event::MenuOutcome;
 use crate::menuline::{MenuLine, MenuLineState};
 use crate::popup_menu::{PopupMenu, PopupMenuState};
 use crate::{MenuStructure, MenuStyle};
-use rat_event::{flow, HandleEvent, MouseOnly, Popup, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::Placement;
 use ratatui::buffer::Buffer;
@@ -398,13 +398,35 @@ impl HasFocus for MenubarState {
 
 impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenubarState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
-        if !self.is_focused() {
-            self.set_popup_active(false);
-        }
+        handle_menubar(self, event, Popup, Regular)
+    }
+}
 
-        if let Some(selected) = self.bar.selected() {
-            if self.popup_active() {
-                match self.popup.handle(event, Popup) {
+impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenubarState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> MenuOutcome {
+        handle_menubar(self, event, MouseOnly, MouseOnly)
+    }
+}
+
+fn handle_menubar<Q1, Q2>(
+    state: &mut MenubarState,
+    event: &crossterm::event::Event,
+    qualifier1: Q1,
+    qualifier2: Q2,
+) -> MenuOutcome
+where
+    PopupMenuState: HandleEvent<crossterm::event::Event, Q1, MenuOutcome>,
+    MenuLineState: HandleEvent<crossterm::event::Event, Q2, MenuOutcome>,
+    MenuLineState: HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome>,
+{
+    if !state.is_focused() {
+        state.set_popup_active(false);
+    }
+
+    if state.bar.is_focused() {
+        let mut r = if let Some(selected) = state.bar.selected() {
+            if state.popup_active() {
+                match state.popup.handle(event, qualifier1) {
                     MenuOutcome::Hide => {
                         // only hide on focus lost. ignore this one.
                         MenuOutcome::Continue
@@ -418,94 +440,32 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenubarState {
             }
         } else {
             MenuOutcome::Continue
-        }
-    }
-}
+        };
 
-impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenubarState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> MenuOutcome {
-        // todo: too spooky?
-        if !self.is_focused() {
-            self.set_popup_active(false);
-        }
-
-        if self.bar.is_focused() {
-            let old_selected = self.bar.selected();
-            match self.bar.handle(event, Regular) {
-                r @ MenuOutcome::Selected(_) => {
-                    if self.bar.selected == old_selected {
-                        self.popup.flip_active();
+        r = r.or_else(|| {
+            let old_selected = state.bar.selected();
+            let r = state.bar.handle(event, qualifier2);
+            match r {
+                MenuOutcome::Selected(_) => {
+                    if state.bar.selected == old_selected {
+                        state.popup.flip_active();
                     } else {
-                        self.popup.select(None);
-                        self.popup.set_active(true);
+                        state.popup.select(None);
+                        state.popup.set_active(true);
                     }
-                    r
                 }
-                r @ MenuOutcome::Activated(_) => {
-                    self.popup.flip_active();
-                    r
+                MenuOutcome::Activated(_) => {
+                    state.popup.flip_active();
                 }
-                r => r,
+                _ => {}
             }
-        } else {
-            self.bar.handle(event, MouseOnly)
-        }
-    }
-}
-
-impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenubarState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> MenuOutcome {
-        if !self.is_focused() {
-            self.set_popup_active(false);
-        }
-
-        flow!(if let Some(selected) = self.bar.selected() {
-            if self.popup_active() {
-                match self.popup.handle(event, MouseOnly) {
-                    MenuOutcome::Hide => {
-                        self.set_popup_active(false);
-                        MenuOutcome::Changed
-                    }
-                    MenuOutcome::Selected(n) => MenuOutcome::MenuSelected(selected, n),
-                    MenuOutcome::Activated(n) => {
-                        self.set_popup_active(false);
-                        MenuOutcome::MenuActivated(selected, n)
-                    }
-                    r => r,
-                }
-            } else {
-                MenuOutcome::Continue
-            }
-        } else {
-            MenuOutcome::Continue
+            r
         });
 
-        let old_selected = self.bar.selected();
-        match self.bar.handle(event, MouseOnly) {
-            r @ MenuOutcome::Selected(_) => {
-                if self.bar.selected == old_selected {
-                    self.popup.flip_active();
-                } else {
-                    self.popup.set_active(true);
-                }
-                r
-            }
-            r => r,
-        }
+        r
+    } else {
+        state.bar.handle(event, MouseOnly)
     }
-}
-
-/// Handle menu events. Keyboard events are processed if focus is true.
-///
-/// Attention:
-/// For the event-handling of the popup-menus you need to call handle_popup_events().
-pub fn handle_events(
-    state: &mut MenubarState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> MenuOutcome {
-    state.bar.focus.set(focus);
-    state.handle(event, Regular)
 }
 
 /// Handle menu events for the popup-menu.

@@ -118,17 +118,13 @@ fn handle_input(
                 state.file_open.save_dialog(".", "sample.txt")?;
                 Outcome::Changed
             }
+            MenuOutcome::Activated(1) => {
+                istate.quit = true;
+                Outcome::Changed
+            }
             r => r.into(),
         }
     );
-
-    try_flow!(match menubar::handle_events(&mut state.menu, true, event) {
-        MenuOutcome::Activated(1) => {
-            istate.quit = true;
-            Outcome::Changed
-        }
-        r => r.into(),
-    });
 
     Ok(Outcome::Continue)
 }

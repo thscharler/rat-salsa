@@ -262,7 +262,7 @@ pub mod turbo {
     use crate::{GlobalState, RenderContext, TurboEvent};
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
+    use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::menu::{
         MenuBuilder, MenuStructure, Menubar, MenubarState, PopupConstraint, PopupMenu,
@@ -587,18 +587,14 @@ pub mod turbo {
                                     }
                                     Control::Changed
                                 }
-
+                                MenuOutcome::Selected(_) => {
+                                    self.menu_environment.set_active(false);
+                                    Control::Changed
+                                }
                                 v => v.into(),
                             }
                         });
                     }
-                    try_flow!(match self.menu.handle(event, Regular) {
-                        MenuOutcome::Selected(_) => {
-                            self.menu_environment.set_active(false);
-                            Control::Changed
-                        }
-                        r => r.into(),
-                    });
 
                     Control::Continue
                 }

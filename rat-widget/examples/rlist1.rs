@@ -226,6 +226,10 @@ fn handle_input(
                 state.menu.set_popup_active(false);
                 Outcome::Changed
             }
+            MenuOutcome::Activated(0) => {
+                istate.quit = true;
+                Outcome::Changed
+            }
             r => r.into(),
         });
 
@@ -305,14 +309,6 @@ fn handle_input(
                 EditOutcome::Append => append(data, state),
                 r => r.into(),
             }
-        });
-
-        flow!(match state.menu.handle(event, Regular) {
-            MenuOutcome::Activated(0) => {
-                istate.quit = true;
-                MenuOutcome::Changed
-            }
-            r => r,
         });
 
         Outcome::Continue

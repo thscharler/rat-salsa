@@ -332,12 +332,6 @@ pub mod mask0 {
                             ctx.g.theme = Rc::new(dark_themes()[n].clone());
                             Control::Changed
                         }
-                        r => r.into(),
-                    });
-
-                    // TODO: handle_mask
-
-                    try_flow!(match self.menu.handle(event, Regular) {
                         MenuOutcome::Activated(1) => {
                             Control::Quit
                         }

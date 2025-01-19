@@ -4,7 +4,6 @@
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
-use crossterm::event::Event;
 use directories_next::UserDirs;
 use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::thread_pool::Cancel;
@@ -16,7 +15,7 @@ use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
     ReadOnly, Regular, TableOutcome,
 };
-use rat_widget::focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
+use rat_widget::focus::{match_focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -26,19 +25,18 @@ use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{Table, TableContext, TableData, TableState};
-use rat_widget::text::HasScreenCursor;
+use rat_widget::text::{impl_screen_cursor, HasScreenCursor};
 use rat_widget::textarea::{TextArea, TextAreaState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::Style;
-use ratatui::symbols::border;
+use ratatui::symbols::border::EMPTY;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::block::Title;
 use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use sysinfo::Disks;
@@ -74,15 +72,12 @@ fn main() -> Result<(), Error> {
 #[derive(Debug)]
 pub struct GlobalState {
     pub cfg: FilesConfig,
-    pub theme: Rc<DarkTheme>,
+    pub theme: DarkTheme,
 }
 
 impl GlobalState {
     fn new(cfg: FilesConfig, theme: DarkTheme) -> Self {
-        Self {
-            cfg,
-            theme: Rc::new(theme),
-        }
+        Self { cfg, theme: theme }
     }
 }
 
@@ -109,7 +104,7 @@ pub enum FilesEvent {
 }
 
 impl From<crossterm::event::Event> for FilesEvent {
-    fn from(value: Event) -> Self {
+    fn from(value: crossterm::event::Event) -> Self {
         Self::Event(value)
     }
 }
@@ -211,12 +206,13 @@ impl<'a> TableData<'a> for FileData<'a> {
     }
 }
 
-struct DirData<'a> {
+struct DirData<'a, 'b> {
+    ctx: &'a RenderContext<'b>,
     dir: Option<PathBuf>,
     dirs: &'a [OsString],
 }
 
-impl<'a> TableData<'a> for DirData<'a> {
+impl<'a, 'b> TableData<'a> for DirData<'a, 'b> {
     fn rows(&self) -> usize {
         self.dirs.len()
     }
@@ -227,7 +223,7 @@ impl<'a> TableData<'a> for DirData<'a> {
 
     fn render_cell(
         &self,
-        ctx: &TableContext,
+        t_ctx: &TableContext,
         column: usize,
         row: usize,
         area: Rect,
@@ -238,19 +234,24 @@ impl<'a> TableData<'a> for DirData<'a> {
             0 => {
                 let name = item.to_string_lossy();
                 if name.as_ref() == "." {
-                    let mut l = Line::from(name.as_ref());
+                    let mut l = Line::default();
+                    if !t_ctx.focus || !t_ctx.selected_row {
+                        l = l.style(self.ctx.g.theme.limegreen(0));
+                    }
                     if let Some(dir) = &self.dir {
-                        l.push_span(" == ");
                         if let Some(name) = dir.file_name() {
                             l.push_span(name.to_string_lossy().into_owned());
                         }
                     }
                     l.render(area, buf);
                 } else if name.as_ref() == ".." {
-                    let mut l = Line::from(name.as_ref());
+                    let mut l = Line::default();
+                    if !t_ctx.focus || !t_ctx.selected_row {
+                        l = l.style(self.ctx.g.theme.green(0));
+                    }
                     if let Some(dir) = &self.dir {
                         if let Some(parent) = dir.parent() {
-                            l.push_span(" > ");
+                            l.push_span("< ");
                             if let Some(name) = parent.file_name() {
                                 l.push_span(name.to_string_lossy().into_owned());
                             }
@@ -306,40 +307,31 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
         let t0 = SystemTime::now();
         let theme = ctx.g.theme.clone();
 
-        let r = Layout::new(
-            Direction::Vertical,
-            [
-                Constraint::Length(1),
-                Constraint::Fill(1),
-                Constraint::Length(1),
-            ],
-        )
-        .split(area);
+        let &[path_area, split_area, menu_area] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ])
+        .split(area)
+        .as_ref() else {
+            unreachable!()
+        };
 
-        let c = Layout::new(
-            Direction::Horizontal,
-            [
-                Constraint::Length(25),
-                Constraint::Length(25),
-                Constraint::Fill(1),
-            ],
-        )
-        .split(r[1]);
-
-        let m = Layout::new(
+        let &[menu_area, status_area] = Layout::new(
             Direction::Horizontal,
             [Constraint::Fill(1), Constraint::Length(48)],
         )
-        .split(r[2]);
+        .split(menu_area)
+        .as_ref() else {
+            unreachable!()
+        };
 
-        // -----------------------------------------------------
         Text::from(state.main_dir.to_string_lossy())
             .alignment(Alignment::Right)
             .style(theme.black(3).fg(theme.scheme().secondary[2]))
-            .render(r[0], buf);
+            .render(path_area, buf);
 
-        let (split, split_overlay) = Split::new()
-            .direction(Direction::Horizontal)
+        let (split, split_overlay) = Split::horizontal()
             .constraints([
                 Constraint::Length(25),
                 Constraint::Length(25),
@@ -348,81 +340,61 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
             .split_type(SplitType::Scroll)
             .styles(theme.split_style())
             .into_widgets();
-        split.render(r[1], buf, &mut state.w_split);
+        split.render(split_area, buf, &mut state.w_split);
 
-        Table::new()
-            .data(DirData {
-                dir: Some(state.main_dir.clone()),
-                dirs: &state.sub_dirs,
-            })
-            .styles(theme.table_style())
-            .block(
-                Block::new()
-                    .borders(Borders::RIGHT)
-                    .border_type(BorderType::Rounded),
-            )
-            .vscroll(
-                Scroll::new()
-                    .styles(theme.scroll_style())
-                    .start_margin(2)
-                    .scroll_by(1),
-            )
-            .render(state.w_split.widget_areas[0], buf, &mut state.w_dirs);
+        // split content
+        {
+            Table::new()
+                .data(DirData {
+                    ctx,
+                    dir: Some(state.main_dir.clone()),
+                    dirs: &state.sub_dirs,
+                })
+                .block(
+                    Block::new()
+                        .borders(Borders::RIGHT)
+                        .border_type(BorderType::Rounded),
+                )
+                .vscroll(Scroll::new().start_margin(2).scroll_by(1))
+                .styles(theme.table_style())
+                .render(state.w_split.widget_areas[0], buf, &mut state.w_dirs);
 
-        Table::new()
-            .data(FileData {
-                dir: state.current_dir(),
-                files: &state.files,
-                err: &state.err,
-                dir_style: theme.gray(0),
-                err_style: theme.red(1),
-            })
-            .styles(theme.table_style())
-            .block(
-                Block::new()
-                    .borders(Borders::RIGHT)
-                    .border_type(BorderType::Rounded),
-            )
-            .vscroll(
-                Scroll::new()
-                    .styles(theme.scroll_style())
-                    .start_margin(2)
-                    .scroll_by(1),
-            )
-            .render(state.w_split.widget_areas[1], buf, &mut state.w_files);
+            Table::new()
+                .data(FileData {
+                    dir: state.current_dir(),
+                    files: &state.files,
+                    err: &state.err,
+                    dir_style: theme.gray(0),
+                    err_style: theme.red(1),
+                })
+                .block(
+                    Block::new()
+                        .borders(Borders::RIGHT)
+                        .border_type(BorderType::Rounded),
+                )
+                .vscroll(Scroll::new().start_margin(2).scroll_by(1))
+                .styles(theme.table_style())
+                .render(state.w_split.widget_areas[1], buf, &mut state.w_files);
 
-        let title = if state.w_data.is_focused() {
-            Title::from(Line::from("Content").style(theme.focus()))
-        } else {
-            Title::from("Content")
-        };
-        let set = border::Set {
-            top_left: " ",
-            top_right: " ",
-            bottom_left: " ",
-            bottom_right: " ",
-            vertical_left: " ",
-            vertical_right: " ",
-            horizontal_top: " ",
-            horizontal_bottom: " ",
-        };
+            let title = if state.w_data.is_focused() {
+                Title::from(Line::from("Content").style(theme.focus()))
+            } else {
+                Title::from("Content")
+            };
+            TextArea::new()
+                .vscroll(Scroll::new())
+                .block(
+                    Block::bordered()
+                        .borders(Borders::TOP)
+                        .border_set(EMPTY)
+                        .title(title),
+                )
+                .styles(theme.textarea_style())
+                .render(state.w_split.widget_areas[2], buf, &mut state.w_data);
+        }
 
-        let mut content_style = theme.textarea_style();
-        content_style.style = theme.black(2);
-        TextArea::new()
-            .styles(content_style)
-            .scroll(Scroll::new().styles(theme.scroll_style()))
-            .block(
-                Block::bordered()
-                    .borders(Borders::TOP)
-                    .border_set(set)
-                    .style(theme.container_base())
-                    .title(title),
-            )
-            .render(state.w_split.widget_areas[2], buf, &mut state.w_data);
-        ctx.cursor = state.w_data.screen_cursor();
-
-        split_overlay.render(r[1], buf, &mut state.w_split);
+        // render split overlay parts
+        split_overlay.render(split_area, buf, &mut state.w_split);
 
         let (menu, menu_popup) = Menubar::new(&Menu)
             .title("[-.-]")
@@ -430,14 +402,16 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
             .popup_placement(Placement::Above)
             .styles(theme.menu_style())
             .into_widgets();
-        menu.render(m[0], buf, &mut state.w_menu);
-        menu_popup.render(m[0], buf, &mut state.w_menu);
+        menu.render(menu_area, buf, &mut state.w_menu);
+        menu_popup.render(menu_area, buf, &mut state.w_menu);
 
-        // -----------------------------------------------------
+        // show visible cursor
+        ctx.set_screen_cursor(state.screen_cursor());
 
+        // render error dialog
         if state.error_dlg.active() {
             let err = MsgDialog::new().styles(theme.msg_dialog_style());
-            err.render(r[1], buf, &mut state.error_dlg);
+            err.render(split_area, buf, &mut state.error_dlg);
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -451,7 +425,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
                 Constraint::Length(12),
             ])
             .styles(theme.statusline_style());
-        status.render(m[1], buf, &mut state.status);
+        status.render(status_area, buf, &mut state.status);
 
         Ok(())
     }
@@ -536,8 +510,7 @@ impl FilesState {
         });
 
         ctx.focus = Some(FocusBuilder::rebuild_for(self, ctx.focus.take()));
-        let f = ctx.focus_mut().handle(event, Regular);
-        ctx.queue(f);
+        ctx.focus_event(event);
 
         try_flow!(match event {
             ct_event!(keycode press F(5)) => {
@@ -567,24 +540,20 @@ impl FilesState {
                 Control::Changed
             }
             MenuOutcome::MenuSelected(1, n) => {
-                ctx.g.theme = Rc::new(dark_themes()[n].clone());
+                ctx.g.theme = dark_themes()[n].clone();
                 Control::Changed
             }
             MenuOutcome::MenuActivated(1, n) => {
-                ctx.g.theme = Rc::new(dark_themes()[n].clone());
+                ctx.g.theme = dark_themes()[n].clone();
                 Control::Changed
             }
-            r => r.into(),
-        });
-
-        try_flow!(self.w_split.handle(event, Regular));
-
-        try_flow!(match self.w_menu.handle(event, Regular) {
             MenuOutcome::Activated(2) => {
                 Control::Quit
             }
             r => r.into(),
         });
+
+        try_flow!(self.w_split.handle(event, Regular));
 
         try_flow!(match_focus!(
             self.w_files => {
@@ -603,7 +572,7 @@ impl FilesState {
                     _=> Control::Continue
                 }
             },
-            _=> {
+            _ => {
                 Control::Continue
             }
         ));
@@ -613,15 +582,15 @@ impl FilesState {
             }
             r => r.into(),
         });
-        try_flow!(match self.w_dirs.handle(event, DoubleClick) {
-            DoubleClickOutcome::ClickClick(_, _) => {
-                self.follow_dir(ctx)?
-            }
-            r => r.into(),
-        });
         try_flow!(match self.w_files.handle(event, Regular) {
             TableOutcome::Selected => {
                 self.show_file(ctx)?
+            }
+            r => r.into(),
+        });
+        try_flow!(match self.w_dirs.handle(event, DoubleClick) {
+            DoubleClickOutcome::ClickClick(_, _) => {
+                self.follow_dir(ctx)?
             }
             r => r.into(),
         });
@@ -634,6 +603,31 @@ impl FilesState {
         try_flow!(self.w_data.handle(event, ReadOnly));
 
         Ok(Control::Continue)
+    }
+}
+
+impl_screen_cursor!(w_data for FilesState);
+
+impl HasFocus for FilesState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.widget(&self.w_split);
+        builder.widget(&self.w_dirs);
+        builder.widget(&self.w_files);
+        builder.append_flags(
+            self.w_data.focus(),
+            self.w_data.area(),
+            self.w_data.area_z(),
+            Navigation::Regular, // override default navigation
+        );
+        builder.widget(&self.w_menu);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not defined")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not defined")
     }
 }
 
@@ -1015,25 +1009,6 @@ impl FilesState {
             }
         };
         Ok(Control::Changed)
-    }
-}
-
-impl HasFocus for FilesState {
-    fn build(&self, builder: &mut FocusBuilder) {
-        builder
-            .widget(&self.w_split)
-            .widget(&self.w_dirs)
-            .widget(&self.w_files)
-            .widget(&self.w_data)
-            .widget(&self.w_menu);
-    }
-
-    fn focus(&self) -> FocusFlag {
-        unimplemented!("not in use, silent container")
-    }
-
-    fn area(&self) -> Rect {
-        unimplemented!("not in use, silent container")
     }
 }
 

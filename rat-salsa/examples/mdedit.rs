@@ -684,10 +684,6 @@ mod app {
                     ctx.g.theme = Rc::new(dark_themes()[n].clone());
                     Control::Changed
                 }
-                r => r.into(),
-            });
-
-            r = r.or_else(|| match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(4) => Control::Quit,
                 r => r.into(),
             });
