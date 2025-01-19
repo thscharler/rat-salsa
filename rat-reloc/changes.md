@@ -1,3 +1,8 @@
+# 1.1.1
+
+* feature: impl RelocatableState for Rect. This allows impl_relocatable_state!
+  to be used with plain Rect members.
+
 # 1.1.0
 
 * add impl_relocatable_state! for quick impl

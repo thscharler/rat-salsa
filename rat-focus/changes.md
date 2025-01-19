@@ -1,3 +1,24 @@
+# 0.32.0
+
+* BREAK: renames & refactors
+    * FocusBuilder::for_container -> build_for
+    * FocusBuilder::rebuild -> rebuild_for
+    * FocusBuilder::add_widget -> append_flags
+    * FocusBuilder::start_container -> start_with_flags
+    * refactor: move functionality from HasFocus::build() to FocusBuilder::append_leaf()
+    * refactor: remove impl for HasFocus::build(). Implementing this
+      for simple widgets is not the default use case irl.
+      These changes give better code language and better defaults.
+
+* feature: Add focus_id() to FocusFlag to get a basic ID for a widget.
+    - Alternative to storing the FocusFlag itself.
+    - Doesn't persist, runtime only.
+* feature: add impl_has_focus! macro.
+    - ```impl_has_focus!(container_flag:area: widget1, widget2, widget3 for SomeComposit)```
+    - ```impl_has_focus!(container_flag: widget1, widget2, widget3 for SomeComposit)```
+    - ```impl_has_focus!(widget1, widget2, widget3 for SomeComposit)```
+* fix: Better log messages.
+
 # 0.31.0
 
 * BREAK: Remove ContainerFlag and relatives.

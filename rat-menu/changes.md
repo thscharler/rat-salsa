@@ -1,3 +1,7 @@
+# 0.31.4
+
+* feature: Menubar: submenus open with Enter too.
+
 # 0.31.3
 
 * update rat-focus

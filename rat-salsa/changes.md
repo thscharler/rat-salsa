@@ -1,3 +1,9 @@
+# 0.31.0
+
+* BREAK: module structure work-over. No changed functionality but
+  import paths changed. PollEvent impls moved to their own poll module.
+  Makes docs more readable.
+
 # 0.30.2
 
 * update rat-widget

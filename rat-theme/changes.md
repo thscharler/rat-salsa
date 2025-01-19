@@ -1,3 +1,7 @@
+# 0.27.6.
+
+* fix: rat-widget version
+
 # 0.27.5
 
 * update rat-focus

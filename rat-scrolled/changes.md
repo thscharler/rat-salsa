@@ -1,3 +1,10 @@
+# 1.1.0
+
+* feature: ScrollSymbols can be Copy.
+* feature: add ScrollState::clear() to reset the offset to 0.
+* fix: scroll_to_range() had weird behaviour for widgets larger than
+  the page-size. Now scrolls to the top of the offending widget.
+
 # 1.0.1
 
 * moved all rat-crates to one repo

@@ -1,3 +1,7 @@
+# 0.28.6
+
+* fix: version bump for rat-focus
+
 # 0.28.5
 
 * fix: didn't behave correctly on overflow of boundary.

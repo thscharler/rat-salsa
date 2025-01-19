@@ -1,3 +1,29 @@
+# 0.30.0
+
+* fix: reset cursor to default position with set_text()
+
+* feature: add border_style to TextStyle. Sets the border_style
+  for any pre-existing Block.
+* feature: add on_focus_gained() and on_focus_lost() behaviour.
+    - Fixed set of behaviours:
+        - TextFocusGained::Overwrite - set the overwrite-flag.
+          Any text-input overwrites all content, but if you use any
+          navigation keys this flag is reset and changing the content
+          is possible.
+        - TextFocusGained::SelectAll - select all text.
+        - TextFocusLost::Position0 - set the cursor to the default position,
+          which is 0 for most widgets. MaskedInput may have a different default.
+          This prevents clipped left text after an edit.
+    - Behaviours can be set via TextStyle.
+    - adds set_overwrite() to set this behaviour selectively.
+* feature: MaskedInput: ',' and '.' are recognized as universal separator matches.
+  If these characters are not allowed for the current field they match
+  with the next separator whatever that separator is. This makes date-input
+  with the num-pad only possible: '1' '.' '1' '.' '2025'
+* feature: add global_clipboard() to set a application global clipboard.
+    - used as default for all text-widgets.
+    - enables copy&paste between all text widgets out of the box.
+
 # 0.29.5
 
 * update rat-focus

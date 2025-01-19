@@ -1,3 +1,62 @@
+# 0.35.0
+
+* break: ButtonOutcome moved to the event module as all the other
+  Outcome types.
+* break: add CheckOutcome::Value, ChoiceOutcome::Value, RadioOutcome::Value
+  and SliderOutcome::Value to signal changed values separate from other
+  changes.
+* break: Outcome types are no longer non_exhaustive. Any change to an
+  outcome type is breaking regardless of this flag.
+* break: create ChoiceCore to define common behaviour between Choice
+  and Radio.
+    - Both can work with empty lists of choices now.
+      They preserve any value set with set_value() regardless if it is
+      present in the list. Such an undefined value will be displayed
+      with all unchecked radios or an empty choice. This gives decent
+      behaviour if the list of choices diverges from the actual data.
+      At least it prevents a silent reset.
+    - Adds back default_value semantics. The default-value falls back
+      to T::default() if not set.
+* break: Clipper, SinglePager, DualPager now hold a Rc<RefCell<GenericLayout>>.
+  This enables clear() to reset any current layout. This comes in handy
+  if some event handling invalidates the layout. This adds valid_layout()
+  to all widgets. An empty layout is always invalid. And it detects size changes.
+
+* feature: Allow setting the navigation markers for PagerNav.
+  Hide page-numbers if there is only one page. If no explicit
+  border is set for PagerNav no space will be reserved for
+  the navigation markers. They will render over any content.
+* feature: Choice: add clear()
+* feature: Choice: add behaviour flags
+    - ChoiceSelect::MouseScroll - select in the popup-list with scroll.
+    - ChoiceSelect::MouseMove - select in the popup-list with mouse moves.
+    - ChoiceSelect::MouseClick - select in the popup-list with click and allows drag.
+    - ChoiceClose::SingleClick - close popup with single click
+    - ChoiceClose::DoubleClick - close popup with double click.
+* feature: calendar::Month uses ISO week-numbers now.
+* feature: calender::Month can now operate without setting start-date
+  on the widget. It uses any start-date coming from the state.
+* feature: calender: better event-handing for &[[MonthState]].
+    - add a MultiMonth qualifier for event-handling. This allows
+      setting a month-delta when moving beyond the displayed dates.
+      It requires Focus now for correctly focusing the current Month widget.
+    - Scrolling through dates outside the displayed months now changes
+      the start_date in the state. So start-date must not be set
+      when rendering the Month widgets.
+    - Result is now plain CalOutcome::Day/CalOutcome::Week dependent on
+      the actual selection.
+    - PageUp/PageDown supported
+* feature: Button: add hover functionality.
+* feature: Clipper: add scroll_to(widget)
+
+* fix: Choice must not send a change when it reacts to focus changes.
+  The relevant repaint is already triggered by Focus itself.
+  This leads to a double repaint and possible other disruptions.
+* fix: Choice doesn't consume Enter and Esc if the popup is already hidden.
+* fix: use unicode_display_width for Slider
+* fix: LayoutForm: off by 1
+* fix: Clipper renders the correct background style now.
+
 # 0.34.0
 
 * break: Choice: remove default_key, replace with simple select(0).

@@ -1,6 +1,6 @@
 [package]
 name = "rat-text"
-version = "0.29.5"
+version = "0.30.0"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui text input widgets"
@@ -36,7 +36,7 @@ dyn-clone = "1.0.17"
 rat-event = { version = "1.0", path = "../rat-event" }
 rat-reloc = { version = "1.0", path = "../rat-reloc" }
 rat-cursor = { version = "1.0", path = "../rat-cursor" }
-rat-focus = { version = "0.31", path = "../rat-focus" }
+rat-focus = { version = "0.32", path = "../rat-focus" }
 rat-scrolled = { version = "1.0", path = "../rat-scrolled" }
 
 [dev-dependencies]

@@ -1,3 +1,14 @@
+# 0.31.0
+
+* break: TableEditorState changed to value semantics completely.
+* break: Change event-handling from Outcome to TableOutcome.
+    - adds TableOutcome::Selected to differentiate selection changes from
+      any other changes.
+
+* fix: Table::auto_layout_width() doesn't need a bool parameter.
+
+* feature: EditableTableVec: Enter adds a new row in an empty table.
+
 # 0.30.0
 
 * break: rename for clarity: Editor->TableEditor, EditorState->TableEditorState,

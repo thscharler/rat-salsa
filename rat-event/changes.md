@@ -1,3 +1,7 @@
+# 1.2.0
+
+* feature: add Default for Outcome::Continue
+
 # 1.1.1
 
 * moved all rat-crates to one repo
