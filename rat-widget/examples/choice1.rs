@@ -157,16 +157,6 @@ fn handle_input(
         r => r.into(),
     });
 
-    // regular later...
-    let r = r.or_else(|| state.c1.handle(event, Regular).into());
-    let r = r.or_else(|| state.c2.handle(event, Regular).into());
-    let r = r.or_else(|| match state.c3.handle(event, Regular) {
-        ChoiceOutcome::Value => {
-            debug!("c3 {:?}", state.c3.value());
-            Outcome::Changed
-        }
-        r => r.into(),
-    });
     let r = r.or_else(|| match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(v) => {
             match v {
