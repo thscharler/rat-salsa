@@ -6,7 +6,7 @@ use crate::timer::{TimerDef, TimerHandle, Timers};
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioSpawn;
 use crossbeam::channel::{SendError, Sender};
-use rat_widget::event::{ConsumedEvent, Outcome};
+use rat_widget::event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_widget::focus::Focus;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -412,6 +412,23 @@ where
     #[inline]
     pub fn focus_mut(&mut self) -> &mut Focus {
         self.focus.as_mut().expect("focus")
+    }
+
+    /// Handle the focus-event and automatically queue the result.
+    ///
+    /// __Panic__
+    ///
+    /// Panics if no focus has been set.
+    #[inline]
+    pub fn focus_event<E>(&mut self, event: &E)
+    where
+        Focus: HandleEvent<E, Regular, Outcome>,
+    {
+        let focus = self.focus.as_mut().expect("focus");
+        let r = focus.handle(event, Regular);
+        if r.is_consumed() {
+            self.queue(r);
+        }
     }
 }
 
