@@ -18,7 +18,6 @@ use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
-use std::rc::Rc;
 use std::time::SystemTime;
 
 mod mini_salsa;
@@ -95,7 +94,7 @@ fn repaint_input(
 
     let layout_size = pager.layout_size(l2[1], &state.pager);
     // rebuild layout
-    if state.pager.layout.size_changed(layout_size) {
+    if !state.pager.valid_layout(layout_size) {
         let mut form_layout = LayoutForm::new()
             .spacing(1)
             .flex(state.flex)
@@ -159,9 +158,9 @@ fn repaint_input(
             }
         }
 
-        state.pager.set_layout(Rc::new(
-            form_layout.endless(layout_size.width, Padding::default()),
-        ));
+        state
+            .pager
+            .set_layout(form_layout.endless(layout_size.width, Padding::default()));
     }
 
     // Render

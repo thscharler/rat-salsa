@@ -267,7 +267,7 @@ fn handle_table(
                 state
                     .table
                     .editor
-                    .set_value(&data.table_data[sel], istate)?;
+                    .set_value(data.table_data[sel].clone(), istate)?;
                 state.table.edit(sel);
             }
             Ok(Outcome::Changed)
@@ -294,7 +294,7 @@ fn handle_table(
             }
             if let Some(sel) = state.table.table.selected_checked() {
                 let value = state.table.editor.create_value(istate)?;
-                state.table.editor.set_value(&value, istate)?;
+                state.table.editor.set_value(value.clone(), istate)?;
                 data.table_data.insert(sel + 1, value);
                 state.table.edit_new(sel + 1);
             }
@@ -306,7 +306,7 @@ fn handle_table(
                 state
                     .table
                     .editor
-                    .set_value(&data.table_data[sel + 1], istate)?;
+                    .set_value(data.table_data[sel + 1].clone(), istate)?;
                 state.table.edit(sel + 1);
             }
             Ok(Outcome::Changed)
@@ -314,7 +314,7 @@ fn handle_table(
         EditOutcome::Insert => {
             if let Some(sel) = state.table.table.selected_checked() {
                 let value = state.table.editor.create_value(istate)?;
-                state.table.editor.set_value(&value, istate)?;
+                state.table.editor.set_value(value.clone(), istate)?;
                 data.table_data.insert(sel, value);
                 state.table.edit_new(sel);
             }
@@ -322,7 +322,7 @@ fn handle_table(
         }
         EditOutcome::Append => {
             let value = state.table.editor.create_value(istate)?;
-            state.table.editor.set_value(&value, istate)?;
+            state.table.editor.set_value(value.clone(), istate)?;
             data.table_data.push(value);
             state.table.edit_new(data.table_data.len() - 1);
             Ok(Outcome::Changed)
@@ -424,7 +424,7 @@ impl TableEditorState for SampleEditorState {
         Ok(Sample::default())
     }
 
-    fn set_value(&mut self, data: &Sample, _ctx: Self::Context<'_>) -> Result<(), Error> {
+    fn set_value(&mut self, data: Sample, _ctx: Self::Context<'_>) -> Result<(), Error> {
         self.text.set_text(&data.text);
         self.num1.set_value(data.num1)?;
         self.num2.set_value(data.num2)?;

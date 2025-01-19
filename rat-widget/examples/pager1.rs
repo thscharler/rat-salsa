@@ -17,7 +17,6 @@ use ratatui::widgets::Padding;
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
-use std::rc::Rc;
 
 mod mini_salsa;
 
@@ -80,7 +79,7 @@ fn repaint_input(
     // maybe rebuild layout
     let layout_size = pager.layout_size(l2[1]);
 
-    if state.pager.layout.size_changed(layout_size) {
+    if !state.pager.valid_layout(layout_size) {
         let mut form = LayoutForm::new() //
             .spacing(1)
             .line_spacing(1)
@@ -104,7 +103,9 @@ fn repaint_input(
             }
         }
 
-        state.pager.layout = Rc::new(form.paged(layout_size, Padding::new(2, 2, 1, 1)));
+        state
+            .pager
+            .set_layout(form.paged(layout_size, Padding::new(2, 2, 1, 1)));
     }
 
     // set current layout and prepare rendering.

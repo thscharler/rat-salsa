@@ -54,7 +54,7 @@ struct State {
     n_focus: f64,
     focus: Option<Focus>,
     flex: Flex,
-    layout: Rc<GenericLayout<FocusFlag>>,
+    layout: Rc<RefCell<GenericLayout<FocusFlag>>>,
     page_nav: PageNavigationState,
     hundred: [TextInputMockState; HUN],
     menu: MenuLineState,
@@ -99,7 +99,7 @@ fn repaint_input(
     let layout_size = nav.layout_size(l2[1]);
 
     // rebuild layout
-    if state.layout.size_changed(layout_size) {
+    if state.layout.borrow().size_changed(layout_size) {
         let mut form_layout = LayoutForm::new()
             .spacing(1)
             .flex(state.flex)
@@ -163,10 +163,12 @@ fn repaint_input(
             }
         }
 
-        state.layout = Rc::new(form_layout.paged(layout_size, Padding::default()));
+        state.layout = Rc::new(RefCell::new(
+            form_layout.paged(layout_size, Padding::default()),
+        ));
         state
             .page_nav
-            .set_page_count((state.layout.page_count() + 1) / 2);
+            .set_page_count((state.layout.borrow().page_count() + 1) / 2);
     }
 
     // Render navigation
@@ -272,7 +274,7 @@ fn handle_input(
     // set the page from focus.
     if f == Outcome::Changed {
         if let Some(ff) = focus.focused() {
-            if let Some(page) = state.layout.page_of(ff) {
+            if let Some(page) = state.layout.borrow().page_of(ff) {
                 let page = page / 2;
                 if page != state.page_nav.page {
                     state.page_nav.set_page(page);
@@ -283,7 +285,7 @@ fn handle_input(
 
     let mut r = match state.page_nav.handle(event, Regular) {
         PagerOutcome::Page(p) => {
-            if let Some(w) = state.layout.first(p * 2) {
+            if let Some(w) = state.layout.borrow().first(p * 2) {
                 focus.focus_flag(&w);
             }
             Outcome::Changed
@@ -294,7 +296,7 @@ fn handle_input(
     r = r.or_else(|| match event {
         ct_event!(keycode press F(4)) => {
             if state.page_nav.prev_page() {
-                if let Some(w) = state.layout.first(state.page_nav.page * 2) {
+                if let Some(w) = state.layout.borrow().first(state.page_nav.page * 2) {
                     focus.focus_flag(&w);
                 }
                 Outcome::Changed
@@ -304,7 +306,7 @@ fn handle_input(
         }
         ct_event!(keycode press F(5)) => {
             if state.page_nav.next_page() {
-                if let Some(w) = state.layout.first(state.page_nav.page * 2) {
+                if let Some(w) = state.layout.borrow().first(state.page_nav.page * 2) {
                     focus.focus_flag(&w);
                 }
                 Outcome::Changed

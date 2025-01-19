@@ -318,7 +318,7 @@ impl TableEditorState for SampleEditorState {
         })
     }
 
-    fn set_value(&mut self, value: &Sample, _ctx: &MiniSalsaState) -> Result<(), Error> {
+    fn set_value(&mut self, value: Sample, _ctx: &MiniSalsaState) -> Result<(), Error> {
         self.text.set_text(&value.text);
         self.num1.set_value(value.num1)?;
         self.num2.set_value(value.num2)?;

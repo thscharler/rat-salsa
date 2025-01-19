@@ -17,7 +17,6 @@ use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
-use std::rc::Rc;
 
 mod mini_salsa;
 
@@ -84,7 +83,7 @@ fn repaint_input(
         .hscroll(Scroll::new().scroll_by(1))
         .vscroll(Scroll::new().scroll_by(1));
 
-    if state.clipper.layout.is_empty() {
+    if state.clipper.layout.borrow().is_empty() {
         // the inner layout is fixed, need to init only once.
         let mut gen_layout = GenericLayout::new();
 
@@ -99,7 +98,7 @@ fn repaint_input(
             row += 2;
         }
 
-        state.clipper.set_layout(Rc::new(gen_layout));
+        state.clipper.set_layout(gen_layout);
     }
 
     let mut clip_buf = clipper.into_buffer(l2[1], &mut state.clipper);
