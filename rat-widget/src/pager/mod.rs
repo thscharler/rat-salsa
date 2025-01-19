@@ -14,12 +14,10 @@
 //!     #
 //!     # let l2 = [Rect::ZERO, Rect::ZERO];
 //!     # struct State {
-//!     #      layout: GenericLayout<FocusFlag>,
 //!     #      check_states: Vec<CheckboxState>,
 //!     #      pager: SinglePagerState<FocusFlag>
 //!     #  }
 //!     # let mut state = State {
-//!     #      layout: GenericLayout::new(),
 //!     #      check_states: Vec::default(),
 //!     #      pager: Default::default(),
 //!     #  };
@@ -30,7 +28,7 @@
 //!     let pager = SinglePager::new();
 //!     let size = pager.layout_size(l2[1]);
 //!
-//!     if state.layout.size_changed(size) {
+//!     if !state.pager.valid_layout(size) {
 //!           // GenericLayout is very basic.
 //!           // Try LayoutForm or layout_edit() instead.
 //!           let mut pl = GenericLayout::new();
@@ -42,7 +40,7 @@
 //!                     Rect::default() // label area
 //!               );
 //!           }
-//!           state.pager.set_layout(Rc::new(pl));
+//!           state.pager.set_layout(pl);
 //!       }
 //!
 //!       ///

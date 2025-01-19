@@ -31,7 +31,10 @@
 //!     ///> __Note__: add() returns a handle for the area. Can be used later
 //!     ///> to refer to the stored area.
 //!
-//!     if state.clipper.layout.is_empty() {
+//!     let clipper = Clipper::new();
+//!     let layout_size = clipper.layout_size(l2[1], &mut state.clipper);
+//!
+//!     if !state.clipper.valid_layout(layout_size) {
 //!         let mut cl = GenericLayout::new();
 //!         for i in 0..100 {
 //!             cl.add(state.check_states[i].focus.clone(),
@@ -40,14 +43,13 @@
 //!                 Rect::default()
 //!             );
 //!         }
+//!         state.clipper.set_layout(cl);
 //!     }
 //!
 //!     /// The given area plus the current scroll offset define the
 //!     /// view area. With the view area a temporary buffer is created
 //!     /// that is big enough to fit all widgets that are at least
 //!     /// partially visible.
-//!
-//!     let clipper = Clipper::new();
 //!
 //!     let mut clip_buf = clipper
 //!         .into_buffer(l2[1], &mut state.clipper);
