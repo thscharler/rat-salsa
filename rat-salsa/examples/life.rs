@@ -31,15 +31,15 @@ fn main() -> Result<(), Error> {
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
-    let game = if let Some(f) = args().nth(1) {
+    let mut state = SceneryState::new();
+    state.set_game(if let Some(f) = args().nth(1) {
         game::load_life(&PathBuf::from(f), &global.theme)?
     } else {
         global::rat_state()
-    };
-    let mut state = SceneryState::default().game(game);
+    });
 
     // init event-src + configuration
-    let (poll_tick, tick_cfg) = PollTick::new(Duration::from_secs(2));
+    let (poll_tick, tick_cfg) = PollTick::new(Duration::from_secs(2), Duration::from_millis(100));
     global.tick = tick_cfg;
 
     run_tui(
@@ -105,9 +105,9 @@ pub mod global {
     }
 
     impl PollTick {
-        pub fn new(start: Duration) -> (Self, Rc<RefCell<Duration>>) {
+        pub fn new(start: Duration, interval: Duration) -> (Self, Rc<RefCell<Duration>>) {
             let tick = Self {
-                tick: Rc::new(RefCell::new(Duration::from_millis(100))),
+                tick: Rc::new(RefCell::new(interval)),
                 next: SystemTime::now() + start,
             };
             let tick_cfg = tick.tick.clone();
@@ -220,9 +220,8 @@ pub mod app {
             Self::default()
         }
 
-        pub fn game(mut self, game: LifeGameState) -> Self {
+        pub fn set_game(&mut self, game: LifeGameState) {
             self.life.game = game;
-            self
         }
     }
 
@@ -254,7 +253,6 @@ pub mod app {
 
             let status_layout =
                 Layout::horizontal([Constraint::Fill(61), Constraint::Fill(39)]).split(layout[1]);
-            let scheme = theme.scheme();
             let status = StatusLine::new()
                 .layout([
                     Constraint::Fill(1),
@@ -262,21 +260,7 @@ pub mod app {
                     Constraint::Length(8),
                     Constraint::Length(8),
                 ])
-                .styles(vec![
-                    theme.status_base(),
-                    Style::default()
-                        .fg(scheme.text_color(scheme.white[0]))
-                        .bg(scheme.orange[2]),
-                    Style::default()
-                        .fg(scheme.text_color(scheme.white[0]))
-                        .bg(scheme.blue[3]),
-                    Style::default()
-                        .fg(scheme.text_color(scheme.white[0]))
-                        .bg(scheme.blue[2]),
-                    Style::default()
-                        .fg(scheme.text_color(scheme.white[0]))
-                        .bg(scheme.blue[1]),
-                ]);
+                .styles(theme.statusline_style());
             status.render(status_layout[1], buf, &mut state.status);
 
             state.rt = SystemTime::now();

@@ -49,9 +49,11 @@ where
     }
 
     /// Terminal is a rat-salsa::terminal::Terminal not a ratatui::Terminal.
-    pub fn term(mut self, term: impl Terminal<Error> + 'static) -> Self {
-        self.term = Box::new(term);
-        self
+    pub fn new(term: impl Terminal<Error> + 'static) -> Self {
+        Self {
+            term: Box::new(term),
+            poll: Default::default(),
+        }
     }
 
     /// Add one more poll impl.
