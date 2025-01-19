@@ -319,6 +319,7 @@ impl DarkTheme {
             focus: Some(self.focus()),
             select: Some(self.text_select()),
             scroll: Some(self.scroll_style()),
+            border_style: Some(self.container_border()),
             ..TextStyle::default()
         }
     }
