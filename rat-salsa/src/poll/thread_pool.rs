@@ -1,14 +1,47 @@
-use crate::{AppContext, AppState, Control, PollEvents};
+use crate::thread_pool::ThreadPool;
+use crate::{Control, PollEvents};
 use crossbeam::channel::TryRecvError;
 use std::any::Any;
+use std::rc::Rc;
 
 /// Processes results from background tasks.
 #[derive(Debug)]
-pub struct PollTasks;
-
-impl<Global, State, Event, Error> PollEvents<Global, State, Event, Error> for PollTasks
+pub struct PollTasks<Event, Error>
 where
-    State: AppState<Global, Event, Error> + ?Sized,
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    tasks: Rc<ThreadPool<Event, Error>>,
+}
+
+impl<Event, Error> Default for PollTasks<Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    fn default() -> Self {
+        Self::new(1)
+    }
+}
+
+impl<Event, Error> PollTasks<Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    pub fn new(num_workers: usize) -> Self {
+        Self {
+            tasks: Rc::new(ThreadPool::new(num_workers)),
+        }
+    }
+
+    pub(crate) fn get_tasks(&self) -> Rc<ThreadPool<Event, Error>> {
+        self.tasks.clone()
+    }
+}
+
+impl<Event, Error> PollEvents<Event, Error> for PollTasks<Event, Error>
+where
     Event: 'static + Send,
     Error: 'static + Send + From<TryRecvError>,
 {
@@ -16,23 +49,11 @@ where
         self
     }
 
-    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
-        if let Some(tasks) = ctx.tasks {
-            Ok(!tasks.is_empty())
-        } else {
-            Ok(false)
-        }
+    fn poll(&mut self) -> Result<bool, Error> {
+        Ok(!self.tasks.is_empty())
     }
 
-    fn read_exec(
-        &mut self,
-        _state: &mut State,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
-    ) -> Result<Control<Event>, Error> {
-        if let Some(tasks) = ctx.tasks {
-            tasks.try_recv()
-        } else {
-            Ok(Control::Continue)
-        }
+    fn read(&mut self) -> Result<Control<Event>, Error> {
+        self.tasks.try_recv()
     }
 }

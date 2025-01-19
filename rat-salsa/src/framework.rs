@@ -3,8 +3,6 @@ use crate::framework::control_queue::ControlQueue;
 use crate::poll::PollTokio;
 use crate::poll::{PollRendered, PollTasks, PollTimers};
 use crate::run_config::RunConfig;
-use crate::thread_pool::ThreadPool;
-use crate::timer::Timers;
 use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
 use crossbeam::channel::{SendError, TryRecvError};
 use poll_queue::PollQueue;
@@ -25,7 +23,7 @@ fn _run_tui<App, Global, Event, Error>(
     app: App,
     global: &mut Global,
     state: &mut App::State,
-    cfg: &mut RunConfig<App, Global, Event, Error>,
+    cfg: &mut RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
     App: AppWidget<Global, Event, Error> + 'static,
@@ -36,22 +34,20 @@ where
     let term = cfg.term.as_mut();
     let poll = cfg.poll.as_mut_slice();
 
-    let timers = if poll
-        .iter()
-        .any(|v| v.as_ref().type_id() == TypeId::of::<PollTimers>())
-    {
-        Some(Timers::default())
-    } else {
-        None
-    };
-    let tasks = if poll
-        .iter()
-        .any(|v| v.as_ref().type_id() == TypeId::of::<PollTasks>())
-    {
-        Some(ThreadPool::new(cfg.n_threats))
-    } else {
-        None
-    };
+    let timers = poll.iter().find_map(|v| {
+        if let Some(t) = v.as_any().downcast_ref::<PollTimers>() {
+            Some(t.get_timers())
+        } else {
+            None
+        }
+    });
+    let tasks = poll.iter().find_map(|v| {
+        if let Some(t) = v.as_any().downcast_ref::<PollTasks<Event, Error>>() {
+            Some(t.get_tasks())
+        } else {
+            None
+        }
+    });
     let rendered_event = poll.iter().enumerate().find_map(|(n, v)| {
         if v.as_ref().type_id() == TypeId::of::<PollRendered>() {
             Some(n)
@@ -60,9 +56,9 @@ where
         }
     });
     #[cfg(feature = "async")]
-    let tokio_spawn = poll.iter().find_map(|v| {
+    let tokio = poll.iter().find_map(|v| {
         if let Some(t) = v.as_any().downcast_ref::<PollTokio<Event, Error>>() {
-            Some(t.get_spawn())
+            Some(t.get_tasks())
         } else {
             None
         }
@@ -73,10 +69,10 @@ where
         g: global,
         focus: None,
         count: 0,
-        timers: &timers,
-        tasks: &tasks,
+        timers,
+        tasks,
         #[cfg(feature = "async")]
-        tokio: &tokio_spawn,
+        tokio,
         queue: &queue,
     };
 
@@ -100,14 +96,13 @@ where
         }
         Ok(frame.count())
     })?;
-    if let Some(h) = rendered_event {
-        let r = poll[h].read_exec(state, &mut appctx);
-        queue.push(r);
+    if let Some(idx) = rendered_event {
+        queue.push(poll[idx].read());
     }
 
     'ui: loop {
         // panic on worker panic
-        if let Some(tasks) = &tasks {
+        if let Some(tasks) = &appctx.tasks {
             if !tasks.check_liveness() {
                 dbg!("worker panicked");
                 break 'ui;
@@ -120,7 +115,7 @@ where
             // notifies are queued in the poll_queue.
             if poll_queue.is_empty() {
                 for (n, p) in poll.iter_mut().enumerate() {
-                    match p.poll(&mut appctx) {
+                    match p.poll() {
                         Ok(true) => {
                             poll_queue.push(n);
                         }
@@ -134,7 +129,7 @@ where
 
             // Sleep regime.
             if poll_queue.is_empty() {
-                let t = if let Some(timers) = &timers {
+                let t = if let Some(timers) = &appctx.timers {
                     if let Some(timer_sleep) = timers.sleep_time() {
                         min(timer_sleep, poll_sleep)
                     } else {
@@ -158,8 +153,7 @@ where
         // Run the next event.
         if queue.is_empty() {
             if let Some(h) = poll_queue.take() {
-                let r = poll[h].read_exec(state, &mut appctx);
-                queue.push(r);
+                queue.push(poll[h].read());
             }
         }
 
@@ -167,8 +161,7 @@ where
         if let Some(ctrl) = queue.take() {
             match ctrl {
                 Err(e) => {
-                    let r = state.error(e, &mut appctx);
-                    queue.push(r);
+                    queue.push(state.error(e, &mut appctx));
                 }
                 Ok(Control::Continue) => {}
                 Ok(Control::Unchanged) => {}
@@ -190,16 +183,14 @@ where
                         Ok(v) => {
                             appctx.count = v;
                             if let Some(h) = rendered_event {
-                                let r = poll[h].read_exec(state, &mut appctx);
-                                queue.push(r);
+                                queue.push(poll[h].read());
                             }
                         }
                         Err(e) => queue.push(Err(e)),
                     }
                 }
-                Ok(Control::Message(a)) => {
-                    let r = state.event(&a, &mut appctx);
-                    queue.push(r);
+                Ok(Control::Event(a)) => {
+                    queue.push(state.event(&a, &mut appctx));
                 }
                 Ok(Control::Quit) => {
                     break 'ui;
@@ -298,7 +289,7 @@ pub fn run_tui<Widget, Global, Event, Error>(
     app: Widget,
     global: &mut Global,
     state: &mut Widget::State,
-    mut cfg: RunConfig<Widget, Global, Event, Error>,
+    mut cfg: RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
     Widget: AppWidget<Global, Event, Error> + 'static,

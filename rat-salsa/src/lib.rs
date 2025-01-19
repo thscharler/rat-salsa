@@ -4,7 +4,7 @@ use crate::framework::control_queue::ControlQueue;
 use crate::thread_pool::{Cancel, ThreadPool};
 use crate::timer::{TimerDef, TimerHandle, Timers};
 #[cfg(feature = "async")]
-use crate::tokio_tasks::TokioSpawn;
+use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use rat_widget::event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_widget::focus::Focus;
@@ -15,6 +15,7 @@ use std::fmt::Debug;
 #[cfg(feature = "async")]
 use std::future::Future;
 use std::mem;
+use std::rc::Rc;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 
@@ -90,7 +91,7 @@ pub enum Control<Event> {
     ///
     /// The other way is to call [AppContext::queue] to initiate such
     /// events.
-    Message(Event),
+    Event(Event),
     /// Quit the application.
     Quit,
 }
@@ -110,35 +111,35 @@ impl<Event> Ord for Control<Event> {
                 Control::Continue => Ordering::Equal,
                 Control::Unchanged => Ordering::Less,
                 Control::Changed => Ordering::Less,
-                Control::Message(_) => Ordering::Less,
+                Control::Event(_) => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
             Control::Unchanged => match other {
                 Control::Continue => Ordering::Greater,
                 Control::Unchanged => Ordering::Equal,
                 Control::Changed => Ordering::Less,
-                Control::Message(_) => Ordering::Less,
+                Control::Event(_) => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
             Control::Changed => match other {
                 Control::Continue => Ordering::Greater,
                 Control::Unchanged => Ordering::Greater,
                 Control::Changed => Ordering::Equal,
-                Control::Message(_) => Ordering::Less,
+                Control::Event(_) => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
-            Control::Message(_) => match other {
+            Control::Event(_) => match other {
                 Control::Continue => Ordering::Greater,
                 Control::Unchanged => Ordering::Greater,
                 Control::Changed => Ordering::Greater,
-                Control::Message(_) => Ordering::Equal,
+                Control::Event(_) => Ordering::Equal,
                 Control::Quit => Ordering::Less,
             },
             Control::Quit => match other {
                 Control::Continue => Ordering::Greater,
                 Control::Unchanged => Ordering::Greater,
                 Control::Changed => Ordering::Greater,
-                Control::Message(_) => Ordering::Greater,
+                Control::Event(_) => Ordering::Greater,
                 Control::Quit => Ordering::Equal,
             },
         }
@@ -257,12 +258,12 @@ where
     pub count: usize,
 
     /// Application timers.
-    pub(crate) timers: &'a Option<Timers>,
+    pub(crate) timers: Option<Rc<Timers>>,
     /// Background tasks.
-    pub(crate) tasks: &'a Option<ThreadPool<Event, Error>>,
+    pub(crate) tasks: Option<Rc<ThreadPool<Event, Error>>>,
     /// Background tasks.
     #[cfg(feature = "async")]
-    pub(crate) tokio: &'a Option<TokioSpawn<Event, Error>>,
+    pub(crate) tokio: Option<Rc<TokioTasks<Event, Error>>>,
     /// Queue foreground tasks.
     pub(crate) queue: &'a ControlQueue<Event, Error>,
 }
@@ -354,7 +355,7 @@ where
             .expect(
                 "No thread-pool configured. In main() add RunConfig::default()?.poll(PollTasks)",
             )
-            .send(Box::new(task))
+            .spawn(Box::new(task))
     }
 
     /// Spawn a future in the executor.

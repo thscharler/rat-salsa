@@ -34,7 +34,8 @@ fn main() -> Result<(), Error> {
         app,
         &mut global,
         &mut state,
-        RunConfig::default()?.threads(1).poll(PollCrossterm),
+        RunConfig::default()? //
+            .poll(PollCrossterm),
     )?;
 
     Ok(())
@@ -581,7 +582,7 @@ pub mod turbo {
                                 }
                                 MenuOutcome::MenuActivated(6, 0) => {
                                     for _ in 0..50 {
-                                        ctx.queue(Control::Message(TurboEvent::Message(
+                                        ctx.queue(Control::Event(TurboEvent::Message(
                                             "Hello!".into(),
                                         )));
                                     }

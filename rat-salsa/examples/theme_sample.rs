@@ -37,10 +37,9 @@ fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::default()?
-            .threads(1)
             .poll(PollCrossterm)
-            .poll(PollTimers)
-            .poll(PollTasks),
+            .poll(PollTimers::default())
+            .poll(PollTasks::default()),
     )?;
 
     Ok(())

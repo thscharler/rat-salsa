@@ -2,7 +2,7 @@
 //! Defines the trait for event-sources.
 //!
 
-use crate::{AppContext, AppState, Control};
+use crate::Control;
 use std::any::Any;
 
 /// Trait for an event-source.
@@ -11,9 +11,8 @@ use std::any::Any;
 ///
 /// * Implement this trait for a struct that fits.
 ///
-pub trait PollEvents<Global, State, Event, Error>: Any
+pub trait PollEvents<Event, Error>: Any
 where
-    State: AppState<Global, Event, Error> + ?Sized,
     Event: 'static + Send,
     Error: 'static + Send,
 {
@@ -27,18 +26,11 @@ where
     ///
     /// This prevents issues with poll-ordering of multiple sources, and
     /// one source cannot just flood the app with events.
-    fn poll(
-        &mut self, //
-        ctx: &mut AppContext<'_, Global, Event, Error>,
-    ) -> Result<bool, Error>;
+    fn poll(&mut self) -> Result<bool, Error>;
 
     /// Read the event and distribute it.
     ///
     /// If you add a new event, that doesn't fit into AppEvents, you'll
     /// have to define a new trait for your AppState and use that.
-    fn read_exec(
-        &mut self,
-        state: &mut State,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
-    ) -> Result<Control<Event>, Error>;
+    fn read(&mut self) -> Result<Control<Event>, Error>;
 }

@@ -28,8 +28,8 @@ fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::default()?
             .poll(PollCrossterm)
-            .poll(PollTimers)
-            .poll(PollTasks)
+            .poll(PollTimers::default())
+            .poll(PollTasks::default())
             .poll(PollRendered),
     )?;
 

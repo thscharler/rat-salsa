@@ -1,14 +1,28 @@
-use crate::timer::{TimeOut, TimerEvent};
-use crate::{AppContext, AppState, Control, PollEvents};
+use crate::timer::{TimeOut, Timers};
+use crate::{Control, PollEvents};
 use std::any::Any;
+use std::rc::Rc;
 
 /// Processes timers.
 #[derive(Debug, Default)]
-pub struct PollTimers;
+pub struct PollTimers {
+    timers: Rc<Timers>,
+}
 
-impl<Global, State, Event, Error> PollEvents<Global, State, Event, Error> for PollTimers
+impl PollTimers {
+    pub fn new() -> Self {
+        Self {
+            timers: Rc::new(Timers::default()),
+        }
+    }
+
+    pub(crate) fn get_timers(&self) -> Rc<Timers> {
+        self.timers.clone()
+    }
+}
+
+impl<Event, Error> PollEvents<Event, Error> for PollTimers
 where
-    State: AppState<Global, Event, Error> + ?Sized,
     Event: 'static + Send + From<TimeOut>,
     Error: 'static + Send + From<std::io::Error>,
 {
@@ -16,26 +30,15 @@ where
         self
     }
 
-    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
-        if let Some(timers) = ctx.timers {
-            Ok(timers.poll())
-        } else {
-            Ok(false)
-        }
+    fn poll(&mut self) -> Result<bool, Error> {
+        Ok(self.timers.poll())
     }
 
-    fn read_exec(
-        &mut self,
-        state: &mut State,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
-    ) -> Result<Control<Event>, Error> {
-        if let Some(timers) = ctx.timers {
-            match timers.read() {
-                None => Ok(Control::Continue),
-                Some(TimerEvent(t)) => state.event(&t.into(), ctx),
-            }
-        } else {
-            Ok(Control::Continue)
-        }
+    fn read(&mut self) -> Result<Control<Event>, Error> {
+        Ok(self
+            .timers
+            .read()
+            .map(|v| Control::Event(v.0.into()))
+            .unwrap_or(Control::Continue))
     }
 }

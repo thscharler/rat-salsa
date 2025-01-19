@@ -32,8 +32,8 @@ fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::default()?
             .poll(PollCrossterm)
-            .poll(PollTimers)
-            .poll(PollTasks)
+            .poll(PollTimers::default())
+            .poll(PollTasks::default())
             .poll(PollRendered)
             .poll(PollTokio::new(rt)),
     )?;
@@ -341,7 +341,7 @@ pub mod async1 {
                             // to some awaiting
                             tokio::time::sleep(Duration::from_secs(2)).await;
 
-                            Ok(Control::Message(Async1Event::FromAsync(
+                            Ok(Control::Event(Async1Event::FromAsync(
                                 "result of async computation".into(),
                             )))
                         });
@@ -358,11 +358,11 @@ pub mod async1 {
                             for i in 0..1200 {
                                 interval.tick().await;
                                 _ = chan
-                                    .send(Ok(Control::Message(Async1Event::AsyncTick(i))))
+                                    .send(Ok(Control::Event(Async1Event::AsyncTick(i))))
                                     .await
                             }
 
-                            Ok(Control::Message(Async1Event::AsyncTick(300)))
+                            Ok(Control::Event(Async1Event::AsyncTick(300)))
                         });
                         // that's it.
                         Control::Continue
@@ -372,10 +372,10 @@ pub mod async1 {
                 },
                 Async1Event::FromAsync(s) => {
                     // receive result from async operation
-                    Control::Message(Async1Event::Message(s.clone()))
+                    Control::Event(Async1Event::Message(s.clone()))
                 }
                 Async1Event::AsyncTick(n) => {
-                    Control::Message(Async1Event::Status(0, format!("--- {} ---", n)))
+                    Control::Event(Async1Event::Status(0, format!("--- {} ---", n)))
                 }
                 _ => Control::Continue,
             };

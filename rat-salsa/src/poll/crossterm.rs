@@ -1,4 +1,4 @@
-use crate::{AppContext, AppState, Control, PollEvents};
+use crate::{Control, PollEvents};
 use std::any::Any;
 use std::time::Duration;
 
@@ -6,9 +6,8 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct PollCrossterm;
 
-impl<Global, State, Event, Error> PollEvents<Global, State, Event, Error> for PollCrossterm
+impl<Event, Error> PollEvents<Event, Error> for PollCrossterm
 where
-    State: AppState<Global, Event, Error> + ?Sized,
     Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Send + From<std::io::Error>,
 {
@@ -16,18 +15,11 @@ where
         self
     }
 
-    fn poll(&mut self, _ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
+    fn poll(&mut self) -> Result<bool, Error> {
         Ok(crossterm::event::poll(Duration::from_millis(0))?)
     }
 
-    fn read_exec(
-        &mut self,
-        state: &mut State,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
-    ) -> Result<Control<Event>, Error> {
-        match crossterm::event::read() {
-            Ok(event) => state.event(&event.into(), ctx),
-            Err(e) => Err(e.into()),
-        }
+    fn read(&mut self) -> Result<Control<Event>, Error> {
+        Ok(crossterm::event::read().map(|v| Control::Event(v.into()))?)
     }
 }

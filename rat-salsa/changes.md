@@ -1,3 +1,9 @@
+# 0.32.0
+
+* BREAK: Radically simplify PollEvents trait.
+* BREAK: Control::Message renamed to Control::Event.
+  The old name is no longer adequate.
+
 # 0.31.0
 
 * BREAK: module structure work-over. No changed functionality but

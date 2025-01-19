@@ -41,10 +41,9 @@ fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::default()?
-            .threads(1)
             .poll(PollCrossterm)
-            .poll(PollTasks)
-            .poll(PollTimers)
+            .poll(PollTasks::default())
+            .poll(PollTimers::default())
             .poll(PollRendered),
     )?;
 
@@ -644,10 +643,10 @@ mod app {
             };
 
             r = r.or_else(|| match self.menu.handle(event, Popup) {
-                MenuOutcome::MenuActivated(0, 0) => Control::Message(MDEvent::MenuNew),
-                MenuOutcome::MenuActivated(0, 1) => Control::Message(MDEvent::MenuOpen),
-                MenuOutcome::MenuActivated(0, 2) => Control::Message(MDEvent::MenuSave),
-                MenuOutcome::MenuActivated(0, 3) => Control::Message(MDEvent::MenuSaveAs),
+                MenuOutcome::MenuActivated(0, 0) => Control::Event(MDEvent::MenuNew),
+                MenuOutcome::MenuActivated(0, 1) => Control::Event(MDEvent::MenuOpen),
+                MenuOutcome::MenuActivated(0, 2) => Control::Event(MDEvent::MenuSave),
+                MenuOutcome::MenuActivated(0, 3) => Control::Event(MDEvent::MenuSaveAs),
                 MenuOutcome::MenuActivated(1, 0) => {
                     if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
                         ctx.focus().focus(sel);
@@ -666,7 +665,7 @@ mod app {
                 }
                 MenuOutcome::MenuActivated(2, 0) => {
                     ctx.g.cfg.show_ctrl = !ctx.g.cfg.show_ctrl;
-                    Control::Message(MDEvent::CfgShowCtrl)
+                    Control::Event(MDEvent::CfgShowCtrl)
                 }
                 MenuOutcome::MenuActivated(2, 1) => {
                     let changed = if ctx.g.cfg.new_line.as_str() == "\r\n" {
@@ -675,11 +674,11 @@ mod app {
                         "\r\n".into()
                     };
                     ctx.g.cfg.new_line = changed;
-                    Control::Message(MDEvent::CfgNewline)
+                    Control::Event(MDEvent::CfgNewline)
                 }
-                MenuOutcome::MenuActivated(2, 2) => Control::Message(MDEvent::Split),
-                MenuOutcome::MenuActivated(2, 3) => Control::Message(MDEvent::JumpToFiles),
-                MenuOutcome::MenuActivated(2, 4) => Control::Message(MDEvent::HideFiles),
+                MenuOutcome::MenuActivated(2, 2) => Control::Event(MDEvent::Split),
+                MenuOutcome::MenuActivated(2, 3) => Control::Event(MDEvent::JumpToFiles),
+                MenuOutcome::MenuActivated(2, 4) => Control::Event(MDEvent::HideFiles),
                 MenuOutcome::MenuSelected(3, n) => {
                     ctx.g.theme = Rc::new(dark_themes()[n].clone());
                     Control::Changed
@@ -707,7 +706,7 @@ mod app {
                             w.save_dialog_ext(".", "", "md")?;
                             Ok(Control::Changed)
                         },
-                        |p| Ok(Control::Message(MDEvent::New(p))),
+                        |p| Ok(Control::Event(MDEvent::New(p))),
                     )?
                 }
                 MDEvent::MenuOpen => {
@@ -716,11 +715,11 @@ mod app {
                             w.open_dialog(".")?;
                             Ok(Control::Changed)
                         },
-                        |p| Ok(Control::Message(MDEvent::Open(p))),
+                        |p| Ok(Control::Event(MDEvent::Open(p))),
                     )?
                 }
                 MDEvent::MenuSave => {
-                    Control::Message(MDEvent::Save)
+                    Control::Event(MDEvent::Save)
                 }
                 MDEvent::MenuSaveAs => {
                     self.file_dlg.engage(
@@ -728,7 +727,7 @@ mod app {
                             w.save_dialog(".", "")?;
                             Ok(Control::Changed)
                         },
-                        |p| Ok(Control::Message(MDEvent::SaveAs(p))),
+                        |p| Ok(Control::Event(MDEvent::SaveAs(p))),
                     )?
                 }
                 _ => Control::Continue,
@@ -964,7 +963,7 @@ pub mod mdfile {
                         } else {
                             sel.end.y.saturating_sub(sel.start.y) + 1
                         };
-                        ctx.queue(Control::Message(MDEvent::Status(
+                        ctx.queue(Control::Event(MDEvent::Status(
                             1,
                             format!("{}:{}|{}", cursor.x, cursor.y, sel_len),
                         )));
@@ -1087,7 +1086,7 @@ pub mod mdfile {
         pub fn text_changed(&mut self, ctx: &mut AppContext<'_>) -> Control<MDEvent> {
             self.changed = true;
             // send sync
-            ctx.queue(Control::Message(MDEvent::SyncEdit));
+            ctx.queue(Control::Event(MDEvent::SyncEdit));
             // restart timer
             self.parse_timer = Some(ctx.replace_timer(
                 self.parse_timer,
@@ -1260,10 +1259,10 @@ pub mod split_tab {
                     for (idx_split, tabbed) in self.tabbed.iter_mut().enumerate() {
                         try_flow!(match tabbed.handle(event, Regular) {
                             TabbedOutcome::Close(n) => {
-                                Control::Message(MDEvent::CloseAt(idx_split, n))
+                                Control::Event(MDEvent::CloseAt(idx_split, n))
                             }
                             TabbedOutcome::Select(n) => {
-                                Control::Message(MDEvent::SelectAt(idx_split, n))
+                                Control::Event(MDEvent::SelectAt(idx_split, n))
                             }
                             r => r.into(),
                         });
@@ -1652,17 +1651,17 @@ pub mod file_list {
                 MDEvent::Event(event) => {
                     try_flow!(match self.popup.handle(event, Popup) {
                         MenuOutcome::Activated(0) => {
-                            Control::Message(MDEvent::MenuNew)
+                            Control::Event(MDEvent::MenuNew)
                         }
                         MenuOutcome::Activated(1) => {
                             if let Some(pos) = self.file_list.row_at_clicked(self.popup_pos) {
-                                Control::Message(MDEvent::Open(self.files[pos].clone()))
+                                Control::Event(MDEvent::Open(self.files[pos].clone()))
                             } else {
                                 Control::Changed
                             }
                         }
                         MenuOutcome::Activated(2) => {
-                            Control::Message(MDEvent::Message("buh".into()))
+                            Control::Event(MDEvent::Message("buh".into()))
                         }
                         r => r.into(),
                     });
@@ -1671,14 +1670,14 @@ pub mod file_list {
                         try_flow!(match event {
                             ct_event!(keycode press Enter) => {
                                 if let Some(row) = self.file_list.selected() {
-                                    Control::Message(MDEvent::SelectOrOpen(self.files[row].clone()))
+                                    Control::Event(MDEvent::SelectOrOpen(self.files[row].clone()))
                                 } else {
                                     Control::Continue
                                 }
                             }
                             ct_event!(key press '+') => {
                                 if let Some(row) = self.file_list.selected() {
-                                    Control::Message(MDEvent::SelectOrOpenSplit(
+                                    Control::Event(MDEvent::SelectOrOpenSplit(
                                         self.files[row].clone(),
                                     ))
                                 } else {
@@ -1700,7 +1699,7 @@ pub mod file_list {
                             if self.file_list.mouse.doubleclick(self.file_list.area, m) =>
                         {
                             if let Some(row) = self.file_list.row_at_clicked((m.column, m.row)) {
-                                Control::Message(MDEvent::SelectOrOpen(self.files[row].clone()))
+                                Control::Event(MDEvent::SelectOrOpen(self.files[row].clone()))
                             } else {
                                 Control::Continue
                             }
@@ -1886,7 +1885,7 @@ pub mod mdedit {
                         try_flow!(match event {
                             ct_event!(key release CONTROL-'w') => {
                                 self.window_cmd = true;
-                                ctx.queue(Control::Message(MDEvent::Status(1, "^W".into())));
+                                ctx.queue(Control::Event(MDEvent::Status(1, "^W".into())));
                                 Control::Changed
                             }
                             ct_event!(keycode press Left) => {
@@ -1909,12 +1908,12 @@ pub mod mdedit {
                             | ct_event!(key press 'c')
                             | ct_event!(key press 'x')
                             | ct_event!(key press CONTROL-'x') => {
-                                Control::Message(MDEvent::Close)
+                                Control::Event(MDEvent::Close)
                             }
                             ct_event!(key press CONTROL-'d')
                             | ct_event!(key press 'd')
                             | ct_event!(key press '+') => {
-                                Control::Message(MDEvent::Split)
+                                Control::Event(MDEvent::Split)
                             }
                             ct_event!(key press CONTROL-'t') | ct_event!(key press 't') => {
                                 if let Some((pos, sel)) = self.split_tab.selected() {
@@ -1942,13 +1941,13 @@ pub mod mdedit {
 
                     try_flow!(match event {
                         ct_event!(key press CONTROL-'n') => {
-                            Control::Message(MDEvent::MenuNew)
+                            Control::Event(MDEvent::MenuNew)
                         }
                         ct_event!(key press CONTROL-'o') => {
-                            Control::Message(MDEvent::MenuOpen)
+                            Control::Event(MDEvent::MenuOpen)
                         }
                         ct_event!(key press CONTROL-'s') => {
-                            Control::Message(MDEvent::Save)
+                            Control::Event(MDEvent::Save)
                         }
                         ct_event!(keycode press F(5)) => {
                             self.jump_to_file(ctx)?
@@ -1961,7 +1960,7 @@ pub mod mdedit {
                             Control::Changed
                         }
                         ct_event!(focus_lost) => {
-                            Control::Message(MDEvent::Save)
+                            Control::Event(MDEvent::Save)
                         }
                         _ => Control::Continue,
                     });

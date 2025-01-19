@@ -59,9 +59,8 @@ fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::default()?
-            .threads(1)
             .poll(PollCrossterm)
-            .poll(PollTasks),
+            .poll(PollTasks::default()),
     )?;
 
     Ok(())
@@ -438,7 +437,7 @@ impl AppState<GlobalState, FilesEvent, Error> for FilesState {
         } else {
             PathBuf::from(".")
         };
-        ctx.queue(Control::Message(FilesEvent::ReadDir(
+        ctx.queue(Control::Event(FilesEvent::ReadDir(
             Full,
             self.main_dir.clone(),
             None,
@@ -531,7 +530,7 @@ impl FilesState {
             MenuOutcome::MenuActivated(0, n) => {
                 if let Some(root) = fs_roots().get(n) {
                     self.main_dir = root.1.clone();
-                    ctx.queue(Control::Message(FilesEvent::ReadDir(
+                    ctx.queue(Control::Event(FilesEvent::ReadDir(
                         Full,
                         self.main_dir.clone(),
                         None,
@@ -636,19 +635,19 @@ impl FilesState {
         if let Some(n) = self.w_dirs.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from(".") {
-                    Ok(Control::Message(FilesEvent::ReadDir(
+                    Ok(Control::Event(FilesEvent::ReadDir(
                         Current,
                         self.main_dir.clone(),
                         None,
                     )))
                 } else if sub == &OsString::from("..") {
-                    Ok(Control::Message(FilesEvent::ReadDir(
+                    Ok(Control::Event(FilesEvent::ReadDir(
                         Parent,
                         self.main_dir.clone(),
                         None,
                     )))
                 } else {
-                    Ok(Control::Message(FilesEvent::ReadDir(
+                    Ok(Control::Event(FilesEvent::ReadDir(
                         SubDir,
                         self.main_dir.clone(),
                         Some(sub.clone()),
@@ -784,7 +783,7 @@ impl FilesState {
                             }
                         }
                     }
-                    Ok(Control::Message(FilesEvent::Update(
+                    Ok(Control::Event(FilesEvent::Update(
                         rel,
                         path.clone(),
                         sub.clone(),
@@ -795,7 +794,7 @@ impl FilesState {
                 }
                 Err(e) => {
                     let msg = format!("{:?}", e);
-                    Ok(Control::Message(FilesEvent::Update(
+                    Ok(Control::Event(FilesEvent::Update(
                         rel,
                         path.clone(),
                         sub.clone(),
@@ -815,12 +814,12 @@ impl FilesState {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from("..") {
                     if let Some(file) = self.main_dir.parent() {
-                        ctx.queue(Control::Message(FilesEvent::ReadDir(
+                        ctx.queue(Control::Event(FilesEvent::ReadDir(
                             Full,
                             file.to_path_buf(),
                             Some(OsString::from("..")),
                         )));
-                        ctx.queue(Control::Message(FilesEvent::ReadDir(
+                        ctx.queue(Control::Event(FilesEvent::ReadDir(
                             Parent,
                             file.to_path_buf(),
                             None,
@@ -830,7 +829,7 @@ impl FilesState {
                     // noop
                 } else {
                     let file = self.main_dir.join(sub);
-                    ctx.queue(Control::Message(FilesEvent::ReadDir(Full, file, None)))
+                    ctx.queue(Control::Event(FilesEvent::ReadDir(Full, file, None)))
                 }
             }
         }
@@ -884,9 +883,9 @@ impl FilesState {
                 let cancel_show = ctx.spawn(move |can, snd| match fs::read(&file) {
                     Ok(data) => {
                         let str_data = FilesState::display_text(can, snd, &file, &data)?;
-                        Ok(Control::Message(FilesEvent::UpdateFile(file, str_data)))
+                        Ok(Control::Event(FilesEvent::UpdateFile(file, str_data)))
                     }
-                    Err(e) => Ok(Control::Message(FilesEvent::UpdateFile(
+                    Err(e) => Ok(Control::Event(FilesEvent::UpdateFile(
                         file,
                         format!("{:?}", e).to_string(),
                     ))),
@@ -975,7 +974,7 @@ impl FilesState {
                     mega = v.len() / 1_000_000;
 
                     if mega == 1 {
-                        _ = snd.send(Ok(Control::Message(FilesEvent::UpdateFile(
+                        _ = snd.send(Ok(Control::Event(FilesEvent::UpdateFile(
                             file.to_path_buf(),
                             v.clone(),
                         ))));
@@ -1000,12 +999,12 @@ impl FilesState {
 
         if let Some(file) = file {
             if file.metadata()?.is_dir() {
-                ctx.queue(Control::Message(FilesEvent::ReadDir(
+                ctx.queue(Control::Event(FilesEvent::ReadDir(
                     Full,
                     file.clone(),
                     None,
                 )));
-                ctx.queue(Control::Message(FilesEvent::ReadDir(Parent, file, None)));
+                ctx.queue(Control::Event(FilesEvent::ReadDir(Parent, file, None)));
             }
         };
         Ok(Control::Changed)

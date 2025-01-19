@@ -29,28 +29,26 @@ fn main() -> Result<(), Error> {
 
     let config = LifeConfig::default();
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
-    let mut global = GlobalState::new(config, theme, Duration::from_millis(500));
-
-    let app = Scenery;
+    let mut global = GlobalState::new(config, theme);
 
     let game = if let Some(f) = args().nth(1) {
         game::load_life(&PathBuf::from(f), &global.theme)?
     } else {
         global::rat_state()
     };
-
     let mut state = SceneryState::default().game(game);
 
-    let poll_tick = PollTick::new(Duration::from_secs(2), global.tick.clone());
+    // init event-src + configuration
+    let (poll_tick, tick_cfg) = PollTick::new(Duration::from_secs(2));
+    global.tick = tick_cfg;
 
     run_tui(
-        app,
+        Scenery,
         &mut global,
         &mut state,
-        RunConfig::default()?
+        RunConfig::default()? //
             .poll(PollCrossterm)
-            .poll(poll_tick)
-            .threads(1),
+            .poll(poll_tick),
     )?;
 
     Ok(())
@@ -61,8 +59,8 @@ pub mod global {
     use crate::config::LifeConfig;
     use crate::game::LifeGameState;
     use crate::message::LifeEvent;
+    use rat_salsa::Control;
     use rat_salsa::PollEvents;
-    use rat_salsa::{AppContext, AppState, Control};
     use rat_theme::dark_theme::DarkTheme;
     use std::any::Any;
     use std::cell::RefCell;
@@ -107,39 +105,33 @@ pub mod global {
     }
 
     impl PollTick {
-        pub fn new(start: Duration, tick: Rc<RefCell<Duration>>) -> Self {
-            Self {
-                tick,
+        pub fn new(start: Duration) -> (Self, Rc<RefCell<Duration>>) {
+            let tick = Self {
+                tick: Rc::new(RefCell::new(Duration::from_millis(100))),
                 next: SystemTime::now() + start,
-            }
+            };
+            let tick_cfg = tick.tick.clone();
+            (tick, tick_cfg)
         }
     }
 
-    impl<Global, State, Error> PollEvents<Global, State, LifeEvent, Error> for PollTick
+    impl<Error> PollEvents<LifeEvent, Error> for PollTick
     where
-        State: AppState<Global, LifeEvent, Error>,
         Error: 'static + Send + Debug,
     {
         fn as_any(&self) -> &dyn Any {
             self
         }
 
-        fn poll(
-            &mut self,
-            _ctx: &mut AppContext<'_, Global, LifeEvent, Error>,
-        ) -> Result<bool, Error> {
+        fn poll(&mut self) -> Result<bool, Error> {
             Ok(self.next <= SystemTime::now())
         }
 
-        fn read_exec(
-            &mut self,
-            state: &mut State,
-            ctx: &mut AppContext<'_, Global, LifeEvent, Error>,
-        ) -> Result<Control<LifeEvent>, Error> {
+        fn read(&mut self) -> Result<Control<LifeEvent>, Error> {
             if self.next <= SystemTime::now() {
                 let tick = *self.tick.borrow();
                 self.next += tick;
-                state.event(&LifeEvent::Tick, ctx)
+                Ok(Control::Event(LifeEvent::Tick))
             } else {
                 Ok(Control::Continue)
             }
@@ -147,12 +139,12 @@ pub mod global {
     }
 
     impl GlobalState {
-        pub fn new(cfg: LifeConfig, theme: DarkTheme, tick: Duration) -> Self {
+        pub fn new(cfg: LifeConfig, theme: DarkTheme) -> Self {
             Self {
                 cfg,
                 theme: Rc::new(theme),
                 running: true,
-                tick: Rc::new(RefCell::new(tick)),
+                tick: Default::default(),
             }
         }
     }
@@ -499,7 +491,7 @@ pub mod life {
                         }
                         MenuOutcome::Activated(1) => {
                             self.game.turn();
-                            Control::Message(LifeEvent::Status(1, self.game.round.to_string()))
+                            Control::Event(LifeEvent::Status(1, self.game.round.to_string()))
                         }
                         MenuOutcome::Activated(2) => {
                             let mut tick = *ctx.g.tick.borrow();
@@ -513,7 +505,7 @@ pub mod life {
                                 tick -= Duration::from_millis(100);
                             }
                             *ctx.g.tick.borrow_mut() = tick;
-                            Control::Message(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
+                            Control::Event(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
                         }
                         MenuOutcome::Activated(3) => {
                             let mut tick = *ctx.g.tick.borrow();
@@ -525,7 +517,7 @@ pub mod life {
                                 tick += Duration::from_millis(100);
                             }
                             *ctx.g.tick.borrow_mut() = tick;
-                            Control::Message(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
+                            Control::Event(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
                         }
                         MenuOutcome::Activated(4) => {
                             self.game.restart();
@@ -545,7 +537,7 @@ pub mod life {
                 LifeEvent::Tick => {
                     if ctx.g.running {
                         self.game.turn();
-                        Ok(Control::Message(LifeEvent::Status(
+                        Ok(Control::Event(LifeEvent::Status(
                             1,
                             self.game.round.to_string(),
                         )))

@@ -102,7 +102,7 @@ where
     ///
     /// If you need more, create an extra channel for communication to the background task.
     #[inline]
-    pub(crate) fn send(&self, task: BoxTask<Event, Error>) -> Result<Cancel, SendError<()>> {
+    pub(crate) fn spawn(&self, task: BoxTask<Event, Error>) -> Result<Cancel, SendError<()>> {
         if self.handles.is_empty() {
             return Err(SendError(()));
         }
