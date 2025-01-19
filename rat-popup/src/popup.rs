@@ -198,7 +198,7 @@ impl<'a> PopupCore<'a> {
         }
         if let Some(styles) = styles.scroll {
             if let Some(h_scroll) = self.h_scroll {
-                self.h_scroll = Some(h_scroll.styles(styles));
+                self.h_scroll = Some(h_scroll.styles(styles.clone()));
             }
             if let Some(v_scroll) = self.v_scroll {
                 self.v_scroll = Some(v_scroll.styles(styles));

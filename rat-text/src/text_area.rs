@@ -177,7 +177,7 @@ impl<'a> TextArea<'a> {
             self.block = styles.block;
         }
         if let Some(styles) = styles.scroll {
-            self.hscroll = self.hscroll.map(|v| v.styles(styles));
+            self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
             self.vscroll = self.vscroll.map(|v| v.styles(styles));
         }
         self
