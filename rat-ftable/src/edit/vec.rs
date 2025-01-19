@@ -333,7 +333,7 @@ where
             return Ok(());
         }
         let value = self.editor.create_value(ctx.clone())?;
-        self.editor.set_value(&value, ctx.clone())?;
+        self.editor.set_value(value.clone(), ctx.clone())?;
         self.editor_data.borrow_mut().insert(row, value);
         self._start(row, Mode::Insert);
         Ok(())
@@ -346,7 +346,7 @@ where
         }
         {
             let value = &self.editor_data.borrow()[row];
-            self.editor.set_value(value, ctx.clone())?;
+            self.editor.set_value(value.clone(), ctx.clone())?;
         }
         self._start(row, Mode::Edit);
         Ok(())

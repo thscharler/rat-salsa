@@ -43,7 +43,7 @@ pub trait TableEditorState: HasFocus {
     fn create_value(&self, ctx: Self::Context<'_>) -> Result<Self::Value, Self::Err>;
 
     /// Set the current value for the editor.
-    fn set_value(&mut self, value: &Self::Value, ctx: Self::Context<'_>) -> Result<(), Self::Err>;
+    fn set_value(&mut self, value: Self::Value, ctx: Self::Context<'_>) -> Result<(), Self::Err>;
 
     /// Return the current value from the editor.
     fn value(&mut self, ctx: Self::Context<'_>) -> Result<Option<Self::Value>, Self::Err>;
