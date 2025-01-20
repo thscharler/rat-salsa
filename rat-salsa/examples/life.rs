@@ -189,7 +189,6 @@ pub mod app {
     use rat_widget::statusline::{StatusLine, StatusLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::style::Style;
     use ratatui::widgets::StatefulWidget;
     use std::time::{Duration, SystemTime};
 
