@@ -483,7 +483,7 @@ impl DarkTheme {
     /// Split style
     pub fn split_style(&self) -> SplitStyle {
         SplitStyle {
-            style: self.container_base(),
+            style: self.container_border(),
             arrow_style: Some(self.container_arrow()),
             drag_style: Some(self.focus()),
             ..Default::default()
@@ -501,7 +501,7 @@ impl DarkTheme {
     /// Tabbed style
     pub fn tabbed_style(&self) -> TabbedStyle {
         TabbedStyle {
-            style: self.container_base(),
+            style: self.container_border(),
             tab: Some(self.gray(1)),
             select: Some(self.gray(3)),
             focus: Some(self.focus()),
