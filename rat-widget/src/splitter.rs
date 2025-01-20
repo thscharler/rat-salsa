@@ -816,7 +816,12 @@ impl<'a> StatefulWidgetRef for SplitWidget<'a> {
         } else {
             state.focus_marker = None;
         }
-        self.split.block.render_ref(area, buf);
+
+        if self.split.block.is_some() {
+            self.split.block.render_ref(area, buf);
+        } else {
+            buf.set_style(area, self.split.style);
+        }
 
         if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
             render_split(&self.split, buf, state);
@@ -836,7 +841,12 @@ impl StatefulWidget for SplitWidget<'_> {
         } else {
             state.focus_marker = None;
         }
-        self.split.block.render(area, buf);
+
+        if self.split.block.is_some() {
+            self.split.block.render(area, buf);
+        } else {
+            buf.set_style(area, self.split.style);
+        }
 
         if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
             render_split(&self.split, buf, state);
