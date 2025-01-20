@@ -69,7 +69,7 @@ rat-salsa how to proceed.
   rendering. May send a RenderedEvent immediately after 
   the render occurred before any other events. 
   
-- [Control::Message(m)][refControl]: This contains a followup
+- [Control::Event(m)][refControl]: This contains a followup
   event. It will be put on the current events queue and 
   processed in order. But before polling for new events.
 

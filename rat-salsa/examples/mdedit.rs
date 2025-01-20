@@ -650,7 +650,7 @@ mod app {
                 MenuOutcome::MenuActivated(1, 0) => {
                     if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
                         ctx.focus().focus(sel);
-                        sel.md_format_table(false, ctx)
+                        sel.md_format(false, ctx)
                     } else {
                         Control::Continue
                     }
@@ -658,7 +658,7 @@ mod app {
                 MenuOutcome::MenuActivated(1, 1) => {
                     if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
                         ctx.focus().focus(sel);
-                        sel.md_format_table(true, ctx)
+                        sel.md_format(true, ctx)
                     } else {
                         Control::Continue
                     }
@@ -742,7 +742,7 @@ mod app {
 // Editor for a single file.
 // -----------------------------------------------------------------------
 pub mod mdfile {
-    use crate::mdedit_parts::format::md_format;
+    use crate::mdedit_parts::format::{md_format, MDFormatArg};
     use crate::mdedit_parts::styles::parse_md_styles;
     use crate::mdedit_parts::MarkDown;
     use crate::{AppContext, GlobalState, MDEvent};
@@ -825,7 +825,6 @@ pub mod mdfile {
             line_nr.render(line_nr_area, buf, &mut state.linenr);
 
             TextArea::new()
-                .styles(theme.textarea_style())
                 .block(
                     Block::new()
                         .border_type(BorderType::Rounded)
@@ -836,6 +835,7 @@ pub mod mdfile {
                         .start_margin(self.start_margin)
                         .styles(theme.scroll_style()),
                 )
+                .styles(theme.textarea_style())
                 .text_style(text_style(ctx))
                 .render(text_area, buf, &mut state.edit);
             ctx.set_screen_cursor(state.edit.screen_cursor());
@@ -855,9 +855,9 @@ pub mod mdfile {
             Style::default().fg(ctx.g.scheme().orange[1]).underlined(), // Heading6,
             //
             Style::default(),                               // Paragraph
-            Style::default().fg(ctx.g.scheme().orange[2]),  // BlockQuote,
-            Style::default().fg(ctx.g.scheme().redpink[2]), // CodeBlock,
-            Style::default().fg(ctx.g.scheme().redpink[2]), // MathDisplay
+            Style::default().fg(ctx.g.scheme().orange[3]),  // BlockQuote,
+            Style::default().fg(ctx.g.scheme().redpink[3]), // CodeBlock,
+            Style::default().fg(ctx.g.scheme().redpink[3]), // MathDisplay
             Style::default().fg(ctx.g.scheme().white[3]),   // Rule
             Style::default().fg(ctx.g.scheme().gray[3]),    // Html
             //
@@ -883,8 +883,8 @@ pub mod mdfile {
             Style::default().fg(ctx.g.scheme().white[0]).italic(), // Emphasis
             Style::default().fg(ctx.g.scheme().white[3]).bold(),   // Strong
             Style::default().fg(ctx.g.scheme().gray[3]).crossed_out(), // Strikethrough
-            Style::default().fg(ctx.g.scheme().redpink[2]),        // CodeInline
-            Style::default().fg(ctx.g.scheme().redpink[2]),        // MathInline
+            Style::default().fg(ctx.g.scheme().redpink[3]),        // CodeInline
+            Style::default().fg(ctx.g.scheme().redpink[3]),        // MathInline
             //
             Style::default().fg(ctx.g.scheme().orange[2]), // MetadataBlock
         ]
@@ -1071,12 +1071,11 @@ pub mod mdfile {
         }
 
         // Format selected table
-        pub fn md_format_table(
-            &mut self,
-            eq_width: bool,
-            ctx: &mut AppContext<'_>,
-        ) -> Control<MDEvent> {
-            match md_format(&mut self.edit, eq_width) {
+        pub fn md_format(&mut self, eq_width: bool, ctx: &mut AppContext<'_>) -> Control<MDEvent> {
+            match md_format(
+                &mut self.edit,
+                MDFormatArg::new().table_columns_equal_width(eq_width),
+            ) {
                 TextOutcome::TextChanged => self.text_changed(ctx),
                 r => r.into(),
             }
@@ -1112,7 +1111,7 @@ pub mod split_tab {
     use rat_widget::tabbed::{TabType, Tabbed, TabbedState};
     use rat_widget::text::undo_buffer::UndoEntry;
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Rect};
+    use ratatui::layout::{Constraint, Rect};
     use ratatui::prelude::{Line, StatefulWidget};
     use ratatui::symbols;
     use std::path::Path;
@@ -1156,15 +1155,14 @@ pub mod split_tab {
         ) -> Result<(), Error> {
             let theme = ctx.g.theme.clone();
 
-            let (s0, s1) = Split::new()
+            let (split, split_overlay) = Split::horizontal()
                 .constraints(vec![Constraint::Fill(1); state.tabbed.len()])
                 .mark_offset(0)
                 .split_type(SplitType::Scroll)
                 .styles(theme.split_style())
-                .direction(Direction::Horizontal)
                 .into_widgets();
 
-            s0.render(area, buf, &mut state.splitter);
+            split.render(area, buf, &mut state.splitter);
 
             let max_idx_split = state.splitter.widget_areas.len().saturating_sub(1);
             for (idx_split, edit_area) in state.splitter.widget_areas.iter().enumerate() {
@@ -1219,7 +1217,7 @@ pub mod split_tab {
                 }
             }
 
-            s1.render(area, buf, &mut state.splitter);
+            split_overlay.render(area, buf, &mut state.splitter);
 
             Ok(())
         }
@@ -1275,6 +1273,7 @@ pub mod split_tab {
             r = r.or_else_try(|| {
                 match event {
                     MDEvent::Event(_) => {
+                        // forward only to the selected tab.
                         for (idx_split, tabbed) in self.tabbed.iter_mut().enumerate() {
                             if let Some(idx_tab) = tabbed.selected() {
                                 try_flow!(self.tabs[idx_split][idx_tab].event(event, ctx)?);
@@ -1282,6 +1281,7 @@ pub mod split_tab {
                         }
                     }
                     _ => {
+                        // application events go everywhere
                         for tab in &mut self.tabs {
                             for ed in tab {
                                 try_flow!(ed.event(event, ctx)?);
@@ -1584,7 +1584,6 @@ pub mod file_list {
             buf.set_style(l_file_list[0], theme.container_base());
 
             List::default()
-                .styles(theme.list_style())
                 .scroll(Scroll::new().styles(theme.scroll_style()))
                 .items(state.files.iter().map(|v| {
                     if let Some(name) = v.file_name() {
@@ -1593,11 +1592,11 @@ pub mod file_list {
                         Line::from("???")
                     }
                 }))
+                .styles(theme.list_style())
                 .render(l_file_list[1], buf, &mut state.file_list);
 
             if state.popup.is_active() {
                 PopupMenu::new()
-                    .styles(theme.menu_style())
                     .block(Block::bordered())
                     .constraint(PopupConstraint::RightTop(Rect::new(
                         state.popup_pos.0,
@@ -1610,6 +1609,7 @@ pub mod file_list {
                     .item_parsed("_New")
                     .item_parsed("_Open")
                     .item_parsed("_Delete")
+                    .styles(theme.menu_style())
                     .render(Rect::default(), buf, &mut state.popup);
             }
 
@@ -1663,6 +1663,10 @@ pub mod file_list {
                         MenuOutcome::Activated(2) => {
                             Control::Event(MDEvent::Message("buh".into()))
                         }
+                        MenuOutcome::Hide => {
+                            self.popup.set_active(false);
+                            Control::Changed
+                        }
                         r => r.into(),
                     });
 
@@ -1707,6 +1711,7 @@ pub mod file_list {
 
                         _ => Control::Continue,
                     });
+
                     try_flow!(self.file_list.handle(event, Regular));
 
                     Ok(Control::Continue)
@@ -1791,10 +1796,10 @@ pub mod mdedit {
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
-    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
+    use rat_widget::focus::{impl_has_focus, FocusFlag, HasFocus};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Rect};
+    use ratatui::layout::{Constraint, Rect};
     use ratatui::widgets::StatefulWidget;
     use std::path::{Path, PathBuf};
 
@@ -1822,15 +1827,14 @@ pub mod mdedit {
         ) -> Result<(), Error> {
             let theme = &ctx.g.theme;
 
-            let (s0, s1) = Split::new()
+            let (split, split_overlay) = Split::horizontal()
                 .styles(theme.split_style())
-                .mark_offset(0)
+                .mark_offset(1)
                 .constraints([Constraint::Length(15), Constraint::Fill(1)])
-                .direction(Direction::Horizontal)
-                .split_type(SplitType::FullQuadrantInside)
+                .split_type(SplitType::FullPlain)
                 .into_widgets();
 
-            s0.render(area, buf, &mut state.split_files);
+            split.render(area, buf, &mut state.split_files);
 
             FileList.render(
                 state.split_files.widget_areas[0],
@@ -1846,26 +1850,13 @@ pub mod mdedit {
                 ctx,
             )?;
 
-            s1.render(area, buf, &mut state.split_files);
+            split_overlay.render(area, buf, &mut state.split_files);
 
             Ok(())
         }
     }
 
-    impl HasFocus for MDEditState {
-        fn build(&self, builder: &mut FocusBuilder) {
-            builder.widget(&self.file_list);
-            builder.widget(&self.split_tab);
-        }
-
-        fn focus(&self) -> FocusFlag {
-            unimplemented!("not in use, silent container")
-        }
-
-        fn area(&self) -> Rect {
-            unimplemented!("not in use, silent container")
-        }
-    }
+    impl_has_focus!(file_list, split_tab for MDEditState);
 
     impl AppState<GlobalState, MDEvent, Error> for MDEditState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
@@ -2276,55 +2267,3 @@ fn setup_logging() -> Result<(), Error> {
 
 static HELP: &[u8] = include_bytes!("mdedit.md");
 static CHEAT: &[u8] = include_bytes!("cheat.md");
-
-fn event_str(event: &MDEvent) -> String {
-    use crossterm::event::*;
-
-    match event {
-        MDEvent::TimeOut(timeout) => format!("{:?}", timeout).to_string(),
-        MDEvent::Event(event) => match event {
-            Event::FocusGained => "focus-gained".into(),
-            Event::FocusLost => "focus-lost".into(),
-            Event::Key(KeyEvent {
-                code,
-                modifiers,
-                kind,
-                state,
-            }) => {
-                format!("key {:?} {} {:?}", code, mods(modifiers), kind)
-            }
-            Event::Mouse(MouseEvent {
-                kind,
-                column,
-                row,
-                modifiers,
-            }) => {
-                format!("mouse {:?} {:?} {}", kind, (*column, *row), mods(modifiers))
-            }
-            Event::Paste(v) => {
-                format!("paste {:?}", v)
-            }
-            Event::Resize(x, y) => {
-                format!("resize {:?}", (*x, *y))
-            }
-        },
-        MDEvent::Message(message) => message.to_string(),
-        v => format!("{:?}", v).to_string(),
-    }
-}
-
-fn mods(modifiers: &crossterm::event::KeyModifiers) -> String {
-    use crossterm::event::*;
-
-    let mut s = String::new();
-    if modifiers.contains(KeyModifiers::CONTROL) {
-        s.push_str("CTRL ");
-    }
-    if modifiers.contains(KeyModifiers::ALT) {
-        s.push_str("ALT ");
-    }
-    if modifiers.contains(KeyModifiers::SHIFT) {
-        s.push_str("SHIFT ");
-    }
-    s
-}

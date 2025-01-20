@@ -2,6 +2,7 @@ use rat_widget::text::upos_type;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
+/// Parsed header.
 #[derive(Debug)]
 pub struct MDHeader<'a> {
     pub header: u8,
@@ -11,6 +12,9 @@ pub struct MDHeader<'a> {
     pub text_byte: Range<usize>,
 }
 
+/// Parse the text as header.
+///
+/// * relocate: Start offset of txt
 pub fn parse_md_header(relocate: usize, txt: &str) -> Option<MDHeader<'_>> {
     let mut mark_prefix_end = 0;
     let mut mark_tag_start = 0;
@@ -81,6 +85,7 @@ pub fn parse_md_header(relocate: usize, txt: &str) -> Option<MDHeader<'_>> {
     })
 }
 
+/// Parsed link reference
 #[derive(Debug)]
 pub struct MDLinkRef<'a> {
     pub prefix: &'a str,
@@ -90,6 +95,9 @@ pub struct MDLinkRef<'a> {
     pub suffix: &'a str,
 }
 
+/// Parse the text as link reference
+///
+/// * relocate - start offset of txt.
 pub fn parse_md_link_ref(relocate: usize, txt: &str) -> Option<MDLinkRef<'_>> {
     let mut mark_prefix_end = 0;
     let mut mark_tag_start = 0;
@@ -292,7 +300,7 @@ pub fn parse_md_link_ref(relocate: usize, txt: &str) -> Option<MDLinkRef<'_>> {
     })
 }
 
-// parse a single list item into marker and text.
+/// One list item.
 #[derive(Debug)]
 pub struct MDItem<'a> {
     pub prefix: &'a str,
@@ -305,6 +313,7 @@ pub struct MDItem<'a> {
     pub text: &'a str,
 }
 
+/// Parse a single list item into marker and text.
 pub fn parse_md_item(relocate: usize, txt: &str) -> Option<MDItem<'_>> {
     let mut mark_byte = 0;
     let mut mark_suffix_byte = 0;
@@ -384,6 +393,7 @@ pub fn parse_md_item(relocate: usize, txt: &str) -> Option<MDItem<'_>> {
     })
 }
 
+/// One table cell.
 #[derive(Debug)]
 pub struct MDCell<'a> {
     pub txt: &'a str,
@@ -391,6 +401,7 @@ pub struct MDCell<'a> {
     pub txt_bytes: Range<usize>,
 }
 
+/// One table row.
 #[derive(Debug)]
 pub struct MDRow<'a> {
     pub row: Vec<MDCell<'a>>,
@@ -402,8 +413,8 @@ pub struct MDRow<'a> {
     pub cursor_byte_offset: usize,
 }
 
-// split single row. translate x-position to cell+cell_offset.
-// __info__: returns the string before the first | and the string after the last | too!!
+/// Split single row. Translate x-position to cell+cell_offset.
+/// __info__: returns the string before the first | and the string after the last | too!!
 pub fn parse_md_row(relocate: usize, txt: &str, x: upos_type) -> MDRow<'_> {
     let mut tmp = MDRow {
         row: Default::default(),
@@ -453,7 +464,7 @@ pub fn parse_md_row(relocate: usize, txt: &str, x: upos_type) -> MDRow<'_> {
     tmp
 }
 
-// parse quoted text
+/// Quoted text
 #[derive(Debug)]
 pub struct MDBlockQuote<'a> {
     pub quote: &'a str,
@@ -462,6 +473,9 @@ pub struct MDBlockQuote<'a> {
     pub text: &'a str,
 }
 
+/// Parse a block-quote.
+///
+/// * relocate - offset of txt.
 pub fn parse_md_block_quote(relocate: usize, txt: &str) -> Option<MDBlockQuote<'_>> {
     let mut quote_byte = 0;
     let mut text_prefix_byte = 0;

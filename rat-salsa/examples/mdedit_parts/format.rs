@@ -18,7 +18,43 @@ use textwrap::wrap_algorithms::Penalties;
 use textwrap::{WordSeparator, WrapAlgorithm};
 use unicode_segmentation::UnicodeSegmentation;
 
-pub fn md_format(state: &mut TextAreaState, table_eq_width: bool) -> TextOutcome {
+/// Formatting arguments.
+#[derive(Debug)]
+pub struct MDFormatArg {
+    table_columns_equal_width: bool,
+    text_width: usize,
+}
+
+impl Default for MDFormatArg {
+    fn default() -> Self {
+        Self {
+            table_columns_equal_width: false,
+            text_width: 65,
+        }
+    }
+}
+
+impl MDFormatArg {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Format all columns with equal width.
+    pub fn table_columns_equal_width(mut self, eq: bool) -> Self {
+        self.table_columns_equal_width = eq;
+        self
+    }
+
+    /// Text-width.
+    pub fn text_width(mut self, width: u16) -> Self {
+        self.text_width = width as usize;
+        self
+    }
+}
+
+/// Reformats either the selection or the item at the
+/// cursor position.
+pub fn md_format(state: &mut TextAreaState, arg: MDFormatArg) -> TextOutcome {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
 
@@ -80,8 +116,8 @@ pub fn md_format(state: &mut TextAreaState, table_eq_width: bool) -> TextOutcome
         state.str_slice(selection).as_ref(),
         txt_cursor,
         txt_cursor_byte,
-        65,
-        table_eq_width,
+        arg.text_width,
+        arg.table_columns_equal_width,
         state.newline(),
     );
     let new_cursor = selection_byte.start + new_cursor;
@@ -291,7 +327,7 @@ struct ReformatOut {
     trailing: bool,
 }
 
-pub fn reformat(
+fn reformat(
     txt: &str,
     cursor: TextPosition,
     cursor_byte: usize,

@@ -7,6 +7,7 @@ use rat_widget::textarea::TextAreaState;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
+/// Reformat header
 pub fn md_make_header(state: &mut TextAreaState, header: u8) -> TextOutcome {
     if let Some(_) = md_paragraph(state) {
         let cursor = state.cursor();
@@ -56,6 +57,9 @@ pub fn md_make_header(state: &mut TextAreaState, header: u8) -> TextOutcome {
     }
 }
 
+/// Navigate with Tab in a table.
+/// If there is a list item jump to the indent of the
+/// current or the previous list item.
 pub fn md_tab(state: &mut TextAreaState) -> TextOutcome {
     if is_md_table(state) {
         let cursor = state.cursor();
@@ -99,6 +103,7 @@ pub fn md_tab(state: &mut TextAreaState) -> TextOutcome {
     }
 }
 
+/// Navigate in a table with BackTab
 pub fn md_backtab(state: &mut TextAreaState) -> TextOutcome {
     if is_md_table(state) {
         let cursor = state.cursor();
@@ -114,6 +119,8 @@ pub fn md_backtab(state: &mut TextAreaState) -> TextOutcome {
     }
 }
 
+/// Add a line-break at the cursor position. Does special actions
+/// if the cursor is in a table.
 pub fn md_line_break(state: &mut TextAreaState) -> TextOutcome {
     let cursor = state.cursor();
     if is_md_table(state) {
@@ -157,7 +164,7 @@ pub fn md_line_break(state: &mut TextAreaState) -> TextOutcome {
     }
 }
 
-// duplicate as empty row
+/// Duplicate current row as an empty row
 fn empty_md_row(txt: &str, newline: &str) -> (upos_type, String) {
     let row = parse_md_row(0, txt, 0);
     let mut new_row = String::new();
@@ -179,7 +186,7 @@ fn empty_md_row(txt: &str, newline: &str) -> (upos_type, String) {
     (x, new_row)
 }
 
-// add a line break
+/// Add a line break in a table
 fn split_md_row(txt: &str, cursor: upos_type, newline: &str) -> (upos_type, String) {
     let row = parse_md_row(0, txt, 0);
 
@@ -234,7 +241,7 @@ fn split_md_row(txt: &str, cursor: upos_type, newline: &str) -> (upos_type, Stri
     (tmp_pos, tmp0)
 }
 
-// create underlines under the header
+/// create underlines under the header
 fn create_md_title(txt: &str, newline: &str) -> (upos_type, String) {
     let row = parse_md_row(0, txt, 0);
 
@@ -254,6 +261,7 @@ fn create_md_title(txt: &str, newline: &str) -> (upos_type, String) {
     (len, new_row)
 }
 
+/// Is there a table at the current position.
 fn is_md_table(state: &TextAreaState) -> bool {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
@@ -262,6 +270,8 @@ fn is_md_table(state: &TextAreaState) -> bool {
         .is_some()
 }
 
+/// Can the text at the cursor position be interpreted as
+/// a table, even if the parser doesn't do so currently.
 fn is_md_maybe_table(state: &TextAreaState) -> (bool, bool) {
     let mut gr = state.line_graphemes(state.cursor().y);
     let (maybe_table, maybe_header) = if let Some(first) = gr.next() {
@@ -284,6 +294,7 @@ fn is_md_maybe_table(state: &TextAreaState) -> (bool, bool) {
     (maybe_table, maybe_header)
 }
 
+/// Is there a list item at the cursor position.
 fn is_md_item(state: &TextAreaState) -> bool {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
@@ -292,6 +303,7 @@ fn is_md_item(state: &TextAreaState) -> bool {
         .is_some()
 }
 
+/// Next position for Tab in a table.
 fn next_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
     let row = parse_md_row(0, txt, pos);
     if row.cursor_cell + 1 < row.row.len() {
@@ -301,6 +313,7 @@ fn next_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
     }
 }
 
+/// Previous position for Tab in a table.
 fn prev_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
     let row = parse_md_row(0, txt, pos);
     if row.cursor_cell > 0 {
@@ -310,6 +323,7 @@ fn prev_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
     }
 }
 
+/// Extract the paragraph at the cursor position.
 fn md_paragraph(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
@@ -323,6 +337,7 @@ fn md_paragraph(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     }
 }
 
+/// Extract the header at the cursor position.
 fn md_header(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
@@ -354,6 +369,7 @@ fn md_header(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     }
 }
 
+/// Extract the list item at the cursor position.
 fn md_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
@@ -367,6 +383,7 @@ fn md_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     }
 }
 
+/// Extract the list item before the one at the cursor position.
 fn md_prev_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
@@ -395,6 +412,7 @@ fn md_prev_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     }
 }
 
+/// Extract the list item after the one at the cursor position.
 fn md_next_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;

@@ -1,5 +1,4 @@
-use crate::mdedit_parts::dump::{md_dump, md_dump_styles};
-use crate::mdedit_parts::format::md_format;
+use crate::mdedit_parts::format::{md_format, MDFormatArg};
 use crate::mdedit_parts::operations::{md_backtab, md_line_break, md_make_header, md_tab};
 use rat_widget::event::{ct_event, flow, HandleEvent, Regular, TextOutcome};
 use rat_widget::focus::HasFocus;
@@ -12,7 +11,6 @@ pub mod format;
 pub mod operations;
 pub mod parser;
 pub mod styles;
-pub mod test_markdown;
 
 // qualifier for markdown-editing.
 #[derive(Debug)]
@@ -22,10 +20,10 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
     fn handle(&mut self, event: &crossterm::event::Event, qualifier: MarkDown) -> TextOutcome {
         if self.is_focused() {
             flow!(match event {
-                ct_event!(key press ALT-'f') => md_format(self, false),
-                ct_event!(key press ALT_SHIFT-'F') => md_format(self, true),
-                ct_event!(key press ALT-'d') => md_dump(self),
-                ct_event!(key press ALT-'s') => md_dump_styles(self),
+                ct_event!(key press ALT-'f') =>
+                    md_format(self, MDFormatArg::new().table_columns_equal_width(false)),
+                ct_event!(key press ALT_SHIFT-'F') =>
+                    md_format(self, MDFormatArg::new().table_columns_equal_width(true)),
 
                 ct_event!(key press ALT-'1') => md_make_header(self, 1),
                 ct_event!(key press ALT-'2') => md_make_header(self, 2),

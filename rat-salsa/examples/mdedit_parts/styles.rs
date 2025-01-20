@@ -4,7 +4,7 @@ use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag};
 use rat_widget::textarea::TextAreaState;
 use std::ops::Range;
 
-// Markdown styles
+/// Markdown styles
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MDStyle {
     Heading1 = 0,
@@ -106,6 +106,7 @@ impl TryFrom<usize> for MDStyle {
     }
 }
 
+/// Parse the text and return the byte ranges for each element.
 pub fn parse_md_styles(state: &TextAreaState) -> Vec<(Range<usize>, usize)> {
     let mut styles = Vec::new();
 
