@@ -701,12 +701,12 @@ where
     type State = ChoiceState<T>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_choice(self, area, buf, state);
-
         state.core.set_values(self.values.borrow().clone());
         if let Some(default_value) = self.default_value.clone() {
             state.core.set_default_value(Some(default_value));
         }
+
+        render_choice(self, area, buf, state);
     }
 }
 
@@ -716,13 +716,13 @@ where
 {
     type State = ChoiceState<T>;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_choice(&self, area, buf, state);
-
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.core.set_values(self.values.take());
-        if let Some(default_value) = self.default_value {
+        if let Some(default_value) = self.default_value.take() {
             state.core.set_default_value(Some(default_value));
         }
+
+        render_choice(&self, area, buf, state);
     }
 }
 
@@ -1163,7 +1163,7 @@ where
 
         let old_selected = self.selected();
         let r1 = self.popup.set_active(true);
-        let mut idx = if let Some(idx) = self.core.selected() {
+        let idx = if let Some(idx) = self.core.selected() {
             idx + n
         } else {
             n.saturating_sub(1)
