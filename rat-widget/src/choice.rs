@@ -373,6 +373,10 @@ pub mod core {
             self.value.clone()
         }
 
+        pub fn is_empty(&self) -> bool {
+            self.values.is_empty()
+        }
+
         pub fn clear(&mut self) -> bool {
             let old_selected = self.selected;
             let old_value = self.value.clone();
@@ -980,9 +984,7 @@ where
 
     /// Show the popup.
     pub fn set_popup_active(&mut self, active: bool) -> bool {
-        let old_active = self.popup.is_active();
-        self.popup.set_active(active);
-        old_active != active
+        self.popup.set_active(active)
     }
 
     /// Set a default-value other than T::default()
@@ -1108,14 +1110,23 @@ where
         if self.nav_char.is_empty() {
             return false;
         }
-
         let c = c.to_lowercase().collect::<Vec<_>>();
-        let mut idx = self.core.selected().expect("selected") + 1;
+
+        let (mut idx, end_loop) = if let Some(idx) = self.core.selected() {
+            (idx + 1, idx)
+        } else {
+            if self.nav_char[0] == c {
+                self.core.set_selected(0);
+                return true;
+            } else {
+                (1, 0)
+            }
+        };
         loop {
             if idx >= self.nav_char.len() {
                 idx = 0;
             }
-            if Some(idx) == self.core.selected() {
+            if idx == end_loop {
                 break;
             }
 
@@ -1130,41 +1141,70 @@ where
     }
 
     /// Select at position
-    pub fn move_to(&mut self, n: usize) -> bool {
-        let r1 = self.select(n);
-        let r2 = self.scroll_to_selected();
-        r1 || r2
+    pub fn move_to(&mut self, n: usize) -> ChoiceOutcome {
+        let old_selected = self.selected();
+        let r1 = self.popup.set_active(true);
+        let r2 = self.select(n);
+        let r3 = self.scroll_to_selected();
+        if old_selected != self.selected() {
+            ChoiceOutcome::Value
+        } else if r1 || r2 || r3 {
+            ChoiceOutcome::Changed
+        } else {
+            ChoiceOutcome::Continue
+        }
     }
 
     /// Select next entry.
-    pub fn move_down(&mut self, n: usize) -> bool {
-        let old_selected = self.core.selected();
+    pub fn move_down(&mut self, n: usize) -> ChoiceOutcome {
+        if self.core.is_empty() {
+            return ChoiceOutcome::Continue;
+        }
 
-        let r2 = if let Some(selected) = self.core.selected() {
-            let select = (selected + n).clamp(0, self.core.values().len().saturating_sub(1));
-            self.core.set_selected(select);
-            self.scroll_to_selected()
+        let old_selected = self.selected();
+        let r1 = self.popup.set_active(true);
+        let mut idx = if let Some(idx) = self.core.selected() {
+            idx + n
         } else {
-            false
+            n.saturating_sub(1)
         };
+        let idx = idx.clamp(0, self.len() - 1);
+        let r2 = self.core.set_selected(idx);
+        let r3 = self.scroll_to_selected();
 
-        old_selected != self.core.selected() || r2
+        if old_selected != self.selected() {
+            ChoiceOutcome::Value
+        } else if r1 || r2 || r3 {
+            ChoiceOutcome::Changed
+        } else {
+            ChoiceOutcome::Continue
+        }
     }
 
     /// Select prev entry.
-    pub fn move_up(&mut self, n: usize) -> bool {
-        let old_selected = self.core.selected();
+    pub fn move_up(&mut self, n: usize) -> ChoiceOutcome {
+        if self.core.is_empty() {
+            return ChoiceOutcome::Continue;
+        }
 
-        let r2 = if let Some(selected) = self.core.selected() {
-            let select =
-                (selected.saturating_sub(n)).clamp(0, self.core.values().len().saturating_sub(1));
-            self.core.set_selected(select);
-            self.scroll_to_selected()
+        let old_selected = self.selected();
+        let r1 = self.popup.set_active(true);
+        let mut idx = if let Some(idx) = self.core.selected() {
+            idx.saturating_sub(n)
         } else {
-            false
+            0
         };
+        let idx = idx.clamp(0, self.len() - 1);
+        let r2 = self.core.set_selected(idx);
+        let r3 = self.scroll_to_selected();
 
-        old_selected != self.core.selected() || r2
+        if old_selected != self.selected() {
+            ChoiceOutcome::Value
+        } else if r1 || r2 || r3 {
+            ChoiceOutcome::Changed
+        } else {
+            ChoiceOutcome::Continue
+        }
     }
 }
 
@@ -1179,9 +1219,16 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
 
         let r = if self.is_focused() {
             match event {
-                ct_event!(key press ' ') => {
+                ct_event!(key press ' ') | ct_event!(keycode press Enter) => {
                     self.flip_popup_active();
                     ChoiceOutcome::Changed
+                }
+                ct_event!(keycode press Esc) => {
+                    if self.set_popup_active(false) {
+                        ChoiceOutcome::Changed
+                    } else {
+                        ChoiceOutcome::Continue
+                    }
                 }
                 ct_event!(key press c) => {
                     if self.select_by_char(*c) {
@@ -1191,53 +1238,16 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
                         ChoiceOutcome::Unchanged
                     }
                 }
-                ct_event!(keycode press Enter) => {
-                    self.flip_popup_active();
-                    if !self.is_popup_active() {
-                        ChoiceOutcome::Value
-                    } else {
-                        ChoiceOutcome::Changed
-                    }
-                }
-                ct_event!(keycode press Esc) => {
-                    if self.set_popup_active(false) {
-                        ChoiceOutcome::Value
-                    } else {
-                        ChoiceOutcome::Continue
-                    }
-                }
                 ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
                     self.clear();
                     ChoiceOutcome::Value
                 }
-                ct_event!(keycode press Down) => {
-                    let r0 = if !self.popup.is_active() {
-                        self.popup.set_active(true);
-                        ChoiceOutcome::Changed
-                    } else {
-                        ChoiceOutcome::Continue
-                    };
-                    let r1 = if self.move_down(1) {
-                        ChoiceOutcome::Value
-                    } else {
-                        ChoiceOutcome::Unchanged
-                    };
-                    max(r0, r1)
-                }
-                ct_event!(keycode press Up) => {
-                    let r0 = if !self.popup.is_active() {
-                        self.popup.set_active(true);
-                        ChoiceOutcome::Changed
-                    } else {
-                        ChoiceOutcome::Continue
-                    };
-                    let r1 = if self.move_up(1) {
-                        ChoiceOutcome::Value
-                    } else {
-                        ChoiceOutcome::Unchanged
-                    };
-                    max(r0, r1)
-                }
+                ct_event!(keycode press Down) => self.move_down(1),
+                ct_event!(keycode press Up) => self.move_up(1),
+                ct_event!(keycode press PageUp) => self.move_up(self.page_len()),
+                ct_event!(keycode press PageDown) => self.move_down(self.page_len()),
+                ct_event!(keycode press Home) => self.move_to(0),
+                ct_event!(keycode press End) => self.move_to(self.len().saturating_sub(1)),
                 _ => ChoiceOutcome::Continue,
             }
         } else {
@@ -1257,10 +1267,9 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, MouseO
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ChoiceOutcome {
         let r0 = handle_mouse(self, event);
-        let r1 = handle_popup_core(self, event);
-        let r2 = handle_select(self, event);
-        let r3 = handle_close(self, event);
-        let mut r = max(r0, max(r1, max(r2, r3)));
+        let r1 = handle_select(self, event);
+        let r2 = handle_close(self, event);
+        let mut r = max(r0, max(r1, r2));
 
         r = r.or_else(|| mouse_trap(event, self.popup.area).into());
 
@@ -1279,8 +1288,8 @@ fn handle_mouse<T: PartialEq + Clone + Default>(
             if state.item_area.contains((*x, *y).into())
                 || state.button_area.contains((*x, *y).into()) =>
         {
-            if !state.gained_focus() && !state.is_popup_active() && !state.popup.active.lost() {
-                state.set_popup_active(true);
+            if !state.gained_focus() && !state.popup.active.lost() {
+                state.flip_popup_active();
                 ChoiceOutcome::Changed
             } else {
                 // hide is down by self.popup.handle() as this click
@@ -1288,20 +1297,21 @@ fn handle_mouse<T: PartialEq + Clone + Default>(
                 ChoiceOutcome::Continue
             }
         }
-        _ => ChoiceOutcome::Continue,
-    }
-}
-
-fn handle_popup_core<T: PartialEq + Clone + Default>(
-    state: &mut ChoiceState<T>,
-    event: &crossterm::event::Event,
-) -> ChoiceOutcome {
-    match state.popup.handle(event, Popup) {
-        PopupOutcome::Hide => {
-            state.set_popup_active(false);
-            ChoiceOutcome::Changed
+        ct_event!(mouse down Left for x,y)
+        | ct_event!(mouse down Right for x,y)
+        | ct_event!(mouse down Middle for x,y)
+            if !state.item_area.contains((*x, *y).into())
+                && !state.button_area.contains((*x, *y).into()) =>
+        {
+            match state.popup.handle(event, Popup) {
+                PopupOutcome::Hide => {
+                    state.set_popup_active(false);
+                    ChoiceOutcome::Changed
+                }
+                r => r.into(),
+            }
         }
-        r => r.into(),
+        _ => ChoiceOutcome::Continue,
     }
 }
 
@@ -1315,27 +1325,9 @@ fn handle_select<T: PartialEq + Clone + Default>(
                 .area(state.popup.area)
                 .v_scroll(&mut state.popup.v_scroll);
             let mut r = match sas.handle(event, MouseOnly) {
-                ScrollOutcome::Up(n) => {
-                    if state.move_up(n) {
-                        ChoiceOutcome::Value
-                    } else {
-                        ChoiceOutcome::Unchanged
-                    }
-                }
-                ScrollOutcome::Down(n) => {
-                    if state.move_down(n) {
-                        ChoiceOutcome::Value
-                    } else {
-                        ChoiceOutcome::Unchanged
-                    }
-                }
-                ScrollOutcome::VPos(n) => {
-                    if state.move_to(n) {
-                        ChoiceOutcome::Value
-                    } else {
-                        ChoiceOutcome::Unchanged
-                    }
-                }
+                ScrollOutcome::Up(n) => state.move_up(n),
+                ScrollOutcome::Down(n) => state.move_down(n),
+                ScrollOutcome::VPos(n) => state.move_to(n),
                 _ => ChoiceOutcome::Continue,
             };
 
@@ -1344,11 +1336,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
                     if state.popup.widget_area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
-                        if state.move_to(state.offset() + n) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
-                        }
+                        state.move_to(state.offset() + n)
                     } else {
                         ChoiceOutcome::Unchanged
                     }
@@ -1357,11 +1345,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
                     if state.popup.widget_area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
-                        if state.move_to(state.offset() + n) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
-                        }
+                        state.move_to(state.offset() + n)
                     } else {
                         ChoiceOutcome::Unchanged
                     }
@@ -1412,11 +1396,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
                     if state.popup.widget_area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
-                        if state.move_to(state.offset() + n) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
-                        }
+                        state.move_to(state.offset() + n)
                     } else {
                         ChoiceOutcome::Unchanged
                     }
@@ -1460,11 +1440,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
                     if state.popup.widget_area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
-                        if state.move_to(state.offset() + n) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
-                        }
+                        state.move_to(state.offset() + n)
                     } else {
                         ChoiceOutcome::Unchanged
                     }
@@ -1473,11 +1449,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
                     if state.popup.widget_area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
-                        if state.move_to(state.offset() + n) {
-                            ChoiceOutcome::Value
-                        } else {
-                            ChoiceOutcome::Unchanged
-                        }
+                        state.move_to(state.offset() + n)
                     } else {
                         ChoiceOutcome::Unchanged
                     }
@@ -1499,11 +1471,7 @@ fn handle_close<T: PartialEq + Clone + Default>(
                 if state.popup.widget_area.contains((*x, *y).into()) =>
             {
                 if let Some(n) = item_at(&state.item_areas, *x, *y) {
-                    let r = if state.move_to(state.offset() + n) {
-                        ChoiceOutcome::Value
-                    } else {
-                        ChoiceOutcome::Unchanged
-                    };
+                    let r = state.move_to(state.offset() + n);
                     let s = if state.set_popup_active(false) {
                         ChoiceOutcome::Changed
                     } else {
@@ -1519,11 +1487,7 @@ fn handle_close<T: PartialEq + Clone + Default>(
         ChoiceClose::DoubleClick => match event {
             ct_event!(mouse any for m) if state.mouse.doubleclick(state.popup.widget_area, m) => {
                 if let Some(n) = item_at(&state.item_areas, m.column, m.row) {
-                    let r = if state.move_to(state.offset() + n) {
-                        ChoiceOutcome::Value
-                    } else {
-                        ChoiceOutcome::Unchanged
-                    };
+                    let r = state.move_to(state.offset() + n);
                     let s = if state.set_popup_active(false) {
                         ChoiceOutcome::Changed
                     } else {
