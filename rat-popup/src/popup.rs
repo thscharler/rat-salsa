@@ -620,8 +620,9 @@ impl PopupCoreState {
 
     /// Show the popup.
     /// This will set gained/lost flags according to the change.
-    /// If the popup is hidden this will clear all the areas.
-    pub fn set_active(&mut self, active: bool) {
+    /// If the popup is hidden this will clear all flags.
+    pub fn set_active(&mut self, active: bool) -> bool {
+        let old_value = self.is_active();
         if active {
             if !self.is_active() {
                 self.active.set(true);
@@ -641,6 +642,7 @@ impl PopupCoreState {
                 self.active.set_lost(false);
             }
         }
+        old_value != self.is_active()
     }
 
     /// Clear the areas.
