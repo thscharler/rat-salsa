@@ -176,6 +176,21 @@ impl NumberInputState {
         Self::default()
     }
 
+    pub fn new_pattern<S: AsRef<str>>(pattern: S) -> Result<Self, NumberFmtError> {
+        let mut s = Self::default();
+        s.set_format(pattern)?;
+        Ok(s)
+    }
+
+    pub fn new_loc_pattern<S: AsRef<str>>(
+        pattern: S,
+        locale: format_num_pattern::Locale,
+    ) -> Result<Self, NumberFmtError> {
+        let mut s = Self::default();
+        s.set_format_loc(pattern.as_ref(), locale)?;
+        Ok(s)
+    }
+
     pub fn named(name: &str) -> Self {
         Self {
             widget: MaskedInputState::named(name),
