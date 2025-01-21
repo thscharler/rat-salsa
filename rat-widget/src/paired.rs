@@ -4,7 +4,7 @@ use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::widgets::StatefulWidget;
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::cmp::min;
 use std::marker::PhantomData;
 
@@ -57,6 +57,48 @@ impl<T, U> Paired<'_, T, U> {
     }
 }
 
+impl<'a, T, U> Paired<'a, T, U> {
+    fn layout(&self, area: Rect) -> (u16, u16, u16) {
+        let mut sp = self.spacing;
+
+        match self.split {
+            PairSplit::Fix(a, b) => {
+                if a + sp + b > area.width {
+                    let rest = area.width - (a + sp + b);
+                    (a - rest / 2, sp, b - (rest - rest / 2))
+                } else {
+                    let rest = (a + sp + b) - area.width;
+                    (a + rest / 2, sp, b + (rest - rest / 2))
+                }
+            }
+            PairSplit::Fix1(a) => {
+                if a > area.width {
+                    sp = 0;
+                    (area.width, sp, 0)
+                } else {
+                    (a, sp, area.width.saturating_sub(a + sp))
+                }
+            }
+            PairSplit::Fix2(b) => {
+                if b > area.width {
+                    sp = 0;
+                    (area.width, sp, 0)
+                } else {
+                    (area.width.saturating_sub(b + sp), sp, b)
+                }
+            }
+            PairSplit::Ratio(a, b) => {
+                sp = min(sp, area.width);
+                (
+                    a.map_range_unchecked((0, a + b), (0, area.width - sp)),
+                    sp,
+                    b.map_range_unchecked((0, a + b), (0, area.width - sp)),
+                )
+            }
+        }
+    }
+}
+
 impl<'a, T, U, TS, US> StatefulWidget for Paired<'a, T, U>
 where
     T: StatefulWidget<State = TS>,
@@ -67,48 +109,32 @@ where
     type State = PairedState<'a, TS, US>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let mut sp = self.spacing;
-
-        let (a, b) = match self.split {
-            PairSplit::Fix(a, b) => {
-                if a + sp + b > area.width {
-                    let rest = area.width - (a + sp + b);
-                    (a - rest / 2, b - (rest - rest / 2))
-                } else {
-                    let rest = (a + sp + b) - area.width;
-                    (a + rest / 2, b + (rest - rest / 2))
-                }
-            }
-            PairSplit::Fix1(a) => {
-                if a > area.width {
-                    sp = 0;
-                    (area.width, 0)
-                } else {
-                    (a, area.width.saturating_sub(a + sp))
-                }
-            }
-            PairSplit::Fix2(b) => {
-                if b > area.width {
-                    sp = 0;
-                    (area.width, 0)
-                } else {
-                    (b, area.width.saturating_sub(b + sp))
-                }
-            }
-            PairSplit::Ratio(a, b) => {
-                sp = min(sp, area.width);
-                (
-                    a.map_range_unchecked((0, a + b), (0, area.width - sp)),
-                    b.map_range_unchecked((0, a + b), (0, area.width - sp)),
-                )
-            }
-        };
+        let (a, sp, b) = self.layout(area);
 
         let area_a = Rect::new(area.x, area.y, a, area.height);
         let area_b = Rect::new(area.x + a + sp, area.y, b, area.height);
 
         self.first.render(area_a, buf, state.first);
         self.second.render(area_b, buf, state.second);
+    }
+}
+
+impl<T, U> Widget for Paired<'_, T, U>
+where
+    T: Widget,
+    U: Widget,
+{
+    fn render(self, area: Rect, buf: &mut Buffer)
+    where
+        Self: Sized,
+    {
+        let (a, sp, b) = self.layout(area);
+
+        let area_a = Rect::new(area.x, area.y, a, area.height);
+        let area_b = Rect::new(area.x + a + sp, area.y, b, area.height);
+
+        self.first.render(area_a, buf);
+        self.second.render(area_b, buf);
     }
 }
 
