@@ -22,10 +22,14 @@ use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 /// Renders a month.
-#[derive(Debug, Default, Clone)]
-pub struct Month<'a> {
+#[derive(Debug, Clone)]
+pub struct Month<'a, Selection>
+where
+    Selection: CalendarSelection,
+{
     /// Start date of the month.
     start_date: Option<NaiveDate>,
 
@@ -47,9 +51,7 @@ pub struct Month<'a> {
     select_style: Option<Style>,
     /// Focus
     focus_style: Option<Style>,
-    /// Selection
-    day_selection: bool,
-    week_selection: bool,
+    /// Show Weekdays above
     show_weekdays: bool,
 
     /// Block
@@ -57,11 +59,13 @@ pub struct Month<'a> {
 
     /// Locale
     loc: chrono::Locale,
+
+    phantom: PhantomData<Selection>,
 }
 
 /// Composite style for the calendar.
 #[derive(Debug, Clone)]
-pub struct MonthStyle {
+pub struct CalendarStyle {
     pub style: Style,
     pub title: Option<Style>,
     pub week: Option<Style>,
@@ -75,7 +79,10 @@ pub struct MonthStyle {
 
 /// State & event-handling.
 #[derive(Debug)]
-pub struct MonthState {
+pub struct MonthState<Selection = SingleSelection>
+where
+    Selection: CalendarSelection,
+{
     /// Total area.
     /// __readonly__. renewed for each render.
     pub area: Rect,
@@ -88,18 +95,12 @@ pub struct MonthState {
     /// Area for the week numbers.
     /// __readonly__. renewed for each render.
     pub area_weeks: [Rect; 6],
+
     /// Startdate
     start_date: NaiveDate,
 
-    /// Day selection enabled
-    day_selection: bool,
-    /// Week selection enabled
-    week_selection: bool,
-
     /// Selected week
-    selected_week: Option<usize>,
-    /// Selected day
-    selected_day: Option<usize>,
+    selection: Selection,
 
     /// Focus
     /// __read+write__
@@ -111,7 +112,7 @@ pub struct MonthState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl Default for MonthStyle {
+impl Default for CalendarStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
@@ -127,7 +128,139 @@ impl Default for MonthStyle {
     }
 }
 
-impl<'a> Month<'a> {
+/// Selection model for a calendar.
+pub trait CalendarSelection {
+    fn clear(&mut self);
+
+    fn is_selected_day(&self, date: NaiveDate) -> bool;
+
+    fn select_day(&mut self, date: NaiveDate, extend: bool) -> bool;
+
+    fn selected_day(&self) -> Option<NaiveDate>;
+
+    fn is_selected_week(&self, date: NaiveDate) -> bool;
+
+    fn select_week(&mut self, date: NaiveDate, extend: bool) -> bool;
+
+    fn selected_week(&self) -> Option<NaiveDate>;
+
+    fn is_selected_month(&self, date: NaiveDate) -> bool;
+
+    fn select_month(&mut self, date: NaiveDate, extend: bool) -> bool;
+
+    fn selected_month(&mut self) -> Option<NaiveDate>;
+}
+
+/// Basic single selection.
+#[derive(Debug, Default, Clone)]
+pub struct SingleSelection {
+    day: Option<NaiveDate>,
+    week: Option<NaiveDate>,
+    month: Option<NaiveDate>,
+}
+
+impl CalendarSelection for SingleSelection {
+    fn clear(&mut self) {
+        self.day = None;
+        self.week = None;
+        self.month = None;
+    }
+
+    fn is_selected_day(&self, date: NaiveDate) -> bool {
+        if let Some(day) = self.day {
+            date == day
+        } else if let Some(week) = self.week {
+            date.week(Weekday::Mon).first_day() == week
+        } else if let Some(month) = self.month {
+            date.with_day(1).expect("date") == month
+        } else {
+            false
+        }
+    }
+
+    fn select_day(&mut self, date: NaiveDate, _extend: bool) -> bool {
+        let old = (self.day, self.week, self.month);
+        self.day = Some(date);
+        self.week = None;
+        self.month = None;
+        old != (self.day, self.week, self.month)
+    }
+
+    fn selected_day(&self) -> Option<NaiveDate> {
+        self.day
+    }
+
+    fn is_selected_week(&self, date: NaiveDate) -> bool {
+        if let Some(week) = self.week {
+            date.week(Weekday::Mon).first_day() == week
+        } else if let Some(month) = self.month {
+            date.with_day(1).expect("date") == month
+        } else {
+            false
+        }
+    }
+
+    fn select_week(&mut self, date: NaiveDate, _: bool) -> bool {
+        let old = (self.day, self.week, self.month);
+        self.day = None;
+        self.week = Some(date.week(Weekday::Mon).first_day());
+        self.month = None;
+        old != (self.day, self.week, self.month)
+    }
+
+    fn selected_week(&self) -> Option<NaiveDate> {
+        self.week
+    }
+
+    fn is_selected_month(&self, date: NaiveDate) -> bool {
+        if let Some(month) = self.month {
+            date.with_day(1).expect("date") == month
+        } else {
+            false
+        }
+    }
+
+    fn select_month(&mut self, date: NaiveDate, _: bool) -> bool {
+        let old = (self.day, self.week, self.month);
+        self.day = None;
+        self.week = None;
+        self.month = Some(date.with_day(1).expect("date"));
+        old != (self.day, self.week, self.month)
+    }
+
+    fn selected_month(&mut self) -> Option<NaiveDate> {
+        self.month
+    }
+}
+
+impl<'a, Selection> Default for Month<'a, Selection>
+where
+    Selection: CalendarSelection,
+{
+    fn default() -> Self {
+        Self {
+            start_date: None,
+            style: Default::default(),
+            title_style: Default::default(),
+            title_align: Default::default(),
+            week_style: Default::default(),
+            weekday_style: Default::default(),
+            day_style: Default::default(),
+            day_styles: Default::default(),
+            select_style: Default::default(),
+            focus_style: Default::default(),
+            show_weekdays: false,
+            block: Default::default(),
+            loc: Default::default(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, Selection> Month<'a, Selection>
+where
+    Selection: CalendarSelection,
+{
     pub fn new() -> Self {
         Self::default()
     }
@@ -147,20 +280,6 @@ impl<'a> Month<'a> {
         self
     }
 
-    /// Date selection enabled
-    #[inline]
-    pub fn day_selection(mut self) -> Self {
-        self.day_selection = true;
-        self
-    }
-
-    /// Week selection enabled
-    #[inline]
-    pub fn week_selection(mut self) -> Self {
-        self.week_selection = true;
-        self
-    }
-
     /// Show weekday titles
     #[inline]
     pub fn show_weekdays(mut self) -> Self {
@@ -170,7 +289,7 @@ impl<'a> Month<'a> {
 
     /// Set the composite style.
     #[inline]
-    pub fn styles(mut self, s: MonthStyle) -> Self {
+    pub fn styles(mut self, s: CalendarStyle) -> Self {
         self.style = s.style;
         if s.title.is_some() {
             self.title_style = s.title;
@@ -268,14 +387,14 @@ impl<'a> Month<'a> {
     /// Inherent height for the widget.
     /// Can vary with the number of months.
     #[inline]
-    pub fn height(&self, state: &MonthState) -> u16 {
+    pub fn height(&self, state: &MonthState<Selection>) -> u16 {
         let start_date = if let Some(start_date) = self.start_date {
             start_date
         } else {
             state.start_date
         };
 
-        let r = MonthState::count_weeks(start_date) as u16;
+        let r = MonthState::<Selection>::count_weeks(start_date) as u16;
         let w = if self.show_weekdays { 1 } else { 0 };
         let b = max(1, block_size(&self.block).height);
         r + w + b
@@ -283,29 +402,38 @@ impl<'a> Month<'a> {
 }
 
 #[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for Month<'a> {
-    type State = MonthState;
+impl<'a, Selection> StatefulWidgetRef for Month<'a, Selection>
+where
+    Selection: CalendarSelection,
+{
+    type State = MonthState<Selection>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }
 
-impl StatefulWidget for Month<'_> {
-    type State = MonthState;
+impl<Selection> StatefulWidget for Month<'_, Selection>
+where
+    Selection: CalendarSelection,
+{
+    type State = MonthState<Selection>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(&self, area, buf, state);
     }
 }
 
-fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut MonthState) {
+fn render_ref<Selection: CalendarSelection>(
+    widget: &Month<'_, Selection>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut MonthState<Selection>,
+) {
     state.area = area;
     if let Some(start_date) = widget.start_date {
         state.start_date = start_date;
     }
-    state.day_selection = widget.day_selection;
-    state.week_selection = widget.week_selection;
 
     let mut day = state.start_date;
 
@@ -358,31 +486,25 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
     state.inner = block.inner(area);
     block.render(area, buf);
 
-    let month = state.start_date.month();
+    let month = day.month();
     let mut w = 0;
     let mut x = state.inner.x;
     let mut y = state.inner.y;
 
     // week days
     if widget.show_weekdays {
+        let mut week_0 = day.week(Weekday::Mon).first_day();
+
         x += 3;
         buf.set_style(Rect::new(x, y, 3 * 7, 1), weekday_style);
-        for wd in [
-            Weekday::Mon,
-            Weekday::Tue,
-            Weekday::Wed,
-            Weekday::Thu,
-            Weekday::Fri,
-            Weekday::Sat,
-            Weekday::Sun,
-        ] {
+        for _ in 0..7 {
             let area = Rect::new(x, y, 2, 1).intersection(state.inner);
 
-            let day = NaiveDate::from_weekday_of_month_opt(2024, 1, wd, 1).expect("date");
-            let day_name = day.format_localized("%a", widget.loc).to_string();
+            let day_name = week_0.format_localized("%a", widget.loc).to_string();
             Span::from(format!("{:2} ", day_name)).render(area, buf);
 
             x += 3;
+            week_0 = week_0.checked_add_days(Days::new(1)).expect("date");
         }
         x = state.inner.x;
         y += 1;
@@ -394,7 +516,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
         .style(week_style)
         .render(state.area_weeks[w], buf);
 
-    let week_sel = if state.selected_week == Some(w) {
+    let week_sel = if state.selection.is_selected_week(day) {
         let week_bg = Rect::new(x + 3, y, 21, 1).intersection(state.inner);
         buf.set_style(week_bg, select_style);
         true
@@ -425,7 +547,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
             } else {
                 day_style
             };
-            let day_style = if week_sel || state.selected_day == Some(day.day0() as usize) {
+            let day_style = if week_sel || state.selection.is_selected_day(day) {
                 day_style.patch(select_style)
             } else {
                 day_style
@@ -438,7 +560,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
                 .render(state.area_days[day.day0() as usize], buf);
 
             x += 3;
-            day += chrono::Duration::try_days(1).expect("days");
+            day = day.checked_add_days(Days::new(1)).expect("day");
         }
     }
 
@@ -452,7 +574,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
             .style(week_style)
             .render(state.area_weeks[w], buf);
 
-        let week_sel = if state.selected_week == Some(w) {
+        let week_sel = if state.selection.is_selected_week(day) {
             let week_bg = Rect::new(x + 3, y, 21, 1).intersection(state.inner);
             buf.set_style(week_bg, select_style);
             true
@@ -473,7 +595,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
                 } else {
                     day_style
                 };
-                let day_style = if week_sel || state.selected_day == Some(day.day0() as usize) {
+                let day_style = if week_sel || state.selection.is_selected_day(day) {
                     day_style.patch(select_style)
                 } else {
                     day_style
@@ -487,7 +609,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
                     .render(state.area_days[day.day0() as usize], buf);
 
                 x += 3;
-                day += chrono::Duration::try_days(1).expect("days");
+                day = day.checked_add_days(Days::new(1)).expect("day");
             } else {
                 x += 3;
             }
@@ -499,7 +621,10 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
     }
 }
 
-impl HasFocus for MonthState {
+impl<Selection> HasFocus for MonthState<Selection>
+where
+    Selection: CalendarSelection,
+{
     fn build(&self, builder: &mut FocusBuilder) {
         builder.append_leaf(self);
     }
@@ -515,7 +640,10 @@ impl HasFocus for MonthState {
     }
 }
 
-impl RelocatableState for MonthState {
+impl<Selection> RelocatableState for MonthState<Selection>
+where
+    Selection: CalendarSelection,
+{
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
         self.inner = relocate_area(self.inner, shift, clip);
@@ -524,7 +652,10 @@ impl RelocatableState for MonthState {
     }
 }
 
-impl Clone for MonthState {
+impl<Selection> Clone for MonthState<Selection>
+where
+    Selection: CalendarSelection + Clone,
+{
     fn clone(&self) -> Self {
         Self {
             area: self.area,
@@ -532,10 +663,7 @@ impl Clone for MonthState {
             area_days: self.area_days.clone(),
             area_weeks: self.area_weeks.clone(),
             start_date: self.start_date,
-            day_selection: self.day_selection,
-            week_selection: self.week_selection,
-            selected_week: self.selected_week,
-            selected_day: self.selected_day,
+            selection: self.selection.clone(),
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -543,7 +671,10 @@ impl Clone for MonthState {
     }
 }
 
-impl Default for MonthState {
+impl<Selection> Default for MonthState<Selection>
+where
+    Selection: CalendarSelection + Default,
+{
     fn default() -> Self {
         Self {
             area: Default::default(),
@@ -551,10 +682,7 @@ impl Default for MonthState {
             area_days: [Rect::default(); 31],
             area_weeks: [Rect::default(); 6],
             start_date: Default::default(),
-            day_selection: false,
-            week_selection: false,
-            selected_week: Default::default(),
-            selected_day: Default::default(),
+            selection: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -562,12 +690,21 @@ impl Default for MonthState {
     }
 }
 
-impl MonthState {
-    pub fn new() -> Self {
+impl<Selection> MonthState<Selection>
+where
+    Selection: CalendarSelection,
+{
+    pub fn new() -> Self
+    where
+        Selection: Default,
+    {
         Self::default()
     }
 
-    pub fn named(name: &str) -> Self {
+    pub fn named(name: &str) -> Self
+    where
+        Selection: Default,
+    {
         Self {
             focus: FocusFlag::named(name),
             ..Self::default()
@@ -591,236 +728,185 @@ impl MonthState {
 
     /// Removes all selection.
     pub fn clear_selection(&mut self) {
-        self.selected_week = None;
-        self.selected_day = None;
+        self.selection.clear();
     }
 
     /// Select a week.
-    pub fn select_week(&mut self, n: Option<usize>) {
-        self.selected_week = n;
-        self.selected_day = None;
-    }
-
-    /// Select a week by date
-    /// Returns true if the date is valid for this month.
-    /// If false it doesn't change the selection.
-    pub fn select_week_by_date(&mut self, d: Option<NaiveDate>) -> bool {
-        self.selected_day = None;
-        if let Some(d) = d {
-            if d.year() == self.start_date.year() {
-                if let Some(w) = self.date_as_week(d) {
-                    self.selected_week = Some(w);
-                    true
-                } else {
-                    self.selected_week = None;
-                    false
-                }
-            } else {
-                self.selected_week = None;
-                false
-            }
+    pub fn select_week(&mut self, n: usize) -> bool {
+        if n < self.week_len() {
+            let date = self
+                .start_date()
+                .checked_add_days(Days::new(7 * n as u64))
+                .expect("date");
+            self.selection.select_week(date, false)
         } else {
-            self.selected_week = None;
-            true
+            false
         }
     }
 
     /// Selected week
     pub fn selected_week(&self) -> Option<usize> {
-        self.selected_week
-    }
-
-    /// Selected week
-    pub fn selected_week_as_date(&self) -> Option<NaiveDate> {
-        self.selected_week.map(|v| self.week_day(v))
-    }
-
-    /// Select a day
-    pub fn select_day(&mut self, n: Option<usize>) {
-        self.selected_day = n;
-        self.selected_week = None;
-    }
-
-    /// Select by date.
-    /// Returns true if the date is valid for this month.
-    /// If false it doesn't change the selection.
-    pub fn select_date(&mut self, d: Option<NaiveDate>) -> bool {
-        self.selected_week = None;
-        if let Some(d) = d {
-            if d.year() == self.start_date.year() && d.month() == self.start_date.month() {
-                self.selected_day = Some(d.day0() as usize);
-                true
-            } else {
-                self.selected_day = None;
-                false
-            }
-        } else {
-            self.selected_day = None;
-            true
-        }
-    }
-
-    /// Selected day
-    pub fn selected_day(&self) -> Option<usize> {
-        self.selected_day
-    }
-
-    /// Selected day
-    pub fn selected_day_as_date(&self) -> Option<NaiveDate> {
-        self.selected_day.map(|v| self.month_day(v))
-    }
-
-    /// Select previous day.
-    pub fn prev_day(&mut self, n: usize) -> bool {
-        if let Some(sel) = self.selected_week {
-            let week_day = self.week_day(sel);
-            if week_day < self.start_date {
-                self.selected_day = Some(0);
-            } else {
-                self.selected_day = Some(week_day.day0() as usize);
-            }
-            self.selected_week = None;
-        }
-
-        if let Some(sel) = self.selected_day {
-            if sel >= n {
-                self.selected_day = Some(sel - n);
-                true
-            } else {
-                false
-            }
-        } else {
-            let mut d = 30;
-            loop {
-                if self.start_date.with_day0(d).is_some() {
-                    break;
+        if let Some(week) = self.selection.selected_week() {
+            let mut test = self.start_date.week(Weekday::Mon).first_day();
+            for n in 0..6 {
+                if week == test {
+                    return Some(n);
                 }
-                d -= 1;
+                test = test.checked_add_days(Days::new(7)).expect("day");
             }
-            self.selected_day = Some(d as usize);
-            true
-        }
-    }
-
-    /// Select next day.
-    pub fn next_day(&mut self, n: usize) -> bool {
-        if let Some(sel) = self.selected_week {
-            let week_day = self.week_day(sel);
-            if week_day < self.start_date {
-                self.selected_day = Some(0);
-            } else {
-                self.selected_day = Some(week_day.day0() as usize);
-            }
-            self.selected_week = None;
-        }
-
-        if let Some(sel) = self.selected_day {
-            if self.start_date.with_day0(sel as u32 + n as u32).is_some() {
-                self.selected_day = Some(sel + n);
-                true
-            } else {
-                false
-            }
-        } else {
-            self.selected_day = Some(0);
-            true
-        }
-    }
-
-    /// Select previous week.
-    pub fn prev_week(&mut self, n: usize) -> bool {
-        if let Some(sel) = self.selected_day {
-            self.selected_week = self.month_day_as_week(sel);
-            self.selected_day = None;
-        }
-        if let Some(sel) = self.selected_week {
-            if sel >= n {
-                self.selected_week = Some(sel - n);
-                true
-            } else {
-                false
-            }
-        } else {
-            let mut d = 30;
-            loop {
-                if self.start_date.with_day0(d).is_some() {
-                    break;
-                }
-                d -= 1;
-            }
-            self.selected_week = self.month_day_as_week(d as usize);
-            true
-        }
-    }
-
-    /// Select next week.
-    pub fn next_week(&mut self, n: usize) -> bool {
-        if let Some(sel) = self.selected_day {
-            self.selected_week = self.month_day_as_week(sel);
-            self.selected_day = None;
-        }
-        if let Some(sel) = self.selected_week {
-            let sel_day = self.week_day(sel);
-            let new_day = sel_day + chrono::Duration::try_days(7 * n as i64).expect("days");
-            if self.start_date.month() == new_day.month() {
-                self.selected_week = self.month_day_as_week(new_day.day0() as usize);
-                true
-            } else {
-                false
-            }
-        } else {
-            self.selected_week = Some(0);
-            true
-        }
-    }
-
-    /// Monday of the nth displayed week
-    pub fn week_day(&self, n: usize) -> NaiveDate {
-        let mut day = self.start_date;
-        while day.weekday() != Weekday::Mon {
-            day -= chrono::Duration::try_days(1).expect("days");
-        }
-        day += chrono::Duration::try_days(7 * n as i64).expect("days");
-        day
-    }
-
-    /// Date of the nth displayed date
-    pub fn month_day(&self, n: usize) -> NaiveDate {
-        let mut day = self.start_date;
-        day += chrono::Duration::try_days(n as i64).expect("days");
-        day
-    }
-
-    /// Week of the nth displayed date
-    pub fn month_day_as_week(&self, n: usize) -> Option<usize> {
-        if let Some(day) = self.start_date.with_day0(n as u32) {
-            self.date_as_week(day)
+            None
         } else {
             None
         }
     }
 
-    /// Week of the given date
-    pub fn date_as_week(&self, d: NaiveDate) -> Option<usize> {
-        let mut day = self.start_date;
-        let month = day.month();
-        let mut w = 0;
+    /// Select a week by date
+    /// Returns true if the date is valid for this month.
+    /// If false it doesn't change the selection.
+    pub fn select_week_by_date(&mut self, d: NaiveDate) -> bool {
+        let new_date = d.week(Weekday::Mon).first_day();
+        let new_date_end = d.week(Weekday::Mon).last_day();
 
-        while month == day.month() {
-            if day.week(Weekday::Mon).days().contains(&d) {
-                return Some(w);
-            }
-            day += chrono::Duration::try_days(7).expect("days");
-            w += 1;
+        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
+        {
+            self.selection.select_week(new_date, false)
+        } else if new_date_end.year() == self.start_date.year()
+            && new_date_end.month() == self.start_date.month()
+        {
+            self.selection.select_week(new_date, false)
+        } else {
+            false
         }
-        // last week might be next month
-        let week = day.week(Weekday::Mon);
-        if week.first_day().month() == month {
-            if week.days().contains(&d) {
-                return Some(w);
-            }
+    }
+
+    /// Selected week
+    pub fn selected_week_as_date(&self) -> Option<NaiveDate> {
+        self.selection.selected_week()
+    }
+
+    /// Select a day
+    pub fn select_day(&mut self, n: usize) -> bool {
+        if let Some(date) = self.start_date.with_day0(n as u32) {
+            return self.selection.select_day(date, false);
         }
-        None
+        false
+    }
+
+    /// Selected day
+    pub fn selected_day(&self) -> Option<usize> {
+        if let Some(day) = self.selection.selected_day() {
+            Some(day.day0() as usize)
+        } else {
+            None
+        }
+    }
+
+    /// Select by date.
+    /// Returns true if the date is valid for this month.
+    /// If false it doesn't change the selection.
+    pub fn select_date(&mut self, d: NaiveDate) -> bool {
+        if d.year() == self.start_date.year() && d.month() == self.start_date.month() {
+            self.selection.select_day(d, false);
+            return true;
+        }
+        false
+    }
+
+    /// Selected day
+    pub fn selected_day_as_date(&self) -> Option<NaiveDate> {
+        self.selection.selected_day()
+    }
+
+    /// Select previous day.
+    pub fn prev_day(&mut self, n: usize) -> bool {
+        let date = if let Some(date) = self.selection.selected_week() {
+            date
+        } else if let Some(date) = self.selection.selected_day() {
+            date
+        } else {
+            self.start_date
+                .checked_add_months(Months::new(1))
+                .expect("day")
+        };
+
+        let new_date = date.checked_sub_days(Days::new(n as u64)).expect("day");
+
+        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
+        {
+            self.selection.select_day(new_date, false)
+        } else {
+            false
+        }
+    }
+
+    /// Select next day.
+    pub fn next_day(&mut self, n: usize) -> bool {
+        let date = if let Some(date) = self.selection.selected_week() {
+            date
+        } else if let Some(date) = self.selection.selected_day() {
+            date
+        } else {
+            self.start_date.checked_sub_days(Days::new(1)).expect("day")
+        };
+
+        let new_date = date.checked_add_days(Days::new(n as u64)).expect("day");
+
+        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
+        {
+            self.selection.select_day(new_date, false)
+        } else {
+            false
+        }
+    }
+
+    /// Select previous week.
+    pub fn prev_week(&mut self, n: usize) -> bool {
+        let date = if let Some(date) = self.selection.selected_week() {
+            date
+        } else if let Some(date) = self.selection.selected_day() {
+            date.week(Weekday::Mon).first_day()
+        } else {
+            self.start_date.checked_sub_days(Days::new(1)).expect("day")
+        };
+
+        let new_date = date.checked_sub_days(Days::new(7 * n as u64)).expect("day");
+        let new_date_end = new_date.week(Weekday::Mon).last_day();
+
+        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
+        {
+            self.selection.select_week(new_date, false)
+        } else if new_date_end.year() == self.start_date.year()
+            && new_date_end.month() == self.start_date.month()
+        {
+            self.selection.select_week(new_date, false)
+        } else {
+            false
+        }
+    }
+
+    /// Select next week.
+    pub fn next_week(&mut self, n: usize) -> bool {
+        let date = if let Some(date) = self.selection.selected_week() {
+            date
+        } else if let Some(date) = self.selection.selected_day() {
+            date.week(Weekday::Mon).first_day()
+        } else {
+            self.start_date.checked_sub_days(Days::new(1)).expect("day")
+        };
+
+        let new_date = date.checked_add_days(Days::new(7 * n as u64)).expect("day");
+        let new_date_end = new_date.week(Weekday::Mon).last_day();
+
+        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
+        {
+            self.selection.select_week(new_date, false)
+        } else if new_date_end.year() == self.start_date.year()
+            && new_date_end.month() == self.start_date.month()
+        {
+            self.selection.select_week(new_date, false)
+        } else {
+            false
+        }
     }
 
     /// Nr of weeks in this month.
@@ -875,6 +961,8 @@ pub(crate) mod event {
         /// Further processing for this event may stop.
         /// Rendering the ui is advised.
         Changed,
+        /// Month selected. This is the first of the selected month.
+        Month(NaiveDate),
         /// Week selected. This is Monday of the selected week.
         Week(NaiveDate),
         /// Day selected.
@@ -917,19 +1005,20 @@ pub(crate) mod event {
                 CalOutcome::Changed => Outcome::Changed,
                 CalOutcome::Week(_) => Outcome::Changed,
                 CalOutcome::Day(_) => Outcome::Changed,
+                CalOutcome::Month(_) => Outcome::Changed,
             }
         }
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState {
+impl<Selection> HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<Selection>
+where
+    Selection: CalendarSelection,
+{
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
         if self.is_focused() {
             flow!(match event {
                 ct_event!(keycode press Up) => {
-                    if !self.day_selection {
-                        return CalOutcome::Continue;
-                    }
                     if self.prev_day(7) {
                         CalOutcome::Day(self.selected_day_as_date().expect("day"))
                     } else {
@@ -937,9 +1026,6 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState {
                     }
                 }
                 ct_event!(keycode press Down) => {
-                    if !self.day_selection {
-                        return CalOutcome::Continue;
-                    }
                     if self.next_day(7) {
                         CalOutcome::Day(self.selected_day_as_date().expect("day"))
                     } else {
@@ -947,9 +1033,6 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState {
                     }
                 }
                 ct_event!(keycode press Left) => {
-                    if !self.day_selection {
-                        return CalOutcome::Continue;
-                    }
                     if self.prev_day(1) {
                         CalOutcome::Day(self.selected_day_as_date().expect("day"))
                     } else {
@@ -957,9 +1040,6 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState {
                     }
                 }
                 ct_event!(keycode press Right) => {
-                    if !self.day_selection {
-                        return CalOutcome::Continue;
-                    }
                     if self.next_day(1) {
                         CalOutcome::Day(self.selected_day_as_date().expect("day"))
                     } else {
@@ -967,9 +1047,6 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState {
                     }
                 }
                 ct_event!(keycode press ALT-Up) => {
-                    if !self.week_selection {
-                        return CalOutcome::Continue;
-                    }
                     if self.prev_week(1) {
                         CalOutcome::Week(self.selected_week_as_date().expect("week"))
                     } else {
@@ -977,9 +1054,6 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState {
                     }
                 }
                 ct_event!(keycode press ALT-Down) => {
-                    if !self.week_selection {
-                        return CalOutcome::Continue;
-                    }
                     if self.next_week(1) {
                         CalOutcome::Week(self.selected_week_as_date().expect("week"))
                     } else {
@@ -994,22 +1068,26 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState {
+impl<Selection> HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome>
+    for MonthState<Selection>
+where
+    Selection: CalendarSelection,
+{
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
         match event {
             ct_event!(mouse drag Left for x, y) | ct_event!(mouse down Left for x, y) => {
                 if let Some(sel) = self.mouse.item_at(&self.area_weeks, *x, *y) {
-                    if !self.week_selection {
-                        return CalOutcome::Continue;
+                    if self.select_week(sel) {
+                        CalOutcome::Week(self.selected_week_as_date().expect("week"))
+                    } else {
+                        CalOutcome::Unchanged
                     }
-                    self.select_week(Some(sel));
-                    CalOutcome::Week(self.week_day(sel))
                 } else if let Some(sel) = self.mouse.item_at(&self.area_days, *x, *y) {
-                    if !self.day_selection {
-                        return CalOutcome::Continue;
+                    if self.select_day(sel) {
+                        CalOutcome::Day(self.selected_day_as_date().expect("day"))
+                    } else {
+                        CalOutcome::Unchanged
                     }
-                    self.select_day(Some(sel));
-                    CalOutcome::Day(self.month_day(sel))
                 } else {
                     CalOutcome::Continue
                 }
@@ -1020,28 +1098,204 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState 
     }
 }
 
+// /// A struct that contains an array of MonthState to get a true calendar
+// /// behaviour. There is no Widget for this, the exact layout is left
+// /// to the user.
+// #[derive(Debug, Clone)]
+// pub struct CalendarState<const N: usize> {
+//     /// Step-size when navigating outside the displayed
+//     /// calendar.
+//     ///
+//     /// You can do a rolling calendar which goes back 1 month
+//     /// or a yearly calendar which goes back 12 months.
+//     /// Or any other value you like.
+//     ///
+//     /// If you set step to 0 this kind of navigation is
+//     /// deactivated.
+//     ///
+//     /// Default is 1.
+//     pub step: u32,
+//
+//     /// Months.
+//     pub months: [MonthState; N],
+//
+//     /// Primary month.
+//     /// Only this month will take part in Tab navigation.
+//     /// The other months will be mouse-reachable only.
+//     /// You can use arrow-keys to navigate the months though.
+//     pub primary: usize,
+//
+//     /// Calendar focus
+//     pub focus: FocusFlag,
+//
+//     inner_focus: Option<Focus>,
+// }
+//
+// impl<const N: usize> Default for CalendarState<N> {
+//     fn default() -> Self {
+//         Self {
+//             step: 1,
+//             months: array::from_fn(|n| MonthState::default()),
+//             primary: 0,
+//             focus: Default::default(),
+//             inner_focus: None,
+//         }
+//     }
+// }
+//
+// impl<const N: usize> HasFocus for CalendarState<N> {
+//     fn build(&self, builder: &mut FocusBuilder) {
+//         let tag = builder.start(self);
+//         for (i, v) in self.months.iter().enumerate() {
+//             if i == self.primary {
+//                 builder.widget(v); // regular widget
+//             } else {
+//                 builder.append_flags(v.focus(), v.area(), v.area_z(), Navigation::Leave)
+//             }
+//         }
+//         builder.end(tag);
+//     }
+//
+//     fn focus(&self) -> FocusFlag {
+//         self.focus.clone()
+//     }
+//
+//     fn area(&self) -> Rect {
+//         Rect::default()
+//     }
+// }
+//
+// impl<const N: usize> RelocatableState for CalendarState<N> {
+//     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+//         for w in &mut self.months {
+//             w.relocate(shift, clip);
+//         }
+//     }
+// }
+//
+// impl<const N: usize> CalendarState<N> {
+//     pub fn new() -> Self {
+//         Self::default()
+//     }
+//
+//     /// Step size in months when scrolling/leaving the
+//     /// displayed range.
+//     pub fn set_step(&mut self, step: u32) {
+//         self.step = step;
+//     }
+//
+//     /// Step size in months when scrolling/leaving the
+//     /// displayed range.
+//     pub fn step(&self) -> u32 {
+//         self.step
+//     }
+//
+//     /// Changes the start-date for each month.
+//     pub fn scroll_down(&mut self, n: u32) {
+//         // change start dates
+//         let mut start = self.months[0]
+//             .start_date()
+//             .checked_add_months(Months::new(n))
+//             .expect("date");
+//
+//         for i in 0..self.months.len() {
+//             self.months[i].set_start_date(start);
+//             start = start.checked_add_months(Months::new(1)).expect("date");
+//         }
+//     }
+//
+//     /// Changes the start-date for each month.
+//     pub fn scroll_up(&mut self, n: u32) {
+//         // change start dates
+//         let mut start = self.months[0]
+//             .start_date()
+//             .checked_sub_months(Months::new(n))
+//             .expect("date");
+//
+//         for i in 0..self.months.len() {
+//             self.months[i].set_start_date(start);
+//             start = start.checked_add_months(Months::new(1)).expect("date");
+//         }
+//     }
+//
+//     fn rebuild_inner_focus(&mut self) {
+//         let mut builder = FocusBuilder::new(self.inner_focus.take());
+//         self.build(&mut builder);
+//         self.inner_focus = Some(builder.build());
+//     }
+// }
+//
+// impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
+//     for CalendarState<N>
+// {
+//     fn handle(&mut self, event: &Event, qualifier: Regular) -> CalOutcome {
+//         if self.is_focused() {
+//             self.rebuild_inner_focus();
+//
+//             for i in 0..self.months.len() {
+//                 let current = &mut self.months[i];
+//                 if current.is_focused() {
+//                     let r = current.handle(event, Regular);
+//                 }
+//             }
+//         }
+//
+//         todo!()
+//     }
+// }
+
 #[allow(clippy::needless_range_loop)]
-fn scroll_up_month_list(months: &mut [MonthState], delta: u32) {
+pub fn scroll_up_month_list<Selection: CalendarSelection>(
+    months: &mut [MonthState<Selection>],
+    delta: u32,
+) {
     // change start dates
     let mut start = months[0]
-        .start_date
+        .start_date()
         .checked_sub_months(Months::new(delta))
         .expect("date");
     for i in 0..months.len() {
-        months[i].start_date = start;
+        let d = months[i].selected_day();
+        let w = months[i].selected_week();
+
+        months[i].set_start_date(start);
+
+        months[i].clear_selection();
+        if let Some(d) = d {
+            months[i].select_day(d);
+        }
+        if let Some(w) = w {
+            months[i].select_week(w);
+        }
+
         start = start.checked_add_months(Months::new(1)).expect("date");
     }
 }
 
 #[allow(clippy::needless_range_loop)]
-fn scroll_down_month_list(months: &mut [MonthState], delta: u32) {
+pub fn scroll_down_month_list<Selection: CalendarSelection>(
+    months: &mut [MonthState<Selection>],
+    delta: u32,
+) {
     // change start dates
     let mut start = months[0]
-        .start_date
+        .start_date()
         .checked_add_months(Months::new(delta))
         .expect("date");
     for i in 0..months.len() {
-        months[i].start_date = start;
+        let d = months[i].selected_day();
+        let w = months[i].selected_week();
+
+        months[i].set_start_date(start);
+
+        months[i].clear_selection();
+        if let Some(d) = d {
+            months[i].select_day(d);
+        }
+        if let Some(w) = w {
+            months[i].select_week(w);
+        }
+
         start = start.checked_add_months(Months::new(1)).expect("date");
     }
 }
@@ -1054,7 +1308,11 @@ fn scroll_down_month_list(months: &mut [MonthState], delta: u32) {
 /// This also needs the Focus, as it changes the focused month if necessary.
 pub struct MultiMonth<'a>(pub &'a Focus, pub u32);
 
-impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [MonthState] {
+impl<Selection> HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome>
+    for &mut [MonthState<Selection>]
+where
+    Selection: CalendarSelection,
+{
     fn handle(&mut self, event: &crossterm::event::Event, arg: MultiMonth<'_>) -> CalOutcome {
         let r = 'f: {
             for i in 0..self.len() {
@@ -1068,10 +1326,10 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                 }
                             }
                             if i > 0 {
-                                self[i - 1].select_week_by_date(Some(date));
+                                self[i - 1].select_week_by_date(date);
                             }
                             if i + 1 < self.len() {
-                                self[i + 1].select_week_by_date(Some(date));
+                                self[i + 1].select_week_by_date(date);
                             }
                             CalOutcome::Week(date)
                         }
@@ -1085,9 +1343,6 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                         }
                         CalOutcome::Continue => match event {
                             ct_event!(keycode press PageUp) => {
-                                if !self[i].day_selection {
-                                    return CalOutcome::Continue;
-                                }
                                 if i > 0 {
                                     if let Some(date) = self[i]
                                         .selected_day_as_date()
@@ -1095,8 +1350,8 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                     {
                                         let new_date =
                                             date.checked_sub_months(Months::new(1)).expect("days");
-                                        self[i].select_day(None);
-                                        self[i - 1].select_date(Some(new_date));
+                                        self[i].clear_selection();
+                                        self[i - 1].select_date(new_date);
                                         arg.0.focus(&self[i - 1]);
                                         CalOutcome::Day(new_date)
                                     } else {
@@ -1113,7 +1368,7 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                         scroll_up_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
-                                            self[i].select_date(Some(new_date));
+                                            self[i].select_date(new_date);
                                         }
                                         for i in 0..self.len() {
                                             if self[i].selected_day_as_date().is_some() {
@@ -1127,9 +1382,6 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                 }
                             }
                             ct_event!(keycode press PageDown) => {
-                                if !self[i].day_selection {
-                                    return CalOutcome::Continue;
-                                }
                                 if i + 1 < self.len() {
                                     if let Some(date) = self[i]
                                         .selected_day_as_date()
@@ -1137,8 +1389,8 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                     {
                                         let new_date =
                                             date.checked_add_months(Months::new(1)).expect("days");
-                                        self[i].select_day(None);
-                                        self[i + 1].select_date(Some(new_date));
+                                        self[i].clear_selection();
+                                        self[i + 1].select_date(new_date);
                                         arg.0.focus(&self[i + 1]);
                                         CalOutcome::Day(new_date)
                                     } else {
@@ -1154,7 +1406,7 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                         scroll_down_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
-                                            self[i].select_date(Some(new_date));
+                                            self[i].select_date(new_date);
                                         }
                                         for i in 0..self.len() {
                                             if self[i].selected_day_as_date().is_some() {
@@ -1168,15 +1420,12 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                 }
                             }
                             ct_event!(keycode press Up) => {
-                                if !self[i].day_selection {
-                                    return CalOutcome::Continue;
-                                }
                                 if i > 0 {
                                     if let Some(date) = self[i].selected_day_as_date() {
                                         let new_date =
                                             date - chrono::Duration::try_days(7).expect("days");
-                                        self[i].select_day(None);
-                                        self[i - 1].select_date(Some(new_date));
+                                        self[i].clear_selection();
+                                        self[i - 1].select_date(new_date);
                                         arg.0.focus(&self[i - 1]);
                                         CalOutcome::Day(new_date)
                                     } else {
@@ -1190,7 +1439,7 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                         scroll_up_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
-                                            self[i].select_date(Some(new_date));
+                                            self[i].select_date(new_date);
                                         }
                                         for i in 0..self.len() {
                                             if self[i].selected_day_as_date().is_some() {
@@ -1204,15 +1453,12 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                 }
                             }
                             ct_event!(keycode press Down) => {
-                                if !self[i].day_selection {
-                                    return CalOutcome::Continue;
-                                }
                                 if i + 1 < self.len() {
                                     if let Some(date) = self[i].selected_day_as_date() {
                                         let new_date =
                                             date + chrono::Duration::try_days(7).expect("days");
-                                        self[i].select_day(None);
-                                        self[i + 1].select_date(Some(new_date));
+                                        self[i].clear_selection();
+                                        self[i + 1].select_date(new_date);
                                         arg.0.focus(&self[i + 1]);
                                         CalOutcome::Day(new_date)
                                     } else {
@@ -1225,7 +1471,7 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                         scroll_down_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
-                                            self[i].select_date(Some(new_date));
+                                            self[i].select_date(new_date);
                                         }
                                         for i in 0..self.len() {
                                             if self[i].selected_day_as_date().is_some() {
@@ -1239,17 +1485,14 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                 }
                             }
                             ct_event!(keycode press Left) => {
-                                if !self[i].day_selection {
-                                    return CalOutcome::Continue;
-                                }
                                 if i > 0 {
                                     let prev_day = self[i]
                                         .start_date
                                         .checked_sub_days(Days::new(1))
                                         .expect("date");
 
-                                    self[i].select_day(None);
-                                    self[i - 1].select_date(Some(prev_day));
+                                    self[i].clear_selection();
+                                    self[i - 1].select_date(prev_day);
                                     arg.0.focus(&self[i - 1]);
 
                                     CalOutcome::Day(prev_day)
@@ -1261,7 +1504,7 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                     scroll_up_month_list(self, 1);
                                     // date may be anywhere (even nowhere) after the shift.
                                     for i in 0..self.len() {
-                                        self[i].select_date(Some(new_date));
+                                        self[i].select_date(new_date);
                                     }
                                     for i in 0..self.len() {
                                         if self[i].selected_day_as_date().is_some() {
@@ -1272,17 +1515,14 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                 }
                             }
                             ct_event!(keycode press Right) => {
-                                if !self[i].day_selection {
-                                    return CalOutcome::Continue;
-                                }
                                 if i + 1 < self.len() {
                                     let next_day = self[i]
                                         .start_date
                                         .checked_add_months(Months::new(1))
                                         .expect("date");
 
-                                    self[i].select_day(None);
-                                    self[i + 1].select_date(Some(next_day));
+                                    self[i].clear_selection();
+                                    self[i + 1].select_date(next_day);
                                     arg.0.focus(&self[i + 1]);
 
                                     CalOutcome::Day(next_day)
@@ -1294,7 +1534,7 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                     scroll_down_month_list(self, 1);
                                     // date may be anywhere (even nowhere) after the shift.
                                     for i in 0..self.len() {
-                                        self[i].select_date(Some(new_date));
+                                        self[i].select_date(new_date);
                                     }
                                     for i in 0..self.len() {
                                         if self[i].selected_day_as_date().is_some() {
@@ -1305,21 +1545,20 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                 }
                             }
                             ct_event!(keycode press ALT-Up) => {
-                                if !self[i].week_selection {
-                                    return CalOutcome::Continue;
-                                }
                                 if i > 0 {
                                     if let Some(date) = self[i].selected_week_as_date() {
                                         let new_date =
                                             date - chrono::Duration::try_days(7).expect("days");
 
-                                        self[i].select_week_by_date(Some(new_date));
-                                        self[i - 1].select_week_by_date(Some(new_date));
+                                        self[i].clear_selection();
+                                        self[i - 1].clear_selection();
+                                        self[i].select_week_by_date(new_date);
+                                        self[i - 1].select_week_by_date(new_date);
                                         arg.0.focus(&self[i - 1]);
                                         CalOutcome::Week(new_date)
                                     } else {
                                         // ?? invalid date
-                                        CalOutcome::Continue
+                                        unreachable!()
                                     }
                                 } else {
                                     if let Some(date) = self[i].selected_week_as_date() {
@@ -1328,11 +1567,9 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                         scroll_up_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
-                                            self[i].select_week_by_date(Some(new_date));
-                                        }
-                                        for i in 0..self.len() {
-                                            if self[i].selected_week().is_some() {
+                                            if self[i].select_week_by_date(new_date) {
                                                 arg.0.focus(&self[i]);
+                                                break;
                                             }
                                         }
                                         CalOutcome::Week(new_date)
@@ -1343,16 +1580,15 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                 }
                             }
                             ct_event!(keycode press ALT-Down) => {
-                                if !self[i].week_selection {
-                                    return CalOutcome::Continue;
-                                }
                                 if i + 1 < self.len() {
                                     if let Some(date) = self[i].selected_week_as_date() {
                                         let new_date =
                                             date + chrono::Duration::try_days(7).expect("days");
 
-                                        self[i].select_week_by_date(Some(new_date));
-                                        self[i + 1].select_week_by_date(Some(new_date));
+                                        self[i].clear_selection();
+                                        self[i + 1].clear_selection();
+                                        self[i].select_week_by_date(new_date);
+                                        self[i + 1].select_week_by_date(new_date);
                                         arg.0.focus(&self[i + 1]);
                                         CalOutcome::Week(new_date)
                                     } else {
@@ -1366,11 +1602,9 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                                         scroll_down_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
-                                            self[i].select_week_by_date(Some(new_date));
-                                        }
-                                        for i in 0..self.len() {
-                                            if self[i].selected_week().is_some() {
+                                            if self[i].select_week_by_date(new_date) {
                                                 arg.0.focus(&self[i]);
+                                                break;
                                             }
                                         }
                                         CalOutcome::Week(new_date)
@@ -1397,23 +1631,24 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                 if !self[i].is_focused() {
                     let r = match self[i].handle(event, MouseOnly) {
                         CalOutcome::Week(d) => {
-                            if self[i].selected_week == Some(0) {
-                                if i > 0 {
-                                    self[i - 1].select_week_by_date(Some(d));
-                                }
-                            } else if self[i].selected_week == Some(self[i].week_len() - 1) {
-                                if i < self.len() {
-                                    self[i + 1].select_week_by_date(Some(d));
-                                }
-                            }
+                            // todo:
+                            // if self[i].selected_week == Some(0) {
+                            //     if i > 0 {
+                            //         self[i - 1].select_week_by_date(Some(d));
+                            //     }
+                            // } else if self[i].selected_week == Some(self[i].week_len() - 1) {
+                            //     if i < self.len() {
+                            //         self[i + 1].select_week_by_date(Some(d));
+                            //     }
+                            // }
 
                             // transfer focus
                             for k in 0..self.len() {
                                 if self[k].is_focused() {
-                                    self[k].select_day(None);
+                                    self[k].clear_selection();
                                     arg.0.focus(&self[i]);
                                 } else if i != k {
-                                    self[k].select_day(None);
+                                    self[k].clear_selection();
                                 }
                             }
 
@@ -1423,10 +1658,10 @@ impl HandleEvent<crossterm::event::Event, MultiMonth<'_>, CalOutcome> for &mut [
                             // transfer focus
                             for k in 0..self.len() {
                                 if self[k].is_focused() {
-                                    self[k].select_day(None);
+                                    self[k].clear_selection();
                                     arg.0.focus(&self[i]);
                                 } else if i != k {
-                                    self[k].select_day(None);
+                                    self[k].clear_selection();
                                 }
                             }
 
