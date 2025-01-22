@@ -5,7 +5,7 @@ use rat_scrolled::ScrollStyle;
 use rat_text::line_number::LineNumberStyle;
 use rat_text::TextStyle;
 use rat_widget::button::ButtonStyle;
-use rat_widget::calendar::MonthStyle;
+use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
@@ -237,8 +237,8 @@ impl Scheme {
     }
 
     /// Complete MonthStyle.
-    pub fn month_style(&self) -> MonthStyle {
-        MonthStyle {
+    pub fn month_style(&self) -> CalendarStyle {
+        CalendarStyle {
             style: self.style(self.black[2]),
             title: None,
             week: Some(Style::new().fg(self.limegreen[2])),
@@ -246,7 +246,7 @@ impl Scheme {
             day: None,
             select: Some(self.select()),
             focus: Some(self.focus()),
-            ..MonthStyle::default()
+            ..CalendarStyle::default()
         }
     }
 

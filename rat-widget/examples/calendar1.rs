@@ -9,7 +9,9 @@ use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::button::{Button, ButtonState};
-use rat_widget::calendar::{Month, MonthState, MultiMonth};
+use rat_widget::calendar::{
+    scroll_down_month_list, scroll_up_month_list, Month, MonthState, MultiMonth,
+};
 use rat_widget::event::{ButtonOutcome, Outcome};
 use rat_widget::statusline::StatusLineState;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
@@ -64,12 +66,6 @@ impl State {
         s
     }
 
-    fn set_start_date(&mut self, date: NaiveDate) {
-        self.months[0].set_start_date(date.checked_sub_months(Months::new(1)).expect("date"));
-        self.months[1].set_start_date(date);
-        self.months[2].set_start_date(date.checked_add_months(Months::new(1)).expect("date"));
-    }
-
     fn start_date(&self) -> NaiveDate {
         self.months[1].start_date()
     }
@@ -79,7 +75,7 @@ impl State {
             .start_date()
             .checked_sub_months(Months::new(1))
             .expect("date");
-        self.set_start_date(prev);
+        scroll_up_month_list(&mut self.months, 1);
     }
 
     fn next_month(&mut self) {
@@ -87,7 +83,7 @@ impl State {
             .start_date()
             .checked_add_months(Months::new(1))
             .expect("date");
-        self.set_start_date(prev);
+        scroll_down_month_list(&mut self.months, 1);
     }
 }
 
@@ -155,8 +151,6 @@ fn repaint_input(
         .styles(THEME.month_style())
         .title_align(Alignment::Left)
         .day_styles(&date_styles)
-        .day_selection()
-        .week_selection()
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
         .render(l2[1], frame.buffer_mut(), &mut state.months[0]);
@@ -166,8 +160,6 @@ fn repaint_input(
         .styles(THEME.month_style())
         .title_align(Alignment::Left)
         .day_styles(&date_styles)
-        .day_selection()
-        .week_selection()
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
         .render(l2[2], frame.buffer_mut(), &mut state.months[1]);
@@ -177,8 +169,6 @@ fn repaint_input(
         .styles(THEME.month_style())
         .title_align(Alignment::Left)
         .day_styles(&date_styles)
-        .day_selection()
-        .week_selection()
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
         .render(l2[3], frame.buffer_mut(), &mut state.months[2]);
