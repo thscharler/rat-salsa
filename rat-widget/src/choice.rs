@@ -1189,7 +1189,7 @@ where
 
         let old_selected = self.selected();
         let r1 = self.popup.set_active(true);
-        let mut idx = if let Some(idx) = self.core.selected() {
+        let idx = if let Some(idx) = self.core.selected() {
             idx.saturating_sub(n)
         } else {
             0
