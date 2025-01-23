@@ -3,13 +3,15 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use chrono::{Datelike, Local, Months, NaiveDate};
+use log::debug;
 use pure_rust_locales::Locale;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::button::{Button, ButtonState};
-use rat_widget::calendar::{CalendarSelection, CalendarState, HomePolicy, Month, SingleSelection};
+use rat_widget::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
+use rat_widget::calendar::{CalendarState, HomePolicy, Month};
 use rat_widget::event::{ButtonOutcome, Outcome};
 use rat_widget::statusline::StatusLineState;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
@@ -38,7 +40,7 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 struct State {
-    calendar: CalendarState<3, SingleSelection>,
+    calendar: CalendarState<3, RangeSelection>,
 
     prev: ButtonState,
     next: ButtonState,
@@ -61,7 +63,6 @@ impl State {
         s.calendar.set_home_policy(HomePolicy::Index(1));
         s.calendar.set_primary_focus(1);
         s.calendar.set_start_date(today - Months::new(1));
-        // s.calendar.selection.select_day(today, false);
         s
     }
 
@@ -201,7 +202,9 @@ fn focus(state: &State) -> Focus {
     let mut builder = FocusBuilder::default();
     builder.widget(&state.calendar);
     builder.widget(&state.menu);
-    builder.build()
+    let f = builder.build();
+    f.enable_log();
+    f
 }
 
 fn handle_input(
