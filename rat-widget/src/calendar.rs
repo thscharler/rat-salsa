@@ -6,10 +6,11 @@
 use crate::_private::NonExhaustive;
 use crate::calendar::event::CalOutcome;
 use crate::util::{block_size, revert_style};
-use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
+use chrono::{Datelike, Days, Local, Months, NaiveDate, Weekday};
+use log::debug;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, ConsumedEvent, HandleEvent, MouseOnly, Regular};
-use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
@@ -19,17 +20,17 @@ use ratatui::widgets::block::Title;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
+use std::array;
+use std::cell::RefCell;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 /// Renders a month.
 #[derive(Debug, Clone)]
-pub struct Month<'a, Selection>
-where
-    Selection: CalendarSelection,
-{
+pub struct Month<'a, Selection> {
     /// Start date of the month.
     start_date: Option<NaiveDate>,
 
@@ -79,10 +80,7 @@ pub struct CalendarStyle {
 
 /// State & event-handling.
 #[derive(Debug)]
-pub struct MonthState<Selection = SingleSelection>
-where
-    Selection: CalendarSelection,
-{
+pub struct MonthState<Selection = SingleSelection> {
     /// Total area.
     /// __readonly__. renewed for each render.
     pub area: Rect,
@@ -130,25 +128,45 @@ impl Default for CalendarStyle {
 
 /// Selection model for a calendar.
 pub trait CalendarSelection {
+    /// Clear all selections.
     fn clear(&mut self);
 
+    /// Retires the current anchor+lead keeping the range selected.
+    /// Starts a new anchor+lead.
+    fn retire(&mut self);
+
+    /// Is the given day selected.
     fn is_selected_day(&self, date: NaiveDate) -> bool;
 
+    /// Select a single day, maybe extending a range.
+    /// Removes any anchor/lead for months and weeks.
     fn select_day(&mut self, date: NaiveDate, extend: bool) -> bool;
 
-    fn selected_day(&self) -> Option<NaiveDate>;
+    /// Selection lead, or the sole selected day.
+    fn lead_day(&self) -> Option<NaiveDate>;
 
+    /// Is the given week selected.
     fn is_selected_week(&self, date: NaiveDate) -> bool;
 
+    /// Select a single week, maybe extending a range.
+    /// Removes any anchor/lead for days and months.
     fn select_week(&mut self, date: NaiveDate, extend: bool) -> bool;
 
-    fn selected_week(&self) -> Option<NaiveDate>;
+    /// Selection lead, or the sole selected week.
+    fn lead_week(&self) -> Option<NaiveDate>;
 
+    /// Is the given month selected.
     fn is_selected_month(&self, date: NaiveDate) -> bool;
 
+    /// Select a single month, maybe extending a range.
+    /// Removes any anchor/lead for days and weeks.
     fn select_month(&mut self, date: NaiveDate, extend: bool) -> bool;
 
-    fn selected_month(&mut self) -> Option<NaiveDate>;
+    /// Selection lead, or the sole selected month.
+    fn lead_month(&self) -> Option<NaiveDate>;
+
+    /// Returns the overall lead, wether day, week or month.
+    fn lead(&self) -> Option<NaiveDate>;
 }
 
 /// Basic single selection.
@@ -164,6 +182,10 @@ impl CalendarSelection for SingleSelection {
         self.day = None;
         self.week = None;
         self.month = None;
+    }
+
+    fn retire(&mut self) {
+        // noop
     }
 
     fn is_selected_day(&self, date: NaiveDate) -> bool {
@@ -186,7 +208,7 @@ impl CalendarSelection for SingleSelection {
         old != (self.day, self.week, self.month)
     }
 
-    fn selected_day(&self) -> Option<NaiveDate> {
+    fn lead_day(&self) -> Option<NaiveDate> {
         self.day
     }
 
@@ -208,7 +230,7 @@ impl CalendarSelection for SingleSelection {
         old != (self.day, self.week, self.month)
     }
 
-    fn selected_week(&self) -> Option<NaiveDate> {
+    fn lead_week(&self) -> Option<NaiveDate> {
         self.week
     }
 
@@ -228,15 +250,66 @@ impl CalendarSelection for SingleSelection {
         old != (self.day, self.week, self.month)
     }
 
-    fn selected_month(&mut self) -> Option<NaiveDate> {
+    fn lead_month(&self) -> Option<NaiveDate> {
         self.month
+    }
+
+    fn lead(&self) -> Option<NaiveDate> {
+        self.day.or(self.week).or(self.month)
     }
 }
 
-impl<'a, Selection> Default for Month<'a, Selection>
-where
-    Selection: CalendarSelection,
-{
+impl<T: CalendarSelection> CalendarSelection for Rc<RefCell<T>> {
+    fn clear(&mut self) {
+        self.borrow_mut().clear();
+    }
+
+    fn retire(&mut self) {
+        self.borrow_mut().retire();
+    }
+
+    fn is_selected_day(&self, date: NaiveDate) -> bool {
+        self.borrow().is_selected_day(date)
+    }
+
+    fn select_day(&mut self, date: NaiveDate, extend: bool) -> bool {
+        self.borrow_mut().select_day(date, extend)
+    }
+
+    fn lead_day(&self) -> Option<NaiveDate> {
+        self.borrow().lead_day()
+    }
+
+    fn is_selected_week(&self, date: NaiveDate) -> bool {
+        self.borrow().is_selected_week(date)
+    }
+
+    fn select_week(&mut self, date: NaiveDate, extend: bool) -> bool {
+        self.borrow_mut().select_week(date, extend)
+    }
+
+    fn lead_week(&self) -> Option<NaiveDate> {
+        self.borrow().lead_week()
+    }
+
+    fn is_selected_month(&self, date: NaiveDate) -> bool {
+        self.borrow().is_selected_month(date)
+    }
+
+    fn select_month(&mut self, date: NaiveDate, extend: bool) -> bool {
+        self.borrow_mut().select_month(date, extend)
+    }
+
+    fn lead_month(&self) -> Option<NaiveDate> {
+        self.borrow().lead_month()
+    }
+
+    fn lead(&self) -> Option<NaiveDate> {
+        self.borrow().lead()
+    }
+}
+
+impl<'a, Selection> Default for Month<'a, Selection> {
     fn default() -> Self {
         Self {
             start_date: None,
@@ -504,7 +577,7 @@ fn render_ref<Selection: CalendarSelection>(
             Span::from(format!("{:2} ", day_name)).render(area, buf);
 
             x += 3;
-            week_0 = week_0.checked_add_days(Days::new(1)).expect("date");
+            week_0 = week_0 + Days::new(1);
         }
         x = state.inner.x;
         y += 1;
@@ -560,7 +633,7 @@ fn render_ref<Selection: CalendarSelection>(
                 .render(state.area_days[day.day0() as usize], buf);
 
             x += 3;
-            day = day.checked_add_days(Days::new(1)).expect("day");
+            day = day + Days::new(1);
         }
     }
 
@@ -609,7 +682,7 @@ fn render_ref<Selection: CalendarSelection>(
                     .render(state.area_days[day.day0() as usize], buf);
 
                 x += 3;
-                day = day.checked_add_days(Days::new(1)).expect("day");
+                day = day + Days::new(1);
             } else {
                 x += 3;
             }
@@ -621,10 +694,7 @@ fn render_ref<Selection: CalendarSelection>(
     }
 }
 
-impl<Selection> HasFocus for MonthState<Selection>
-where
-    Selection: CalendarSelection,
-{
+impl<Selection> HasFocus for MonthState<Selection> {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.append_leaf(self);
     }
@@ -640,10 +710,7 @@ where
     }
 }
 
-impl<Selection> RelocatableState for MonthState<Selection>
-where
-    Selection: CalendarSelection,
-{
+impl<Selection> RelocatableState for MonthState<Selection> {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
         self.inner = relocate_area(self.inner, shift, clip);
@@ -654,7 +721,7 @@ where
 
 impl<Selection> Clone for MonthState<Selection>
 where
-    Selection: CalendarSelection + Clone,
+    Selection: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -673,7 +740,7 @@ where
 
 impl<Selection> Default for MonthState<Selection>
 where
-    Selection: CalendarSelection + Default,
+    Selection: Default,
 {
     fn default() -> Self {
         Self {
@@ -726,6 +793,11 @@ where
         self.start_date
     }
 
+    /// End date of this month.
+    pub fn end_date(&self) -> NaiveDate {
+        self.start_date + Months::new(1) - Days::new(1)
+    }
+
     /// Removes all selection.
     pub fn clear_selection(&mut self) {
         self.selection.clear();
@@ -734,10 +806,7 @@ where
     /// Select a week.
     pub fn select_week(&mut self, n: usize) -> bool {
         if n < self.week_len() {
-            let date = self
-                .start_date()
-                .checked_add_days(Days::new(7 * n as u64))
-                .expect("date");
+            let date = self.start_date() + Days::new(7 * n as u64);
             self.selection.select_week(date, false)
         } else {
             false
@@ -746,13 +815,13 @@ where
 
     /// Selected week
     pub fn selected_week(&self) -> Option<usize> {
-        if let Some(week) = self.selection.selected_week() {
+        if let Some(week) = self.selection.lead_week() {
             let mut test = self.start_date.week(Weekday::Mon).first_day();
             for n in 0..6 {
                 if week == test {
                     return Some(n);
                 }
-                test = test.checked_add_days(Days::new(7)).expect("day");
+                test = test + Days::new(7);
             }
             None
         } else {
@@ -763,15 +832,14 @@ where
     /// Select a week by date
     /// Returns true if the date is valid for this month.
     /// If false it doesn't change the selection.
-    pub fn select_week_by_date(&mut self, d: NaiveDate) -> bool {
-        let new_date = d.week(Weekday::Mon).first_day();
-        let new_date_end = d.week(Weekday::Mon).last_day();
+    pub fn select_week_by_date(&mut self, date: NaiveDate) -> bool {
+        let start = self.start_date;
 
-        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
-        {
-            self.selection.select_week(new_date, false)
-        } else if new_date_end.year() == self.start_date.year()
-            && new_date_end.month() == self.start_date.month()
+        let new_date = date.week(Weekday::Mon).first_day();
+        let new_date_end = date.week(Weekday::Mon).last_day();
+
+        if (new_date.year() == start.year() && new_date.month() == start.month())
+            || (new_date_end.year() == start.year() && new_date_end.month() == start.month())
         {
             self.selection.select_week(new_date, false)
         } else {
@@ -781,7 +849,7 @@ where
 
     /// Selected week
     pub fn selected_week_as_date(&self) -> Option<NaiveDate> {
-        self.selection.selected_week()
+        self.selection.lead_week()
     }
 
     /// Select a day
@@ -794,7 +862,7 @@ where
 
     /// Selected day
     pub fn selected_day(&self) -> Option<usize> {
-        if let Some(day) = self.selection.selected_day() {
+        if let Some(day) = self.selection.lead_day() {
             Some(day.day0() as usize)
         } else {
             None
@@ -805,7 +873,8 @@ where
     /// Returns true if the date is valid for this month.
     /// If false it doesn't change the selection.
     pub fn select_date(&mut self, d: NaiveDate) -> bool {
-        if d.year() == self.start_date.year() && d.month() == self.start_date.month() {
+        let start = self.start_date;
+        if d.year() == start.year() && d.month() == start.month() {
             self.selection.select_day(d, false);
             return true;
         }
@@ -814,25 +883,28 @@ where
 
     /// Selected day
     pub fn selected_day_as_date(&self) -> Option<NaiveDate> {
-        self.selection.selected_day()
+        self.selection.lead_day()
     }
 
     /// Select previous day.
     pub fn prev_day(&mut self, n: usize) -> bool {
-        let date = if let Some(date) = self.selection.selected_week() {
-            date
-        } else if let Some(date) = self.selection.selected_day() {
-            date
+        let start = self.start_date();
+        let end = self.end_date();
+        let date = self.selection.lead();
+
+        let new_date = if let Some(date) = date {
+            if date >= start && date <= end {
+                date - Days::new(n as u64)
+            } else if date < start {
+                self.start_date()
+            } else {
+                self.end_date()
+            }
         } else {
-            self.start_date
-                .checked_add_months(Months::new(1))
-                .expect("day")
+            self.end_date()
         };
 
-        let new_date = date.checked_sub_days(Days::new(n as u64)).expect("day");
-
-        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
-        {
+        if new_date >= start && new_date <= end {
             self.selection.select_day(new_date, false)
         } else {
             false
@@ -840,19 +912,27 @@ where
     }
 
     /// Select next day.
+    /// Doesn't let the selection get out of the month.
+    /// If the current selection is outside the month it
+    /// will set a new date within.
     pub fn next_day(&mut self, n: usize) -> bool {
-        let date = if let Some(date) = self.selection.selected_week() {
-            date
-        } else if let Some(date) = self.selection.selected_day() {
-            date
+        let start = self.start_date();
+        let end = self.end_date();
+        let date = self.selection.lead();
+
+        let new_date = if let Some(date) = date {
+            if date >= start && date <= end {
+                date + Days::new(n as u64)
+            } else if date < start {
+                self.start_date()
+            } else {
+                self.end_date()
+            }
         } else {
-            self.start_date.checked_sub_days(Days::new(1)).expect("day")
+            self.start_date()
         };
 
-        let new_date = date.checked_add_days(Days::new(n as u64)).expect("day");
-
-        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
-        {
+        if new_date >= start && new_date <= end {
             self.selection.select_day(new_date, false)
         } else {
             false
@@ -861,48 +941,50 @@ where
 
     /// Select previous week.
     pub fn prev_week(&mut self, n: usize) -> bool {
-        let date = if let Some(date) = self.selection.selected_week() {
-            date
-        } else if let Some(date) = self.selection.selected_day() {
-            date.week(Weekday::Mon).first_day()
-        } else {
-            self.start_date.checked_sub_days(Days::new(1)).expect("day")
-        };
+        let start = self.start_date();
+        let end = self.end_date();
+        let date = self.selection.lead();
 
-        let new_date = date.checked_sub_days(Days::new(7 * n as u64)).expect("day");
-        let new_date_end = new_date.week(Weekday::Mon).last_day();
-
-        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
-        {
-            self.selection.select_week(new_date, false)
-        } else if new_date_end.year() == self.start_date.year()
-            && new_date_end.month() == self.start_date.month()
-        {
-            self.selection.select_week(new_date, false)
+        if let Some(date) = date {
+            let new_date = if date >= start && date <= end {
+                date - Days::new(7 * n as u64)
+            } else if date < start {
+                self.start_date()
+            } else {
+                self.end_date()
+            };
+            let new_date_end = new_date.week(Weekday::Mon).last_day();
+            if new_date_end >= start && new_date_end <= end {
+                self.selection.select_week(new_date, false)
+            } else {
+                false
+            }
         } else {
-            false
+            let new_date = self.end_date();
+            self.selection.select_week(new_date, false)
         }
     }
 
     /// Select next week.
     pub fn next_week(&mut self, n: usize) -> bool {
-        let date = if let Some(date) = self.selection.selected_week() {
-            date
-        } else if let Some(date) = self.selection.selected_day() {
-            date.week(Weekday::Mon).first_day()
+        let start = self.start_date();
+        let end = self.end_date();
+        let date = self.selection.lead();
+
+        let new_date = if let Some(date) = date {
+            let date_end = date.week(Weekday::Mon).last_day();
+            if date_end >= start && date_end <= end {
+                date + Days::new(7 * n as u64)
+            } else if date_end < start {
+                self.start_date()
+            } else {
+                self.end_date()
+            }
         } else {
-            self.start_date.checked_sub_days(Days::new(1)).expect("day")
+            self.start_date()
         };
 
-        let new_date = date.checked_add_days(Days::new(7 * n as u64)).expect("day");
-        let new_date_end = new_date.week(Weekday::Mon).last_day();
-
-        if new_date.year() == self.start_date.year() && new_date.month() == self.start_date.month()
-        {
-            self.selection.select_week(new_date, false)
-        } else if new_date_end.year() == self.start_date.year()
-            && new_date_end.month() == self.start_date.month()
-        {
+        if new_date >= start && new_date <= end {
             self.selection.select_week(new_date, false)
         } else {
             false
@@ -931,13 +1013,13 @@ where
         ] {
             // run through first week
             if day.weekday() == weekday {
-                day += chrono::Duration::try_days(1).expect("days");
+                day = day + Days::new(1);
             }
         }
         // count mondays
         while month == day.month() {
             weeks += 1;
-            day += chrono::Duration::try_days(7).expect("days");
+            day = day + Days::new(7);
         }
 
         weeks
@@ -961,6 +1043,9 @@ pub(crate) mod event {
         /// Further processing for this event may stop.
         /// Rendering the ui is advised.
         Changed,
+        /// The selection has changed. This contains the new
+        /// lead date.
+        Selected(NaiveDate),
         /// Month selected. This is the first of the selected month.
         Month(NaiveDate),
         /// Week selected. This is Monday of the selected week.
@@ -1005,6 +1090,7 @@ pub(crate) mod event {
                 CalOutcome::Changed => Outcome::Changed,
                 CalOutcome::Week(_) => Outcome::Changed,
                 CalOutcome::Day(_) => Outcome::Changed,
+                CalOutcome::Selected(_) => Outcome::Changed,
                 CalOutcome::Month(_) => Outcome::Changed,
             }
         }
@@ -1098,151 +1184,548 @@ where
     }
 }
 
-// /// A struct that contains an array of MonthState to get a true calendar
-// /// behaviour. There is no Widget for this, the exact layout is left
-// /// to the user.
-// #[derive(Debug, Clone)]
-// pub struct CalendarState<const N: usize> {
-//     /// Step-size when navigating outside the displayed
-//     /// calendar.
-//     ///
-//     /// You can do a rolling calendar which goes back 1 month
-//     /// or a yearly calendar which goes back 12 months.
-//     /// Or any other value you like.
-//     ///
-//     /// If you set step to 0 this kind of navigation is
-//     /// deactivated.
-//     ///
-//     /// Default is 1.
-//     pub step: u32,
-//
-//     /// Months.
-//     pub months: [MonthState; N],
-//
-//     /// Primary month.
-//     /// Only this month will take part in Tab navigation.
-//     /// The other months will be mouse-reachable only.
-//     /// You can use arrow-keys to navigate the months though.
-//     pub primary: usize,
-//
-//     /// Calendar focus
-//     pub focus: FocusFlag,
-//
-//     inner_focus: Option<Focus>,
-// }
-//
-// impl<const N: usize> Default for CalendarState<N> {
-//     fn default() -> Self {
-//         Self {
-//             step: 1,
-//             months: array::from_fn(|n| MonthState::default()),
-//             primary: 0,
-//             focus: Default::default(),
-//             inner_focus: None,
-//         }
-//     }
-// }
-//
-// impl<const N: usize> HasFocus for CalendarState<N> {
-//     fn build(&self, builder: &mut FocusBuilder) {
-//         let tag = builder.start(self);
-//         for (i, v) in self.months.iter().enumerate() {
-//             if i == self.primary {
-//                 builder.widget(v); // regular widget
-//             } else {
-//                 builder.append_flags(v.focus(), v.area(), v.area_z(), Navigation::Leave)
-//             }
-//         }
-//         builder.end(tag);
-//     }
-//
-//     fn focus(&self) -> FocusFlag {
-//         self.focus.clone()
-//     }
-//
-//     fn area(&self) -> Rect {
-//         Rect::default()
-//     }
-// }
-//
-// impl<const N: usize> RelocatableState for CalendarState<N> {
-//     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-//         for w in &mut self.months {
-//             w.relocate(shift, clip);
-//         }
-//     }
-// }
-//
-// impl<const N: usize> CalendarState<N> {
-//     pub fn new() -> Self {
-//         Self::default()
-//     }
-//
-//     /// Step size in months when scrolling/leaving the
-//     /// displayed range.
-//     pub fn set_step(&mut self, step: u32) {
-//         self.step = step;
-//     }
-//
-//     /// Step size in months when scrolling/leaving the
-//     /// displayed range.
-//     pub fn step(&self) -> u32 {
-//         self.step
-//     }
-//
-//     /// Changes the start-date for each month.
-//     pub fn scroll_down(&mut self, n: u32) {
-//         // change start dates
-//         let mut start = self.months[0]
-//             .start_date()
-//             .checked_add_months(Months::new(n))
-//             .expect("date");
-//
-//         for i in 0..self.months.len() {
-//             self.months[i].set_start_date(start);
-//             start = start.checked_add_months(Months::new(1)).expect("date");
-//         }
-//     }
-//
-//     /// Changes the start-date for each month.
-//     pub fn scroll_up(&mut self, n: u32) {
-//         // change start dates
-//         let mut start = self.months[0]
-//             .start_date()
-//             .checked_sub_months(Months::new(n))
-//             .expect("date");
-//
-//         for i in 0..self.months.len() {
-//             self.months[i].set_start_date(start);
-//             start = start.checked_add_months(Months::new(1)).expect("date");
-//         }
-//     }
-//
-//     fn rebuild_inner_focus(&mut self) {
-//         let mut builder = FocusBuilder::new(self.inner_focus.take());
-//         self.build(&mut builder);
-//         self.inner_focus = Some(builder.build());
-//     }
-// }
-//
-// impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
-//     for CalendarState<N>
-// {
-//     fn handle(&mut self, event: &Event, qualifier: Regular) -> CalOutcome {
-//         if self.is_focused() {
-//             self.rebuild_inner_focus();
-//
-//             for i in 0..self.months.len() {
-//                 let current = &mut self.months[i];
-//                 if current.is_focused() {
-//                     let r = current.handle(event, Regular);
-//                 }
-//             }
-//         }
-//
-//         todo!()
-//     }
-// }
+/// How should [move_to_current] behave.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HomePolicy {
+    /// Set the primary month to the fixed index in the calendar.
+    Index(usize),
+    /// Behave like a yearly calendar. Sets the primary month to
+    /// the current month.
+    Year,
+}
+
+impl Default for HomePolicy {
+    fn default() -> Self {
+        Self::Index(0)
+    }
+}
+
+/// A struct that contains an array of MonthState to get a true calendar
+/// behaviour. There is no Widget for this, the exact layout is left
+/// to the user.
+#[derive(Clone)]
+pub struct CalendarState<const N: usize, Selection = SingleSelection> {
+    /// Step-size when navigating outside the displayed
+    /// calendar.
+    ///
+    /// You can do a rolling calendar which goes back 1 month
+    /// or a yearly calendar which goes back 12 months.
+    /// Or any other value you like.
+    ///
+    /// If you set step to 0 this kind of navigation is
+    /// deactivated.
+    ///
+    /// Default is 1.
+    step: usize,
+
+    /// Behavior of move_to_current.
+    home: HomePolicy,
+
+    /// Primary month.
+    /// Only this month will take part in Tab navigation.
+    /// The other months will be mouse-reachable only.
+    /// You can use arrow-keys to navigate the months though.
+    primary_focus: usize,
+
+    /// Months.
+    pub months: [MonthState<Rc<RefCell<Selection>>>; N],
+
+    pub selection: Rc<RefCell<Selection>>,
+
+    /// Calendar focus
+    pub focus: FocusFlag,
+
+    inner_focus: Option<Focus>,
+}
+
+impl<const N: usize, Selection> Default for CalendarState<N, Selection>
+where
+    Selection: CalendarSelection + Default,
+{
+    fn default() -> Self {
+        let selection = Rc::new(RefCell::new(Selection::default()));
+
+        Self {
+            step: 1,
+            months: array::from_fn(|_| {
+                let mut state = MonthState::new();
+                state.selection = selection.clone();
+                state
+            }),
+            selection,
+            primary_focus: Default::default(),
+            focus: Default::default(),
+            inner_focus: Default::default(),
+            home: Default::default(),
+        }
+    }
+}
+
+impl<const N: usize, Selection> HasFocus for CalendarState<N, Selection> {
+    fn build(&self, builder: &mut FocusBuilder) {
+        let tag = builder.start(self);
+        for (i, v) in self.months.iter().enumerate() {
+            if i == self.primary_focus {
+                builder.widget(v); // regular widget
+            } else {
+                builder.append_flags(v.focus(), v.area(), v.area_z(), Navigation::Leave)
+            }
+        }
+        builder.end(tag);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
+    }
+
+    fn area(&self) -> Rect {
+        Rect::default()
+    }
+}
+
+impl<const N: usize, Selection> RelocatableState for CalendarState<N, Selection> {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        for w in &mut self.months {
+            w.relocate(shift, clip);
+        }
+    }
+}
+
+impl<const N: usize, Selection> CalendarState<N, Selection>
+where
+    Selection: CalendarSelection + Default,
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Step size in months when scrolling/leaving the
+    /// displayed range.
+    pub fn set_step(&mut self, step: usize) {
+        assert!(step < self.months.len());
+        self.step = step;
+    }
+
+    /// Step size in months when scrolling/leaving the
+    /// displayed range.
+    pub fn step(&self) -> usize {
+        self.step
+    }
+
+    /// Sets the starting primary month for the calendar.
+    pub fn set_home_policy(&mut self, home: HomePolicy) {
+        if let HomePolicy::Index(idx) = home {
+            assert!(idx < self.months.len());
+        }
+        self.home = home;
+    }
+
+    /// Set the primary month for the calendar.
+    ///
+    /// The primary month will be focused with Tab navigation.
+    /// It can be changed by clicking on another month or
+    /// by key-navigation.
+    pub fn set_primary_focus(&mut self, primary: usize) {
+        assert!(primary < self.months.len());
+        self.primary_focus = primary;
+    }
+
+    /// Primary month.
+    pub fn primary(&self) -> usize {
+        self.primary_focus
+    }
+
+    /// Set the start-date for the calendar.
+    /// Will set each month-state to a consecutive month.
+    pub fn set_start_date(&mut self, mut date: NaiveDate) {
+        for month in &mut self.months {
+            month.set_start_date(date);
+
+            date = date + Months::new(1);
+        }
+    }
+
+    /// Start-date of the calendar.
+    pub fn start_date(&self) -> NaiveDate {
+        self.months[0].start_date()
+    }
+
+    /// End-date of the calendar.
+    pub fn end_date(&self) -> NaiveDate {
+        self.months[self.months.len() - 1].end_date()
+    }
+
+    /// Changes the start-date for each month.
+    /// Doesn't change any selection.
+    pub fn scroll_forward(&mut self, n: usize) -> bool {
+        if n == 0 {
+            return false;
+        }
+
+        // change start dates
+        let mut start = self.months[0].start_date() + Months::new(n as u32);
+
+        for i in 0..self.months.len() {
+            self.months[i].set_start_date(start);
+            start = start + Months::new(1);
+        }
+
+        true
+    }
+
+    /// Changes the start-date for each month.
+    /// Doesn't change any selection.
+    pub fn scroll_back(&mut self, n: usize) -> bool {
+        if n == 0 {
+            return false;
+        }
+
+        // change start dates
+        let mut start = self.months[0].start_date() - Months::new(n as u32);
+
+        for i in 0..self.months.len() {
+            self.months[i].set_start_date(start);
+            start = start + Months::new(1);
+        }
+
+        true
+    }
+
+    fn focus_lead(&mut self) {
+        let Some(lead) = self.selection.lead() else {
+            return;
+        };
+        if self.is_focused() {
+            for (i, month) in self.months.iter().enumerate() {
+                if lead >= month.start_date() && lead <= month.end_date() {
+                    self.primary_focus = i;
+                    month.focus.set(true);
+                } else {
+                    month.focus.set(false);
+                }
+            }
+        }
+    }
+
+    /// Move all selections back by step.
+    pub fn shift_back(&mut self, n: usize)
+    where
+        Selection: Debug,
+    {
+        if self.step == 0 {
+            return;
+        }
+
+        if let Some(lead) = self.selection.lead_day() {
+            self.selection
+                .select_day(lead - Months::new(n as u32), false);
+        }
+        if let Some(lead) = self.selection.lead_week() {
+            self.selection
+                .select_week(lead - Months::new(n as u32), false);
+        }
+        if let Some(lead) = self.selection.lead_month() {
+            self.selection
+                .select_month(lead - Months::new(n as u32), false);
+        }
+
+        if let Some(lead) = self.selection.lead() {
+            if lead < self.start_date() {
+                self.scroll_back(self.step);
+            }
+        }
+        self.focus_lead();
+    }
+
+    /// Move all selections forward by step
+    pub fn shift_forward(&mut self, n: usize)
+    where
+        Selection: Debug,
+    {
+        if self.step == 0 {
+            return;
+        }
+
+        if let Some(lead) = self.selection.lead_day() {
+            self.selection
+                .select_day(lead + Months::new(n as u32), false);
+        }
+        if let Some(lead) = self.selection.lead_week() {
+            self.selection
+                .select_week(lead + Months::new(n as u32), false);
+        }
+        if let Some(lead) = self.selection.lead_month() {
+            self.selection
+                .select_month(lead + Months::new(n as u32), false);
+        }
+
+        if let Some(lead) = self.selection.lead() {
+            if lead > self.end_date() {
+                self.scroll_forward(self.step);
+            }
+        }
+        self.focus_lead();
+    }
+
+    /// Select previous week.
+    pub fn prev_week(&mut self, n: usize) -> bool {
+        let start = self.start_date();
+        let end = self.end_date();
+        let date = self.selection.lead();
+        debug!("lead {:?}", date);
+
+        let r = if let Some(date) = date {
+            let new_date = if date >= start && date <= end || self.step != 0 {
+                date - Days::new(7 * n as u64)
+            } else if date < start {
+                self.start_date()
+            } else {
+                self.end_date()
+            };
+            let new_date_end = new_date.week(Weekday::Mon).last_day();
+            if new_date_end >= start && new_date_end <= end {
+                self.selection.select_week(new_date, false)
+            } else if self.step > 0 {
+                self.scroll_back(self.step);
+                self.selection.select_week(new_date, false)
+            } else {
+                false
+            }
+        } else {
+            let new_date = self.end_date();
+            self.selection.select_week(new_date, false)
+        };
+
+        if r {
+            self.focus_lead();
+        }
+
+        r
+    }
+
+    /// Select previous week.
+    pub fn next_week(&mut self, n: usize) -> bool {
+        let start = self.start_date();
+        let end = self.end_date();
+        let date = self.selection.lead();
+        debug!("lead {:?}", date);
+
+        let new_date = if let Some(date) = date {
+            let date_end = date.week(Weekday::Mon).last_day();
+            if date_end >= start && date_end <= end || self.step > 0 {
+                date + Days::new(7 * n as u64)
+            } else if date_end < start {
+                self.start_date()
+            } else {
+                self.end_date()
+            }
+        } else {
+            debug!("next_week {}", self.start_date());
+            self.start_date()
+        };
+
+        let r = if new_date >= start && new_date <= end {
+            self.selection.select_week(new_date, false)
+        } else if self.step > 0 {
+            self.scroll_forward(self.step);
+            self.selection.select_week(new_date, false)
+        } else {
+            false
+        };
+
+        if r {
+            self.focus_lead();
+        }
+
+        r
+    }
+
+    pub fn move_to_current(&mut self) -> bool {
+        let current = Local::now().date_naive();
+
+        let r = self.selection.select_day(current, false);
+        match self.home {
+            HomePolicy::Index(primary) => {
+                self.primary_focus = primary;
+                self.set_start_date(current - Months::new(primary as u32));
+                self.focus_lead();
+            }
+            HomePolicy::Year => {
+                let month = current.month();
+                self.primary_focus = month as usize;
+                self.set_start_date(current - Months::new(month));
+                self.focus_lead();
+            }
+        }
+
+        r
+    }
+
+    /// Select previous day.
+    pub fn prev_day(&mut self, n: usize) -> bool {
+        let start = self.start_date();
+        let end = self.end_date();
+        let date = self.selection.lead();
+
+        let new_date = if let Some(date) = date {
+            if date >= start && date <= end {
+                date - Days::new(n as u64)
+            } else if date < start {
+                self.start_date()
+            } else {
+                self.end_date()
+            }
+        } else {
+            self.end_date()
+        };
+
+        let r = if new_date >= start && new_date <= end {
+            self.selection.select_day(new_date, false)
+        } else if self.step > 0 {
+            self.scroll_back(self.step);
+            self.selection.select_day(new_date, false)
+        } else {
+            false
+        };
+
+        if r {
+            self.focus_lead();
+        }
+
+        r
+    }
+
+    /// Select previous week.
+    pub fn next_day(&mut self, n: usize) -> bool {
+        let start = self.start_date();
+        let end = self.end_date();
+        let date = self.selection.lead();
+
+        let new_date = if let Some(date) = date {
+            if date >= start && date <= end {
+                date + Days::new(n as u64)
+            } else if date < start {
+                self.start_date()
+            } else {
+                self.end_date()
+            }
+        } else {
+            self.start_date()
+        };
+
+        let r = if new_date >= start && new_date <= end {
+            self.selection.select_day(new_date, false)
+        } else if self.step > 0 {
+            self.scroll_forward(self.step);
+            self.selection.select_day(new_date, false)
+        } else {
+            false
+        };
+
+        if r {
+            self.focus_lead();
+        }
+
+        r
+    }
+
+    fn rebuild_inner_focus(&mut self) {
+        let mut builder = FocusBuilder::new(self.inner_focus.take());
+        self.build(&mut builder);
+        self.inner_focus = Some(builder.build());
+    }
+}
+
+impl<const N: usize, Selection> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
+    for CalendarState<N, Selection>
+where
+    Selection: CalendarSelection + Default + Debug,
+{
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
+        let mut r = 'f: {
+            for month in &mut self.months {
+                let r = month.handle(event, Regular);
+                if r.is_consumed() {
+                    //todo: change to on selected
+                    self.focus_lead();
+                    break 'f r;
+                }
+            }
+            CalOutcome::Continue
+        };
+
+        r = r.or_else(|| {
+            if self.is_focused() {
+                self.rebuild_inner_focus();
+
+                match event {
+                    ct_event!(keycode press PageUp) => {
+                        self.shift_back(self.step);
+                        //CalOutcome::Selected(self.selection.lead().unwrap())
+                        CalOutcome::Changed
+                    }
+                    ct_event!(keycode press PageDown) => {
+                        self.shift_forward(self.step);
+                        CalOutcome::Changed
+                    }
+                    ct_event!(keycode press Up) => {
+                        self.prev_day(7);
+                        CalOutcome::Changed
+                    }
+                    ct_event!(keycode press Down) => {
+                        self.next_day(7);
+                        CalOutcome::Changed
+                    }
+                    ct_event!(keycode press Left) => {
+                        self.prev_day(1);
+                        CalOutcome::Changed
+                    }
+                    ct_event!(keycode press Right) => {
+                        self.next_day(1);
+                        CalOutcome::Changed
+                    }
+                    ct_event!(keycode press Home) => {
+                        self.move_to_current();
+                        CalOutcome::Changed
+                    }
+                    ct_event!(keycode press ALT-Up) => {
+                        self.prev_week(1);
+                        CalOutcome::Changed
+                    }
+                    ct_event!(keycode press ALT-Down) => {
+                        self.next_week(1);
+                        CalOutcome::Changed
+                    }
+                    _ => CalOutcome::Continue,
+                }
+            } else {
+                CalOutcome::Continue
+            }
+        });
+
+        r.or_else(|| {
+            let all_areas = self
+                .months
+                .iter()
+                .map(|v| v.area)
+                .reduce(|v, w| v.union(w))
+                .unwrap_or_default();
+            match event {
+                ct_event!(scroll up for x,y) if all_areas.contains((*x, *y).into()) => {
+                    self.scroll_back(self.step);
+                    CalOutcome::Changed
+                }
+                ct_event!(scroll down for x,y) if all_areas.contains((*x, *y).into()) => {
+                    self.scroll_forward(self.step);
+                    CalOutcome::Changed
+                }
+                _ => CalOutcome::Continue,
+            }
+        });
+
+        r
+    }
+}
 
 #[allow(clippy::needless_range_loop)]
 pub fn scroll_up_month_list<Selection: CalendarSelection>(
@@ -1250,10 +1733,7 @@ pub fn scroll_up_month_list<Selection: CalendarSelection>(
     delta: u32,
 ) {
     // change start dates
-    let mut start = months[0]
-        .start_date()
-        .checked_sub_months(Months::new(delta))
-        .expect("date");
+    let mut start = months[0].start_date() - Months::new(delta);
     for i in 0..months.len() {
         let d = months[i].selected_day();
         let w = months[i].selected_week();
@@ -1268,7 +1748,7 @@ pub fn scroll_up_month_list<Selection: CalendarSelection>(
             months[i].select_week(w);
         }
 
-        start = start.checked_add_months(Months::new(1)).expect("date");
+        start = start + Months::new(1);
     }
 }
 
@@ -1278,10 +1758,7 @@ pub fn scroll_down_month_list<Selection: CalendarSelection>(
     delta: u32,
 ) {
     // change start dates
-    let mut start = months[0]
-        .start_date()
-        .checked_add_months(Months::new(delta))
-        .expect("date");
+    let mut start = months[0].start_date() + Months::new(delta);
     for i in 0..months.len() {
         let d = months[i].selected_day();
         let w = months[i].selected_week();
@@ -1296,7 +1773,7 @@ pub fn scroll_down_month_list<Selection: CalendarSelection>(
             months[i].select_week(w);
         }
 
-        start = start.checked_add_months(Months::new(1)).expect("date");
+        start = start + Months::new(1);
     }
 }
 
@@ -1348,8 +1825,7 @@ where
                                         .selected_day_as_date()
                                         .or_else(|| self[i].selected_week_as_date())
                                     {
-                                        let new_date =
-                                            date.checked_sub_months(Months::new(1)).expect("days");
+                                        let new_date = date - Months::new(1);
                                         self[i].clear_selection();
                                         self[i - 1].select_date(new_date);
                                         arg.0.focus(&self[i - 1]);
@@ -1363,8 +1839,7 @@ where
                                         .selected_day_as_date()
                                         .or_else(|| self[i].selected_week_as_date())
                                     {
-                                        let new_date =
-                                            date.checked_sub_months(Months::new(1)).expect("days");
+                                        let new_date = date - Months::new(1);
                                         scroll_up_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
@@ -1387,8 +1862,7 @@ where
                                         .selected_day_as_date()
                                         .or_else(|| self[i].selected_week_as_date())
                                     {
-                                        let new_date =
-                                            date.checked_add_months(Months::new(1)).expect("days");
+                                        let new_date = date + Months::new(1);
                                         self[i].clear_selection();
                                         self[i + 1].select_date(new_date);
                                         arg.0.focus(&self[i + 1]);
@@ -1401,8 +1875,7 @@ where
                                         .selected_day_as_date()
                                         .or_else(|| self[i].selected_week_as_date())
                                     {
-                                        let new_date =
-                                            date.checked_add_months(Months::new(1)).expect("days");
+                                        let new_date = date + Months::new(1);
                                         scroll_down_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
@@ -1422,8 +1895,7 @@ where
                             ct_event!(keycode press Up) => {
                                 if i > 0 {
                                     if let Some(date) = self[i].selected_day_as_date() {
-                                        let new_date =
-                                            date - chrono::Duration::try_days(7).expect("days");
+                                        let new_date = date - Days::new(7);
                                         self[i].clear_selection();
                                         self[i - 1].select_date(new_date);
                                         arg.0.focus(&self[i - 1]);
@@ -1434,8 +1906,7 @@ where
                                     }
                                 } else {
                                     if let Some(date) = self[i].selected_day_as_date() {
-                                        let new_date =
-                                            date - chrono::Duration::try_days(7).expect("days");
+                                        let new_date = date - Days::new(7);
                                         scroll_up_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
@@ -1455,8 +1926,7 @@ where
                             ct_event!(keycode press Down) => {
                                 if i + 1 < self.len() {
                                     if let Some(date) = self[i].selected_day_as_date() {
-                                        let new_date =
-                                            date + chrono::Duration::try_days(7).expect("days");
+                                        let new_date = date + Days::new(7);
                                         self[i].clear_selection();
                                         self[i + 1].select_date(new_date);
                                         arg.0.focus(&self[i + 1]);
@@ -1466,8 +1936,7 @@ where
                                     }
                                 } else {
                                     if let Some(date) = self[i].selected_day_as_date() {
-                                        let new_date =
-                                            date + chrono::Duration::try_days(7).expect("days");
+                                        let new_date = date + Days::new(7);
                                         scroll_down_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
@@ -1486,10 +1955,7 @@ where
                             }
                             ct_event!(keycode press Left) => {
                                 if i > 0 {
-                                    let prev_day = self[i]
-                                        .start_date
-                                        .checked_sub_days(Days::new(1))
-                                        .expect("date");
+                                    let prev_day = self[i].start_date - Days::new(1);
 
                                     self[i].clear_selection();
                                     self[i - 1].select_date(prev_day);
@@ -1497,10 +1963,7 @@ where
 
                                     CalOutcome::Day(prev_day)
                                 } else {
-                                    let new_date = self[i]
-                                        .start_date
-                                        .checked_sub_days(Days::new(1))
-                                        .expect("date");
+                                    let new_date = self[i].start_date - Days::new(1);
                                     scroll_up_month_list(self, 1);
                                     // date may be anywhere (even nowhere) after the shift.
                                     for i in 0..self.len() {
@@ -1516,10 +1979,7 @@ where
                             }
                             ct_event!(keycode press Right) => {
                                 if i + 1 < self.len() {
-                                    let next_day = self[i]
-                                        .start_date
-                                        .checked_add_months(Months::new(1))
-                                        .expect("date");
+                                    let next_day = self[i].start_date + Months::new(1);
 
                                     self[i].clear_selection();
                                     self[i + 1].select_date(next_day);
@@ -1527,10 +1987,7 @@ where
 
                                     CalOutcome::Day(next_day)
                                 } else {
-                                    let new_date = self[i]
-                                        .start_date
-                                        .checked_add_months(Months::new(1))
-                                        .expect("date");
+                                    let new_date = self[i].start_date + Months::new(1);
                                     scroll_down_month_list(self, 1);
                                     // date may be anywhere (even nowhere) after the shift.
                                     for i in 0..self.len() {
@@ -1547,8 +2004,7 @@ where
                             ct_event!(keycode press ALT-Up) => {
                                 if i > 0 {
                                     if let Some(date) = self[i].selected_week_as_date() {
-                                        let new_date =
-                                            date - chrono::Duration::try_days(7).expect("days");
+                                        let new_date = date - Days::new(7);
 
                                         self[i].clear_selection();
                                         self[i - 1].clear_selection();
@@ -1562,8 +2018,7 @@ where
                                     }
                                 } else {
                                     if let Some(date) = self[i].selected_week_as_date() {
-                                        let new_date =
-                                            date - chrono::Duration::try_days(7).expect("days");
+                                        let new_date = date - Days::new(7);
                                         scroll_up_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {
@@ -1582,8 +2037,7 @@ where
                             ct_event!(keycode press ALT-Down) => {
                                 if i + 1 < self.len() {
                                     if let Some(date) = self[i].selected_week_as_date() {
-                                        let new_date =
-                                            date + chrono::Duration::try_days(7).expect("days");
+                                        let new_date = date + Days::new(7);
 
                                         self[i].clear_selection();
                                         self[i + 1].clear_selection();
@@ -1597,8 +2051,7 @@ where
                                     }
                                 } else {
                                     if let Some(date) = self[i].selected_week_as_date() {
-                                        let new_date =
-                                            date + chrono::Duration::try_days(7).expect("days");
+                                        let new_date = date + Days::new(7);
                                         scroll_down_month_list(self, arg.1);
                                         // date may be anywhere (even nowhere) after the shift.
                                         for i in 0..self.len() {

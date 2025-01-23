@@ -9,9 +9,7 @@ use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::button::{Button, ButtonState};
-use rat_widget::calendar::{
-    scroll_down_month_list, scroll_up_month_list, Month, MonthState, MultiMonth,
-};
+use rat_widget::calendar::{CalendarSelection, CalendarState, HomePolicy, Month, SingleSelection};
 use rat_widget::event::{ButtonOutcome, Outcome};
 use rat_widget::statusline::StatusLineState;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
@@ -40,7 +38,7 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 struct State {
-    months: [MonthState; 3],
+    calendar: CalendarState<3, SingleSelection>,
 
     prev: ButtonState,
     next: ButtonState,
@@ -52,38 +50,31 @@ struct State {
 impl State {
     fn new() -> Self {
         let mut s = Self {
-            months: Default::default(),
+            calendar: Default::default(),
             prev: Default::default(),
             next: Default::default(),
             menu: Default::default(),
             status: Default::default(),
         };
 
-        let today = Local::now().date_naive().with_day(1).expect("date");
-        s.months[0].set_start_date(today.checked_sub_months(Months::new(1)).expect("date"));
-        s.months[1].set_start_date(today);
-        s.months[2].set_start_date(today.checked_add_months(Months::new(1)).expect("date"));
+        let today = Local::now().date_naive();
+        s.calendar.set_home_policy(HomePolicy::Index(1));
+        s.calendar.set_primary_focus(1);
+        s.calendar.set_start_date(today - Months::new(1));
+        // s.calendar.selection.select_day(today, false);
         s
     }
 
     fn start_date(&self) -> NaiveDate {
-        self.months[1].start_date()
+        self.calendar.start_date()
     }
 
     fn prev_month(&mut self) {
-        let prev = self
-            .start_date()
-            .checked_sub_months(Months::new(1))
-            .expect("date");
-        scroll_up_month_list(&mut self.months, 1);
+        self.calendar.scroll_back(1);
     }
 
     fn next_month(&mut self) {
-        let prev = self
-            .start_date()
-            .checked_add_months(Months::new(1))
-            .expect("date");
-        scroll_down_month_list(&mut self.months, 1);
+        self.calendar.scroll_forward(1);
     }
 }
 
@@ -131,14 +122,25 @@ fn repaint_input(
     );
     date_styles.insert(Local::now().date_naive(), THEME.redpink(3));
 
-    let title = if state.months[0].start_date().year() != state.months[2].start_date().year() {
+    let title = if state.calendar.months[0].start_date().year()
+        != state.calendar.months[2].start_date().year()
+    {
         format!(
             "{} / {}",
-            state.months[0].start_date().format("%Y").to_string(),
-            state.months[2].start_date().format("%Y").to_string()
+            state.calendar.months[0]
+                .start_date()
+                .format("%Y")
+                .to_string(),
+            state.calendar.months[2]
+                .start_date()
+                .format("%Y")
+                .to_string()
         )
     } else {
-        state.months[0].start_date().format("%Y").to_string()
+        state.calendar.months[0]
+            .start_date()
+            .format("%Y")
+            .to_string()
     };
 
     Line::from(title)
@@ -153,7 +155,7 @@ fn repaint_input(
         .day_styles(&date_styles)
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[1], frame.buffer_mut(), &mut state.months[0]);
+        .render(l2[1], frame.buffer_mut(), &mut state.calendar.months[0]);
 
     Month::new()
         .locale(Locale::de_AT_euro)
@@ -162,7 +164,7 @@ fn repaint_input(
         .day_styles(&date_styles)
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[2], frame.buffer_mut(), &mut state.months[1]);
+        .render(l2[2], frame.buffer_mut(), &mut state.calendar.months[1]);
 
     Month::new()
         .locale(Locale::de_AT_euro)
@@ -171,7 +173,7 @@ fn repaint_input(
         .day_styles(&date_styles)
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[3], frame.buffer_mut(), &mut state.months[2]);
+        .render(l2[3], frame.buffer_mut(), &mut state.calendar.months[2]);
 
     Button::new("<<<").styles(THEME.button_style()).render(
         l4[1],
@@ -196,12 +198,10 @@ fn repaint_input(
 }
 
 fn focus(state: &State) -> Focus {
-    let mut fb = FocusBuilder::default();
-    fb.widget(&state.months[0])
-        .widget(&state.months[1])
-        .widget(&state.months[2])
-        .widget(&state.menu);
-    fb.build()
+    let mut builder = FocusBuilder::default();
+    builder.widget(&state.calendar);
+    builder.widget(&state.menu);
+    builder.build()
 }
 
 fn handle_input(
@@ -213,11 +213,7 @@ fn handle_input(
     let mut focus = focus(state);
     let f = focus.handle(event, Regular);
 
-    let r: Outcome = state
-        .months
-        .as_mut_slice()
-        .handle(event, MultiMonth(&focus, 1))
-        .into();
+    let r: Outcome = state.calendar.handle(event, Regular).into();
 
     let r = r.or_else(|| match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
