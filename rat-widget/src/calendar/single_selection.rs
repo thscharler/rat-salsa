@@ -14,6 +14,14 @@ impl CalendarSelection for SingleSelection {
         self.selected = None;
     }
 
+    fn len(&self) -> usize {
+        if self.selected.is_some() {
+            1
+        } else {
+            0
+        }
+    }
+
     fn is_selected(&self, date: NaiveDate) -> bool {
         self.selected == Some(date)
     }
@@ -110,7 +118,7 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome>
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
         for i in 0..self.months.len() {
             if self.months[i].gained_focus() {
-                self.set_primary_focus(i);
+                self.set_primary_idx(i);
                 break;
             }
         }

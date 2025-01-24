@@ -3,14 +3,13 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use chrono::{Datelike, Local, Months, NaiveDate};
-use log::debug;
 use pure_rust_locales::Locale;
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::button::{Button, ButtonState};
-use rat_widget::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
+use rat_widget::calendar::selection::RangeSelection;
 use rat_widget::calendar::{CalendarState, Month, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, Outcome};
 use rat_widget::statusline::StatusLineState;
@@ -60,9 +59,10 @@ impl State {
         };
 
         let today = Local::now().date_naive();
-        s.calendar.set_home_policy(TodayPolicy::Index(1));
-        s.calendar.set_primary_focus(1);
+        s.calendar.set_today_policy(TodayPolicy::Index(1));
+        s.calendar.set_primary_idx(1);
         s.calendar.set_start_date(today - Months::new(1));
+        s.calendar.set_step(1);
         s
     }
 
@@ -239,17 +239,6 @@ fn handle_input(
             Outcome::Changed
         }
         r => r.into(),
-    });
-    let r = r.or_else(|| match event {
-        ct_event!(keycode press PageUp) => {
-            state.prev_month();
-            Outcome::Changed
-        }
-        ct_event!(keycode press PageDown) => {
-            state.next_month();
-            Outcome::Changed
-        }
-        _ => Outcome::Continue,
     });
 
     Ok(max(f, r))

@@ -19,6 +19,18 @@ impl CalendarSelection for RangeSelection {
         self.lead = None;
     }
 
+    fn len(&self) -> usize {
+        if let Some(anchor) = self.anchor {
+            if let Some(lead) = self.lead {
+                (lead - anchor).num_days().unsigned_abs() as usize + 1
+            } else {
+                unreachable!()
+            }
+        } else {
+            0
+        }
+    }
+
     fn is_selected(&self, date: NaiveDate) -> bool {
         if let Some(lead) = self.lead {
             if let Some(anchor) = self.anchor {
@@ -187,15 +199,27 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
         r = r.or_else(|| {
             if self.is_focused() {
                 match event {
-                    ct_event!(keycode press PageUp) => self.shift_back(self.step()),
-                    ct_event!(keycode press PageDown) => self.shift_forward(self.step()),
+                    ct_event!(keycode press Home) => self.move_to_today(),
+
+                    ct_event!(keycode press PageUp) => self.shift_back(1),
+                    ct_event!(keycode press PageDown) => self.shift_forward(1),
+
                     ct_event!(keycode press Up) => self.prev_day(7, false),
                     ct_event!(keycode press Down) => self.next_day(7, false),
                     ct_event!(keycode press Left) => self.prev_day(1, false),
                     ct_event!(keycode press Right) => self.next_day(1, false),
-                    ct_event!(keycode press Home) => self.move_to_today(),
+
+                    ct_event!(keycode press SHIFT-Up) => self.prev_day(7, true),
+                    ct_event!(keycode press SHIFT-Down) => self.next_day(7, true),
+                    ct_event!(keycode press SHIFT-Left) => self.prev_day(1, true),
+                    ct_event!(keycode press SHIFT-Right) => self.next_day(1, true),
+
                     ct_event!(keycode press ALT-Up) => self.prev_week(1, false),
                     ct_event!(keycode press ALT-Down) => self.next_week(1, false),
+
+                    ct_event!(keycode press ALT_SHIFT-Up) => self.prev_week(1, true),
+                    ct_event!(keycode press ALT_SHIFT-Down) => self.next_week(1, true),
+
                     _ => CalOutcome::Continue,
                 }
             } else {
@@ -213,7 +237,7 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome>
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
         for i in 0..self.months.len() {
             if self.months[i].gained_focus() {
-                self.set_primary_focus(i);
+                self.set_primary_idx(i);
                 break;
             }
         }

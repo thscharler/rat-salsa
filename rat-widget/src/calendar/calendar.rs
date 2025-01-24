@@ -16,7 +16,7 @@ use std::rc::Rc;
 pub enum TodayPolicy {
     /// Set the primary month to the fixed index in the calendar.
     Index(usize),
-    /// Behave like a yearly calendar. Sets the primary month to
+    /// Behave like a yearly calendar. Sets the primary month index to
     /// the current month.
     Year,
 }
@@ -27,9 +27,11 @@ impl Default for TodayPolicy {
     }
 }
 
+///
 /// A struct that contains an array of MonthState to get a true calendar
 /// behaviour. There is no Widget for this, the exact layout is left
-/// to the user.
+/// to the user. This takes care of all the rest.
+///
 #[derive(Debug, Clone)]
 pub struct CalendarState<const N: usize, Selection> {
     /// Step-size when navigating outside the displayed
@@ -45,14 +47,14 @@ pub struct CalendarState<const N: usize, Selection> {
     /// Default is 1.
     step: usize,
 
-    /// Behavior of move_to_current.
+    /// Behavior of move_to_today.
     home: TodayPolicy,
 
     /// Primary month.
     /// Only this month will take part in Tab navigation.
     /// The other months will be mouse-reachable only.
     /// You can use arrow-keys to navigate the months though.
-    primary_focus: usize,
+    primary_idx: usize,
 
     /// Months.
     pub months: [MonthState<Selection>; N],
@@ -78,7 +80,7 @@ where
                 state
             }),
             selection,
-            primary_focus: Default::default(),
+            primary_idx: Default::default(),
             focus: Default::default(),
             home: Default::default(),
         }
@@ -89,7 +91,7 @@ impl<const N: usize, Selection> HasFocus for CalendarState<N, Selection> {
     fn build(&self, builder: &mut FocusBuilder) {
         let tag = builder.start(self);
         for (i, v) in self.months.iter().enumerate() {
-            if i == self.primary_focus {
+            if i == self.primary_idx {
                 builder.widget(v); // regular widget
             } else {
                 builder.append_flags(v.focus(), v.area(), v.area_z(), Navigation::Leave)
@@ -123,10 +125,18 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
         Self::default()
     }
 
-    /// Step size in months when scrolling/leaving the
-    /// displayed range.
+    /// Step-size when navigating outside the displayed
+    /// calendar.
+    ///
+    /// You can do a rolling calendar which goes back 1 month
+    /// or a yearly calendar which goes back 12 months.
+    /// Or any other value you like.
+    ///
+    /// If you set step to 0 this kind of navigation is
+    /// deactivated.
+    ///
+    /// Default is 1.
     pub fn set_step(&mut self, step: usize) {
-        assert!(step <= self.months.len());
         self.step = step;
     }
 
@@ -151,16 +161,26 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
     /// Set the primary month for the calendar.
     ///
     /// The primary month will be focused with Tab navigation.
-    /// It can be changed by clicking on another month or
-    /// by key-navigation.
-    pub fn set_primary_focus(&mut self, primary: usize) {
+    /// That means you can jump over all calendar months with just
+    /// one Tab.
+    ///
+    /// Movement within the calendar is possible with the arrow-keys.
+    /// This will change the primary month for future Tab navigation.
+    pub fn set_primary_idx(&mut self, primary: usize) {
         assert!(primary < self.months.len());
-        self.primary_focus = primary;
+        self.primary_idx = primary;
     }
 
-    /// Primary month.
-    pub fn primary(&self) -> usize {
-        self.primary_focus
+    /// The primary month for the calendar.
+    ///
+    /// The primary month will be focused with Tab navigation.
+    /// That means you can jump over all calendar months with just
+    /// one Tab.
+    ///
+    /// Movement within the calendar is possible with the arrow-keys.
+    /// This will change the primary month for future Tab navigation.
+    pub fn primary_idx(&self) -> usize {
+        self.primary_idx
     }
 
     /// Set the start-date for the calendar.
@@ -217,6 +237,20 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
 
         CalOutcome::Changed
     }
+
+    /// Changes the start-date for each month.
+    /// Doesn't change any selection.
+    pub fn scroll_to(&mut self, date: NaiveDate) -> CalOutcome {
+        // change start dates
+        let mut start = date - Months::new(self.primary_idx() as u32);
+
+        for i in 0..self.months.len() {
+            self.months[i].set_start_date(start);
+            start = start + Months::new(1);
+        }
+
+        CalOutcome::Changed
+    }
 }
 
 impl<const N: usize, Selection> CalendarState<N, Selection>
@@ -245,10 +279,10 @@ where
         if self.is_focused() {
             for (i, month) in self.months.iter().enumerate() {
                 if lead >= month.start_date() && lead <= month.end_date() {
-                    if self.primary_focus != i {
+                    if self.primary_idx != i {
                         r = CalOutcome::Changed;
                     }
-                    self.primary_focus = i;
+                    self.primary_idx = i;
                     month.focus.set(true);
                 } else {
                     month.focus.set(false);
@@ -273,56 +307,56 @@ impl<const N: usize> CalendarState<N, SingleSelection> {
 
     /// Move all selections back by step.
     pub fn shift_back(&mut self, n: usize) -> CalOutcome {
-        if self.step == 0 {
-            return CalOutcome::Continue;
-        }
+        let base_start = self.start_date();
+        let no_selection = base_start + Months::new(self.primary_idx() as u32);
+
+        let date = self.selection.borrow().selected().unwrap_or(no_selection);
+
+        let prev = date - Months::new(n as u32);
 
         let mut r = CalOutcome::Continue;
+        if prev >= base_start {
+            if self.selection.borrow_mut().select(prev) {
+                r = CalOutcome::Selected;
+            }
+        } else if self.step() > 0 {
+            r = self.scroll_back(self.step());
+            if self.selection.borrow_mut().select(prev) {
+                r = CalOutcome::Selected;
+            }
+        }
 
-        let date = self.selection.borrow().selected();
-        if let Some(date) = date {
-            if self
-                .selection
-                .borrow_mut()
-                .select(date - Months::new(n as u32))
-            {
-                r = CalOutcome::Selected
-            }
+        if r.is_consumed() {
+            self.focus_lead();
         }
-        let date = self.selection.borrow().selected();
-        if let Some(date) = date {
-            if date < self.start_date() {
-                r = r.max(self.scroll_back(self.step));
-            }
-        }
-        r.max(self.focus_lead())
+        r
     }
 
     /// Move all selections forward by step
     pub fn shift_forward(&mut self, n: usize) -> CalOutcome {
-        if self.step == 0 {
-            return CalOutcome::Continue;
-        }
+        let base_start = self.start_date();
+        let base_end = self.end_date();
+        let no_selection = base_start + Months::new(self.primary_idx() as u32);
+
+        let date = self.selection.borrow().selected().unwrap_or(no_selection);
+
+        let next = date + Months::new(n as u32);
 
         let mut r = CalOutcome::Continue;
-
-        let date = self.selection.borrow().selected();
-        if let Some(date) = date {
-            if self
-                .selection
-                .borrow_mut()
-                .select(date + Months::new(n as u32))
-            {
-                r = CalOutcome::Selected
+        if next <= base_end {
+            if self.selection.borrow_mut().select(next) {
+                r = CalOutcome::Selected;
+            }
+        } else if self.step() > 0 {
+            r = self.scroll_forward(self.step());
+            if self.selection.borrow_mut().select(next) {
+                r = CalOutcome::Selected;
             }
         }
-        let date = self.selection.borrow().selected();
-        if let Some(date) = date {
-            if date > self.end_date() {
-                r = r.max(self.scroll_forward(self.step));
-            }
+        if r.is_consumed() {
+            self.focus_lead();
         }
-        r.max(self.focus_lead())
+        r
     }
 
     pub fn move_to_current(&mut self) -> CalOutcome {
@@ -335,13 +369,13 @@ impl<const N: usize> CalendarState<N, SingleSelection> {
         }
         match self.home {
             TodayPolicy::Index(primary) => {
-                self.primary_focus = primary;
+                self.primary_idx = primary;
                 self.set_start_date(current - Months::new(primary as u32));
                 self.focus_lead();
             }
             TodayPolicy::Year => {
                 let month = current.month0();
-                self.primary_focus = month as usize;
+                self.primary_idx = month as usize;
                 self.set_start_date(current - Months::new(month));
                 self.focus_lead();
             }
@@ -446,57 +480,72 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
         self.selection.borrow().selected_range()
     }
 
-    /// Move all selections back by step.
+    /// Move all selections back by n.
+    /// If that goes beyond the calendar it scrolls back
+    /// by step.
     pub fn shift_back(&mut self, n: usize) -> CalOutcome {
-        if self.step == 0 {
-            return CalOutcome::Continue;
-        }
+        let base_start = self.start_date();
+        let no_selection = base_start + Months::new(self.primary_idx() as u32);
+
+        let date = self
+            .selection
+            .borrow()
+            .selected()
+            .unwrap_or((no_selection, no_selection));
+
+        let prev_lead = date.0 - Months::new(n as u32);
+        let prev_anchor = date.1 - Months::new(n as u32);
 
         let mut r = CalOutcome::Continue;
-
-        let date = self.selection.borrow().selected();
-        if let Some(date) = date {
-            if self.selection.borrow_mut().select((
-                date.0 - Months::new(n as u32),
-                date.1 - Months::new(n as u32),
-            )) {
+        if prev_lead >= base_start && prev_anchor >= base_start {
+            if self.selection.borrow_mut().select((prev_lead, prev_anchor)) {
+                r = CalOutcome::Selected;
+            }
+        } else if self.step() > 0 {
+            r = self.scroll_back(self.step());
+            if self.selection.borrow_mut().select((prev_lead, prev_anchor)) {
                 r = CalOutcome::Selected;
             }
         }
-        let date = self.selection.borrow().selected();
-        if let Some(date) = date {
-            if date.0 < self.start_date() {
-                r = r.max(self.scroll_back(self.step));
-            }
+
+        if r.is_consumed() {
+            self.focus_lead();
         }
-        r.max(self.focus_lead())
+        r
     }
 
-    /// Move all selections forward by step
+    /// Move all selections forward by n.
+    /// If that goes beyond the calendar it scrolls forward
+    /// by step.
     pub fn shift_forward(&mut self, n: usize) -> CalOutcome {
-        if self.step == 0 {
-            return CalOutcome::Continue;
-        }
+        let base_start = self.start_date();
+        let base_end = self.end_date();
+        let no_selection = base_start + Months::new(self.primary_idx() as u32);
+
+        let date = self
+            .selection
+            .borrow()
+            .selected()
+            .unwrap_or((no_selection, no_selection));
+
+        let next_lead = date.0 + Months::new(n as u32);
+        let next_anchor = date.1 + Months::new(n as u32);
 
         let mut r = CalOutcome::Continue;
-
-        let date = self.selection.borrow().selected();
-        if let Some(date) = date {
-            if self.selection.borrow_mut().select((
-                date.0 + Months::new(n as u32),
-                date.1 + Months::new(n as u32),
-            )) {
+        if next_lead <= base_end && next_anchor <= base_end {
+            if self.selection.borrow_mut().select((next_lead, next_anchor)) {
+                r = CalOutcome::Selected;
+            }
+        } else if self.step() > 0 {
+            r = self.scroll_forward(self.step());
+            if self.selection.borrow_mut().select((next_lead, next_anchor)) {
                 r = CalOutcome::Selected;
             }
         }
-        let date = self.selection.borrow().selected();
-        if let Some(date) = date {
-            if date.0 > self.end_date() {
-                r = r.max(self.scroll_forward(self.step));
-            }
+        if r.is_consumed() {
+            self.focus_lead();
         }
-
-        r.max(self.focus_lead())
+        r
     }
 
     pub fn move_to_today(&mut self) -> CalOutcome {
@@ -509,13 +558,13 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
         }
         match self.home {
             TodayPolicy::Index(primary) => {
-                self.primary_focus = primary;
+                self.primary_idx = primary;
                 self.set_start_date(current - Months::new(primary as u32));
                 self.focus_lead();
             }
             TodayPolicy::Year => {
                 let month = current.month0();
-                self.primary_focus = month as usize;
+                self.primary_idx = month as usize;
                 self.set_start_date(current - Months::new(month));
                 self.focus_lead();
             }

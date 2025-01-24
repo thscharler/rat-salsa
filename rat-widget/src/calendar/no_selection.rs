@@ -11,6 +11,10 @@ pub struct NoSelection;
 impl CalendarSelection for NoSelection {
     fn clear(&mut self) {}
 
+    fn len(&self) -> usize {
+        0
+    }
+
     fn is_selected(&self, _: NaiveDate) -> bool {
         false
     }
@@ -47,7 +51,7 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome>
         for i in 0..self.months.len() {
             if self.months[i].gained_focus() {
                 debug!("no gained {}", i);
-                self.set_primary_focus(i);
+                self.set_primary_idx(i);
                 break;
             }
         }

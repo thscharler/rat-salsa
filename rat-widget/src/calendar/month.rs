@@ -390,11 +390,14 @@ fn render_ref<Selection: CalendarSelection>(
             } else {
                 day_style
             };
-            let day_style = if state.selection.is_selected(day) {
-                day_style.patch(select_style)
-            } else {
-                day_style
-            };
+            let day_style =
+                if state.selection.len() > 1 && state.selection.lead_selection() == Some(day) {
+                    day_style.patch(revert_style(select_style))
+                } else if state.selection.is_selected(day) {
+                    day_style.patch(select_style)
+                } else {
+                    day_style
+                };
 
             state.area_days[day.day0() as usize] = Rect::new(x, y, 2, 1).intersection(state.inner);
 
@@ -445,11 +448,14 @@ fn render_ref<Selection: CalendarSelection>(
                 } else {
                     day_style
                 };
-                let day_style = if state.selection.is_selected(day) {
-                    day_style.patch(select_style)
-                } else {
-                    day_style
-                };
+                let day_style =
+                    if state.selection.len() > 1 && state.selection.lead_selection() == Some(day) {
+                        day_style.patch(revert_style(select_style))
+                    } else if state.selection.is_selected(day) {
+                        day_style.patch(select_style)
+                    } else {
+                        day_style
+                    };
 
                 state.area_days[day.day0() as usize] =
                     Rect::new(x, y, 2, 1).intersection(state.inner);
@@ -703,7 +709,7 @@ impl MonthState<SingleSelection> {
                 self.end_date()
             }
         } else {
-            self.end_date()
+            self.start_date()
         };
 
         if self.in_range(date) {
@@ -823,7 +829,7 @@ impl MonthState<RangeSelection> {
                 self.end_date()
             }
         } else {
-            self.end_date()
+            self.start_date()
         };
 
         if self.in_range(date) {
