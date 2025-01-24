@@ -5,7 +5,7 @@ use crate::calendar::style::CalendarStyle;
 use crate::calendar::CalendarSelection;
 use crate::util::{block_size, revert_style};
 use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
-use rat_event::util::MouseFlagsN;
+use rat_event::util::MouseFlags;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
@@ -67,6 +67,8 @@ pub struct MonthState<Selection = SingleSelection> {
     /// Area inside the border.
     /// __readonly__. renewed for each render.
     pub inner: Rect,
+    /// Area of the calendar.
+    pub area_cal: Rect,
     /// Area for the days of the month.
     /// __readonly__. renewed for each render.
     pub area_days: [Rect; 31],
@@ -85,7 +87,7 @@ pub struct MonthState<Selection = SingleSelection> {
     pub focus: FocusFlag,
     /// Mouse flags
     /// __read+write__
-    pub mouse: MouseFlagsN,
+    pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -361,6 +363,15 @@ fn render_ref<Selection: CalendarSelection>(
         y += 1;
     }
 
+    // reset areas
+    for i in 0..31 {
+        state.area_days[i] = Rect::default();
+    }
+    for i in 0..6 {
+        state.area_weeks[i] = Rect::default();
+    }
+    state.area_cal = Rect::new(x + 3, y, 7 * 3, state.week_len() as u16);
+
     // first line may omit a few days
     state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.inner);
     Span::from(day.format_localized("%V", widget.loc).to_string())
@@ -517,6 +528,7 @@ where
         Self {
             area: self.area,
             inner: self.inner,
+            area_cal: self.area_cal.clone(),
             area_days: self.area_days.clone(),
             area_weeks: self.area_weeks.clone(),
             start_date: self.start_date,
@@ -536,6 +548,7 @@ where
         Self {
             area: Default::default(),
             inner: Default::default(),
+            area_cal: Default::default(),
             area_days: [Rect::default(); 31],
             area_weeks: [Rect::default(); 6],
             start_date: Default::default(),

@@ -1,6 +1,7 @@
 use crate::calendar::event::CalOutcome;
 use crate::calendar::{CalendarSelection, CalendarState, MonthState};
 use chrono::NaiveDate;
+use rat_event::util::item_at;
 use rat_event::{ct_event, flow, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocus;
 
@@ -63,7 +64,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState<
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
         match event {
             ct_event!(mouse drag Left for x, y) | ct_event!(mouse down Left for x, y) => {
-                if let Some(sel) = self.mouse.item_at(&self.area_days, *x, *y) {
+                if let Some(sel) = item_at(&self.area_days, *x, *y) {
                     self.select_day(sel)
                 } else {
                     CalOutcome::Continue

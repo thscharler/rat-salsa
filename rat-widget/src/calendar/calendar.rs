@@ -2,6 +2,7 @@ use crate::calendar::event::CalOutcome;
 use crate::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
 use crate::calendar::{CalendarSelection, MonthState};
 use chrono::{Datelike, Days, Local, Months, NaiveDate, Weekday};
+use rat_event::util::MouseFlags;
 use rat_event::ConsumedEvent;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;

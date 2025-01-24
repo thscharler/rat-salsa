@@ -1,7 +1,8 @@
 use crate::calendar::calendar::CalendarState;
 use crate::calendar::event::CalOutcome;
 use crate::calendar::{CalendarSelection, MonthState};
-use chrono::{NaiveDate, Weekday};
+use chrono::{Datelike, NaiveDate, Weekday};
+use rat_event::util::item_at;
 use rat_event::ConsumedEvent;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocus;
@@ -147,12 +148,13 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<Ra
                 ct_event!(keycode press Down) => self.next_day(7, false),
                 ct_event!(keycode press Left) => self.prev_day(1, false),
                 ct_event!(keycode press Right) => self.next_day(1, false),
-                ct_event!(keycode press ALT-Up) => self.prev_week(1, false),
-                ct_event!(keycode press ALT-Down) => self.next_week(1, false),
                 ct_event!(keycode press SHIFT-Up) => self.prev_day(7, true),
                 ct_event!(keycode press SHIFT-Down) => self.next_day(7, true),
                 ct_event!(keycode press SHIFT-Left) => self.prev_day(1, true),
                 ct_event!(keycode press SHIFT-Right) => self.next_day(1, true),
+
+                ct_event!(keycode press ALT-Up) => self.prev_week(1, false),
+                ct_event!(keycode press ALT-Down) => self.next_week(1, false),
                 ct_event!(keycode press ALT_SHIFT-Up) => self.prev_week(1, true),
                 ct_event!(keycode press ALT_SHIFT-Down) => self.next_week(1, true),
                 _ => CalOutcome::Continue,
@@ -166,10 +168,33 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<Ra
 impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState<RangeSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
         match event {
-            ct_event!(mouse drag Left for x, y) | ct_event!(mouse down Left for x, y) => {
-                if let Some(sel) = self.mouse.item_at(&self.area_weeks, *x, *y) {
+            ct_event!(mouse any for m) if self.mouse.drag(self.area_cal, m) => {
+                if let Some(sel) = item_at(&self.area_days, m.column, m.row) {
+                    let r = self.select_day(sel, true);
+                    r
+                } else {
+                    let mut r = CalOutcome::Continue;
+
+                    let mut above = self.area_cal;
+                    above.y -= 2;
+                    above.height = 3;
+                    if above.contains((m.column, m.row).into()) {
+                        r = self.select_day(0, true);
+                    } else {
+                        let mut below = self.area_cal;
+                        below.y = below.bottom().saturating_sub(1);
+                        below.height = 2;
+                        if below.contains((m.column, m.row).into()) {
+                            r = self.select_day(self.end_date().day0() as usize, true);
+                        }
+                    }
+                    r
+                }
+            }
+            ct_event!(mouse down Left for x, y) => {
+                if let Some(sel) = item_at(&self.area_weeks, *x, *y) {
                     self.select_week(sel, false)
-                } else if let Some(sel) = self.mouse.item_at(&self.area_days, *x, *y) {
+                } else if let Some(sel) = item_at(&self.area_days, *x, *y) {
                     self.select_day(sel, false)
                 } else {
                     CalOutcome::Continue
@@ -187,14 +212,28 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
         let mut r = 'f: {
             for month in &mut self.months {
                 let r = month.handle(event, Regular);
-                if r.is_consumed() {
-                    //todo: change to on selected
+                if r == CalOutcome::Selected {
                     self.focus_lead();
                     break 'f r;
                 }
             }
             CalOutcome::Continue
         };
+        // Enable drag for all months.
+        if r.is_consumed() {
+            let mut drag = false;
+            for m in &self.months {
+                if m.mouse.drag.get() {
+                    drag = true;
+                    break;
+                }
+            }
+            if drag {
+                for m in &self.months {
+                    m.mouse.drag.set(true);
+                }
+            }
+        }
 
         r = r.or_else(|| {
             if self.is_focused() {
@@ -208,7 +247,6 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
                     ct_event!(keycode press Down) => self.next_day(7, false),
                     ct_event!(keycode press Left) => self.prev_day(1, false),
                     ct_event!(keycode press Right) => self.next_day(1, false),
-
                     ct_event!(keycode press SHIFT-Up) => self.prev_day(7, true),
                     ct_event!(keycode press SHIFT-Down) => self.next_day(7, true),
                     ct_event!(keycode press SHIFT-Left) => self.prev_day(1, true),
@@ -216,7 +254,6 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
 
                     ct_event!(keycode press ALT-Up) => self.prev_week(1, false),
                     ct_event!(keycode press ALT-Down) => self.next_week(1, false),
-
                     ct_event!(keycode press ALT_SHIFT-Up) => self.prev_week(1, true),
                     ct_event!(keycode press ALT_SHIFT-Down) => self.next_week(1, true),
 
