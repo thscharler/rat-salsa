@@ -663,6 +663,16 @@ impl MonthState<SingleSelection> {
         }
     }
 
+    /// Select a day
+    pub fn select_last(&mut self) -> CalOutcome {
+        let date = self.end_date();
+        if self.selection.borrow_mut().select(date) {
+            CalOutcome::Selected
+        } else {
+            CalOutcome::Continue
+        }
+    }
+
     /// Select by date.
     /// Returns true if the date is valid for this month.
     /// If false it doesn't change the selection.
@@ -760,6 +770,16 @@ impl MonthState<RangeSelection> {
             } else {
                 CalOutcome::Continue
             }
+        } else {
+            CalOutcome::Continue
+        }
+    }
+
+    /// Select a day
+    pub fn select_last(&mut self, extend: bool) -> CalOutcome {
+        let date = self.end_date();
+        if self.selection.borrow_mut().select_day(date, extend) {
+            CalOutcome::Selected
         } else {
             CalOutcome::Continue
         }

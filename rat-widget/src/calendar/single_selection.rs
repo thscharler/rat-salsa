@@ -95,13 +95,16 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
         r = r.or_else(|| {
             if self.is_focused() {
                 match event {
+                    ct_event!(keycode press CONTROL-Home) => self.move_to_current(),
+
                     ct_event!(keycode press PageUp) => self.shift_back(self.step()),
                     ct_event!(keycode press PageDown) => self.shift_forward(self.step()),
+
                     ct_event!(keycode press Up) => self.prev_day(7),
                     ct_event!(keycode press Down) => self.next_day(7),
                     ct_event!(keycode press Left) => self.prev_day(1),
                     ct_event!(keycode press Right) => self.next_day(1),
-                    ct_event!(keycode press Home) => self.move_to_current(),
+
                     _ => CalOutcome::Continue,
                 }
             } else {

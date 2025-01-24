@@ -144,6 +144,11 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<Ra
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
         if self.is_focused() {
             flow!(match event {
+                ct_event!(keycode press Home) => self.select_day(0, false),
+                ct_event!(keycode press End) => self.select_last(false),
+                ct_event!(keycode press SHIFT-Home) => self.select_day(0, true),
+                ct_event!(keycode press SHIFT-End) => self.select_last(true),
+
                 ct_event!(keycode press Up) => self.prev_day(7, false),
                 ct_event!(keycode press Down) => self.next_day(7, false),
                 ct_event!(keycode press Left) => self.prev_day(1, false),
@@ -238,7 +243,7 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
         r = r.or_else(|| {
             if self.is_focused() {
                 match event {
-                    ct_event!(keycode press Home) => self.move_to_today(),
+                    ct_event!(keycode press CONTROL-Home) => self.move_to_today(),
 
                     ct_event!(keycode press PageUp) => self.shift_back(1),
                     ct_event!(keycode press PageDown) => self.shift_forward(1),
