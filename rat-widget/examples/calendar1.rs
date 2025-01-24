@@ -11,7 +11,7 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
-use rat_widget::calendar::{CalendarState, HomePolicy, Month};
+use rat_widget::calendar::{CalendarState, Month, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, Outcome};
 use rat_widget::statusline::StatusLineState;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
@@ -60,7 +60,7 @@ impl State {
         };
 
         let today = Local::now().date_naive();
-        s.calendar.set_home_policy(HomePolicy::Index(1));
+        s.calendar.set_home_policy(TodayPolicy::Index(1));
         s.calendar.set_primary_focus(1);
         s.calendar.set_start_date(today - Months::new(1));
         s

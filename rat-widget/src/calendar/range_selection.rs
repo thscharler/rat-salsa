@@ -193,7 +193,7 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
                     ct_event!(keycode press Down) => self.next_day(7, false),
                     ct_event!(keycode press Left) => self.prev_day(1, false),
                     ct_event!(keycode press Right) => self.next_day(1, false),
-                    ct_event!(keycode press Home) => self.move_to_current(),
+                    ct_event!(keycode press Home) => self.move_to_today(),
                     ct_event!(keycode press ALT-Up) => self.prev_week(1, false),
                     ct_event!(keycode press ALT-Down) => self.next_week(1, false),
                     _ => CalOutcome::Continue,

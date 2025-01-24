@@ -8,11 +8,12 @@ use rat_reloc::RelocatableState;
 use ratatui::layout::Rect;
 use std::array;
 use std::cell::RefCell;
+use std::ops::RangeInclusive;
 use std::rc::Rc;
 
 /// How should [move_to_current] behave.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HomePolicy {
+pub enum TodayPolicy {
     /// Set the primary month to the fixed index in the calendar.
     Index(usize),
     /// Behave like a yearly calendar. Sets the primary month to
@@ -20,7 +21,7 @@ pub enum HomePolicy {
     Year,
 }
 
-impl Default for HomePolicy {
+impl Default for TodayPolicy {
     fn default() -> Self {
         Self::Index(0)
     }
@@ -29,7 +30,7 @@ impl Default for HomePolicy {
 /// A struct that contains an array of MonthState to get a true calendar
 /// behaviour. There is no Widget for this, the exact layout is left
 /// to the user.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CalendarState<const N: usize, Selection> {
     /// Step-size when navigating outside the displayed
     /// calendar.
@@ -45,7 +46,7 @@ pub struct CalendarState<const N: usize, Selection> {
     step: usize,
 
     /// Behavior of move_to_current.
-    home: HomePolicy,
+    home: TodayPolicy,
 
     /// Primary month.
     /// Only this month will take part in Tab navigation.
@@ -125,7 +126,7 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
     /// Step size in months when scrolling/leaving the
     /// displayed range.
     pub fn set_step(&mut self, step: usize) {
-        assert!(step < self.months.len());
+        assert!(step <= self.months.len());
         self.step = step;
     }
 
@@ -135,15 +136,15 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
         self.step
     }
 
-    /// How should move_to_current() work.
-    pub fn set_home_policy(&mut self, home: HomePolicy) {
-        if let HomePolicy::Index(idx) = home {
+    /// How should move_to_today() work.
+    pub fn set_today_policy(&mut self, home: TodayPolicy) {
+        if let TodayPolicy::Index(idx) = home {
             assert!(idx < self.months.len());
         }
         self.home = home;
     }
 
-    pub fn home_policy(&mut self) -> HomePolicy {
+    pub fn today_policy(&mut self) -> TodayPolicy {
         self.home
     }
 
@@ -222,6 +223,18 @@ impl<const N: usize, Selection> CalendarState<N, Selection>
 where
     Selection: CalendarSelection,
 {
+    pub fn clear(&mut self) {
+        self.selection.clear();
+    }
+
+    pub fn is_selected(&self, date: NaiveDate) -> bool {
+        self.selection.is_selected(date)
+    }
+
+    pub fn lead_selection(&self) -> Option<NaiveDate> {
+        self.selection.lead_selection()
+    }
+
     pub(super) fn focus_lead(&mut self) -> CalOutcome {
         let Some(lead) = self.selection.lead_selection() else {
             return CalOutcome::Continue;
@@ -250,6 +263,14 @@ where
 impl<const N: usize> CalendarState<N, NoSelection> {}
 
 impl<const N: usize> CalendarState<N, SingleSelection> {
+    pub fn select(&mut self, date: NaiveDate) -> bool {
+        self.selection.borrow_mut().select(date)
+    }
+
+    pub fn selected(&self) -> Option<NaiveDate> {
+        self.selection.borrow().selected()
+    }
+
     /// Move all selections back by step.
     pub fn shift_back(&mut self, n: usize) -> CalOutcome {
         if self.step == 0 {
@@ -297,7 +318,7 @@ impl<const N: usize> CalendarState<N, SingleSelection> {
         }
         let date = self.selection.borrow().selected();
         if let Some(date) = date {
-            if date < self.start_date() {
+            if date > self.end_date() {
                 r = r.max(self.scroll_forward(self.step));
             }
         }
@@ -313,12 +334,12 @@ impl<const N: usize> CalendarState<N, SingleSelection> {
             r = CalOutcome::Selected;
         }
         match self.home {
-            HomePolicy::Index(primary) => {
+            TodayPolicy::Index(primary) => {
                 self.primary_focus = primary;
                 self.set_start_date(current - Months::new(primary as u32));
                 self.focus_lead();
             }
-            HomePolicy::Year => {
+            TodayPolicy::Year => {
                 let month = current.month0();
                 self.primary_focus = month as usize;
                 self.set_start_date(current - Months::new(month));
@@ -405,6 +426,26 @@ impl<const N: usize> CalendarState<N, SingleSelection> {
 }
 
 impl<const N: usize> CalendarState<N, RangeSelection> {
+    pub fn select_week(&mut self, date: NaiveDate, extend: bool) -> bool {
+        self.selection.borrow_mut().select_week(date, extend)
+    }
+
+    pub fn select_day(&mut self, date: NaiveDate, extend: bool) -> bool {
+        self.selection.borrow_mut().select_day(date, extend)
+    }
+
+    pub fn select(&mut self, selection: (NaiveDate, NaiveDate)) -> bool {
+        self.selection.borrow_mut().select(selection)
+    }
+
+    pub fn selected(&self) -> Option<(NaiveDate, NaiveDate)> {
+        self.selection.borrow().selected()
+    }
+
+    pub fn selected_range(&self) -> Option<RangeInclusive<NaiveDate>> {
+        self.selection.borrow().selected_range()
+    }
+
     /// Move all selections back by step.
     pub fn shift_back(&mut self, n: usize) -> CalOutcome {
         if self.step == 0 {
@@ -450,7 +491,7 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
         }
         let date = self.selection.borrow().selected();
         if let Some(date) = date {
-            if date.0 < self.start_date() {
+            if date.0 > self.end_date() {
                 r = r.max(self.scroll_forward(self.step));
             }
         }
@@ -458,7 +499,7 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
         r.max(self.focus_lead())
     }
 
-    pub fn move_to_current(&mut self) -> CalOutcome {
+    pub fn move_to_today(&mut self) -> CalOutcome {
         let current = Local::now().date_naive();
 
         let mut r = CalOutcome::Changed;
@@ -467,12 +508,12 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
             r = CalOutcome::Selected;
         }
         match self.home {
-            HomePolicy::Index(primary) => {
+            TodayPolicy::Index(primary) => {
                 self.primary_focus = primary;
                 self.set_start_date(current - Months::new(primary as u32));
                 self.focus_lead();
             }
-            HomePolicy::Year => {
+            TodayPolicy::Year => {
                 let month = current.month0();
                 self.primary_focus = month as usize;
                 self.set_start_date(current - Months::new(month));
