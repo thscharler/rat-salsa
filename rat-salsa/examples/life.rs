@@ -9,8 +9,8 @@
 
 use crate::app::{Scenery, SceneryState};
 use crate::config::LifeConfig;
+use crate::event::LifeEvent;
 use crate::global::{GlobalState, PollTick};
-use crate::message::LifeEvent;
 use anyhow::Error;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, RunConfig};
@@ -57,8 +57,8 @@ fn main() -> Result<(), Error> {
 /// Globally accessible data/state.
 pub mod global {
     use crate::config::LifeConfig;
+    use crate::event::LifeEvent;
     use crate::game::LifeGameState;
-    use crate::message::LifeEvent;
     use rat_salsa::Control;
     use rat_salsa::PollEvents;
     use rat_theme::dark_theme::DarkTheme;
@@ -156,10 +156,8 @@ pub mod config {
     pub struct LifeConfig {}
 }
 
-/// Application wide messages.
-pub mod message {
-    use crossterm::event::Event;
-
+/// Application event.
+pub mod event {
     #[derive(Debug)]
     pub enum LifeEvent {
         Event(crossterm::event::Event),
@@ -169,17 +167,17 @@ pub mod message {
     }
 
     impl From<crossterm::event::Event> for LifeEvent {
-        fn from(value: Event) -> Self {
+        fn from(value: crossterm::event::Event) -> Self {
             Self::Event(value)
         }
     }
 }
 
 pub mod app {
+    use crate::event::LifeEvent;
     use crate::game::LifeGameState;
     use crate::global::GlobalState;
     use crate::life::{Life, LifeState};
-    use crate::message::LifeEvent;
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control};
