@@ -49,3 +49,4 @@ chrono = { version = "0.4", features = ["clock"] }
 rand = "0.8"
 format_num_pattern = "0.9"
 pure-rust-locales = "0.8"
+sys-locale = "0.3.2"

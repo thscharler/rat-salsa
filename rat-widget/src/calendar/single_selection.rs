@@ -97,8 +97,8 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
                 match event {
                     ct_event!(keycode press CONTROL-Home) => self.move_to_current(),
 
-                    ct_event!(keycode press PageUp) => self.shift_back(self.step()),
-                    ct_event!(keycode press PageDown) => self.shift_forward(self.step()),
+                    ct_event!(keycode press PageUp) => self.shift_back(1),
+                    ct_event!(keycode press PageDown) => self.shift_forward(1),
 
                     ct_event!(keycode press Up) => self.prev_day(7),
                     ct_event!(keycode press Down) => self.next_day(7),

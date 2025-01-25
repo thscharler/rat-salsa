@@ -66,12 +66,18 @@ impl RangeSelection {
                 if start < anchor {
                     if end < anchor {
                         self.lead = Some(start);
+                        if self.anchor.is_none() {
+                            self.anchor = Some(date);
+                        }
                     } else {
                         self.lead = Some(start);
                         self.anchor = Some(end);
                     }
                 } else {
                     self.lead = Some(end);
+                    if self.anchor.is_none() {
+                        self.anchor = Some(date);
+                    }
                 }
             } else {
                 self.anchor = Some(start);
@@ -91,6 +97,9 @@ impl RangeSelection {
 
         if extend {
             self.lead = Some(date);
+            if self.anchor.is_none() {
+                self.anchor = Some(date);
+            }
         } else {
             self.anchor = Some(date);
             self.lead = Some(date);

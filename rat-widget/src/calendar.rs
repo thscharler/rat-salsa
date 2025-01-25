@@ -12,6 +12,7 @@ use chrono::NaiveDate;
 use ratatui::widgets::StatefulWidgetRef;
 
 mod calendar;
+mod calendar3;
 pub(crate) mod event;
 mod month;
 mod no_selection;
@@ -20,6 +21,7 @@ mod single_selection;
 mod style;
 
 pub use calendar::*;
+pub use calendar3::*;
 pub use month::*;
 pub use style::*;
 

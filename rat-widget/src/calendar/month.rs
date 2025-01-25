@@ -46,6 +46,9 @@ pub struct Month<'a, Selection> {
     select_style: Option<Style>,
     /// Focus
     focus_style: Option<Style>,
+
+    /// Show month name
+    show_month: bool,
     /// Show Weekdays above
     show_weekdays: bool,
 
@@ -105,7 +108,8 @@ impl<'a, Selection> Default for Month<'a, Selection> {
             day_styles: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            show_weekdays: false,
+            show_month: true,
+            show_weekdays: true,
             block: Default::default(),
             loc: Default::default(),
             phantom: PhantomData,
@@ -130,6 +134,13 @@ impl<'a, Selection> Month<'a, Selection> {
     #[inline]
     pub fn locale(mut self, loc: chrono::Locale) -> Self {
         self.loc = loc;
+        self
+    }
+
+    /// Show month title
+    #[inline]
+    pub fn show_show_month(mut self) -> Self {
+        self.show_month = true;
         self
     }
 
@@ -319,23 +330,30 @@ fn render_ref<Selection: CalendarSelection>(
         title_style
     };
 
-    let block = if let Some(block) = widget.block.clone() {
-        block
-            .title(Title::from(
-                day.format_localized("%B", widget.loc).to_string(),
-            ))
-            .title_style(title_style)
-            .title_alignment(widget.title_align)
+    let block = if widget.show_month {
+        if let Some(block) = widget.block.clone() {
+            block
+                .title(Title::from(
+                    day.format_localized("%B", widget.loc).to_string(),
+                ))
+                .title_style(title_style)
+                .title_alignment(widget.title_align)
+        } else {
+            Block::new()
+                .style(widget.style)
+                .title(Title::from(
+                    day.format_localized("%B", widget.loc).to_string(),
+                ))
+                .title_style(title_style)
+                .title_alignment(widget.title_align)
+        }
     } else {
-        Block::new()
-            .style(widget.style)
-            .title(Title::from(
-                day.format_localized("%B", widget.loc).to_string(),
-            ))
-            .title_style(title_style)
-            .title_alignment(widget.title_align)
+        if let Some(block) = widget.block.clone() {
+            block
+        } else {
+            Block::new().style(widget.style)
+        }
     };
-
     state.inner = block.inner(area);
     block.render(area, buf);
 
@@ -392,24 +410,7 @@ fn render_ref<Selection: CalendarSelection>(
         if day.weekday() != wd {
             x += 3;
         } else {
-            let day_style = if let Some(day_styles) = widget.day_styles {
-                if let Some(day_style) = day_styles.get(&day) {
-                    *day_style
-                } else {
-                    day_style
-                }
-            } else {
-                day_style
-            };
-            let day_style =
-                if state.selection.len() > 1 && state.selection.lead_selection() == Some(day) {
-                    day_style.patch(revert_style(select_style))
-                } else if state.selection.is_selected(day) {
-                    day_style.patch(select_style)
-                } else {
-                    day_style
-                };
-
+            let day_style = calc_day_style(widget, state, day, day_style, select_style);
             state.area_days[day.day0() as usize] = Rect::new(x, y, 2, 1).intersection(state.inner);
 
             Span::from(day.format_localized("%e", widget.loc).to_string())
@@ -450,23 +451,7 @@ fn render_ref<Selection: CalendarSelection>(
             Weekday::Sun,
         ] {
             if day.month() == month {
-                let day_style = if let Some(day_styles) = widget.day_styles {
-                    if let Some(day_style) = day_styles.get(&day) {
-                        *day_style
-                    } else {
-                        day_style
-                    }
-                } else {
-                    day_style
-                };
-                let day_style =
-                    if state.selection.len() > 1 && state.selection.lead_selection() == Some(day) {
-                        day_style.patch(revert_style(select_style))
-                    } else if state.selection.is_selected(day) {
-                        day_style.patch(select_style)
-                    } else {
-                        day_style
-                    };
+                let day_style = calc_day_style(widget, state, day, day_style, select_style);
 
                 state.area_days[day.day0() as usize] =
                     Rect::new(x, y, 2, 1).intersection(state.inner);
@@ -492,6 +477,35 @@ fn render_ref<Selection: CalendarSelection>(
         w += 1;
         x = state.inner.x;
         y += 1;
+    }
+}
+
+fn calc_day_style<Selection: CalendarSelection>(
+    widget: &Month<'_, Selection>,
+    state: &mut MonthState<Selection>,
+    day: NaiveDate,
+    day_style: Style,
+    select_style: Style,
+) -> Style {
+    let day_style = if let Some(day_styles) = widget.day_styles {
+        if let Some(day_style) = day_styles.get(&day) {
+            *day_style
+        } else {
+            day_style
+        }
+    } else {
+        day_style
+    };
+
+    if state.is_focused()
+        && state.selection.len() > 1
+        && state.selection.lead_selection() == Some(day)
+    {
+        day_style.patch(revert_style(select_style))
+    } else if state.selection.is_selected(day) {
+        day_style.patch(select_style)
+    } else {
+        day_style
     }
 }
 

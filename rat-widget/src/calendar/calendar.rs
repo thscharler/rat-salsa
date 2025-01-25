@@ -2,7 +2,7 @@ use crate::calendar::event::CalOutcome;
 use crate::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
 use crate::calendar::{CalendarSelection, MonthState};
 use chrono::{Datelike, Days, Local, Months, NaiveDate, Weekday};
-use rat_event::util::MouseFlags;
+use log::debug;
 use rat_event::ConsumedEvent;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
@@ -293,9 +293,86 @@ where
 
         r
     }
+
+    pub(super) fn focus_n(&mut self, n: usize) -> CalOutcome {
+        let mut r = CalOutcome::Continue;
+
+        if self.is_focused() {
+            for (i, month) in self.months.iter().enumerate() {
+                if i == n {
+                    if self.primary_idx != i {
+                        r = CalOutcome::Changed;
+                    }
+                    self.primary_idx = i;
+                    month.focus.set(true);
+                } else {
+                    month.focus.set(false);
+                }
+            }
+        }
+
+        r
+    }
 }
 
-impl<const N: usize> CalendarState<N, NoSelection> {}
+impl<const N: usize> CalendarState<N, NoSelection> {
+    /// Move all selections back by step.
+    pub fn shift_back(&mut self, n: usize) -> CalOutcome {
+        let base_start = self.start_date();
+        let date = self.months[self.primary_idx].start_date();
+
+        let prev = date - Months::new(n as u32);
+
+        let mut r = CalOutcome::Continue;
+        if prev >= base_start {
+            self.focus_n(self.primary_idx - 1);
+            r = CalOutcome::Changed;
+        } else if self.step() > 0 {
+            r = self.scroll_back(self.step());
+        }
+
+        r
+    }
+
+    /// Move all selections forward by step
+    pub fn shift_forward(&mut self, n: usize) -> CalOutcome {
+        let base_end = self.end_date();
+        let date = self.months[self.primary_idx].start_date();
+
+        let next = date + Months::new(n as u32);
+
+        let mut r = CalOutcome::Continue;
+        if next <= base_end {
+            self.focus_n(self.primary_idx + 1);
+            r = CalOutcome::Changed;
+        } else if self.step() > 0 {
+            r = self.scroll_forward(self.step());
+        }
+        r
+    }
+
+    pub fn move_to_current(&mut self) -> CalOutcome {
+        let current = Local::now().date_naive();
+
+        let r = CalOutcome::Changed;
+
+        match self.home {
+            TodayPolicy::Index(primary) => {
+                self.primary_idx = primary;
+                self.set_start_date(current - Months::new(primary as u32));
+                self.focus_n(self.primary_idx);
+            }
+            TodayPolicy::Year => {
+                let month = current.month0();
+                self.primary_idx = month as usize;
+                self.set_start_date(current - Months::new(month));
+                self.focus_n(self.primary_idx);
+            }
+        }
+
+        r
+    }
+}
 
 impl<const N: usize> CalendarState<N, SingleSelection> {
     pub fn select(&mut self, date: NaiveDate) -> bool {
