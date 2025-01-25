@@ -424,12 +424,12 @@ impl<const N: usize> CalendarState<N, SingleSelection> {
     /// Select the same day in the previous month.
     /// This may shift the date a bit if it's out of range of the
     /// new month.
-    pub fn prev_month(&mut self, n: usize) -> CalOutcome {
+    pub fn move_to_prev_month(&mut self, n: usize) -> CalOutcome {
         self.prev(Months::new(n as u32), Days::new(0))
     }
 
     /// Select previous week.
-    pub fn next_month(&mut self, n: usize) -> CalOutcome {
+    pub fn move_to_next_month(&mut self, n: usize) -> CalOutcome {
         self.next(Months::new(n as u32), Days::new(0))
     }
 
