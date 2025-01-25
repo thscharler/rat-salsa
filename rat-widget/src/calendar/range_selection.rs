@@ -6,7 +6,6 @@ use rat_event::util::item_at;
 use rat_event::ConsumedEvent;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocus;
-use std::cmp::{max, min};
 use std::ops::RangeInclusive;
 
 #[derive(Debug, Default, Clone)]
@@ -373,11 +372,8 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
                         }
                     }
                     ct_event!(keycode press CONTROL-Home) => self.move_to_today(),
-
-                    ct_event!(keycode press PageUp) => self.prev_month(1, false),
-                    ct_event!(keycode press PageDown) => self.next_month(1, false),
-                    ct_event!(keycode press SHIFT-PageUp) => self.prev_month(1, true),
-                    ct_event!(keycode press SHIFT-PageDown) => self.next_month(1, true),
+                    ct_event!(keycode press PageUp) => self.move_to_prev_month(1),
+                    ct_event!(keycode press PageDown) => self.move_to_next_month(1),
 
                     ct_event!(keycode press Up) => self.prev_day(7, false),
                     ct_event!(keycode press Down) => self.next_day(7, false),
