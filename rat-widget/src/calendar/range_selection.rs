@@ -1,11 +1,12 @@
 use crate::calendar::calendar::CalendarState;
 use crate::calendar::event::CalOutcome;
 use crate::calendar::{CalendarSelection, MonthState};
-use chrono::{Datelike, NaiveDate, Weekday};
+use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
 use rat_event::util::item_at;
 use rat_event::ConsumedEvent;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocus;
+use std::cmp::{max, min};
 use std::ops::RangeInclusive;
 
 #[derive(Debug, Default, Clone)]
@@ -54,12 +55,12 @@ impl CalendarSelection for RangeSelection {
 }
 
 impl RangeSelection {
-    /// Select a week. Any date in a week will do.
-    pub fn select_week(&mut self, date: NaiveDate, extend: bool) -> bool {
+    /// Select a month. Any date in a month will do.
+    pub fn select_month(&mut self, date: NaiveDate, extend: bool) -> bool {
         let old = (self.anchor, self.lead);
 
-        let start = date.week(Weekday::Mon).first_day();
-        let end = date.week(Weekday::Mon).last_day();
+        let start = date.with_day(1).expect("date");
+        let end = date.with_day(1).expect("date") + Months::new(1) - Days::new(1);
 
         if extend {
             if let Some(anchor) = self.anchor {
@@ -86,6 +87,72 @@ impl RangeSelection {
         } else {
             self.anchor = Some(start);
             self.lead = Some(end);
+        }
+
+        old != (self.anchor, self.lead)
+    }
+
+    /// Select a week. Any date in a week will do.
+    pub fn select_week(&mut self, date: NaiveDate, extend: bool) -> bool {
+        let old = (self.anchor, self.lead);
+
+        let new_start = date.week(Weekday::Mon).first_day();
+        let new_end = date.week(Weekday::Mon).last_day();
+
+        if extend {
+            if let Some(lead) = self.lead {
+                let Some(anchor) = self.anchor else {
+                    unreachable!();
+                };
+
+                if ((lead - anchor).num_days().unsigned_abs() + 1) % 7 != 0 {
+                    // Day selection. Reset
+                    self.lead = Some(new_start);
+                    self.anchor = Some(new_end);
+                } else if (lead - anchor).num_days().unsigned_abs() + 1 == 7 {
+                    // A single week can change direction.
+                    if lead <= anchor {
+                        if new_start < anchor {
+                            self.lead = Some(new_start);
+                        } else {
+                            self.lead = Some(new_end);
+                            self.anchor = Some(lead);
+                        }
+                    } else {
+                        if new_start > anchor {
+                            self.lead = Some(new_end);
+                        } else {
+                            self.lead = Some(new_start);
+                            self.anchor = Some(lead);
+                        }
+                    }
+                } else {
+                    // keep direction and reduce/extend in that direction.
+                    if lead < anchor {
+                        if new_start <= lead {
+                            self.lead = Some(new_start);
+                        } else if new_end <= anchor {
+                            self.lead = Some(new_start);
+                        } else {
+                            self.lead = Some(new_end);
+                        }
+                    } else {
+                        if new_end <= lead {
+                            self.lead = Some(new_end);
+                        } else if new_start >= anchor {
+                            self.lead = Some(new_end);
+                        } else {
+                            self.lead = Some(new_start);
+                        }
+                    }
+                }
+            } else {
+                self.lead = Some(new_start);
+                self.anchor = Some(new_end);
+            }
+        } else {
+            self.lead = Some(new_start);
+            self.anchor = Some(new_end);
         }
 
         old != (self.anchor, self.lead)
@@ -181,30 +248,65 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<Ra
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState<RangeSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
-        match event {
-            ct_event!(mouse any for m) if self.mouse.drag(self.area_cal, m) => {
-                if let Some(sel) = item_at(&self.area_days, m.column, m.row) {
-                    let r = self.select_day(sel, true);
-                    r
-                } else {
-                    let mut r = CalOutcome::Continue;
-
-                    let mut above = self.area_cal;
-                    above.y -= 2;
-                    above.height = 3;
-                    if above.contains((m.column, m.row).into()) {
-                        r = self.select_day(0, true);
+        let mut r = match event {
+            ct_event!(mouse any for m)
+                if self.mouse.drag(
+                    &[self.area_cal, self.area_weeknum], //
+                    m,
+                ) =>
+            {
+                if self.mouse.drag.get() == Some(0) {
+                    if let Some(sel) = item_at(&self.area_days, m.column, m.row) {
+                        let r = self.select_day(sel, true);
+                        r
                     } else {
-                        let mut below = self.area_cal;
-                        below.y = below.bottom().saturating_sub(1);
-                        below.height = 2;
-                        if below.contains((m.column, m.row).into()) {
-                            r = self.select_day(self.end_date().day0() as usize, true);
+                        let mut r = CalOutcome::Continue;
+
+                        let mut above = self.area_cal;
+                        above.y -= 2;
+                        above.height = 3;
+                        if above.contains((m.column, m.row).into()) {
+                            r = self.select_day(0, true);
+                        } else {
+                            let mut below = self.area_cal;
+                            below.y = below.bottom().saturating_sub(1);
+                            below.height = 2;
+                            if below.contains((m.column, m.row).into()) {
+                                r = self.select_day(self.end_date().day0() as usize, true);
+                            }
                         }
+                        r
                     }
-                    r
+                } else if self.mouse.drag.get() == Some(1) {
+                    if let Some(sel) = item_at(&self.area_weeks, m.column, m.row) {
+                        let r = self.select_week(sel, true);
+                        r
+                    } else {
+                        let mut r = CalOutcome::Continue;
+
+                        let mut above = self.area_weeknum;
+                        above.y -= 2;
+                        above.height = 3;
+                        if above.contains((m.column, m.row).into()) {
+                            r = self.select_week(0, true);
+                        } else {
+                            let mut below = self.area_cal;
+                            below.y = below.bottom().saturating_sub(1);
+                            below.height = 2;
+                            if below.contains((m.column, m.row).into()) {
+                                r = self.select_week(self.end_date().day0() as usize, true);
+                            }
+                        }
+                        r
+                    }
+                } else {
+                    CalOutcome::Continue
                 }
             }
+            _ => CalOutcome::Continue,
+        };
+
+        r = r.or_else(|| match event {
             ct_event!(mouse down Left for x, y) => {
                 if let Some(sel) = item_at(&self.area_weeks, *x, *y) {
                     self.select_week(sel, false)
@@ -214,8 +316,19 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState<
                     CalOutcome::Continue
                 }
             }
+            ct_event!(mouse down CONTROL-Left for x, y) => {
+                if let Some(sel) = item_at(&self.area_weeks, *x, *y) {
+                    self.select_week(sel, true)
+                } else if let Some(sel) = item_at(&self.area_days, *x, *y) {
+                    self.select_day(sel, true)
+                } else {
+                    CalOutcome::Continue
+                }
+            }
             _ => CalOutcome::Continue,
-        }
+        });
+
+        r
     }
 }
 
@@ -235,16 +348,16 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
         };
         // Enable drag for all months.
         if r.is_consumed() {
-            let mut drag = false;
+            let mut drag = None;
             for m in &self.months {
-                if m.mouse.drag.get() {
-                    drag = true;
+                if let Some(d) = m.mouse.drag.get() {
+                    drag = Some(d);
                     break;
                 }
             }
-            if drag {
+            if drag.is_some() {
                 for m in &self.months {
-                    m.mouse.drag.set(true);
+                    m.mouse.drag.set(drag);
                 }
             }
         }
@@ -252,10 +365,19 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
         r = r.or_else(|| {
             if self.is_focused() {
                 match event {
+                    ct_event!(key press CONTROL-'a') => {
+                        if self.select_month(self.months[self.primary_idx()].start_date(), false) {
+                            CalOutcome::Selected
+                        } else {
+                            CalOutcome::Continue
+                        }
+                    }
                     ct_event!(keycode press CONTROL-Home) => self.move_to_today(),
 
-                    ct_event!(keycode press PageUp) => self.shift_back(1),
-                    ct_event!(keycode press PageDown) => self.shift_forward(1),
+                    ct_event!(keycode press PageUp) => self.prev_month(1, false),
+                    ct_event!(keycode press PageDown) => self.next_month(1, false),
+                    ct_event!(keycode press SHIFT-PageUp) => self.prev_month(1, true),
+                    ct_event!(keycode press SHIFT-PageDown) => self.next_month(1, true),
 
                     ct_event!(keycode press Up) => self.prev_day(7, false),
                     ct_event!(keycode press Down) => self.next_day(7, false),

@@ -5,7 +5,7 @@ use crate::calendar::style::CalendarStyle;
 use crate::calendar::CalendarSelection;
 use crate::util::{block_size, revert_style};
 use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
-use rat_event::util::MouseFlags;
+use rat_event::util::MouseFlagsN;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
@@ -75,6 +75,8 @@ pub struct MonthState<Selection = SingleSelection> {
     /// Area for the days of the month.
     /// __readonly__. renewed for each render.
     pub area_days: [Rect; 31],
+    /// Area for all the week numbers.
+    pub area_weeknum: Rect,
     /// Area for the week numbers.
     /// __readonly__. renewed for each render.
     pub area_weeks: [Rect; 6],
@@ -85,12 +87,16 @@ pub struct MonthState<Selection = SingleSelection> {
     /// Selection
     pub selection: Rc<RefCell<Selection>>,
 
+    /// Set to the container-focus if part of a container.
+    /// __read+write__
+    pub container: Option<FocusFlag>,
+
     /// Focus
     /// __read+write__
     pub focus: FocusFlag,
     /// Mouse flags
     /// __read+write__
-    pub mouse: MouseFlags,
+    pub mouse: MouseFlagsN,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -303,13 +309,13 @@ fn render_ref<Selection: CalendarSelection>(
 
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
     let select_style = if let Some(select_style) = widget.select_style {
-        if state.focus.get() {
+        if state.is_container_focused() || state.is_focused() {
             focus_style
         } else {
             select_style
         }
     } else {
-        if state.focus.get() {
+        if state.is_container_focused() || state.is_focused() {
             focus_style
         } else {
             revert_style(widget.style)
@@ -389,6 +395,7 @@ fn render_ref<Selection: CalendarSelection>(
         state.area_weeks[i] = Rect::default();
     }
     state.area_cal = Rect::new(x + 3, y, 7 * 3, state.week_len() as u16);
+    state.area_weeknum = Rect::new(x, y, 3, state.week_len() as u16);
 
     // first line may omit a few days
     state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.inner);
@@ -497,7 +504,7 @@ fn calc_day_style<Selection: CalendarSelection>(
         day_style
     };
 
-    if state.is_focused()
+    if (state.is_container_focused() || state.is_focused())
         && state.selection.len() > 1
         && state.selection.lead_selection() == Some(day)
     {
@@ -544,9 +551,11 @@ where
             inner: self.inner,
             area_cal: self.area_cal.clone(),
             area_days: self.area_days.clone(),
+            area_weeknum: self.area_weeknum.clone(),
             area_weeks: self.area_weeks.clone(),
             start_date: self.start_date,
             selection: self.selection.clone(),
+            container: self.container.clone(),
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -563,10 +572,12 @@ where
             area: Default::default(),
             inner: Default::default(),
             area_cal: Default::default(),
-            area_days: [Rect::default(); 31],
-            area_weeks: [Rect::default(); 6],
+            area_days: Default::default(),
+            area_weeknum: Default::default(),
+            area_weeks: Default::default(),
             start_date: Default::default(),
             selection: Default::default(),
+            container: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -648,6 +659,14 @@ impl<Selection> MonthState<Selection> {
         }
 
         weeks
+    }
+
+    // is there a container for this month?
+    fn is_container_focused(&self) -> bool {
+        self.container
+            .as_ref()
+            .map(|v| v.is_focused())
+            .unwrap_or(false)
     }
 }
 

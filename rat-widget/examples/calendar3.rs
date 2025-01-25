@@ -9,7 +9,7 @@ use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::button::{Button, ButtonState};
-use rat_widget::calendar::selection::RangeSelection;
+use rat_widget::calendar::selection::{RangeSelection, SingleSelection};
 use rat_widget::calendar::{Calendar3, CalendarState, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, CalOutcome, Outcome};
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
