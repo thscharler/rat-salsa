@@ -21,6 +21,8 @@ pub mod edit;
 
 /// Trait for list-selection.
 pub trait ListSelection {
+    // TODO: clear + len
+
     /// Is selected.
     fn is_selected(&self, n: usize) -> bool;
 
