@@ -73,7 +73,7 @@ impl PopFocusBlueState {
 
     pub fn show(&mut self, placement: PopupConstraint, focus: &mut Focus) {
         self.placement = placement;
-        focus.focus_flag(&self.focus);
+        focus.focus(&self.focus);
     }
 
     pub fn hide(&mut self, focus: &mut Focus) {
@@ -85,13 +85,11 @@ impl PopFocusBlueState {
 
 impl HasFocus for PopFocusBlueState {
     fn build(&self, builder: &mut FocusBuilder) {
-        // only add when active.
         // use container-flag to auto-hide.
-        if self.popup.active.is_focused() {
-            let tag = builder.start(self);
-            builder.widget_with_flags(self.focus.clone(), self.area, 0, Navigation::Leave);
-            builder.end(tag);
-        }
+        let tag = builder.start(self);
+        // cannot reach with tab but may leave.
+        builder.widget_with_flags(self.focus.clone(), self.area, 0, Navigation::Leave);
+        builder.end(tag);
     }
 
     fn focus(&self) -> FocusFlag {

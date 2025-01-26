@@ -43,7 +43,7 @@ use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollAreaState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -100,6 +100,7 @@ where
     focus_style: Option<Style>,
     block: Option<Block<'a>>,
 
+    popup_alignment: Alignment,
     popup_placement: Placement,
     popup_len: Option<u16>,
     popup: PopupCore<'a>,
@@ -142,6 +143,7 @@ where
     style: Style,
     select_style: Option<Style>,
 
+    popup_alignment: Alignment,
     popup_placement: Placement,
     popup_len: Option<u16>,
     popup: PopupCore<'a>,
@@ -424,6 +426,7 @@ where
             focus_style: Default::default(),
             block: Default::default(),
             popup_len: Default::default(),
+            popup_alignment: Alignment::Left,
             popup_placement: Placement::BelowOrAbove,
             popup: Default::default(),
             behave_select: Default::default(),
@@ -523,6 +526,9 @@ where
             self.behave_close = close;
         }
         self.block = self.block.map(|v| v.style(self.style));
+        if let Some(alignment) = styles.popup.alignment {
+            self.popup_alignment = alignment;
+        }
         if let Some(placement) = styles.popup.placement {
             self.popup_placement = placement;
         }
@@ -562,6 +568,15 @@ where
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self.block = self.block.map(|v| v.style(self.style));
+        self
+    }
+
+    /// Alignment of the popup.
+    ///
+    /// __Default__
+    /// Default is Left.
+    pub fn popup_alignment(mut self, alignment: Alignment) -> Self {
+        self.popup_alignment = alignment;
         self
     }
 
@@ -685,6 +700,7 @@ where
                 style: self.style,
                 select_style: self.select_style,
                 popup: self.popup,
+                popup_alignment: self.popup_alignment,
                 popup_placement: self.popup_placement,
                 popup_len: self.popup_len,
                 _phantom: Default::default(),
@@ -838,7 +854,11 @@ fn render_popup<T: PartialEq + Clone + Default>(
 
         widget
             .popup
-            .ref_constraint(widget.popup_placement.into_constraint(area))
+            .ref_constraint(
+                widget
+                    .popup_placement
+                    .into_constraint(widget.popup_alignment, area),
+            )
             .render(pop_area, buf, &mut state.popup);
 
         let inner = state.popup.widget_area;

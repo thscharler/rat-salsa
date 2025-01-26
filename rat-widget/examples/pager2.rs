@@ -168,7 +168,7 @@ fn handle_input(
     let mut r = match state.pager.handle(event, Regular) {
         PagerOutcome::Page(p) => {
             if let Some(first) = state.pager.first(p) {
-                focus.focus_flag(&first);
+                focus.focus(&first);
             }
             Outcome::Changed
         }
@@ -179,7 +179,7 @@ fn handle_input(
         ct_event!(keycode press F(4)) => {
             if state.pager.prev_page() {
                 if let Some(first) = state.pager.first(state.pager.page()) {
-                    focus.focus_flag(&first);
+                    focus.focus(&first);
                 }
                 Outcome::Changed
             } else {
@@ -189,7 +189,7 @@ fn handle_input(
         ct_event!(keycode press F(5)) => {
             if state.pager.next_page() {
                 if let Some(first) = state.pager.first(state.pager.page()) {
-                    focus.focus_flag(&first);
+                    focus.focus(&first);
                 }
                 Outcome::Changed
             } else {

@@ -7,12 +7,13 @@ use crate::variants::popup_edit::{PopEditGreen, PopEditGreenState};
 use crate::variants::popup_focus::{PopFocusBlue, PopFocusBlueState};
 use crate::variants::popup_lock_edit::{PopLockMagenta, PopLockMagentaState};
 use crate::variants::popup_nonfocus::{PopNonFocusRed, PopNonFocusRedState};
+use log::debug;
 use rat_cursor::HasScreenCursor;
 use rat_event::{ct_event, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_popup::event::PopupOutcome;
 use rat_popup::PopupConstraint;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::StatefulWidget;
 use ratatui::Frame;
@@ -234,6 +235,7 @@ fn handle_stuff(
 
     let r4 = match event {
         ct_event!(keycode press F(1)) => {
+            debug!("change blue");
             state.which_blue = (state.which_blue + 1) % 4;
             match state.which_blue {
                 0 => state.popfoc.hide(&mut focus),
@@ -257,18 +259,10 @@ fn handle_stuff(
                 }
             };
             *placement = match *placement {
-                PopupConstraint::AboveLeft(r) => PopupConstraint::AboveCenter(r),
-                PopupConstraint::AboveCenter(r) => PopupConstraint::AboveRight(r),
-                PopupConstraint::AboveRight(r) => PopupConstraint::RightTop(r),
-                PopupConstraint::RightTop(r) => PopupConstraint::RightMiddle(r),
-                PopupConstraint::RightMiddle(r) => PopupConstraint::RightBottom(r),
-                PopupConstraint::RightBottom(r) => PopupConstraint::BelowRight(r),
-                PopupConstraint::BelowRight(r) => PopupConstraint::BelowCenter(r),
-                PopupConstraint::BelowCenter(r) => PopupConstraint::BelowLeft(r),
-                PopupConstraint::BelowLeft(r) => PopupConstraint::LeftBottom(r),
-                PopupConstraint::LeftBottom(r) => PopupConstraint::LeftMiddle(r),
-                PopupConstraint::LeftMiddle(r) => PopupConstraint::LeftTop(r),
-                PopupConstraint::LeftTop(r) => PopupConstraint::AboveLeft(r),
+                PopupConstraint::Above(a, r) => PopupConstraint::Right(a, r),
+                PopupConstraint::Right(a, r) => PopupConstraint::Below(a, r),
+                PopupConstraint::Below(a, r) => PopupConstraint::Left(a, r),
+                PopupConstraint::Left(a, r) => PopupConstraint::Above(a, r),
                 v => v,
             };
             Outcome::Changed
@@ -286,18 +280,10 @@ fn handle_stuff(
                 }
             };
             *placement = match *placement {
-                PopupConstraint::AboveLeft(r) => PopupConstraint::LeftTop(r),
-                PopupConstraint::AboveCenter(r) => PopupConstraint::AboveLeft(r),
-                PopupConstraint::AboveRight(r) => PopupConstraint::AboveCenter(r),
-                PopupConstraint::RightTop(r) => PopupConstraint::AboveRight(r),
-                PopupConstraint::RightMiddle(r) => PopupConstraint::RightTop(r),
-                PopupConstraint::RightBottom(r) => PopupConstraint::RightMiddle(r),
-                PopupConstraint::BelowRight(r) => PopupConstraint::RightBottom(r),
-                PopupConstraint::BelowCenter(r) => PopupConstraint::BelowRight(r),
-                PopupConstraint::BelowLeft(r) => PopupConstraint::BelowCenter(r),
-                PopupConstraint::LeftBottom(r) => PopupConstraint::BelowLeft(r),
-                PopupConstraint::LeftMiddle(r) => PopupConstraint::LeftBottom(r),
-                PopupConstraint::LeftTop(r) => PopupConstraint::LeftMiddle(r),
+                PopupConstraint::Above(a, r) => PopupConstraint::Left(a, r),
+                PopupConstraint::Left(a, r) => PopupConstraint::Below(a, r),
+                PopupConstraint::Below(a, r) => PopupConstraint::Right(a, r),
+                PopupConstraint::Right(a, r) => PopupConstraint::Above(a, r),
                 v => v,
             };
             Outcome::Changed
@@ -308,13 +294,13 @@ fn handle_stuff(
         {
             // placement relative to rect
             let placement = if *x < state.blue.area.left() {
-                PopupConstraint::LeftTop(state.blue.area)
+                PopupConstraint::Left(Alignment::Left, state.blue.area)
             } else if *x >= state.blue.area.right() {
-                PopupConstraint::RightTop(state.blue.area)
+                PopupConstraint::Right(Alignment::Left, state.blue.area)
             } else if *y < state.blue.area.top() {
-                PopupConstraint::AboveLeft(state.blue.area)
+                PopupConstraint::Above(Alignment::Left, state.blue.area)
             } else if *y >= state.blue.area.bottom() {
-                PopupConstraint::BelowLeft(state.blue.area)
+                PopupConstraint::Below(Alignment::Left, state.blue.area)
             } else {
                 unreachable!()
             };

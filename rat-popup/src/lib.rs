@@ -2,7 +2,7 @@
 //
 #![allow(clippy::collapsible_else_if)]
 
-use ratatui::layout::Rect;
+use ratatui::layout::{Alignment, Rect};
 
 mod popup;
 
@@ -58,37 +58,13 @@ pub enum Placement {
     /// Use the render-area for the popup as is.
     #[default]
     None,
-    /// Place the popup above the given area. Aligned left.
-    AboveLeft,
-    /// Place the popup above the given area. Aligned centered.
-    AboveCenter,
-    /// Place the popup above the given area. Aligned right.
-    AboveRight,
-    /// Place the popup to the left of the given area. Aligned to the top.
-    LeftTop,
-    /// Place the popup to the left of the given area. Aligned in the middle.
-    LeftMiddle,
-    /// Place the popup to the left of the given area. Aligned to the bottom.
-    LeftBottom,
-    /// Place the popup to the right of the given area. Aligned to the top.
-    RightTop,
-    /// Place the popup to the right of the given area. Aligned in the middle.
-    RightMiddle,
-    /// Place the popup to the right of the given area. Aligned to the bottom.
-    RightBottom,
-    /// Place the popup below the given area. Aligned left.
-    BelowLeft,
-    /// Place the popup below the given area. Aligned centered.
-    BelowCenter,
-    /// Place the popup below the given area. Aligned right.
-    BelowRight,
-    /// Place above. Aligned left.
+    /// Place above the given area.
     Above,
-    /// Place below: Aligned right.
+    /// Place below the given area:
     Below,
-    /// Place left. Aligned top.
+    /// Place left of the given area.
     Left,
-    /// Place right. Aligned top.
+    /// Place right of the given area.
     Right,
     /// Above or below dependent on available space. Aligned left.
     AboveOrBelow,
@@ -99,27 +75,15 @@ pub enum Placement {
 }
 
 impl Placement {
-    pub fn into_constraint(self, rel_area: Rect) -> PopupConstraint {
+    pub fn into_constraint(self, alignment: Alignment, rel_area: Rect) -> PopupConstraint {
         match self {
             Placement::None => PopupConstraint::None,
-            Placement::AboveLeft => PopupConstraint::AboveLeft(rel_area),
-            Placement::AboveCenter => PopupConstraint::AboveCenter(rel_area),
-            Placement::AboveRight => PopupConstraint::AboveRight(rel_area),
-            Placement::LeftTop => PopupConstraint::LeftTop(rel_area),
-            Placement::LeftMiddle => PopupConstraint::LeftMiddle(rel_area),
-            Placement::LeftBottom => PopupConstraint::LeftBottom(rel_area),
-            Placement::RightTop => PopupConstraint::RightTop(rel_area),
-            Placement::RightMiddle => PopupConstraint::RightMiddle(rel_area),
-            Placement::RightBottom => PopupConstraint::RightBottom(rel_area),
-            Placement::BelowLeft => PopupConstraint::BelowLeft(rel_area),
-            Placement::BelowCenter => PopupConstraint::BelowCenter(rel_area),
-            Placement::BelowRight => PopupConstraint::BelowRight(rel_area),
-            Placement::Above => PopupConstraint::Above(rel_area),
-            Placement::Below => PopupConstraint::Below(rel_area),
-            Placement::Left => PopupConstraint::Left(rel_area),
-            Placement::Right => PopupConstraint::Right(rel_area),
-            Placement::AboveOrBelow => PopupConstraint::AboveOrBelow(rel_area),
-            Placement::BelowOrAbove => PopupConstraint::BelowOrAbove(rel_area),
+            Placement::Above => PopupConstraint::Above(alignment, rel_area),
+            Placement::Below => PopupConstraint::Below(alignment, rel_area),
+            Placement::Left => PopupConstraint::Left(alignment, rel_area),
+            Placement::Right => PopupConstraint::Right(alignment, rel_area),
+            Placement::AboveOrBelow => PopupConstraint::AboveOrBelow(alignment, rel_area),
+            Placement::BelowOrAbove => PopupConstraint::BelowOrAbove(alignment, rel_area),
             Placement::Position(x, y) => PopupConstraint::Position(x, y),
         }
     }
@@ -141,42 +105,18 @@ pub enum PopupConstraint {
     /// Use the render-area for the popup as is.
     #[default]
     None,
-    /// Place the popup above the given area. Aligned left.
-    AboveLeft(Rect),
-    /// Place the popup above the given area. Aligned centered.
-    AboveCenter(Rect),
-    /// Place the popup above the given area. Aligned right.
-    AboveRight(Rect),
-    /// Place the popup to the left of the given area. Aligned to the top.
-    LeftTop(Rect),
-    /// Place the popup to the left of the given area. Aligned in the middle.
-    LeftMiddle(Rect),
-    /// Place the popup to the left of the given area. Aligned to the bottom.
-    LeftBottom(Rect),
-    /// Place the popup to the right of the given area. Aligned to the top.
-    RightTop(Rect),
-    /// Place the popup to the right of the given area. Aligned in the middle.
-    RightMiddle(Rect),
-    /// Place the popup to the right of the given area. Aligned to the bottom.
-    RightBottom(Rect),
-    /// Place the popup below the given area. Aligned left.
-    BelowLeft(Rect),
-    /// Place the popup below the given area. Aligned centered.
-    BelowCenter(Rect),
-    /// Place the popup below the given area. Aligned right.
-    BelowRight(Rect),
-    /// Place above. Aligned left.
-    Above(Rect),
-    /// Place below: Aligned right.
-    Below(Rect),
-    /// Place left. Aligned top.
-    Left(Rect),
-    /// Place right. Aligned top.
-    Right(Rect),
+    /// Synonym for AboveLeft
+    Above(Alignment, Rect),
+    /// Synonym for BelowLeft
+    Below(Alignment, Rect),
+    /// Synonym for LeftTop
+    Left(Alignment, Rect),
+    /// Synonym for RightTop
+    Right(Alignment, Rect),
     /// Above or below dependent on available space. Aligned left.
-    AboveOrBelow(Rect),
+    AboveOrBelow(Alignment, Rect),
     /// Below or above dependent on available space. Aligned left.
-    BelowOrAbove(Rect),
+    BelowOrAbove(Alignment, Rect),
     /// Use the render-area for the popup, but place it at position (x,y).
     Position(u16, u16),
 }

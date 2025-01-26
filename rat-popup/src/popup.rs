@@ -7,7 +7,7 @@ use rat_focus::{FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Rect, Size};
+use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 #[cfg(feature = "unstable-widget-ref")]
@@ -64,6 +64,8 @@ pub struct PopupStyle {
     pub border_style: Option<Style>,
     /// Style for scroll bars.
     pub scroll: Option<ScrollStyle>,
+    /// Placement
+    pub alignment: Option<Alignment>,
     /// Placement
     pub placement: Option<Placement>,
 
@@ -377,74 +379,74 @@ impl PopupCore<'_> {
 
         let mut area = match self.constraint.get() {
             PopupConstraint::None => area,
-            PopupConstraint::Above(rel) | PopupConstraint::AboveLeft(rel) => Rect::new(
+            PopupConstraint::Above(Alignment::Left, rel) => Rect::new(
                 rel.x,
                 rel.y.saturating_sub(area.height),
                 area.width,
                 area.height,
             ),
-            PopupConstraint::AboveCenter(rel) => Rect::new(
+            PopupConstraint::Above(Alignment::Center, rel) => Rect::new(
                 rel.x + center(area.width, rel.width),
                 rel.y.saturating_sub(area.height),
                 area.width,
                 area.height,
             ),
-            PopupConstraint::AboveRight(rel) => Rect::new(
+            PopupConstraint::Above(Alignment::Right, rel) => Rect::new(
                 rel.x + right(area.width, rel.width),
                 rel.y.saturating_sub(area.height),
                 area.width,
                 area.height,
             ),
-            PopupConstraint::Below(rel) | PopupConstraint::BelowLeft(rel) => Rect::new(
+            PopupConstraint::Below(Alignment::Left, rel) => Rect::new(
                 rel.x, //
                 rel.bottom(),
                 area.width,
                 area.height,
             ),
-            PopupConstraint::BelowCenter(rel) => Rect::new(
+            PopupConstraint::Below(Alignment::Center, rel) => Rect::new(
                 rel.x + center(area.width, rel.width),
                 rel.bottom(),
                 area.width,
                 area.height,
             ),
-            PopupConstraint::BelowRight(rel) => Rect::new(
+            PopupConstraint::Below(Alignment::Right, rel) => Rect::new(
                 rel.x + right(area.width, rel.width),
                 rel.bottom(),
                 area.width,
                 area.height,
             ),
 
-            PopupConstraint::Left(rel) | PopupConstraint::LeftTop(rel) => Rect::new(
+            PopupConstraint::Left(Alignment::Left, rel) => Rect::new(
                 rel.x.saturating_sub(area.width),
                 rel.y,
                 area.width,
                 area.height,
             ),
-            PopupConstraint::LeftMiddle(rel) => Rect::new(
+            PopupConstraint::Left(Alignment::Center, rel) => Rect::new(
                 rel.x.saturating_sub(area.width),
                 rel.y + middle(area.height, rel.height),
                 area.width,
                 area.height,
             ),
-            PopupConstraint::LeftBottom(rel) => Rect::new(
+            PopupConstraint::Left(Alignment::Right, rel) => Rect::new(
                 rel.x.saturating_sub(area.width),
                 rel.y + bottom(area.height, rel.height),
                 area.width,
                 area.height,
             ),
-            PopupConstraint::Right(rel) | PopupConstraint::RightTop(rel) => Rect::new(
+            PopupConstraint::Right(Alignment::Left, rel) => Rect::new(
                 rel.right(), //
                 rel.y,
                 area.width,
                 area.height,
             ),
-            PopupConstraint::RightMiddle(rel) => Rect::new(
+            PopupConstraint::Right(Alignment::Center, rel) => Rect::new(
                 rel.right(),
                 rel.y + middle(area.height, rel.height),
                 area.width,
                 area.height,
             ),
-            PopupConstraint::RightBottom(rel) => Rect::new(
+            PopupConstraint::Right(Alignment::Right, rel) => Rect::new(
                 rel.right(),
                 rel.y + bottom(area.height, rel.height),
                 area.width,
@@ -458,7 +460,7 @@ impl PopupCore<'_> {
                 area.height,
             ),
 
-            PopupConstraint::AboveOrBelow(rel) => {
+            PopupConstraint::AboveOrBelow(Alignment::Left, rel) => {
                 if area.height.saturating_add_signed(-self.offset.1) < rel.y {
                     Rect::new(
                         rel.x,
@@ -476,7 +478,43 @@ impl PopupCore<'_> {
                     )
                 }
             }
-            PopupConstraint::BelowOrAbove(rel) => {
+            PopupConstraint::AboveOrBelow(Alignment::Center, rel) => {
+                if area.height.saturating_add_signed(-self.offset.1) < rel.y {
+                    Rect::new(
+                        rel.x + center(area.width, rel.width),
+                        rel.y.saturating_sub(area.height),
+                        area.width,
+                        area.height,
+                    )
+                } else {
+                    offset = (offset.0, -offset.1);
+                    Rect::new(
+                        rel.x + center(area.width, rel.width), //
+                        rel.bottom(),
+                        area.width,
+                        area.height,
+                    )
+                }
+            }
+            PopupConstraint::AboveOrBelow(Alignment::Right, rel) => {
+                if area.height.saturating_add_signed(-self.offset.1) < rel.y {
+                    Rect::new(
+                        rel.x + right(area.width, rel.width),
+                        rel.y.saturating_sub(area.height),
+                        area.width,
+                        area.height,
+                    )
+                } else {
+                    offset = (offset.0, -offset.1);
+                    Rect::new(
+                        rel.x + right(area.width, rel.width), //
+                        rel.bottom(),
+                        area.width,
+                        area.height,
+                    )
+                }
+            }
+            PopupConstraint::BelowOrAbove(Alignment::Left, rel) => {
                 if (rel.bottom() + area.height).saturating_add_signed(self.offset.1)
                     <= boundary_area.height
                 {
@@ -490,6 +528,46 @@ impl PopupCore<'_> {
                     offset = (offset.0, -offset.1);
                     Rect::new(
                         rel.x,
+                        rel.y.saturating_sub(area.height),
+                        area.width,
+                        area.height,
+                    )
+                }
+            }
+            PopupConstraint::BelowOrAbove(Alignment::Center, rel) => {
+                if (rel.bottom() + area.height).saturating_add_signed(self.offset.1)
+                    <= boundary_area.height
+                {
+                    Rect::new(
+                        rel.x + center(area.width, rel.width), //
+                        rel.bottom(),
+                        area.width,
+                        area.height,
+                    )
+                } else {
+                    offset = (offset.0, -offset.1);
+                    Rect::new(
+                        rel.x + center(area.width, rel.width),
+                        rel.y.saturating_sub(area.height),
+                        area.width,
+                        area.height,
+                    )
+                }
+            }
+            PopupConstraint::BelowOrAbove(Alignment::Right, rel) => {
+                if (rel.bottom() + area.height).saturating_add_signed(self.offset.1)
+                    <= boundary_area.height
+                {
+                    Rect::new(
+                        rel.x + right(area.width, rel.width), //
+                        rel.bottom(),
+                        area.width,
+                        area.height,
+                    )
+                } else {
+                    offset = (offset.0, -offset.1);
+                    Rect::new(
+                        rel.x + right(area.width, rel.width),
                         rel.y.saturating_sub(area.height),
                         area.width,
                         area.height,
@@ -540,6 +618,7 @@ impl Default for PopupStyle {
             block: None,
             border_style: None,
             scroll: None,
+            alignment: None,
             placement: None,
             non_exhaustive: NonExhaustive,
         }

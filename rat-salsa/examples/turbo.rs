@@ -272,7 +272,7 @@ pub mod turbo {
     use rat_widget::popup::Placement;
     use rat_widget::shadow::{Shadow, ShadowDirection};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
     use ratatui::style::{Style, Stylize};
     use ratatui::widgets::{Block, StatefulWidget};
 
@@ -506,7 +506,7 @@ pub mod turbo {
                     .item_parsed("_Mouse...")
                     .item_parsed("_Startup...")
                     .item_parsed("_Colors...")
-                    .constraint(PopupConstraint::RightTop(area))
+                    .constraint(PopupConstraint::Right(Alignment::Left, area))
                     .y_offset(-1)
                     .block(Block::bordered())
                     .render(Rect::default(), buf, &mut state.menu_environment);

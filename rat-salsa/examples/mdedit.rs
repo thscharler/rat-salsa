@@ -1533,7 +1533,7 @@ pub mod file_list {
     use rat_widget::menu::{PopupConstraint, PopupMenu, PopupMenuState};
     use rat_widget::scrolled::Scroll;
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Position, Rect};
+    use ratatui::layout::{Alignment, Constraint, Layout, Position, Rect};
     use ratatui::prelude::Line;
     use ratatui::widgets::{Block, StatefulWidget};
     use std::fs;
@@ -1598,12 +1598,10 @@ pub mod file_list {
             if state.popup.is_active() {
                 PopupMenu::new()
                     .block(Block::bordered())
-                    .constraint(PopupConstraint::RightTop(Rect::new(
-                        state.popup_pos.0,
-                        state.popup_pos.1,
-                        0,
-                        0,
-                    )))
+                    .constraint(PopupConstraint::Right(
+                        Alignment::Left,
+                        Rect::new(state.popup_pos.0, state.popup_pos.1, 0, 0),
+                    ))
                     .offset((-1, -1))
                     .boundary(state.file_list.area)
                     .item_parsed("_New")

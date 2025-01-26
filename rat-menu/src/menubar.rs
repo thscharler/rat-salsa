@@ -22,7 +22,7 @@ use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::Placement;
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget};
@@ -44,6 +44,7 @@ pub struct Menubar<'a> {
     disabled_style: Option<Style>,
     right_style: Option<Style>,
 
+    popup_alignment: Alignment,
     popup_placement: Placement,
     popup: PopupMenu<'a>,
 }
@@ -76,6 +77,7 @@ pub struct MenubarPopup<'a> {
     disabled_style: Option<Style>,
     right_style: Option<Style>,
 
+    popup_alignment: Alignment,
     popup_placement: Placement,
     popup: PopupMenu<'a>,
 }
@@ -104,6 +106,7 @@ impl Default for Menubar<'_> {
             highlight_style: None,
             disabled_style: None,
             right_style: None,
+            popup_alignment: Alignment::Left,
             popup_placement: Placement::AboveOrBelow,
             popup: Default::default(),
         }
@@ -151,6 +154,9 @@ impl<'a> Menubar<'a> {
         }
         if styles.right.is_some() {
             self.right_style = styles.right;
+        }
+        if let Some(alignment) = styles.popup.alignment {
+            self.popup_alignment = alignment;
         }
         if let Some(placement) = styles.popup.placement {
             self.popup_placement = placement;
@@ -201,6 +207,12 @@ impl<'a> Menubar<'a> {
     }
 
     /// Placement relative to the render-area.
+    pub fn popup_alignment(mut self, alignment: Alignment) -> Self {
+        self.popup_alignment = alignment;
+        self
+    }
+
+    /// Placement relative to the render-area.
     pub fn popup_placement(mut self, placement: Placement) -> Self {
         self.popup_placement = placement;
         self
@@ -237,6 +249,7 @@ impl<'a> Menubar<'a> {
                 highlight_style: self.highlight_style,
                 disabled_style: self.disabled_style,
                 right_style: self.right_style,
+                popup_alignment: self.popup_alignment,
                 popup_placement: self.popup_placement,
                 popup: self.popup,
             },
@@ -309,7 +322,11 @@ fn render_menu_popup(
 
         let mut popup = widget
             .popup
-            .constraint(widget.popup_placement.into_constraint(item))
+            .constraint(
+                widget
+                    .popup_placement
+                    .into_constraint(widget.popup_alignment, item),
+            )
             .offset(sub_offset)
             .style(widget.style)
             .focus_style_opt(widget.focus_style)

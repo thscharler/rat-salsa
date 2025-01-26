@@ -11,7 +11,7 @@ use rat_menu::popup_menu;
 use rat_menu::popup_menu::{PopupConstraint, PopupMenu, PopupMenuState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_grid;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
@@ -168,7 +168,7 @@ fn handle_stuff(
     let r = r.or_else(|| match event {
         ct_event!(key press CONTROL-' ') => {
             // placement relative to cursor
-            state.placement = PopupConstraint::AboveLeft(state.blue.area);
+            state.placement = PopupConstraint::Above(Alignment::Left, state.blue.area);
             state.offset = (-2, 0);
             state.popup.set_active(true);
             Outcome::Changed
@@ -176,16 +176,16 @@ fn handle_stuff(
         ct_event!(mouse down Right for x,y) if state.left.contains((*x, *y).into()) => {
             // placement relative to rect
             if *x < state.blue.area.left() {
-                state.placement = PopupConstraint::LeftTop(state.blue.area);
+                state.placement = PopupConstraint::Left(Alignment::Left, state.blue.area);
                 state.offset = (0, -1);
             } else if *x >= state.blue.area.right() {
-                state.placement = PopupConstraint::RightTop(state.blue.area);
+                state.placement = PopupConstraint::Right(Alignment::Left, state.blue.area);
                 state.offset = (0, -1);
             } else if *y < state.blue.area.top() {
-                state.placement = PopupConstraint::AboveLeft(state.blue.area);
+                state.placement = PopupConstraint::Above(Alignment::Left, state.blue.area);
                 state.offset = (-2, 0);
             } else if *y >= state.blue.area.bottom() {
-                state.placement = PopupConstraint::BelowLeft(state.blue.area);
+                state.placement = PopupConstraint::Below(Alignment::Left, state.blue.area);
                 state.offset = (-2, 0);
             }
             state.popup.set_active(true);

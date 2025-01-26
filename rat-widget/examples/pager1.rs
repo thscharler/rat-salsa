@@ -189,7 +189,7 @@ fn handle_input(
         ct_event!(keycode press F(4)) => {
             if state.pager.prev_page() {
                 if let Some(widget) = state.pager.first(state.pager.page()) {
-                    focus.focus_flag(&widget);
+                    focus.focus(&widget);
                 }
                 Outcome::Changed
             } else {
@@ -199,7 +199,7 @@ fn handle_input(
         ct_event!(keycode press F(5)) => {
             if state.pager.next_page() {
                 if let Some(widget) = state.pager.first(state.pager.page()) {
-                    focus.focus_flag(&widget);
+                    focus.focus(&widget);
                 }
                 Outcome::Changed
             } else {

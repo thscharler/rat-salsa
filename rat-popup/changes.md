@@ -1,3 +1,5 @@
+# 1.0.0
+
 # 0.28.7
 
 * feature: set_active() returns a bool to indicate a change.
