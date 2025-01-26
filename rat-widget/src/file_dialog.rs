@@ -1052,9 +1052,6 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
         if !self.active {
             return Ok(FileOutcome::Continue);
         }
-        if matches!(event, ct_event!(mouse moved)) {
-            return Ok(FileOutcome::Continue);
-        }
 
         let f: FileOutcome = self.focus().handle(event, Regular).into();
         let f = f.and_try(|| {
@@ -1268,7 +1265,9 @@ fn handle_nav(
 }
 
 fn find_next_by_key(c: char, start: usize, names: &[OsString]) -> Option<usize> {
-    let c = c.to_lowercase().next();
+    let Some(c) = c.to_lowercase().next() else {
+        return None;
+    };
 
     let mut idx = start;
     let mut selected = None;
@@ -1281,12 +1280,14 @@ fn find_next_by_key(c: char, start: usize, names: &[OsString]) -> Option<usize> 
             break;
         }
 
-        let nav = names[idx]
-            .to_string_lossy()
-            .chars()
-            .next()
-            .and_then(|v| v.to_lowercase().next());
-        if c == nav {
+        let nav = names[idx].to_string_lossy();
+
+        let initials = nav
+            .split([' ', '_', '-'])
+            .flat_map(|v| v.chars().next())
+            .flat_map(|c| c.to_lowercase().next())
+            .collect::<Vec<_>>();
+        if initials.contains(&c) {
             selected = Some(idx);
             break;
         }
