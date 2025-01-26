@@ -31,9 +31,6 @@ pub mod event {
 /// [HasFocus], [on_gained!](crate::on_gained!) and
 /// [on_lost!](crate::on_lost!).
 ///
-/// __See__
-/// [FocusAdapter] to use with widgets that don't have
-/// their own focus flag.
 #[derive(Clone, Default)]
 pub struct FocusFlag(Rc<FocusFlagCore>);
 

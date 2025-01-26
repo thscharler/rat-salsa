@@ -58,7 +58,7 @@ There are predefined qualifiers
   often it requires a distinct return type and it's not
   as generally needed as other mouse behaviour.
 
-* [Popup](Popup) - Popup event-handlers are regular event-handlers, 
+* [Popup](Popup) - Popup event-handlers are regular event-handlers,
   but they need processing before regular event-handlers.
   This is used for widgets that render popups above other widgets,
   and must make sure that event-handling for the popup doesn't
@@ -66,7 +66,7 @@ There are predefined qualifiers
   of event-handling most of the problems can be solved.
 
 * [Dialog](Dialog) - Specialized event-handler for dialog-like
-  popups. They want to be called first to be able to consume 
+  popups. They want to be called first to be able to consume
   **all** events, thus blocking everything else.
 
 ## Return
@@ -83,11 +83,9 @@ To set a baseline for the return type this crate defines the enum
 > For interop all return types in rat-salsa are convertible
 > to/from Outcome.
 
-    There is one constraint for the return type: It must implement
-    Consumed to indicate the fundamental property of an event being 
-    consumed by a widget. 
-    
-    This lib has some control-flow constructs that use this property. 
-
+> There is one constraint for the return type: It must implement
+> Consumed to indicate the fundamental property of an event being
+> consumed by a widget. This lib has some control-flow constructs
+> that use this property.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
