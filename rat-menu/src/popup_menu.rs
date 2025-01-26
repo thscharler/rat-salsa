@@ -588,6 +588,7 @@ impl PopupMenuState {
                 idx += 1;
 
                 if !self.disabled[idx] {
+                    // TODO: this can panic??
                     break;
                 }
             }
