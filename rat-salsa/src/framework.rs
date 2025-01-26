@@ -35,18 +35,14 @@ where
     let poll = cfg.poll.as_mut_slice();
 
     let timers = poll.iter().find_map(|v| {
-        if let Some(t) = v.as_any().downcast_ref::<PollTimers>() {
-            Some(t.get_timers())
-        } else {
-            None
-        }
+        v.as_any()
+            .downcast_ref::<PollTimers>()
+            .map(|t| t.get_timers())
     });
     let tasks = poll.iter().find_map(|v| {
-        if let Some(t) = v.as_any().downcast_ref::<PollTasks<Event, Error>>() {
-            Some(t.get_tasks())
-        } else {
-            None
-        }
+        v.as_any()
+            .downcast_ref::<PollTasks<Event, Error>>()
+            .map(|t| t.get_tasks())
     });
     let rendered_event = poll.iter().enumerate().find_map(|(n, v)| {
         if v.as_ref().type_id() == TypeId::of::<PollRendered>() {
@@ -57,11 +53,9 @@ where
     });
     #[cfg(feature = "async")]
     let tokio = poll.iter().find_map(|v| {
-        if let Some(t) = v.as_any().downcast_ref::<PollTokio<Event, Error>>() {
-            Some(t.get_tasks())
-        } else {
-            None
-        }
+        v.as_any()
+            .downcast_ref::<PollTokio<Event, Error>>()
+            .map(|t| t.get_tasks())
     });
     let queue = ControlQueue::default();
 
