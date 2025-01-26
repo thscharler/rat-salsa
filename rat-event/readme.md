@@ -26,7 +26,7 @@ Objectives are
 - have a return type to indicate what state change occured.
 
 ```rust ignore
-    pub trait HandleEvent<Event, Qualifier, Return>
+pub trait HandleEvent<Event, Qualifier, Return>
 where
     Return: ConsumedEvent
 {
@@ -58,12 +58,20 @@ There are predefined qualifiers
   often it requires a distinct return type and it's not
   as generally needed as other mouse behaviour.
 
-* [Popup](Popup), [Dialog](Dialog) - Specialized event-handlers, but they
-  tend to popup again and again.
+* [Popup](Popup) - Popup event-handlers are regular event-handlers, 
+  but they need processing before regular event-handlers.
+  This is used for widgets that render popups above other widgets,
+  and must make sure that event-handling for the popup doesn't
+  interfere with widgets below the popup. By ensuring the order
+  of event-handling most of the problems can be solved.
+
+* [Dialog](Dialog) - Specialized event-handler for dialog-like
+  popups. They want to be called first to be able to consume 
+  **all** events, thus blocking everything else.
 
 ## Return
 
-The return type can be anything at all.
+The return type can be anything too.
 
 To be useful it is required to implement
 [ConsumedEvent](ConsumedEvent) to indicate if the event has been
@@ -74,6 +82,12 @@ To set a baseline for the return type this crate defines the enum
 
 > For interop all return types in rat-salsa are convertible
 > to/from Outcome.
+
+    There is one constraint for the return type: It must implement
+    Consumed to indicate the fundamental property of an event being 
+    consumed by a widget. 
+    
+    This lib has some control-flow constructs that use this property. 
 
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
