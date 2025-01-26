@@ -455,50 +455,22 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for ButtonSt
     }
 }
 
-/// Create a HotKey for an event-handler.
-///
-/// __unstable__
-/// This is just a rough idea, might change any time.
-pub const fn ct_hot_key(code: crossterm::event::KeyCode) -> CTHotKey {
-    CTHotKey(crossterm::event::KeyEvent {
-        code,
-        modifiers: crossterm::event::KeyModifiers::NONE,
-        kind: crossterm::event::KeyEventKind::Press,
-        state: crossterm::event::KeyEventState::NONE,
-    })
-}
-
-/// Create a HotKey for an event-handler.
-///
-/// __unstable__
-/// This is just a rough idea, might change any time.
-pub const fn ct_hot_key_mod(
-    code: crossterm::event::KeyCode,
-    modifiers: crossterm::event::KeyModifiers,
-) -> CTHotKey {
-    CTHotKey(crossterm::event::KeyEvent {
-        code,
-        modifiers,
-        kind: crossterm::event::KeyEventKind::Press,
-        state: crossterm::event::KeyEventState::NONE,
-    })
-}
-
 /// Check event-handling for this hot-key and do Regular key-events otherwise.
-///
-/// __unstable__
-/// This is just a rough idea, might change any time.
-pub struct CTHotKey(pub crossterm::event::KeyEvent);
-
-impl HandleEvent<crossterm::event::Event, CTHotKey, ButtonOutcome> for ButtonState {
-    fn handle(&mut self, event: &crossterm::event::Event, hotkey: CTHotKey) -> ButtonOutcome {
+impl HandleEvent<crossterm::event::Event, crossterm::event::KeyEvent, ButtonOutcome>
+    for ButtonState
+{
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        hotkey: crossterm::event::KeyEvent,
+    ) -> ButtonOutcome {
         use crossterm::event::Event;
 
         let r = match event {
             Event::Key(key) => {
                 // Release keys may not be available.
                 if have_keyboard_enhancement() {
-                    if hotkey.0.code == key.code && hotkey.0.modifiers == key.modifiers {
+                    if hotkey.code == key.code && hotkey.modifiers == key.modifiers {
                         if key.kind == crossterm::event::KeyEventKind::Press {
                             self.armed = true;
                             ButtonOutcome::Changed
@@ -520,7 +492,7 @@ impl HandleEvent<crossterm::event::Event, CTHotKey, ButtonOutcome> for ButtonSta
                         ButtonOutcome::Continue
                     }
                 } else {
-                    if hotkey.0.code == key.code && hotkey.0.modifiers == key.modifiers {
+                    if hotkey.code == key.code && hotkey.modifiers == key.modifiers {
                         if key.kind == crossterm::event::KeyEventKind::Press {
                             ButtonOutcome::Pressed
                         } else {
