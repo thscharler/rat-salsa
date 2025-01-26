@@ -619,14 +619,14 @@ where
     }
 
     /// Sets only the x offset.
-    /// See [offset](Self::offset)
+    /// See [offset](Self::popup_offset)
     pub fn popup_x_offset(mut self, offset: i16) -> Self {
         self.popup = self.popup.x_offset(offset);
         self
     }
 
     /// Sets only the y offset.
-    /// See [offset](Self::offset)
+    /// See [offset](Self::popup_offset)
     pub fn popup_y_offset(mut self, offset: i16) -> Self {
         self.popup = self.popup.y_offset(offset);
         self

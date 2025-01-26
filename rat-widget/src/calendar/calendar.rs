@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::ops::RangeInclusive;
 use std::rc::Rc;
 
-/// How should [move_to_current] behave.
+/// How should `move_to_today()` behave.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TodayPolicy {
     /// Set the current date at the given index and fill
