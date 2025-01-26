@@ -1235,12 +1235,15 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
                         self.scroll_to_selected();
                         ChoiceOutcome::Value
                     } else {
-                        ChoiceOutcome::Unchanged
+                        ChoiceOutcome::Continue
                     }
                 }
                 ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
-                    self.clear();
-                    ChoiceOutcome::Value
+                    if self.clear() {
+                        ChoiceOutcome::Value
+                    } else {
+                        ChoiceOutcome::Continue
+                    }
                 }
                 ct_event!(keycode press Down) => self.move_down(1),
                 ct_event!(keycode press Up) => self.move_up(1),
