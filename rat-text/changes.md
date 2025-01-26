@@ -1,3 +1,5 @@
+# 1.0.0
+
 # 0.30.1
 
 * feature: NumberInput::new_pattern() and NumberInput::new_loc_pattern() constructors.
