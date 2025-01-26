@@ -5,7 +5,6 @@ use crate::calendar::{
     last_day_of_month, CalendarSelection, MonthState,
 };
 use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
-use log::debug;
 use rat_event::util::item_at;
 use rat_event::ConsumedEvent;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
@@ -335,8 +334,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState<
             {
                 if self.mouse.drag.get() == Some(0) {
                     if let Some(sel) = item_at(&self.area_days, m.column, m.row) {
-                        let r = self.select_day(sel, true);
-                        r
+                        self.select_day(sel, true)
                     } else {
                         let mut r = CalOutcome::Continue;
 
@@ -357,8 +355,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState<
                     }
                 } else if self.mouse.drag.get() == Some(1) {
                     if let Some(sel) = item_at(&self.area_weeks, m.column, m.row) {
-                        let r = self.select_week(sel, true);
-                        r
+                        self.select_week(sel, true)
                     } else {
                         let mut r = CalOutcome::Continue;
 

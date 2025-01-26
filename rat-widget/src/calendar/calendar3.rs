@@ -13,23 +13,24 @@ use std::mem;
 ///
 /// Take this as sample for your own fancy calendar.
 ///
-/// ```
-/// # let mut buf = Buffer::empty(Rect::new(0, 0, 24, 24));
+/// ```rust
+/// # use std::collections::HashMap;
+/// # use chrono::Local;
+/// # use pure_rust_locales::Locale;
+/// # use ratatui::buffer::Buffer;
+/// # use ratatui::layout::{Alignment, Direction};
+/// # use ratatui::prelude::Rect;
+/// # use ratatui::widgets::{Block, StatefulWidget};
+/// # use rat_widget::calendar::{Calendar3, CalendarState, CalendarStyle, TodayPolicy};
+/// # use rat_widget::calendar::selection::SingleSelection;
 ///
-/// use std::collections::HashMap;
-/// use chrono::Local;
-/// use pure_rust_locales::Locale;
-/// use ratatui::buffer::Buffer;
-/// use ratatui::layout::{Alignment, Direction};
-/// use ratatui::prelude::Rect;
-/// use ratatui::widgets::{Block, StatefulWidget};
-/// use rat_widget::calendar::{Calendar3, CalendarState, CalendarStyle, TodayPolicy};
+/// # let mut buf = Buffer::empty(Rect::new(0, 0, 24, 24));
 ///
 /// let mut style = CalendarStyle::default();
 ///
 /// let mut day_styles = HashMap::default();
 ///
-/// let mut state = CalendarState::new();
+/// let mut state = CalendarState::<3, SingleSelection>::new();
 /// state.set_step(1);
 /// state.set_primary_idx(1);
 /// state.set_today_policy(TodayPolicy::Index(1));

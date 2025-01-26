@@ -4,10 +4,10 @@ use crate::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
 use crate::calendar::style::CalendarStyle;
 use crate::calendar::{first_day_of_month, last_day_of_month, CalendarSelection};
 use crate::util::{block_size, revert_style};
-use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
+use chrono::{Datelike, Days, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::Style;
@@ -110,7 +110,7 @@ pub struct MonthState<Selection = SingleSelection> {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, Selection> Default for Month<'a, Selection> {
+impl<Selection> Default for Month<'_, Selection> {
     fn default() -> Self {
         Self {
             start_date: None,

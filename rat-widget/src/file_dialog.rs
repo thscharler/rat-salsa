@@ -1264,6 +1264,7 @@ fn handle_nav(
     FileOutcome::Continue
 }
 
+#[allow(clippy::question_mark)]
 fn find_next_by_key(c: char, start: usize, names: &[OsString]) -> Option<usize> {
     let Some(c) = c.to_lowercase().next() else {
         return None;

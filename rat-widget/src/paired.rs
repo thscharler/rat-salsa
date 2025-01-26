@@ -57,7 +57,7 @@ impl<T, U> Paired<'_, T, U> {
     }
 }
 
-impl<'a, T, U> Paired<'a, T, U> {
+impl<T, U> Paired<'_, T, U> {
     fn layout(&self, area: Rect) -> (u16, u16, u16) {
         let mut sp = self.spacing;
 

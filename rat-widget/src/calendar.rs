@@ -19,9 +19,8 @@
 //!
 
 use chrono::{Datelike, Days, Months, NaiveDate};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 
+#[allow(clippy::module_inception)]
 mod calendar;
 mod calendar3;
 pub(crate) mod event;
@@ -37,6 +36,7 @@ pub use month::*;
 pub use style::*;
 
 /// Selection model for a calendar.
+#[allow(clippy::len_without_is_empty)]
 pub trait CalendarSelection {
     /// Clear all selections.
     fn clear(&mut self);
