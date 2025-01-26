@@ -1,3 +1,7 @@
+# 0.30.1
+
+* feature: NumberInput::new_pattern() and NumberInput::new_loc_pattern() constructors.
+
 # 0.30.0
 
 * fix: reset cursor to default position with set_text()

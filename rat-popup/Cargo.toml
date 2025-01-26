@@ -1,6 +1,6 @@
 [package]
 name = "rat-popup"
-version = "0.28.6"
+version = "0.28.7"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui popup semi-window widget"

@@ -950,7 +950,7 @@ version = "1.2.0"
 
 [[package]]
 name = "rat-event"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "crossterm",
  "log",
@@ -959,7 +959,7 @@ dependencies = [
 
 [[package]]
 name = "rat-focus"
-version = "0.32.0"
+version = "0.32.1"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -993,8 +993,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rat-markdown"
+version = "0.1.0"
+
+[[package]]
 name = "rat-menu"
-version = "0.31.4"
+version = "0.32.0"
 dependencies = [
  "crossterm",
  "rat-event",
@@ -1007,7 +1011,7 @@ dependencies = [
 
 [[package]]
 name = "rat-popup"
-version = "0.28.6"
+version = "0.28.7"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1024,7 +1028,7 @@ dependencies = [
 
 [[package]]
 name = "rat-reloc"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "log",
  "ratatui",
@@ -1032,7 +1036,7 @@ dependencies = [
 
 [[package]]
 name = "rat-salsa"
-version = "0.31.0"
+version = "0.32.0"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1070,7 +1074,7 @@ dependencies = [
 
 [[package]]
 name = "rat-text"
-version = "0.30.0"
+version = "0.30.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1095,7 +1099,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme"
-version = "0.27.6"
+version = "0.27.7"
 dependencies = [
  "log",
  "map_range_int",
@@ -1105,7 +1109,7 @@ dependencies = [
 
 [[package]]
 name = "rat-widget"
-version = "0.35.0"
+version = "0.36.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1126,6 +1130,7 @@ dependencies = [
  "rat-scrolled",
  "rat-text",
  "ratatui",
+ "sys-locale",
  "sysinfo 0.32.1",
  "unicode-display-width",
  "unicode-segmentation",
@@ -1353,6 +1358,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

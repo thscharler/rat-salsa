@@ -1,3 +1,7 @@
+# 0.32.1
+
+* fix: some docs
+
 # 0.32.0
 
 * BREAK: renames & refactors

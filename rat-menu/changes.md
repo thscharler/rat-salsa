@@ -1,3 +1,8 @@
+# 0.32.0
+
+* break: Menubar: remove Regular event-handling and do everything
+  in the Popup event handler. Simplifies usage.
+
 # 0.31.4
 
 * feature: Menubar: submenus open with Enter too.

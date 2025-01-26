@@ -1,8 +1,21 @@
 # 0.32.0
 
-* BREAK: Radically simplify PollEvents trait.
-* BREAK: Control::Message renamed to Control::Event.
-  The old name is no longer adequate.
+* BREAK: radically simplify PollEvents traits.
+    * Move any configuration out to the PollEvents impls.
+    * read_exec transformed to simple read which produces an event
+      without the need to send it to the application directly.
+    * Control::Event can take over that part now.
+* break: Rename Control::Message to Control::Event to better match the new semantics.
+* break: The Pollxxx structs now all do their own initialization.
+* break: RunConfig has less type parameters now :)
+
+* feature: add AppContext::focus_event(). runs the focus related-handling.
+* examples: some fixes.
+
+## Related work
+
+* Choice widget popup handling.
+* Rebuild of the calendar widget. It's grown up now.
 
 # 0.31.0
 

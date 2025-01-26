@@ -6,6 +6,7 @@ members = [
     "rat-event",
     "rat-focus",
     "rat-ftable",
+    "rat-markdown",
     "rat-menu",
     "rat-popup",
     "rat-reloc",

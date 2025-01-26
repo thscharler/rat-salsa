@@ -1,3 +1,7 @@
+# 0.28.7
+
+* feature: set_active() returns a bool to indicate a change.
+
 # 0.28.6
 
 * fix: version bump for rat-focus

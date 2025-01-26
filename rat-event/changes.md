@@ -1,3 +1,7 @@
+# 1.2.1
+
+* fix: docs
+
 # 1.2.0
 
 * feature: add Default for Outcome::Continue

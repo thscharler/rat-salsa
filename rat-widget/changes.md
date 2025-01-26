@@ -1,3 +1,36 @@
+# 0.36.0
+
+* break: full rebuild of the calendar module
+    * add a Selection model
+        * NoSelection
+            * navigation but no selection
+        * SingleSelection
+            * single date selection + all the navigation.
+        * RangeSelection
+            * select date ranges
+            * week/month selection
+    * add Ctrl+Home for go to today.
+    * add Home/End for start/end of month.
+    * add click+drag selection for days and weeks
+    *
+    * add CalendarState for a true multi-month calendar. there is no default widget using
+      this, as there are many possible layouts.
+    * add Calender3 as a simple scrolling 3-month calendar. Using CalendarState.
+    * rename MonthStyle to CalendarStyle
+
+* break: Choice: remove Regular event-handling and do everything
+  in the Popup event handler. Simplifies usage.
+
+* fix: Choice eventhandling.
+    * move_to, move_up and move_down now return a ChoiceOutcome to cover all of the behaviour.
+    * event-handling for the popup is tricky. rewritten to make it more stable.
+    * add PageUp/Down, Home, End key handling.
+* fix: Splitter now does the base style correctly.
+
+* feature: Splitter: use alt+ArrowKey for split navigation.
+* feature: Splitter: add horizontal() and vertical() constructors.
+* feature: Paired: can work with Widget now.
+
 # 0.35.0
 
 * break: ButtonOutcome moved to the event module as all the other

@@ -1,3 +1,7 @@
+# 1.1.2
+
+* feature: impl RelocatableState for [Rect] too.
+
 # 1.1.1
 
 * feature: impl RelocatableState for Rect. This allows impl_relocatable_state!

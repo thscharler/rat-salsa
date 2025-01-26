@@ -1,4 +1,9 @@
-# 0.27.6.
+# 0.27.7
+
+* fix: add some border-styles.
+* fix: split style
+
+# 0.27.6
 
 * fix: rat-widget version
 
