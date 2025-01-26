@@ -355,7 +355,7 @@ where
         let Some(label_area) = self.locate_area(layout.label(idx)) else {
             return false;
         };
-        let Some(label_str) = layout.label_str(idx) else {
+        let Some(label_str) = layout.try_label_str(idx) else {
             return false;
         };
 
@@ -383,7 +383,7 @@ where
         let Some(label_area) = self.locate_area(layout.label(idx)) else {
             return false;
         };
-        let label_str = layout.label_str(idx);
+        let label_str = layout.try_label_str(idx);
 
         render_fn(label_str).render(label_area, &mut self.buffer);
 
