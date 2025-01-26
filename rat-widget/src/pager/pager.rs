@@ -181,7 +181,7 @@ where
             return false;
         };
         let layout = self.layout.borrow();
-        let label_str = layout.label_str(idx);
+        let label_str = layout.try_label_str(idx);
 
         let mut buffer = self.buffer.borrow_mut();
         render_fn(label_str).render(label_area, *buffer);
@@ -196,7 +196,7 @@ where
             return false;
         };
         let layout = self.layout.borrow();
-        let Some(label_str) = layout.label_str(idx) else {
+        let Some(label_str) = layout.try_label_str(idx) else {
             return false;
         };
 

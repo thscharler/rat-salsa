@@ -60,6 +60,9 @@ pub enum EditConstraint {
 ///
 /// If the space runs out during layout, everything
 /// gets stuffed in the last row, regardless.
+///
+/// For more features see [LayoutForm](crate::layout::LayoutForm).
+///
 #[allow(clippy::comparison_chain)]
 pub fn layout_edit(
     area: Size,

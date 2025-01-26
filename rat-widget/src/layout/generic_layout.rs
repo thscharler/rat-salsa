@@ -326,7 +326,7 @@ where
     /// Panics on out of bounds.
     /// Panics if the key doesn't exist.
     #[inline]
-    pub fn label_str_for(&self, widget: W) -> &Option<Cow<'static, str>> {
+    pub fn try_label_str_for(&self, widget: W) -> &Option<Cow<'static, str>> {
         &self.labels[self.index_of(widget)]
     }
 
@@ -335,8 +335,33 @@ where
     /// __Panic__
     /// Panics on out of bounds.
     #[inline]
-    pub fn label_str(&self, idx: usize) -> &Option<Cow<'static, str>> {
+    pub fn try_label_str(&self, idx: usize) -> &Option<Cow<'static, str>> {
         &self.labels[idx]
+    }
+
+    /// Access the label string by key.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
+    /// Panics if the key doesn't exist.
+    #[inline]
+    pub fn label_str_for<'a>(&'a self, widget: W) -> &'a str {
+        self.labels[self.index_of(widget)]
+            .as_ref()
+            .map(|v| v.as_ref())
+            .unwrap_or("")
+    }
+
+    /// Access label string.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
+    #[inline]
+    pub fn label_str<'a>(&'a self, idx: usize) -> &'a str {
+        self.labels[idx]
+            .as_ref() //
+            .map(|v| v.as_ref())
+            .unwrap_or("")
     }
 
     /// Set the label string.

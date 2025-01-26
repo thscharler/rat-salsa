@@ -1,5 +1,5 @@
 //!
-//! If you are tired of scrolling, try paging :)
+//! Alternative to scrolling by page-breaking a layout.
 //!
 //! If you have a lot of widgets to display, splitting
 //! them into pages is an alternative to scrolling.
@@ -65,6 +65,7 @@
 //! ```
 
 mod dual_pager;
+mod form;
 #[allow(clippy::module_inception)]
 mod pager;
 mod pager_nav;
@@ -72,6 +73,7 @@ mod pager_style;
 mod single_pager;
 
 pub use dual_pager::*;
+pub use form::*;
 pub use pager::{Pager, PagerBuffer};
 pub use pager_nav::{PageNavigation, PageNavigationState};
 pub use pager_style::*;

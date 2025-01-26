@@ -152,6 +152,88 @@ pub enum FormWidget {
 /// * Supports Flex.
 /// * Manual page breaks.
 ///
+/// ```
+/// # use ratatui::buffer::Buffer;
+/// # use ratatui::layout::{Flex, Rect};
+/// # use ratatui::text::Span;
+/// # use ratatui::widgets::{Padding, Widget, StatefulWidget};
+/// # use rat_focus::{FocusFlag, HasFocus};
+/// # use rat_text::text_input::{TextInput, TextInputState};
+/// # use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
+/// #
+/// # struct State {
+/// #     layout: GenericLayout<FocusFlag>,
+/// #     text1: TextInputState,
+/// #     text2: TextInputState,
+/// #     text3: TextInputState,
+/// # }
+/// #
+/// # let mut state = State {layout: Default::default(),text1: Default::default(),text2: Default::default(),text3: Default::default()};
+/// # let area = Rect::default();
+/// # let mut buf = Buffer::empty(Rect::default());
+/// # let buf = &mut buf;
+///
+/// if state.layout.area_changed(area) {
+///     let mut form_layout = LayoutForm::new()
+///             .spacing(1)
+///             .flex(Flex::Legacy)
+///             .line_spacing(1)
+///             .min_label(10);
+///
+///     form_layout.widget(
+///         state.text1.focus(),
+///         FormLabel::Str("Text 1"),
+///         // single row
+///         FormWidget::Width(22)
+///     );
+///     form_layout.widget(
+///         state.text2.focus(),
+///         FormLabel::Str("Text 2"),
+///         // stretch to the form-width, preferred with 15, 1 row high.
+///         FormWidget::StretchX(15, 1)
+///     );
+///     form_layout.widget(
+///         state.text3.focus(),
+///         FormLabel::Str("Text 3"),
+///         // stretch to the form-width and fill vertically.
+///         // preferred width is 15 3 rows high.
+///         FormWidget::StretchXY(15, 3)
+///     );
+///
+///     // calculate the layout and place it.
+///     state.layout = form_layout.paged(area.as_size(), Padding::default())
+///         .place(area.as_position());
+///  }
+///
+///  let layout = &state.layout;
+///
+///  // this is not really the intended use, but it works.
+///  // in reality, you would use [Clipper], [SinglePager],
+///  // [DualPager] or [Form].
+///
+///  let lbl1= layout.label_for(state.text1.focus());
+///  Span::from(layout.label_str_for(state.text1.focus()))
+///     .render(lbl1, buf);
+///  let txt1 = layout.widget_for(state.text1.focus());
+///  TextInput::new()
+///     .render(txt1, buf, &mut state.text1);
+///
+///  let lbl2 = layout.label_for(state.text2.focus());
+///  Span::from(layout.label_str_for(state.text2.focus()))
+///     .render(lbl2, buf);
+///  let txt2 = layout.widget_for(state.text2.focus());
+///  TextInput::new()
+///     .render(txt2, buf, &mut state.text2);
+///
+///  let lbl3 = layout.label_for(state.text3.focus());
+///  Span::from(layout.label_str_for(state.text3.focus()))
+///     .render(lbl3, buf);
+///  let txt3 = layout.widget_for(state.text3.focus());
+///  TextInput::new()
+///     .render(txt3, buf, &mut state.text3);
+///
+/// ```
+///
 #[derive(Debug)]
 pub struct LayoutForm<W>
 where
