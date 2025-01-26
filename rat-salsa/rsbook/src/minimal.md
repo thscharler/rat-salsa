@@ -22,8 +22,9 @@ fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::default()?
             .poll(PollCrossterm)
-            .poll(PollTimers)
-            .poll(PollTasks),
+            .poll(PollTimers::default())
+            .poll(PollTasks::default())
+            .poll(PollRendered),
     )?;
 
     Ok(())
@@ -47,17 +48,17 @@ run_tui is fed with
     - If you need some special terminal init/shutdown commands,
       implement the [rat-salsa::Terminal][refSalsaTerminal] trait
       and set it here.
-      
-    - Set the number of worker threads.
-      
+            
     - Add the event-sources. Implement the 
       [PollEvents][refPollEvents] trait.
       
       See [examples/life.rs][refLife] for an example.
       
-      Here we go with default drivers PollCrossterm for 
-      crossterm, PollTimers for timers, PollTasks for the
-      results from background tasks.
+      Here we go with default drivers 
+      - PollCrossterm for crossterm events.
+      - PollTimers for timers.
+      - PollTasks for background tasks.
+      - PollRendered that sends a 'just rendered' event.
       
 ***
 
@@ -74,8 +75,6 @@ Defines the global state...
     pub struct GlobalState {
         pub cfg: MinimalConfig,
         pub theme: DarkTheme,
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
     }
 ```
 
@@ -97,7 +96,9 @@ This defines the event type throughout the application.
 pub enum MinimalEvent {
     Timer(TimeOut),
     Event(crossterm::event::Event),
+    Rendered,
     Message(String),
+    Status(usize, String),
 }
 
 ```
@@ -108,6 +109,12 @@ event-type.
 
 
 ```
+impl From<RenderedEvent> for MinimalEvent {
+    fn from(_: RenderedEvent) -> Self {
+        Self::Rendered
+    }
+}
+    
 impl From<TimeOut> for MinimalEvent {
     fn from(value: TimeOut) -> Self {
         Self::Timer(value)
@@ -141,6 +148,8 @@ pub struct Scenery;
 #[derive(Debug, Default)]
 pub struct SceneryState {
     pub minimal: MinimalState,
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,    
 }
 ```
 
@@ -166,13 +175,13 @@ impl AppWidget<GlobalState, MinimalEvent, Error> for Scenery {
 
         Minimal.render(area, buf, &mut state.minimal, ctx)?;
 
-        if ctx.g.error_dlg.active() {
+        if state.error_dlg.active() {
             let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(layout[0], buf, &mut ctx.g.error_dlg);
+            err.render(layout[0], buf, &mut state.error_dlg);
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(1, format!("R {:.0?}", el).to_string());
+        state.status.status(1, format!("R {:.0?}", el).to_string());
 
         let status_layout =
             Layout::horizontal([Constraint::Fill(61), Constraint::Fill(39)]).split(layout[1]);
@@ -183,7 +192,7 @@ impl AppWidget<GlobalState, MinimalEvent, Error> for Scenery {
                 Constraint::Length(8),
             ])
             .styles(ctx.g.theme.statusline_style());
-        status.render(status_layout[1], buf, &mut ctx.g.status);
+        status.render(status_layout[1], buf, &mut state.status);
 
         Ok(())
     }
@@ -204,11 +213,11 @@ AppState has three type parameters that occur everywhere. I couldn't cut
 back that number any further ...
 
 ```rust
-    fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-        ctx.focus = Some(FocusBuilder::for_container(&self.minimal));
-        self.minimal.init(ctx)?;
-        Ok(())
-    }        
+fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    ctx.focus = Some(FocusBuilder::build_for(&self.minimal));
+    self.minimal.init(ctx)?;
+    Ok(())
+}    
 ```
 
 init is the first event for every application.
@@ -217,52 +226,56 @@ it sets up the initial [Focus](./focus) for the application and
 forwards to MinimalState.
 
 ```rust
-    fn event(
-        &mut self,
-        event: &MinimalEvent,
-        ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
-    ) -> Result<Control<MinimalEvent>, Error> {
-        let t0 = SystemTime::now();
+fn event(
+    &mut self,
+    event: &MinimalEvent,
+    ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
+) -> Result<Control<MinimalEvent>, Error> {
+    let t0 = SystemTime::now();
 
-        let mut r = match event {
-            MinimalEvent::Event(event) => {
-                let mut r = match &event {
-                    ct_event!(resized) => Control::Changed,
-                    ct_event!(key press CONTROL-'q') => Control::Quit,
-                    _ => Control::Continue,
-                };
+    let mut r = match event {
+        MinimalEvent::Event(event) => {
+            let mut r = match &event {
+                ct_event!(resized) => Control::Changed,
+                ct_event!(key press CONTROL-'q') => Control::Quit,
+                _ => Control::Continue,
+            };
 
-                r = r.or_else(|| {
-                    if ctx.g.error_dlg.active() {
-                        ctx.g.error_dlg.handle(event, Dialog).into()
-                    } else {
-                        Control::Continue
-                    }
-                });
+            r = r.or_else(|| {
+                if self.error_dlg.active() {
+                    self.error_dlg.handle(event, Dialog).into()
+                } else {
+                    Control::Continue
+                }
+            });
 
-                let f = ctx.focus_mut().handle(event, Regular);
-                ctx.queue(f);
+            let f = ctx.focus_mut().handle(event, Regular);
+            ctx.queue(f);
 
-                r
-            }
-            MinimalEvent::Rendered => {
-                ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-                Control::Continue
-            }
-            MinimalEvent::Message(s) => {
-                ctx.g.status.status(0, &*s);
-                Control::Changed
-            }
-            _ => Control::Continue,
-        };
+            r
+        }
+        MinimalEvent::Rendered => {
+            ctx.focus = Some(FocusBuilder::rebuild_for(&self.minimal, ctx.focus.take()));
+            Control::Continue
+        }
+        MinimalEvent::Message(s) => {
+            self.error_dlg.append(s.as_str());
+            Control::Changed
+        }
+        MinimalEvent::Status(n, s) => {
+            self.status.status(*n, s);
+            Control::Changed
+        }
+        _ => Control::Continue,
+    };
 
-        r = r.or_else_try(|| self.minimal.event(event, ctx))?;
+    r = r.or_else_try(|| self.minimal.event(event, ctx))?;
 
-        let el = t0.elapsed()?;
-        ctx.g.status.status(2, format!("E {:.0?}", el).to_string());
+    let el = t0.elapsed()?;
+    self.status.status(2, format!("E {:.0?}", el).to_string());
 
-        Ok(r)
-    }
+    Ok(r)
+}
 ```
 
 all event-handling goes through here. 
@@ -349,28 +362,22 @@ This is a simple example for a application event. Show something
 in the status bar.
 
 ```rust
-    // rebuild and handle focus for each event
-    r = r.or_else(|| {
-        ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-        if let MinimalEvent::Event(event) = event {
-            let f = ctx.focus_mut().handle(event, Regular);
-            ctx.queue(f);
-        }
+    // rebuild Focus after a render.
+    MinimalEvent::Rendered => {
+        ctx.focus = Some(FocusBuilder::rebuild_for(&self.minimal, ctx.focus.take()));
         Control::Continue
-    });
+    }
 ```
 
-This rebuilds the Focus for each event. 
-
-> TODO: add some feedback loop that can trigger this instead of
-> doing it all the time?
-
+This rebuilds the Focus after a render. This should be good enough
+for most applications. Rebuilding is necessary after a render
+as the widget areas may have changed. 
 
 ```rust
     r = r.or_else_try(|| self.minimal.event(event, ctx))?;
 ```
 
-Forward events. 
+Forward events.
 
 
 ```rust
@@ -378,7 +385,7 @@ Forward events.
 ```
 
 And finally the result of event handling is returned to the event loop,
-where the event-loop acts upon it. If the result is Control::Message
+where the event-loop acts upon it. If the result is Control::Event
 the event will be added to the current event-queue and processed in
 order. Only if the current event-queue is empty will the event loop
 poll for a new event. This way the ordering of event+secondary events
@@ -408,63 +415,75 @@ This is the actual application. This example just adds a MenuLine widget and
 lets you quit the application via menu.
 
 ```rust
-    #[derive(Debug)]
-    pub(crate) struct Minimal;
-    
-    #[derive(Debug)]
-    pub struct MinimalState {
-        pub menu: MenuLineState,
-    }
+#[derive(Debug)]
+pub(crate) struct Minimal;
+
+#[derive(Debug)]
+pub struct MinimalState {
+    pub menu: MenuLineState,
+}
 ```
 
 Define the necessary structs and any data/state.
 
 
 ```rust
-    impl AppWidget<GlobalState, MinimalMsg, Error> for Minimal {
-        type State = MinimalState;
-    
-        fn render(
-            &self,
-            area: Rect,
-            buf: &mut Buffer,
-            state: &mut Self::State,
-            ctx: &mut RenderContext<'_>,
-        ) -> Result<(), Error> {
-            // TODO: repaint_mask
+impl AppWidget<GlobalState, MinimalMsg, Error> for Minimal {
+    type State = MinimalState;
 
-            let r = Layout::new(
-                Direction::Vertical,
-                [
-                    Constraint::Fill(1), //
-                    Constraint::Length(1),
-                ],
-            )
-            .split(area);
+    fn render(
+        &self,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Self::State,
+        ctx: &mut RenderContext<'_>,
+    ) -> Result<(), Error> {
+        // TODO: repaint_mask
 
-            let menu = MenuLine::new()
-                .styles(ctx.g.theme.menu_style())
-                .item_parsed("_Quit");
-            menu.render(r[1], buf, &mut state.menu);
+        let r = Layout::new(
+            Direction::Vertical,
+            [
+                Constraint::Fill(1), //
+                Constraint::Length(1),
+            ],
+        )
+        .split(area);
 
-            Ok(())
-        }
+        let menu = MenuLine::new()
+            .styles(ctx.g.theme.menu_style())
+            .item_parsed("_Quit");
+        menu.render(r[1], buf, &mut state.menu);
+
+        Ok(())
     }
+}
 ```
 
 Render the menu.
 
 ```rust
-    impl HasFocus for MinimalState {
-        fn build(&self, builder: &mut FocusBuilder) {
-            builder.widget(&self.menu);
-        }
+impl HasFocus for MinimalState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.widget(&self.menu);
     }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not in use, silent container")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not in use, silent container")
+    }
+}
 ```
 
 Implements the trait [HasFocus][refHasFocus] which is the trait
-for container like widgets used by [Focus][refFocus]. This adds
-its widgets in traversal order.
+for widgets used by [Focus][refFocus]. This adds its widgets in
+traversal order.
+
+There is no use for a Focus for **all** of MinimalState, so 
+focus() and area() remain unimplemented. These are used to 
+build container widgets.
 
 ```rust
     impl AppState<GlobalState, MinimalMsg, Error> for MinimalState {
