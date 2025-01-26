@@ -25,12 +25,12 @@ the navigation.
 > from <focus_input1.rs>
 
 ```rust ignore
-    fn focus_input(state: &mut State) -> Focus {
+fn focus_input(state: &mut State) -> Focus {
     let mut fb = FocusBuilder::default();
-    fb.widget(&state.input1)
-        .widget(&state.input2)
-        .widget(&state.input3)
-        .widget(&state.input4);
+    fb.widget(&state.input1);
+    fb.widget(&state.input2);
+    fb.widget(&state.input3);
+    fb.widget(&state.input4);
     fb.build()
 }
 
@@ -93,13 +93,13 @@ widget. Or you may want to write a wrapper.
 
 ## Widgets
 
-Simple widgets implement at least the first two of these functions.
+Simple widgets implement at least the first three of these functions.
 
 - build() - For simple widgets with no internal structure this
   adds a leaf to the widget list.
   ```rust ignore
   fn build(&self, builder: &mut FocusBuilder) {
-      builder.append_leaf(self);
+      builder.leaf_widget(self);
   }
   ```
 
@@ -117,10 +117,10 @@ When a widget contains other widgets it also implements HasFocus.
 
 The primary function here is
 
-- build() - This is called with the current FocusBuilder and
+- build() - This is called with the FocusBuilder and
   can add the separate component widgets of the container.
 
-  You can set a FocusFlag marking the whole container.
+  You can have a FocusFlag marking the whole container.
   Such a FocusFlag collects the status of each component widget.
   That means the FocusFlag of the container 'is_focused' when any
   of the components 'is_focused'.
@@ -128,8 +128,6 @@ The primary function here is
   If you manually call Focus::focus() for a container, the first
   component widget will get the focus. Similarly, if you click anywhere
   in the provided area the first component widget will get the focus.
-
-build() with container focus
 
 ```rust ignore
 impl HasFocus for FooWidget {
