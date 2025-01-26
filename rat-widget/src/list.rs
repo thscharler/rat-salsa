@@ -21,7 +21,8 @@ pub mod edit;
 
 /// Trait for list-selection.
 pub trait ListSelection {
-    // TODO: clear + len
+    /// Number of selected rows.
+    fn count(&self) -> usize;
 
     /// Is selected.
     fn is_selected(&self, n: usize) -> bool;
@@ -726,6 +727,10 @@ pub mod selection {
     pub type NoSelection = rat_ftable::selection::NoSelection;
 
     impl ListSelection for NoSelection {
+        fn count(&self) -> usize {
+            0
+        }
+
         #[inline]
         fn is_selected(&self, _n: usize) -> bool {
             false
@@ -798,6 +803,14 @@ pub mod selection {
     pub type RowSelection = rat_ftable::selection::RowSelection;
 
     impl ListSelection for RowSelection {
+        fn count(&self) -> usize {
+            if self.lead_row.is_some() {
+                1
+            } else {
+                0
+            }
+        }
+
         #[inline]
         fn is_selected(&self, n: usize) -> bool {
             self.lead_row == Some(n)
@@ -910,6 +923,20 @@ pub mod selection {
     pub type RowSetSelection = rat_ftable::selection::RowSetSelection;
 
     impl ListSelection for RowSetSelection {
+        fn count(&self) -> usize {
+            let n = if let Some(mut anchor) = self.anchor_row {
+                if let Some(mut lead) = self.lead_row {
+                    anchor.abs_diff(lead) + 1
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+
+            n + self.selected.len()
+        }
+
         fn is_selected(&self, n: usize) -> bool {
             if let Some(mut anchor) = self.anchor_row {
                 if let Some(mut lead) = self.lead_row {

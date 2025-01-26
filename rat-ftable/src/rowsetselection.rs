@@ -35,7 +35,7 @@ impl TableSelection for RowSetSelection {
     fn count(&self) -> usize {
         let n = if let Some(anchor) = self.anchor_row {
             if let Some(lead) = self.lead_row {
-                lead.abs_diff(anchor)
+                lead.abs_diff(anchor) + 1
             } else {
                 0
             }
