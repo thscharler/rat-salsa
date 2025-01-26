@@ -1,3 +1,5 @@
+# 1.0.0
+
 # 0.31.0
 
 * break: TableEditorState changed to value semantics completely.

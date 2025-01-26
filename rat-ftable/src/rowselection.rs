@@ -21,6 +21,14 @@ pub struct RowSelection {
 }
 
 impl TableSelection for RowSelection {
+    fn count(&self) -> usize {
+        if self.lead_row.is_some() {
+            1
+        } else {
+            0
+        }
+    }
+
     fn is_selected_row(&self, row: usize) -> bool {
         self.lead_row == Some(row)
     }

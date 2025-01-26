@@ -96,7 +96,6 @@ mod data {
         Text(TextTableData<'a>),
         Data(Box<dyn TableData<'a> + 'a>),
         Iter(Box<dyn TableDataIter<'a> + 'a>),
-        // TODO: maybe add an Owned where data is kept in the state?
     }
 
     impl<'a> DataRepr<'a> {
@@ -741,7 +740,6 @@ impl<'a, Selection> Table<'a, Selection> {
         if styles.focus_style.is_some() {
             self.focus_style = styles.focus_style;
         }
-        // TODO: add border_style for other XXStyles too.
         if let Some(border_style) = styles.border_style {
             self.block = self.block.map(|v| v.border_style(border_style));
         }

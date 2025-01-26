@@ -16,6 +16,14 @@ pub struct CellSelection {
 }
 
 impl TableSelection for CellSelection {
+    fn count(&self) -> usize {
+        if self.lead_cell.is_some() {
+            1
+        } else {
+            0
+        }
+    }
+
     fn is_selected_row(&self, row: usize) -> bool {
         self.lead_cell.map(|(_scol, srow)| srow) == Some(row)
     }

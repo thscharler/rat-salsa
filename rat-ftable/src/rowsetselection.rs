@@ -32,6 +32,20 @@ pub struct RowSetSelection {
 }
 
 impl TableSelection for RowSetSelection {
+    fn count(&self) -> usize {
+        let n = if let Some(anchor) = self.anchor_row {
+            if let Some(lead) = self.lead_row {
+                lead.abs_diff(anchor)
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
+        n + self.selected.len()
+    }
+
     #[allow(clippy::collapsible_else_if)]
     fn is_selected_row(&self, row: usize) -> bool {
         if let Some(mut anchor) = self.anchor_row {
