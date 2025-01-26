@@ -28,12 +28,8 @@ pub struct RangeSelection {
 }
 
 impl CalendarSelection for RangeSelection {
-    fn clear(&mut self) {
-        self.anchor = None;
-        self.lead = None;
-    }
-
-    fn len(&self) -> usize {
+    /// Length of the selection.
+    fn count(&self) -> usize {
         if let Some(anchor) = self.anchor {
             if let Some(lead) = self.lead {
                 (lead - anchor).num_days().unsigned_abs() as usize + 1
@@ -67,6 +63,12 @@ impl CalendarSelection for RangeSelection {
 }
 
 impl RangeSelection {
+    /// Clear the selection.
+    pub fn clear(&mut self) {
+        self.anchor = None;
+        self.lead = None;
+    }
+
     /// Select the week of the given date.
     ///
     /// If extend is used, this will extend the selection to include

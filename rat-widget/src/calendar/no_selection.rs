@@ -13,9 +13,7 @@ use rat_focus::HasFocus;
 pub struct NoSelection;
 
 impl CalendarSelection for NoSelection {
-    fn clear(&mut self) {}
-
-    fn len(&self) -> usize {
+    fn count(&self) -> usize {
         0
     }
 

@@ -16,11 +16,7 @@ pub struct SingleSelection {
 }
 
 impl CalendarSelection for SingleSelection {
-    fn clear(&mut self) {
-        self.selected = None;
-    }
-
-    fn len(&self) -> usize {
+    fn count(&self) -> usize {
         if self.selected.is_some() {
             1
         } else {
@@ -38,6 +34,10 @@ impl CalendarSelection for SingleSelection {
 }
 
 impl SingleSelection {
+    pub fn clear(&mut self) {
+        self.selected = None;
+    }
+
     pub fn select(&mut self, date: NaiveDate) -> bool {
         let old = self.selected;
         self.selected = Some(date);

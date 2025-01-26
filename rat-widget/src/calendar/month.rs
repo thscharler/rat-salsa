@@ -515,7 +515,7 @@ fn calc_day_style<Selection: CalendarSelection>(
     };
 
     if (state.is_container_focused() || state.is_focused())
-        && state.selection.len() > 1
+        && state.selection.count() > 1
         && state.selection.lead_selection() == Some(day)
     {
         day_style.patch(revert_style(select_style))
@@ -686,11 +686,6 @@ impl<Selection> MonthState<Selection>
 where
     Selection: CalendarSelection,
 {
-    /// Removes all selection.
-    pub fn clear_selection(&mut self) {
-        self.selection.clear();
-    }
-
     /// Lead selection
     pub fn lead_selection(&self) -> Option<NaiveDate> {
         self.selection.lead_selection()
@@ -700,6 +695,11 @@ where
 impl MonthState<NoSelection> {}
 
 impl MonthState<SingleSelection> {
+    /// Removes all selection.
+    pub fn clear_selection(&mut self) {
+        self.selection.borrow_mut().clear();
+    }
+
     /// Select a day by index.
     pub fn select_day(&mut self, n: usize) -> CalOutcome {
         if let Some(date) = self.start_date.with_day0(n as u32) {
@@ -798,6 +798,11 @@ impl MonthState<SingleSelection> {
 }
 
 impl MonthState<RangeSelection> {
+    /// Removes all selection.
+    pub fn clear_selection(&mut self) {
+        self.selection.borrow_mut().clear();
+    }
+
     /// Select a week by index.
     pub fn select_week(&mut self, n: usize, extend: bool) -> CalOutcome {
         if n < self.week_len() {

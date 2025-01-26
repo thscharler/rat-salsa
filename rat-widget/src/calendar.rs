@@ -38,11 +38,8 @@ pub use style::*;
 /// Selection model for a calendar.
 #[allow(clippy::len_without_is_empty)]
 pub trait CalendarSelection {
-    /// Clear all selections.
-    fn clear(&mut self);
-
-    /// Len of the selection.
-    fn len(&self) -> usize;
+    /// Select day count.
+    fn count(&self) -> usize;
 
     /// Is the given day selected.
     fn is_selected(&self, date: NaiveDate) -> bool;
@@ -62,12 +59,8 @@ pub mod selection {
     pub use super::single_selection::*;
 
     impl<T: CalendarSelection> CalendarSelection for Rc<RefCell<T>> {
-        fn clear(&mut self) {
-            self.borrow_mut().clear()
-        }
-
-        fn len(&self) -> usize {
-            self.borrow().len()
+        fn count(&self) -> usize {
+            self.borrow().count()
         }
 
         fn is_selected(&self, date: NaiveDate) -> bool {

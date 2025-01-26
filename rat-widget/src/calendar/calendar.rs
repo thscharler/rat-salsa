@@ -270,11 +270,6 @@ impl<const N: usize, Selection> CalendarState<N, Selection>
 where
     Selection: CalendarSelection,
 {
-    /// Clear the selection.
-    pub fn clear(&mut self) {
-        self.selection.clear();
-    }
-
     /// Is the date selected?
     pub fn is_selected(&self, date: NaiveDate) -> bool {
         self.selection.is_selected(date)
@@ -399,6 +394,11 @@ impl<const N: usize> CalendarState<N, NoSelection> {
 }
 
 impl<const N: usize> CalendarState<N, SingleSelection> {
+    /// Clear the selection.
+    pub fn clear_selection(&mut self) {
+        self.selection.borrow_mut().clear();
+    }
+
     /// Select the given date.
     /// Doesn't scroll the calendar.
     pub fn select(&mut self, date: NaiveDate) -> bool {
@@ -550,6 +550,11 @@ impl<const N: usize> CalendarState<N, SingleSelection> {
 }
 
 impl<const N: usize> CalendarState<N, RangeSelection> {
+    /// Clear the selection.
+    pub fn clear_selection(&mut self) {
+        self.selection.borrow_mut().clear();
+    }
+
     /// Select the full month of the date. Any date of the month will do.
     /// Can extend the selection to encompass the month.
     /// Any existing selection is buffed up to fill one month.
