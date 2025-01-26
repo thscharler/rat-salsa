@@ -312,7 +312,7 @@ pub mod turbo {
                         .item_parsed("_Save|F2")
                         .item_parsed("Save _as...")
                         .item_parsed("Save a_ll")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_Change dir...")
                         .item_parsed("_Print")
                         .item_parsed("P_rinter setup...")
@@ -324,12 +324,12 @@ pub mod turbo {
                         .item_parsed("Undo|Alt+BkSp")
                         .item_parsed("Redo")
                         .disabled(true)
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("Cu_t|Shift+Del")
                         .item_parsed("_Copy|Ctrl+Ins")
                         .item_parsed("_Paste|Shift+Ins")
                         .item_parsed("C_lear|Ctrl+Del")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_Show clipboard");
                 }
                 2 => {
@@ -337,7 +337,7 @@ pub mod turbo {
                         .item_parsed("_Find...")
                         .item_parsed("_Replace...")
                         .item_parsed("_Search again")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_Go to line number...")
                         .item_parsed("Show last compiler error")
                         .item_parsed("Find _error...")
@@ -357,11 +357,11 @@ pub mod turbo {
                         .item_parsed("_Compile|Alt+F9")
                         .item_parsed("_Make|F9")
                         .item_parsed("_Build")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_Destination|Disk")
                         .item_parsed("_Primary file...")
                         .item_parsed("C_lear primary file")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_Information...");
                 }
                 5 => {
@@ -372,7 +372,7 @@ pub mod turbo {
                         .item_parsed("_Watch")
                         .item_parsed("_Output")
                         .item_parsed("_User screen|Alt+F5")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_Evaluate/modify...|Ctrl+F4")
                         .item_parsed("_Add watch...|Ctrl+F7")
                         .item_parsed("Add break_point");
@@ -384,7 +384,7 @@ pub mod turbo {
                         .disabled(true)
                         .item_parsed("Go to _previous|Alt+F7")
                         .disabled(true)
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_Grep")
                         .item_parsed("Clear/Refresh screen DOS")
                         .item_parsed("About TPWDB");
@@ -397,7 +397,7 @@ pub mod turbo {
                         .item_parsed("De_bugger...")
                         .item_parsed("_Directories...")
                         .item_parsed("_Tools...")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_Environment|⏵")
                         .item_parsed("_Open...")
                         .item_parsed("_Save|")
@@ -409,13 +409,13 @@ pub mod turbo {
                         .item_parsed("C_ascade")
                         .item_parsed("Cl_ose all")
                         .item_parsed("_Refresh display")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_Size/Move|Ctrl+F5")
                         .item_parsed("_Zoom|F5")
                         .item_parsed("_Next|F6")
                         .item_parsed("_Previous|Shift+F6")
                         .item_parsed("_Close|Alt+F3")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_List...|Alt+0");
                 }
                 9 => {
@@ -426,13 +426,13 @@ pub mod turbo {
                         .item_parsed("_Previous topic|Alt+F1")
                         .item_parsed("Using _help")
                         .item_parsed("_Files...")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("Compiler _directives")
                         .item_parsed("_Reserved words")
                         .item_parsed("Standard _units")
                         .item_parsed("Turbo Pascal _Language")
                         .item_parsed("_Error messages")
-                        .item_parsed("____")
+                        .item_parsed("\\___")
                         .item_parsed("_About...");
                 }
                 _ => {}

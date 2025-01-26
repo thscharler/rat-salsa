@@ -42,7 +42,7 @@ static MENU: StaticMenu = StaticMenu {
                 "_New", //
                 "_Open...|F3",
                 "_Save|F2",
-                "_...",
+                "\\...",
                 "_Quit|Ctrl+Q",
             ],
         ),
@@ -51,7 +51,7 @@ static MENU: StaticMenu = StaticMenu {
             &[
                 "Undo|Ctrl+Z", //
                 "Redo|Ctrl+Shift+Z",
-                "____",
+                "\\___",
                 "Cu_t|Ctrl+X",
                 "_Copy|Ctrl+C",
                 "_Paste|Ctrl+V",
@@ -62,7 +62,7 @@ static MENU: StaticMenu = StaticMenu {
             &[
                 "_Help", //
                 "_Web Help",
-                "_---",
+                "\\---",
                 "_About",
             ],
         ),

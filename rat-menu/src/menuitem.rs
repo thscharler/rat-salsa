@@ -77,15 +77,15 @@ impl<'a> MenuItem<'a> {
     ///
     /// __Separator__
     ///
-    /// `_` (underscore) is used as prefix and then
+    /// `\\` (underscore) is used as prefix and then
     /// a fixed string to identify the separator:
     ///
-    /// * `_   ` - three blanks -> empty separator
-    /// * `____` - three underscores -> plain line
-    /// * `_______` - six underscore -> thick line
-    /// * `_===` - three equals -> double line
-    /// * `_---` - three hyphen -> dashed line
-    /// * `_...` - three dots -> dotted line
+    /// * `\\   ` - three blanks -> empty separator
+    /// * `\\___` - three underscores -> plain line
+    /// * `\\______` - six underscore -> thick line
+    /// * `\\===` - three equals -> double line
+    /// * `\\---` - three hyphen -> dashed line
+    /// * `\\...` - three dots -> dotted line
     ///
     pub fn new_parsed(s: &'a str) -> Self {
         if is_separator_str(s) {
@@ -206,44 +206,44 @@ impl<'a> MenuItem<'a> {
 #[allow(clippy::needless_bool)]
 #[allow(clippy::if_same_then_else)]
 fn is_separator_str(s: &str) -> bool {
-    if s == "_   " {
+    if s == "\\   " {
         true
-    } else if s == "____" {
+    } else if s == "\\___" {
         true
-    } else if s == "_______" {
+    } else if s == "\\______" {
         true
-    } else if s == "_===" {
+    } else if s == "\\===" {
         true
-    } else if s == "_---" {
+    } else if s == "\\---" {
         true
-    } else if s == "_..." {
+    } else if s == "\\..." {
         true
     } else {
         false
     }
 }
 
-/// This uses `_` (underscore) as prefix and
+/// This uses `\\` (underscore) as prefix and
 /// a fixed string to identify the separator:
 ///
-/// * `_   ` - three blanks -> empty separator
-/// * `____` - three underscores -> plain line
-/// * `_______` - six underscore -> thick line
-/// * `_===` - three equals -> double line
-/// * `_---` - three hyphen -> dashed line
-/// * `_...` - three dots -> dotted line
+/// * `\\   ` - three blanks -> empty separator
+/// * `\\___` - three underscores -> plain line
+/// * `\\______` - six underscore -> thick line
+/// * `\\===` - three equals -> double line
+/// * `\\---` - three hyphen -> dashed line
+/// * `\\...` - three dots -> dotted line
 fn separator_str(s: &str) -> Separator {
-    if s == "_   " {
+    if s == "\\   " {
         Separator::Empty
-    } else if s == "____" {
+    } else if s == "\\___" {
         Separator::Plain
-    } else if s == "_______" {
+    } else if s == "\\______" {
         Separator::Thick
-    } else if s == "_===" {
+    } else if s == "\\===" {
         Separator::Double
-    } else if s == "_---" {
+    } else if s == "\\---" {
         Separator::Dashed
-    } else if s == "_..." {
+    } else if s == "\\..." {
         Separator::Dotted
     } else {
         unreachable!()

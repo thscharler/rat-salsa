@@ -1,3 +1,5 @@
+# 1.0.0
+
 # 0.32.0
 
 * break: Menubar: remove Regular event-handling and do everything
