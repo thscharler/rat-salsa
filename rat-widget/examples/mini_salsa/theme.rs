@@ -241,7 +241,7 @@ impl Scheme {
         CalendarStyle {
             style: self.style(self.black[2]),
             title: None,
-            week: Some(Style::new().fg(self.limegreen[2])),
+            weeknum: Some(Style::new().fg(self.limegreen[2])),
             weekday: Some(Style::new().fg(self.limegreen[2])),
             day: None,
             select: Some(self.select()),

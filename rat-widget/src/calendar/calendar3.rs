@@ -8,9 +8,45 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem;
 
+///
 /// Calendar with 3 month on display.
 ///
-/// Treat this as sample for your own fancy calendar.
+/// Take this as sample for your own fancy calendar.
+///
+/// ```
+/// # let mut buf = Buffer::empty(Rect::new(0, 0, 24, 24));
+///
+/// use std::collections::HashMap;
+/// use chrono::Local;
+/// use pure_rust_locales::Locale;
+/// use ratatui::buffer::Buffer;
+/// use ratatui::layout::{Alignment, Direction};
+/// use ratatui::prelude::Rect;
+/// use ratatui::widgets::{Block, StatefulWidget};
+/// use rat_widget::calendar::{Calendar3, CalendarState, CalendarStyle, TodayPolicy};
+///
+/// let mut style = CalendarStyle::default();
+///
+/// let mut day_styles = HashMap::default();
+///
+/// let mut state = CalendarState::new();
+/// state.set_step(1);
+/// state.set_primary_idx(1);
+/// state.set_today_policy(TodayPolicy::Index(1));
+/// state.set_start_date(Local::now().date_naive());
+///
+/// Calendar3::new()
+///         .direction(Direction::Vertical)
+///         .locale(Locale::default())
+///         .styles(style)
+///         .title_align(Alignment::Left)
+///         .day_styles(&day_styles)
+///         .show_weekdays()
+///         .block(Block::bordered())
+///         .render(Rect::new(0,0,24,24), &mut buf, &mut state);
+///
+/// ```
+///
 #[derive(Debug, Default)]
 pub struct Calendar3<'a, Selection> {
     direction: Direction,

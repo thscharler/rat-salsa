@@ -5,6 +5,11 @@ use rat_event::util::item_at;
 use rat_event::{ct_event, flow, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocus;
 
+/// Can select a single date.
+///
+/// Movement with the arrow keys and PageUp/PageDown.
+/// Ctrl+Home moves to today.
+///
 #[derive(Debug, Default, Clone)]
 pub struct SingleSelection {
     selected: Option<NaiveDate>,
@@ -96,8 +101,8 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
             if self.is_focused() {
                 match event {
                     ct_event!(keycode press CONTROL-Home) => self.move_to_today(),
-                    ct_event!(keycode press PageUp) => self.move_to_prev_month(1),
-                    ct_event!(keycode press PageDown) => self.move_to_next_month(1),
+                    ct_event!(keycode press PageUp) => self.prev_month(1),
+                    ct_event!(keycode press PageDown) => self.next_month(1),
                     ct_event!(keycode press Up) => self.prev_day(7),
                     ct_event!(keycode press Down) => self.next_day(7),
                     ct_event!(keycode press Left) => self.prev_day(1),

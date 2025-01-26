@@ -14,10 +14,11 @@ use std::rc::Rc;
 /// How should [move_to_current] behave.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TodayPolicy {
-    /// Set the primary month to the fixed index in the calendar.
+    /// Set the current date at the given index and fill
+    /// out the rest accordingly.
     Index(usize),
-    /// Behave like a yearly calendar. Sets the primary month index to
-    /// the current month.
+    /// Behave like a yearly calendar. Sets the calender to the
+    /// current year and focuses on the month of the current date.
     Year,
 }
 
@@ -142,8 +143,17 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
         self.step = step;
     }
 
-    /// Step size in months when scrolling/leaving the
-    /// displayed range.
+    /// Step-size when navigating outside the displayed
+    /// calendar.
+    ///
+    /// You can do a rolling calendar which goes back 1 month
+    /// or a yearly calendar which goes back 12 months.
+    /// Or any other value you like.
+    ///
+    /// If you set step to 0 this kind of navigation is
+    /// deactivated.
+    ///
+    /// Default is 1.
     pub fn step(&self) -> usize {
         self.step
     }
@@ -156,6 +166,7 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
         self.home = home;
     }
 
+    /// How should move_to_today() work.
     pub fn today_policy(&mut self) -> TodayPolicy {
         self.home
     }
@@ -186,7 +197,7 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
     }
 
     /// Set the start-date for the calendar.
-    /// Will set each month-state to a consecutive month.
+    /// This will set the start-date for each month.
     pub fn set_start_date(&mut self, mut date: NaiveDate) {
         for month in &mut self.months {
             month.set_start_date(date);
@@ -259,14 +270,17 @@ impl<const N: usize, Selection> CalendarState<N, Selection>
 where
     Selection: CalendarSelection,
 {
+    /// Clear the selection.
     pub fn clear(&mut self) {
         self.selection.clear();
     }
 
+    /// Is the date selected?
     pub fn is_selected(&self, date: NaiveDate) -> bool {
         self.selection.is_selected(date)
     }
 
+    /// Lead selection.
     pub fn lead_selection(&self) -> Option<NaiveDate> {
         self.selection.lead_selection()
     }
@@ -317,6 +331,8 @@ where
 }
 
 impl<const N: usize> CalendarState<N, NoSelection> {
+    /// Move to the previous month. Scrolls the calendar
+    /// if necessary.
     pub fn prev_month(&mut self, n: usize) -> CalOutcome {
         let base_start = self.start_date();
         let date = self.months[self.primary_idx].start_date();
@@ -334,6 +350,8 @@ impl<const N: usize> CalendarState<N, NoSelection> {
         r
     }
 
+    /// Move to the next month. Scrolls the calendar
+    /// if necessary.
     pub fn next_month(&mut self, n: usize) -> CalOutcome {
         let base_end = self.end_date();
         let date = self.months[self.primary_idx].start_date();
@@ -350,6 +368,11 @@ impl<const N: usize> CalendarState<N, NoSelection> {
         r
     }
 
+    /// Move the calendar to show the current date.
+    ///
+    /// Resets the start-dates according to TodayPolicy.
+    /// Focuses the primary index and selects the current day.
+    ///
     pub fn move_to_today(&mut self) -> CalOutcome {
         self.move_to(Local::now().date_naive())
     }
@@ -376,18 +399,30 @@ impl<const N: usize> CalendarState<N, NoSelection> {
 }
 
 impl<const N: usize> CalendarState<N, SingleSelection> {
+    /// Select the given date.
+    /// Doesn't scroll the calendar.
     pub fn select(&mut self, date: NaiveDate) -> bool {
         self.selection.borrow_mut().select(date)
     }
 
+    /// Selected date.
     pub fn selected(&self) -> Option<NaiveDate> {
         self.selection.borrow().selected()
     }
 
+    /// Move the calendar to show the current date.
+    ///
+    /// Resets the start-dates according to TodayPolicy.
+    /// Focuses the primary index and selects the current day.
     pub fn move_to_today(&mut self) -> CalOutcome {
         self.move_to(Local::now().date_naive())
     }
 
+    /// Move the calendar to show the given date.
+    ///
+    /// Resets the start-dates according to TodayPolicy.
+    /// Focuses the primary index and selects the current day.
+    ///
     pub fn move_to(&mut self, date: NaiveDate) -> CalOutcome {
         let mut r = CalOutcome::Changed;
 
@@ -412,24 +447,30 @@ impl<const N: usize> CalendarState<N, SingleSelection> {
     }
 
     /// Select previous day.
+    /// Scrolls the calendar if necessary.
     pub fn prev_day(&mut self, n: usize) -> CalOutcome {
         self.prev(Months::new(0), Days::new(n as u64))
     }
 
     /// Select previous week.
+    /// Scrolls the calendar if necessary.
     pub fn next_day(&mut self, n: usize) -> CalOutcome {
         self.next(Months::new(0), Days::new(n as u64))
     }
 
     /// Select the same day in the previous month.
+    ///
     /// This may shift the date a bit if it's out of range of the
     /// new month.
-    pub fn move_to_prev_month(&mut self, n: usize) -> CalOutcome {
+    pub fn prev_month(&mut self, n: usize) -> CalOutcome {
         self.prev(Months::new(n as u32), Days::new(0))
     }
 
-    /// Select previous week.
-    pub fn move_to_next_month(&mut self, n: usize) -> CalOutcome {
+    /// Select the same day in the next month.
+    ///
+    /// This may shift the date a bit if it's out of range of the
+    /// new month.
+    pub fn next_month(&mut self, n: usize) -> CalOutcome {
         self.next(Months::new(n as u32), Days::new(0))
     }
 
@@ -509,36 +550,53 @@ impl<const N: usize> CalendarState<N, SingleSelection> {
 }
 
 impl<const N: usize> CalendarState<N, RangeSelection> {
+    /// Select the full month of the date. Any date of the month will do.
+    /// Can extend the selection to encompass the month.
+    /// Any existing selection is buffed up to fill one month.
     pub fn select_month(&mut self, date: NaiveDate, extend: bool) -> bool {
         self.selection.borrow_mut().select_month(date, extend)
     }
 
+    /// Select the week of the given date. Any date of the week will do.
+    /// Can extend the selection to encompass the week.
+    /// Any existing selection is buffed up to fill one week.
     pub fn select_week(&mut self, date: NaiveDate, extend: bool) -> bool {
         self.selection.borrow_mut().select_week(date, extend)
     }
 
+    /// Select the given date.
+    /// Can extend the selection to the given date.
     pub fn select_day(&mut self, date: NaiveDate, extend: bool) -> bool {
         self.selection.borrow_mut().select_day(date, extend)
     }
 
+    /// Set the selection as (anchor, lead) pair.
     pub fn select(&mut self, selection: (NaiveDate, NaiveDate)) -> bool {
         self.selection.borrow_mut().select(selection)
     }
 
+    /// Selection as (anchor, lead) pair.
     pub fn selected(&self) -> Option<(NaiveDate, NaiveDate)> {
         self.selection.borrow().selected()
     }
 
+    /// Selection as NaiveDate range.
     pub fn selected_range(&self) -> Option<RangeInclusive<NaiveDate>> {
         self.selection.borrow().selected_range()
     }
 
     /// Move the calendar to today.
+    ///
+    /// Uses [TodayPolicy] to build the new calendar and focuses and selects
+    /// the given date.
     pub fn move_to_today(&mut self) -> CalOutcome {
         self.move_to(Local::now().date_naive())
     }
 
     /// Move the calendar the given day.
+    ///
+    /// Uses [TodayPolicy] to build the new calendar and focuses and selects
+    /// the given date.
     pub fn move_to(&mut self, date: NaiveDate) -> CalOutcome {
         let mut r = CalOutcome::Changed;
 
@@ -562,86 +620,9 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
         r
     }
 
-    /// Move the lead back n months.
-    /// Only the lead is selected afterwards.
-    pub fn move_to_prev_month(&mut self, n: usize) -> CalOutcome {
-        let base_start = self.start_date();
-        let base_end = self.end_date();
-
-        let mut r = CalOutcome::Continue;
-
-        if let Some(date) = self.selection.lead_selection() {
-            let new_date = if date >= base_start && date <= base_end || self.step != 0 {
-                date - Months::new(n as u32)
-            } else if date < base_start {
-                self.start_date()
-            } else {
-                self.end_date()
-            };
-
-            if new_date >= base_start && new_date <= base_end {
-                if self.selection.borrow_mut().select_day(new_date, false) {
-                    r = CalOutcome::Selected;
-                }
-            } else if self.step > 0 {
-                r = self.scroll_back(self.step);
-                if self.selection.borrow_mut().select_day(new_date, false) {
-                    r = CalOutcome::Selected;
-                }
-            }
-        } else {
-            let new_date = self.end_date();
-            if self.selection.borrow_mut().select_day(new_date, false) {
-                r = CalOutcome::Selected;
-            }
-        }
-
-        if r.is_consumed() {
-            self.focus_lead();
-        }
-
-        r
-    }
-
-    /// Move the lead back n months.
-    /// Only the lead is selected afterwards.
-    pub fn move_to_next_month(&mut self, n: usize) -> CalOutcome {
-        let base_start = self.start_date();
-        let base_end = self.end_date();
-
-        let new_date = if let Some(date) = self.selection.lead_selection() {
-            if date >= base_start && date <= base_end || self.step > 0 {
-                date + Months::new(n as u32)
-            } else if date < base_start {
-                self.start_date()
-            } else {
-                self.end_date()
-            }
-        } else {
-            self.start_date()
-        };
-
-        let mut r = CalOutcome::Continue;
-
-        if new_date >= base_start && new_date <= base_end {
-            if self.selection.borrow_mut().select_day(new_date, false) {
-                r = CalOutcome::Selected;
-            }
-        } else if self.step > 0 {
-            r = self.scroll_forward(self.step);
-            if self.selection.borrow_mut().select_day(new_date, false) {
-                r = CalOutcome::Selected;
-            }
-        }
-
-        if r.is_consumed() {
-            self.focus_lead();
-        }
-
-        r
-    }
-
     /// Select previous day.
+    ///
+    /// Can extend the selection to include the new date.
     pub fn prev_day(&mut self, n: usize, extend: bool) -> CalOutcome {
         let base_start = self.start_date();
         let base_end = self.end_date();
@@ -682,6 +663,8 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
     }
 
     /// Select next day.
+    ///
+    /// Can extend the selection to include the new date.
     pub fn next_day(&mut self, n: usize, extend: bool) -> CalOutcome {
         let base_start = self.start_date();
         let base_end = self.end_date();
@@ -718,7 +701,9 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
         r
     }
 
-    /// Select previous week.
+    /// Select the previous week.
+    ///
+    /// When extending a selection, the current selection buffs up to fill one week.
     pub fn prev_week(&mut self, n: usize, extend: bool) -> CalOutcome {
         let base_start = self.start_date();
         let base_end = self.end_date();
@@ -760,7 +745,9 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
         r
     }
 
-    /// Select next week.
+    /// Select the next week.
+    ///
+    /// When extending a selection, the current selection buffs up to fill one week.
     pub fn next_week(&mut self, n: usize, extend: bool) -> CalOutcome {
         let base_start = self.start_date();
         let base_end = self.end_date();
@@ -787,6 +774,89 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
         } else if self.step > 0 {
             r = self.scroll_forward(self.step);
             if self.selection.borrow_mut().select_week(new_date, extend) {
+                r = CalOutcome::Selected;
+            }
+        }
+
+        if r.is_consumed() {
+            self.focus_lead();
+        }
+
+        r
+    }
+
+    /// Select the previous month.
+    ///
+    /// When extending a selection, the current selection buffs up to fill one month.
+    ///
+    pub fn prev_month(&mut self, n: usize, extend: bool) -> CalOutcome {
+        let base_start = self.start_date();
+        let base_end = self.end_date();
+
+        let mut r = CalOutcome::Continue;
+
+        if let Some(date) = self.selection.lead_selection() {
+            let new_date = if date >= base_start && date <= base_end || self.step != 0 {
+                date - Months::new(n as u32)
+            } else if date < base_start {
+                self.start_date()
+            } else {
+                self.end_date()
+            };
+
+            if new_date >= base_start && new_date <= base_end {
+                if self.selection.borrow_mut().select_month(new_date, extend) {
+                    r = CalOutcome::Selected;
+                }
+            } else if self.step > 0 {
+                r = self.scroll_back(self.step);
+                if self.selection.borrow_mut().select_month(new_date, extend) {
+                    r = CalOutcome::Selected;
+                }
+            }
+        } else {
+            let new_date = self.end_date();
+            if self.selection.borrow_mut().select_month(new_date, extend) {
+                r = CalOutcome::Selected;
+            }
+        }
+
+        if r.is_consumed() {
+            self.focus_lead();
+        }
+
+        r
+    }
+
+    /// Select the previous month.
+    ///
+    /// When extending a selection, the current selection buffs up to fill one month.
+    ///
+    pub fn next_month(&mut self, n: usize, extend: bool) -> CalOutcome {
+        let base_start = self.start_date();
+        let base_end = self.end_date();
+
+        let new_date = if let Some(date) = self.selection.lead_selection() {
+            if date >= base_start && date <= base_end || self.step > 0 {
+                date + Months::new(n as u32)
+            } else if date < base_start {
+                self.start_date()
+            } else {
+                self.end_date()
+            }
+        } else {
+            self.start_date()
+        };
+
+        let mut r = CalOutcome::Continue;
+
+        if new_date >= base_start && new_date <= base_end {
+            if self.selection.borrow_mut().select_month(new_date, extend) {
+                r = CalOutcome::Selected;
+            }
+        } else if self.step > 0 {
+            r = self.scroll_forward(self.step);
+            if self.selection.borrow_mut().select_month(new_date, extend) {
                 r = CalOutcome::Selected;
             }
         }

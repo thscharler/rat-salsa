@@ -4,6 +4,11 @@ use chrono::NaiveDate;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocus;
 
+/// No selection model
+///
+/// Can scroll the calendar with Up/Down, PageUp/PageDown though.
+/// Ctrl+Home moves to today.
+///
 #[derive(Debug, Default, Clone)]
 pub struct NoSelection;
 
@@ -42,8 +47,7 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
         let mut r = 'f: {
             for month in &mut self.months {
                 let r = month.handle(event, Regular);
-                if r.is_consumed() {
-                    //todo: change to on selected
+                if r == CalOutcome::Selected {
                     self.focus_lead();
                     break 'f r;
                 }

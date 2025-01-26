@@ -1,13 +1,27 @@
 use crate::calendar::calendar::CalendarState;
 use crate::calendar::event::CalOutcome;
-use crate::calendar::{CalendarSelection, MonthState};
-use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
+use crate::calendar::{
+    first_day_of_month, is_first_day_of_month, is_last_day_of_month, is_same_month, is_same_week,
+    last_day_of_month, CalendarSelection, MonthState,
+};
+use chrono::{Datelike, NaiveDate, Weekday};
+use log::debug;
 use rat_event::util::item_at;
 use rat_event::ConsumedEvent;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocus;
 use std::ops::RangeInclusive;
 
+/// Can select a date range.
+///
+/// - Movement with the arrow-keys and PageUp/PageDown.
+/// - Ctrl+Home moves to today.
+///
+/// - Ctrl+A selects the current month.
+/// - Shift+Arrow extends the selection.
+/// - Shift+PageUp/PageDown extends the selection by a whole month.
+/// - Alt+Shift+Up/Down extends the selection by a whole week.
+///
 #[derive(Debug, Default, Clone)]
 pub struct RangeSelection {
     anchor: Option<NaiveDate>,
@@ -54,44 +68,96 @@ impl CalendarSelection for RangeSelection {
 }
 
 impl RangeSelection {
-    /// Select a month. Any date in a month will do.
+    /// Select the week of the given date.
+    ///
+    /// If extend is used, this will extend the selection to include
+    /// the new week. If the current selection doesn't cover full weeks
+    /// it will be buffed up to do so afterwards.
+    ///
     pub fn select_month(&mut self, date: NaiveDate, extend: bool) -> bool {
         let old = (self.anchor, self.lead);
 
-        let start = date.with_day(1).expect("date");
-        let end = date.with_day(1).expect("date") + Months::new(1) - Days::new(1);
+        let new_start = first_day_of_month(date);
+        let new_end = last_day_of_month(date);
 
         if extend {
-            if let Some(anchor) = self.anchor {
-                if start < anchor {
-                    if end < anchor {
-                        self.lead = Some(start);
-                        if self.anchor.is_none() {
-                            self.anchor = Some(date);
-                        }
-                    } else {
-                        self.lead = Some(start);
-                        self.anchor = Some(end);
+            if let Some(mut lead) = self.lead {
+                let Some(mut anchor) = self.anchor else {
+                    unreachable!();
+                };
+
+                // fill out week
+                if lead <= anchor {
+                    if !is_first_day_of_month(lead) || !is_last_day_of_month(anchor) {
+                        lead = first_day_of_month(lead);
+                        anchor = last_day_of_month(anchor);
+                        self.lead = Some(lead);
+                        self.anchor = Some(anchor);
                     }
                 } else {
-                    self.lead = Some(end);
-                    if self.anchor.is_none() {
-                        self.anchor = Some(date);
+                    if !is_last_day_of_month(lead) || !is_first_day_of_month(anchor) {
+                        lead = last_day_of_month(lead);
+                        anchor = first_day_of_month(anchor);
+                        self.lead = Some(lead);
+                        self.anchor = Some(anchor);
+                    }
+                }
+
+                if is_same_month(lead, anchor) {
+                    // A single month can change direction.
+                    if lead <= anchor {
+                        if new_start < anchor {
+                            self.lead = Some(new_start);
+                        } else {
+                            self.lead = Some(new_end);
+                            self.anchor = Some(lead);
+                        }
+                    } else {
+                        if new_start > anchor {
+                            self.lead = Some(new_end);
+                        } else {
+                            self.lead = Some(new_start);
+                            self.anchor = Some(lead);
+                        }
+                    }
+                } else {
+                    // keep direction and reduce/extend in that direction.
+                    if lead < anchor {
+                        if new_start <= lead {
+                            self.lead = Some(new_start);
+                        } else if new_end <= anchor {
+                            self.lead = Some(new_start);
+                        } else {
+                            self.lead = Some(new_end);
+                        }
+                    } else {
+                        if new_end <= lead {
+                            self.lead = Some(new_end);
+                        } else if new_start >= anchor {
+                            self.lead = Some(new_end);
+                        } else {
+                            self.lead = Some(new_start);
+                        }
                     }
                 }
             } else {
-                self.anchor = Some(start);
-                self.lead = Some(end);
+                self.lead = Some(new_start);
+                self.anchor = Some(new_end);
             }
         } else {
-            self.anchor = Some(start);
-            self.lead = Some(end);
+            self.lead = Some(new_start);
+            self.anchor = Some(new_end);
         }
 
         old != (self.anchor, self.lead)
     }
 
-    /// Select a week. Any date in a week will do.
+    /// Select the week of the given date.
+    ///
+    /// If extend is used, this will extend the selection to include
+    /// the new week. If the current selection doesn't cover full weeks
+    /// it will be buffed up to do so afterwards.
+    ///
     pub fn select_week(&mut self, date: NaiveDate, extend: bool) -> bool {
         let old = (self.anchor, self.lead);
 
@@ -99,16 +165,29 @@ impl RangeSelection {
         let new_end = date.week(Weekday::Mon).last_day();
 
         if extend {
-            if let Some(lead) = self.lead {
-                let Some(anchor) = self.anchor else {
+            if let Some(mut lead) = self.lead {
+                let Some(mut anchor) = self.anchor else {
                     unreachable!();
                 };
 
-                if ((lead - anchor).num_days().unsigned_abs() + 1) % 7 != 0 {
-                    // Day selection. Reset
-                    self.lead = Some(new_start);
-                    self.anchor = Some(new_end);
-                } else if (lead - anchor).num_days().unsigned_abs() + 1 == 7 {
+                // fill out week
+                if lead <= anchor {
+                    if lead.weekday() != Weekday::Mon || anchor.weekday() != Weekday::Sun {
+                        lead = lead.week(Weekday::Mon).first_day();
+                        anchor = anchor.week(Weekday::Mon).last_day();
+                        self.lead = Some(lead);
+                        self.anchor = Some(anchor);
+                    }
+                } else {
+                    if lead.weekday() != Weekday::Sun || anchor.weekday() != Weekday::Mon {
+                        lead = lead.week(Weekday::Mon).last_day();
+                        anchor = anchor.week(Weekday::Mon).first_day();
+                        self.lead = Some(lead);
+                        self.anchor = Some(anchor);
+                    }
+                }
+
+                if is_same_week(lead, anchor) {
                     // A single week can change direction.
                     if lead <= anchor {
                         if new_start < anchor {
@@ -174,7 +253,7 @@ impl RangeSelection {
         old != (self.anchor, self.lead)
     }
 
-    /// Select range as (anchor, lead).
+    /// Select range as (anchor, lead) pair.
     pub fn select(&mut self, selection: (NaiveDate, NaiveDate)) -> bool {
         let old = (self.anchor, self.lead);
 
@@ -184,7 +263,7 @@ impl RangeSelection {
         old != (self.anchor, self.lead)
     }
 
-    /// Selection as (anchor, lead)
+    /// Selection as (anchor, lead) pair.
     pub fn selected(&self) -> Option<(NaiveDate, NaiveDate)> {
         if let Some(anchor) = self.anchor {
             if let Some(lead) = self.lead {
@@ -372,8 +451,10 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
                         }
                     }
                     ct_event!(keycode press CONTROL-Home) => self.move_to_today(),
-                    ct_event!(keycode press PageUp) => self.move_to_prev_month(1),
-                    ct_event!(keycode press PageDown) => self.move_to_next_month(1),
+                    ct_event!(keycode press PageUp) => self.prev_month(1, false),
+                    ct_event!(keycode press PageDown) => self.next_month(1, false),
+                    ct_event!(keycode press SHIFT-PageUp) => self.prev_month(1, true),
+                    ct_event!(keycode press SHIFT-PageDown) => self.next_month(1, true),
 
                     ct_event!(keycode press Up) => self.prev_day(7, false),
                     ct_event!(keycode press Down) => self.next_day(7, false),

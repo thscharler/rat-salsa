@@ -5,12 +5,11 @@ use rat_event::{ConsumedEvent, Outcome};
 pub enum CalOutcome {
     /// The given event has not been used at all.
     Continue,
-    /// The event has been recognized, but the result was nil.
+    /// The event has been recognized, but there is no state change.
     /// Further processing for this event may stop.
     Unchanged,
-    /// The event has been recognized and there is some change
-    /// due to it.
-    /// Further processing for this event may stop.
+    /// The event has been recognized and there is some state change
+    /// due to it. Further processing for this event may stop.
     /// Rendering the ui is advised.
     Changed,
     /// The selection has changed.

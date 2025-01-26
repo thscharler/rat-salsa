@@ -2,7 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::calendar::event::CalOutcome;
 use crate::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
 use crate::calendar::style::CalendarStyle;
-use crate::calendar::CalendarSelection;
+use crate::calendar::{first_day_of_month, last_day_of_month, CalendarSelection};
 use crate::util::{block_size, revert_style};
 use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
@@ -22,7 +22,13 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-/// Renders a month.
+/// Month widget.
+///
+/// Renders one month of a calendar.
+///
+/// There is movement and selection support within the month,
+/// but no scrolling. Use a Calendar for full calendar features.
+///
 #[derive(Debug, Clone)]
 pub struct Month<'a, Selection> {
     /// Start date of the month.
@@ -35,7 +41,7 @@ pub struct Month<'a, Selection> {
     /// Title align.
     title_align: Alignment,
     /// Week number style.
-    week_style: Option<Style>,
+    weeknum_style: Option<Style>,
     /// Week day style.
     weekday_style: Option<Style>,
     /// Default day style.
@@ -70,12 +76,14 @@ pub struct MonthState<Selection = SingleSelection> {
     /// Area inside the border.
     /// __readonly__. renewed for each render.
     pub inner: Rect,
-    /// Area of the calendar.
+    /// Area of the main calendar.
+    /// __readonly__. renewed for each render.
     pub area_cal: Rect,
     /// Area for the days of the month.
     /// __readonly__. renewed for each render.
     pub area_days: [Rect; 31],
     /// Area for all the week numbers.
+    /// __readonly__. renewed for each render.
     pub area_weeknum: Rect,
     /// Area for the week numbers.
     /// __readonly__. renewed for each render.
@@ -84,7 +92,8 @@ pub struct MonthState<Selection = SingleSelection> {
     /// Startdate
     start_date: NaiveDate,
 
-    /// Selection
+    /// Selection model.
+    /// The selection model can be shared with other Month widgets.
     pub selection: Rc<RefCell<Selection>>,
 
     /// Set to the container-focus if part of a container.
@@ -108,7 +117,7 @@ impl<'a, Selection> Default for Month<'a, Selection> {
             style: Default::default(),
             title_style: Default::default(),
             title_align: Default::default(),
-            week_style: Default::default(),
+            weeknum_style: Default::default(),
             weekday_style: Default::default(),
             day_style: Default::default(),
             day_styles: Default::default(),
@@ -124,6 +133,7 @@ impl<'a, Selection> Default for Month<'a, Selection> {
 }
 
 impl<'a, Selection> Month<'a, Selection> {
+    /// New calendar.
     pub fn new() -> Self {
         Self::default()
     }
@@ -132,7 +142,7 @@ impl<'a, Selection> Month<'a, Selection> {
     /// If no date is set, the start_date of the state is used.
     #[inline]
     pub fn date(mut self, s: NaiveDate) -> Self {
-        self.start_date = Some(s.with_day(1).expect("day"));
+        self.start_date = Some(first_day_of_month(s));
         self
     }
 
@@ -164,8 +174,8 @@ impl<'a, Selection> Month<'a, Selection> {
         if s.title.is_some() {
             self.title_style = s.title;
         }
-        if s.week.is_some() {
-            self.week_style = s.week;
+        if s.weeknum.is_some() {
+            self.weeknum_style = s.weeknum;
         }
         if s.weekday.is_some() {
             self.weekday_style = s.weekday;
@@ -186,13 +196,13 @@ impl<'a, Selection> Month<'a, Selection> {
         self
     }
 
-    /// Style for the selected tab.
+    /// Style for the selection
     pub fn select_style(mut self, style: Style) -> Self {
         self.select_style = Some(style);
         self
     }
 
-    /// Style for a focused tab.
+    /// Style for the focus.
     pub fn focus_style(mut self, style: Style) -> Self {
         self.focus_style = Some(style);
         self
@@ -205,21 +215,21 @@ impl<'a, Selection> Month<'a, Selection> {
         self
     }
 
-    /// Sets all the day-styles.
+    /// Set a map date->Style for highlighting some dates.
     #[inline]
     pub fn day_styles(mut self, styles: &'a HashMap<NaiveDate, Style>) -> Self {
         self.day_styles = Some(styles);
         self
     }
 
-    /// Set the week number style
+    /// Set the week number style.
     #[inline]
     pub fn week_style(mut self, s: impl Into<Style>) -> Self {
-        self.week_style = Some(s.into());
+        self.weeknum_style = Some(s.into());
         self
     }
 
-    /// Set the week day style
+    /// Set the week day style.
     #[inline]
     pub fn weekday_style(mut self, s: impl Into<Style>) -> Self {
         self.weekday_style = Some(s.into());
@@ -233,7 +243,7 @@ impl<'a, Selection> Month<'a, Selection> {
         self
     }
 
-    /// Set the mont-name align.
+    /// Set the month-name align.
     #[inline]
     pub fn title_align(mut self, a: Alignment) -> Self {
         self.title_align = a;
@@ -322,7 +332,7 @@ fn render_ref<Selection: CalendarSelection>(
         }
     };
     let day_style = widget.day_style.unwrap_or(widget.style);
-    let week_style = widget.week_style.unwrap_or(widget.style);
+    let week_style = widget.weeknum_style.unwrap_or(widget.style);
     let weekday_style = widget.weekday_style.unwrap_or(widget.style);
 
     let title_style = if let Some(title_style) = widget.title_style {
@@ -534,10 +544,12 @@ impl<Selection> HasFocus for MonthState<Selection> {
 
 impl<Selection> RelocatableState for MonthState<Selection> {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-        self.area = relocate_area(self.area, shift, clip);
-        self.inner = relocate_area(self.inner, shift, clip);
-        relocate_areas(&mut self.area_days, shift, clip);
-        relocate_areas(&mut self.area_weeks, shift, clip);
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
+        self.area_cal.relocate(shift, clip);
+        self.area_weeknum.relocate(shift, clip);
+        self.area_days.relocate(shift, clip);
+        self.area_weeks.relocate(shift, clip);
     }
 }
 
@@ -609,7 +621,7 @@ impl<Selection> MonthState<Selection> {
     /// Setting this will be useless if the date is set with the Month widget.
     pub fn set_start_date(&mut self, date: NaiveDate) -> bool {
         let old_value = self.start_date;
-        self.start_date = date.with_day(1).expect("date");
+        self.start_date = first_day_of_month(date);
         old_value != self.start_date
     }
 
@@ -620,7 +632,7 @@ impl<Selection> MonthState<Selection> {
 
     /// End date of this month.
     pub fn end_date(&self) -> NaiveDate {
-        self.start_date + Months::new(1) - Days::new(1)
+        last_day_of_month(self.start_date)
     }
 
     fn in_range(&self, date: NaiveDate) -> bool {
@@ -678,12 +690,17 @@ where
     pub fn clear_selection(&mut self) {
         self.selection.clear();
     }
+
+    /// Lead selection
+    pub fn lead_selection(&self) -> Option<NaiveDate> {
+        self.selection.lead_selection()
+    }
 }
 
 impl MonthState<NoSelection> {}
 
 impl MonthState<SingleSelection> {
-    /// Select a day
+    /// Select a day by index.
     pub fn select_day(&mut self, n: usize) -> CalOutcome {
         if let Some(date) = self.start_date.with_day0(n as u32) {
             if self.selection.borrow_mut().select(date) {
@@ -696,7 +713,7 @@ impl MonthState<SingleSelection> {
         }
     }
 
-    /// Select a day
+    /// Select the last day of the month.
     pub fn select_last(&mut self) -> CalOutcome {
         let date = self.end_date();
         if self.selection.borrow_mut().select(date) {
@@ -751,7 +768,7 @@ impl MonthState<SingleSelection> {
         }
     }
 
-    /// Select previous day.
+    /// Select next day.
     pub fn next_day(&mut self, n: usize) -> CalOutcome {
         let base_start = self.start_date();
         let base_end = self.end_date();
@@ -781,7 +798,7 @@ impl MonthState<SingleSelection> {
 }
 
 impl MonthState<RangeSelection> {
-    /// Select a week.
+    /// Select a week by index.
     pub fn select_week(&mut self, n: usize, extend: bool) -> CalOutcome {
         if n < self.week_len() {
             let date = self.start_date() + Days::new(7 * n as u64);
@@ -795,7 +812,7 @@ impl MonthState<RangeSelection> {
         }
     }
 
-    /// Select a day
+    /// Select a day by index.
     pub fn select_day(&mut self, n: usize, extend: bool) -> CalOutcome {
         if let Some(date) = self.start_date.with_day0(n as u32) {
             if self.selection.borrow_mut().select_day(date, extend) {
@@ -808,7 +825,7 @@ impl MonthState<RangeSelection> {
         }
     }
 
-    /// Select a day
+    /// Select the last day
     pub fn select_last(&mut self, extend: bool) -> CalOutcome {
         let date = self.end_date();
         if self.selection.borrow_mut().select_day(date, extend) {

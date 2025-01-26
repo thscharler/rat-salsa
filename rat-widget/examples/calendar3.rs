@@ -162,7 +162,7 @@ fn repaint_input(
         .title_align(Alignment::Left)
         .day_styles(&state.cal_style)
         .show_weekdays()
-        .block(Block::bordered().borders(Borders::TOP))
+        .block(Block::bordered())
         .render(main_area, frame.buffer_mut(), &mut state.calendar);
 
     MenuLine::new()
