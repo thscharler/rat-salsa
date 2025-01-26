@@ -534,7 +534,8 @@ impl TextAreaState {
 }
 
 impl TextAreaState {
-    /// Clipboard
+    /// Clipboard used.
+    /// Default is to use the global_clipboard().
     #[inline]
     pub fn set_clipboard(&mut self, clip: Option<impl Clipboard + 'static>) {
         match clip {
@@ -543,7 +544,8 @@ impl TextAreaState {
         }
     }
 
-    /// Clipboard
+    /// Clipboard used.
+    /// Default is to use the global_clipboard().
     #[inline]
     pub fn clipboard(&self) -> Option<&dyn Clipboard> {
         self.value.clipboard()
@@ -649,13 +651,24 @@ impl TextAreaState {
 
 impl TextAreaState {
     /// Set and replace all styles.
+    ///
+    /// The ranges are byte-ranges into the text.
+    /// Each byte-range maps to an index into the styles set
+    /// with the widget.
+    ///
+    /// Any style-idx that don't have a match there are just
+    /// ignored. You can use this to store other range based information.
+    /// The ranges are corrected during edits, no need to recalculate
+    /// everything after each keystroke.
     #[inline]
     pub fn set_styles(&mut self, styles: Vec<(Range<usize>, usize)>) {
         self.value.set_styles(styles);
     }
 
-    /// Add a style for a [TextRange]. The style-nr refers to one
-    /// of the styles set with the widget.
+    /// Add a style for a [TextRange].
+    ///
+    /// The style-idx refers to one of the styles set with the widget.
+    /// Missing styles are just ignored.
     #[inline]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
         self.value.add_style(range, style);
@@ -663,6 +676,7 @@ impl TextAreaState {
 
     /// Add a style for a [TextRange]. The style-nr refers to one
     /// of the styles set with the widget.
+    /// Missing styles are just ignored.
     #[inline]
     pub fn add_range_style(&mut self, range: TextRange, style: usize) -> Result<(), TextError> {
         let r = self.value.bytes_at_range(range)?;

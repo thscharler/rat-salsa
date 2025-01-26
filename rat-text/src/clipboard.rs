@@ -42,11 +42,17 @@ pub fn global_clipboard() -> Box<dyn Clipboard> {
     Box::new(c.clone())
 }
 
+/// Change the global default clipboard.
+pub fn set_global_clipboard(clipboard: impl Clipboard + Send + 'static) {
+    let c = GLOBAL_CLIPBOARD.get_or_init(StaticClipboard::default);
+    c.replace(clipboard);
+}
+
 /// Clipboard that can be set as a static.
 /// It can replace the actual clipboard implementation at a later time.
 /// Initializes with a LocalClipboard.
 #[derive(Debug, Clone)]
-pub struct StaticClipboard {
+struct StaticClipboard {
     clip: Arc<Mutex<Box<dyn Clipboard + Send>>>,
 }
 
@@ -59,12 +65,8 @@ impl Default for StaticClipboard {
 }
 
 impl StaticClipboard {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Replace the static clipboard with the given one.
-    pub fn replace(&self, clipboard: impl Clipboard + Send + 'static) {
+    fn replace(&self, clipboard: impl Clipboard + Send + 'static) {
         let mut clip = self.clip.lock().expect("clipboard-lock");
         *clip = Box::new(clipboard);
     }

@@ -272,13 +272,15 @@ impl NumberInputState {
 }
 
 impl NumberInputState {
-    /// Clipboard
+    /// Clipboard used.
+    /// Default is to use the global_clipboard().
     #[inline]
     pub fn set_clipboard(&mut self, clip: Option<impl Clipboard + 'static>) {
         self.widget.set_clipboard(clip);
     }
 
-    /// Clipboard
+    /// Clipboard used.
+    /// Default is to use the global_clipboard().
     #[inline]
     pub fn clipboard(&self) -> Option<&dyn Clipboard> {
         self.widget.clipboard()

@@ -360,13 +360,15 @@ impl DateInputState {
 }
 
 impl DateInputState {
-    /// Clipboard
+    /// Clipboard used.
+    /// Default is to use the global_clipboard().
     #[inline]
     pub fn set_clipboard(&mut self, clip: Option<impl Clipboard + 'static>) {
         self.widget.set_clipboard(clip);
     }
 
-    /// Clipboard
+    /// Clipboard used.
+    /// Default is to use the global_clipboard().
     #[inline]
     pub fn clipboard(&self) -> Option<&dyn Clipboard> {
         self.widget.clipboard()
@@ -442,14 +444,13 @@ impl DateInputState {
         self.widget.set_styles(styles);
     }
 
-    /// Add a style for a byte-range. The style-nr refers to one
-    /// of the styles set with the widget.
+    /// Add a style for a byte-range.
     #[inline]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
         self.widget.add_style(range, style);
     }
 
-    /// Add a style for a `Range<upos_type>` to denote the cells.
+    /// Add a style for a `Range<upos_type>` .
     /// The style-nr refers to one of the styles set with the widget.
     #[inline]
     pub fn add_range_style(
