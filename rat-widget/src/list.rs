@@ -346,7 +346,7 @@ fn render_list<Selection: ListSelection>(
 
 impl<Selection> HasFocus for ListState<Selection> {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_leaf(self);
+        builder.leaf_widget(self);
     }
 
     #[inline]

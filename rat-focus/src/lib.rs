@@ -58,7 +58,7 @@ impl Display for FocusFlag {
 
 impl HasFocus for FocusFlag {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_leaf(self);
+        builder.leaf_widget(self);
     }
 
     fn focus(&self) -> FocusFlag {
@@ -103,6 +103,7 @@ struct FocusFlagCore {
 ///
 /// The effects that hinder focus-change (`Reach*`, `Lock`) only work
 /// when navigation changes via next()/prev()/focus_at().
+///
 /// Programmatic focus changes are always possible.
 ///
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -152,7 +153,7 @@ pub enum Navigation {
 ///
 /// impl HasFocus for MyWidgetState {
 ///     fn build(&self, builder: &mut FocusBuilder) {
-///         builder.append_leaf(self);
+///         builder.leaf_widget(self);
 ///     }
 ///
 ///     fn focus(&self) -> FocusFlag {
@@ -175,7 +176,7 @@ pub enum Navigation {
 /// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
 /// # impl HasFocus for MyWidgetState {
 /// #     fn build(&self, builder: &mut FocusBuilder) {
-/// #         builder.append_leaf(self);
+/// #         builder.leaf_widget(self);
 /// #     }
 /// #
 /// #     fn focus(&self) -> FocusFlag {
@@ -215,7 +216,7 @@ pub enum Navigation {
 /// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
 /// # impl HasFocus for MyWidgetState {
 /// #     fn build(&self, builder: &mut FocusBuilder) {
-/// #         builder.append_leaf(self);
+/// #         builder.leaf_widget(self);
 /// #     }
 /// #
 /// #     fn focus(&self) -> FocusFlag {
@@ -313,11 +314,17 @@ impl FocusFlag {
     }
 
     /// Return an identity value.
+    ///
+    /// This uses the memory address of the backing Rc so it will
+    /// be unique during the runtime but will be different for each
+    /// run.
     pub fn widget_id(&self) -> usize {
         Rc::as_ptr(&self.0) as usize
     }
 
     /// Create a named flag.
+    ///
+    /// The name is only used for debugging.
     pub fn named(name: &str) -> Self {
         Self(Rc::new(FocusFlagCore::named(name)))
     }

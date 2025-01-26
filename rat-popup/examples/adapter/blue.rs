@@ -68,7 +68,7 @@ impl BlueState {
 
 impl HasFocus for BlueState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_leaf(self);
+        builder.leaf_widget(self);
     }
 
     fn focus(&self) -> FocusFlag {

@@ -352,7 +352,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
 
 impl HasFocus for MenuLineState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_leaf(self);
+        builder.leaf_widget(self);
     }
 
     /// Focus flag.

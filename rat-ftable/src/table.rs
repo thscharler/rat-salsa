@@ -1623,7 +1623,7 @@ impl<Selection: Default> Default for TableState<Selection> {
 
 impl<Selection> HasFocus for TableState<Selection> {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_leaf(self);
+        builder.leaf_widget(self);
     }
 
     #[inline]

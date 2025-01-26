@@ -931,8 +931,8 @@ where
     T: PartialEq + Clone + Default,
 {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_flags(self.focus(), self.area(), 0, self.navigable());
-        builder.append_flags(self.focus(), self.popup.area, 1, Navigation::Mouse);
+        builder.widget_with_flags(self.focus(), self.area(), 0, self.navigable());
+        builder.widget_with_flags(self.focus(), self.popup.area, 1, Navigation::Mouse);
     }
 
     fn focus(&self) -> FocusFlag {

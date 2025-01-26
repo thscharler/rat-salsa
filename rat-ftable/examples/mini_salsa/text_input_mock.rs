@@ -85,7 +85,7 @@ impl HasScreenCursor for TextInputMockState {
 
 impl HasFocus for TextInputMockState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_leaf(self);
+        builder.leaf_widget(self);
     }
 
     fn focus(&self) -> FocusFlag {

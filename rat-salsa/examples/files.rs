@@ -612,7 +612,7 @@ impl HasFocus for FilesState {
         builder.widget(&self.w_split);
         builder.widget(&self.w_dirs);
         builder.widget(&self.w_files);
-        builder.append_flags(
+        builder.widget_with_flags(
             self.w_data.focus(),
             self.w_data.area(),
             self.w_data.area_z(),

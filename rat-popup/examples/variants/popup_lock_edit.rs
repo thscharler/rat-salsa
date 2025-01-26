@@ -96,7 +96,7 @@ impl HasScreenCursor for PopLockMagentaState {
 
 impl HasFocus for PopLockMagentaState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_leaf(self);
+        builder.leaf_widget(self);
     }
 
     fn focus(&self) -> FocusFlag {

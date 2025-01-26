@@ -528,7 +528,7 @@ fn calc_day_style<Selection: CalendarSelection>(
 
 impl<Selection> HasFocus for MonthState<Selection> {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_leaf(self);
+        builder.leaf_widget(self);
     }
 
     #[inline]

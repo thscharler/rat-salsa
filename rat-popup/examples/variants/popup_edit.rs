@@ -132,7 +132,7 @@ impl PopEditGreenState {
         // set active, update Focus and focus first widget.
         self.popup.set_active(true);
         focus.update_container(&*self);
-        focus.first_container(&*self);
+        focus.first_in(&*self);
     }
 
     pub fn hide(&mut self, focus: &mut Focus) {

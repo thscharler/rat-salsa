@@ -178,7 +178,7 @@ fn handle_input(
     let r = match state.pager.handle(event, Regular) {
         PagerOutcome::Page(p) => {
             if let Some(first) = state.pager.first(p) {
-                focus.focus_flag(&first);
+                focus.focus(&first);
             }
             Outcome::Changed
         }

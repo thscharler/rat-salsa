@@ -146,7 +146,7 @@ impl Default for DateInputState {
 
 impl HasFocus for DateInputState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.append_leaf(self);
+        builder.leaf_widget(self);
     }
 
     #[inline]

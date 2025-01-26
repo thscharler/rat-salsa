@@ -89,7 +89,7 @@ impl HasFocus for PopFocusBlueState {
         // use container-flag to auto-hide.
         if self.popup.active.is_focused() {
             let tag = builder.start(self);
-            builder.append_flags(self.focus.clone(), self.area, 0, Navigation::Leave);
+            builder.widget_with_flags(self.focus.clone(), self.area, 0, Navigation::Leave);
             builder.end(tag);
         }
     }
