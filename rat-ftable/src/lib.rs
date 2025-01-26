@@ -189,6 +189,8 @@ pub trait TableDataIter<'a> {
 
 /// Trait for the different selection models used by Table.
 pub trait TableSelection {
+    // TODO: clear+len
+
     /// Row is selected. This can be separate from `is_selected_cell`.
     fn is_selected_row(&self, row: usize) -> bool;
 
