@@ -56,43 +56,18 @@ the (experimental) StatefulWidgetRef traits.
 Event handling uses [rat-event::HandleEvent][refRatEvent].
 Currently, crossterm events are implemented.
 
-* [Button](button/index.html)
-* [Choice](choice/index.html)
-* [Checkbox](checkbox/index.html)
-* [Clipper](clipper/index.html)
-* [Calendar](calendar/index.html)
-* [DateInput](date_input/index.html) (using chrono)
-* [EditList](list/edit/index.html)
-* [EditTable](table/edit/index.html)
-* [FileDialog](file_dialog/index.html)
-* [TextInput](input/index.html)
-* [MaskedInput](masked_input/index.html)
-* [Menubar](menubar/index.html)
-* [MenuLine](menuline/index.html)
-* [MsgDialog](msgdialog/index.html)
-* [NumberInput](number_input/index.html) (using format_num_pattern)
-* [SinglePager and DualPager](pager/index.html)
-* [Paired](paired/index.html)
-* [PopupMenu](popup_menu/index.html)
-* [Radio](radio/index.html)
-* [Slide](slider/index.html)
-* [Split](splitter/index.html)
-* [StatusLine](statusline/index.html)
-* [Tabbed](tabbed/index.html)
-* [Table](table/index.html)
-* [TextArea](textarea/index.html)
-* [View](view/index.html)
-
-and some adapters for ratatui widgets
-
-* [List](list/index.html)
-* [Paragraph](paragraph/index.html)
-
 ## Layout
 
 There are some layout calculators beyond ratatui's Layout.
 
-* [Layouts](layout/index.html)
+* [layout](layout/index.html)
+
+## Relocation
+
+Widgets like View and Clipper move the widget-image
+after rendering. This breaks any areas stored in the widget-states.
+
+* [reloc](reloc/index.html)
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 

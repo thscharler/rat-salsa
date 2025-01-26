@@ -29,6 +29,27 @@ use std::rc::Rc;
 /// There is movement and selection support within the month,
 /// but no scrolling. Use a Calendar for full calendar features.
 ///
+/// ```rust ignore
+/// Month::new()
+///     .locale(Locale::de_AT_euro)
+///     .styles(THEME.month_style())
+///     .title_align(Alignment::Left)
+///     .day_styles(&date_styles)
+///     .show_weekdays()
+///     .block(Block::bordered().borders(Borders::TOP))
+///     .render(l2[2], frame.buffer_mut(), &mut state.month1);
+/// ```
+///
+/// ```rust ignore
+/// match state.month1.handle(event, Regular) {
+///     CalOutcome::Selected => {
+///         // doit
+///         Outcome::Changed
+///     }
+///     r => r.into()
+/// }
+/// ```
+///
 #[derive(Debug, Clone)]
 pub struct Month<'a, Selection> {
     /// Start date of the month.

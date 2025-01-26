@@ -10,7 +10,8 @@ pub mod event {
     //!
     //! Event-handler traits and Keybindings.
     //!
-
+    //! See [rat-event](https://docs.rs/rat-event/latest/rat_event/)
+    //!
     pub use rat_event::*;
 
     pub use crate::button::event::ButtonOutcome;
@@ -30,7 +31,7 @@ pub mod event {
 }
 
 /// Module for focus-handling functionality.
-/// For details see [rat-focus](https://docs.rs/rat-focus)
+/// See [rat-focus](https://docs.rs/rat-focus)
 pub mod focus {
     pub use rat_focus::{
         handle_focus, impl_has_focus, match_focus, on_gained, on_lost, Focus, FocusBuilder,
@@ -38,10 +39,11 @@ pub mod focus {
     };
 }
 
-/// Some functions that calculate more complicate layouts.
+/// Layout calculations apart from ratatui/Layout.
 pub mod layout;
 
-/// Relocatable widgets.
+/// Trait for relocatable widgets.
+/// See also [rat-reloc](https://docs.rs/rat-reloc/latest/rat_reloc/)
 pub mod reloc {
     pub use rat_reloc::{
         impl_relocatable_state, relocate_area, relocate_areas, relocate_position,
@@ -50,6 +52,7 @@ pub mod reloc {
 }
 
 /// Scroll attribute and event-handling.
+/// See [rat-scrolled](https://docs.rs/rat-scrolled/latest/rat_scrolled/)
 pub mod scrolled {
     pub use rat_scrolled::{
         Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle, ScrollSymbols,
@@ -77,10 +80,8 @@ pub mod calendar;
 pub mod checkbox;
 pub mod choice;
 pub mod clipper;
-/// Number input with patterns from chrono.
-///
-/// * Undo/redo
-/// * Clipboard trait to link to some clipboard implementation.
+/// Date input with patterns from chrono.
+/// See also [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod date_input {
     pub use rat_text::date_input::{
         handle_events, handle_mouse_events, handle_readonly_events, DateInput, DateInputState,
@@ -94,6 +95,7 @@ pub mod line_number {
 }
 pub mod list;
 /// Menu widgets.
+/// See also [rat-menu](https://docs.rs/rat-menu/latest/rat_menu/)
 pub mod menu {
     pub use rat_menu::menubar::{Menubar, MenubarLine, MenubarPopup, MenubarState};
     pub use rat_menu::menuitem::{MenuItem, Separator};
@@ -112,10 +114,8 @@ pub mod menu {
     }
 }
 pub mod msgdialog;
-/// Number input with pattern.
-///
-/// * Undo/redo
-/// * Clipboard trait to link to some clipboard implementation.
+/// Number input with a number pattern.
+/// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod number_input {
     pub use rat_text::number_input::{
         handle_events, handle_mouse_events, handle_readonly_events, NumberInput, NumberInputState,
@@ -125,6 +125,7 @@ pub mod pager;
 pub mod paired;
 pub mod paragraph;
 /// PopupCore helps with managing popup widgets.
+/// See also [rat-popup](https://docs.rs/rat-popup/latest/rat_popup/)
 pub mod popup {
     pub use rat_popup::{Placement, PopupConstraint, PopupCore, PopupCoreState, PopupStyle};
 }
@@ -144,6 +145,8 @@ pub mod statusline;
 ///
 /// There is a second trait [TableDataIter](crate::table::TableDataIter) that
 /// works better if you only have an Iterator over your data.
+///
+/// See [rat-ftable](https://docs.rs/rat-ftable/latest/rat_ftable/)
 pub mod table {
     pub use rat_ftable::{
         edit, selection, textdata, Table, TableContext, TableData, TableDataIter, TableSelection,
@@ -151,37 +154,22 @@ pub mod table {
     };
 }
 pub mod tabbed;
-/// Text-Input widget
-///
-/// * Undo/redo
-/// * Sync another widget
-/// * Support double-width characters
-/// * Range based text styling
-/// * Clipboard trait to link to some clipboard implementation.
+/// Text-Input widget.
+/// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod text_input {
     pub use rat_text::text_input::{
         handle_events, handle_mouse_events, handle_readonly_events, TextInput, TextInputState,
     };
 }
 /// Text-Input with pattern/mask.
-///
-/// * Undo/redo
-/// * Sync another widget
-/// * Support double-width characters
-/// * Range based text styling
-/// * Clipboard trait to link to some clipboard implementation.
+/// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod text_input_mask {
     pub use rat_text::text_input_mask::{
         handle_events, handle_mouse_events, handle_readonly_events, MaskedInput, MaskedInputState,
     };
 }
 /// Text-Area.
-///
-/// * Undo/redo
-/// * Sync another widget
-/// * Support double-width characters
-/// * Range based text styling
-/// * Clipboard trait to link to some clipboard implementation.
+/// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod textarea {
     pub use rat_text::text_area::{
         handle_events, handle_mouse_events, handle_readonly_events, TextArea, TextAreaState,

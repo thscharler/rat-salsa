@@ -1,3 +1,6 @@
+///
+/// Radiobutton widget.
+///
 use crate::_private::NonExhaustive;
 use crate::choice::core::ChoiceCore;
 use crate::event::RadioOutcome;

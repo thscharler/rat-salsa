@@ -1,6 +1,24 @@
 //!
 //! Button widget.
 //!
+//! Render:
+//! ```rust ignore
+//! Button::new("Button")
+//!      .styles(THEME.button_style()) //
+//!      .render(b_area_1, frame.buffer_mut(), &mut state.button1);
+//! ```
+//!
+//! Event handling:
+//! ```rust ignore
+//! match state.button1.handle(event, Regular) {
+//!     ButtonOutcome::Pressed => {
+//!         data.p1 += 1;
+//!         Outcome::Changed
+//!     }
+//!     r => r.into(),
+//! }
+//! ```
+//!
 
 use crate::_private::NonExhaustive;
 use crate::button::event::ButtonOutcome;

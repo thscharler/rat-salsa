@@ -924,8 +924,8 @@ pub mod selection {
 
     impl ListSelection for RowSetSelection {
         fn count(&self) -> usize {
-            let n = if let Some(mut anchor) = self.anchor_row {
-                if let Some(mut lead) = self.lead_row {
+            let n = if let Some(anchor) = self.anchor_row {
+                if let Some(lead) = self.lead_row {
                     anchor.abs_diff(lead) + 1
                 } else {
                     0

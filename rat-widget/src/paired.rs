@@ -1,3 +1,6 @@
+//!
+//! Render two widgets in one area.
+//!
 use crate::_private::NonExhaustive;
 use map_range_int::MapRange;
 use rat_reloc::RelocatableState;

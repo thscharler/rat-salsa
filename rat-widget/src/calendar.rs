@@ -1,5 +1,5 @@
 //!
-//! Calendars.
+//! Calendar widgets.
 //!
 //! There's a Month widget to render one month of a calendar.
 //! This has limited behaviour and no built-in scrolling.
