@@ -620,6 +620,82 @@ impl<const N: usize> CalendarState<N, RangeSelection> {
         r
     }
 
+    /// Move the lead selection back by months/days.
+    /// Clears the current selection and scrolls if necessary.
+    pub fn move_to_prev(&mut self, months: Months, days: Days) -> CalOutcome {
+        let base_start = self.start_date();
+        let base_end = self.end_date();
+
+        let new_date = if let Some(date) = self.selection.lead_selection() {
+            if date >= base_start && date <= base_end {
+                date - months - days
+            } else if date < base_start {
+                self.start_date()
+            } else {
+                self.end_date()
+            }
+        } else {
+            self.end_date()
+        };
+
+        let mut r = CalOutcome::Continue;
+
+        if new_date >= base_start && new_date <= base_end {
+            if self.selection.borrow_mut().select_day(new_date, false) {
+                r = CalOutcome::Selected;
+            }
+        } else if self.step > 0 {
+            r = r.max(self.scroll_back(self.step));
+            if self.selection.borrow_mut().select_day(new_date, false) {
+                r = r.max(CalOutcome::Selected);
+            }
+        }
+
+        if r.is_consumed() {
+            self.focus_lead();
+        }
+
+        r
+    }
+
+    /// Move the lead selection forward by months/days.
+    /// Clears the current selection and scrolls if necessary.
+    pub fn move_to_next(&mut self, months: Months, days: Days) -> CalOutcome {
+        let base_start = self.start_date();
+        let base_end = self.end_date();
+
+        let new_date = if let Some(date) = self.selection.lead_selection() {
+            if date >= base_start && date <= base_end {
+                date + months + days
+            } else if date < base_start {
+                self.start_date()
+            } else {
+                self.end_date()
+            }
+        } else {
+            self.start_date()
+        };
+
+        let mut r = CalOutcome::Continue;
+
+        if new_date >= base_start && new_date <= base_end {
+            if self.selection.borrow_mut().select_day(new_date, false) {
+                r = CalOutcome::Selected;
+            }
+        } else if self.step > 0 {
+            r = self.scroll_forward(self.step);
+            if self.selection.borrow_mut().select_day(new_date, false) {
+                r = r.max(CalOutcome::Selected);
+            }
+        }
+
+        if r.is_consumed() {
+            self.focus_lead();
+        }
+
+        r
+    }
+
     /// Select previous day.
     ///
     /// Can extend the selection to include the new date.

@@ -4,7 +4,7 @@ use crate::calendar::{
     first_day_of_month, is_first_day_of_month, is_last_day_of_month, is_same_month, is_same_week,
     last_day_of_month, CalendarSelection, MonthState,
 };
-use chrono::{Datelike, NaiveDate, Weekday};
+use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
 use log::debug;
 use rat_event::util::item_at;
 use rat_event::ConsumedEvent;
@@ -451,8 +451,12 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
                         }
                     }
                     ct_event!(keycode press CONTROL-Home) => self.move_to_today(),
-                    ct_event!(keycode press PageUp) => self.prev_month(1, false),
-                    ct_event!(keycode press PageDown) => self.next_month(1, false),
+                    ct_event!(keycode press PageUp) => {
+                        self.move_to_prev(Months::new(1), Days::new(0))
+                    }
+                    ct_event!(keycode press PageDown) => {
+                        self.move_to_next(Months::new(1), Days::new(0))
+                    }
                     ct_event!(keycode press SHIFT-PageUp) => self.prev_month(1, true),
                     ct_event!(keycode press SHIFT-PageDown) => self.next_month(1, true),
 
