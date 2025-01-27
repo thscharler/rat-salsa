@@ -1,5 +1,9 @@
 # 1.0.0
 
+# 0.32.0
+
+* break: add count() to TableSelection.
+
 # 0.31.0
 
 * break: TableEditorState changed to value semantics completely.

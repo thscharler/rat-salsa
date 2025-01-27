@@ -1,5 +1,9 @@
 # 1.0.0
 
+# 0.32.1
+
+* bump version of rat-widget
+
 # 0.32.0
 
 * BREAK: radically simplify PollEvents traits.

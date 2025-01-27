@@ -5,6 +5,7 @@ use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
 use rat_text::{upos_type, TextPosition, TextRange};
 use std::ops::Range;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Reformat header
 pub fn md_make_header(state: &mut TextAreaState, header: u8) -> TextOutcome {

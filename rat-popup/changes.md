@@ -1,5 +1,10 @@
 # 1.0.0
 
+# 0.29.0
+
+* break: Simplify Placement by splitting it into Placement + Alignment.
+  Alignment is not a perfect fit for this, but it will do.
+
 # 0.28.7
 
 * feature: set_active() returns a bool to indicate a change.

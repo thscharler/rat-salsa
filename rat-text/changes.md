@@ -1,5 +1,9 @@
 # 1.0.0
 
+# 0.30.2
+
+* feature: set_global_clipboard()
+
 # 0.30.1
 
 * feature: NumberInput::new_pattern() and NumberInput::new_loc_pattern() constructors.

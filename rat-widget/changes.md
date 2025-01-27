@@ -1,3 +1,15 @@
+# 0.37.0
+
+* break: CalendarSelection: remove clear()
+* break: CalendarSelection: rename len() to count()
+* break: Button: rebuild hot-key. make a very, very minimal thing
+  that works with button.
+* break: ListSelection add count()
+* break: Pager&Co: add try_label_str_for() and try_label_str() for
+  optional results. default returns "" as default for missing labels.
+* feature: add new widget Form that further reduces the surface
+  at the price of loosing functionality.
+
 # 0.36.0
 
 * break: full rebuild of the calendar module

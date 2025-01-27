@@ -1,4 +1,5 @@
 use rat_text::upos_type;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Length as grapheme count, excluding line breaks.
 pub(crate) fn str_line_len(s: &str) -> upos_type {

@@ -13,6 +13,7 @@ use std::ops::Range;
 use textwrap::core::Word;
 use textwrap::wrap_algorithms::Penalties;
 use textwrap::{WordSeparator, WrapAlgorithm};
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Reformats either the selection or the item at the
 /// cursor position if there is no selection.

@@ -1,3 +1,7 @@
+# 0.27.8
+
+* bump version of rat-widget
+
 # 0.27.7
 
 * fix: add some border-styles.

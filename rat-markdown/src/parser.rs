@@ -1,5 +1,6 @@
 use rat_text::upos_type;
 use std::ops::Range;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Parsed header.
 #[derive(Debug)]

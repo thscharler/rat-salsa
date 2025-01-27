@@ -152,7 +152,7 @@ pub enum FormWidget {
 /// * Supports Flex.
 /// * Manual page breaks.
 ///
-/// ```
+/// ```rust no_run
 /// # use ratatui::buffer::Buffer;
 /// # use ratatui::layout::{Flex, Rect};
 /// # use ratatui::text::Span;

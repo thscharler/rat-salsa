@@ -1,6 +1,14 @@
 # 1.0.0
 
-...
+# 0.33.0
+
+* break: rename append_leaf() to leaf_widget()
+* break: rename append_flags() to widget_with_flags()
+* break: remove focus_flag_no_lost() no longer necessary.
+* break: rename first_container() to first_in()
+* break: start_with_flags() no longer accepts an optional FocusFlag. Useless feature.
+
+* feature: first_in() now accepts plain widgets.
 
 # 0.32.1
 

@@ -17,16 +17,17 @@ collapsible_if = "allow"
 if_same_then_else = "allow"
 comparison_chain = "allow"
 
+[lints.rust]
+dead-code = "allow"
+
 [dependencies]
 log = "0.4"
 ratatui = { version = "0.29" }
 crossterm = "0.28"
 pulldown-cmark = "0.12"
 textwrap = "0.16"
+unicode-segmentation = "1.11"
 
 rat-event = { version = "1.0", path = "../rat-event" }
-rat-reloc = { version = "1.0", path = "../rat-reloc" }
-rat-cursor = { version = "1.0", path = "../rat-cursor" }
-rat-focus = { version = "0.32", path = "../rat-focus" }
-rat-scrolled = { version = "1.0", path = "../rat-scrolled" }
+rat-focus = { version = "0.33", path = "../rat-focus" }
 rat-text = { version = "0.30", path = "../rat-text" }
