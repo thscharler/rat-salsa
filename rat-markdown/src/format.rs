@@ -736,6 +736,33 @@ fn reformat_blockquote<'a>(
                 first = false;
                 continue;
             }
+            Event::Start(Tag::FootnoteDefinition(def)) => {
+                if !first {
+                    arg.empty_out(out);
+                }
+                reformat_footnote(arg, it, def, out);
+                out.trailing = false;
+                first = false;
+                continue;
+            }
+            Event::Start(Tag::List(n)) => {
+                if !first {
+                    arg.empty_out(out);
+                }
+                reformat_list(arg, it, range, out);
+                out.trailing = false;
+                first = false;
+                continue;
+            }
+            Event::Start(Tag::CodeBlock(kind)) => {
+                if !first {
+                    arg.empty_out(out);
+                }
+                reformat_codeblock(arg, it, range, kind, out);
+                out.trailing = false;
+                first = false;
+                continue;
+            }
             _ => {}
         }
         unreachable!("{:?} {:?}", event, range);
