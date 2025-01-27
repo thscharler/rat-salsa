@@ -234,7 +234,11 @@ impl StatefulWidget for LineNumbers<'_> {
             self.style
         };
 
-        self.block.render(area, buf);
+        if let Some(block) = self.block {
+            block.render(area, buf);
+        } else {
+            buf.set_style(area, self.style);
+        }
 
         let mut tmp = String::new();
         for y in state.inner.top()..state.inner.bottom() {
