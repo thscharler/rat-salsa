@@ -11,7 +11,7 @@ use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
 use crate::util::{block_padding2, reset_buf_area};
 #[cfg(feature = "user_directories")]
-use directories_next::UserDirs;
+use dirs::{document_dir, home_dir};
 use rat_event::{
     ct_event, flow, try_flow, ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular,
 };
@@ -653,14 +653,12 @@ impl FileDialogState {
         ));
 
         #[cfg(feature = "user_directories")]
-        if let Some(user) = UserDirs::new() {
-            self.roots.push((
-                OsString::from("Home"), //
-                user.home_dir().to_path_buf(),
-            ));
-            if let Some(document_dir) = user.document_dir() {
-                self.roots
-                    .push((OsString::from("Documents"), document_dir.to_path_buf()));
+        {
+            if let Some(home) = home_dir() {
+                self.roots.push((OsString::from("Home"), home));
+            }
+            if let Some(documents) = document_dir() {
+                self.roots.push((OsString::from("Documents"), documents));
             }
         }
 
