@@ -8,6 +8,7 @@ use crate::event::ButtonOutcome;
 use crate::layout::{layout_dialog, DialogItem};
 use crate::paragraph::{Paragraph, ParagraphState};
 use crate::util::{block_padding2, reset_buf_area};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::{Scroll, ScrollStyle};
@@ -138,7 +139,7 @@ impl MsgDialogState {
     /// Show the dialog.
     pub fn set_active(&self, active: bool) {
         self.active.set(active);
-        self.focus().focus(&*self.button.borrow());
+        self.focus().focus(&*self.paragraph.borrow());
         self.paragraph.borrow_mut().set_line_offset(0);
         self.paragraph.borrow_mut().set_col_offset(0);
     }
@@ -282,7 +283,11 @@ impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
             let mut focus = self.focus();
             let f = focus.handle(event, Regular);
 
-            let mut r = match self.button.borrow_mut().handle(event, Regular) {
+            let mut r = match self
+                .button
+                .borrow_mut()
+                .handle(event, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE))
+            {
                 ButtonOutcome::Pressed => {
                     self.clear();
                     self.active.set(false);
