@@ -1,0 +1,32 @@
+[package]
+name = "rat-markdown"
+version = "0.1.0"
+edition = "2021"
+authors = ["thscharler <thscharler@gmail.com>"]
+description = "markdown support for rat-text"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/thscharler/rat-salsa"
+readme = "readme.md"
+keywords = ["ratatui", "text", "markdown"]
+categories = ["command-line-interface"]
+exclude = [".idea/*", ".gitignore"]
+
+[lints.clippy]
+collapsible_else_if = "allow"
+collapsible_if = "allow"
+if_same_then_else = "allow"
+comparison_chain = "allow"
+
+[dependencies]
+log = "0.4"
+ratatui = { version = "0.29" }
+crossterm = "0.28"
+pulldown-cmark = "0.12"
+textwrap = "0.16"
+
+rat-event = { version = "1.0", path = "../rat-event" }
+rat-reloc = { version = "1.0", path = "../rat-reloc" }
+rat-cursor = { version = "1.0", path = "../rat-cursor" }
+rat-focus = { version = "0.32", path = "../rat-focus" }
+rat-scrolled = { version = "1.0", path = "../rat-scrolled" }
+rat-text = { version = "0.30", path = "../rat-text" }

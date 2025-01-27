@@ -1,14 +1,5 @@
-//!
-//! This adds an event-handler for [TextArea](...) which
-//! adds support for markdown editing.
-//!
-//! ```
-//! // TODO:
-//!
-//! ```
-//!
-//!
-//!
+#![doc = include_str!("../readme.md")]
+
 use crate::op::{md_backtab, md_format, md_line_break, md_make_header, md_tab};
 use rat_event::{ct_event, flow, HandleEvent, Regular};
 use rat_focus::HasFocus;
