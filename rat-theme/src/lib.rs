@@ -68,10 +68,344 @@ pub struct Scheme {
 }
 
 impl Scheme {
+    /// Create a style from the given white shade.
+    /// n is `0..=3`
+    pub fn white(&self, n: usize) -> Style {
+        self.style(self.white[n])
+    }
+
+    /// Create a style from the given black shade.
+    /// n is `0..=3`
+    pub fn black(&self, n: usize) -> Style {
+        self.style(self.black[n])
+    }
+
+    /// Create a style from the given gray shade.
+    /// n is `0..=3`
+    pub fn gray(&self, n: usize) -> Style {
+        self.style(self.gray[n])
+    }
+
+    /// Create a style from the given red shade.
+    /// n is `0..=3`
+    pub fn red(&self, n: usize) -> Style {
+        self.style(self.red[n])
+    }
+
+    /// Create a style from the given orange shade.
+    /// n is `0..=3`
+    pub fn orange(&self, n: usize) -> Style {
+        self.style(self.orange[n])
+    }
+
+    /// Create a style from the given yellow shade.
+    /// n is `0..=3`
+    pub fn yellow(&self, n: usize) -> Style {
+        self.style(self.yellow[n])
+    }
+
+    /// Create a style from the given limegreen shade.
+    /// n is `0..=3`
+    pub fn limegreen(&self, n: usize) -> Style {
+        self.style(self.limegreen[n])
+    }
+
+    /// Create a style from the given green shade.
+    /// n is `0..=3`
+    pub fn green(&self, n: usize) -> Style {
+        self.style(self.green[n])
+    }
+
+    /// Create a style from the given bluegreen shade.
+    /// n is `0..=3`
+    pub fn bluegreen(&self, n: usize) -> Style {
+        self.style(self.bluegreen[n])
+    }
+
+    /// Create a style from the given cyan shade.
+    /// n is `0..=3`
+    pub fn cyan(&self, n: usize) -> Style {
+        self.style(self.cyan[n])
+    }
+
+    /// Create a style from the given blue shade.
+    /// n is `0..=3`
+    pub fn blue(&self, n: usize) -> Style {
+        self.style(self.blue[n])
+    }
+
+    /// Create a style from the given deepblue shade.
+    /// n is `0..=3`
+    pub fn deepblue(&self, n: usize) -> Style {
+        self.style(self.deepblue[n])
+    }
+
+    /// Create a style from the given purple shade.
+    /// n is `0..=3`
+    pub fn purple(&self, n: usize) -> Style {
+        self.style(self.purple[n])
+    }
+
+    /// Create a style from the given magenta shade.
+    /// n is `0..=3`
+    pub fn magenta(&self, n: usize) -> Style {
+        self.style(self.magenta[n])
+    }
+
+    /// Create a style from the given redpink shade.
+    /// n is `0..=3`
+    pub fn redpink(&self, n: usize) -> Style {
+        self.style(self.redpink[n])
+    }
+
+    /// Create a style from the given primary shade.
+    /// n is `0..=3`
+    pub fn primary(&self, n: usize) -> Style {
+        self.style(self.primary[n])
+    }
+
+    /// Create a style from the given secondary shade.
+    /// n is `0..=3`
+    pub fn secondary(&self, n: usize) -> Style {
+        self.style(self.secondary[n])
+    }
+}
+
+impl Scheme {
+    /// Create a style from the given white shade.
+    /// n is `0..=3`
+    pub fn true_dark_white(&self, n: usize) -> Style {
+        self.true_dark_style(self.white[n])
+    }
+
+    /// Create a style from the given black shade.
+    /// n is `0..=3`
+    pub fn true_dark_black(&self, n: usize) -> Style {
+        self.true_dark_style(self.black[n])
+    }
+
+    /// Create a style from the given gray shade.
+    /// n is `0..=3`
+    pub fn true_dark_gray(&self, n: usize) -> Style {
+        self.true_dark_style(self.gray[n])
+    }
+
+    /// Create a style from the given red shade.
+    /// n is `0..=3`
+    pub fn true_dark_red(&self, n: usize) -> Style {
+        self.true_dark_style(self.red[n])
+    }
+
+    /// Create a style from the given orange shade.
+    /// n is `0..=3`
+    pub fn true_dark_orange(&self, n: usize) -> Style {
+        self.true_dark_style(self.orange[n])
+    }
+
+    /// Create a style from the given yellow shade.
+    /// n is `0..=3`
+    pub fn true_dark_yellow(&self, n: usize) -> Style {
+        self.true_dark_style(self.yellow[n])
+    }
+
+    /// Create a style from the given limegreen shade.
+    /// n is `0..=3`
+    pub fn true_dark_limegreen(&self, n: usize) -> Style {
+        self.true_dark_style(self.limegreen[n])
+    }
+
+    /// Create a style from the given green shade.
+    /// n is `0..=3`
+    pub fn true_dark_green(&self, n: usize) -> Style {
+        self.true_dark_style(self.green[n])
+    }
+
+    /// Create a style from the given bluegreen shade.
+    /// n is `0..=3`
+    pub fn true_dark_bluegreen(&self, n: usize) -> Style {
+        self.true_dark_style(self.bluegreen[n])
+    }
+
+    /// Create a style from the given cyan shade.
+    /// n is `0..=3`
+    pub fn true_dark_cyan(&self, n: usize) -> Style {
+        self.true_dark_style(self.cyan[n])
+    }
+
+    /// Create a style from the given blue shade.
+    /// n is `0..=3`
+    pub fn true_dark_blue(&self, n: usize) -> Style {
+        self.true_dark_style(self.blue[n])
+    }
+
+    /// Create a style from the given deepblue shade.
+    /// n is `0..=3`
+    pub fn true_dark_deepblue(&self, n: usize) -> Style {
+        self.true_dark_style(self.deepblue[n])
+    }
+
+    /// Create a style from the given purple shade.
+    /// n is `0..=3`
+    pub fn true_dark_purple(&self, n: usize) -> Style {
+        self.true_dark_style(self.purple[n])
+    }
+
+    /// Create a style from the given magenta shade.
+    /// n is `0..=3`
+    pub fn true_dark_magenta(&self, n: usize) -> Style {
+        self.true_dark_style(self.magenta[n])
+    }
+
+    /// Create a style from the given redpink shade.
+    /// n is `0..=3`
+    pub fn true_dark_redpink(&self, n: usize) -> Style {
+        self.true_dark_style(self.redpink[n])
+    }
+
+    /// Create a style from the given primary shade.
+    /// n is `0..=3`
+    pub fn true_dark_primary(&self, n: usize) -> Style {
+        self.true_dark_style(self.primary[n])
+    }
+
+    /// Create a style from the given secondary shade.
+    /// n is `0..=3`
+    pub fn true_dark_secondary(&self, n: usize) -> Style {
+        self.true_dark_style(self.secondary[n])
+    }
+}
+
+impl Scheme {
+    /// Create a style from the given white shade.
+    /// n is `0..=3`
+    pub fn reduced_white(&self, n: usize) -> Style {
+        self.reduced_style(self.white[n])
+    }
+
+    /// Create a style from the given black shade.
+    /// n is `0..=3`
+    pub fn reduced_black(&self, n: usize) -> Style {
+        self.reduced_style(self.black[n])
+    }
+
+    /// Create a style from the given gray shade.
+    /// n is `0..=3`
+    pub fn reduced_gray(&self, n: usize) -> Style {
+        self.reduced_style(self.gray[n])
+    }
+
+    /// Create a style from the given red shade.
+    /// n is `0..=3`
+    pub fn reduced_red(&self, n: usize) -> Style {
+        self.reduced_style(self.red[n])
+    }
+
+    /// Create a style from the given orange shade.
+    /// n is `0..=3`
+    pub fn reduced_orange(&self, n: usize) -> Style {
+        self.reduced_style(self.orange[n])
+    }
+
+    /// Create a style from the given yellow shade.
+    /// n is `0..=3`
+    pub fn reduced_yellow(&self, n: usize) -> Style {
+        self.reduced_style(self.yellow[n])
+    }
+
+    /// Create a style from the given limegreen shade.
+    /// n is `0..=3`
+    pub fn reduced_limegreen(&self, n: usize) -> Style {
+        self.reduced_style(self.limegreen[n])
+    }
+
+    /// Create a style from the given green shade.
+    /// n is `0..=3`
+    pub fn reduced_green(&self, n: usize) -> Style {
+        self.reduced_style(self.green[n])
+    }
+
+    /// Create a style from the given bluegreen shade.
+    /// n is `0..=3`
+    pub fn reduced_bluegreen(&self, n: usize) -> Style {
+        self.reduced_style(self.bluegreen[n])
+    }
+
+    /// Create a style from the given cyan shade.
+    /// n is `0..=3`
+    pub fn reduced_cyan(&self, n: usize) -> Style {
+        self.reduced_style(self.cyan[n])
+    }
+
+    /// Create a style from the given blue shade.
+    /// n is `0..=3`
+    pub fn reduced_blue(&self, n: usize) -> Style {
+        self.reduced_style(self.blue[n])
+    }
+
+    /// Create a style from the given deepblue shade.
+    /// n is `0..=3`
+    pub fn reduced_deepblue(&self, n: usize) -> Style {
+        self.reduced_style(self.deepblue[n])
+    }
+
+    /// Create a style from the given purple shade.
+    /// n is `0..=3`
+    pub fn reduced_purple(&self, n: usize) -> Style {
+        self.reduced_style(self.purple[n])
+    }
+
+    /// Create a style from the given magenta shade.
+    /// n is `0..=3`
+    pub fn reduced_magenta(&self, n: usize) -> Style {
+        self.reduced_style(self.magenta[n])
+    }
+
+    /// Create a style from the given redpink shade.
+    /// n is `0..=3`
+    pub fn reduced_redpink(&self, n: usize) -> Style {
+        self.reduced_style(self.redpink[n])
+    }
+
+    /// Create a style from the given primary shade.
+    /// n is `0..=3`
+    pub fn reduced_primary(&self, n: usize) -> Style {
+        self.reduced_style(self.primary[n])
+    }
+
+    /// Create a style from the given secondary shade.
+    /// n is `0..=3`
+    pub fn reduced_secondary(&self, n: usize) -> Style {
+        self.reduced_style(self.secondary[n])
+    }
+}
+
+impl Scheme {
     /// Create a style with the given background color.
     /// Foreground is calculated with `text_color`.
     pub fn style(&self, color: Color) -> Style {
         Style::new().bg(color).fg(self.text_color(color))
+    }
+
+    /// Create a style with the given background color.
+    /// Foreground is calculated with `reduced_text_color`.
+    pub fn reduced_style(&self, color: Color) -> Style {
+        Style::new().bg(color).fg(self.reduced_text_color(color))
+    }
+
+    /// Create a style with the given background color
+    /// converted with true_dark_color().
+    /// Foreground is calculated with `text_color`.
+    pub fn true_dark_style(&self, color: Color) -> Style {
+        let dark = self.true_dark_color(color);
+        Style::new().bg(dark).fg(self.text_color(dark))
+    }
+
+    /// Create a style with the given background color.
+    /// converted with true_dark_color().
+    /// Foreground is calculated with `reduced_text_color`.
+    pub fn reduced_dark_style(&self, color: Color) -> Style {
+        let dark = self.true_dark_color(color);
+        Style::new().bg(dark).fg(self.reduced_text_color(dark))
     }
 
     /// Linear interpolation between the two colors.
@@ -150,52 +484,91 @@ impl Scheme {
     /// For the named colors it takes the VGA equivalent as a base.
     /// For indexed colors it splits the range in half as an estimate.
     pub fn text_color(&self, color: Color) -> Color {
+        match self.rate_text_color(color) {
+            None => Color::Reset,
+            Some(true) => self.white[3],
+            Some(false) => self.black[0],
+        }
+    }
+
+    /// This gives back `white[3]` or `black[0]` for text foreground
+    /// providing good contrast to the given background.
+    ///
+    /// This converts RGB to grayscale and takes the grayscale value
+    /// of VGA cyan as threshold, which is about 105 out of 255.
+    /// This point is a bit arbitrary, just based on what I
+    /// perceive as acceptable. But it produces a good reading
+    /// contrast in my experience.
+    ///
+    /// For the named colors it takes the VGA equivalent as a base.
+    /// For indexed colors it splits the range in half as an estimate.
+    pub fn reduced_text_color(&self, color: Color) -> Color {
+        match self.rate_text_color(color) {
+            None => Color::Reset,
+            Some(true) => self.white[0],
+            Some(false) => self.black[3],
+        }
+    }
+
+    /// This gives back `true` or `false` for text foreground
+    /// where true means light and false means a dark text-color
+    /// providing good contrast to the given background.
+    ///
+    /// This converts RGB to grayscale and takes the grayscale value
+    /// of VGA cyan as threshold, which is about 105 out of 255.
+    /// This point is a bit arbitrary, just based on what I
+    /// perceive as acceptable. But it produces a good reading
+    /// contrast in my experience.
+    ///
+    /// For the named colors it takes the VGA equivalent as a base.
+    /// For indexed colors it splits the range in half as an estimate.
+    pub fn rate_text_color(&self, color: Color) -> Option<bool> {
         match color {
-            Color::Reset => Color::Reset,
-            Color::Black => self.white[3],        //0
-            Color::Red => self.white[3],          //1
-            Color::Green => self.white[3],        //2
-            Color::Yellow => self.white[3],       //3
-            Color::Blue => self.white[3],         //4
-            Color::Magenta => self.white[3],      //5
-            Color::Cyan => self.white[3],         //6
-            Color::Gray => self.black[0],         //7
-            Color::DarkGray => self.white[3],     //8
-            Color::LightRed => self.black[0],     //9
-            Color::LightGreen => self.black[0],   //10
-            Color::LightYellow => self.black[0],  //11
-            Color::LightBlue => self.white[3],    //12
-            Color::LightMagenta => self.black[0], //13
-            Color::LightCyan => self.black[0],    //14
-            Color::White => self.black[0],        //15
+            Color::Reset => None,
+            Color::Black => Some(true),         //0
+            Color::Red => Some(true),           //1
+            Color::Green => Some(true),         //2
+            Color::Yellow => Some(true),        //3
+            Color::Blue => Some(true),          //4
+            Color::Magenta => Some(true),       //5
+            Color::Cyan => Some(true),          //6
+            Color::Gray => Some(false),         //7
+            Color::DarkGray => Some(true),      //8
+            Color::LightRed => Some(false),     //9
+            Color::LightGreen => Some(false),   //10
+            Color::LightYellow => Some(false),  //11
+            Color::LightBlue => Some(true),     //12
+            Color::LightMagenta => Some(false), //13
+            Color::LightCyan => Some(false),    //14
+            Color::White => Some(false),        //15
             Color::Rgb(r, g, b) => {
                 // The formula used in the GIMP is Y = 0.3R + 0.59G + 0.11B;
                 let grey = r as f32 * 0.3f32 + g as f32 * 0.59f32 + b as f32 * 0.11f32;
                 if grey >= 105f32 {
-                    self.black[0]
+                    Some(false)
                 } else {
-                    self.white[3]
+                    Some(true)
                 }
             }
             Color::Indexed(n) => match n {
-                0..=6 => self.white[3],
-                7 => self.black[0],
-                8 => self.white[3],
-                9..=11 => self.black[0],
-                12 => self.white[3],
-                13..=15 => self.black[0],
+                0..=6 => Some(true),
+                7 => Some(false),
+                8 => Some(true),
+                9..=11 => Some(false),
+                12 => Some(true),
+                13..=15 => Some(false),
                 v @ 16..=231 => {
                     if (v - 16) % 36 < 18 {
-                        self.white[3]
+                        Some(true)
                     } else {
-                        self.black[0]
+                        Some(false)
                     }
                 }
                 v @ 232..=255 => {
                     if (v - 232) % 24 < 12 {
-                        self.white[3]
+                        Some(true)
                     } else {
-                        self.black[0]
+                        Some(false)
                     }
                 }
             },
