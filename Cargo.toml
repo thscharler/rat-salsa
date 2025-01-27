@@ -7,6 +7,7 @@ members = [
     "rat-focus",
     "rat-ftable",
     "rat-menu",
+    "rat-markdown",
     "rat-popup",
     "rat-reloc",
     "rat-salsa",
