@@ -28,10 +28,10 @@ event-handlers in mind.
 
 ## Focus handling
 
-Uses [FocusFlag][refRatFocusFlag] defined by
-[rat-focus][refRatFocus] internally, to mark the focused widget.
-This is just a passive flag, that probably can be used with other
-focus systems. Or you use [rat-focus][refRatFocus].
+Uses [FocusFlag][refRatFocusFlag] defined by [rat-focus][refRatFocus]
+internally, to mark the focused widget. This is just a passive flag,
+that probably can be used with other focus systems. Or you use
+[rat-focus][refRatFocus].
 
 ## Scrolling
 
@@ -45,13 +45,13 @@ extensive copying during rendering.
 
 Special mentions:
 
-- [rat-ftable::Table][refRatTable]: It uses an adapter for the data
-  for rendering instead of creating Row/Cell structs.
+- [rat-ftable::Table][refRatTable]: It uses an adapter for the
+  data for rendering instead of creating Row/Cell structs.
 
 # Widgets
 
-All the widgets are plain ratatui widgets, and implement StatefulWidget and
-the (experimental) StatefulWidgetRef traits.
+All the widgets are plain ratatui widgets, and implement
+StatefulWidget and the (experimental) StatefulWidgetRef traits.
 
 Event handling uses [rat-event::HandleEvent][refRatEvent].
 Currently, crossterm events are implemented.
@@ -64,10 +64,10 @@ There are some layout calculators beyond ratatui's Layout.
 
 ## Relocation
 
-Widgets like View and Clipper move the widget-image
-after rendering. This breaks any areas stored in the widget-states.
+Widgets like View and Clipper move the widget-image after
+rendering. This breaks any areas stored in the widget-states.
 
-* [reloc](reloc/index.html)
+[reloc](reloc/index.html)
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
@@ -86,5 +86,3 @@ after rendering. This breaks any areas stored in the widget-states.
 [refRatTextArea]: textarea/index.html
 
 [refGitHubWidget]: https://github.com/thscharler/rat-salsa/blob/master/rat-widget/examples
-
-
