@@ -63,6 +63,8 @@ For a start you can have a look at the [book][refRSBook].
       Menu widgets.
     * [rat-text](https://docs.rs/rat-text)
       Text/Value input widgets.
+    * [rat-markdown](https://docs.rs/rat-markdown)
+      Extension for TextArea for markdown.
 
   And my 10ct on theming.
 

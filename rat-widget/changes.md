@@ -1,3 +1,9 @@
+# 0.37.1
+
+* feature: add Hover widget
+* fix: MsgDialog should focus the text.
+* fix: use dirs instead of directories_next.
+
 # 0.37.0
 
 * break: CalendarSelection: remove clear()

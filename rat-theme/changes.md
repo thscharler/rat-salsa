@@ -1,3 +1,7 @@
+# 0.27.9
+
+* feature: more text-colors
+
 # 0.27.8
 
 * bump version of rat-widget
