@@ -31,8 +31,8 @@ impl Default for MarkDown {
 }
 
 impl MarkDown {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(text_width: u16) -> Self {
+        Self { text_width }
     }
 
     pub fn text_width(mut self, width: u16) -> Self {
