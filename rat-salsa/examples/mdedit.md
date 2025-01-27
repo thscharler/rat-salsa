@@ -46,14 +46,13 @@
 * Enter - Line break within the table. At the end creates an empty
   duplicate of the last row. If you have just the header enter will
   create the necessary underlines.
-* Tab/Backtab - Navigate between cells.  
-
+* Tab/Backtab - Navigate between cells.
 
 ## Formatting
 
-* Alt-F - Formats the item at the cursor position, or everything
+* Ctrl-F - Formats the item at the cursor position, or everything
   selected.
-* Alt+Shift+F - Alternate format. Currently, formats a table to
+* Ctrl+G - Alternate format. Currently, formats a table to
   equal column widths.
 * Alt+1..=6 - Make header.
 
