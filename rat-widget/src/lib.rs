@@ -88,6 +88,7 @@ pub mod date_input {
     };
 }
 pub mod file_dialog;
+pub mod hover;
 /// Line numbers widget.
 /// For use with TextArea mostly.
 pub mod line_number {
