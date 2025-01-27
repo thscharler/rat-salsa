@@ -491,7 +491,7 @@ macro_rules! impl_has_focus {
                 builder.end(tag);
             }
 
-            fn focus(&self) -> FocusFlag {
+            fn focus(&self) -> $crate::FocusFlag {
                 self.$cc.clone()
             }
 
