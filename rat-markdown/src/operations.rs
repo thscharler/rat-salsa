@@ -1,6 +1,6 @@
 use crate::parser::{parse_md_header, parse_md_item, parse_md_row};
+use crate::styles::MDStyle;
 use crate::util::str_line_len;
-use crate::MDStyle;
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
 use rat_text::{upos_type, TextPosition, TextRange};
@@ -441,7 +441,39 @@ fn md_next_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     }
 }
 
-pub fn md_insert_quotes(state: &mut TextAreaState, c: char) -> TextOutcome {
+/// Add a prefix and a suffix around the current selection.
+/// Allows to set the cursor somewhere within either.
+pub fn md_surround(
+    state: &mut TextAreaState,
+    prefix: &str,
+    prefix_cursor: Option<upos_type>,
+    suffix: &str,
+    suffix_cursor: Option<upos_type>,
+) -> TextOutcome {
+    let sel = state.selection();
+
+    state.begin_undo_seq();
+    state.value.insert_str(sel.end, suffix).expect("valid_pos");
+    if let Some(c) = suffix_cursor {
+        state.set_cursor((sel.end.x + c, sel.end.y), false);
+    }
+
+    state
+        .value
+        .insert_str(sel.start, prefix)
+        .expect("valid_pos");
+    if let Some(c) = prefix_cursor {
+        state.set_cursor((sel.start.x + c, sel.start.y), false);
+    }
+
+    state.end_undo_seq();
+
+    TextOutcome::TextChanged
+}
+
+/// Insert and replace quote-like markup like '_', '*' and '~'.
+/// Only those are allowed for c here.
+pub fn md_strong(state: &mut TextAreaState, c: char) -> TextOutcome {
     let mut sel = state.selection();
 
     if sel.is_empty() {

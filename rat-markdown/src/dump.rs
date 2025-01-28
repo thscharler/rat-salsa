@@ -1,4 +1,4 @@
-use crate::MDStyle;
+use crate::styles::MDStyle;
 use log::info;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use rat_text::event::TextOutcome;

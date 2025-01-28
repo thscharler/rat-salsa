@@ -1,3 +1,6 @@
+//!
+//! Special parsers for things not covered by pulldown-cmark.
+//!
 use rat_text::upos_type;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;

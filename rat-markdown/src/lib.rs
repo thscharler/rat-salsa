@@ -1,25 +1,27 @@
 #![doc = include_str!("../readme.md")]
 
-use crate::op::{md_backtab, md_format, md_line_break, md_make_header, md_tab};
+use crate::dump::md_dump;
+use crate::op::{
+    md_backtab, md_format, md_strong, md_line_break, md_make_header, md_tab, md_surround,
+};
 use rat_event::{ct_event, flow, HandleEvent, Regular};
 use rat_focus::HasFocus;
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
 
-mod dump;
+pub mod dump;
 mod format;
 mod operations;
-mod parser;
-mod styles;
+pub mod parser;
+pub mod styles;
 mod util;
 
-pub use styles::{parse_md_styles, MDStyle};
 pub mod op {
     pub use crate::format::{md_format, reformat};
-    pub use crate::operations::{md_backtab, md_line_break, md_make_header, md_tab};
+    pub use crate::operations::{
+        md_backtab, md_strong, md_line_break, md_make_header, md_tab, md_surround,
+    };
 }
-use crate::operations::md_insert_quotes;
-pub use dump::{md_dump, md_dump_styles};
 
 /// Event qualifier.
 #[derive(Debug)]
@@ -61,9 +63,15 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
                 ct_event!(key press ALT-'5') => md_make_header(self, 5),
                 ct_event!(key press ALT-'6') => md_make_header(self, 6),
 
-                ct_event!(key press ANY-'*') => md_insert_quotes(self, '*'),
-                ct_event!(key press ANY-'_') => md_insert_quotes(self, '_'),
-                ct_event!(key press ANY-'~') => md_insert_quotes(self, '~'),
+                ct_event!(key press ANY-'*') => md_strong(self, '*'),
+                ct_event!(key press ANY-'_') => md_strong(self, '_'),
+                ct_event!(key press ANY-'~') => md_strong(self, '~'),
+                ct_event!(key press ALT-'c') => md_surround(self, "```", None, "```", None),
+                ct_event!(key press ALT-'i') => md_surround(self, "![", None, "]()", Some(2)),
+                ct_event!(key press ALT-'l') => md_surround(self, "[", None, "]()", Some(2)),
+                ct_event!(key press ALT-'k') => md_surround(self, "[", None, "][]", Some(2)),
+                ct_event!(key press ALT-'r') => md_surround(self, "[", Some(1), "]: ", None),
+                ct_event!(key press ALT-'f') => md_surround(self, "[^1]", Some(4), "", None),
 
                 // todo: more
                 ct_event!(keycode press Enter) => md_line_break(self),
