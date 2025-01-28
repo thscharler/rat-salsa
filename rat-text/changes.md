@@ -1,5 +1,9 @@
 # 1.0.0
 
+# 0.30.4
+
+* add TextRange::MAX
+
 # 0.30.3
 
 * fix: LineNumbers must render a background if there is no Block.
