@@ -2,7 +2,7 @@
 
 use crate::dump::md_dump;
 use crate::op::{
-    md_backtab, md_format, md_strong, md_line_break, md_make_header, md_tab, md_surround,
+    md_backtab, md_format, md_line_break, md_make_header, md_strong, md_surround, md_tab,
 };
 use rat_event::{ct_event, flow, HandleEvent, Regular};
 use rat_focus::HasFocus;
@@ -19,7 +19,7 @@ mod util;
 pub mod op {
     pub use crate::format::{md_format, reformat};
     pub use crate::operations::{
-        md_backtab, md_strong, md_line_break, md_make_header, md_tab, md_surround,
+        md_backtab, md_line_break, md_make_header, md_strong, md_surround, md_tab,
     };
 }
 
