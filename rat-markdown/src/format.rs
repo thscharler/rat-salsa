@@ -132,7 +132,7 @@ struct Reformat<'a> {
 
     // collect words/tags for wrap.
     words: Vec<Word<'a>>,
-    skip_txt: bool,
+    skip_txt: usize,
 
     stack: Vec<Vec<CowStr<'a>>>,
 }
@@ -332,7 +332,7 @@ pub fn reformat(
         first: Vec::new(),
         follow: Vec::new(),
         words: Vec::new(),
-        skip_txt: false,
+        skip_txt: 0,
         stack: Vec::new(),
     };
     let mut out = ReformatOut {
@@ -477,6 +477,9 @@ fn reformat_rule<'a>(
 ) {
     arg.enter_frame();
 
+    if !out.trailing && !out.txt.is_empty() {
+        arg.empty_out(out);
+    }
     out.txt.push_str(&arg.txt[rule_range]);
 
     arg.leave_frame();
@@ -745,7 +748,7 @@ fn reformat_blockquote<'a>(
                 first = false;
                 continue;
             }
-            Event::Start(Tag::List(n)) => {
+            Event::Start(Tag::List(_n)) => {
                 if !first {
                     arg.empty_out(out);
                 }
@@ -1150,13 +1153,15 @@ fn collect_inline<'a>(
         }
 
         Event::Start(Tag::Link { .. }) | Event::Start(Tag::Image { .. }) => {
-            arg.skip_txt = true;
-            let word = Word::from(&arg.txt[range]);
-            arg.words.push(word);
+            if arg.skip_txt == 0 {
+                let word = Word::from(&arg.txt[range]);
+                arg.words.push(word);
+            }
+            arg.skip_txt += 1;
             true
         }
         Event::End(TagEnd::Link) | Event::End(TagEnd::Image) => {
-            arg.skip_txt = false;
+            arg.skip_txt -= 1;
             true
         }
 
@@ -1178,7 +1183,7 @@ fn collect_inline<'a>(
         }
 
         Event::SoftBreak => {
-            if arg.skip_txt {
+            if arg.skip_txt > 0 {
                 return true;
             }
             if let Some(mut word) = arg.words.pop() {
@@ -1188,7 +1193,7 @@ fn collect_inline<'a>(
             true
         }
         Event::HardBreak => {
-            if arg.skip_txt {
+            if arg.skip_txt > 0 {
                 return true;
             }
             wrap_words(arg, NewLine::Hard, out);
@@ -1197,7 +1202,7 @@ fn collect_inline<'a>(
         }
 
         Event::Text(_) => {
-            if arg.skip_txt {
+            if arg.skip_txt > 0 {
                 return true;
             }
             for w in WordSeparator::UnicodeBreakProperties.find_words(&arg.txt[range]) {

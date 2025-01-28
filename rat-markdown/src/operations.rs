@@ -440,3 +440,190 @@ fn md_next_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
         None
     }
 }
+
+pub fn md_insert_quotes(state: &mut TextAreaState, c: char) -> TextOutcome {
+    let mut sel = state.selection();
+
+    if sel.is_empty() {
+        return TextOutcome::Continue;
+    }
+
+    state.begin_undo_seq();
+
+    let mut start4 = TextRange::MAX;
+    let mut end4 = TextRange::MAX;
+    let mut start2 = TextRange::MAX;
+    let mut end2 = TextRange::MAX;
+
+    let have_4 = {
+        if sel.start.y == sel.end.y {
+            if sel.end.x > 3 {
+                start4 = TextRange::new(sel.start, (sel.start.x + 2, sel.start.y));
+                end4 = TextRange::new((sel.end.x - 2, sel.end.y), sel.end);
+                true
+            } else {
+                false
+            }
+        } else {
+            let len = state.value.line_width(sel.start.y).expect("valid_range");
+            if sel.start.x + 2 <= len && sel.end.x > 1 {
+                start4 = TextRange::new(sel.start, (sel.start.x + 2, sel.start.y));
+                end4 = TextRange::new((sel.end.x - 2, sel.end.y), sel.end);
+                true
+            } else {
+                false
+            }
+        }
+    };
+    let have_2 = {
+        if sel.start.y == sel.end.y {
+            if sel.end.x > 1 {
+                start2 = TextRange::new(sel.start, (sel.start.x + 1, sel.start.y));
+                end2 = TextRange::new((sel.end.x - 1, sel.end.y), sel.end);
+                true
+            } else {
+                false
+            }
+        } else {
+            let len = state.value.line_width(sel.start.y).expect("valid_range");
+            if sel.start.x + 1 <= len && sel.end.x > 0 {
+                start2 = TextRange::new(sel.start, (sel.start.x + 1, sel.start.y));
+                end2 = TextRange::new((sel.end.x - 1, sel.end.y), sel.end);
+                true
+            } else {
+                false
+            }
+        }
+    };
+    let can_remove_4 = if have_4 {
+        let str_start = state.str_slice(start4);
+        let str_end = state.str_slice(end4);
+        if c == '_' {
+            if str_start == "**" && str_end == "**" {
+                true
+            } else if str_start == "~~" && str_end == "~~" {
+                true
+            } else {
+                false
+            }
+        } else if c == '*' {
+            if str_start == "__" && str_end == "__" {
+                true
+            } else if str_start == "~~" && str_end == "~~" {
+                true
+            } else {
+                false
+            }
+        } else if c == '~' {
+            if str_start == "**" && str_end == "**" {
+                true
+            } else if str_start == "__" && str_end == "__" {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    let can_remove_2 = if have_2 {
+        let str_start = state.str_slice(start2);
+        let str_end = state.str_slice(end2);
+        if c == '_' {
+            if str_start == "*" && str_end == "*" {
+                true
+            } else if str_start == "~" && str_end == "~" {
+                true
+            } else {
+                false
+            }
+        } else if c == '*' {
+            if str_start == "_" && str_end == "_" {
+                true
+            } else if str_start == "~" && str_end == "~" {
+                true
+            } else {
+                false
+            }
+        } else if c == '~' {
+            if str_start == "*" && str_end == "*" {
+                true
+            } else if str_start == "_" && str_end == "_" {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    let can_insert = if have_4 {
+        let str_start = state.str_slice(start4);
+        let str_end = state.str_slice(end4);
+        if c == '_' {
+            if str_start != "__" && str_end != "__" {
+                true
+            } else {
+                false
+            }
+        } else if c == '*' {
+            if str_start != "**" && str_end != "**" {
+                true
+            } else {
+                false
+            }
+        } else if c == '~' {
+            if str_start != "~~" && str_end != "~~" {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    } else {
+        true
+    };
+    if can_remove_4 {
+        state.value.remove_char_range(end4).expect("valid_range");
+        state.value.remove_char_range(start4).expect("valid_range");
+        if sel.start.y == sel.end.y {
+            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x - 4, sel.end.y));
+        } else {
+            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x - 2, sel.end.y));
+        }
+    } else if can_remove_2 {
+        state.value.remove_char_range(end2).expect("valid_range");
+        state.value.remove_char_range(start2).expect("valid_range");
+        if sel.start.y == sel.end.y {
+            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x - 2, sel.end.y));
+        } else {
+            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x - 1, sel.end.y));
+        }
+    }
+    if can_insert {
+        let cc = match c {
+            '_' => '_',
+            '*' => '*',
+            '~' => '~',
+            _ => unreachable!("invalid quotes"),
+        };
+
+        state.value.insert_char(sel.end, cc).expect("valid_range");
+        state.value.insert_char(sel.start, c).expect("valid_range");
+        if sel.start.y == sel.end.y {
+            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x + 2, sel.end.y));
+        } else {
+            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x + 1, sel.end.y));
+        }
+        state.set_selection(sel.start, sel.end);
+    }
+
+    state.end_undo_seq();
+
+    TextOutcome::TextChanged
+}

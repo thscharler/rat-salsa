@@ -6,6 +6,7 @@ use rat_focus::HasFocus;
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
 
+mod dump;
 mod format;
 mod operations;
 mod parser;
@@ -17,6 +18,8 @@ pub mod op {
     pub use crate::format::{md_format, reformat};
     pub use crate::operations::{md_backtab, md_line_break, md_make_header, md_tab};
 }
+use crate::operations::md_insert_quotes;
+pub use dump::{md_dump, md_dump_styles};
 
 /// Event qualifier.
 #[derive(Debug)]
@@ -49,6 +52,7 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
                     md_format(self, qualifier.text_width as usize, false),
                 ct_event!(key press CONTROL-'g') =>
                     md_format(self, qualifier.text_width as usize, true),
+                ct_event!(key press CONTROL-'p') => md_dump(self),
 
                 ct_event!(key press ALT-'1') => md_make_header(self, 1),
                 ct_event!(key press ALT-'2') => md_make_header(self, 2),
@@ -56,6 +60,11 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
                 ct_event!(key press ALT-'4') => md_make_header(self, 4),
                 ct_event!(key press ALT-'5') => md_make_header(self, 5),
                 ct_event!(key press ALT-'6') => md_make_header(self, 6),
+
+                ct_event!(key press ANY-'*') => md_insert_quotes(self, '*'),
+                ct_event!(key press ANY-'_') => md_insert_quotes(self, '_'),
+                ct_event!(key press ANY-'~') => md_insert_quotes(self, '~'),
+
                 // todo: more
                 ct_event!(keycode press Enter) => md_line_break(self),
                 ct_event!(keycode press Tab) => md_tab(self),

@@ -28,9 +28,9 @@ pulldown-cmark = "0.12"
 textwrap = "0.16"
 unicode-segmentation = "1.11"
 
-# rat-event = { version = "1.0", path = "../rat-event" }
-# rat-focus = { version = "0.33", path = "../rat-focus" }
-# rat-text = { version = "0.30", path = "../rat-text" }
+#rat-event = { version = "1.0", path = "../rat-event" }
+#rat-focus = { version = "0.33", path = "../rat-focus" }
+#rat-text = { version = "0.30", path = "../rat-text" }
 
 rat-event = { version = "1.0" }
 rat-focus = { version = "0.33" }

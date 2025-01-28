@@ -325,6 +325,18 @@ impl From<TextRange> for Range<TextPosition> {
 }
 
 impl TextRange {
+    /// Maximum text range.
+    pub const MAX: TextRange = TextRange {
+        start: TextPosition {
+            y: upos_type::MAX,
+            x: upos_type::MAX,
+        },
+        end: TextPosition {
+            y: upos_type::MAX,
+            x: upos_type::MAX,
+        },
+    };
+
     /// New text range.
     ///
     /// Panic
