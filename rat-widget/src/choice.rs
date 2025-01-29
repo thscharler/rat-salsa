@@ -709,6 +709,29 @@ where
     }
 }
 
+impl<'a, T> ChoiceWidget<'a, T>
+where
+    T: PartialEq + Clone + Default,
+{
+    /// Inherent width.
+    pub fn width(&self) -> u16 {
+        let w = self
+            .items
+            .borrow()
+            .iter()
+            .map(|v| v.width())
+            .max()
+            .unwrap_or_default();
+
+        w as u16 + block_size(&self.block).width
+    }
+
+    /// Inherent height.
+    pub fn height(&self) -> u16 {
+        1 + block_size(&self.block).height
+    }
+}
+
 #[cfg(feature = "unstable-widget-ref")]
 impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T>
 where
@@ -824,6 +847,45 @@ fn render_choice<T: PartialEq + Clone + Default>(
         Rect::new(state.button_area.x, state.button_area.y + dy, 3, 1),
         buf,
     );
+}
+
+impl<T> ChoicePopup<'_, T>
+where
+    T: PartialEq + Clone + Default,
+{
+    /// Calculate the layout for the popup before rendering.
+    /// Area is the area of the ChoiceWidget not the ChoicePopup.
+    pub fn layout(&self, area: Rect, buf: &mut Buffer, state: &mut ChoiceState<T>) -> Rect {
+        if state.popup.is_active() {
+            let len = min(
+                self.popup_len.unwrap_or(5),
+                self.items.borrow().len() as u16,
+            );
+            let popup_len = len + self.popup.get_block_size().height;
+            let pop_area = Rect::new(0, 0, area.width, popup_len);
+
+            self.popup
+                .ref_constraint(
+                    self.popup_placement
+                        .into_constraint(self.popup_alignment, area),
+                )
+                .layout(pop_area, buf)
+        } else {
+            Rect::default()
+        }
+    }
+}
+
+#[cfg(feature = "unstable-widget-ref")]
+impl<T> StatefulWidgetRef for ChoicePopup<'_, T>
+where
+    T: PartialEq + Clone + Default,
+{
+    type State = ChoiceState<T>;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_popup(&self, area, buf, state);
+    }
 }
 
 impl<T> StatefulWidget for ChoicePopup<'_, T>
