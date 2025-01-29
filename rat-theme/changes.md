@@ -1,3 +1,7 @@
+# 0.27.11
+
+* bump version.
+
 # 0.27.10
 
 * fix: map true_dark colors to 0..63
