@@ -800,7 +800,11 @@ impl ScrollState {
         let pos = pos.saturating_sub(base).saturating_sub(1) as usize;
         let span = length.saturating_sub(2) as usize;
 
-        (self.max_offset.saturating_mul(pos)) / span
+        if span > 0 {
+            (self.max_offset.saturating_mul(pos)) / span
+        } else {
+            0
+        }
     }
 }
 
