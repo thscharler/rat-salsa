@@ -1,3 +1,7 @@
+# 0.4.0
+
+* feature: make more stuff pub
+
 # 0.3.0
 
 * fix: some panics with unknown unseen before rules.

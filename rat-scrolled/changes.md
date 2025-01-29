@@ -1,3 +1,7 @@
+# 1.1.1
+
+* fix: division by 0 at an unexpected place.
+
 # 1.1.0
 
 * feature: ScrollSymbols can be Copy.

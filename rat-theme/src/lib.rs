@@ -451,16 +451,16 @@ impl Scheme {
         ]
     }
 
-    /// Reduces the range of the given color from 0..255 to 0..85.
+    /// Reduces the range of the given color from 0..255 to 0..63.
     ///
     /// This gives a true dark equivalent which can be used
     /// as a background for a dark theme.
     pub fn true_dark_color(&self, color: Color) -> Color {
         let (r, g, b) = as_rgb(color);
         Color::Rgb(
-            r.map_range_unchecked((0, 255), (0, 85)),
-            g.map_range_unchecked((0, 255), (0, 85)),
-            b.map_range_unchecked((0, 255), (0, 85)),
+            r.map_range_unchecked((0, 255), (0, 63)),
+            g.map_range_unchecked((0, 255), (0, 63)),
+            b.map_range_unchecked((0, 255), (0, 63)),
         )
     }
 

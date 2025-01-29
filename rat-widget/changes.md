@@ -1,3 +1,12 @@
+
+# 0.37.2
+
+* fix: Choice: manual popup-len should still consider number
+  of items.
+* feature: Choice: add width() and height() to ChoiceWidget; add
+  layout() to ChoicePopup
+* feature: FileDialog: use F1-F5 to jump to different parts.  
+
 # 0.37.1
 
 * feature: add Hover widget
