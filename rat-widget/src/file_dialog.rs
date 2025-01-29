@@ -1,5 +1,5 @@
 //!
-//! File dialog
+//! File dialog.
 //!
 
 use crate::_private::NonExhaustive;
@@ -34,7 +34,23 @@ use sysinfo::Disks;
 
 /// Shows a file dialog.
 ///
-/// It can work in Open/Save mode or a separate Directory mode.
+/// * Display modes
+///     * Open
+///     * Save
+///     * Directory
+///
+/// * Define your roots or let them provide by
+///     [dirs](https://docs.rs/dirs/6.0.0/dirs/) and
+///     [sysinfo](https://docs.rs/sysinfo/0.33.1/sysinfo/)
+///   You need the feature "user_directories" for the latter.
+///
+///   * Standard roots are
+///     * Last - The directory choosen the last time the dialog was opened.
+///     * Start - The start directory provided by the application.
+///
+/// * Create new directories.
+///
+/// * Quick jump between lists with F1..F5.
 ///
 #[derive(Debug, Default, Clone)]
 pub struct FileDialog<'a> {
@@ -1030,11 +1046,11 @@ impl FileDialogState {
         if self.mode == Mode::Save {
             fb.widget(&self.save_name_state);
         }
-        fb.widget(&self.ok_state)
-            .widget(&self.cancel_state)
-            .widget(&self.new_state)
-            .widget(&self.root_state)
-            .widget(&self.path_state);
+        fb.widget(&self.ok_state);
+        fb.widget(&self.cancel_state);
+        fb.widget(&self.new_state);
+        fb.widget(&self.root_state);
+        fb.widget(&self.path_state);
         fb.build()
     }
 }
@@ -1051,8 +1067,56 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
             return Ok(FileOutcome::Continue);
         }
 
-        let f: FileOutcome = self.focus().handle(event, Regular).into();
-        let f = f.and_try(|| {
+        let mut focus = self.focus();
+
+        let mut f: FileOutcome = focus.handle(event, Regular).into();
+        let mut r = FileOutcome::Continue;
+
+        f = f.or_else(|| match event {
+            ct_event!(keycode press F(1)) => {
+                if !self.root_state.is_focused() {
+                    focus.focus(&self.root_state);
+                    FileOutcome::Changed
+                } else {
+                    FileOutcome::Continue
+                }
+            }
+            ct_event!(keycode press F(2)) => {
+                if !self.dir_state.is_focused() {
+                    focus.focus(&self.dir_state);
+                    FileOutcome::Changed
+                } else {
+                    FileOutcome::Continue
+                }
+            }
+            ct_event!(keycode press F(3)) => {
+                if !self.file_state.is_focused() {
+                    focus.focus(&self.file_state);
+                    FileOutcome::Changed
+                } else {
+                    FileOutcome::Continue
+                }
+            }
+            ct_event!(keycode press F(4)) => {
+                if !self.path_state.is_focused() {
+                    focus.focus(&self.path_state);
+                    FileOutcome::Changed
+                } else {
+                    FileOutcome::Continue
+                }
+            }
+            ct_event!(keycode press F(5)) => {
+                if !self.save_name_state.is_focused() {
+                    focus.focus(&self.save_name_state);
+                    FileOutcome::Changed
+                } else {
+                    FileOutcome::Continue
+                }
+            }
+            _ => FileOutcome::Continue,
+        });
+
+        r = r.or_else_try(|| {
             handle_path(self, event)?
                 .or_else_try(|| {
                     if self.mode == Mode::Save {
@@ -1069,7 +1133,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
                 .or_else_try(|| handle_ok(self, event))
         })?;
 
-        Ok(max(f, FileOutcome::Unchanged))
+        Ok(max(max(f, r), FileOutcome::Unchanged))
     }
 }
 
@@ -1178,6 +1242,11 @@ fn handle_dirs(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
+    // capture F2. starts edit/selects dir otherwise.
+    if matches!(event, ct_event!(keycode press F(2))) {
+        return Ok(FileOutcome::Continue);
+    }
+
     try_flow!(match state.dir_state.handle(event, Regular) {
         EditOutcome::Edit => {
             state.chdir_selected()?
