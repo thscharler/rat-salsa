@@ -403,6 +403,87 @@ impl Focus {
         }
     }
 
+    /// Focus the next widget in the cycle.
+    /// Applies some extra force to this action and allows leaving
+    /// widgets that have Navigation::(Mouse, ReachLeafFront, Reach).
+    ///
+    /// Sets the focus, gained and lost flags. If this ends up with
+    /// the same widget as before focus, gained and lost flag are all set.
+    ///
+    /// If no field has the focus the first one gets it.
+    pub fn next_force(&self) -> bool {
+        match self.navigation() {
+            None => {
+                self.first();
+                true
+            }
+            Some(
+                Navigation::Leave
+                | Navigation::Reach
+                | Navigation::ReachLeaveFront
+                | Navigation::ReachLeaveBack
+                | Navigation::Regular,
+            ) => {
+                focus_debug!(
+                    self.core.log,
+                    "force next after {:?}",
+                    self.core.focused().map(|v| v.name().to_string())
+                );
+                self.core.next()
+            }
+            v => {
+                focus_debug!(
+                    self.core.log,
+                    "force next after {:?}, but navigation says {:?}",
+                    self.core.focused().map(|v| v.name().to_string()),
+                    v
+                );
+                false
+            }
+        }
+    }
+
+    /// Focus the previous widget in the cycle.
+    ///
+    /// Applies some extra force to this action and allows leaving
+    /// widgets that have Navigation::(Mouse, ReachLeafBack, Reach).
+    ///
+    /// Sets the focus and lost flags. If this ends up with the same widget as
+    /// before it returns *true* and sets the focus, gained and lost flag.
+    ///
+    /// If no field has the focus the first one gets it.
+    pub fn prev_force(&self) -> bool {
+        match self.navigation() {
+            None => {
+                self.first();
+                true
+            }
+            Some(
+                Navigation::Leave
+                | Navigation::Reach
+                | Navigation::ReachLeaveFront
+                | Navigation::ReachLeaveBack
+                | Navigation::Regular,
+            ) => {
+                focus_debug!(
+                    self.core.log,
+                    "force prev before {:?}",
+                    self.core.focused().map(|v| v.name().to_string())
+                );
+                self.core.prev()
+            }
+            v => {
+                focus_debug!(
+                    self.core.log,
+                    "force prev before {:?}, but navigation says {:?}",
+                    self.core.focused().map(|v| v.name().to_string()),
+                    v
+                );
+                false
+            }
+        }
+    }
+
     /// Debug destructuring.
     #[allow(clippy::type_complexity)]
     pub fn clone_destruct(
@@ -516,17 +597,69 @@ mod core {
         }
 
         /// Do some logging of the build.
-        pub fn enable_log(self) -> Self {
+        pub fn enable_log(&self) {
             self.log.set(true);
+        }
+
+        /// Do some logging of the build.
+        pub fn disable_log(&self) {
+            self.log.set(false);
+        }
+
+        /// Add a widget by calling its build function.
+        /// The build function of the HasFocus trait can
+        /// use builder to define its focus requirements.
+        ///
+        /// The widget is added to all open containers.
+        pub fn widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
+            widget.build(self);
             self
         }
 
         /// Add a widget by calling its build function.
         /// The build function of the HasFocus trait can
+        /// use builder to define its focus requirements.
+        ///
+        /// This tries to override the default navigation
+        /// for the given widget. This will fail if the
+        /// widget is a container. It may also fail
+        /// for other reasons. Depends on the widget.
+        /// Enable log to check.
         ///
         /// The widget is added to all open containers.
-        pub fn widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
+        pub fn widget_navigate(
+            &mut self,
+            widget: &dyn HasFocus,
+            navigation: Navigation,
+        ) -> &mut Self {
             widget.build(self);
+
+            // override navigation for the widget
+            if let Some(idx) = self.focus_flags.iter().position(|v| *v == widget.focus()) {
+                focus_debug!(
+                    self.log,
+                    "override navigation for {:?} with {:?}",
+                    widget.focus(),
+                    navigation
+                );
+
+                self.navigable[idx] = navigation;
+            } else {
+                if self.container_ids.contains(&widget.focus().widget_id()) {
+                    focus_debug!(
+                        self.log,
+                        "FAIL to override navigation for {:?}. This is a container.",
+                        widget.focus(),
+                    );
+                } else {
+                    focus_debug!(
+                        self.log,
+                        "FAIL to override navigation for {:?}. Widget doesn't use this focus-flag",
+                        widget.focus(),
+                    );
+                }
+            }
+
             self
         }
 
