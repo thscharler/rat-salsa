@@ -1,3 +1,6 @@
+# 1.0.0
+
+... jump ...
 
 # 0.37.2
 
@@ -5,7 +8,7 @@
   of items.
 * feature: Choice: add width() and height() to ChoiceWidget; add
   layout() to ChoicePopup
-* feature: FileDialog: use F1-F5 to jump to different parts.  
+* feature: FileDialog: use F1-F5 to jump to different parts.
 
 # 0.37.1
 
