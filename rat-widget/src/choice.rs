@@ -844,10 +844,10 @@ fn render_popup<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
 ) {
     if state.popup.is_active() {
-        let len = widget
-            .popup_len
-            .unwrap_or_else(|| min(5, widget.items.borrow().len()) as u16);
-
+        let len = min(
+            widget.popup_len.unwrap_or(5),
+            widget.items.borrow().len() as u16,
+        );
         let popup_len = len + widget.popup.get_block_size().height;
         let popup_style = widget.popup.style;
         let pop_area = Rect::new(0, 0, area.width, popup_len);
