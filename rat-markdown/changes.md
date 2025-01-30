@@ -1,3 +1,9 @@
+# 0.5.0
+
+* break: remove formatting from the event-handler. it is better
+  employed by the application and not here. leave just direct editing
+  behaviour.
+
 # 0.4.1
 
 * dependencies
