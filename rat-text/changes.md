@@ -1,3 +1,9 @@
+# 1.0.1
+
+* feature: UndoBuffer: add open_undo() and open_redo().
+  Those give back the remaining number of operations.
+  Useful to mark a 'needs saving' flag.
+
 # 1.0.0
 
 ... jump ...
