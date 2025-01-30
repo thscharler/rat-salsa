@@ -1,9 +1,6 @@
 #![doc = include_str!("../readme.md")]
 
-use crate::dump::md_dump;
-use crate::op::{
-    md_backtab, md_format, md_line_break, md_make_header, md_strong, md_surround, md_tab,
-};
+use crate::op::{md_backtab, md_line_break, md_make_header, md_strong, md_surround, md_tab};
 use rat_event::{ct_event, flow, HandleEvent, Regular};
 use rat_focus::HasFocus;
 use rat_text::event::TextOutcome;
@@ -50,12 +47,6 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
     fn handle(&mut self, event: &crossterm::event::Event, qualifier: MarkDown) -> TextOutcome {
         if self.is_focused() {
             flow!(match event {
-                ct_event!(key press CONTROL-'f') =>
-                    md_format(self, qualifier.text_width as usize, false),
-                ct_event!(key press CONTROL-'g') =>
-                    md_format(self, qualifier.text_width as usize, true),
-                ct_event!(key press CONTROL-'p') => md_dump(self),
-
                 ct_event!(key press ALT-'1') => md_make_header(self, 1),
                 ct_event!(key press ALT-'2') => md_make_header(self, 2),
                 ct_event!(key press ALT-'3') => md_make_header(self, 3),
@@ -73,7 +64,6 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
                 ct_event!(key press ALT-'r') => md_surround(self, "[", Some(1), "]: ", None),
                 ct_event!(key press ALT-'f') => md_surround(self, "[^1]", Some(4), "", None),
 
-                // todo: more
                 ct_event!(keycode press Enter) => md_line_break(self),
                 ct_event!(keycode press Tab) => md_tab(self),
                 ct_event!(keycode press SHIFT-BackTab) => md_backtab(self),
