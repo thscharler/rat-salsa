@@ -50,6 +50,12 @@ pub trait UndoBuffer: DynClone + Debug {
     /// Clear the undo and the replay buffer.
     fn clear(&mut self);
 
+    /// Get the number of possible undo operations.
+    fn open_undo(&self) -> usize;
+
+    /// Get the number of possible redo operations.
+    fn open_redo(&self) -> usize;
+
     /// Get the list of the next undo operations.
     fn undo(&mut self) -> Vec<&UndoOp>;
 
@@ -732,6 +738,14 @@ impl UndoBuffer for UndoVec {
         self.begin = 0;
         self.sequence = 0;
         self.replay.clear();
+    }
+
+    fn open_undo(&self) -> usize {
+        self.idx
+    }
+
+    fn open_redo(&self) -> usize {
+        self.buf.len() - self.idx
     }
 
     /// Get next undo
