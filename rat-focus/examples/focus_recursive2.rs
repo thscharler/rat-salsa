@@ -6,6 +6,7 @@ use rat_focus::{Focus, FocusBuilder};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Block;
 use ratatui::Frame;
+use std::cmp::max;
 
 mod adapter;
 mod mini_salsa;
@@ -90,12 +91,12 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus_input(state).handle(event, Regular);
-    let r = f.and(|| {
-        (state.sub1.handle(event, Regular))
-            .or_else(|| state.sub3.handle(event, Regular))
-            .or_else(|| state.sub4.handle(event, Regular))
-    });
-    Ok(r)
+    let r = state
+        .sub1
+        .handle(event, Regular)
+        .or_else(|| state.sub3.handle(event, Regular))
+        .or_else(|| state.sub4.handle(event, Regular));
+    Ok(max(f, r))
 }
 
 pub mod substratum2 {

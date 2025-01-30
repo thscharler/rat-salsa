@@ -148,7 +148,11 @@ pub trait ConsumedEvent {
         Self: Sized + Ord,
         F: FnOnce() -> Self,
     {
-        max(self, f())
+        if self.is_consumed() {
+            max(self, f())
+        } else {
+            self
+        }
     }
 
     /// Then-chaining. Returns max(self, f()).
@@ -158,7 +162,11 @@ pub trait ConsumedEvent {
         Self: Sized + Ord,
         F: FnOnce() -> Result<Self, E>,
     {
-        Ok(max(self, f()?))
+        if self.is_consumed() {
+            Ok(max(self, f()?))
+        } else {
+            Ok(self)
+        }
     }
 }
 

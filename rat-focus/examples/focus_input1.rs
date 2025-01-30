@@ -6,6 +6,7 @@ use rat_focus::{Focus, FocusBuilder, HasFocus};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::Frame;
+use std::cmp::max;
 
 mod adapter;
 mod mini_salsa;
@@ -126,12 +127,12 @@ fn handle_input(
     // consideration and return max(r, f).
     //
     // This way a Outcome::Changed from focus doesn't get lost.
-    let f = f.and(|| {
-        (state.input1.handle(event, Regular))
-            .or_else(|| state.input2.handle(event, Regular))
-            .or_else(|| state.input3.handle(event, Regular))
-            .or_else(|| state.input4.handle(event, Regular))
-    });
+    let r = state
+        .input1
+        .handle(event, Regular)
+        .or_else(|| state.input2.handle(event, Regular))
+        .or_else(|| state.input3.handle(event, Regular))
+        .or_else(|| state.input4.handle(event, Regular));
 
-    Ok(f)
+    Ok(max(f, r))
 }

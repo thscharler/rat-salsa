@@ -1,8 +1,9 @@
 #![allow(dead_code)]
+
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, flow, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -18,6 +19,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::symbols::border;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use ratatui::Frame;
+use std::cmp::max;
 
 mod mini_salsa;
 
@@ -203,142 +205,143 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus(state).handle(event, Regular);
-    let r = f.and(|| {
-        flow!(match event {
-            ct_event!(keycode press F(1)) => {
-                state.close = !state.close;
-                Outcome::Changed
-            }
-            ct_event!(keycode press F(2)) => {
-                state.style = match state.style {
-                    TabType::Glued => TabType::Attached,
-                    TabType::Attached => TabType::Glued,
-                    _ => TabType::Glued,
-                };
-                Outcome::Changed
-            }
-            ct_event!(keycode press SHIFT-F(2)) => {
-                state.style = match state.style {
-                    TabType::Glued => TabType::Attached,
-                    TabType::Attached => TabType::Glued,
-                    _ => TabType::Glued,
-                };
-                Outcome::Changed
-            }
-            ct_event!(keycode press F(3)) => {
-                state.placement = match state.placement {
-                    TabPlacement::Top => TabPlacement::Right,
-                    TabPlacement::Right => TabPlacement::Bottom,
-                    TabPlacement::Bottom => TabPlacement::Left,
-                    TabPlacement::Left => TabPlacement::Top,
-                };
-                Outcome::Changed
-            }
-            ct_event!(keycode press SHIFT-F(3)) => {
-                state.placement = match state.placement {
-                    TabPlacement::Top => TabPlacement::Left,
-                    TabPlacement::Right => TabPlacement::Top,
-                    TabPlacement::Bottom => TabPlacement::Right,
-                    TabPlacement::Left => TabPlacement::Bottom,
-                };
-                Outcome::Changed
-            }
-            ct_event!(keycode press F(5)) => {
-                state.border_type = match state.border_type {
-                    None => Some((BorderType::Plain, border::PLAIN)),
-                    Some((BorderType::Plain, border::PLAIN)) => {
-                        Some((BorderType::Plain, border::ONE_EIGHTH_TALL))
-                    }
-                    Some((BorderType::Plain, border::ONE_EIGHTH_TALL)) => {
-                        Some((BorderType::Plain, border::ONE_EIGHTH_WIDE))
-                    }
-                    Some((BorderType::Plain, border::ONE_EIGHTH_WIDE)) => {
-                        Some((BorderType::Plain, border::PROPORTIONAL_WIDE))
-                    }
-                    Some((BorderType::Plain, border::PROPORTIONAL_WIDE)) => {
-                        Some((BorderType::Plain, border::PROPORTIONAL_TALL))
-                    }
-                    Some((BorderType::Plain, border::PROPORTIONAL_TALL)) => {
-                        Some((BorderType::Double, border::DOUBLE))
-                    }
-                    Some((BorderType::Double, border::DOUBLE)) => {
-                        Some((BorderType::Rounded, border::ROUNDED))
-                    }
-                    Some((BorderType::Rounded, border::ROUNDED)) => {
-                        Some((BorderType::Thick, border::THICK))
-                    }
-                    Some((BorderType::Thick, border::THICK)) => {
-                        Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE))
-                    }
-                    Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE)) => {
-                        Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE))
-                    }
-                    Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)) => None,
-                    _ => Some((BorderType::Plain, border::PLAIN)),
-                };
-                Outcome::Changed
-            }
-            ct_event!(keycode press SHIFT-F(5)) => {
-                state.border_type = match state.border_type {
-                    None => Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)),
-                    Some((BorderType::Plain, border::PLAIN)) => None,
-                    Some((BorderType::Plain, border::ONE_EIGHTH_TALL)) => {
-                        Some((BorderType::Plain, border::PLAIN))
-                    }
-                    Some((BorderType::Plain, border::ONE_EIGHTH_WIDE)) => {
-                        Some((BorderType::Plain, border::ONE_EIGHTH_TALL))
-                    }
-                    Some((BorderType::Plain, border::PROPORTIONAL_WIDE)) => {
-                        Some((BorderType::Plain, border::ONE_EIGHTH_WIDE))
-                    }
-                    Some((BorderType::Plain, border::PROPORTIONAL_TALL)) => {
-                        Some((BorderType::Plain, border::PROPORTIONAL_WIDE))
-                    }
-                    Some((BorderType::Double, border::DOUBLE)) => {
-                        Some((BorderType::Plain, border::PROPORTIONAL_TALL))
-                    }
-                    Some((BorderType::Rounded, border::ROUNDED)) => {
-                        Some((BorderType::Double, border::DOUBLE))
-                    }
-                    Some((BorderType::Thick, border::THICK)) => {
-                        Some((BorderType::Rounded, border::ROUNDED))
-                    }
-                    Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE)) => {
-                        Some((BorderType::Thick, border::THICK))
-                    }
-                    Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)) => {
-                        Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE))
-                    }
-                    _ => Some((BorderType::Plain, border::PLAIN)),
-                };
-                Outcome::Changed
-            }
-            _ => Outcome::Continue,
-        });
 
-        flow!(HandleEvent::handle(&mut state.tabbed, event, Regular));
+    let mut r = match event {
+        ct_event!(keycode press F(1)) => {
+            state.close = !state.close;
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(2)) => {
+            state.style = match state.style {
+                TabType::Glued => TabType::Attached,
+                TabType::Attached => TabType::Glued,
+                _ => TabType::Glued,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press SHIFT-F(2)) => {
+            state.style = match state.style {
+                TabType::Glued => TabType::Attached,
+                TabType::Attached => TabType::Glued,
+                _ => TabType::Glued,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(3)) => {
+            state.placement = match state.placement {
+                TabPlacement::Top => TabPlacement::Right,
+                TabPlacement::Right => TabPlacement::Bottom,
+                TabPlacement::Bottom => TabPlacement::Left,
+                TabPlacement::Left => TabPlacement::Top,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press SHIFT-F(3)) => {
+            state.placement = match state.placement {
+                TabPlacement::Top => TabPlacement::Left,
+                TabPlacement::Right => TabPlacement::Top,
+                TabPlacement::Bottom => TabPlacement::Right,
+                TabPlacement::Left => TabPlacement::Bottom,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(5)) => {
+            state.border_type = match state.border_type {
+                None => Some((BorderType::Plain, border::PLAIN)),
+                Some((BorderType::Plain, border::PLAIN)) => {
+                    Some((BorderType::Plain, border::ONE_EIGHTH_TALL))
+                }
+                Some((BorderType::Plain, border::ONE_EIGHTH_TALL)) => {
+                    Some((BorderType::Plain, border::ONE_EIGHTH_WIDE))
+                }
+                Some((BorderType::Plain, border::ONE_EIGHTH_WIDE)) => {
+                    Some((BorderType::Plain, border::PROPORTIONAL_WIDE))
+                }
+                Some((BorderType::Plain, border::PROPORTIONAL_WIDE)) => {
+                    Some((BorderType::Plain, border::PROPORTIONAL_TALL))
+                }
+                Some((BorderType::Plain, border::PROPORTIONAL_TALL)) => {
+                    Some((BorderType::Double, border::DOUBLE))
+                }
+                Some((BorderType::Double, border::DOUBLE)) => {
+                    Some((BorderType::Rounded, border::ROUNDED))
+                }
+                Some((BorderType::Rounded, border::ROUNDED)) => {
+                    Some((BorderType::Thick, border::THICK))
+                }
+                Some((BorderType::Thick, border::THICK)) => {
+                    Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE))
+                }
+                Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE)) => {
+                    Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE))
+                }
+                Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)) => None,
+                _ => Some((BorderType::Plain, border::PLAIN)),
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press SHIFT-F(5)) => {
+            state.border_type = match state.border_type {
+                None => Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)),
+                Some((BorderType::Plain, border::PLAIN)) => None,
+                Some((BorderType::Plain, border::ONE_EIGHTH_TALL)) => {
+                    Some((BorderType::Plain, border::PLAIN))
+                }
+                Some((BorderType::Plain, border::ONE_EIGHTH_WIDE)) => {
+                    Some((BorderType::Plain, border::ONE_EIGHTH_TALL))
+                }
+                Some((BorderType::Plain, border::PROPORTIONAL_WIDE)) => {
+                    Some((BorderType::Plain, border::ONE_EIGHTH_WIDE))
+                }
+                Some((BorderType::Plain, border::PROPORTIONAL_TALL)) => {
+                    Some((BorderType::Plain, border::PROPORTIONAL_WIDE))
+                }
+                Some((BorderType::Double, border::DOUBLE)) => {
+                    Some((BorderType::Plain, border::PROPORTIONAL_TALL))
+                }
+                Some((BorderType::Rounded, border::ROUNDED)) => {
+                    Some((BorderType::Double, border::DOUBLE))
+                }
+                Some((BorderType::Thick, border::THICK)) => {
+                    Some((BorderType::Rounded, border::ROUNDED))
+                }
+                Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE)) => {
+                    Some((BorderType::Thick, border::THICK))
+                }
+                Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)) => {
+                    Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE))
+                }
+                _ => Some((BorderType::Plain, border::PLAIN)),
+            };
+            Outcome::Changed
+        }
+        _ => Outcome::Continue,
+    };
+
+    r = r.or_else(|| HandleEvent::handle(&mut state.tabbed, event, Regular).into());
+
+    r = r.or_else(|| {
         if let Some(sel) = state.tabbed.selected() {
             match sel {
-                0 => flow!(state.tabs_0.handle(event, Regular)),
-                1 => flow!(state.tabs_1.handle(event, Regular)),
-                2 => flow!(state.tabs_2.handle(event, Regular)),
-                _ => {}
+                0 => state.tabs_0.handle(event, Regular),
+                1 => state.tabs_1.handle(event, Regular),
+                2 => state.tabs_2.handle(event, Regular),
+                _ => Outcome::Continue,
             }
+        } else {
+            Outcome::Continue
         }
-        flow!(match state.menu.handle(event, Regular) {
-            MenuOutcome::Activated(0) => {
-                istate.quit = true;
-                Outcome::Changed
-            }
-            _ => {
-                Outcome::Continue
-            }
-        });
-
-        Outcome::Continue
     });
 
-    Ok(r)
+    r = r.or_else(|| match state.menu.handle(event, Regular) {
+        MenuOutcome::Activated(0) => {
+            istate.quit = true;
+            Outcome::Changed
+        }
+        _ => Outcome::Continue,
+    });
+
+    Ok(max(f, r))
 }
 
 static LIST: [&str; 28] = [

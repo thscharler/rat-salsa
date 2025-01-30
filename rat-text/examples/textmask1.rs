@@ -4,6 +4,7 @@ use rat_event::{ct_event, Outcome};
 use rat_event::{flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{FocusBuilder, HasFocus};
 use rat_reloc::RelocatableState;
+use rat_text::event::TextOutcome;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_text::HasScreenCursor;
@@ -12,6 +13,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
 use ratatui::Frame;
+use std::cmp::max;
 use std::fmt;
 
 mod mini_salsa;
@@ -200,7 +202,7 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let mut f = {
+    let mut focus = {
         let mut fb = FocusBuilder::default();
         fb.widget(&state.sample1)
             .widget(&state.masked)
@@ -208,24 +210,21 @@ fn handle_input(
         fb.build()
     };
 
-    let r = f.handle(event, Regular);
-    let r = r.and(|| {
-        flow!(state.sample1.handle(event, Regular));
-        flow!(state.masked.handle(event, Regular));
-        flow!(state.sample2.handle(event, Regular));
-        flow!(match event {
-            ct_event!(key press ALT-'0') => {
-                state.info = !state.info;
-                Outcome::Changed
-            }
-            ct_event!(keycode press F(2)) => next_mask(state),
-            ct_event!(keycode press SHIFT-F(2)) => prev_mask(state),
-            _ => Outcome::Continue,
-        });
-        Outcome::Continue
+    let f = focus.handle(event, Regular);
+    let mut r: Outcome = state.sample1.handle(event, Regular).into();
+    r = r.or_else(|| state.masked.handle(event, Regular).into());
+    r = r.or_else(|| state.sample2.handle(event, Regular).into());
+    r = r.or_else(|| match event {
+        ct_event!(key press ALT-'0') => {
+            state.info = !state.info;
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(2)) => next_mask(state),
+        ct_event!(keycode press SHIFT-F(2)) => prev_mask(state),
+        _ => Outcome::Continue,
     });
 
-    Ok(r)
+    Ok(max(f, r))
 }
 
 static MASKS: [&str; 39] = [
