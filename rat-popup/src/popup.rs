@@ -322,14 +322,12 @@ fn render_popup(widget: &PopupCore<'_>, area: Rect, buf: &mut Buffer, state: &mu
     state.area = widget._layout(area, widget.boundary_area.unwrap_or(buf.area));
 
     reset_buf_area(state.area, buf);
-    if widget.block.is_none() {
-        buf.set_style(state.area, fallback_popup_style(widget.style))
-    }
 
     let sa = ScrollArea::new()
         .block(widget.block.as_ref())
         .h_scroll(widget.h_scroll.as_ref())
-        .v_scroll(widget.v_scroll.as_ref());
+        .v_scroll(widget.v_scroll.as_ref())
+        .style(fallback_popup_style(widget.style));
 
     state.widget_area = sa.inner(state.area, Some(&state.h_scroll), Some(&state.v_scroll));
 

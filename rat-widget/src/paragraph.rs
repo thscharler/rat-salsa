@@ -247,11 +247,19 @@ fn render_paragraph(
     // take paragraph
     let mut para = mem::take(widget.para.borrow_mut().deref_mut());
 
+    let style = widget.style;
+    let focus_style = if let Some(focus_style) = widget.focus_style {
+        style.patch(focus_style)
+    } else {
+        revert_style(widget.style)
+    };
+
     // update scroll
     let sa = ScrollArea::new()
         .block(widget.block.as_ref())
         .h_scroll(widget.hscroll.as_ref())
-        .v_scroll(widget.vscroll.as_ref());
+        .v_scroll(widget.vscroll.as_ref())
+        .style(style);
     // not the final inner, showing the scrollbar might change this.
     let tmp_inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
     let pad_inner = sa.padding();
@@ -282,8 +290,6 @@ fn render_paragraph(
     (&para).render(state.inner, buf);
 
     if state.is_focused() {
-        let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
-
         let mut tag = None;
         for x in state.inner.left()..state.inner.right() {
             if let Some(cell) = buf.cell_mut(Position::new(x, state.inner.y)) {

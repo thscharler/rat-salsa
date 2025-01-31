@@ -242,19 +242,13 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     state.on_focus_gained = widget.on_focus_gained;
     state.on_focus_lost = widget.on_focus_lost;
 
-    widget.block.render(area, buf);
-
     let inner = state.inner;
 
-    if inner.width == 0 || inner.height == 0 {
-        // noop
-        return;
-    }
-
+    let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
     } else {
-        widget.style
+        style
     };
     let select_style = if let Some(select_style) = widget.select_style {
         select_style
@@ -270,31 +264,30 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     let (style, select_style) = if state.focus.get() {
         if state.invalid {
             (
-                focus_style.patch(invalid_style),
-                select_style.patch(invalid_style),
+                style.patch(focus_style).patch(invalid_style),
+                style.patch(select_style).patch(invalid_style),
             )
         } else {
-            (focus_style, select_style)
+            (style.patch(focus_style), style.patch(select_style))
         }
     } else {
         if state.invalid {
-            (
-                widget.style.patch(invalid_style),
-                widget.style.patch(invalid_style),
-            )
+            (style.patch(invalid_style), style.patch(invalid_style))
         } else {
-            (widget.style, widget.style)
+            (style, style)
         }
     };
 
     // set base style
-    for y in inner.top()..inner.bottom() {
-        for x in inner.left()..inner.right() {
-            if let Some(cell) = buf.cell_mut((x, y)) {
-                cell.reset();
-                cell.set_style(style);
-            }
-        }
+    if widget.block.is_some() {
+        widget.block.render(area, buf);
+    } else {
+        buf.set_style(area, style);
+    }
+
+    if inner.width == 0 || inner.height == 0 {
+        // noop
+        return;
     }
 
     let ox = state.offset() as u16;

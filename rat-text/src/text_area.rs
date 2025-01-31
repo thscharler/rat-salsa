@@ -284,10 +284,19 @@ fn render_text_area(
 ) {
     state.area = area;
 
+    let style = widget.style;
+    let select_style = if let Some(select_style) = widget.select_style {
+        select_style
+    } else {
+        Style::default().black().on_yellow()
+    };
+
     let sa = ScrollArea::new()
         .block(widget.block.as_ref())
         .h_scroll(widget.hscroll.as_ref())
-        .v_scroll(widget.vscroll.as_ref());
+        .v_scroll(widget.vscroll.as_ref())
+        .style(style);
+
     state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
     if let Some(h_max_offset) = widget.h_max_offset {
@@ -306,28 +315,7 @@ fn render_text_area(
 
     let inner = state.inner;
 
-    if inner.width == 0 || inner.height == 0 {
-        // noop
-        return;
-    }
-
-    let select_style = if let Some(select_style) = widget.select_style {
-        select_style
-    } else {
-        Style::default().black().on_yellow()
-    };
-    let style = widget.style;
-
     // set base style
-    for y in area.top()..area.bottom() {
-        for x in area.left()..area.right() {
-            if let Some(cell) = buf.cell_mut((x, y)) {
-                cell.reset();
-                cell.set_style(style);
-            }
-        }
-    }
-
     sa.render(
         area,
         buf,
@@ -335,6 +323,11 @@ fn render_text_area(
             .h_scroll(&mut state.hscroll)
             .v_scroll(&mut state.vscroll),
     );
+
+    if inner.width == 0 || inner.height == 0 {
+        // noop
+        return;
+    }
 
     if state.vscroll.offset() > state.value.len_lines() as usize {
         return;

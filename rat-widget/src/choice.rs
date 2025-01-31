@@ -815,8 +815,10 @@ fn render_choice<T: PartialEq + Clone + Default>(
     if state.is_focused() {
         if widget.block.is_some() {
             widget.block.render(area, buf);
+        } else {
+            buf.set_style(inner, style);
         }
-        buf.set_style(inner, style.patch(focus_style));
+        buf.set_style(inner, focus_style);
     } else {
         if widget.block.is_some() {
             widget.block.render(area, buf);

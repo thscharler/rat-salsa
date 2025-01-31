@@ -698,8 +698,6 @@ where
     type State = RadioState<T>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        assert!(!self.items.is_empty());
-
         state.area = area;
 
         match (self.direction, self.layout) {
@@ -722,21 +720,22 @@ where
             state.core.set_default_value(Some(default_value));
         }
 
+        let style = self.style;
         let focus_style = if let Some(focus_style) = self.focus_style {
-            focus_style
+            style.patch(focus_style)
         } else {
             revert_style(self.style)
         };
         let select_style = if let Some(select_style) = self.select_style {
-            select_style
+            style.patch(select_style)
         } else {
-            self.style
+            style
         };
 
         if self.block.is_some() {
             self.block.render(area, buf);
         } else {
-            buf.set_style(state.area, self.style);
+            buf.set_style(state.area, style);
         }
 
         if state.is_focused() {

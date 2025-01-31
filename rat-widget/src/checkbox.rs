@@ -307,10 +307,11 @@ fn render_ref(widget: &Checkbox<'_>, area: Rect, buf: &mut Buffer, state: &mut C
         state.default = default;
     }
 
+    let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
-        focus_style
+        style.patch(focus_style)
     } else {
-        revert_style(widget.style)
+        revert_style(style)
     };
 
     if widget.block.is_some() {
@@ -320,9 +321,9 @@ fn render_ref(widget: &Checkbox<'_>, area: Rect, buf: &mut Buffer, state: &mut C
         }
     } else {
         if state.focus.get() {
-            buf.set_style(state.area, focus_style);
+            buf.set_style(state.inner, focus_style);
         } else {
-            buf.set_style(state.area, widget.style);
+            buf.set_style(state.inner, widget.style);
         }
     }
 

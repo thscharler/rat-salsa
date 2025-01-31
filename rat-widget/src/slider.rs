@@ -613,11 +613,21 @@ fn render_slider<T>(
     } else {
         widget.style
     };
-    let bounds_style = widget.bounds_style.unwrap_or(style);
-    let knob_style = if state.is_focused() {
-        widget.focus_style.unwrap_or(revert_style(style))
+    let bounds_style = if let Some(bounds_style) = widget.bounds_style {
+        style.patch(bounds_style)
     } else {
-        widget.knob_style.unwrap_or(revert_style(style))
+        style
+    };
+    let knob_style = if state.is_focused() {
+        if let Some(focus_style) = widget.focus_style {
+            style.patch(focus_style)
+        } else {
+            revert_style(style)
+        }
+    } else if let Some(knob_style) = widget.knob_style {
+        style.patch(knob_style)
+    } else {
+        revert_style(style)
     };
 
     if let Some(lower_bound_str) = widget.lower_bound.as_ref() {
