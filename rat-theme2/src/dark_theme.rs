@@ -338,7 +338,7 @@ impl DarkTheme {
     pub fn choice_style(&self) -> ChoiceStyle {
         ChoiceStyle {
             style: self.text_input(),
-            select: Some(self.text_focus()),
+            select: Some(self.text_select()),
             focus: Some(self.text_focus()),
             popup: PopupStyle {
                 style: self.popup_base(),
