@@ -3,6 +3,12 @@ use ratatui::style::Color;
 
 const DARKNESS: u8 = 255;
 ///
+/// Almost genuine black&white color-scheme.
+///
+/// It uses black, white and bright as the standard colors.
+/// To match the Scheme semantics I needed two gray-scales
+/// to make it work like the other color-schemes.
+///
 pub const BLACKWHITE: Scheme = Scheme {
     primary: interpolate(0xffffff, 0xffffff, 0xaaaaaa, 0xaaaaaa),
     secondary: interpolate(0x000000, 0x000000, 0x000000, 0x000000),

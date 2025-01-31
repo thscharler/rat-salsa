@@ -281,9 +281,8 @@ impl Scheme {
     }
 
     /// Calculates a linear interpolation for the two colors
-    /// and fills the first 4 colors.
-    ///
-    ///
+    /// and fills the first 4 colors with it.
+    /// The next 4 colors are scaled down versions using dark_scale_to.
     pub const fn interpolate(c0: u32, c1: u32, dark_scale_to: u8) -> [Color; 8] {
         // 1/3
         const fn i1(a: u8, b: u8) -> u8 {
@@ -347,11 +346,14 @@ impl Scheme {
         ]
     }
 
-    const fn scale_to(v: u8, scale_to: u8) -> u8 {
+    /// Scale the u8 down to scale_to.
+    pub const fn scale_to(v: u8, scale_to: u8) -> u8 {
         (((v as u16) * scale_to as u16) / 255u16) as u8
     }
 
-    const fn color2rgb(color: Color) -> (u8, u8, u8) {
+    /// Gives back the rgb for any ratatui Color.
+    /// Has the indexed and the named colors too.
+    pub const fn color2rgb(color: Color) -> (u8, u8, u8) {
         match color {
             Color::Black => (0x00, 0x00, 0x00),
             Color::Red => (0xaa, 0x00, 0x00),

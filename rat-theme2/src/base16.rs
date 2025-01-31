@@ -8,8 +8,8 @@ use ratatui::prelude::Color;
 const DARKNESS: u8 = 63;
 
 pub const BASE16: Scheme = Scheme {
-    primary: Scheme::interpolate(0x00aa00, 0x00aa00, DARKNESS),
-    secondary: Scheme::interpolate(0x00aaaa, 0x00aaaa, DARKNESS),
+    primary: fillin(0x00aa00, DARKNESS),
+    secondary: fillin(0x00aaaa, DARKNESS),
 
     white: [
         Color::Rgb(0xaa, 0xaa, 0xaa),
@@ -42,16 +42,38 @@ pub const BASE16: Scheme = Scheme {
         Color::Rgb(0x55, 0x55, 0x55),
     ],
 
-    red: Scheme::interpolate(0xaa0000, 0xaa0000, DARKNESS),
-    orange: Scheme::interpolate(0xaa5500, 0xaa5500, DARKNESS),
-    yellow: Scheme::interpolate(0xffff55, 0xffff55, DARKNESS),
-    limegreen: Scheme::interpolate(0x55ff55, 0x55ff55, DARKNESS),
-    green: Scheme::interpolate(0x00aa00, 0x00aa00, DARKNESS),
-    bluegreen: Scheme::interpolate(0x55ffff, 0x55ffff, DARKNESS),
-    cyan: Scheme::interpolate(0x00aaaa, 0x00aaaa, DARKNESS),
-    blue: Scheme::interpolate(0x5555ff, 0x5555ff, DARKNESS),
-    deepblue: Scheme::interpolate(0x0000af, 0x0000af, DARKNESS),
-    purple: Scheme::interpolate(0xaa00aa, 0xaa00aa, DARKNESS),
-    magenta: Scheme::interpolate(0xff55ff, 0xff55ff, DARKNESS),
-    redpink: Scheme::interpolate(0xff5555, 0xff5555, DARKNESS),
+    red: fillin(0xaa0000, DARKNESS),
+    orange: fillin(0xaa5500, DARKNESS),
+    yellow: fillin(0xffff55, DARKNESS),
+    limegreen: fillin(0x55ff55, DARKNESS),
+    green: fillin(0x00aa00, DARKNESS),
+    bluegreen: fillin(0x55ffff, DARKNESS),
+    cyan: fillin(0x00aaaa, DARKNESS),
+    blue: fillin(0x5555ff, DARKNESS),
+    deepblue: fillin(0x0000af, DARKNESS),
+    purple: fillin(0xaa00aa, DARKNESS),
+    magenta: fillin(0xff55ff, DARKNESS),
+    redpink: fillin(0xff5555, DARKNESS),
 };
+
+const fn fillin(c0: u32, dark_scale_to: u8) -> [Color; 8] {
+    let r0 = (c0 >> 16) as u8;
+    let g0 = (c0 >> 8) as u8;
+    let b0 = c0 as u8;
+
+    // dark
+    let r4 = Scheme::scale_to(r0, dark_scale_to);
+    let g4 = Scheme::scale_to(g0, dark_scale_to);
+    let b4 = Scheme::scale_to(b0, dark_scale_to);
+
+    [
+        Color::Rgb(r0, g0, b0),
+        Color::Rgb(r0, g0, b0),
+        Color::Rgb(r0, g0, b0),
+        Color::Rgb(r0, g0, b0),
+        Color::Rgb(r4, g4, b4),
+        Color::Rgb(r4, g4, b4),
+        Color::Rgb(r4, g4, b4),
+        Color::Rgb(r4, g4, b4),
+    ]
+}
