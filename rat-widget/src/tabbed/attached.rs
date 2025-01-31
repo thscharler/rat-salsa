@@ -6,6 +6,7 @@
 use crate::tabbed::{TabPlacement, TabWidget, Tabbed, TabbedState};
 use crate::util;
 use crate::util::{block_left, block_right, fill_buf_area, revert_style};
+use rat_focus::HasFocus;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
 use ratatui::symbols::line;
@@ -219,13 +220,13 @@ impl TabWidget for AttachedTabs {
             revert_style(tabbed.style)
         };
         let select_style = if let Some(select_style) = tabbed.select_style {
-            if state.focus.get() {
+            if state.is_focused() {
                 focus_style
             } else {
                 select_style
             }
         } else {
-            if state.focus.get() {
+            if state.is_focused() {
                 focus_style
             } else {
                 revert_style(tabbed.style)
@@ -245,7 +246,7 @@ impl TabWidget for AttachedTabs {
 
         for (idx, tab_area) in state.tab_title_areas.iter().copied().enumerate() {
             if Some(idx) == state.selected() {
-                fill_buf_area(buf, tab_area, " ", select_style);
+                fill_buf_area(buf, tab_area, " ", tab_style.patch(select_style));
             } else {
                 fill_buf_area(buf, tab_area, " ", tab_style);
             }

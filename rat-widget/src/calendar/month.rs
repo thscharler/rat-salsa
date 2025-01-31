@@ -11,6 +11,7 @@ use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::Style;
+use ratatui::style::Stylize;
 use ratatui::text::Span;
 use ratatui::widgets::block::Title;
 #[cfg(feature = "unstable-widget-ref")]
@@ -539,7 +540,7 @@ fn calc_day_style<Selection: CalendarSelection>(
         && state.selection.count() > 1
         && state.selection.lead_selection() == Some(day)
     {
-        day_style.patch(revert_style(select_style))
+        day_style.patch(select_style.underlined())
     } else if state.selection.is_selected(day) {
         day_style.patch(select_style)
     } else {

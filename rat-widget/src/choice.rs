@@ -809,18 +809,19 @@ fn render_choice<T: PartialEq + Clone + Default>(
         inner.height,
     );
 
+    let style = widget.style;
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
 
     if state.is_focused() {
         if widget.block.is_some() {
             widget.block.render(area, buf);
         }
-        buf.set_style(inner, focus_style);
+        buf.set_style(inner, style.patch(focus_style));
     } else {
         if widget.block.is_some() {
             widget.block.render(area, buf);
         } else {
-            buf.set_style(inner, widget.style);
+            buf.set_style(inner, style);
         }
         if let Some(button_style) = widget.button_style {
             buf.set_style(state.button_area, button_style);
@@ -911,8 +912,10 @@ fn render_popup<T: PartialEq + Clone + Default>(
             widget.items.borrow().len() as u16,
         );
         let popup_len = len + widget.popup.get_block_size().height;
-        let popup_style = widget.popup.style;
         let pop_area = Rect::new(0, 0, area.width, popup_len);
+
+        let popup_style = widget.popup.style;
+        let select_style = widget.select_style.unwrap_or(revert_style(widget.style));
 
         widget
             .popup
@@ -945,7 +948,7 @@ fn render_popup<T: PartialEq + Clone + Default>(
 
             if let Some(item) = widget.items.borrow().get(idx) {
                 let style = if state.core.selected() == Some(idx) {
-                    widget.select_style.unwrap_or(revert_style(widget.style))
+                    popup_style.patch(select_style)
                 } else {
                     popup_style
                 };

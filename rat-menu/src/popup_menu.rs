@@ -382,10 +382,11 @@ fn render_popup_menu(
 }
 
 fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuState) {
-    let focus_style = if let Some(focus) = widget.focus_style {
+    let style = widget.style;
+    let select_style = if let Some(focus) = widget.focus_style {
         focus
     } else {
-        revert_style(widget.style)
+        revert_style(style)
     };
     let highlight_style = if let Some(highlight_style) = widget.highlight_style {
         highlight_style
@@ -400,7 +401,7 @@ fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuS
     let disabled_style = if let Some(disabled_style) = widget.disabled_style {
         disabled_style
     } else {
-        widget.style
+        style
     };
 
     for (n, item) in widget.menu.items.iter().enumerate() {
@@ -409,15 +410,24 @@ fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuS
         #[allow(clippy::collapsible_else_if)]
         let (style, right_style) = if state.selected == Some(n) {
             if item.disabled {
-                (disabled_style, disabled_style.patch(right_style))
+                (
+                    style.patch(disabled_style),
+                    style.patch(disabled_style).patch(right_style),
+                )
             } else {
-                (focus_style, focus_style.patch(right_style))
+                (
+                    style.patch(select_style),
+                    style.patch(select_style).patch(right_style),
+                )
             }
         } else {
             if item.disabled {
-                (disabled_style, disabled_style.patch(right_style))
+                (
+                    style.patch(disabled_style),
+                    style.patch(disabled_style).patch(right_style),
+                )
             } else {
-                (widget.style, widget.style.patch(right_style))
+                (style, style.patch(right_style))
             }
         };
 

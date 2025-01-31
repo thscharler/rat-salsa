@@ -325,7 +325,7 @@ fn render_list<Selection: ListSelection>(
         .enumerate()
         .map(|(i, v)| {
             if state.selection.is_selected(i) {
-                v.style(select_style)
+                v.style(style.patch(select_style))
             } else {
                 v.style(style)
             }

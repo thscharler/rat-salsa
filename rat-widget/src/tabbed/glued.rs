@@ -198,7 +198,7 @@ impl TabWidget for GluedTabs {
 
         for (idx, tab_area) in state.tab_title_areas.iter().copied().enumerate() {
             if Some(idx) == state.selected() {
-                buf.set_style(tab_area, select_style);
+                buf.set_style(tab_area, tab_style.patch(select_style));
             } else {
                 buf.set_style(tab_area, tab_style);
             }

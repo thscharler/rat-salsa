@@ -252,24 +252,25 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         .collect();
     state.disabled = widget.menu.items.iter().map(|v| v.disabled).collect();
 
+    let style = widget.style;
     #[allow(clippy::collapsible_else_if)]
-    let focus_style = if state.is_focused() {
+    let select_style = if state.is_focused() {
         if let Some(focus_style) = widget.focus_style {
             focus_style
         } else {
-            revert_style(widget.style)
+            revert_style(style)
         }
     } else {
         if let Some(select_style) = widget.select_style {
             select_style
         } else {
-            fallback_select_style(widget.style)
+            fallback_select_style(style)
         }
     };
     let title_style = if let Some(title_style) = widget.title_style {
         title_style
     } else {
-        widget.style.underlined()
+        style.clone().underlined()
     };
     let highlight_style = if let Some(highlight_style) = widget.highlight_style {
         highlight_style
@@ -287,7 +288,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         widget.style
     };
 
-    buf.set_style(area, widget.style);
+    buf.set_style(area, style);
 
     let mut item_area = Rect::new(area.x, area.y, 0, 1);
 
@@ -311,15 +312,24 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         #[allow(clippy::collapsible_else_if)]
         let (style, right_style) = if state.selected == Some(n) {
             if item.disabled {
-                (disabled_style, disabled_style.patch(right_style))
+                (
+                    style.patch(disabled_style),
+                    style.patch(disabled_style).patch(right_style),
+                )
             } else {
-                (focus_style, focus_style.patch(right_style))
+                (
+                    style.patch(select_style),
+                    style.patch(select_style).patch(right_style),
+                )
             }
         } else {
             if item.disabled {
-                (disabled_style, disabled_style.patch(right_style))
+                (
+                    style.patch(disabled_style),
+                    style.patch(disabled_style).patch(right_style),
+                )
             } else {
-                (widget.style, widget.style.patch(right_style))
+                (style, style.patch(right_style))
             }
         };
 

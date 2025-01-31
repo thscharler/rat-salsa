@@ -250,10 +250,11 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
     state.armed_delay = widget.armed_delay;
     state.hover_enabled = widget.hover_style.is_some();
 
+    let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
     } else {
-        revert_style(widget.style)
+        revert_style(style)
     };
     let armed_style = if let Some(armed_style) = widget.armed_style {
         armed_style
@@ -261,14 +262,14 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
         if state.is_focused() {
             revert_style(focus_style)
         } else {
-            revert_style(widget.style)
+            revert_style(style)
         }
     };
 
     if widget.block.is_some() {
         widget.block.render(area, buf);
     } else {
-        buf.set_style(area, widget.style);
+        buf.set_style(area, style);
     }
 
     if state.mouse.hover.get() && widget.hover_style.is_some() {
@@ -284,7 +285,7 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
             state.inner.width.saturating_sub(2),
             state.inner.height,
         );
-        buf.set_style(armed_area, armed_style);
+        buf.set_style(armed_area, style.patch(armed_style));
     }
 
     let h = widget.text.height() as u16;
