@@ -1,0 +1,56 @@
+use crate::Scheme;
+use ratatui::prelude::Color;
+
+/// Base 16
+///
+/// Uses the classic 16 vga colors.
+/// No gradients.
+///
+pub const BASE16: Scheme = Scheme {
+    primary: Scheme::interpolate(0x00aa00, 0x00aa00, 63),
+    secondary: Scheme::interpolate(0x00aaaa, 0x00aaaa, 63),
+
+    white: [
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0xff, 0xff, 0xff),
+        Color::Rgb(0xff, 0xff, 0xff),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0xff, 0xff, 0xff),
+        Color::Rgb(0xff, 0xff, 0xff),
+    ],
+    gray: [
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+    ],
+    black: [
+        Color::Rgb(0x00, 0x00, 0x00),
+        Color::Rgb(0x00, 0x00, 0x00),
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0x00, 0x00, 0x00),
+        Color::Rgb(0x00, 0x00, 0x00),
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0x55, 0x55, 0x55),
+    ],
+
+    red: Scheme::interpolate(0xaa0000, 0xaa0000, 63),
+    orange: Scheme::interpolate(0xaa5500, 0xaa5500, 63),
+    yellow: Scheme::interpolate(0xffff55, 0xffff55, 63),
+    limegreen: Scheme::interpolate(0x55ff55, 0x55ff55, 63),
+    green: Scheme::interpolate(0x00aa00, 0x00aa00, 63),
+    bluegreen: Scheme::interpolate(0x55ffff, 0x55ffff, 63),
+    cyan: Scheme::interpolate(0x00aaaa, 0x00aaaa, 63),
+    blue: Scheme::interpolate(0x5555ff, 0x5555ff, 63),
+    deepblue: Scheme::interpolate(0x0000af, 0x0000af, 63),
+    purple: Scheme::interpolate(0xaa00aa, 0xaa00aa, 63),
+    magenta: Scheme::interpolate(0xff55ff, 0xff55ff, 63),
+    redpink: Scheme::interpolate(0xff5555, 0xff5555, 63),
+};

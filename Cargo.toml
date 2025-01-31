@@ -14,5 +14,6 @@ members = [
     "rat-scrolled",
     "rat-text",
     "rat-theme",
+    "rat-theme2",
     "rat-widget",
 ]
