@@ -1,6 +1,4 @@
 #![doc = include_str!("../readme.md")]
-//
-#![allow(clippy::collapsible_else_if)]
 
 use ratatui::layout::{Alignment, Rect};
 

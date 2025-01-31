@@ -10,6 +10,8 @@ use ratatui::prelude::Style;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Padding, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget};
+#[cfg(feature = "serde")]
+use serde_derive::{Deserialize, Serialize};
 use std::cmp::{max, min};
 use std::mem;
 use std::ops::Range;
@@ -100,6 +102,7 @@ pub struct ScrollState {
 
 /// Collected styles for the Scroll.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ScrollStyle {
     pub thumb_style: Option<Style>,
     pub track_style: Option<Style>,
@@ -133,13 +136,56 @@ pub struct ScrollStyle {
 /// ```
 ///
 ///
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScrollSymbols {
     pub track: &'static str,
     pub thumb: &'static str,
     pub begin: &'static str,
     pub end: &'static str,
     pub min: &'static str,
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ScrollSymbols {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if s == "double_vertical" {
+            Ok(SCROLLBAR_DOUBLE_VERTICAL)
+        } else if s == "vertical" {
+            Ok(SCROLLBAR_VERTICAL)
+        } else if s == "double_horizontal" {
+            Ok(SCROLLBAR_DOUBLE_HORIZONTAL)
+        } else if s == "horizontal" {
+            Ok(SCROLLBAR_HORIZONTAL)
+        } else {
+            Err(serde::de::Error::custom("invalid value for scroll-symbols"))
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for ScrollSymbols {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if *self == SCROLLBAR_DOUBLE_VERTICAL {
+            serializer.serialize_str("double_vertical")
+        } else if *self == SCROLLBAR_VERTICAL {
+            serializer.serialize_str("vertical")
+        } else if *self == SCROLLBAR_DOUBLE_HORIZONTAL {
+            serializer.serialize_str("double_horizontal")
+        } else if *self == SCROLLBAR_HORIZONTAL {
+            serializer.serialize_str("horizontal")
+        } else {
+            Err(serde::ser::Error::custom(
+                "invalid value for scroll-symbols",
+            ))
+        }
+    }
 }
 
 pub const SCROLLBAR_DOUBLE_VERTICAL: ScrollSymbols = ScrollSymbols {

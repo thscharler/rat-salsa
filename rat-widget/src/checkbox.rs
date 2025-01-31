@@ -27,6 +27,7 @@ use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
+use rat_scrolled::block_style::{BlockStyle, StylizeBlock};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{BlockExt, StatefulWidget, Text, Widget};
@@ -35,6 +36,8 @@ use ratatui::text::Span;
 use ratatui::widgets::Block;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
+#[cfg(feature = "serde")]
+use serde_derive::{Deserialize, Serialize};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -57,17 +60,25 @@ pub struct Checkbox<'a> {
 
 /// Composite style.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CheckboxStyle {
     /// Base style.
     pub style: Style,
     /// Focused style
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub focus: Option<Style>,
-    /// Border
+    /// Button border
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub block: Option<Block<'static>>,
+    /// Button border
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub block_style: Option<BlockStyle>,
 
     /// Display text for 'true'
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub true_str: Option<Span<'static>>,
     /// Display text for 'false'
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub false_str: Option<Span<'static>>,
 
     pub non_exhaustive: NonExhaustive,
@@ -146,10 +157,11 @@ impl Default for CheckboxStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            focus: None,
+            focus: Default::default(),
             block: Default::default(),
-            true_str: None,
-            false_str: None,
+            block_style: Default::default(),
+            true_str: Default::default(),
+            false_str: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -190,6 +202,9 @@ impl<'a> Checkbox<'a> {
         }
         if let Some(false_str) = styles.false_str {
             self.false_str = false_str;
+        }
+        if let Some(v) = styles.block_style {
+            self.block = self.block.styles(v);
         }
         self.block = self.block.map(|v| v.style(self.style));
         self
