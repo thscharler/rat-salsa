@@ -286,7 +286,7 @@ fn render_text_area(
 
     let style = widget.style;
     let select_style = if let Some(select_style) = widget.select_style {
-        select_style
+        style.patch(select_style)
     } else {
         Style::default().black().on_yellow()
     };

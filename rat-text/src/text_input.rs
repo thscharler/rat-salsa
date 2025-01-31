@@ -265,10 +265,16 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         if state.invalid {
             (
                 style.patch(focus_style).patch(invalid_style),
-                style.patch(select_style).patch(invalid_style),
+                style
+                    .patch(focus_style)
+                    .patch(select_style)
+                    .patch(invalid_style),
             )
         } else {
-            (style.patch(focus_style), style.patch(select_style))
+            (
+                style.patch(focus_style),
+                style.patch(focus_style).patch(select_style),
+            )
         }
     } else {
         if state.invalid {
