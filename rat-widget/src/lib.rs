@@ -61,6 +61,11 @@ pub mod scrolled {
     };
 }
 
+/// Serializable block style.
+pub mod block_style {
+    pub use rat_scrolled::block_style::*;
+}
+
 /// Text editing core functionality and utilities.
 pub mod text {
     pub use rat_text::clipboard;
@@ -182,6 +187,49 @@ pub mod util;
 pub mod view;
 
 mod _private {
+    #[cfg(feature = "serde")]
+    use serde_derive::{Deserialize, Serialize};
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     pub struct NonExhaustive;
+
+    #[cfg(feature = "serde")]
+    pub(crate) mod non_exhaustive {
+        use crate::_private::NonExhaustive;
+        use serde::de::Error;
+        use std::fmt::Formatter;
+
+        pub fn serialize<S: serde::Serializer>(
+            _value: &NonExhaustive,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error> {
+            use serde::Serialize;
+            ().serialize(serializer)
+        }
+
+        #[cfg(feature = "serde")]
+        pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+            deserializer: D,
+        ) -> Result<NonExhaustive, D::Error> {
+            pub struct NonExhaustiveVisitor;
+
+            impl<'de> serde::de::Visitor<'de> for NonExhaustiveVisitor {
+                type Value = NonExhaustive;
+
+                fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                    formatter.write_str("struct NonExhaustive")
+                }
+
+                fn visit_unit<E>(self) -> Result<Self::Value, E>
+                where
+                    E: Error,
+                {
+                    Ok(NonExhaustive)
+                }
+            }
+
+            deserializer.deserialize_unit(NonExhaustiveVisitor)
+        }
+    }
 }

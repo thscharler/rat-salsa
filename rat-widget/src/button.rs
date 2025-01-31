@@ -21,12 +21,14 @@
 //!
 
 use crate::_private::NonExhaustive;
+use crate::block_style::BlockStyle;
 use crate::button::event::ButtonOutcome;
 use crate::util::{block_size, revert_style};
 use rat_event::util::{have_keyboard_enhancement, MouseFlags};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
+use rat_scrolled::block_style::StylizeBlock;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
@@ -35,6 +37,8 @@ use ratatui::text::Text;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
+#[cfg(feature = "serde")]
+use serde_derive::{Deserialize, Serialize};
 use std::thread;
 use std::time::Duration;
 
@@ -52,22 +56,32 @@ pub struct Button<'a> {
 
 /// Composite style.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ButtonStyle {
     /// Base style
     pub style: Style,
     /// Focused style
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub focus: Option<Style>,
     /// Armed style
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub armed: Option<Style>,
     /// Hover style
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub hover: Option<Style>,
     /// Button border
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub block: Option<Block<'static>>,
+    /// Button border
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub block_style: Option<BlockStyle>,
     /// Some terminals repaint too fast to see the click.
     /// This adds some delay when the button state goes from
     /// armed to clicked.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub armed_delay: Option<Duration>,
 
+    #[cfg_attr(feature = "serde", serde(with = "crate::_private::non_exhaustive"))]
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -110,6 +124,7 @@ impl Default for ButtonStyle {
             armed: None,
             hover: None,
             block: None,
+            block_style: None,
             armed_delay: None,
             non_exhaustive: NonExhaustive,
         }
@@ -146,6 +161,9 @@ impl<'a> Button<'a> {
         }
         if styles.hover.is_some() {
             self.hover_style = styles.hover;
+        }
+        if let Some(block_style) = styles.block_style {
+            self.block = self.block.styles(block_style);
         }
         if let Some(block) = styles.block {
             self.block = Some(block);

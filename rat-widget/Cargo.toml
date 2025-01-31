@@ -12,6 +12,7 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "textarea.gif"]
 
 [features]
+default = ["serde"]
 unstable-widget-ref = [
     "ratatui/unstable-widget-ref",
     "rat-ftable/unstable-widget-ref",
@@ -20,6 +21,8 @@ unstable-widget-ref = [
     "rat-menu/unstable-widget-ref"
 ]
 user_directories = ["dep:dirs", "dep:sysinfo"]
+serde = ["dep:serde", "dep:serde_derive", "ratatui/serde",
+    "rat-scrolled/serde", "rat-popup/serde"]
 
 [dependencies]
 ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
@@ -31,6 +34,8 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 map_range_int = { version = "1.0" }
 dirs = { version = "6.0.0", optional = true }
 sysinfo = { version = "0.33", optional = true }
+serde = { version = "1.0", optional = true }
+serde_derive = { version = "1.0", optional = true }
 
 rat-event = { version = "1.2", path = "../rat-event" }
 rat-reloc = { version = "1.1", path = "../rat-reloc" }
@@ -49,3 +54,4 @@ rand = "0.8"
 format_num_pattern = "0.9"
 pure-rust-locales = "0.8"
 sys-locale = "0.3.2"
+serde_json = { version = "1.0" }

@@ -2,6 +2,7 @@
 //
 #![allow(clippy::collapsible_else_if)]
 
+pub mod block_style;
 mod scroll;
 mod scroll_area;
 
@@ -96,6 +97,12 @@ pub enum ScrollbarPolicy {
 }
 
 mod _private {
+    #[cfg(feature = "serde")]
+    use serde_derive::{Deserialize, Serialize};
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     pub struct NonExhaustive;
+
+    pub trait Sealed {}
 }

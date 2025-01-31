@@ -8,6 +8,7 @@ use chrono::{Datelike, Days, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
+use rat_scrolled::block_style::StylizeBlock;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::Style;
@@ -190,28 +191,31 @@ impl<'a, Selection> Month<'a, Selection> {
 
     /// Set the composite style.
     #[inline]
-    pub fn styles(mut self, s: CalendarStyle) -> Self {
-        self.style = s.style;
-        if s.title.is_some() {
-            self.title_style = s.title;
+    pub fn styles(mut self, styles: CalendarStyle) -> Self {
+        self.style = styles.style;
+        if styles.title.is_some() {
+            self.title_style = styles.title;
         }
-        if s.weeknum.is_some() {
-            self.weeknum_style = s.weeknum;
+        if styles.weeknum.is_some() {
+            self.weeknum_style = styles.weeknum;
         }
-        if s.weekday.is_some() {
-            self.weekday_style = s.weekday;
+        if styles.weekday.is_some() {
+            self.weekday_style = styles.weekday;
         }
-        if s.day.is_some() {
-            self.day_style = s.day;
+        if styles.day.is_some() {
+            self.day_style = styles.day;
         }
-        if s.select.is_some() {
-            self.select_style = s.select;
+        if styles.select.is_some() {
+            self.select_style = styles.select;
         }
-        if s.focus.is_some() {
-            self.focus_style = s.focus;
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
         }
-        if s.block.is_some() {
-            self.block = s.block;
+        if let Some(s) = styles.block_style {
+            self.block = self.block.styles(s);
+        }
+        if styles.block.is_some() {
+            self.block = styles.block;
         }
         self.block = self.block.map(|v| v.style(self.style));
         self

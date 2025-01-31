@@ -40,6 +40,7 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
+use rat_scrolled::block_style::{BlockStyle, StylizeBlock};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollAreaState};
 use ratatui::buffer::Buffer;
@@ -50,6 +51,8 @@ use ratatui::text::{Line, Span};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
+#[cfg(feature = "serde")]
+use serde_derive::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::marker::PhantomData;
@@ -57,6 +60,7 @@ use std::rc::Rc;
 
 /// Enum controling the behaviour of the Choice.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ChoiceSelect {
     /// Change the selection with the mouse-wheel.
     #[default]
@@ -69,6 +73,7 @@ pub enum ChoiceSelect {
 
 /// Enum controlling the behaviour of the Choice.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ChoiceClose {
     /// Close the popup with a single click.
     #[default]
@@ -153,17 +158,31 @@ where
 
 /// Combined style.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ChoiceStyle {
+    /// Base style
     pub style: Style,
+    /// Choice button style
     pub button: Option<Style>,
+    /// Selection style.
     pub select: Option<Style>,
+    /// Focused style
     pub focus: Option<Style>,
+    /// Block style
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub block: Option<Block<'static>>,
+    /// Block style
+    pub block_style: Option<BlockStyle>,
 
+    /// Popup styles
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub popup: PopupStyle,
+    /// Default length of the popup list.
     pub popup_len: Option<u16>,
 
+    /// Behaviour when selecting.
     pub behave_select: Option<ChoiceSelect>,
+    /// Behaviour when closing the popup.
     pub behave_close: Option<ChoiceClose>,
 
     pub non_exhaustive: NonExhaustive,
@@ -402,6 +421,7 @@ impl Default for ChoiceStyle {
             select: None,
             focus: None,
             block: None,
+            block_style: None,
             popup: Default::default(),
             popup_len: None,
             behave_select: None,
@@ -515,6 +535,9 @@ where
         }
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
+        }
+        if let Some(v) = styles.block_style {
+            self.block = self.block.styles(v);
         }
         if styles.block.is_some() {
             self.block = styles.block;
