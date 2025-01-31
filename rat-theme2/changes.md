@@ -1,3 +1,8 @@
+# 0.28.1
+
+* feature: add Black&White color scheme and make it
+  actually work
+
 # 0.28.0
 
 * feature: create a better designed color Scheme.

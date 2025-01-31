@@ -1,3 +1,9 @@
+# 1.0.2
+
+* fix: ensure that the select_style is always patched onto the
+  base-style. This makes a select-style `Style::new().underlined()`
+  work fine.
+
 # 1.0.1
 
 * feature: UndoBuffer: add open_undo() and open_redo().
