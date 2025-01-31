@@ -1,7 +1,6 @@
 use crate::Scheme;
 use ratatui::style::Color;
 
-const DARKNESS: u8 = 255;
 ///
 /// Almost genuine black&white color-scheme.
 ///
