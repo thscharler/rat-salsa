@@ -44,7 +44,7 @@ impl MarkDown {
 }
 
 impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaState {
-    fn handle(&mut self, event: &crossterm::event::Event, qualifier: MarkDown) -> TextOutcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MarkDown) -> TextOutcome {
         if self.is_focused() {
             flow!(match event {
                 ct_event!(key press ALT-'1') => md_make_header(self, 1),
