@@ -5,6 +5,7 @@ use crate::schemes::{
 
 mod base16;
 mod base16r;
+mod blackwhite;
 mod dark_theme;
 mod imperial;
 mod monekai;
@@ -16,6 +17,7 @@ mod scheme;
 mod tundra;
 mod vscode_dark;
 
+use crate::blackwhite::BLACKWHITE;
 pub use dark_theme::*;
 pub use scheme::*;
 
@@ -23,6 +25,7 @@ pub use scheme::*;
 pub mod schemes {
     pub use crate::base16::BASE16;
     pub use crate::base16r::BASE16_RELAXED;
+    pub use crate::blackwhite::BLACKWHITE;
     pub use crate::imperial::IMPERIAL;
     pub use crate::monekai::MONEKAI;
     pub use crate::monochrome::MONOCHROME;
@@ -36,6 +39,7 @@ pub mod schemes {
 /// All currently existing color schemes.
 pub fn color_schemes() -> Vec<(String, Scheme)> {
     vec![
+        ("Black&White".to_string(), BLACKWHITE),
         ("Imperial".to_string(), IMPERIAL),
         ("Radium".to_string(), RADIUM),
         ("Tundra".to_string(), TUNDRA),
@@ -52,6 +56,7 @@ pub fn color_schemes() -> Vec<(String, Scheme)> {
 /// A list of DarkTheme for all color schemes.
 pub fn dark_themes() -> Vec<DarkTheme> {
     vec![
+        DarkTheme::new("Black&White".to_string(), BLACKWHITE),
         DarkTheme::new("Imperial".to_string(), IMPERIAL),
         DarkTheme::new("Radium".to_string(), RADIUM),
         DarkTheme::new("Tundra".to_string(), TUNDRA),

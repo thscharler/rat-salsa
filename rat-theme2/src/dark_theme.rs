@@ -193,12 +193,12 @@ impl DarkTheme {
 
     /// Focused text field style.
     pub fn text_focus(&self) -> Style {
-        self.style(self.s.primary[0])
+        Style::new().reversed()
     }
 
     /// Text selection style.
     pub fn text_select(&self) -> Style {
-        self.style(self.s.secondary[0])
+        Style::new().underlined()
     }
 
     /// Container base
