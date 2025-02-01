@@ -1227,6 +1227,46 @@ where
         false
     }
 
+    /// Select by first character. Reverse direction
+    pub fn reverse_select_by_char(&mut self, c: char) -> bool {
+        if self.nav_char.is_empty() {
+            return false;
+        }
+        let c = c.to_lowercase().collect::<Vec<_>>();
+
+        let (mut idx, end_loop) = if let Some(idx) = self.core.selected() {
+            if idx == 0 {
+                (self.nav_char.len() - 1, 0)
+            } else {
+                (idx - 1, idx)
+            }
+        } else {
+            if self.nav_char.last() == Some(&c) {
+                self.core.set_selected(self.nav_char.len() - 1);
+                return true;
+            } else {
+                (self.nav_char.len() - 1, 0)
+            }
+        };
+        loop {
+            if self.nav_char[idx] == c {
+                self.core.set_selected(idx);
+                return true;
+            }
+
+            if idx == end_loop {
+                break;
+            }
+
+            if idx == 0 {
+                idx = self.nav_char.len() - 1;
+            } else {
+                idx -= 1;
+            }
+        }
+        false
+    }
+
     /// Select at position
     pub fn move_to(&mut self, n: usize) -> ChoiceOutcome {
         let old_selected = self.selected();
@@ -1319,6 +1359,14 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
                 }
                 ct_event!(key press c) => {
                     if self.select_by_char(*c) {
+                        self.scroll_to_selected();
+                        ChoiceOutcome::Value
+                    } else {
+                        ChoiceOutcome::Continue
+                    }
+                }
+                ct_event!(key press SHIFT-c) => {
+                    if self.reverse_select_by_char(*c) {
                         self.scroll_to_selected();
                         ChoiceOutcome::Value
                     } else {
