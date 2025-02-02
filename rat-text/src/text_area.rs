@@ -30,6 +30,7 @@ use ratatui::widgets::{Block, StatefulWidget};
 use ropey::Rope;
 use std::borrow::Cow;
 use std::cmp::{max, min};
+use std::collections::HashMap;
 use std::ops::Range;
 
 /// Text area widget.
@@ -81,7 +82,7 @@ pub struct TextArea<'a> {
     style: Style,
     focus_style: Option<Style>,
     select_style: Option<Style>,
-    text_style: Vec<Style>,
+    text_style: HashMap<usize, Style>,
 }
 
 /// State & event handling.
@@ -207,7 +208,20 @@ impl<'a> TextArea<'a> {
     /// Use [TextAreaState::add_style()] to refer a text range to
     /// one of these styles.
     pub fn text_style<T: IntoIterator<Item = Style>>(mut self, styles: T) -> Self {
-        self.text_style = styles.into_iter().collect();
+        for (i, s) in styles.into_iter().enumerate() {
+            self.text_style.insert(i, s);
+        }
+        self
+    }
+
+    /// Map of style_id -> text_style.
+    ///
+    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// one of these styles.
+    pub fn text_style_map<T: Into<Style>>(mut self, styles: HashMap<usize, T>) -> Self {
+        for (i, s) in styles.into_iter() {
+            self.text_style.insert(i, s.into());
+        }
         self
     }
 
@@ -359,7 +373,7 @@ fn render_text_area(
                 .value
                 .styles_at_page(page_bytes.clone(), g.text_bytes().start, &mut styles);
             for style_nr in &styles {
-                if let Some(s) = widget.text_style.get(*style_nr) {
+                if let Some(s) = widget.text_style.get(style_nr) {
                     style = style.patch(*s);
                 }
             }
