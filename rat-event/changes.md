@@ -1,3 +1,9 @@
+# 1.2.3
+
+* fix: naming of and() and and_try() was wrong. add and_then() and
+  and_then_try() to stay in line with Result and Option.
+  deprecate the old variants.
+
 # 1.2.2
 
 * fix: ConsumedEvent::and() and ConsumedEvent::and_try() must
@@ -19,19 +25,19 @@
 # 1.1.0
 
 * Key Release events are not generally available.
-  
+
   Add a static flag which can be queried with
   have_keyboard_enhancement() and set it during terminal
   initialization.
-  
+
   There already exists a similar static for double-click delay,
   and this sits in the same niche.
-  
+
 * If KeyBoardEnhancement is set for a terminal it starts to
   differentiate between Key Press and Key Repeat. This is not
   very useful for most applications, and the ct_event! macro now
   covers both under the label 'Press'.
-  
+
 # 1.0.0
 
 stabilization
@@ -69,42 +75,42 @@ Sync version for beta.
 # 0.16.0
 
 * upgrade ratatui to 0.28
-  
+
 * break: remove consider syntext in flow!
-  
+
 * break: remove or_else!
-  
+
 * break: renamed flow_ok! to try_flow!
-  
+
 # 0.15.0
 
 * break: rename `FocusKeys` to the more fitting `Regular`.
-  
+
 * break: unified naming of Outcome and rat_salsa::Control
-  
+
     * rename Outcome::NotUsed -> Outcome::Continue
 * break: rename utils: item_at_clicked->item_at,
   row_at_clicked->row_at column_at_clicked->column_at
-  
+
 * feature: add a hover flag
-  
+
 * feature: MouseFlags recognize double-click patterns
-  
+
     * down-up-up seems to occur
     * down-up-down-up with a timeout is added.
 * feature: add general qualifier DoubleClick.
-  
+
 * feature: flow! and flow_ok! get one more variant: flow!
   (regular, consider extra)
-  
+
 * feature: or_else! for another type of control-flow.
-  
+
 * feature: add ConsumedEvent::then() for chaining.
-  
+
 * feature: add catch all HandleEvent for the null state `()`.
-  
+
 * refactor: remove all BitOr behaviour. It's not worth it.
-  
+
 # 0.14.6
 
 * add Dialog qualifier
@@ -128,11 +134,11 @@ Sync version for beta.
 
 * refactor: Rename KeyMap type parameter to `Qualifier`. This
   parameter is worth more than just a simple key-map.
-  
+
 * Fix: flow!() had it's if the wrong way around.
-  
+
 * Fix: ct_event!() couldn't handle F-keys.
-  
+
 # 0.14.2
 
 * Add default impl for some of TableDataIter's functions.

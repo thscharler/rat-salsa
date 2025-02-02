@@ -1,3 +1,7 @@
+# 0.5.1
+
+* fix: dump() doesn't need mut
+
 # 0.5.0
 
 * break: remove formatting from the event-handler. it is better

@@ -1,3 +1,7 @@
+# 1.0.2
+
+* feature: Choice: add reverse_select_by_char()
+
 # 1.0.1
 
 * fix: ensure that the select_style is always patched onto the

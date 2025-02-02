@@ -1,3 +1,9 @@
+# 1.0.3
+
+* feature: TextArea: add text_style_map() as a HashMap instead of a Vec
+* fix: TextArea: if the select_style has no fg or bg don't patch it onto
+  the base style. This way Style::new().reversed() works nicely.
+
 # 1.0.2
 
 * fix: ensure that the select_style is always patched onto the
