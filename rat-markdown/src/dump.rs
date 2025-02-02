@@ -18,7 +18,7 @@ pub fn md_dump_styles(state: &mut TextAreaState) -> TextOutcome {
     TextOutcome::Unchanged
 }
 
-pub fn md_dump(state: &mut TextAreaState) -> TextOutcome {
+pub fn md_dump(state: &TextAreaState) -> TextOutcome {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
 
