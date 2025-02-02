@@ -141,8 +141,39 @@ pub trait ConsumedEvent {
         }
     }
 
+    /// And_then-chaining based on is_consumed().
+    /// Returns max(self, f()).
+    #[inline(always)]
+    fn and_then<F>(self, f: F) -> Self
+    where
+        Self: Sized + Ord,
+        F: FnOnce() -> Self,
+    {
+        if self.is_consumed() {
+            max(self, f())
+        } else {
+            self
+        }
+    }
+
+    /// And_then-chaining based on is_consumed().
+    /// Returns max(self, f()).
+    #[inline(always)]
+    fn and_then_try<F, E>(self, f: F) -> Result<Self, E>
+    where
+        Self: Sized + Ord,
+        F: FnOnce() -> Result<Self, E>,
+    {
+        if self.is_consumed() {
+            Ok(max(self, f()?))
+        } else {
+            Ok(self)
+        }
+    }
+
     /// Then-chaining. Returns max(self, f()).
     #[inline(always)]
+    #[deprecated(since = "1.2.2", note = "use and_then()")]
     fn and<F>(self, f: F) -> Self
     where
         Self: Sized + Ord,
@@ -157,6 +188,7 @@ pub trait ConsumedEvent {
 
     /// Then-chaining. Returns max(self, f()).
     #[inline(always)]
+    #[deprecated(since = "1.2.2", note = "use and_then_try()")]
     fn and_try<F, E>(self, f: F) -> Result<Self, E>
     where
         Self: Sized + Ord,
