@@ -300,7 +300,12 @@ fn render_text_area(
 
     let style = widget.style;
     let select_style = if let Some(select_style) = widget.select_style {
-        style.patch(select_style)
+        // if the select_style has no fg/bg don't patch
+        if select_style.fg.is_none() && select_style.bg.is_none() {
+            select_style
+        } else {
+            style.patch(select_style)
+        }
     } else {
         Style::default().black().on_yellow()
     };
