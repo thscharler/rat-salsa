@@ -559,7 +559,6 @@ mod app {
 
     impl AppState<GlobalState, MDEvent, Error> for MDAppState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            self.menu.bar.select(Some(0));
             self.menu.focus().set(true);
             self.editor.init(ctx)?;
             Ok(())

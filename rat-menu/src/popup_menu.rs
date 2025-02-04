@@ -68,6 +68,7 @@ pub struct PopupMenuState {
     /// Disabled menu-items.
     pub disabled: Vec<bool>,
 
+    // TODO: breaking: remove Option
     /// Selected item.
     /// __read+write__
     pub selected: Option<usize>,
@@ -365,13 +366,19 @@ fn render_popup_menu(
     buf: &mut Buffer,
     state: &mut PopupMenuState,
 ) {
-    if !state.is_active() {
-        state.clear_areas();
-        return;
+    if widget.menu.items.is_empty() {
+        state.selected = None;
+    } else if state.selected.is_none() {
+        state.selected = Some(0);
     }
 
     state.navchar = widget.menu.items.iter().map(|v| v.navchar).collect();
     state.disabled = widget.menu.items.iter().map(|v| v.disabled).collect();
+
+    if !state.is_active() {
+        state.clear_areas();
+        return;
+    }
 
     let size = widget.size();
     let area = Rect::new(0, 0, size.width, size.height);
@@ -541,11 +548,6 @@ impl PopupMenuState {
     #[inline]
     pub fn select(&mut self, select: Option<usize>) -> bool {
         let old = self.selected;
-        if let Some(select) = select {
-            if self.disabled.get(select) == Some(&true) {
-                return false;
-            }
-        }
         self.selected = select;
         old != self.selected
     }
@@ -561,7 +563,12 @@ impl PopupMenuState {
     pub fn prev_item(&mut self) -> bool {
         let old = self.selected;
 
-        let idx = if let Some(start) = old {
+        // before first render or no items:
+        if self.disabled.is_empty() {
+            return false;
+        }
+
+        self.selected = if let Some(start) = old {
             let mut idx = start;
             loop {
                 if idx == 0 {
@@ -570,16 +577,17 @@ impl PopupMenuState {
                 }
                 idx -= 1;
 
-                if !self.disabled[idx] {
+                if self.disabled.get(idx) == Some(&false) {
                     break;
                 }
             }
-            idx
+            Some(idx)
+        } else if self.len() > 0 {
+            Some(self.len() - 1)
         } else {
-            self.len().saturating_sub(1)
+            None
         };
 
-        self.selected = Some(idx);
         old != self.selected
     }
 
@@ -588,7 +596,12 @@ impl PopupMenuState {
     pub fn next_item(&mut self) -> bool {
         let old = self.selected;
 
-        let idx = if let Some(start) = old {
+        // before first render or no items:
+        if self.disabled.is_empty() {
+            return false;
+        }
+
+        self.selected = if let Some(start) = old {
             let mut idx = start;
             loop {
                 if idx + 1 == self.len() {
@@ -597,28 +610,33 @@ impl PopupMenuState {
                 }
                 idx += 1;
 
-                if !self.disabled[idx] {
-                    // TODO: this can panic??
+                if self.disabled.get(idx) == Some(&false) {
                     break;
                 }
             }
-            idx
+            Some(idx)
+        } else if self.len() > 0 {
+            Some(0)
         } else {
-            0
+            None
         };
 
-        self.selected = Some(idx);
         old != self.selected
     }
 
     /// Select by navigation key.
     #[inline]
     pub fn navigate(&mut self, c: char) -> MenuOutcome {
+        // before first render or no items:
+        if self.disabled.is_empty() {
+            return MenuOutcome::Continue;
+        }
+
         let c = c.to_ascii_lowercase();
         for (i, cc) in self.navchar.iter().enumerate() {
             #[allow(clippy::collapsible_if)]
             if *cc == Some(c) {
-                if !self.disabled[i] {
+                if self.disabled.get(i) == Some(&false) {
                     if self.selected == Some(i) {
                         return MenuOutcome::Activated(i);
                     } else {
@@ -628,6 +646,7 @@ impl PopupMenuState {
                 }
             }
         }
+
         MenuOutcome::Continue
     }
 
@@ -635,16 +654,19 @@ impl PopupMenuState {
     #[inline]
     pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
         let old_selected = self.selected;
+
+        // before first render or no items:
+        if self.disabled.is_empty() {
+            return false;
+        }
+
         if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
             if !self.disabled[idx] {
                 self.selected = Some(idx);
-                self.selected != old_selected
-            } else {
-                false
             }
-        } else {
-            false
         }
+
+        self.selected != old_selected
     }
 
     /// Item at position.
@@ -672,30 +694,46 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
                 }
                 ct_event!(keycode press Up) => {
                     if self.prev_item() {
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if let Some(selected) = self.selected {
+                            MenuOutcome::Selected(selected)
+                        } else {
+                            MenuOutcome::Changed
+                        }
                     } else {
-                        MenuOutcome::Unchanged
+                        MenuOutcome::Continue
                     }
                 }
                 ct_event!(keycode press Down) => {
                     if self.next_item() {
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if let Some(selected) = self.selected {
+                            MenuOutcome::Selected(selected)
+                        } else {
+                            MenuOutcome::Changed
+                        }
                     } else {
-                        MenuOutcome::Unchanged
+                        MenuOutcome::Continue
                     }
                 }
                 ct_event!(keycode press Home) => {
                     if self.select(Some(0)) {
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if let Some(selected) = self.selected {
+                            MenuOutcome::Selected(selected)
+                        } else {
+                            MenuOutcome::Changed
+                        }
                     } else {
-                        MenuOutcome::Unchanged
+                        MenuOutcome::Continue
                     }
                 }
                 ct_event!(keycode press End) => {
                     if self.select(Some(self.len().saturating_sub(1))) {
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if let Some(selected) = self.selected {
+                            MenuOutcome::Selected(selected)
+                        } else {
+                            MenuOutcome::Changed
+                        }
                     } else {
-                        MenuOutcome::Unchanged
+                        MenuOutcome::Continue
                     }
                 }
                 ct_event!(keycode press Esc) => {
@@ -710,14 +748,6 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
                         MenuOutcome::Continue
                     }
                 }
-
-                ct_event!(key release _)
-                | ct_event!(keycode release Up)
-                | ct_event!(keycode release Down)
-                | ct_event!(keycode release Home)
-                | ct_event!(keycode release End)
-                | ct_event!(keycode release Esc)
-                | ct_event!(keycode release Enter) => MenuOutcome::Unchanged,
 
                 _ => MenuOutcome::Continue,
             }

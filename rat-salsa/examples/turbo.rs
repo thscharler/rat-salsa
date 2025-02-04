@@ -442,12 +442,10 @@ pub mod turbo {
 
     impl Default for TurboState {
         fn default() -> Self {
-            let mut s = Self {
+            Self {
                 menu: Default::default(),
                 menu_environment: Default::default(),
-            };
-            s.menu.bar.select(Some(0));
-            s
+            }
         }
     }
 

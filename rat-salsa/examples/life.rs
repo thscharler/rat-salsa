@@ -387,12 +387,10 @@ pub mod life {
 
     impl Default for LifeState {
         fn default() -> Self {
-            let mut s = Self {
+            Self {
                 game: LifeGameState::default(),
                 menu: Default::default(),
-            };
-            s.menu.select(Some(0));
-            s
+            }
         }
     }
 

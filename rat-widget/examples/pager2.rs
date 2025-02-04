@@ -32,7 +32,6 @@ fn main() -> Result<(), anyhow::Error> {
         menu: Default::default(),
     };
     state.menu.focus.set(true);
-    state.menu.select(Some(0));
 
     run_ui("pager2", handle_input, repaint_input, &mut data, &mut state)
 }

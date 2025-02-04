@@ -1,6 +1,6 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, MiniSalsaState};
-use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::event::EditOutcome;
 use rat_menu::event::MenuOutcome;
@@ -75,7 +75,6 @@ impl Default for State {
             list1: EditListState::named("list1", EditEntryState::default()),
             menu: MenubarState::named("menu"),
         };
-        s.menu.bar.select(Some(0));
         s.list1.list.select(Some(0));
         s
     }
@@ -299,10 +298,11 @@ fn handle_input(
         match state.list1.handle(event, Regular) {
             EditOutcome::Cancel => cancel(data, state),
             EditOutcome::Commit => commit(data, state),
-            EditOutcome::CommitAndAppend => commit(data, state).and(|| append(data, state)),
+            EditOutcome::CommitAndAppend => commit(data, state) //
+                .and_then(|| append(data, state)),
             EditOutcome::CommitAndEdit => commit(data, state)
-                .and(|| state.list1.list.move_down(1).into())
-                .and(|| edit(data, state)),
+                .and_then(|| state.list1.list.move_down(1).into())
+                .and_then(|| edit(data, state)),
             EditOutcome::Insert => insert(data, state),
             EditOutcome::Remove => remove(data, state),
             EditOutcome::Edit => edit(data, state),

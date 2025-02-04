@@ -28,6 +28,7 @@ pub struct MenuLine<'a> {
     disabled_style: Option<Style>,
     right_style: Option<Style>,
     title_style: Option<Style>,
+    // TODO: breaking: remove separate select_style
     select_style: Option<Style>,
     focus_style: Option<Style>,
 }
@@ -45,8 +46,10 @@ pub struct MenuLineState {
     /// __readonly__. renewed for each render.
     pub navchar: Vec<Option<char>>,
     /// Disable menu-items.
+    /// __readonly__. renewed for each render.
     pub disabled: Vec<bool>,
 
+    // TODO: breaking: remove Option
     /// Selected item.
     /// __read+write__
     pub selected: Option<usize>,
@@ -244,6 +247,12 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     state.area = area;
     state.item_areas.clear();
 
+    if widget.menu.items.is_empty() {
+        state.selected = None;
+    } else if state.selected.is_none() {
+        state.selected = Some(0);
+    }
+
     state.navchar = widget
         .menu
         .items
@@ -405,11 +414,6 @@ impl MenuLineState {
     #[inline]
     pub fn select(&mut self, select: Option<usize>) -> bool {
         let old = self.selected;
-        if let Some(select) = select {
-            if self.disabled.get(select) == Some(&true) {
-                return false;
-            }
-        }
         self.selected = select;
         old != self.selected
     }
@@ -425,7 +429,12 @@ impl MenuLineState {
     pub fn prev_item(&mut self) -> bool {
         let old = self.selected;
 
-        let idx = if let Some(start) = old {
+        // before first render or no items:
+        if self.disabled.is_empty() {
+            return false;
+        }
+
+        self.selected = if let Some(start) = old {
             let mut idx = start;
             loop {
                 if idx == 0 {
@@ -434,16 +443,18 @@ impl MenuLineState {
                 }
                 idx -= 1;
 
-                if !self.disabled[idx] {
+                if self.disabled.get(idx) == Some(&false) {
                     break;
                 }
             }
-            idx
+
+            Some(idx)
+        } else if self.len() > 0 {
+            Some(self.len().saturating_sub(1))
         } else {
-            self.len().saturating_sub(1)
+            None
         };
 
-        self.selected = Some(idx);
         old != self.selected
     }
 
@@ -452,7 +463,12 @@ impl MenuLineState {
     pub fn next_item(&mut self) -> bool {
         let old = self.selected;
 
-        let idx = if let Some(start) = old {
+        // before first render or no items:
+        if self.disabled.is_empty() {
+            return false;
+        }
+
+        self.selected = if let Some(start) = old {
             let mut idx = start;
             loop {
                 if idx + 1 == self.len() {
@@ -461,27 +477,33 @@ impl MenuLineState {
                 }
                 idx += 1;
 
-                if !self.disabled[idx] {
+                if self.disabled.get(idx) == Some(&false) {
                     break;
                 }
             }
-            idx
+            Some(idx)
+        } else if self.len() > 0 {
+            Some(0)
         } else {
-            0
+            None
         };
 
-        self.selected = Some(idx);
         old != self.selected
     }
 
     /// Select by hotkey
     #[inline]
     pub fn navigate(&mut self, c: char) -> MenuOutcome {
+        // before first render or no items:
+        if self.disabled.is_empty() {
+            return MenuOutcome::Continue;
+        }
+
         let c = c.to_ascii_lowercase();
         for (i, cc) in self.navchar.iter().enumerate() {
             #[allow(clippy::collapsible_if)]
             if *cc == Some(c) {
-                if !self.disabled[i] {
+                if self.disabled.get(i) == Some(&false) {
                     if self.selected == Some(i) {
                         return MenuOutcome::Activated(i);
                     } else {
@@ -491,22 +513,27 @@ impl MenuLineState {
                 }
             }
         }
+
         MenuOutcome::Continue
     }
 
     /// Select item at position
     #[inline]
     pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
-        if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
-            if !self.disabled[idx] {
-                self.selected = Some(idx);
-                true
-            } else {
-                false
-            }
-        } else {
-            false
+        let old_selected = self.selected;
+
+        // before first render or no items:
+        if self.disabled.is_empty() {
+            return false;
         }
+
+        if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
+            if self.disabled.get(idx) == Some(&false) {
+                self.selected = Some(idx);
+            }
+        }
+
+        self.selected != old_selected
     }
 
     /// Item at position.
@@ -551,36 +578,56 @@ impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuLineStat
     fn handle(&mut self, event: &crossterm::event::Event, _: Regular) -> MenuOutcome {
         let res = if self.is_focused() {
             match event {
-                ct_event!(key press ' ') => self
-                    .selected
-                    .map_or(MenuOutcome::Unchanged, |v| MenuOutcome::Selected(v)),
-                ct_event!(key press ANY-c) => self.navigate(*c),
+                ct_event!(key press ' ') => {
+                    self
+                        .selected//
+                        .map_or(MenuOutcome::Continue, |v| MenuOutcome::Selected(v))
+                }
+                ct_event!(key press ANY-c) => {
+                    self.navigate(*c) //
+                }
                 ct_event!(keycode press Left) => {
                     if self.prev_item() {
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if let Some(selected) = self.selected {
+                            MenuOutcome::Selected(selected)
+                        } else {
+                            MenuOutcome::Changed
+                        }
                     } else {
-                        MenuOutcome::Unchanged
+                        MenuOutcome::Continue
                     }
                 }
                 ct_event!(keycode press Right) => {
                     if self.next_item() {
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if let Some(selected) = self.selected {
+                            MenuOutcome::Selected(selected)
+                        } else {
+                            MenuOutcome::Changed
+                        }
                     } else {
-                        MenuOutcome::Unchanged
+                        MenuOutcome::Continue
                     }
                 }
                 ct_event!(keycode press Home) => {
                     if self.select(Some(0)) {
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if let Some(selected) = self.selected {
+                            MenuOutcome::Selected(selected)
+                        } else {
+                            MenuOutcome::Changed
+                        }
                     } else {
-                        MenuOutcome::Unchanged
+                        MenuOutcome::Continue
                     }
                 }
                 ct_event!(keycode press End) => {
                     if self.select(Some(self.len().saturating_sub(1))) {
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if let Some(selected) = self.selected {
+                            MenuOutcome::Selected(selected)
+                        } else {
+                            MenuOutcome::Changed
+                        }
                     } else {
-                        MenuOutcome::Unchanged
+                        MenuOutcome::Continue
                     }
                 }
                 ct_event!(keycode press Enter) => {
@@ -590,14 +637,6 @@ impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuLineStat
                         MenuOutcome::Continue
                     }
                 }
-
-                ct_event!(key release _)
-                | ct_event!(keycode release Left)
-                | ct_event!(keycode release Right)
-                | ct_event!(keycode release Home)
-                | ct_event!(keycode release End)
-                | ct_event!(keycode release Enter) => MenuOutcome::Unchanged,
-
                 _ => MenuOutcome::Continue,
             }
         } else {

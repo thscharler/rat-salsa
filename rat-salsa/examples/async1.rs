@@ -323,7 +323,6 @@ pub mod async1 {
             ctx: &mut rat_salsa::AppContext<'_, GlobalState, Async1Event, Error>,
         ) -> Result<(), Error> {
             ctx.focus().first();
-            self.menu.select(Some(0));
             Ok(())
         }
 
