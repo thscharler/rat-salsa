@@ -25,20 +25,14 @@ tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"]
 rat-widget = { version = "1.0", path = "../rat-widget" }
 
 [dev-dependencies]
-fern = "0.7"
-humantime = "2.1"
 anyhow = "1.0"
-directories-next = "2.0"
-sysinfo = "0.33"
-pulldown-cmark = "0.12"
-cli-clipboard = "0.4"
-unicode-segmentation = "1.11"
-textwrap = "0.16"
 configparser = { version = "3.1", features = ["indexmap"] }
 rand = "0.8"
+fern = "0.7"
+dirs = "6.0"
+sysinfo = "0.33"
 
-rat-theme = { version = "0.27", path = "../rat-theme" }
-
+rat-theme2 = { version = "0.28", path = "../rat-theme2" }
 
 [[example]]
 name = "async1"

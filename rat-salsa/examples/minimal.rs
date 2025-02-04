@@ -5,9 +5,9 @@ use crate::scenery::{Scenery, SceneryState};
 use anyhow::Error;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::{run_tui, RunConfig};
-use rat_theme::dark_theme::DarkTheme;
-use rat_theme::scheme::IMPERIAL;
-use std::time::SystemTime;
+use rat_theme2::schemes::IMPERIAL;
+use rat_theme2::DarkTheme;
+use std::fs;
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MinimalEvent, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
@@ -39,7 +39,7 @@ fn main() -> Result<(), Error> {
 /// Globally accessible data/state.
 pub mod global {
     use crate::config::MinimalConfig;
-    use rat_theme::dark_theme::DarkTheme;
+    use rat_theme2::DarkTheme;
 
     #[derive(Debug)]
     pub struct GlobalState {
@@ -319,19 +319,21 @@ pub mod minimal {
 }
 
 fn setup_logging() -> Result<(), Error> {
-    // _ = fs::remove_file("log.log");
-    fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "[{} {} {}]\n        {}",
-                humantime::format_rfc3339_seconds(SystemTime::now()),
-                record.level(),
-                record.target(),
-                message
-            ))
-        })
-        .level(log::LevelFilter::Debug)
-        .chain(fern::log_file("log.log")?)
-        .apply()?;
+    if let Some(cache) = dirs::cache_dir() {
+        let log_path = cache.join("rat-salsa");
+        if !log_path.exists() {
+            fs::create_dir_all(&log_path)?;
+        }
+
+        let log_file = log_path.join("minimal.log");
+        _ = fs::remove_file(&log_file);
+        fern::Dispatch::new()
+            .format(|out, message, _record| {
+                out.finish(format_args!("{}", message)) //
+            })
+            .level(log::LevelFilter::Debug)
+            .chain(fern::log_file(&log_file)?)
+            .apply()?;
+    }
     Ok(())
 }

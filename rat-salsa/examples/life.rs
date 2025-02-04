@@ -14,8 +14,8 @@ use crate::global::{GlobalState, PollTick};
 use anyhow::Error;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, RunConfig};
-use rat_theme::dark_theme::DarkTheme;
-use rat_theme::scheme::IMPERIAL;
+use rat_theme2::schemes::IMPERIAL;
+use rat_theme2::DarkTheme;
 use std::env::args;
 use std::fs;
 use std::path::PathBuf;
@@ -61,7 +61,7 @@ pub mod global {
     use crate::game::LifeGameState;
     use rat_salsa::Control;
     use rat_salsa::PollEvents;
-    use rat_theme::dark_theme::DarkTheme;
+    use rat_theme2::DarkTheme;
     use std::any::Any;
     use std::cell::RefCell;
     use std::fmt::Debug;
@@ -534,7 +534,7 @@ pub mod game {
     use anyhow::{anyhow, Error};
     use configparser::ini::Ini;
     use rand::random;
-    use rat_theme::dark_theme::DarkTheme;
+    use rat_theme2::DarkTheme;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::prelude::StatefulWidget;
@@ -1046,11 +1046,21 @@ pub mod game {
 }
 
 fn setup_logging() -> Result<(), Error> {
-    _ = fs::remove_file("log.log");
-    fern::Dispatch::new()
-        .format(|out, message, _record| out.finish(format_args!("{}", message)))
-        .level(log::LevelFilter::Debug)
-        .chain(fern::log_file("log.log")?)
-        .apply()?;
+    if let Some(cache) = dirs::cache_dir() {
+        let log_path = cache.join("rat-salsa");
+        if !log_path.exists() {
+            fs::create_dir_all(&log_path)?;
+        }
+
+        let log_file = log_path.join("life.log");
+        _ = fs::remove_file(&log_file);
+        fern::Dispatch::new()
+            .format(|out, message, _record| {
+                out.finish(format_args!("{}", message)) //
+            })
+            .level(log::LevelFilter::Debug)
+            .chain(fern::log_file(&log_file)?)
+            .apply()?;
+    }
     Ok(())
 }

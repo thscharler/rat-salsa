@@ -6,8 +6,8 @@ use crossterm::event::Event;
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
-use rat_theme::dark_theme::DarkTheme;
-use rat_theme::scheme::IMPERIAL;
+use rat_theme2::schemes::IMPERIAL;
+use rat_theme2::DarkTheme;
 use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -205,7 +205,7 @@ pub mod mask0 {
     use crate::{GlobalState, RenderContext, ThemeEvent};
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_theme::dark_themes;
+    use rat_theme2::dark_themes;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
     use rat_widget::popup::Placement;
@@ -352,14 +352,14 @@ pub mod mask0 {
 // -----------------------------------------------------------------------
 
 pub mod show_scheme {
-    use rat_theme::Scheme;
+    use rat_theme2::{Scheme, TextColorRating};
     use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::reloc::{relocate_area, RelocatableState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
     use ratatui::prelude::{Line, Span, StatefulWidget};
-    use ratatui::style::{Style, Stylize};
+    use ratatui::style::{Color, Style, Stylize};
     use ratatui::widgets::Widget;
 
     #[derive(Debug)]
@@ -446,6 +446,12 @@ pub mod show_scheme {
                 .style(Style::new().fg(self.scheme.secondary[3]))
                 .render(l1[0], buf);
 
+            let make_fg = |c| match Scheme::rate_text_color(c) {
+                None => Color::Reset,
+                Some(TextColorRating::Light) => self.scheme.white[0],
+                Some(TextColorRating::Dark) => self.scheme.black[3],
+            };
+
             let sc = self.scheme;
             for (i, (n, c)) in [
                 ("primary", sc.primary),
@@ -471,25 +477,17 @@ pub mod show_scheme {
             {
                 Line::from(vec![
                     Span::from(format!("{:10}", n)),
-                    Span::from("  DARK  ").bg(c[0]).fg(sc.text_color(c[0])),
-                    Span::from("  MID1  ").bg(c[1]).fg(sc.text_color(c[1])),
-                    Span::from("  MID2  ").bg(c[2]).fg(sc.text_color(c[2])),
-                    Span::from("  LITE  ").bg(c[3]).fg(sc.text_color(c[3])),
-                    Span::from("  GRAY  ")
-                        .bg(sc.grey_color(c[3]))
-                        .fg(sc.text_color(sc.grey_color(c[3]))),
-                    Span::from("  DARK  ")
-                        .bg(sc.true_dark_color(c[0]))
-                        .fg(sc.text_color(sc.true_dark_color(c[0]))),
-                    Span::from("  MID1  ")
-                        .bg(sc.true_dark_color(c[1]))
-                        .fg(sc.text_color(sc.true_dark_color(c[1]))),
-                    Span::from("  MID2  ")
-                        .bg(sc.true_dark_color(c[2]))
-                        .fg(sc.text_color(sc.true_dark_color(c[2]))),
-                    Span::from("  LITE  ")
-                        .bg(sc.true_dark_color(c[3]))
-                        .fg(sc.text_color(sc.true_dark_color(c[3]))),
+                    Span::from("  THEME  ").bg(c[0]).fg(make_fg(c[0])),
+                    Span::from("  MID-1  ").bg(c[1]).fg(make_fg(c[1])),
+                    Span::from("  MID-2  ").bg(c[2]).fg(make_fg(c[2])),
+                    Span::from("  LIGHT  ").bg(c[3]).fg(make_fg(c[3])),
+                    Span::from("  BACK   ").bg(c[4]).fg(make_fg(c[4])),
+                    Span::from("  MID-1  ").bg(c[5]).fg(make_fg(c[5])),
+                    Span::from("  MID-2  ").bg(c[6]).fg(make_fg(c[6])),
+                    Span::from("  LIGHT  ").bg(c[7]).fg(make_fg(c[7])),
+                    Span::from("  GRAY   ")
+                        .bg(Scheme::grayscale(c[3]))
+                        .fg(make_fg(Scheme::grayscale(c[3]))),
                 ])
                 .render(l1[i + 1], buf);
             }
@@ -509,22 +507,22 @@ pub mod show_scheme {
     }
 }
 
-// -----------------------------------------------------------------------
-
 fn setup_logging() -> Result<(), Error> {
-    _ = fs::remove_file("log.log");
-    fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "[{} {} {}]\n        {}",
-                humantime::format_rfc3339_seconds(SystemTime::now()),
-                record.level(),
-                record.target(),
-                message
-            ))
-        })
-        .level(log::LevelFilter::Debug)
-        .chain(fern::log_file("log.log")?)
-        .apply()?;
+    if let Some(cache) = dirs::cache_dir() {
+        let log_path = cache.join("rat-salsa");
+        if !log_path.exists() {
+            fs::create_dir_all(&log_path)?;
+        }
+
+        let log_file = log_path.join("theme_sample.log");
+        _ = fs::remove_file(&log_file);
+        fern::Dispatch::new()
+            .format(|out, message, _record| {
+                out.finish(format_args!("{}", message)) //
+            })
+            .level(log::LevelFilter::Debug)
+            .chain(fern::log_file(&log_file)?)
+            .apply()?;
+    }
     Ok(())
 }

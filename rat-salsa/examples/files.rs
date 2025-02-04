@@ -4,13 +4,11 @@
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
-use directories_next::UserDirs;
 use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::thread_pool::Cancel;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
-use rat_theme::dark_theme::DarkTheme;
-use rat_theme::dark_themes;
-use rat_theme::scheme::IMPERIAL;
+use rat_theme2::schemes::IMPERIAL;
+use rat_theme2::{dark_themes, DarkTheme};
 use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
     ReadOnly, Regular, TableOutcome,
@@ -1012,37 +1010,48 @@ impl FilesState {
 }
 
 fn setup_logging() -> Result<(), Error> {
-    _ = fs::remove_file("log.log");
-    fern::Dispatch::new()
-        .format(|out, message, _record| out.finish(format_args!("{}", message)))
-        .level(log::LevelFilter::Debug)
-        .chain(fern::log_file("log.log")?)
-        .apply()?;
+    if let Some(cache) = dirs::cache_dir() {
+        let log_path = cache.join("rat-salsa");
+        if !log_path.exists() {
+            fs::create_dir_all(&log_path)?;
+        }
+
+        let log_file = log_path.join("life.log");
+        _ = fs::remove_file(&log_file);
+        fern::Dispatch::new()
+            .format(|out, message, _record| {
+                out.finish(format_args!("{}", message)) //
+            })
+            .level(log::LevelFilter::Debug)
+            .chain(fern::log_file(&log_file)?)
+            .apply()?;
+    }
     Ok(())
 }
 
 fn fs_roots() -> Vec<(String, PathBuf)> {
     let mut roots = Vec::new();
-    if let Some(user) = UserDirs::new() {
-        roots.push(("Home".into(), user.home_dir().to_path_buf()));
-        if let Some(dir) = user.document_dir() {
-            roots.push(("Documents".into(), dir.to_path_buf()));
-        }
-        if let Some(dir) = user.download_dir() {
-            roots.push(("Downloads".into(), dir.to_path_buf()));
-        }
-        if let Some(dir) = user.audio_dir() {
-            roots.push(("Audio".into(), dir.to_path_buf()));
-        }
-        if let Some(dir) = user.desktop_dir() {
-            roots.push(("Desktop".into(), dir.to_path_buf()));
-        }
-        if let Some(dir) = user.picture_dir() {
-            roots.push(("Pictures".into(), dir.to_path_buf()));
-        }
-        if let Some(dir) = user.video_dir() {
-            roots.push(("Video".into(), dir.to_path_buf()));
-        }
+
+    if let Some(p) = dirs::home_dir() {
+        roots.push(("Home".into(), p));
+    }
+    if let Some(p) = dirs::document_dir() {
+        roots.push(("Documents".into(), p));
+    }
+    if let Some(p) = dirs::download_dir() {
+        roots.push(("Downloads".into(), p));
+    }
+    if let Some(p) = dirs::desktop_dir() {
+        roots.push(("Desktop".into(), p));
+    }
+    if let Some(p) = dirs::audio_dir() {
+        roots.push(("Audio".into(), p));
+    }
+    if let Some(p) = dirs::picture_dir() {
+        roots.push(("Pictures".into(), p));
+    }
+    if let Some(p) = dirs::video_dir() {
+        roots.push(("Videos".into(), p));
     }
 
     let disks = Disks::new_with_refreshed_list();

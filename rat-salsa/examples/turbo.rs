@@ -10,12 +10,12 @@ use crate::app::{Scenery, SceneryState};
 use crate::config::TurboConfig;
 use crate::global::GlobalState;
 use crate::message::TurboEvent;
-
 use crate::theme::TurboTheme;
 use anyhow::Error;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, RunConfig};
-use rat_theme::scheme::BASE16;
+use rat_theme2::schemes::BASE16;
+use std::fs;
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, TurboEvent, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
@@ -606,18 +606,28 @@ pub mod turbo {
 }
 
 fn setup_logging() -> Result<(), Error> {
-    // _ = fs::remove_file("log.log");
-    fern::Dispatch::new()
-        .format(|out, message, _record| out.finish(format_args!("{}", message)))
-        .level(log::LevelFilter::Debug)
-        .chain(fern::log_file("log.log")?)
-        .apply()?;
+    if let Some(cache) = dirs::cache_dir() {
+        let log_path = cache.join("rat-salsa");
+        if !log_path.exists() {
+            fs::create_dir_all(&log_path)?;
+        }
+
+        let log_file = log_path.join("minimal.log");
+        _ = fs::remove_file(&log_file);
+        fern::Dispatch::new()
+            .format(|out, message, _record| {
+                out.finish(format_args!("{}", message)) //
+            })
+            .level(log::LevelFilter::Debug)
+            .chain(fern::log_file(&log_file)?)
+            .apply()?;
+    }
     Ok(())
 }
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme::Scheme;
+    use rat_theme2::{Contrast, Scheme};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::line_number::LineNumberStyle;
@@ -660,108 +670,6 @@ pub mod theme {
         /// The underlying scheme.
         pub fn scheme(&self) -> &Scheme {
             &self.s
-        }
-
-        /// Create a style from the given white shade.
-        /// n is `0..=3`
-        pub fn white(&self, n: usize) -> Style {
-            self.s.style(self.s.white[n])
-        }
-
-        /// Create a style from the given black shade.
-        /// n is `0..=3`
-        pub fn black(&self, n: usize) -> Style {
-            self.s.style(self.s.black[n])
-        }
-
-        /// Create a style from the given gray shade.
-        /// n is `0..=3`
-        pub fn gray(&self, n: usize) -> Style {
-            self.s.style(self.s.gray[n])
-        }
-
-        /// Create a style from the given red shade.
-        /// n is `0..=3`
-        pub fn red(&self, n: usize) -> Style {
-            self.s.style(self.s.red[n])
-        }
-
-        /// Create a style from the given orange shade.
-        /// n is `0..=3`
-        pub fn orange(&self, n: usize) -> Style {
-            self.s.style(self.s.orange[n])
-        }
-
-        /// Create a style from the given yellow shade.
-        /// n is `0..=3`
-        pub fn yellow(&self, n: usize) -> Style {
-            self.s.style(self.s.yellow[n])
-        }
-
-        /// Create a style from the given limegreen shade.
-        /// n is `0..=3`
-        pub fn limegreen(&self, n: usize) -> Style {
-            self.s.style(self.s.limegreen[n])
-        }
-
-        /// Create a style from the given green shade.
-        /// n is `0..=3`
-        pub fn green(&self, n: usize) -> Style {
-            self.s.style(self.s.green[n])
-        }
-
-        /// Create a style from the given bluegreen shade.
-        /// n is `0..=3`
-        pub fn bluegreen(&self, n: usize) -> Style {
-            self.s.style(self.s.bluegreen[n])
-        }
-
-        /// Create a style from the given cyan shade.
-        /// n is `0..=3`
-        pub fn cyan(&self, n: usize) -> Style {
-            self.s.style(self.s.cyan[n])
-        }
-
-        /// Create a style from the given blue shade.
-        /// n is `0..=3`
-        pub fn blue(&self, n: usize) -> Style {
-            self.s.style(self.s.blue[n])
-        }
-
-        /// Create a style from the given deepblue shade.
-        /// n is `0..=3`
-        pub fn deepblue(&self, n: usize) -> Style {
-            self.s.style(self.s.deepblue[n])
-        }
-
-        /// Create a style from the given purple shade.
-        /// n is `0..=3`
-        pub fn purple(&self, n: usize) -> Style {
-            self.s.style(self.s.purple[n])
-        }
-
-        /// Create a style from the given magenta shade.
-        /// n is `0..=3`
-        pub fn magenta(&self, n: usize) -> Style {
-            self.s.style(self.s.magenta[n])
-        }
-
-        /// Create a style from the given redpink shade.
-        /// n is `0..=3`
-        pub fn redpink(&self, n: usize) -> Style {
-            self.s.style(self.s.redpink[n])
-        }
-
-        /// Create a style from the given primary shade.
-        /// n is `0..=3`
-        pub fn primary(&self, n: usize) -> Style {
-            self.s.style(self.s.primary[n])
-        }
-
-        /// Create a style from the given secondary shade.
-        /// n is `0..=3`
-        pub fn secondary(&self, n: usize) -> Style {
-            self.s.style(self.s.secondary[n])
         }
 
         /// Focus style
@@ -885,14 +793,8 @@ pub mod theme {
         /// Complete ButtonStyle
         pub fn button_style(&self) -> ButtonStyle {
             ButtonStyle {
-                style: Style::default()
-                    .fg(self.s.text_color(self.s.primary[0]))
-                    .bg(self.s.primary[0]),
-                focus: Some(
-                    Style::default()
-                        .fg(self.s.text_color(self.s.primary[3]))
-                        .bg(self.s.primary[3]),
-                ),
+                style: self.s.primary(0, Contrast::Normal),
+                focus: Some(self.s.primary(3, Contrast::High)),
                 armed: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[0])),
                 ..Default::default()
             }
@@ -943,8 +845,8 @@ pub mod theme {
             let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
             TabbedStyle {
                 style,
-                tab: Some(self.gray(1)),
-                select: Some(self.gray(3)),
+                tab: Some(self.s.gray(1, Contrast::Normal)),
+                select: Some(self.s.gray(3, Contrast::Normal)),
                 focus: Some(self.focus()),
                 ..Default::default()
             }
@@ -958,9 +860,9 @@ pub mod theme {
             let s = &self.s;
             vec![
                 self.status_style(),
-                Style::default().fg(s.text_color(s.white[0])).bg(s.blue[3]),
-                Style::default().fg(s.text_color(s.white[0])).bg(s.blue[2]),
-                Style::default().fg(s.text_color(s.white[0])).bg(s.blue[1]),
+                s.blue(3, Contrast::Normal),
+                s.blue(2, Contrast::Normal),
+                s.blue(1, Contrast::Normal),
             ]
         }
 
