@@ -1,3 +1,8 @@
+# 1.0.3
+
+* fix: Rendering of selection in Month. Use underlined
+  for lead instead of reversed().
+
 # 1.0.2
 
 * feature: Choice: add reverse_select_by_char()

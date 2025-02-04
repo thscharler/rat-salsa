@@ -1,3 +1,14 @@
+# 1.0.2
+
+* fix: MenuLine+PopupMenu: Fix behaviour of selected.
+  Fallback to first item if None is selected and there are items.
+  Change to None if there are no items.
+* fix: Some event handling still returned Outcome::Unchanged.
+  This is discouraged for most cases.
+* fix: Spurious panics with missing disabled data.
+  Missing disabled data is a good hint for a method call before the
+  first render. Bail out and do nothing for most cases.
+
 # 1.0.1
 
 * fix: ensure that the select_style is always patched onto the
