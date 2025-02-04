@@ -537,7 +537,6 @@ fn calc_day_style<Selection: CalendarSelection>(
     };
 
     if (state.is_container_focused() || state.is_focused())
-        && state.selection.count() > 1
         && state.selection.lead_selection() == Some(day)
     {
         day_style.patch(select_style.underlined())
