@@ -1,3 +1,11 @@
+# 1.0.1
+
+concerns only the examples ...
+
+* fix: clean unused crates
+* fix: replace directories-next with dirs.
+* fix: upgrade to rat-theme2
+
 # 1.0.0
 
 ... jump ...

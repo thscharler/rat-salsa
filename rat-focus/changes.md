@@ -1,10 +1,13 @@
+# 1.0.1
+
+* add some inlines
+
 # 1.0.0
 
 # 0.33.1
 
 * feature: Focus: add next_force() and prev_force() to overcome
   navigation blocking.
-  
 
 # 0.33.0
 

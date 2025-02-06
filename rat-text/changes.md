@@ -1,3 +1,7 @@
+# 1.0.4
+
+* fix: set the default line-ending via compile time cfg.
+
 # 1.0.3
 
 * feature: TextArea: add text_style_map() as a HashMap instead of a Vec

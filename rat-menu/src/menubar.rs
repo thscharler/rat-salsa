@@ -18,7 +18,6 @@ use crate::event::MenuOutcome;
 use crate::menuline::{MenuLine, MenuLineState};
 use crate::popup_menu::{PopupMenu, PopupMenuState};
 use crate::{MenuStructure, MenuStyle};
-use log::{debug, error};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::Placement;
@@ -463,7 +462,6 @@ where
         r = r.or_else(|| {
             let old_selected = state.bar.selected();
             let r = state.bar.handle(event, qualifier2);
-            error!("handle {:?}", r);
             match r {
                 MenuOutcome::Selected(_) => {
                     if state.bar.selected == old_selected {

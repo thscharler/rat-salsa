@@ -9,6 +9,7 @@ fn test_undo() {
         Some(Box::new(UndoVec::new(40))),
         Some(Box::new(LocalClipboard::new())),
     );
+    s.set_newline("\n".into());
 
     s.set_text(TextRope::new_text("asdf\njklö\nqwer\nuiop\n"));
     assert_eq!(s.text().string(), "asdf\njklö\nqwer\nuiop\n");
@@ -77,6 +78,7 @@ fn test_undo2() {
         Some(Box::new(UndoVec::new(40))),
         Some(Box::new(LocalClipboard::new())),
     );
+    s.set_newline("\n".into());
 
     s.set_text(TextRope::new_text("asdf\njklö\nqwer\nuiop\n"));
     assert_eq!(s.text().string(), "asdf\njklö\nqwer\nuiop\n");

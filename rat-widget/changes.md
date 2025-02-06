@@ -1,3 +1,12 @@
+# 1.0.4
+
+* feature: Splitter: simplify usage with new into_widget_layout()
+  which doesn't need the split-widget approach any longer.
+* fix: Splitter: hidden splits shouldn't be resizable.
+* feature: Form: add block() and style()
+* feature: SingePager, DualPager, Form, Clipper: allow setting the layout
+  with the widget. just forward to the state.
+
 # 1.0.3
 
 * fix: Rendering of selection in Month. Use underlined

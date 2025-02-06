@@ -1,6 +1,6 @@
 [package]
 name = "rat-menu"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "menu widgets for ratatui"

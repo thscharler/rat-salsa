@@ -1,3 +1,11 @@
+# 1.0.3
+
+* fix: there are some subtle nuances with select_at().
+  Sometimes we need it to report on any match, sometimes only on a changed match.
+  Thus split select_at() into select_at() which keeps the current behaviour
+  of only reporting actual changes, and select_at_always() which only
+  checks for an area hit.
+
 # 1.0.2
 
 * fix: MenuLine+PopupMenu: Fix behaviour of selected.
