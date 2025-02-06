@@ -16,54 +16,80 @@ use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::{max, min};
+use std::mem;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Splits the area in multiple parts and allows changing the sizes.
-///
-/// This widget doesn't hold a reference to the rendered widgets or such,
-/// use [SplitState::widget_areas] to render each part, after rendering
-/// the split widget.
-///
-/// __Special__
-///
-/// [Split] itself can't be rendered but acts as a builder
-/// for the actual widgets. Call [into_widgets](Split::into_widgets) to get the actual
-/// [SplitWidget] and the [SplitOverlay]. SplitWidget must be rendered
-/// first, after that you can access the [SplitState::widget_areas] to
-/// render the parts, and last render SplitOverlay to render the
-/// markers that will appear overlaid on the widgets.
 #[derive(Debug, Default, Clone)]
+/// Splits the area in multiple parts and renders an UI that
+/// allows changing the sizes.
+///
+/// * Can hide/show regions.
+/// * Resize
+///     * neighbours only
+///     * all regions
+/// * Horizontal / vertical split. Choose one.
+///
+/// The widget doesn't hold references to the content widgets,
+/// instead it gives back the regions where the content can be
+/// rendered.
+///
+/// 1. Construct the Split.
+/// 2. Call [Split::into_widget_layout] to create the actual
+///    widget and the layout of the regions.
+/// 3. Render the content areas.
+/// 4. Render the split widget last. There are options that
+///    will render above the widgets and use part of the content
+///    area.
+///
 pub struct Split<'a> {
+    // direction
     direction: Direction,
+    // start constraints. used when
+    // there are no widths in the state.
     constraints: Vec<Constraint>,
+    // resize options
     resize: SplitResize,
 
+    // split rendering
     split_type: SplitType,
+    // joiner left/top
     join_0: Option<BorderType>,
+    // joiner right/bottom
     join_1: Option<BorderType>,
+    // offset from left/top for the split-mark
     mark_offset: u16,
+    // mark char 1
     mark_0_char: Option<&'a str>,
+    // mark char 2
     mark_1_char: Option<&'a str>,
-    block: Option<Block<'a>>,
 
+    // styling
+    block: Option<Block<'a>>,
     style: Style,
     arrow_style: Option<Style>,
     drag_style: Option<Style>,
 }
 
 /// Primary widget for rendering the Split.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct SplitWidget<'a> {
     split: Split<'a>,
+    // internal mode:
+    // 0 - legacy
+    // 1 - used for into_widget_layout()
+    mode: u8,
 }
 
 /// Secondary struct for rendering the overlay parts of the Split.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
+#[deprecated(since = "1.0.2", note = "no longer needed")]
 pub struct SplitOverlay<'a> {
     split: Option<Split<'a>>,
 }
 
-/// Combined style for the splitter.
+///
+/// Combined styles for the Split.
+///
 #[derive(Debug)]
 pub struct SplitStyle {
     /// Base style
@@ -389,16 +415,52 @@ impl<'a> Split<'a> {
     }
 
     /// Constructs the widgets for rendering.
+    ///
+    /// Returns the SplitWidget that actually renders the split.
+    /// Returns a Vec<Rect> with the regions for each split.
+    ///
+    /// Render your content first, using the layout information.
+    /// And the SplitWidget as last to allow rendering over
+    /// the content widgets.
+    pub fn into_widget_layout(
+        self,
+        area: Rect,
+        state: &mut SplitState,
+    ) -> (SplitWidget<'a>, Vec<Rect>) {
+        self.layout_split(area, state);
+
+        (
+            SplitWidget {
+                split: self,
+                mode: 1,
+            },
+            state.widget_areas.clone(),
+        )
+    }
+
+    /// Constructs the widgets for rendering.
+    #[deprecated(
+        since = "1.0.3",
+        note = "use into_widget_layout(). it has a simpler contract."
+    )]
+    #[allow(deprecated)]
     pub fn into_widgets(self) -> (SplitWidget<'a>, SplitOverlay<'a>) {
         if self.split_type == SplitType::Scroll {
             (
                 SplitWidget {
                     split: self.clone(),
+                    mode: 0,
                 },
                 SplitOverlay { split: Some(self) },
             )
         } else {
-            (SplitWidget { split: self }, SplitOverlay { split: None })
+            (
+                SplitWidget {
+                    split: self,
+                    mode: 0,
+                },
+                SplitOverlay { split: None },
+            )
         }
     }
 }
@@ -808,7 +870,14 @@ impl<'a> StatefulWidgetRef for SplitWidget<'a> {
     type State = SplitState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.split.layout_split(area, state);
+        if self.mode == 0 {
+            self.split.layout_split(area, state);
+        } else if self.mode == 1 {
+            // done before
+        } else {
+            unreachable!()
+        }
+
         if state.is_focused() {
             if state.focus_marker.is_none() {
                 state.focus_marker = Some(0);
@@ -817,14 +886,29 @@ impl<'a> StatefulWidgetRef for SplitWidget<'a> {
             state.focus_marker = None;
         }
 
-        if self.split.block.is_some() {
-            self.split.block.render_ref(area, buf);
+        if self.mode == 0 {
+            if self.split.block.is_some() {
+                self.split.block.render_ref(area, buf);
+            } else {
+                buf.set_style(area, self.split.style);
+            }
+        } else if self.mode == 1 {
+            if let Some(mut block) = self.split.block.clone() {
+                block = block.style(Style::default());
+                block.render_ref(area, buf);
+            }
         } else {
-            buf.set_style(area, self.split.style);
+            unreachable!()
         }
 
-        if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
+        if self.mode == 0 {
+            if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
+                render_split(&self.split, buf, state);
+            }
+        } else if self.mode == 1 {
             render_split(&self.split, buf, state);
+        } else {
+            unreachable!()
         }
     }
 }
@@ -832,8 +916,15 @@ impl<'a> StatefulWidgetRef for SplitWidget<'a> {
 impl StatefulWidget for SplitWidget<'_> {
     type State = SplitState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.split.layout_split(area, state);
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        if self.mode == 0 {
+            self.split.layout_split(area, state);
+        } else if self.mode == 1 {
+            // done before
+        } else {
+            unreachable!()
+        }
+
         if state.is_focused() {
             if state.focus_marker.is_none() {
                 state.focus_marker = Some(0);
@@ -842,14 +933,30 @@ impl StatefulWidget for SplitWidget<'_> {
             state.focus_marker = None;
         }
 
-        if self.split.block.is_some() {
-            self.split.block.render(area, buf);
+        if self.mode == 0 {
+            if self.split.block.is_some() {
+                self.split.block.render(area, buf);
+            } else {
+                buf.set_style(area, self.split.style);
+            }
+        } else if self.mode == 1 {
+            if let Some(mut block) = mem::take(&mut self.split.block) {
+                // can't have the block overwrite all content styles.
+                block = block.style(Style::default());
+                block.render(area, buf);
+            }
         } else {
-            buf.set_style(area, self.split.style);
+            unreachable!()
         }
 
-        if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
+        if self.mode == 0 {
+            if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
+                render_split(&self.split, buf, state);
+            }
+        } else if self.mode == 1 {
             render_split(&self.split, buf, state);
+        } else {
+            unreachable!()
         }
     }
 }
@@ -868,6 +975,7 @@ impl<'a> StatefulWidgetRef for SplitOverlay<'a> {
     }
 }
 
+#[allow(deprecated)]
 impl StatefulWidget for SplitOverlay<'_> {
     type State = SplitState;
 
@@ -1048,6 +1156,9 @@ impl SplitState {
     /// splitter.
     ///
     pub fn set_screen_split_pos(&mut self, n: usize, pos: (u16, u16)) -> bool {
+        if self.is_hidden(n) {
+            return false;
+        }
         if self.direction == Direction::Horizontal {
             let pos = if pos.0 < self.inner.left() {
                 0

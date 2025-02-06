@@ -32,6 +32,7 @@ fn main() -> Result<(), anyhow::Error> {
         border_type: None,
         inner_border_type: None,
         resize: Default::default(),
+        focus: None,
         split: Default::default(),
         left: Default::default(),
         right: Default::default(),
@@ -47,17 +48,20 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    pub(crate) dir: Direction,
-    pub(crate) split_type: SplitType,
-    pub(crate) border_type: Option<BorderType>,
-    pub(crate) inner_border_type: Option<BorderType>,
-    pub(crate) resize: SplitResize,
-    pub(crate) split: SplitState,
-    pub(crate) left: ParagraphState,
-    pub(crate) right: EndlessScrollState,
-    pub(crate) right_right: EndlessScrollState,
-    pub(crate) menu: MenuLineState,
-    pub(crate) status: StatusLineState,
+    dir: Direction,
+    split_type: SplitType,
+    border_type: Option<BorderType>,
+    inner_border_type: Option<BorderType>,
+    resize: SplitResize,
+
+    focus: Option<Focus>,
+
+    split: SplitState,
+    left: ParagraphState,
+    right: EndlessScrollState,
+    right_right: EndlessScrollState,
+    menu: MenuLineState,
+    status: StatusLineState,
 }
 
 fn repaint_input(
@@ -82,6 +86,7 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
+    // create split widget.
     let mut split = Split::new()
         .styles(THEME.split_style())
         .direction(state.dir)
@@ -103,51 +108,33 @@ fn repaint_input(
             .join_1(blk)
             .join_0(blk);
     }
-    let (split, split_overlay) = split.into_widgets();
-    split.render(l2[1], frame.buffer_mut(), &mut state.split);
+    let (split, split_areas) = split.into_widget_layout(l2[1], &mut state.split);
 
-    let mut w_left = Paragraph::new(TEXT)
-        .styles(THEME.paragraph_style())
-        .wrap(Wrap::default());
-    match state.split_type {
-        SplitType::FullEmpty
-        | SplitType::FullPlain
-        | SplitType::FullDouble
-        | SplitType::FullThick
-        | SplitType::FullQuadrantInside
-        | SplitType::FullQuadrantOutside => {}
-        SplitType::Scroll => {
-            if let Some(inner_border) = state.inner_border_type {
-                w_left = w_left.block(
-                    Block::bordered()
-                        .title("inner block")
-                        .border_style(THEME.magenta(0))
-                        .border_type(inner_border),
-                );
-            }
-            let mut scroll_left = Scroll::new().styles(THEME.scroll_style());
-            if state.dir == Direction::Horizontal {
-                scroll_left = scroll_left.start_margin(3);
-            }
-            w_left = w_left.vscroll(scroll_left);
+    // First split widget. Show some TEXT.
+    if !state.split.is_hidden(0) {
+        let mut w_left = Paragraph::new(TEXT)
+            .styles(THEME.paragraph_style())
+            .wrap(Wrap::default());
+        if let Some(inner_border) = state.inner_border_type {
+            // configurable border
+            w_left = w_left.block(
+                Block::bordered()
+                    .title("inner block")
+                    .border_style(THEME.magenta(0))
+                    .border_type(inner_border),
+            );
         }
-        SplitType::Widget => {
-            if let Some(inner_border) = state.inner_border_type {
-                w_left = w_left.block(
-                    Block::bordered()
-                        .title("inner block")
-                        .border_style(THEME.gray(3))
-                        .border_type(inner_border),
-                );
-            }
+        let mut scroll_left = Scroll::new().styles(THEME.scroll_style());
+        if state.dir == Direction::Horizontal {
+            // don't start the scrollbar at the top of the area, start it 3 below.
+            // leaves some space for the split handles.
+            scroll_left = scroll_left.start_margin(3);
         }
+        w_left = w_left.vscroll(scroll_left);
+        w_left.render(split_areas[0], frame.buffer_mut(), &mut state.left);
     }
-    w_left.render(
-        state.split.widget_areas[0],
-        frame.buffer_mut(),
-        &mut state.left,
-    );
 
+    // some dummy widget
     EndlessScroll::new()
         .max(100000) //
         .style(THEME.deepblue(0))
@@ -157,17 +144,9 @@ fn repaint_input(
                 .start_margin(3) //
                 .styles(THEME.scroll_style()),
         )
-        // .block(
-        //     Block::bordered()
-        //         .border_type(BorderType::Rounded)
-        //         .border_style(THEME.block()),
-        // )
-        .render(
-            state.split.widget_areas[1],
-            frame.buffer_mut(),
-            &mut state.right,
-        );
+        .render(split_areas[1], frame.buffer_mut(), &mut state.right);
 
+    // some dummy widget
     EndlessScroll::new()
         .max(2024) //
         .style(THEME.bluegreen(0))
@@ -176,22 +155,17 @@ fn repaint_input(
             Scroll::new() //
                 .styles(THEME.scroll_style()),
         )
-        // .block(
-        //     Block::bordered()
-        //         .border_type(BorderType::Rounded)
-        //         .border_style(THEME.block()),
-        // )
-        .render(
-            state.split.widget_areas[2],
-            frame.buffer_mut(),
-            &mut state.right_right,
-        );
+        .render(split_areas[2], frame.buffer_mut(), &mut state.right_right);
 
-    // There might be an overlay, if the stars are right.
-    split_overlay.render(l2[1], frame.buffer_mut(), &mut state.split);
+    // Render split after all the content.
+    split.render(l2[1], frame.buffer_mut(), &mut state.split);
 
+    // render layout detail info
     let mut area = Rect::new(l2[0].x, l2[0].y, l2[0].width, 1);
-
+    Line::from("F1: hide first")
+        .yellow()
+        .render(area, frame.buffer_mut());
+    area.y += 1;
     Line::from("F3: toggle")
         .yellow()
         .render(area, frame.buffer_mut());
@@ -226,7 +200,7 @@ fn repaint_input(
     area.y += 1;
     Line::from("areas").render(area, frame.buffer_mut());
     area.y += 1;
-    for a in &state.split.widget_areas {
+    for a in &split_areas {
         Line::from(format!("{},{}+{}+{}", a.x, a.y, a.width, a.height))
             .render(area, frame.buffer_mut());
         area.y += 1;
@@ -260,14 +234,27 @@ fn repaint_input(
     Ok(())
 }
 
-fn focus(state: &State) -> Focus {
-    let mut fb = FocusBuilder::default();
-    fb.widget(&state.split)
-        .widget(&state.left)
-        .widget(&state.right)
-        .widget(&state.right_right)
-        .widget(&state.menu);
-    fb.build()
+// handle focus
+fn focus(state: &mut State, event: &crossterm::event::Event) -> Outcome {
+    // rebuild, using the old focus for storage and to reset
+    // widgets no longer in the focus loop.
+    let mut builder = FocusBuilder::new(state.focus.take());
+    builder.widget(&state.split);
+    if !state.split.is_hidden(0) {
+        builder.widget(&state.left);
+    }
+    builder.widget(&state.right);
+    builder.widget(&state.right_right);
+    builder.widget(&state.menu);
+    let mut focus = builder.build();
+
+    // handle focus events
+    let r = focus.handle(event, Regular);
+
+    // keep for reuse
+    state.focus = Some(focus);
+
+    r
 }
 
 fn handle_input(
@@ -276,9 +263,17 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus(state).handle(event, Regular);
+    let f = focus(state, event);
 
     let mut r = match event {
+        ct_event!(keycode press F(1)) => {
+            if state.split.is_hidden(0) {
+                state.split.show_split(0);
+            } else {
+                state.split.hide_split(0);
+            }
+            Outcome::Changed
+        }
         ct_event!(keycode press F(3)) => {
             if state.dir == Direction::Horizontal {
                 state.dir = Direction::Vertical;
