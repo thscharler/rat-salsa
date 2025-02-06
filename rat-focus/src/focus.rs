@@ -151,6 +151,7 @@ impl Focus {
     ///
     /// Sets the focus, but doesn't set lost or gained.
     /// This can be used to prevent validation of the field.
+    #[inline]
     pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(
             self.core.log,
@@ -182,6 +183,7 @@ impl Focus {
     ///
     /// If this ends up with the same widget as
     /// before gained and lost flags are not set.
+    #[inline]
     pub fn focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(self.core.log, "focus {:?}", widget_state.focus().name());
         let flag = widget_state.focus();
@@ -205,6 +207,7 @@ impl Focus {
 
     /// Expels the focus from the given widget regardless of
     /// the current state.
+    #[inline]
     pub fn expel_focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(
             self.core.log,
@@ -244,6 +247,7 @@ impl Focus {
     /// This is mainly for debugging purposes.
     /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
     /// will be nicer.
+    #[inline(always)]
     pub fn focused(&self) -> Option<FocusFlag> {
         self.core.focused()
     }
@@ -251,11 +255,13 @@ impl Focus {
     /// Returns the debug name of the focused widget.
     ///
     /// This is mainly for debugging purposes.
+    #[inline(always)]
     pub fn focused_name(&self) -> Option<String> {
         self.core.focused().map(|v| v.name().to_string())
     }
 
     /// Returns the navigation flag for the focused widget.
+    #[inline(always)]
     pub fn navigation(&self) -> Option<Navigation> {
         self.core.navigation()
     }
@@ -265,6 +271,7 @@ impl Focus {
     /// This is mainly for debugging purposes.
     /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
     /// will be nicer.
+    #[inline(always)]
     pub fn lost_focus(&self) -> Option<FocusFlag> {
         self.core.lost_focus()
     }
@@ -274,17 +281,20 @@ impl Focus {
     /// This is mainly for debugging purposes.
     /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
     /// will be nicer.
+    #[inline(always)]
     pub fn gained_focus(&self) -> Option<FocusFlag> {
         self.core.gained_focus()
     }
 
     /// Reset lost + gained flags.
     /// This is done automatically in `HandleEvent::handle()` for every event.
+    #[inline(always)]
     pub fn reset_lost_gained(&self) {
         self.core.reset_lost_gained();
     }
 
     /// Change to focus to the given position.
+    #[inline(always)]
     pub fn focus_at(&self, col: u16, row: u16) -> bool {
         focus_debug!(self.core.log, "focus at {},{}", col, row);
         match self.navigation() {
@@ -300,6 +310,7 @@ impl Focus {
     ///
     /// This ensures that there is only one focused widget.
     /// The first widget in the list gets the focus.
+    #[inline(always)]
     pub fn first(&self) {
         focus_debug!(self.core.log, "focus first");
         self.core.first();
@@ -309,6 +320,7 @@ impl Focus {
     /// It the given HasFocus is a widget it will get the focus.
     ///
     /// The first navigable widget in the container gets the focus.
+    #[inline]
     pub fn first_in(&self, container: &'_ dyn HasFocus) {
         focus_debug!(
             self.core.log,
@@ -333,6 +345,7 @@ impl Focus {
     ///
     /// When navigating after this focus will restart somewhere,
     /// most probably the very first widget.
+    #[inline(always)]
     pub fn none(&self) {
         focus_debug!(self.core.log, "focus none");
         self.core.none();
@@ -345,6 +358,7 @@ impl Focus {
     /// the same widget as before focus, gained and lost flag are all set.
     ///
     /// If no field has the focus the first one gets it.
+    #[inline]
     pub fn next(&self) -> bool {
         match self.navigation() {
             None => {
@@ -377,6 +391,7 @@ impl Focus {
     /// before it returns *true* and sets the focus, gained and lost flag.
     ///
     /// If no field has the focus the first one gets it.
+    #[inline]
     pub fn prev(&self) -> bool {
         match self.navigation() {
             None => {
@@ -411,6 +426,7 @@ impl Focus {
     /// the same widget as before focus, gained and lost flag are all set.
     ///
     /// If no field has the focus the first one gets it.
+    #[inline]
     pub fn next_force(&self) -> bool {
         match self.navigation() {
             None => {
@@ -452,6 +468,7 @@ impl Focus {
     /// before it returns *true* and sets the focus, gained and lost flag.
     ///
     /// If no field has the focus the first one gets it.
+    #[inline]
     pub fn prev_force(&self) -> bool {
         match self.navigation() {
             None => {
@@ -1637,6 +1654,7 @@ mod core {
 }
 
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
+    #[inline(always)]
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         match event {
             ct_event!(keycode press Tab) => {
@@ -1673,6 +1691,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
 }
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus {
+    #[inline(always)]
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(mouse down Left for column, row) => {
@@ -1698,6 +1717,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus {
 }
 
 /// Handle all events.
+#[inline(always)]
 pub fn handle_focus(focus: &mut Focus, event: &crossterm::event::Event) -> Outcome {
     HandleEvent::handle(focus, event, Regular)
 }
