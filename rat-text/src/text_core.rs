@@ -59,6 +59,12 @@ impl<Store: Clone> Clone for TextCore<Store> {
 
 impl<Store: TextStore + Default> TextCore<Store> {
     pub fn new(undo: Option<Box<dyn UndoBuffer>>, clip: Option<Box<dyn Clipboard>>) -> Self {
+        #[cfg(windows)]
+        const LINE_ENDING: &str = "\r\n";
+
+        #[cfg(not(windows))]
+        const LINE_ENDING: &str = "\n";
+
         Self {
             text: Store::default(),
             cursor: Default::default(),
@@ -66,7 +72,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             styles: Default::default(),
             undo,
             clip,
-            newline: "\n".to_string(),
+            newline: LINE_ENDING.to_string(),
             tabs: 8,
             expand_tabs: true,
             glyph_ctrl: false,
@@ -79,6 +85,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
     ///
     /// Caution: If this doesn't match the line ending used in the value, you
     /// will get a value with mixed line endings.
+    ///
+    /// Defaults to the system line-ending.
     #[inline]
     pub fn set_newline(&mut self, br: String) {
         self.newline = br;
