@@ -962,6 +962,7 @@ impl StatefulWidget for SplitWidget<'_> {
 }
 
 #[cfg(feature = "unstable-widget-ref")]
+#[allow(deprecated)]
 impl<'a> StatefulWidgetRef for SplitOverlay<'a> {
     type State = SplitState;
 
