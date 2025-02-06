@@ -19,6 +19,7 @@ pub struct SinglePager<'a, W>
 where
     W: Eq + Hash + Clone,
 {
+    layout: Option<GenericLayout<W>>,
     pager: Pager<W>,
     page_nav: PageNavigation<'a>,
 }
@@ -44,7 +45,7 @@ where
     W: Eq + Hash + Clone,
 {
     /// Page layout
-    /// __read+write__ renewed with each render.
+    /// __read+write__ might be overwritten from widget.
     pub layout: Rc<RefCell<GenericLayout<W>>>,
 
     /// PageNavigationState holds most of our state.
@@ -61,6 +62,7 @@ where
 {
     fn default() -> Self {
         Self {
+            layout: Default::default(),
             pager: Default::default(),
             page_nav: Default::default(),
         }
@@ -74,6 +76,13 @@ where
     /// New SinglePage.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the layout. If no layout is set here the layout is
+    /// taken from the state.
+    pub fn layout(mut self, layout: GenericLayout<W>) -> Self {
+        self.layout = Some(layout);
+        self
     }
 
     /// Base style.
@@ -158,6 +167,11 @@ where
         buf: &'a mut Buffer,
         state: &'a mut SinglePagerState<W>,
     ) -> SinglePagerBuffer<'a, W> {
+        // set layout
+        if let Some(layout) = self.layout {
+            state.layout = Rc::new(RefCell::new(layout));
+        }
+
         state.nav.page_count = state.layout.borrow().page_count();
         state.nav.set_page(state.nav.page);
 

@@ -78,8 +78,9 @@ use crate::pager::{Pager, PagerBuffer, PagerStyle};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
+use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
 use std::cell::{Ref, RefCell, RefMut};
 use std::hash::Hash;
@@ -95,6 +96,9 @@ pub struct Form<'a, W>
 where
     W: Eq + Hash + Clone,
 {
+    style: Style,
+    block: Option<Block<'a>>,
+    layout: Option<GenericLayout<W>>,
     pager: Pager<W>,
     phantom: PhantomData<&'a ()>,
 }
@@ -133,6 +137,9 @@ where
 {
     fn default() -> Self {
         Self {
+            style: Default::default(),
+            block: Default::default(),
+            layout: Default::default(),
             pager: Default::default(),
             phantom: Default::default(),
         }
@@ -148,8 +155,17 @@ where
         Self::default()
     }
 
+    /// Set the layout. If no layout is set here the layout is
+    /// taken from the state.
+    pub fn layout(mut self, layout: GenericLayout<W>) -> Self {
+        self.layout = Some(layout);
+        self
+    }
+
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self.block = self.block.map(|v| v.style(style));
         self.pager = self.pager.style(style);
         self
     }
@@ -168,18 +184,26 @@ where
 
     /// Set all styles.
     pub fn styles(mut self, styles: PagerStyle) -> Self {
+        self.style = styles.style;
+        self.block = self.block.map(|v| v.style(styles.style));
         self.pager = self.pager.styles(styles.clone());
+        self
+    }
+
+    /// Block
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block.style(self.style));
         self
     }
 
     /// Calculate the layout page size.
     pub fn layout_size(&self, area: Rect) -> Size {
-        area.as_size()
+        self.block.inner_if_some(area).as_size()
     }
 
     // Calculate the view area for all columns.
     pub fn inner(&self, area: Rect) -> Rect {
-        area
+        self.block.inner_if_some(area)
     }
 
     /// Render the page navigation and create the SinglePagerBuffer
@@ -190,6 +214,13 @@ where
         buf: &'a mut Buffer,
         state: &'a mut FormState<W>,
     ) -> FormBuffer<'a, W> {
+        // render border
+        self.block.render(area, buf);
+        // set layout
+        if let Some(layout) = self.layout {
+            state.layout = Rc::new(RefCell::new(layout));
+        }
+
         FormBuffer {
             pager: self
                 .pager //

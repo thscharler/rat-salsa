@@ -25,6 +25,7 @@ where
 {
     style: Style,
     block: Option<Block<'a>>,
+    layout: Option<GenericLayout<W>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
     label_style: Option<Style>,
@@ -111,6 +112,7 @@ where
         Self {
             style: Default::default(),
             block: self.block.clone(),
+            layout: self.layout.clone(),
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
             label_style: self.label_style.clone(),
@@ -128,6 +130,7 @@ where
         Self {
             style: Default::default(),
             block: Default::default(),
+            layout: Default::default(),
             hscroll: Default::default(),
             vscroll: Default::default(),
             label_style: Default::default(),
@@ -144,6 +147,13 @@ where
     /// New Clipper.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the layout. If no layout is set here the layout is
+    /// taken from the state.
+    pub fn layout(mut self, layout: GenericLayout<W>) -> Self {
+        self.layout = Some(layout);
+        self
     }
 
     /// Base style.
@@ -225,7 +235,7 @@ where
         sa.inner(area, Some(&state.hscroll), Some(&state.vscroll))
     }
 
-    fn layout(&self, area: Rect, state: &mut ClipperState<W>) -> (Rect, Position) {
+    fn calc_layout(&self, area: Rect, state: &mut ClipperState<W>) -> (Rect, Position) {
         let layout = state.layout.borrow();
 
         let view = Rect::new(
@@ -283,6 +293,9 @@ where
     /// Calculates the layout and creates a temporary buffer.
     pub fn into_buffer(self, area: Rect, state: &mut ClipperState<W>) -> ClipperBuffer<'a, W> {
         state.area = area;
+        if let Some(layout) = self.layout {
+            state.layout = Rc::new(RefCell::new(layout));
+        }
 
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
@@ -291,7 +304,7 @@ where
         state.widget_area = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
         // run the layout
-        let (ext_area, max_pos) = self.layout(area, state);
+        let (ext_area, max_pos) = self.calc_layout(area, state);
 
         // adjust scroll
         state

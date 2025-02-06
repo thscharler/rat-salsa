@@ -19,6 +19,7 @@ pub struct DualPager<'a, W>
 where
     W: Eq + Hash + Clone,
 {
+    layout: Option<GenericLayout<W>>,
     pager: Pager<W>,
     page_nav: PageNavigation<'a>,
 }
@@ -62,6 +63,7 @@ where
 {
     fn default() -> Self {
         Self {
+            layout: Default::default(),
             pager: Default::default(),
             page_nav: PageNavigation::new().pages(2),
         }
@@ -75,6 +77,13 @@ where
     /// New DualPager
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the layout. If no layout is set here the layout is
+    /// taken from the state.
+    pub fn layout(mut self, layout: GenericLayout<W>) -> Self {
+        self.layout = Some(layout);
+        self
     }
 
     /// Base style.
@@ -133,6 +142,11 @@ where
         buf: &'a mut Buffer,
         state: &mut DualPagerState<W>,
     ) -> DualPagerBuffer<'a, W> {
+        // set layout
+        if let Some(layout) = self.layout {
+            state.layout = Rc::new(RefCell::new(layout));
+        }
+
         state.nav.page_count = (state.layout.borrow().page_count() + 1) / 2;
         state.nav.set_page(state.nav.page);
 
