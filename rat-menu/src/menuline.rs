@@ -517,10 +517,14 @@ impl MenuLineState {
         MenuOutcome::Continue
     }
 
-    /// Select item at position
+    /// Select item at position.
+    ///
+    /// - only_changed: return true only for changed selection.
+    ///   otherwise, return true if there is an area match.
     #[inline]
-    pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
+    pub fn select_at(&mut self, pos: (u16, u16), only_changed: bool) -> bool {
         let old_selected = self.selected;
+        let mut selected = false;
 
         // before first render or no items:
         if self.disabled.is_empty() {
@@ -530,10 +534,15 @@ impl MenuLineState {
         if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
             if self.disabled.get(idx) == Some(&false) {
                 self.selected = Some(idx);
+                selected = true;
             }
         }
 
-        self.selected != old_selected
+        if only_changed {
+            self.selected != old_selected
+        } else {
+            selected
+        }
     }
 
     /// Item at position.
@@ -667,7 +676,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineSt
             }
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
                 let old = self.selected;
-                if self.select_at(self.mouse.pos_of(m)) {
+                if self.select_at(self.mouse.pos_of(m), true) {
                     if old != self.selected {
                         MenuOutcome::Selected(self.selected().expect("selected"))
                     } else {
@@ -678,7 +687,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineSt
                 }
             }
             ct_event!(mouse down Left for col, row) if self.area.contains((*col, *row).into()) => {
-                if self.select_at((*col, *row)) {
+                if self.select_at((*col, *row), false) {
                     MenuOutcome::Selected(self.selected().expect("selected"))
                 } else {
                     MenuOutcome::Continue
