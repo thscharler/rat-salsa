@@ -291,9 +291,9 @@ where
     }
 
     /// Calculates the layout and creates a temporary buffer.
-    pub fn into_buffer(self, area: Rect, state: &mut ClipperState<W>) -> ClipperBuffer<'a, W> {
+    pub fn into_buffer(mut self, area: Rect, state: &mut ClipperState<W>) -> ClipperBuffer<'a, W> {
         state.area = area;
-        if let Some(layout) = self.layout {
+        if let Some(layout) = self.layout.take() {
             state.layout = Rc::new(RefCell::new(layout));
         }
 
