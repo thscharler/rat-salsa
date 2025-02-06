@@ -518,13 +518,11 @@ impl MenuLineState {
     }
 
     /// Select item at position.
-    ///
-    /// - only_changed: return true only for changed selection.
-    ///   otherwise, return true if there is an area match.
+    /// Only reports a change if the selection actually changed.
+    /// Reports no change before the first render and if no item was hit.
     #[inline]
-    pub fn select_at(&mut self, pos: (u16, u16), only_changed: bool) -> bool {
+    pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
         let old_selected = self.selected;
-        let mut selected = false;
 
         // before first render or no items:
         if self.disabled.is_empty() {
@@ -534,15 +532,30 @@ impl MenuLineState {
         if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
             if self.disabled.get(idx) == Some(&false) {
                 self.selected = Some(idx);
-                selected = true;
             }
         }
 
-        if only_changed {
-            self.selected != old_selected
-        } else {
-            selected
+        self.selected != old_selected
+    }
+
+    /// Select item at position.
+    /// Reports a change even if the same menu item has been selected.
+    /// Reports no change before the first render and if no item was hit.
+    #[inline]
+    pub fn select_at_always(&mut self, pos: (u16, u16)) -> bool {
+        // before first render or no items:
+        if self.disabled.is_empty() {
+            return false;
         }
+
+        if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
+            if self.disabled.get(idx) == Some(&false) {
+                self.selected = Some(idx);
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Item at position.
@@ -676,7 +689,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineSt
             }
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
                 let old = self.selected;
-                if self.select_at(self.mouse.pos_of(m), true) {
+                if self.select_at(self.mouse.pos_of(m)) {
                     if old != self.selected {
                         MenuOutcome::Selected(self.selected().expect("selected"))
                     } else {
@@ -687,7 +700,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineSt
                 }
             }
             ct_event!(mouse down Left for col, row) if self.area.contains((*col, *row).into()) => {
-                if self.select_at((*col, *row), false) {
+                if self.select_at_always((*col, *row)) {
                     MenuOutcome::Selected(self.selected().expect("selected"))
                 } else {
                     MenuOutcome::Continue
