@@ -5,10 +5,11 @@
 //!
 
 use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
+use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{Any, TypeId};
-use std::cell::Cell;
+use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Deref, DerefMut};
@@ -35,6 +36,16 @@ pub struct DialogStackState<Global, Event, Error> {
     inner: Rc<Cell<Inner<Global, Event, Error>>>,
 }
 
+struct Inner<Global, Event, Error> {
+    dialog: Vec<Box<DynStackedDialog<Global, Event, Error>>>,
+    state: Vec<Box<dyn StackedDialogState<Global, Event, Error>>>,
+
+    // top has been detached.
+    detached: bool,
+    // top will be popped later, if it is currently detached.
+    pop_top: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DialogStackError {
     InvalidDuringEventHandling,
@@ -50,24 +61,8 @@ impl Display for DialogStackError {
 
 impl Error for DialogStackError {}
 
-struct Inner<Global, Event, Error> {
-    dialog: Vec<
-        Box<
-            dyn StackedDialog<
-                Global,
-                Event,
-                Error,
-                State = dyn StackedDialogState<Global, Event, Error>,
-            >,
-        >,
-    >,
-    state: Vec<Box<dyn StackedDialogState<Global, Event, Error>>>,
-
-    // top has been detached.
-    detached: bool,
-    // top will be popped later, if it is currently detached.
-    pop_top: bool,
-}
+pub type DynStackedDialog<Global, Event, Error> =
+    dyn StackedDialog<Global, Event, Error, State = dyn StackedDialogState<Global, Event, Error>>;
 
 /// Trait for a dialog window.
 pub trait StackedDialog<Global, Event, Error>
@@ -89,7 +84,12 @@ where
     Error: Send + 'static,
     Self: Any + 'static,
     Self: AppState<Global, Event, Error>,
+    Self: HasScreenCursor,
 {
+    /// Is the dialog closed.
+    /// This will be checked after event-handling and will pop the
+    /// dialog from the stack.
+    fn closed(&self) -> bool;
 }
 
 impl<Global, Event, Error>
@@ -309,6 +309,19 @@ where
     }
 }
 
+impl<Global, Event, Error> Clone for DialogStackState<Global, Event, Error>
+where
+    Global: 'static,
+    Event: Send + 'static,
+    Error: Send + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: Rc::clone(&self.inner),
+        }
+    }
+}
+
 impl<Global, Event, Error> Debug for DialogStackState<Global, Event, Error>
 where
     Global: 'static,
@@ -329,19 +342,6 @@ where
     fn default() -> Self {
         Self {
             inner: Default::default(),
-        }
-    }
-}
-
-impl<Global, Event, Error> Clone for DialogStackState<Global, Event, Error>
-where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    fn clone(&self) -> Self {
-        Self {
-            inner: Rc::clone(&self.inner),
         }
     }
 }
@@ -398,10 +398,6 @@ where
     }
 
     /// Test the type of the top dialog.
-    ///
-    /// __Note__
-    ///
-    /// This will not work during event-handling of the dialog itself.
     pub fn top_is<T: 'static>(&self) -> Result<bool, DialogStackError> {
         let inner = self.inner.replace(Inner::default());
 
@@ -424,11 +420,7 @@ where
     }
 
     /// Test the type of the top dialog state.
-    ///
-    /// __Note__
-    ///
-    /// This will not work during event-handling of the dialog itself.
-    pub fn top_state_is<S: 'static>(&self) -> Result<bool, DialogStackError> {
+    pub fn top_state_is<T: 'static>(&self) -> Result<bool, DialogStackError> {
         let inner = self.inner.replace(Inner::default());
 
         if inner.detached {
@@ -442,38 +434,7 @@ where
 
         let state = inner.state.last().expect("state");
         let dyn_transformed = &*state.deref();
-        let r = dyn_transformed.type_id() == TypeId::of::<S>();
-
-        self.inner.set(inner);
-
-        Ok(r)
-    }
-
-    /// Calls the closure with the top state of the stack if the type matches.
-    ///
-    /// __Note__
-    ///
-    /// This will not work during event-handling of the dialog itself.
-    pub fn map_top_state_if<S, MAP, R>(&self, map: MAP) -> Result<R, DialogStackError>
-    where
-        MAP: FnOnce(&mut S) -> R,
-        S: StackedDialogState<Global, Event, Error>,
-    {
-        if !self.top_state_is::<S>()? {
-            return Err(DialogStackError::TypeMismatch);
-        }
-
-        let mut inner = self.inner.replace(Inner::default());
-
-        let dialog = inner.dialog.pop().expect("dialog");
-        let mut state = inner.state.pop().expect("state");
-        let dyn_state = &mut *state.deref_mut();
-        let state_t = dyn_state.downcast_mut::<S>().expect("state");
-
-        let r = map(state_t);
-
-        inner.dialog.push(dialog);
-        inner.state.push(state);
+        let r = dyn_transformed.type_id() == TypeId::of::<T>();
 
         self.inner.set(inner);
 
@@ -484,6 +445,7 @@ where
 mod test {
     use crate::dialog_stack::{StackedDialog, StackedDialogState};
     use crate::{AppState, AppWidget, RenderContext};
+    use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
 
@@ -527,11 +489,20 @@ mod test {
     {
     }
 
+    impl HasScreenCursor for SampleState {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            None
+        }
+    }
+
     impl<Global, Event, Error> StackedDialogState<Global, Event, Error> for SampleState
     where
         Global: 'static,
         Event: Send + 'static,
         Error: Send + 'static,
     {
+        fn closed(&self) -> bool {
+            true
+        }
     }
 }

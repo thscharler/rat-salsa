@@ -106,6 +106,7 @@ pub mod app {
     use rat_widget::event::{ct_event, ConsumedEvent, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::statusline::{StatusLine, StatusLineState};
+    use rat_widget::text::HasScreenCursor;
     use rat_widget::util::fill_buf_area;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -200,20 +201,20 @@ pub mod app {
                     if !ctx.g.dialogs.is_empty()
                         && ctx.g.dialogs.top_state_is::<ErrorDialogState>()?
                     {
-                        debug!("found erroridalog");
-                        ctx.g
-                            .dialogs
-                            .map_top_state_if::<ErrorDialogState, _, _>(|v| {
-                                debug!("map_to_state!");
-                                v.error_dlg.append(s.as_str());
-                            })?;
+                        debug!("topstate is erroridalog");
+                        // let e = ctx
+                        //     .g
+                        //     .dialogs
+                        //     .top_state::<ErrorDialogState>()
+                        //     .expect("error_dialog");
+                        // e.error_dlg.append(s.as_str());
                     } else {
                         ctx.g
                             .dialogs
                             .push_dialog(ErrorDialog, ErrorDialogState::new(s));
-                        debug!("push top {}", ctx.g.dialogs.top_is::<ErrorDialog>()?);
+                        debug!("top {}", ctx.g.dialogs.top_is::<ErrorDialog>()?);
                         debug!(
-                            "push top state {}",
+                            "top state {}",
                             ctx.g.dialogs.top_state_is::<ErrorDialogState>()?
                         );
                     }
@@ -413,18 +414,24 @@ pub mod file_dialog {
         }
     }
 
-    impl StackedDialogState<GlobalState, TurboEvent, Error> for FileDialogState {}
+    impl StackedDialogState<GlobalState, TurboEvent, Error> for FileDialogState {
+        fn closed(&self) -> bool {
+            !self.file_dlg.active()
+        }
+    }
 }
 
 pub mod error_dialog {
     use crate::global::GlobalState;
     use crate::message::TurboEvent;
+    use crate::RenderContext;
     use anyhow::Error;
     use rat_salsa::dialog_stack::{StackedDialog, StackedDialogState};
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{Dialog, HandleEvent};
     use rat_widget::layout::layout_middle;
     use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+    use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Rect};
     use ratatui::widgets::StatefulWidget;
@@ -494,7 +501,17 @@ pub mod error_dialog {
         }
     }
 
-    impl StackedDialogState<GlobalState, TurboEvent, Error> for ErrorDialogState {}
+    impl HasScreenCursor for ErrorDialogState {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            None // todo??
+        }
+    }
+
+    impl StackedDialogState<GlobalState, TurboEvent, Error> for ErrorDialogState {
+        fn closed(&self) -> bool {
+            !self.error_dlg.active()
+        }
+    }
 }
 
 pub mod turbo {
