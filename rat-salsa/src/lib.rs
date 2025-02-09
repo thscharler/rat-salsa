@@ -282,6 +282,20 @@ where
     Event: 'static + Send,
     Error: 'static + Send,
 {
+    fn as_any_mut(&mut self) -> &mut dyn Any
+    where
+        Self: Sized + 'static,
+    {
+        &mut *self
+    }
+
+    fn as_any(&self) -> &dyn Any
+    where
+        Self: Sized + 'static,
+    {
+        &*self
+    }
+
     /// Initialize the application. Runs before the first repaint.
     fn init(
         &mut self, //

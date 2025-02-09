@@ -291,22 +291,29 @@ pub mod file_dialog {
         ) -> Result<(), Error> {
             let state = state.downcast_mut::<FileDialogState>().expect("state");
 
-            let dlg_area = layout_middle(
-                area,
-                Constraint::Percentage(19),
-                Constraint::Percentage(19),
-                Constraint::Length(2),
-                Constraint::Length(2),
-            );
-            self.file_dlg
-                .clone()
-                .render(dlg_area, buf, &mut state.file_dlg);
+            self.file_dlg.clone().render(area, buf, &mut state.file_dlg);
 
             Ok(())
         }
     }
 
-    impl StackedDialog<GlobalState, TurboEvent, Error> for FileDialog {}
+    impl StackedDialog<GlobalState, TurboEvent, Error> for FileDialog {
+        fn layout(
+            &self,
+            area: Rect,
+            _buf: &Buffer,
+            _state: &mut Self::State,
+            _ctx: &mut rat_salsa::RenderContext<'_, GlobalState>,
+        ) -> Result<Rect, Error> {
+            Ok(layout_middle(
+                area,
+                Constraint::Percentage(19),
+                Constraint::Percentage(19),
+                Constraint::Length(2),
+                Constraint::Length(2),
+            ))
+        }
+    }
 
     impl FileDialogState {
         pub fn new() -> Self {
@@ -449,22 +456,31 @@ pub mod error_dialog {
         ) -> Result<(), Error> {
             let state = state.downcast_mut::<ErrorDialogState>().expect("state");
 
-            let dlg_area = layout_middle(
-                area,
-                Constraint::Percentage(19),
-                Constraint::Percentage(19),
-                Constraint::Length(2),
-                Constraint::Length(2),
-            );
             MsgDialog::new()
                 .styles(ctx.g.theme.msg_dialog_style())
-                .render(dlg_area, buf, &mut state.error_dlg);
+                .render(area, buf, &mut state.error_dlg);
 
             Ok(())
         }
     }
 
-    impl StackedDialog<GlobalState, TurboEvent, Error> for ErrorDialog {}
+    impl StackedDialog<GlobalState, TurboEvent, Error> for ErrorDialog {
+        fn layout(
+            &self,
+            area: Rect,
+            _buf: &Buffer,
+            _state: &mut Self::State,
+            _ctx: &mut RenderContext<'_>,
+        ) -> Result<Rect, Error> {
+            Ok(layout_middle(
+                area,
+                Constraint::Percentage(19),
+                Constraint::Percentage(19),
+                Constraint::Length(2),
+                Constraint::Length(2),
+            ))
+        }
+    }
 
     impl ErrorDialogState {
         pub fn new(msg: impl AsRef<str>) -> Self {

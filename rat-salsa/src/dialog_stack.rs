@@ -10,8 +10,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{Any, TypeId};
 use std::cell::{Cell, Ref, RefCell, RefMut};
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
@@ -41,21 +40,6 @@ struct Inner<Global, Event, Error> {
     state: Vec<Box<dyn StackedDialogState<Global, Event, Error>>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DialogStackError {
-    InvalidDuringEventHandling,
-    StackIsEmpty,
-    TypeMismatch,
-}
-
-impl Display for DialogStackError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl Error for DialogStackError {}
-
 pub type DynStackedDialog<Global, Event, Error> =
     dyn StackedDialog<Global, Event, Error, State = dyn StackedDialogState<Global, Event, Error>>;
 
@@ -69,6 +53,14 @@ where
     Self: AppWidget<Global, Event, Error>,
     Self::State: StackedDialogState<Global, Event, Error>,
 {
+    /// Calculate the area where the dialog will be rendered.
+    fn layout(
+        &self,
+        area: Rect,
+        buf: &Buffer,
+        state: &mut Self::State,
+        ctx: &mut RenderContext<'_, Global>,
+    ) -> Result<Rect, Error>;
 }
 
 /// Trait for a dialogs state.
@@ -191,45 +183,12 @@ where
     ) -> Result<(), Error> {
         // render in order. last is top.
         let mut inner = state.inner.replace(Inner::default());
-
-        let r = 'l: {
-            // render in order. last is top.
-            for (dialog, state) in inner.dialog.iter().zip(inner.state.iter_mut()) {
-                let r = dialog.render(area, buf, state.as_mut(), ctx);
-                if r.is_err() {
-                    break 'l r;
-                }
-            }
-            Ok(())
-        };
-
-        state.inner.set(inner);
-        Ok(r?)
-    }
-}
-
-impl<Global, Event, Error> Debug for Inner<Global, Event, Error>
-where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Inner").field("..dyn..", &()).finish()
-    }
-}
-
-impl<Global, Event, Error> Default for Inner<Global, Event, Error>
-where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    fn default() -> Self {
-        Self {
-            dialog: Default::default(),
-            state: Default::default(),
+        for (dialog, state) in inner.dialog.iter_mut().zip(inner.state.iter_mut()) {
+            let area = dialog.layout(area, buf, state.as_mut(), ctx)?;
+            dialog.render(area, buf, state.as_mut(), ctx)?;
         }
+        state.inner.set(inner);
+        Ok(())
     }
 }
 
@@ -246,17 +205,11 @@ where
 
     fn shutdown(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<(), Error> {
         let mut inner = self.inner.replace(Inner::default());
-        let r = 'l: {
-            for state in inner.state.iter_mut().rev() {
-                let r = state.shutdown(ctx);
-                if r.is_err() {
-                    break 'l r;
-                }
-            }
-            Ok(())
-        };
+        for state in inner.state.iter_mut().rev() {
+            state.shutdown(ctx)?;
+        }
         self.inner.set(inner);
-        Ok(r?)
+        Ok(())
     }
 
     fn event(
@@ -295,6 +248,31 @@ where
     }
 }
 
+impl<Global, Event, Error> Default for Inner<Global, Event, Error>
+where
+    Global: 'static,
+    Event: Send + 'static,
+    Error: Send + 'static,
+{
+    fn default() -> Self {
+        Self {
+            dialog: Default::default(),
+            state: Default::default(),
+        }
+    }
+}
+
+impl<Global, Event, Error> Debug for Inner<Global, Event, Error>
+where
+    Global: 'static,
+    Event: Send + 'static,
+    Error: Send + 'static,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 impl<Global, Event, Error> Clone for DialogStackState<Global, Event, Error>
 where
     Global: 'static,
@@ -314,8 +292,8 @@ where
     Event: Send + 'static,
     Error: Send + 'static,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DialogStackState").finish()
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!();
     }
 }
 
@@ -426,6 +404,15 @@ mod test {
         Event: Send + 'static,
         Error: Send + 'static,
     {
+        fn layout(
+            &self,
+            _area: Rect,
+            _buf: &Buffer,
+            _state: &mut Self::State,
+            _ctx: &mut RenderContext<'_, Global>,
+        ) -> Result<Rect, Error> {
+            todo!()
+        }
     }
 
     impl<Global, Event, Error> AppState<Global, Event, Error> for SampleState
