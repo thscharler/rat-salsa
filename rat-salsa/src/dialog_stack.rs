@@ -39,6 +39,11 @@ pub struct DialogStackState<Global, Event, Error> {
 struct Inner<Global, Event, Error> {
     dialog: Vec<Box<DynStackedDialog<Global, Event, Error>>>,
     state: Vec<Box<dyn StackedDialogState<Global, Event, Error>>>,
+
+    // top has been detached.
+    detached: bool,
+    // top will be popped later, if it is currently detached.
+    pop_top: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -229,6 +234,8 @@ where
         Self {
             dialog: Default::default(),
             state: Default::default(),
+            detached: Default::default(),
+            pop_top: Default::default(),
         }
     }
 }
@@ -277,6 +284,7 @@ where
             let state = inner.state.pop().expect("state");
             let idx = inner.dialog.len();
 
+            inner.detached = true;
             self.inner.set(inner);
 
             (idx, dialog, state)
@@ -286,8 +294,14 @@ where
 
         {
             let mut inner = self.inner.replace(Inner::default());
-            inner.dialog.insert(idx, dialog);
-            inner.state.insert(idx, state);
+            if !inner.pop_top {
+                inner.detached = false;
+                inner.dialog.insert(idx, dialog);
+                inner.state.insert(idx, state);
+            } else {
+                inner.detached = false;
+                inner.pop_top = false;
+            }
             self.inner.set(inner);
         }
 
@@ -343,9 +357,6 @@ where
     }
 
     /// Push a new dialog window on the stack.
-    ///
-    /// It is popped again when it's closed() function returns true.
-    /// This is checked during event handling.
     pub fn push_dialog(
         &mut self,
         dialog: impl StackedDialog<
@@ -362,30 +373,72 @@ where
         self.inner.set(inner);
     }
 
-    /// Test the type of the top dialog.
-    pub fn top_is<T: 'static>(&self) -> bool {
-        let inner = self.inner.replace(Inner::default());
-        let r = if let Some(inner) = inner.dialog.last() {
-            let dyn_transformed = &*inner.deref();
-            dyn_transformed.type_id() == TypeId::of::<T>()
+    /// Pop the top dialog from the stack.
+    ///
+    /// This can be called repeatedly if necessary.
+    /// It can even be called during event-handling of the dialog itself.
+    pub fn pop_dialog(&mut self) {
+        let mut inner = self.inner.replace(Inner::default());
+        if inner.detached && !inner.pop_top {
+            inner.pop_top = true;
+            self.inner.set(inner);
         } else {
-            false
-        };
+            inner.dialog.pop().expect("dialog");
+            inner.state.pop().expect("state");
+            self.inner.set(inner);
+        }
+    }
+
+    /// Is the dialog stack empty?
+    pub fn is_empty(&self) -> bool {
+        let inner = self.inner.replace(Inner::default());
+        let r = inner.state.is_empty() && !inner.detached;
         self.inner.set(inner);
         r
     }
 
-    /// Test the type of the top dialog state.
-    pub fn top_state_is<T: 'static>(&self) -> bool {
+    /// Test the type of the top dialog.
+    pub fn top_is<T: 'static>(&self) -> Result<bool, DialogStackError> {
         let inner = self.inner.replace(Inner::default());
-        let r = if let Some(inner) = inner.state.last() {
-            let dyn_transformed = &*inner.deref();
-            dyn_transformed.type_id() == TypeId::of::<T>()
-        } else {
-            false
-        };
+
+        if inner.detached {
+            self.inner.set(inner);
+            return Err(DialogStackError::InvalidDuringEventHandling);
+        }
+        if inner.dialog.is_empty() {
+            self.inner.set(inner);
+            return Err(DialogStackError::StackIsEmpty);
+        }
+
+        let dialog = inner.dialog.last().expect("dialog");
+        let dyn_transformed = &*dialog.deref();
+        let r = dyn_transformed.type_id() == TypeId::of::<T>();
+
         self.inner.set(inner);
-        r
+
+        Ok(r)
+    }
+
+    /// Test the type of the top dialog state.
+    pub fn top_state_is<T: 'static>(&self) -> Result<bool, DialogStackError> {
+        let inner = self.inner.replace(Inner::default());
+
+        if inner.detached {
+            self.inner.set(inner);
+            return Err(DialogStackError::InvalidDuringEventHandling);
+        }
+        if inner.state.is_empty() {
+            self.inner.set(inner);
+            return Err(DialogStackError::StackIsEmpty);
+        }
+
+        let state = inner.state.last().expect("state");
+        let dyn_transformed = &*state.deref();
+        let r = dyn_transformed.type_id() == TypeId::of::<T>();
+
+        self.inner.set(inner);
+
+        Ok(r)
     }
 }
 

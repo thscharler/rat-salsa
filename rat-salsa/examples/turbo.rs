@@ -198,7 +198,9 @@ pub mod app {
                     r
                 }
                 TurboEvent::Message(s) => {
-                    if ctx.g.dialogs.top_state_is::<ErrorDialogState>() {
+                    if !ctx.g.dialogs.is_empty()
+                        && ctx.g.dialogs.top_state_is::<ErrorDialogState>()?
+                    {
                         debug!("topstate is erroridalog");
                         // let e = ctx
                         //     .g
@@ -210,6 +212,11 @@ pub mod app {
                         ctx.g
                             .dialogs
                             .push_dialog(ErrorDialog, ErrorDialogState::new(s));
+                        debug!("top {}", ctx.g.dialogs.top_is::<ErrorDialog>()?);
+                        debug!(
+                            "top state {}",
+                            ctx.g.dialogs.top_state_is::<ErrorDialogState>()?
+                        );
                     }
                     Control::Changed
                 }
@@ -511,6 +518,7 @@ pub mod turbo {
     use crate::file_dialog::{FileDialog, FileDialogState};
     use crate::{GlobalState, RenderContext, TurboEvent};
     use anyhow::Error;
+    use log::debug;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, try_flow, FileOutcome, HandleEvent, MenuOutcome, Popup};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
@@ -870,6 +878,12 @@ pub mod turbo {
                                                 r => r.into(),
                                             }),
                                     );
+                                    debug!("top {}", ctx.g.dialogs.top_is::<FileDialog>()?);
+                                    debug!(
+                                        "top state {}",
+                                        ctx.g.dialogs.top_state_is::<FileDialogState>()?
+                                    );
+
                                     Control::Changed
                                 }
                                 MenuOutcome::MenuActivated(0, 9) => Control::Quit,
