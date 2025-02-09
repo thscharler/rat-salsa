@@ -77,8 +77,6 @@ pub mod config {
 
 /// Application wide messages.
 pub mod message {
-    use crossterm::event::Event;
-
     #[derive(Debug)]
     pub enum TurboEvent {
         Event(crossterm::event::Event),
@@ -87,20 +85,30 @@ pub mod message {
     }
 
     impl From<crossterm::event::Event> for TurboEvent {
-        fn from(value: Event) -> Self {
+        fn from(value: crossterm::event::Event) -> Self {
             Self::Event(value)
+        }
+    }
+
+    impl<'a> TryFrom<&'a TurboEvent> for &'a crossterm::event::Event {
+        type Error = ();
+
+        fn try_from(value: &'a TurboEvent) -> Result<Self, Self::Error> {
+            match value {
+                TurboEvent::Event(event) => Ok(event),
+                _ => Err(()),
+            }
         }
     }
 }
 
 pub mod app {
-    use crate::error_dialog::{ErrorDialog, ErrorDialogState};
     use crate::global::GlobalState;
     use crate::message::TurboEvent;
     use crate::turbo::{Turbo, TurboState};
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
-    use log::debug;
+    use rat_dialog::widgets::{MsgDialog, MsgDialogState};
     use rat_dialog::DialogStack;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, ConsumedEvent, HandleEvent, Regular};
@@ -198,23 +206,19 @@ pub mod app {
                 }
                 TurboEvent::Message(s) => {
                     if !ctx.g.dialogs.is_empty()
-                        && ctx.g.dialogs.top_state_is::<ErrorDialogState>()?
+                        && ctx.g.dialogs.top_state_is::<MsgDialogState>()?
                     {
-                        debug!("found erroridalog");
                         ctx.g
                             .dialogs
-                            .map_top_state_if::<ErrorDialogState, _, _>(|v| {
-                                debug!("map_to_state!");
-                                v.error_dlg.append(s.as_str());
+                            .map_top_state_if::<MsgDialogState, _, _>(|v| {
+                                v.append(s.as_str());
                             })?;
                     } else {
-                        ctx.g
-                            .dialogs
-                            .push_dialog(ErrorDialog, ErrorDialogState::new(s));
-                        debug!("push top {}", ctx.g.dialogs.top_is::<ErrorDialog>()?);
-                        debug!(
-                            "push top state {}",
-                            ctx.g.dialogs.top_state_is::<ErrorDialogState>()?
+                        ctx.g.dialogs.push_dialog(
+                            |_, ctx| {
+                                Box::new(MsgDialog::new().styles(ctx.g.theme.msg_dialog_style()))
+                            },
+                            MsgDialogState::new(s),
                         );
                     }
                     Control::Changed
@@ -238,9 +242,10 @@ pub mod app {
             event: Error,
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<TurboEvent>, Error> {
-            ctx.g
-                .dialogs
-                .push_dialog(ErrorDialog, ErrorDialogState::new(format!("{:?}", &*event)));
+            ctx.g.dialogs.push_dialog(
+                |_, ctx| Box::new(MsgDialog::new().styles(ctx.g.theme.msg_dialog_style())),
+                MsgDialogState::new(format!("{:?}", &*event)),
+            );
             Ok(Control::Changed)
         }
     }
@@ -251,7 +256,7 @@ pub mod file_dialog {
     use crate::message::TurboEvent;
     use crate::RenderContext;
     use anyhow::Error;
-    use rat_dialog::{StackedDialog, StackedDialogState};
+    use rat_dialog::DialogState;
     use rat_salsa::{AppContext, AppState, AppWidget, Control};
     use rat_widget::event::{Dialog, FileOutcome, HandleEvent};
     use rat_widget::file_dialog::FileDialogStyle;
@@ -264,36 +269,36 @@ pub mod file_dialog {
     use std::path::{Path, PathBuf};
 
     pub struct FileDialog {
-        file_dlg: rat_widget::file_dialog::FileDialog<'static>,
+        widget: rat_widget::file_dialog::FileDialog<'static>,
     }
 
     pub struct FileDialogState {
-        pub file_dlg: rat_widget::file_dialog::FileDialogState,
+        pub state: rat_widget::file_dialog::FileDialogState,
         pub tr: Box<dyn Fn(FileOutcome) -> Control<TurboEvent> + 'static>,
     }
 
     impl FileDialog {
         pub fn new() -> Self {
             Self {
-                file_dlg: Default::default(),
+                widget: Default::default(),
             }
         }
 
         pub fn styles(mut self, styles: FileDialogStyle) -> Self {
-            self.file_dlg = self.file_dlg.styles(styles);
+            self.widget = self.widget.styles(styles);
             self
         }
     }
 
     impl AppWidget<GlobalState, TurboEvent, Error> for FileDialog {
-        type State = dyn StackedDialogState<GlobalState, TurboEvent, Error>;
+        type State = dyn DialogState<GlobalState, TurboEvent, Error>;
 
         fn render(
             &self,
             area: Rect,
             buf: &mut Buffer,
             state: &mut Self::State,
-            _ctx: &mut RenderContext<'_>,
+            ctx: &mut RenderContext<'_>,
         ) -> Result<(), Error> {
             let state = state.downcast_mut::<FileDialogState>().expect("state");
 
@@ -304,26 +309,25 @@ pub mod file_dialog {
                 Constraint::Length(2),
                 Constraint::Length(2),
             );
-            self.file_dlg
-                .clone()
-                .render(dlg_area, buf, &mut state.file_dlg);
+
+            self.widget.clone().render(dlg_area, buf, &mut state.state);
+
+            ctx.set_screen_cursor(state.state.screen_cursor());
 
             Ok(())
         }
     }
 
-    impl StackedDialog<GlobalState, TurboEvent, Error> for FileDialog {}
-
     impl FileDialogState {
         pub fn new() -> Self {
             Self {
-                file_dlg: rat_widget::file_dialog::FileDialogState::new(),
+                state: rat_widget::file_dialog::FileDialogState::new(),
                 tr: Box::new(|f| Control::from(f)),
             }
         }
 
         pub fn open_dialog(mut self, path: impl AsRef<Path>) -> Result<Self, Error> {
-            self.file_dlg.open_dialog(path)?;
+            self.state.open_dialog(path)?;
             Ok(self)
         }
 
@@ -332,7 +336,7 @@ pub mod file_dialog {
             path: impl AsRef<Path>,
             name: impl AsRef<str>,
         ) -> Result<Self, Error> {
-            self.file_dlg.save_dialog(path, name)?;
+            self.state.save_dialog(path, name)?;
             Ok(self)
         }
 
@@ -342,7 +346,7 @@ pub mod file_dialog {
             name: impl AsRef<str>,
             ext: impl AsRef<str>,
         ) -> Result<Self, Error> {
-            self.file_dlg.save_dialog_ext(path, name, ext)?;
+            self.state.save_dialog_ext(path, name, ext)?;
             Ok(self)
         }
 
@@ -355,37 +359,37 @@ pub mod file_dialog {
         }
 
         pub fn directory_dialog(mut self, path: impl AsRef<Path>) -> Result<Self, Error> {
-            self.file_dlg.directory_dialog(path)?;
+            self.state.directory_dialog(path)?;
             Ok(self)
         }
 
         /// Set a filter.
         pub fn set_filter(mut self, filter: impl Fn(&Path) -> bool + 'static) -> Self {
-            self.file_dlg.set_filter(filter);
+            self.state.set_filter(filter);
             self
         }
 
         /// Use the default set of roots.
         pub fn use_default_roots(mut self, roots: bool) -> Self {
-            self.file_dlg.use_default_roots(roots);
+            self.state.use_default_roots(roots);
             self
         }
 
         /// Add a root path.
         pub fn add_root(mut self, name: impl AsRef<str>, path: impl Into<PathBuf>) -> Self {
-            self.file_dlg.add_root(name, path);
+            self.state.add_root(name, path);
             self
         }
 
         /// Clear all roots.
         pub fn clear_roots(mut self) -> Self {
-            self.file_dlg.clear_roots();
+            self.state.clear_roots();
             self
         }
 
         /// Append the default roots.
         pub fn default_roots(mut self, start: &Path, last: &Path) -> Self {
-            self.file_dlg.default_roots(start, last);
+            self.state.default_roots(start, last);
             self
         }
     }
@@ -397,7 +401,7 @@ pub mod file_dialog {
             _ctx: &mut AppContext<'_, GlobalState, TurboEvent, Error>,
         ) -> Result<Control<TurboEvent>, Error> {
             let r = if let TurboEvent::Event(event) = event {
-                let r = self.file_dlg.handle(event, Dialog)?.into();
+                let r = self.state.handle(event, Dialog)?.into();
                 (self.tr)(r)
             } else {
                 Control::Continue
@@ -407,38 +411,51 @@ pub mod file_dialog {
         }
     }
 
-    impl HasScreenCursor for FileDialogState {
-        fn screen_cursor(&self) -> Option<(u16, u16)> {
-            self.file_dlg.screen_cursor()
+    impl DialogState<GlobalState, TurboEvent, Error> for FileDialogState {
+        fn active(&self) -> bool {
+            self.state.active()
         }
     }
-
-    impl StackedDialogState<GlobalState, TurboEvent, Error> for FileDialogState {}
 }
 
 pub mod error_dialog {
     use crate::global::GlobalState;
     use crate::message::TurboEvent;
     use anyhow::Error;
-    use rat_dialog::{StackedDialog, StackedDialogState};
+    use rat_dialog::DialogState;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{Dialog, HandleEvent};
     use rat_widget::layout::layout_middle;
-    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+    use rat_widget::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Rect};
     use ratatui::widgets::StatefulWidget;
 
     #[derive(Debug)]
-    pub struct ErrorDialog;
+    pub struct ErrorDialog {
+        widget: MsgDialog<'static>,
+    }
 
     #[derive(Debug)]
     pub struct ErrorDialogState {
-        pub error_dlg: MsgDialogState,
+        state: MsgDialogState,
+    }
+
+    impl ErrorDialog {
+        pub fn new() -> Self {
+            Self {
+                widget: Default::default(),
+            }
+        }
+
+        pub fn styles(mut self, styles: MsgDialogStyle) -> Self {
+            self.widget = self.widget.styles(styles);
+            self
+        }
     }
 
     impl AppWidget<GlobalState, TurboEvent, Error> for ErrorDialog {
-        type State = dyn StackedDialogState<GlobalState, TurboEvent, Error>;
+        type State = dyn DialogState<GlobalState, TurboEvent, Error>;
 
         fn render(
             &self,
@@ -458,22 +475,22 @@ pub mod error_dialog {
             );
             MsgDialog::new()
                 .styles(ctx.g.theme.msg_dialog_style())
-                .render(dlg_area, buf, &mut state.error_dlg);
+                .render(dlg_area, buf, &mut state.state);
 
             Ok(())
         }
     }
-
-    impl StackedDialog<GlobalState, TurboEvent, Error> for ErrorDialog {}
 
     impl ErrorDialogState {
         pub fn new(msg: impl AsRef<str>) -> Self {
             let msg_dialog = MsgDialogState::default();
             msg_dialog.append(msg.as_ref());
             msg_dialog.set_active(true);
-            Self {
-                error_dlg: msg_dialog,
-            }
+            Self { state: msg_dialog }
+        }
+
+        pub fn append(&self, msg: &str) {
+            self.state.append(msg);
         }
     }
 
@@ -484,7 +501,7 @@ pub mod error_dialog {
             _ctx: &mut rat_salsa::AppContext<'_, GlobalState, TurboEvent, Error>,
         ) -> Result<Control<TurboEvent>, Error> {
             let r = if let TurboEvent::Event(event) = event {
-                let r = self.error_dlg.handle(event, Dialog).into();
+                let r = self.state.handle(event, Dialog).into();
                 r
             } else {
                 Control::Continue
@@ -494,14 +511,17 @@ pub mod error_dialog {
         }
     }
 
-    impl StackedDialogState<GlobalState, TurboEvent, Error> for ErrorDialogState {}
+    impl DialogState<GlobalState, TurboEvent, Error> for ErrorDialogState {
+        fn active(&self) -> bool {
+            self.state.active()
+        }
+    }
 }
 
 pub mod turbo {
-    use crate::file_dialog::{FileDialog, FileDialogState};
     use crate::{GlobalState, RenderContext, TurboEvent};
     use anyhow::Error;
-    use log::debug;
+    use rat_dialog::widgets::{FileDialog, FileDialogState};
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, try_flow, FileOutcome, HandleEvent, MenuOutcome, Popup};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
@@ -814,7 +834,12 @@ pub mod turbo {
                             match rr {
                                 MenuOutcome::MenuActivated(0, 0) => {
                                     ctx.g.dialogs.push_dialog(
-                                        FileDialog::new().styles(ctx.g.theme.file_dialog_style()),
+                                        |_, ctx| {
+                                            Box::new(
+                                                FileDialog::new()
+                                                    .styles(ctx.g.theme.file_dialog_style()),
+                                            )
+                                        },
                                         FileDialogState::new()
                                             .save_dialog_ext(PathBuf::from("."), "", "pas")?
                                             .map_outcome(|r| match r {
@@ -831,7 +856,12 @@ pub mod turbo {
                                 }
                                 MenuOutcome::MenuActivated(0, 1) => {
                                     ctx.g.dialogs.push_dialog(
-                                        FileDialog::new().styles(ctx.g.theme.file_dialog_style()),
+                                        |_, ctx| {
+                                            Box::new(
+                                                FileDialog::new()
+                                                    .styles(ctx.g.theme.file_dialog_style()),
+                                            )
+                                        },
                                         FileDialogState::new()
                                             .open_dialog(PathBuf::from("."))?
                                             .map_outcome(|r| match r {
@@ -848,7 +878,12 @@ pub mod turbo {
                                 }
                                 MenuOutcome::MenuActivated(0, 3) => {
                                     ctx.g.dialogs.push_dialog(
-                                        FileDialog::new().styles(ctx.g.theme.file_dialog_style()),
+                                        |_, ctx| {
+                                            Box::new(
+                                                FileDialog::new()
+                                                    .styles(ctx.g.theme.file_dialog_style()),
+                                            )
+                                        },
                                         FileDialogState::new()
                                             .save_dialog_ext(PathBuf::from("."), "", "pas")?
                                             .map_outcome(|r| match r {
@@ -860,11 +895,6 @@ pub mod turbo {
                                                 }
                                                 r => r.into(),
                                             }),
-                                    );
-                                    debug!("top {}", ctx.g.dialogs.top_is::<FileDialog>()?);
-                                    debug!(
-                                        "top state {}",
-                                        ctx.g.dialogs.top_state_is::<FileDialogState>()?
                                     );
 
                                     Control::Changed

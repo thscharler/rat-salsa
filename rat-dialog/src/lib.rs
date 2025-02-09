@@ -14,6 +14,8 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
+pub mod widgets;
+
 /// DialogStack.
 ///
 /// Call render() for this as the last action when rendering your
@@ -53,15 +55,15 @@ impl Error for DialogStackError {}
 struct Inner<Global, Event, Error> {
     dialog: Vec<
         Box<
-            dyn StackedDialog<
-                Global,
-                Event,
-                Error,
-                State = dyn StackedDialogState<Global, Event, Error>,
+            dyn Fn(
+                Rect,
+                &'_ mut RenderContext<'_, Global>,
+            ) -> Box<
+                dyn AppWidget<Global, Event, Error, State = dyn DialogState<Global, Event, Error>>,
             >,
         >,
     >,
-    state: Vec<Box<dyn StackedDialogState<Global, Event, Error>>>,
+    state: Vec<Box<dyn DialogState<Global, Event, Error>>>,
 
     // top has been detached.
     detached: bool,
@@ -69,54 +71,26 @@ struct Inner<Global, Event, Error> {
     pop_top: bool,
 }
 
-/// Trait for a dialog window.
-pub trait StackedDialog<Global, Event, Error>
-where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-    Self: Any + 'static,
-    Self: AppWidget<Global, Event, Error>,
-    Self::State: StackedDialogState<Global, Event, Error>,
-{
-}
-
 /// Trait for a dialogs state.
-pub trait StackedDialogState<Global, Event, Error>
+pub trait DialogState<Global, Event, Error>: AppState<Global, Event, Error> + Any
 where
     Global: 'static,
     Event: Send + 'static,
     Error: Send + 'static,
-    Self: Any + 'static,
-    Self: AppState<Global, Event, Error>,
 {
+    fn active(&self) -> bool;
 }
 
-impl<Global, Event, Error>
-    dyn StackedDialog<Global, Event, Error, State = dyn StackedDialogState<Global, Event, Error>>
+impl<Global, Event, Error> dyn DialogState<Global, Event, Error>
 where
     Global: 'static,
     Event: Send + 'static,
     Error: Send + 'static,
 {
     /// down cast Any style.
-    pub fn downcast_ref<
-        R: StackedDialog<
-                Global,
-                Event,
-                Error,
-                State = dyn StackedDialogState<Global, Event, Error>,
-            > + 'static,
-    >(
-        &self,
-    ) -> Option<&R> {
+    pub fn downcast_ref<R: DialogState<Global, Event, Error>>(&self) -> Option<&R> {
         if self.type_id() == TypeId::of::<R>() {
-            let p: *const dyn StackedDialog<
-                Global,
-                Event,
-                Error,
-                State = dyn StackedDialogState<Global, Event, Error>,
-            > = self;
+            let p: *const dyn DialogState<Global, Event, Error> = self;
             Some(unsafe { &*(p as *const R) })
         } else {
             None
@@ -124,54 +98,9 @@ where
     }
 
     /// down cast Any style.
-    pub fn downcast_mut<
-        R: StackedDialog<
-                Global,
-                Event,
-                Error,
-                State = dyn StackedDialogState<Global, Event, Error>,
-            > + 'static,
-    >(
-        &'_ mut self,
-    ) -> Option<&'_ mut R> {
+    pub fn downcast_mut<R: DialogState<Global, Event, Error>>(&'_ mut self) -> Option<&'_ mut R> {
         if (*self).type_id() == TypeId::of::<R>() {
-            let p: *mut dyn StackedDialog<
-                Global,
-                Event,
-                Error,
-                State = dyn StackedDialogState<Global, Event, Error>,
-            > = self;
-            Some(unsafe { &mut *(p as *mut R) })
-        } else {
-            None
-        }
-    }
-}
-
-impl<Global, Event, Error> dyn StackedDialogState<Global, Event, Error>
-where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    /// down cast Any style.
-    pub fn downcast_ref<R: StackedDialogState<Global, Event, Error> + 'static>(
-        &self,
-    ) -> Option<&R> {
-        if self.type_id() == TypeId::of::<R>() {
-            let p: *const dyn StackedDialogState<Global, Event, Error> = self;
-            Some(unsafe { &*(p as *const R) })
-        } else {
-            None
-        }
-    }
-
-    /// down cast Any style.
-    pub fn downcast_mut<R: StackedDialogState<Global, Event, Error> + 'static>(
-        &'_ mut self,
-    ) -> Option<&'_ mut R> {
-        if (*self).type_id() == TypeId::of::<R>() {
-            let p: *mut dyn StackedDialogState<Global, Event, Error> = self;
+            let p: *mut dyn DialogState<Global, Event, Error> = self;
             Some(unsafe { &mut *(p as *mut R) })
         } else {
             None
@@ -200,7 +129,8 @@ where
         let r = 'l: {
             // render in order. last is top.
             for (dialog, state) in inner.dialog.iter().zip(inner.state.iter_mut()) {
-                let r = dialog.render(area, buf, state.as_mut(), ctx);
+                let widget = dialog(area, ctx);
+                let r = widget.render(area, buf, state.as_mut(), ctx);
                 if r.is_err() {
                     break 'l r;
                 }
@@ -215,7 +145,6 @@ where
 
 impl<Global, Event, Error> Debug for Inner<Global, Event, Error>
 where
-    Global: 'static,
     Event: Send + 'static,
     Error: Send + 'static,
 {
@@ -226,7 +155,6 @@ where
 
 impl<Global, Event, Error> Default for Inner<Global, Event, Error>
 where
-    Global: 'static,
     Event: Send + 'static,
     Error: Send + 'static,
 {
@@ -290,28 +218,28 @@ where
             (idx, dialog, state)
         };
 
-        let r = state.event(event, ctx)?;
+        let r = state.event(event, ctx);
+        let active = state.active();
 
         {
             let mut inner = self.inner.replace(Inner::default());
-            if !inner.pop_top {
+            if inner.pop_top || !active {
+                inner.detached = false;
+                inner.pop_top = false;
+            } else {
                 inner.detached = false;
                 inner.dialog.insert(idx, dialog);
                 inner.state.insert(idx, state);
-            } else {
-                inner.detached = false;
-                inner.pop_top = false;
             }
             self.inner.set(inner);
         }
 
-        Ok(r)
+        r
     }
 }
 
 impl<Global, Event, Error> Debug for DialogStackState<Global, Event, Error>
 where
-    Global: 'static,
     Event: Send + 'static,
     Error: Send + 'static,
 {
@@ -322,7 +250,6 @@ where
 
 impl<Global, Event, Error> Default for DialogStackState<Global, Event, Error>
 where
-    Global: 'static,
     Event: Send + 'static,
     Error: Send + 'static,
 {
@@ -335,7 +262,6 @@ where
 
 impl<Global, Event, Error> Clone for DialogStackState<Global, Event, Error>
 where
-    Global: 'static,
     Event: Send + 'static,
     Error: Send + 'static,
 {
@@ -357,16 +283,16 @@ where
     }
 
     /// Push a new dialog window on the stack.
-    pub fn push_dialog(
-        &mut self,
-        dialog: impl StackedDialog<
-                Global,
-                Event,
-                Error,
-                State = dyn StackedDialogState<Global, Event, Error>,
+    pub fn push_dialog<Construct, State>(&mut self, dialog: Construct, state: State)
+    where
+        Construct: Fn(
+                Rect,
+                &'_ mut RenderContext<'_, Global>,
+            ) -> Box<
+                dyn AppWidget<Global, Event, Error, State = dyn DialogState<Global, Event, Error>>,
             > + 'static,
-        state: impl StackedDialogState<Global, Event, Error>,
-    ) {
+        State: DialogState<Global, Event, Error> + 'static,
+    {
         let mut inner = self.inner.replace(Inner::default());
         inner.dialog.push(Box::new(dialog));
         inner.state.push(Box::new(state));
@@ -383,8 +309,8 @@ where
             inner.pop_top = true;
             self.inner.set(inner);
         } else {
-            inner.dialog.pop().expect("dialog");
-            inner.state.pop().expect("state");
+            _ = inner.dialog.pop().expect("dialog");
+            _ = inner.state.pop().expect("state");
             self.inner.set(inner);
         }
     }
@@ -395,32 +321,6 @@ where
         let r = inner.state.is_empty() && !inner.detached;
         self.inner.set(inner);
         r
-    }
-
-    /// Test the type of the top dialog.
-    ///
-    /// __Note__
-    ///
-    /// This will not work during event-handling of the dialog itself.
-    pub fn top_is<T: 'static>(&self) -> Result<bool, DialogStackError> {
-        let inner = self.inner.replace(Inner::default());
-
-        if inner.detached {
-            self.inner.set(inner);
-            return Err(DialogStackError::InvalidDuringEventHandling);
-        }
-        if inner.dialog.is_empty() {
-            self.inner.set(inner);
-            return Err(DialogStackError::StackIsEmpty);
-        }
-
-        let dialog = inner.dialog.last().expect("dialog");
-        let dyn_transformed = &*dialog.deref();
-        let r = dyn_transformed.type_id() == TypeId::of::<T>();
-
-        self.inner.set(inner);
-
-        Ok(r)
     }
 
     /// Test the type of the top dialog state.
@@ -457,7 +357,7 @@ where
     pub fn map_top_state_if<S, MAP, R>(&self, map: MAP) -> Result<R, DialogStackError>
     where
         MAP: FnOnce(&mut S) -> R,
-        S: StackedDialogState<Global, Event, Error>,
+        S: DialogState<Global, Event, Error>,
     {
         if !self.top_state_is::<S>()? {
             return Err(DialogStackError::TypeMismatch);
@@ -482,8 +382,8 @@ where
 }
 
 mod test {
+    use crate::DialogState;
     use crate::{AppState, AppWidget, RenderContext};
-    use crate::{StackedDialog, StackedDialogState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
 
@@ -498,7 +398,7 @@ mod test {
         Event: Send + 'static,
         Error: Send + 'static,
     {
-        type State = dyn StackedDialogState<Global, Event, Error>;
+        type State = dyn DialogState<Global, Event, Error>;
 
         fn render(
             &self,
@@ -511,14 +411,6 @@ mod test {
         }
     }
 
-    impl<Global, Event, Error> StackedDialog<Global, Event, Error> for Sample
-    where
-        Global: 'static,
-        Event: Send + 'static,
-        Error: Send + 'static,
-    {
-    }
-
     impl<Global, Event, Error> AppState<Global, Event, Error> for SampleState
     where
         Global: 'static,
@@ -527,11 +419,14 @@ mod test {
     {
     }
 
-    impl<Global, Event, Error> StackedDialogState<Global, Event, Error> for SampleState
+    impl<Global, Event, Error> DialogState<Global, Event, Error> for SampleState
     where
         Global: 'static,
         Event: Send + 'static,
         Error: Send + 'static,
     {
+        fn active(&self) -> bool {
+            todo!()
+        }
     }
 }
