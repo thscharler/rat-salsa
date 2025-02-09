@@ -52,7 +52,7 @@ use sysinfo::Disks;
 ///
 /// * Quick jump between lists with F1..F5.
 ///
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct FileDialog<'a> {
     block: Option<Block<'a>>,
 
@@ -224,13 +224,13 @@ impl Default for FileDialogState {
             active: false,
             mode: Mode::Open,
             path: Default::default(),
-            save_name: None,
-            save_ext: None,
-            dirs: vec![],
-            filter: None,
-            files: vec![],
-            use_default_roots: false,
-            roots: vec![],
+            save_name: Default::default(),
+            save_ext: Default::default(),
+            dirs: Default::default(),
+            filter: Default::default(),
+            files: Default::default(),
+            use_default_roots: true,
+            roots: Default::default(),
             path_state: Default::default(),
             root_state: Default::default(),
             dir_state: Default::default(),
@@ -240,26 +240,31 @@ impl Default for FileDialogState {
             cancel_state: Default::default(),
             ok_state: Default::default(),
         };
-        s.use_default_roots = true;
         s.dir_state.list.set_scroll_selection(true);
         s.file_state.set_scroll_selection(true);
         s
     }
 }
 
-impl<'a> FileDialog<'a> {
-    /// New dialog
-    pub fn new() -> Self {
+impl<'a> Default for FileDialog<'a> {
+    fn default() -> Self {
         Self {
-            block: None,
+            block: Default::default(),
             style: Default::default(),
-            list_style: None,
-            roots_style: None,
-            text_style: None,
-            button_style: None,
+            list_style: Default::default(),
+            roots_style: Default::default(),
+            text_style: Default::default(),
+            button_style: Default::default(),
             ok_text: "Ok",
             cancel_text: "Cancel",
         }
+    }
+}
+
+impl<'a> FileDialog<'a> {
+    /// New dialog
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Text for the ok button.
@@ -632,6 +637,10 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
 impl FileDialogState {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn active(&self) -> bool {
+        self.active
     }
 
     /// Set a filter.

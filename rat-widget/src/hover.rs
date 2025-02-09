@@ -10,6 +10,7 @@ use ratatui::widgets::StatefulWidget;
 /// At the very end of rendering the Hover widget itself is rendered
 /// and uses the stored buffer.
 ///
+/// **unstable**
 #[derive(Debug, Default)]
 pub struct Hover {}
 

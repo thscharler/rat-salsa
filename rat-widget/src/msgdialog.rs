@@ -136,6 +136,10 @@ impl Default for MsgDialogStyle {
 }
 
 impl MsgDialogState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Show the dialog.
     pub fn set_active(&self, active: bool) {
         self.active.set(active);
