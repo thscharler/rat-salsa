@@ -16,4 +16,5 @@ members = [
     "rat-theme",
     "rat-theme2",
     "rat-widget",
+    "rat-dialog"
 ]
