@@ -10,15 +10,18 @@ use rat_widget::event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_widget::focus::Focus;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use std::any::{Any, TypeId};
 use std::cmp::Ordering;
 use std::fmt::Debug;
 #[cfg(feature = "async")]
 use std::future::Future;
 use std::mem;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 
+pub mod dialog_stack;
 mod framework;
 mod poll_events;
 pub mod rendered;
@@ -28,6 +31,7 @@ pub mod thread_pool;
 pub mod timer;
 #[cfg(feature = "async")]
 mod tokio_tasks;
+// mod widgets;
 
 /// Event sources.
 pub mod poll {
@@ -190,6 +194,82 @@ where
     ) -> Result<(), Error>;
 }
 
+impl<Global, Event, Error>
+    dyn AppWidget<Global, Event, Error, State = dyn AppState<Global, Event, Error>>
+where
+    Global: 'static,
+    Event: Send + 'static,
+    Error: Send + 'static,
+{
+    /// down cast Any style.
+    pub fn downcast_ref<
+        R: AppWidget<Global, Event, Error, State = dyn AppState<Global, Event, Error>> + 'static,
+    >(
+        &self,
+    ) -> Option<&R> {
+        if self.type_id() == TypeId::of::<R>() {
+            let p: *const dyn AppWidget<
+                Global,
+                Event,
+                Error,
+                State = dyn AppState<Global, Event, Error>,
+            > = self;
+            Some(unsafe { &*(p as *const R) })
+        } else {
+            None
+        }
+    }
+
+    /// down cast Any style.
+    pub fn downcast_mut<
+        R: AppWidget<Global, Event, Error, State = dyn AppState<Global, Event, Error>> + 'static,
+    >(
+        &'_ mut self,
+    ) -> Option<&'_ mut R> {
+        if (*self).type_id() == TypeId::of::<R>() {
+            let p: *mut dyn AppWidget<
+                Global,
+                Event,
+                Error,
+                State = dyn AppState<Global, Event, Error>,
+            > = self;
+            Some(unsafe { &mut *(p as *mut R) })
+        } else {
+            None
+        }
+    }
+}
+
+// pub fn downcast_boxed_app_widget<
+//     Global,
+//     Event,
+//     Error,
+//     R: AppWidget<Global, Event, Error, State = dyn AppState<Global, Event, Error>> + 'static,
+// >(
+//     boxed: Box<
+//         dyn AppWidget<
+//             Global, //
+//             Event,
+//             Error,
+//             State = dyn AppState<Global, Event, Error>,
+//         >,
+//     >,
+// ) -> Option<Box<R>> {
+//     if (&*boxed.deref()).type_id() == TypeId::of::<R>() {
+//         Some(unsafe {
+//             let raw: *mut dyn AppWidget<
+//                 Global,
+//                 Event,
+//                 Error,
+//                 State = dyn AppState<Global, Event, Error>,
+//             > = Box::into_raw(boxed);
+//             Box::from_raw(raw as *mut R)
+//         })
+//     } else {
+//         None
+//     }
+// }
+
 ///
 /// AppState executes events and has some init and error-handling.
 ///
@@ -202,6 +282,20 @@ where
     Event: 'static + Send,
     Error: 'static + Send,
 {
+    fn as_any_mut(&mut self) -> &mut dyn Any
+    where
+        Self: Sized + 'static,
+    {
+        &mut *self
+    }
+
+    fn as_any(&self) -> &dyn Any
+    where
+        Self: Sized + 'static,
+    {
+        &*self
+    }
+
     /// Initialize the application. Runs before the first repaint.
     fn init(
         &mut self, //
@@ -240,6 +334,80 @@ where
         Ok(Control::Continue)
     }
 }
+
+impl<Global, Event, Error> AppState<Global, Event, Error>
+    for Box<dyn AppState<Global, Event, Error>>
+where
+    Global: 'static,
+    Event: Send + 'static,
+    Error: Send + 'static,
+{
+    fn init(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<(), Error> {
+        self.deref_mut().init(ctx)
+    }
+
+    fn shutdown(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<(), Error> {
+        self.deref_mut().shutdown(ctx)
+    }
+
+    fn event(
+        &mut self,
+        event: &Event,
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error> {
+        self.deref_mut().event(event, ctx)
+    }
+
+    fn error(
+        &self,
+        event: Error,
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error> {
+        self.deref().error(event, ctx)
+    }
+}
+
+impl<Global, Event, Error> dyn AppState<Global, Event, Error>
+where
+    Global: 'static,
+    Event: Send + 'static,
+    Error: Send + 'static,
+{
+    /// down cast Any style.
+    pub fn downcast_ref<R: AppState<Global, Event, Error> + 'static>(&self) -> Option<&R> {
+        if self.type_id() == TypeId::of::<R>() {
+            let p: *const dyn AppState<Global, Event, Error> = self;
+            Some(unsafe { &*(p as *const R) })
+        } else {
+            None
+        }
+    }
+
+    /// down cast Any style.
+    pub fn downcast_mut<R: AppState<Global, Event, Error> + 'static>(
+        &'_ mut self,
+    ) -> Option<&'_ mut R> {
+        if (*self).type_id() == TypeId::of::<R>() {
+            let p: *mut dyn AppState<Global, Event, Error> = self;
+            Some(unsafe { &mut *(p as *mut R) })
+        } else {
+            None
+        }
+    }
+}
+
+// pub fn downcast_boxed_app_state<Global, Event, Error, R: AppState<Global, Event, Error>>(
+//     boxed: Box<dyn AppState<Global, Event, Error>>,
+// ) -> Option<Box<R>> {
+//     if (&*boxed.deref()).type_id() == TypeId::of::<R>() {
+//         Some(unsafe {
+//             let raw: *mut dyn AppState<Global, Event, Error> = Box::into_raw(boxed);
+//             Box::from_raw(raw as *mut R)
+//         })
+//     } else {
+//         None
+//     }
+// }
 
 ///
 /// Application context for event handling.

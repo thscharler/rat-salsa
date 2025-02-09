@@ -16,6 +16,7 @@ use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme2::schemes::BASE16;
 use std::fs;
+use std::path::PathBuf;
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, TurboEvent, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
@@ -44,13 +45,17 @@ fn main() -> Result<(), Error> {
 /// Globally accessible data/state.
 pub mod global {
     use crate::config::TurboConfig;
+    use crate::message::TurboEvent;
     use crate::theme::TurboTheme;
+    use anyhow::Error;
+    use rat_salsa::dialog_stack::DialogStackState;
     use std::rc::Rc;
 
     #[derive(Debug)]
     pub struct GlobalState {
         pub cfg: TurboConfig,
         pub theme: Rc<TurboTheme>,
+        pub dialogs: DialogStackState<GlobalState, TurboEvent, Error>,
     }
 
     impl GlobalState {
@@ -58,6 +63,7 @@ pub mod global {
             Self {
                 cfg,
                 theme: Rc::new(theme),
+                dialogs: Default::default(),
             }
         }
     }
@@ -88,16 +94,18 @@ pub mod message {
 }
 
 pub mod app {
+    use crate::error_dialog::{ErrorDialog, ErrorDialogState};
     use crate::global::GlobalState;
     use crate::message::TurboEvent;
     use crate::turbo::{Turbo, TurboState};
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
+    use rat_salsa::dialog_stack::DialogStack;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+    use rat_widget::event::{ct_event, ConsumedEvent, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
-    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
     use rat_widget::statusline::{StatusLine, StatusLineState};
+    use rat_widget::text::HasScreenCursor;
     use rat_widget::util::fill_buf_area;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -111,7 +119,6 @@ pub mod app {
     pub struct SceneryState {
         pub turbo: TurboState,
         pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
     }
 
     impl AppWidget<GlobalState, TurboEvent, Error> for Scenery {
@@ -138,20 +145,13 @@ pub mod app {
 
             Turbo.render(area, buf, &mut state.turbo, ctx)?;
 
-            if state.error_dlg.active() {
-                let layout_error = layout_middle(
-                    layout[1],
-                    Constraint::Percentage(19),
-                    Constraint::Percentage(19),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                );
-                let err = MsgDialog::new().styles(theme.msg_dialog_style());
-                err.render(layout_error, buf, &mut state.error_dlg);
-            }
+            DialogStack.render(area, buf, &mut ctx.g.dialogs.clone(), ctx)?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
             state.status.status(1, format!("R {:.0?}", el).to_string());
+
+            // screen cursor
+            ctx.cursor = ctx.g.dialogs.screen_cursor();
 
             let status = StatusLine::new()
                 .layout([
@@ -166,29 +166,6 @@ pub mod app {
         }
     }
 
-    /// Calculate the middle Rect inside a given area.
-    fn layout_middle(
-        area: Rect,
-        left: Constraint,
-        right: Constraint,
-        top: Constraint,
-        bottom: Constraint,
-    ) -> Rect {
-        let h_layout = Layout::horizontal([
-            left, //
-            Constraint::Fill(1),
-            right,
-        ])
-        .split(area);
-        let v_layout = Layout::vertical([
-            top, //
-            Constraint::Fill(1),
-            bottom,
-        ])
-        .split(h_layout[1]);
-        v_layout[1]
-    }
-
     impl AppState<GlobalState, TurboEvent, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
             ctx.focus = Some(FocusBuilder::build_for(&self.turbo));
@@ -199,12 +176,12 @@ pub mod app {
 
         fn event(
             &mut self,
-            event: &TurboEvent,
+            tevent: &TurboEvent,
             ctx: &mut rat_salsa::AppContext<'_, GlobalState, TurboEvent, Error>,
         ) -> Result<Control<TurboEvent>, Error> {
             let t0 = SystemTime::now();
 
-            let mut r = match event {
+            let mut r = match tevent {
                 TurboEvent::Event(event) => {
                     let mut r = match &event {
                         ct_event!(resized) => Control::Changed,
@@ -212,15 +189,7 @@ pub mod app {
                         ct_event!(key press ALT-'x') => Control::Quit,
                         _ => Control::Continue,
                     };
-
-                    r = r.or_else(|| {
-                        if self.error_dlg.active() {
-                            self.error_dlg.handle(&event, Dialog).into()
-                        } else {
-                            Control::Continue
-                        }
-                    });
-
+                    r = r.or_else_try(|| ctx.g.dialogs.clone().event(tevent, ctx))?;
                     r = r.or_else(|| {
                         ctx.focus = Some(FocusBuilder::rebuild_for(&self.turbo, ctx.focus.take()));
                         let f = ctx.focus_mut().handle(event, Regular);
@@ -231,7 +200,18 @@ pub mod app {
                     r
                 }
                 TurboEvent::Message(s) => {
-                    self.error_dlg.append(s.as_str());
+                    if ctx.g.dialogs.top_state_is::<ErrorDialogState>() {
+                        let e = ctx
+                            .g
+                            .dialogs
+                            .top_state::<ErrorDialogState>()
+                            .expect("error_dialog");
+                        e.error_dlg.append(s.as_str());
+                    } else {
+                        ctx.g
+                            .dialogs
+                            .push_dialog(ErrorDialog, ErrorDialogState::new(s));
+                    }
                     Control::Changed
                 }
                 TurboEvent::Status(n, s) => {
@@ -240,7 +220,7 @@ pub mod app {
                 }
             };
 
-            r = r.or_else_try(|| self.turbo.event(&event, ctx))?;
+            r = r.or_else_try(|| self.turbo.event(&tevent, ctx))?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
             self.status.status(2, format!("H {:.0?}", el).to_string());
@@ -251,19 +231,305 @@ pub mod app {
         fn error(
             &self,
             event: Error,
-            _ctx: &mut AppContext<'_>,
+            ctx: &mut AppContext<'_>,
         ) -> Result<Control<TurboEvent>, Error> {
-            self.error_dlg.append(format!("{:?}", &*event).as_str());
+            ctx.g
+                .dialogs
+                .push_dialog(ErrorDialog, ErrorDialogState::new(format!("{:?}", &*event)));
             Ok(Control::Changed)
         }
     }
 }
 
+pub mod file_dialog {
+    use crate::global::GlobalState;
+    use crate::message::TurboEvent;
+    use crate::RenderContext;
+    use anyhow::Error;
+    use rat_salsa::dialog_stack::{StackedDialog, StackedDialogState};
+    use rat_salsa::{AppContext, AppState, AppWidget, Control};
+    use rat_widget::event::{Dialog, FileOutcome, HandleEvent};
+    use rat_widget::file_dialog::FileDialogStyle;
+    use rat_widget::layout::layout_middle;
+    use rat_widget::text::HasScreenCursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::prelude::Constraint;
+    use ratatui::widgets::StatefulWidget;
+    use std::path::{Path, PathBuf};
+
+    pub struct FileDialog {
+        file_dlg: rat_widget::file_dialog::FileDialog<'static>,
+    }
+
+    pub struct FileDialogState {
+        pub file_dlg: rat_widget::file_dialog::FileDialogState,
+        pub tr: Box<dyn Fn(FileOutcome) -> Control<TurboEvent> + 'static>,
+    }
+
+    impl FileDialog {
+        pub fn new() -> Self {
+            Self {
+                file_dlg: Default::default(),
+            }
+        }
+
+        pub fn styles(mut self, styles: FileDialogStyle) -> Self {
+            self.file_dlg = self.file_dlg.styles(styles);
+            self
+        }
+    }
+
+    impl AppWidget<GlobalState, TurboEvent, Error> for FileDialog {
+        type State = dyn StackedDialogState<GlobalState, TurboEvent, Error>;
+
+        fn render(
+            &self,
+            area: Rect,
+            buf: &mut Buffer,
+            state: &mut Self::State,
+            _ctx: &mut RenderContext<'_>,
+        ) -> Result<(), Error> {
+            let state = state.downcast_mut::<FileDialogState>().expect("state");
+
+            self.file_dlg.clone().render(area, buf, &mut state.file_dlg);
+
+            Ok(())
+        }
+    }
+
+    impl StackedDialog<GlobalState, TurboEvent, Error> for FileDialog {
+        fn layout(
+            &self,
+            area: Rect,
+            _buf: &Buffer,
+            _state: &mut Self::State,
+            _ctx: &mut rat_salsa::RenderContext<'_, GlobalState>,
+        ) -> Result<Rect, Error> {
+            Ok(layout_middle(
+                area,
+                Constraint::Percentage(19),
+                Constraint::Percentage(19),
+                Constraint::Length(2),
+                Constraint::Length(2),
+            ))
+        }
+    }
+
+    impl FileDialogState {
+        pub fn new() -> Self {
+            Self {
+                file_dlg: rat_widget::file_dialog::FileDialogState::new(),
+                tr: Box::new(|f| Control::from(f)),
+            }
+        }
+
+        pub fn open_dialog(mut self, path: impl AsRef<Path>) -> Result<Self, Error> {
+            self.file_dlg.open_dialog(path)?;
+            Ok(self)
+        }
+
+        pub fn save_dialog(
+            mut self,
+            path: impl AsRef<Path>,
+            name: impl AsRef<str>,
+        ) -> Result<Self, Error> {
+            self.file_dlg.save_dialog(path, name)?;
+            Ok(self)
+        }
+
+        pub fn save_dialog_ext(
+            mut self,
+            path: impl AsRef<Path>,
+            name: impl AsRef<str>,
+            ext: impl AsRef<str>,
+        ) -> Result<Self, Error> {
+            self.file_dlg.save_dialog_ext(path, name, ext)?;
+            Ok(self)
+        }
+
+        pub fn map_outcome(
+            mut self,
+            m: impl Fn(FileOutcome) -> Control<TurboEvent> + 'static,
+        ) -> Self {
+            self.tr = Box::new(m);
+            self
+        }
+
+        pub fn directory_dialog(mut self, path: impl AsRef<Path>) -> Result<Self, Error> {
+            self.file_dlg.directory_dialog(path)?;
+            Ok(self)
+        }
+
+        /// Set a filter.
+        pub fn set_filter(mut self, filter: impl Fn(&Path) -> bool + 'static) -> Self {
+            self.file_dlg.set_filter(filter);
+            self
+        }
+
+        /// Use the default set of roots.
+        pub fn use_default_roots(mut self, roots: bool) -> Self {
+            self.file_dlg.use_default_roots(roots);
+            self
+        }
+
+        /// Add a root path.
+        pub fn add_root(mut self, name: impl AsRef<str>, path: impl Into<PathBuf>) -> Self {
+            self.file_dlg.add_root(name, path);
+            self
+        }
+
+        /// Clear all roots.
+        pub fn clear_roots(mut self) -> Self {
+            self.file_dlg.clear_roots();
+            self
+        }
+
+        /// Append the default roots.
+        pub fn default_roots(mut self, start: &Path, last: &Path) -> Self {
+            self.file_dlg.default_roots(start, last);
+            self
+        }
+    }
+
+    impl AppState<GlobalState, TurboEvent, Error> for FileDialogState {
+        fn event(
+            &mut self,
+            event: &TurboEvent,
+            _ctx: &mut AppContext<'_, GlobalState, TurboEvent, Error>,
+        ) -> Result<Control<TurboEvent>, Error> {
+            let r = if let TurboEvent::Event(event) = event {
+                let r = self.file_dlg.handle(event, Dialog)?.into();
+                (self.tr)(r)
+            } else {
+                Control::Continue
+            };
+
+            Ok(r)
+        }
+    }
+
+    impl HasScreenCursor for FileDialogState {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            self.file_dlg.screen_cursor()
+        }
+    }
+
+    impl StackedDialogState<GlobalState, TurboEvent, Error> for FileDialogState {
+        fn closed(&self) -> bool {
+            !self.file_dlg.active()
+        }
+    }
+}
+
+pub mod error_dialog {
+    use crate::global::GlobalState;
+    use crate::message::TurboEvent;
+    use crate::RenderContext;
+    use anyhow::Error;
+    use rat_salsa::dialog_stack::{StackedDialog, StackedDialogState};
+    use rat_salsa::{AppState, AppWidget, Control};
+    use rat_widget::event::{Dialog, HandleEvent};
+    use rat_widget::layout::layout_middle;
+    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+    use rat_widget::text::HasScreenCursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Rect};
+    use ratatui::widgets::StatefulWidget;
+
+    #[derive(Debug)]
+    pub struct ErrorDialog;
+
+    #[derive(Debug)]
+    pub struct ErrorDialogState {
+        pub error_dlg: MsgDialogState,
+    }
+
+    impl AppWidget<GlobalState, TurboEvent, Error> for ErrorDialog {
+        type State = dyn StackedDialogState<GlobalState, TurboEvent, Error>;
+
+        fn render(
+            &self,
+            area: Rect,
+            buf: &mut Buffer,
+            state: &mut Self::State,
+            ctx: &mut rat_salsa::RenderContext<'_, GlobalState>,
+        ) -> Result<(), Error> {
+            let state = state.downcast_mut::<ErrorDialogState>().expect("state");
+
+            MsgDialog::new()
+                .styles(ctx.g.theme.msg_dialog_style())
+                .render(area, buf, &mut state.error_dlg);
+
+            Ok(())
+        }
+    }
+
+    impl StackedDialog<GlobalState, TurboEvent, Error> for ErrorDialog {
+        fn layout(
+            &self,
+            area: Rect,
+            _buf: &Buffer,
+            _state: &mut Self::State,
+            _ctx: &mut RenderContext<'_>,
+        ) -> Result<Rect, Error> {
+            Ok(layout_middle(
+                area,
+                Constraint::Percentage(19),
+                Constraint::Percentage(19),
+                Constraint::Length(2),
+                Constraint::Length(2),
+            ))
+        }
+    }
+
+    impl ErrorDialogState {
+        pub fn new(msg: impl AsRef<str>) -> Self {
+            let msg_dialog = MsgDialogState::default();
+            msg_dialog.append(msg.as_ref());
+            msg_dialog.set_active(true);
+            Self {
+                error_dlg: msg_dialog,
+            }
+        }
+    }
+
+    impl AppState<GlobalState, TurboEvent, Error> for ErrorDialogState {
+        fn event(
+            &mut self,
+            event: &TurboEvent,
+            _ctx: &mut rat_salsa::AppContext<'_, GlobalState, TurboEvent, Error>,
+        ) -> Result<Control<TurboEvent>, Error> {
+            let r = if let TurboEvent::Event(event) = event {
+                let r = self.error_dlg.handle(event, Dialog).into();
+                r
+            } else {
+                Control::Continue
+            };
+
+            Ok(r)
+        }
+    }
+
+    impl HasScreenCursor for ErrorDialogState {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            None // todo??
+        }
+    }
+
+    impl StackedDialogState<GlobalState, TurboEvent, Error> for ErrorDialogState {
+        fn closed(&self) -> bool {
+            !self.error_dlg.active()
+        }
+    }
+}
+
 pub mod turbo {
+    use crate::file_dialog::{FileDialog, FileDialogState};
     use crate::{GlobalState, RenderContext, TurboEvent};
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup};
+    use rat_widget::event::{ct_event, try_flow, FileOutcome, HandleEvent, MenuOutcome, Popup};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::menu::{
         MenuBuilder, MenuStructure, Menubar, MenubarState, PopupConstraint, PopupMenu,
@@ -275,6 +541,7 @@ pub mod turbo {
     use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
     use ratatui::style::{Style, Stylize};
     use ratatui::widgets::{Block, StatefulWidget};
+    use std::path::PathBuf;
 
     #[derive(Debug)]
     pub(crate) struct Turbo;
@@ -571,6 +838,57 @@ pub mod turbo {
                         try_flow!({
                             let rr = self.menu.handle(event, Popup);
                             match rr {
+                                MenuOutcome::MenuActivated(0, 0) => {
+                                    ctx.g.dialogs.push_dialog(
+                                        FileDialog::new().styles(ctx.g.theme.file_dialog_style()),
+                                        FileDialogState::new()
+                                            .save_dialog_ext(PathBuf::from("."), "", "pas")?
+                                            .map_outcome(|r| match r {
+                                                FileOutcome::Ok(f) => {
+                                                    Control::Event(TurboEvent::Status(
+                                                        0,
+                                                        format!("New file {:?}", f),
+                                                    ))
+                                                }
+                                                r => r.into(),
+                                            }),
+                                    );
+                                    Control::Changed
+                                }
+                                MenuOutcome::MenuActivated(0, 1) => {
+                                    ctx.g.dialogs.push_dialog(
+                                        FileDialog::new().styles(ctx.g.theme.file_dialog_style()),
+                                        FileDialogState::new()
+                                            .open_dialog(PathBuf::from("."))?
+                                            .map_outcome(|r| match r {
+                                                FileOutcome::Ok(f) => {
+                                                    Control::Event(TurboEvent::Status(
+                                                        0,
+                                                        format!("Open file {:?}", f),
+                                                    ))
+                                                }
+                                                r => r.into(),
+                                            }),
+                                    );
+                                    Control::Changed
+                                }
+                                MenuOutcome::MenuActivated(0, 3) => {
+                                    ctx.g.dialogs.push_dialog(
+                                        FileDialog::new().styles(ctx.g.theme.file_dialog_style()),
+                                        FileDialogState::new()
+                                            .save_dialog_ext(PathBuf::from("."), "", "pas")?
+                                            .map_outcome(|r| match r {
+                                                FileOutcome::Ok(f) => {
+                                                    Control::Event(TurboEvent::Status(
+                                                        0,
+                                                        format!("Save file as {:?}", f),
+                                                    ))
+                                                }
+                                                r => r.into(),
+                                            }),
+                                    );
+                                    Control::Changed
+                                }
                                 MenuOutcome::MenuActivated(0, 9) => Control::Quit,
                                 MenuOutcome::MenuActivated(7, 6) => {
                                     // reactivate menu
@@ -607,13 +925,18 @@ pub mod turbo {
 
 fn setup_logging() -> Result<(), Error> {
     if let Some(cache) = dirs::cache_dir() {
-        let log_path = cache.join("rat-salsa");
-        if !log_path.exists() {
-            fs::create_dir_all(&log_path)?;
-        }
+        let log_file = if cfg!(debug_assertions) {
+            PathBuf::from("log.log")
+        } else {
+            let log_path = cache.join("rat-salsa");
+            if !log_path.exists() {
+                fs::create_dir_all(&log_path)?;
+            }
+            log_path.join("turbo.log")
+        };
 
-        let log_file = log_path.join("minimal.log");
         _ = fs::remove_file(&log_file);
+
         fern::Dispatch::new()
             .format(|out, message, _record| {
                 out.finish(format_args!("{}", message)) //
@@ -707,7 +1030,7 @@ pub mod theme {
 
         /// Data display style. Used for lists, tables, ...
         pub fn data(&self) -> Style {
-            Style::default().fg(self.s.white[0]).bg(self.s.deepblue[0])
+            Style::default().fg(self.s.white[3]).bg(self.s.deepblue[0])
         }
 
         /// Background for dialogs.
@@ -793,9 +1116,10 @@ pub mod theme {
         /// Complete ButtonStyle
         pub fn button_style(&self) -> ButtonStyle {
             ButtonStyle {
-                style: self.s.primary(0, Contrast::Normal),
-                focus: Some(self.s.primary(3, Contrast::High)),
-                armed: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[0])),
+                style: self.s.secondary(0, Contrast::High),
+                focus: Some(self.s.primary(0, Contrast::High)),
+                armed: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[3])),
+                hover: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[3])),
                 ..Default::default()
             }
         }
