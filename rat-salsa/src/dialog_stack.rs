@@ -9,7 +9,7 @@ use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{Any, TypeId};
-use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::cell::{Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
@@ -32,12 +32,12 @@ pub struct DialogStack;
 ///
 /// ** unstable **
 pub struct DialogStackState<Global, Event, Error> {
-    inner: Rc<Cell<Inner<Global, Event, Error>>>,
+    inner: Rc<RefCell<Vec<Inner<Global, Event, Error>>>>,
 }
 
 struct Inner<Global, Event, Error> {
-    dialog: Vec<Box<DynStackedDialog<Global, Event, Error>>>,
-    state: Vec<Box<dyn StackedDialogState<Global, Event, Error>>>,
+    dialog: Box<DynStackedDialog<Global, Event, Error>>,
+    state: Box<dyn StackedDialogState<Global, Event, Error>>,
 }
 
 pub type DynStackedDialog<Global, Event, Error> =
@@ -182,12 +182,11 @@ where
         ctx: &mut RenderContext<'_, Global>,
     ) -> Result<(), Error> {
         // render in order. last is top.
-        let mut inner = state.inner.replace(Inner::default());
-        for (dialog, state) in inner.dialog.iter_mut().zip(inner.state.iter_mut()) {
-            let area = dialog.layout(area, buf, state.as_mut(), ctx)?;
-            dialog.render(area, buf, state.as_mut(), ctx)?;
+        let mut inner = state.inner.borrow_mut();
+        for v in inner.iter_mut() {
+            let area = v.dialog.layout(area, buf, v.state.as_mut(), ctx)?;
+            v.dialog.render(area, buf, v.state.as_mut(), ctx)?;
         }
-        state.inner.set(inner);
         Ok(())
     }
 }
@@ -204,11 +203,10 @@ where
     }
 
     fn shutdown(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<(), Error> {
-        let mut inner = self.inner.replace(Inner::default());
-        for state in inner.state.iter_mut().rev() {
-            state.shutdown(ctx)?;
+        let mut inner = self.inner.borrow_mut();
+        for v in inner.iter_mut().rev() {
+            v.state.shutdown(ctx)?;
         }
-        self.inner.set(inner);
         Ok(())
     }
 
@@ -218,46 +216,39 @@ where
         ctx: &mut AppContext<'_, Global, Event, Error>,
     ) -> Result<Control<Event>, Error> {
         let (idx, dialog, mut state) = {
-            let mut inner = self.inner.replace(Inner::default());
-
-            if inner.dialog.is_empty() {
-                self.inner.set(inner);
-                return Ok(Control::Continue);
-            }
+            let mut inner = self.inner.borrow_mut();
 
             // only the top dialog gets any events.
-            let dialog = inner.dialog.pop().expect("dialog");
-            let state = inner.state.pop().expect("state");
-            let idx = inner.dialog.len();
-
-            self.inner.set(inner);
+            let Some(Inner { dialog, state }) = inner.pop() else {
+                return Ok(Control::Continue);
+            };
+            let idx = inner.len();
 
             (idx, dialog, state)
         };
 
         let r = state.event(event, ctx)?;
 
+        let closed = state.closed();
+
         {
-            let mut inner = self.inner.replace(Inner::default());
-            inner.dialog.insert(idx, dialog);
-            inner.state.insert(idx, state);
-            self.inner.set(inner);
+            let mut inner = self.inner.borrow_mut();
+            if !closed {
+                inner.insert(idx, Inner { dialog, state });
+            }
         }
 
         Ok(r)
     }
 }
 
-impl<Global, Event, Error> Default for Inner<Global, Event, Error>
-where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    fn default() -> Self {
-        Self {
-            dialog: Default::default(),
-            state: Default::default(),
+impl<Global, Event, Error> HasScreenCursor for DialogStackState<Global, Event, Error> {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        let inner = self.inner.borrow();
+        if let Some(last) = inner.last() {
+            last.state.screen_cursor()
+        } else {
+            None
         }
     }
 }
@@ -334,36 +325,77 @@ where
             > + 'static,
         state: impl StackedDialogState<Global, Event, Error>,
     ) {
-        let mut inner = self.inner.replace(Inner::default());
-        inner.dialog.push(Box::new(dialog));
-        inner.state.push(Box::new(state));
-        self.inner.set(inner);
+        let mut inner = self.inner.borrow_mut();
+        inner.push(Inner {
+            dialog: Box::new(dialog),
+            state: Box::new(state),
+        });
     }
 
     /// Test the type of the top dialog.
     pub fn top_is<T: 'static>(&self) -> bool {
-        let inner = self.inner.replace(Inner::default());
-        let r = if let Some(inner) = inner.dialog.last() {
-            let dyn_transformed = &*inner.deref();
+        let inner = self.inner.borrow();
+        if let Some(inner) = inner.last() {
+            let dyn_transformed = &*inner.dialog.deref();
             dyn_transformed.type_id() == TypeId::of::<T>()
         } else {
             false
-        };
-        self.inner.set(inner);
-        r
+        }
     }
 
     /// Test the type of the top dialog state.
     pub fn top_state_is<T: 'static>(&self) -> bool {
-        let inner = self.inner.replace(Inner::default());
-        let r = if let Some(inner) = inner.state.last() {
-            let dyn_transformed = &*inner.deref();
+        let inner = self.inner.borrow();
+        if let Some(inner) = inner.last() {
+            let dyn_transformed = &*inner.state.deref();
             dyn_transformed.type_id() == TypeId::of::<T>()
         } else {
             false
-        };
-        self.inner.set(inner);
-        r
+        }
+    }
+
+    /// Get a Ref to the top dialog state.
+    pub fn top_state<T>(&self) -> Option<Ref<T>>
+    where
+        T: StackedDialogState<Global, Event, Error> + 'static,
+    {
+        let inner = self.inner.borrow();
+        if inner.is_empty() {
+            return None;
+        }
+        if !self.top_state_is::<T>() {
+            return None;
+        }
+
+        let dcr = Ref::map(inner, |inner| {
+            let inner = inner.last().expect("last");
+            let dyn_transformed = &*inner.state.deref();
+            let dc = dyn_transformed.downcast_ref::<T>().expect("T");
+            dc
+        });
+        Some(dcr)
+    }
+
+    /// Get a RefMut to the top dialog state.
+    pub fn top_state_mut<T>(&self) -> Option<RefMut<T>>
+    where
+        T: StackedDialogState<Global, Event, Error> + 'static,
+    {
+        let inner = self.inner.borrow_mut();
+        if inner.is_empty() {
+            return None;
+        }
+        if !self.top_state_is::<T>() {
+            return None;
+        }
+
+        let dcr = RefMut::map(inner, |inner| {
+            let inner = inner.last_mut().expect("last");
+            let dyn_transformed = &mut *inner.state.deref_mut();
+            let dc = dyn_transformed.downcast_mut::<T>().expect("T");
+            dc
+        });
+        Some(dcr)
     }
 }
 

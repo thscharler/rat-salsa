@@ -100,7 +100,6 @@ pub mod app {
     use crate::turbo::{Turbo, TurboState};
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
-    use log::debug;
     use rat_salsa::dialog_stack::DialogStack;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, ConsumedEvent, HandleEvent, Regular};
@@ -151,6 +150,9 @@ pub mod app {
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
             state.status.status(1, format!("R {:.0?}", el).to_string());
 
+            // screen cursor
+            ctx.cursor = ctx.g.dialogs.screen_cursor();
+
             let status = StatusLine::new()
                 .layout([
                     Constraint::Fill(1),
@@ -199,13 +201,12 @@ pub mod app {
                 }
                 TurboEvent::Message(s) => {
                     if ctx.g.dialogs.top_state_is::<ErrorDialogState>() {
-                        debug!("topstate is erroridalog");
-                        // let e = ctx
-                        //     .g
-                        //     .dialogs
-                        //     .top_state::<ErrorDialogState>()
-                        //     .expect("error_dialog");
-                        // e.error_dlg.append(s.as_str());
+                        let e = ctx
+                            .g
+                            .dialogs
+                            .top_state::<ErrorDialogState>()
+                            .expect("error_dialog");
+                        e.error_dlg.append(s.as_str());
                     } else {
                         ctx.g
                             .dialogs
