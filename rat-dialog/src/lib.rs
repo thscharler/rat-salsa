@@ -1,8 +1,4 @@
-//!
-//! DialogStack adds support for dialog windows.
-//!
-//! ** unstable **
-//!
+#![doc = include_str!("../readme.md")]
 
 use rat_salsa::{AppContext, AppState, AppWidget, Control, RenderContext};
 use ratatui::buffer::Buffer;
@@ -21,8 +17,6 @@ pub mod widgets;
 /// Call render() for this as the last action when rendering your
 /// application.
 ///
-/// TODO: usage
-///
 #[derive(Debug)]
 pub struct DialogStack;
 
@@ -30,17 +24,23 @@ pub struct DialogStack;
 ///
 /// Add this to your global state.
 ///
-/// TODO: usage
+
 ///
 /// ** unstable **
 pub struct DialogStackState<Global, Event, Error> {
     inner: Rc<Cell<Inner<Global, Event, Error>>>,
 }
 
+/// Errors for some operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DialogStackError {
+    /// During event-handling the top dialog is taken from the
+    /// stack to avoid problems if this ever recurses.
+    /// Some operations are not available during this time.
     InvalidDuringEventHandling,
+    /// No dialogs on the stack.
     StackIsEmpty,
+    /// Downcasting error.
     TypeMismatch,
 }
 
@@ -52,8 +52,10 @@ impl Display for DialogStackError {
 
 impl Error for DialogStackError {}
 
+/// Behind the scenes.
 struct Inner<Global, Event, Error> {
-    dialog: Vec<
+    // don't hold the Widgets just a constructor.
+    construct: Vec<
         Box<
             dyn Fn(
                 Rect,
@@ -63,6 +65,7 @@ struct Inner<Global, Event, Error> {
             >,
         >,
     >,
+    // dialog states
     state: Vec<Box<dyn DialogState<Global, Event, Error>>>,
 
     // top has been detached.
@@ -72,12 +75,18 @@ struct Inner<Global, Event, Error> {
 }
 
 /// Trait for a dialogs state.
+///
+/// A separate trait is necessary because this needs Any in the vtable.
 pub trait DialogState<Global, Event, Error>: AppState<Global, Event, Error> + Any
 where
     Global: 'static,
     Event: Send + 'static,
     Error: Send + 'static,
 {
+    /// Is the dialog still active.
+    ///
+    /// Whenever this goes to false during event handling the dialog
+    /// will be popped from the stack.
     fn active(&self) -> bool;
 }
 
@@ -128,8 +137,8 @@ where
 
         let r = 'l: {
             // render in order. last is top.
-            for (dialog, state) in inner.dialog.iter().zip(inner.state.iter_mut()) {
-                let widget = dialog(area, ctx);
+            for (construct, state) in inner.construct.iter().zip(inner.state.iter_mut()) {
+                let widget = construct(area, ctx);
                 let r = widget.render(area, buf, state.as_mut(), ctx);
                 if r.is_err() {
                     break 'l r;
@@ -139,6 +148,7 @@ where
         };
 
         state.inner.set(inner);
+
         Ok(r?)
     }
 }
@@ -160,7 +170,7 @@ where
 {
     fn default() -> Self {
         Self {
-            dialog: Default::default(),
+            construct: Default::default(),
             state: Default::default(),
             detached: Default::default(),
             pop_top: Default::default(),
@@ -175,7 +185,7 @@ where
     Error: Send + 'static,
 {
     fn init(&mut self, _ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<(), Error> {
-        // no applicable
+        // no special init
         Ok(())
     }
 
@@ -202,15 +212,15 @@ where
         let (idx, dialog, mut state) = {
             let mut inner = self.inner.replace(Inner::default());
 
-            if inner.dialog.is_empty() {
+            if inner.construct.is_empty() {
                 self.inner.set(inner);
                 return Ok(Control::Continue);
             }
 
             // only the top dialog gets any events.
-            let dialog = inner.dialog.pop().expect("dialog");
+            let dialog = inner.construct.pop().expect("dialog");
             let state = inner.state.pop().expect("state");
-            let idx = inner.dialog.len();
+            let idx = inner.construct.len();
 
             inner.detached = true;
             self.inner.set(inner);
@@ -228,7 +238,7 @@ where
                 inner.pop_top = false;
             } else {
                 inner.detached = false;
-                inner.dialog.insert(idx, dialog);
+                inner.construct.insert(idx, dialog);
                 inner.state.insert(idx, state);
             }
             self.inner.set(inner);
@@ -278,11 +288,21 @@ where
     Event: Send + 'static,
     Error: Send + 'static,
 {
+    /// New dialog stack state.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Push a new dialog window on the stack.
+    ///
+    /// This takes
+    /// * a constructor for the AppWidget. This is called for every render
+    ///   and can adjust construction to the environment.
+    /// * the dialogs state.
+    ///
+    /// __Note__
+    ///
+    /// This can be called during event handling of a dialog.
     pub fn push_dialog<Construct, State>(&mut self, dialog: Construct, state: State)
     where
         Construct: Fn(
@@ -294,32 +314,47 @@ where
         State: DialogState<Global, Event, Error> + 'static,
     {
         let mut inner = self.inner.replace(Inner::default());
-        inner.dialog.push(Box::new(dialog));
+
+        inner.construct.push(Box::new(dialog));
         inner.state.push(Box::new(state));
+
         self.inner.set(inner);
     }
 
     /// Pop the top dialog from the stack.
     ///
     /// This can be called repeatedly if necessary.
-    /// It can even be called during event-handling of the dialog itself.
+    ///
+    /// __Note__
+    ///
+    /// This can be called during event handling of a dialog.
     pub fn pop_dialog(&mut self) {
         let mut inner = self.inner.replace(Inner::default());
+
         if inner.detached && !inner.pop_top {
             inner.pop_top = true;
+
             self.inner.set(inner);
         } else {
-            _ = inner.dialog.pop().expect("dialog");
+            _ = inner.construct.pop().expect("dialog");
             _ = inner.state.pop().expect("state");
+
             self.inner.set(inner);
         }
     }
 
     /// Is the dialog stack empty?
+    ///
+    /// __Note__
+    ///
+    /// This can be called during event handling of a dialog.
     pub fn is_empty(&self) -> bool {
         let inner = self.inner.replace(Inner::default());
+
         let r = inner.state.is_empty() && !inner.detached;
+
         self.inner.set(inner);
+
         r
     }
 
@@ -327,7 +362,7 @@ where
     ///
     /// __Note__
     ///
-    /// This will not work during event-handling of the dialog itself.
+    /// This will not work during event-handling of a dialog.
     pub fn top_state_is<S: 'static>(&self) -> Result<bool, DialogStackError> {
         let inner = self.inner.replace(Inner::default());
 
@@ -353,7 +388,7 @@ where
     ///
     /// __Note__
     ///
-    /// This will not work during event-handling of the dialog itself.
+    /// This will not work during event-handling of a dialog.
     pub fn map_top_state_if<S, MAP, R>(&self, map: MAP) -> Result<R, DialogStackError>
     where
         MAP: FnOnce(&mut S) -> R,
@@ -365,68 +400,18 @@ where
 
         let mut inner = self.inner.replace(Inner::default());
 
-        let dialog = inner.dialog.pop().expect("dialog");
+        let dialog = inner.construct.pop().expect("dialog");
         let mut state = inner.state.pop().expect("state");
+
         let dyn_state = &mut *state.deref_mut();
         let state_t = dyn_state.downcast_mut::<S>().expect("state");
-
         let r = map(state_t);
 
-        inner.dialog.push(dialog);
+        inner.construct.push(dialog);
         inner.state.push(state);
 
         self.inner.set(inner);
 
         Ok(r)
-    }
-}
-
-mod test {
-    use crate::DialogState;
-    use crate::{AppState, AppWidget, RenderContext};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-
-    #[derive(Debug)]
-    pub struct Sample;
-    #[derive(Debug)]
-    pub struct SampleState {}
-
-    impl<Global, Event, Error> AppWidget<Global, Event, Error> for Sample
-    where
-        Global: 'static,
-        Event: Send + 'static,
-        Error: Send + 'static,
-    {
-        type State = dyn DialogState<Global, Event, Error>;
-
-        fn render(
-            &self,
-            _area: Rect,
-            _buf: &mut Buffer,
-            _state: &mut Self::State,
-            _ctx: &mut RenderContext<'_, Global>,
-        ) -> Result<(), Error> {
-            Ok(())
-        }
-    }
-
-    impl<Global, Event, Error> AppState<Global, Event, Error> for SampleState
-    where
-        Global: 'static,
-        Event: Send + 'static,
-        Error: Send + 'static,
-    {
-    }
-
-    impl<Global, Event, Error> DialogState<Global, Event, Error> for SampleState
-    where
-        Global: 'static,
-        Event: Send + 'static,
-        Error: Send + 'static,
-    {
-        fn active(&self) -> bool {
-            todo!()
-        }
     }
 }
