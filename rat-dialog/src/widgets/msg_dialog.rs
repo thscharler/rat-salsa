@@ -5,11 +5,15 @@ use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui::widgets::{Block, StatefulWidget};
 
 #[derive(Debug)]
 pub struct MsgDialog {
     widget: rat_widget::msgdialog::MsgDialog<'static>,
+    left: Constraint,
+    right: Constraint,
+    top: Constraint,
+    bottom: Constraint,
 }
 
 #[derive(Debug)]
@@ -21,11 +25,34 @@ impl MsgDialog {
     pub fn new() -> Self {
         Self {
             widget: Default::default(),
+            left: Constraint::Percentage(9),
+            right: Constraint::Percentage(9),
+            top: Constraint::Length(4),
+            bottom: Constraint::Length(4),
         }
+    }
+
+    pub fn constraints(
+        mut self,
+        left: Constraint,
+        right: Constraint,
+        top: Constraint,
+        bottom: Constraint,
+    ) -> Self {
+        self.left = left;
+        self.right = right;
+        self.top = top;
+        self.bottom = bottom;
+        self
     }
 
     pub fn styles(mut self, styles: MsgDialogStyle) -> Self {
         self.widget = self.widget.styles(styles);
+        self
+    }
+
+    pub fn block(mut self, block: Block<'static>) -> Self {
+        self.widget = self.widget.block(block);
         self
     }
 }
@@ -48,14 +75,7 @@ where
     ) -> Result<(), Error> {
         let state = state.downcast_mut::<MsgDialogState>().expect("state");
 
-        let dlg_area = layout_middle(
-            area,
-            Constraint::Percentage(19),
-            Constraint::Percentage(19),
-            Constraint::Length(4),
-            Constraint::Length(4),
-        );
-
+        let dlg_area = layout_middle(area, self.left, self.right, self.top, self.bottom);
         self.widget.clone().render(dlg_area, buf, &mut state.state);
 
         Ok(())
@@ -70,8 +90,13 @@ impl MsgDialogState {
         Self { state: msg_dialog }
     }
 
-    pub fn append(&self, msg: &str) {
-        self.state.append(msg);
+    pub fn title(self, title: impl Into<String>) -> Self {
+        self.state.title(title);
+        self
+    }
+
+    pub fn append(&self, msg: impl AsRef<str>) {
+        self.state.append(msg.as_ref());
     }
 }
 
