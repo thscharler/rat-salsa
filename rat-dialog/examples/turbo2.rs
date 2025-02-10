@@ -215,8 +215,10 @@ pub mod app {
                             })?;
                     } else {
                         ctx.g.dialogs.push_dialog(
-                            |_, ctx| {
-                                Box::new(MsgDialog::new().styles(ctx.g.theme.msg_dialog_style()))
+                            |area, buf, state, ctx| {
+                                MsgDialog::new()
+                                    .styles(ctx.g.theme.msg_dialog_style())
+                                    .render(area, buf, state, ctx)
                             },
                             MsgDialogState::new(s),
                         );
@@ -243,7 +245,11 @@ pub mod app {
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<TurboEvent>, Error> {
             ctx.g.dialogs.push_dialog(
-                |_, ctx| Box::new(MsgDialog::new().styles(ctx.g.theme.msg_dialog_style())),
+                |area, buf, state, ctx| {
+                    MsgDialog::new()
+                        .styles(ctx.g.theme.msg_dialog_style())
+                        .render(area, buf, state, ctx)
+                },
                 MsgDialogState::new(format!("{:?}", &*event)),
             );
             Ok(Control::Changed)
@@ -834,11 +840,10 @@ pub mod turbo {
                             match rr {
                                 MenuOutcome::MenuActivated(0, 0) => {
                                     ctx.g.dialogs.push_dialog(
-                                        |_, ctx| {
-                                            Box::new(
-                                                FileDialog::new()
-                                                    .styles(ctx.g.theme.file_dialog_style()),
-                                            )
+                                        |area, buf, state, ctx| {
+                                            FileDialog::new()
+                                                .styles(ctx.g.theme.file_dialog_style())
+                                                .render(area, buf, state, ctx)
                                         },
                                         FileDialogState::new()
                                             .save_dialog_ext(PathBuf::from("."), "", "pas")?
@@ -856,11 +861,10 @@ pub mod turbo {
                                 }
                                 MenuOutcome::MenuActivated(0, 1) => {
                                     ctx.g.dialogs.push_dialog(
-                                        |_, ctx| {
-                                            Box::new(
-                                                FileDialog::new()
-                                                    .styles(ctx.g.theme.file_dialog_style()),
-                                            )
+                                        |area, buf, state, ctx| {
+                                            FileDialog::new()
+                                                .styles(ctx.g.theme.file_dialog_style())
+                                                .render(area, buf, state, ctx)
                                         },
                                         FileDialogState::new()
                                             .open_dialog(PathBuf::from("."))?
@@ -878,11 +882,10 @@ pub mod turbo {
                                 }
                                 MenuOutcome::MenuActivated(0, 3) => {
                                     ctx.g.dialogs.push_dialog(
-                                        |_, ctx| {
-                                            Box::new(
-                                                FileDialog::new()
-                                                    .styles(ctx.g.theme.file_dialog_style()),
-                                            )
+                                        |area, buf, state, ctx| {
+                                            FileDialog::new()
+                                                .styles(ctx.g.theme.file_dialog_style())
+                                                .render(area, buf, state, ctx)
                                         },
                                         FileDialogState::new()
                                             .save_dialog_ext(PathBuf::from("."), "", "pas")?

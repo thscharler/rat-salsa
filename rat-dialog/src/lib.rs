@@ -55,14 +55,15 @@ impl Error for DialogStackError {}
 /// Behind the scenes.
 struct Inner<Global, Event, Error> {
     // don't hold the Widgets just a constructor.
-    construct: Vec<
+    render: Vec<
         Box<
             dyn Fn(
-                Rect,
-                &'_ mut RenderContext<'_, Global>,
-            ) -> Box<
-                dyn AppWidget<Global, Event, Error, State = dyn DialogState<Global, Event, Error>>,
-            >,
+                    Rect,
+                    &mut Buffer,
+                    &mut dyn DialogState<Global, Event, Error>,
+                    &'_ mut RenderContext<'_, Global>,
+                ) -> Result<(), Error>
+                + 'static,
         >,
     >,
     // dialog states
@@ -137,9 +138,8 @@ where
 
         let r = 'l: {
             // render in order. last is top.
-            for (construct, state) in inner.construct.iter().zip(inner.state.iter_mut()) {
-                let widget = construct(area, ctx);
-                let r = widget.render(area, buf, state.as_mut(), ctx);
+            for (render, state) in inner.render.iter().zip(inner.state.iter_mut()) {
+                let r = render(area, buf, state.as_mut(), ctx);
                 if r.is_err() {
                     break 'l r;
                 }
@@ -170,7 +170,7 @@ where
 {
     fn default() -> Self {
         Self {
-            construct: Default::default(),
+            render: Default::default(),
             state: Default::default(),
             detached: Default::default(),
             pop_top: Default::default(),
@@ -212,15 +212,15 @@ where
         let (idx, dialog, mut state) = {
             let mut inner = self.inner.replace(Inner::default());
 
-            if inner.construct.is_empty() {
+            if inner.render.is_empty() {
                 self.inner.set(inner);
                 return Ok(Control::Continue);
             }
 
             // only the top dialog gets any events.
-            let dialog = inner.construct.pop().expect("dialog");
+            let dialog = inner.render.pop().expect("dialog");
             let state = inner.state.pop().expect("state");
-            let idx = inner.construct.len();
+            let idx = inner.render.len();
 
             inner.detached = true;
             self.inner.set(inner);
@@ -238,7 +238,7 @@ where
                 inner.pop_top = false;
             } else {
                 inner.detached = false;
-                inner.construct.insert(idx, dialog);
+                inner.render.insert(idx, dialog);
                 inner.state.insert(idx, state);
             }
             self.inner.set(inner);
@@ -303,19 +303,20 @@ where
     /// __Note__
     ///
     /// This can be called during event handling of a dialog.
-    pub fn push_dialog<Construct, State>(&mut self, dialog: Construct, state: State)
+    pub fn push_dialog<Render, State>(&mut self, render: Render, state: State)
     where
-        Construct: Fn(
+        Render: Fn(
                 Rect,
+                &mut Buffer,
+                &mut dyn DialogState<Global, Event, Error>,
                 &'_ mut RenderContext<'_, Global>,
-            ) -> Box<
-                dyn AppWidget<Global, Event, Error, State = dyn DialogState<Global, Event, Error>>,
-            > + 'static,
+            ) -> Result<(), Error>
+            + 'static,
         State: DialogState<Global, Event, Error> + 'static,
     {
         let mut inner = self.inner.replace(Inner::default());
 
-        inner.construct.push(Box::new(dialog));
+        inner.render.push(Box::new(render));
         inner.state.push(Box::new(state));
 
         self.inner.set(inner);
@@ -336,7 +337,7 @@ where
 
             self.inner.set(inner);
         } else {
-            _ = inner.construct.pop().expect("dialog");
+            _ = inner.render.pop().expect("render");
             _ = inner.state.pop().expect("state");
 
             self.inner.set(inner);
@@ -400,14 +401,14 @@ where
 
         let mut inner = self.inner.replace(Inner::default());
 
-        let dialog = inner.construct.pop().expect("dialog");
+        let dialog = inner.render.pop().expect("render");
         let mut state = inner.state.pop().expect("state");
 
         let dyn_state = &mut *state.deref_mut();
         let state_t = dyn_state.downcast_mut::<S>().expect("state");
         let r = map(state_t);
 
-        inner.construct.push(dialog);
+        inner.render.push(dialog);
         inner.state.push(state);
 
         self.inner.set(inner);
