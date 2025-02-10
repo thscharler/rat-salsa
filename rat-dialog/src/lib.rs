@@ -75,10 +75,37 @@ struct Inner<Global, Event, Error> {
     pop_top: bool,
 }
 
+///
+/// DialogWidget mimics AppWidget.
+///
+/// This needs a separate trait otherwise DialogState would
+/// need to be an AppState too, which is rather inconvenient.
+///
+pub trait DialogWidget<Global, Event, Error>
+where
+    Global: 'static,
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    /// Type of the State.
+    type State: DialogState<Global, Event, Error> + ?Sized;
+
+    /// Renders an application widget.
+    fn render(
+        &self,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Self::State,
+        ctx: &mut RenderContext<'_, Global>,
+    ) -> Result<(), Error>;
+}
+
 /// Trait for a dialogs state.
 ///
 /// A separate trait is necessary because this needs Any in the vtable.
-pub trait DialogState<Global, Event, Error>: AppState<Global, Event, Error> + Any
+/// It mimics AppState without a few lifecycle functions.
+#[allow(unused_variables)]
+pub trait DialogState<Global, Event, Error>: Any
 where
     Global: 'static,
     Event: Send + 'static,
@@ -89,6 +116,13 @@ where
     /// Whenever this goes to false during event handling the dialog
     /// will be popped from the stack.
     fn active(&self) -> bool;
+
+    /// Handle an event.
+    fn event(
+        &mut self,
+        event: &Event,
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error>;
 }
 
 impl<Global, Event, Error> dyn DialogState<Global, Event, Error>
@@ -187,21 +221,6 @@ where
     fn init(&mut self, _ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<(), Error> {
         // no special init
         Ok(())
-    }
-
-    fn shutdown(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<(), Error> {
-        let mut inner = self.inner.replace(Inner::default());
-        let r = 'l: {
-            for state in inner.state.iter_mut().rev() {
-                let r = state.shutdown(ctx);
-                if r.is_err() {
-                    break 'l r;
-                }
-            }
-            Ok(())
-        };
-        self.inner.set(inner);
-        Ok(r?)
     }
 
     fn event(

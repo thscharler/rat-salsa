@@ -109,7 +109,7 @@ pub mod app {
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
     use rat_dialog::widgets::{MsgDialog, MsgDialogState};
-    use rat_dialog::DialogStack;
+    use rat_dialog::{DialogStack, DialogWidget};
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, ConsumedEvent, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
@@ -262,8 +262,8 @@ pub mod file_dialog {
     use crate::message::TurboEvent;
     use crate::RenderContext;
     use anyhow::Error;
-    use rat_dialog::DialogState;
-    use rat_salsa::{AppContext, AppState, AppWidget, Control};
+    use rat_dialog::{DialogState, DialogWidget};
+    use rat_salsa::{AppContext, Control};
     use rat_widget::event::{Dialog, FileOutcome, HandleEvent};
     use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::layout::layout_middle;
@@ -296,7 +296,7 @@ pub mod file_dialog {
         }
     }
 
-    impl AppWidget<GlobalState, TurboEvent, Error> for FileDialog {
+    impl DialogWidget<GlobalState, TurboEvent, Error> for FileDialog {
         type State = dyn DialogState<GlobalState, TurboEvent, Error>;
 
         fn render(
@@ -400,7 +400,11 @@ pub mod file_dialog {
         }
     }
 
-    impl AppState<GlobalState, TurboEvent, Error> for FileDialogState {
+    impl DialogState<GlobalState, TurboEvent, Error> for FileDialogState {
+        fn active(&self) -> bool {
+            self.state.active()
+        }
+
         fn event(
             &mut self,
             event: &TurboEvent,
@@ -416,20 +420,14 @@ pub mod file_dialog {
             Ok(r)
         }
     }
-
-    impl DialogState<GlobalState, TurboEvent, Error> for FileDialogState {
-        fn active(&self) -> bool {
-            self.state.active()
-        }
-    }
 }
 
 pub mod error_dialog {
     use crate::global::GlobalState;
     use crate::message::TurboEvent;
     use anyhow::Error;
-    use rat_dialog::DialogState;
-    use rat_salsa::{AppState, AppWidget, Control};
+    use rat_dialog::{DialogState, DialogWidget};
+    use rat_salsa::Control;
     use rat_widget::event::{Dialog, HandleEvent};
     use rat_widget::layout::layout_middle;
     use rat_widget::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
@@ -460,7 +458,7 @@ pub mod error_dialog {
         }
     }
 
-    impl AppWidget<GlobalState, TurboEvent, Error> for ErrorDialog {
+    impl DialogWidget<GlobalState, TurboEvent, Error> for ErrorDialog {
         type State = dyn DialogState<GlobalState, TurboEvent, Error>;
 
         fn render(
@@ -500,7 +498,11 @@ pub mod error_dialog {
         }
     }
 
-    impl AppState<GlobalState, TurboEvent, Error> for ErrorDialogState {
+    impl DialogState<GlobalState, TurboEvent, Error> for ErrorDialogState {
+        fn active(&self) -> bool {
+            self.state.active()
+        }
+
         fn event(
             &mut self,
             event: &TurboEvent,
@@ -516,18 +518,13 @@ pub mod error_dialog {
             Ok(r)
         }
     }
-
-    impl DialogState<GlobalState, TurboEvent, Error> for ErrorDialogState {
-        fn active(&self) -> bool {
-            self.state.active()
-        }
-    }
 }
 
 pub mod turbo {
     use crate::{GlobalState, RenderContext, TurboEvent};
     use anyhow::Error;
     use rat_dialog::widgets::{FileDialog, FileDialogState};
+    use rat_dialog::DialogWidget;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, try_flow, FileOutcome, HandleEvent, MenuOutcome, Popup};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
@@ -839,65 +836,65 @@ pub mod turbo {
                             let rr = self.menu.handle(event, Popup);
                             match rr {
                                 MenuOutcome::MenuActivated(0, 0) => {
+                                    let mut state = FileDialogState::new();
+                                    state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+                                    state.map_outcome(|r| match r {
+                                        FileOutcome::Ok(f) => Control::Event(TurboEvent::Status(
+                                            0,
+                                            format!("New file {:?}", f),
+                                        )),
+                                        r => r.into(),
+                                    });
+
                                     ctx.g.dialogs.push_dialog(
                                         |area, buf, state, ctx| {
                                             FileDialog::new()
                                                 .styles(ctx.g.theme.file_dialog_style())
                                                 .render(area, buf, state, ctx)
                                         },
-                                        FileDialogState::new()
-                                            .save_dialog_ext(PathBuf::from("."), "", "pas")?
-                                            .map_outcome(|r| match r {
-                                                FileOutcome::Ok(f) => {
-                                                    Control::Event(TurboEvent::Status(
-                                                        0,
-                                                        format!("New file {:?}", f),
-                                                    ))
-                                                }
-                                                r => r.into(),
-                                            }),
+                                        state,
                                     );
                                     Control::Changed
                                 }
                                 MenuOutcome::MenuActivated(0, 1) => {
+                                    let mut state = FileDialogState::new();
+                                    state.open_dialog(PathBuf::from("."))?;
+                                    state.map_outcome(|r| match r {
+                                        FileOutcome::Ok(f) => Control::Event(TurboEvent::Status(
+                                            0,
+                                            format!("Open file {:?}", f),
+                                        )),
+                                        r => r.into(),
+                                    });
+
                                     ctx.g.dialogs.push_dialog(
                                         |area, buf, state, ctx| {
                                             FileDialog::new()
                                                 .styles(ctx.g.theme.file_dialog_style())
                                                 .render(area, buf, state, ctx)
                                         },
-                                        FileDialogState::new()
-                                            .open_dialog(PathBuf::from("."))?
-                                            .map_outcome(|r| match r {
-                                                FileOutcome::Ok(f) => {
-                                                    Control::Event(TurboEvent::Status(
-                                                        0,
-                                                        format!("Open file {:?}", f),
-                                                    ))
-                                                }
-                                                r => r.into(),
-                                            }),
+                                        state,
                                     );
                                     Control::Changed
                                 }
                                 MenuOutcome::MenuActivated(0, 3) => {
+                                    let mut state = FileDialogState::new();
+                                    state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+                                    state.map_outcome(|r| match r {
+                                        FileOutcome::Ok(f) => Control::Event(TurboEvent::Status(
+                                            0,
+                                            format!("Save file as {:?}", f),
+                                        )),
+                                        r => r.into(),
+                                    });
+
                                     ctx.g.dialogs.push_dialog(
                                         |area, buf, state, ctx| {
                                             FileDialog::new()
                                                 .styles(ctx.g.theme.file_dialog_style())
                                                 .render(area, buf, state, ctx)
                                         },
-                                        FileDialogState::new()
-                                            .save_dialog_ext(PathBuf::from("."), "", "pas")?
-                                            .map_outcome(|r| match r {
-                                                FileOutcome::Ok(f) => {
-                                                    Control::Event(TurboEvent::Status(
-                                                        0,
-                                                        format!("Save file as {:?}", f),
-                                                    ))
-                                                }
-                                                r => r.into(),
-                                            }),
+                                        state,
                                     );
 
                                     Control::Changed

@@ -1,5 +1,5 @@
-use crate::DialogState;
-use rat_salsa::{AppState, AppWidget, Control};
+use crate::{DialogState, DialogWidget};
+use rat_salsa::Control;
 use rat_widget::event::{Dialog, HandleEvent};
 use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog::MsgDialogStyle;
@@ -57,7 +57,7 @@ impl MsgDialog {
     }
 }
 
-impl<Global, Event, Error> AppWidget<Global, Event, Error> for MsgDialog
+impl<Global, Event, Error> DialogWidget<Global, Event, Error> for MsgDialog
 where
     Global: 'static,
     Event: Send + 'static,
@@ -100,12 +100,17 @@ impl MsgDialogState {
     }
 }
 
-impl<Global, Event, Error> AppState<Global, Event, Error> for MsgDialogState
+impl<Global, Event, Error> DialogState<Global, Event, Error> for MsgDialogState
 where
-    for<'a> &'a crossterm::event::Event: TryFrom<&'a Event>,
-    Error: Send + 'static,
+    Global: 'static,
     Event: Send + 'static,
+    Error: Send + 'static,
+    for<'a> &'a crossterm::event::Event: TryFrom<&'a Event>,
 {
+    fn active(&self) -> bool {
+        self.state.active()
+    }
+
     fn event(
         &mut self,
         event: &Event,
@@ -117,17 +122,5 @@ where
             Control::Continue
         };
         Ok(r)
-    }
-}
-
-impl<Global, Event, Error> DialogState<Global, Event, Error> for MsgDialogState
-where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-    for<'a> &'a crossterm::event::Event: TryFrom<&'a Event>,
-{
-    fn active(&self) -> bool {
-        self.state.active()
     }
 }
