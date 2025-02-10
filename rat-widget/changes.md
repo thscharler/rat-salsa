@@ -1,3 +1,9 @@
+# 1.0.5
+
+* fix: FileDialog: missing active()
+* fix: MsgDialogState: missing new()
+* fix: Hover should be marked as unstable.
+
 # 1.0.4
 
 * feature: Splitter: simplify usage with new into_widget_layout()
