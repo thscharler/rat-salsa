@@ -58,6 +58,7 @@ impl AppState<GlobalState, MyEvent, Error> for MyAppState {
             Ok(Control::Continue)
         }
     }
+}
 ```
 
 During rendering of the application:
@@ -91,7 +92,9 @@ impl AppWidget<GlobalState, MyEvent, Error> for MainApp {
 
         Ok(())
    }
+}   
 ``` 
 
+[refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
 
