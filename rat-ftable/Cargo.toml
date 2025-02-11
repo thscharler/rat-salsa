@@ -14,10 +14,7 @@ exclude = [".idea/*", ".gitignore", "ftable.gif"]
 collapsible_else_if = "allow"
 
 [features]
-unstable-widget-ref = [
-    "ratatui/unstable-widget-ref",
-    "rat-scrolled/unstable-widget-ref",
-]
+unstable-widget-ref = []
 
 [dependencies]
 crossterm = "0.28"

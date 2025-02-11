@@ -16,8 +16,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Text};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
 use std::cell::{Cell, RefCell};
 use std::cmp::max;
@@ -200,11 +198,10 @@ impl MsgDialogState {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for MsgDialog<'a> {
+impl<'a> StatefulWidget for &MsgDialog<'a> {
     type State = MsgDialogState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }

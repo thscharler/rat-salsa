@@ -12,13 +12,7 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "textarea.gif"]
 
 [features]
-unstable-widget-ref = [
-    "ratatui/unstable-widget-ref",
-    "rat-ftable/unstable-widget-ref",
-    "rat-scrolled/unstable-widget-ref",
-    "rat-text/unstable-widget-ref",
-    "rat-menu/unstable-widget-ref"
-]
+unstable-widget-ref = []
 user_directories = ["dep:dirs", "dep:sysinfo"]
 
 [dependencies]

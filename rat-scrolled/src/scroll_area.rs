@@ -4,8 +4,6 @@ use rat_event::{ct_event, flow, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, ScrollbarOrientation, StatefulWidget, Widget};
 use std::cmp::max;
 
@@ -124,11 +122,10 @@ impl<'a> StatefulWidget for ScrollArea<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for ScrollArea<'a> {
+impl<'a> StatefulWidget for &ScrollArea<'a> {
     type State = ScrollAreaState<'a>;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_scroll_area(self, area, buf, state);
     }
 }

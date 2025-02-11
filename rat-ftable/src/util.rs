@@ -1,6 +1,6 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::Style;
+use ratatui::style::Style;
 use ratatui::style::Stylize;
 use std::mem;
 

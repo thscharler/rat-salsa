@@ -20,9 +20,7 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::StatefulWidget;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::StatefulWidget;
 use std::fmt::{Debug, Formatter};
 
 /// Widget that supports row-wise editing of a table.
@@ -67,15 +65,14 @@ where
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, E> StatefulWidgetRef for EditableTable<'a, E>
+impl<'a, E> StatefulWidget for &EditableTable<'a, E>
 where
     E: TableEditor + 'a,
 {
     type State = EditableTableState<E::State>;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.table.render_ref(area, buf, &mut state.table);
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        (&self.table).render(area, buf, &mut state.table);
 
         if state.mode == Mode::Edit || state.mode == Mode::Insert {
             if let Some(row) = state.table.selected_checked() {

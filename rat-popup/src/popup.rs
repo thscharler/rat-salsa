@@ -10,8 +10,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, StatefulWidget};
 use std::cell::Cell;
 use std::cmp::max;
@@ -285,15 +283,6 @@ impl<'a> PopupCore<'a> {
     /// Run the layout to calculate the popup area before rendering.
     pub fn layout(&self, area: Rect, buf: &Buffer) -> Rect {
         self._layout(area, self.boundary_area.unwrap_or(buf.area))
-    }
-}
-
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for PopupCore<'a> {
-    type State = PopupCoreState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_popup(self, area, buf, state);
     }
 }
 

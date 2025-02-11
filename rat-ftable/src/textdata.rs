@@ -7,8 +7,8 @@ use crate::_private::NonExhaustive;
 use crate::{TableContext, TableData};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Style, Text};
-use ratatui::style::Styled;
+use ratatui::style::{Style, Styled};
+use ratatui::text::Text;
 use ratatui::widgets::Widget;
 
 /// Internal impl for TableData using pre-rendered Cells.

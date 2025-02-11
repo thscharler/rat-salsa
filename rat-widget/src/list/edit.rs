@@ -66,6 +66,7 @@ where
 impl<'a, E> StatefulWidget for EditList<'a, E>
 where
     E: StatefulWidget + 'a,
+    E::State: Sized,
 {
     type State = EditListState<E::State>;
 

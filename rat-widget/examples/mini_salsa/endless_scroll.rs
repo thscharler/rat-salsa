@@ -8,8 +8,9 @@ use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_widget::util::revert_style;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{StatefulWidget, Style};
+use ratatui::style::Style;
 use ratatui::widgets::Block;
+use ratatui::widgets::StatefulWidget;
 
 #[derive(Debug, Default)]
 pub struct EndlessScroll<'a> {

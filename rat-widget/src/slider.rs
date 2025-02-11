@@ -28,11 +28,10 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Direction, Position, Rect};
-use ratatui::prelude::{BlockExt, StatefulWidget};
+use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Text};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, Widget};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
@@ -566,15 +565,14 @@ where
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, T> StatefulWidgetRef for Slider<'a, T>
+impl<'a, T> StatefulWidget for &Slider<'a, T>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
 {
     type State = SliderState<T>;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_slider(self, area, buf, state);
     }
 }

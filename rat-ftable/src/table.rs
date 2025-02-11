@@ -15,8 +15,6 @@ use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::{max, min};
 use std::collections::HashSet;
@@ -108,7 +106,6 @@ mod data {
             }
         }
 
-        #[cfg(feature = "unstable-widget-ref")]
         pub(super) fn iter<'b>(&'b self) -> DataReprIter<'a, 'b> {
             match self {
                 DataRepr::None => DataReprIter::None,
@@ -410,7 +407,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// ```rust
     /// use ratatui::buffer::Buffer;
     /// use ratatui::layout::Rect;
-    /// use ratatui::prelude::Style;
+    /// use ratatui::style::Style;
     /// use ratatui::text::Span;
     /// use ratatui::widgets::{StatefulWidget, Widget};
     /// use rat_ftable::{Table, TableContext, TableState, TableData};    ///
@@ -493,7 +490,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// use format_num_pattern::NumberFormat;
     /// use ratatui::buffer::Buffer;
     /// use ratatui::layout::{Constraint, Rect};
-    /// use ratatui::prelude::Color;
+    /// use ratatui::style::Color;
     /// use ratatui::style::{Style, Stylize};
     /// use ratatui::text::Span;
     /// use ratatui::widgets::{Widget, StatefulWidget};
@@ -918,15 +915,14 @@ impl<Selection> Table<'_, Selection> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, Selection> StatefulWidgetRef for Table<'a, Selection>
+impl<'a, Selection> StatefulWidget for &Table<'a, Selection>
 where
     Selection: TableSelection,
 {
     type State = TableState<Selection>;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let iter = self.data.iter();
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let iter = (&self.data).iter();
         self.render_iter(iter, area, buf, state);
     }
 }

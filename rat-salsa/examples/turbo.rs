@@ -640,7 +640,7 @@ pub mod theme {
     use rat_widget::tabbed::TabbedStyle;
     use rat_widget::table::TableStyle;
     use rat_widget::text::TextStyle;
-    use ratatui::prelude::Style;
+    use ratatui::style::Style;
     use ratatui::style::Stylize;
     use ratatui::widgets::Block;
 

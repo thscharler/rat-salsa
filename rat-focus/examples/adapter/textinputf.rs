@@ -5,9 +5,9 @@ use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{StatefulWidget, Style};
+use ratatui::style::Style;
 use ratatui::text::Line;
-use ratatui::widgets::Widget;
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::marker::PhantomData;
 
 #[derive(Debug, Default)]

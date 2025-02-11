@@ -5,9 +5,9 @@ use rat_focus::{Focus, FocusBuilder};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::{ButtonOutcome, Outcome};
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::prelude::Widget;
 use ratatui::text::Span;
 use ratatui::widgets::StatefulWidget;
+use ratatui::widgets::Widget;
 use ratatui::Frame;
 use std::cmp::max;
 

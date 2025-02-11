@@ -3,8 +3,9 @@
 //!
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
-use ratatui::prelude::{BlockExt, Widget};
+use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
+use ratatui::widgets::Widget;
 use ratatui::widgets::{Block, Padding};
 use std::{fmt, mem};
 

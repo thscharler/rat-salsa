@@ -1,5 +1,5 @@
 use crate::Scheme;
-use ratatui::prelude::Color;
+use ratatui::style::Color;
 
 /// Base 16
 ///

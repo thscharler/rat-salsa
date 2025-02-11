@@ -13,8 +13,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::Style;
 use ratatui::text::Text;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget, Wrap};
 use std::cell::RefCell;
 use std::cmp::min;
@@ -219,11 +217,10 @@ impl<'a> Paragraph<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for Paragraph<'a> {
+impl<'a> StatefulWidget for &Paragraph<'a> {
     type State = ParagraphState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_paragraph(self, area, buf, state);
     }
 }

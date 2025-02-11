@@ -4,8 +4,8 @@ use crossterm::event::{Event, KeyEvent};
 use format_num_pattern::NumberFormat;
 use rat_event::Outcome;
 use ratatui::layout::Rect;
-use ratatui::prelude::Widget;
 use ratatui::text::Span;
+use ratatui::widgets::Widget;
 use ratatui::Frame;
 
 mod mini_salsa;

@@ -24,8 +24,6 @@ use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget};
 use ropey::Rope;
 use std::borrow::Cow;
@@ -273,11 +271,10 @@ impl<'a> TextArea<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for TextArea<'a> {
+impl<'a> StatefulWidget for &TextArea<'a> {
     type State = TextAreaState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_text_area(self, area, buf, state);
     }
 }

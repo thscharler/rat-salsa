@@ -25,7 +25,7 @@ use crate::_private::NonExhaustive;
 pub use pure_rust_locales::Locale;
 pub use rat_cursor::{impl_screen_cursor, screen_cursor, HasScreenCursor};
 use rat_scrolled::ScrollStyle;
-use ratatui::prelude::Style;
+use ratatui::style::Style;
 use ratatui::widgets::Block;
 
 pub mod event {

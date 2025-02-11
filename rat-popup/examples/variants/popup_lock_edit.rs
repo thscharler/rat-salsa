@@ -9,8 +9,9 @@ use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{StatefulWidget, Style};
+use ratatui::style::Style;
 use ratatui::style::Stylize;
+use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, BorderType};
 use std::cmp::max;
 

@@ -8,8 +8,9 @@ use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Position, Rect, Size};
-use ratatui::prelude::{Style, Widget};
+use ratatui::style::Style;
 use ratatui::text::Line;
+use ratatui::widgets::Widget;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
@@ -453,7 +454,9 @@ where
         let layout = self.layout.borrow();
         for (idx, block_area) in layout.block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
-                layout.block(idx).render(block_area, &mut self.buffer);
+                if let Some(block) = layout.block(idx) {
+                    block.render(block_area, &mut self.buffer);
+                }
             }
         }
     }

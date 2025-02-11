@@ -25,12 +25,22 @@ and event handling.
 # use std::path::PathBuf;
 use anyhow::Error;
 use rat_dialog::DialogStackState;
+use crate::rat_dialog::DialogWidget;
 use rat_dialog::widgets::{FileDialog, FileDialogState};
 # use rat_salsa::{AppState, Control};
 # use rat_theme2::DarkTheme;
 # use rat_widget::event::FileOutcome;
 # struct GlobalState { dialogs: DialogStackState<GlobalState, MyEvent, Error>, theme: DarkTheme }
 # enum MyEvent { Event(crossterm::event::Event), Status(u16, String) }
+# impl TryFrom<&MyEvent> for &crossterm::event::Event {
+#   type Error = ();
+#   fn try_from(value: &MyEvent) -> Result<Self, Self::Error> {
+#       match self {
+#           MyEvent::Event(event) => Ok(event),
+#           _ => Err(())    
+#       }
+#   }
+# }
 # struct MyAppState {}
 
 impl AppState<GlobalState, MyEvent, Error> for MyAppState {
@@ -40,19 +50,24 @@ impl AppState<GlobalState, MyEvent, Error> for MyAppState {
         ctx: &mut rat_salsa::AppContext<'_, GlobalState, MyEvent, Error>,
     ) -> Result<Control<MyEvent>, Error> {
         if matches!(event, MyEvent::Event(event)) {
+            let mut state = FileDialogState::new();
+            state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+            state.map_outcome(|r| match r {
+                FileOutcome::Ok(f) => {
+                    Control::Event(MyEvent::Status(0, format!("New file {:?}", f)))
+                }
+                r => r.into(),
+            });
+            
             ctx.g.dialogs.push_dialog(
-                |_, ctx| {
-                    Box::new(FileDialog::new().styles(ctx.g.theme.file_dialog_style()))
+                |area, buf, state, ctx| {
+                    FileDialog::new()
+                        .styles(ctx.g.theme.file_dialog_style())
+                        .render(area, buf, state, ctx)
                 },
-                FileDialogState::new()
-                    .save_dialog_ext(PathBuf::from("."), "", "pas")?
-                    .map_outcome(|r| match r {
-                        FileOutcome::Ok(f) => {
-                            Control::Event(MyEvent::Status(0, format!("New file {:?}", f)))
-                        }
-                        r => r.into(),
-                    }),
+                state                    
             );
+            
             Ok(Control::Changed)
         } else {
             Ok(Control::Continue)
@@ -68,12 +83,14 @@ During rendering of the application:
 # use ratatui::buffer::Buffer;
 # use ratatui::layout::Rect;
 use rat_dialog::{DialogStack, DialogStackState};
-# use rat_salsa::{AppWidget, RenderContext};
+# use rat_salsa::{AppWidget,AppState, RenderContext};
 # use rat_theme2::DarkTheme;
 # struct MainApp;
 # struct GlobalState { dialogs: DialogStackState<GlobalState, MyEvent, Error>, theme: DarkTheme }
 # enum MyEvent { Event(crossterm::event::Event), Status(u16, String) }
 # struct MainAppState {}
+# impl AppState<GlobalState, MyEvent, Error> for MainAppState {}
+
 
 impl AppWidget<GlobalState, MyEvent, Error> for MainApp {
     type State = MainAppState;

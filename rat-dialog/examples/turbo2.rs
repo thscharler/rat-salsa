@@ -269,8 +269,7 @@ pub mod file_dialog {
     use rat_widget::layout::layout_middle;
     use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::prelude::Constraint;
+    use ratatui::layout::{Constraint, Rect};
     use ratatui::widgets::StatefulWidget;
     use std::path::{Path, PathBuf};
 
@@ -973,8 +972,7 @@ pub mod theme {
     use rat_widget::tabbed::TabbedStyle;
     use rat_widget::table::TableStyle;
     use rat_widget::text::TextStyle;
-    use ratatui::prelude::Style;
-    use ratatui::style::Stylize;
+    use ratatui::style::{Style, Stylize};
     use ratatui::widgets::Block;
 
     #[derive(Debug, Clone)]

@@ -26,11 +26,9 @@ pub use rat_popup::PopupConstraint;
 use rat_popup::{PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
-use ratatui::prelude::StatefulWidget;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, Padding, Widget};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
@@ -343,11 +341,10 @@ impl<'a> PopupMenu<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for PopupMenu<'a> {
+impl<'a> StatefulWidget for &PopupMenu<'a> {
     type State = PopupMenuState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_popup_menu(self, area, buf, state);
     }
 }

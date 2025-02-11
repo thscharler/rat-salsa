@@ -56,8 +56,8 @@ use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
-use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::widgets::Block;
+use ratatui::widgets::{StatefulWidget, Widget};
 
 /// Configure the view.
 #[derive(Debug, Default, Clone)]

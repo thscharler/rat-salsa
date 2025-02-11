@@ -11,7 +11,7 @@ use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::StatefulWidget;
+use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, BorderType};
 
 #[derive(Debug, Default)]

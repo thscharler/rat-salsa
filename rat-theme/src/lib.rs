@@ -3,7 +3,7 @@
 use crate::dark_theme::DarkTheme;
 use crate::scheme::*;
 use map_range_int::MapRange;
-use ratatui::prelude::Color;
+use ratatui::style::Color;
 use ratatui::style::Style;
 
 mod base16;

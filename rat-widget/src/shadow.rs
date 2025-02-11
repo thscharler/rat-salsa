@@ -6,8 +6,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::StatefulWidget;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 
 /// Direction of the shadow.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -71,11 +69,10 @@ impl Default for ShadowStyle {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl StatefulWidgetRef for Shadow {
+impl StatefulWidget for &Shadow {
     type State = ();
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(&self, area, buf, state);
     }
 }

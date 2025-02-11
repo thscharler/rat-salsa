@@ -537,8 +537,8 @@ pub mod game {
     use rat_theme2::DarkTheme;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
-    use ratatui::prelude::StatefulWidget;
     use ratatui::style::{Color, Style, Stylize};
+    use ratatui::widgets::StatefulWidget;
     use std::cmp::max;
     use std::fmt::{Debug, Formatter};
     use std::mem;

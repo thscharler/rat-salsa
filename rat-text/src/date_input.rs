@@ -15,10 +15,9 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{StatefulWidget, Style};
+use ratatui::style::Style;
 use ratatui::widgets::Block;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::StatefulWidget;
 use std::fmt;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
@@ -116,12 +115,11 @@ impl<'a> DateInput<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for DateInput<'a> {
+impl<'a> StatefulWidget for &DateInput<'a> {
     type State = DateInputState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget.render_ref(area, buf, &mut state.widget);
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        (&self.widget).render(area, buf, &mut state.widget);
     }
 }
 

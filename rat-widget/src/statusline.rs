@@ -8,8 +8,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fmt::Debug;
 
@@ -103,11 +101,10 @@ impl StatusLineState {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl StatefulWidgetRef for StatusLine {
+impl StatefulWidget for &StatusLine {
     type State = StatusLineState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }

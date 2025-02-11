@@ -290,7 +290,9 @@ where
         for (idx, block_area) in self.layout.borrow().block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
                 let mut buffer = self.buffer.borrow_mut();
-                self.layout.borrow().block(idx).render(block_area, *buffer);
+                if let Some(block) = self.layout.borrow().block(idx) {
+                    block.render(block_area, *buffer);
+                }
             }
         }
     }

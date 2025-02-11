@@ -8,8 +8,10 @@ use format_num_pattern::NumberFormat;
 use rat_event::util::MouseFlags;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{BlockExt, StatefulWidget, Style};
+use ratatui::prelude::BlockExt;
+use ratatui::style::Style;
 use ratatui::text::Line;
+use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, Widget};
 
 /// Renders line-numbers.

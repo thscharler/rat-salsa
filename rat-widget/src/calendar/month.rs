@@ -10,12 +10,10 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
-use ratatui::prelude::Style;
+use ratatui::style::Style;
 use ratatui::style::Stylize;
 use ratatui::text::Span;
 use ratatui::widgets::block::Title;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cell::RefCell;
 use std::cmp::max;
@@ -303,14 +301,13 @@ impl<'a, Selection> Month<'a, Selection> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, Selection> StatefulWidgetRef for Month<'a, Selection>
+impl<'a, Selection> StatefulWidget for &Month<'a, Selection>
 where
     Selection: CalendarSelection,
 {
     type State = MonthState<Selection>;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }

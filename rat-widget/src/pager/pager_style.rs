@@ -1,6 +1,6 @@
 use crate::_private::NonExhaustive;
 use ratatui::layout::Alignment;
-use ratatui::prelude::Style;
+use ratatui::style::Style;
 use ratatui::widgets::Block;
 
 /// All styles for a pager.

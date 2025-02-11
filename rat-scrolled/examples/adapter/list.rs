@@ -5,8 +5,9 @@ use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
-use ratatui::prelude::{StatefulWidget, Style};
+use ratatui::style::Style;
 use ratatui::widgets::ListDirection::BottomToTop;
+use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState};
 use std::cmp::{max, min};
 

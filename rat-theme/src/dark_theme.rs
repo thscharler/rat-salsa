@@ -24,8 +24,8 @@ use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
-use ratatui::prelude::{Style, Stylize};
 use ratatui::style::Color;
+use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 

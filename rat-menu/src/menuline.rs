@@ -12,8 +12,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fmt::Debug;
 
@@ -226,11 +224,10 @@ impl<'a> MenuLine<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for MenuLine<'a> {
+impl<'a> StatefulWidget for &MenuLine<'a> {
     type State = MenuLineState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }

@@ -18,7 +18,7 @@ if_same_then_else = "allow"
 comparison_chain = "allow"
 
 [features]
-unstable-widget-ref = ["ratatui/unstable-widget-ref"]
+unstable-widget-ref = []
 
 [dependencies]
 ratatui = { version = "0.29" }

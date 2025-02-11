@@ -106,8 +106,9 @@ pub mod substratum2 {
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::prelude::{BlockExt, Style, Widget};
-    use ratatui::widgets::{Block, StatefulWidget};
+    use ratatui::prelude::BlockExt;
+    use ratatui::style::Style;
+    use ratatui::widgets::{Block, StatefulWidget, Widget};
 
     #[derive(Debug, Default)]
     pub struct Substratum2<'a> {
@@ -220,7 +221,10 @@ pub mod substratum1 {
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
+    use ratatui::prelude::BlockExt;
+    use ratatui::style::Style;
+    use ratatui::text::Span;
+    use ratatui::widgets::StatefulWidget;
     use ratatui::widgets::{Block, Widget};
 
     #[derive(Debug, Default)]

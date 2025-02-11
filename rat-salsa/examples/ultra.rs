@@ -4,7 +4,9 @@ use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme2::schemes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::ct_event;
-use ratatui::prelude::{Buffer, Rect, Widget};
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use ratatui::widgets::Widget;
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, UltraEvent, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;

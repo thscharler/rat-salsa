@@ -328,7 +328,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
             .style(theme.black(3).fg(theme.scheme().secondary[2]))
             .render(path_area, buf);
 
-        let (split, split_overlay) = Split::horizontal()
+        let (split, split_layout) = Split::horizontal()
             .constraints([
                 Constraint::Length(25),
                 Constraint::Length(25),
@@ -336,8 +336,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
             ])
             .split_type(SplitType::Scroll)
             .styles(theme.split_style())
-            .into_widgets();
-        split.render(split_area, buf, &mut state.w_split);
+            .into_widget_layout(split_area, &mut state.w_split);
 
         // split content
         {
@@ -354,7 +353,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
                 )
                 .vscroll(Scroll::new().start_margin(2).scroll_by(1))
                 .styles(theme.table_style())
-                .render(state.w_split.widget_areas[0], buf, &mut state.w_dirs);
+                .render(split_layout[0], buf, &mut state.w_dirs);
 
             Table::new()
                 .data(FileData {
@@ -371,7 +370,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
                 )
                 .vscroll(Scroll::new().start_margin(2).scroll_by(1))
                 .styles(theme.table_style())
-                .render(state.w_split.widget_areas[1], buf, &mut state.w_files);
+                .render(split_layout[1], buf, &mut state.w_files);
 
             let title = if state.w_data.is_focused() {
                 Title::from(Line::from("Content").style(theme.focus()))
@@ -387,11 +386,11 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
                         .title(title),
                 )
                 .styles(theme.textarea_style())
-                .render(state.w_split.widget_areas[2], buf, &mut state.w_data);
+                .render(split_layout[2], buf, &mut state.w_data);
         }
 
         // render split overlay parts
-        split_overlay.render(split_area, buf, &mut state.w_split);
+        split.render(split_area, buf, &mut state.w_split);
 
         let (menu, menu_popup) = Menubar::new(&Menu)
             .title("[-.-]")

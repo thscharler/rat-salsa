@@ -6,7 +6,8 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{StatefulWidget, Style};
+use ratatui::style::Style;
+use ratatui::widgets::StatefulWidget;
 use std::marker::PhantomData;
 
 #[derive(Debug, Default)]

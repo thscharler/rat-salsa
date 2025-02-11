@@ -13,8 +13,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::Line;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::cmp::min;
 use std::fmt::Debug;
@@ -305,11 +303,10 @@ impl StatefulWidget for Tabbed<'_> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for Tabbed<'a> {
+impl<'a> StatefulWidget for &Tabbed<'a> {
     type State = TabbedState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }

@@ -11,7 +11,7 @@ use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableState};
 use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::prelude::StatefulWidget;
+use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{block, Block};
 use ratatui::Frame;
 

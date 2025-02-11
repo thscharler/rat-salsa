@@ -358,8 +358,9 @@ pub mod show_scheme {
     use rat_widget::reloc::{relocate_area, RelocatableState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
-    use ratatui::prelude::{Line, Span, StatefulWidget};
     use ratatui::style::{Color, Style, Stylize};
+    use ratatui::text::{Line, Span};
+    use ratatui::widgets::StatefulWidget;
     use ratatui::widgets::Widget;
 
     #[derive(Debug)]

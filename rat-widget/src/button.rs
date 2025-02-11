@@ -32,8 +32,6 @@ use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::text::Text;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::thread;
 use std::time::Duration;
@@ -227,11 +225,10 @@ impl<'a> Button<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for Button<'a> {
+impl<'a> StatefulWidget for &Button<'a> {
     type State = ButtonState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }
@@ -266,8 +263,8 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
         }
     };
 
-    if widget.block.is_some() {
-        widget.block.render(area, buf);
+    if let Some(block) = &widget.block {
+        block.render(area, buf);
     } else {
         buf.set_style(area, style);
     }

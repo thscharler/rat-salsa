@@ -31,8 +31,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
 use std::cmp::min;
@@ -218,11 +216,10 @@ impl<'a> TextInput<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for TextInput<'a> {
+impl<'a> StatefulWidget for &TextInput<'a> {
     type State = TextInputState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }
@@ -285,8 +282,8 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     };
 
     // set base style
-    if widget.block.is_some() {
-        widget.block.render(area, buf);
+    if let Some(block) = &widget.block {
+        block.render(area, buf);
     } else {
         buf.set_style(area, style);
     }

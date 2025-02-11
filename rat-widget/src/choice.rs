@@ -47,8 +47,6 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cell::RefCell;
 use std::cmp::{max, min};
@@ -732,14 +730,13 @@ where
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T>
+impl<'a, T> StatefulWidget for &ChoiceWidget<'a, T>
 where
     T: PartialEq + Clone + Default,
 {
     type State = ChoiceState<T>;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.core.set_values(self.values.borrow().clone());
         if let Some(default_value) = self.default_value.clone() {
             state.core.set_default_value(Some(default_value));
@@ -813,15 +810,15 @@ fn render_choice<T: PartialEq + Clone + Default>(
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
 
     if state.is_focused() {
-        if widget.block.is_some() {
-            widget.block.render(area, buf);
+        if let Some(block) = &widget.block {
+            block.render(area, buf);
         } else {
             buf.set_style(inner, style);
         }
         buf.set_style(inner, focus_style);
     } else {
-        if widget.block.is_some() {
-            widget.block.render(area, buf);
+        if let Some(block) = &widget.block {
+            block.render(area, buf);
         } else {
             buf.set_style(inner, style);
         }
@@ -879,15 +876,14 @@ where
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<T> StatefulWidgetRef for ChoicePopup<'_, T>
+impl<T> StatefulWidget for &ChoicePopup<'_, T>
 where
     T: PartialEq + Clone + Default,
 {
     type State = ChoiceState<T>;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_popup(&self, area, buf, state);
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_popup(self, area, buf, state);
     }
 }
 
