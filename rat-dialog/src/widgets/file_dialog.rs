@@ -4,10 +4,10 @@ use rat_widget::event::{Dialog, FileOutcome, HandleEvent};
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::layout::layout_middle;
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::Constraint;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::layout::Constraint;
+use ratatui_core::widgets::StatefulWidget;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 

@@ -5,8 +5,10 @@
 //! use rat_popup::Placement;
 //! use rat_scrolled::Scroll;
 //! use rat_widget::choice::{Choice, ChoiceState};
-//! # use ratatui::prelude::*;
-//! # use ratatui::widgets::Block;
+//! # use ratatui_core::buffer::*;
+//! # use ratatui_core::layout::*;
+//! # use ratatui_core::widgets::*;
+//! # use ratatui_widgets::block::Block;
 //! # let mut buf = Buffer::default();
 //! # let mut cstate = ChoiceState::default();
 //! # let mut max_bounds: Rect = Rect::default();
@@ -42,14 +44,14 @@ use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollAreaState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::text::{Line, Span};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Span};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::widgets::{ StatefulWidget, Widget};
+use ratatui_widgets::block::{Block, BlockExt};
 use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::marker::PhantomData;
@@ -732,22 +734,22 @@ where
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T>
-where
-    T: PartialEq + Clone + Default,
-{
-    type State = ChoiceState<T>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.core.set_values(self.values.borrow().clone());
-        if let Some(default_value) = self.default_value.clone() {
-            state.core.set_default_value(Some(default_value));
-        }
-
-        render_choice(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T>
+// where
+//     T: PartialEq + Clone + Default,
+// {
+//     type State = ChoiceState<T>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         state.core.set_values(self.values.borrow().clone());
+//         if let Some(default_value) = self.default_value.clone() {
+//             state.core.set_default_value(Some(default_value));
+//         }
+//
+//         render_choice(self, area, buf, state);
+//     }
+// }
 
 impl<T> StatefulWidget for ChoiceWidget<'_, T>
 where
@@ -813,15 +815,15 @@ fn render_choice<T: PartialEq + Clone + Default>(
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
 
     if state.is_focused() {
-        if widget.block.is_some() {
-            widget.block.render(area, buf);
+        if let Some(block) = &widget.block {
+            block.render(area, buf);
         } else {
             buf.set_style(inner, style);
         }
         buf.set_style(inner, focus_style);
     } else {
-        if widget.block.is_some() {
-            widget.block.render(area, buf);
+        if let Some(block) = &widget.block {
+            block.render(area, buf);
         } else {
             buf.set_style(inner, style);
         }

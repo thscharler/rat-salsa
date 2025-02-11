@@ -27,14 +27,14 @@ use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::{BlockExt, StatefulWidget, Text, Widget};
-use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::widgets::Block;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui_widgets::block::{Block, BlockExt};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::{Span, Text};
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -270,14 +270,14 @@ impl<'a> Checkbox<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for Checkbox<'a> {
-    type State = CheckboxState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for Checkbox<'a> {
+//     type State = CheckboxState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_ref(self, area, buf, state);
+//     }
+// }
 
 impl StatefulWidget for Checkbox<'_> {
     type State = CheckboxState;
@@ -314,8 +314,8 @@ fn render_ref(widget: &Checkbox<'_>, area: Rect, buf: &mut Buffer, state: &mut C
         revert_style(style)
     };
 
-    if widget.block.is_some() {
-        widget.block.render(area, buf);
+    if let Some(block) = &widget.block {
+        block.render(area, buf);
         if state.focus.get() {
             buf.set_style(state.inner, focus_style);
         }

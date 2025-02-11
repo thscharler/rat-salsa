@@ -1,8 +1,8 @@
 #![doc = include_str!("../readme.md")]
 
 use rat_salsa::{AppContext, AppState, AppWidget, Control, RenderContext};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
 use std::any::{Any, TypeId};
 use std::cell::Cell;
 use std::error::Error;

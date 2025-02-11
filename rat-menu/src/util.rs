@@ -1,4 +1,4 @@
-use ratatui::style::{Style, Stylize};
+use ratatui_core::style::{Style, Stylize};
 use std::mem;
 
 /// Returns a new style with fg and bg swapped.

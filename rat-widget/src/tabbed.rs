@@ -9,13 +9,14 @@ use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::text::Line;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_widgets::block::Block;
 use std::cmp::min;
 use std::fmt::Debug;
 
@@ -305,14 +306,14 @@ impl StatefulWidget for Tabbed<'_> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for Tabbed<'a> {
-    type State = TabbedState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for Tabbed<'a> {
+//     type State = TabbedState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_ref(self, area, buf, state);
+//     }
+// }
 
 fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut TabbedState) {
     if tabbed.tabs.is_empty() {

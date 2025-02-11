@@ -2,12 +2,12 @@
 //! Draw a shadow around a widget.
 //!
 use crate::_private::NonExhaustive;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::StatefulWidget;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
 
 /// Direction of the shadow.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -71,14 +71,14 @@ impl Default for ShadowStyle {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl StatefulWidgetRef for Shadow {
-    type State = ();
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(&self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl StatefulWidgetRef for Shadow {
+//     type State = ();
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_ref(&self, area, buf, state);
+//     }
+// }
 
 impl StatefulWidget for Shadow {
     type State = ();

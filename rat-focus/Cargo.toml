@@ -12,7 +12,7 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
 [dependencies]
-ratatui = { version = "0.29" }
+ratatui-core = { version = "0.1.0-alpha.2", path="../../ratatui/ratatui-core" }
 crossterm = "0.28"
 log = "0.4"
 fxhash = "0.2"

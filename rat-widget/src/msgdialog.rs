@@ -12,13 +12,14 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::{Scroll, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Flex, Rect};
-use ratatui::style::Style;
-use ratatui::text::{Line, Text};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Constraint, Flex, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Text};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::{Block, Padding};
 use std::cell::{Cell, RefCell};
 use std::cmp::max;
 use std::fmt::Debug;
@@ -200,14 +201,14 @@ impl MsgDialogState {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for MsgDialog<'a> {
-    type State = MsgDialogState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for MsgDialog<'a> {
+//     type State = MsgDialogState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_ref(self, area, buf, state);
+//     }
+// }
 
 impl StatefulWidget for MsgDialog<'_> {
     type State = MsgDialogState;

@@ -2,10 +2,11 @@
 //!
 //!
 //! ```
-//! # use ratatui::buffer::Buffer;
-//! # use ratatui::layout::{Flex, Rect};
-//! # use ratatui::text::Span;
-//! # use ratatui::widgets::{Padding, Widget, StatefulWidget};
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::{Flex, Rect};
+//! # use ratatui_core::text::Span;
+//! # use ratatui_core::widgets::{Widget, StatefulWidget};
+//! # use ratatui_widgets::block::{Padding};
 //! # use rat_focus::{FocusFlag, HasFocus};
 //! # use rat_text::text_input::{TextInput, TextInputState};
 //! # use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
@@ -76,11 +77,11 @@ use crate::_private::NonExhaustive;
 use crate::layout::GenericLayout;
 use crate::pager::{Pager, PagerBuffer, PagerStyle};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect, Size};
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::{Block, BlockExt};
 use std::borrow::Cow;
 use std::cell::{Ref, RefCell, RefMut};
 use std::hash::Hash;

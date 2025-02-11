@@ -1,11 +1,11 @@
 //!
 //! Small helpers.
 //!
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Rect, Size};
-use ratatui::prelude::{BlockExt, Widget};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Padding};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Rect, Size};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::widgets::Widget;
+use ratatui_widgets::block::{Block, BlockExt, Padding};
 use std::{fmt, mem};
 
 /// Union the areas, but regard only non-empty ones.

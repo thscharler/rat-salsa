@@ -5,9 +5,9 @@ use crate::_private::NonExhaustive;
 use map_range_int::MapRange;
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::cmp::min;
 use std::marker::PhantomData;
 

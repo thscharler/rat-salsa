@@ -6,11 +6,12 @@ use crate::_private::NonExhaustive;
 use crate::upos_type;
 use format_num_pattern::NumberFormat;
 use rat_event::util::MouseFlags;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::{BlockExt, StatefulWidget, Style};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::{Block, BlockExt};
 
 /// Renders line-numbers.
 ///

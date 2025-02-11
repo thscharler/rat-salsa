@@ -10,9 +10,9 @@ pub mod textdata;
 mod util;
 
 use crate::textdata::Row;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Rect};
-use ratatui::style::Style;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Rect};
+use ratatui_core::style::Style;
 
 /// Render-context for rendering a table-cell.
 #[derive(Debug)]

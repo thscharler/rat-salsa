@@ -4,12 +4,15 @@ use crate::ScrollbarPolicy;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly};
 use rat_reloc::{relocate_area, RelocatableState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::Style;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Padding, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_core::symbols;
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui_core::widgets::StatefulWidgetRef;
+use ratatui_widgets::scrollbar::{Scrollbar, ScrollbarOrientation, ScrollbarState};
+use ratatui_widgets::block::Padding;
 use std::cmp::{max, min};
 use std::mem;
 use std::ops::Range;
@@ -143,40 +146,40 @@ pub struct ScrollSymbols {
 }
 
 pub const SCROLLBAR_DOUBLE_VERTICAL: ScrollSymbols = ScrollSymbols {
-    track: ratatui::symbols::line::DOUBLE_VERTICAL,
-    thumb: ratatui::symbols::block::FULL,
+    track: symbols::line::DOUBLE_VERTICAL,
+    thumb: symbols::block::FULL,
     begin: "▲",
     end: "▼",
-    min: ratatui::symbols::line::DOUBLE_VERTICAL,
+    min: symbols::line::DOUBLE_VERTICAL,
 };
 
 pub const SCROLLBAR_DOUBLE_HORIZONTAL: ScrollSymbols = ScrollSymbols {
-    track: ratatui::symbols::line::DOUBLE_HORIZONTAL,
-    thumb: ratatui::symbols::block::FULL,
+    track: symbols::line::DOUBLE_HORIZONTAL,
+    thumb: symbols::block::FULL,
     begin: "◄",
     end: "►",
-    min: ratatui::symbols::line::DOUBLE_HORIZONTAL,
+    min: symbols::line::DOUBLE_HORIZONTAL,
 };
 
 pub const SCROLLBAR_VERTICAL: ScrollSymbols = ScrollSymbols {
-    track: ratatui::symbols::line::VERTICAL,
-    thumb: ratatui::symbols::block::FULL,
+    track: symbols::line::VERTICAL,
+    thumb: symbols::block::FULL,
     begin: "↑",
     end: "↓",
-    min: ratatui::symbols::line::VERTICAL,
+    min: symbols::line::VERTICAL,
 };
 
 pub const SCROLLBAR_HORIZONTAL: ScrollSymbols = ScrollSymbols {
-    track: ratatui::symbols::line::HORIZONTAL,
-    thumb: ratatui::symbols::block::FULL,
+    track: symbols::line::HORIZONTAL,
+    thumb: symbols::block::FULL,
     begin: "←",
     end: "→",
-    min: ratatui::symbols::line::HORIZONTAL,
+    min: symbols::line::HORIZONTAL,
 };
 
-impl From<&ScrollSymbols> for ratatui::symbols::scrollbar::Set {
+impl From<&ScrollSymbols> for symbols::scrollbar::Set {
     fn from(value: &ScrollSymbols) -> Self {
-        ratatui::symbols::scrollbar::Set {
+        symbols::scrollbar::Set {
             track: value.track,
             thumb: value.thumb,
             begin: value.begin,
@@ -471,14 +474,14 @@ impl StatefulWidget for Scroll<'_> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl StatefulWidgetRef for Scroll<'_> {
-    type State = ScrollState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_scroll(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl StatefulWidgetRef for Scroll<'_> {
+//     type State = ScrollState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_scroll(self, area, buf, state);
+//     }
+// }
 
 fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut ScrollState) {
     state.set_orientation(scroll.orientation.clone());

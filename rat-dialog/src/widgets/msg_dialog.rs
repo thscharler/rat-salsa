@@ -3,9 +3,10 @@ use rat_salsa::Control;
 use rat_widget::event::{Dialog, HandleEvent};
 use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog::MsgDialogStyle;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Rect};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Rect};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_widgets::block::Block;
 
 #[derive(Debug)]
 pub struct MsgDialog {

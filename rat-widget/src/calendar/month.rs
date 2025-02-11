@@ -8,15 +8,14 @@ use chrono::{Datelike, Days, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::prelude::Style;
-use ratatui::style::Stylize;
-use ratatui::text::Span;
-use ratatui::widgets::block::Title;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::text::Span;
+use ratatui_widgets::block::{Block, Title};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::cell::RefCell;
 use std::cmp::max;
 use std::collections::HashMap;
@@ -303,17 +302,17 @@ impl<'a, Selection> Month<'a, Selection> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, Selection> StatefulWidgetRef for Month<'a, Selection>
-where
-    Selection: CalendarSelection,
-{
-    type State = MonthState<Selection>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a, Selection> StatefulWidgetRef for Month<'a, Selection>
+// where
+//     Selection: CalendarSelection,
+// {
+//     type State = MonthState<Selection>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_ref(self, area, buf, state);
+//     }
+// }
 
 impl<Selection> StatefulWidget for Month<'_, Selection>
 where

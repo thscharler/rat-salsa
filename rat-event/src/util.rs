@@ -4,7 +4,7 @@
 
 use crate::Outcome;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::layout::{Position, Rect};
+use ratatui_core::layout::{Position, Rect};
 use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::SystemTime;

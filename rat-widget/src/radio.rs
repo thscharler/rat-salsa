@@ -9,12 +9,12 @@ use rat_event::util::{item_at, MouseFlags};
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Direction, Rect, Size};
-use ratatui::prelude::{BlockExt, StatefulWidget};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Span, Text};
-use ratatui::widgets::{Block, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Direction, Rect, Size};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::text::{Span, Text};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::{Block, BlockExt};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
 

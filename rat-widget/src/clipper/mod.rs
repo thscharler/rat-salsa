@@ -10,7 +10,9 @@
 //! ```rust no_run
 //!     # use rat_widget::clipper::{Clipper, ClipperState};
 //!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
-//!     # use ratatui::prelude::*;
+//!     # use ratatui_core::layout::*;
+//!     # use ratatui_core::buffer::*;
+//!     # use ratatui_core::widgets::*;
 //! use rat_focus::FocusFlag;
 //! use rat_widget::layout::GenericLayout;
 //!     #

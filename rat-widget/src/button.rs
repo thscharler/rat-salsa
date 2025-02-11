@@ -27,14 +27,14 @@ use rat_event::util::{have_keyboard_enhancement, MouseFlags};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::text::Text;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Text;
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::{Block, BlockExt};
 use std::thread;
 use std::time::Duration;
 
@@ -227,14 +227,14 @@ impl<'a> Button<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for Button<'a> {
-    type State = ButtonState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for Button<'a> {
+//     type State = ButtonState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_ref(self, area, buf, state);
+//     }
+// }
 
 impl StatefulWidget for Button<'_> {
     type State = ButtonState;
@@ -266,8 +266,8 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
         }
     };
 
-    if widget.block.is_some() {
-        widget.block.render(area, buf);
+    if let Some(block) = &widget.block {
+        block.render(area, buf);
     } else {
         buf.set_style(area, style);
     }

@@ -13,7 +13,7 @@ exclude = [".idea/*", ".gitignore", "textarea.gif"]
 
 [features]
 unstable-widget-ref = [
-    "ratatui/unstable-widget-ref",
+    #"ratatui/unstable-widget-ref",
     "rat-ftable/unstable-widget-ref",
     "rat-scrolled/unstable-widget-ref",
     "rat-text/unstable-widget-ref",
@@ -22,7 +22,9 @@ unstable-widget-ref = [
 user_directories = ["dep:dirs", "dep:sysinfo"]
 
 [dependencies]
-ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
+ratatui-core = { version = "0.1.0-alpha.2", path = "../../ratatui/ratatui-core", features = [] }
+ratatui-widgets = { version = "0.3.0-alpha.1", path = "../../ratatui/ratatui-widgets", features = ["unstable-rendered-line-info"] }
+#ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
 crossterm = "0.28"
 unicode-segmentation = "1.11"
 unicode-display-width = "0.3"

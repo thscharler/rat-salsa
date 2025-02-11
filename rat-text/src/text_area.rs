@@ -21,12 +21,13 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::{Style, Stylize};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::{Style, Stylize};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_widgets::block::Block;
 use ropey::Rope;
 use std::borrow::Cow;
 use std::cmp::{max, min};
@@ -273,14 +274,14 @@ impl<'a> TextArea<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for TextArea<'a> {
-    type State = TextAreaState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_text_area(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for TextArea<'a> {
+//     type State = TextAreaState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_text_area(self, area, buf, state);
+//     }
+// }
 
 impl StatefulWidget for TextArea<'_> {
     type State = TextAreaState;

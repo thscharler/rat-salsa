@@ -8,8 +8,8 @@ use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use rat_widget::event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_widget::focus::Focus;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 #[cfg(feature = "async")]

@@ -2,7 +2,7 @@ use crate::focus::core::FocusCore;
 use crate::{FocusFlag, HasFocus, Navigation};
 pub use core::FocusBuilder;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
-use ratatui::layout::Rect;
+use ratatui_core::layout::Rect;
 use std::ops::Range;
 
 /// Focus deals with all focus-related issues.
@@ -519,7 +519,7 @@ impl Focus {
 mod core {
     use crate::{Focus, FocusFlag, HasFocus, Navigation};
     use fxhash::FxBuildHasher;
-    use ratatui::layout::Rect;
+    use ratatui_core::layout::Rect;
     use std::cell::Cell;
     use std::collections::HashSet;
     use std::ops::Range;
@@ -1525,7 +1525,7 @@ mod core {
     mod test {
         use crate::focus::core::FocusCore;
         use crate::{FocusBuilder, FocusFlag, HasFocus};
-        use ratatui::layout::Rect;
+        use ratatui_core::layout::Rect;
 
         #[test]
         fn test_change() {

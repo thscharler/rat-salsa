@@ -12,12 +12,13 @@ use rat_event::{ct_event, HandleEvent};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Style;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_widgets::block::Block;
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -84,9 +85,9 @@ mod data {
     use crate::{TableContext, TableData, TableDataIter};
     #[cfg(debug_assertions)]
     use log::warn;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::style::{Style, Stylize};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::Rect;
+    use ratatui_core::style::{Style, Stylize};
     use std::fmt::{Debug, Formatter};
 
     #[derive(Default)]
@@ -408,11 +409,11 @@ impl<'a, Selection> Table<'a, Selection> {
     /// reference to your data. Then implement TableData for this struct.
     ///
     /// ```rust
-    /// use ratatui::buffer::Buffer;
-    /// use ratatui::layout::Rect;
-    /// use ratatui::prelude::Style;
-    /// use ratatui::text::Span;
-    /// use ratatui::widgets::{StatefulWidget, Widget};
+    /// use ratatui_core::buffer::Buffer;
+    /// use ratatui_core::layout::Rect;
+    /// use ratatui_core::style::Style;
+    /// use ratatui_core::text::Span;
+    /// use ratatui_core::widgets::{StatefulWidget, Widget};
     /// use rat_ftable::{Table, TableContext, TableState, TableData};    ///
     /// #
     /// use rat_ftable::selection::RowSelection;
@@ -491,12 +492,12 @@ impl<'a, Selection> Table<'a, Selection> {
     /// use std::iter::{Enumerate};
     /// use std::slice::Iter;
     /// use format_num_pattern::NumberFormat;
-    /// use ratatui::buffer::Buffer;
-    /// use ratatui::layout::{Constraint, Rect};
-    /// use ratatui::prelude::Color;
-    /// use ratatui::style::{Style, Stylize};
-    /// use ratatui::text::Span;
-    /// use ratatui::widgets::{Widget, StatefulWidget};
+    /// use ratatui_core::buffer::Buffer;
+    /// use ratatui_core::layout::{Constraint, Rect};
+    /// use ratatui_core::style::Color;
+    /// use ratatui_core::style::{Style, Stylize};
+    /// use ratatui_core::text::Span;
+    /// use ratatui_core::widgets::{Widget, StatefulWidget};
     /// use rat_ftable::{Table, TableContext, TableState, TableDataIter};
     /// use rat_ftable::selection::RowSelection;
     ///
@@ -918,18 +919,18 @@ impl<Selection> Table<'_, Selection> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, Selection> StatefulWidgetRef for Table<'a, Selection>
-where
-    Selection: TableSelection,
-{
-    type State = TableState<Selection>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let iter = self.data.iter();
-        self.render_iter(iter, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a, Selection> StatefulWidgetRef for Table<'a, Selection>
+// where
+//     Selection: TableSelection,
+// {
+//     type State = TableState<Selection>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         let iter = self.data.iter();
+//         self.render_iter(iter, area, buf, state);
+//     }
+// }
 
 impl<Selection> StatefulWidget for Table<'_, Selection>
 where
@@ -1328,8 +1329,8 @@ where
             }
             if !msg.is_empty() {
                 use log::warn;
-                use ratatui::style::Stylize;
-                use ratatui::text::Text;
+                use ratatui_core::style::Stylize;
+                use ratatui_core::text::Text;
 
                 warn!("{}", &msg);
                 Text::from(msg)

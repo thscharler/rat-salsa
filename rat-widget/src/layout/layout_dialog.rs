@@ -1,6 +1,6 @@
 use crate::layout::GenericLayout;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::widgets::Padding;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_widgets::block::Padding;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum DialogItem {

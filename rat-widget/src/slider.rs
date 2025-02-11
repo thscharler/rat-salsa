@@ -3,8 +3,9 @@
 //!
 //! ```rust no_run
 //! use rat_widget::slider::{Slider, SliderState};
-//! # use ratatui::layout::Rect;
-//! # use ratatui::prelude::*;
+//! # use ratatui_core::layout::Rect;
+//! # use ratatui_core::buffer::*;
+//! # use ratatui_core::widgets::*;
 //! #
 //! # let slider_area = Rect::ZERO;
 //! # let mut buf = Buffer::default();
@@ -26,14 +27,14 @@ use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Direction, Position, Rect};
-use ratatui::prelude::{BlockExt, StatefulWidget};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Text};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Direction, Position, Rect};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::text::{Line, Text};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::{Block, BlockExt};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -566,18 +567,18 @@ where
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, T> StatefulWidgetRef for Slider<'a, T>
-where
-    T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
-    u16: MapRange<T>,
-{
-    type State = SliderState<T>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_slider(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a, T> StatefulWidgetRef for Slider<'a, T>
+// where
+//     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
+//     u16: MapRange<T>,
+// {
+//     type State = SliderState<T>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_slider(self, area, buf, state);
+//     }
+// }
 
 impl<T> StatefulWidget for Slider<'_, T>
 where

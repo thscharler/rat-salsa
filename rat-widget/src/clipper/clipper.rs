@@ -6,11 +6,12 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Position, Rect, Size};
-use ratatui::prelude::{Style, Widget};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Position, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::Block;
 use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
 use std::cmp::{max, min};
@@ -453,7 +454,9 @@ where
         let layout = self.layout.borrow();
         for (idx, block_area) in layout.block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
-                layout.block(idx).render(block_area, &mut self.buffer);
+                if let Some(block) = layout.block(idx) {
+                    block.render(block_area, &mut self.buffer);
+                }
             }
         }
     }

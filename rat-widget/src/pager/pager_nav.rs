@@ -5,11 +5,12 @@ use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect, Size};
-use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::Block;
 use std::cmp::min;
 use unicode_display_width::width as unicode_width;
 

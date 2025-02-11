@@ -8,13 +8,13 @@ use crate::{MenuBuilder, MenuItem, MenuStyle};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::text::{Line, Span};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::fmt::Debug;
 
 /// Main menu widget.
@@ -226,14 +226,14 @@ impl<'a> MenuLine<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for MenuLine<'a> {
-    type State = MenuLineState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for MenuLine<'a> {
+//     type State = MenuLineState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_ref(self, area, buf, state);
+//     }
+// }
 
 impl StatefulWidget for MenuLine<'_> {
     type State = MenuLineState;

@@ -20,8 +20,8 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use rat_widget::event::util::set_have_keyboard_enhancement;
-use ratatui::backend::CrosstermBackend;
-use ratatui::Frame;
+use ratatui_core::terminal::Frame;
+use ratatui_crossterm::CrosstermBackend;
 use std::fmt::Debug;
 use std::io;
 use std::io::{stdout, Stdout};
@@ -63,13 +63,13 @@ where
 /// Default RenderUI for crossterm.
 #[derive(Debug)]
 pub struct CrosstermTerminal {
-    term: ratatui::Terminal<CrosstermBackend<Stdout>>,
+    term: ratatui_core::terminal::Terminal<CrosstermBackend<Stdout>>,
 }
 
 impl CrosstermTerminal {
     pub fn new() -> Result<Self, io::Error> {
         Ok(Self {
-            term: ratatui::Terminal::new(CrosstermBackend::new(stdout()))?,
+            term: ratatui_core::terminal::Terminal::new(CrosstermBackend::new(stdout()))?,
         })
     }
 }

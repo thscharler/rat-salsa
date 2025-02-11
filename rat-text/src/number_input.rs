@@ -12,12 +12,13 @@ use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::{StatefulWidget, Style};
-use ratatui::widgets::Block;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::{StatefulWidget, };
+use ratatui_core::style::{ Style};
+use ratatui_widgets::block::Block;
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
 use std::fmt::{Debug, Display, LowerExp};
 use std::ops::Range;
 use std::str::FromStr;
@@ -120,14 +121,14 @@ impl<'a> NumberInput<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for NumberInput<'a> {
-    type State = NumberInputState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget.render_ref(area, buf, &mut state.widget);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for NumberInput<'a> {
+//     type State = NumberInputState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         self.widget.render_ref(area, buf, &mut state.widget);
+//     }
+// }
 
 impl StatefulWidget for NumberInput<'_> {
     type State = NumberInputState;

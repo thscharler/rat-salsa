@@ -1,12 +1,14 @@
 use crate::event::ScrollOutcome;
 use crate::{Scroll, ScrollState, ScrollbarPolicy};
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
-use ratatui::style::Style;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, Padding, ScrollbarOrientation, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Position, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{Widget,StatefulWidget};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_widgets::block::{Block, Padding};
+use ratatui_widgets::scrollbar::{ScrollbarOrientation};
 use std::cmp::max;
 
 /// Utility widget for layout/rendering the combined block and scrollbars.
@@ -124,14 +126,14 @@ impl<'a> StatefulWidget for ScrollArea<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for ScrollArea<'a> {
-    type State = ScrollAreaState<'a>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_scroll_area(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for ScrollArea<'a> {
+//     type State = ScrollAreaState<'a>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_scroll_area(self, area, buf, state);
+//     }
+// }
 
 fn render_scroll_area(
     widget: &ScrollArea<'_>,

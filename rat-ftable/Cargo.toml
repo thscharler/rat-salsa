@@ -15,13 +15,14 @@ collapsible_else_if = "allow"
 
 [features]
 unstable-widget-ref = [
-    "ratatui/unstable-widget-ref",
+    #"ratatui/unstable-widget-ref",
     "rat-scrolled/unstable-widget-ref",
 ]
 
 [dependencies]
 crossterm = "0.28"
-ratatui = { version = "0.29" }
+ratatui-core = { version = "0.1.0-alpha.2", path="../../ratatui/ratatui-core" }
+ratatui-widgets = { version = "0.3.0-alpha.1", path="../../ratatui/ratatui-widgets" }
 log = "0.4"
 
 rat-event = { version = "1.0", path = "../rat-event" }

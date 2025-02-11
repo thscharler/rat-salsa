@@ -6,13 +6,13 @@ use rat_event::{ct_event, HandleEvent, Popup};
 use rat_focus::{FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect, Size};
-use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Stylize};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, Padding, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect, Size};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::widgets::{StatefulWidget};
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_widgets::block::{Block, BlockExt, Padding};
 use std::cell::Cell;
 use std::cmp::max;
 
@@ -288,14 +288,14 @@ impl<'a> PopupCore<'a> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for PopupCore<'a> {
-    type State = PopupCoreState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_popup(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for PopupCore<'a> {
+//     type State = PopupCoreState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_popup(self, area, buf, state);
+//     }
+// }
 
 impl<'a> StatefulWidget for &'a PopupCore<'a> {
     type State = PopupCoreState;

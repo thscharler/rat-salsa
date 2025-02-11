@@ -2,7 +2,7 @@
 
 mod focus;
 
-use ratatui::layout::Rect;
+use ratatui_core::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -146,7 +146,7 @@ pub enum Navigation {
 /// - area_z() and navigable()
 ///
 /// ```rust no_run
-/// use ratatui::layout::Rect;
+/// use ratatui_core::layout::Rect;
 /// use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 ///
 /// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
@@ -170,7 +170,7 @@ pub enum Navigation {
 /// When used for a container widget implement
 /// - build()
 /// ```rust no_run
-/// use ratatui::layout::Rect;
+/// use ratatui_core::layout::Rect;
 /// use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 ///
 /// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
@@ -210,7 +210,7 @@ pub enum Navigation {
 ///
 /// Or
 /// ```rust no_run
-/// use ratatui::layout::Rect;
+/// use ratatui_core::layout::Rect;
 /// use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 ///
 /// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }

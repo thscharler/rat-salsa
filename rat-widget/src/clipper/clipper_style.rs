@@ -1,8 +1,8 @@
 use crate::_private::NonExhaustive;
 use rat_scrolled::ScrollStyle;
-use ratatui::layout::Alignment;
-use ratatui::prelude::Style;
-use ratatui::widgets::Block;
+use ratatui_core::layout::Alignment;
+use ratatui_core::style::Style;
+use ratatui_widgets::block::Block;
 
 /// Clipper styles.
 #[derive(Debug, Clone)]

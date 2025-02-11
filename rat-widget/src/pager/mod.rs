@@ -8,7 +8,8 @@
 //!     # use std::rc::Rc;
 //!     # use rat_widget::pager::{SinglePager, SinglePagerState};
 //!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
-//!     # use ratatui::prelude::*;
+//!     # use ratatui_core::layout::*;
+//!     # use ratatui_core::buffer::*;
 //!     # use rat_focus::FocusFlag;
 //!     # use rat_widget::layout::{GenericLayout, LayoutForm};
 //!     #

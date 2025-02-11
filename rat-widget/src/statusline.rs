@@ -4,13 +4,13 @@
 
 use crate::_private::NonExhaustive;
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::Span;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::fmt::Debug;
 
 /// Statusbar with multiple sections.
@@ -103,14 +103,14 @@ impl StatusLineState {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl StatefulWidgetRef for StatusLine {
-    type State = StatusLineState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl StatefulWidgetRef for StatusLine {
+//     type State = StatusLineState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_ref(self, area, buf, state);
+//     }
+// }
 
 impl StatefulWidget for StatusLine {
     type State = StatusLineState;

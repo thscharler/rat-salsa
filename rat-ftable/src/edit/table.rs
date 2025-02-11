@@ -18,11 +18,11 @@ use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::StatefulWidget;
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::StatefulWidget;
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::StatefulWidgetRef;
 use std::fmt::{Debug, Formatter};
 
 /// Widget that supports row-wise editing of a table.
@@ -67,31 +67,31 @@ where
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, E> StatefulWidgetRef for EditableTable<'a, E>
-where
-    E: TableEditor + 'a,
-{
-    type State = EditableTableState<E::State>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.table.render_ref(area, buf, &mut state.table);
-
-        if state.mode == Mode::Edit || state.mode == Mode::Insert {
-            if let Some(row) = state.table.selected_checked() {
-                // but it might be out of view
-                if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
-                    self.editor
-                        .render(row_area, &cell_areas, buf, &mut state.editor);
-                }
-            } else {
-                if cfg!(debug_assertions) {
-                    warn!("no row selection, not rendering editor");
-                }
-            }
-        }
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a, E> StatefulWidgetRef for EditableTable<'a, E>
+// where
+//     E: TableEditor + 'a,
+// {
+//     type State = EditableTableState<E::State>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         self.table.render_ref(area, buf, &mut state.table);
+//
+//         if state.mode == Mode::Edit || state.mode == Mode::Insert {
+//             if let Some(row) = state.table.selected_checked() {
+//                 // but it might be out of view
+//                 if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
+//                     self.editor
+//                         .render(row_area, &cell_areas, buf, &mut state.editor);
+//                 }
+//             } else {
+//                 if cfg!(debug_assertions) {
+//                     warn!("no row selection, not rendering editor");
+//                 }
+//             }
+//         }
+//     }
+// }
 
 impl<'a, E> StatefulWidget for EditableTable<'a, E>
 where

@@ -9,10 +9,12 @@ use crate::util::{fallback_select_style, revert_style};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::{Block, ListDirection, ListItem, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::list::{ListDirection, ListItem};
 use std::cmp::min;
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -332,10 +334,10 @@ fn render_list<Selection: ListSelection>(
         })
         .collect::<Vec<_>>();
 
-    let mut list_state = ratatui::widgets::ListState::default().with_offset(state.scroll.offset());
+    let mut list_state = ratatui_widgets::list::ListState::default().with_offset(state.scroll.offset());
 
     StatefulWidget::render(
-        ratatui::widgets::List::default()
+        ratatui_widgets::list::List::default()
             .items(items)
             .style(widget.style)
             .direction(widget.direction),

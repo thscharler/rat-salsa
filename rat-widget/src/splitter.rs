@@ -8,13 +8,14 @@ use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{relocate_area, relocate_areas, relocate_positions, RelocatableState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::{Block, BlockExt};
+use ratatui_widgets::borders::BorderType;
+// #[cfg(feature = "unstable-widget-ref")]
+// use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::{max, min};
 use std::mem;
 use unicode_segmentation::UnicodeSegmentation;
@@ -719,7 +720,6 @@ impl Split<'_> {
     }
 
     fn get_join_0(&self, split_area: Rect, state: &SplitState) -> Option<(Position, &str)> {
-        use BorderType::*;
         use Direction::*;
         use SplitType::*;
 
@@ -727,54 +727,65 @@ impl Split<'_> {
             match (self.direction, join_0, self.split_type) {
                 (
                     Horizontal,
-                    Plain | Rounded,
+                    BorderType::Plain | BorderType::Rounded,
                     FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll,
                 ) => Some("\u{252C}"),
                 (
                     Vertical,
-                    Plain | Rounded,
+                    BorderType::Plain | BorderType::Rounded,
                     FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll,
                 ) => Some("\u{251C}"),
-                (Horizontal, Plain | Rounded | Thick, FullDouble) => Some("\u{2565}"),
-                (Vertical, Plain | Rounded | Thick, FullDouble) => Some("\u{255E}"),
-                (Horizontal, Plain | Rounded, FullThick) => Some("\u{2530}"),
-                (Vertical, Plain | Rounded, FullThick) => Some("\u{251D}"),
+                (
+                    Horizontal,
+                    BorderType::Plain | BorderType::Rounded | BorderType::Thick,
+                    FullDouble,
+                ) => Some("\u{2565}"),
+                (
+                    Vertical,
+                    BorderType::Plain | BorderType::Rounded | BorderType::Thick,
+                    FullDouble,
+                ) => Some("\u{255E}"),
+                (Horizontal, BorderType::Plain | BorderType::Rounded, FullThick) => {
+                    Some("\u{2530}")
+                }
+                (Vertical, BorderType::Plain | BorderType::Rounded, FullThick) => Some("\u{251D}"),
 
                 (
                     Horizontal,
-                    Double,
+                    BorderType::Double,
                     FullPlain | FullThick | FullQuadrantInside | FullQuadrantOutside | FullEmpty
                     | Scroll,
                 ) => Some("\u{2564}"),
                 (
                     Vertical,
-                    Double,
+                    BorderType::Double,
                     FullPlain | FullThick | FullQuadrantInside | FullQuadrantOutside | FullEmpty
                     | Scroll,
                 ) => Some("\u{255F}"),
-                (Horizontal, Double, FullDouble) => Some("\u{2566}"),
-                (Vertical, Double, FullDouble) => Some("\u{2560}"),
+                (Horizontal, BorderType::Double, FullDouble) => Some("\u{2566}"),
+                (Vertical, BorderType::Double, FullDouble) => Some("\u{2560}"),
 
                 (
                     Horizontal,
-                    Thick,
+                    BorderType::Thick,
                     FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll,
                 ) => Some("\u{252F}"),
                 (
                     Vertical,
-                    Thick,
+                    BorderType::Thick,
                     FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll,
                 ) => Some("\u{2520}"),
-                (Horizontal, Thick, FullThick) => Some("\u{2533}"),
-                (Vertical, Thick, FullThick) => Some("\u{2523}"),
+                (Horizontal, BorderType::Thick, FullThick) => Some("\u{2533}"),
+                (Vertical, BorderType::Thick, FullThick) => Some("\u{2523}"),
 
-                (Horizontal, QuadrantOutside, FullEmpty) => Some("\u{2588}"),
-                (Vertical, QuadrantOutside, FullEmpty) => Some("\u{2588}"),
+                (Horizontal, BorderType::QuadrantOutside, FullEmpty) => Some("\u{2588}"),
+                (Vertical, BorderType::QuadrantOutside, FullEmpty) => Some("\u{2588}"),
 
-                (_, QuadrantInside, _) => None,
-                (_, QuadrantOutside, _) => None,
+                (_, BorderType::QuadrantInside, _) => None,
+                (_, BorderType::QuadrantOutside, _) => None,
 
                 (_, _, Widget) => None,
+                (_, _, _) => None,
             }
         } else {
             None
@@ -792,7 +803,6 @@ impl Split<'_> {
     }
 
     fn get_join_1(&self, split_area: Rect, state: &SplitState) -> Option<(Position, &str)> {
-        use BorderType::*;
         use Direction::*;
         use SplitType::*;
 
@@ -800,54 +810,65 @@ impl Split<'_> {
             match (self.direction, join_1, self.split_type) {
                 (
                     Horizontal,
-                    Plain | Rounded,
+                    BorderType::Plain | BorderType::Rounded,
                     FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll,
                 ) => Some("\u{2534}"),
                 (
                     Vertical,
-                    Plain | Rounded,
+                    BorderType::Plain | BorderType::Rounded,
                     FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll,
                 ) => Some("\u{2524}"),
-                (Horizontal, Plain | Rounded | Thick, FullDouble) => Some("\u{2568}"),
-                (Vertical, Plain | Rounded | Thick, FullDouble) => Some("\u{2561}"),
-                (Horizontal, Plain | Rounded, FullThick) => Some("\u{2538}"),
-                (Vertical, Plain | Rounded, FullThick) => Some("\u{2525}"),
+                (
+                    Horizontal,
+                    BorderType::Plain | BorderType::Rounded | BorderType::Thick,
+                    FullDouble,
+                ) => Some("\u{2568}"),
+                (
+                    Vertical,
+                    BorderType::Plain | BorderType::Rounded | BorderType::Thick,
+                    FullDouble,
+                ) => Some("\u{2561}"),
+                (Horizontal, BorderType::Plain | BorderType::Rounded, FullThick) => {
+                    Some("\u{2538}")
+                }
+                (Vertical, BorderType::Plain | BorderType::Rounded, FullThick) => Some("\u{2525}"),
 
                 (
                     Horizontal,
-                    Double,
+                    BorderType::Double,
                     FullPlain | FullThick | FullQuadrantInside | FullQuadrantOutside | FullEmpty
                     | Scroll,
                 ) => Some("\u{2567}"),
                 (
                     Vertical,
-                    Double,
+                    BorderType::Double,
                     FullPlain | FullThick | FullQuadrantInside | FullQuadrantOutside | FullEmpty
                     | Scroll,
                 ) => Some("\u{2562}"),
-                (Horizontal, Double, FullDouble) => Some("\u{2569}"),
-                (Vertical, Double, FullDouble) => Some("\u{2563}"),
+                (Horizontal, BorderType::Double, FullDouble) => Some("\u{2569}"),
+                (Vertical, BorderType::Double, FullDouble) => Some("\u{2563}"),
 
                 (
                     Horizontal,
-                    Thick,
+                    BorderType::Thick,
                     FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll,
                 ) => Some("\u{2537}"),
                 (
                     Vertical,
-                    Thick,
+                    BorderType::Thick,
                     FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll,
                 ) => Some("\u{2528}"),
-                (Horizontal, Thick, FullThick) => Some("\u{253B}"),
-                (Vertical, Thick, FullThick) => Some("\u{252B}"),
+                (Horizontal, BorderType::Thick, FullThick) => Some("\u{253B}"),
+                (Vertical, BorderType::Thick, FullThick) => Some("\u{252B}"),
 
-                (Horizontal, QuadrantOutside, FullEmpty) => Some("\u{2588}"),
-                (Vertical, QuadrantOutside, FullEmpty) => Some("\u{2588}"),
+                (Horizontal, BorderType::QuadrantOutside, FullEmpty) => Some("\u{2588}"),
+                (Vertical, BorderType::QuadrantOutside, FullEmpty) => Some("\u{2588}"),
 
-                (_, QuadrantInside, _) => None,
-                (_, QuadrantOutside, _) => None,
+                (_, BorderType::QuadrantInside, _) => None,
+                (_, BorderType::QuadrantOutside, _) => None,
 
                 (_, _, Widget) => None,
+                (_, _, _) => None,
             }
         } else {
             None
@@ -865,53 +886,53 @@ impl Split<'_> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for SplitWidget<'a> {
-    type State = SplitState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if self.mode == 0 {
-            self.split.layout_split(area, state);
-        } else if self.mode == 1 {
-            // done before
-        } else {
-            unreachable!()
-        }
-
-        if state.is_focused() {
-            if state.focus_marker.is_none() {
-                state.focus_marker = Some(0);
-            }
-        } else {
-            state.focus_marker = None;
-        }
-
-        if self.mode == 0 {
-            if self.split.block.is_some() {
-                self.split.block.render_ref(area, buf);
-            } else {
-                buf.set_style(area, self.split.style);
-            }
-        } else if self.mode == 1 {
-            if let Some(mut block) = self.split.block.clone() {
-                block = block.style(Style::default());
-                block.render_ref(area, buf);
-            }
-        } else {
-            unreachable!()
-        }
-
-        if self.mode == 0 {
-            if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
-                render_split(&self.split, buf, state);
-            }
-        } else if self.mode == 1 {
-            render_split(&self.split, buf, state);
-        } else {
-            unreachable!()
-        }
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a> StatefulWidgetRef for SplitWidget<'a> {
+//     type State = SplitState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         if self.mode == 0 {
+//             self.split.layout_split(area, state);
+//         } else if self.mode == 1 {
+//             // done before
+//         } else {
+//             unreachable!()
+//         }
+//
+//         if state.is_focused() {
+//             if state.focus_marker.is_none() {
+//                 state.focus_marker = Some(0);
+//             }
+//         } else {
+//             state.focus_marker = None;
+//         }
+//
+//         if self.mode == 0 {
+//             if self.split.block.is_some() {
+//                 self.split.block.render_ref(area, buf);
+//             } else {
+//                 buf.set_style(area, self.split.style);
+//             }
+//         } else if self.mode == 1 {
+//             if let Some(mut block) = self.split.block.clone() {
+//                 block = block.style(Style::default());
+//                 block.render_ref(area, buf);
+//             }
+//         } else {
+//             unreachable!()
+//         }
+//
+//         if self.mode == 0 {
+//             if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
+//                 render_split(&self.split, buf, state);
+//             }
+//         } else if self.mode == 1 {
+//             render_split(&self.split, buf, state);
+//         } else {
+//             unreachable!()
+//         }
+//     }
+// }
 
 impl StatefulWidget for SplitWidget<'_> {
     type State = SplitState;
@@ -934,8 +955,8 @@ impl StatefulWidget for SplitWidget<'_> {
         }
 
         if self.mode == 0 {
-            if self.split.block.is_some() {
-                self.split.block.render(area, buf);
+            if let Some(block) = &self.split.block {
+                block.render(area, buf);
             } else {
                 buf.set_style(area, self.split.style);
             }
@@ -961,20 +982,20 @@ impl StatefulWidget for SplitWidget<'_> {
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-#[allow(deprecated)]
-impl<'a> StatefulWidgetRef for SplitOverlay<'a> {
-    type State = SplitState;
-
-    fn render_ref(&self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        // rely on layout already happened.
-        if let Some(split) = &self.split {
-            if matches!(split.split_type, SplitType::Scroll) {
-                render_split(split, buf, state);
-            }
-        }
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// #[allow(deprecated)]
+// impl<'a> StatefulWidgetRef for SplitOverlay<'a> {
+//     type State = SplitState;
+//
+//     fn render_ref(&self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         // rely on layout already happened.
+//         if let Some(split) = &self.split {
+//             if matches!(split.split_type, SplitType::Scroll) {
+//                 render_split(split, buf, state);
+//             }
+//         }
+//     }
+// }
 
 #[allow(deprecated)]
 impl StatefulWidget for SplitOverlay<'_> {

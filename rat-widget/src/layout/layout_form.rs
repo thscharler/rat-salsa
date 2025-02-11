@@ -1,7 +1,7 @@
 use crate::layout::generic_layout::GenericLayout;
 use crate::util::block_padding;
-use ratatui::layout::{Flex, Rect, Size};
-use ratatui::widgets::{Block, Padding};
+use ratatui_core::layout::{Flex, Rect, Size};
+use ratatui_widgets::block::{Block, Padding};
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::fmt::Debug;

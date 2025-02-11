@@ -1,10 +1,10 @@
 use crate::layout::GenericLayout;
 use crate::pager::PagerStyle;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::borrow::Cow;
 use std::cell::{RefCell, RefMut};
 use std::hash::Hash;
@@ -290,7 +290,9 @@ where
         for (idx, block_area) in self.layout.borrow().block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
                 let mut buffer = self.buffer.borrow_mut();
-                self.layout.borrow().block(idx).render(block_area, *buffer);
+                if let Some(block) = self.layout.borrow().block(idx) {
+                    block.render(block_area, *buffer);
+                }
             }
         }
     }

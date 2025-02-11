@@ -11,5 +11,5 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
 [dependencies]
-ratatui = { version = "0.29" }
+ratatui-core = { version = "0.1.0-alpha.2", path="../../ratatui/ratatui-core" }
 log = "0.4"

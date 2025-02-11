@@ -5,7 +5,9 @@
 //! # use rat_scrolled::Scroll;
 //! use rat_widget::paragraph::{Paragraph, ParagraphState};
 //! # use rat_widget::view::{View, ViewState};
-//! # use ratatui::prelude::*;
+//! # use ratatui_core::layout::*;
+//! # use ratatui_core::buffer::*;
+//! # use ratatui_core::widgets::*;
 //! #
 //! # let l2 = [Rect::ZERO, Rect::ZERO];
 //! # struct State {
@@ -54,10 +56,10 @@ use crate::event::ScrollOutcome;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect, Size};
-use ratatui::prelude::{StatefulWidget, Widget};
-use ratatui::widgets::Block;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Position, Rect, Size};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::Block;
 
 /// Configure the view.
 #[derive(Debug, Default, Clone)]

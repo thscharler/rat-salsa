@@ -3,7 +3,7 @@
 //!
 
 use crate::layout::GenericLayout;
-use ratatui::layout::{Flex, Rect, Size};
+use ratatui_core::layout::{Flex, Rect, Size};
 use std::borrow::Cow;
 use std::cmp::{max, min};
 

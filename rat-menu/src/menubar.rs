@@ -21,11 +21,12 @@ use crate::{MenuStructure, MenuStyle};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::Placement;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_widgets::block::Block;
 use std::fmt::Debug;
 
 /// Menubar widget.

@@ -203,11 +203,11 @@ where
 /// The shortest version I can come up with:
 /// ```rust no_run
 /// use rat_salsa::{run_tui, AppContext, AppState, AppWidget, Control, RenderContext, RunConfig};
-/// use ratatui::buffer::Buffer;
-/// use ratatui::layout::Rect;
-/// use ratatui::style::Stylize;
-/// use ratatui::text::Span;
-/// use ratatui::widgets::Widget;
+/// use ratatui_core::buffer::Buffer;
+/// use ratatui_core::layout::Rect;
+/// use ratatui_core::style::Stylize;
+/// use ratatui_core::text::Span;
+/// use ratatui_core::widgets::Widget;
 /// use rat_widget::event::{try_flow, ct_event};
 ///
 /// #[derive(Debug)]

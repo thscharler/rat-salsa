@@ -11,9 +11,9 @@ use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::StatefulWidget;
 
 /// Editing mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,6 +66,7 @@ where
 impl<'a, E> StatefulWidget for EditList<'a, E>
 where
     E: StatefulWidget + 'a,
+    E::State: Sized,
 {
     type State = EditListState<E::State>;
 
