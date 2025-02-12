@@ -415,7 +415,7 @@ impl<'a> Split<'a> {
     /// Constructs the widgets for rendering.
     ///
     /// Returns the SplitWidget that actually renders the split.
-    /// Returns a Vec<Rect> with the regions for each split.
+    /// Returns a `Vec<Rect>` with the regions for each split.
     ///
     /// Render your content first, using the layout information.
     /// And the SplitWidget as last to allow rendering over

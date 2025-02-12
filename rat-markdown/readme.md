@@ -10,3 +10,5 @@ This crate is a part of [rat-salsa][refRatSalsa].
 This adds an event-handler for [TextArea]() to support markdown editing.
 
 TODO: more info
+
+[refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
