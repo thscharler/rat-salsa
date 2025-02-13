@@ -4,7 +4,6 @@ use crate::poll::PollTokio;
 use crate::poll::{PollRendered, PollTasks, PollTimers};
 use crate::run_config::RunConfig;
 use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
-use crossbeam::channel::{SendError, TryRecvError};
 use poll_queue::PollQueue;
 use std::any::TypeId;
 use std::cmp::min;
@@ -29,7 +28,7 @@ where
     App: AppWidget<Global, Event, Error> + 'static,
     Global: 'static,
     Event: Send + 'static,
-    Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
+    Error: Send + 'static + From<io::Error>,
 {
     let term = cfg.term.as_mut();
     let poll = cfg.poll.as_mut_slice();
@@ -289,7 +288,7 @@ where
     Widget: AppWidget<Global, Event, Error> + 'static,
     Global: 'static,
     Event: Send + 'static,
-    Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
+    Error: Send + 'static + From<io::Error>,
 {
     cfg.term.init()?;
 
