@@ -1335,7 +1335,7 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
     for ChoiceState<T>
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> ChoiceOutcome {
-        if self.lost_focus() {
+        if !self.is_focused() && self.is_popup_active() {
             self.set_popup_active(false);
             // focus change triggers the repaint.
         }
@@ -1640,7 +1640,20 @@ fn handle_close<T: PartialEq + Clone + Default>(
 /// Handle events for the popup.
 /// Call before other handlers to deal with intersections
 /// with other widgets.
+#[deprecated(since = "1.0.5", note = "use handle_events instead")]
 pub fn handle_popup<T: PartialEq + Clone + Default>(
+    state: &mut ChoiceState<T>,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> ChoiceOutcome {
+    state.focus.set(focus);
+    HandleEvent::handle(state, event, Popup)
+}
+
+/// Handle events for the popup.
+/// Call before other handlers to deal with intersections
+/// with other widgets.
+pub fn handle_events<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
     focus: bool,
     event: &crossterm::event::Event,
