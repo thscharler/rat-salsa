@@ -2217,6 +2217,15 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
                     TextOutcome::Continue
                 }
             }
+            ct_event!(mouse down SHIFT-Left for column,row) => {
+                if self.inner.contains((*column, *row).into()) {
+                    let cx = (column - self.inner.x) as i16;
+                    let cy = (row - self.inner.y) as i16;
+                    self.set_screen_cursor((cx, cy), true).into()
+                } else {
+                    TextOutcome::Continue
+                }
+            }
             ct_event!(mouse down CONTROL-Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
                     let cx = (column - self.inner.x) as i16;
