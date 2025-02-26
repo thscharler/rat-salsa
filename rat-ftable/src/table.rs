@@ -59,6 +59,7 @@ pub struct Table<'a, Selection> {
     footer_style: Option<Style>,
     style: Style,
 
+    auto_styles: bool,
     select_row_style: Option<Style>,
     show_row_focus: bool,
     select_column_style: Option<Style>,
@@ -338,6 +339,7 @@ impl<Selection> Default for Table<'_, Selection> {
             header_style: Default::default(),
             footer_style: Default::default(),
             style: Default::default(),
+            auto_styles: true,
             select_row_style: Default::default(),
             show_row_focus: true,
             select_column_style: Default::default(),
@@ -773,6 +775,17 @@ impl<'a, Selection> Table<'a, Selection> {
         self
     }
 
+    /// Set the appropriate styles when rendering a cell.
+    /// If this is set to false, no styles will be set at all.
+    /// It's up to the TableData/TableDataIter impl to set the correct styles.
+    ///
+    /// Default is true.
+    #[inline]
+    pub fn auto_styles(mut self, auto_styles: bool) -> Self {
+        self.auto_styles = auto_styles;
+        self
+    }
+
     /// Style for a selected row. The chosen selection must support
     /// row-selection for this to take effect.
     #[inline]
@@ -1040,10 +1053,12 @@ where
                 let render_row_area = Rect::new(0, 0, width, data.row_height());
                 ctx.row_area = render_row_area;
                 row_buf.resize(render_row_area);
-                if let Some(row_style) = ctx.row_style {
-                    row_buf.set_style(render_row_area, row_style);
-                } else {
-                    row_buf.set_style(render_row_area, self.style);
+                if self.auto_styles {
+                    if let Some(row_style) = ctx.row_style {
+                        row_buf.set_style(render_row_area, row_style);
+                    } else {
+                        row_buf.set_style(render_row_area, self.style);
+                    }
                 }
                 row_heights.push(render_row_area.height);
 
@@ -1129,9 +1144,11 @@ where
                         if render_cell_area.right() > state.hscroll.offset as u16
                             || render_cell_area.left() < state.hscroll.offset as u16 + area.width
                         {
-                            if let Some(select_style) = ctx.select_style {
-                                row_buf.set_style(render_cell_area, select_style);
-                                row_buf.set_style(ctx.space_area, select_style);
+                            if self.auto_styles {
+                                if let Some(select_style) = ctx.select_style {
+                                    row_buf.set_style(render_cell_area, select_style);
+                                    row_buf.set_style(ctx.space_area, select_style);
+                                }
                             }
                             data.render_cell(&ctx, col, render_cell_area, &mut row_buf);
                         }
