@@ -102,6 +102,12 @@ pub struct TextAreaState {
     /// Dark offset due to clipping.
     /// __read only__ secondary offset due to clipping.
     pub dark_offset: (u16, u16),
+    /// The scroll offset will be adjusted to display
+    /// the cursor. This will be the minimal adjustment,
+    /// the cursor will stay at the same screen position if
+    /// it's already visible or appear at the start/end if it's not.
+    /// __read+write__ use scroll_cursor_to_visible().
+    pub scroll_to_cursor: bool,
 
     /// Text edit core
     pub value: TextCore<TextRope>,
@@ -136,8 +142,9 @@ impl Clone for TextAreaState {
             auto_indent: self.auto_indent,
             auto_quote: self.auto_quote,
             mouse: Default::default(),
+            dark_offset: self.dark_offset,
+            scroll_to_cursor: self.scroll_to_cursor,
             non_exhaustive: NonExhaustive,
-            dark_offset: (0, 0),
         }
     }
 }
@@ -329,6 +336,31 @@ fn render_text_area(
     );
     state.vscroll.set_page_len(state.inner.height as usize);
 
+    if state.scroll_to_cursor {
+        let cursor = state.cursor();
+        let (ox, oy) = state.offset();
+        let (ox, oy) = (ox as upos_type, oy as upos_type);
+        let noy = if cursor.y < oy {
+            cursor.y
+        } else if cursor.y >= oy + (state.inner.height + state.dark_offset.1) as upos_type {
+            cursor
+                .y
+                .saturating_sub((state.inner.height + state.dark_offset.1) as upos_type - 1)
+        } else {
+            oy
+        };
+        let nox = if cursor.x < ox {
+            cursor.x
+        } else if cursor.x >= ox + (state.inner.width + state.dark_offset.0) as upos_type {
+            cursor
+                .x
+                .saturating_sub((state.inner.width + state.dark_offset.0) as upos_type)
+        } else {
+            ox
+        };
+        state.set_offset((nox as usize, noy as usize));
+    }
+
     let inner = state.inner;
 
     // set base style
@@ -416,10 +448,11 @@ impl Default for TextAreaState {
             hscroll: Default::default(),
             non_exhaustive: NonExhaustive,
             vscroll: Default::default(),
-            move_col: None,
+            move_col: Default::default(),
             auto_indent: true,
             auto_quote: true,
-            dark_offset: (0, 0),
+            dark_offset: Default::default(),
+            scroll_to_cursor: Default::default(),
         };
         s.hscroll.set_max_offset(255);
         s.hscroll.set_overscroll_by(Some(16384));
@@ -742,6 +775,7 @@ impl TextAreaState {
     /// Set the offset for scrolling.
     #[inline]
     pub fn set_offset(&mut self, offset: (usize, usize)) -> bool {
+        self.scroll_to_cursor = false;
         let c = self.hscroll.set_offset(offset.0);
         let r = self.vscroll.set_offset(offset.1);
         r || c
@@ -1041,6 +1075,7 @@ impl TextAreaState {
     /// Resets all internal state.
     #[inline]
     pub fn set_text<S: AsRef<str>>(&mut self, s: S) {
+        self.scroll_to_cursor = false;
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
 
@@ -1051,6 +1086,7 @@ impl TextAreaState {
     /// Resets all internal state.
     #[inline]
     pub fn set_rope(&mut self, r: Rope) {
+        self.scroll_to_cursor = false;
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
 
@@ -1289,9 +1325,8 @@ impl TextAreaState {
                 .value
                 .remove_next_char(self.cursor())
                 .expect("valid_cursor");
-            let s = self.scroll_cursor_to_visible();
-
-            r || s
+            self.scroll_cursor_to_visible();
+            r
         }
     }
 
@@ -1305,9 +1340,8 @@ impl TextAreaState {
                 .value
                 .remove_prev_char(self.cursor())
                 .expect("valid_cursor");
-            let s = self.scroll_cursor_to_visible();
-
-            r || s
+            self.scroll_cursor_to_visible();
+            r
         }
     }
 
@@ -1478,8 +1512,8 @@ impl TextAreaState {
 
         self.set_move_col(Some(cursor.x));
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor right. Scrolls the cursor to visible.
@@ -1499,8 +1533,8 @@ impl TextAreaState {
 
         self.set_move_col(Some(cursor.x));
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor up. Scrolls the cursor to visible.
@@ -1517,8 +1551,8 @@ impl TextAreaState {
         }
 
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor down. Scrolls the cursor to visible.
@@ -1535,8 +1569,8 @@ impl TextAreaState {
         }
 
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor to the start of the line.
@@ -1560,8 +1594,8 @@ impl TextAreaState {
 
         self.set_move_col(Some(cursor.x));
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor to the end of the line. Scrolls to visible, if
@@ -1574,8 +1608,8 @@ impl TextAreaState {
 
         self.set_move_col(Some(cursor.x));
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor to the document start.
@@ -1583,8 +1617,8 @@ impl TextAreaState {
         let cursor = TextPosition::new(0, 0);
 
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor to the document end.
@@ -1594,8 +1628,8 @@ impl TextAreaState {
         let cursor = TextPosition::new(0, len - 1);
 
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor to the start of the visible area.
@@ -1605,8 +1639,8 @@ impl TextAreaState {
         let cursor = TextPosition::new(ox as upos_type, oy as upos_type);
 
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor to the end of the visible area.
@@ -1619,8 +1653,8 @@ impl TextAreaState {
             TextPosition::new(ox, min(oy + self.vertical_page() as upos_type - 1, len - 1));
 
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor to the next word.
@@ -1630,8 +1664,8 @@ impl TextAreaState {
         let word = self.next_word_end(cursor);
 
         let c = self.set_cursor(word, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move the cursor to the previous word.
@@ -1641,8 +1675,8 @@ impl TextAreaState {
         let word = self.prev_word_start(cursor);
 
         let c = self.set_cursor(word, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 }
 
@@ -1650,27 +1684,31 @@ impl HasScreenCursor for TextAreaState {
     /// Cursor position on the screen.
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {
-            let cursor = self.cursor();
-            let (ox, oy) = self.offset();
-            let (ox, oy) = (ox as upos_type, oy as upos_type);
-
-            if cursor.y < oy {
-                None
-            } else if cursor.y >= oy + (self.inner.height + self.dark_offset.1) as upos_type {
+            if self.has_selection() {
                 None
             } else {
-                if cursor.x < ox {
+                let cursor = self.cursor();
+                let (ox, oy) = self.offset();
+                let (ox, oy) = (ox as upos_type, oy as upos_type);
+
+                if cursor.y < oy {
                     None
-                } else if cursor.x > ox + (self.inner.width + self.dark_offset.0) as upos_type {
+                } else if cursor.y >= oy + (self.inner.height + self.dark_offset.1) as upos_type {
                     None
                 } else {
-                    let sy = self.row_to_screen(cursor);
-                    let sx = self.col_to_screen(cursor);
-
-                    if let Some((sx, sy)) = sx.iter().zip(sy.iter()).next() {
-                        Some((self.inner.x + *sx, self.inner.y + *sy))
-                    } else {
+                    if cursor.x < ox {
                         None
+                    } else if cursor.x > ox + (self.inner.width + self.dark_offset.0) as upos_type {
+                        None
+                    } else {
+                        let sy = self.row_to_screen(cursor);
+                        let sx = self.col_to_screen(cursor);
+
+                        if let Some((sx, sy)) = sx.iter().zip(sy.iter()).next() {
+                            Some((self.inner.x + *sx, self.inner.y + *sy))
+                        } else {
+                            None
+                        }
                     }
                 }
             }
@@ -1826,8 +1864,8 @@ impl TextAreaState {
         let cx = self.screen_to_col(cy, scx);
 
         let c = self.set_cursor(TextPosition::new(cx, cy), extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Set the cursor position from screen coordinates,
@@ -1860,8 +1898,8 @@ impl TextAreaState {
         }
 
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 }
 
@@ -1919,6 +1957,7 @@ impl TextAreaState {
     /// The widget returns true if the offset changed at all.
     #[allow(unused_assignments)]
     pub fn set_vertical_offset(&mut self, row_offset: usize) -> bool {
+        self.scroll_to_cursor = false;
         self.vscroll.set_offset(row_offset)
     }
 
@@ -1930,16 +1969,19 @@ impl TextAreaState {
     /// The widget returns true if the offset changed at all.
     #[allow(unused_assignments)]
     pub fn set_horizontal_offset(&mut self, col_offset: usize) -> bool {
+        self.scroll_to_cursor = false;
         self.hscroll.set_offset(col_offset)
     }
 
     /// Scroll to position.
     pub fn scroll_to_row(&mut self, pos: usize) -> bool {
+        self.scroll_to_cursor = false;
         self.vscroll.set_offset(pos)
     }
 
     /// Scroll to position.
     pub fn scroll_to_col(&mut self, pos: usize) -> bool {
+        self.scroll_to_cursor = false;
         self.hscroll.set_offset(pos)
     }
 
@@ -1967,36 +2009,8 @@ impl TextAreaState {
 impl TextAreaState {
     /// Scroll that the cursor is visible.
     /// All move-fn do this automatically.
-    pub fn scroll_cursor_to_visible(&mut self) -> bool {
-        let old_offset = self.offset();
-
-        let cursor = self.cursor();
-        let (ox, oy) = self.offset();
-        let (ox, oy) = (ox as upos_type, oy as upos_type);
-
-        let noy = if cursor.y < oy {
-            cursor.y
-        } else if cursor.y >= oy + (self.inner.height + self.dark_offset.1) as upos_type {
-            cursor
-                .y
-                .saturating_sub((self.inner.height + self.dark_offset.1) as upos_type - 1)
-        } else {
-            oy
-        };
-
-        let nox = if cursor.x < ox {
-            cursor.x
-        } else if cursor.x >= ox + (self.inner.width + self.dark_offset.0) as upos_type {
-            cursor
-                .x
-                .saturating_sub((self.inner.width + self.dark_offset.0) as upos_type)
-        } else {
-            ox
-        };
-
-        self.set_offset((nox as usize, noy as usize));
-
-        self.offset() != old_offset
+    pub fn scroll_cursor_to_visible(&mut self) {
+        self.scroll_to_cursor = true;
     }
 }
 

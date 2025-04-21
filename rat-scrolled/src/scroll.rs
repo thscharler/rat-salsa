@@ -86,7 +86,7 @@ pub struct ScrollState {
     pub scroll_by: Option<usize>,
     /// By how much can the max_offset be exceeded.
     /// This allows displaying some empty space at the end of the
-    /// content, which can be more intuitiv for some widgets.
+    /// content, which can be more intuitive for some widgets.
     /// __read+write__
     pub overscroll_by: Option<usize>,
 
@@ -607,15 +607,14 @@ impl ScrollState {
         self.offset
     }
 
-    /// Change the offset. Limits the offset to max_v_offset + v_overscroll.
-    ///
-    /// Due to overscroll it's possible that this is an invalid
-    /// offset for the widget. The widget must deal with this
-    /// situation.
+    /// Change the offset. There is limitation to the value
+    /// set here. It's therefore possible that this is an
+    /// invalid offset for the widget. The widget must deal
+    /// with this situation.
     #[inline]
     pub fn set_offset(&mut self, offset: usize) -> bool {
         let old = self.offset;
-        self.offset = self.limit_offset(offset);
+        self.offset = offset;
         old != self.offset
     }
 
@@ -662,7 +661,7 @@ impl ScrollState {
     #[inline]
     pub fn scroll_up(&mut self, n: usize) -> bool {
         let old = self.offset;
-        self.offset = self.limit_offset(self.offset.saturating_sub(n));
+        self.offset = self.offset.saturating_sub(n);
         old != self.offset
     }
 
@@ -670,7 +669,7 @@ impl ScrollState {
     #[inline]
     pub fn scroll_down(&mut self, n: usize) -> bool {
         let old = self.offset;
-        self.offset = self.limit_offset(self.offset.saturating_add(n));
+        self.offset = self.offset.saturating_add(n);
         old != self.offset
     }
 

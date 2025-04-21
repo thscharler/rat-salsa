@@ -129,6 +129,8 @@ pub struct MaskedInputState {
     /// Dark offset due to clipping.
     /// __read only__ secondary offset due to clipping.
     pub dark_offset: (u16, u16),
+    /// __read+write__ use scroll_cursor_to_visible().
+    pub scroll_to_cursor: bool,
 
     /// Editing core
     pub value: MaskedCore,
@@ -301,6 +303,19 @@ fn render_ref(
     state.on_focus_gained = widget.on_focus_gained;
     state.on_focus_lost = widget.on_focus_lost;
 
+    if state.scroll_to_cursor {
+        let c = state.cursor();
+        let o = state.offset();
+        let no = if c < o {
+            c
+        } else if c >= o + (state.inner.width + state.dark_offset.0) as upos_type {
+            c.saturating_sub((state.inner.width + state.dark_offset.0) as upos_type)
+        } else {
+            o
+        };
+        state.set_offset(no);
+    }
+
     let inner = state.inner;
 
     let style = widget.style;
@@ -427,6 +442,7 @@ impl Clone for MaskedInputState {
             inner: self.inner,
             offset: self.offset,
             dark_offset: self.dark_offset,
+            scroll_to_cursor: self.scroll_to_cursor,
             value: self.value.clone(),
             invalid: self.invalid,
             overwrite: Default::default(),
@@ -446,6 +462,7 @@ impl Default for MaskedInputState {
             inner: Default::default(),
             offset: Default::default(),
             dark_offset: Default::default(),
+            scroll_to_cursor: Default::default(),
             value: Default::default(),
             invalid: Default::default(),
             overwrite: Default::default(),
@@ -791,6 +808,7 @@ impl MaskedInputState {
     /// Offset shown. This is corrected if the cursor wouldn't be visible.
     #[inline]
     pub fn set_offset(&mut self, offset: upos_type) {
+        self.scroll_to_cursor = false;
         self.offset = offset;
     }
 
@@ -1146,8 +1164,8 @@ impl MaskedInputState {
     pub fn move_right(&mut self, extend_selection: bool) -> bool {
         let c = min(self.cursor() + 1, self.len());
         let c = self.set_cursor(c, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move to the previous char.
@@ -1155,8 +1173,8 @@ impl MaskedInputState {
     pub fn move_left(&mut self, extend_selection: bool) -> bool {
         let c = self.cursor().saturating_sub(1);
         let c = self.set_cursor(c, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Start of line
@@ -1171,8 +1189,8 @@ impl MaskedInputState {
         } else {
             self.set_cursor(0, extend_selection)
         };
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// End of line
@@ -1180,8 +1198,8 @@ impl MaskedInputState {
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
         let c = self.len();
         let c = self.set_cursor(c, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move to start of previous section.
@@ -1271,16 +1289,20 @@ impl HasScreenCursor for MaskedInputState {
     #[inline]
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {
-            let cx = self.cursor();
-            let ox = self.offset();
-
-            if cx < ox {
-                None
-            } else if cx > ox + (self.inner.width + self.dark_offset.0) as upos_type {
+            if self.has_selection() {
                 None
             } else {
-                self.col_to_screen(cx)
-                    .map(|sc| (self.inner.x + sc, self.inner.y))
+                let cx = self.cursor();
+                let ox = self.offset();
+
+                if cx < ox {
+                    None
+                } else if cx > ox + (self.inner.width + self.dark_offset.0) as upos_type {
+                    None
+                } else {
+                    self.col_to_screen(cx)
+                        .map(|sc| (self.inner.x + sc, self.inner.y))
+                }
             }
         } else {
             None
@@ -1360,8 +1382,8 @@ impl MaskedInputState {
         let cx = self.screen_to_col(scx);
 
         let c = self.set_cursor(cx, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Set the cursor position from screen coordinates,
@@ -1400,8 +1422,8 @@ impl MaskedInputState {
         }
 
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Scrolling
@@ -1417,23 +1439,8 @@ impl MaskedInputState {
     }
 
     /// Change the offset in a way that the cursor is visible.
-    pub fn scroll_cursor_to_visible(&mut self) -> bool {
-        let old_offset = self.offset();
-
-        let c = self.cursor();
-        let o = self.offset();
-
-        let no = if c < o {
-            c
-        } else if c >= o + (self.inner.width + self.dark_offset.0) as upos_type {
-            c.saturating_sub((self.inner.width + self.dark_offset.0) as upos_type)
-        } else {
-            o
-        };
-
-        self.set_offset(no);
-
-        self.offset() != old_offset
+    pub fn scroll_cursor_to_visible(&mut self) {
+        self.scroll_to_cursor = true;
     }
 }
 

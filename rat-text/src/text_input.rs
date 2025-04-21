@@ -70,6 +70,8 @@ pub struct TextInputState {
     /// Dark offset due to clipping.
     /// __read only__ secondary offset due to clipping.
     pub dark_offset: (u16, u16),
+    /// __read+write__ use scroll_cursor_to_visible().
+    pub scroll_to_cursor: bool,
 
     /// Editing core
     pub value: TextCore<TextString>,
@@ -239,6 +241,20 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     state.on_focus_gained = widget.on_focus_gained;
     state.on_focus_lost = widget.on_focus_lost;
 
+    if state.scroll_to_cursor {
+        let c = state.cursor();
+        let o = state.offset();
+
+        let no = if c < o {
+            c
+        } else if c >= o + (state.inner.width + state.dark_offset.0) as upos_type {
+            c.saturating_sub((state.inner.width + state.dark_offset.0) as upos_type)
+        } else {
+            o
+        };
+        state.set_offset(no);
+    }
+
     let inner = state.inner;
 
     let style = widget.style;
@@ -387,6 +403,7 @@ impl Clone for TextInputState {
             inner: self.inner,
             offset: self.offset,
             dark_offset: self.dark_offset,
+            scroll_to_cursor: self.scroll_to_cursor,
             value: self.value.clone(),
             invalid: self.invalid,
             passwd: Default::default(),
@@ -410,6 +427,7 @@ impl Default for TextInputState {
             inner: Default::default(),
             offset: Default::default(),
             dark_offset: Default::default(),
+            scroll_to_cursor: Default::default(),
             value,
             invalid: Default::default(),
             passwd: Default::default(),
@@ -681,6 +699,7 @@ impl TextInputState {
     /// Offset shown. This is corrected if the cursor wouldn't be visible.
     #[inline]
     pub fn set_offset(&mut self, offset: upos_type) {
+        self.scroll_to_cursor = false;
         self.offset = offset;
     }
 
@@ -1030,9 +1049,8 @@ impl TextInputState {
                 .value
                 .remove_next_char(self.value.cursor())
                 .expect("valid_cursor");
-            let s = self.scroll_cursor_to_visible();
-
-            r || s
+            self.scroll_cursor_to_visible();
+            r
         }
     }
 
@@ -1046,9 +1064,8 @@ impl TextInputState {
                 .value
                 .remove_prev_char(self.value.cursor())
                 .expect("valid_cursor");
-            let s = self.scroll_cursor_to_visible();
-
-            r || s
+            self.scroll_cursor_to_visible();
+            r
         }
     }
 
@@ -1183,8 +1200,8 @@ impl TextInputState {
     pub fn move_right(&mut self, extend_selection: bool) -> bool {
         let c = min(self.cursor() + 1, self.len());
         let c = self.set_cursor(c, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Move to the previous char.
@@ -1192,16 +1209,16 @@ impl TextInputState {
     pub fn move_left(&mut self, extend_selection: bool) -> bool {
         let c = self.cursor().saturating_sub(1);
         let c = self.set_cursor(c, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Start of line
     #[inline]
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
         let c = self.set_cursor(0, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// End of line
@@ -1209,8 +1226,8 @@ impl TextInputState {
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
         let c = self.len();
         let c = self.set_cursor(c, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     #[inline]
@@ -1218,8 +1235,8 @@ impl TextInputState {
         let cursor = self.cursor();
         let end = self.next_word_end(cursor);
         let c = self.set_cursor(end, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     #[inline]
@@ -1227,8 +1244,8 @@ impl TextInputState {
         let cursor = self.cursor();
         let start = self.prev_word_start(cursor);
         let c = self.set_cursor(start, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 }
 
@@ -1237,16 +1254,20 @@ impl HasScreenCursor for TextInputState {
     #[inline]
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {
-            let cx = self.cursor();
-            let ox = self.offset();
-
-            if cx < ox {
-                None
-            } else if cx > ox + (self.inner.width + self.dark_offset.0) as upos_type {
+            if self.has_selection() {
                 None
             } else {
-                self.col_to_screen(cx)
-                    .map(|sc| (self.inner.x + sc, self.inner.y))
+                let cx = self.cursor();
+                let ox = self.offset();
+
+                if cx < ox {
+                    None
+                } else if cx > ox + (self.inner.width + self.dark_offset.0) as upos_type {
+                    None
+                } else {
+                    self.col_to_screen(cx)
+                        .map(|sc| (self.inner.x + sc, self.inner.y))
+                }
             }
         } else {
             None
@@ -1326,8 +1347,8 @@ impl TextInputState {
         let cx = self.screen_to_col(scx);
 
         let c = self.set_cursor(cx, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Set the cursor position from screen coordinates,
@@ -1358,8 +1379,8 @@ impl TextInputState {
         }
 
         let c = self.set_cursor(cursor, extend_selection);
-        let s = self.scroll_cursor_to_visible();
-        c || s
+        self.scroll_cursor_to_visible();
+        c
     }
 
     /// Scrolling
@@ -1375,23 +1396,8 @@ impl TextInputState {
     }
 
     /// Change the offset in a way that the cursor is visible.
-    pub fn scroll_cursor_to_visible(&mut self) -> bool {
-        let old_offset = self.offset();
-
-        let c = self.cursor();
-        let o = self.offset();
-
-        let no = if c < o {
-            c
-        } else if c >= o + (self.inner.width + self.dark_offset.0) as upos_type {
-            c.saturating_sub((self.inner.width + self.dark_offset.0) as upos_type)
-        } else {
-            o
-        };
-
-        self.set_offset(no);
-
-        self.offset() != old_offset
+    pub fn scroll_cursor_to_visible(&mut self) {
+        self.scroll_to_cursor = true;
     }
 }
 
