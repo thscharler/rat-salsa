@@ -33,11 +33,11 @@ format_num_pattern = "0.9"
 log = "0.4"
 dyn-clone = "1.0.17"
 
-rat-event = { version = "1.0", path = "../rat-event" }
-rat-reloc = { version = "1.0", path = "../rat-reloc" }
-rat-cursor = { version = "1.0", path = "../rat-cursor" }
+rat-event = { version = "1.2", path = "../rat-event" }
+rat-reloc = { version = "1.1", path = "../rat-reloc" }
+rat-cursor = { version = "1.2", path = "../rat-cursor" }
 rat-focus = { version = "1.0", path = "../rat-focus" }
-rat-scrolled = { version = "1.0", path = "../rat-scrolled" }
+rat-scrolled = { version = "1.1", path = "../rat-scrolled" }
 
 [dev-dependencies]
 fern = "0.7"

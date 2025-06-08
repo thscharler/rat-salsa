@@ -1,3 +1,7 @@
+# 1.0.2
+
+* update dependencies
+
 # 1.0.1
 
 * fix: ensure that the select_style is always patched onto the

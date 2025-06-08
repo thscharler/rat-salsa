@@ -1,5 +1,7 @@
 # 1.0.5
 
+* update dependencies
+*
 * fix #5: It was not possible to scroll the cursor to a sensible
   position before the first render.
 
