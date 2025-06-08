@@ -345,7 +345,7 @@ where
     /// Panics on out of bounds.
     /// Panics if the key doesn't exist.
     #[inline]
-    pub fn label_str_for<'a>(&'a self, widget: W) -> &'a str {
+    pub fn label_str_for(&self, widget: W) -> &str {
         self.labels[self.index_of(widget)]
             .as_ref()
             .map(|v| v.as_ref())
@@ -357,7 +357,7 @@ where
     /// __Panic__
     /// Panics on out of bounds.
     #[inline]
-    pub fn label_str<'a>(&'a self, idx: usize) -> &'a str {
+    pub fn label_str(&self, idx: usize) -> &str {
         self.labels[idx]
             .as_ref() //
             .map(|v| v.as_ref())

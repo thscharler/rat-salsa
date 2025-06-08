@@ -644,6 +644,7 @@ mod core {
         /// Enable log to check.
         ///
         /// The widget is added to all open containers.
+        #[allow(clippy::collapsible_else_if)]
         pub fn widget_navigate(
             &mut self,
             widget: &dyn HasFocus,

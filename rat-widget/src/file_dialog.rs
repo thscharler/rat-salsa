@@ -42,8 +42,8 @@ use sysinfo::Disks;
 ///     * Directory
 ///
 /// * Define your roots or let them provide by
-///     [dirs](https://docs.rs/dirs/6.0.0/dirs/) and
-///     [sysinfo](https://docs.rs/sysinfo/0.33.1/sysinfo/)
+///   [dirs](https://docs.rs/dirs/6.0.0/dirs/) and
+///   [sysinfo](https://docs.rs/sysinfo/0.33.1/sysinfo/)
 ///   You need the feature "user_directories" for the latter.
 ///
 ///   * Standard roots are

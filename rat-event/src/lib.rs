@@ -67,7 +67,7 @@ pub struct DoubleClick;
 ///
 /// * Event - The actual event type.
 /// * Qualifier - The qualifier allows creating more than one event-handler
-///         for a widget.
+///   for a widget.
 ///
 ///   This can be used as a variant of type-state, where the type given
 ///   selects the widget's behaviour, or to give some external context

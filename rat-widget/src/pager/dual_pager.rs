@@ -148,7 +148,7 @@ where
             state.layout = Rc::new(RefCell::new(layout));
         }
 
-        state.nav.page_count = (state.layout.borrow().page_count() + 1) / 2;
+        state.nav.page_count = state.layout.borrow().page_count().div_ceil(2);
         state.nav.set_page(state.nav.page);
 
         self.page_nav.render(area, buf, &mut state.nav);

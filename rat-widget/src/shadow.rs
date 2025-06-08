@@ -73,7 +73,7 @@ impl StatefulWidget for &Shadow {
     type State = ();
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(&self, area, buf, state);
+        render_ref(self, area, buf, state);
     }
 }
 

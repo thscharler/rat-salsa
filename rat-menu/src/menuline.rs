@@ -276,7 +276,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     let title_style = if let Some(title_style) = widget.title_style {
         title_style
     } else {
-        style.clone().underlined()
+        style.underlined()
     };
     let highlight_style = if let Some(highlight_style) = widget.highlight_style {
         highlight_style
@@ -446,7 +446,7 @@ impl MenuLineState {
             }
 
             Some(idx)
-        } else if self.len() > 0 {
+        } else if !self.is_empty() {
             Some(self.len().saturating_sub(1))
         } else {
             None
@@ -479,7 +479,7 @@ impl MenuLineState {
                 }
             }
             Some(idx)
-        } else if self.len() > 0 {
+        } else if !self.is_empty() {
             Some(0)
         } else {
             None

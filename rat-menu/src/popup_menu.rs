@@ -579,7 +579,7 @@ impl PopupMenuState {
                 }
             }
             Some(idx)
-        } else if self.len() > 0 {
+        } else if !self.is_empty() {
             Some(self.len() - 1)
         } else {
             None
@@ -612,7 +612,7 @@ impl PopupMenuState {
                 }
             }
             Some(idx)
-        } else if self.len() > 0 {
+        } else if !self.is_empty() {
             Some(0)
         } else {
             None
