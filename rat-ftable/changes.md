@@ -1,6 +1,8 @@
 # 1.0.1
 
 * fix: #7: scroll_to_selected uses scroll_to_x() instead of scroll_to_col().
+* fix: set_row_offset() and set_x_offset() no longer correct the given offset.
+  This needed fixing when scrolling to an absolute position.
 
 # 1.0.0
 

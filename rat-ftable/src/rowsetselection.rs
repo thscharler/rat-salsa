@@ -431,7 +431,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableStat
                 }
             }
             ScrollOutcome::VPos(v) => {
-                if self.set_row_offset(v) {
+                if self.set_row_offset(self.vscroll.limited_offset(v)) {
                     TableOutcome::Changed
                 } else {
                     TableOutcome::Unchanged
@@ -452,7 +452,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableStat
                 }
             }
             ScrollOutcome::HPos(v) => {
-                if self.set_x_offset(v) {
+                if self.set_x_offset(self.hscroll.limited_offset(v)) {
                     TableOutcome::Changed
                 } else {
                     TableOutcome::Unchanged
