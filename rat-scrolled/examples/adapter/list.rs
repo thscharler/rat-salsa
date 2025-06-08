@@ -349,7 +349,9 @@ impl ListSState {
         } else {
             let old_offset = self.scroll.offset();
 
-            let new_offset = self.scroll.clamp_offset(self.scroll.offset() as isize + n);
+            let new_offset = self
+                .scroll
+                .limited_offset(self.scroll.offset().saturating_add_signed(n));
             self.scroll.set_offset(new_offset);
             *self.widget.offset_mut() = new_offset;
             // For scrolling purposes the selection of ratatui::Table is never None,

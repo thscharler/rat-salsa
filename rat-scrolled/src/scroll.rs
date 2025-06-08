@@ -607,7 +607,7 @@ impl ScrollState {
         self.offset
     }
 
-    /// Change the offset. There is limitation to the value
+    /// Change the offset. There is no limitation to the value
     /// set here. It's therefore possible that this is an
     /// invalid offset for the widget. The widget must deal
     /// with this situation.
@@ -661,7 +661,7 @@ impl ScrollState {
     #[inline]
     pub fn scroll_up(&mut self, n: usize) -> bool {
         let old = self.offset;
-        self.offset = self.offset.saturating_sub(n);
+        self.offset = self.limited_offset(self.offset.saturating_sub(n));
         old != self.offset
     }
 
@@ -669,7 +669,7 @@ impl ScrollState {
     #[inline]
     pub fn scroll_down(&mut self, n: usize) -> bool {
         let old = self.offset;
-        self.offset = self.offset.saturating_add(n);
+        self.offset = self.limited_offset(self.offset.saturating_add(n));
         old != self.offset
     }
 
@@ -687,17 +687,8 @@ impl ScrollState {
 
     /// Calculate the offset limited to max_offset+overscroll_by.
     #[inline]
-    pub fn limit_offset(&self, offset: usize) -> usize {
+    pub fn limited_offset(&self, offset: usize) -> usize {
         min(offset, self.max_offset.saturating_add(self.overscroll_by()))
-    }
-
-    /// Calculate the offset limited to max_offset+overscroll_by.
-    #[inline]
-    pub fn clamp_offset(&self, offset: isize) -> usize {
-        offset.clamp(
-            0,
-            self.max_offset.saturating_add(self.overscroll_by()) as isize,
-        ) as usize
     }
 
     /// Maximum offset that is accessible with scrolling.

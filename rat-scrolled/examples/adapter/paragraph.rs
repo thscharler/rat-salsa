@@ -171,14 +171,14 @@ impl ParagraphSState {
     pub fn hscroll(&mut self, n: isize) -> bool {
         self.hscroll.set_offset(
             self.hscroll
-                .clamp_offset(self.hscroll.offset() as isize + n),
+                .limited_offset(self.hscroll.offset().saturating_add_signed(n)),
         )
     }
 
     pub fn vscroll(&mut self, n: isize) -> bool {
         self.vscroll.set_offset(
             self.vscroll
-                .clamp_offset(self.vscroll.offset() as isize + n),
+                .limited_offset(self.vscroll.offset().saturating_add_signed(n)),
         )
     }
 }

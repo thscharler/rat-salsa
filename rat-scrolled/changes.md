@@ -1,3 +1,10 @@
+# 1.1.2
+
+* fix: set_offset() can be set to any value. This is necessary to set
+  an offset before the first render, when no bounds have been established.
+
+* remove: clamp_offset() is a duplicate for limited_offset() with the wrong type.
+
 # 1.1.1
 
 * fix: division by 0 at an unexpected place.
