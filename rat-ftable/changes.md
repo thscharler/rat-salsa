@@ -1,3 +1,7 @@
+# 1.0.1
+
+* fix: #7: scroll_to_selected uses scroll_to_x() instead of scroll_to_col().
+
 # 1.0.0
 
 ... jump ...

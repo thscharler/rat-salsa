@@ -1881,7 +1881,7 @@ impl<Selection: TableSelection> TableState<Selection> {
     /// Caveat: This doesn't work nicely if you have varying row-heights.
     pub fn scroll_to_selected(&mut self) -> bool {
         if let Some(selected) = self.selection.lead_selection() {
-            let c = self.scroll_to_x(selected.0);
+            let c = self.scroll_to_col(selected.0);
             let r = self.scroll_to_row(selected.1);
             r || c
         } else {
