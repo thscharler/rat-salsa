@@ -1,14 +1,12 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, try_flow, Outcome};
-use rat_reloc::RelocatableState;
 use rat_scrolled::Scroll;
 use rat_text::text_area::{TextArea, TextAreaState};
-use rat_text::{text_area, HasScreenCursor, TextRange};
+use rat_text::{text_area, HasScreenCursor, TextPosition};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget};
 use ratatui::Frame;
-use ropey::RopeBuilder;
 use std::fmt;
 
 mod mini_salsa;
@@ -57,21 +55,20 @@ fn repaint_input(
 
     let l2 = Layout::horizontal([
         Constraint::Length(15),
-        Constraint::Fill(1),
-        Constraint::Length(1),
         Constraint::Length(25),
+        Constraint::Fill(1),
     ])
     .split(l1[1]);
 
-    let txt_area = l2[1];
+    let txt_area = l2[2];
 
     TextArea::new()
-        .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
-        .scroll(
-            Scroll::new()
-                .scroll_by(1)
-                .style(Style::default().gray().on_dark_gray()),
-        )
+        //.block(Block::bordered().style(Style::default().gray().on_dark_gray()))
+        // .scroll(
+        //     Scroll::new()
+        //         .scroll_by(1)
+        //         .style(Style::default().gray().on_dark_gray()),
+        // )
         .set_horizontal_max_offset(256)
         .style(Style::default().white().on_dark_gray())
         .select_style(Style::default().black().on_yellow())
@@ -134,7 +131,7 @@ fn repaint_input(
             }
         }
         let dbg = Paragraph::new(stats);
-        frame.render_widget(dbg, l2[3]);
+        frame.render_widget(dbg, l2[1]);
     }
 
     let ccursor = state.textarea.selection();
@@ -164,8 +161,12 @@ fn handle_input(
 
             state.textarea = TextAreaState::new();
             state.textarea.focus = focus;
-            state.textarea.set_text("1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 ");
-            state.textarea.move_to_line_end(false);
+            state.textarea.set_text("1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 1234 1234 0000 0000 1234 1234\n5566 5566 0000 0000 5566 5566 0000 0000 5566 5566 0000 0000 5566 5566 0000 0000");
+
+            let text_width = state.textarea.line_width(0);
+            let position_after_last_char = TextPosition::new(text_width, 0);
+            state.textarea.set_cursor(position_after_last_char, false);
+
             Outcome::Changed
         }
         _ => Outcome::Continue,

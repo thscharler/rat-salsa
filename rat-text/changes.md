@@ -1,3 +1,11 @@
+# 1.0.5
+
+* fix #5: It was not possible to scroll the cursor to a sensible
+  position before the first render.
+
+  This also adds auto-scroll to set_cursor(), set_selection() and select_all()
+  for TextArea, TextInput and MaskedInput.
+
 # 1.0.4
 
 * fix: set the default line-ending via compile time cfg.

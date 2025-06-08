@@ -306,13 +306,18 @@ fn render_ref(
     if state.scroll_to_cursor {
         let c = state.cursor();
         let o = state.offset();
-        let no = if c < o {
+        let mut no = if c < o {
             c
         } else if c >= o + (state.inner.width + state.dark_offset.0) as upos_type {
             c.saturating_sub((state.inner.width + state.dark_offset.0) as upos_type)
         } else {
             o
         };
+        // correct by one at right margin. block cursors appear as part of the
+        // right border otherwise.
+        if c == no + (state.inner.width + state.dark_offset.0) as upos_type {
+            no = no.saturating_add(1);
+        }
         state.set_offset(no);
     }
 
@@ -818,16 +823,20 @@ impl MaskedInputState {
         self.value.cursor()
     }
 
-    /// Set the cursor position, reset selection.
+    /// Set the cursor position.
+    /// Scrolls the cursor to a visible position.
     #[inline]
     pub fn set_cursor(&mut self, cursor: upos_type, extend_selection: bool) -> bool {
+        self.scroll_cursor_to_visible();
         self.value.set_cursor(cursor, extend_selection)
     }
 
     /// Place cursor at the decimal separator, if any.
     /// 0 otherwise.
+    /// Scrolls the cursor to a visible position.  
     #[inline]
     pub fn set_default_cursor(&mut self) {
+        self.scroll_cursor_to_visible();
         self.value.set_default_cursor();
     }
 
@@ -850,14 +859,18 @@ impl MaskedInputState {
     }
 
     /// Selection.
+    /// Scrolls the cursor to a visible position.
     #[inline]
     pub fn set_selection(&mut self, anchor: upos_type, cursor: upos_type) -> bool {
+        self.scroll_cursor_to_visible();
         self.value.set_selection(anchor, cursor)
     }
 
     /// Selection.
+    /// Scrolls the cursor to a visible position.
     #[inline]
     pub fn select_all(&mut self) -> bool {
+        self.scroll_cursor_to_visible();
         if let Some(section) = self.value.section_range(self.cursor()) {
             if self.selection() == section {
                 self.value.select_all()
@@ -1163,24 +1176,20 @@ impl MaskedInputState {
     #[inline]
     pub fn move_right(&mut self, extend_selection: bool) -> bool {
         let c = min(self.cursor() + 1, self.len());
-        let c = self.set_cursor(c, extend_selection);
-        self.scroll_cursor_to_visible();
-        c
+        self.set_cursor(c, extend_selection)
     }
 
     /// Move to the previous char.
     #[inline]
     pub fn move_left(&mut self, extend_selection: bool) -> bool {
         let c = self.cursor().saturating_sub(1);
-        let c = self.set_cursor(c, extend_selection);
-        self.scroll_cursor_to_visible();
-        c
+        self.set_cursor(c, extend_selection)
     }
 
     /// Start of line
     #[inline]
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let c = if let Some(c) = self.value.section_cursor(self.cursor()) {
+        if let Some(c) = self.value.section_cursor(self.cursor()) {
             if c != self.cursor() {
                 self.set_cursor(c, extend_selection)
             } else {
@@ -1188,18 +1197,13 @@ impl MaskedInputState {
             }
         } else {
             self.set_cursor(0, extend_selection)
-        };
-        self.scroll_cursor_to_visible();
-        c
+        }
     }
 
     /// End of line
     #[inline]
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
-        let c = self.len();
-        let c = self.set_cursor(c, extend_selection);
-        self.scroll_cursor_to_visible();
-        c
+        self.set_cursor(self.len(), extend_selection)
     }
 
     /// Move to start of previous section.
@@ -1381,9 +1385,7 @@ impl MaskedInputState {
 
         let cx = self.screen_to_col(scx);
 
-        let c = self.set_cursor(cx, extend_selection);
-        self.scroll_cursor_to_visible();
-        c
+        self.set_cursor(cx, extend_selection)
     }
 
     /// Set the cursor position from screen coordinates,
@@ -1421,9 +1423,7 @@ impl MaskedInputState {
             };
         }
 
-        let c = self.set_cursor(cursor, extend_selection);
-        self.scroll_cursor_to_visible();
-        c
+        self.set_cursor(cursor, extend_selection)
     }
 
     /// Scrolling
