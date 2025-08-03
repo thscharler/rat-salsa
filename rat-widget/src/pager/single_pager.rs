@@ -402,9 +402,13 @@ where
     }
 
     /// Show the page for this widget.
+    /// If there is no widget for the given identifier, this
+    /// will set the page to 0.
     pub fn show(&mut self, widget: W) {
         if let Some(page) = self.layout.borrow().page_of(widget) {
             self.nav.set_page(page);
+        } else {
+            self.nav.set_page(0);
         }
     }
 
