@@ -416,15 +416,15 @@ impl SampleEditorState {
 }
 
 impl TableEditorState for SampleEditorState {
-    type Context<'a> = &'a MiniSalsaState;
+    type Context<'a> = MiniSalsaState;
     type Value = Sample;
     type Err = Error;
 
-    fn create_value(&self, _ctx: Self::Context<'_>) -> Result<Self::Value, Self::Err> {
+    fn create_value(&self, _ctx: &Self::Context<'_>) -> Result<Self::Value, Self::Err> {
         Ok(Sample::default())
     }
 
-    fn set_value(&mut self, data: Sample, _ctx: Self::Context<'_>) -> Result<(), Error> {
+    fn set_value(&mut self, data: Sample, _ctx: &Self::Context<'_>) -> Result<(), Error> {
         self.text.set_text(&data.text);
         self.num1.set_value(data.num1)?;
         self.num2.set_value(data.num2)?;
@@ -432,7 +432,7 @@ impl TableEditorState for SampleEditorState {
         Ok(())
     }
 
-    fn value(&mut self, _ctx: Self::Context<'_>) -> Result<Option<Sample>, Error> {
+    fn value(&mut self, _ctx: &Self::Context<'_>) -> Result<Option<Sample>, Error> {
         if self.text.text().is_empty() {
             return Ok(None);
         }

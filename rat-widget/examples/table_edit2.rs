@@ -305,7 +305,7 @@ impl SampleEditorState {
 }
 
 impl TableEditorState for SampleEditorState {
-    type Context<'a> = &'a MiniSalsaState;
+    type Context<'a> = MiniSalsaState;
     type Value = Sample;
     type Err = Error;
 
