@@ -105,7 +105,6 @@ struct FocusFlagCore {
 /// when navigation changes via next()/prev()/focus_at().
 ///
 /// Programmatic focus changes are always possible.
-///
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Navigation {
     /// Widget is not reachable with normal keyboard or mouse navigation.
@@ -231,10 +230,8 @@ pub enum Navigation {
 ///
 /// impl HasFocus for SomeWidgetState {
 ///     fn build(&self, builder: &mut FocusBuilder) {
-///         let tag = builder.start(self);
 ///         builder.widget(&self.component_a);
 ///         builder.widget(&self.component_b);
-///         builder.end(tag);
 ///     }
 ///
 ///     fn focus(&self) -> FocusFlag {
@@ -261,14 +258,14 @@ pub trait HasFocus {
     /// Area for mouse focus.
     ///
     /// This area shouldn't overlap with areas returned by other widgets.
-    /// If it does, the widget should use `z_areas()` for clarification.
+    /// If it does, the widget should use `area_z()` for clarification.
     /// Otherwise, the areas are searched in order of addition.
     fn area(&self) -> Rect;
 
     /// Z value for the area.
     ///
     /// When testing for mouse interactions the z-value is taken into
-    /// consideration too.
+    /// account too.
     fn area_z(&self) -> u16 {
         0
     }
