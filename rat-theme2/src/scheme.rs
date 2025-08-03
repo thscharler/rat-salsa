@@ -44,20 +44,36 @@ pub enum TextColorRating {
     Dark,
 }
 
-/// Used to create a high constrast or normal contrast style.
+/// Used to create a high contrast or normal contrast style.
 pub enum Contrast {
     High,
     Normal,
 }
 
 impl Scheme {
+    /// Color index for a bright variant of the base color.
+    /// Brightness increases with the number.
     pub const BRIGHT_0: usize = 0;
+    /// Color index for a bright variant of the base color.
+    /// Brightness increases with the number.
     pub const BRIGHT_1: usize = 1;
+    /// Color index for a bright variant of the base color.
+    /// Brightness increases with the number.
     pub const BRIGHT_2: usize = 2;
+    /// Color index for a bright variant of the base color.
+    /// Brightness increases with the number.
     pub const BRIGHT_3: usize = 3;
+    /// Color index for a dark variant of the base color.
+    /// Brightness increases with the number.
     pub const DARK_0: usize = 4;
+    /// Color index for a dark variant of the base color.
+    /// Brightness increases with the number.
     pub const DARK_1: usize = 5;
+    /// Color index for a dark variant of the base color.
+    /// Brightness increases with the number.
     pub const DARK_2: usize = 6;
+    /// Color index for a dark variant of the base color.
+    /// Brightness increases with the number.
     pub const DARK_3: usize = 7;
 
     /// Create a style from the given white shade.
