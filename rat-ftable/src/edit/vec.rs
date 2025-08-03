@@ -68,9 +68,9 @@ where
     /// Backing table.
     pub table: TableState<RowSelection>,
     /// Editor
-    editor: S,
+    pub editor: S,
     /// Data store
-    editor_data: Rc<RefCell<Vec<S::Value>>>,
+    pub editor_data: Rc<RefCell<Vec<S::Value>>>,
 
     mouse: MouseFlags,
 }
@@ -329,25 +329,25 @@ where
     }
 
     /// Edit a new item inserted at the selected row.
-    pub fn edit_new(&mut self, row: usize, ctx: S::Context<'_>) -> Result<(), S::Err> {
+    pub fn edit_new<'a>(&mut self, row: usize, ctx: &'a S::Context<'a>) -> Result<(), S::Err> {
         if self.mode != Mode::View {
             return Ok(());
         }
-        let value = self.editor.create_value(ctx.clone())?;
-        self.editor.set_value(value.clone(), ctx.clone())?;
+        let value = self.editor.create_value(ctx)?;
+        self.editor.set_value(value.clone(), ctx)?;
         self.editor_data.borrow_mut().insert(row, value);
         self._start(row, Mode::Insert);
         Ok(())
     }
 
     /// Edit the item at the selected row.
-    pub fn edit(&mut self, row: usize, ctx: S::Context<'_>) -> Result<(), S::Err> {
+    pub fn edit<'a>(&mut self, row: usize, ctx: &'a S::Context<'a>) -> Result<(), S::Err> {
         if self.mode != Mode::View {
             return Ok(());
         }
         {
             let value = &self.editor_data.borrow()[row];
-            self.editor.set_value(value.clone(), ctx.clone())?;
+            self.editor.set_value(value.clone(), ctx)?;
         }
         self._start(row, Mode::Edit);
         Ok(())
@@ -385,7 +385,7 @@ where
     }
 
     /// Commit the changes in the editor.
-    pub fn commit(&mut self, ctx: S::Context<'_>) -> Result<(), S::Err> {
+    pub fn commit<'a>(&mut self, ctx: &'a S::Context<'a>) -> Result<(), S::Err> {
         if self.mode == Mode::View {
             return Ok(());
         }
@@ -393,7 +393,7 @@ where
             return Ok(());
         };
         {
-            let value = self.editor.value(ctx.clone())?;
+            let value = self.editor.value(ctx)?;
             if let Some(value) = value {
                 self.editor_data.borrow_mut()[row] = value;
             } else {
@@ -405,22 +405,22 @@ where
         Ok(())
     }
 
-    pub fn commit_and_append(&mut self, ctx: S::Context<'_>) -> Result<(), S::Err> {
-        self.commit(ctx.clone())?;
+    pub fn commit_and_append<'a>(&mut self, ctx: &'a S::Context<'a>) -> Result<(), S::Err> {
+        self.commit(ctx)?;
         if let Some(row) = self.table.selected_checked() {
-            self.edit_new(row + 1, ctx.clone())?;
+            self.edit_new(row + 1, ctx)?;
         }
         Ok(())
     }
 
-    pub fn commit_and_edit(&mut self, ctx: S::Context<'_>) -> Result<(), S::Err> {
+    pub fn commit_and_edit<'a>(&mut self, ctx: &'a S::Context<'a>) -> Result<(), S::Err> {
         let Some(row) = self.table.selected_checked() else {
             return Ok(());
         };
 
-        self.commit(ctx.clone())?;
+        self.commit(ctx)?;
         self.table.select(Some(row + 1));
-        self.edit(row + 1, ctx.clone())?;
+        self.edit(row + 1, ctx)?;
         Ok(())
     }
 
@@ -430,19 +430,19 @@ where
     }
 }
 
-impl<'a, S> HandleEvent<crossterm::event::Event, S::Context<'a>, Result<Outcome, S::Err>>
+impl<'a, S> HandleEvent<crossterm::event::Event, &'a S::Context<'a>, Result<Outcome, S::Err>>
     for EditableTableVecState<S>
 where
-    S: HandleEvent<crossterm::event::Event, S::Context<'a>, Result<Outcome, S::Err>>,
+    S: HandleEvent<crossterm::event::Event, &'a S::Context<'a>, Result<Outcome, S::Err>>,
     S: TableEditorState,
 {
     fn handle(
         &mut self,
         event: &crossterm::event::Event,
-        ctx: S::Context<'a>,
+        ctx: &'a S::Context<'a>,
     ) -> Result<Outcome, S::Err> {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
-            try_flow!(match self.editor.handle(event, ctx.clone())? {
+            try_flow!(match self.editor.handle(event, ctx)? {
                 Outcome::Continue => Outcome::Continue,
                 Outcome::Unchanged => Outcome::Unchanged,
                 r => {
@@ -460,19 +460,19 @@ where
                 }
                 ct_event!(keycode press Enter) => {
                     if self.table.selected_checked() < Some(self.table.rows().saturating_sub(1)) {
-                        self.commit_and_edit(ctx.clone())?;
+                        self.commit_and_edit(ctx)?;
                         Outcome::Changed
                     } else {
-                        self.commit_and_append(ctx.clone())?;
+                        self.commit_and_append(ctx)?;
                         Outcome::Changed
                     }
                 }
                 ct_event!(keycode press Up) => {
-                    self.commit(ctx.clone())?;
+                    self.commit(ctx)?;
                     Outcome::Changed
                 }
                 ct_event!(keycode press Down) => {
-                    self.commit(ctx.clone())?;
+                    self.commit(ctx)?;
                     Outcome::Changed
                 }
                 _ => Outcome::Continue,
@@ -483,7 +483,7 @@ where
             try_flow!(match event {
                 ct_event!(mouse any for m) if self.mouse.doubleclick(self.table.table_area, m) => {
                     if let Some((_col, row)) = self.table.cell_at_clicked((m.column, m.row)) {
-                        self.edit(row, ctx.clone())?;
+                        self.edit(row, ctx)?;
                         Outcome::Changed
                     } else {
                         Outcome::Continue
@@ -495,7 +495,7 @@ where
             try_flow!(match event {
                 ct_event!(keycode press Insert) => {
                     if let Some(row) = self.table.selected_checked() {
-                        self.edit_new(row, ctx.clone())?;
+                        self.edit_new(row, ctx)?;
                     }
                     Outcome::Changed
                 }
@@ -507,10 +507,10 @@ where
                 }
                 ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
                     if let Some(row) = self.table.selected_checked() {
-                        self.edit(row, ctx.clone())?;
+                        self.edit(row, ctx)?;
                         Outcome::Changed
                     } else if self.table.rows() == 0 {
-                        self.edit_new(0, ctx.clone())?;
+                        self.edit_new(0, ctx)?;
                         Outcome::Changed
                     } else {
                         Outcome::Continue
@@ -519,13 +519,13 @@ where
                 ct_event!(keycode press Down) => {
                     if let Some(row) = self.table.selected_checked() {
                         if row == self.table.rows().saturating_sub(1) {
-                            self.edit_new(row + 1, ctx.clone())?;
+                            self.edit_new(row + 1, ctx)?;
                             Outcome::Changed
                         } else {
                             Outcome::Continue
                         }
                     } else if self.table.rows() == 0 {
-                        self.edit_new(0, ctx.clone())?;
+                        self.edit_new(0, ctx)?;
                         Outcome::Changed
                     } else {
                         Outcome::Continue

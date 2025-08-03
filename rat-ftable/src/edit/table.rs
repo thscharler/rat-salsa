@@ -348,16 +348,16 @@ where
     }
 }
 
-impl<'a, S> HandleEvent<crossterm::event::Event, S::Context<'a>, EditOutcome>
+impl<'a, S> HandleEvent<crossterm::event::Event, &'a S::Context<'a>, EditOutcome>
     for EditableTableState<S>
 where
-    S: HandleEvent<crossterm::event::Event, S::Context<'a>, EditOutcome>,
+    S: HandleEvent<crossterm::event::Event, &'a S::Context<'a>, EditOutcome>,
     S: TableEditorState,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, ctx: S::Context<'a>) -> EditOutcome {
+    fn handle(&mut self, event: &crossterm::event::Event, ctx: &'a S::Context<'a>) -> EditOutcome {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
             if self.table.is_focused() {
-                flow!(match self.editor.handle(event, ctx.clone()) {
+                flow!(match self.editor.handle(event, ctx) {
                     EditOutcome::Continue => EditOutcome::Continue,
                     EditOutcome::Unchanged => EditOutcome::Unchanged,
                     r => {

@@ -33,20 +33,24 @@ pub trait TableEditor {
 /// Trait for the editor widget state
 pub trait TableEditorState: HasFocus {
     /// Some external context.
-    type Context<'a>: Clone;
+    type Context<'a>;
     /// Type of data.
     type Value: Clone;
     /// Error type.
     type Err;
 
     /// Create a fresh value with all the defaults.
-    fn create_value(&self, ctx: Self::Context<'_>) -> Result<Self::Value, Self::Err>;
+    fn create_value<'a>(&self, ctx: &'a Self::Context<'a>) -> Result<Self::Value, Self::Err>;
 
     /// Set the current value for the editor.
-    fn set_value(&mut self, value: Self::Value, ctx: Self::Context<'_>) -> Result<(), Self::Err>;
+    fn set_value<'a>(
+        &mut self,
+        value: Self::Value,
+        ctx: &'a Self::Context<'a>,
+    ) -> Result<(), Self::Err>;
 
     /// Return the current value from the editor.
-    fn value(&mut self, ctx: Self::Context<'_>) -> Result<Option<Self::Value>, Self::Err>;
+    fn value<'a>(&mut self, ctx: &'a Self::Context<'a>) -> Result<Option<Self::Value>, Self::Err>;
 
     /// Returns the currently focused column.
     /// Used to scroll the column to fully visible.
