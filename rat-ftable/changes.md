@@ -1,3 +1,15 @@
+# 1.1
+
+* Some breaking changes for TableEditor.
+  // There is currently no known user for this api, so I allow myself to just do it:
+    * TableEditorState::Context is no longer clone. It is passed by reference
+      instead of an owned value now.
+    * Remove TableDataVec trait. The Table for rendering is no longer held
+      in the EditableTableVec widget, instead a constructor for this table
+      is held. This allows to get rid of the rc for the actual data.
+    * Add TableEditorState::set_focused_col(). This allows to directly
+      edit a specific cell of the table.
+
 # 1.0.1
 
 * update dependencies
