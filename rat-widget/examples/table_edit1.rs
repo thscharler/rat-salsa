@@ -263,12 +263,12 @@ fn handle_table(
     let mut r = Outcome::Continue;
     r = r.or_else_try::<_, Error>(|| match state.table.handle(event, istate) {
         EditOutcome::Edit => {
-            if let Some(sel) = state.table.table.selected_checked() {
+            if let Some(sel_row) = state.table.table.selected_checked() {
                 state
                     .table
                     .editor
-                    .set_value(data.table_data[sel].clone(), istate)?;
-                state.table.edit(sel);
+                    .set_value(data.table_data[sel_row].clone(), istate)?;
+                state.table.edit(0, sel_row);
             }
             Ok(Outcome::Changed)
         }
@@ -301,13 +301,13 @@ fn handle_table(
             Ok(Outcome::Changed)
         }
         EditOutcome::CommitAndEdit => {
-            if let Some(sel) = state.table.table.selected_checked() {
-                commit_edit(data, sel, istate, state)?;
+            if let Some(sel_row) = state.table.table.selected_checked() {
+                commit_edit(data, sel_row, istate, state)?;
                 state
                     .table
                     .editor
-                    .set_value(data.table_data[sel + 1].clone(), istate)?;
-                state.table.edit(sel + 1);
+                    .set_value(data.table_data[sel_row + 1].clone(), istate)?;
+                state.table.edit(0, sel_row + 1);
             }
             Ok(Outcome::Changed)
         }
@@ -453,6 +453,10 @@ impl TableEditorState for SampleEditorState {
             self.num3 => Some(3)
             , _ => None
         )
+    }
+
+    fn set_focused_col(&self, col: usize) {
+        todo!()
     }
 }
 

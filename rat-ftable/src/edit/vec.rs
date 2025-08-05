@@ -10,6 +10,7 @@
 
 use crate::edit::{Mode, TableEditor, TableEditorState};
 use crate::rowselection::RowSelection;
+use crate::util::clear_buf_area;
 use crate::{Table, TableState};
 use log::warn;
 use rat_cursor::HasScreenCursor;
@@ -118,6 +119,7 @@ where
             if let Some(row) = state.table.selected() {
                 // but it might be out of view
                 if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
+                    clear_buf_area(row_area, buf);
                     self.editor
                         .render(row_area, &cell_areas, buf, &mut state.editor);
                 }
@@ -294,12 +296,17 @@ where
         let value = self.editor.create_value(ctx)?;
         self.editor.set_value(value.clone(), ctx)?;
         self.data.insert(row, value);
-        self._start(row, Mode::Insert);
+        self._start(0, row, Mode::Insert);
         Ok(())
     }
 
     /// Edit the item at the selected row.
-    pub fn edit<'a>(&mut self, row: usize, ctx: &'a S::Context<'a>) -> Result<(), S::Err> {
+    pub fn edit<'a>(
+        &mut self,
+        col: usize,
+        row: usize,
+        ctx: &'a S::Context<'a>,
+    ) -> Result<(), S::Err> {
         if self.mode != Mode::View {
             return Ok(());
         }
@@ -307,11 +314,11 @@ where
             let value = &self.data[row];
             self.editor.set_value(value.clone(), ctx)?;
         }
-        self._start(row, Mode::Edit);
+        self._start(col, row, Mode::Edit);
         Ok(())
     }
 
-    fn _start(&mut self, pos: usize, mode: Mode) {
+    fn _start(&mut self, col: usize, row: usize, mode: Mode) {
         if self.table.is_focused() {
             // black magic
             FocusBuilder::build_for(&self.editor).first();
@@ -319,10 +326,11 @@ where
 
         self.mode = mode;
         if self.mode == Mode::Insert {
-            self.table.items_added(pos, 1);
+            self.table.items_added(row, 1);
         }
-        self.table.move_to(pos);
+        self.table.move_to(row);
         self.table.scroll_to_col(0);
+        self.editor.set_focused_col(col);
     }
 
     /// Cancel editing.
@@ -378,7 +386,7 @@ where
 
         self.commit(ctx)?;
         self.table.select(Some(row + 1));
-        self.edit(row + 1, ctx)?;
+        self.edit(0, row + 1, ctx)?;
         Ok(())
     }
 
@@ -440,8 +448,8 @@ where
         } else {
             try_flow!(match event {
                 ct_event!(mouse any for m) if self.mouse.doubleclick(self.table.table_area, m) => {
-                    if let Some((_col, row)) = self.table.cell_at_clicked((m.column, m.row)) {
-                        self.edit(row, ctx)?;
+                    if let Some((col, row)) = self.table.cell_at_clicked((m.column, m.row)) {
+                        self.edit(col, row, ctx)?;
                         Outcome::Changed
                     } else {
                         Outcome::Continue
@@ -465,7 +473,7 @@ where
                 }
                 ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
                     if let Some(row) = self.table.selected_checked() {
-                        self.edit(row, ctx)?;
+                        self.edit(0, row, ctx)?;
                         Outcome::Changed
                     } else if self.table.rows() == 0 {
                         self.edit_new(0, ctx)?;

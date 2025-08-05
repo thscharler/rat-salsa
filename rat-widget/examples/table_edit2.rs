@@ -346,6 +346,17 @@ impl TableEditorState for SampleEditorState {
             , _ => None
         )
     }
+
+    fn set_focused_col(&self, col: usize) {
+        let focus = FocusBuilder::build_for(self);
+        match col {
+            0 => focus.focus(&self.text),
+            1 => focus.focus(&self.num1),
+            2 => focus.focus(&self.num1),
+            3 => focus.focus(&self.num1),
+            _ => {}
+        }
+    }
 }
 
 impl HasFocus for SampleEditorState {

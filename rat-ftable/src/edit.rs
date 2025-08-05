@@ -55,6 +55,9 @@ pub trait TableEditorState: HasFocus {
     /// Returns the currently focused column.
     /// Used to scroll the column to fully visible.
     fn focused_col(&self) -> Option<usize>;
+
+    /// Allows setting the focus for the editor.
+    fn set_focused_col(&self, col: usize);
 }
 
 /// Editing mode.

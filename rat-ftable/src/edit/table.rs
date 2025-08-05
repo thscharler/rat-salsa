@@ -270,7 +270,7 @@ where
         if self.mode != Mode::View {
             return;
         }
-        self._start(row, Mode::Insert);
+        self._start(0, row, Mode::Insert);
     }
 
     /// Edit the item at the selected row.
@@ -283,24 +283,25 @@ where
     ///
     /// This does all the bookkeeping with the table-state and
     /// switches the mode to Mode::Edit.
-    pub fn edit(&mut self, row: usize) {
+    pub fn edit(&mut self, col: usize, row: usize) {
         if self.mode != Mode::View {
             return;
         }
-        self._start(row, Mode::Edit);
+        self._start(col, row, Mode::Edit);
     }
 
-    fn _start(&mut self, pos: usize, mode: Mode) {
+    fn _start(&mut self, col: usize, row: usize, mode: Mode) {
         if self.table.is_focused() {
             FocusBuilder::build_for(&self.editor).first();
         }
 
         self.mode = mode;
         if self.mode == Mode::Insert {
-            self.table.items_added(pos, 1);
+            self.table.items_added(row, 1);
         }
-        self.table.move_to(pos);
-        self.table.scroll_to_col(0);
+        self.table.move_to(row);
+        self.table.scroll_to_col(col);
+        self.editor.set_focused_col(col);
     }
 
     /// Cancel editing.
