@@ -10,8 +10,7 @@
 
 use crate::edit::{Mode, TableEditor, TableEditorState};
 use crate::rowselection::RowSelection;
-use crate::textdata::Row;
-use crate::{Table, TableContext, TableData, TableState};
+use crate::{Table, TableState};
 use log::warn;
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
@@ -19,24 +18,10 @@ use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Rect};
-use ratatui::style::Style;
+use ratatui::layout::Rect;
 use ratatui::widgets::StatefulWidget;
-use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
-use std::rc::Rc;
-
-/// Extends TableData with the capability to set the actual data
-/// at a later point in time.
-///
-/// This is needed to inject the data during rendering, while
-/// leaving the rendering to the caller.
-///
-/// Due to life-time issues the data is given as Rc<>.
-pub trait TableDataVec<D>: TableData<'static> {
-    /// Set the actual table data.
-    fn set_data(&mut self, data: Rc<RefCell<Vec<D>>>);
-}
+use std::mem;
 
 /// Widget that supports row-wise editing of a table.
 ///
@@ -48,8 +33,12 @@ pub struct EditableTableVec<'a, E>
 where
     E: TableEditor + 'a,
 {
-    table: Table<'a, RowSelection>,
-    table_data: Box<dyn TableDataVec<<<E as TableEditor>::State as TableEditorState>::Value>>,
+    table: Box<
+        dyn for<'b> Fn(
+                &'b [<<E as TableEditor>::State as TableEditorState>::Value],
+            ) -> Table<'b, RowSelection>
+            + 'a,
+    >,
     editor: E,
 }
 
@@ -63,69 +52,41 @@ where
     S: TableEditorState,
 {
     /// Editing mode.
-    mode: Mode,
+    pub mode: Mode,
 
     /// Backing table.
     pub table: TableState<RowSelection>,
     /// Editor
     pub editor: S,
-    /// Data store
-    pub editor_data: Rc<RefCell<Vec<S::Value>>>,
 
-    mouse: MouseFlags,
+    /// Data store
+    pub data: Vec<S::Value>,
+
+    pub mouse: MouseFlags,
 }
 
 impl<'a, E> EditableTableVec<'a, E>
 where
     E: TableEditor + 'a,
 {
+    /// Create a new editable table.
+    ///
+    /// A bit tricky bc lifetimes of the table-data.
+    ///
+    /// * table: constructor for the Table widget. This gets a &[Value] slice
+    ///   to display and returns the configured table.
+    /// * editor: editor widget.
     pub fn new(
-        table_data: impl TableDataVec<<<E as TableEditor>::State as TableEditorState>::Value> + 'static,
-        table: Table<'a, RowSelection>,
+        table: impl for<'b> Fn(
+                &'b [<<E as TableEditor>::State as TableEditorState>::Value],
+            ) -> Table<'b, RowSelection>
+            + 'a,
         editor: E,
     ) -> Self {
         Self {
-            table,
-            table_data: Box::new(table_data),
+            table: Box::new(table),
             editor,
         }
-    }
-}
-
-impl<'a, D> TableData<'a> for Box<dyn TableDataVec<D> + 'a> {
-    fn rows(&self) -> usize {
-        (**self).rows()
-    }
-
-    fn header(&self) -> Option<Row<'a>> {
-        (**self).header()
-    }
-
-    fn footer(&self) -> Option<Row<'a>> {
-        (**self).footer()
-    }
-
-    fn row_height(&self, row: usize) -> u16 {
-        (**self).row_height(row)
-    }
-
-    fn row_style(&self, row: usize) -> Option<Style> {
-        (**self).row_style(row)
-    }
-
-    fn widths(&self) -> Vec<Constraint> {
-        (**self).widths()
-    }
-
-    fn render_cell(
-        &self,
-        ctx: &TableContext,
-        column: usize,
-        row: usize,
-        area: Rect,
-        buf: &mut Buffer,
-    ) {
-        (**self).render_cell(ctx, column, row, area, buf)
     }
 }
 
@@ -136,8 +97,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EditVec")
-            .field("table", &self.table)
-            .field("table_data", &"..dyn..")
+            .field("table", &"..dyn..")
             .field("editor", &self.editor)
             .finish()
     }
@@ -150,11 +110,9 @@ where
     type State = EditableTableVecState<E::State>;
 
     #[allow(clippy::collapsible_else_if)]
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.table_data.set_data(state.editor_data.clone());
-        self.table
-            .data(self.table_data)
-            .render(area, buf, &mut state.table);
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let table = (self.table)(&state.data);
+        table.render(area, buf, &mut state.table);
 
         if state.mode == Mode::Insert || state.mode == Mode::Edit {
             if let Some(row) = state.table.selected() {
@@ -181,7 +139,7 @@ where
             mode: Mode::View,
             table: Default::default(),
             editor: S::default(),
-            editor_data: Rc::new(RefCell::new(Vec::default())),
+            data: Vec::default(),
             mouse: Default::default(),
         }
     }
@@ -197,7 +155,7 @@ where
             .field("mode", &self.mode)
             .field("table", &self.table)
             .field("editor", &self.editor)
-            .field("editor_data", &self.editor_data)
+            .field("editor_data", &self.data)
             .field("mouse", &self.mouse)
             .finish()
     }
@@ -274,7 +232,7 @@ where
             mode: Mode::View,
             table: TableState::new(),
             editor,
-            editor_data: Rc::new(RefCell::new(vec![])),
+            data: Default::default(),
             mouse: Default::default(),
         }
     }
@@ -284,7 +242,7 @@ where
             mode: Mode::View,
             table: TableState::named(name),
             editor,
-            editor_data: Rc::new(RefCell::new(vec![])),
+            data: Default::default(),
             mouse: Default::default(),
         }
     }
@@ -296,12 +254,12 @@ where
 {
     /// Set the edit data.
     pub fn set_value(&mut self, data: Vec<S::Value>) {
-        self.editor_data = Rc::new(RefCell::new(data));
+        self.data = data;
     }
 
     /// Get the edit data.
-    pub fn value(&self) -> Vec<S::Value> {
-        self.editor_data.borrow().clone()
+    pub fn value(&mut self) -> Vec<S::Value> {
+        mem::take(&mut self.data)
     }
 
     /// Editing is active?
@@ -319,8 +277,8 @@ where
         if self.mode != Mode::View {
             return;
         }
-        if row < self.editor_data.borrow().len() {
-            self.editor_data.borrow_mut().remove(row);
+        if row < self.data.len() {
+            self.data.remove(row);
             self.table.items_removed(row, 1);
             if !self.table.scroll_to_row(row) {
                 self.table.scroll_to_row(row.saturating_sub(1));
@@ -335,7 +293,7 @@ where
         }
         let value = self.editor.create_value(ctx)?;
         self.editor.set_value(value.clone(), ctx)?;
-        self.editor_data.borrow_mut().insert(row, value);
+        self.data.insert(row, value);
         self._start(row, Mode::Insert);
         Ok(())
     }
@@ -346,7 +304,7 @@ where
             return Ok(());
         }
         {
-            let value = &self.editor_data.borrow()[row];
+            let value = &self.data[row];
             self.editor.set_value(value.clone(), ctx)?;
         }
         self._start(row, Mode::Edit);
@@ -378,7 +336,7 @@ where
             return;
         };
         if self.mode == Mode::Insert {
-            self.editor_data.borrow_mut().remove(row);
+            self.data.remove(row);
             self.table.items_removed(row, 1);
         }
         self._stop();
@@ -395,9 +353,9 @@ where
         {
             let value = self.editor.value(ctx)?;
             if let Some(value) = value {
-                self.editor_data.borrow_mut()[row] = value;
+                self.data[row] = value;
             } else {
-                self.editor_data.borrow_mut().remove(row);
+                self.data.remove(row);
                 self.table.items_removed(row, 1);
             }
         }

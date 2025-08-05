@@ -10,7 +10,7 @@ use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
-use rat_ftable::edit::vec::{EditableTableVec, EditableTableVecState, TableDataVec};
+use rat_ftable::edit::vec::{EditableTableVec, EditableTableVecState};
 use rat_ftable::edit::{TableEditor, TableEditorState};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableData};
@@ -122,21 +122,15 @@ impl HasScreenCursor for State {
     }
 }
 
-struct TableData1 {
-    data: Rc<RefCell<Vec<Sample>>>,
+struct TableData1<'a> {
+    data: &'a [Sample],
     fmt1: NumberFormat,
     fmt2: NumberFormat,
 }
 
-impl TableDataVec<Sample> for TableData1 {
-    fn set_data(&mut self, data: Rc<RefCell<Vec<Sample>>>) {
-        self.data = data;
-    }
-}
-
-impl<'a> TableData<'a> for TableData1 {
+impl<'a> TableData<'a> for TableData1<'a> {
     fn rows(&self) -> usize {
-        self.data.borrow().len()
+        self.data.len()
     }
 
     fn header(&self) -> Option<Row<'a>> {
@@ -168,7 +162,7 @@ impl<'a> TableData<'a> for TableData1 {
         area: Rect,
         buf: &mut Buffer,
     ) {
-        if let Some(d) = self.data.borrow().get(row) {
+        if let Some(d) = self.data.get(row) {
             match column {
                 0 => Span::from(&d.text).render(area, buf),
                 1 => Span::from(self.fmt1.fmt_u(d.num1)).render(area, buf),
@@ -207,22 +201,26 @@ fn repaint_table(
     );
 
     EditableTableVec::new(
-        TableData1 {
-            data: Default::default(),
-            fmt1: NumberFormat::news("###,##0.0", NumberSymbols::numeric(state.loc))?,
-            fmt2: NumberFormat::news("##########", NumberSymbols::numeric(state.loc))?,
+        |data: &[Sample]| {
+            Table::default()
+                .data(TableData1 {
+                    data: Default::default(),
+                    fmt1: NumberFormat::news("###,##0.0", NumberSymbols::numeric(state.loc))
+                        .expect("fmt"),
+                    fmt2: NumberFormat::news("##########", NumberSymbols::numeric(state.loc))
+                        .expect("fmt"),
+                })
+                .column_spacing(1)
+                .auto_layout_width()
+                .block(
+                    Block::bordered()
+                        .border_type(block::BorderType::Rounded)
+                        .border_style(THEME.block())
+                        .title("tabledata"),
+                )
+                .vscroll(Scroll::new().style(THEME.block()))
+                .styles(THEME.table_style())
         },
-        Table::default()
-            .column_spacing(1)
-            .auto_layout_width()
-            .block(
-                Block::bordered()
-                    .border_type(block::BorderType::Rounded)
-                    .border_style(THEME.block())
-                    .title("tabledata"),
-            )
-            .vscroll(Scroll::new().style(THEME.block()))
-            .styles(THEME.table_style()),
         SampleEditor,
     )
     .render(l0[1], frame.buffer_mut(), &mut state.table);
