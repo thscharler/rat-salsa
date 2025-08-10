@@ -336,7 +336,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 styles.clear();
                 state
                     .value
-                    .styles_at_page(show_range.clone(), g.text_bytes().start, &mut styles);
+                    .styles_at_page(g.text_bytes().start, show_range.clone(), &mut styles);
                 for style_nr in &styles {
                     if let Some(s) = widget.text_style.get(*style_nr) {
                         style = style.patch(*s);
@@ -368,7 +368,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 styles.clear();
                 state
                     .value
-                    .styles_at_page(show_range.clone(), g.text_bytes().start, &mut styles);
+                    .styles_at_page(g.text_bytes().start, show_range.clone(), &mut styles);
                 for style_nr in &styles {
                     if let Some(s) = widget.text_style.get(*style_nr) {
                         style = style.patch(*s);

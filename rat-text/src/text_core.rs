@@ -563,13 +563,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
     ///
     /// Creates a cache for the styles in range.
     #[inline]
-    pub(crate) fn styles_at_page(&self, range: Range<usize>, pos: usize, buf: &mut Vec<usize>) {
+    pub(crate) fn styles_at_page(&self, pos: usize, range: Range<usize>, buf: &mut Vec<usize>) {
         if let Some(sty) = &self.styles {
-            sty.values_at_page(range, pos, buf);
+            sty.values_at_page(pos, range, buf);
         }
     }
 
     /// Find all styles that touch the given range.
+    #[inline]
     pub fn styles_in(&self, range: Range<usize>, buf: &mut Vec<(Range<usize>, usize)>) {
         if let Some(sty) = &self.styles {
             sty.values_in(range, buf);
@@ -1308,6 +1309,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             if c.is_whitespace() {
                 break;
             }
+            last_pos = c.text_bytes().end;
         }
 
         Ok(self.byte_pos(last_pos).expect("valid_pos"))

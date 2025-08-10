@@ -327,8 +327,8 @@ impl MaskedCore {
     ///
     /// Creates a cache for the styles in range.
     #[inline]
-    pub(crate) fn styles_at_page(&self, range: Range<usize>, pos: usize, buf: &mut Vec<usize>) {
-        self.masked.styles_at_page(range, pos, buf);
+    pub(crate) fn styles_at_page(&self, pos: usize, range: Range<usize>, buf: &mut Vec<usize>) {
+        self.masked.styles_at_page(pos, range, buf);
     }
 
     /// Find all styles that touch the given range.

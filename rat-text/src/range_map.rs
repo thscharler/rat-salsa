@@ -71,7 +71,7 @@ impl RangeMap {
     }
 
     /// Find all values for the page that touch the given position.
-    pub(crate) fn values_at_page(&self, range: Range<usize>, pos: usize, buf: &mut Vec<usize>) {
+    pub(crate) fn values_at_page(&self, pos: usize, range: Range<usize>, buf: &mut Vec<usize>) {
         let mut page_map = self.page_map.borrow_mut();
         if *self.page.borrow() != range {
             *self.page.borrow_mut() = range.clone();

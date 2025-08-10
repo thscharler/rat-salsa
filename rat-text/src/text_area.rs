@@ -417,7 +417,7 @@ fn render_text_area(
             styles.clear();
             state
                 .value
-                .styles_at_page(page_bytes.clone(), g.text_bytes().start, &mut styles);
+                .styles_at_page(g.text_bytes().start, page_bytes.clone(), &mut styles);
             for style_nr in &styles {
                 if let Some(s) = widget.text_style.get(style_nr) {
                     style = style.patch(*s);
