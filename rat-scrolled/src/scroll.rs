@@ -437,6 +437,7 @@ impl<'a> Scroll<'a> {
         self
     }
 
+    /// Padding needed to embed this Scroll.
     pub fn padding(&self) -> Padding {
         match self.orientation {
             ScrollbarOrientation::VerticalRight => Padding::new(0, 1, 0, 0),

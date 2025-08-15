@@ -250,22 +250,33 @@ impl<'a> TextArea<'a> {
         self
     }
 
-    /// Set a maximum horizontal offset that will be used even
-    /// if there is no horizontal scrollbar set.
+    /// Maximum offset the horizontal scrollbar.
     ///
-    /// This widget doesn't try to find a maximum text-length for
-    /// all lines.
+    /// This widget doesn't try to find a correct maximum value
+    /// to show with the horizontal scroll bar, but uses this
+    /// fixed value instead. This is the maximum offset that can
+    /// be reached by using the scrollbar.
     ///
-    /// Default is 255
+    /// Finding the maximum line length for a text is rather
+    /// expensive, so this widget doesn't even try.
+    ///
+    /// This doesn't limit the column that can be reached with
+    /// cursor positioning, just what can be done via the scrollbar.
+    ///
+    /// See [self.set_horizontal_overscroll]
+    ///
+    /// Default is 255.
     pub fn set_horizontal_max_offset(mut self, offset: usize) -> Self {
         self.h_max_offset = Some(offset);
         self
     }
 
-    /// Set a horizontal overscroll that will be used even if
-    /// there is no horizontal scrollbar set.
+    /// Maximum overscroll that can be reached by using the horizontal
+    /// scrollbar and dragging beyond the area of the widget.
     ///
-    /// Default is 16384
+    /// See [self.set_horizontal_max_offset]
+    ///
+    /// Default is 16384.
     pub fn set_horizontal_overscroll(mut self, overscroll: usize) -> Self {
         self.h_overscroll = Some(overscroll);
         self

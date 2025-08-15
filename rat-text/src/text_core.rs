@@ -656,6 +656,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Select text.
+    /// Anchor and cursor are capped to a valid value.
     #[inline]
     pub fn set_selection(&mut self, anchor: TextPosition, cursor: TextPosition) -> bool {
         let old_selection = self.selection();
@@ -1061,8 +1062,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
     pub fn remove_prev_char(&mut self, pos: TextPosition) -> Result<bool, TextError> {
         let (sx, sy) = if pos.y == 0 && pos.x == 0 {
             (0, 0)
-        } else if pos.y != 0 && pos.x == 0 {
-            let prev_line_width = self.line_width(pos.y - 1).expect("line_width");
+        } else if pos.y > 0 && pos.x == 0 {
+            let prev_line_width = self.line_width(pos.y - 1).expect("line_width"); // TODO
             (prev_line_width, pos.y - 1)
         } else {
             (pos.x - 1, pos.y)
@@ -1175,10 +1176,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Find the start of the next word. If the position is at the start
     /// or inside a word, the same position is returned.
     pub fn next_word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut cursor = self.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
+        let mut it = self.text_graphemes(pos)?;
+        let mut last_pos = it.text_offset();
         loop {
-            let Some(c) = cursor.next() else {
+            let Some(c) = it.next() else {
                 break;
             };
             last_pos = c.text_bytes().start;
@@ -1193,11 +1194,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Find the end of the next word. Skips whitespace first, then goes on
     /// until it finds the next whitespace.
     pub fn next_word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut cursor = self.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
+        let mut it = self.text_graphemes(pos)?;
+        let mut last_pos = it.text_offset();
         let mut init = true;
         loop {
-            let Some(c) = cursor.next() else {
+            let Some(c) = it.next() else {
                 break;
             };
             last_pos = c.text_bytes().start;
@@ -1221,11 +1222,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
     pub fn prev_word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut cursor = self.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
+        let mut it = self.text_graphemes(pos)?;
+        let mut last_pos = it.text_offset();
         let mut init = true;
         loop {
-            let Some(c) = cursor.prev() else {
+            let Some(c) = it.prev() else {
                 break;
             };
             if init {
@@ -1247,10 +1248,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
     pub fn prev_word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut cursor = self.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
+        let mut it = self.text_graphemes(pos)?;
+        let mut last_pos = it.text_offset();
         loop {
-            let Some(c) = cursor.prev() else {
+            let Some(c) = it.prev() else {
                 break;
             };
             if !c.is_whitespace() {
@@ -1264,10 +1265,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Is the position at a word boundary?
     pub fn is_word_boundary(&self, pos: TextPosition) -> Result<bool, TextError> {
-        let mut cursor = self.text_graphemes(pos)?;
-        if let Some(c0) = cursor.prev() {
-            cursor.next();
-            if let Some(c1) = cursor.next() {
+        let mut it = self.text_graphemes(pos)?;
+        if let Some(c0) = it.prev() {
+            it.next();
+            if let Some(c1) = it.next() {
                 Ok(c0.is_whitespace() && !c1.is_whitespace()
                     || !c0.is_whitespace() && c1.is_whitespace())
             } else {
@@ -1281,10 +1282,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Find the start of the word at pos.
     /// Returns pos if the position is not inside a word.
     pub fn word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut cursor = self.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
+        let mut it = self.text_graphemes(pos)?;
+        let mut last_pos = it.text_offset();
         loop {
-            let Some(c) = cursor.prev() else {
+            let Some(c) = it.prev() else {
                 break;
             };
             if c.is_whitespace() {
@@ -1299,10 +1300,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Find the end of the word at pos.
     /// Returns pos if the position is not inside a word.
     pub fn word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut cursor = self.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
+        let mut it = self.text_graphemes(pos)?;
+        let mut last_pos = it.text_offset();
         loop {
-            let Some(c) = cursor.next() else {
+            let Some(c) = it.next() else {
                 break;
             };
             last_pos = c.text_bytes().start;
