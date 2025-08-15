@@ -1,9 +1,9 @@
-use crate::{Cursor, TextError, TextPosition};
+use crate::{upos_type, Cursor, TextError, TextPosition};
 use ropey::iter::Chunks;
 use ropey::RopeSlice;
 use std::borrow::Cow;
-use std::cmp;
 use std::ops::Range;
+use std::{cmp, mem};
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 
 /// One grapheme.
@@ -66,6 +66,8 @@ pub struct Glyph<'a> {
     screen_pos: (u16, u16),
     /// Display length for the glyph.
     screen_width: u16,
+    /// Last item in this screen-line.
+    line_break: bool,
     /// text-position
     pos: TextPosition,
 }
@@ -76,6 +78,7 @@ impl<'a> Glyph<'a> {
         text_bytes: Range<usize>,
         screen_pos: (u16, u16),
         screen_width: u16,
+        line_break: bool,
         pos: TextPosition,
     ) -> Self {
         Self {
@@ -83,6 +86,7 @@ impl<'a> Glyph<'a> {
             text_bytes,
             screen_pos,
             screen_width,
+            line_break,
             pos,
         }
     }
@@ -110,6 +114,11 @@ impl<'a> Glyph<'a> {
     /// Display width of the glyph.
     pub fn screen_width(&self) -> u16 {
         self.screen_width
+    }
+
+    /// Last item in this screen line
+    pub fn line_break(&self) -> bool {
+        self.line_break
     }
 }
 
@@ -442,6 +451,97 @@ impl Cursor for RevRopeGraphemes<'_> {
     }
 }
 
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum TextBreak2 {
+    /// Shift left + Right margin.
+    ShiftText(upos_type, u16),
+    /// Right margin.
+    HardBreak(u16),
+    /// Word-break margin, Right margin.
+    WordBreak(u16, u16),
+}
+
+impl Default for TextBreak2 {
+    fn default() -> Self {
+        Self::ShiftText(0, 80)
+    }
+}
+
+pub(crate) struct GlyphIter2<Iter> {
+    iter: Iter,
+
+    /// Sometimes one grapheme creates two glyphs.
+    next_glyph: Option<Glyph<'static>>,
+
+    /// Next glyph position.
+    next_pos: TextPosition,
+    next_screen_pos: (u16, u16),
+    /// Text position of the previous glyph.
+    last_pos: TextPosition,
+
+    /// Tab expansion
+    tabs: u16,
+    /// Show CTRL chars
+    show_ctrl: bool,
+    /// Line-break enabled?
+    line_break: bool,
+    /// Text-break enabled?
+    text_break: TextBreak2,
+}
+
+impl<Iter> GlyphIter2<Iter> {
+    /// New iterator.
+    pub(crate) fn new(pos: TextPosition, iter: Iter) -> Self {
+        Self {
+            iter,
+            next_pos: pos,
+            next_screen_pos: Default::default(),
+            last_pos: Default::default(),
+            next_glyph: None,
+            tabs: 8,
+            show_ctrl: false,
+            line_break: true,
+            text_break: Default::default(),
+        }
+    }
+
+    /// Tab width
+    pub(crate) fn set_tabs(&mut self, tabs: u16) {
+        self.tabs = tabs;
+    }
+
+    /// Handle line-breaks. If false everything is treated as one line.
+    pub(crate) fn set_line_break(&mut self, line_break: bool) {
+        self.line_break = line_break;
+    }
+
+    /// Show ASCII control codes.
+    pub(crate) fn set_show_ctrl(&mut self, show_ctrl: bool) {
+        self.show_ctrl = show_ctrl;
+    }
+
+    /// Handle text-breaks. Breaks the line and continues on the
+    /// next screen line.
+    pub(crate) fn set_text_break(&mut self, text_break: TextBreak2) {
+        self.text_break = text_break;
+    }
+}
+
+impl<'a, Iter> Iterator for GlyphIter2<Iter>
+where
+    Iter: Iterator<Item = Grapheme<'a>>,
+{
+    type Item = Glyph<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(next) = self.next_glyph.take() {
+            return Some(next);
+        }
+        todo!()
+    }
+}
+
 /// Iterates over the glyphs of a row-range.
 ///
 /// Keeps track of the text-position and the display-position on screen.
@@ -515,87 +615,61 @@ where
     type Item = Glyph<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        for grapheme in self.iter.by_ref() {
-            let glyph;
-            let len: u16;
-            let mut lbrk = false;
+        loop {
+            let Some(grapheme) = self.iter.next() else {
+                return None;
+            };
 
-            // todo: maybe add some ligature support.
+            let mut glyph = Glyph {
+                glyph: Default::default(),
+                text_bytes: grapheme.text_bytes(),
+                screen_pos: self.screen_pos,
+                screen_width: 0,
+                line_break: false,
+                pos: self.pos,
+            };
 
-            match grapheme.grapheme.as_ref() {
-                "\n" | "\r\n" if self.line_break => {
-                    lbrk = true;
-                    len = if self.show_ctrl { 1 } else { 0 };
-                    glyph = Cow::Borrowed(if self.show_ctrl { "\u{2424}" } else { "" });
-                }
-                "\n" | "\r\n" if !self.line_break => {
-                    lbrk = false;
-                    len = 1;
-                    glyph = Cow::Borrowed("\u{2424}");
-                }
-                "\t" => {
-                    len = self.tabs - (self.screen_pos.0 % self.tabs);
-                    glyph = Cow::Borrowed(if self.show_ctrl { "\u{2409}" } else { " " });
-                }
-                c if ("\x00".."\x20").contains(&c) => {
-                    static CCHAR: [&str; 32] = [
-                        "\u{2400}", "\u{2401}", "\u{2402}", "\u{2403}", "\u{2404}", "\u{2405}",
-                        "\u{2406}", "\u{2407}", "\u{2408}", "\u{2409}", "\u{240A}", "\u{240B}",
-                        "\u{240C}", "\u{240D}", "\u{240E}", "\u{240F}", "\u{2410}", "\u{2411}",
-                        "\u{2412}", "\u{2413}", "\u{2414}", "\u{2415}", "\u{2416}", "\u{2417}",
-                        "\u{2418}", "\u{2419}", "\u{241A}", "\u{241B}", "\u{241C}", "\u{241D}",
-                        "\u{241E}", "\u{241F}",
-                    ];
-                    let c0 = c.bytes().next().expect("byte");
-                    len = 1;
-                    glyph = Cow::Borrowed(if self.show_ctrl {
-                        CCHAR[c0 as usize]
-                    } else {
-                        "\u{FFFD}"
-                    });
-                }
-                c => {
-                    len = unicode_display_width::width(c) as u16;
-                    glyph = grapheme.grapheme;
-                }
-            }
+            self.remap(grapheme, &mut glyph);
 
             let pos = self.pos;
             let screen_pos = self.screen_pos;
 
-            if lbrk {
+            if glyph.line_break {
                 self.screen_pos.0 = 0;
                 self.screen_pos.1 += 1;
                 self.pos.x = 0;
                 self.pos.y += 1;
             } else {
-                self.screen_pos.0 += len;
+                self.screen_pos.0 += glyph.screen_width;
                 self.pos.x += 1;
             }
 
             // clip left
             if screen_pos.0 < self.screen_offset {
-                if screen_pos.0 + len > self.screen_offset {
+                if screen_pos.0 + glyph.screen_width > self.screen_offset {
                     // don't show partial glyphs, but show the space they need.
                     // avoids flickering when scrolling left/right.
                     return Some(Glyph {
                         glyph: Cow::Borrowed("\u{2203}"),
-                        text_bytes: grapheme.text_bytes,
-                        screen_width: screen_pos.0 + len - self.screen_offset,
+                        text_bytes: glyph.text_bytes,
+                        screen_width: screen_pos.0 + glyph.screen_width - self.screen_offset,
+                        line_break: glyph.line_break,
                         pos,
                         screen_pos: (0, screen_pos.1),
                     });
                 } else {
                     // out left
                 }
-            } else if screen_pos.0 + len > self.screen_offset + self.screen_width {
+            } else if screen_pos.0 + glyph.screen_width > self.screen_offset + self.screen_width {
                 if screen_pos.0 < self.screen_offset + self.screen_width {
                     // don't show partial glyphs, but show the space they need.
                     // avoids flickering when scrolling left/right.
                     return Some(Glyph {
                         glyph: Cow::Borrowed("\u{2203}"),
-                        text_bytes: grapheme.text_bytes,
-                        screen_width: screen_pos.0 + len - (self.screen_offset + self.screen_width),
+                        text_bytes: glyph.text_bytes,
+                        screen_width: screen_pos.0 + glyph.screen_width
+                            - (self.screen_offset + self.screen_width),
+                        line_break: glyph.line_break,
                         pos,
                         screen_pos: (screen_pos.0 - self.screen_offset, screen_pos.1),
                     });
@@ -607,9 +681,10 @@ where
                 }
             } else {
                 return Some(Glyph {
-                    glyph,
-                    text_bytes: grapheme.text_bytes,
-                    screen_width: len,
+                    glyph: glyph.glyph,
+                    text_bytes: glyph.text_bytes,
+                    screen_width: glyph.screen_width,
+                    line_break: glyph.line_break,
                     pos,
                     screen_pos: (screen_pos.0 - self.screen_offset, screen_pos.1),
                 });
@@ -617,6 +692,54 @@ where
         }
 
         None
+    }
+}
+
+impl<'a, Iter> GlyphIter<Iter>
+where
+    Iter: Iterator<Item = Grapheme<'a>>,
+{
+    fn remap(&mut self, mut grapheme: Grapheme<'a>, glyph: &mut Glyph<'a>) {
+        let cc = grapheme.grapheme();
+
+        // remap grapheme
+        if cc == "\n" || cc == "\r\n" {
+            if self.line_break {
+                glyph.line_break = true;
+                glyph.screen_width = if self.show_ctrl { 1 } else { 0 };
+                glyph.glyph = Cow::Borrowed(if self.show_ctrl { "\u{240A}" } else { "" });
+            } else {
+                glyph.line_break = false;
+                glyph.screen_width = 1;
+                glyph.glyph = Cow::Borrowed("\u{240A}");
+            }
+        } else if cc == "\t" {
+            glyph.line_break = false;
+            glyph.screen_width = self.tabs - (self.screen_pos.0 % self.tabs);
+            glyph.glyph = Cow::Borrowed(if self.show_ctrl { "\u{2409}" } else { " " });
+        } else if ("\x00".."\x20").contains(&cc) {
+            glyph.line_break = false;
+            glyph.screen_width = 1;
+
+            // Control char unicode display replacement.
+            static CONTROL_CHARS: [&str; 32] = [
+                "\u{2400}", "\u{2401}", "\u{2402}", "\u{2403}", "\u{2404}", "\u{2405}", "\u{2406}",
+                "\u{2407}", "\u{2408}", "\u{2409}", "\u{240A}", "\u{240B}", "\u{240C}", "\u{240D}",
+                "\u{240E}", "\u{240F}", "\u{2410}", "\u{2411}", "\u{2412}", "\u{2413}", "\u{2414}",
+                "\u{2415}", "\u{2416}", "\u{2417}", "\u{2418}", "\u{2419}", "\u{241A}", "\u{241B}",
+                "\u{241C}", "\u{241D}", "\u{241E}", "\u{241F}",
+            ];
+
+            glyph.glyph = Cow::Borrowed(if self.show_ctrl {
+                CONTROL_CHARS[cc.as_bytes()[0] as usize]
+            } else {
+                "\u{FFFD}"
+            });
+        } else {
+            glyph.line_break = false;
+            glyph.screen_width = unicode_display_width::width(cc) as u16;
+            glyph.glyph = mem::take(&mut grapheme.grapheme);
+        }
     }
 }
 
