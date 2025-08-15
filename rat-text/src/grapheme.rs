@@ -528,6 +528,54 @@ impl<Iter> GlyphIter2<Iter> {
     }
 }
 
+impl<'a, Iter> GlyphIter2<Iter>
+where
+    Iter: Iterator<Item = Grapheme<'a>>,
+{
+    fn remap(&mut self, mut grapheme: Grapheme<'a>, glyph: &mut Glyph<'a>) {
+        let cc = grapheme.grapheme();
+
+        // remap grapheme
+        if cc == "\n" || cc == "\r\n" {
+            if self.line_break {
+                glyph.line_break = true;
+                glyph.screen_width = if self.show_ctrl { 1 } else { 0 };
+                glyph.glyph = Cow::Borrowed(if self.show_ctrl { "\u{240A}" } else { "" });
+            } else {
+                glyph.line_break = false;
+                glyph.screen_width = 1;
+                glyph.glyph = Cow::Borrowed("\u{240A}");
+            }
+        } else if cc == "\t" {
+            glyph.line_break = false;
+            glyph.screen_width = self.tabs - (self.next_screen_pos.0 % self.tabs);
+            glyph.glyph = Cow::Borrowed(if self.show_ctrl { "\u{2409}" } else { " " });
+        } else if ("\x00".."\x20").contains(&cc) {
+            glyph.line_break = false;
+            glyph.screen_width = 1;
+
+            // Control char unicode display replacement.
+            static CONTROL_CHARS: [&str; 32] = [
+                "\u{2400}", "\u{2401}", "\u{2402}", "\u{2403}", "\u{2404}", "\u{2405}", "\u{2406}",
+                "\u{2407}", "\u{2408}", "\u{2409}", "\u{240A}", "\u{240B}", "\u{240C}", "\u{240D}",
+                "\u{240E}", "\u{240F}", "\u{2410}", "\u{2411}", "\u{2412}", "\u{2413}", "\u{2414}",
+                "\u{2415}", "\u{2416}", "\u{2417}", "\u{2418}", "\u{2419}", "\u{241A}", "\u{241B}",
+                "\u{241C}", "\u{241D}", "\u{241E}", "\u{241F}",
+            ];
+
+            glyph.glyph = Cow::Borrowed(if self.show_ctrl {
+                CONTROL_CHARS[cc.as_bytes()[0] as usize]
+            } else {
+                "\u{FFFD}"
+            });
+        } else {
+            glyph.line_break = false;
+            glyph.screen_width = unicode_display_width::width(cc) as u16;
+            glyph.glyph = mem::take(&mut grapheme.grapheme);
+        }
+    }
+}
+
 impl<'a, Iter> Iterator for GlyphIter2<Iter>
 where
     Iter: Iterator<Item = Grapheme<'a>>,
@@ -538,7 +586,195 @@ where
         if let Some(next) = self.next_glyph.take() {
             return Some(next);
         }
-        todo!()
+
+        let mut test_screen_pos = self.next_screen_pos.0 as upos_type;
+
+        loop {
+            let Some(grapheme) = self.iter.next() else {
+                return None;
+            };
+
+            let mut glyph = Glyph {
+                glyph: Default::default(),
+                text_bytes: grapheme.text_bytes(),
+                screen_pos: self.next_screen_pos,
+                screen_width: 0,
+                line_break: false,
+                pos: self.next_pos,
+            };
+
+            self.remap(grapheme, &mut glyph);
+
+            // next glyph positioning
+            if glyph.line_break {
+                self.next_screen_pos.0 = 0;
+                self.next_screen_pos.1 += 1;
+                self.last_pos = self.next_pos;
+                self.next_pos.x = 0;
+                self.next_pos.y += 1;
+
+                return Some(glyph);
+            } else if let TextBreak2::ShiftText(left_margin, right_margin) = self.text_break {
+                // self.next_screen_pos later
+                self.last_pos = self.next_pos;
+                self.next_pos.x += 1;
+                // next_pos.y doesn't change
+
+                // Clip glyphs and correct left offset
+                if test_screen_pos < left_margin {
+                    if test_screen_pos + glyph.screen_width as upos_type >= left_margin {
+                        // show replacement for split glyph
+                        glyph.glyph = Cow::Borrowed("\u{2426}");
+                        glyph.screen_width = (test_screen_pos + glyph.screen_width as upos_type
+                            - left_margin) as u16;
+                        glyph.screen_pos.0 = 0;
+
+                        self.next_screen_pos.0 = 0;
+                        // self.next_screen_pos.1 doesn't change
+
+                        return Some(glyph);
+                    } else {
+                        test_screen_pos += glyph.screen_width as upos_type;
+                        // skip glyph
+                        continue;
+                    }
+                } else if test_screen_pos >= right_margin as upos_type {
+                    test_screen_pos += glyph.screen_width as upos_type;
+                    // skip glyph
+                    continue;
+                } else if test_screen_pos < right_margin as upos_type
+                    && test_screen_pos + glyph.screen_width as upos_type
+                        >= right_margin as upos_type
+                {
+                    // show replacement for split glyph
+                    glyph.glyph = Cow::Borrowed("\u{2426}");
+                    glyph.screen_width = (test_screen_pos + glyph.screen_width as upos_type
+                        - right_margin as upos_type)
+                        as u16;
+
+                    self.next_screen_pos.0 += glyph.screen_width;
+                    // self.next_screen_pos.1 doesn't change
+
+                    return Some(glyph);
+                } else {
+                    self.next_screen_pos.0 += glyph.screen_width;
+                    // self.next_screen_pos.1 doesn't change
+
+                    return Some(glyph);
+                }
+            } else if let TextBreak2::HardBreak(right_margin) = self.text_break {
+                let right_margin = if self.show_ctrl {
+                    right_margin.saturating_sub(1)
+                } else {
+                    right_margin
+                };
+
+                if glyph.screen_pos.0 + glyph.screen_width > right_margin {
+                    // break before glyph
+
+                    // after current grapheme
+                    self.next_screen_pos.0 = glyph.screen_width;
+                    self.next_screen_pos.1 += 1;
+                    self.next_pos.x += 1;
+                    // next_pos.y doesn't change
+
+                    self.next_glyph = Some(Glyph {
+                        glyph: Cow::Owned(glyph.glyph.to_string()),
+                        text_bytes: glyph.text_bytes.clone(),
+                        screen_pos: (0, glyph.screen_pos.1 + 1),
+                        screen_width: glyph.screen_width,
+                        line_break: false,
+                        pos: glyph.pos,
+                    });
+
+                    glyph.glyph = if self.show_ctrl {
+                        Cow::Borrowed("\u{2424}")
+                    } else {
+                        Cow::Borrowed("")
+                    };
+                    glyph.text_bytes = glyph.text_bytes.start..glyph.text_bytes.start;
+                    // screen_pos is ok
+                    glyph.screen_width = 1;
+                    glyph.line_break = true;
+                    glyph.pos = self.last_pos;
+                } else {
+                    self.next_screen_pos.0 += glyph.screen_width;
+                    self.next_pos.x += 1;
+                }
+
+                return Some(glyph);
+            } else if let TextBreak2::WordBreak(break_at, margin) = self.text_break {
+                let margin = if self.show_ctrl {
+                    margin.saturating_sub(1)
+                } else {
+                    margin
+                };
+
+                if glyph.screen_pos.0 > break_at && glyph.glyph == " " {
+                    // break after space
+
+                    self.next_screen_pos.0 = 0;
+                    self.next_screen_pos.1 += 1;
+                    self.next_pos.x += 1;
+                    // next_pos.y doesn't change
+
+                    self.next_glyph = Some(Glyph {
+                        glyph: if self.show_ctrl {
+                            Cow::Borrowed("\u{2424}")
+                        } else {
+                            Cow::Borrowed("")
+                        },
+                        text_bytes: glyph.text_bytes.end..glyph.text_bytes.end,
+                        screen_pos: (glyph.screen_pos.0 + 1, glyph.screen_pos.1),
+                        screen_width: if self.show_ctrl { 1 } else { 0 },
+                        line_break: true,
+                        pos: glyph.pos,
+                    });
+
+                    // glyph is ok
+                    // text_bytes is ok
+                    // screen_pos is ok
+                    // screen_width is ok
+                    // line break is ok
+                    // pos is ok
+                } else if glyph.screen_pos.0 + glyph.screen_width > margin {
+                    // break before glyph
+
+                    // after current grapheme
+                    self.next_screen_pos.0 = glyph.screen_width;
+                    self.next_screen_pos.1 += 1;
+                    self.next_pos.x += 1;
+                    // next_pos.y doesn't change
+
+                    self.next_glyph = Some(Glyph {
+                        glyph: Cow::Owned(glyph.glyph.to_string()),
+                        text_bytes: glyph.text_bytes.clone(),
+                        screen_pos: (0, glyph.screen_pos.1 + 1),
+                        screen_width: glyph.screen_width,
+                        line_break: false,
+                        pos: glyph.pos,
+                    });
+
+                    glyph.glyph = if self.show_ctrl {
+                        Cow::Borrowed("\u{2424}")
+                    } else {
+                        Cow::Borrowed("")
+                    };
+                    glyph.text_bytes = glyph.text_bytes.start..glyph.text_bytes.start;
+                    // screen_pos is ok
+                    glyph.screen_width = 1;
+                    glyph.line_break = true;
+                    glyph.pos = self.last_pos;
+                } else {
+                    self.next_screen_pos.0 += glyph.screen_width;
+                    self.next_pos.x += 1;
+                }
+
+                return Some(glyph);
+            } else {
+                unreachable!()
+            }
+        }
     }
 }
 

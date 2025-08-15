@@ -1,5 +1,5 @@
 use crate::clipboard::Clipboard;
-use crate::grapheme::{Glyph, GlyphIter, Grapheme};
+use crate::grapheme::{Glyph, GlyphIter, GlyphIter2, Grapheme, TextBreak2};
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
@@ -758,6 +758,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[deprecated]
     pub fn glyphs(
         &self,
         rows: Range<upos_type>,
@@ -772,6 +773,28 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let mut it = GlyphIter::new(TextPosition::new(0, rows.start), iter);
         it.set_screen_offset(screen_offset);
         it.set_screen_width(screen_width);
+        it.set_tabs(self.tabs);
+        it.set_show_ctrl(self.glyph_ctrl);
+        it.set_line_break(self.glyph_line_break);
+        Ok(it)
+    }
+
+    /// Iterator for the glyphs of the lines in range.
+    /// Glyphs here a grapheme + display length.
+    #[inline]
+    pub(crate) fn glyphs2(
+        &self,
+        start_col: upos_type,
+        rows: Range<upos_type>,
+        text_break: TextBreak2,
+    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
+        let iter = self.graphemes(
+            TextRange::new((start_col, rows.start), (0, rows.end)),
+            TextPosition::new(start_col, rows.start),
+        )?;
+
+        let mut it = GlyphIter2::new(TextPosition::new(start_col, rows.start), iter);
+        it.set_text_break(text_break);
         it.set_tabs(self.tabs);
         it.set_show_ctrl(self.glyph_ctrl);
         it.set_line_break(self.glyph_line_break);

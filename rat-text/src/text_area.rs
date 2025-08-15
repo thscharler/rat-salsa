@@ -6,7 +6,7 @@
 use crate::_private::NonExhaustive;
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
-use crate::grapheme::{Glyph, Grapheme};
+use crate::grapheme::{Glyph, Grapheme, TextBreak2};
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
@@ -93,12 +93,17 @@ pub struct TextAreaState {
     /// __read only__ renewed with each render.
     pub inner: Rect,
 
-    /// Horizontal scroll
+    /// Horizontal scroll.
+    /// When text-break is active this value is ignored.
     /// __read+write__
     pub hscroll: ScrollState,
-    /// Vertical offset
+    /// Vertical offset.
     /// __read+write__
     pub vscroll: ScrollState,
+    /// When text-break is active, this is the grapheme-offset
+    /// into the first visible text-row where the display
+    /// actually starts.
+    pub sub_row_offset: upos_type,
     /// Dark offset due to clipping.
     /// __read only__ secondary offset due to clipping.
     pub dark_offset: (u16, u16),
@@ -118,6 +123,8 @@ pub struct TextAreaState {
     pub auto_indent: bool,
     /// quote selection active
     pub auto_quote: bool,
+    /// text breaking
+    pub text_break: TextBreak,
 
     /// Current focus state.
     pub focus: FocusFlag,
@@ -132,21 +139,36 @@ pub struct TextAreaState {
 impl Clone for TextAreaState {
     fn clone(&self) -> Self {
         Self {
-            focus: FocusFlag::named(self.focus.name()),
             area: self.area,
             inner: self.inner,
-            value: self.value.clone(),
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
+            sub_row_offset: self.sub_row_offset,
+            dark_offset: self.dark_offset,
+            scroll_to_cursor: self.scroll_to_cursor,
+            value: self.value.clone(),
             move_col: None,
             auto_indent: self.auto_indent,
             auto_quote: self.auto_quote,
+            text_break: TextBreak::Shift,
+            focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
-            dark_offset: self.dark_offset,
-            scroll_to_cursor: self.scroll_to_cursor,
             non_exhaustive: NonExhaustive,
         }
     }
+}
+
+/// Text breaking.
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub enum TextBreak {
+    /// Don't break, shift text to the left.
+    Shift,
+    /// Hard break at the width.
+    Hard,
+    /// Word break within the given right margin.
+    /// If not possible do a hard break.
+    Word(u16),
 }
 
 impl<'a> TextArea<'a> {
@@ -348,40 +370,7 @@ fn render_text_area(
     state.vscroll.set_page_len(state.inner.height as usize);
 
     if state.scroll_to_cursor {
-        let cursor = state.cursor();
-        let (ox, oy) = state.offset();
-        let (ox, oy) = (ox as upos_type, oy as upos_type);
-        let mut noy = if cursor.y < oy {
-            cursor.y
-        } else if cursor.y >= oy + (state.inner.height + state.dark_offset.1) as upos_type {
-            cursor
-                .y
-                .saturating_sub((state.inner.height + state.dark_offset.1) as upos_type)
-        } else {
-            oy
-        };
-        // correct by one at bottom margin. block cursors appear as part of the
-        // bottom border otherwise.
-        if cursor.y == noy + (state.inner.height + state.dark_offset.1) as upos_type {
-            noy = noy.saturating_add(1);
-        }
-
-        let mut nox = if cursor.x < ox {
-            cursor.x
-        } else if cursor.x >= ox + (state.inner.width + state.dark_offset.0) as upos_type {
-            cursor
-                .x
-                .saturating_sub((state.inner.width + state.dark_offset.0) as upos_type)
-        } else {
-            ox
-        };
-        // correct by one at right margin. block cursors appear as part of the
-        // right border otherwise.
-        if cursor.x == nox + (state.inner.width + state.dark_offset.0) as upos_type {
-            nox = nox.saturating_add(1);
-        }
-
-        state.set_offset((nox as usize, noy as usize));
+        scroll_to_cursor(state);
     }
 
     let inner = state.inner;
@@ -404,24 +393,30 @@ fn render_text_area(
         return;
     }
 
-    let (ox, oy) = state.offset();
+    let (_ox, oy) = state.offset();
+    let start_col = state.sub_row_offset;
     let page_rows = (oy as upos_type)
         ..min(
             oy as upos_type + inner.height as upos_type,
             state.value.len_lines(),
         );
     let page_bytes = state
-        .try_bytes_at_range(TextRange::new((0, page_rows.start), (0, page_rows.end)))
+        .try_bytes_at_range(TextRange::new(
+            (start_col, page_rows.start),
+            (0, page_rows.end),
+        ))
         .expect("valid_rows");
     let selection = state.selection();
     let mut styles = Vec::new();
 
-    let glyph_iter = state
-        .value
-        .glyphs(page_rows.clone(), ox as u16, inner.width)
-        .expect("valid_offset");
+    for g in state.glyphs2(start_col, page_rows).expect("valid_offset") {
+        // relative screen-pos of the glyph
+        let screen_pos = g.screen_pos();
 
-    for g in glyph_iter {
+        if screen_pos.1 >= state.inner.height {
+            break;
+        }
+
         if g.screen_width() > 0 {
             let mut style = style;
             // text-styles
@@ -438,9 +433,6 @@ fn render_text_area(
             if selection.contains_pos(g.pos()) {
                 style = style.patch(select_style);
             };
-
-            // relative screen-pos of the glyph
-            let screen_pos = g.screen_pos();
 
             // render glyph
             if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
@@ -460,22 +452,115 @@ fn render_text_area(
     }
 }
 
+fn scroll_to_cursor(state: &mut TextAreaState) {
+    let cursor = state.cursor();
+    let (ox, oy) = state.offset();
+    let (ox, oy) = (ox as upos_type, oy as upos_type);
+    let start_col = state.sub_row_offset;
+
+    let nox;
+    let noy;
+    let nstart_col;
+    match state.text_break {
+        TextBreak::Shift => {
+            noy = if cursor.y < oy {
+                cursor.y
+            } else if cursor.y >= oy + state.inner.height as upos_type {
+                cursor.y.saturating_sub(state.inner.height as upos_type)
+            } else {
+                oy
+            };
+
+            nox = if cursor.x < ox {
+                cursor.x
+            } else if cursor.x >= ox + state.inner.width as upos_type {
+                cursor.x.saturating_sub(state.inner.width as upos_type)
+            } else {
+                ox
+            };
+
+            nstart_col = 0;
+        }
+        TextBreak::Hard | TextBreak::Word(_) => {
+            if cursor.y < oy || cursor.y == oy && cursor.x < start_col {
+                noy = cursor.y;
+                let mut line_start = TextPosition::new(0, noy);
+                for g in state.glyphs2(0, noy..noy + 1).expect("valid_offset") {
+                    if g.screen_pos().0 == 0 {
+                        line_start = g.pos();
+                    }
+                    if g.pos() == cursor {
+                        break; // found
+                    }
+                }
+                nox = 0;
+                nstart_col = line_start.x;
+            } else {
+                let mut lines = Vec::with_capacity(state.inner.height as usize);
+
+                'f: {
+                    for g in state
+                        .glyphs2(start_col, oy..min(state.len_lines(), cursor.y + 1))
+                        .expect("valid_offset")
+                    {
+                        if g.screen_pos().0 == 0 {
+                            lines.push(g.pos());
+                        }
+
+                        if g.pos() == cursor {
+                            // found
+                            if g.screen_pos().1 >= state.inner.height {
+                                // off-screen, change offset
+                                let start = if lines.len() < state.inner.height as usize {
+                                    lines[0]
+                                } else {
+                                    lines[lines.len() - state.inner.height as usize]
+                                };
+                                noy = start.y;
+                                nox = 0;
+                                nstart_col = start.x;
+                            } else {
+                                // already visible
+                                noy = oy;
+                                nox = ox;
+                                nstart_col = start_col;
+                            }
+                            break 'f;
+                        }
+                    }
+
+                    // invalid position, somehow.
+                    // leave offset as is.
+                    nox = ox;
+                    noy = oy;
+                    nstart_col = start_col;
+                }
+            };
+        }
+    }
+
+    state.set_offset((nox as usize, noy as usize));
+    state.sub_row_offset = nstart_col;
+}
+
 impl Default for TextAreaState {
     fn default() -> Self {
         let mut s = Self {
-            focus: Default::default(),
             area: Default::default(),
             inner: Default::default(),
-            mouse: Default::default(),
-            value: TextCore::new(Some(Box::new(UndoVec::new(99))), Some(global_clipboard())),
             hscroll: Default::default(),
-            non_exhaustive: NonExhaustive,
             vscroll: Default::default(),
+            sub_row_offset: 0,
+            dark_offset: Default::default(),
+            scroll_to_cursor: Default::default(),
+            value: TextCore::new(Some(Box::new(UndoVec::new(99))), Some(global_clipboard())),
             move_col: Default::default(),
             auto_indent: true,
             auto_quote: true,
-            dark_offset: Default::default(),
-            scroll_to_cursor: Default::default(),
+            text_break: TextBreak::Shift,
+            focus: Default::default(),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         };
         s.hscroll.set_max_offset(255);
         s.hscroll.set_overscroll_by(Some(16384));
@@ -578,6 +663,16 @@ impl TextAreaState {
     /// Show control characters.
     pub fn show_ctrl(&self) -> bool {
         self.value.glyph_ctrl()
+    }
+
+    /// Text breaking.
+    pub fn set_text_break(&mut self, text_break: TextBreak) {
+        self.text_break = text_break;
+    }
+
+    /// Text breaking.
+    pub fn text_break(&self) -> TextBreak {
+        self.text_break
     }
 
     /// Extra column information for cursor movement.
@@ -835,7 +930,7 @@ impl TextAreaState {
         self.value.selection()
     }
 
-    /// Set the selection.
+    /// Set the selection, anchor and cursor are capped to a valid value.
     /// Scrolls the cursor to a visible position.
     #[inline]
     pub fn set_selection(
@@ -855,7 +950,7 @@ impl TextAreaState {
         self.value.select_all()
     }
 
-    /// Selection.
+    /// Selected text.
     #[inline]
     pub fn selected_text(&self) -> Cow<'_, str> {
         self.value
@@ -884,6 +979,8 @@ impl TextAreaState {
     }
 
     /// Text slice as `Cow<str>`. Uses a byte range.
+    ///
+    /// Panics for an invalid range.
     #[inline]
     pub fn str_slice_byte(&self, range: Range<usize>) -> Cow<'_, str> {
         self.value.str_slice_byte(range).expect("valid_range")
@@ -896,6 +993,8 @@ impl TextAreaState {
     }
 
     /// Text slice as `Cow<str>`
+    ///
+    /// Panics for an invalid range.
     #[inline]
     pub fn str_slice(&self, range: impl Into<TextRange>) -> Cow<'_, str> {
         self.value.str_slice(range.into()).expect("valid_range")
@@ -914,6 +1013,8 @@ impl TextAreaState {
     }
 
     /// Line width as grapheme count.
+    ///
+    /// Panics for an invalid row.
     #[inline]
     pub fn line_width(&self, row: upos_type) -> upos_type {
         self.value.line_width(row).expect("valid_row")
@@ -927,6 +1028,8 @@ impl TextAreaState {
 
     /// Line as RopeSlice.
     /// This contains the \n at the end.
+    ///
+    /// Panics for an invalid row.
     #[inline]
     pub fn line_at(&self, row: upos_type) -> Cow<'_, str> {
         self.value.line_at(row).expect("valid_row")
@@ -940,6 +1043,8 @@ impl TextAreaState {
     }
 
     /// Iterate over text-lines, starting at offset.
+    ///
+    /// Panics for an invalid row.
     #[inline]
     pub fn lines_at(&self, row: upos_type) -> impl Iterator<Item = Cow<'_, str>> {
         self.value.lines_at(row).expect("valid_row")
@@ -954,9 +1059,10 @@ impl TextAreaState {
         self.value.lines_at(row)
     }
 
-    // Iterator for the glyphs of the lines in range.
+    /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[deprecated]
     pub fn glyphs(
         &self,
         rows: Range<upos_type>,
@@ -968,9 +1074,10 @@ impl TextAreaState {
             .expect("valid_rows")
     }
 
-    // Iterator for the glyphs of the lines in range.
+    /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[deprecated]
     pub fn try_glyphs(
         &self,
         rows: Range<upos_type>,
@@ -982,6 +1089,8 @@ impl TextAreaState {
 
     /// Grapheme iterator for a given line.
     /// This contains the \n at the end.
+    ///
+    /// Panics for an invalid row.
     #[inline]
     pub fn line_graphemes(&self, row: upos_type) -> impl Iterator<Item = Grapheme<'_>> {
         self.value.line_graphemes(row).expect("valid_row")
@@ -998,6 +1107,8 @@ impl TextAreaState {
     }
 
     /// Get a cursor over all the text with the current position set at pos.
+    ///
+    /// Panics for an invalid pos.
     #[inline]
     pub fn text_graphemes(&self, pos: TextPosition) -> impl Cursor<Item = Grapheme<'_>> {
         self.value.text_graphemes(pos).expect("valid_pos")
@@ -1013,6 +1124,8 @@ impl TextAreaState {
     }
 
     /// Get a cursor over the text-range the current position set at pos.
+    ///
+    /// Panics for an invalid pos.
     #[inline]
     pub fn graphemes(
         &self,
@@ -1034,6 +1147,8 @@ impl TextAreaState {
 
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
+    ///
+    /// Panics for an invalid pos.
     #[inline]
     pub fn byte_at(&self, pos: TextPosition) -> Range<usize> {
         self.value.byte_at(pos).expect("valid_pos")
@@ -1047,19 +1162,23 @@ impl TextAreaState {
     }
 
     /// Grapheme range to byte range.
-    #[inline]
-    pub fn try_bytes_at_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
-        self.value.bytes_at_range(range)
-    }
-
-    /// Grapheme range to byte range.
+    ///
+    /// Panics for an invalid range.
     #[inline]
     pub fn bytes_at_range(&self, range: TextRange) -> Range<usize> {
         self.value.bytes_at_range(range).expect("valid_range")
     }
 
+    /// Grapheme range to byte range.
+    #[inline]
+    pub fn try_bytes_at_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
+        self.value.bytes_at_range(range)
+    }
+
     /// Byte position to grapheme position.
     /// Returns the position that contains the given byte index.
+    ///
+    /// Panics for an invalid byte pos.
     #[inline]
     pub fn byte_pos(&self, byte: usize) -> TextPosition {
         self.value.byte_pos(byte).expect("valid_pos")
@@ -1073,6 +1192,8 @@ impl TextAreaState {
     }
 
     /// Byte range to grapheme range.
+    ///
+    /// Panics for an invalid range.
     #[inline]
     pub fn byte_range(&self, bytes: Range<usize>) -> TextRange {
         self.value.byte_range(bytes).expect("valid_range")
@@ -1198,35 +1319,39 @@ impl TextAreaState {
         }
     }
 
-    /// Unindents the selected text by tab-width. If there is no
+    /// Dedent the selected text by tab-width. If there is no
     /// selection this does nothing.
     ///
     /// This can be deactivated with auto_indent=false.
     pub fn insert_backtab(&mut self) -> bool {
-        let sel = self.selection();
+        if self.has_selection() && self.auto_indent {
+            let sel = self.selection();
 
-        self.value.begin_undo_seq();
-        for r in sel.start.y..=sel.end.y {
-            let mut idx = 0;
-            let g_it = self
-                .value
-                .graphemes(TextRange::new((0, r), (0, r + 1)), TextPosition::new(0, r))
-                .expect("valid_range")
-                .take(self.tab_width() as usize);
-            for g in g_it {
-                if g != " " && g != "\t" {
-                    break;
+            self.value.begin_undo_seq();
+            for r in sel.start.y..=sel.end.y {
+                let mut idx = 0;
+                let g_it = self
+                    .value
+                    .graphemes(TextRange::new((0, r), (0, r + 1)), TextPosition::new(0, r))
+                    .expect("valid_range")
+                    .take(self.tab_width() as usize);
+                for g in g_it {
+                    if g != " " && g != "\t" {
+                        break;
+                    }
+                    idx += 1;
                 }
-                idx += 1;
+
+                self.value
+                    .remove_str_range(TextRange::new((0, r), (idx, r)))
+                    .expect("valid_range");
             }
+            self.value.end_undo_seq();
 
-            self.value
-                .remove_str_range(TextRange::new((0, r), (idx, r)))
-                .expect("valid_range");
+            true
+        } else {
+            false
         }
-        self.value.end_undo_seq();
-
-        true
     }
 
     /// Insert text at the cursor position.
@@ -1284,6 +1409,8 @@ impl TextAreaState {
     }
 
     /// Deletes the given range.
+    ///
+    /// Panics for an invalid range.
     #[inline]
     pub fn delete_range(&mut self, range: impl Into<TextRange>) -> bool {
         self.try_delete_range(range).expect("valid_range")
@@ -1373,6 +1500,8 @@ impl TextAreaState {
 
     /// Find the start of the next word. If the position is at the start
     /// or inside a word, the same position is returned.
+    ///
+    /// Panics for an invalid pos.
     pub fn next_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.next_word_start(pos.into()).expect("valid_pos")
     }
@@ -1388,6 +1517,8 @@ impl TextAreaState {
 
     /// Find the end of the next word. Skips whitespace first, then goes on
     /// until it finds the next whitespace.
+    ///
+    /// Panics for an invalid pos.
     pub fn next_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.next_word_end(pos.into()).expect("valid_pos")
     }
@@ -1406,6 +1537,8 @@ impl TextAreaState {
     ///
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
+    ///
+    /// Panics for an invalid range.
     pub fn prev_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.prev_word_start(pos.into()).expect("valid_pos")
     }
@@ -1425,6 +1558,8 @@ impl TextAreaState {
     /// Find the end of the previous word. Word is everything that is not whitespace.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
+    ///
+    /// Panics for an invalid range.
     pub fn prev_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.prev_word_end(pos.into()).expect("valid_pos")
     }
@@ -1440,6 +1575,8 @@ impl TextAreaState {
     }
 
     /// Is the position at a word boundary?
+    ///
+    /// Panics for an invalid range.
     pub fn is_word_boundary(&self, pos: impl Into<TextPosition>) -> bool {
         self.value.is_word_boundary(pos.into()).expect("valid_pos")
     }
@@ -1451,6 +1588,8 @@ impl TextAreaState {
 
     /// Find the start of the word at pos.
     /// Returns pos if the position is not inside a word.
+    ///
+    /// Panics for an invalid range.
     pub fn word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.word_start(pos.into()).expect("valid_pos")
     }
@@ -1463,6 +1602,8 @@ impl TextAreaState {
 
     /// Find the end of the word at pos.
     /// Returns pos if the position is not inside a word.
+    ///
+    /// Panics for an invalid range.
     pub fn word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.word_end(pos.into()).expect("valid_pos")
     }
@@ -1475,6 +1616,8 @@ impl TextAreaState {
 
     /// Delete the next word. This alternates deleting the whitespace between words and
     /// the words themselves.
+    ///
+    /// If there is a selection, removes only the selected text.
     pub fn delete_next_word(&mut self) -> bool {
         if self.has_selection() {
             self.delete_range(self.selection())
@@ -1493,6 +1636,8 @@ impl TextAreaState {
 
     /// Deletes the previous word. This alternates deleting the whitespace
     /// between words and the words themselves.
+    ///
+    /// If there is a selection, removes only the selected text.
     pub fn delete_prev_word(&mut self) -> bool {
         if self.has_selection() {
             self.delete_range(self.selection())
@@ -1730,8 +1875,103 @@ impl RelocatableState for TextAreaState {
 }
 
 impl TextAreaState {
+    fn glyphs2(
+        &self,
+        start_col: upos_type,
+        rows: Range<upos_type>,
+    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
+        let (ox, _oy) = self.offset();
+        let text_break = match self.text_break {
+            TextBreak::Shift => TextBreak2::ShiftText(ox as upos_type, ox as u16 + self.inner.width),
+            TextBreak::Hard => TextBreak2::HardBreak(self.inner.width),
+            TextBreak::Word(margin) => {
+                TextBreak2::WordBreak(self.inner.width.saturating_sub(margin), self.inner.width)
+            }
+        };
+
+        self.value.glyphs2(start_col, rows, text_break)
+    }
+
+    /// Return the screen_position for the given text position.
+    /// If the screen position is not visible this returns None.
+    ///
+    /// Returns an absolute screen-position.
+    pub fn try_pos_to_screen(
+        &self,
+        pos: impl Into<TextPosition>,
+    ) -> Result<Option<(u16, u16)>, TextError> {
+        let pos = pos.into();
+
+        match self.text_break {
+            TextBreak::Shift => {
+                let (ox, oy) = self.offset();
+                let (_ox, oy) = (ox as upos_type, oy as upos_type);
+
+                if pos.y < oy {
+                    return Ok(None);
+                }
+                let screen_y = (pos.y - oy) as u16;
+                if screen_y < self.dark_offset.1 {
+                    return Ok(None);
+                } else if screen_y >= self.inner.height + self.dark_offset.1 {
+                    return Ok(None);
+                }
+
+                let Some(screen_x) = self
+                    .glyphs2(0, pos.y..pos.y + 1)?
+                    .find(|v| v.pos().x == pos.x)
+                    .map(|v| v.screen_pos().0)
+                else {
+                    return Ok(None);
+                };
+
+                if screen_x < self.dark_offset.0 {
+                    return Ok(None);
+                } else if screen_x >= self.inner.width + self.dark_offset.0 {
+                    return Ok(None);
+                }
+
+                return Ok(Some((
+                    screen_x + self.inner.x - self.dark_offset.0,
+                    screen_y + self.inner.y - self.dark_offset.1,
+                )));
+            }
+            TextBreak::Hard | TextBreak::Word(_) => {
+                let (ox, oy) = self.offset();
+                let (_ox, oy) = (ox as upos_type, oy as upos_type);
+                let start_col = self.sub_row_offset;
+
+                for g in self.glyphs2(start_col, oy..oy + self.inner.height as upos_type)? {
+                    if g.screen_pos().1 >= self.inner.height + self.dark_offset.1 {
+                        return Ok(None);
+                    }
+                    if g.pos() == pos {
+                        let screen_pos = g.screen_pos();
+                        if screen_pos.1 < self.dark_offset.1 {
+                            return Ok(None);
+                        } else if screen_pos.0 < self.dark_offset.0 {
+                            return Ok(None);
+                        } else if screen_pos.0 >= self.dark_offset.0 + self.inner.width {
+                            return Ok(None);
+                        } else {
+                            return Ok(Some((
+                                screen_pos.0 + self.inner.x - self.dark_offset.0,
+                                screen_pos.1 + self.inner.y - self.dark_offset.1,
+                            )));
+                        }
+                    }
+                }
+
+                return Ok(None);
+            }
+        }
+    }
+}
+
+impl TextAreaState {
     /// Converts from a widget relative screen coordinate to a line.
     /// It limits its result to a valid row.
+    #[deprecated]
     pub fn screen_to_row(&self, scy: i16) -> upos_type {
         let (_, oy) = self.offset();
         let oy = oy as upos_type + self.dark_offset.1 as upos_type;
@@ -1757,6 +1997,7 @@ impl TextAreaState {
     /// * row is a row-index into the value, not a screen-row. It can be calculated
     ///   with screen_to_row().
     /// * x is the relative screen position.
+    #[deprecated]
     pub fn screen_to_col(&self, row: upos_type, scx: i16) -> upos_type {
         self.try_screen_to_col(row, scx).expect("valid_row")
     }
@@ -1767,6 +2008,7 @@ impl TextAreaState {
     /// * row is a row-index into the value, not a screen-row. It can be calculated
     ///   with screen_to_row().
     /// * x is the relative screen position.
+    #[deprecated]
     pub fn try_screen_to_col(&self, row: upos_type, scx: i16) -> Result<upos_type, TextError> {
         let (ox, _) = self.offset();
 
@@ -1798,6 +2040,7 @@ impl TextAreaState {
 
     /// Converts the row of the position to a screen position
     /// relative to the widget area.
+    #[deprecated]
     pub fn row_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
         let pos = pos.into();
         let (_, oy) = self.offset();
@@ -1817,12 +2060,14 @@ impl TextAreaState {
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
+    #[deprecated]
     pub fn col_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
         self.try_col_to_screen(pos).expect("valid_pos")
     }
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
+    #[deprecated]
     pub fn try_col_to_screen(
         &self,
         pos: impl Into<TextPosition>,
