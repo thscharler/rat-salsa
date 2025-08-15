@@ -1882,7 +1882,9 @@ impl TextAreaState {
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
         let (ox, _oy) = self.offset();
         let text_break = match self.text_break {
-            TextBreak::Shift => TextBreak2::ShiftText(ox as upos_type, ox as u16 + self.inner.width),
+            TextBreak::Shift => {
+                TextBreak2::ShiftText(ox as upos_type, ox as u16 + self.inner.width)
+            }
             TextBreak::Hard => TextBreak2::HardBreak(self.inner.width),
             TextBreak::Word(margin) => {
                 TextBreak2::WordBreak(self.inner.width.saturating_sub(margin), self.inner.width)
