@@ -5,6 +5,7 @@ use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
+use log::debug;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::ops::Range;
@@ -787,6 +788,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
         start_col: upos_type,
         rows: Range<upos_type>,
         text_break: TextBreak2,
+        left_margin: upos_type,
+        right_margin: upos_type,
+        word_margin: upos_type,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
         let iter = self.graphemes(
             TextRange::new((start_col, rows.start), (0, rows.end)),
@@ -794,10 +798,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
         )?;
 
         let mut it = GlyphIter2::new(TextPosition::new(start_col, rows.start), iter);
-        it.set_text_break(text_break);
-        it.set_tabs(self.tabs);
+        it.set_tabs(self.tabs as upos_type);
         it.set_show_ctrl(self.glyph_ctrl);
         it.set_line_break(self.glyph_line_break);
+        it.set_text_break(text_break);
+        it.set_left_margin(left_margin);
+        it.set_right_margin(right_margin);
+        it.set_word_margin(word_margin);
+        debug!("glyph-iter {:?}", it);
         Ok(it)
     }
 
@@ -1234,6 +1242,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     break;
                 }
             }
+            last_pos = c.text_bytes().end;
         }
 
         Ok(self.byte_pos(last_pos).expect("valid_pos"))

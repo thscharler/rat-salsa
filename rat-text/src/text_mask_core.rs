@@ -783,7 +783,8 @@ impl MaskedCore {
     pub fn glyphs2(
         &self,
         rows: Range<upos_type>,
-        text_break: TextBreak2,
+        left_margin: upos_type,
+        right_margin: upos_type,
         condensed: bool,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
         let grapheme_iter = self.masked.graphemes(
@@ -855,10 +856,13 @@ impl MaskedCore {
             });
 
         let mut it = GlyphIter2::new(TextPosition::new(0, rows.start), iter);
-        it.set_tabs(self.masked.tab_width());
+        it.set_tabs(self.masked.tab_width() as upos_type);
         it.set_show_ctrl(self.masked.glyph_ctrl());
         it.set_line_break(self.masked.glyph_line_break());
-        it.set_text_break(text_break);
+        it.set_text_break(TextBreak2::ShiftText);
+        it.set_left_margin(left_margin);
+        it.set_right_margin(right_margin);
+        it.set_word_margin(right_margin);
         Ok(it)
     }
 

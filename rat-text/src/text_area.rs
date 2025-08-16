@@ -15,6 +15,7 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -460,27 +461,40 @@ fn render_text_area(
 
 fn scroll_to_cursor(state: &mut TextAreaState) {
     let cursor = state.cursor();
-    let (ox, oy) = state.offset();
-    let (ox, oy) = (ox as upos_type, oy as upos_type);
+    let (ox, oy) = (state.offset().0 as upos_type, state.offset().1 as upos_type);
     let start_col = state.sub_row_offset;
+
+    debug!(
+        "stc cursor {:?} offset {:?} sub_row_offset {}",
+        cursor,
+        state.offset(),
+        state.sub_row_offset
+    );
 
     let nox;
     let noy;
     let nstart_col;
     match state.text_break {
         TextBreak::Shift => {
+            let bottom = oy + state.rendered.height as upos_type;
+            let right = if state.show_ctrl() {
+                (ox + state.rendered.width as upos_type).saturating_sub(1)
+            } else {
+                ox + state.rendered.width as upos_type
+            };
+
             noy = if cursor.y < oy {
                 cursor.y
-            } else if cursor.y >= oy + state.inner.height as upos_type {
-                cursor.y.saturating_sub(state.inner.height as upos_type)
+            } else if cursor.y >= bottom {
+                cursor.y.saturating_sub(bottom)
             } else {
                 oy
             };
 
             nox = if cursor.x < ox {
                 cursor.x
-            } else if cursor.x >= ox + state.inner.width as upos_type {
-                cursor.x.saturating_sub(state.inner.width as upos_type)
+            } else if cursor.x >= right {
+                cursor.x.saturating_sub(right)
             } else {
                 ox
             };
@@ -544,6 +558,12 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
             };
         }
     }
+
+    debug!(
+        "=> stc offset {:?} sub_row_offset {}",
+        (nox, noy),
+        nstart_col
+    );
 
     state.set_offset((nox as usize, noy as usize));
     state.sub_row_offset = nstart_col;
@@ -1678,7 +1698,7 @@ impl TextAreaState {
 
     /// Move the cursor left. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
-    pub fn move_left(&mut self, n: upos_type, extend_selection: bool) -> bool {
+    pub fn move_left(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
         if cursor.x == 0 {
@@ -1687,7 +1707,7 @@ impl TextAreaState {
                 cursor.x = self.line_width(cursor.y);
             }
         } else {
-            cursor.x = cursor.x.saturating_sub(n);
+            cursor.x = cursor.x.saturating_sub(n as upos_type);
         }
 
         self.set_move_col(Some(cursor.x));
@@ -1696,7 +1716,7 @@ impl TextAreaState {
 
     /// Move the cursor right. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
-    pub fn move_right(&mut self, n: upos_type, extend_selection: bool) -> bool {
+    pub fn move_right(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
         let c_line_width = self.line_width(cursor.y);
@@ -1706,7 +1726,7 @@ impl TextAreaState {
                 cursor.x = 0;
             }
         } else {
-            cursor.x = min(cursor.x + n, c_line_width)
+            cursor.x = min(cursor.x + n as upos_type, c_line_width)
         }
 
         self.set_move_col(Some(cursor.x));
@@ -1715,34 +1735,62 @@ impl TextAreaState {
 
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
-    pub fn move_up(&mut self, n: upos_type, extend_selection: bool) -> bool {
+    pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
-        cursor.y = cursor.y.saturating_sub(n);
-        let c_line_width = self.line_width(cursor.y);
         if let Some(move_col) = self.move_col() {
-            cursor.x = min(move_col, c_line_width);
+            cursor.x = move_col;
+        }
+        let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) else {
+            unreachable!()
+        };
+        scr_cursor.1 -= n as i16;
+        if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
+            self.set_cursor(new_cursor, extend_selection)
         } else {
-            cursor.x = min(cursor.x, c_line_width);
+            self.scroll_cursor_to_visible();
+            true
         }
 
-        self.set_cursor(cursor, extend_selection)
+        // cursor.y = cursor.y.saturating_sub(n);
+        // let c_line_width = self.line_width(cursor.y);
+        // if let Some(move_col) = self.move_col() {
+        //     cursor.x = min(move_col, c_line_width);
+        // } else {
+        //     cursor.x = min(cursor.x, c_line_width);
+        // }
+        //
+        // self.set_cursor(cursor, extend_selection)
     }
 
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
-    pub fn move_down(&mut self, n: upos_type, extend_selection: bool) -> bool {
+    pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
-        cursor.y = min(cursor.y + n, self.len_lines() - 1);
-        let c_line_width = self.line_width(cursor.y);
         if let Some(move_col) = self.move_col() {
-            cursor.x = min(move_col, c_line_width);
+            cursor.x = move_col;
+        }
+        let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) else {
+            unreachable!()
+        };
+        scr_cursor.1 += n as i16;
+        if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
+            self.set_cursor(new_cursor, extend_selection)
         } else {
-            cursor.x = min(cursor.x, c_line_width);
+            self.scroll_cursor_to_visible();
+            true
         }
 
-        self.set_cursor(cursor, extend_selection)
+        // cursor.y = min(cursor.y + n as upos_type, self.len_lines() - 1);
+        // let c_line_width = self.line_width(cursor.y);
+        // if let Some(move_col) = self.move_col() {
+        //     cursor.x = min(move_col, c_line_width);
+        // } else {
+        //     cursor.x = min(cursor.x, c_line_width);
+        // }
+        //
+        // self.set_cursor(cursor, extend_selection)
     }
 
     /// Move the cursor to the start of the line.
@@ -1844,18 +1892,12 @@ impl HasScreenCursor for TextAreaState {
                 None
             } else {
                 let cursor = self.cursor();
-
                 let Some(scr_cursor) = self.pos_to_screen(cursor) else {
                     return None;
                 };
-                if scr_cursor.0 < 0 || scr_cursor.1 < 0 {
-                    return None;
-                }
-                let scr_cursor = (scr_cursor.0 as u16, scr_cursor.1 as u16);
                 if !self.inner.contains(scr_cursor.into()) {
                     return None;
                 }
-
                 Some(scr_cursor)
             }
         } else {
@@ -1879,25 +1921,61 @@ impl TextAreaState {
         start_col: upos_type,
         rows: Range<upos_type>,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        let text_break = match self.text_break {
-            TextBreak::Shift => {
-                let ox = self.offset().0;
-                TextBreak2::ShiftText(
-                    ox as upos_type,
-                    ox as upos_type + self.rendered.width as upos_type,
-                )
-            }
-            TextBreak::Hard => TextBreak2::HardBreak(self.rendered.width),
-            TextBreak::Word(margin) => TextBreak2::WordBreak(
-                self.rendered.width.saturating_sub(margin),
-                self.rendered.width,
+        let (text_break, left_margin, right_margin, word_margin) = match self.text_break {
+            TextBreak::Shift => (
+                TextBreak2::ShiftText,
+                self.offset().0 as upos_type,
+                self.offset().0 as upos_type + self.rendered.width as upos_type,
+                self.offset().0 as upos_type + self.rendered.width as upos_type,
+            ),
+            TextBreak::Hard => (
+                TextBreak2::BreakText,
+                0,
+                self.rendered.width as upos_type,
+                self.rendered.width as upos_type,
+            ),
+            TextBreak::Word(margin) => (
+                TextBreak2::BreakText,
+                0,
+                self.rendered.width.saturating_sub(margin) as upos_type,
+                self.rendered.width as upos_type,
             ),
         };
 
-        self.value.glyphs2(start_col, rows, text_break)
+        self.value.glyphs2(
+            start_col,
+            rows,
+            text_break,
+            left_margin,
+            right_margin,
+            word_margin,
+        )
     }
 
-    /// Return the screen_position for the given text position.
+    /// Find the text-position for an absolute screen-position.
+    pub fn screen_to_pos(&self, scr_pos: (u16, u16)) -> Option<TextPosition> {
+        let scr_pos = (
+            scr_pos.0 as i16 - self.inner.x as i16,
+            scr_pos.1 as i16 - self.inner.y as i16,
+        );
+        self.relative_screen_to_pos(scr_pos)
+    }
+
+    /// Find the absolute screen-position for a text-position
+    pub fn pos_to_screen(&self, pos: impl Into<TextPosition>) -> Option<(u16, u16)> {
+        let scr_pos = self.pos_to_relative_screen(pos)?;
+        if scr_pos.0 + self.inner.x as i16 > 0 && scr_pos.1 + self.inner.y as i16 > 0 {
+            Some((
+                (scr_pos.0 + self.inner.x as i16) as u16,
+                (scr_pos.1 + self.inner.y as i16) as u16,
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// Return the screen_position for the given text position
+    /// relative to the origin of the widget.
     ///
     /// This may be outside the visible area, if the text-area
     /// has been relocated. It may even be outside the screen,
@@ -1905,43 +1983,62 @@ impl TextAreaState {
     ///
     /// If the text-position is outside the rendered area,
     /// this will return None.
-    pub fn pos_to_screen(&self, pos: impl Into<TextPosition>) -> Option<(i16, i16)> {
+    pub fn pos_to_relative_screen(&self, pos: impl Into<TextPosition>) -> Option<(i16, i16)> {
         let pos = pos.into();
+
+        debug!("rps find {:?}", pos);
 
         match self.text_break {
             TextBreak::Shift => {
                 let oy = self.offset().1 as upos_type;
 
                 if oy > self.len_lines() {
+                    debug!("    rps 1");
                     return None;
                 }
+
                 if pos.y < oy {
+                    debug!("    rps 2");
                     return None;
                 }
                 if pos.y > self.len_lines() {
+                    debug!("    rps 3");
                     return None;
                 }
                 let screen_y = (pos.y - oy) as u16;
                 if screen_y >= self.rendered.height {
+                    debug!("    rps 4");
                     return None;
                 }
 
-                let Some(screen_x) = self
-                    .glyphs2(0, pos.y..pos.y + 1)
-                    .expect("valid-row")
-                    .find(|v| v.pos().x == pos.x)
-                    .map(|v| v.screen_pos().0)
-                else {
+                let screen_x = 'f: {
+                    for g in self.glyphs2(0, pos.y..self.len_lines()).expect("valid-row") {
+                        if g.pos().x == pos.x {
+                            break 'f g.screen_pos().0;
+                        } else if g.line_break() {
+                            break 'f g.screen_pos().0;
+                        }
+                    }
                     // invalid pos.x
-                    return None;
+                    debug!("    rps 5");
+                    unreachable!("rps 5");
                 };
+
                 if screen_x >= self.rendered.width {
+                    debug!("    rps 6");
                     return None;
                 }
 
+                debug!(
+                    "    => {:?}",
+                    (
+                        screen_x as i16 - self.dark_offset.0 as i16,
+                        screen_y as i16 - self.dark_offset.1 as i16,
+                    )
+                );
                 return Some((
-                    screen_x as i16 + self.inner.x as i16 - self.dark_offset.0 as i16,
-                    screen_y as i16 + self.inner.y as i16 - self.dark_offset.1 as i16,
+                    screen_x as i16 - self.dark_offset.0 as i16,
+                    screen_y as i16 - self.dark_offset.1 as i16,
                 ));
             }
             TextBreak::Hard | TextBreak::Word(_) => {
@@ -1968,8 +2065,8 @@ impl TextAreaState {
                     if g.pos() == pos {
                         let screen_pos = g.screen_pos();
                         return Some((
-                            screen_pos.0 as i16 + self.inner.x as i16 - self.dark_offset.0 as i16,
-                            screen_pos.1 as i16 + self.inner.y as i16 - self.dark_offset.1 as i16,
+                            screen_pos.0 as i16 - self.dark_offset.0 as i16,
+                            screen_pos.1 as i16 - self.dark_offset.1 as i16,
                         ));
                     }
                 }
@@ -1980,17 +2077,10 @@ impl TextAreaState {
         }
     }
 
-    /// Find the text-position for an absolute screen-position.
-    pub fn screen_to_pos(&self, scr_pos: (u16, u16)) -> Option<TextPosition> {
-        let scr_pos = (
-            scr_pos.0 as i16 - self.inner.x as i16,
-            scr_pos.1 as i16 - self.inner.y as i16,
-        );
-        self.relative_screen_to_pos(scr_pos)
-    }
-
     /// Find the text-position for the widget-relative screen-position.
     pub fn relative_screen_to_pos(&self, scr_pos: (i16, i16)) -> Option<TextPosition> {
+        debug!("rsp find {:?}", scr_pos);
+
         let scr_pos = (
             scr_pos.0 + self.dark_offset.0 as i16,
             scr_pos.1 + self.dark_offset.1 as i16,
@@ -2002,6 +2092,7 @@ impl TextAreaState {
                 let (ox, oy) = (ox as upos_type, oy as upos_type);
 
                 if oy >= self.len_lines() {
+                    debug!("    rsp 0");
                     return None;
                 }
 
@@ -2016,13 +2107,20 @@ impl TextAreaState {
                 } else if scr_pos.0 as u16 >= self.rendered.width {
                     min(ox + scr_pos.0 as upos_type, self.line_width(pos_y))
                 } else {
-                    self.glyphs2(0, pos_y..pos_y + 1)
-                        .expect("valid-position")
-                        .find(|v| v.screen_pos().0 == scr_pos.0 as u16)
-                        .map(|v| v.pos().x)
-                        .unwrap_or(self.line_width(pos_y))
+                    'f: {
+                        for g in self
+                            .glyphs2(0, pos_y..self.len_lines())
+                            .expect("valid-position")
+                        {
+                            if g.contains_screen_x(scr_pos.0 as u16) {
+                                break 'f g.pos().x;
+                            }
+                        }
+                        unreachable!("rsp 1");
+                    }
                 };
 
+                debug!("    => {:?}", (pos_x, pos_y));
                 return Some(TextPosition::new(pos_x, pos_y));
             }
             TextBreak::Hard | TextBreak::Word(_) => {
@@ -2461,12 +2559,12 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 ct_event!(keycode press Right) => self.move_right(1, false).into(),
                 ct_event!(keycode press Up) => self.move_up(1, false).into(),
                 ct_event!(keycode press Down) => self.move_down(1, false).into(),
-                ct_event!(keycode press PageUp) => self
-                    .move_up(self.vertical_page() as upos_type, false)
-                    .into(),
-                ct_event!(keycode press PageDown) => self
-                    .move_down(self.vertical_page() as upos_type, false)
-                    .into(),
+                ct_event!(keycode press PageUp) => {
+                    self.move_up(self.vertical_page() as u16, false).into()
+                }
+                ct_event!(keycode press PageDown) => {
+                    self.move_down(self.vertical_page() as u16, false).into()
+                }
                 ct_event!(keycode press Home) => self.move_to_line_start(false).into(),
                 ct_event!(keycode press End) => self.move_to_line_end(false).into(),
                 ct_event!(keycode press CONTROL-Left) => self.move_to_prev_word(false).into(),
@@ -2500,11 +2598,11 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 ct_event!(keycode press SHIFT-Up) => self.move_up(1, true).into(),
                 ct_event!(keycode press SHIFT-Down) => self.move_down(1, true).into(),
                 ct_event!(keycode press SHIFT-PageUp) => {
-                    self.move_up(self.vertical_page() as upos_type, true).into()
+                    self.move_up(self.vertical_page() as u16, true).into()
                 }
-                ct_event!(keycode press SHIFT-PageDown) => self
-                    .move_down(self.vertical_page() as upos_type, true)
-                    .into(),
+                ct_event!(keycode press SHIFT-PageDown) => {
+                    self.move_down(self.vertical_page() as u16, true).into()
+                }
                 ct_event!(keycode press SHIFT-Home) => self.move_to_line_start(true).into(),
                 ct_event!(keycode press SHIFT-End) => self.move_to_line_end(true).into(),
                 ct_event!(keycode press CONTROL_SHIFT-Left) => self.move_to_prev_word(true).into(),

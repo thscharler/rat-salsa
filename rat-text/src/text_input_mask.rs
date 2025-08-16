@@ -72,7 +72,6 @@
 use crate::_private::NonExhaustive;
 use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
-use crate::grapheme::TextBreak2;
 use crate::text_input::TextInputState;
 use crate::text_mask_core::MaskedCore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
@@ -1326,11 +1325,13 @@ impl RelocatableState for MaskedInputState {
 
 impl MaskedInputState {
     fn glyphs2(&self) -> impl Iterator<Item = Glyph<'_>> {
-        let ox = self.offset() as upos_type;
-        let text_break = TextBreak2::ShiftText(ox, ox + self.rendered.width as upos_type);
-        let compact = self.compact && !self.is_focused();
         self.value
-            .glyphs2(0..1, text_break, compact)
+            .glyphs2(
+                0..1,
+                self.offset(),
+                self.offset() + self.rendered.width as upos_type,
+                self.compact && !self.is_focused(),
+            )
             .expect("valid-rows")
     }
 

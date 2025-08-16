@@ -1286,12 +1286,15 @@ impl RelocatableState for TextInputState {
 
 impl TextInputState {
     fn glyphs2(&self) -> impl Iterator<Item = Glyph<'_>> {
-        let ox = self.offset();
-        let text_break = TextBreak2::ShiftText(
-            ox as upos_type,
-            ox as upos_type + self.rendered.width as upos_type,
+        let (text_break, left_margin, right_margin, word_margin) = (
+            TextBreak2::ShiftText,
+            self.offset() as upos_type,
+            self.offset() as upos_type + self.rendered.width as upos_type,
+            self.offset() as upos_type + self.rendered.width as upos_type,
         );
-        self.value.glyphs2(0, 0..1, text_break).expect("valid-row")
+        self.value
+            .glyphs2(0, 0..1, text_break, left_margin, right_margin, word_margin)
+            .expect("valid-row")
     }
 
     /// Converts from a widget relative screen coordinate to a grapheme index.
