@@ -22,7 +22,7 @@ use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Rect, Size};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
 use ropey::Rope;
@@ -62,8 +62,8 @@ use std::ops::Range;
 /// The cursor must set externally on the ratatui Frame as usual.
 /// [screen_cursor](TextAreaState::screen_cursor) gives you the correct value.
 /// There is the inverse too [set_screen_cursor](TextAreaState::set_screen_cursor)
-/// For more interactions you can use [screen_to_col](TextAreaState::screen_to_col),
-/// and [try_col_to_screen](TextAreaState::try_col_to_screen). They calculate everything,
+/// For more interactions you can use [screen_to_pos](TextAreaState::screen_to_pos),
+/// and [pos_to_screen](TextAreaState::pos_to_screen). They calculate everything,
 /// even in the presence of more complex graphemes and those double-width emojis.
 ///
 /// # Stateful
@@ -92,6 +92,9 @@ pub struct TextAreaState {
     /// Area inside a possible block.
     /// __read only__ renewed with each render.
     pub inner: Rect,
+    /// Rendered dimension. This may differ from (inner.width, inner.height)
+    /// if the text area has been relocated.
+    pub rendered: Size,
 
     /// Horizontal scroll.
     /// When text-break is active this value is ignored.
@@ -103,6 +106,7 @@ pub struct TextAreaState {
     /// When text-break is active, this is the grapheme-offset
     /// into the first visible text-row where the display
     /// actually starts.
+    /// __read+write__
     pub sub_row_offset: upos_type,
     /// Dark offset due to clipping.
     /// __read only__ secondary offset due to clipping.
@@ -141,6 +145,7 @@ impl Clone for TextAreaState {
         Self {
             area: self.area,
             inner: self.inner,
+            rendered: self.rendered,
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
             sub_row_offset: self.sub_row_offset,
@@ -354,6 +359,7 @@ fn render_text_area(
         .style(style);
 
     state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
+    state.rendered = state.inner.as_size();
 
     if let Some(h_max_offset) = widget.h_max_offset {
         state.hscroll.set_max_offset(h_max_offset);
@@ -548,6 +554,7 @@ impl Default for TextAreaState {
         let mut s = Self {
             area: Default::default(),
             inner: Default::default(),
+            rendered: Default::default(),
             hscroll: Default::default(),
             vscroll: Default::default(),
             sub_row_offset: 0,
@@ -1062,6 +1069,7 @@ impl TextAreaState {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[allow(deprecated)]
     #[deprecated]
     pub fn glyphs(
         &self,
@@ -1077,6 +1085,7 @@ impl TextAreaState {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[allow(deprecated)]
     #[deprecated]
     pub fn try_glyphs(
         &self,
@@ -1835,29 +1844,19 @@ impl HasScreenCursor for TextAreaState {
                 None
             } else {
                 let cursor = self.cursor();
-                let (ox, oy) = self.offset();
-                let (ox, oy) = (ox as upos_type, oy as upos_type);
 
-                if cursor.y < oy {
-                    None
-                } else if cursor.y >= oy + (self.inner.height + self.dark_offset.1) as upos_type {
-                    None
-                } else {
-                    if cursor.x < ox {
-                        None
-                    } else if cursor.x > ox + (self.inner.width + self.dark_offset.0) as upos_type {
-                        None
-                    } else {
-                        let sy = self.row_to_screen(cursor);
-                        let sx = self.col_to_screen(cursor);
-
-                        if let Some((sx, sy)) = sx.iter().zip(sy.iter()).next() {
-                            Some((self.inner.x + *sx, self.inner.y + *sy))
-                        } else {
-                            None
-                        }
-                    }
+                let Some(scr_cursor) = self.pos_to_screen(cursor) else {
+                    return None;
+                };
+                if scr_cursor.0 < 0 || scr_cursor.1 < 0 {
+                    return None;
                 }
+                let scr_cursor = (scr_cursor.0 as u16, scr_cursor.1 as u16);
+                if !self.inner.contains(scr_cursor.into()) {
+                    return None;
+                }
+
+                Some(scr_cursor)
             }
         } else {
             None
@@ -1880,91 +1879,211 @@ impl TextAreaState {
         start_col: upos_type,
         rows: Range<upos_type>,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        let (ox, _oy) = self.offset();
         let text_break = match self.text_break {
             TextBreak::Shift => {
-                TextBreak2::ShiftText(ox as upos_type, ox as u16 + self.inner.width)
+                let ox = self.offset().0;
+                TextBreak2::ShiftText(
+                    ox as upos_type,
+                    ox as upos_type + self.rendered.width as upos_type,
+                )
             }
-            TextBreak::Hard => TextBreak2::HardBreak(self.inner.width),
-            TextBreak::Word(margin) => {
-                TextBreak2::WordBreak(self.inner.width.saturating_sub(margin), self.inner.width)
-            }
+            TextBreak::Hard => TextBreak2::HardBreak(self.rendered.width),
+            TextBreak::Word(margin) => TextBreak2::WordBreak(
+                self.rendered.width.saturating_sub(margin),
+                self.rendered.width,
+            ),
         };
 
         self.value.glyphs2(start_col, rows, text_break)
     }
 
     /// Return the screen_position for the given text position.
-    /// If the screen position is not visible this returns None.
     ///
-    /// Returns an absolute screen-position.
-    pub fn try_pos_to_screen(
-        &self,
-        pos: impl Into<TextPosition>,
-    ) -> Result<Option<(u16, u16)>, TextError> {
+    /// This may be outside the visible area, if the text-area
+    /// has been relocated. It may even be outside the screen,
+    /// so this returns an (i16, i16) as an absolute screen position.
+    ///
+    /// If the text-position is outside the rendered area,
+    /// this will return None.
+    pub fn pos_to_screen(&self, pos: impl Into<TextPosition>) -> Option<(i16, i16)> {
         let pos = pos.into();
 
         match self.text_break {
             TextBreak::Shift => {
-                let (ox, oy) = self.offset();
-                let (_ox, oy) = (ox as upos_type, oy as upos_type);
+                let oy = self.offset().1 as upos_type;
 
+                if oy > self.len_lines() {
+                    return None;
+                }
                 if pos.y < oy {
-                    return Ok(None);
+                    return None;
+                }
+                if pos.y > self.len_lines() {
+                    return None;
                 }
                 let screen_y = (pos.y - oy) as u16;
-                if screen_y < self.dark_offset.1 {
-                    return Ok(None);
-                } else if screen_y >= self.inner.height + self.dark_offset.1 {
-                    return Ok(None);
+                if screen_y >= self.rendered.height {
+                    return None;
                 }
 
                 let Some(screen_x) = self
-                    .glyphs2(0, pos.y..pos.y + 1)?
+                    .glyphs2(0, pos.y..pos.y + 1)
+                    .expect("valid-row")
                     .find(|v| v.pos().x == pos.x)
                     .map(|v| v.screen_pos().0)
                 else {
-                    return Ok(None);
+                    // invalid pos.x
+                    return None;
                 };
-
-                if screen_x < self.dark_offset.0 {
-                    return Ok(None);
-                } else if screen_x >= self.inner.width + self.dark_offset.0 {
-                    return Ok(None);
+                if screen_x >= self.rendered.width {
+                    return None;
                 }
 
-                return Ok(Some((
-                    screen_x + self.inner.x - self.dark_offset.0,
-                    screen_y + self.inner.y - self.dark_offset.1,
-                )));
+                return Some((
+                    screen_x as i16 + self.inner.x as i16 - self.dark_offset.0 as i16,
+                    screen_y as i16 + self.inner.y as i16 - self.dark_offset.1 as i16,
+                ));
             }
             TextBreak::Hard | TextBreak::Word(_) => {
-                let (ox, oy) = self.offset();
-                let (_ox, oy) = (ox as upos_type, oy as upos_type);
+                let oy = self.offset().1 as upos_type;
                 let start_col = self.sub_row_offset;
 
-                for g in self.glyphs2(start_col, oy..oy + self.inner.height as upos_type)? {
-                    if g.screen_pos().1 >= self.inner.height + self.dark_offset.1 {
-                        return Ok(None);
+                if oy > self.len_lines() {
+                    return None;
+                }
+                if pos.y < oy {
+                    return None;
+                }
+                if pos.y > self.len_lines() {
+                    return None;
+                }
+
+                for g in self
+                    .glyphs2(start_col, oy..self.len_lines())
+                    .expect("valid-offset")
+                {
+                    if g.screen_pos().1 >= self.rendered.height {
+                        return None;
                     }
                     if g.pos() == pos {
                         let screen_pos = g.screen_pos();
-                        if screen_pos.1 < self.dark_offset.1 {
-                            return Ok(None);
-                        } else if screen_pos.0 < self.dark_offset.0 {
-                            return Ok(None);
-                        } else if screen_pos.0 >= self.dark_offset.0 + self.inner.width {
-                            return Ok(None);
-                        } else {
-                            return Ok(Some((
-                                screen_pos.0 + self.inner.x - self.dark_offset.0,
-                                screen_pos.1 + self.inner.y - self.dark_offset.1,
-                            )));
-                        }
+                        return Some((
+                            screen_pos.0 as i16 + self.inner.x as i16 - self.dark_offset.0 as i16,
+                            screen_pos.1 as i16 + self.inner.y as i16 - self.dark_offset.1 as i16,
+                        ));
                     }
                 }
 
-                return Ok(None);
+                // Some invalid column.
+                return None;
+            }
+        }
+    }
+
+    /// Find the text-position for an absolute screen-position.
+    pub fn screen_to_pos(&self, scr_pos: (u16, u16)) -> Option<TextPosition> {
+        let scr_pos = (
+            scr_pos.0 as i16 - self.inner.x as i16,
+            scr_pos.1 as i16 - self.inner.y as i16,
+        );
+        self.relative_screen_to_pos(scr_pos)
+    }
+
+    /// Find the text-position for the widget-relative screen-position.
+    pub fn relative_screen_to_pos(&self, scr_pos: (i16, i16)) -> Option<TextPosition> {
+        let scr_pos = (
+            scr_pos.0 + self.dark_offset.0 as i16,
+            scr_pos.1 + self.dark_offset.1 as i16,
+        );
+
+        match self.text_break {
+            TextBreak::Shift => {
+                let (ox, oy) = self.offset();
+                let (ox, oy) = (ox as upos_type, oy as upos_type);
+
+                if oy >= self.len_lines() {
+                    return None;
+                }
+
+                let pos_y = if scr_pos.1 < 0 {
+                    oy.saturating_sub((scr_pos.1 as ipos_type).unsigned_abs())
+                } else {
+                    min(oy + scr_pos.1 as upos_type, self.len_lines())
+                };
+
+                let pos_x = if scr_pos.0 < 0 {
+                    ox.saturating_sub((scr_pos.0 as ipos_type).unsigned_abs())
+                } else if scr_pos.0 as u16 >= self.rendered.width {
+                    min(ox + scr_pos.0 as upos_type, self.line_width(pos_y))
+                } else {
+                    self.glyphs2(0, pos_y..pos_y + 1)
+                        .expect("valid-position")
+                        .find(|v| v.screen_pos().0 == scr_pos.0 as u16)
+                        .map(|v| v.pos().x)
+                        .unwrap_or(self.line_width(pos_y))
+                };
+
+                return Some(TextPosition::new(pos_x, pos_y));
+            }
+            TextBreak::Hard | TextBreak::Word(_) => {
+                let oy = self.offset().1 as upos_type;
+
+                if oy >= self.len_lines() {
+                    return None;
+                }
+
+                if scr_pos.1 < 0 {
+                    // Guess a starting position for an alternate screen that
+                    // would contain the given screen-position.
+                    // By locating our actual offset within that screen we can
+                    // calculate the corrected screen-position for that alternate
+                    // screen. And then find the correct text-position.
+
+                    // estimate start row
+                    let ry = oy.saturating_add_signed(scr_pos.1 as ipos_type);
+                    // find offset
+                    let o_screen_pos = 'f: {
+                        for g in self.glyphs2(0, ry..oy + 1).expect("valid-rows") {
+                            if g.pos().x == self.sub_row_offset && g.pos().y == oy {
+                                break 'f g.screen_pos();
+                            }
+                        }
+                        unreachable!("invalid sub_row_offset"); // TODO
+                    };
+
+                    if o_screen_pos.1 < scr_pos.1.unsigned_abs() {
+                        // before first row.
+                        return Some(TextPosition::new(0, 0));
+                    }
+                    // locate scr_pos in our new coordinate system
+                    let scr_pos = (
+                        // negative columns map to 0, columns > width are covered by contains_screen_pos.
+                        if scr_pos.0 < 0 { 0 } else { scr_pos.0 as u16 },
+                        o_screen_pos.1 - scr_pos.1.unsigned_abs(),
+                    );
+                    for g in self.glyphs2(0, ry..oy + 1).expect("valid-rows") {
+                        if g.contains_screen_pos(scr_pos) {
+                            return Some(g.pos());
+                        }
+                    }
+                    // TODO: should have been found??
+                    unreachable!("impossible screen-pos");
+                } else {
+                    let scr_pos = (
+                        // negative columns map to 0, columns > width are covered by contains_screen_pos.
+                        if scr_pos.0 < 0 { 0 } else { scr_pos.0 as u16 },
+                        scr_pos.1 as u16,
+                    );
+                    for g in self
+                        .glyphs2(self.sub_row_offset, oy..self.len_lines())
+                        .expect("valid-position")
+                    {
+                        if g.contains_screen_pos(scr_pos) {
+                            return Some(g.pos());
+                        }
+                    }
+                    return Some(TextPosition::new(0, self.len_lines()));
+                }
             }
         }
     }
@@ -1999,6 +2118,7 @@ impl TextAreaState {
     /// * row is a row-index into the value, not a screen-row. It can be calculated
     ///   with screen_to_row().
     /// * x is the relative screen position.
+    #[allow(deprecated)]
     #[deprecated]
     pub fn screen_to_col(&self, row: upos_type, scx: i16) -> upos_type {
         self.try_screen_to_col(row, scx).expect("valid_row")
@@ -2010,6 +2130,7 @@ impl TextAreaState {
     /// * row is a row-index into the value, not a screen-row. It can be calculated
     ///   with screen_to_row().
     /// * x is the relative screen position.
+    #[allow(deprecated)]
     #[deprecated]
     pub fn try_screen_to_col(&self, row: upos_type, scx: i16) -> Result<upos_type, TextError> {
         let (ox, _) = self.offset();
@@ -2062,6 +2183,7 @@ impl TextAreaState {
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
+    #[allow(deprecated)]
     #[deprecated]
     pub fn col_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
         self.try_col_to_screen(pos).expect("valid_pos")
@@ -2069,6 +2191,7 @@ impl TextAreaState {
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
+    #[allow(deprecated)]
     #[deprecated]
     pub fn try_col_to_screen(
         &self,
@@ -2107,12 +2230,10 @@ impl TextAreaState {
     /// They may be negative too, this allows setting the cursor
     /// to a position that is currently scrolled away.
     pub fn set_screen_cursor(&mut self, cursor: (i16, i16), extend_selection: bool) -> bool {
-        let (scx, scy) = (cursor.0, cursor.1);
-
-        let cy = self.screen_to_row(scy);
-        let cx = self.screen_to_col(cy, scx);
-
-        self.set_cursor(TextPosition::new(cx, cy), extend_selection)
+        let Some(cursor) = self.relative_screen_to_pos(cursor) else {
+            return false;
+        };
+        self.set_cursor(cursor, extend_selection)
     }
 
     /// Set the cursor position from screen coordinates,
@@ -2122,13 +2243,11 @@ impl TextAreaState {
     /// They may be negative too, this allows setting the cursor
     /// to a position that is currently scrolled away.
     pub fn set_screen_cursor_words(&mut self, cursor: (i16, i16), extend_selection: bool) -> bool {
-        let (scx, scy) = (cursor.0, cursor.1);
+        let Some(cursor) = self.relative_screen_to_pos(cursor) else {
+            return false;
+        };
+
         let anchor = self.anchor();
-
-        let cy = self.screen_to_row(scy);
-        let cx = self.screen_to_col(cy, scx);
-        let cursor = TextPosition::new(cx, cy);
-
         let cursor = if cursor < anchor {
             self.word_start(cursor)
         } else {
@@ -2460,12 +2579,13 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
                 self.set_screen_cursor_words((cx, cy), true).into()
             }
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
-                let ty = self.screen_to_row(m.row as i16 - self.inner.y as i16);
-                let tx = self.screen_to_col(ty, m.column as i16 - self.inner.x as i16);
-                let test = TextPosition::new(tx, ty);
-                let start = self.word_start(test);
-                let end = self.word_end(test);
-                self.set_selection(start, end).into()
+                if let Some(test) = self.screen_to_pos((m.column, m.row)) {
+                    let start = self.word_start(test);
+                    let end = self.word_end(test);
+                    self.set_selection(start, end).into()
+                } else {
+                    TextOutcome::Unchanged
+                }
             }
             ct_event!(mouse down Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {

@@ -1,6 +1,6 @@
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
-use crate::grapheme::GlyphIter;
+use crate::grapheme::{GlyphIter, GlyphIter2, TextBreak2};
 use crate::text_mask_core::mask::{EditDirection, Mask, MaskToken};
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{upos_type, Cursor, Glyph, Grapheme, TextError, TextPosition, TextRange};
@@ -665,6 +665,7 @@ impl MaskedCore {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[deprecated]
     pub fn glyphs(
         &self,
         rows: Range<upos_type>,
@@ -709,6 +710,7 @@ impl MaskedCore {
     ///
     /// This omits unnecessary white-space.
     #[inline]
+    #[deprecated]
     pub fn condensed_glyphs(
         &self,
         rows: Range<upos_type>,
@@ -769,6 +771,94 @@ impl MaskedCore {
         it.set_tabs(self.masked.tab_width());
         it.set_show_ctrl(self.masked.glyph_ctrl());
         it.set_line_break(self.masked.glyph_line_break());
+        Ok(it)
+    }
+
+    /// Iterator for the glyphs of the lines in range.
+    /// Glyphs here a grapheme + display length.
+    ///
+    /// * text_break: only TextBreak2::ShiftText has been tested
+    /// * condensed: skip unnecessary white-space
+    #[inline]
+    pub fn glyphs2(
+        &self,
+        rows: Range<upos_type>,
+        text_break: TextBreak2,
+        condensed: bool,
+    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
+        let grapheme_iter = self.masked.graphemes(
+            TextRange::new((0, rows.start), (0, rows.end)),
+            TextPosition::new(0, rows.start),
+        )?;
+
+        let mask_iter = self.mask.iter();
+
+        let sym_neg = || self.neg_sym().to_string();
+        let sym_dec = || self.dec_sep().to_string();
+        let sym_grp = || self.grp_sep().to_string();
+        let sym_pos = || self.pos_sym().to_string();
+
+        let iter = grapheme_iter
+            .zip(mask_iter) //
+            .filter_map(move |(g, t)| match (condensed, &t.right, g.grapheme()) {
+                (true, Mask::Numeric(_), "-") => {
+                    Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
+                }
+                (true, Mask::DecimalSep, ".") => {
+                    Some(Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()))
+                }
+                (true, Mask::GroupingSep, ",") => {
+                    Some(Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()))
+                }
+                (true, Mask::GroupingSep, "-") => {
+                    Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
+                }
+                (true, Mask::Sign, "-") => {
+                    Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
+                }
+
+                (true, Mask::Numeric(_), " ") => None,
+                (true, Mask::Digit(_), " ") => None,
+                (true, Mask::DecimalSep, " ") => None,
+                (true, Mask::GroupingSep, " ") => None,
+                (true, Mask::Sign, _) => {
+                    if self.pos_sym() != ' ' {
+                        Some(Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes()))
+                    } else {
+                        None
+                    }
+                }
+                (true, Mask::Hex, " ") => None,
+                (true, Mask::Oct, " ") => None,
+                (true, Mask::Dec, " ") => None,
+
+                (false, Mask::Numeric(_), "-") => {
+                    Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
+                }
+                (false, Mask::DecimalSep, ".") => {
+                    Some(Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()))
+                }
+                (false, Mask::GroupingSep, ",") => {
+                    Some(Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()))
+                }
+                (false, Mask::GroupingSep, "-") => {
+                    Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
+                }
+                (false, Mask::Sign, "-") => {
+                    Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
+                }
+                (false, Mask::Sign, _) => {
+                    Some(Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes()))
+                }
+
+                (_, _, _) => Some(g),
+            });
+
+        let mut it = GlyphIter2::new(TextPosition::new(0, rows.start), iter);
+        it.set_tabs(self.masked.tab_width());
+        it.set_show_ctrl(self.masked.glyph_ctrl());
+        it.set_line_break(self.masked.glyph_line_break());
+        it.set_text_break(text_break);
         Ok(it)
     }
 

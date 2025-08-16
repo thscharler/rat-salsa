@@ -17,6 +17,7 @@ use crate::_private::NonExhaustive;
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
+use crate::grapheme::TextBreak2;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
     ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextFocusGained,
@@ -28,7 +29,7 @@ use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Rect, Size};
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
@@ -63,6 +64,10 @@ pub struct TextInputState {
     /// Area inside a possible block.
     /// __read only__ renewed with each render.
     pub inner: Rect,
+    /// Rendered dimension. This may differ from (inner.width, inner.height)
+    /// if the text area has been relocated.
+    /// __read only__ renewed with each render.
+    pub rendered: Size,
 
     /// Display offset
     /// __read+write__
@@ -237,6 +242,7 @@ impl StatefulWidget for TextInput<'_> {
 fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut TextInputState) {
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
+    state.rendered = state.inner.as_size();
     state.passwd = widget.passwd;
     state.on_focus_gained = widget.on_focus_gained;
     state.on_focus_lost = widget.on_focus_lost;
@@ -326,11 +332,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
     if widget.passwd {
         // Render as passwd
-        let glyph_iter = state
-            .value
-            .glyphs(0..1, ox, inner.width)
-            .expect("valid_offset");
-        for g in glyph_iter {
+        for g in state.glyphs2() {
             if g.screen_width() > 0 {
                 let mut style = style;
                 styles.clear();
@@ -358,11 +360,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             }
         }
     } else {
-        let glyph_iter = state
-            .value
-            .glyphs(0..1, ox, inner.width)
-            .expect("valid_offset");
-        for g in glyph_iter {
+        for g in state.glyphs2() {
             if g.screen_width() > 0 {
                 let mut style = style;
                 styles.clear();
@@ -406,6 +404,7 @@ impl Clone for TextInputState {
         Self {
             area: self.area,
             inner: self.inner,
+            rendered: self.rendered,
             offset: self.offset,
             dark_offset: self.dark_offset,
             scroll_to_cursor: self.scroll_to_cursor,
@@ -430,6 +429,7 @@ impl Default for TextInputState {
         Self {
             area: Default::default(),
             inner: Default::default(),
+            rendered: Default::default(),
             offset: Default::default(),
             dark_offset: Default::default(),
             scroll_to_cursor: Default::default(),
@@ -743,7 +743,7 @@ impl TextInputState {
     }
 
     /// Selection.
-    /// Scrolls the cursor to a visible position.  
+    /// Scrolls the cursor to a visible position.
     #[inline]
     pub fn set_selection(&mut self, anchor: upos_type, cursor: upos_type) -> bool {
         self.scroll_cursor_to_visible();
@@ -832,6 +832,8 @@ impl TextInputState {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[allow(deprecated)]
+    #[deprecated]
     pub fn glyphs(&self, screen_offset: u16, screen_width: u16) -> impl Iterator<Item = Glyph<'_>> {
         self.value
             .glyphs(0..1, screen_offset, screen_width)
@@ -1283,6 +1285,15 @@ impl RelocatableState for TextInputState {
 }
 
 impl TextInputState {
+    fn glyphs2(&self) -> impl Iterator<Item = Glyph<'_>> {
+        let ox = self.offset();
+        let text_break = TextBreak2::ShiftText(
+            ox as upos_type,
+            ox as upos_type + self.rendered.width as upos_type,
+        );
+        self.value.glyphs2(0, 0..1, text_break).expect("valid-row")
+    }
+
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
     pub fn screen_to_col(&self, scx: i16) -> upos_type {
@@ -1292,12 +1303,12 @@ impl TextInputState {
 
         if scx < 0 {
             ox.saturating_sub((scx as ipos_type).unsigned_abs())
-        } else if scx as u16 >= (self.inner.width + self.dark_offset.0) {
+        } else if scx as u16 >= self.rendered.width {
             min(ox + scx as upos_type, self.len())
         } else {
             let scx = scx as u16;
 
-            let line = self.glyphs(ox as u16, self.inner.width + self.dark_offset.0);
+            let line = self.glyphs2();
 
             let mut col = ox;
             for g in line {
@@ -1319,7 +1330,7 @@ impl TextInputState {
             return None;
         }
 
-        let line = self.glyphs(ox as u16, self.inner.width + self.dark_offset.0);
+        let line = self.glyphs2();
         let mut screen_x = 0;
         for g in line {
             if g.pos().x == pos {

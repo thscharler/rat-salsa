@@ -120,6 +120,22 @@ impl<'a> Glyph<'a> {
     pub fn line_break(&self) -> bool {
         self.line_break
     }
+
+    /// Does the glyph cover the given screen-position?
+    pub fn contains_screen_pos(&self, screen_pos: (u16, u16)) -> bool {
+        if self.screen_pos.1 == screen_pos.1 {
+            if screen_pos.0 >= self.screen_pos.0 {
+                if screen_pos.0 < self.screen_pos.0 + self.screen_width {
+                    return true;
+                }
+                if self.line_break {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
 }
 
 /// A cursor over graphemes of a string.
@@ -455,7 +471,7 @@ impl Cursor for RevRopeGraphemes<'_> {
 #[non_exhaustive]
 pub enum TextBreak2 {
     /// Shift left + Right margin.
-    ShiftText(upos_type, u16),
+    ShiftText(upos_type, upos_type),
     /// Right margin.
     HardBreak(u16),
     /// Word-break margin, Right margin.
@@ -638,13 +654,12 @@ where
                         // skip glyph
                         continue;
                     }
-                } else if test_screen_pos >= right_margin as upos_type {
+                } else if test_screen_pos >= right_margin {
                     test_screen_pos += glyph.screen_width as upos_type;
                     // skip glyph
                     continue;
-                } else if test_screen_pos < right_margin as upos_type
-                    && test_screen_pos + glyph.screen_width as upos_type
-                        >= right_margin as upos_type
+                } else if test_screen_pos < right_margin
+                    && test_screen_pos + glyph.screen_width as upos_type >= right_margin
                 {
                     // show replacement for split glyph
                     glyph.glyph = Cow::Borrowed("\u{2426}");

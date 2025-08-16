@@ -72,6 +72,7 @@
 use crate::_private::NonExhaustive;
 use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
+use crate::grapheme::TextBreak2;
 use crate::text_input::TextInputState;
 use crate::text_mask_core::MaskedCore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
@@ -86,7 +87,7 @@ use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Rect, Size};
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
@@ -122,6 +123,12 @@ pub struct MaskedInputState {
     /// Area inside a possible block.
     /// __read only__ renewed with each render.
     pub inner: Rect,
+    /// Rendered dimension. This may differ from (inner.width, inner.height)
+    /// if the text area has been relocated.
+    pub rendered: Size,
+    /// Widget has been rendered in compact mode.
+    /// __read only: renewed with each render.
+    pub compact: bool,
 
     /// Display offset
     /// __read+write__
@@ -137,8 +144,8 @@ pub struct MaskedInputState {
     /// Display as invalid.
     /// __read+write__
     pub invalid: bool,
-    /// The next user edit clears the text for doing any edit.
-    /// It will reset this flag. Other interactions may reset this flag too.
+    /// Any edit will clear the value first.
+    /// This flag will be reset by any edit and navigation.
     pub overwrite: bool,
     /// Focus behaviour.
     /// __read only__
@@ -300,6 +307,8 @@ fn render_ref(
 ) {
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
+    state.rendered = state.inner.as_size();
+    state.compact = widget.compact;
     state.on_focus_gained = widget.on_focus_gained;
     state.on_focus_lost = widget.on_focus_lost;
 
@@ -308,20 +317,18 @@ fn render_ref(
         let o = state.offset();
         let mut no = if c < o {
             c
-        } else if c >= o + (state.inner.width + state.dark_offset.0) as upos_type {
-            c.saturating_sub((state.inner.width + state.dark_offset.0) as upos_type)
+        } else if c >= o + state.rendered.width as upos_type {
+            c.saturating_sub(state.rendered.width as upos_type)
         } else {
             o
         };
         // correct by one at right margin. block cursors appear as part of the
         // right border otherwise.
-        if c == no + (state.inner.width + state.dark_offset.0) as upos_type {
+        if c == no + state.rendered.width as upos_type {
             no = no.saturating_add(1);
         }
         state.set_offset(no);
     }
-
-    let inner = state.inner;
 
     let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
@@ -370,7 +377,7 @@ fn render_ref(
         buf.set_style(area, style);
     }
 
-    if inner.width == 0 || inner.height == 0 {
+    if state.inner.width == 0 || state.inner.height == 0 {
         // noop
         return;
     }
@@ -379,30 +386,13 @@ fn render_ref(
     // this is just a guess at the display-width
     let show_range = {
         let start = ox as upos_type;
-        let end = min(start + inner.width as upos_type, state.len());
+        let end = min(start + state.inner.width as upos_type, state.len());
         state.bytes_at_range(start..end)
     };
     let selection = state.selection();
     let mut styles = Vec::new();
 
-    let mut glyph_iter_regular;
-    let mut glyph_iter_cond;
-    let glyph_iter: &mut dyn Iterator<Item = Glyph<'_>>;
-    if state.is_focused() || !widget.compact {
-        glyph_iter_regular = state
-            .value
-            .glyphs(0..1, ox, inner.width)
-            .expect("valid_offset");
-        glyph_iter = &mut glyph_iter_regular;
-    } else {
-        glyph_iter_cond = state
-            .value
-            .condensed_glyphs(0..1, ox, inner.width)
-            .expect("valid_offset");
-        glyph_iter = &mut glyph_iter_cond;
-    }
-
-    for g in glyph_iter {
+    for g in state.glyphs2() {
         if g.screen_width() > 0 {
             let mut style = style;
             styles.clear();
@@ -423,15 +413,18 @@ fn render_ref(
             let screen_pos = g.screen_pos();
 
             // render glyph
-            if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
+            if let Some(cell) =
+                buf.cell_mut((state.inner.x + screen_pos.0, state.inner.y + screen_pos.1))
+            {
                 cell.set_symbol(g.glyph());
                 cell.set_style(style);
             }
             // clear the reset of the cells to avoid interferences.
             for d in 1..g.screen_width() {
-                if let Some(cell) =
-                    buf.cell_mut((inner.x + screen_pos.0 + d, inner.y + screen_pos.1))
-                {
+                if let Some(cell) = buf.cell_mut((
+                    state.inner.x + screen_pos.0 + d,
+                    state.inner.y + screen_pos.1,
+                )) {
                     cell.reset();
                     cell.set_style(style);
                 }
@@ -445,6 +438,8 @@ impl Clone for MaskedInputState {
         Self {
             area: self.area,
             inner: self.inner,
+            rendered: self.rendered,
+            compact: self.compact,
             offset: self.offset,
             dark_offset: self.dark_offset,
             scroll_to_cursor: self.scroll_to_cursor,
@@ -465,6 +460,8 @@ impl Default for MaskedInputState {
         Self {
             area: Default::default(),
             inner: Default::default(),
+            rendered: Default::default(),
+            compact: Default::default(),
             offset: Default::default(),
             dark_offset: Default::default(),
             scroll_to_cursor: Default::default(),
@@ -941,6 +938,8 @@ impl MaskedInputState {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[allow(deprecated)]
+    #[deprecated]
     pub fn glyphs(&self, screen_offset: u16, screen_width: u16) -> impl Iterator<Item = Glyph<'_>> {
         self.value
             .glyphs(0..1, screen_offset, screen_width)
@@ -950,6 +949,8 @@ impl MaskedInputState {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[allow(deprecated)]
+    #[deprecated]
     pub fn condensed_glyphs(
         &self,
         screen_offset: u16,
@@ -1324,6 +1325,15 @@ impl RelocatableState for MaskedInputState {
 }
 
 impl MaskedInputState {
+    fn glyphs2(&self) -> impl Iterator<Item = Glyph<'_>> {
+        let ox = self.offset() as upos_type;
+        let text_break = TextBreak2::ShiftText(ox, ox + self.rendered.width as upos_type);
+        let compact = self.compact && !self.is_focused();
+        self.value
+            .glyphs2(0..1, text_break, compact)
+            .expect("valid-rows")
+    }
+
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
     pub fn screen_to_col(&self, scx: i16) -> upos_type {
@@ -1338,7 +1348,7 @@ impl MaskedInputState {
         } else {
             let scx = scx as u16;
 
-            let line = self.glyphs(ox as u16, self.inner.width + self.dark_offset.0);
+            let line = self.glyphs2();
 
             let mut col = ox;
             for g in line {
@@ -1360,7 +1370,7 @@ impl MaskedInputState {
             return None;
         }
 
-        let line = self.glyphs(ox as u16, self.inner.width + self.dark_offset.0);
+        let line = self.glyphs2();
         let mut screen_x = 0;
         for g in line {
             if g.pos().x == pos {
