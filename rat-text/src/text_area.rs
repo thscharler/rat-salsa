@@ -477,30 +477,27 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
     let nstart_col;
     match state.text_break {
         TextBreak::Shift => {
-            let bottom = oy + state.rendered.height as upos_type;
+            let height = state.rendered.height as upos_type;
+            let width = state.rendered.width as upos_type;
             let width = if state.show_ctrl() {
-                (state.rendered.width as upos_type).saturating_sub(1)
+                width.saturating_sub(1)
             } else {
-                state.rendered.width as upos_type
+                width
             };
-            let right = ox + width;
 
             noy = if cursor.y < oy {
                 cursor.y
-            } else if cursor.y >= bottom {
-                cursor.y.saturating_sub(bottom)
+            } else if cursor.y >= oy + height {
+                cursor.y.saturating_sub(height) + 1
             } else {
                 oy
             };
 
             nox = if cursor.x < ox {
-                debug!("stc {}<{}", cursor.x, ox);
                 cursor.x
-            } else if cursor.x >= right {
-                debug!("stc {}>={}", cursor.x, right);
-                cursor.x.saturating_sub(width)
+            } else if cursor.x >= ox + width {
+                cursor.x.saturating_sub(width) + 1
             } else {
-                debug!("stc fine");
                 ox
             };
 
@@ -1965,8 +1962,8 @@ impl TextAreaState {
             TextBreak::Word(margin) => (
                 TextBreak2::BreakText,
                 0,
-                self.rendered.width.saturating_sub(margin) as upos_type,
                 self.rendered.width as upos_type,
+                self.rendered.width.saturating_sub(margin) as upos_type,
             ),
         };
 
