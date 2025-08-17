@@ -1,7 +1,7 @@
 use crate::clipboard::Clipboard;
 use crate::grapheme::{Glyph, GlyphIter, GlyphIter2, Grapheme, TextBreak2};
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
-use crate::text_store::TextStore;
+use crate::text_store::{SkipLine, TextStore};
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
@@ -790,7 +790,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         left_margin: upos_type,
         right_margin: upos_type,
         word_margin: upos_type,
-    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
+    ) -> Result<GlyphIter2<'_>, TextError> {
         let iter = self.graphemes(
             TextRange::new((start_col, rows.start), (0, rows.end)),
             TextPosition::new(start_col, rows.start),
@@ -834,7 +834,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         &self,
         range: TextRange,
         pos: TextPosition,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>> + SkipLine, TextError> {
         self.text.graphemes(range, pos)
     }
 

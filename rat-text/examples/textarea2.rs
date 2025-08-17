@@ -8,6 +8,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget};
 use ratatui::Frame;
 use std::fmt;
+use std::fmt::Write;
 
 mod mini_salsa;
 

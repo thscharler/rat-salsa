@@ -3,6 +3,12 @@ use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use std::borrow::Cow;
 use std::ops::Range;
 
+/// Iterator that can skip to the next line of text.
+pub trait SkipLine: Iterator {
+    /// Set to cursor to the start of the next line.
+    fn next_line(&mut self) -> Result<(), TextError>;
+}
+
 /// Backing store for the TextCore.
 pub trait TextStore {
     /// Can store multi-line content?
@@ -55,7 +61,7 @@ pub trait TextStore {
         &self,
         range: TextRange,
         pos: TextPosition,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError>;
+    ) -> Result<impl Cursor<Item = Grapheme<'_>> + SkipLine, TextError>;
 
     /// Line as str.
     ///
@@ -124,7 +130,7 @@ pub trait TextStore {
 
 pub(crate) mod text_rope {
     use crate::grapheme::{Grapheme, RopeGraphemes};
-    use crate::text_store::{Cursor, TextStore};
+    use crate::text_store::{Cursor, SkipLine, TextStore};
     use crate::{upos_type, TextError, TextPosition, TextRange};
     use ropey::{Rope, RopeSlice};
     use std::borrow::Cow;
@@ -441,7 +447,7 @@ pub(crate) mod text_rope {
             &self,
             range: TextRange,
             pos: TextPosition,
-        ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+        ) -> Result<impl Cursor<Item = Grapheme<'_>> + SkipLine, TextError> {
             if !range.contains_pos(pos) && range.end != pos {
                 return Err(TextError::TextPositionOutOfBounds(pos));
             }
@@ -760,7 +766,7 @@ pub(crate) mod text_rope {
 
 pub(crate) mod text_string {
     use crate::grapheme::{Grapheme, StrGraphemes};
-    use crate::text_store::{Cursor, TextStore};
+    use crate::text_store::{Cursor, SkipLine, TextStore};
     use crate::{upos_type, TextError, TextPosition, TextRange};
     use std::borrow::Cow;
     use std::iter::once;
@@ -822,8 +828,6 @@ pub(crate) mod text_string {
 
     impl TextStore for TextString {
         /// Can store multi-line content?
-        ///
-        /// todo: allow col=0, row=1
         fn is_multi_line(&self) -> bool {
             false
         }
@@ -1022,7 +1026,7 @@ pub(crate) mod text_string {
             &self,
             range: TextRange,
             pos: TextPosition,
-        ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+        ) -> Result<impl Cursor<Item = Grapheme<'_>> + SkipLine, TextError> {
             let range_byte = self.byte_range(range)?;
             let pos_byte = self.byte_range_at(pos)?;
             Ok(StrGraphemes::new_offset(

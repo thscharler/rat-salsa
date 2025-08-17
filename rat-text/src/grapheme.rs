@@ -1,3 +1,4 @@
+use crate::text_store::SkipLine;
 use crate::{upos_type, Cursor, TextError, TextPosition};
 use ropey::iter::Chunks;
 use ropey::RopeSlice;
@@ -211,6 +212,13 @@ impl Cursor for StrGraphemes<'_> {
     }
 }
 
+impl SkipLine for StrGraphemes<'_> {
+    fn next_line(&mut self) -> Result<(), TextError> {
+        self.cursor.set_cursor(self.text.len());
+        Ok(())
+    }
+}
+
 impl<'a> Iterator for StrGraphemes<'a> {
     type Item = Grapheme<'a>;
 
@@ -258,6 +266,12 @@ impl Cursor for RevStrGraphemes<'_> {
 
     fn text_offset(&self) -> usize {
         self.it.text_offset()
+    }
+}
+
+impl SkipLine for RevStrGraphemes<'_> {
+    fn next_line(&mut self) -> Result<(), TextError> {
+        unimplemented!("no next_line()")
     }
 }
 
@@ -398,6 +412,36 @@ impl<'a> Cursor for RopeGraphemes<'a> {
     }
 }
 
+impl<'a> SkipLine for RopeGraphemes<'a> {
+    fn next_line(&mut self) -> Result<(), TextError> {
+        let cursor = self.cursor.cur_cursor();
+        let line = self.text.try_byte_to_line(cursor)?;
+        let next_offset = self.text.try_line_to_byte(line + 1)?;
+
+        let Some((mut chunks, chunk_start, _, _)) = self.text.get_chunks_at_byte(next_offset)
+        else {
+            return Err(TextError::ByteIndexOutOfBounds(
+                next_offset,
+                self.text.len_bytes(),
+            ));
+        };
+
+        // was_next is only useful, if there was a true next().
+        // otherwise it confuses the algorithm.
+        let (first_chunk, _was_next) = match chunks.next() {
+            Some(v) => (v, Some(true)),
+            None => ("", None),
+        };
+
+        self.chunks = chunks;
+        self.cur_chunk = first_chunk;
+        self.cur_chunk_start = chunk_start;
+        self.cursor = GraphemeCursor::new(next_offset, self.text.len_bytes(), true);
+
+        Ok(())
+    }
+}
+
 impl<'a> Iterator for RopeGraphemes<'a> {
     type Item = Grapheme<'a>;
 
@@ -484,6 +528,12 @@ impl Cursor for RevRopeGraphemes<'_> {
     }
 }
 
+impl SkipLine for RevRopeGraphemes<'_> {
+    fn next_line(&mut self) -> Result<(), TextError> {
+        unimplemented!("no next_line()")
+    }
+}
+
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum TextBreak2 {
@@ -500,8 +550,8 @@ impl Default for TextBreak2 {
     }
 }
 
-pub(crate) struct GlyphIter2<Iter> {
-    iter: Iter,
+pub(crate) struct GlyphIter2<'a> {
+    iter: Box<dyn SkipLine<Item = Grapheme<'a>> + 'a>,
     done: bool,
 
     /// Sometimes one grapheme creates two glyphs.
@@ -530,7 +580,7 @@ pub(crate) struct GlyphIter2<Iter> {
     word_margin: upos_type,
 }
 
-impl<Iter> Debug for GlyphIter2<Iter> {
+impl Debug for GlyphIter2<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GlyphIter2")
             .field("done", &self.done)
@@ -550,11 +600,11 @@ impl<Iter> Debug for GlyphIter2<Iter> {
     }
 }
 
-impl<Iter> GlyphIter2<Iter> {
+impl<'a> GlyphIter2<'a> {
     /// New iterator.
-    pub(crate) fn new(pos: TextPosition, iter: Iter) -> Self {
+    pub(crate) fn new(pos: TextPosition, iter: impl SkipLine<Item = Grapheme<'a>> + 'a) -> Self {
         Self {
-            iter,
+            iter: Box::new(iter),
             done: Default::default(),
             next_pos: pos,
             next_screen_pos: Default::default(),
@@ -605,10 +655,7 @@ impl<Iter> GlyphIter2<Iter> {
     }
 }
 
-impl<'a, Iter> Iterator for GlyphIter2<Iter>
-where
-    Iter: Iterator<Item = Grapheme<'a>>,
-{
+impl<'a> Iterator for GlyphIter2<'a> {
     type Item = Glyph<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -756,7 +803,7 @@ where
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
-                    // skip glyph
+                    // TODO skip glyph. maybe.
                     continue;
                 } else if self.next_screen_pos.0 == right_margin {
                     line_break = true;
@@ -782,7 +829,14 @@ where
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
-                    // skip glyph
+                    // skip to next_line
+                    self.iter.next_line().expect("fine");
+
+                    self.next_screen_pos.0 = 0;
+                    self.next_screen_pos.1 += 1;
+                    self.next_pos.x = 0;
+                    self.next_pos.y += 1;
+
                     continue;
                 } else if self.next_screen_pos.0 < right_margin
                     && self.next_screen_pos.0 + screen_width as upos_type > right_margin
