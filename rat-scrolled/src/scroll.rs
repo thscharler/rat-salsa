@@ -491,7 +491,7 @@ fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 scroll.scrollbar().render(
                     area,
                     buf,
-                    &mut ScrollbarState::new(state.max_offset())
+                    &mut ScrollbarState::new(1)
                         .position(state.offset())
                         .viewport_content_length(state.page_len()),
                 );
