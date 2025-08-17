@@ -94,7 +94,8 @@ pub struct TextAreaState {
     /// __read only__ renewed with each render.
     pub inner: Rect,
     /// Rendered dimension. This may differ from (inner.width, inner.height)
-    /// if the text area has been relocated.
+    /// if the text area has been relocated/clipped. This holds the
+    /// original rendered dimension before any relocation/clipping.
     pub rendered: Size,
 
     /// Horizontal scroll.
@@ -122,8 +123,14 @@ pub struct TextAreaState {
     /// Text edit core
     pub value: TextCore<TextRope>,
 
-    /// movement column
-    pub move_col: Option<upos_type>,
+    /// Memory-column for up/down movement.
+    ///
+    /// Up/down movement tries to place the cursor at this column,
+    /// but might have to clip it, because the current line is too short.
+    ///
+    /// This is kept as a relative screen-position. It may be less
+    /// than 0, if the widget has been relocated.
+    pub move_col: Option<i16>,
     /// auto indent active
     pub auto_indent: bool,
     /// quote selection active
@@ -710,14 +717,17 @@ impl TextAreaState {
     /// move up one row, you might end at a position left of the current column.
     /// If you move up once more you want to return to the original position.
     /// That's what is stored here.
+    ///
+    /// This stores the relative screen-column, it may be less than 0
+    /// if the widget has been relocated.
     #[inline]
-    pub fn set_move_col(&mut self, col: Option<upos_type>) {
+    pub fn set_move_col(&mut self, col: Option<i16>) {
         self.move_col = col;
     }
 
     /// Extra column information for cursor movement.
     #[inline]
-    pub fn move_col(&mut self) -> Option<upos_type> {
+    pub fn move_col(&mut self) -> Option<i16> {
         self.move_col
     }
 }
@@ -1533,12 +1543,14 @@ impl TextAreaState {
     /// or inside a word, the same position is returned.
     ///
     /// Panics for an invalid pos.
+    #[inline]
     pub fn next_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.next_word_start(pos.into()).expect("valid_pos")
     }
 
     /// Find the start of the next word. If the position is at the start
     /// or inside a word, the same position is returned.
+    #[inline]
     pub fn try_next_word_start(
         &self,
         pos: impl Into<TextPosition>,
@@ -1550,12 +1562,14 @@ impl TextAreaState {
     /// until it finds the next whitespace.
     ///
     /// Panics for an invalid pos.
+    #[inline]
     pub fn next_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.next_word_end(pos.into()).expect("valid_pos")
     }
 
     /// Find the end of the next word. Skips whitespace first, then goes on
     /// until it finds the next whitespace.
+    #[inline]
     pub fn try_next_word_end(
         &self,
         pos: impl Into<TextPosition>,
@@ -1570,6 +1584,7 @@ impl TextAreaState {
     /// both return start<=end!
     ///
     /// Panics for an invalid range.
+    #[inline]
     pub fn prev_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.prev_word_start(pos.into()).expect("valid_pos")
     }
@@ -1579,6 +1594,7 @@ impl TextAreaState {
     ///
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
+    #[inline]
     pub fn try_prev_word_start(
         &self,
         pos: impl Into<TextPosition>,
@@ -1591,6 +1607,7 @@ impl TextAreaState {
     /// both return start<=end!
     ///
     /// Panics for an invalid range.
+    #[inline]
     pub fn prev_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.prev_word_end(pos.into()).expect("valid_pos")
     }
@@ -1598,6 +1615,7 @@ impl TextAreaState {
     /// Find the end of the previous word. Word is everything that is not whitespace.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
+    #[inline]
     pub fn try_prev_word_end(
         &self,
         pos: impl Into<TextPosition>,
@@ -1608,11 +1626,13 @@ impl TextAreaState {
     /// Is the position at a word boundary?
     ///
     /// Panics for an invalid range.
+    #[inline]
     pub fn is_word_boundary(&self, pos: impl Into<TextPosition>) -> bool {
         self.value.is_word_boundary(pos.into()).expect("valid_pos")
     }
 
     /// Is the position at a word boundary?
+    #[inline]
     pub fn try_is_word_boundary(&self, pos: impl Into<TextPosition>) -> Result<bool, TextError> {
         self.value.is_word_boundary(pos.into())
     }
@@ -1621,12 +1641,14 @@ impl TextAreaState {
     /// Returns pos if the position is not inside a word.
     ///
     /// Panics for an invalid range.
+    #[inline]
     pub fn word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.word_start(pos.into()).expect("valid_pos")
     }
 
     /// Find the start of the word at pos.
     /// Returns pos if the position is not inside a word.
+    #[inline]
     pub fn try_word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
         self.value.word_start(pos.into())
     }
@@ -1635,12 +1657,14 @@ impl TextAreaState {
     /// Returns pos if the position is not inside a word.
     ///
     /// Panics for an invalid range.
+    #[inline]
     pub fn word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
         self.value.word_end(pos.into()).expect("valid_pos")
     }
 
     /// Find the end of the word at pos.
     /// Returns pos if the position is not inside a word.
+    #[inline]
     pub fn try_word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
         self.value.word_end(pos.into())
     }
@@ -1703,22 +1727,19 @@ impl TextAreaState {
     pub fn move_left(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
-        if let Some(_scr_cursor) = self.pos_to_relative_screen(cursor) {
-            if cursor.x == 0 {
-                if cursor.y > 0 {
-                    cursor.y = cursor.y.saturating_sub(1);
-                    cursor.x = self.line_width(cursor.y);
-                }
-            } else {
-                cursor.x = cursor.x.saturating_sub(n as upos_type);
+        if cursor.x == 0 {
+            if cursor.y > 0 {
+                cursor.y = cursor.y.saturating_sub(1);
+                cursor.x = self.line_width(cursor.y);
             }
-
-            self.set_move_col(Some(cursor.x));
-            self.set_cursor(cursor, extend_selection)
         } else {
-            self.scroll_cursor_to_visible();
-            true
+            cursor.x = cursor.x.saturating_sub(n as upos_type);
         }
+
+        if let Some(scr_cursor) = self.pos_to_relative_screen(cursor) {
+            self.set_move_col(Some(scr_cursor.0));
+        }
+        self.set_cursor(cursor, extend_selection)
     }
 
     /// Move the cursor right. Scrolls the cursor to visible.
@@ -1726,126 +1747,115 @@ impl TextAreaState {
     pub fn move_right(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
-        if let Some(_scr_cursor) = self.pos_to_relative_screen(cursor) {
-            let c_line_width = self.line_width(cursor.y);
-            if cursor.x == c_line_width {
-                if cursor.y + 1 < self.len_lines() {
-                    cursor.y += 1;
-                    cursor.x = 0;
-                }
-            } else {
-                cursor.x = min(cursor.x + n as upos_type, c_line_width)
+        let c_line_width = self.line_width(cursor.y);
+        if cursor.x == c_line_width {
+            if cursor.y + 1 < self.len_lines() {
+                cursor.y += 1;
+                cursor.x = 0;
             }
-
-            self.set_move_col(Some(cursor.x));
-            self.set_cursor(cursor, extend_selection)
         } else {
-            self.scroll_cursor_to_visible();
-            true
+            cursor.x = min(cursor.x + n as upos_type, c_line_width)
         }
+
+        if let Some(scr_cursor) = self.pos_to_relative_screen(cursor) {
+            self.set_move_col(Some(scr_cursor.0));
+        }
+        self.set_cursor(cursor, extend_selection)
     }
 
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
-        let mut cursor = self.cursor();
+        let cursor = self.cursor();
 
-        if let Some(move_col) = self.move_col() {
-            cursor.x = move_col;
-        }
+        debug!("move_up {:?} {:?}", cursor, self.move_col);
 
         if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
+            if let Some(move_col) = self.move_col() {
+                scr_cursor.0 = move_col;
+            }
             scr_cursor.1 -= n as i16;
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
+                debug!("=> move_up {:?}", new_cursor);
                 self.set_cursor(new_cursor, extend_selection)
             } else {
+                debug!("=> move_up scv");
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
+            debug!("=> move_up scv");
             self.scroll_cursor_to_visible();
             true
         }
-
-        // cursor.y = cursor.y.saturating_sub(n);
-        // let c_line_width = self.line_width(cursor.y);
-        // if let Some(move_col) = self.move_col() {
-        //     cursor.x = min(move_col, c_line_width);
-        // } else {
-        //     cursor.x = min(cursor.x, c_line_width);
-        // }
-        //
-        // self.set_cursor(cursor, extend_selection)
     }
 
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
-        let mut cursor = self.cursor();
+        let cursor = self.cursor();
 
-        if let Some(move_col) = self.move_col() {
-            cursor.x = move_col;
-        }
+        debug!("move_down {:?} {:?}", cursor, self.move_col);
 
         if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
+            if let Some(move_col) = self.move_col() {
+                scr_cursor.0 = move_col;
+            }
             scr_cursor.1 += n as i16;
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
+                debug!("=> move_down {:?}", new_cursor);
                 self.set_cursor(new_cursor, extend_selection)
             } else {
+                debug!("=> move_down scv");
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
+            debug!("=> move_down scv");
             self.scroll_cursor_to_visible();
             true
         }
-
-        // cursor.y = min(cursor.y + n as upos_type, self.len_lines() - 1);
-        // let c_line_width = self.line_width(cursor.y);
-        // if let Some(move_col) = self.move_col() {
-        //     cursor.x = min(move_col, c_line_width);
-        // } else {
-        //     cursor.x = min(cursor.x, c_line_width);
-        // }
-        //
-        // self.set_cursor(cursor, extend_selection)
     }
 
     /// Move the cursor to the start of the line.
     /// Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let mut cursor = self.cursor();
+        let cursor = self.cursor();
 
-        cursor.x = 'f: {
-            for (idx, g) in self.line_graphemes(cursor.y).enumerate() {
-                if g != " " && g != "\t" {
-                    if cursor.x != idx as upos_type {
-                        break 'f idx as upos_type;
-                    } else {
-                        break 'f 0;
-                    }
+        let mut line_start = self.pos_to_line_start(cursor);
+        for g in self
+            .glyphs2(line_start.x, line_start.y..self.len_lines())
+            .expect("valid-pos")
+        {
+            if g.glyph() != " " && g.glyph() != "\t" {
+                if g.pos().x != cursor.x {
+                    line_start.x = g.pos().x;
                 }
+                break;
             }
-            0
-        };
+        }
 
-        self.set_move_col(Some(cursor.x));
-        self.set_cursor(cursor, extend_selection)
+        if let Some(scr_pos) = self.pos_to_relative_screen(line_start) {
+            self.set_move_col(Some(scr_pos.0));
+        }
+        self.set_cursor(line_start, extend_selection)
     }
 
     /// Move the cursor to the end of the line. Scrolls to visible, if
     /// necessary.
     /// Returns true if there was any real change.
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
-        let mut cursor = self.cursor();
+        let cursor = self.cursor();
 
-        cursor.x = self.line_width(cursor.y);
+        let line_end = self.pos_to_line_end(cursor);
 
-        self.set_move_col(Some(cursor.x));
-        self.set_cursor(cursor, extend_selection)
+        if let Some(scr_pos) = self.pos_to_relative_screen(line_end) {
+            self.set_move_col(Some(scr_pos.0));
+        }
+        self.set_cursor(line_end, extend_selection)
     }
 
     /// Move the cursor to the document start.
@@ -1875,14 +1885,14 @@ impl TextAreaState {
 
     /// Move the cursor to the end of the visible area.
     pub fn move_to_screen_end(&mut self, extend_selection: bool) -> bool {
-        let (ox, oy) = self.offset();
-        let (ox, oy) = (ox as upos_type, oy as upos_type);
-        let len = self.len_lines();
+        let scr_end = (0, (self.inner.height as i16).saturating_sub(1));
 
-        let cursor =
-            TextPosition::new(ox, min(oy + self.vertical_page() as upos_type - 1, len - 1));
-
-        self.set_cursor(cursor, extend_selection)
+        if let Some(pos) = self.relative_screen_to_pos(scr_end) {
+            self.set_cursor(pos, extend_selection)
+        } else {
+            self.scroll_cursor_to_visible();
+            true
+        }
     }
 
     /// Move the cursor to the next word.
@@ -1987,7 +1997,7 @@ impl TextAreaState {
     }
 
     /// Find the absolute screen-position for a text-position
-    pub fn pos_to_screen(&self, pos: impl Into<TextPosition>) -> Option<(u16, u16)> {
+    pub fn pos_to_screen(&self, pos: TextPosition) -> Option<(u16, u16)> {
         let scr_pos = self.pos_to_relative_screen(pos)?;
         if scr_pos.0 + self.inner.x as i16 > 0 && scr_pos.1 + self.inner.y as i16 > 0 {
             Some((
@@ -1996,6 +2006,47 @@ impl TextAreaState {
             ))
         } else {
             None
+        }
+    }
+
+    /// Return the starting position for the visible line containing the given position.
+    pub fn pos_to_line_start(&self, pos: TextPosition) -> TextPosition {
+        match self.text_break {
+            TextBreak::Shift => TextPosition::new(0, pos.y),
+            TextBreak::Hard | TextBreak::Word(_) => {
+                let mut start_pos = TextPosition::new(0, pos.y);
+                for g in self.glyphs2(0, pos.y..self.len_lines()).expect("valid-row") {
+                    if g.screen_pos().0 == 0 {
+                        start_pos = g.pos();
+                    }
+                    if g.pos() == pos {
+                        break;
+                    }
+                }
+                start_pos
+            }
+        }
+    }
+
+    /// Return the end position for the visible line containing the given position.
+    pub fn pos_to_line_end(&self, pos: TextPosition) -> TextPosition {
+        match self.text_break {
+            TextBreak::Shift => TextPosition::new(self.line_width(pos.y), pos.y),
+            TextBreak::Hard | TextBreak::Word(_) => {
+                let mut end_pos = None;
+                let mut armed = false;
+                for g in self.glyphs2(0, pos.y..self.len_lines()).expect("valid-row") {
+                    if g.pos() == pos {
+                        armed = true;
+                    }
+                    if armed && g.line_break() {
+                        end_pos = Some(g.pos());
+                        break;
+                    }
+                }
+
+                end_pos.unwrap_or_else(|| TextPosition::new(self.line_width(pos.y), pos.y))
+            }
         }
     }
 
@@ -2008,9 +2059,7 @@ impl TextAreaState {
     ///
     /// If the text-position is outside the rendered area,
     /// this will return None.
-    pub fn pos_to_relative_screen(&self, pos: impl Into<TextPosition>) -> Option<(i16, i16)> {
-        let pos = pos.into();
-
+    pub fn pos_to_relative_screen(&self, pos: TextPosition) -> Option<(i16, i16)> {
         debug!("rps find {:?}", pos);
 
         match self.text_break {
@@ -2159,8 +2208,9 @@ impl TextAreaState {
                     // Guess a starting position for an alternate screen that
                     // would contain the given screen-position.
                     // By locating our actual offset within that screen we can
-                    // calculate the corrected screen-position for that alternate
-                    // screen. And then find the correct text-position.
+                    // calculate the correct screen-position for that alternate
+                    // screen. And then find the correct text-position for
+                    // that again.
 
                     // estimate start row
                     let ry = oy.saturating_add_signed(scr_pos.1 as ipos_type);
@@ -2171,25 +2221,25 @@ impl TextAreaState {
                                 break 'f g.screen_pos();
                             }
                         }
-                        unreachable!("invalid sub_row_offset"); // TODO
+                        // invalid sub_row_offset.
+                        // the offset is broken, reset to somewhere.
+                        (0, 0)
                     };
 
-                    if o_screen_pos.1 < scr_pos.1.unsigned_abs() {
-                        // before first row.
-                        return Some(TextPosition::new(0, 0));
-                    }
                     // locate scr_pos in our new coordinate system
                     let scr_pos = (
                         // negative columns map to 0, columns > width are covered by contains_screen_pos.
                         if scr_pos.0 < 0 { 0 } else { scr_pos.0 as u16 },
-                        o_screen_pos.1 - scr_pos.1.unsigned_abs(),
+                        o_screen_pos.1.saturating_add_signed(scr_pos.1),
                     );
+
+                    // find the matching pos
                     for g in self.glyphs2(0, ry..oy + 1).expect("valid-rows") {
                         if g.contains_screen_pos(scr_pos) {
                             return Some(g.pos());
                         }
                     }
-                    // TODO: should have been found??
+
                     unreachable!("impossible screen-pos");
                 } else {
                     let scr_pos = (
@@ -2197,6 +2247,8 @@ impl TextAreaState {
                         if scr_pos.0 < 0 { 0 } else { scr_pos.0 as u16 },
                         scr_pos.1 as u16,
                     );
+
+                    // start at the offset and find the screen-position.
                     for g in self
                         .glyphs2(self.sub_row_offset, oy..self.len_lines())
                         .expect("valid-position")
@@ -2205,6 +2257,8 @@ impl TextAreaState {
                             return Some(g.pos());
                         }
                     }
+
+                    // beyond the end
                     return Some(TextPosition::new(0, self.len_lines()));
                 }
             }

@@ -108,7 +108,8 @@ impl<'a> Glyph<'a> {
         self.pos
     }
 
-    /// Get the screen position of the glyph.
+    /// Get the screen position of the glyph. Starts at (0,0) in
+    /// the top/left of the widget.
     pub fn screen_pos(&self) -> (u16, u16) {
         self.screen_pos
     }
@@ -923,7 +924,7 @@ where
                 self.last_byte = text_bytes.end;
 
                 if line_break {
-                    debug!("    [glyph-0 line_break true]");
+                    debug!("    [glyph-8 line_break true]");
 
                     self.next_screen_pos.0 = 0;
                     self.next_screen_pos.1 += 1;
@@ -931,7 +932,7 @@ where
                     self.next_pos.y += 1;
 
                     debug!(
-                        "    [yield-0 {:?}+{} {:?}] \u{25B3} {:?}",
+                        "    [yield-8 {:?}+{} {:?}] \u{25B3} {:?}",
                         screen_pos, screen_width, glyph, self.next_screen_pos
                     );
 
@@ -945,7 +946,7 @@ where
                     });
                 } else if screen_pos.0 + screen_width as upos_type > right_margin {
                     debug!(
-                        "    [glyph-2 {}+{}>{} ]",
+                        "    [glyph-9 {}+{}>{} ]",
                         screen_pos.0, screen_width, right_margin,
                     );
 
@@ -978,7 +979,7 @@ where
                     pos = self.last_pos;
 
                     debug!(
-                        "    [yield-2 {:?}+{} {:?}] \u{25B3} {:?}",
+                        "    [yield-9 {:?}+{} {:?}] \u{25B3} {:?}",
                         screen_pos, screen_width, glyph, self.next_screen_pos
                     );
 
@@ -992,7 +993,7 @@ where
                     });
                 } else if screen_pos.0 > self.word_margin && glyph == " " {
                     debug!(
-                        "    [glyph-1 {}>{} ]",
+                        "    [glyph-10 {}>{} ]",
                         screen_pos.0 as upos_type, self.word_margin,
                     );
 
@@ -1017,7 +1018,7 @@ where
                     });
 
                     debug!(
-                        "    [yield-1 {:?}+{} {:?}] \u{25B3} {:?}",
+                        "    [yield-10 {:?}+{} {:?}] \u{25B3} {:?}",
                         screen_pos, screen_width, glyph, self.next_screen_pos
                     );
 
@@ -1030,13 +1031,13 @@ where
                         pos,
                     });
                 } else {
-                    debug!("    [glyph-3]",);
+                    debug!("    [glyph-11]",);
 
                     self.next_screen_pos.0 += screen_width as upos_type;
                     self.next_pos.x += 1;
 
                     debug!(
-                        "    [yield-3 {:?}+{} {:?}] \u{25B3} {:?}",
+                        "    [yield-11 {:?}+{} {:?}] \u{25B3} {:?}",
                         screen_pos, screen_width, glyph, self.next_screen_pos
                     );
 
