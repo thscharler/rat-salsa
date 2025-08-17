@@ -1,10 +1,11 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, try_flow, Outcome};
+use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::text_area::{TextArea, TextAreaState, TextBreak};
 use rat_text::{text_area, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Paragraph, StatefulWidget};
+use ratatui::widgets::{Block, Paragraph, StatefulWidget};
 use ratatui::Frame;
 use std::fmt;
 
@@ -20,7 +21,10 @@ fn main() -> Result<(), anyhow::Error> {
         textarea: Default::default(),
     };
     state.textarea.set_auto_indent(false);
+    state.textarea.set_text("1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 XXXX_\n");
+    state.textarea.set_text_break(TextBreak::Shift);
     state.textarea.set_show_ctrl(true);
+    state.textarea.set_cursor((56, 0), false);
 
     run_ui(
         "textarea2",
@@ -57,28 +61,32 @@ fn repaint_input(
         Constraint::Length(15),
         Constraint::Length(25),
         Constraint::Fill(1),
+        Constraint::Length(15),
     ])
     .split(l1[1]);
 
     let txt_area = l2[2];
 
-    TextArea::new()
-        //.block(Block::bordered().style(Style::default().gray().on_dark_gray()))
-        // .scroll(
-        //     Scroll::new()
-        //         .scroll_by(1)
-        //         .style(Style::default().gray().on_dark_gray()),
-        // )
+    let textarea = TextArea::new()
+        .block(Block::bordered())
+        .vscroll(
+            Scroll::new()
+                .scroll_by(1)
+                .overscroll_by(50)
+                .policy(ScrollbarPolicy::Always),
+        )
+        .hscroll(Scroll::new().policy(ScrollbarPolicy::Always))
+        .styles(istate.theme.textarea_style())
         .set_horizontal_max_offset(256)
-        .style(Style::default().white().on_dark_gray())
-        .select_style(Style::default().black().on_yellow())
         .text_style([
             Style::new().red(),
             Style::new().underlined(),
             Style::new().green(),
             Style::new().on_yellow(),
-        ])
-        .render(txt_area, frame.buffer_mut(), &mut state.textarea);
+        ]);
+    // debug!("{:#?}", textarea);
+    // debug!("{:#?}", state.textarea);
+    textarea.render(txt_area, frame.buffer_mut(), &mut state.textarea);
 
     if let Some((cx, cy)) = state.textarea.screen_cursor() {
         frame.set_cursor_position((cx, cy));
@@ -88,6 +96,12 @@ fn repaint_input(
         use fmt::Write;
         let mut stats = String::new();
         _ = writeln!(&mut stats);
+        _ = writeln!(
+            &mut stats,
+            "offset: {:?} {:?}",
+            state.textarea.offset(),
+            state.textarea.sub_row_offset
+        );
         _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
         _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
         if let Some((scx, scy)) = state.textarea.screen_cursor() {
@@ -187,6 +201,43 @@ fn handle_input(
             state.textarea.set_text_break(TextBreak::Hard);
             state.textarea.set_show_ctrl(true);
 
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'4') => {
+            let focus = state.textarea.focus.clone();
+
+            state.textarea = TextAreaState::new();
+            state.textarea.focus = focus;
+            state.textarea.set_text("1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 XXXX_\n");
+            state.textarea.set_text_break(TextBreak::Shift);
+            state.textarea.set_show_ctrl(true);
+
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'5') => {
+            let focus = state.textarea.focus.clone();
+
+            state.textarea = TextAreaState::new();
+            state.textarea.focus = focus;
+            state.textarea.set_text("1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 XXXX_\n");
+            state.textarea.set_text_break(TextBreak::Word(8));
+            state.textarea.set_show_ctrl(true);
+
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'6') => {
+            let focus = state.textarea.focus.clone();
+
+            state.textarea = TextAreaState::new();
+            state.textarea.focus = focus;
+            state.textarea.set_text("1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 XXXX_\n");
+            state.textarea.set_text_break(TextBreak::Hard);
+            state.textarea.set_show_ctrl(true);
+
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'c') => {
+            state.textarea.set_show_ctrl(!state.textarea.show_ctrl());
             Outcome::Changed
         }
         _ => Outcome::Continue,
