@@ -5,7 +5,6 @@ use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
-use log::debug;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::ops::Range;
@@ -805,7 +804,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
         it.set_word_margin(word_margin);
-        debug!("glyph-iter {:?}", it);
         Ok(it)
     }
 

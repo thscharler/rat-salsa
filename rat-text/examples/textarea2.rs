@@ -39,6 +39,19 @@ static TEXT: &str = "aaaa 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789
     zzzz 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
     ";
 
+fn long_text() -> String {
+    let mut buf = String::new();
+    let pat = ["1", "2", "3", "4", " ", "6", "7", "8", "9", " "];
+
+    for i in 0..500 {
+        for j in 0..128000 {
+            buf.push_str(pat[j % 10]);
+        }
+        buf.push_str("\n");
+    }
+    buf
+}
+
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
@@ -49,11 +62,8 @@ fn main() -> Result<(), anyhow::Error> {
         textarea: Default::default(),
     };
     state.textarea.set_auto_indent(false);
-
-    state.textarea.set_text(TEXT);
-    state.textarea.set_text_break(TextBreak::Word(8));
+    state.textarea.set_text(long_text());
     state.textarea.set_show_ctrl(true);
-    state.textarea.set_cursor((5, 0), false);
 
     run_ui(
         "textarea2",
@@ -115,7 +125,8 @@ fn repaint_input(
         ]);
     textarea.render(txt_area, frame.buffer_mut(), &mut state.textarea);
 
-    if let Some((cx, cy)) = state.textarea.screen_cursor() {
+    let screen_cursor = state.textarea.screen_cursor();
+    if let Some((cx, cy)) = screen_cursor {
         frame.set_cursor_position((cx, cy));
     }
 
@@ -131,7 +142,7 @@ fn repaint_input(
         );
         _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
         _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
-        if let Some((scx, scy)) = state.textarea.screen_cursor() {
+        if let Some((scx, scy)) = screen_cursor {
             _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
         } else {
             _ = writeln!(&mut stats, "screen: None",);
@@ -198,36 +209,15 @@ fn handle_input(
             Outcome::Changed
         }
         ct_event!(key press ALT-'1') => {
-            let focus = state.textarea.focus.clone();
-
-            state.textarea = TextAreaState::new();
-            state.textarea.focus = focus;
-            state.textarea.set_text(TEXT);
             state.textarea.set_text_break(TextBreak::Shift);
-            state.textarea.set_show_ctrl(true);
-
             Outcome::Changed
         }
         ct_event!(key press ALT-'2') => {
-            let focus = state.textarea.focus.clone();
-
-            state.textarea = TextAreaState::new();
-            state.textarea.focus = focus;
-            state.textarea.set_text(TEXT);
             state.textarea.set_text_break(TextBreak::Word(8));
-            state.textarea.set_show_ctrl(true);
-
             Outcome::Changed
         }
         ct_event!(key press ALT-'3') => {
-            let focus = state.textarea.focus.clone();
-
-            state.textarea = TextAreaState::new();
-            state.textarea.focus = focus;
-            state.textarea.set_text(TEXT);
             state.textarea.set_text_break(TextBreak::Hard);
-            state.textarea.set_show_ctrl(true);
-
             Outcome::Changed
         }
         ct_event!(key press ALT-'c') => {

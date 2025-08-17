@@ -15,7 +15,6 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
-use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -423,7 +422,6 @@ fn render_text_area(
     let selection = state.selection();
     let mut styles = Vec::new();
 
-    debug!("*** RENDER ***");
     for g in state.glyphs2(start_col, page_rows).expect("valid_offset") {
         // relative screen-pos of the glyph
         let screen_pos = g.screen_pos();
@@ -471,13 +469,6 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
     let cursor = state.cursor();
     let (ox, oy) = (state.offset().0 as upos_type, state.offset().1 as upos_type);
     let start_col = state.sub_row_offset;
-
-    debug!(
-        "stc cursor {:?} offset {:?} sub_row_offset {}",
-        cursor,
-        state.offset(),
-        state.sub_row_offset
-    );
 
     let nox;
     let noy;
@@ -567,12 +558,6 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
             };
         }
     }
-
-    debug!(
-        "=> stc offset {:?} sub_row_offset {}",
-        (nox, noy),
-        nstart_col
-    );
 
     state.set_offset((nox as usize, noy as usize));
     state.sub_row_offset = nstart_col;
@@ -1768,8 +1753,6 @@ impl TextAreaState {
     pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
         let cursor = self.cursor();
 
-        debug!("move_up {:?} {:?}", cursor, self.move_col);
-
         if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
@@ -1777,15 +1760,12 @@ impl TextAreaState {
             scr_cursor.1 -= n as i16;
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
-                debug!("=> move_up {:?}", new_cursor);
                 self.set_cursor(new_cursor, extend_selection)
             } else {
-                debug!("=> move_up scv");
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
-            debug!("=> move_up scv");
             self.scroll_cursor_to_visible();
             true
         }
@@ -1796,8 +1776,6 @@ impl TextAreaState {
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
         let cursor = self.cursor();
 
-        debug!("move_down {:?} {:?}", cursor, self.move_col);
-
         if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
@@ -1805,15 +1783,12 @@ impl TextAreaState {
             scr_cursor.1 += n as i16;
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
-                debug!("=> move_down {:?}", new_cursor);
                 self.set_cursor(new_cursor, extend_selection)
             } else {
-                debug!("=> move_down scv");
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
-            debug!("=> move_down scv");
             self.scroll_cursor_to_visible();
             true
         }
@@ -2060,28 +2035,22 @@ impl TextAreaState {
     /// If the text-position is outside the rendered area,
     /// this will return None.
     pub fn pos_to_relative_screen(&self, pos: TextPosition) -> Option<(i16, i16)> {
-        debug!("rps find {:?}", pos);
-
         match self.text_break {
             TextBreak::Shift => {
                 let oy = self.offset().1 as upos_type;
 
                 if oy > self.len_lines() {
-                    debug!("=> {} > {} exit 1", oy, self.len_lines());
                     return None;
                 }
 
                 if pos.y < oy {
-                    debug!("=> {} < {} exit 2", pos.y, oy);
                     return None;
                 }
                 if pos.y > self.len_lines() {
-                    debug!("=> {} > {} exit 3", pos.y, self.len_lines());
                     return None;
                 }
                 let screen_y = (pos.y - oy) as u16;
                 if screen_y >= self.rendered.height {
-                    debug!("=> {} >= {} exit 4", screen_y, self.rendered.height);
                     return None;
                 }
 
@@ -2094,26 +2063,17 @@ impl TextAreaState {
                         }
                     }
                     // invalid pos.x
-                    debug!("=> panic 5");
                     unreachable!("rps 5");
                 };
 
                 if screen_x > self.rendered.width {
-                    debug!("=> {} > {} exit 6", screen_x, self.rendered.width);
                     return None;
                 }
 
-                debug!(
-                    "    => yield {:?}",
-                    (
-                        screen_x as i16 - self.dark_offset.0 as i16,
-                        screen_y as i16 - self.dark_offset.1 as i16,
-                    )
-                );
-                return Some((
+                Some((
                     screen_x as i16 - self.dark_offset.0 as i16,
                     screen_y as i16 - self.dark_offset.1 as i16,
-                ));
+                ))
             }
             TextBreak::Hard | TextBreak::Word(_) => {
                 let oy = self.offset().1 as upos_type;
@@ -2146,15 +2106,13 @@ impl TextAreaState {
                 }
 
                 // Some invalid column.
-                return None;
+                None
             }
         }
     }
 
     /// Find the text-position for the widget-relative screen-position.
     pub fn relative_screen_to_pos(&self, scr_pos: (i16, i16)) -> Option<TextPosition> {
-        debug!("rsp find {:?}", scr_pos);
-
         let scr_pos = (
             scr_pos.0 + self.dark_offset.0 as i16,
             scr_pos.1 + self.dark_offset.1 as i16,
@@ -2166,7 +2124,6 @@ impl TextAreaState {
                 let (ox, oy) = (ox as upos_type, oy as upos_type);
 
                 if oy >= self.len_lines() {
-                    debug!("    rsp 0");
                     return None;
                 }
 
@@ -2190,12 +2147,11 @@ impl TextAreaState {
                                 break 'f g.pos().x;
                             }
                         }
-                        unreachable!("rsp 1");
+                        unreachable!("all-screenpos-covered");
                     }
                 };
 
-                debug!("    => {:?}", (pos_x, pos_y));
-                return Some(TextPosition::new(pos_x, pos_y));
+                Some(TextPosition::new(pos_x, pos_y))
             }
             TextBreak::Hard | TextBreak::Word(_) => {
                 let oy = self.offset().1 as upos_type;
@@ -2259,7 +2215,7 @@ impl TextAreaState {
                     }
 
                     // beyond the end
-                    return Some(TextPosition::new(0, self.len_lines()));
+                    Some(TextPosition::new(0, self.len_lines()))
                 }
             }
         }
