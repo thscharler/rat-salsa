@@ -661,17 +661,27 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
+            debug!("    [glyph terminated]");
+
             return None;
         }
-        if let Some(next) = self.next_glyph.take() {
-            return Some(next);
+        if let Some(glyph) = self.next_glyph.take() {
+            debug!("    [glyph synthetic next]");
+            debug!(
+                "    [yield {:?}+{} {:?}] \u{25B3} {:?}",
+                glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+            );
+
+            return Some(glyph);
         }
 
         loop {
             let Some(grapheme) = self.iter.next() else {
+                debug!("    [glyph done]");
+
                 self.done = true;
 
-                return Some(Glyph {
+                let glyph = Glyph {
                     glyph: if self.show_ctrl {
                         Cow::Borrowed("\u{2403}")
                     } else {
@@ -679,22 +689,26 @@ where
                     },
                     text_bytes: self.last_byte..self.last_byte,
                     screen_pos: (
-                        (self.next_screen_pos.0.saturating_sub(self.left_margin)) as u16,
+                        self.next_screen_pos.0.saturating_sub(self.left_margin) as u16,
                         self.next_screen_pos.1 as u16,
                     ),
                     screen_width: if self.show_ctrl { 1 } else { 0 },
                     line_break: true,
                     pos: self.next_pos,
-                });
+                };
+
+                debug!(
+                    "    [yield {:?}+{} {:?}] \u{25B3} {:?}",
+                    glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+                );
+
+                return Some(glyph);
             };
 
             let mut glyph = Glyph {
                 glyph: Default::default(),
                 text_bytes: grapheme.text_bytes(),
-                screen_pos: (
-                    self.next_screen_pos.0.saturating_sub(self.left_margin) as u16,
-                    self.next_screen_pos.1 as u16,
-                ),
+                screen_pos: (self.next_screen_pos.0 as u16, self.next_screen_pos.1 as u16),
                 screen_width: 0,
                 line_break: false,
                 pos: self.next_pos,
@@ -703,16 +717,7 @@ where
             self.remap(grapheme, &mut glyph);
 
             // next glyph positioning
-            if glyph.line_break {
-                self.next_screen_pos.0 = 0;
-                self.next_screen_pos.1 += 1;
-                self.last_pos = self.next_pos;
-                self.last_byte = glyph.text_bytes.end;
-                self.next_pos.x = 0;
-                self.next_pos.y += 1;
-
-                return Some(glyph);
-            } else if let TextBreak2::ShiftText = self.text_break {
+            if let TextBreak2::ShiftText = self.text_break {
                 let right_margin = if self.show_ctrl {
                     self.right_margin.saturating_sub(1)
                 } else {
@@ -726,11 +731,46 @@ where
                 // next_pos.y doesn't change
 
                 // Clip glyphs and correct left offset
-                if self.next_screen_pos.0 < self.left_margin
+                if glyph.line_break {
+                    debug!("    [glyph line_break true]");
+
+                    self.next_screen_pos.0 = 0;
+                    self.next_screen_pos.1 += 1;
+                    self.next_pos.x = 0;
+                    self.next_pos.y += 1;
+
+                    if glyph.screen_pos.0 as upos_type <= right_margin {
+                        debug!(
+                            "    [glyph-0 {}<={} ]",
+                            glyph.screen_pos.0 as upos_type, right_margin,
+                        );
+
+                        glyph.screen_pos.0 =
+                            glyph.screen_pos.0.saturating_sub(self.left_margin as u16);
+
+                        debug!(
+                            "    [yield-0 {:?}+{} {:?}] \u{25B3} {:?}",
+                            glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+                        );
+
+                        return Some(glyph);
+                    } else {
+                        debug!(
+                            "    [glyph-1 {}>{} ]",
+                            glyph.screen_pos.0 as upos_type, right_margin,
+                        );
+
+                        debug!(
+                            "    [yield-1 {:?}+{} {:?}] \u{25B3} {:?}",
+                            glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+                        );
+                        continue;
+                    }
+                } else if self.next_screen_pos.0 < self.left_margin
                     && self.next_screen_pos.0 + glyph.screen_width as upos_type > self.left_margin
                 {
                     debug!(
-                        "::git0:: {}<{} && {}+{}>{}",
+                        "    [glyph-2 {}<{} && {}+{}>{}]",
                         self.next_screen_pos.0,
                         self.left_margin,
                         self.next_screen_pos.0,
@@ -747,28 +787,66 @@ where
                     self.next_screen_pos.0 += glyph.screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
-                    debug!(":: {:?}", self.next_screen_pos);
-                    debug!("::> {:?} {:?}", glyph.screen_pos, glyph.glyph);
+                    debug!(
+                        "    [yield-2 {:?}+{} {:?}] \u{25B3} {:?}",
+                        glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+                    );
 
                     return Some(glyph);
                 } else if self.next_screen_pos.0 < self.left_margin {
-                    debug!("::git1:: {}<{}  ", self.next_screen_pos.0, self.left_margin,);
+                    debug!(
+                        "    [glyph-3 {}<{}]",
+                        self.next_screen_pos.0, self.left_margin,
+                    );
+
+                    glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(self.left_margin as u16);
 
                     self.next_screen_pos.0 += glyph.screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
-                    debug!(":: {:?}", self.next_screen_pos);
-                    debug!("::> SKIP {:?} {:?}", glyph.screen_pos, glyph.glyph);
+                    debug!(
+                        "    [skip-3 {:?}+{} {:?}] \u{25B3} {:?}",
+                        glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+                    );
 
                     // skip glyph
                     continue;
-                } else if self.next_screen_pos.0 >= right_margin {
-                    debug!("::git2:: {}>={}  ", self.next_screen_pos.0, right_margin,);
+                } else if self.next_screen_pos.0 == right_margin {
+                    debug!(
+                        "    [glyph-4 {}>={} ]",
+                        self.next_screen_pos.0, right_margin,
+                    );
+
+                    glyph.line_break = true;
+                    glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(self.left_margin as u16);
+                    glyph.screen_width = if self.show_ctrl { 1 } else { 0 };
+                    glyph.glyph = Cow::Borrowed(if self.show_ctrl { "\u{2424}" } else { "" });
+                    glyph.text_bytes = self.last_byte..self.last_byte;
+
+                    self.next_screen_pos.0 += 1;
+                    // self.next_screen_pos.1 doesn't change
+
+                    debug!(
+                        "    [yield-4 {:?}+{} {:?}] \u{25B3} {:?}",
+                        glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+                    );
+
+                    return Some(glyph);
+                } else if self.next_screen_pos.0 > right_margin {
+                    debug!(
+                        "    [glyph-5 {}>={} ]",
+                        self.next_screen_pos.0, right_margin,
+                    );
+
+                    glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(self.left_margin as u16);
 
                     self.next_screen_pos.0 += glyph.screen_width as upos_type;
+                    // self.next_screen_pos.1 doesn't change
 
-                    debug!(":: {:?}", self.next_screen_pos);
-                    debug!("::> SKIP {:?} {:?}", glyph.screen_pos, glyph.glyph);
+                    debug!(
+                        "    [skip-5 {:?}+{} {:?}] \u{25B3} {:?}",
+                        glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+                    );
 
                     // skip glyph
                     continue;
@@ -776,7 +854,7 @@ where
                     && self.next_screen_pos.0 + glyph.screen_width as upos_type > right_margin
                 {
                     debug!(
-                        "::git3:: {}<{} && {}+{}>{}",
+                        "    [glyph-6 {}<{} && {}+{}>{}]",
                         self.next_screen_pos.0,
                         self.right_margin,
                         self.next_screen_pos.0,
@@ -786,6 +864,7 @@ where
 
                     // show replacement for split glyph
                     glyph.glyph = Cow::Borrowed("\u{2426}");
+                    glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(self.left_margin as u16);
                     glyph.screen_width = (self.next_screen_pos.0 + glyph.screen_width as upos_type
                         - self.right_margin as upos_type)
                         as u16;
@@ -793,18 +872,23 @@ where
                     self.next_screen_pos.0 += glyph.screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
-                    debug!(":: {:?}", self.next_screen_pos);
-                    debug!("::> {:?} {:?}", glyph.screen_pos, glyph.glyph);
-
+                    debug!(
+                        "    [yield-6 {:?}+{} {:?}] \u{25B3} {:?}",
+                        glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+                    );
                     return Some(glyph);
                 } else {
-                    debug!("::git4:: else",);
+                    debug!("    [glyph-7]",);
+
+                    glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(self.left_margin as u16);
 
                     self.next_screen_pos.0 += glyph.screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
-                    debug!(":: {:?}", self.next_screen_pos);
-                    debug!("::> {:?} {:?}", glyph.screen_pos, glyph.glyph);
+                    debug!(
+                        "    [yield-7 {:?}+{} {:?}] \u{25B3} {:?}",
+                        glyph.screen_pos, glyph.screen_width, glyph.glyph, self.next_screen_pos
+                    );
 
                     return Some(glyph);
                 }
@@ -815,8 +899,22 @@ where
                     self.right_margin
                 };
 
-                self.last_pos = self.next_pos;
-                self.last_byte = glyph.text_bytes.end;
+                if glyph.line_break {
+                    debug!("    [glyph line_break true]");
+
+                    self.next_screen_pos.0 = 0;
+                    self.next_screen_pos.1 += 1;
+                    self.last_pos = self.next_pos;
+                    self.last_byte = glyph.text_bytes.end;
+                    self.next_pos.x = 0;
+                    self.next_pos.y += 1;
+
+                    debug!("    [glyph next_screen_pos {:?}]", self.next_screen_pos);
+                    debug!("    [glyph => {:?} {:?}]", glyph.screen_pos, glyph.glyph);
+                } else {
+                    self.last_pos = self.next_pos;
+                    self.last_byte = glyph.text_bytes.end;
+                }
 
                 if glyph.screen_pos.0 > self.word_margin as u16 && glyph.glyph == " " {
                     // break after space

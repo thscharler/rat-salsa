@@ -416,6 +416,7 @@ fn render_text_area(
     let selection = state.selection();
     let mut styles = Vec::new();
 
+    debug!("*** RENDER ***");
     for g in state.glyphs2(start_col, page_rows).expect("valid_offset") {
         // relative screen-pos of the glyph
         let screen_pos = g.screen_pos();
@@ -477,11 +478,12 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
     match state.text_break {
         TextBreak::Shift => {
             let bottom = oy + state.rendered.height as upos_type;
-            let right = if state.show_ctrl() {
-                (ox + state.rendered.width as upos_type).saturating_sub(1)
+            let width = if state.show_ctrl() {
+                (state.rendered.width as upos_type).saturating_sub(1)
             } else {
-                ox + state.rendered.width as upos_type
+                state.rendered.width as upos_type
             };
+            let right = ox + width;
 
             noy = if cursor.y < oy {
                 cursor.y
@@ -492,10 +494,13 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
             };
 
             nox = if cursor.x < ox {
+                debug!("stc {}<{}", cursor.x, ox);
                 cursor.x
             } else if cursor.x >= right {
-                cursor.x.saturating_sub(right)
+                debug!("stc {}>={}", cursor.x, right);
+                cursor.x.saturating_sub(width)
             } else {
+                debug!("stc fine");
                 ox
             };
 
@@ -1701,17 +1706,22 @@ impl TextAreaState {
     pub fn move_left(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
-        if cursor.x == 0 {
-            if cursor.y > 0 {
-                cursor.y = cursor.y.saturating_sub(1);
-                cursor.x = self.line_width(cursor.y);
+        if let Some(_scr_cursor) = self.pos_to_relative_screen(cursor) {
+            if cursor.x == 0 {
+                if cursor.y > 0 {
+                    cursor.y = cursor.y.saturating_sub(1);
+                    cursor.x = self.line_width(cursor.y);
+                }
+            } else {
+                cursor.x = cursor.x.saturating_sub(n as upos_type);
             }
-        } else {
-            cursor.x = cursor.x.saturating_sub(n as upos_type);
-        }
 
-        self.set_move_col(Some(cursor.x));
-        self.set_cursor(cursor, extend_selection)
+            self.set_move_col(Some(cursor.x));
+            self.set_cursor(cursor, extend_selection)
+        } else {
+            self.scroll_cursor_to_visible();
+            true
+        }
     }
 
     /// Move the cursor right. Scrolls the cursor to visible.
@@ -1719,18 +1729,23 @@ impl TextAreaState {
     pub fn move_right(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
-        let c_line_width = self.line_width(cursor.y);
-        if cursor.x == c_line_width {
-            if cursor.y + 1 < self.len_lines() {
-                cursor.y += 1;
-                cursor.x = 0;
+        if let Some(_scr_cursor) = self.pos_to_relative_screen(cursor) {
+            let c_line_width = self.line_width(cursor.y);
+            if cursor.x == c_line_width {
+                if cursor.y + 1 < self.len_lines() {
+                    cursor.y += 1;
+                    cursor.x = 0;
+                }
+            } else {
+                cursor.x = min(cursor.x + n as upos_type, c_line_width)
             }
-        } else {
-            cursor.x = min(cursor.x + n as upos_type, c_line_width)
-        }
 
-        self.set_move_col(Some(cursor.x));
-        self.set_cursor(cursor, extend_selection)
+            self.set_move_col(Some(cursor.x));
+            self.set_cursor(cursor, extend_selection)
+        } else {
+            self.scroll_cursor_to_visible();
+            true
+        }
     }
 
     /// Move the cursor up. Scrolls the cursor to visible.
@@ -1741,12 +1756,16 @@ impl TextAreaState {
         if let Some(move_col) = self.move_col() {
             cursor.x = move_col;
         }
-        let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) else {
-            unreachable!()
-        };
-        scr_cursor.1 -= n as i16;
-        if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
-            self.set_cursor(new_cursor, extend_selection)
+
+        if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
+            scr_cursor.1 -= n as i16;
+
+            if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
+                self.set_cursor(new_cursor, extend_selection)
+            } else {
+                self.scroll_cursor_to_visible();
+                true
+            }
         } else {
             self.scroll_cursor_to_visible();
             true
@@ -1771,12 +1790,16 @@ impl TextAreaState {
         if let Some(move_col) = self.move_col() {
             cursor.x = move_col;
         }
-        let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) else {
-            unreachable!()
-        };
-        scr_cursor.1 += n as i16;
-        if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
-            self.set_cursor(new_cursor, extend_selection)
+
+        if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
+            scr_cursor.1 += n as i16;
+
+            if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
+                self.set_cursor(new_cursor, extend_selection)
+            } else {
+                self.scroll_cursor_to_visible();
+                true
+            }
         } else {
             self.scroll_cursor_to_visible();
             true
@@ -1895,7 +1918,12 @@ impl HasScreenCursor for TextAreaState {
                 let Some(scr_cursor) = self.pos_to_screen(cursor) else {
                     return None;
                 };
-                if !self.inner.contains(scr_cursor.into()) {
+
+                if !(scr_cursor.0 >= self.inner.x
+                    && scr_cursor.0 <= self.inner.right()
+                    && scr_cursor.1 >= self.inner.y
+                    && scr_cursor.1 < self.inner.bottom())
+                {
                     return None;
                 }
                 Some(scr_cursor)
@@ -1993,21 +2021,21 @@ impl TextAreaState {
                 let oy = self.offset().1 as upos_type;
 
                 if oy > self.len_lines() {
-                    debug!("    rps 1");
+                    debug!("=> {} > {} exit 1", oy, self.len_lines());
                     return None;
                 }
 
                 if pos.y < oy {
-                    debug!("    rps 2");
+                    debug!("=> {} < {} exit 2", pos.y, oy);
                     return None;
                 }
                 if pos.y > self.len_lines() {
-                    debug!("    rps 3");
+                    debug!("=> {} > {} exit 3", pos.y, self.len_lines());
                     return None;
                 }
                 let screen_y = (pos.y - oy) as u16;
                 if screen_y >= self.rendered.height {
-                    debug!("    rps 4");
+                    debug!("=> {} >= {} exit 4", screen_y, self.rendered.height);
                     return None;
                 }
 
@@ -2020,17 +2048,17 @@ impl TextAreaState {
                         }
                     }
                     // invalid pos.x
-                    debug!("    rps 5");
+                    debug!("=> panic 5");
                     unreachable!("rps 5");
                 };
 
-                if screen_x >= self.rendered.width {
-                    debug!("    rps 6");
+                if screen_x > self.rendered.width {
+                    debug!("=> {} > {} exit 6", screen_x, self.rendered.width);
                     return None;
                 }
 
                 debug!(
-                    "    => {:?}",
+                    "    => yield {:?}",
                     (
                         screen_x as i16 - self.dark_offset.0 as i16,
                         screen_y as i16 - self.dark_offset.1 as i16,

@@ -84,8 +84,6 @@ fn repaint_input(
             Style::new().green(),
             Style::new().on_yellow(),
         ]);
-    // debug!("{:#?}", textarea);
-    // debug!("{:#?}", state.textarea);
     textarea.render(txt_area, frame.buffer_mut(), &mut state.textarea);
 
     if let Some((cx, cy)) = state.textarea.screen_cursor() {
