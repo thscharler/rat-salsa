@@ -923,7 +923,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     };
                     text_bytes = text_bytes.start..text_bytes.start;
                     // screen_pos is ok
-                    screen_width = 1;
+                    screen_width = if self.show_ctrl { 1 } else { 0 };
                     line_break = true;
                     pos = self.last_pos;
 
