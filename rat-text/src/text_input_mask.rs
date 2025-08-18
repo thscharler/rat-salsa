@@ -72,11 +72,14 @@
 use crate::_private::NonExhaustive;
 use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
+use crate::grapheme::Glyph2;
 use crate::text_input::TextInputState;
 use crate::text_mask_core::MaskedCore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
+#[allow(deprecated)]
+use crate::Glyph;
 use crate::{
-    ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextFocusGained,
+    ipos_type, upos_type, Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained,
     TextFocusLost, TextStyle,
 };
 use crossterm::event::KeyModifiers;
@@ -1324,7 +1327,7 @@ impl RelocatableState for MaskedInputState {
 }
 
 impl MaskedInputState {
-    fn glyphs2(&self) -> impl Iterator<Item = Glyph<'_>> {
+    fn glyphs2(&self) -> impl Iterator<Item = Glyph2<'_>> {
         self.value
             .glyphs2(
                 0..1,

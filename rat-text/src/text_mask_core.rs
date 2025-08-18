@@ -4,7 +4,9 @@ use crate::grapheme::{GlyphIter, GlyphIter2, TextWrap2};
 use crate::text_mask_core::mask::{EditDirection, Mask, MaskToken};
 use crate::text_store::SkipLine;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
-use crate::{upos_type, Cursor, Glyph, Grapheme, TextError, TextPosition, TextRange};
+#[allow(deprecated)]
+use crate::Glyph;
+use crate::{upos_type, Cursor, Grapheme, TextError, TextPosition, TextRange};
 use format_num_pattern::core::{clean_num, map_num};
 use format_num_pattern::{CurrencySym, NumberFormat, NumberSymbols};
 use std::borrow::Cow;
@@ -667,6 +669,7 @@ impl MaskedCore {
     /// Glyphs here a grapheme + display length.
     #[inline]
     #[deprecated]
+    #[allow(deprecated)]
     pub fn glyphs(
         &self,
         rows: Range<upos_type>,
@@ -712,6 +715,7 @@ impl MaskedCore {
     /// This omits unnecessary white-space.
     #[inline]
     #[deprecated]
+    #[allow(deprecated)]
     pub fn condensed_glyphs(
         &self,
         rows: Range<upos_type>,

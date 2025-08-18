@@ -19,6 +19,7 @@ mod text_core;
 mod text_mask_core;
 mod text_store;
 
+#[allow(deprecated)]
 pub use grapheme::{Glyph, Grapheme};
 
 use crate::_private::NonExhaustive;

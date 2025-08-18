@@ -58,7 +58,68 @@ impl<'a> Grapheme<'a> {
 
 /// Data for rendering/mapping graphemes to screen coordinates.
 #[derive(Debug)]
+#[deprecated]
 pub struct Glyph<'a> {
+    /// Display glyph.
+    glyph: Cow<'a, str>,
+    /// byte-range of the glyph in the given slice.
+    text_bytes: Range<usize>,
+    /// screen-position corrected by text_offset.
+    /// first visible column is at 0.
+    screen_pos: (u16, u16),
+    /// Display length for the glyph.
+    screen_width: u16,
+    /// text-position
+    pos: TextPosition,
+}
+
+#[allow(deprecated)]
+impl<'a> Glyph<'a> {
+    pub fn new(
+        glyph: Cow<'a, str>,
+        text_bytes: Range<usize>,
+        screen_pos: (u16, u16),
+        screen_width: u16,
+        pos: TextPosition,
+    ) -> Self {
+        Self {
+            glyph,
+            text_bytes,
+            screen_pos,
+            screen_width,
+            pos,
+        }
+    }
+
+    /// Get the glyph.
+    pub fn glyph(&'a self) -> &'a str {
+        self.glyph.as_ref()
+    }
+
+    /// Get the byte-range as absolute range into the complete text.
+    pub fn text_bytes(&self) -> Range<usize> {
+        self.text_bytes.clone()
+    }
+
+    /// Get the position of the glyph
+    pub fn pos(&self) -> TextPosition {
+        self.pos
+    }
+
+    /// Get the screen position of the glyph.
+    pub fn screen_pos(&self) -> (u16, u16) {
+        self.screen_pos
+    }
+
+    /// Display width of the glyph.
+    pub fn screen_width(&self) -> u16 {
+        self.screen_width
+    }
+}
+
+/// Data for rendering/mapping graphemes to screen coordinates.
+#[derive(Debug)]
+pub(crate) struct Glyph2<'a> {
     /// Display glyph.
     glyph: Cow<'a, str>,
     /// byte-range of the glyph in the given slice.
@@ -74,25 +135,7 @@ pub struct Glyph<'a> {
     pos: TextPosition,
 }
 
-impl<'a> Glyph<'a> {
-    pub fn new(
-        glyph: Cow<'a, str>,
-        text_bytes: Range<usize>,
-        screen_pos: (u16, u16),
-        screen_width: u16,
-        line_break: bool,
-        pos: TextPosition,
-    ) -> Self {
-        Self {
-            glyph,
-            text_bytes,
-            screen_pos,
-            screen_width,
-            line_break,
-            pos,
-        }
-    }
-
+impl<'a> Glyph2<'a> {
     /// Get the glyph.
     pub fn glyph(&'a self) -> &'a str {
         self.glyph.as_ref()
@@ -555,7 +598,7 @@ pub(crate) struct GlyphIter2<'a> {
     done: bool,
 
     /// Sometimes one grapheme creates two glyphs.
-    next_glyph: Option<Glyph<'static>>,
+    next_glyph: Option<Glyph2<'static>>,
 
     /// Next glyph position.
     next_pos: TextPosition,
@@ -656,7 +699,7 @@ impl<'a> GlyphIter2<'a> {
 }
 
 impl<'a> Iterator for GlyphIter2<'a> {
-    type Item = Glyph<'a>;
+    type Item = Glyph2<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
@@ -679,7 +722,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
 
                 // emit a synthetic EOT at the very end.
                 // helps if the last line doesn't end in a line-break.
-                let glyph = Glyph {
+                let glyph = Glyph2 {
                     glyph: if self.show_ctrl {
                         Cow::Borrowed("\u{2403}")
                     } else {
@@ -770,7 +813,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         self.last_pos = pos;
                         self.last_byte = text_bytes.end;
 
-                        return Some(Glyph {
+                        return Some(Glyph2 {
                             glyph,
                             text_bytes,
                             screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
@@ -796,7 +839,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.last_pos = pos;
                     self.last_byte = text_bytes.end;
 
-                    return Some(Glyph {
+                    return Some(Glyph2 {
                         glyph,
                         text_bytes,
                         screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
@@ -825,7 +868,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.last_pos = pos;
                     self.last_byte = text_bytes.end;
 
-                    return Some(Glyph {
+                    return Some(Glyph2 {
                         glyph,
                         text_bytes,
                         screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
@@ -864,7 +907,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.last_pos = pos;
                     self.last_byte = text_bytes.end;
 
-                    return Some(Glyph {
+                    return Some(Glyph2 {
                         glyph,
                         text_bytes,
                         screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
@@ -881,7 +924,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.last_pos = pos;
                     self.last_byte = text_bytes.end;
 
-                    return Some(Glyph {
+                    return Some(Glyph2 {
                         glyph,
                         text_bytes,
                         screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
@@ -907,7 +950,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.last_pos = pos;
                     self.last_byte = text_bytes.end;
 
-                    return Some(Glyph {
+                    return Some(Glyph2 {
                         glyph,
                         text_bytes,
                         screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
@@ -924,7 +967,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_pos.x += 1;
                     // next_pos.y doesn't change
 
-                    self.next_glyph = Some(Glyph {
+                    self.next_glyph = Some(Glyph2 {
                         glyph: Cow::Owned(glyph.to_string()),
                         text_bytes: text_bytes.clone(),
                         screen_pos: (0, screen_pos.1 as u16 + 1),
@@ -947,7 +990,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.last_pos = pos;
                     self.last_byte = text_bytes.end;
 
-                    return Some(Glyph {
+                    return Some(Glyph2 {
                         glyph,
                         text_bytes,
                         screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
@@ -963,7 +1006,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_pos.x += 1;
                     // next_pos.y doesn't change
 
-                    self.next_glyph = Some(Glyph {
+                    self.next_glyph = Some(Glyph2 {
                         glyph: if self.show_ctrl {
                             Cow::Borrowed("\u{2424}")
                         } else {
@@ -979,7 +1022,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.last_pos = pos;
                     self.last_byte = text_bytes.end;
 
-                    return Some(Glyph {
+                    return Some(Glyph2 {
                         glyph,
                         text_bytes,
                         screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
@@ -994,7 +1037,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.last_pos = pos;
                     self.last_byte = text_bytes.end;
 
-                    return Some(Glyph {
+                    return Some(Glyph2 {
                         glyph,
                         text_bytes,
                         screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
@@ -1076,6 +1119,7 @@ where
     }
 }
 
+#[allow(deprecated)]
 impl<'a, Iter> Iterator for GlyphIter<Iter>
 where
     Iter: Iterator<Item = Grapheme<'a>>,
@@ -1083,61 +1127,87 @@ where
     type Item = Glyph<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let Some(grapheme) = self.iter.next() else {
-                return None;
-            };
+        for grapheme in self.iter.by_ref() {
+            let glyph;
+            let len: u16;
+            let mut lbrk = false;
 
-            let mut glyph = Glyph {
-                glyph: Default::default(),
-                text_bytes: grapheme.text_bytes(),
-                screen_pos: self.screen_pos,
-                screen_width: 0,
-                line_break: false,
-                pos: self.pos,
-            };
+            // todo: maybe add some ligature support.
 
-            self.remap(grapheme, &mut glyph);
+            match grapheme.grapheme.as_ref() {
+                "\n" | "\r\n" if self.line_break => {
+                    lbrk = true;
+                    len = if self.show_ctrl { 1 } else { 0 };
+                    glyph = Cow::Borrowed(if self.show_ctrl { "\u{2424}" } else { "" });
+                }
+                "\n" | "\r\n" if !self.line_break => {
+                    lbrk = false;
+                    len = 1;
+                    glyph = Cow::Borrowed("\u{2424}");
+                }
+                "\t" => {
+                    len = self.tabs - (self.screen_pos.0 % self.tabs);
+                    glyph = Cow::Borrowed(if self.show_ctrl { "\u{2409}" } else { " " });
+                }
+                c if ("\x00".."\x20").contains(&c) => {
+                    static CCHAR: [&str; 32] = [
+                        "\u{2400}", "\u{2401}", "\u{2402}", "\u{2403}", "\u{2404}", "\u{2405}",
+                        "\u{2406}", "\u{2407}", "\u{2408}", "\u{2409}", "\u{240A}", "\u{240B}",
+                        "\u{240C}", "\u{240D}", "\u{240E}", "\u{240F}", "\u{2410}", "\u{2411}",
+                        "\u{2412}", "\u{2413}", "\u{2414}", "\u{2415}", "\u{2416}", "\u{2417}",
+                        "\u{2418}", "\u{2419}", "\u{241A}", "\u{241B}", "\u{241C}", "\u{241D}",
+                        "\u{241E}", "\u{241F}",
+                    ];
+                    let c0 = c.bytes().next().expect("byte");
+                    len = 1;
+                    glyph = Cow::Borrowed(if self.show_ctrl {
+                        CCHAR[c0 as usize]
+                    } else {
+                        "\u{FFFD}"
+                    });
+                }
+                c => {
+                    len = unicode_display_width::width(c) as u16;
+                    glyph = grapheme.grapheme;
+                }
+            }
 
             let pos = self.pos;
             let screen_pos = self.screen_pos;
 
-            if glyph.line_break {
+            if lbrk {
                 self.screen_pos.0 = 0;
                 self.screen_pos.1 += 1;
                 self.pos.x = 0;
                 self.pos.y += 1;
             } else {
-                self.screen_pos.0 += glyph.screen_width;
+                self.screen_pos.0 += len;
                 self.pos.x += 1;
             }
 
             // clip left
             if screen_pos.0 < self.screen_offset {
-                if screen_pos.0 + glyph.screen_width > self.screen_offset {
+                if screen_pos.0 + len > self.screen_offset {
                     // don't show partial glyphs, but show the space they need.
                     // avoids flickering when scrolling left/right.
                     return Some(Glyph {
                         glyph: Cow::Borrowed("\u{2203}"),
-                        text_bytes: glyph.text_bytes,
-                        screen_width: screen_pos.0 + glyph.screen_width - self.screen_offset,
-                        line_break: glyph.line_break,
+                        text_bytes: grapheme.text_bytes,
+                        screen_width: screen_pos.0 + len - self.screen_offset,
                         pos,
                         screen_pos: (0, screen_pos.1),
                     });
                 } else {
                     // out left
                 }
-            } else if screen_pos.0 + glyph.screen_width > self.screen_offset + self.screen_width {
+            } else if screen_pos.0 + len > self.screen_offset + self.screen_width {
                 if screen_pos.0 < self.screen_offset + self.screen_width {
                     // don't show partial glyphs, but show the space they need.
                     // avoids flickering when scrolling left/right.
                     return Some(Glyph {
                         glyph: Cow::Borrowed("\u{2203}"),
-                        text_bytes: glyph.text_bytes,
-                        screen_width: screen_pos.0 + glyph.screen_width
-                            - (self.screen_offset + self.screen_width),
-                        line_break: glyph.line_break,
+                        text_bytes: grapheme.text_bytes,
+                        screen_width: screen_pos.0 + len - (self.screen_offset + self.screen_width),
                         pos,
                         screen_pos: (screen_pos.0 - self.screen_offset, screen_pos.1),
                     });
@@ -1149,10 +1219,9 @@ where
                 }
             } else {
                 return Some(Glyph {
-                    glyph: glyph.glyph,
-                    text_bytes: glyph.text_bytes,
-                    screen_width: glyph.screen_width,
-                    line_break: glyph.line_break,
+                    glyph,
+                    text_bytes: grapheme.text_bytes,
+                    screen_width: len,
                     pos,
                     screen_pos: (screen_pos.0 - self.screen_offset, screen_pos.1),
                 });
@@ -1160,54 +1229,6 @@ where
         }
 
         None
-    }
-}
-
-impl<'a, Iter> GlyphIter<Iter>
-where
-    Iter: Iterator<Item = Grapheme<'a>>,
-{
-    fn remap(&mut self, mut grapheme: Grapheme<'a>, glyph: &mut Glyph<'a>) {
-        let cc = grapheme.grapheme();
-
-        // remap grapheme
-        if cc == "\n" || cc == "\r\n" {
-            if self.line_break {
-                glyph.line_break = true;
-                glyph.screen_width = if self.show_ctrl { 1 } else { 0 };
-                glyph.glyph = Cow::Borrowed(if self.show_ctrl { "\u{240A}" } else { "" });
-            } else {
-                glyph.line_break = false;
-                glyph.screen_width = 1;
-                glyph.glyph = Cow::Borrowed("\u{240A}");
-            }
-        } else if cc == "\t" {
-            glyph.line_break = false;
-            glyph.screen_width = self.tabs - (self.screen_pos.0 % self.tabs);
-            glyph.glyph = Cow::Borrowed(if self.show_ctrl { "\u{2409}" } else { " " });
-        } else if ("\x00".."\x20").contains(&cc) {
-            glyph.line_break = false;
-            glyph.screen_width = 1;
-
-            // Control char unicode display replacement.
-            static CONTROL_CHARS: [&str; 32] = [
-                "\u{2400}", "\u{2401}", "\u{2402}", "\u{2403}", "\u{2404}", "\u{2405}", "\u{2406}",
-                "\u{2407}", "\u{2408}", "\u{2409}", "\u{240A}", "\u{240B}", "\u{240C}", "\u{240D}",
-                "\u{240E}", "\u{240F}", "\u{2410}", "\u{2411}", "\u{2412}", "\u{2413}", "\u{2414}",
-                "\u{2415}", "\u{2416}", "\u{2417}", "\u{2418}", "\u{2419}", "\u{241A}", "\u{241B}",
-                "\u{241C}", "\u{241D}", "\u{241E}", "\u{241F}",
-            ];
-
-            glyph.glyph = Cow::Borrowed(if self.show_ctrl {
-                CONTROL_CHARS[cc.as_bytes()[0] as usize]
-            } else {
-                "\u{FFFD}"
-            });
-        } else {
-            glyph.line_break = false;
-            glyph.screen_width = unicode_display_width::width(cc) as u16;
-            glyph.glyph = mem::take(&mut grapheme.grapheme);
-        }
     }
 }
 

@@ -1,5 +1,7 @@
 use crate::clipboard::Clipboard;
-use crate::grapheme::{Glyph, GlyphIter, GlyphIter2, Grapheme, TextWrap2};
+#[allow(deprecated)]
+use crate::grapheme::Glyph;
+use crate::grapheme::{GlyphIter, GlyphIter2, Grapheme, TextWrap2};
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::{SkipLine, TextStore};
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
@@ -759,6 +761,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Glyphs here a grapheme + display length.
     #[inline]
     #[deprecated]
+    #[allow(deprecated)]
     pub fn glyphs(
         &self,
         rows: Range<upos_type>,

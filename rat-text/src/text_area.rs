@@ -6,7 +6,9 @@
 use crate::_private::NonExhaustive;
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
-use crate::grapheme::{Glyph, Grapheme, TextWrap2};
+#[allow(deprecated)]
+use crate::grapheme::Glyph;
+use crate::grapheme::{Glyph2, Grapheme, TextWrap2};
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
@@ -1939,7 +1941,7 @@ impl TextAreaState {
         &self,
         start_col: upos_type,
         rows: Range<upos_type>,
-    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
+    ) -> Result<impl Iterator<Item = Glyph2<'_>>, TextError> {
         let (text_wrap, left_margin, right_margin, word_margin) = match self.text_wrap {
             TextWrap::Shift => (
                 TextWrap2::ShiftText,

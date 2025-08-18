@@ -17,10 +17,12 @@ use crate::_private::NonExhaustive;
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
-use crate::grapheme::TextWrap2;
+use crate::grapheme::{Glyph2, TextWrap2};
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
+#[allow(deprecated)]
+use crate::Glyph;
 use crate::{
-    ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextFocusGained,
+    ipos_type, upos_type, Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained,
     TextFocusLost, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
@@ -1285,7 +1287,7 @@ impl RelocatableState for TextInputState {
 }
 
 impl TextInputState {
-    fn glyphs2(&self) -> impl Iterator<Item = Glyph<'_>> {
+    fn glyphs2(&self) -> impl Iterator<Item = Glyph2<'_>> {
         let (text_break, left_margin, right_margin, word_margin) = (
             TextWrap2::ShiftText,
             self.offset() as upos_type,
