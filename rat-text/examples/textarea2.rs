@@ -27,7 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.textarea.set_auto_indent(false);
     // state.textarea.set_show_ctrl(true);
-    state.textarea.set_text_wrap(TextWrap::Hard);
+    state.textarea.set_text_wrap(TextWrap::Shift);
 
     let (text, styles) = sample_scott_1();
     state.textarea.set_rope(text);
@@ -107,7 +107,7 @@ fn repaint_input(
             &mut stats,
             "offset: {:?} {:?}",
             state.textarea.offset(),
-            state.textarea.__sub_row_offset
+            state.textarea.sub_row_offset
         );
         _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
         _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());

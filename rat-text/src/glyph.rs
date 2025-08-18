@@ -1,7 +1,7 @@
 use crate::text_store::SkipLine;
 use crate::{upos_type, Grapheme, TextPosition};
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::ops::Range;
@@ -108,18 +108,43 @@ impl Default for TextWrap2 {
 /// Cache
 #[derive(Debug, Clone, Default)]
 pub(crate) struct GlyphCache {
+    /// Valid for which offset + sub_row_offset
+    pub offset: Cell<(usize, usize)>,
+    pub sub_row_offset: Cell<upos_type>,
+
     /// Mark the byte-positions of each line-start.
     ///
     /// Used when text-wrap is ShiftText.
-    pub line_start: Rc<RefCell<HashMap<upos_type, usize>>>,
+    pub line_start: Rc<RefCell<HashMap<upos_type, GlyphCacheLine>>>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct GlyphCacheLine {
+    pub pos_x: upos_type,
+    pub screen_pos_x: upos_type,
+    pub byte_pos: usize,
 }
 
 impl GlyphCache {
     /// Invalidate all entries past this byte-position.
-    pub(crate) fn invalidate(&self, byte_pos: usize) {
-        self.line_start
-            .borrow_mut()
-            .retain(|_, byte| *byte < byte_pos);
+    pub(crate) fn invalidate(
+        &self,
+        offset: (usize, usize),
+        sub_row_offset: upos_type,
+        byte_pos: Option<usize>,
+    ) {
+        if self.offset.get() != offset {
+            self.line_start.borrow_mut().clear();
+        } else {
+            if let Some(byte_pos) = byte_pos {
+                self.line_start
+                    .borrow_mut()
+                    .retain(|_, cache| cache.byte_pos < byte_pos);
+            }
+        }
+
+        self.offset.set(offset);
+        self.sub_row_offset.set(sub_row_offset);
     }
 }
 
@@ -374,14 +399,18 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         - self.left_margin) as u16;
                     screen_pos.0 = 0;
 
+                    // cache line start position.
+                    self.cache.line_start.borrow_mut().insert(
+                        pos.y,
+                        GlyphCacheLine {
+                            pos_x: pos.x,
+                            screen_pos_x: self.next_screen_pos.0,
+                            byte_pos: grapheme_bytes.start,
+                        },
+                    );
+
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
-
-                    // cache line start position.
-                    self.cache
-                        .line_start
-                        .borrow_mut()
-                        .insert(pos.y, grapheme_bytes.start);
 
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
@@ -400,8 +429,15 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
-                    // TODO skip glyph. maybe.
-                    continue;
+                    if let Some(cached) = self.cache.line_start.borrow().get(&pos.y) {
+                        self.iter.skip_to(cached.byte_pos).expect("valid-pos");
+                        self.next_pos.x = cached.pos_x;
+                        self.next_screen_pos.0 = cached.screen_pos_x;
+                        continue;
+                    } else {
+                        // not yet cached. go the long way.
+                        continue;
+                    }
                 } else if self.next_screen_pos.0 == right_margin {
                     line_break = true;
                     screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
@@ -465,17 +501,22 @@ impl<'a> Iterator for GlyphIter2<'a> {
                 } else {
                     screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
 
+                    if screen_pos.0 == 0 {
+                        self.cache.line_start.borrow_mut().insert(
+                            pos.y,
+                            GlyphCacheLine {
+                                pos_x: pos.x,
+                                screen_pos_x: self.next_screen_pos.0,
+                                byte_pos: grapheme_bytes.start,
+                            },
+                        );
+                    }
+
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
-
-                    // cache line start position.
-                    self.cache
-                        .line_start
-                        .borrow_mut()
-                        .insert(pos.y, grapheme_bytes.start);
 
                     return Some(Glyph2 {
                         glyph: grapheme,

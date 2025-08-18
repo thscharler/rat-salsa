@@ -361,6 +361,10 @@ impl<'a> SkipLine for RopeGraphemes<'a> {
     }
 
     fn skip_to(&mut self, byte_pos: usize) -> Result<(), TextError> {
+        // byte_pos is absolute to all text, but everything here is
+        // relative to the slice.
+        let byte_pos = byte_pos - self.text_offset;
+
         let Some((mut chunks, chunk_start, _, _)) = self.text.get_chunks_at_byte(byte_pos) else {
             return Err(TextError::ByteIndexOutOfBounds(
                 byte_pos,

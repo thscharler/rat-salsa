@@ -18,6 +18,7 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -33,6 +34,7 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::ops::Range;
+use std::time::SystemTime;
 
 /// Text area widget.
 ///
@@ -428,6 +430,13 @@ fn render_text_area(
         .expect("valid_rows");
     let selection = state.selection();
     let mut styles = Vec::new();
+
+    let t = SystemTime::now();
+    for g in state
+        .glyphs2(start_col, page_rows.clone())
+        .expect("valid_offset")
+    {}
+    debug!("render {:?}", t.elapsed());
 
     for g in state.glyphs2(start_col, page_rows).expect("valid_offset") {
         // relative screen-pos of the glyph
@@ -1966,9 +1975,11 @@ impl TextAreaState {
             ),
         };
 
-        if let Some(byte_pos) = self.value.min_changed() {
-            self.cache.invalidate(byte_pos);
-        }
+        self.cache.invalidate(
+            self.offset(),
+            self.page_start_offset(),
+            self.value.min_changed(),
+        );
 
         self.value.glyphs2(
             start_col,
