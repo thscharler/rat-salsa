@@ -15,7 +15,6 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
-use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -136,7 +135,7 @@ pub struct TextAreaState {
     /// quote selection active
     pub auto_quote: bool,
     /// text breaking
-    pub text_break: TextWrap,
+    pub text_wrap: TextWrap,
 
     /// Current focus state.
     pub focus: FocusFlag,
@@ -163,7 +162,7 @@ impl Clone for TextAreaState {
             move_col: None,
             auto_indent: self.auto_indent,
             auto_quote: self.auto_quote,
-            text_break: TextWrap::Shift,
+            text_wrap: TextWrap::Shift,
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -408,7 +407,16 @@ fn render_text_area(
     }
 
     let (_ox, oy) = state.offset();
-    let start_col = state.sub_row_offset;
+    let start_col = if let TextWrap::Hard | TextWrap::Word(_) = state.text_wrap {
+        // sub_row_offset can be any value. limit somewhat.
+        if let Ok(max_col) = state.try_line_width(oy as upos_type) {
+            min(state.sub_row_offset, max_col)
+        } else {
+            0
+        }
+    } else {
+        0
+    };
     let page_rows = (oy as upos_type)
         ..min(
             oy as upos_type + inner.height as upos_type,
@@ -474,7 +482,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
     let nox;
     let noy;
     let nstart_col;
-    match state.text_break {
+    match state.text_wrap {
         TextWrap::Shift => {
             let height = state.rendered.height as upos_type;
             let width = state.rendered.width as upos_type;
@@ -579,7 +587,7 @@ impl Default for TextAreaState {
             move_col: Default::default(),
             auto_indent: true,
             auto_quote: true,
-            text_break: TextWrap::Shift,
+            text_wrap: TextWrap::Shift,
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -689,12 +697,12 @@ impl TextAreaState {
 
     /// Text breaking.
     pub fn set_text_wrap(&mut self, text_wrap: TextWrap) {
-        self.text_break = text_wrap;
+        self.text_wrap = text_wrap;
     }
 
     /// Text breaking.
     pub fn text_break(&self) -> TextWrap {
-        self.text_break
+        self.text_wrap
     }
 
     /// Extra column information for cursor movement.
@@ -1932,7 +1940,7 @@ impl TextAreaState {
         start_col: upos_type,
         rows: Range<upos_type>,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        let (text_wrap, left_margin, right_margin, word_margin) = match self.text_break {
+        let (text_wrap, left_margin, right_margin, word_margin) = match self.text_wrap {
             TextWrap::Shift => (
                 TextWrap2::ShiftText,
                 self.offset().0 as upos_type,
@@ -1987,7 +1995,7 @@ impl TextAreaState {
 
     /// Return the starting position for the visible line containing the given position.
     pub fn pos_to_line_start(&self, pos: TextPosition) -> TextPosition {
-        match self.text_break {
+        match self.text_wrap {
             TextWrap::Shift => TextPosition::new(0, pos.y),
             TextWrap::Hard | TextWrap::Word(_) => {
                 let mut start_pos = TextPosition::new(0, pos.y);
@@ -2006,7 +2014,7 @@ impl TextAreaState {
 
     /// Return the end position for the visible line containing the given position.
     pub fn pos_to_line_end(&self, pos: TextPosition) -> TextPosition {
-        match self.text_break {
+        match self.text_wrap {
             TextWrap::Shift => TextPosition::new(self.line_width(pos.y), pos.y),
             TextWrap::Hard | TextWrap::Word(_) => {
                 let mut end_pos = None;
@@ -2036,7 +2044,7 @@ impl TextAreaState {
     /// If the text-position is outside the rendered area,
     /// this will return None.
     pub fn pos_to_relative_screen(&self, pos: TextPosition) -> Option<(i16, i16)> {
-        match self.text_break {
+        match self.text_wrap {
             TextWrap::Shift => {
                 let oy = self.offset().1 as upos_type;
 
@@ -2119,7 +2127,7 @@ impl TextAreaState {
             scr_pos.1 + self.dark_offset.1 as i16,
         );
 
-        match self.text_break {
+        match self.text_wrap {
             TextWrap::Shift => {
                 let (ox, oy) = self.offset();
                 let (ox, oy) = (ox as upos_type, oy as upos_type);
@@ -2206,6 +2214,7 @@ impl TextAreaState {
                     );
 
                     // start at the offset and find the screen-position.
+                    let mut fallback = None;
                     for g in self
                         .glyphs2(self.sub_row_offset, oy..self.len_lines())
                         .expect("valid-position")
@@ -2213,10 +2222,16 @@ impl TextAreaState {
                         if g.contains_screen_pos(scr_pos) {
                             return Some(g.pos());
                         }
+                        // fallback is start of last line or the correct column within
+                        // the last line.
+                        if g.screen_pos().0 == 0 {
+                            fallback = Some(g.pos());
+                        } else if g.screen_pos().0 == scr_pos.0 {
+                            fallback = Some(g.pos());
+                        }
                     }
-
-                    // beyond the end
-                    Some(TextPosition::new(0, self.len_lines()))
+                    // beyond the end. fallback to start of last line.
+                    fallback.or_else(|| Some(TextPosition::new(0, self.len_lines())))
                 }
             }
         }
@@ -2453,9 +2468,9 @@ impl TextAreaState {
     /// The widget must deal with this situation.
     ///
     /// The widget returns true if the offset changed at all.
-    #[allow(unused_assignments)]
     pub fn set_vertical_offset(&mut self, row_offset: usize) -> bool {
         self.scroll_to_cursor = false;
+        self.sub_row_offset = 0;
         self.vscroll.set_offset(row_offset)
     }
 
@@ -2464,8 +2479,9 @@ impl TextAreaState {
     /// Due to overscroll it's possible that this is an invalid offset for the widget.
     /// The widget must deal with this situation.
     ///
+    /// This offset is ignored if there is any text-wrapping.
+    ///
     /// The widget returns true if the offset changed at all.
-    #[allow(unused_assignments)]
     pub fn set_horizontal_offset(&mut self, col_offset: usize) -> bool {
         self.scroll_to_cursor = false;
         self.hscroll.set_offset(col_offset)
@@ -2478,6 +2494,8 @@ impl TextAreaState {
     }
 
     /// Scroll to position.
+    ///
+    /// This scroll-offset is ignored if there is any text-wrapping.
     pub fn scroll_to_col(&mut self, pos: usize) -> bool {
         self.scroll_to_cursor = false;
         self.hscroll.set_offset(pos)
@@ -2485,22 +2503,77 @@ impl TextAreaState {
 
     /// Scrolling
     pub fn scroll_up(&mut self, delta: usize) -> bool {
-        self.vscroll.scroll_up(delta)
+        if let Some(pos) = self.relative_screen_to_pos((0, -(delta as i16))) {
+            self.sub_row_offset = pos.x;
+            self.vscroll.set_offset(pos.y as usize);
+            true
+        } else {
+            self.sub_row_offset = 0;
+
+            // this uses a different limit compared to vscroll.scroll_down()
+            // otherwise it doesn't play well with the sub_row_offset.
+            let old = self.vscroll.offset;
+            self.vscroll.offset = min(
+                self.vscroll.offset.saturating_sub(delta),
+                self.vscroll
+                    .max_offset
+                    .saturating_add(self.vscroll.page_len())
+                    .saturating_add(self.vscroll.overscroll_by()),
+            );
+            old != self.vscroll.offset
+        }
     }
 
     /// Scrolling
     pub fn scroll_down(&mut self, delta: usize) -> bool {
-        self.vscroll.scroll_down(delta)
+        if let Some(pos) = self.relative_screen_to_pos((0, delta as i16)) {
+            self.sub_row_offset = pos.x;
+            self.vscroll.set_offset(pos.y as usize);
+            true
+        } else {
+            self.sub_row_offset = 0;
+
+            // this uses a different limit compared to vscroll.scroll_down()
+            // otherwise it doesn't play well with the sub_row_offset.
+            let old = self.vscroll.offset;
+            self.vscroll.offset = min(
+                self.vscroll.offset.saturating_add(delta),
+                self.vscroll
+                    .max_offset
+                    .saturating_add(self.vscroll.page_len())
+                    .saturating_add(self.vscroll.overscroll_by()),
+            );
+
+            old != self.vscroll.offset
+        }
     }
 
     /// Scrolling
+    ///
+    /// Does nothing if there is any text-wrapping.
     pub fn scroll_left(&mut self, delta: usize) -> bool {
         self.hscroll.scroll_left(delta)
     }
 
     /// Scrolling
+    ///
+    /// Does nothing if there is any text-wrapping.
     pub fn scroll_right(&mut self, delta: usize) -> bool {
         self.hscroll.scroll_right(delta)
+    }
+
+    /// If there is some form of text-wrapping active, this
+    /// changes the start-column for rendering the first visible
+    /// line.
+    ///
+    /// The effect looks like sub-row scrolling.
+    pub fn scroll_page_start(&mut self, col: usize) -> bool {
+        if let Ok(max_col) = self.try_line_width(self.offset().1 as upos_type) {
+            self.sub_row_offset = min(col as upos_type, max_col);
+        } else {
+            self.sub_row_offset = 0;
+        }
+        true
     }
 }
 

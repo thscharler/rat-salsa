@@ -29,10 +29,10 @@ fn main() -> Result<(), anyhow::Error> {
     // state.textarea.set_show_ctrl(true);
     state.textarea.set_text_wrap(TextWrap::Hard);
 
-    let (text, styles) = sample_lorem();
+    let (text, styles) = sample_scott_1();
     state.textarea.set_rope(text);
-    state.textarea.set_styles(styles);
-    //add_range_styles(&mut state.textarea, styles);
+    // state.textarea.set_styles(styles);
+    add_range_styles(&mut state.textarea, styles);
 
     run_ui(
         "textarea2",
@@ -60,7 +60,7 @@ fn repaint_input(
     let l1 = Layout::vertical([
         Constraint::Length(7),
         Constraint::Fill(1),
-        Constraint::Length(1),
+        Constraint::Length(7),
         Constraint::Length(1),
     ])
     .split(area);
@@ -80,7 +80,7 @@ fn repaint_input(
         .vscroll(
             Scroll::new()
                 .scroll_by(1)
-                .overscroll_by(50)
+                // .overscroll_by(50)
                 .policy(ScrollbarPolicy::Always),
         )
         .hscroll(Scroll::new().policy(ScrollbarPolicy::Always))
