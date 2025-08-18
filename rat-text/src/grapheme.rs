@@ -663,6 +663,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
             return None;
         }
         if let Some(glyph) = self.next_glyph.take() {
+            self.last_pos = glyph.pos;
+            self.last_byte = glyph.text_bytes.end;
+
             return Some(glyph);
         }
 
@@ -751,8 +754,6 @@ impl<'a> Iterator for GlyphIter2<'a> {
                 };
 
                 // self.next_screen_pos later
-                self.last_pos = self.next_pos;
-                self.last_byte = text_bytes.end;
                 self.next_pos.x += 1;
                 // next_pos.y doesn't change
 
@@ -765,6 +766,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
 
                     if screen_pos.0 as upos_type <= right_margin {
                         screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
+
+                        self.last_pos = pos;
+                        self.last_byte = text_bytes.end;
 
                         return Some(Glyph {
                             glyph,
@@ -788,6 +792,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
 
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
+
+                    self.last_pos = pos;
+                    self.last_byte = text_bytes.end;
 
                     return Some(Glyph {
                         glyph,
@@ -815,6 +822,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_screen_pos.0 += 1;
                     // self.next_screen_pos.1 doesn't change
 
+                    self.last_pos = pos;
+                    self.last_byte = text_bytes.end;
+
                     return Some(Glyph {
                         glyph,
                         text_bytes,
@@ -832,6 +842,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     // skip to next_line
                     self.iter.next_line().expect("fine");
 
+                    // do the line-break here.
                     self.next_screen_pos.0 = 0;
                     self.next_screen_pos.1 += 1;
                     self.next_pos.x = 0;
@@ -850,6 +861,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
+                    self.last_pos = pos;
+                    self.last_byte = text_bytes.end;
+
                     return Some(Glyph {
                         glyph,
                         text_bytes,
@@ -863,6 +877,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
 
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
+
+                    self.last_pos = pos;
+                    self.last_byte = text_bytes.end;
 
                     return Some(Glyph {
                         glyph,
@@ -881,14 +898,14 @@ impl<'a> Iterator for GlyphIter2<'a> {
                 };
 
                 // self.next_screen_pos later
-                self.last_pos = self.next_pos;
-                self.last_byte = text_bytes.end;
-
                 if line_break {
                     self.next_screen_pos.0 = 0;
                     self.next_screen_pos.1 += 1;
                     self.next_pos.x = 0;
                     self.next_pos.y += 1;
+
+                    self.last_pos = pos;
+                    self.last_byte = text_bytes.end;
 
                     return Some(Glyph {
                         glyph,
@@ -927,6 +944,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     line_break = true;
                     pos = self.last_pos;
 
+                    self.last_pos = pos;
+                    self.last_byte = text_bytes.end;
+
                     return Some(Glyph {
                         glyph,
                         text_bytes,
@@ -956,6 +976,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         pos,
                     });
 
+                    self.last_pos = pos;
+                    self.last_byte = text_bytes.end;
+
                     return Some(Glyph {
                         glyph,
                         text_bytes,
@@ -967,6 +990,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
                 } else {
                     self.next_screen_pos.0 += screen_width as upos_type;
                     self.next_pos.x += 1;
+
+                    self.last_pos = pos;
+                    self.last_byte = text_bytes.end;
 
                     return Some(Glyph {
                         glyph,

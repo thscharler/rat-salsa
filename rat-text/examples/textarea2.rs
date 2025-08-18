@@ -27,7 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.textarea.set_auto_indent(false);
     // state.textarea.set_show_ctrl(true);
-    state.textarea.set_text_wrap(TextWrap::Word(5));
+    state.textarea.set_text_wrap(TextWrap::Hard);
 
     let (text, styles) = sample_lorem();
     state.textarea.set_rope(text);
