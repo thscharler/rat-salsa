@@ -862,6 +862,7 @@ impl MaskedCore {
                         (_, _, _) => Some(g),
                     }),
             ),
+            byte_pos: 0,
         };
 
         let mut it = GlyphIter2::new(TextPosition::new(0, rows.start), iter);
@@ -911,21 +912,44 @@ impl MaskedCore {
 
 struct MaskedGraphemes<'a> {
     iter: Box<dyn Iterator<Item = Grapheme<'a>> + 'a>,
+    byte_pos: usize,
 }
 
 impl<'a> Iterator for MaskedGraphemes<'a> {
     type Item = Grapheme<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        if let Some(v) = self.iter.next() {
+            self.byte_pos = v.text_bytes().end;
+            Some(v)
+        } else {
+            None
+        }
     }
 }
 
 impl<'a> SkipLine for MaskedGraphemes<'a> {
-    fn next_line(&mut self) -> Result<(), TextError> {
+    fn skip_line(&mut self) -> Result<(), TextError> {
         // all in one line, eat the rest.
         for _ in self.iter.by_ref() {}
         Ok(())
+    }
+
+    fn skip_to(&mut self, byte_pos: usize) -> Result<(), TextError> {
+        if byte_pos > self.byte_pos {
+            Err(TextError::ByteIndexOutOfBounds(byte_pos, self.byte_pos))
+        } else if byte_pos == self.byte_pos {
+            Ok(())
+        } else {
+            for g in self.iter.by_ref() {
+                if byte_pos == g.text_bytes().end {
+                    return Ok(());
+                } else if byte_pos < g.text_bytes().end {
+                    return Err(TextError::ByteIndexNotCharBoundary(byte_pos));
+                }
+            }
+            Err(TextError::ByteIndexOutOfBounds(byte_pos, byte_pos))
+        }
     }
 }
 
