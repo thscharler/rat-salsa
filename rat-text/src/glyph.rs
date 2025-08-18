@@ -6,67 +6,6 @@ use std::ops::Range;
 
 /// Data for rendering/mapping graphemes to screen coordinates.
 #[derive(Debug)]
-#[deprecated]
-pub struct Glyph<'a> {
-    /// Display glyph.
-    glyph: Cow<'a, str>,
-    /// byte-range of the glyph in the given slice.
-    text_bytes: Range<usize>,
-    /// screen-position corrected by text_offset.
-    /// first visible column is at 0.
-    screen_pos: (u16, u16),
-    /// Display length for the glyph.
-    screen_width: u16,
-    /// text-position
-    pos: TextPosition,
-}
-
-#[allow(deprecated)]
-impl<'a> Glyph<'a> {
-    pub fn new(
-        glyph: Cow<'a, str>,
-        text_bytes: Range<usize>,
-        screen_pos: (u16, u16),
-        screen_width: u16,
-        pos: TextPosition,
-    ) -> Self {
-        Self {
-            glyph,
-            text_bytes,
-            screen_pos,
-            screen_width,
-            pos,
-        }
-    }
-
-    /// Get the glyph.
-    pub fn glyph(&'a self) -> &'a str {
-        self.glyph.as_ref()
-    }
-
-    /// Get the byte-range as absolute range into the complete text.
-    pub fn text_bytes(&self) -> Range<usize> {
-        self.text_bytes.clone()
-    }
-
-    /// Get the position of the glyph
-    pub fn pos(&self) -> TextPosition {
-        self.pos
-    }
-
-    /// Get the screen position of the glyph.
-    pub fn screen_pos(&self) -> (u16, u16) {
-        self.screen_pos
-    }
-
-    /// Display width of the glyph.
-    pub fn screen_width(&self) -> u16 {
-        self.screen_width
-    }
-}
-
-/// Data for rendering/mapping graphemes to screen coordinates.
-#[derive(Debug)]
 pub(crate) struct Glyph2<'a> {
     /// Display glyph.
     glyph: Cow<'a, str>,
@@ -626,6 +565,67 @@ impl<'a> Iterator for GlyphIter2<'a> {
                 unreachable!()
             }
         }
+    }
+}
+
+/// Data for rendering/mapping graphemes to screen coordinates.
+#[derive(Debug)]
+#[deprecated]
+pub struct Glyph<'a> {
+    /// Display glyph.
+    glyph: Cow<'a, str>,
+    /// byte-range of the glyph in the given slice.
+    text_bytes: Range<usize>,
+    /// screen-position corrected by text_offset.
+    /// first visible column is at 0.
+    screen_pos: (u16, u16),
+    /// Display length for the glyph.
+    screen_width: u16,
+    /// text-position
+    pos: TextPosition,
+}
+
+#[allow(deprecated)]
+impl<'a> Glyph<'a> {
+    pub fn new(
+        glyph: Cow<'a, str>,
+        text_bytes: Range<usize>,
+        screen_pos: (u16, u16),
+        screen_width: u16,
+        pos: TextPosition,
+    ) -> Self {
+        Self {
+            glyph,
+            text_bytes,
+            screen_pos,
+            screen_width,
+            pos,
+        }
+    }
+
+    /// Get the glyph.
+    pub fn glyph(&'a self) -> &'a str {
+        self.glyph.as_ref()
+    }
+
+    /// Get the byte-range as absolute range into the complete text.
+    pub fn text_bytes(&self) -> Range<usize> {
+        self.text_bytes.clone()
+    }
+
+    /// Get the position of the glyph
+    pub fn pos(&self) -> TextPosition {
+        self.pos
+    }
+
+    /// Get the screen position of the glyph.
+    pub fn screen_pos(&self) -> (u16, u16) {
+        self.screen_pos
+    }
+
+    /// Display width of the glyph.
+    pub fn screen_width(&self) -> u16 {
+        self.screen_width
     }
 }
 
