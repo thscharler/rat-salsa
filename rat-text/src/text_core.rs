@@ -1,7 +1,8 @@
 use crate::clipboard::Clipboard;
 #[allow(deprecated)]
-use crate::grapheme::Glyph;
-use crate::grapheme::{GlyphIter, GlyphIter2, Grapheme, TextWrap2};
+use crate::glyph::Glyph;
+use crate::glyph::{GlyphIter, GlyphIter2, TextWrap2};
+use crate::grapheme::Grapheme;
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::{SkipLine, TextStore};
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};

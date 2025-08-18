@@ -17,7 +17,7 @@ use crate::_private::NonExhaustive;
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
-use crate::grapheme::{Glyph2, TextWrap2};
+use crate::glyph::{Glyph2, TextWrap2};
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 #[allow(deprecated)]
 use crate::Glyph;

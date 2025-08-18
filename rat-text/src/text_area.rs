@@ -7,8 +7,9 @@ use crate::_private::NonExhaustive;
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
-use crate::grapheme::Glyph;
-use crate::grapheme::{Glyph2, Grapheme, TextWrap2};
+use crate::glyph::Glyph;
+use crate::glyph::{Glyph2, TextWrap2};
+use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;

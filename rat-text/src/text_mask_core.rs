@@ -1,6 +1,6 @@
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
-use crate::grapheme::{GlyphIter, GlyphIter2, TextWrap2};
+use crate::glyph::{GlyphIter, GlyphIter2, TextWrap2};
 use crate::text_mask_core::mask::{EditDirection, Mask, MaskToken};
 use crate::text_store::SkipLine;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};

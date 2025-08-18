@@ -13,6 +13,7 @@ pub mod text_input;
 pub mod text_input_mask;
 pub mod undo_buffer;
 
+mod glyph;
 mod grapheme;
 mod range_map;
 mod text_core;
@@ -20,7 +21,8 @@ mod text_mask_core;
 mod text_store;
 
 #[allow(deprecated)]
-pub use grapheme::{Glyph, Grapheme};
+pub use glyph::Glyph;
+pub use grapheme::Grapheme;
 
 use crate::_private::NonExhaustive;
 pub use pure_rust_locales::Locale;
