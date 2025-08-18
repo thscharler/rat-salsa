@@ -109,8 +109,8 @@ pub struct TextAreaState {
     /// When text-break is active, this is the grapheme-offset
     /// into the first visible text-row where the display
     /// actually starts.
-    /// __read+write__
-    pub sub_row_offset: upos_type,
+    /// __read+write__ but it's not advised.
+    pub __sub_row_offset: upos_type,
     /// Dark offset due to clipping.
     /// __read only__ secondary offset due to clipping.
     pub dark_offset: (u16, u16),
@@ -157,7 +157,7 @@ impl Clone for TextAreaState {
             rendered: self.rendered,
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
-            sub_row_offset: self.sub_row_offset,
+            __sub_row_offset: self.__sub_row_offset,
             dark_offset: self.dark_offset,
             scroll_to_cursor: self.scroll_to_cursor,
             value: self.value.clone(),
@@ -409,16 +409,7 @@ fn render_text_area(
     }
 
     let (_ox, oy) = state.offset();
-    let start_col = if let TextWrap::Hard | TextWrap::Word(_) = state.text_wrap {
-        // sub_row_offset can be any value. limit somewhat.
-        if let Ok(max_col) = state.try_line_width(oy as upos_type) {
-            min(state.sub_row_offset, max_col)
-        } else {
-            0
-        }
-    } else {
-        0
-    };
+    let start_col = state.page_start_offset();
     let page_rows = (oy as upos_type)
         ..min(
             oy as upos_type + inner.height as upos_type,
@@ -479,7 +470,7 @@ fn render_text_area(
 fn scroll_to_cursor(state: &mut TextAreaState) {
     let cursor = state.cursor();
     let (ox, oy) = (state.offset().0 as upos_type, state.offset().1 as upos_type);
-    let start_col = state.sub_row_offset;
+    let start_col = state.page_start_offset();
 
     let nox;
     let noy;
@@ -513,7 +504,13 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
             nstart_col = 0;
         }
         TextWrap::Hard | TextWrap::Word(_) => {
-            if cursor.y < oy || cursor.y == oy && cursor.x < start_col {
+            // establish the cursor as new offset
+            // - cursor is before the current offset
+            // - cursor is way beyond the end of the page
+            if cursor.y < oy
+                || cursor.y == oy && cursor.x < start_col
+                || cursor.y > oy + 2 * state.rendered.height as upos_type
+            {
                 noy = cursor.y;
                 let mut line_start = TextPosition::new(0, noy);
                 for g in state.glyphs2(0, noy..noy + 1).expect("valid_offset") {
@@ -571,7 +568,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
     }
 
     state.set_offset((nox as usize, noy as usize));
-    state.sub_row_offset = nstart_col;
+    state.__sub_row_offset = nstart_col;
 }
 
 impl Default for TextAreaState {
@@ -582,7 +579,7 @@ impl Default for TextAreaState {
             rendered: Default::default(),
             hscroll: Default::default(),
             vscroll: Default::default(),
-            sub_row_offset: 0,
+            __sub_row_offset: 0,
             dark_offset: Default::default(),
             scroll_to_cursor: Default::default(),
             value: TextCore::new(Some(Box::new(UndoVec::new(99))), Some(global_clipboard())),
@@ -2088,7 +2085,7 @@ impl TextAreaState {
             }
             TextWrap::Hard | TextWrap::Word(_) => {
                 let oy = self.offset().1 as upos_type;
-                let start_col = self.sub_row_offset;
+                let start_col = self.page_start_offset();
 
                 if oy > self.len_lines() {
                     return None;
@@ -2166,6 +2163,7 @@ impl TextAreaState {
             }
             TextWrap::Hard | TextWrap::Word(_) => {
                 let oy = self.offset().1 as upos_type;
+                let start_page = self.page_start_offset();
 
                 if oy >= self.len_lines() {
                     return None;
@@ -2184,7 +2182,7 @@ impl TextAreaState {
                     // find offset
                     let o_screen_pos = 'f: {
                         for g in self.glyphs2(0, ry..oy + 1).expect("valid-rows") {
-                            if g.pos().x == self.sub_row_offset && g.pos().y == oy {
+                            if g.pos().x == start_page && g.pos().y == oy {
                                 break 'f g.screen_pos();
                             }
                         }
@@ -2218,7 +2216,7 @@ impl TextAreaState {
                     // start at the offset and find the screen-position.
                     let mut fallback = None;
                     for g in self
-                        .glyphs2(self.sub_row_offset, oy..self.len_lines())
+                        .glyphs2(start_page, oy..self.len_lines())
                         .expect("valid-position")
                     {
                         if g.contains_screen_pos(scr_pos) {
@@ -2472,7 +2470,7 @@ impl TextAreaState {
     /// The widget returns true if the offset changed at all.
     pub fn set_vertical_offset(&mut self, row_offset: usize) -> bool {
         self.scroll_to_cursor = false;
-        self.sub_row_offset = 0;
+        self.__sub_row_offset = 0;
         self.vscroll.set_offset(row_offset)
     }
 
@@ -2506,11 +2504,11 @@ impl TextAreaState {
     /// Scrolling
     pub fn scroll_up(&mut self, delta: usize) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, -(delta as i16))) {
-            self.sub_row_offset = pos.x;
+            self.__sub_row_offset = pos.x;
             self.vscroll.set_offset(pos.y as usize);
             true
         } else {
-            self.sub_row_offset = 0;
+            self.__sub_row_offset = 0;
 
             // this uses a different limit compared to vscroll.scroll_down()
             // otherwise it doesn't play well with the sub_row_offset.
@@ -2529,11 +2527,11 @@ impl TextAreaState {
     /// Scrolling
     pub fn scroll_down(&mut self, delta: usize) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, delta as i16)) {
-            self.sub_row_offset = pos.x;
+            self.__sub_row_offset = pos.x;
             self.vscroll.set_offset(pos.y as usize);
             true
         } else {
-            self.sub_row_offset = 0;
+            self.__sub_row_offset = 0;
 
             // this uses a different limit compared to vscroll.scroll_down()
             // otherwise it doesn't play well with the sub_row_offset.
@@ -2569,13 +2567,31 @@ impl TextAreaState {
     /// line.
     ///
     /// The effect looks like sub-row scrolling.
-    pub fn scroll_page_start(&mut self, col: usize) -> bool {
+    pub fn scroll_page_start(&mut self, col: upos_type) -> bool {
         if let Ok(max_col) = self.try_line_width(self.offset().1 as upos_type) {
-            self.sub_row_offset = min(col as upos_type, max_col);
+            self.__sub_row_offset = min(col as upos_type, max_col);
         } else {
-            self.sub_row_offset = 0;
+            self.__sub_row_offset = 0;
         }
         true
+    }
+
+    /// If there is some form of text-wrapping active, this
+    /// returns a cleaned up version of the offset into the
+    /// first text-row.
+    pub fn page_start_offset(&self) -> upos_type {
+        let oy = self.vscroll.offset;
+
+        if let TextWrap::Hard | TextWrap::Word(_) = self.text_wrap {
+            // sub_row_offset can be any value. limit somewhat.
+            if let Ok(max_col) = self.try_line_width(oy as upos_type) {
+                min(self.__sub_row_offset, max_col)
+            } else {
+                0
+            }
+        } else {
+            0
+        }
     }
 }
 

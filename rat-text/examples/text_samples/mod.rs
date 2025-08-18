@@ -115,6 +115,40 @@ pub fn sample_long() -> (Rope, Vec<(TextRange, usize)>) {
     (Rope::from(buf), Vec::new())
 }
 
+pub fn sample_medium() -> (Rope, Vec<(TextRange, usize)>) {
+    let mut buf = String::new();
+    let pat = ["1", "2", "3", "4", " ", "6", "7", "8", "9", " "];
+
+    for i in 0..500 {
+        use std::fmt::Write;
+
+        _ = write!(buf, "{:04} ", i);
+        for j in 0..16384 {
+            buf.push_str(pat[j % 10]);
+        }
+        buf.push_str("\n");
+    }
+
+    (Rope::from(buf), Vec::new())
+}
+
+pub fn sample_short() -> (Rope, Vec<(TextRange, usize)>) {
+    let mut buf = String::new();
+    let pat = ["1", "2", "3", "4", " ", "6", "7", "8", "9", " "];
+
+    for i in 0..500 {
+        use std::fmt::Write;
+
+        _ = write!(buf, "{:04} ", i);
+        for j in 0..1024 {
+            buf.push_str(pat[j % 10]);
+        }
+        buf.push_str("\n");
+    }
+
+    (Rope::from(buf), Vec::new())
+}
+
 static PATTERN_0: &str = "aaaa 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
     bbbb 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
     cccc 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\

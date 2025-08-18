@@ -1,7 +1,7 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use crate::text_samples::{
-    add_range_styles, sample_emoji, sample_long, sample_lorem, sample_pattern_0, sample_scott_1,
-    sample_tabs,
+    add_range_styles, sample_emoji, sample_long, sample_lorem, sample_medium, sample_scott_1,
+    sample_short, sample_tabs,
 };
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
@@ -107,7 +107,7 @@ fn repaint_input(
             &mut stats,
             "offset: {:?} {:?}",
             state.textarea.offset(),
-            state.textarea.sub_row_offset
+            state.textarea.__sub_row_offset
         );
         _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
         _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
@@ -206,6 +206,18 @@ fn handle_input(
             Outcome::Changed
         }
         ct_event!(key press ALT-'6') => {
+            let (text, styles) = sample_short();
+            state.textarea.set_rope(text);
+            add_range_styles(&mut state.textarea, styles);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'7') => {
+            let (text, styles) = sample_medium();
+            state.textarea.set_rope(text);
+            add_range_styles(&mut state.textarea, styles);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'8') => {
             let (text, styles) = sample_long();
             state.textarea.set_rope(text);
             add_range_styles(&mut state.textarea, styles);

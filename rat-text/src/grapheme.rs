@@ -698,6 +698,13 @@ impl<'a> GlyphIter2<'a> {
     }
 }
 
+fn checked_screen_pos(x: upos_type, y: upos_type) -> (u16, u16) {
+    (
+        u16::try_from(x).expect("in-range"),
+        u16::try_from(y).expect("in-range"),
+    )
+}
+
 impl<'a> Iterator for GlyphIter2<'a> {
     type Item = Glyph2<'a>;
 
@@ -729,9 +736,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         Cow::Borrowed("")
                     },
                     text_bytes: self.last_byte..self.last_byte,
-                    screen_pos: (
-                        self.next_screen_pos.0.saturating_sub(self.left_margin) as u16,
-                        self.next_screen_pos.1 as u16,
+                    screen_pos: checked_screen_pos(
+                        self.next_screen_pos.0.saturating_sub(self.left_margin),
+                        self.next_screen_pos.1,
                     ),
                     screen_width: if self.show_ctrl { 1 } else { 0 },
                     line_break: true,
@@ -816,7 +823,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         return Some(Glyph2 {
                             glyph,
                             text_bytes,
-                            screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
+                            screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
                             screen_width,
                             line_break,
                             pos,
@@ -842,7 +849,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     return Some(Glyph2 {
                         glyph,
                         text_bytes,
-                        screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
+                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
                         screen_width,
                         line_break,
                         pos,
@@ -871,7 +878,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     return Some(Glyph2 {
                         glyph,
                         text_bytes,
-                        screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
+                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
                         screen_width,
                         line_break,
                         pos,
@@ -910,7 +917,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     return Some(Glyph2 {
                         glyph,
                         text_bytes,
-                        screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
+                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
                         screen_width,
                         line_break,
                         pos,
@@ -927,7 +934,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     return Some(Glyph2 {
                         glyph,
                         text_bytes,
-                        screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
+                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
                         screen_width,
                         line_break,
                         pos,
@@ -953,7 +960,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     return Some(Glyph2 {
                         glyph,
                         text_bytes,
-                        screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
+                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
                         screen_width,
                         line_break,
                         pos,
@@ -970,7 +977,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_glyph = Some(Glyph2 {
                         glyph: Cow::Owned(glyph.to_string()),
                         text_bytes: text_bytes.clone(),
-                        screen_pos: (0, screen_pos.1 as u16 + 1),
+                        screen_pos: checked_screen_pos(0, screen_pos.1 + 1),
                         screen_width,
                         line_break: false,
                         pos,
@@ -993,7 +1000,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     return Some(Glyph2 {
                         glyph,
                         text_bytes,
-                        screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
+                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
                         screen_width,
                         line_break,
                         pos,
@@ -1013,7 +1020,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                             Cow::Borrowed("")
                         },
                         text_bytes: text_bytes.end..text_bytes.end,
-                        screen_pos: (screen_pos.0 as u16 + 1, screen_pos.1 as u16),
+                        screen_pos: checked_screen_pos(screen_pos.0 + 1, screen_pos.1),
                         screen_width: if self.show_ctrl { 1 } else { 0 },
                         line_break: true,
                         pos,
@@ -1025,7 +1032,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     return Some(Glyph2 {
                         glyph,
                         text_bytes,
-                        screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
+                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
                         screen_width,
                         line_break,
                         pos,
@@ -1040,7 +1047,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     return Some(Glyph2 {
                         glyph,
                         text_bytes,
-                        screen_pos: (screen_pos.0 as u16, screen_pos.1 as u16),
+                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
                         screen_width,
                         line_break,
                         pos,
