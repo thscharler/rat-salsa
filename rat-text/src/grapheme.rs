@@ -123,8 +123,13 @@ impl Cursor for StrGraphemes<'_> {
 }
 
 impl SkipLine for StrGraphemes<'_> {
-    fn next_line(&mut self) -> Result<(), TextError> {
+    fn skip_line(&mut self) -> Result<(), TextError> {
         self.cursor.set_cursor(self.text.len());
+        Ok(())
+    }
+
+    fn skip_to(&mut self, byte_pos: usize) -> Result<(), TextError> {
+        self.cursor.set_cursor(byte_pos);
         Ok(())
     }
 }
@@ -180,8 +185,12 @@ impl Cursor for RevStrGraphemes<'_> {
 }
 
 impl SkipLine for RevStrGraphemes<'_> {
-    fn next_line(&mut self) -> Result<(), TextError> {
-        unimplemented!("no next_line()")
+    fn skip_line(&mut self) -> Result<(), TextError> {
+        unimplemented!("no skip_line()");
+    }
+
+    fn skip_to(&mut self, _byte_pos: usize) -> Result<(), TextError> {
+        unimplemented!("no skip_to()");
     }
 }
 
@@ -323,7 +332,7 @@ impl<'a> Cursor for RopeGraphemes<'a> {
 }
 
 impl<'a> SkipLine for RopeGraphemes<'a> {
-    fn next_line(&mut self) -> Result<(), TextError> {
+    fn skip_line(&mut self) -> Result<(), TextError> {
         let cursor = self.cursor.cur_cursor();
         let line = self.text.try_byte_to_line(cursor)?;
         let next_offset = self.text.try_line_to_byte(line + 1)?;
@@ -347,6 +356,29 @@ impl<'a> SkipLine for RopeGraphemes<'a> {
         self.cur_chunk = first_chunk;
         self.cur_chunk_start = chunk_start;
         self.cursor = GraphemeCursor::new(next_offset, self.text.len_bytes(), true);
+
+        Ok(())
+    }
+
+    fn skip_to(&mut self, byte_pos: usize) -> Result<(), TextError> {
+        let Some((mut chunks, chunk_start, _, _)) = self.text.get_chunks_at_byte(byte_pos) else {
+            return Err(TextError::ByteIndexOutOfBounds(
+                byte_pos,
+                self.text.len_bytes(),
+            ));
+        };
+
+        // was_next is only useful, if there was a true next().
+        // otherwise it confuses the algorithm.
+        let (first_chunk, _was_next) = match chunks.next() {
+            Some(v) => (v, Some(true)),
+            None => ("", None),
+        };
+
+        self.chunks = chunks;
+        self.cur_chunk = first_chunk;
+        self.cur_chunk_start = chunk_start;
+        self.cursor = GraphemeCursor::new(byte_pos, self.text.len_bytes(), true);
 
         Ok(())
     }
@@ -439,8 +471,12 @@ impl Cursor for RevRopeGraphemes<'_> {
 }
 
 impl SkipLine for RevRopeGraphemes<'_> {
-    fn next_line(&mut self) -> Result<(), TextError> {
-        unimplemented!("no next_line()")
+    fn skip_line(&mut self) -> Result<(), TextError> {
+        unimplemented!("no skip_line()")
+    }
+
+    fn skip_to(&mut self, _byte_pos: usize) -> Result<(), TextError> {
+        unimplemented!("no skip_to()")
     }
 }
 

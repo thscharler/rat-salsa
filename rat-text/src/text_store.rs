@@ -5,8 +5,12 @@ use std::ops::Range;
 
 /// Iterator that can skip to the next line of text.
 pub trait SkipLine: Iterator {
-    /// Set to cursor to the start of the next line.
-    fn next_line(&mut self) -> Result<(), TextError>;
+    /// Set the cursor to the start of the next line.
+    fn skip_line(&mut self) -> Result<(), TextError>;
+
+    /// Set the cursor to this byte-position.
+    /// May panic if this is not a char boundary.
+    fn skip_to(&mut self, byte_pos: usize) -> Result<(), TextError>;
 }
 
 /// Backing store for the TextCore.
