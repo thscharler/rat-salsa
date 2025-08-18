@@ -18,6 +18,12 @@ pub trait TextStore {
     /// Can store multi-line content?
     fn is_multi_line(&self) -> bool;
 
+    /// Minimum byte position that has been changed
+    /// since the last call of min_changed().
+    ///
+    /// Can be used to invalidate caches.
+    fn min_changed(&self) -> Option<usize>;
+
     /// Get content as string.
     fn string(&self) -> String;
 
@@ -138,6 +144,8 @@ pub(crate) mod text_rope {
     use crate::{upos_type, TextError, TextPosition, TextRange};
     use ropey::{Rope, RopeSlice};
     use std::borrow::Cow;
+    use std::cell::Cell;
+    use std::cmp::min;
     use std::mem;
     use std::ops::Range;
     use unicode_segmentation::UnicodeSegmentation;
@@ -146,6 +154,8 @@ pub(crate) mod text_rope {
     #[derive(Debug, Clone, Default)]
     pub struct TextRope {
         text: Rope,
+        // minimum byte position changed since last reset.
+        min_changed: Cell<Option<usize>>,
         // tmp buf
         buf: String,
     }
@@ -198,6 +208,7 @@ pub(crate) mod text_rope {
         pub fn new_text(t: &str) -> Self {
             Self {
                 text: Rope::from_str(t),
+                min_changed: Default::default(),
                 buf: Default::default(),
             }
         }
@@ -206,6 +217,7 @@ pub(crate) mod text_rope {
         pub fn new_rope(r: Rope) -> Self {
             Self {
                 text: r,
+                min_changed: Default::default(),
                 buf: Default::default(),
             }
         }
@@ -224,6 +236,15 @@ pub(crate) mod text_rope {
         }
     }
 
+    impl TextRope {
+        fn set_min_changed(&self, byte_pos: usize) {
+            self.min_changed.update(|v| match v {
+                None => Some(byte_pos),
+                Some(w) => Some(min(byte_pos, w)),
+            });
+        }
+    }
+
     impl TextStore for TextRope {
         /// Can store multi-line content?
         ///
@@ -233,6 +254,10 @@ pub(crate) mod text_rope {
             true
         }
 
+        fn min_changed(&self) -> Option<usize> {
+            self.min_changed.take()
+        }
+
         /// Content as string.
         fn string(&self) -> String {
             self.text.to_string()
@@ -240,6 +265,7 @@ pub(crate) mod text_rope {
 
         /// Set content.
         fn set_string(&mut self, t: &str) {
+            self.set_min_changed(0);
             self.text = Rope::from_str(t);
         }
 
@@ -562,6 +588,8 @@ pub(crate) mod text_rope {
                 .try_byte_to_char(pos_byte.start)
                 .expect("valid_bytes");
 
+            self.set_min_changed(pos_byte.start);
+
             let mut it_gr = RopeGraphemes::new_offset(0, self.text.slice(..), pos_byte.start)
                 .expect("valid_bytes");
 
@@ -638,6 +666,8 @@ pub(crate) mod text_rope {
                 .try_byte_to_char(pos_byte.start)
                 .expect("valid_bytes");
 
+            self.set_min_changed(pos_byte.start);
+
             let mut line_count = 0;
             let mut last_linebreak_idx = 0;
             for (p, c) in txt.char_indices() {
@@ -698,6 +728,8 @@ pub(crate) mod text_rope {
             let start_byte_pos = self.byte_range_at(range.start)?;
             let end_byte_pos = self.byte_range_at(range.end)?;
 
+            self.set_min_changed(start_byte_pos.start);
+
             let start_pos = self
                 .text
                 .try_byte_to_char(start_byte_pos.start)
@@ -724,6 +756,8 @@ pub(crate) mod text_rope {
         /// byte_pos must be <= len bytes.
         fn insert_b(&mut self, byte_pos: usize, t: &str) -> Result<(), TextError> {
             let pos_char = self.text.try_byte_to_char(byte_pos)?;
+
+            self.set_min_changed(byte_pos);
             self.text.try_insert(pos_char, t).expect("valid_pos");
             Ok(())
         }
@@ -735,6 +769,8 @@ pub(crate) mod text_rope {
         fn remove_b(&mut self, byte_range: Range<usize>) -> Result<(), TextError> {
             let start_char = self.text.try_byte_to_char(byte_range.start)?;
             let end_char = self.text.try_byte_to_char(byte_range.end)?;
+
+            self.set_min_changed(byte_range.start);
             self.text
                 .try_remove(start_char..end_char)
                 .expect("valid_range");
@@ -773,6 +809,8 @@ pub(crate) mod text_string {
     use crate::text_store::{Cursor, SkipLine, TextStore};
     use crate::{upos_type, TextError, TextPosition, TextRange};
     use std::borrow::Cow;
+    use std::cell::Cell;
+    use std::cmp::min;
     use std::iter::once;
     use std::mem;
     use std::ops::Range;
@@ -785,6 +823,8 @@ pub(crate) mod text_string {
         text: String,
         // len as grapheme count
         len: upos_type,
+        // minimum byte position changed since last reset.
+        min_changed: Cell<Option<usize>>,
         // tmp buffer
         buf: String,
     }
@@ -801,6 +841,7 @@ pub(crate) mod text_string {
             Self {
                 text: Default::default(),
                 len: 0,
+                min_changed: Default::default(),
                 buf: Default::default(),
             }
         }
@@ -810,6 +851,7 @@ pub(crate) mod text_string {
             Self {
                 text: t.into(),
                 len: str_len(t),
+                min_changed: Default::default(),
                 buf: Default::default(),
             }
         }
@@ -820,6 +862,7 @@ pub(crate) mod text_string {
             Self {
                 text: t,
                 len,
+                min_changed: Default::default(),
                 buf: Default::default(),
             }
         }
@@ -830,10 +873,23 @@ pub(crate) mod text_string {
         }
     }
 
+    impl TextString {
+        fn set_min_changed(&self, byte_pos: usize) {
+            self.min_changed.update(|v| match v {
+                None => Some(byte_pos),
+                Some(w) => Some(min(byte_pos, w)),
+            });
+        }
+    }
+
     impl TextStore for TextString {
         /// Can store multi-line content?
         fn is_multi_line(&self) -> bool {
             false
+        }
+
+        fn min_changed(&self) -> Option<usize> {
+            self.min_changed.take()
         }
 
         /// Get content as string.
@@ -843,6 +899,7 @@ pub(crate) mod text_string {
 
         /// Set content as string.
         fn set_string(&mut self, t: &str) {
+            self.set_min_changed(0);
             self.text = t.to_string();
             self.len = str_len(&self.text);
         }
@@ -1120,6 +1177,8 @@ pub(crate) mod text_string {
             let byte_pos = self.byte_range_at(pos)?;
             let (before, after) = self.text.split_at(byte_pos.start);
 
+            self.set_min_changed(byte_pos.start);
+
             let old_len = self.len;
             self.buf.clear();
             self.buf.push_str(before);
@@ -1150,6 +1209,8 @@ pub(crate) mod text_string {
 
             let byte_pos = self.byte_range_at(pos)?;
             let (before, after) = self.text.split_at(byte_pos.start);
+
+            self.set_min_changed(byte_pos.start);
 
             let old_len = self.len;
             self.buf.clear();
@@ -1183,6 +1244,8 @@ pub(crate) mod text_string {
 
             let bytes = self.byte_range(range)?;
 
+            self.set_min_changed(bytes.start);
+
             let (before, remove, after) = (
                 &self.text[..bytes.start],
                 &self.text[bytes.start..bytes.end],
@@ -1213,6 +1276,8 @@ pub(crate) mod text_string {
                 return Err(TextError::ByteIndexNotCharBoundary(byte_pos));
             };
 
+            self.set_min_changed(byte_pos);
+
             self.buf.clear();
             self.buf.push_str(before);
             self.buf.push_str(t);
@@ -1234,6 +1299,8 @@ pub(crate) mod text_string {
             else {
                 return Err(TextError::ByteIndexNotCharBoundary(byte_range.end));
             };
+
+            self.set_min_changed(byte_range.start);
 
             self.buf.clear();
             self.buf.push_str(before);

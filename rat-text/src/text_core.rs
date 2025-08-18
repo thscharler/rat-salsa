@@ -1,7 +1,7 @@
 use crate::clipboard::Clipboard;
 #[allow(deprecated)]
 use crate::glyph::Glyph;
-use crate::glyph::{GlyphIter, GlyphIter2, TextWrap2};
+use crate::glyph::{GlyphCache, GlyphIter, GlyphIter2, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::{SkipLine, TextStore};
@@ -710,6 +710,16 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 }
             }
         }
+    }
+}
+
+impl<Store: TextStore + Default> TextCore<Store> {
+    /// Minimum byte position that has been changed
+    /// since the last call of min_changed().
+    ///
+    /// Can be used to invalidate caches.
+    pub(crate) fn min_changed(&self) -> Option<usize> {
+        self.text.min_changed()
     }
 }
 
