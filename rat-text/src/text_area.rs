@@ -111,7 +111,7 @@ pub struct TextAreaState {
     /// into the first visible text-row where the display
     /// actually starts.
     /// __read+write__ but it's not advised.
-    pub __sub_row_offset: upos_type,
+    pub sub_row_offset: upos_type,
     /// Dark offset due to clipping.
     /// __read only__ secondary offset due to clipping.
     pub dark_offset: (u16, u16),
@@ -158,7 +158,7 @@ impl Clone for TextAreaState {
             rendered: self.rendered,
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
-            __sub_row_offset: self.__sub_row_offset,
+            sub_row_offset: self.sub_row_offset,
             dark_offset: self.dark_offset,
             scroll_to_cursor: self.scroll_to_cursor,
             value: self.value.clone(),
@@ -569,7 +569,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
     }
 
     state.set_offset((nox as usize, noy as usize));
-    state.__sub_row_offset = nstart_col;
+    state.sub_row_offset = nstart_col;
 }
 
 impl Default for TextAreaState {
@@ -580,7 +580,7 @@ impl Default for TextAreaState {
             rendered: Default::default(),
             hscroll: Default::default(),
             vscroll: Default::default(),
-            __sub_row_offset: 0,
+            sub_row_offset: 0,
             dark_offset: Default::default(),
             scroll_to_cursor: Default::default(),
             value: TextCore::new(Some(Box::new(UndoVec::new(99))), Some(global_clipboard())),
@@ -2471,7 +2471,7 @@ impl TextAreaState {
     /// The widget returns true if the offset changed at all.
     pub fn set_vertical_offset(&mut self, row_offset: usize) -> bool {
         self.scroll_to_cursor = false;
-        self.__sub_row_offset = 0;
+        self.sub_row_offset = 0;
         self.vscroll.set_offset(row_offset)
     }
 
@@ -2505,11 +2505,11 @@ impl TextAreaState {
     /// Scrolling
     pub fn scroll_up(&mut self, delta: usize) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, -(delta as i16))) {
-            self.__sub_row_offset = pos.x;
+            self.sub_row_offset = pos.x;
             self.vscroll.set_offset(pos.y as usize);
             true
         } else {
-            self.__sub_row_offset = 0;
+            self.sub_row_offset = 0;
 
             // this uses a different limit compared to vscroll.scroll_down()
             // otherwise it doesn't play well with the sub_row_offset.
@@ -2528,11 +2528,11 @@ impl TextAreaState {
     /// Scrolling
     pub fn scroll_down(&mut self, delta: usize) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, delta as i16)) {
-            self.__sub_row_offset = pos.x;
+            self.sub_row_offset = pos.x;
             self.vscroll.set_offset(pos.y as usize);
             true
         } else {
-            self.__sub_row_offset = 0;
+            self.sub_row_offset = 0;
 
             // this uses a different limit compared to vscroll.scroll_down()
             // otherwise it doesn't play well with the sub_row_offset.
@@ -2570,9 +2570,9 @@ impl TextAreaState {
     /// The effect looks like sub-row scrolling.
     pub fn scroll_page_start(&mut self, col: upos_type) -> bool {
         if let Ok(max_col) = self.try_line_width(self.offset().1 as upos_type) {
-            self.__sub_row_offset = min(col as upos_type, max_col);
+            self.sub_row_offset = min(col as upos_type, max_col);
         } else {
-            self.__sub_row_offset = 0;
+            self.sub_row_offset = 0;
         }
         true
     }
@@ -2586,7 +2586,7 @@ impl TextAreaState {
         if let TextWrap::Hard | TextWrap::Word(_) = self.text_wrap {
             // sub_row_offset can be any value. limit somewhat.
             if let Ok(max_col) = self.try_line_width(oy as upos_type) {
-                min(self.__sub_row_offset, max_col)
+                min(self.sub_row_offset, max_col)
             } else {
                 0
             }
