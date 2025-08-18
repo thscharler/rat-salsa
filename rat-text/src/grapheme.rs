@@ -536,7 +536,7 @@ impl SkipLine for RevRopeGraphemes<'_> {
 
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum TextBreak2 {
+pub enum TextWrap2 {
     /// shift glyphs to the left and clip at right margin.
     ShiftText,
     /// break text at right margin.
@@ -544,7 +544,7 @@ pub enum TextBreak2 {
     BreakText,
 }
 
-impl Default for TextBreak2 {
+impl Default for TextWrap2 {
     fn default() -> Self {
         Self::ShiftText
     }
@@ -571,7 +571,7 @@ pub(crate) struct GlyphIter2<'a> {
     /// Line-break enabled?
     line_break: bool,
     /// Text-break enabled?
-    text_break: TextBreak2,
+    text_wrap: TextWrap2,
     /// Left margin
     left_margin: upos_type,
     /// Right margin
@@ -592,7 +592,7 @@ impl Debug for GlyphIter2<'_> {
             .field("tabs", &self.tabs)
             .field("show_ctrl", &self.show_ctrl)
             .field("line_break", &self.line_break)
-            .field("text_break", &self.text_break)
+            .field("text_wrap", &self.text_wrap)
             .field("left_margin", &self.left_margin)
             .field("right_margin", &self.right_margin)
             .field("word_margin", &self.word_margin)
@@ -614,7 +614,7 @@ impl<'a> GlyphIter2<'a> {
             tabs: 8,
             show_ctrl: false,
             line_break: true,
-            text_break: Default::default(),
+            text_wrap: Default::default(),
             left_margin: Default::default(),
             right_margin: Default::default(),
             word_margin: Default::default(),
@@ -638,8 +638,8 @@ impl<'a> GlyphIter2<'a> {
 
     /// Handle text-breaks. Breaks the line and continues on the
     /// next screen line.
-    pub(crate) fn set_text_break(&mut self, text_break: TextBreak2) {
-        self.text_break = text_break;
+    pub(crate) fn set_text_wrap(&mut self, text_wrap: TextWrap2) {
+        self.text_wrap = text_wrap;
     }
 
     pub(crate) fn set_left_margin(&mut self, left_margin: upos_type) {
@@ -743,7 +743,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
             }
 
             // next glyph positioning
-            if let TextBreak2::ShiftText = self.text_break {
+            if let TextWrap2::ShiftText = self.text_wrap {
                 let right_margin = if self.show_ctrl {
                     self.right_margin.saturating_sub(1)
                 } else {
@@ -873,7 +873,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         pos,
                     });
                 }
-            } else if let TextBreak2::BreakText = self.text_break {
+            } else if let TextWrap2::BreakText = self.text_wrap {
                 let right_margin = if self.show_ctrl {
                     self.right_margin.saturating_sub(1)
                 } else {
@@ -913,7 +913,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         screen_pos: (0, screen_pos.1 as u16 + 1),
                         screen_width,
                         line_break: false,
-                        pos: pos,
+                        pos,
                     });
 
                     glyph = if self.show_ctrl {
@@ -953,7 +953,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         screen_pos: (screen_pos.0 as u16 + 1, screen_pos.1 as u16),
                         screen_width: if self.show_ctrl { 1 } else { 0 },
                         line_break: true,
-                        pos: pos,
+                        pos,
                     });
 
                     return Some(Glyph {

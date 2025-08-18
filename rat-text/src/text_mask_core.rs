@@ -1,6 +1,6 @@
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
-use crate::grapheme::{GlyphIter, GlyphIter2, TextBreak2};
+use crate::grapheme::{GlyphIter, GlyphIter2, TextWrap2};
 use crate::text_mask_core::mask::{EditDirection, Mask, MaskToken};
 use crate::text_store::SkipLine;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
@@ -864,7 +864,7 @@ impl MaskedCore {
         it.set_tabs(self.masked.tab_width() as upos_type);
         it.set_show_ctrl(self.masked.glyph_ctrl());
         it.set_line_break(self.masked.glyph_line_break());
-        it.set_text_break(TextBreak2::ShiftText);
+        it.set_text_wrap(TextWrap2::ShiftText);
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
         it.set_word_margin(right_margin);

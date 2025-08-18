@@ -6,7 +6,7 @@
 use crate::_private::NonExhaustive;
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
-use crate::grapheme::{Glyph, Grapheme, TextBreak2};
+use crate::grapheme::{Glyph, Grapheme, TextWrap2};
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
@@ -15,6 +15,7 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -135,7 +136,7 @@ pub struct TextAreaState {
     /// quote selection active
     pub auto_quote: bool,
     /// text breaking
-    pub text_break: TextBreak,
+    pub text_break: TextWrap,
 
     /// Current focus state.
     pub focus: FocusFlag,
@@ -162,7 +163,7 @@ impl Clone for TextAreaState {
             move_col: None,
             auto_indent: self.auto_indent,
             auto_quote: self.auto_quote,
-            text_break: TextBreak::Shift,
+            text_break: TextWrap::Shift,
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -173,7 +174,7 @@ impl Clone for TextAreaState {
 /// Text breaking.
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
-pub enum TextBreak {
+pub enum TextWrap {
     /// Don't break, shift text to the left.
     Shift,
     /// Hard break at the width.
@@ -474,7 +475,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
     let noy;
     let nstart_col;
     match state.text_break {
-        TextBreak::Shift => {
+        TextWrap::Shift => {
             let height = state.rendered.height as upos_type;
             let width = state.rendered.width as upos_type;
             let width = if state.show_ctrl() {
@@ -501,7 +502,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
 
             nstart_col = 0;
         }
-        TextBreak::Hard | TextBreak::Word(_) => {
+        TextWrap::Hard | TextWrap::Word(_) => {
             if cursor.y < oy || cursor.y == oy && cursor.x < start_col {
                 noy = cursor.y;
                 let mut line_start = TextPosition::new(0, noy);
@@ -578,7 +579,7 @@ impl Default for TextAreaState {
             move_col: Default::default(),
             auto_indent: true,
             auto_quote: true,
-            text_break: TextBreak::Shift,
+            text_break: TextWrap::Shift,
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -687,12 +688,12 @@ impl TextAreaState {
     }
 
     /// Text breaking.
-    pub fn set_text_break(&mut self, text_break: TextBreak) {
-        self.text_break = text_break;
+    pub fn set_text_wrap(&mut self, text_wrap: TextWrap) {
+        self.text_break = text_wrap;
     }
 
     /// Text breaking.
-    pub fn text_break(&self) -> TextBreak {
+    pub fn text_break(&self) -> TextWrap {
         self.text_break
     }
 
@@ -1931,21 +1932,21 @@ impl TextAreaState {
         start_col: upos_type,
         rows: Range<upos_type>,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        let (text_break, left_margin, right_margin, word_margin) = match self.text_break {
-            TextBreak::Shift => (
-                TextBreak2::ShiftText,
+        let (text_wrap, left_margin, right_margin, word_margin) = match self.text_break {
+            TextWrap::Shift => (
+                TextWrap2::ShiftText,
                 self.offset().0 as upos_type,
                 self.offset().0 as upos_type + self.rendered.width as upos_type,
                 self.offset().0 as upos_type + self.rendered.width as upos_type,
             ),
-            TextBreak::Hard => (
-                TextBreak2::BreakText,
+            TextWrap::Hard => (
+                TextWrap2::BreakText,
                 0,
                 self.rendered.width as upos_type,
                 self.rendered.width as upos_type,
             ),
-            TextBreak::Word(margin) => (
-                TextBreak2::BreakText,
+            TextWrap::Word(margin) => (
+                TextWrap2::BreakText,
                 0,
                 self.rendered.width as upos_type,
                 self.rendered.width.saturating_sub(margin) as upos_type,
@@ -1955,7 +1956,7 @@ impl TextAreaState {
         self.value.glyphs2(
             start_col,
             rows,
-            text_break,
+            text_wrap,
             left_margin,
             right_margin,
             word_margin,
@@ -1987,8 +1988,8 @@ impl TextAreaState {
     /// Return the starting position for the visible line containing the given position.
     pub fn pos_to_line_start(&self, pos: TextPosition) -> TextPosition {
         match self.text_break {
-            TextBreak::Shift => TextPosition::new(0, pos.y),
-            TextBreak::Hard | TextBreak::Word(_) => {
+            TextWrap::Shift => TextPosition::new(0, pos.y),
+            TextWrap::Hard | TextWrap::Word(_) => {
                 let mut start_pos = TextPosition::new(0, pos.y);
                 for g in self.glyphs2(0, pos.y..self.len_lines()).expect("valid-row") {
                     if g.screen_pos().0 == 0 {
@@ -2006,8 +2007,8 @@ impl TextAreaState {
     /// Return the end position for the visible line containing the given position.
     pub fn pos_to_line_end(&self, pos: TextPosition) -> TextPosition {
         match self.text_break {
-            TextBreak::Shift => TextPosition::new(self.line_width(pos.y), pos.y),
-            TextBreak::Hard | TextBreak::Word(_) => {
+            TextWrap::Shift => TextPosition::new(self.line_width(pos.y), pos.y),
+            TextWrap::Hard | TextWrap::Word(_) => {
                 let mut end_pos = None;
                 let mut armed = false;
                 for g in self.glyphs2(0, pos.y..self.len_lines()).expect("valid-row") {
@@ -2036,7 +2037,7 @@ impl TextAreaState {
     /// this will return None.
     pub fn pos_to_relative_screen(&self, pos: TextPosition) -> Option<(i16, i16)> {
         match self.text_break {
-            TextBreak::Shift => {
+            TextWrap::Shift => {
                 let oy = self.offset().1 as upos_type;
 
                 if oy > self.len_lines() {
@@ -2075,7 +2076,7 @@ impl TextAreaState {
                     screen_y as i16 - self.dark_offset.1 as i16,
                 ))
             }
-            TextBreak::Hard | TextBreak::Word(_) => {
+            TextWrap::Hard | TextWrap::Word(_) => {
                 let oy = self.offset().1 as upos_type;
                 let start_col = self.sub_row_offset;
 
@@ -2119,7 +2120,7 @@ impl TextAreaState {
         );
 
         match self.text_break {
-            TextBreak::Shift => {
+            TextWrap::Shift => {
                 let (ox, oy) = self.offset();
                 let (ox, oy) = (ox as upos_type, oy as upos_type);
 
@@ -2153,7 +2154,7 @@ impl TextAreaState {
 
                 Some(TextPosition::new(pos_x, pos_y))
             }
-            TextBreak::Hard | TextBreak::Word(_) => {
+            TextWrap::Hard | TextWrap::Word(_) => {
                 let oy = self.offset().1 as upos_type;
 
                 if oy >= self.len_lines() {

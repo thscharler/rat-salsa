@@ -17,7 +17,7 @@ use crate::_private::NonExhaustive;
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
-use crate::grapheme::TextBreak2;
+use crate::grapheme::TextWrap2;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
     ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextFocusGained,
@@ -1287,7 +1287,7 @@ impl RelocatableState for TextInputState {
 impl TextInputState {
     fn glyphs2(&self) -> impl Iterator<Item = Glyph<'_>> {
         let (text_break, left_margin, right_margin, word_margin) = (
-            TextBreak2::ShiftText,
+            TextWrap2::ShiftText,
             self.offset() as upos_type,
             self.offset() as upos_type + self.rendered.width as upos_type,
             self.offset() as upos_type + self.rendered.width as upos_type,

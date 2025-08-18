@@ -1,57 +1,20 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::text_samples::{
+    add_range_styles, sample_emoji, sample_long, sample_lorem, sample_pattern_0, sample_scott_1,
+    sample_tabs,
+};
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
-use rat_text::text_area::{TextArea, TextAreaState, TextBreak};
+use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::{text_area, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget};
 use ratatui::Frame;
 use std::fmt;
-use std::fmt::Write;
 
 mod mini_salsa;
-
-static TEXT: &str = "aaaa 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    bbbb 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    cccc 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    dddd 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    eeee 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    ffff 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    gggg 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    hhhh 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    iiii 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    jjjj 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    kkkk 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    llll 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    mmmm 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    nnnn 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    oooo 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    pppp 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    qqqq 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    rrrr 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    ssss 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    tttt 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    uuuu 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    vvvv 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    wwww 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    xxxx 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    yyyy 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    zzzz 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
-    ";
-
-fn long_text() -> String {
-    let mut buf = String::new();
-    let pat = ["1", "2", "3", "4", " ", "6", "7", "8", "9", " "];
-
-    for i in 0..500 {
-        for j in 0..128000 {
-            buf.push_str(pat[j % 10]);
-        }
-        buf.push_str("\n");
-    }
-    buf
-}
+mod text_samples;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -63,8 +26,13 @@ fn main() -> Result<(), anyhow::Error> {
         textarea: Default::default(),
     };
     state.textarea.set_auto_indent(false);
-    state.textarea.set_text(long_text());
-    state.textarea.set_show_ctrl(true);
+    // state.textarea.set_show_ctrl(true);
+    state.textarea.set_text_wrap(TextWrap::Word(5));
+
+    let (text, styles) = sample_lorem();
+    state.textarea.set_rope(text);
+    state.textarea.set_styles(styles);
+    //add_range_styles(&mut state.textarea, styles);
 
     run_ui(
         "textarea2",
@@ -210,15 +178,49 @@ fn handle_input(
             Outcome::Changed
         }
         ct_event!(key press ALT-'1') => {
-            state.textarea.set_text_break(TextBreak::Shift);
+            state.textarea.clear();
             Outcome::Changed
         }
         ct_event!(key press ALT-'2') => {
-            state.textarea.set_text_break(TextBreak::Word(8));
+            let (text, styles) = sample_scott_1();
+            state.textarea.set_rope(text);
+            add_range_styles(&mut state.textarea, styles);
             Outcome::Changed
         }
         ct_event!(key press ALT-'3') => {
-            state.textarea.set_text_break(TextBreak::Hard);
+            let (text, styles) = sample_emoji();
+            state.textarea.set_rope(text);
+            add_range_styles(&mut state.textarea, styles);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'4') => {
+            let (text, styles) = sample_tabs();
+            state.textarea.set_rope(text);
+            add_range_styles(&mut state.textarea, styles);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'5') => {
+            let (text, styles) = sample_lorem();
+            state.textarea.set_rope(text);
+            state.textarea.set_styles(styles);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'6') => {
+            let (text, styles) = sample_long();
+            state.textarea.set_rope(text);
+            add_range_styles(&mut state.textarea, styles);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'q') => {
+            state.textarea.set_text_wrap(TextWrap::Shift);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'w') => {
+            state.textarea.set_text_wrap(TextWrap::Word(5));
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'e') => {
+            state.textarea.set_text_wrap(TextWrap::Hard);
             Outcome::Changed
         }
         ct_event!(key press ALT-'c') => {

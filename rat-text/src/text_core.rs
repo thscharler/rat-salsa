@@ -1,5 +1,5 @@
 use crate::clipboard::Clipboard;
-use crate::grapheme::{Glyph, GlyphIter, GlyphIter2, Grapheme, TextBreak2};
+use crate::grapheme::{Glyph, GlyphIter, GlyphIter2, Grapheme, TextWrap2};
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::{SkipLine, TextStore};
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
@@ -786,7 +786,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         &self,
         start_col: upos_type,
         rows: Range<upos_type>,
-        text_break: TextBreak2,
+        text_wrap: TextWrap2,
         left_margin: upos_type,
         right_margin: upos_type,
         word_margin: upos_type,
@@ -800,7 +800,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         it.set_tabs(self.tabs as upos_type);
         it.set_show_ctrl(self.glyph_ctrl);
         it.set_line_break(self.glyph_line_break);
-        it.set_text_break(text_break);
+        it.set_text_wrap(text_wrap);
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
         it.set_word_margin(word_margin);
