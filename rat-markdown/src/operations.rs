@@ -7,9 +7,9 @@ use rat_text::{upos_type, TextPosition, TextRange};
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// 
+///
 /// Reformat header
-/// 
+///
 pub fn md_make_header(state: &mut TextAreaState, header: u8) -> TextOutcome {
     if let Some(_) = md_paragraph(state) {
         let cursor = state.cursor();
@@ -68,7 +68,7 @@ pub fn md_tab(state: &mut TextAreaState) -> TextOutcome {
         let row = state.line_at(cursor.y);
         let x = next_tab_md_row(row.as_ref(), cursor.x);
         state.set_cursor((x, cursor.y), false);
-        state.set_move_col(Some(x));
+        state.set_move_col(Some(x as i16));
 
         TextOutcome::TextChanged
     } else if is_md_item(state) {
@@ -114,7 +114,7 @@ pub fn md_backtab(state: &mut TextAreaState) -> TextOutcome {
         let x = prev_tab_md_row(row_str.as_ref(), cursor.x);
 
         state.set_cursor((x, cursor.y), false);
-        state.set_move_col(Some(x));
+        state.set_move_col(Some(x as i16));
         TextOutcome::TextChanged
     } else {
         TextOutcome::Continue
