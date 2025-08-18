@@ -865,7 +865,7 @@ impl MaskedCore {
             byte_pos: 0,
         };
 
-        let mut it = GlyphIter2::new(TextPosition::new(0, rows.start), iter);
+        let mut it = GlyphIter2::new(TextPosition::new(0, rows.start), iter, Default::default());
         it.set_tabs(self.masked.tab_width() as upos_type);
         it.set_show_ctrl(self.masked.glyph_ctrl());
         it.set_line_break(self.masked.glyph_line_break());

@@ -1,8 +1,11 @@
 use crate::text_store::SkipLine;
 use crate::{upos_type, Grapheme, TextPosition};
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::ops::Range;
+use std::rc::Rc;
 
 /// Data for rendering/mapping graphemes to screen coordinates.
 #[derive(Debug)]
@@ -88,7 +91,7 @@ impl<'a> Glyph2<'a> {
 
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum TextWrap2 {
+pub(crate) enum TextWrap2 {
     /// shift glyphs to the left and clip at right margin.
     ShiftText,
     /// break text at right margin.
@@ -99,6 +102,24 @@ pub enum TextWrap2 {
 impl Default for TextWrap2 {
     fn default() -> Self {
         Self::ShiftText
+    }
+}
+
+/// Cache
+#[derive(Debug, Clone, Default)]
+pub(crate) struct GlyphCache {
+    /// Mark the byte-positions of each line-start.
+    ///
+    /// Used when text-wrap is ShiftText.
+    pub line_start: Rc<RefCell<HashMap<upos_type, usize>>>,
+}
+
+impl GlyphCache {
+    /// Invalidate all entries past this byte-position.
+    pub(crate) fn invalidate(&self, byte_pos: usize) {
+        self.line_start
+            .borrow_mut()
+            .retain(|_, byte| *byte < byte_pos);
     }
 }
 
@@ -115,6 +136,9 @@ pub(crate) struct GlyphIter2<'a> {
     /// Text position of the previous glyph.
     last_pos: TextPosition,
     last_byte: usize,
+
+    /// Glyph cache
+    cache: GlyphCache,
 
     /// Tab expansion
     tabs: upos_type,
@@ -154,15 +178,20 @@ impl Debug for GlyphIter2<'_> {
 
 impl<'a> GlyphIter2<'a> {
     /// New iterator.
-    pub(crate) fn new(pos: TextPosition, iter: impl SkipLine<Item = Grapheme<'a>> + 'a) -> Self {
+    pub(crate) fn new(
+        pos: TextPosition,
+        iter: impl SkipLine<Item = Grapheme<'a>> + 'a,
+        cache: GlyphCache,
+    ) -> Self {
         Self {
             iter: Box::new(iter),
             done: Default::default(),
+            next_glyph: Default::default(),
             next_pos: pos,
             next_screen_pos: Default::default(),
             last_pos: Default::default(),
             last_byte: Default::default(),
-            next_glyph: Default::default(),
+            cache,
             tabs: 8,
             show_ctrl: false,
             line_break: true,
@@ -348,7 +377,11 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
 
-                    // TODO: add to cache
+                    // cache line start position.
+                    self.cache
+                        .line_start
+                        .borrow_mut()
+                        .insert(pos.y, grapheme_bytes.start);
 
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
@@ -397,7 +430,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     // self.next_screen_pos.1 doesn't change
 
                     // skip to next_line
-                    self.iter.next_line().expect("fine");
+                    self.iter.skip_line().expect("fine");
 
                     // do the line-break here.
                     self.next_screen_pos.0 = 0;
@@ -438,7 +471,11 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
 
-                    // TODO: add to cache
+                    // cache line start position.
+                    self.cache
+                        .line_start
+                        .borrow_mut()
+                        .insert(pos.y, grapheme_bytes.start);
 
                     return Some(Glyph2 {
                         glyph: grapheme,

@@ -804,13 +804,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
         left_margin: upos_type,
         right_margin: upos_type,
         word_margin: upos_type,
+        cache: GlyphCache,
     ) -> Result<GlyphIter2<'_>, TextError> {
         let iter = self.graphemes(
             TextRange::new((start_col, rows.start), (0, rows.end)),
             TextPosition::new(start_col, rows.start),
         )?;
 
-        let mut it = GlyphIter2::new(TextPosition::new(start_col, rows.start), iter);
+        let mut it = GlyphIter2::new(TextPosition::new(start_col, rows.start), iter, cache);
         it.set_tabs(self.tabs as upos_type);
         it.set_show_ctrl(self.glyph_ctrl);
         it.set_line_break(self.glyph_line_break);

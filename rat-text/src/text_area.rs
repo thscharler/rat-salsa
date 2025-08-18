@@ -8,7 +8,7 @@ use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
-use crate::glyph::{Glyph2, TextWrap2};
+use crate::glyph::{Glyph2, GlyphCache, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
@@ -147,6 +147,9 @@ pub struct TextAreaState {
     /// __read+write__
     pub mouse: MouseFlags,
 
+    /// Glyph cache
+    cache: GlyphCache,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -168,6 +171,7 @@ impl Clone for TextAreaState {
             text_wrap: TextWrap::Shift,
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
+            cache: self.cache.clone(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -590,6 +594,7 @@ impl Default for TextAreaState {
             text_wrap: TextWrap::Shift,
             focus: Default::default(),
             mouse: Default::default(),
+            cache: Default::default(),
             non_exhaustive: NonExhaustive,
         };
         s.hscroll.set_max_offset(255);
@@ -1961,6 +1966,10 @@ impl TextAreaState {
             ),
         };
 
+        if let Some(byte_pos) = self.value.min_changed() {
+            self.cache.invalidate(byte_pos);
+        }
+
         self.value.glyphs2(
             start_col,
             rows,
@@ -1968,6 +1977,7 @@ impl TextAreaState {
             left_margin,
             right_margin,
             word_margin,
+            self.cache.clone(),
         )
     }
 

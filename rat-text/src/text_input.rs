@@ -1295,7 +1295,15 @@ impl TextInputState {
             self.offset() as upos_type + self.rendered.width as upos_type,
         );
         self.value
-            .glyphs2(0, 0..1, text_break, left_margin, right_margin, word_margin)
+            .glyphs2(
+                0,
+                0..1,
+                text_break,
+                left_margin,
+                right_margin,
+                word_margin,
+                Default::default(),
+            )
             .expect("valid-row")
     }
 
