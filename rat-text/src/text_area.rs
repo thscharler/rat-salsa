@@ -18,7 +18,6 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
-use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -430,13 +429,6 @@ fn render_text_area(
         .expect("valid_rows");
     let selection = state.selection();
     let mut styles = Vec::new();
-
-    let t = SystemTime::now();
-    for g in state
-        .glyphs2(start_col, page_rows.clone())
-        .expect("valid_offset")
-    {}
-    debug!("render {:?}", t.elapsed());
 
     for g in state.glyphs2(start_col, page_rows).expect("valid_offset") {
         // relative screen-pos of the glyph
@@ -1860,6 +1852,7 @@ impl TextAreaState {
     pub fn move_to_start(&mut self, extend_selection: bool) -> bool {
         let cursor = TextPosition::new(0, 0);
 
+        self.set_move_col(Some(0));
         self.set_cursor(cursor, extend_selection)
     }
 
@@ -1869,6 +1862,7 @@ impl TextAreaState {
 
         let cursor = TextPosition::new(0, len - 1);
 
+        self.set_move_col(Some(0));
         self.set_cursor(cursor, extend_selection)
     }
 
@@ -1878,6 +1872,7 @@ impl TextAreaState {
 
         let cursor = TextPosition::new(ox as upos_type, oy as upos_type);
 
+        self.set_move_col(Some(0));
         self.set_cursor(cursor, extend_selection)
     }
 
@@ -1886,6 +1881,7 @@ impl TextAreaState {
         let scr_end = (0, (self.inner.height as i16).saturating_sub(1));
 
         if let Some(pos) = self.relative_screen_to_pos(scr_end) {
+            self.set_move_col(Some(0));
             self.set_cursor(pos, extend_selection)
         } else {
             self.scroll_cursor_to_visible();
@@ -1899,6 +1895,9 @@ impl TextAreaState {
 
         let word = self.next_word_end(cursor);
 
+        if let Some(scr_pos) = self.pos_to_relative_screen(word) {
+            self.set_move_col(Some(scr_pos.0));
+        }
         self.set_cursor(word, extend_selection)
     }
 
@@ -1908,6 +1907,9 @@ impl TextAreaState {
 
         let word = self.prev_word_start(cursor);
 
+        if let Some(scr_pos) = self.pos_to_relative_screen(word) {
+            self.set_move_col(Some(scr_pos.0));
+        }
         self.set_cursor(word, extend_selection)
     }
 }
