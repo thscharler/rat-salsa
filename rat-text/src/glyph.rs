@@ -534,8 +534,9 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     });
                 }
             } else if let TextWrap2::BreakText = self.text_wrap {
-                // self.next_screen_pos later
                 if line_break {
+                    // new-line
+
                     self.next_screen_pos.0 = 0;
                     self.next_screen_pos.1 += 1;
                     self.next_pos.x = 0;
@@ -554,7 +555,6 @@ impl<'a> Iterator for GlyphIter2<'a> {
                 } else if screen_pos.0 + screen_width as upos_type > self.true_right_margin() {
                     // break before glyph
 
-                    // after current grapheme
                     self.next_screen_pos.0 = screen_width as upos_type;
                     self.next_screen_pos.1 += 1;
                     self.next_pos.x += 1;
