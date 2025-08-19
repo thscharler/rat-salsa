@@ -68,7 +68,7 @@ impl<'a> Grapheme<'a> {
 
 /// A cursor over graphemes of a string.
 #[derive(Debug)]
-pub(crate) struct StrGraphemes<'a> {
+pub struct StrGraphemes<'a> {
     text_offset: usize,
     text: &'a str,
     cursor: GraphemeCursor,
@@ -129,7 +129,9 @@ impl SkipLine for StrGraphemes<'_> {
     }
 
     fn skip_to(&mut self, byte_pos: usize) -> Result<(), TextError> {
-        self.cursor.set_cursor(byte_pos);
+        assert!(byte_pos >= self.text_offset);
+        let offset = byte_pos - self.text_offset;
+        self.cursor.set_cursor(offset);
         Ok(())
     }
 }
@@ -197,7 +199,7 @@ impl SkipLine for RevStrGraphemes<'_> {
 /// An implementation of a graphemes iterator, for iterating over
 /// the graphemes of a RopeSlice.
 #[derive(Debug)]
-pub(crate) struct RopeGraphemes<'a> {
+pub struct RopeGraphemes<'a> {
     text_offset: usize,
     text: RopeSlice<'a>,
     chunks: Chunks<'a>,
@@ -361,6 +363,7 @@ impl<'a> SkipLine for RopeGraphemes<'a> {
     }
 
     fn skip_to(&mut self, byte_pos: usize) -> Result<(), TextError> {
+        assert!(byte_pos >= self.text_offset);
         // byte_pos is absolute to all text, but everything here is
         // relative to the slice.
         let byte_pos = byte_pos - self.text_offset;

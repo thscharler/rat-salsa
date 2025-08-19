@@ -3,18 +3,30 @@ use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use std::borrow::Cow;
 use std::ops::Range;
 
-/// Iterator that can skip to the next line of text.
+/// Extended Iterator that can skip over parts of
+/// the underlying data.
 pub trait SkipLine: Iterator {
-    /// Set the cursor to the start of the next line.
+    /// Set the iterator to the start of the next line.
     fn skip_line(&mut self) -> Result<(), TextError>;
 
-    /// Set the cursor to this byte-position.
+    /// Set the iterator to this byte-position.
+    ///
+    /// This is a byte position for the underlying complete
+    /// text, not an index into the iterated slice.
+    /// Nevertheless, the byte_pos must not exceed the
+    /// bounds of the slice.
+    ///
     /// May panic if this is not a char boundary.
+    /// May panic if the offset is not within the slice-bounds.
     fn skip_to(&mut self, byte_pos: usize) -> Result<(), TextError>;
 }
 
 /// Backing store for the TextCore.
 pub trait TextStore {
+    type GraphemeIter<'a>: Cursor<Item = Grapheme<'a>> + SkipLine
+    where
+        Self: 'a;
+
     /// Can store multi-line content?
     fn is_multi_line(&self) -> bool;
 
@@ -71,7 +83,7 @@ pub trait TextStore {
         &self,
         range: TextRange,
         pos: TextPosition,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>> + SkipLine, TextError>;
+    ) -> Result<Self::GraphemeIter<'_>, TextError>;
 
     /// Line as str.
     ///
@@ -87,8 +99,7 @@ pub trait TextStore {
     /// This contains the '\n' at the end.
     ///
     /// * row must be <= len_lines
-    fn line_graphemes(&self, row: upos_type)
-        -> Result<impl Cursor<Item = Grapheme<'_>>, TextError>;
+    fn line_graphemes(&self, row: upos_type) -> Result<Self::GraphemeIter<'_>, TextError>;
 
     /// Line width of row as grapheme count.
     /// Excludes the terminating '\n'.
@@ -139,8 +150,8 @@ pub trait TextStore {
 }
 
 pub(crate) mod text_rope {
-    use crate::grapheme::{Grapheme, RopeGraphemes};
-    use crate::text_store::{Cursor, SkipLine, TextStore};
+    use crate::grapheme::RopeGraphemes;
+    use crate::text_store::{Cursor, TextStore};
     use crate::{upos_type, TextError, TextPosition, TextRange};
     use ropey::{Rope, RopeSlice};
     use std::borrow::Cow;
@@ -246,6 +257,8 @@ pub(crate) mod text_rope {
     }
 
     impl TextStore for TextRope {
+        type GraphemeIter<'a> = RopeGraphemes<'a>;
+
         /// Can store multi-line content?
         ///
         /// If this returns false it is an error to call any function with
@@ -477,7 +490,7 @@ pub(crate) mod text_rope {
             &self,
             range: TextRange,
             pos: TextPosition,
-        ) -> Result<impl Cursor<Item = Grapheme<'_>> + SkipLine, TextError> {
+        ) -> Result<Self::GraphemeIter<'_>, TextError> {
             if !range.contains_pos(pos) && range.end != pos {
                 return Err(TextError::TextPositionOutOfBounds(pos));
             }
@@ -538,10 +551,7 @@ pub(crate) mod text_rope {
         ///
         /// * row must be <= len_lines
         #[inline]
-        fn line_graphemes(
-            &self,
-            row: upos_type,
-        ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+        fn line_graphemes(&self, row: upos_type) -> Result<Self::GraphemeIter<'_>, TextError> {
             let line_byte = self.text.try_line_to_byte(row as usize)?;
             // try_line_to_byte and get_line don't have the same boundaries.
             // the former accepts one past the end, the latter doesn't.
@@ -805,8 +815,8 @@ pub(crate) mod text_rope {
 }
 
 pub(crate) mod text_string {
-    use crate::grapheme::{Grapheme, StrGraphemes};
-    use crate::text_store::{Cursor, SkipLine, TextStore};
+    use crate::grapheme::StrGraphemes;
+    use crate::text_store::TextStore;
     use crate::{upos_type, TextError, TextPosition, TextRange};
     use std::borrow::Cow;
     use std::cell::Cell;
@@ -883,6 +893,8 @@ pub(crate) mod text_string {
     }
 
     impl TextStore for TextString {
+        type GraphemeIter<'a> = StrGraphemes<'a>;
+
         /// Can store multi-line content?
         fn is_multi_line(&self) -> bool {
             false
@@ -1087,7 +1099,7 @@ pub(crate) mod text_string {
             &self,
             range: TextRange,
             pos: TextPosition,
-        ) -> Result<impl Cursor<Item = Grapheme<'_>> + SkipLine, TextError> {
+        ) -> Result<Self::GraphemeIter<'_>, TextError> {
             let range_byte = self.byte_range(range)?;
             let pos_byte = self.byte_range_at(pos)?;
             Ok(StrGraphemes::new_offset(
@@ -1130,10 +1142,7 @@ pub(crate) mod text_string {
         /// This contains the '\n' at the end.
         ///
         /// * row must be <= len_lines
-        fn line_graphemes(
-            &self,
-            row: upos_type,
-        ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+        fn line_graphemes(&self, row: upos_type) -> Result<Self::GraphemeIter<'_>, TextError> {
             if row == 0 {
                 Ok(StrGraphemes::new(0, &self.text))
             } else if row == 1 {

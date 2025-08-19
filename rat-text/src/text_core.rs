@@ -4,7 +4,7 @@ use crate::glyph::Glyph;
 use crate::glyph::{GlyphCache, GlyphIter, GlyphIter2, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
-use crate::text_store::{SkipLine, TextStore};
+use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
@@ -849,7 +849,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         &self,
         range: TextRange,
         pos: TextPosition,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>> + SkipLine, TextError> {
+    ) -> Result<Store::GraphemeIter<'_>, TextError> {
         self.text.graphemes(range, pos)
     }
 
@@ -874,10 +874,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Get the text for a line as iterator over the graphemes.
     #[inline]
-    pub fn line_graphemes(
-        &self,
-        row: upos_type,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    pub fn line_graphemes(&self, row: upos_type) -> Result<Store::GraphemeIter<'_>, TextError> {
         self.text.line_graphemes(row)
     }
 
