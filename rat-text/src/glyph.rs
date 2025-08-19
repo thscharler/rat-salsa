@@ -256,16 +256,31 @@ impl<'a> GlyphIter2<'a> {
         self.right_margin = right_margin;
     }
 
+    #[inline]
+    pub(crate) fn true_right_margin(&self) -> upos_type {
+        if self.show_ctrl {
+            self.right_margin.saturating_sub(1)
+        } else {
+            self.right_margin
+        }
+    }
+
     pub(crate) fn set_word_margin(&mut self, word_margin: upos_type) {
         self.word_margin = word_margin;
     }
 }
 
+#[inline]
 fn checked_screen_pos(x: upos_type, y: upos_type) -> (u16, u16) {
     (
         u16::try_from(x).expect("in-range"),
         u16::try_from(y).expect("in-range"),
     )
+}
+
+#[inline]
+fn checked_screen_width(w: upos_type) -> u16 {
+    u16::try_from(w).expect("in-range")
 }
 
 impl<'a> Iterator for GlyphIter2<'a> {
@@ -327,7 +342,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                 }
             } else if grapheme == "\t" {
                 line_break = false;
-                screen_width = (self.tabs - (self.next_screen_pos.0 % self.tabs)) as u16;
+                screen_width = self.tabs - (self.next_screen_pos.0 % self.tabs);
                 grapheme = Cow::Borrowed(if self.show_ctrl { "\u{2409}" } else { " " });
             } else if ("\x00".."\x20").contains(&grapheme.as_ref()) {
                 line_break = false;
@@ -350,53 +365,42 @@ impl<'a> Iterator for GlyphIter2<'a> {
                 });
             } else {
                 line_break = false;
-                screen_width = unicode_display_width::width(&grapheme) as u16;
+                screen_width = unicode_display_width::width(&grapheme) as upos_type;
                 grapheme = grapheme;
             }
 
             // next glyph positioning
             if let TextWrap2::ShiftText = self.text_wrap {
-                let right_margin = if self.show_ctrl {
-                    self.right_margin.saturating_sub(1)
-                } else {
-                    self.right_margin
-                };
-
-                // self.next_screen_pos later
-                self.next_pos.x += 1;
-                // next_pos.y doesn't change
-
                 // Clip glyphs and correct left offset
                 if line_break {
                     self.next_screen_pos.0 = 0;
                     self.next_screen_pos.1 += 1;
                     self.next_pos.x = 0;
                     self.next_pos.y += 1;
+                    self.last_pos = pos;
+                    self.last_byte = grapheme_bytes.end;
 
-                    if screen_pos.0 as upos_type <= right_margin {
+                    if screen_pos.0 <= self.true_right_margin() {
                         screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
-
-                        self.last_pos = pos;
-                        self.last_byte = grapheme_bytes.end;
 
                         return Some(Glyph2 {
                             glyph: grapheme,
                             text_bytes: grapheme_bytes,
                             screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                            screen_width,
+                            screen_width: checked_screen_width(screen_width),
                             line_break,
                             pos,
                         });
                     } else {
-                        continue;
+                        // shouldn't happen with skip_line?
+                        unreachable!("line-break should have been skipped");
                     }
-                } else if self.next_screen_pos.0 < self.left_margin
-                    && self.next_screen_pos.0 + screen_width as upos_type > self.left_margin
+                } else if screen_pos.0 < self.left_margin
+                    && screen_pos.0 + screen_width > self.left_margin
                 {
                     // show replacement for split glyph
                     grapheme = Cow::Borrowed("\u{2426}");
-                    screen_width = (self.next_screen_pos.0 + screen_width as upos_type
-                        - self.left_margin) as u16;
+                    screen_width = self.next_screen_pos.0 + screen_width - self.left_margin;
                     screen_pos.0 = 0;
 
                     // cache line start position.
@@ -411,7 +415,8 @@ impl<'a> Iterator for GlyphIter2<'a> {
 
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
-
+                    self.next_pos.x += 1;
+                    // next_pos.y doesn't change
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
 
@@ -419,15 +424,17 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         glyph: grapheme,
                         text_bytes: grapheme_bytes,
                         screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width,
+                        screen_width: checked_screen_width(screen_width),
                         line_break,
                         pos,
                     });
-                } else if self.next_screen_pos.0 < self.left_margin {
-                    screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
-
+                } else if screen_pos.0 < self.left_margin {
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
+                    self.next_pos.x += 1;
+                    // next_pos.y doesn't change
+                    self.last_pos = pos;
+                    self.last_byte = grapheme_bytes.end;
 
                     if let Some(cached) = self.cache.line_start.borrow().get(&pos.y) {
                         self.iter.skip_to(cached.byte_pos).expect("valid-pos");
@@ -438,7 +445,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         // not yet cached. go the long way.
                         continue;
                     }
-                } else if self.next_screen_pos.0 == right_margin {
+                } else if screen_pos.0 == self.true_right_margin() {
                     line_break = true;
                     screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
                     screen_width = if self.show_ctrl { 1 } else { 0 };
@@ -447,7 +454,8 @@ impl<'a> Iterator for GlyphIter2<'a> {
 
                     self.next_screen_pos.0 += 1;
                     // self.next_screen_pos.1 doesn't change
-
+                    self.next_pos.x += 1;
+                    // next_pos.y doesn't change
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
 
@@ -455,16 +463,11 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         glyph: grapheme,
                         text_bytes: grapheme_bytes,
                         screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width,
+                        screen_width: checked_screen_width(screen_width),
                         line_break,
                         pos,
                     });
-                } else if self.next_screen_pos.0 > right_margin {
-                    screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
-
-                    self.next_screen_pos.0 += screen_width as upos_type;
-                    // self.next_screen_pos.1 doesn't change
-
+                } else if self.next_screen_pos.0 > self.true_right_margin() {
                     // skip to next_line
                     self.iter.skip_line().expect("fine");
 
@@ -473,20 +476,22 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_screen_pos.1 += 1;
                     self.next_pos.x = 0;
                     self.next_pos.y += 1;
+                    self.last_pos = pos;
+                    self.last_byte = grapheme_bytes.end;
 
                     continue;
-                } else if self.next_screen_pos.0 < right_margin
-                    && self.next_screen_pos.0 + screen_width as upos_type > right_margin
+                } else if self.next_screen_pos.0 < self.true_right_margin()
+                    && self.next_screen_pos.0 + screen_width as upos_type > self.true_right_margin()
                 {
                     // show replacement for split glyph
                     grapheme = Cow::Borrowed("\u{2426}");
                     screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
-                    screen_width = (self.next_screen_pos.0 + screen_width as upos_type
-                        - self.right_margin as upos_type) as u16;
+                    screen_width = self.next_screen_pos.0 + screen_width - self.right_margin;
 
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
-
+                    self.next_pos.x += 1;
+                    // next_pos.y doesn't change
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
 
@@ -494,7 +499,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         glyph: grapheme,
                         text_bytes: grapheme_bytes,
                         screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width,
+                        screen_width: checked_screen_width(screen_width),
                         line_break,
                         pos,
                     });
@@ -514,7 +519,8 @@ impl<'a> Iterator for GlyphIter2<'a> {
 
                     self.next_screen_pos.0 += screen_width as upos_type;
                     // self.next_screen_pos.1 doesn't change
-
+                    self.next_pos.x += 1;
+                    // next_pos.y doesn't change
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
 
@@ -522,25 +528,18 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         glyph: grapheme,
                         text_bytes: grapheme_bytes,
                         screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width,
+                        screen_width: checked_screen_width(screen_width),
                         line_break,
                         pos,
                     });
                 }
             } else if let TextWrap2::BreakText = self.text_wrap {
-                let right_margin = if self.show_ctrl {
-                    self.right_margin.saturating_sub(1)
-                } else {
-                    self.right_margin
-                };
-
                 // self.next_screen_pos later
                 if line_break {
                     self.next_screen_pos.0 = 0;
                     self.next_screen_pos.1 += 1;
                     self.next_pos.x = 0;
                     self.next_pos.y += 1;
-
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
 
@@ -548,11 +547,11 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         glyph: grapheme,
                         text_bytes: grapheme_bytes,
                         screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width,
+                        screen_width: checked_screen_width(screen_width),
                         line_break,
                         pos,
                     });
-                } else if screen_pos.0 + screen_width as upos_type > right_margin {
+                } else if screen_pos.0 + screen_width as upos_type > self.true_right_margin() {
                     // break before glyph
 
                     // after current grapheme
@@ -560,12 +559,14 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_screen_pos.1 += 1;
                     self.next_pos.x += 1;
                     // next_pos.y doesn't change
+                    self.last_pos = pos;
+                    self.last_byte = grapheme_bytes.end;
 
                     self.next_glyph = Some(Glyph2 {
                         glyph: Cow::Owned(grapheme.to_string()),
                         text_bytes: grapheme_bytes.clone(),
                         screen_pos: checked_screen_pos(0, screen_pos.1 + 1),
-                        screen_width,
+                        screen_width: checked_screen_width(screen_width),
                         line_break: false,
                         pos,
                     });
@@ -581,14 +582,11 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     line_break = true;
                     pos = self.last_pos;
 
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
                     return Some(Glyph2 {
                         glyph: grapheme,
                         text_bytes: grapheme_bytes,
                         screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width,
+                        screen_width: checked_screen_width(screen_width),
                         line_break,
                         pos,
                     });
@@ -599,6 +597,8 @@ impl<'a> Iterator for GlyphIter2<'a> {
                     self.next_screen_pos.1 += 1;
                     self.next_pos.x += 1;
                     // next_pos.y doesn't change
+                    self.last_pos = pos;
+                    self.last_byte = grapheme_bytes.end;
 
                     self.next_glyph = Some(Glyph2 {
                         glyph: if self.show_ctrl {
@@ -613,21 +613,19 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         pos,
                     });
 
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
                     return Some(Glyph2 {
                         glyph: grapheme,
                         text_bytes: grapheme_bytes,
                         screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width,
+                        screen_width: checked_screen_width(screen_width),
                         line_break,
                         pos,
                     });
                 } else {
                     self.next_screen_pos.0 += screen_width as upos_type;
+                    // next_screen_pos.1 doesn't change
                     self.next_pos.x += 1;
-
+                    // next_pos.1 doesn't change
                     self.last_pos = pos;
                     self.last_byte = grapheme_bytes.end;
 
@@ -635,7 +633,7 @@ impl<'a> Iterator for GlyphIter2<'a> {
                         glyph: grapheme,
                         text_bytes: grapheme_bytes,
                         screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width,
+                        screen_width: checked_screen_width(screen_width),
                         line_break,
                         pos,
                     });
