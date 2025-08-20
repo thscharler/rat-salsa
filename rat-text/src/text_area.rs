@@ -487,7 +487,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
         TextWrap::Shift => {
             let height = state.rendered.height as upos_type;
             let width = state.rendered.width as upos_type;
-            let width = if state.show_ctrl() {
+            let width = if state.show_ctrl() || state.wrap_ctrl() {
                 width.saturating_sub(1)
             } else {
                 width
@@ -704,6 +704,17 @@ impl TextAreaState {
     /// Show control characters.
     pub fn show_ctrl(&self) -> bool {
         self.value.glyph_ctrl()
+    }
+
+    /// Show glyphs for text-wrap.
+    #[inline]
+    pub fn set_wrap_ctrl(&mut self, wrap_ctrl: bool) {
+        self.value.set_wrap_ctrl(wrap_ctrl);
+    }
+
+    /// Show control characters.
+    pub fn wrap_ctrl(&self) -> bool {
+        self.value.wrap_ctrl()
     }
 
     /// Text breaking.

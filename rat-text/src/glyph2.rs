@@ -186,6 +186,8 @@ pub(crate) struct GlyphIter2<'a, Graphemes> {
     tabs: upos_type,
     /// Show CTRL chars
     show_ctrl: bool,
+    /// Show TEXT-WRAP glyphs
+    wrap_ctrl: bool,
     /// Line-break enabled?
     line_break: bool,
     /// Text-break enabled?
@@ -211,6 +213,7 @@ impl<'a, Graphemes> Debug for GlyphIter2<'a, Graphemes> {
             .field("last_byte", &self.last_byte)
             .field("tabs", &self.tabs)
             .field("show_ctrl", &self.show_ctrl)
+            .field("wrap_ctrl", &self.wrap_ctrl)
             .field("line_break", &self.line_break)
             .field("text_wrap", &self.text_wrap)
             .field("left_margin", &self.left_margin)
@@ -234,6 +237,7 @@ impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
             cache,
             tabs: 8,
             show_ctrl: false,
+            wrap_ctrl: false,
             line_break: true,
             text_wrap: Default::default(),
             left_margin: Default::default(),
@@ -258,6 +262,11 @@ impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
         self.show_ctrl = show_ctrl;
     }
 
+    /// Show glyphs for text-breaks.
+    pub(crate) fn set_wrap_ctrl(&mut self, wrap_ctrl: bool) {
+        self.wrap_ctrl = wrap_ctrl;
+    }
+
     /// Handle text-breaks. Breaks the line and continues on the
     /// next screen line.
     pub(crate) fn set_text_wrap(&mut self, text_wrap: TextWrap2) {
@@ -274,7 +283,7 @@ impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
 
     #[inline]
     pub(crate) fn true_right_margin(&self) -> upos_type {
-        if self.show_ctrl {
+        if self.show_ctrl || self.wrap_ctrl {
             self.right_margin.saturating_sub(1)
         } else {
             self.right_margin
@@ -312,7 +321,7 @@ where
                 // emit a synthetic EOT at the very end.
                 // helps if the last line doesn't end in a line-break.
                 let glyph = Glyph2 {
-                    glyph: if self.show_ctrl {
+                    glyph: if self.wrap_ctrl {
                         Cow::Borrowed("\u{2403}")
                     } else {
                         Cow::Borrowed("")
@@ -322,7 +331,7 @@ where
                         self.next_screen_pos.0.saturating_sub(self.left_margin),
                         self.next_screen_pos.1,
                     ),
-                    screen_width: if self.show_ctrl { 1 } else { 0 },
+                    screen_width: if self.wrap_ctrl { 1 } else { 0 },
                     line_break: true,
                     pos: self.next_pos,
                 };
@@ -388,14 +397,14 @@ where
         iter.last_byte = glyph.text_bytes.end;
 
         iter.next_glyph = Some(Glyph2 {
-            glyph: if iter.show_ctrl {
-                Cow::Borrowed("\u{2424}")
+            glyph: if iter.wrap_ctrl {
+                Cow::Borrowed("\u{21B5}")
             } else {
                 Cow::Borrowed("")
             },
             text_bytes: glyph.text_bytes.end..glyph.text_bytes.end,
             screen_pos: (glyph.screen_pos.0 + 1, glyph.screen_pos.1),
-            screen_width: if iter.show_ctrl { 1 } else { 0 },
+            screen_width: if iter.wrap_ctrl { 1 } else { 0 },
             line_break: true,
             pos: glyph.pos,
         });
@@ -453,14 +462,14 @@ where
             pos: glyph.pos,
         });
 
-        glyph.glyph = if iter.show_ctrl {
-            Cow::Borrowed("\u{2424}")
+        glyph.glyph = if iter.wrap_ctrl {
+            Cow::Borrowed("\u{21B5}")
         } else {
             Cow::Borrowed("")
         };
         glyph.text_bytes = glyph.text_bytes.start..glyph.text_bytes.start;
         // screen_pos is ok
-        glyph.screen_width = if iter.show_ctrl { 1 } else { 0 };
+        glyph.screen_width = if iter.wrap_ctrl { 1 } else { 0 };
         glyph.line_break = true;
         glyph.pos = iter.last_pos;
 
@@ -550,8 +559,8 @@ where
     } else if glyph.screen_pos.0 == iter.true_right_margin() {
         glyph.line_break = true;
         glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
-        glyph.screen_width = if iter.show_ctrl { 1 } else { 0 };
-        glyph.glyph = Cow::Borrowed(if iter.show_ctrl { "\u{2424}" } else { "" });
+        glyph.screen_width = if iter.wrap_ctrl { 1 } else { 0 };
+        glyph.glyph = Cow::Borrowed(if iter.wrap_ctrl { "\u{2424}" } else { "" });
         glyph.text_bytes = iter.last_byte..iter.last_byte;
 
         iter.next_screen_pos.0 += 1;

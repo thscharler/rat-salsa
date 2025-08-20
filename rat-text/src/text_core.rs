@@ -38,6 +38,8 @@ pub struct TextCore<Store> {
     expand_tabs: bool,
     /// show ctrl chars in glyphs
     glyph_ctrl: bool,
+    /// show text-wrap glyphs
+    wrap_ctrl: bool,
     /// use line-breaks in glyphs
     glyph_line_break: bool,
 }
@@ -55,6 +57,7 @@ impl<Store: Clone> Clone for TextCore<Store> {
             tabs: self.tabs,
             expand_tabs: self.expand_tabs,
             glyph_ctrl: self.glyph_ctrl,
+            wrap_ctrl: self.wrap_ctrl,
             glyph_line_break: self.glyph_line_break,
         }
     }
@@ -79,6 +82,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             tabs: 8,
             expand_tabs: true,
             glyph_ctrl: false,
+            wrap_ctrl: false,
             glyph_line_break: true,
         }
     }
@@ -132,9 +136,20 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.glyph_ctrl = show_ctrl;
     }
 
-    /// Show control characters when iterating glyphs.
+    /// Show glyphs for text-wrap.
     pub fn glyph_ctrl(&self) -> bool {
         self.glyph_ctrl
+    }
+
+    /// Show glyphs for text-wrap.
+    #[inline]
+    pub fn set_wrap_ctrl(&mut self, wrap_ctrl: bool) {
+        self.wrap_ctrl = wrap_ctrl;
+    }
+
+    /// Show control characters when iterating glyphs.
+    pub fn wrap_ctrl(&self) -> bool {
+        self.wrap_ctrl
     }
 
     /// Handle line-breaks when iterating glyphs.
@@ -814,6 +829,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let mut it = GlyphIter2::new(TextPosition::new(start_col, rows.start), iter, cache);
         it.set_tabs(self.tabs as upos_type);
         it.set_show_ctrl(self.glyph_ctrl);
+        it.set_wrap_ctrl(self.wrap_ctrl);
         it.set_line_break(self.glyph_line_break);
         it.set_text_wrap(text_wrap);
         it.set_left_margin(left_margin);

@@ -26,7 +26,6 @@ fn main() -> Result<(), anyhow::Error> {
         textarea: Default::default(),
     };
     state.textarea.set_auto_indent(false);
-    // state.textarea.set_show_ctrl(true);
     state.textarea.set_text_wrap(TextWrap::Word(8));
 
     let (text, styles) = sample_short();
@@ -237,6 +236,10 @@ fn handle_input(
         }
         ct_event!(key press ALT-'c') => {
             state.textarea.set_show_ctrl(!state.textarea.show_ctrl());
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'x') => {
+            state.textarea.set_wrap_ctrl(!state.textarea.wrap_ctrl());
             Outcome::Changed
         }
         _ => Outcome::Continue,
