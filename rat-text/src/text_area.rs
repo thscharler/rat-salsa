@@ -416,23 +416,25 @@ fn render_text_area(
         return;
     }
 
-    let (_ox, oy) = state.offset();
-    let start_col = state.page_start_offset();
-    let page_rows = (oy as upos_type)
+    let (shift_left, sub_row_offset, start_row) = state.clean_offset();
+    let page_rows = start_row
         ..min(
-            oy as upos_type + inner.height as upos_type,
+            start_row + inner.height as upos_type,
             state.value.len_lines(),
         );
     let page_bytes = state
         .try_bytes_at_range(TextRange::new(
-            (start_col, page_rows.start),
+            (sub_row_offset, page_rows.start),
             (0, page_rows.end),
         ))
         .expect("valid_rows");
     let selection = state.selection();
     let mut styles = Vec::new();
 
-    for g in state.glyphs2(start_col, page_rows).expect("valid_offset") {
+    for g in state
+        .glyphs2(shift_left, sub_row_offset, page_rows)
+        .expect("valid_offset")
+    {
         // relative screen-pos of the glyph
         let screen_pos = g.screen_pos();
 
@@ -477,14 +479,14 @@ fn render_text_area(
 
 fn scroll_to_cursor(state: &mut TextAreaState) {
     let cursor = state.cursor();
-    let (ox, oy) = (state.offset().0 as upos_type, state.offset().1 as upos_type);
-    let start_col = state.page_start_offset();
 
     let nox;
     let noy;
-    let nstart_col;
+    let nsub_row_offset;
     match state.text_wrap {
         TextWrap::Shift => {
+            let (ox, _, oy) = state.clean_offset();
+
             let height = state.rendered.height as upos_type;
             let width = state.rendered.width as upos_type;
             let width = if state.show_ctrl() || state.wrap_ctrl() {
@@ -509,20 +511,27 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
                 ox
             };
 
-            nstart_col = 0;
+            nsub_row_offset = 0;
         }
         TextWrap::Hard | TextWrap::Word(_) => {
             let t = SystemTime::now();
+
+            let (ox, sub_row_offset, oy) = state.clean_offset();
+
             // establish the cursor as new offset
             // - cursor is before the current offset
             // - cursor is way beyond the end of the page
             if cursor.y < oy
-                || cursor.y == oy && cursor.x < start_col
+                || cursor.y == oy && cursor.x < sub_row_offset
                 || cursor.y > oy + 2 * state.rendered.height as upos_type
             {
                 noy = cursor.y;
+
                 let mut line_start = TextPosition::new(0, noy);
-                for g in state.glyphs2(0, noy..noy + 1).expect("valid_offset") {
+                for g in state
+                    .glyphs2(0, 0, noy..noy + 1) // TODO: invalidates cache
+                    .expect("valid_offset")
+                {
                     if g.screen_pos().0 == 0 {
                         line_start = g.pos();
                     }
@@ -530,15 +539,17 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
                         break; // found
                     }
                 }
+
                 nox = 0;
-                nstart_col = line_start.x;
+                nsub_row_offset = line_start.x;
                 debug!("stca {:?}", t.elapsed());
             } else {
                 let mut lines = Vec::with_capacity(state.inner.height as usize);
 
                 'f: {
+                    let mut f = true;
                     for g in state
-                        .glyphs2(start_col, oy..min(state.len_lines(), cursor.y + 1))
+                        .glyphs2(0, sub_row_offset, oy..min(state.len_lines(), cursor.y + 1))
                         .expect("valid_offset")
                     {
                         if g.screen_pos().0 == 0 {
@@ -547,21 +558,21 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
 
                         if g.pos() == cursor {
                             // found
-                            if g.screen_pos().1 >= state.inner.height {
+                            if g.screen_pos().1 >= state.rendered.height {
                                 // off-screen, change offset
-                                let start = if lines.len() < state.inner.height as usize {
+                                let start = if lines.len() < state.rendered.height as usize {
                                     lines[0]
                                 } else {
-                                    lines[lines.len() - state.inner.height as usize]
+                                    lines[lines.len() - state.rendered.height as usize]
                                 };
                                 noy = start.y;
                                 nox = 0;
-                                nstart_col = start.x;
+                                nsub_row_offset = start.x;
                             } else {
                                 // already visible
                                 noy = oy;
                                 nox = ox;
-                                nstart_col = start_col;
+                                nsub_row_offset = sub_row_offset;
                             }
                             break 'f;
                         }
@@ -571,7 +582,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
                     // leave offset as is.
                     nox = ox;
                     noy = oy;
-                    nstart_col = start_col;
+                    nsub_row_offset = sub_row_offset;
                 }
                 debug!("stcb {:?}", t.elapsed());
             }
@@ -579,7 +590,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
     }
 
     state.set_offset((nox as usize, noy as usize));
-    state.sub_row_offset = nstart_col;
+    state.set_sub_row_offset(nsub_row_offset);
 }
 
 impl Default for TextAreaState {
@@ -946,12 +957,53 @@ impl TextAreaState {
     }
 
     /// Set the offset for scrolling.
+    ///
+    /// The offset uses usize for consistency, but it shouldn't
+    /// exceed u32::MAX.
+    /// TODO: details
     #[inline]
     pub fn set_offset(&mut self, offset: (usize, usize)) -> bool {
         self.scroll_to_cursor = false;
         let c = self.hscroll.set_offset(offset.0);
         let r = self.vscroll.set_offset(offset.1);
         r || c
+    }
+
+    /// Offset into the first row when text-wrapping is active.
+    /// This allows displaying only part of the first text-row.
+    ///
+    /// This value will be trimmed before use.
+    pub fn set_sub_row_offset(&mut self, sub_row_offset: upos_type) -> bool {
+        self.scroll_to_cursor = false;
+        let old = self.sub_row_offset;
+        self.sub_row_offset = sub_row_offset;
+        sub_row_offset != old
+    }
+
+    /// Returns the offset into the first row, when text-wrapping
+    /// is active.
+    pub fn sub_row_offset(&self) -> upos_type {
+        self.sub_row_offset
+    }
+
+    /// This returns the triple (hscroll.offset, sub_row_offset, vscroll.offset )
+    /// all trimmed to upos_type. sub_row_offset will only have a value if
+    /// there is some text-wrapping active. hscroll.offset will only have
+    /// an offset if there is *no* text-wrapping active.
+    pub fn clean_offset(&self) -> (upos_type, upos_type, upos_type) {
+        let ox = self.hscroll.offset as upos_type;
+        let oy = self.vscroll.offset as upos_type;
+
+        if let TextWrap::Hard | TextWrap::Word(_) = self.text_wrap {
+            // sub_row_offset can be any value. limit somewhat.
+            if let Ok(max_col) = self.try_line_width(oy) {
+                (0, min(self.sub_row_offset, max_col), oy)
+            } else {
+                (0, 0, oy)
+            }
+        } else {
+            (ox, 0, oy)
+        }
     }
 
     /// Cursor position.
@@ -1833,7 +1885,7 @@ impl TextAreaState {
 
         let mut line_start = self.pos_to_line_start(cursor);
         for g in self
-            .glyphs2(line_start.x, line_start.y..self.len_lines())
+            .glyphs2(0, line_start.x, line_start.y..self.len_lines()) // TODO: invalidates cache
             .expect("valid-pos")
         {
             if g.glyph() != " " && g.glyph() != "\t" {
@@ -1969,15 +2021,16 @@ impl RelocatableState for TextAreaState {
 impl TextAreaState {
     fn glyphs2(
         &self,
-        start_col: upos_type,
+        shift_left: upos_type,
+        sub_row_offset: upos_type,
         rows: Range<upos_type>,
     ) -> Result<GlyphIter2<<TextRope as TextStore>::GraphemeIter<'_>>, TextError> {
         let (text_wrap, left_margin, right_margin, word_margin) = match self.text_wrap {
             TextWrap::Shift => (
                 TextWrap2::Shift,
-                self.offset().0 as upos_type,
-                self.offset().0 as upos_type + self.rendered.width as upos_type,
-                self.offset().0 as upos_type + self.rendered.width as upos_type,
+                shift_left,
+                shift_left + self.rendered.width as upos_type,
+                shift_left + self.rendered.width as upos_type,
             ),
             TextWrap::Hard => (
                 TextWrap2::Hard,
@@ -1993,15 +2046,17 @@ impl TextAreaState {
             ),
         };
 
-        self.cache.invalidate(
-            self.offset(),
-            self.page_start_offset(),
+        self.cache.clear(
+            shift_left,
+            sub_row_offset,
+            rows.start,
             self.rendered.width as upos_type,
+            self.rendered.height as upos_type,
             self.value.min_changed(),
         );
 
         self.value.glyphs2(
-            start_col,
+            sub_row_offset,
             rows,
             text_wrap,
             left_margin,
@@ -2039,7 +2094,10 @@ impl TextAreaState {
             TextWrap::Shift => TextPosition::new(0, pos.y),
             TextWrap::Hard | TextWrap::Word(_) => {
                 let mut start_pos = TextPosition::new(0, pos.y);
-                for g in self.glyphs2(0, pos.y..self.len_lines()).expect("valid-row") {
+                for g in self
+                    .glyphs2(0, 0, pos.y..self.len_lines()) // TODO: invalidates cache
+                    .expect("valid-row")
+                {
                     if g.screen_pos().0 == 0 {
                         start_pos = g.pos();
                     }
@@ -2060,7 +2118,10 @@ impl TextAreaState {
             TextWrap::Hard | TextWrap::Word(_) => {
                 let mut end_pos = None;
                 let mut armed = false;
-                for g in self.glyphs2(0, pos.y..self.len_lines()).expect("valid-row") {
+                for g in self
+                    .glyphs2(0, 0, pos.y..self.len_lines()) // TODO: invalidates cache
+                    .expect("valid-row")
+                {
                     if g.pos() == pos {
                         armed = true;
                     }
@@ -2089,7 +2150,7 @@ impl TextAreaState {
     pub fn pos_to_relative_screen(&self, pos: TextPosition) -> Option<(i16, i16)> {
         match self.text_wrap {
             TextWrap::Shift => {
-                let oy = self.offset().1 as upos_type;
+                let (ox, _, oy) = self.clean_offset();
 
                 if oy > self.len_lines() {
                     return None;
@@ -2101,26 +2162,26 @@ impl TextAreaState {
                 if pos.y > self.len_lines() {
                     return None;
                 }
-                let screen_y = (pos.y - oy) as u16;
-                if screen_y >= self.rendered.height {
+                if pos.y - oy >= self.rendered.height as u32 {
                     return None;
                 }
 
+                let screen_y = (pos.y - oy) as u16;
+
                 let screen_x = 'f: {
-                    for g in self.glyphs2(0, pos.y..self.len_lines()).expect("valid-row") {
+                    for g in self
+                        .glyphs2(ox, 0, pos.y..self.len_lines())
+                        .expect("valid-row")
+                    {
                         if g.pos().x == pos.x {
                             break 'f g.screen_pos().0;
                         } else if g.line_break() {
                             break 'f g.screen_pos().0;
                         }
                     }
-                    // invalid pos.x
-                    unreachable!("rps 5");
-                };
-
-                if screen_x > self.rendered.width {
                     return None;
-                }
+                };
+                assert!(screen_x <= self.rendered.width);
 
                 Some((
                     screen_x as i16 - self.dark_offset.0 as i16,
@@ -2128,8 +2189,7 @@ impl TextAreaState {
                 ))
             }
             TextWrap::Hard | TextWrap::Word(_) => {
-                let oy = self.offset().1 as upos_type;
-                let start_col = self.page_start_offset();
+                let (_, sub_row_offset, oy) = self.clean_offset();
 
                 if oy > self.len_lines() {
                     return None;
@@ -2142,7 +2202,7 @@ impl TextAreaState {
                 }
 
                 for g in self
-                    .glyphs2(start_col, oy..self.len_lines())
+                    .glyphs2(0, sub_row_offset, oy..self.len_lines())
                     .expect("valid-offset")
                 {
                     if g.screen_pos().1 >= self.rendered.height {
@@ -2172,42 +2232,40 @@ impl TextAreaState {
 
         match self.text_wrap {
             TextWrap::Shift => {
-                let (ox, oy) = self.offset();
-                let (ox, oy) = (ox as upos_type, oy as upos_type);
+                let (ox, _, oy) = self.clean_offset();
 
                 if oy >= self.len_lines() {
                     return None;
                 }
 
                 let pos_y = if scr_pos.1 < 0 {
-                    oy.saturating_sub((scr_pos.1 as ipos_type).unsigned_abs())
+                    oy.saturating_add_signed(scr_pos.1 as ipos_type)
                 } else {
                     min(oy + scr_pos.1 as upos_type, self.len_lines())
                 };
 
                 let pos_x = if scr_pos.0 < 0 {
-                    ox.saturating_sub((scr_pos.0 as ipos_type).unsigned_abs())
+                    ox.saturating_add_signed(scr_pos.0 as ipos_type)
                 } else if scr_pos.0 as u16 >= self.rendered.width {
                     min(ox + scr_pos.0 as upos_type, self.line_width(pos_y))
                 } else {
                     'f: {
                         for g in self
-                            .glyphs2(0, pos_y..self.len_lines())
+                            .glyphs2(ox, 0, pos_y..self.len_lines())
                             .expect("valid-position")
                         {
                             if g.contains_screen_x(scr_pos.0 as u16) {
                                 break 'f g.pos().x;
                             }
                         }
-                        unreachable!("all-screenpos-covered");
+                        unreachable!();
                     }
                 };
 
                 Some(TextPosition::new(pos_x, pos_y))
             }
             TextWrap::Hard | TextWrap::Word(_) => {
-                let oy = self.offset().1 as upos_type;
-                let start_page = self.page_start_offset();
+                let (_, sub_row_offset, oy) = self.clean_offset();
 
                 if oy >= self.len_lines() {
                     return None;
@@ -2225,8 +2283,9 @@ impl TextAreaState {
                     let ry = oy.saturating_add_signed(scr_pos.1 as ipos_type);
                     // find offset
                     let o_screen_pos = 'f: {
-                        for g in self.glyphs2(0, ry..oy + 1).expect("valid-rows") {
-                            if g.pos().x == start_page && g.pos().y == oy {
+                        for g in self.glyphs2(0, 0, ry..oy + 1).expect("valid-rows") {
+                            // TODO: invalidates cache
+                            if g.pos().x == sub_row_offset && g.pos().y == oy {
                                 break 'f g.screen_pos();
                             }
                         }
@@ -2243,7 +2302,8 @@ impl TextAreaState {
                     );
 
                     // find the matching pos
-                    for g in self.glyphs2(0, ry..oy + 1).expect("valid-rows") {
+                    for g in self.glyphs2(0, 0, ry..oy + 1).expect("valid-rows") {
+                        // TODO: invalidates cache
                         if g.contains_screen_pos(scr_pos) {
                             return Some(g.pos());
                         }
@@ -2260,7 +2320,7 @@ impl TextAreaState {
                     // start at the offset and find the screen-position.
                     let mut fallback = None;
                     for g in self
-                        .glyphs2(start_page, oy..self.len_lines())
+                        .glyphs2(0, sub_row_offset, oy..self.len_lines())
                         .expect("valid-position")
                     {
                         if g.contains_screen_pos(scr_pos) {
@@ -2610,32 +2670,14 @@ impl TextAreaState {
     /// changes the start-column for rendering the first visible
     /// line.
     ///
-    /// The effect looks like sub-row scrolling.
-    pub fn scroll_page_start(&mut self, col: upos_type) -> bool {
+    /// The effect looks like scrolling the visible rows.
+    pub fn scroll_sub_row_offset(&mut self, col: upos_type) -> bool {
         if let Ok(max_col) = self.try_line_width(self.offset().1 as upos_type) {
             self.sub_row_offset = min(col as upos_type, max_col);
         } else {
             self.sub_row_offset = 0;
         }
         true
-    }
-
-    /// If there is some form of text-wrapping active, this
-    /// returns a cleaned up version of the offset into the
-    /// first text-row.
-    pub fn page_start_offset(&self) -> upos_type {
-        let oy = self.vscroll.offset;
-
-        if let TextWrap::Hard | TextWrap::Word(_) = self.text_wrap {
-            // sub_row_offset can be any value. limit somewhat.
-            if let Ok(max_col) = self.try_line_width(oy as upos_type) {
-                min(self.sub_row_offset, max_col)
-            } else {
-                0
-            }
-        } else {
-            0
-        }
     }
 }
 

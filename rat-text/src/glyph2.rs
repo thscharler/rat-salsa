@@ -120,48 +120,101 @@ impl Default for TextWrap2 {
 /// Glyph cache.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct GlyphCache {
-    /// Cache validity: base offset
-    pub offset: Cell<(usize, usize)>,
+    /// Cache validity: left shift
+    pub shift_left: Cell<upos_type>,
     /// Cache validity: sub_row offset.
     pub sub_row_offset: Cell<upos_type>,
+    /// Cache validity: start row.
+    pub start_row: Cell<upos_type>,
     /// Cache validity: rendered text-width.
-    pub text_width: Cell<upos_type>,
+    pub screen_width: Cell<upos_type>,
+    /// Cache validity: rendered text-height.
+    pub screen_height: Cell<upos_type>,
 
     /// Mark the byte-positions of each line-start.
     ///
     /// Used when text-wrap is ShiftText.
-    pub line_start: Rc<RefCell<HashMap<upos_type, GlyphCacheLine>>>,
+    pub line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache>>>,
+
+    /// Text-Position per screen-cell.
+    /// This is an array of text_width * text_height elements.
+    pub screen_cache: Rc<RefCell<Vec<CellCache>>>,
 }
 
-#[derive(Debug, Clone, Default)]
-pub(crate) struct GlyphCacheLine {
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct LineOffsetCache {
     pub pos_x: upos_type,
     pub screen_pos_x: upos_type,
     pub byte_pos: usize,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct CellCache {
+    pub pos: TextPosition,
+}
+
 impl GlyphCache {
-    /// Invalidate all entries past this byte-position.
-    pub(crate) fn invalidate(
+    pub(crate) fn assert_valid(
         &self,
-        offset: (usize, usize),
+        shift_left: upos_type,
         sub_row_offset: upos_type,
-        text_width: upos_type,
+        start_row: upos_type,
+        screen_width: upos_type,
+        screen_height: upos_type,
         byte_pos: Option<usize>,
     ) {
-        if self.offset.get() != offset {
+        assert_eq!(self.shift_left.get(), shift_left);
+        assert_eq!(self.sub_row_offset.get(), sub_row_offset);
+        assert_eq!(self.start_row.get(), start_row);
+        assert!(byte_pos.is_none());
+        assert_eq!(self.screen_width.get(), screen_width);
+        assert_eq!(self.screen_height.get(), screen_height);
+    }
+
+    /// Clear out all parts of the cache, that don't match the
+    /// parameters.
+    pub(crate) fn clear(
+        &self,
+        shift_left: upos_type,
+        sub_row_offset: upos_type,
+        start_row: upos_type,
+        screen_width: upos_type,
+        screen_height: upos_type,
+        byte_pos: Option<usize>,
+    ) -> bool {
+        let mut invalid = false;
+
+        if self.shift_left.get() != shift_left
+            || self.sub_row_offset.get() != sub_row_offset
+            || self.start_row.get() != start_row
+        {
             self.line_start.borrow_mut().clear();
+            invalid = true;
         } else {
             if let Some(byte_pos) = byte_pos {
                 self.line_start
                     .borrow_mut()
                     .retain(|_, cache| cache.byte_pos < byte_pos);
+                invalid = true;
             }
         }
 
-        self.offset.set(offset);
+        if self.screen_width.get() != screen_width || self.screen_height.get() != screen_height {
+            self.screen_cache.borrow_mut().clear();
+            self.screen_cache.borrow_mut().resize_with(
+                screen_width as usize * screen_height as usize,
+                Default::default,
+            );
+            invalid = true;
+        }
+
+        self.shift_left.set(shift_left);
         self.sub_row_offset.set(sub_row_offset);
-        self.text_width.set(text_width);
+        self.start_row.set(start_row);
+        self.screen_width.set(screen_width);
+        self.screen_height.set(screen_height);
+
+        invalid
     }
 }
 
@@ -523,7 +576,7 @@ where
         // cache line start position.
         iter.cache.line_start.borrow_mut().insert(
             glyph.pos.y,
-            GlyphCacheLine {
+            LineOffsetCache {
                 pos_x: glyph.pos.x,
                 screen_pos_x: iter.next_screen_pos.0,
                 byte_pos: glyph.text_bytes.start,
@@ -608,7 +661,7 @@ where
         if glyph.screen_pos.0 == 0 {
             iter.cache.line_start.borrow_mut().insert(
                 glyph.pos.y,
-                GlyphCacheLine {
+                LineOffsetCache {
                     pos_x: glyph.pos.x,
                     screen_pos_x: iter.next_screen_pos.0,
                     byte_pos: glyph.text_bytes.start,

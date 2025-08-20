@@ -813,7 +813,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     #[inline]
     pub(crate) fn glyphs2(
         &self,
-        start_col: upos_type,
+        sub_row_offset: upos_type,
         rows: Range<upos_type>,
         text_wrap: TextWrap2,
         left_margin: upos_type,
@@ -822,11 +822,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
         cache: GlyphCache,
     ) -> Result<GlyphIter2<Store::GraphemeIter<'_>>, TextError> {
         let iter = self.graphemes(
-            TextRange::new((start_col, rows.start), (0, rows.end)),
-            TextPosition::new(start_col, rows.start),
+            TextRange::new((sub_row_offset, rows.start), (0, rows.end)),
+            TextPosition::new(sub_row_offset, rows.start),
         )?;
 
-        let mut it = GlyphIter2::new(TextPosition::new(start_col, rows.start), iter, cache);
+        let mut it = GlyphIter2::new(TextPosition::new(sub_row_offset, rows.start), iter, cache);
         it.set_tabs(self.tabs as upos_type);
         it.set_show_ctrl(self.glyph_ctrl);
         it.set_wrap_ctrl(self.wrap_ctrl);
