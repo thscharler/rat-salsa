@@ -873,6 +873,7 @@ impl MaskedCore {
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
         it.set_word_margin(right_margin);
+        it.init();
         Ok(Box::new(it))
     }
 

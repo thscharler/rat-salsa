@@ -100,6 +100,13 @@ impl<'a> Glyph2<'a> {
     }
 }
 
+/// Some util enum ...
+#[derive(Debug)]
+pub(crate) enum Caching {
+    None,
+    Cache,
+}
+
 #[derive(Debug)]
 #[non_exhaustive]
 pub(crate) enum TextWrap2 {
@@ -136,9 +143,8 @@ pub(crate) struct GlyphCache {
     /// Used when text-wrap is ShiftText.
     pub line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache>>>,
 
-    /// Text-Position per screen-cell.
-    /// This is an array of text_width * text_height elements.
-    pub screen_cache: Rc<RefCell<Vec<CellCache>>>,
+    /// Mark all line-breaks for wrapped text.
+    pub line_break: Rc<RefCell<Vec<TextPosition>>>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -148,12 +154,17 @@ pub(crate) struct LineOffsetCache {
     pub byte_pos: usize,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct CellCache {
-    pub pos: TextPosition,
-}
-
 impl GlyphCache {
+    pub(crate) fn set_line_break(&self, screen_row: upos_type, pos: TextPosition) {
+        let mut line_break = self.line_break.borrow_mut();
+        assert!(screen_row as usize <= line_break.len());
+        if screen_row as usize == line_break.len() {
+            line_break.push(pos);
+        } else {
+            line_break[screen_row as usize] = pos;
+        }
+    }
+
     pub(crate) fn assert_valid(
         &self,
         shift_left: upos_type,
@@ -200,11 +211,7 @@ impl GlyphCache {
         }
 
         if self.screen_width.get() != screen_width || self.screen_height.get() != screen_height {
-            self.screen_cache.borrow_mut().clear();
-            self.screen_cache.borrow_mut().resize_with(
-                screen_width as usize * screen_height as usize,
-                Default::default,
-            );
+            self.line_break.borrow_mut().clear();
             invalid = true;
         }
 
@@ -219,6 +226,7 @@ impl GlyphCache {
 }
 
 pub(crate) struct GlyphIter2<'a, Graphemes> {
+    init: bool,
     iter: Graphemes,
     done: bool,
 
@@ -280,6 +288,7 @@ impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
     /// New iterator.
     pub(crate) fn new(pos: TextPosition, iter: Graphemes, cache: GlyphCache) -> Self {
         Self {
+            init: false,
             iter,
             done: Default::default(),
             next_glyph: Default::default(),
@@ -346,6 +355,21 @@ impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
     pub(crate) fn set_word_margin(&mut self, word_margin: upos_type) {
         self.word_margin = word_margin;
     }
+
+    /// Initialize caching etc before running the iterator.
+    pub(crate) fn init(&mut self) {
+        self.init = true;
+
+        match self.text_wrap {
+            TextWrap2::Shift => {}
+            TextWrap2::Hard => {
+                self.cache.set_line_break(0, self.next_pos);
+            }
+            TextWrap2::Word => {
+                self.cache.set_line_break(0, self.next_pos);
+            }
+        }
+    }
 }
 
 impl<'a, Graphemes> Iterator for GlyphIter2<'a, Graphemes>
@@ -355,6 +379,8 @@ where
     type Item = Glyph2<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        assert!(self.init);
+
         if self.done {
             return None;
         }
@@ -437,6 +463,9 @@ where
         iter.last_pos = glyph.pos;
         iter.last_byte = glyph.text_bytes.end;
 
+        iter.cache
+            .set_line_break(iter.next_screen_pos.1, iter.next_pos);
+
         glyph.validate();
         Break(Some(glyph))
     } else if glyph.screen_pos.0 > iter.word_margin && glyph.glyph == " " {
@@ -448,6 +477,9 @@ where
         // next_pos.y doesn't change
         iter.last_pos = glyph.pos;
         iter.last_byte = glyph.text_bytes.end;
+
+        iter.cache
+            .set_line_break(iter.next_screen_pos.1, iter.next_pos);
 
         iter.next_glyph = Some(Glyph2 {
             glyph: if iter.wrap_ctrl {
@@ -494,6 +526,9 @@ where
         iter.last_pos = glyph.pos;
         iter.last_byte = glyph.text_bytes.end;
 
+        iter.cache
+            .set_line_break(iter.next_screen_pos.1, iter.next_pos);
+
         glyph.validate();
         Break(Some(glyph))
     } else if glyph.screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin() {
@@ -514,6 +549,8 @@ where
             line_break: false,
             pos: glyph.pos,
         });
+
+        iter.cache.set_line_break(glyph.screen_pos.1, glyph.pos);
 
         glyph.glyph = if iter.wrap_ctrl {
             Cow::Borrowed("\u{21B5}")
