@@ -2293,10 +2293,13 @@ impl TextAreaState {
                                 break 'f g.screen_pos();
                             }
                         }
-                        // invalid sub_row_offset.
-                        // the offset is broken, reset to somewhere.
-                        (0, 0)
+                        unreachable!();
                     };
+
+                    // before the first line result to (0,0)
+                    if o_screen_pos.1.overflowing_add_signed(scr_pos.1).1 {
+                        return Some(TextPosition::new(0, 0));
+                    }
 
                     // locate scr_pos in our new coordinate system
                     let scr_pos = (
@@ -2326,8 +2329,8 @@ impl TextAreaState {
                         if g.contains_screen_pos(scr_pos) {
                             return Some(g.pos());
                         }
-                        // fallback is start of last line
-                        if g.screen_pos().0 == 0 {
+                        // fallback is end of last line
+                        if g.line_break() {
                             fallback = Some(g.pos());
                         }
                     }
