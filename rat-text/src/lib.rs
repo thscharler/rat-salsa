@@ -14,6 +14,7 @@ pub mod text_input_mask;
 pub mod undo_buffer;
 
 mod glyph;
+mod glyph2;
 mod grapheme;
 mod range_map;
 mod text_core;

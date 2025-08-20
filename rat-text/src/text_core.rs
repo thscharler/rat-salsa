@@ -1,7 +1,7 @@
 use crate::clipboard::Clipboard;
 #[allow(deprecated)]
-use crate::glyph::Glyph;
-use crate::glyph::{GlyphCache, GlyphIter, GlyphIter2, TextWrap2};
+use crate::glyph::{Glyph, GlyphIter};
+use crate::glyph2::{GlyphCache, GlyphIter2, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::TextStore;

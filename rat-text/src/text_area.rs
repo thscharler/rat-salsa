@@ -8,7 +8,7 @@ use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
-use crate::glyph::{Glyph2, GlyphCache, TextWrap2};
+use crate::glyph2::{Glyph2, GlyphCache, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
@@ -18,6 +18,7 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -390,6 +391,7 @@ fn render_text_area(
     );
     state.vscroll.set_page_len(state.inner.height as usize);
 
+    debug!("stc?");
     if state.scroll_to_cursor {
         scroll_to_cursor(state);
     }
@@ -510,6 +512,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
             nstart_col = 0;
         }
         TextWrap::Hard | TextWrap::Word(_) => {
+            let t = SystemTime::now();
             // establish the cursor as new offset
             // - cursor is before the current offset
             // - cursor is way beyond the end of the page
@@ -529,6 +532,7 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
                 }
                 nox = 0;
                 nstart_col = line_start.x;
+                debug!("stca {:?}", t.elapsed());
             } else {
                 let mut lines = Vec::with_capacity(state.inner.height as usize);
 
@@ -569,7 +573,8 @@ fn scroll_to_cursor(state: &mut TextAreaState) {
                     noy = oy;
                     nstart_col = start_col;
                 }
-            };
+                debug!("stcb {:?}", t.elapsed());
+            }
         }
     }
 
@@ -707,7 +712,7 @@ impl TextAreaState {
     }
 
     /// Text breaking.
-    pub fn text_break(&self) -> TextWrap {
+    pub fn text_wrap(&self) -> TextWrap {
         self.text_wrap
     }
 
@@ -1980,6 +1985,7 @@ impl TextAreaState {
         self.cache.invalidate(
             self.offset(),
             self.page_start_offset(),
+            self.rendered.width as upos_type,
             self.value.min_changed(),
         );
 
@@ -2037,7 +2043,8 @@ impl TextAreaState {
 
     /// Return the end position for the visible line containing the given position.
     pub fn pos_to_line_end(&self, pos: TextPosition) -> TextPosition {
-        match self.text_wrap {
+        let t = SystemTime::now();
+        let r = match self.text_wrap {
             TextWrap::Shift => TextPosition::new(self.line_width(pos.y), pos.y),
             TextWrap::Hard | TextWrap::Word(_) => {
                 let mut end_pos = None;
@@ -2054,7 +2061,9 @@ impl TextAreaState {
 
                 end_pos.unwrap_or_else(|| TextPosition::new(self.line_width(pos.y), pos.y))
             }
-        }
+        };
+        debug!("line_end {:?}", t.elapsed());
+        r
     }
 
     /// Return the screen_position for the given text position

@@ -1,11 +1,11 @@
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
-use crate::glyph::{GlyphIter, GlyphIter2, TextWrap2};
+#[allow(deprecated)]
+use crate::glyph::{Glyph, GlyphIter};
+use crate::glyph2::{GlyphIter2, TextWrap2};
 use crate::text_mask_core::mask::{EditDirection, Mask, MaskToken};
 use crate::text_store::SkipLine;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
-#[allow(deprecated)]
-use crate::Glyph;
 use crate::{upos_type, Cursor, Grapheme, TextError, TextPosition, TextRange};
 use format_num_pattern::core::{clean_num, map_num};
 use format_num_pattern::{CurrencySym, NumberFormat, NumberSymbols};

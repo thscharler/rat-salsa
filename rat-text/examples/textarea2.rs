@@ -27,9 +27,9 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.textarea.set_auto_indent(false);
     // state.textarea.set_show_ctrl(true);
-    state.textarea.set_text_wrap(TextWrap::Shift);
+    state.textarea.set_text_wrap(TextWrap::Word(8));
 
-    let (text, styles) = sample_scott_1();
+    let (text, styles) = sample_short();
     state.textarea.set_rope(text);
     // state.textarea.set_styles(styles);
     add_range_styles(&mut state.textarea, styles);
