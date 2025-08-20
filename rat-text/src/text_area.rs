@@ -1837,12 +1837,14 @@ impl TextAreaState {
 
     /// Move the cursor to the document end.
     pub fn move_to_end(&mut self, extend_selection: bool) -> bool {
-        let len = self.len_lines();
+        let cursor = TextPosition::new(
+            self.line_width(self.len_lines().saturating_sub(1)),
+            self.len_lines().saturating_sub(1),
+        );
 
-        let cursor = TextPosition::new(0, len - 1);
-
+        let line_start = self.pos_to_line_start(cursor);
         self.set_move_col(Some(0));
-        self.set_cursor(cursor, extend_selection)
+        self.set_cursor(line_start, extend_selection)
     }
 
     /// Move the cursor to the start of the visible area.
