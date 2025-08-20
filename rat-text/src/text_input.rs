@@ -1289,7 +1289,7 @@ impl RelocatableState for TextInputState {
 impl TextInputState {
     fn glyphs2(&self) -> impl Iterator<Item = Glyph2<'_>> {
         let (text_break, left_margin, right_margin, word_margin) = (
-            TextWrap2::ShiftText,
+            TextWrap2::Shift,
             self.offset() as upos_type,
             self.offset() as upos_type + self.rendered.width as upos_type,
             self.offset() as upos_type + self.rendered.width as upos_type,

@@ -1963,19 +1963,19 @@ impl TextAreaState {
     ) -> Result<GlyphIter2<<TextRope as TextStore>::GraphemeIter<'_>>, TextError> {
         let (text_wrap, left_margin, right_margin, word_margin) = match self.text_wrap {
             TextWrap::Shift => (
-                TextWrap2::ShiftText,
+                TextWrap2::Shift,
                 self.offset().0 as upos_type,
                 self.offset().0 as upos_type + self.rendered.width as upos_type,
                 self.offset().0 as upos_type + self.rendered.width as upos_type,
             ),
             TextWrap::Hard => (
-                TextWrap2::BreakText,
+                TextWrap2::Hard,
                 0,
                 self.rendered.width as upos_type,
                 self.rendered.width as upos_type,
             ),
             TextWrap::Word(margin) => (
-                TextWrap2::BreakText,
+                TextWrap2::Word,
                 0,
                 self.rendered.width as upos_type,
                 self.rendered.width.saturating_sub(margin) as upos_type,

@@ -5,7 +5,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
-use std::ops::Range;
+use std::ops::ControlFlow::{Break, Continue};
+use std::ops::{ControlFlow, Range};
 use std::rc::Rc;
 
 /// Data for rendering/mapping graphemes to screen coordinates.
@@ -17,9 +18,10 @@ pub(crate) struct Glyph2<'a> {
     pub(crate) text_bytes: Range<usize>,
     /// screen-position corrected by text_offset.
     /// first visible column is at 0.
-    pub(crate) screen_pos: (u16, u16),
+    /// Warning: this is not an upos_type, but an u16.
+    pub(crate) screen_pos: (upos_type, upos_type),
     /// Display length for the glyph.
-    pub(crate) screen_width: u16,
+    pub(crate) screen_width: upos_type,
     /// Last item in this screen-line.
     pub(crate) line_break: bool,
     /// text-position
@@ -45,12 +47,12 @@ impl<'a> Glyph2<'a> {
     /// Get the screen position of the glyph. Starts at (0,0) in
     /// the top/left of the widget.
     pub fn screen_pos(&self) -> (u16, u16) {
-        self.screen_pos
+        (self.screen_pos.0 as u16, self.screen_pos.1 as u16)
     }
 
     /// Display width of the glyph.
     pub fn screen_width(&self) -> u16 {
-        self.screen_width
+        self.screen_width as u16
     }
 
     /// Last item in this screen line
@@ -60,9 +62,10 @@ impl<'a> Glyph2<'a> {
 
     /// Does the glyph cover the given screen-position?
     pub fn contains_screen_pos(&self, screen_pos: (u16, u16)) -> bool {
-        if self.screen_pos.1 == screen_pos.1 {
-            if screen_pos.0 >= self.screen_pos.0 {
-                if screen_pos.0 < self.screen_pos.0 + self.screen_width {
+        if self.screen_pos.1 == screen_pos.1 as upos_type {
+            if screen_pos.0 as upos_type >= self.screen_pos.0 {
+                if (screen_pos.0 as upos_type) < self.screen_pos.0 + self.screen_width as upos_type
+                {
                     return true;
                 }
                 if self.line_break {
@@ -74,11 +77,11 @@ impl<'a> Glyph2<'a> {
         false
     }
 
-    /// Does teh glyph cover the given x-position.
+    /// Does the glyph cover the given x-position.
     /// Doesn't check for the y-position.
     pub fn contains_screen_x(&self, screen_x: u16) -> bool {
-        if screen_x >= self.screen_pos.0 {
-            if screen_x < self.screen_pos.0 + self.screen_width {
+        if screen_x as upos_type >= self.screen_pos.0 {
+            if (screen_x as upos_type) < self.screen_pos.0 + self.screen_width as upos_type {
                 return true;
             }
             if self.line_break {
@@ -88,21 +91,29 @@ impl<'a> Glyph2<'a> {
 
         false
     }
+
+    /// Validite bounds.
+    fn validate(&self) {
+        assert!(self.screen_pos.0 <= u16::MAX as upos_type);
+        assert!(self.screen_pos.1 <= u16::MAX as upos_type);
+        assert!(self.screen_width <= u16::MAX as upos_type);
+    }
 }
 
 #[derive(Debug)]
 #[non_exhaustive]
 pub(crate) enum TextWrap2 {
     /// shift glyphs to the left and clip at right margin.
-    ShiftText,
-    /// break text at right margin.
-    /// if a word-margin is set, use it.
-    BreakText,
+    Shift,
+    /// hard break text at right margin.
+    Hard,
+    /// word break the text.
+    Word,
 }
 
 impl Default for TextWrap2 {
     fn default() -> Self {
-        Self::ShiftText
+        Self::Shift
     }
 }
 
@@ -275,19 +286,6 @@ impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
     }
 }
 
-#[inline]
-fn checked_screen_pos(x: upos_type, y: upos_type) -> (u16, u16) {
-    (
-        u16::try_from(x).expect("in-range"),
-        u16::try_from(y).expect("in-range"),
-    )
-}
-
-#[inline]
-fn checked_screen_width(w: upos_type) -> u16 {
-    u16::try_from(w).expect("in-range")
-}
-
 impl<'a, Graphemes> Iterator for GlyphIter2<'a, Graphemes>
 where
     Graphemes: SkipLine + Iterator<Item = Grapheme<'a>>,
@@ -303,6 +301,7 @@ where
             self.last_pos = glyph.pos;
             self.last_byte = glyph.text_bytes.end;
 
+            glyph.validate();
             return Some(glyph);
         }
 
@@ -319,7 +318,7 @@ where
                         Cow::Borrowed("")
                     },
                     text_bytes: self.last_byte..self.last_byte,
-                    screen_pos: checked_screen_pos(
+                    screen_pos: (
                         self.next_screen_pos.0.saturating_sub(self.left_margin),
                         self.next_screen_pos.1,
                     ),
@@ -331,325 +330,332 @@ where
                 return Some(glyph);
             };
 
-            let (mut grapheme, mut grapheme_bytes) = grapheme.into_parts();
-            let mut screen_pos = (self.next_screen_pos.0, self.next_screen_pos.1);
-            let mut screen_width;
-            let mut line_break;
-            let mut pos = self.next_pos;
+            let (grapheme, grapheme_bytes) = grapheme.into_parts();
+
+            let mut glyph = Glyph2 {
+                glyph: grapheme,
+                text_bytes: grapheme_bytes,
+                screen_pos: (self.next_screen_pos.0, self.next_screen_pos.1),
+                screen_width: 0,
+                line_break: false,
+                pos: self.next_pos,
+            };
 
             // remap grapheme
-            if grapheme == "\n" || grapheme == "\r\n" {
-                if self.line_break {
-                    line_break = true;
-                    screen_width = if self.show_ctrl { 1 } else { 0 };
-                    grapheme = Cow::Borrowed(if self.show_ctrl { "\u{240A}" } else { "" });
-                } else {
-                    line_break = false;
-                    screen_width = 1;
-                    grapheme = Cow::Borrowed("\u{240A}");
-                }
-            } else if grapheme == "\t" {
-                line_break = false;
-                screen_width = self.tabs - (self.next_screen_pos.0 % self.tabs);
-                grapheme = Cow::Borrowed(if self.show_ctrl { "\u{2409}" } else { " " });
-            } else if ("\x00".."\x20").contains(&grapheme.as_ref()) {
-                line_break = false;
-                screen_width = 1;
-
-                // Control char unicode display replacement.
-                static CONTROL_CHARS: [&str; 32] = [
-                    "\u{2400}", "\u{2401}", "\u{2402}", "\u{2403}", "\u{2404}", "\u{2405}",
-                    "\u{2406}", "\u{2407}", "\u{2408}", "\u{2409}", "\u{240A}", "\u{240B}",
-                    "\u{240C}", "\u{240D}", "\u{240E}", "\u{240F}", "\u{2410}", "\u{2411}",
-                    "\u{2412}", "\u{2413}", "\u{2414}", "\u{2415}", "\u{2416}", "\u{2417}",
-                    "\u{2418}", "\u{2419}", "\u{241A}", "\u{241B}", "\u{241C}", "\u{241D}",
-                    "\u{241E}", "\u{241F}",
-                ];
-
-                grapheme = Cow::Borrowed(if self.show_ctrl {
-                    CONTROL_CHARS[grapheme.as_bytes()[0] as usize]
-                } else {
-                    "\u{FFFD}"
-                });
-            } else {
-                line_break = false;
-                screen_width = unicode_display_width::width(&grapheme) as upos_type;
-                grapheme = grapheme;
-            }
+            remap_glyph(&mut glyph, self.line_break, self.show_ctrl, self.tabs);
 
             // next glyph positioning
-            if let TextWrap2::ShiftText = self.text_wrap {
-                // Clip glyphs and correct left offset
-                if line_break {
-                    self.next_screen_pos.0 = 0;
-                    self.next_screen_pos.1 += 1;
-                    self.next_pos.x = 0;
-                    self.next_pos.y += 1;
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    if screen_pos.0 <= self.true_right_margin() {
-                        screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
-
-                        return Some(Glyph2 {
-                            glyph: grapheme,
-                            text_bytes: grapheme_bytes,
-                            screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                            screen_width: checked_screen_width(screen_width),
-                            line_break,
-                            pos,
-                        });
-                    } else {
-                        // shouldn't happen with skip_line?
-                        unreachable!("line-break should have been skipped");
-                    }
-                } else if screen_pos.0 < self.left_margin
-                    && screen_pos.0 + screen_width > self.left_margin
-                {
-                    // show replacement for split glyph
-                    grapheme = Cow::Borrowed("\u{2426}");
-                    screen_width = self.next_screen_pos.0 + screen_width - self.left_margin;
-                    screen_pos.0 = 0;
-
-                    // cache line start position.
-                    self.cache.line_start.borrow_mut().insert(
-                        pos.y,
-                        GlyphCacheLine {
-                            pos_x: pos.x,
-                            screen_pos_x: self.next_screen_pos.0,
-                            byte_pos: grapheme_bytes.start,
-                        },
-                    );
-
-                    self.next_screen_pos.0 += screen_width as upos_type;
-                    // self.next_screen_pos.1 doesn't change
-                    self.next_pos.x += 1;
-                    // next_pos.y doesn't change
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    return Some(Glyph2 {
-                        glyph: grapheme,
-                        text_bytes: grapheme_bytes,
-                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width: checked_screen_width(screen_width),
-                        line_break,
-                        pos,
-                    });
-                } else if screen_pos.0 < self.left_margin {
-                    self.next_screen_pos.0 += screen_width as upos_type;
-                    // self.next_screen_pos.1 doesn't change
-                    self.next_pos.x += 1;
-                    // next_pos.y doesn't change
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    if let Some(cached) = self.cache.line_start.borrow().get(&pos.y) {
-                        self.iter.skip_to(cached.byte_pos).expect("valid-pos");
-                        self.next_pos.x = cached.pos_x;
-                        self.next_screen_pos.0 = cached.screen_pos_x;
-                        continue;
-                    } else {
-                        // not yet cached. go the long way.
-                        continue;
-                    }
-                } else if screen_pos.0 == self.true_right_margin() {
-                    line_break = true;
-                    screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
-                    screen_width = if self.show_ctrl { 1 } else { 0 };
-                    grapheme = Cow::Borrowed(if self.show_ctrl { "\u{2424}" } else { "" });
-                    grapheme_bytes = self.last_byte..self.last_byte;
-
-                    self.next_screen_pos.0 += 1;
-                    // self.next_screen_pos.1 doesn't change
-                    self.next_pos.x += 1;
-                    // next_pos.y doesn't change
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    return Some(Glyph2 {
-                        glyph: grapheme,
-                        text_bytes: grapheme_bytes,
-                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width: checked_screen_width(screen_width),
-                        line_break,
-                        pos,
-                    });
-                } else if self.next_screen_pos.0 > self.true_right_margin() {
-                    // skip to next_line
-                    self.iter.skip_line().expect("fine");
-
-                    // do the line-break here.
-                    self.next_screen_pos.0 = 0;
-                    self.next_screen_pos.1 += 1;
-                    self.next_pos.x = 0;
-                    self.next_pos.y += 1;
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    continue;
-                } else if self.next_screen_pos.0 < self.true_right_margin()
-                    && self.next_screen_pos.0 + screen_width as upos_type > self.true_right_margin()
-                {
-                    // show replacement for split glyph
-                    grapheme = Cow::Borrowed("\u{2426}");
-                    screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
-                    screen_width = self.next_screen_pos.0 + screen_width - self.right_margin;
-
-                    self.next_screen_pos.0 += screen_width as upos_type;
-                    // self.next_screen_pos.1 doesn't change
-                    self.next_pos.x += 1;
-                    // next_pos.y doesn't change
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    return Some(Glyph2 {
-                        glyph: grapheme,
-                        text_bytes: grapheme_bytes,
-                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width: checked_screen_width(screen_width),
-                        line_break,
-                        pos,
-                    });
-                } else {
-                    screen_pos.0 = screen_pos.0.saturating_sub(self.left_margin);
-
-                    if screen_pos.0 == 0 {
-                        self.cache.line_start.borrow_mut().insert(
-                            pos.y,
-                            GlyphCacheLine {
-                                pos_x: pos.x,
-                                screen_pos_x: self.next_screen_pos.0,
-                                byte_pos: grapheme_bytes.start,
-                            },
-                        );
-                    }
-
-                    self.next_screen_pos.0 += screen_width as upos_type;
-                    // self.next_screen_pos.1 doesn't change
-                    self.next_pos.x += 1;
-                    // next_pos.y doesn't change
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    return Some(Glyph2 {
-                        glyph: grapheme,
-                        text_bytes: grapheme_bytes,
-                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width: checked_screen_width(screen_width),
-                        line_break,
-                        pos,
-                    });
-                }
-            } else if let TextWrap2::BreakText = self.text_wrap {
-                if line_break {
-                    // new-line
-
-                    self.next_screen_pos.0 = 0;
-                    self.next_screen_pos.1 += 1;
-                    self.next_pos.x = 0;
-                    self.next_pos.y += 1;
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    return Some(Glyph2 {
-                        glyph: grapheme,
-                        text_bytes: grapheme_bytes,
-                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width: checked_screen_width(screen_width),
-                        line_break,
-                        pos,
-                    });
-                } else if screen_pos.0 + screen_width as upos_type > self.true_right_margin() {
-                    // break before glyph
-
-                    self.next_screen_pos.0 = screen_width as upos_type;
-                    self.next_screen_pos.1 += 1;
-                    self.next_pos.x += 1;
-                    // next_pos.y doesn't change
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    self.next_glyph = Some(Glyph2 {
-                        glyph: Cow::Owned(grapheme.to_string()),
-                        text_bytes: grapheme_bytes.clone(),
-                        screen_pos: checked_screen_pos(0, screen_pos.1 + 1),
-                        screen_width: checked_screen_width(screen_width),
-                        line_break: false,
-                        pos,
-                    });
-
-                    grapheme = if self.show_ctrl {
-                        Cow::Borrowed("\u{2424}")
-                    } else {
-                        Cow::Borrowed("")
-                    };
-                    grapheme_bytes = grapheme_bytes.start..grapheme_bytes.start;
-                    // screen_pos is ok
-                    screen_width = if self.show_ctrl { 1 } else { 0 };
-                    line_break = true;
-                    pos = self.last_pos;
-
-                    return Some(Glyph2 {
-                        glyph: grapheme,
-                        text_bytes: grapheme_bytes,
-                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width: checked_screen_width(screen_width),
-                        line_break,
-                        pos,
-                    });
-                } else if screen_pos.0 > self.word_margin && grapheme == " " {
-                    // break after space
-
-                    self.next_screen_pos.0 = 0;
-                    self.next_screen_pos.1 += 1;
-                    self.next_pos.x += 1;
-                    // next_pos.y doesn't change
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    self.next_glyph = Some(Glyph2 {
-                        glyph: if self.show_ctrl {
-                            Cow::Borrowed("\u{2424}")
-                        } else {
-                            Cow::Borrowed("")
-                        },
-                        text_bytes: grapheme_bytes.end..grapheme_bytes.end,
-                        screen_pos: checked_screen_pos(screen_pos.0 + 1, screen_pos.1),
-                        screen_width: if self.show_ctrl { 1 } else { 0 },
-                        line_break: true,
-                        pos,
-                    });
-
-                    return Some(Glyph2 {
-                        glyph: grapheme,
-                        text_bytes: grapheme_bytes,
-                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width: checked_screen_width(screen_width),
-                        line_break,
-                        pos,
-                    });
-                } else {
-                    self.next_screen_pos.0 += screen_width as upos_type;
-                    // next_screen_pos.1 doesn't change
-                    self.next_pos.x += 1;
-                    // next_pos.1 doesn't change
-                    self.last_pos = pos;
-                    self.last_byte = grapheme_bytes.end;
-
-                    return Some(Glyph2 {
-                        glyph: grapheme,
-                        text_bytes: grapheme_bytes,
-                        screen_pos: checked_screen_pos(screen_pos.0, screen_pos.1),
-                        screen_width: checked_screen_width(screen_width),
-                        line_break,
-                        pos,
-                    });
-                }
-            } else {
-                unreachable!()
+            let r = match self.text_wrap {
+                TextWrap2::Shift => shift_clip_next(self, glyph),
+                TextWrap2::Hard => hard_wrap_next(self, glyph),
+                TextWrap2::Word => word_wrap_next(self, glyph),
+            };
+            match r {
+                Continue(_) => continue,
+                Break(glyph) => return glyph,
             }
         }
+    }
+}
+
+fn word_wrap_next<'a, Graphemes>(
+    iter: &mut GlyphIter2<'a, Graphemes>,
+    glyph: Glyph2<'a>,
+) -> ControlFlow<Option<Glyph2<'a>>>
+where
+    Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine,
+{
+    if glyph.line_break {
+        // new-line
+
+        iter.next_screen_pos.0 = 0;
+        iter.next_screen_pos.1 += 1;
+        iter.next_pos.x = 0;
+        iter.next_pos.y += 1;
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        glyph.validate();
+        Break(Some(glyph))
+    } else if glyph.screen_pos.0 > iter.word_margin && glyph.glyph == " " {
+        // break after space
+
+        iter.next_screen_pos.0 = 0;
+        iter.next_screen_pos.1 += 1;
+        iter.next_pos.x += 1;
+        // next_pos.y doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        iter.next_glyph = Some(Glyph2 {
+            glyph: if iter.show_ctrl {
+                Cow::Borrowed("\u{2424}")
+            } else {
+                Cow::Borrowed("")
+            },
+            text_bytes: glyph.text_bytes.end..glyph.text_bytes.end,
+            screen_pos: (glyph.screen_pos.0 + 1, glyph.screen_pos.1),
+            screen_width: if iter.show_ctrl { 1 } else { 0 },
+            line_break: true,
+            pos: glyph.pos,
+        });
+
+        glyph.validate();
+        Break(Some(glyph))
+    } else {
+        iter.next_screen_pos.0 += glyph.screen_width as upos_type;
+        // next_screen_pos.1 doesn't change
+        iter.next_pos.x += 1;
+        // next_pos.1 doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        glyph.validate();
+        Break(Some(glyph))
+    }
+}
+
+fn hard_wrap_next<'a, Graphemes>(
+    iter: &mut GlyphIter2<'a, Graphemes>,
+    mut glyph: Glyph2<'a>,
+) -> ControlFlow<Option<Glyph2<'a>>>
+where
+    Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine,
+{
+    if glyph.line_break {
+        // new-line
+
+        iter.next_screen_pos.0 = 0;
+        iter.next_screen_pos.1 += 1;
+        iter.next_pos.x = 0;
+        iter.next_pos.y += 1;
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        glyph.validate();
+        Break(Some(glyph))
+    } else if glyph.screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin() {
+        // break before glyph
+
+        iter.next_screen_pos.0 = glyph.screen_width as upos_type;
+        iter.next_screen_pos.1 += 1;
+        iter.next_pos.x += 1;
+        // next_pos.y doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        iter.next_glyph = Some(Glyph2 {
+            glyph: Cow::Owned(glyph.glyph.to_string()),
+            text_bytes: glyph.text_bytes.clone(),
+            screen_pos: (0, glyph.screen_pos.1 + 1),
+            screen_width: glyph.screen_width,
+            line_break: false,
+            pos: glyph.pos,
+        });
+
+        glyph.glyph = if iter.show_ctrl {
+            Cow::Borrowed("\u{2424}")
+        } else {
+            Cow::Borrowed("")
+        };
+        glyph.text_bytes = glyph.text_bytes.start..glyph.text_bytes.start;
+        // screen_pos is ok
+        glyph.screen_width = if iter.show_ctrl { 1 } else { 0 };
+        glyph.line_break = true;
+        glyph.pos = iter.last_pos;
+
+        glyph.validate();
+        Break(Some(glyph))
+    } else {
+        iter.next_screen_pos.0 += glyph.screen_width as upos_type;
+        // next_screen_pos.1 doesn't change
+        iter.next_pos.x += 1;
+        // next_pos.1 doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        glyph.validate();
+        Break(Some(glyph))
+    }
+}
+
+fn shift_clip_next<'a, Graphemes>(
+    iter: &mut GlyphIter2<'a, Graphemes>,
+    mut glyph: Glyph2<'a>,
+) -> ControlFlow<Option<Glyph2<'a>>>
+where
+    Graphemes: SkipLine + Iterator<Item = Grapheme<'a>>,
+{
+    // Clip glyphs and correct left offset
+    if glyph.line_break {
+        iter.next_screen_pos.0 = 0;
+        iter.next_screen_pos.1 += 1;
+        iter.next_pos.x = 0;
+        iter.next_pos.y += 1;
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        if glyph.screen_pos.0 <= iter.true_right_margin() {
+            glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
+            glyph.validate();
+            Break(Some(glyph))
+        } else {
+            // shouldn't happen with skip_line?
+            unreachable!("line-break should have been skipped");
+        }
+    } else if glyph.screen_pos.0 < iter.left_margin
+        && glyph.screen_pos.0 + glyph.screen_width > iter.left_margin
+    {
+        // show replacement for split glyph
+        glyph.glyph = Cow::Borrowed("\u{2426}");
+        glyph.screen_width = iter.next_screen_pos.0 + glyph.screen_width - iter.left_margin;
+        glyph.screen_pos.0 = 0;
+
+        // cache line start position.
+        iter.cache.line_start.borrow_mut().insert(
+            glyph.pos.y,
+            GlyphCacheLine {
+                pos_x: glyph.pos.x,
+                screen_pos_x: iter.next_screen_pos.0,
+                byte_pos: glyph.text_bytes.start,
+            },
+        );
+
+        iter.next_screen_pos.0 += glyph.screen_width;
+        // iter.next_screen_pos.1 doesn't change
+        iter.next_pos.x += 1;
+        // next_pos.y doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        glyph.validate();
+        Break(Some(glyph))
+    } else if glyph.screen_pos.0 < iter.left_margin {
+        iter.next_screen_pos.0 += glyph.screen_width;
+        // iter.next_screen_pos.1 doesn't change
+        iter.next_pos.x += 1;
+        // next_pos.y doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        if let Some(cached) = iter.cache.line_start.borrow().get(&glyph.pos.y) {
+            iter.iter.skip_to(cached.byte_pos).expect("valid-pos");
+            iter.next_pos.x = cached.pos_x;
+            iter.next_screen_pos.0 = cached.screen_pos_x;
+            Continue(())
+        } else {
+            // not yet cached. go the long way.
+            Continue(())
+        }
+    } else if glyph.screen_pos.0 == iter.true_right_margin() {
+        glyph.line_break = true;
+        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
+        glyph.screen_width = if iter.show_ctrl { 1 } else { 0 };
+        glyph.glyph = Cow::Borrowed(if iter.show_ctrl { "\u{2424}" } else { "" });
+        glyph.text_bytes = iter.last_byte..iter.last_byte;
+
+        iter.next_screen_pos.0 += 1;
+        // iter.next_screen_pos.1 doesn't change
+        iter.next_pos.x += 1;
+        // next_pos.y doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        glyph.validate();
+        Break(Some(glyph))
+    } else if iter.next_screen_pos.0 > iter.true_right_margin() {
+        // skip to next_line
+        iter.iter.skip_line().expect("fine");
+
+        // do the line-break here.
+        iter.next_screen_pos.0 = 0;
+        iter.next_screen_pos.1 += 1;
+        iter.next_pos.x = 0;
+        iter.next_pos.y += 1;
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        Continue(())
+    } else if iter.next_screen_pos.0 < iter.true_right_margin()
+        && iter.next_screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin()
+    {
+        // show replacement for split glyph
+        glyph.glyph = Cow::Borrowed("\u{2426}");
+        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
+        glyph.screen_width = iter.next_screen_pos.0 + glyph.screen_width - iter.right_margin;
+
+        iter.next_screen_pos.0 += glyph.screen_width as upos_type;
+        // iter.next_screen_pos.1 doesn't change
+        iter.next_pos.x += 1;
+        // next_pos.y doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        glyph.validate();
+        Break(Some(glyph))
+    } else {
+        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
+
+        if glyph.screen_pos.0 == 0 {
+            iter.cache.line_start.borrow_mut().insert(
+                glyph.pos.y,
+                GlyphCacheLine {
+                    pos_x: glyph.pos.x,
+                    screen_pos_x: iter.next_screen_pos.0,
+                    byte_pos: glyph.text_bytes.start,
+                },
+            );
+        }
+
+        iter.next_screen_pos.0 += glyph.screen_width as upos_type;
+        // iter.next_screen_pos.1 doesn't change
+        iter.next_pos.x += 1;
+        // next_pos.y doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        glyph.validate();
+        Break(Some(glyph))
+    }
+}
+
+fn remap_glyph(glyph: &mut Glyph2<'_>, lf_breaks: bool, show_ctrl: bool, tabs: upos_type) {
+    if glyph.glyph == "\n" || glyph.glyph == "\r\n" {
+        if lf_breaks {
+            glyph.line_break = true;
+            glyph.screen_width = if show_ctrl { 1 } else { 0 };
+            glyph.glyph = Cow::Borrowed(if show_ctrl { "\u{240A}" } else { "" });
+        } else {
+            glyph.line_break = false;
+            glyph.screen_width = 1;
+            glyph.glyph = Cow::Borrowed("\u{240A}");
+        }
+    } else if glyph.glyph == "\t" {
+        glyph.line_break = false;
+        glyph.screen_width = tabs - (glyph.screen_pos.0 % tabs);
+        glyph.glyph = Cow::Borrowed(if show_ctrl { "\u{2409}" } else { " " });
+    } else if ("\x00".."\x20").contains(&glyph.glyph.as_ref()) {
+        glyph.line_break = false;
+        glyph.screen_width = 1;
+
+        // Control char unicode display replacement.
+        static CONTROL_CHARS: [&str; 32] = [
+            "\u{2400}", "\u{2401}", "\u{2402}", "\u{2403}", "\u{2404}", "\u{2405}", "\u{2406}",
+            "\u{2407}", "\u{2408}", "\u{2409}", "\u{240A}", "\u{240B}", "\u{240C}", "\u{240D}",
+            "\u{240E}", "\u{240F}", "\u{2410}", "\u{2411}", "\u{2412}", "\u{2413}", "\u{2414}",
+            "\u{2415}", "\u{2416}", "\u{2417}", "\u{2418}", "\u{2419}", "\u{241A}", "\u{241B}",
+            "\u{241C}", "\u{241D}", "\u{241E}", "\u{241F}",
+        ];
+
+        glyph.glyph = Cow::Borrowed(if show_ctrl {
+            CONTROL_CHARS[glyph.glyph.as_bytes()[0] as usize]
+        } else {
+            "\u{FFFD}"
+        });
+    } else {
+        glyph.line_break = false;
+        glyph.screen_width = unicode_display_width::width(&glyph.glyph) as upos_type;
+        // glyph.glyph = glyph.glyph;
     }
 }
 
