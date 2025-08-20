@@ -393,7 +393,7 @@ fn render_text_area(
 
     debug!("stc?");
     if state.scroll_to_cursor {
-        scroll_to_cursor(state);
+        state.scroll_to_cursor();
     }
 
     let inner = state.inner;
@@ -475,122 +475,6 @@ fn render_text_area(
             }
         }
     }
-}
-
-fn scroll_to_cursor(state: &mut TextAreaState) {
-    let cursor = state.cursor();
-
-    let nox;
-    let noy;
-    let nsub_row_offset;
-    match state.text_wrap {
-        TextWrap::Shift => {
-            let (ox, _, oy) = state.clean_offset();
-
-            let height = state.rendered.height as upos_type;
-            let width = state.rendered.width as upos_type;
-            let width = if state.show_ctrl() || state.wrap_ctrl() {
-                width.saturating_sub(1)
-            } else {
-                width
-            };
-
-            noy = if cursor.y < oy {
-                cursor.y
-            } else if cursor.y >= oy + height {
-                cursor.y.saturating_sub(height) + 1
-            } else {
-                oy
-            };
-
-            nox = if cursor.x < ox {
-                cursor.x
-            } else if cursor.x >= ox + width {
-                cursor.x.saturating_sub(width) + 1
-            } else {
-                ox
-            };
-
-            nsub_row_offset = 0;
-        }
-        TextWrap::Hard | TextWrap::Word(_) => {
-            let t = SystemTime::now();
-
-            let (ox, sub_row_offset, oy) = state.clean_offset();
-
-            // establish the cursor as new offset
-            // - cursor is before the current offset
-            // - cursor is way beyond the end of the page
-            if cursor.y < oy
-                || cursor.y == oy && cursor.x < sub_row_offset
-                || cursor.y > oy + 2 * state.rendered.height as upos_type
-            {
-                noy = cursor.y;
-
-                let mut line_start = TextPosition::new(0, noy);
-                for g in state
-                    .glyphs2(0, 0, noy..noy + 1) // TODO: invalidates cache
-                    .expect("valid_offset")
-                {
-                    if g.screen_pos().0 == 0 {
-                        line_start = g.pos();
-                    }
-                    if g.pos() == cursor {
-                        break; // found
-                    }
-                }
-
-                nox = 0;
-                nsub_row_offset = line_start.x;
-                debug!("stca {:?}", t.elapsed());
-            } else {
-                let mut lines = Vec::with_capacity(state.inner.height as usize);
-
-                'f: {
-                    let mut f = true;
-                    for g in state
-                        .glyphs2(0, sub_row_offset, oy..min(state.len_lines(), cursor.y + 1))
-                        .expect("valid_offset")
-                    {
-                        if g.screen_pos().0 == 0 {
-                            lines.push(g.pos());
-                        }
-
-                        if g.pos() == cursor {
-                            // found
-                            if g.screen_pos().1 >= state.rendered.height {
-                                // off-screen, change offset
-                                let start = if lines.len() < state.rendered.height as usize {
-                                    lines[0]
-                                } else {
-                                    lines[lines.len() - state.rendered.height as usize]
-                                };
-                                noy = start.y;
-                                nox = 0;
-                                nsub_row_offset = start.x;
-                            } else {
-                                // already visible
-                                noy = oy;
-                                nox = ox;
-                                nsub_row_offset = sub_row_offset;
-                            }
-                            break 'f;
-                        }
-                    }
-
-                    // invalid position, somehow.
-                    // leave offset as is.
-                    nox = ox;
-                    noy = oy;
-                    nsub_row_offset = sub_row_offset;
-                }
-                debug!("stcb {:?}", t.elapsed());
-            }
-        }
-    }
-
-    state.set_offset((nox as usize, noy as usize));
-    state.set_sub_row_offset(nsub_row_offset);
 }
 
 impl Default for TextAreaState {
@@ -2138,6 +2022,112 @@ impl TextAreaState {
         r
     }
 
+    fn scroll_to_cursor(&mut self) {
+        let cursor = self.cursor();
+
+        let nox;
+        let noy;
+        let mut nsub_row_offset;
+        match self.text_wrap {
+            TextWrap::Shift => {
+                let (ox, _, oy) = self.clean_offset();
+
+                let height = self.rendered.height as upos_type;
+                let width = self.rendered.width as upos_type;
+                let width = if self.show_ctrl() || self.wrap_ctrl() {
+                    width.saturating_sub(1)
+                } else {
+                    width
+                };
+
+                noy = if cursor.y < oy {
+                    cursor.y
+                } else if cursor.y >= oy + height {
+                    cursor.y.saturating_sub(height) + 1
+                } else {
+                    oy
+                };
+
+                nox = if cursor.x < ox {
+                    cursor.x
+                } else if cursor.x >= ox + width {
+                    cursor.x.saturating_sub(width) + 1
+                } else {
+                    ox
+                };
+
+                nsub_row_offset = 0;
+            }
+            TextWrap::Hard | TextWrap::Word(_) => {
+                let (ox, sub_row_offset, oy) = self.clean_offset();
+
+                // try to find the cursor on the visible screen.
+                // scans one more extra screen-height afterwards.
+                'f: {
+                    let mut sub_row_offsets = Vec::new();
+                    for g in self
+                        .glyphs2(0, sub_row_offset, oy..self.len_lines())
+                        .expect("valid_offset")
+                    {
+                        if g.screen_pos().0 == 0 {
+                            sub_row_offsets.push((g.pos().x, g.pos().y));
+                        }
+                        if g.screen_pos().1 >= 2 * self.rendered.height {
+                            break;
+                        }
+                        if g.pos() == cursor {
+                            if g.screen_pos().1 >= self.rendered.height {
+                                (nsub_row_offset, noy) = sub_row_offsets
+                                    [(g.screen_pos().1 - self.rendered.height + 1) as usize];
+                                nox = ox;
+                                debug!(
+                                    "stc {} {} rows back is {} at {}",
+                                    g.screen_pos().1,
+                                    self.rendered.height,
+                                    g.screen_pos().1 - self.rendered.height + 1,
+                                    nsub_row_offset
+                                );
+                            } else {
+                                debug!("stc on screen");
+                                nsub_row_offset = sub_row_offset;
+                                nox = ox;
+                                noy = oy;
+                            }
+
+                            break 'f;
+                        }
+                    }
+
+                    // cursor is not on the screen.
+                    //
+                    // find the correct line-start for the cursor.
+                    // set the cursor as the new offset.
+                    //
+                    // TODO: invalidates cache
+                    nsub_row_offset = 0;
+                    for g in self
+                        .glyphs2(0, 0, cursor.y..cursor.y + 1)
+                        .expect("valid_offset")
+                    {
+                        if g.screen_pos().0 == 0 {
+                            nsub_row_offset = g.pos().x;
+                        }
+                        if g.pos() == cursor {
+                            break; // found
+                        }
+                    }
+
+                    nox = 0;
+                    noy = cursor.y;
+                    debug!("stc new {} {} {}", nox, nsub_row_offset, noy);
+                }
+            }
+        }
+
+        self.set_offset((nox as usize, noy as usize));
+        self.set_sub_row_offset(nsub_row_offset);
+    }
+
     /// Return the screen_position for the given text position
     /// relative to the origin of the widget.
     ///
@@ -2238,31 +2228,45 @@ impl TextAreaState {
                     return None;
                 }
 
-                let pos_y = if scr_pos.1 < 0 {
-                    oy.saturating_add_signed(scr_pos.1 as ipos_type)
+                if scr_pos.1 < 0 {
+                    // before the first visible line. fall back to col 0.
+                    Some(TextPosition::new(
+                        0,
+                        oy.saturating_add_signed(scr_pos.1 as ipos_type),
+                    ))
+                } else if (oy + scr_pos.1 as upos_type) > self.len_lines() {
+                    // after the last visible line. fall back to width.
+                    Some(TextPosition::new(
+                        self.line_width(self.len_lines()),
+                        self.len_lines(),
+                    ))
                 } else {
-                    min(oy + scr_pos.1 as upos_type, self.len_lines())
-                };
+                    let pos_y = oy + scr_pos.1 as upos_type;
 
-                let pos_x = if scr_pos.0 < 0 {
-                    ox.saturating_add_signed(scr_pos.0 as ipos_type)
-                } else if scr_pos.0 as u16 >= self.rendered.width {
-                    min(ox + scr_pos.0 as upos_type, self.line_width(pos_y))
-                } else {
-                    'f: {
-                        for g in self
-                            .glyphs2(ox, 0, pos_y..self.len_lines())
-                            .expect("valid-position")
-                        {
-                            if g.contains_screen_x(scr_pos.0 as u16) {
-                                break 'f g.pos().x;
+                    if scr_pos.0 < 0 {
+                        Some(TextPosition::new(
+                            ox.saturating_add_signed(scr_pos.0 as ipos_type),
+                            pos_y,
+                        ))
+                    } else if scr_pos.0 as u16 >= self.rendered.width {
+                        Some(TextPosition::new(
+                            min(ox + scr_pos.0 as upos_type, self.line_width(pos_y)),
+                            pos_y,
+                        ))
+                    } else {
+                        'f: {
+                            for g in self
+                                .glyphs2(ox, 0, pos_y..self.len_lines())
+                                .expect("valid-position")
+                            {
+                                if g.contains_screen_x(scr_pos.0 as u16) {
+                                    break 'f Some(TextPosition::new(g.pos().x, pos_y));
+                                }
                             }
+                            unreachable!();
                         }
-                        unreachable!();
                     }
-                };
-
-                Some(TextPosition::new(pos_x, pos_y))
+                }
             }
             TextWrap::Hard | TextWrap::Word(_) => {
                 let (_, sub_row_offset, oy) = self.clean_offset();
@@ -2283,8 +2287,8 @@ impl TextAreaState {
                     let ry = oy.saturating_add_signed(scr_pos.1 as ipos_type);
                     // find offset
                     let o_screen_pos = 'f: {
+                        // TODO: invalidates cache
                         for g in self.glyphs2(0, 0, ry..oy + 1).expect("valid-rows") {
-                            // TODO: invalidates cache
                             if g.pos().x == sub_row_offset && g.pos().y == oy {
                                 break 'f g.screen_pos();
                             }
@@ -2296,26 +2300,22 @@ impl TextAreaState {
 
                     // locate scr_pos in our new coordinate system
                     let scr_pos = (
-                        // negative columns map to 0, columns > width are covered by contains_screen_pos.
-                        if scr_pos.0 < 0 { 0 } else { scr_pos.0 as u16 },
+                        max(0, scr_pos.0) as u16,
                         o_screen_pos.1.saturating_add_signed(scr_pos.1),
                     );
 
                     // find the matching pos
-                    for g in self.glyphs2(0, 0, ry..oy + 1).expect("valid-rows") {
+                    'f: {
                         // TODO: invalidates cache
-                        if g.contains_screen_pos(scr_pos) {
-                            return Some(g.pos());
+                        for g in self.glyphs2(0, 0, ry..oy + 1).expect("valid-rows") {
+                            if g.contains_screen_pos(scr_pos) {
+                                break 'f Some(g.pos());
+                            }
                         }
+                        unreachable!("impossible screen-pos");
                     }
-
-                    unreachable!("impossible screen-pos");
                 } else {
-                    let scr_pos = (
-                        // negative columns map to 0, columns > width are covered by contains_screen_pos.
-                        if scr_pos.0 < 0 { 0 } else { scr_pos.0 as u16 },
-                        scr_pos.1 as u16,
-                    );
+                    let scr_pos = (max(0, scr_pos.0) as u16, scr_pos.1 as u16);
 
                     // start at the offset and find the screen-position.
                     let mut fallback = None;
@@ -2326,16 +2326,13 @@ impl TextAreaState {
                         if g.contains_screen_pos(scr_pos) {
                             return Some(g.pos());
                         }
-                        // fallback is start of last line or the correct column within
-                        // the last line.
+                        // fallback is start of last line
                         if g.screen_pos().0 == 0 {
-                            fallback = Some(g.pos());
-                        } else if g.screen_pos().0 == scr_pos.0 {
                             fallback = Some(g.pos());
                         }
                     }
-                    // beyond the end. fallback to start of last line.
-                    fallback.or_else(|| Some(TextPosition::new(0, self.len_lines())))
+                    debug!("rsp fallback {:?}", fallback);
+                    fallback
                 }
             }
         }
