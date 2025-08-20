@@ -891,7 +891,12 @@ impl TextAreaState {
     /// an offset if there is *no* text-wrapping active.
     pub fn clean_offset(&self) -> (upos_type, upos_type, upos_type) {
         let ox = self.hscroll.offset as upos_type;
-        let oy = self.vscroll.offset as upos_type;
+        let mut oy = self.vscroll.offset as upos_type;
+
+        // reset invalid offset
+        if oy >= self.len_lines() {
+            oy = 0;
+        }
 
         if let TextWrap::Hard | TextWrap::Word(_) = self.text_wrap {
             // sub_row_offset can be any value. limit somewhat.
@@ -1233,6 +1238,7 @@ impl TextAreaState {
         self.scroll_to_cursor = false;
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
+        self.set_sub_row_offset(0);
 
         self.value.set_text(TextRope::new_text(s.as_ref()));
     }
@@ -1244,6 +1250,7 @@ impl TextAreaState {
         self.scroll_to_cursor = false;
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
+        self.set_sub_row_offset(0);
 
         self.value.set_text(TextRope::new_rope(r));
     }
