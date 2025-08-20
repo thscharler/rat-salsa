@@ -2,7 +2,7 @@ use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
 #[allow(deprecated)]
 use crate::glyph::{Glyph, GlyphIter};
-use crate::glyph2::{GlyphIter2, TextWrap2};
+use crate::glyph2::{Glyph2, GlyphIter2, TextWrap2};
 use crate::text_mask_core::mask::{EditDirection, Mask, MaskToken};
 use crate::text_store::SkipLine;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
@@ -791,7 +791,7 @@ impl MaskedCore {
         left_margin: upos_type,
         right_margin: upos_type,
         condensed: bool,
-    ) -> Result<GlyphIter2<'_>, TextError> {
+    ) -> Result<Box<dyn Iterator<Item = Glyph2<'_>> + '_>, TextError> {
         let grapheme_iter = self.masked.graphemes(
             TextRange::new((0, rows.start), (0, rows.end)),
             TextPosition::new(0, rows.start),
@@ -873,7 +873,7 @@ impl MaskedCore {
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
         it.set_word_margin(right_margin);
-        Ok(it)
+        Ok(Box::new(it))
     }
 
     /// Get the grapheme at the given position.

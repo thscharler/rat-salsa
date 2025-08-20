@@ -271,6 +271,7 @@ impl<'a> RopeGraphemes<'a> {
 }
 
 impl<'a> Cursor for RopeGraphemes<'a> {
+    #[inline]
     fn prev(&mut self) -> Option<Grapheme<'a>> {
         let a = self.cursor.cur_cursor();
         let b;
@@ -323,7 +324,6 @@ impl<'a> Cursor for RopeGraphemes<'a> {
         }
     }
 
-    #[inline]
     fn rev_cursor(self) -> impl Cursor<Item = Self::Item> {
         RevRopeGraphemes { it: self }
     }
@@ -394,6 +394,7 @@ impl<'a> SkipLine for RopeGraphemes<'a> {
 impl<'a> Iterator for RopeGraphemes<'a> {
     type Item = Grapheme<'a>;
 
+    #[inline]
     fn next(&mut self) -> Option<Grapheme<'a>> {
         let a = self.cursor.cur_cursor();
         let b;

@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -153,8 +154,8 @@ impl GlyphCache {
     }
 }
 
-pub(crate) struct GlyphIter2<'a> {
-    iter: Box<dyn SkipLine<Item = Grapheme<'a>> + 'a>,
+pub(crate) struct GlyphIter2<'a, Graphemes> {
+    iter: Graphemes,
     done: bool,
 
     /// Sometimes one grapheme creates two glyphs.
@@ -184,9 +185,11 @@ pub(crate) struct GlyphIter2<'a> {
     right_margin: upos_type,
     /// Word breaking after this margin.
     word_margin: upos_type,
+
+    _phantom: PhantomData<&'a ()>,
 }
 
-impl Debug for GlyphIter2<'_> {
+impl<'a, Graphemes> Debug for GlyphIter2<'a, Graphemes> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GlyphIter2")
             .field("done", &self.done)
@@ -206,15 +209,11 @@ impl Debug for GlyphIter2<'_> {
     }
 }
 
-impl<'a> GlyphIter2<'a> {
+impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
     /// New iterator.
-    pub(crate) fn new(
-        pos: TextPosition,
-        iter: impl SkipLine<Item = Grapheme<'a>> + 'a,
-        cache: GlyphCache,
-    ) -> Self {
+    pub(crate) fn new(pos: TextPosition, iter: Graphemes, cache: GlyphCache) -> Self {
         Self {
-            iter: Box::new(iter),
+            iter,
             done: Default::default(),
             next_glyph: Default::default(),
             next_pos: pos,
@@ -229,6 +228,7 @@ impl<'a> GlyphIter2<'a> {
             left_margin: Default::default(),
             right_margin: Default::default(),
             word_margin: Default::default(),
+            _phantom: Default::default(),
         }
     }
 
@@ -288,7 +288,10 @@ fn checked_screen_width(w: upos_type) -> u16 {
     u16::try_from(w).expect("in-range")
 }
 
-impl<'a> Iterator for GlyphIter2<'a> {
+impl<'a, Graphemes> Iterator for GlyphIter2<'a, Graphemes>
+where
+    Graphemes: SkipLine + Iterator<Item = Grapheme<'a>>,
+{
     type Item = Glyph2<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {

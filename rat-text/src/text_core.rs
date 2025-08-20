@@ -805,7 +805,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         right_margin: upos_type,
         word_margin: upos_type,
         cache: GlyphCache,
-    ) -> Result<GlyphIter2<'_>, TextError> {
+    ) -> Result<GlyphIter2<Store::GraphemeIter<'_>>, TextError> {
         let iter = self.graphemes(
             TextRange::new((start_col, rows.start), (0, rows.end)),
             TextPosition::new(start_col, rows.start),
