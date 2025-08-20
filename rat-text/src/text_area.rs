@@ -22,7 +22,9 @@ use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
+use rat_reloc::{
+    relocate_area, relocate_dark_offset, relocate_pos_tuple, relocate_position, RelocatableState,
+};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
@@ -101,6 +103,8 @@ pub struct TextAreaState {
     /// if the text area has been relocated/clipped. This holds the
     /// original rendered dimension before any relocation/clipping.
     pub rendered: Size,
+    /// Cursor position on the screen.
+    pub screen_cursor: Option<(u16, u16)>,
 
     /// Horizontal scroll.
     /// When text-break is active this value is ignored.
@@ -161,6 +165,7 @@ impl Clone for TextAreaState {
             area: self.area,
             inner: self.inner,
             rendered: self.rendered,
+            screen_cursor: self.screen_cursor,
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
             sub_row_offset: self.sub_row_offset,
@@ -355,6 +360,7 @@ fn render_text_area(
     state: &mut TextAreaState,
 ) {
     state.area = area;
+    state.screen_cursor = None;
 
     let style = widget.style;
     let select_style = if let Some(select_style) = widget.select_style {
@@ -384,14 +390,19 @@ fn render_text_area(
         state.hscroll.set_overscroll_by(Some(h_overscroll));
     }
     state.hscroll.set_page_len(state.inner.width as usize);
-    state.vscroll.set_max_offset(
+    if let TextWrap::Hard | TextWrap::Word(_) = state.text_wrap {
         state
-            .len_lines()
-            .saturating_sub(state.inner.height as upos_type) as usize,
-    );
+            .vscroll
+            .set_max_offset(state.len_lines().saturating_sub(1) as usize);
+    } else {
+        state.vscroll.set_max_offset(
+            state
+                .len_lines()
+                .saturating_sub(state.inner.height as upos_type) as usize,
+        );
+    }
     state.vscroll.set_page_len(state.inner.height as usize);
 
-    debug!("stc?");
     if state.scroll_to_cursor {
         state.scroll_to_cursor();
     }
@@ -428,6 +439,7 @@ fn render_text_area(
             (0, page_rows.end),
         ))
         .expect("valid_rows");
+    let mut screen_cursor = None;
     let selection = state.selection();
     let mut styles = Vec::new();
 
@@ -440,6 +452,10 @@ fn render_text_area(
 
         if screen_pos.1 >= state.inner.height {
             break;
+        }
+
+        if g.pos() == state.cursor() {
+            screen_cursor = Some(g.screen_pos());
         }
 
         if g.screen_width() > 0 {
@@ -475,6 +491,8 @@ fn render_text_area(
             }
         }
     }
+
+    state.screen_cursor = screen_cursor.map(|v| (state.inner.x + v.0, state.inner.y + v.1));
 }
 
 impl Default for TextAreaState {
@@ -483,6 +501,7 @@ impl Default for TextAreaState {
             area: Default::default(),
             inner: Default::default(),
             rendered: Default::default(),
+            screen_cursor: Default::default(),
             hscroll: Default::default(),
             vscroll: Default::default(),
             sub_row_offset: 0,
@@ -1873,8 +1892,7 @@ impl HasScreenCursor for TextAreaState {
             if self.has_selection() {
                 None
             } else {
-                let cursor = self.cursor();
-                let Some(scr_cursor) = self.pos_to_screen(cursor) else {
+                let Some(scr_cursor) = self.screen_cursor else {
                     return None;
                 };
 
@@ -1899,6 +1917,9 @@ impl RelocatableState for TextAreaState {
         self.dark_offset = relocate_dark_offset(self.inner, shift, clip);
         self.area = relocate_area(self.area, shift, clip);
         self.inner = relocate_area(self.inner, shift, clip);
+        if let Some(screen_cursor) = self.screen_cursor {
+            self.screen_cursor = relocate_pos_tuple(screen_cursor.into(), shift, clip);
+        }
     }
 }
 

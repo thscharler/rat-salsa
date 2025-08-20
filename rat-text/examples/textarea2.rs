@@ -3,6 +3,7 @@ use crate::text_samples::{
     add_range_styles, sample_emoji, sample_long, sample_lorem, sample_medium, sample_scott_1,
     sample_short, sample_tabs,
 };
+use log::debug;
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
@@ -32,8 +33,6 @@ fn main() -> Result<(), anyhow::Error> {
     state.textarea.set_rope(text);
     // state.textarea.set_styles(styles);
     add_range_styles(&mut state.textarea, styles);
-
-    state.textarea.set_cursor((5, 7), false);
 
     run_ui(
         "textarea2",
@@ -95,6 +94,7 @@ fn repaint_input(
         ]);
     textarea.render(txt_area, frame.buffer_mut(), &mut state.textarea);
 
+    debug!(" cursor {:?}", state.textarea.screen_cursor());
     let screen_cursor = state.textarea.screen_cursor();
     if let Some((cx, cy)) = screen_cursor {
         frame.set_cursor_position((cx, cy));
