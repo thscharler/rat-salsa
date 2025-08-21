@@ -160,6 +160,7 @@ pub(crate) struct LineOffsetCache {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct LineBreakCache {
+    pub start_pos: TextPosition,
     pub byte_pos: usize,
 }
 
@@ -480,6 +481,7 @@ where
         iter.cache.line_break.borrow_mut().insert(
             glyph.pos,
             LineBreakCache {
+                start_pos: iter.next_pos,
                 byte_pos: glyph.text_bytes.end,
             },
         );
@@ -517,6 +519,7 @@ where
         iter.cache.line_break.borrow_mut().insert(
             glyph.pos,
             LineBreakCache {
+                start_pos: iter.next_pos,
                 byte_pos: glyph.text_bytes.end,
             },
         );
@@ -570,6 +573,7 @@ where
         iter.cache.line_break.borrow_mut().insert(
             glyph.pos,
             LineBreakCache {
+                start_pos: iter.next_pos,
                 byte_pos: glyph.text_bytes.end,
             },
         );
@@ -614,6 +618,7 @@ where
         iter.cache.line_break.borrow_mut().insert(
             glyph.pos,
             LineBreakCache {
+                start_pos: iter.next_pos,
                 byte_pos: glyph.text_bytes.end,
             },
         );
@@ -662,6 +667,7 @@ where
             iter.cache.line_break.borrow_mut().insert(
                 glyph.pos,
                 LineBreakCache {
+                    start_pos: iter.next_pos,
                     byte_pos: glyph.text_bytes.end,
                 },
             );

@@ -836,6 +836,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                         line_break.insert(
                             TextPosition::new(end, row),
                             LineBreakCache {
+                                start_pos: TextPosition::new(0, row + 1),
                                 byte_pos: end_byte.end,
                             },
                         );

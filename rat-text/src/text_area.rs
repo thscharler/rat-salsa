@@ -8,7 +8,7 @@ use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
-use crate::glyph2::{Caching, GlyphCache, GlyphIter2, LineBreakCache, TextWrap2};
+use crate::glyph2::{Caching, GlyphCache, GlyphIter2, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
@@ -2356,11 +2356,13 @@ impl TextAreaState {
                 }
             }
             TextWrap::Hard | TextWrap::Word(_) => {
+                let t = SystemTime::now();
                 let (_, sub_row_offset, oy) = self.clean_offset();
 
                 if oy >= self.len_lines() {
                     return None;
                 }
+                debug!("prep {:?}", t.elapsed());
 
                 if scr_pos.1 < 0 {
                     // Guess a starting position for an alternate screen that
@@ -2371,43 +2373,54 @@ impl TextAreaState {
                     // that again.
 
                     // estimate start row
-                    let ry = oy.saturating_add_signed(scr_pos.1 as ipos_type);
-                    // find offset
-                    let o_screen_pos = 'f: {
-                        for g in self
-                            .glyphs2(0, 0, ry..min(oy + 1, self.len_lines()), Caching::Cache)
-                            .expect("valid-rows")
+                    let ry = oy.saturating_add_signed(scr_pos.1 as ipos_type - 1);
+
+                    // count backwards
+                    let t = SystemTime::now();
+                    self.fill_cache(0, 0, ry..oy).expect("valid-rows");
+                    debug!("fill_cache {:?}", t.elapsed());
+                    let t = SystemTime::now();
+                    let n_start_pos = 'f: {
+                        let mut nrows = scr_pos.1.unsigned_abs();
+                        for (_break_pos, cache) in self
+                            .cache
+                            .line_break
+                            .borrow()
+                            .range(TextPosition::new(0, ry)..TextPosition::new(sub_row_offset, oy))
+                            .rev()
                         {
-                            if g.pos().x == sub_row_offset && g.pos().y == oy {
-                                break 'f g.screen_pos();
+                            if nrows == 0 {
+                                break 'f cache.start_pos;
                             }
+                            nrows -= 1;
                         }
-                        unreachable!();
+                        TextPosition::new(0, 0)
                     };
+                    debug!("find_row {:?}", t.elapsed());
+                    let t = SystemTime::now();
 
-                    // before the first line result to (0,0)
-                    if o_screen_pos.1.overflowing_add_signed(scr_pos.1).1 {
-                        return Some(TextPosition::new(0, 0));
+                    // find the exact col
+                    if scr_pos.0 < 0 {
+                        return Some(n_start_pos);
                     }
-
-                    // locate scr_pos in our new coordinate system
-                    let scr_pos = (
-                        max(0, scr_pos.0) as u16,
-                        o_screen_pos.1.saturating_add_signed(scr_pos.1),
-                    );
-
-                    // find the matching pos
-                    'f: {
+                    let r = 'f: {
                         for g in self
-                            .glyphs2(0, 0, ry..min(oy + 1, self.len_lines()), Caching::Cache)
+                            .glyphs2(
+                                0,
+                                n_start_pos.x,
+                                n_start_pos.y..min(n_start_pos.y + 1, self.len_lines()),
+                                Caching::Cache,
+                            )
                             .expect("valid-rows")
                         {
-                            if g.contains_screen_pos(scr_pos) {
+                            if g.contains_screen_x(scr_pos.0 as u16) {
                                 break 'f Some(g.pos());
                             }
                         }
                         unreachable!("impossible screen-pos");
-                    }
+                    };
+                    debug!("find_col {:?}", t.elapsed());
+                    r
                 } else {
                     let scr_pos = (max(0, scr_pos.0) as u16, scr_pos.1 as u16);
 
