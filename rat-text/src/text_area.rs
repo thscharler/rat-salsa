@@ -4,11 +4,12 @@
 //!
 
 use crate::_private::NonExhaustive;
+use crate::cache::{Cache, LineWidthCache};
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
-use crate::glyph2::{Caching, GlyphCache, GlyphIter2, LineWidthCache, TextWrap2};
+use crate::glyph2::{GlyphIter2, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
@@ -151,9 +152,6 @@ pub struct TextAreaState {
     /// __read+write__
     pub mouse: MouseFlags,
 
-    /// Glyph cache
-    pub cache: GlyphCache,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -176,7 +174,6 @@ impl Clone for TextAreaState {
             text_wrap: TextWrap::Shift,
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
-            cache: self.cache.clone(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -442,7 +439,7 @@ fn render_text_area(
     let mut styles = Vec::new();
 
     for g in state
-        .glyphs2(shift_left, sub_row_offset, page_rows, Caching::Cache)
+        .glyphs2(shift_left, sub_row_offset, page_rows)
         .expect("valid_offset")
     {
         // relative screen-pos of the glyph
@@ -512,7 +509,6 @@ impl Default for TextAreaState {
             text_wrap: TextWrap::Shift,
             focus: Default::default(),
             mouse: Default::default(),
-            cache: Default::default(),
             non_exhaustive: NonExhaustive,
         };
         s.hscroll.set_max_offset(255);
@@ -1022,16 +1018,7 @@ impl TextAreaState {
     /// Line count.
     #[inline]
     pub fn len_lines(&self) -> upos_type {
-        // don't use clean_offset(). would recurse to this.
-        self.validate_cache(self.hscroll.offset as upos_type);
-
-        if let Some(len_lines) = self.cache.len_lines.get() {
-            len_lines
-        } else {
-            let len_lines = self.value.len_lines();
-            self.cache.len_lines.set(Some(len_lines));
-            len_lines
-        }
+        self.value.len_lines()
     }
 
     /// Line width as grapheme count.
@@ -1045,24 +1032,7 @@ impl TextAreaState {
     /// Line width as grapheme count.
     #[inline]
     pub fn try_line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
-        // don't use clean_offset(). would recurse to this.
-        self.validate_cache(self.hscroll.offset as upos_type);
-
-        let mut line_width = self.cache.line_width.borrow_mut();
-        if let Some(cache) = line_width.get(&row) {
-            Ok(cache.width)
-        } else {
-            let width = self.value.line_width(row)?;
-            let byte_pos = self.value.byte_at(TextPosition::new(0, row))?;
-            line_width.insert(
-                row,
-                LineWidthCache {
-                    width,
-                    byte_pos: byte_pos.start,
-                },
-            );
-            Ok(width)
-        }
+        self.value.line_width(row)
     }
 
     /// Line as RopeSlice.
@@ -1267,7 +1237,6 @@ impl TextAreaState {
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
-        self.cache.clear();
 
         self.value.set_text(TextRope::new_text(s.as_ref()));
     }
@@ -1280,7 +1249,6 @@ impl TextAreaState {
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
-        self.cache.clear();
 
         self.value.set_text(TextRope::new_rope(r));
     }
@@ -1841,7 +1809,6 @@ impl TextAreaState {
                 shift_left,
                 line_start.x,
                 line_start.y..min(line_start.y + 1, self.len_lines()),
-                Caching::Cache,
             )
             .expect("valid-pos")
         {
@@ -2025,15 +1992,9 @@ impl TextAreaState {
 
     /// Validate the cache content with actual data.
     fn validate_cache(&self, shift_left: upos_type) {
-        let (text_wrap, _, _, _) = self.text_wrap_2(shift_left);
-
-        self.cache.validate(
-            text_wrap,
-            shift_left,
-            self.rendered.width as upos_type,
-            self.rendered.height as upos_type,
-            self.value.min_changed(),
-        );
+        let (text_wrap, left_margin, _, _) = self.text_wrap_2(shift_left);
+        self.value
+            .validate_cache(self.rendered, text_wrap, left_margin);
     }
 
     /// Fill the cache for the given rows.
@@ -2045,23 +2006,14 @@ impl TextAreaState {
         rows: Range<upos_type>,
     ) -> Result<(), TextError> {
         let (text_wrap, left_margin, right_margin, word_margin) = self.text_wrap_2(shift_left);
-
-        self.cache.validate(
-            text_wrap,
-            shift_left,
-            self.rendered.width as upos_type,
-            self.rendered.height as upos_type,
-            self.value.min_changed(),
-        );
-
         self.value.fill_cache(
+            self.rendered,
             sub_row_offset,
             rows,
             text_wrap,
             left_margin,
             right_margin,
             word_margin,
-            self.cache.clone(),
         )
     }
 
@@ -2070,31 +2022,16 @@ impl TextAreaState {
         shift_left: upos_type,
         sub_row_offset: upos_type,
         rows: Range<upos_type>,
-        caching: Caching,
     ) -> Result<GlyphIter2<<TextRope as TextStore>::GraphemeIter<'_>>, TextError> {
         let (text_wrap, left_margin, right_margin, word_margin) = self.text_wrap_2(shift_left);
-
-        let cache = if let Caching::None = caching {
-            GlyphCache::default()
-        } else {
-            self.cache.validate(
-                text_wrap,
-                shift_left,
-                self.rendered.width as upos_type,
-                self.rendered.height as upos_type,
-                self.value.min_changed(),
-            );
-            self.cache.clone()
-        };
-
         self.value.glyphs2(
+            self.rendered,
             sub_row_offset,
             rows,
             text_wrap,
             left_margin,
             right_margin,
             word_margin,
-            cache,
         )
     }
 
@@ -2132,7 +2069,7 @@ impl TextAreaState {
                     .expect("valid-row");
 
                 let mut start_pos = TextPosition::new(0, pos.y);
-                for (break_pos, _) in self.cache.line_break.borrow().range(
+                for (break_pos, _) in self.value.cache().line_break.borrow().range(
                     TextPosition::new(0, pos.y)
                         ..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
                 ) {
@@ -2153,7 +2090,7 @@ impl TextAreaState {
             .expect("valid-row");
 
         let mut end_pos = TextPosition::new(0, pos.y);
-        for (break_pos, _) in self.cache.line_break.borrow().range(
+        for (break_pos, _) in self.value.cache().line_break.borrow().range(
             TextPosition::new(0, pos.y)..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
         ) {
             if pos >= end_pos && &pos <= break_pos {
@@ -2214,7 +2151,6 @@ impl TextAreaState {
                             0,
                             sub_row_offset,
                             oy..min(oy + 2 * self.rendered.height as upos_type, self.len_lines()),
-                            Caching::Cache,
                         )
                         .expect("valid_offset")
                     {
@@ -2246,12 +2182,7 @@ impl TextAreaState {
                     //
                     nsub_row_offset = 0;
                     for g in self
-                        .glyphs2(
-                            0,
-                            0,
-                            cursor.y..min(cursor.y + 1, self.len_lines()),
-                            Caching::Cache,
-                        )
+                        .glyphs2(0, 0, cursor.y..min(cursor.y + 1, self.len_lines()))
                         .expect("valid_offset")
                     {
                         if g.screen_pos().0 == 0 {
@@ -2284,10 +2215,10 @@ impl TextAreaState {
     pub fn pos_to_relative_screen(&self, pos: TextPosition) -> Option<(i16, i16)> {
         match self.text_wrap {
             TextWrap::Shift => {
-                let t = SystemTime::now();
+                // let t = SystemTime::now();
                 let (ox, _, oy) = self.clean_offset();
                 // debug!("    pos_to_screen prepare {:?}", t.elapsed());
-                let t = SystemTime::now();
+                // let t = SystemTime::now();
 
                 if oy > self.len_lines() {
                     // debug!("    pos_to_screen found-0 {:?}", t.elapsed());
@@ -2311,12 +2242,7 @@ impl TextAreaState {
 
                 let screen_x = 'f: {
                     for g in self
-                        .glyphs2(
-                            ox,
-                            0,
-                            pos.y..min(pos.y + 1, self.len_lines()),
-                            Caching::Cache,
-                        )
+                        .glyphs2(ox, 0, pos.y..min(pos.y + 1, self.len_lines()))
                         .expect("valid-row")
                     {
                         if g.pos().x == pos.x {
@@ -2336,10 +2262,10 @@ impl TextAreaState {
                 ))
             }
             TextWrap::Hard | TextWrap::Word(_) => {
-                let t = SystemTime::now();
+                // let t = SystemTime::now();
                 let (_, sub_row_offset, oy) = self.clean_offset();
                 // debug!("    pos_to_screen prepare {:?}", t.elapsed());
-                let t = SystemTime::now();
+                // let t = SystemTime::now();
 
                 if oy > self.len_lines() {
                     // debug!("    pos_to_screen found-0 {:?}", t.elapsed());
@@ -2359,7 +2285,6 @@ impl TextAreaState {
                         0,
                         sub_row_offset,
                         oy..min(oy + self.rendered.height as upos_type, self.len_lines()),
-                        Caching::Cache,
                     )
                     .expect("valid-offset")
                 {
@@ -2427,12 +2352,7 @@ impl TextAreaState {
                     } else {
                         'f: {
                             for g in self
-                                .glyphs2(
-                                    ox,
-                                    0,
-                                    pos_y..min(pos_y + 1, self.len_lines()),
-                                    Caching::Cache,
-                                )
+                                .glyphs2(ox, 0, pos_y..min(pos_y + 1, self.len_lines()))
                                 .expect("valid-position")
                             {
                                 if g.contains_screen_x(scr_pos.0 as u16) {
@@ -2445,10 +2365,10 @@ impl TextAreaState {
                 }
             }
             TextWrap::Hard | TextWrap::Word(_) => {
-                let t = SystemTime::now();
+                // let t = SystemTime::now();
                 let (_, sub_row_offset, oy) = self.clean_offset();
                 // debug!("    screen_to_pos prepare {:?}", t.elapsed());
-                let t = SystemTime::now();
+                // let t = SystemTime::now();
 
                 if oy >= self.len_lines() {
                     // debug!("    screen_to_pos found-0 {:?}", t.elapsed());
@@ -2470,12 +2390,13 @@ impl TextAreaState {
                     self.fill_cache(0, 0, ry..oy).expect("valid-rows");
 
                     // debug!("    screen_to_pos fill_cache {:?}", t.elapsed());
-                    let t = SystemTime::now();
+                    // let t = SystemTime::now();
 
                     let n_start_pos = 'f: {
                         let mut nrows = scr_pos.1.unsigned_abs();
                         for (_break_pos, cache) in self
-                            .cache
+                            .value
+                            .cache()
                             .line_break
                             .borrow()
                             .range(TextPosition::new(0, ry)..TextPosition::new(sub_row_offset, oy))
@@ -2489,7 +2410,7 @@ impl TextAreaState {
                         TextPosition::new(0, 0)
                     };
                     // debug!("    screen_to_pos found_row {:?}", t.elapsed());
-                    let t = SystemTime::now();
+                    // let t = SystemTime::now();
 
                     // find the exact col
                     if scr_pos.0 < 0 {
@@ -2502,7 +2423,6 @@ impl TextAreaState {
                             0,
                             n_start_pos.x,
                             n_start_pos.y..min(n_start_pos.y + 1, self.len_lines()),
-                            Caching::Cache,
                         )
                         .expect("valid-rows")
                     {
@@ -2519,7 +2439,7 @@ impl TextAreaState {
                     // start at the offset and find the screen-position.
                     let mut fallback = None;
                     for g in self
-                        .glyphs2(0, sub_row_offset, oy..self.len_lines(), Caching::Cache)
+                        .glyphs2(0, sub_row_offset, oy..self.len_lines())
                         .expect("valid-position")
                     {
                         if g.contains_screen_pos(scr_pos) {

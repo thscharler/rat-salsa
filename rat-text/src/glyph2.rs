@@ -1,15 +1,11 @@
+use crate::cache::{Cache, LineBreakCache, LineOffsetCache};
 use crate::text_store::SkipLine;
 use crate::{upos_type, Grapheme, TextPosition};
-use fxhash::FxBuildHasher;
-use log::debug;
 use std::borrow::Cow;
-use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::ops::ControlFlow::{Break, Continue};
 use std::ops::{ControlFlow, Range};
-use std::rc::Rc;
 
 /// Data for rendering/mapping graphemes to screen coordinates.
 #[derive(Debug)]
@@ -102,13 +98,6 @@ impl<'a> Glyph2<'a> {
     }
 }
 
-/// Some util enum ...
-#[derive(Debug)]
-pub(crate) enum Caching {
-    None,
-    Cache,
-}
-
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub(crate) enum TextWrap2 {
@@ -123,137 +112,6 @@ pub(crate) enum TextWrap2 {
 impl Default for TextWrap2 {
     fn default() -> Self {
         Self::Shift
-    }
-}
-
-/// Glyph cache.
-#[derive(Debug, Clone, Default)]
-pub struct GlyphCache {
-    /// Cache validity: wrapping mode
-    pub(crate) text_wrap: Cell<TextWrap2>,
-    /// Cache validity: left shift
-    pub(crate) shift_left: Cell<upos_type>,
-    /// Cache validity: rendered text-width.
-    pub(crate) screen_width: Cell<upos_type>,
-    /// Cache validity: rendered text-height.
-    pub(crate) screen_height: Cell<upos_type>,
-
-    /// len_lines seems expensive too.
-    pub(crate) len_lines: Cell<Option<upos_type>>,
-    /// line-width the same
-    pub(crate) line_width: Rc<RefCell<HashMap<upos_type, LineWidthCache, FxBuildHasher>>>,
-
-    /// Mark the byte-positions of each line-start.
-    ///
-    /// Used when text-wrap is ShiftText.
-    pub(crate) line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache, FxBuildHasher>>>,
-
-    /// Has the specific line been wrapped completely.
-    pub(crate) full_line_break: Rc<RefCell<HashSet<upos_type, FxBuildHasher>>>,
-    /// All known line-breaks for wrapped text.
-    /// Has the text-position of the glyph which is marked as 'line-break'.
-    /// That means the line-break occurs *after* this position.
-    pub(crate) line_break: Rc<RefCell<BTreeMap<TextPosition, LineBreakCache>>>,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct LineOffsetCache {
-    pub pos_x: upos_type,
-    pub screen_pos_x: upos_type,
-    // byte pos of the line start offset
-    pub byte_pos: usize,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct LineBreakCache {
-    pub start_pos: TextPosition,
-    // byte pos of the break
-    pub byte_pos: usize,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct LineWidthCache {
-    pub width: upos_type,
-    // start byte pos of the line
-    pub byte_pos: usize,
-}
-
-impl GlyphCache {
-    pub(crate) fn clear(&self) {
-        self.len_lines.set(None);
-        self.line_width.borrow_mut().clear();
-        self.shift_left.set(0);
-        self.screen_width.set(0);
-        self.screen_height.set(0);
-        self.line_start.borrow_mut().clear();
-        self.full_line_break.borrow_mut().clear();
-        self.line_break.borrow_mut().clear();
-    }
-
-    /// Clear out all parts of the cache, that don't match the
-    /// parameters.
-    pub(crate) fn validate(
-        &self,
-        text_wrap: TextWrap2,
-        shift_left: upos_type,
-        screen_width: upos_type,
-        screen_height: upos_type,
-        byte_pos: Option<usize>,
-    ) {
-        if byte_pos.is_some() {
-            self.len_lines.set(None);
-        }
-        if let Some(byte_pos) = byte_pos {
-            self.line_width
-                .borrow_mut()
-                .retain(|_, cache| cache.byte_pos < byte_pos);
-        }
-
-        match text_wrap {
-            TextWrap2::Shift => {
-                if let TextWrap2::Hard | TextWrap2::Word = self.text_wrap.get() {
-                    self.full_line_break.borrow_mut().clear();
-                    self.line_break.borrow_mut().clear();
-                }
-
-                if self.shift_left.get() != shift_left {
-                    self.line_start.borrow_mut().clear();
-                } else if let Some(byte_pos) = byte_pos {
-                    self.line_start
-                        .borrow_mut()
-                        .retain(|_, cache| cache.byte_pos < byte_pos);
-                }
-            }
-            TextWrap2::Hard | TextWrap2::Word => {
-                if let TextWrap2::Shift = self.text_wrap.get() {
-                    self.full_line_break.borrow_mut().clear();
-                    self.line_break.borrow_mut().clear();
-                }
-
-                self.line_start.borrow_mut().clear();
-
-                if self.screen_width.get() != screen_width
-                    || self.screen_height.get() != screen_height
-                {
-                    self.line_break.borrow_mut().clear();
-                    self.full_line_break.borrow_mut().clear();
-                } else if let Some(byte_pos) = byte_pos {
-                    self.line_break.borrow_mut().retain(|pos, cache| {
-                        if cache.byte_pos < byte_pos {
-                            true
-                        } else {
-                            self.full_line_break.borrow_mut().remove(&pos.y);
-                            false
-                        }
-                    });
-                }
-            }
-        }
-
-        self.text_wrap.set(text_wrap);
-        self.shift_left.set(shift_left);
-        self.screen_width.set(screen_width);
-        self.screen_height.set(screen_height);
     }
 }
 
@@ -275,7 +133,7 @@ pub(crate) struct GlyphIter2<'a, Graphemes> {
     /// Zero position encountered for row.
     zero_row: Option<upos_type>,
     /// Glyph cache
-    cache: GlyphCache,
+    cache: Cache,
 
     /// Tab expansion
     tabs: upos_type,
@@ -320,7 +178,7 @@ impl<'a, Graphemes> Debug for GlyphIter2<'a, Graphemes> {
 
 impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
     /// New iterator.
-    pub(crate) fn new(pos: TextPosition, iter: Graphemes, cache: GlyphCache) -> Self {
+    pub(crate) fn new(pos: TextPosition, iter: Graphemes, cache: Cache) -> Self {
         Self {
             init: false,
             iter,

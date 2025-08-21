@@ -1,13 +1,15 @@
+use crate::cache::{Cache, LineBreakCache, LineWidthCache};
 use crate::clipboard::Clipboard;
 #[allow(deprecated)]
 use crate::glyph::{Glyph, GlyphIter};
-use crate::glyph2::{GlyphCache, GlyphIter2, LineBreakCache, TextWrap2};
+use crate::glyph2::{GlyphIter2, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
+use ratatui::layout::Size;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::ops::Range;
@@ -29,6 +31,8 @@ pub struct TextCore<Store> {
     undo: Option<Box<dyn UndoBuffer>>,
     /// clipboard
     clip: Option<Box<dyn Clipboard>>,
+    /// cache
+    cache: Cache,
 
     /// line-break
     newline: String,
@@ -53,6 +57,7 @@ impl<Store: Clone> Clone for TextCore<Store> {
             styles: self.styles.clone(),
             undo: self.undo.as_ref().map(|v| clone_box(v.as_ref())),
             clip: self.clip.as_ref().map(|v| clone_box(v.as_ref())),
+            cache: Default::default(),
             newline: self.newline.clone(),
             tabs: self.tabs,
             expand_tabs: self.expand_tabs,
@@ -78,6 +83,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             styles: Default::default(),
             undo,
             clip,
+            cache: Default::default(),
             newline: LINE_ENDING.to_string(),
             tabs: 8,
             expand_tabs: true,
@@ -808,25 +814,56 @@ impl<Store: TextStore + Default> TextCore<Store> {
         Ok(it)
     }
 
+    /// Limited access to the cache.
+    /// Gives only access to Debug.
+    #[inline]
+    pub fn cache(&self) -> &Cache {
+        &self.cache
+    }
+
+    /// Validate the cache content with actual data.
+    pub(crate) fn validate_cache(
+        &self,
+        rendered: Size,
+        text_wrap: TextWrap2,
+        left_margin: upos_type,
+    ) {
+        self.cache.validate(
+            text_wrap,
+            left_margin,
+            rendered.width as upos_type,
+            rendered.height as upos_type,
+            self.min_changed(),
+        );
+    }
+
     /// Fill the cache for all the given rows completely.
     pub(crate) fn fill_cache(
         &self,
+        rendered: Size,
         sub_row_offset: upos_type,
         rows: Range<upos_type>,
         text_wrap: TextWrap2,
         left_margin: upos_type,
         right_margin: upos_type,
         word_margin: upos_type,
-        cache: GlyphCache,
     ) -> Result<(), TextError> {
         match text_wrap {
             TextWrap2::Shift => {
                 // need to do the calculations here.
                 // glyph-iter uses an algorithm that can't produce this stuff.
 
+                self.cache.validate(
+                    text_wrap,
+                    left_margin,
+                    rendered.width as upos_type,
+                    rendered.height as upos_type,
+                    self.min_changed(),
+                );
+
                 // fill in missing line-break data.
-                let mut full_line_break = cache.full_line_break.borrow_mut();
-                let mut line_break = cache.line_break.borrow_mut();
+                let mut full_line_break = self.cache.full_line_break.borrow_mut();
+                let mut line_break = self.cache.line_break.borrow_mut();
                 for row in rows.clone() {
                     if !full_line_break.contains(&row) {
                         let end = self.line_width(row)?;
@@ -847,7 +884,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 // check for full_line_break available
                 let mut build_cache = false;
                 {
-                    let full_line_break = cache.full_line_break.borrow();
+                    let full_line_break = self.cache.full_line_break.borrow();
                     for row in rows.clone() {
                         if !full_line_break.contains(&row) {
                             build_cache = true;
@@ -858,13 +895,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
                 if build_cache {
                     for _ in self.glyphs2(
+                        rendered,
                         sub_row_offset,
                         rows,
                         text_wrap,
                         left_margin,
                         right_margin,
                         word_margin,
-                        cache,
                     )? {}
                 }
             }
@@ -878,20 +915,32 @@ impl<Store: TextStore + Default> TextCore<Store> {
     #[inline]
     pub(crate) fn glyphs2(
         &self,
+        rendered: Size,
         sub_row_offset: upos_type,
         rows: Range<upos_type>,
         text_wrap: TextWrap2,
         left_margin: upos_type,
         right_margin: upos_type,
         word_margin: upos_type,
-        cache: GlyphCache,
     ) -> Result<GlyphIter2<Store::GraphemeIter<'_>>, TextError> {
+        self.cache.validate(
+            text_wrap,
+            left_margin,
+            rendered.width as upos_type,
+            rendered.height as upos_type,
+            self.min_changed(),
+        );
+
         let iter = self.graphemes(
             TextRange::new((sub_row_offset, rows.start), (0, rows.end)),
             TextPosition::new(sub_row_offset, rows.start),
         )?;
 
-        let mut it = GlyphIter2::new(TextPosition::new(sub_row_offset, rows.start), iter, cache);
+        let mut it = GlyphIter2::new(
+            TextPosition::new(sub_row_offset, rows.start),
+            iter,
+            self.cache.clone(),
+        );
         it.set_tabs(self.tabs as upos_type);
         it.set_show_ctrl(self.glyph_ctrl);
         it.set_wrap_ctrl(self.wrap_ctrl);
@@ -963,13 +1012,38 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Line width as grapheme count. Excludes the terminating '\n'.
     #[inline]
     pub fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
-        self.text.line_width(row)
+        // don't use clean_offset(). would recurse to this.
+        self.cache.validate_byte_pos(self.min_changed());
+
+        let mut line_width = self.cache.line_width.borrow_mut();
+        if let Some(cache) = line_width.get(&row) {
+            Ok(cache.width)
+        } else {
+            let width = self.text.line_width(row)?;
+            let byte_pos = self.text.byte_range_at(TextPosition::new(0, row))?;
+            line_width.insert(
+                row,
+                LineWidthCache {
+                    width,
+                    byte_pos: byte_pos.start,
+                },
+            );
+            Ok(width)
+        }
     }
 
     /// Number of lines.
     #[inline]
     pub fn len_lines(&self) -> upos_type {
-        self.text.len_lines()
+        self.cache.validate_byte_pos(self.min_changed());
+
+        if let Some(len_lines) = self.cache.len_lines.get() {
+            len_lines
+        } else {
+            let len_lines = self.text.len_lines();
+            self.cache.len_lines.set(Some(len_lines));
+            len_lines
+        }
     }
 }
 
@@ -1006,6 +1080,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         if let Some(sty) = &mut self.styles {
             sty.clear();
         }
+        self.cache.clear();
 
         self.cursor.y = 0;
         self.cursor.x = 0;

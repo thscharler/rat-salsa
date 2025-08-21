@@ -359,6 +359,15 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                     cell.set_symbol("*");
                     cell.set_style(style);
                 }
+                // clear the reset of the cells to avoid interferences.
+                for d in 1..g.screen_width() {
+                    if let Some(cell) =
+                        buf.cell_mut((inner.x + screen_pos.0 + d, inner.y + screen_pos.1))
+                    {
+                        cell.reset();
+                        cell.set_style(style);
+                    }
+                }
             }
         }
     } else {
@@ -1288,7 +1297,7 @@ impl RelocatableState for TextInputState {
 
 impl TextInputState {
     fn glyphs2(&self) -> impl Iterator<Item = Glyph2<'_>> {
-        let (text_break, left_margin, right_margin, word_margin) = (
+        let (text_wrap, left_margin, right_margin, word_margin) = (
             TextWrap2::Shift,
             self.offset() as upos_type,
             self.offset() as upos_type + self.rendered.width as upos_type,
@@ -1296,13 +1305,13 @@ impl TextInputState {
         );
         self.value
             .glyphs2(
+                self.rendered,
                 0,
                 0..1,
-                text_break,
+                text_wrap,
                 left_margin,
                 right_margin,
                 word_margin,
-                Default::default(),
             )
             .expect("valid-row")
     }

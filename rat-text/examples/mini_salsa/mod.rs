@@ -22,7 +22,9 @@ use log::error;
 use rat_event::util::set_have_keyboard_enhancement;
 use rat_event::Outcome;
 use ratatui::backend::CrosstermBackend;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::Widget;
 use ratatui::{Frame, Terminal};
@@ -314,6 +316,21 @@ pub fn layout_grid<const X: usize, const Y: usize>(
     }
 
     res
+}
+
+/// Fill the given area of the buffer.
+pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Into<Style>) {
+    let style = style.into();
+
+    for y in area.top()..area.bottom() {
+        for x in area.left()..area.right() {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.reset();
+                cell.set_symbol(symbol);
+                cell.set_style(style);
+            }
+        }
+    }
 }
 
 pub mod text_input_mock;
