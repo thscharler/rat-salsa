@@ -10,9 +10,8 @@ use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::{text_area, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget};
+use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
-use std::fmt;
 use std::time::SystemTime;
 
 mod mini_salsa;
@@ -28,7 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
         textarea: Default::default(),
     };
     state.textarea.set_auto_indent(false);
-    state.textarea.set_text_wrap(TextWrap::Word(8));
+    state.textarea.set_text_wrap(TextWrap::Shift);
 
     let (text, styles) = sample_scott_1();
     state.textarea.set_rope(text);

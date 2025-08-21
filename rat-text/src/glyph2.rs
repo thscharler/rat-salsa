@@ -129,6 +129,8 @@ impl Default for TextWrap2 {
 /// Glyph cache.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct GlyphCache {
+    /// Cache validity: wrapping mode
+    pub text_wrap: Cell<TextWrap2>,
     /// Cache validity: left shift
     pub shift_left: Cell<upos_type>,
     /// Cache validity: rendered text-width.
@@ -183,8 +185,10 @@ impl GlyphCache {
     ) {
         match text_wrap {
             TextWrap2::Shift => {
-                self.full_line_break.borrow_mut().clear();
-                self.line_break.borrow_mut().clear();
+                if let TextWrap2::Hard | TextWrap2::Word = self.text_wrap.get() {
+                    self.full_line_break.borrow_mut().clear();
+                    self.line_break.borrow_mut().clear();
+                }
 
                 if self.shift_left.get() != shift_left {
                     self.line_start.borrow_mut().clear();
@@ -195,6 +199,11 @@ impl GlyphCache {
                 }
             }
             TextWrap2::Hard | TextWrap2::Word => {
+                if let TextWrap2::Shift = self.text_wrap.get() {
+                    self.full_line_break.borrow_mut().clear();
+                    self.line_break.borrow_mut().clear();
+                }
+
                 self.line_start.borrow_mut().clear();
 
                 if self.screen_width.get() != screen_width
@@ -215,6 +224,7 @@ impl GlyphCache {
             }
         }
 
+        self.text_wrap.set(text_wrap);
         self.shift_left.set(shift_left);
         self.screen_width.set(screen_width);
         self.screen_height.set(screen_height);
@@ -647,6 +657,15 @@ where
         if glyph.screen_pos.0 <= iter.true_right_margin() {
             glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
             glyph.validate();
+
+            iter.cache.full_line_break.borrow_mut().insert(glyph.pos.y);
+            iter.cache.line_break.borrow_mut().insert(
+                glyph.pos,
+                LineBreakCache {
+                    byte_pos: glyph.text_bytes.end,
+                },
+            );
+
             Break(Some(glyph))
         } else {
             // shouldn't happen with skip_line?

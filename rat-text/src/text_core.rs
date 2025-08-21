@@ -1,7 +1,7 @@
 use crate::clipboard::Clipboard;
 #[allow(deprecated)]
 use crate::glyph::{Glyph, GlyphIter};
-use crate::glyph2::{GlyphCache, GlyphIter2, TextWrap2};
+use crate::glyph2::{GlyphCache, GlyphIter2, LineBreakCache, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::TextStore;
@@ -806,6 +806,70 @@ impl<Store: TextStore + Default> TextCore<Store> {
         it.set_show_ctrl(self.glyph_ctrl);
         it.set_line_break(self.glyph_line_break);
         Ok(it)
+    }
+
+    /// Fill the cache for all the given rows completely.
+    pub(crate) fn fill_cache(
+        &self,
+        sub_row_offset: upos_type,
+        rows: Range<upos_type>,
+        text_wrap: TextWrap2,
+        left_margin: upos_type,
+        right_margin: upos_type,
+        word_margin: upos_type,
+        cache: GlyphCache,
+    ) -> Result<(), TextError> {
+        match text_wrap {
+            TextWrap2::Shift => {
+                // need to do the calculations here.
+                // glyph-iter uses an algorithm that can't produce this stuff.
+
+                // fill in missing line-break data.
+                let mut full_line_break = cache.full_line_break.borrow_mut();
+                let mut line_break = cache.line_break.borrow_mut();
+                for row in rows.clone() {
+                    if !full_line_break.contains(&row) {
+                        let end = self.line_width(row)?;
+                        let end_byte = self.byte_at(TextPosition::new(end, row))?;
+
+                        full_line_break.insert(row);
+                        line_break.insert(
+                            TextPosition::new(end, row),
+                            LineBreakCache {
+                                byte_pos: end_byte.end,
+                            },
+                        );
+                    }
+                }
+            }
+            TextWrap2::Hard | TextWrap2::Word => {
+                // check for full_line_break available
+                let mut build_cache = false;
+                {
+                    let full_line_break = cache.full_line_break.borrow();
+                    for row in rows.clone() {
+                        if !full_line_break.contains(&row) {
+                            build_cache = true;
+                            break;
+                        }
+                    }
+                }
+
+                if build_cache {
+                    for _ in self.glyphs2(
+                        sub_row_offset,
+                        rows,
+                        text_wrap,
+                        left_margin,
+                        right_margin,
+                        word_margin,
+                        cache,
+                    )? {}
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Iterator for the glyphs of the lines in range.

@@ -8,7 +8,7 @@ use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
-use crate::glyph2::{Caching, GlyphCache, GlyphIter2, TextWrap2};
+use crate::glyph2::{Caching, GlyphCache, GlyphIter2, LineBreakCache, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
@@ -1939,47 +1939,8 @@ impl RelocatableState for TextAreaState {
 }
 
 impl TextAreaState {
-    fn fill_cache(
-        &self,
-        shift_left: upos_type,
-        sub_row_offset: upos_type,
-        rows: Range<upos_type>,
-        caching: Caching,
-    ) -> Result<(), TextError> {
+    fn text_wrap_2(&self, shift_left: upos_type) -> (TextWrap2, upos_type, upos_type, upos_type) {
         match self.text_wrap {
-            TextWrap::Shift => {
-                // noop
-            }
-            TextWrap::Hard | TextWrap::Word(_) => {
-                // check for full_line_break available
-                let mut build_cache = false;
-                {
-                    let full_line_break = self.cache.full_line_break.borrow();
-                    for row in rows.clone() {
-                        if !full_line_break.contains(&row) {
-                            build_cache = true;
-                            break;
-                        }
-                    }
-                }
-
-                if build_cache {
-                    for _ in self.glyphs2(shift_left, sub_row_offset, rows, caching)? {}
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn glyphs2(
-        &self,
-        shift_left: upos_type,
-        sub_row_offset: upos_type,
-        rows: Range<upos_type>,
-        caching: Caching,
-    ) -> Result<GlyphIter2<<TextRope as TextStore>::GraphemeIter<'_>>, TextError> {
-        let (text_wrap, left_margin, right_margin, word_margin) = match self.text_wrap {
             TextWrap::Shift => (
                 TextWrap2::Shift,
                 shift_left,
@@ -1998,7 +1959,46 @@ impl TextAreaState {
                 self.rendered.width as upos_type,
                 self.rendered.width.saturating_sub(margin) as upos_type,
             ),
-        };
+        }
+    }
+
+    /// Fill the cache for the given rows.
+    /// Build up the complete information for the given rows.
+    fn fill_cache(
+        &self,
+        shift_left: upos_type,
+        sub_row_offset: upos_type,
+        rows: Range<upos_type>,
+    ) -> Result<(), TextError> {
+        let (text_wrap, left_margin, right_margin, word_margin) = self.text_wrap_2(shift_left);
+
+        self.cache.validate(
+            text_wrap,
+            shift_left,
+            self.rendered.width as upos_type,
+            self.rendered.height as upos_type,
+            self.value.min_changed(),
+        );
+
+        self.value.fill_cache(
+            sub_row_offset,
+            rows,
+            text_wrap,
+            left_margin,
+            right_margin,
+            word_margin,
+            self.cache.clone(),
+        )
+    }
+
+    fn glyphs2(
+        &self,
+        shift_left: upos_type,
+        sub_row_offset: upos_type,
+        rows: Range<upos_type>,
+        caching: Caching,
+    ) -> Result<GlyphIter2<<TextRope as TextStore>::GraphemeIter<'_>>, TextError> {
+        let (text_wrap, left_margin, right_margin, word_margin) = self.text_wrap_2(shift_left);
 
         let cache = if let Caching::None = caching {
             GlyphCache::default()
@@ -2049,15 +2049,13 @@ impl TextAreaState {
     /// Return the starting position for the visible line containing the given position.
     pub fn pos_to_line_start(&self, pos: TextPosition) -> TextPosition {
         match self.text_wrap {
-            TextWrap::Shift => TextPosition::new(0, pos.y),
+            TextWrap::Shift => {
+                //
+                TextPosition::new(0, pos.y)
+            }
             TextWrap::Hard | TextWrap::Word(_) => {
-                self.fill_cache(
-                    0,
-                    0,
-                    pos.y..min(pos.y + 1, self.len_lines()),
-                    Caching::Cache,
-                )
-                .expect("valid-row");
+                self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
+                    .expect("valid-row");
 
                 let mut start_pos = TextPosition::new(0, pos.y);
                 for (break_pos, _) in self.cache.line_break.borrow().range(
@@ -2077,33 +2075,23 @@ impl TextAreaState {
 
     /// Return the end position for the visible line containing the given position.
     pub fn pos_to_line_end(&self, pos: TextPosition) -> TextPosition {
-        let r = match self.text_wrap {
-            TextWrap::Shift => TextPosition::new(self.line_width(pos.y), pos.y),
-            TextWrap::Hard | TextWrap::Word(_) => {
-                self.fill_cache(
-                    0,
-                    0,
-                    pos.y..min(pos.y + 1, self.len_lines()),
-                    Caching::Cache,
-                )
-                .expect("valid-row");
+        self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
+            .expect("valid-row");
+        debug!("pos_to_line_end cache {:#?}", self.cache.full_line_break);
+        debug!("pos_to_line_end cache {:#?}", self.cache.line_break);
 
-                let mut end_pos = TextPosition::new(0, pos.y);
-                for (break_pos, _) in self.cache.line_break.borrow().range(
-                    TextPosition::new(0, pos.y)
-                        ..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
-                ) {
-                    if pos >= end_pos && &pos <= break_pos {
-                        end_pos = *break_pos;
-                        break;
-                    }
-                    end_pos = TextPosition::new(break_pos.x + 1, break_pos.y);
-                }
-
-                end_pos
+        let mut end_pos = TextPosition::new(0, pos.y);
+        for (break_pos, _) in self.cache.line_break.borrow().range(
+            TextPosition::new(0, pos.y)..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
+        ) {
+            if pos >= end_pos && &pos <= break_pos {
+                end_pos = *break_pos;
+                break;
             }
-        };
-        r
+            end_pos = TextPosition::new(break_pos.x + 1, break_pos.y);
+        }
+
+        end_pos
     }
 
     fn scroll_to_cursor(&mut self) {
