@@ -542,7 +542,9 @@ where
         iter.last_pos = glyph.pos;
         iter.last_byte = glyph.text_bytes.end;
 
-        if glyph.screen_pos.0 <= iter.true_right_margin() {
+        // line-break just beyond the right margin will end here.
+        // every other line-break should be skipped.
+        if glyph.screen_pos.0 <= iter.true_right_margin() + 1 {
             glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
             glyph.validate();
 
@@ -620,7 +622,7 @@ where
 
         glyph.validate();
         Break(Some(glyph))
-    } else if iter.next_screen_pos.0 > iter.true_right_margin() {
+    } else if glyph.screen_pos.0 > iter.true_right_margin() {
         // skip to next_line
         iter.iter.skip_line().expect("fine");
 
