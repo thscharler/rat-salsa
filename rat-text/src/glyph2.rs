@@ -1,8 +1,10 @@
 use crate::text_store::SkipLine;
 use crate::{upos_type, Grapheme, TextPosition};
+use fxhash::FxBuildHasher;
+use log::debug;
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::ops::ControlFlow::{Break, Continue};
@@ -107,7 +109,7 @@ pub(crate) enum Caching {
     Cache,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub(crate) enum TextWrap2 {
     /// shift glyphs to the left and clip at right margin.
@@ -129,10 +131,6 @@ impl Default for TextWrap2 {
 pub(crate) struct GlyphCache {
     /// Cache validity: left shift
     pub shift_left: Cell<upos_type>,
-    /// Cache validity: sub_row offset.
-    pub sub_row_offset: Cell<upos_type>,
-    /// Cache validity: start row.
-    pub start_row: Cell<upos_type>,
     /// Cache validity: rendered text-width.
     pub screen_width: Cell<upos_type>,
     /// Cache validity: rendered text-height.
@@ -141,10 +139,14 @@ pub(crate) struct GlyphCache {
     /// Mark the byte-positions of each line-start.
     ///
     /// Used when text-wrap is ShiftText.
-    pub line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache>>>,
+    pub line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache, FxBuildHasher>>>,
 
-    /// Mark all line-breaks for wrapped text.
-    pub line_break: Rc<RefCell<Vec<TextPosition>>>,
+    /// Has the specific line been wrapped completely.
+    pub full_line_break: Rc<RefCell<HashSet<upos_type, FxBuildHasher>>>,
+    /// All known line-breaks for wrapped text.
+    /// Has the text-position of the glyph which is marked as 'line-break'.
+    /// That means the line-break occurs *after* this position.
+    pub line_break: Rc<RefCell<BTreeMap<TextPosition, LineBreakCache>>>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -154,71 +156,68 @@ pub(crate) struct LineOffsetCache {
     pub byte_pos: usize,
 }
 
-impl GlyphCache {
-    pub(crate) fn set_line_break(&self, screen_row: upos_type, pos: TextPosition) {
-        let mut line_break = self.line_break.borrow_mut();
-        assert!(screen_row as usize <= line_break.len());
-        if screen_row as usize == line_break.len() {
-            line_break.push(pos);
-        } else {
-            line_break[screen_row as usize] = pos;
-        }
-    }
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct LineBreakCache {
+    pub byte_pos: usize,
+}
 
-    pub(crate) fn assert_valid(
-        &self,
-        shift_left: upos_type,
-        sub_row_offset: upos_type,
-        start_row: upos_type,
-        screen_width: upos_type,
-        screen_height: upos_type,
-        byte_pos: Option<usize>,
-    ) {
-        assert_eq!(self.shift_left.get(), shift_left);
-        assert_eq!(self.sub_row_offset.get(), sub_row_offset);
-        assert_eq!(self.start_row.get(), start_row);
-        assert!(byte_pos.is_none());
-        assert_eq!(self.screen_width.get(), screen_width);
-        assert_eq!(self.screen_height.get(), screen_height);
+impl GlyphCache {
+    pub(crate) fn clear(&self) {
+        self.shift_left.set(0);
+        self.screen_width.set(0);
+        self.screen_height.set(0);
+        self.line_start.borrow_mut().clear();
+        self.full_line_break.borrow_mut().clear();
+        self.line_break.borrow_mut().clear();
     }
 
     /// Clear out all parts of the cache, that don't match the
     /// parameters.
-    pub(crate) fn clear(
+    pub(crate) fn validate(
         &self,
+        text_wrap: TextWrap2,
         shift_left: upos_type,
-        sub_row_offset: upos_type,
-        start_row: upos_type,
         screen_width: upos_type,
         screen_height: upos_type,
         byte_pos: Option<usize>,
-    ) -> bool {
-        let mut invalid = false;
+    ) {
+        match text_wrap {
+            TextWrap2::Shift => {
+                self.full_line_break.borrow_mut().clear();
+                self.line_break.borrow_mut().clear();
 
-        if self.shift_left.get() != shift_left {
-            self.line_start.borrow_mut().clear();
-            invalid = true;
-        } else {
-            if let Some(byte_pos) = byte_pos {
-                self.line_start
-                    .borrow_mut()
-                    .retain(|_, cache| cache.byte_pos < byte_pos);
-                invalid = true;
+                if self.shift_left.get() != shift_left {
+                    self.line_start.borrow_mut().clear();
+                } else if let Some(byte_pos) = byte_pos {
+                    self.line_start
+                        .borrow_mut()
+                        .retain(|_, cache| cache.byte_pos < byte_pos);
+                }
+            }
+            TextWrap2::Hard | TextWrap2::Word => {
+                self.line_start.borrow_mut().clear();
+
+                if self.screen_width.get() != screen_width
+                    || self.screen_height.get() != screen_height
+                {
+                    self.line_break.borrow_mut().clear();
+                    self.full_line_break.borrow_mut().clear();
+                } else if let Some(byte_pos) = byte_pos {
+                    self.line_break.borrow_mut().retain(|pos, cache| {
+                        if cache.byte_pos < byte_pos {
+                            true
+                        } else {
+                            self.full_line_break.borrow_mut().remove(&pos.y);
+                            false
+                        }
+                    });
+                }
             }
         }
 
-        if self.screen_width.get() != screen_width || self.screen_height.get() != screen_height {
-            self.line_break.borrow_mut().clear();
-            invalid = true;
-        }
-
         self.shift_left.set(shift_left);
-        self.sub_row_offset.set(sub_row_offset);
-        self.start_row.set(start_row);
         self.screen_width.set(screen_width);
         self.screen_height.set(screen_height);
-
-        invalid
     }
 }
 
@@ -237,6 +236,8 @@ pub(crate) struct GlyphIter2<'a, Graphemes> {
     last_pos: TextPosition,
     last_byte: usize,
 
+    /// Zero position encountered for row.
+    zero_row: Option<upos_type>,
     /// Glyph cache
     cache: GlyphCache,
 
@@ -293,6 +294,7 @@ impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
             next_screen_pos: Default::default(),
             last_pos: Default::default(),
             last_byte: Default::default(),
+            zero_row: Default::default(),
             cache,
             tabs: 8,
             show_ctrl: false,
@@ -359,12 +361,8 @@ impl<'a, Graphemes> GlyphIter2<'a, Graphemes> {
 
         match self.text_wrap {
             TextWrap2::Shift => {}
-            TextWrap2::Hard => {
-                self.cache.set_line_break(0, self.next_pos);
-            }
-            TextWrap2::Word => {
-                self.cache.set_line_break(0, self.next_pos);
-            }
+            TextWrap2::Hard => {}
+            TextWrap2::Word => {}
         }
     }
 }
@@ -460,10 +458,22 @@ where
         iter.last_pos = glyph.pos;
         iter.last_byte = glyph.text_bytes.end;
 
-        iter.cache
-            .set_line_break(iter.next_screen_pos.1, iter.next_pos);
-
         glyph.validate();
+
+        // caching
+        if glyph.pos.x == 0 {
+            iter.zero_row = Some(glyph.pos.y);
+        }
+        if Some(glyph.pos.y) == iter.zero_row {
+            iter.cache.full_line_break.borrow_mut().insert(glyph.pos.y);
+        }
+        iter.cache.line_break.borrow_mut().insert(
+            glyph.pos,
+            LineBreakCache {
+                byte_pos: glyph.text_bytes.end,
+            },
+        );
+
         Break(Some(glyph))
     } else if glyph.screen_pos.0 > iter.word_margin && glyph.glyph == " " {
         // break after space
@@ -474,9 +484,6 @@ where
         // next_pos.y doesn't change
         iter.last_pos = glyph.pos;
         iter.last_byte = glyph.text_bytes.end;
-
-        iter.cache
-            .set_line_break(iter.next_screen_pos.1, iter.next_pos);
 
         iter.next_glyph = Some(Glyph2 {
             glyph: if iter.wrap_ctrl {
@@ -492,6 +499,18 @@ where
         });
 
         glyph.validate();
+
+        // caching
+        if glyph.pos.x == 0 {
+            iter.zero_row = Some(glyph.pos.y);
+        }
+        iter.cache.line_break.borrow_mut().insert(
+            glyph.pos,
+            LineBreakCache {
+                byte_pos: glyph.text_bytes.end,
+            },
+        );
+
         Break(Some(glyph))
     } else {
         iter.next_screen_pos.0 += glyph.screen_width as upos_type;
@@ -502,6 +521,12 @@ where
         iter.last_byte = glyph.text_bytes.end;
 
         glyph.validate();
+
+        // caching
+        if glyph.pos.x == 0 {
+            iter.zero_row = Some(glyph.pos.y);
+        }
+
         Break(Some(glyph))
     }
 }
@@ -523,10 +548,22 @@ where
         iter.last_pos = glyph.pos;
         iter.last_byte = glyph.text_bytes.end;
 
-        iter.cache
-            .set_line_break(iter.next_screen_pos.1, iter.next_pos);
-
         glyph.validate();
+
+        // caching
+        if glyph.pos.x == 0 {
+            iter.zero_row = Some(glyph.pos.y);
+        }
+        if Some(glyph.pos.y) == iter.zero_row {
+            iter.cache.full_line_break.borrow_mut().insert(glyph.pos.y);
+        }
+        iter.cache.line_break.borrow_mut().insert(
+            glyph.pos,
+            LineBreakCache {
+                byte_pos: glyph.text_bytes.end,
+            },
+        );
+
         Break(Some(glyph))
     } else if glyph.screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin() {
         // break before glyph
@@ -547,8 +584,6 @@ where
             pos: glyph.pos,
         });
 
-        iter.cache.set_line_break(glyph.screen_pos.1, glyph.pos);
-
         glyph.glyph = if iter.wrap_ctrl {
             Cow::Borrowed("\u{21B5}")
         } else {
@@ -561,6 +596,18 @@ where
         glyph.pos = iter.last_pos;
 
         glyph.validate();
+
+        // caching
+        if glyph.pos.x == 0 {
+            iter.zero_row = Some(glyph.pos.y);
+        }
+        iter.cache.line_break.borrow_mut().insert(
+            glyph.pos,
+            LineBreakCache {
+                byte_pos: glyph.text_bytes.end,
+            },
+        );
+
         Break(Some(glyph))
     } else {
         iter.next_screen_pos.0 += glyph.screen_width as upos_type;
@@ -571,6 +618,12 @@ where
         iter.last_byte = glyph.text_bytes.end;
 
         glyph.validate();
+
+        // caching
+        if glyph.pos.x == 0 {
+            iter.zero_row = Some(glyph.pos.y);
+        }
+
         Break(Some(glyph))
     }
 }

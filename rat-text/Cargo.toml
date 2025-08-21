@@ -32,6 +32,7 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 format_num_pattern = "0.9"
 log = "0.4"
 dyn-clone = "1.0.17"
+fxhash = "0.2"
 
 rat-event = { version = "1.2", path = "../rat-event" }
 rat-reloc = { version = "1.1", path = "../rat-reloc" }

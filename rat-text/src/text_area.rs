@@ -18,6 +18,7 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -33,6 +34,7 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::ops::Range;
+use std::time::SystemTime;
 
 /// Text area widget.
 ///
@@ -1239,6 +1241,7 @@ impl TextAreaState {
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
+        self.cache.clear();
 
         self.value.set_text(TextRope::new_text(s.as_ref()));
     }
@@ -1251,6 +1254,7 @@ impl TextAreaState {
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
+        self.cache.clear();
 
         self.value.set_text(TextRope::new_rope(r));
     }
@@ -1795,7 +1799,7 @@ impl TextAreaState {
                 0,
                 line_start.x,
                 line_start.y..min(line_start.y + 1, self.len_lines()),
-                Caching::None,
+                Caching::Cache,
             )
             .expect("valid-pos")
         {
@@ -1934,6 +1938,39 @@ impl RelocatableState for TextAreaState {
 }
 
 impl TextAreaState {
+    fn fill_cache(
+        &self,
+        shift_left: upos_type,
+        sub_row_offset: upos_type,
+        rows: Range<upos_type>,
+        caching: Caching,
+    ) -> Result<(), TextError> {
+        match self.text_wrap {
+            TextWrap::Shift => {
+                // noop
+            }
+            TextWrap::Hard | TextWrap::Word(_) => {
+                // check for full_line_break available
+                let mut build_cache = false;
+                {
+                    let full_line_break = self.cache.full_line_break.borrow();
+                    for row in rows.clone() {
+                        if !full_line_break.contains(&row) {
+                            build_cache = true;
+                            break;
+                        }
+                    }
+                }
+
+                if build_cache {
+                    for _ in self.glyphs2(shift_left, sub_row_offset, rows, caching)? {}
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn glyphs2(
         &self,
         shift_left: upos_type,
@@ -1965,10 +2002,9 @@ impl TextAreaState {
         let cache = if let Caching::None = caching {
             GlyphCache::default()
         } else {
-            self.cache.clear(
+            self.cache.validate(
+                text_wrap,
                 shift_left,
-                sub_row_offset,
-                rows.start,
                 self.rendered.width as upos_type,
                 self.rendered.height as upos_type,
                 self.value.min_changed(),
@@ -2014,18 +2050,25 @@ impl TextAreaState {
         match self.text_wrap {
             TextWrap::Shift => TextPosition::new(0, pos.y),
             TextWrap::Hard | TextWrap::Word(_) => {
+                self.fill_cache(
+                    0,
+                    0,
+                    pos.y..min(pos.y + 1, self.len_lines()),
+                    Caching::Cache,
+                )
+                .expect("valid-row");
+
                 let mut start_pos = TextPosition::new(0, pos.y);
-                for g in self
-                    .glyphs2(0, 0, pos.y..min(pos.y + 1, self.len_lines()), Caching::None)
-                    .expect("valid-row")
-                {
-                    if g.screen_pos().0 == 0 {
-                        start_pos = g.pos();
-                    }
-                    if g.pos() == pos {
+                for (break_pos, _) in self.cache.line_break.borrow().range(
+                    TextPosition::new(0, pos.y)
+                        ..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
+                ) {
+                    if pos >= start_pos && &pos <= break_pos {
                         break;
                     }
+                    start_pos = TextPosition::new(break_pos.x + 1, break_pos.y);
                 }
+
                 start_pos
             }
         }
@@ -2105,7 +2148,7 @@ impl TextAreaState {
                             0,
                             sub_row_offset,
                             oy..min(oy + 2 * self.rendered.height as upos_type, self.len_lines()),
-                            Caching::None,
+                            Caching::Cache,
                         )
                         .expect("valid_offset")
                     {
@@ -2141,7 +2184,7 @@ impl TextAreaState {
                             0,
                             0,
                             cursor.y..min(cursor.y + 1, self.len_lines()),
-                            Caching::None,
+                            Caching::Cache,
                         )
                         .expect("valid_offset")
                     {
@@ -2338,7 +2381,7 @@ impl TextAreaState {
                     // find offset
                     let o_screen_pos = 'f: {
                         for g in self
-                            .glyphs2(0, 0, ry..min(oy + 1, self.len_lines()), Caching::None)
+                            .glyphs2(0, 0, ry..min(oy + 1, self.len_lines()), Caching::Cache)
                             .expect("valid-rows")
                         {
                             if g.pos().x == sub_row_offset && g.pos().y == oy {
@@ -2362,7 +2405,7 @@ impl TextAreaState {
                     // find the matching pos
                     'f: {
                         for g in self
-                            .glyphs2(0, 0, ry..min(oy + 1, self.len_lines()), Caching::None)
+                            .glyphs2(0, 0, ry..min(oy + 1, self.len_lines()), Caching::Cache)
                             .expect("valid-rows")
                         {
                             if g.contains_screen_pos(scr_pos) {
