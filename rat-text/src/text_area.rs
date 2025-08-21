@@ -1022,7 +1022,16 @@ impl TextAreaState {
     /// Line count.
     #[inline]
     pub fn len_lines(&self) -> upos_type {
-        self.value.len_lines()
+        // don't use clean_offset(). would recurse to this.
+        self.validate_cache(self.hscroll.offset as upos_type);
+
+        if let Some(len_lines) = self.cache.len_lines.get() {
+            len_lines
+        } else {
+            let len_lines = self.value.len_lines();
+            self.cache.len_lines.set(Some(len_lines));
+            len_lines
+        }
     }
 
     /// Line width as grapheme count.
@@ -1030,6 +1039,7 @@ impl TextAreaState {
     /// Panics for an invalid row.
     #[inline]
     pub fn line_width(&self, row: upos_type) -> upos_type {
+        // TODO: maybe cache too?
         self.value.line_width(row).expect("valid_row")
     }
 
@@ -1705,6 +1715,7 @@ impl TextAreaState {
     pub fn move_left(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
+        let t = SystemTime::now();
         if cursor.x == 0 {
             if cursor.y > 0 {
                 cursor.y = cursor.y.saturating_sub(1);
@@ -1713,10 +1724,13 @@ impl TextAreaState {
         } else {
             cursor.x = cursor.x.saturating_sub(n as upos_type);
         }
+        debug!("move_left cursor_x {:?}", t.elapsed());
+        let t = SystemTime::now();
 
         if let Some(scr_cursor) = self.pos_to_relative_screen(cursor) {
             self.set_move_col(Some(scr_cursor.0));
         }
+        debug!("move_left set_move_col {:?}", t.elapsed());
         self.set_cursor(cursor, extend_selection)
     }
 
@@ -1725,6 +1739,7 @@ impl TextAreaState {
     pub fn move_right(&mut self, n: u16, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
 
+        let t = SystemTime::now();
         let c_line_width = self.line_width(cursor.y);
         if cursor.x == c_line_width {
             if cursor.y + 1 < self.len_lines() {
@@ -1734,10 +1749,13 @@ impl TextAreaState {
         } else {
             cursor.x = min(cursor.x + n as upos_type, c_line_width)
         }
+        debug!("move_right cursor_x {:?}", t.elapsed());
+        let t = SystemTime::now();
 
         if let Some(scr_cursor) = self.pos_to_relative_screen(cursor) {
             self.set_move_col(Some(scr_cursor.0));
         }
+        debug!("move_right set_move_col {:?}", t.elapsed());
         self.set_cursor(cursor, extend_selection)
     }
 
@@ -1746,19 +1764,25 @@ impl TextAreaState {
     pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
         let cursor = self.cursor();
 
+        let t = SystemTime::now();
         if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
+            debug!("move_up pos_to_scren {:?}", t.elapsed());
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
             scr_cursor.1 -= n as i16;
 
+            let t = SystemTime::now();
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
+                debug!("move_up screen_to_pos {:?}", t.elapsed());
                 self.set_cursor(new_cursor, extend_selection)
             } else {
+                debug!("move_up screen_to_pos {:?}", t.elapsed());
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
+            debug!("move_up pos_to_scren {:?}", t.elapsed());
             self.scroll_cursor_to_visible();
             true
         }
@@ -1769,19 +1793,25 @@ impl TextAreaState {
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
         let cursor = self.cursor();
 
+        let t = SystemTime::now();
         if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
+            debug!("move_down pos_to_screen {:?}", t.elapsed());
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
             scr_cursor.1 += n as i16;
 
+            let t = SystemTime::now();
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
+                debug!("move_down screen_to_pos {:?}", t.elapsed());
                 self.set_cursor(new_cursor, extend_selection)
             } else {
+                debug!("move_down screen_to_pos {:?}", t.elapsed());
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
+            debug!("move_down pos_to_screen {:?}", t.elapsed());
             self.scroll_cursor_to_visible();
             true
         }
@@ -1791,12 +1821,13 @@ impl TextAreaState {
     /// Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
+        let (shift_left, _, _) = self.clean_offset();
         let cursor = self.cursor();
 
         let mut line_start = self.pos_to_line_start(cursor);
         for g in self
             .glyphs2(
-                0,
+                shift_left,
                 line_start.x,
                 line_start.y..min(line_start.y + 1, self.len_lines()),
                 Caching::Cache,
@@ -1962,6 +1993,19 @@ impl TextAreaState {
         }
     }
 
+    /// Validate the cache content with actual data.
+    fn validate_cache(&self, shift_left: upos_type) {
+        let (text_wrap, _, _, _) = self.text_wrap_2(shift_left);
+
+        self.cache.validate(
+            text_wrap,
+            shift_left,
+            self.rendered.width as upos_type,
+            self.rendered.height as upos_type,
+            self.value.min_changed(),
+        );
+    }
+
     /// Fill the cache for the given rows.
     /// Build up the complete information for the given rows.
     fn fill_cache(
@@ -2077,8 +2121,6 @@ impl TextAreaState {
     pub fn pos_to_line_end(&self, pos: TextPosition) -> TextPosition {
         self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
             .expect("valid-row");
-        debug!("pos_to_line_end cache {:#?}", self.cache.full_line_break);
-        debug!("pos_to_line_end cache {:#?}", self.cache.line_break);
 
         let mut end_pos = TextPosition::new(0, pos.y);
         for (break_pos, _) in self.cache.line_break.borrow().range(
@@ -2256,15 +2298,21 @@ impl TextAreaState {
                 ))
             }
             TextWrap::Hard | TextWrap::Word(_) => {
+                let t = SystemTime::now();
                 let (_, sub_row_offset, oy) = self.clean_offset();
+                debug!("    pos_to_screen prepare {:?}", t.elapsed());
+                let t = SystemTime::now();
 
                 if oy > self.len_lines() {
+                    debug!("    pos_to_screen found-0 {:?}", t.elapsed());
                     return None;
                 }
                 if pos.y < oy {
+                    debug!("    pos_to_screen found-1 {:?}", t.elapsed());
                     return None;
                 }
                 if pos.y > self.len_lines() {
+                    debug!("    pos_to_screen found-2 {:?}", t.elapsed());
                     return None;
                 }
 
@@ -2278,10 +2326,12 @@ impl TextAreaState {
                     .expect("valid-offset")
                 {
                     if g.screen_pos().1 >= self.rendered.height {
+                        debug!("    pos_to_screen found pos {:?}", t.elapsed());
                         return None;
                     }
                     if g.pos() == pos {
                         let screen_pos = g.screen_pos();
+                        debug!("    pos_to_screen found pos {:?}", t.elapsed());
                         return Some((
                             screen_pos.0 as i16 - self.dark_offset.0 as i16,
                             screen_pos.1 as i16 - self.dark_offset.1 as i16,
@@ -2289,6 +2339,7 @@ impl TextAreaState {
                     }
                 }
 
+                debug!("    pos_to_screen found pos {:?}", t.elapsed());
                 // Some invalid column.
                 None
             }
@@ -2358,11 +2409,13 @@ impl TextAreaState {
             TextWrap::Hard | TextWrap::Word(_) => {
                 let t = SystemTime::now();
                 let (_, sub_row_offset, oy) = self.clean_offset();
+                debug!("    screen_to_pos prepare {:?}", t.elapsed());
+                let t = SystemTime::now();
 
                 if oy >= self.len_lines() {
+                    debug!("    screen_to_pos found-0 {:?}", t.elapsed());
                     return None;
                 }
-                debug!("prep {:?}", t.elapsed());
 
                 if scr_pos.1 < 0 {
                     // Guess a starting position for an alternate screen that
@@ -2376,10 +2429,11 @@ impl TextAreaState {
                     let ry = oy.saturating_add_signed(scr_pos.1 as ipos_type - 1);
 
                     // count backwards
-                    let t = SystemTime::now();
                     self.fill_cache(0, 0, ry..oy).expect("valid-rows");
-                    debug!("fill_cache {:?}", t.elapsed());
+
+                    debug!("    screen_to_pos fill_cache {:?}", t.elapsed());
                     let t = SystemTime::now();
+
                     let n_start_pos = 'f: {
                         let mut nrows = scr_pos.1.unsigned_abs();
                         for (_break_pos, cache) in self
@@ -2396,31 +2450,31 @@ impl TextAreaState {
                         }
                         TextPosition::new(0, 0)
                     };
-                    debug!("find_row {:?}", t.elapsed());
+                    debug!("    screen_to_pos found_row {:?}", t.elapsed());
                     let t = SystemTime::now();
 
                     // find the exact col
                     if scr_pos.0 < 0 {
+                        debug!("    screen_to_pos found pos {:?}", t.elapsed());
                         return Some(n_start_pos);
                     }
-                    let r = 'f: {
-                        for g in self
-                            .glyphs2(
-                                0,
-                                n_start_pos.x,
-                                n_start_pos.y..min(n_start_pos.y + 1, self.len_lines()),
-                                Caching::Cache,
-                            )
-                            .expect("valid-rows")
-                        {
-                            if g.contains_screen_x(scr_pos.0 as u16) {
-                                break 'f Some(g.pos());
-                            }
+
+                    for g in self
+                        .glyphs2(
+                            0,
+                            n_start_pos.x,
+                            n_start_pos.y..min(n_start_pos.y + 1, self.len_lines()),
+                            Caching::Cache,
+                        )
+                        .expect("valid-rows")
+                    {
+                        if g.contains_screen_x(scr_pos.0 as u16) {
+                            debug!("    screen_to_pos found_pos {:?}", t.elapsed());
+                            return Some(g.pos());
                         }
-                        unreachable!("impossible screen-pos");
-                    };
-                    debug!("find_col {:?}", t.elapsed());
-                    r
+                    }
+
+                    unreachable!("impossible screen-pos");
                 } else {
                     let scr_pos = (max(0, scr_pos.0) as u16, scr_pos.1 as u16);
 
@@ -2431,6 +2485,7 @@ impl TextAreaState {
                         .expect("valid-position")
                     {
                         if g.contains_screen_pos(scr_pos) {
+                            debug!("    screen_to_pos path2 {:?}", t.elapsed());
                             return Some(g.pos());
                         }
                         // fallback is end of last line
@@ -2438,6 +2493,7 @@ impl TextAreaState {
                             fallback = Some(g.pos());
                         }
                     }
+                    debug!("    screen_to_pos path2 {:?}", t.elapsed());
                     fallback
                 }
             }
@@ -2586,9 +2642,16 @@ impl TextAreaState {
     /// They may be negative too, this allows setting the cursor
     /// to a position that is currently scrolled away.
     pub fn set_screen_cursor(&mut self, cursor: (i16, i16), extend_selection: bool) -> bool {
+        let t = SystemTime::now();
         let Some(cursor) = self.relative_screen_to_pos(cursor) else {
             return false;
         };
+        debug!("set_cursor screen_to_pos {:?}", t.elapsed());
+        let t = SystemTime::now();
+        if let Some(scr_cursor) = self.pos_to_relative_screen(cursor) {
+            self.set_move_col(Some(scr_cursor.0));
+        }
+        debug!("set_cursor set_move_col {:?}", t.elapsed());
         self.set_cursor(cursor, extend_selection)
     }
 

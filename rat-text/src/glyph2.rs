@@ -138,6 +138,9 @@ pub(crate) struct GlyphCache {
     /// Cache validity: rendered text-height.
     pub screen_height: Cell<upos_type>,
 
+    /// len_lines seems expensive too.
+    pub len_lines: Cell<Option<upos_type>>,
+
     /// Mark the byte-positions of each line-start.
     ///
     /// Used when text-wrap is ShiftText.
@@ -166,6 +169,7 @@ pub(crate) struct LineBreakCache {
 
 impl GlyphCache {
     pub(crate) fn clear(&self) {
+        self.len_lines.set(None);
         self.shift_left.set(0);
         self.screen_width.set(0);
         self.screen_height.set(0);
@@ -184,6 +188,11 @@ impl GlyphCache {
         screen_height: upos_type,
         byte_pos: Option<usize>,
     ) {
+        if byte_pos.is_some() {
+            debug!("validate: reset len_lines");
+            self.len_lines.set(None);
+        }
+
         match text_wrap {
             TextWrap2::Shift => {
                 if let TextWrap2::Hard | TextWrap2::Word = self.text_wrap.get() {
