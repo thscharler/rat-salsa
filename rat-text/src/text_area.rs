@@ -1822,12 +1822,13 @@ impl TextAreaState {
     /// Returns true if there was any real change.
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
         let cursor = self.cursor();
-
+        let t = SystemTime::now();
         let line_end = self.pos_to_line_end(cursor);
-
+        debug!("move_to_line_end pos {:?}", t.elapsed());
         if let Some(scr_pos) = self.pos_to_relative_screen(line_end) {
             self.set_move_col(Some(scr_pos.0));
         }
+        debug!("move_to_line_end pos2screen {:?}", t.elapsed());
         self.set_cursor(line_end, extend_selection)
     }
 
@@ -2079,22 +2080,27 @@ impl TextAreaState {
         let r = match self.text_wrap {
             TextWrap::Shift => TextPosition::new(self.line_width(pos.y), pos.y),
             TextWrap::Hard | TextWrap::Word(_) => {
-                let mut end_pos = None;
-                let mut armed = false;
-                for g in self
-                    .glyphs2(0, 0, pos.y..min(pos.y + 1, self.len_lines()), Caching::None)
-                    .expect("valid-row")
-                {
-                    if g.pos() == pos {
-                        armed = true;
-                    }
-                    if armed && g.line_break() {
-                        end_pos = Some(g.pos());
+                self.fill_cache(
+                    0,
+                    0,
+                    pos.y..min(pos.y + 1, self.len_lines()),
+                    Caching::Cache,
+                )
+                .expect("valid-row");
+
+                let mut end_pos = TextPosition::new(0, pos.y);
+                for (break_pos, _) in self.cache.line_break.borrow().range(
+                    TextPosition::new(0, pos.y)
+                        ..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
+                ) {
+                    if pos >= end_pos && &pos <= break_pos {
+                        end_pos = *break_pos;
                         break;
                     }
+                    end_pos = TextPosition::new(break_pos.x + 1, break_pos.y);
                 }
 
-                end_pos.unwrap_or_else(|| TextPosition::new(self.line_width(pos.y), pos.y))
+                end_pos
             }
         };
         r
