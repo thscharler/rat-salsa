@@ -10,7 +10,6 @@ use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::{text_area, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::text::Text;
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::time::SystemTime;

@@ -821,22 +821,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
         &self.cache
     }
 
-    /// Validate the cache content with actual data.
-    pub(crate) fn validate_cache(
-        &self,
-        rendered: Size,
-        text_wrap: TextWrap2,
-        left_margin: upos_type,
-    ) {
-        self.cache.validate(
-            text_wrap,
-            left_margin,
-            rendered.width as upos_type,
-            rendered.height as upos_type,
-            self.min_changed(),
-        );
-    }
-
     /// Fill the cache for all the given rows completely.
     pub(crate) fn fill_cache(
         &self,
@@ -1020,7 +1004,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             Ok(cache.width)
         } else {
             let width = self.text.line_width(row)?;
-            let byte_pos = self.text.byte_range_at(TextPosition::new(0, row))?;
+            let byte_pos = self.text.byte_range_at(TextPosition::new(width, row))?;
             line_width.insert(
                 row,
                 LineWidthCache {

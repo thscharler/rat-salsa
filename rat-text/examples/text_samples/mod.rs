@@ -9,6 +9,7 @@ pub fn add_range_styles(state: &mut TextAreaState, styles: Vec<(TextRange, usize
     }
 }
 
+#[allow(unused)]
 pub fn sample_scott_0() -> (Rope, Vec<(TextRange, usize)>) {
     let rope = Rope::from_str(SCOTT_0);
     let mut styles = Vec::new();
@@ -40,10 +41,12 @@ pub fn sample_scott_0() -> (Rope, Vec<(TextRange, usize)>) {
     (rope, styles)
 }
 
+#[allow(unused)]
 pub fn sample_scott_1() -> (Rope, Vec<(TextRange, usize)>) {
     (Rope::from_str(SCOTT_1), Vec::new())
 }
 
+#[allow(unused)]
 pub fn sample_emoji() -> (Rope, Vec<(TextRange, usize)>) {
     (
         Rope::from_str("short text\nw🤷‍♂️x\nw🤷‍♀️x\nw🤦‍♂️x\nw❤️x\nw🤦‍♀️x\nw💕x\nw🙍🏿‍♀️x\n"),
@@ -51,6 +54,7 @@ pub fn sample_emoji() -> (Rope, Vec<(TextRange, usize)>) {
     )
 }
 
+#[allow(unused)]
 pub fn sample_tabs() -> (Rope, Vec<(TextRange, usize)>) {
     (
         Rope::from_str("\t\ttabs\n\t\t\t\ttabs\n\tt\tt\tt\n"),
@@ -58,6 +62,7 @@ pub fn sample_tabs() -> (Rope, Vec<(TextRange, usize)>) {
     )
 }
 
+#[allow(unused)]
 pub fn sample_lorem() -> (Rope, Vec<(Range<usize>, usize)>) {
     let l = lorem_rustum::LoremRustum::new(1_000_000);
 
@@ -94,10 +99,12 @@ pub fn sample_lorem() -> (Rope, Vec<(Range<usize>, usize)>) {
     (buf, styles)
 }
 
+#[allow(unused)]
 pub fn sample_pattern_0() -> (Rope, Vec<(TextRange, usize)>) {
     (Rope::from_str(PATTERN_0), Vec::new())
 }
 
+#[allow(unused)]
 pub fn sample_long() -> (Rope, Vec<(TextRange, usize)>) {
     let mut buf = String::new();
     let pat = ["1", "2", "3", "4", " ", "6", "7", "8", "9", " "];
@@ -115,6 +122,7 @@ pub fn sample_long() -> (Rope, Vec<(TextRange, usize)>) {
     (Rope::from(buf), Vec::new())
 }
 
+#[allow(unused)]
 pub fn sample_medium() -> (Rope, Vec<(TextRange, usize)>) {
     let mut buf = String::new();
     let pat = ["1", "2", "3", "4", " ", "6", "7", "8", "9", " "];
@@ -132,6 +140,7 @@ pub fn sample_medium() -> (Rope, Vec<(TextRange, usize)>) {
     (Rope::from(buf), Vec::new())
 }
 
+#[allow(unused)]
 pub fn sample_short() -> (Rope, Vec<(TextRange, usize)>) {
     let mut buf = String::new();
     let pat = ["1", "2", "3", "4", " ", "6", "7", "8", "9", " "];
@@ -149,6 +158,7 @@ pub fn sample_short() -> (Rope, Vec<(TextRange, usize)>) {
     (Rope::from(buf), Vec::new())
 }
 
+#[allow(unused)]
 static PATTERN_0: &str = "aaaa 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
     bbbb 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
     cccc 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
@@ -177,6 +187,7 @@ static PATTERN_0: &str = "aaaa 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234
     zzzz 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 1234 6789 \n\
     ";
 
+#[allow(unused)]
 static SCOTT_0: &str = "Ridley Scott
 Ridley Scott (2015)
 

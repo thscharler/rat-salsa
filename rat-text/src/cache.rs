@@ -73,37 +73,28 @@ impl Cache {
     /// Clear out parts of the cache that correspond to
     /// text-changes after the given byte-position.
     pub(crate) fn validate_byte_pos(&self, byte_pos: Option<usize>) {
-        if byte_pos.is_some() {
-            self.len_lines.set(None);
-        }
+        let Some(byte_pos) = byte_pos else {
+            return;
+        };
 
-        if let Some(byte_pos) = byte_pos {
-            self.line_width
-                .borrow_mut()
-                .retain(|_, cache| cache.byte_pos < byte_pos);
-        }
+        self.len_lines.set(None);
 
-        match self.text_wrap.get() {
-            TextWrap2::Shift => {
-                if let Some(byte_pos) = byte_pos {
-                    self.line_start
-                        .borrow_mut()
-                        .retain(|_, cache| cache.byte_pos < byte_pos);
-                }
+        self.line_width
+            .borrow_mut()
+            .retain(|_, cache| cache.byte_pos < byte_pos);
+
+        self.line_start
+            .borrow_mut()
+            .retain(|_, cache| cache.byte_pos < byte_pos);
+
+        self.line_break.borrow_mut().retain(|pos, cache| {
+            if cache.byte_pos < byte_pos {
+                true
+            } else {
+                self.full_line_break.borrow_mut().remove(&pos.y);
+                false
             }
-            TextWrap2::Hard | TextWrap2::Word => {
-                if let Some(byte_pos) = byte_pos {
-                    self.line_break.borrow_mut().retain(|pos, cache| {
-                        if cache.byte_pos < byte_pos {
-                            true
-                        } else {
-                            self.full_line_break.borrow_mut().remove(&pos.y);
-                            false
-                        }
-                    });
-                }
-            }
-        }
+        });
     }
 
     /// Remove stuff from the cache, that doesn't match the parameters.

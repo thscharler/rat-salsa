@@ -4,7 +4,6 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::cache::{Cache, LineWidthCache};
 use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
@@ -1988,13 +1987,6 @@ impl TextAreaState {
                 self.rendered.width.saturating_sub(margin) as upos_type,
             ),
         }
-    }
-
-    /// Validate the cache content with actual data.
-    fn validate_cache(&self, shift_left: upos_type) {
-        let (text_wrap, left_margin, _, _) = self.text_wrap_2(shift_left);
-        self.value
-            .validate_cache(self.rendered, text_wrap, left_margin);
     }
 
     /// Fill the cache for the given rows.
