@@ -195,10 +195,7 @@ impl GlyphCache {
     ) -> bool {
         let mut invalid = false;
 
-        if self.shift_left.get() != shift_left
-            || self.sub_row_offset.get() != sub_row_offset
-            || self.start_row.get() != start_row
-        {
+        if self.shift_left.get() != shift_left {
             self.line_start.borrow_mut().clear();
             invalid = true;
         } else {

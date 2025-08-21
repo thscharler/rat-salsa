@@ -29,6 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "textarea1",
+        |_| {},
         handle_input,
         repaint_input,
         &mut data,

@@ -13,6 +13,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget};
 use ratatui::Frame;
 use std::fmt;
+use std::time::SystemTime;
 
 mod mini_salsa;
 mod text_samples;
@@ -36,6 +37,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "textarea2",
+        |istate| {
+            istate.timing = false;
+        },
         handle_input,
         repaint_input,
         &mut data,
@@ -58,18 +62,18 @@ fn repaint_input(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
-        Constraint::Length(7),
+        Constraint::Length(0),
         Constraint::Fill(1),
-        Constraint::Length(7),
+        Constraint::Length(0),
         Constraint::Length(1),
     ])
     .split(area);
 
     let l2 = Layout::horizontal([
-        Constraint::Length(15),
-        Constraint::Length(25),
+        Constraint::Length(0),
+        Constraint::Length(0),
         Constraint::Fill(1),
-        Constraint::Length(15),
+        Constraint::Length(0),
     ])
     .split(l1[1]);
 
@@ -92,69 +96,72 @@ fn repaint_input(
             Style::new().green(),
             Style::new().on_yellow(),
         ]);
-    textarea.render(txt_area, frame.buffer_mut(), &mut state.textarea);
 
-    debug!(" cursor {:?}", state.textarea.screen_cursor());
+    let t = SystemTime::now();
+    textarea.render(txt_area, frame.buffer_mut(), &mut state.textarea);
+    let el = t.elapsed().expect("timinig");
+    istate.status[1] = format!("#{}|{:.0?}", frame.count(), el).to_string();
+
     let screen_cursor = state.textarea.screen_cursor();
     if let Some((cx, cy)) = screen_cursor {
         frame.set_cursor_position((cx, cy));
     }
 
-    if state.info {
-        use fmt::Write;
-        let mut stats = String::new();
-        _ = writeln!(&mut stats);
-        _ = writeln!(
-            &mut stats,
-            "offset: {:?} {:?}",
-            state.textarea.offset(),
-            state.textarea.sub_row_offset
-        );
-        _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
-        _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
-        if let Some((scx, scy)) = screen_cursor {
-            _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
-        } else {
-            _ = writeln!(&mut stats, "screen: None",);
-        }
-        _ = writeln!(
-            &mut stats,
-            "width: {:?} ",
-            state.textarea.line_width(state.textarea.cursor().y)
-        );
-        _ = writeln!(
-            &mut stats,
-            "next word: {:?} {:?}",
-            state.textarea.next_word_start(state.textarea.cursor()),
-            state.textarea.next_word_end(state.textarea.cursor())
-        );
-        _ = writeln!(
-            &mut stats,
-            "prev word: {:?} {:?}",
-            state.textarea.prev_word_start(state.textarea.cursor()),
-            state.textarea.prev_word_end(state.textarea.cursor())
-        );
-
-        _ = write!(&mut stats, "cursor-styles: ",);
-        let mut styles = Vec::new();
-        let cursor_byte = state.textarea.byte_at(state.textarea.cursor());
-        state.textarea.styles_at(cursor_byte.start, &mut styles);
-        for (_, s) in styles {
-            _ = write!(&mut stats, "{}, ", s);
-        }
-        _ = writeln!(&mut stats);
-
-        if let Some(st) = state.textarea.value.styles() {
-            _ = writeln!(&mut stats, "text-styles: {}", st.count());
-        }
-        if let Some(st) = state.textarea.value.styles() {
-            for r in st.take(20) {
-                _ = writeln!(&mut stats, "    {:?}", r);
-            }
-        }
-        let dbg = Paragraph::new(stats);
-        frame.render_widget(dbg, l2[1]);
-    }
+    // if state.info {
+    //     use fmt::Write;
+    //     let mut stats = String::new();
+    //     _ = writeln!(&mut stats);
+    //     _ = writeln!(
+    //         &mut stats,
+    //         "offset: {:?} {:?}",
+    //         state.textarea.offset(),
+    //         state.textarea.sub_row_offset
+    //     );
+    //     _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
+    //     _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
+    //     if let Some((scx, scy)) = screen_cursor {
+    //         _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
+    //     } else {
+    //         _ = writeln!(&mut stats, "screen: None",);
+    //     }
+    //     _ = writeln!(
+    //         &mut stats,
+    //         "width: {:?} ",
+    //         state.textarea.line_width(state.textarea.cursor().y)
+    //     );
+    //     _ = writeln!(
+    //         &mut stats,
+    //         "next word: {:?} {:?}",
+    //         state.textarea.next_word_start(state.textarea.cursor()),
+    //         state.textarea.next_word_end(state.textarea.cursor())
+    //     );
+    //     _ = writeln!(
+    //         &mut stats,
+    //         "prev word: {:?} {:?}",
+    //         state.textarea.prev_word_start(state.textarea.cursor()),
+    //         state.textarea.prev_word_end(state.textarea.cursor())
+    //     );
+    //
+    //     _ = write!(&mut stats, "cursor-styles: ",);
+    //     let mut styles = Vec::new();
+    //     let cursor_byte = state.textarea.byte_at(state.textarea.cursor());
+    //     state.textarea.styles_at(cursor_byte.start, &mut styles);
+    //     for (_, s) in styles {
+    //         _ = write!(&mut stats, "{}, ", s);
+    //     }
+    //     _ = writeln!(&mut stats);
+    //
+    //     if let Some(st) = state.textarea.value.styles() {
+    //         _ = writeln!(&mut stats, "text-styles: {}", st.count());
+    //     }
+    //     if let Some(st) = state.textarea.value.styles() {
+    //         for r in st.take(20) {
+    //             _ = writeln!(&mut stats, "    {:?}", r);
+    //         }
+    //     }
+    //     let dbg = Paragraph::new(stats);
+    //     frame.render_widget(dbg, l2[1]);
+    // }
 
     let ccursor = state.textarea.selection();
     istate.status[0] = format!(
@@ -168,10 +175,16 @@ fn repaint_input(
 fn handle_input(
     event: &crossterm::event::Event,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    try_flow!(text_area::handle_events(&mut state.textarea, true, event));
+    try_flow!({
+        let t = SystemTime::now();
+        let r = text_area::handle_events(&mut state.textarea, true, event);
+        let el = t.elapsed().expect("timing");
+        istate.status[2] = format!("H{}|{:.0?}", istate.event_cnt, el).to_string();
+        r
+    });
 
     try_flow!(match event {
         ct_event!(key press ALT-'0') => {

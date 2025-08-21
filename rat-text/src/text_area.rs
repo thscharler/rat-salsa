@@ -2199,7 +2199,7 @@ impl TextAreaState {
                             ox,
                             0,
                             pos.y..min(pos.y + 1, self.len_lines()),
-                            Caching::None,
+                            Caching::Cache,
                         )
                         .expect("valid-row")
                     {
@@ -2305,7 +2305,7 @@ impl TextAreaState {
                                     ox,
                                     0,
                                     pos_y..min(pos_y + 1, self.len_lines()),
-                                    Caching::None,
+                                    Caching::Cache,
                                 )
                                 .expect("valid-position")
                             {
