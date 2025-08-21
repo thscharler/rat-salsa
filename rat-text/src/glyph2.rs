@@ -128,32 +128,32 @@ impl Default for TextWrap2 {
 
 /// Glyph cache.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct GlyphCache {
+pub struct GlyphCache {
     /// Cache validity: wrapping mode
-    pub text_wrap: Cell<TextWrap2>,
+    pub(crate) text_wrap: Cell<TextWrap2>,
     /// Cache validity: left shift
-    pub shift_left: Cell<upos_type>,
+    pub(crate) shift_left: Cell<upos_type>,
     /// Cache validity: rendered text-width.
-    pub screen_width: Cell<upos_type>,
+    pub(crate) screen_width: Cell<upos_type>,
     /// Cache validity: rendered text-height.
-    pub screen_height: Cell<upos_type>,
+    pub(crate) screen_height: Cell<upos_type>,
 
     /// len_lines seems expensive too.
-    pub len_lines: Cell<Option<upos_type>>,
+    pub(crate) len_lines: Cell<Option<upos_type>>,
     /// line-width the same
-    pub line_width: Rc<RefCell<HashMap<upos_type, LineWidthCache, FxBuildHasher>>>,
+    pub(crate) line_width: Rc<RefCell<HashMap<upos_type, LineWidthCache, FxBuildHasher>>>,
 
     /// Mark the byte-positions of each line-start.
     ///
     /// Used when text-wrap is ShiftText.
-    pub line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache, FxBuildHasher>>>,
+    pub(crate) line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache, FxBuildHasher>>>,
 
     /// Has the specific line been wrapped completely.
-    pub full_line_break: Rc<RefCell<HashSet<upos_type, FxBuildHasher>>>,
+    pub(crate) full_line_break: Rc<RefCell<HashSet<upos_type, FxBuildHasher>>>,
     /// All known line-breaks for wrapped text.
     /// Has the text-position of the glyph which is marked as 'line-break'.
     /// That means the line-break occurs *after* this position.
-    pub line_break: Rc<RefCell<BTreeMap<TextPosition, LineBreakCache>>>,
+    pub(crate) line_break: Rc<RefCell<BTreeMap<TextPosition, LineBreakCache>>>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -201,11 +201,9 @@ impl GlyphCache {
         byte_pos: Option<usize>,
     ) {
         if byte_pos.is_some() {
-            debug!("validate: reset len_lines");
             self.len_lines.set(None);
         }
         if let Some(byte_pos) = byte_pos {
-            debug!("validate: reset line_width");
             self.line_width
                 .borrow_mut()
                 .retain(|_, cache| cache.byte_pos < byte_pos);
