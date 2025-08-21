@@ -8,7 +8,7 @@ use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
-use crate::glyph2::{Caching, GlyphCache, GlyphIter2, TextWrap2};
+use crate::glyph2::{Caching, GlyphCache, GlyphIter2, LineWidthCache, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
@@ -1039,14 +1039,30 @@ impl TextAreaState {
     /// Panics for an invalid row.
     #[inline]
     pub fn line_width(&self, row: upos_type) -> upos_type {
-        // TODO: maybe cache too?
-        self.value.line_width(row).expect("valid_row")
+        self.try_line_width(row).expect("valid_row")
     }
 
     /// Line width as grapheme count.
     #[inline]
     pub fn try_line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
-        self.value.line_width(row)
+        // don't use clean_offset(). would recurse to this.
+        self.validate_cache(self.hscroll.offset as upos_type);
+
+        let mut line_width = self.cache.line_width.borrow_mut();
+        if let Some(cache) = line_width.get(&row) {
+            Ok(cache.width)
+        } else {
+            let width = self.value.line_width(row)?;
+            let byte_pos = self.value.byte_at(TextPosition::new(0, row))?;
+            line_width.insert(
+                row,
+                LineWidthCache {
+                    width,
+                    byte_pos: byte_pos.start,
+                },
+            );
+            Ok(width)
+        }
     }
 
     /// Line as RopeSlice.

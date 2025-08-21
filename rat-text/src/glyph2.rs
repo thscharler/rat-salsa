@@ -140,6 +140,8 @@ pub(crate) struct GlyphCache {
 
     /// len_lines seems expensive too.
     pub len_lines: Cell<Option<upos_type>>,
+    /// line-width the same
+    pub line_width: Rc<RefCell<HashMap<upos_type, LineWidthCache, FxBuildHasher>>>,
 
     /// Mark the byte-positions of each line-start.
     ///
@@ -158,18 +160,28 @@ pub(crate) struct GlyphCache {
 pub(crate) struct LineOffsetCache {
     pub pos_x: upos_type,
     pub screen_pos_x: upos_type,
+    // byte pos of the line start offset
     pub byte_pos: usize,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct LineBreakCache {
     pub start_pos: TextPosition,
+    // byte pos of the break
+    pub byte_pos: usize,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct LineWidthCache {
+    pub width: upos_type,
+    // start byte pos of the line
     pub byte_pos: usize,
 }
 
 impl GlyphCache {
     pub(crate) fn clear(&self) {
         self.len_lines.set(None);
+        self.line_width.borrow_mut().clear();
         self.shift_left.set(0);
         self.screen_width.set(0);
         self.screen_height.set(0);
@@ -191,6 +203,12 @@ impl GlyphCache {
         if byte_pos.is_some() {
             debug!("validate: reset len_lines");
             self.len_lines.set(None);
+        }
+        if let Some(byte_pos) = byte_pos {
+            debug!("validate: reset line_width");
+            self.line_width
+                .borrow_mut()
+                .retain(|_, cache| cache.byte_pos < byte_pos);
         }
 
         match text_wrap {
