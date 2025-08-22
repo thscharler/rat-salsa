@@ -351,9 +351,10 @@ where
     // Next glyph position.
     let mut next_pos = glyphs.next_pos;
     let mut next_screen_pos = glyphs.next_screen_pos;
-    // Text position of the previous glyph.
-    let mut last_pos = Default::default();
-    let mut last_byte = Default::default();
+    // Last space seen
+    let mut space_pos = Default::default();
+    let mut space_screen_pos = Default::default();
+    let mut space_byte = Default::default();
     let mut zero_row = None;
     loop {
         let Some(grapheme) = iter.next() else {
@@ -396,16 +397,14 @@ where
             next_screen_pos.1 += 1;
             next_pos.x = 0;
             next_pos.y += 1;
-            last_pos = glyph.pos;
-            last_byte = glyph.text_bytes.end;
-        } else if glyph.screen_pos.0 > glyphs.word_margin && glyph.glyph == " " {
+        } else if glyph.screen_pos.0 > glyphs.word_margin
+            && (glyph.glyph == " " || glyph.glyph == "-")
+        {
             // break after space
             next_screen_pos.0 = 0;
             next_screen_pos.1 += 1;
             next_pos.x += 1;
             // next_pos.y doesn't change
-            last_pos = glyph.pos;
-            last_byte = glyph.text_bytes.end;
 
             // caching
             if glyph.pos.x == 0 {
@@ -418,13 +417,36 @@ where
                     byte_pos: glyph.text_bytes.end,
                 },
             );
+        } else if glyph.screen_pos.0 + glyph.screen_width >= glyphs.right_margin {
+            // break at last space before
+
+            next_screen_pos.0 = glyph.screen_pos.0 - space_screen_pos;
+            next_screen_pos.1 += 1;
+            next_pos.x += 1;
+            // next_pos.y doesn't change
+
+            // caching
+            if glyph.pos.x == 0 {
+                zero_row = Some(glyph.pos.y);
+            }
+            cache.line_break.borrow_mut().insert(
+                space_pos,
+                LineBreakCache {
+                    start_pos: TextPosition::new(space_pos.x + 1, space_pos.y),
+                    byte_pos: space_byte,
+                },
+            );
         } else {
             next_screen_pos.0 += glyph.screen_width as upos_type;
             // next_screen_pos.1 doesn't change
             next_pos.x += 1;
             // next_pos.1 doesn't change
-            last_pos = glyph.pos;
-            last_byte = glyph.text_bytes.end;
+
+            if glyph.glyph == " " || glyph.glyph == "-" {
+                space_pos = glyph.pos;
+                space_screen_pos = glyph.screen_pos.0;
+                space_byte = glyph.text_bytes.end;
+            }
 
             // caching
             if glyph.pos.x == 0 {
