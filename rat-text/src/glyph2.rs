@@ -1,10 +1,10 @@
 use crate::cache::{Cache, LineBreakCache, LineOffsetCache};
 use crate::text_store::SkipLine;
 use crate::{upos_type, Grapheme, TextPosition};
-use log::debug;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
+use std::mem;
 use std::ops::ControlFlow::{Break, Continue};
 use std::ops::{ControlFlow, Range};
 
@@ -23,6 +23,12 @@ pub(crate) struct Glyph2<'a> {
     pub(crate) screen_width: upos_type,
     /// Last item in this screen-line.
     pub(crate) line_break: bool,
+    /// A glyph indicating a soft-break. It will not
+    /// be displayed but can help a wrapping algorithm
+    /// find a position to break.
+    pub(crate) soft_break: bool,
+    /// Display glyph when a soft-break is actually displayed.
+    pub(crate) soft_glyph: Cow<'a, str>,
     /// text-position
     pub(crate) pos: TextPosition,
 }
@@ -307,6 +313,8 @@ where
                     ),
                     screen_width: if self.wrap_ctrl { 1 } else { 0 },
                     line_break: true,
+                    soft_break: false,
+                    soft_glyph: Cow::Borrowed(""),
                     pos: self.next_pos,
                 };
 
@@ -321,6 +329,8 @@ where
                 screen_pos: (self.next_screen_pos.0, self.next_screen_pos.1),
                 screen_width: 0,
                 line_break: false,
+                soft_break: false,
+                soft_glyph: Cow::Borrowed(""),
                 pos: self.next_pos,
             };
 
@@ -369,11 +379,17 @@ where
             screen_pos: (next_screen_pos.0, next_screen_pos.1),
             screen_width: 0,
             line_break: false,
+            soft_break: false,
+            soft_glyph: Cow::Borrowed(""),
             pos: next_pos,
         };
 
         // remap grapheme
         remap_glyph(&mut glyph, glyphs.line_break, glyphs.show_ctrl, glyphs.tabs);
+
+        fn test_break(glyph: &Glyph2) -> bool {
+            glyph.glyph == " " || glyph.glyph == "-" || glyph.soft_break
+        }
 
         if glyph.line_break {
             // \n found
@@ -397,9 +413,7 @@ where
             next_screen_pos.1 += 1;
             next_pos.x = 0;
             next_pos.y += 1;
-        } else if glyph.screen_pos.0 > glyphs.word_margin
-            && (glyph.glyph == " " || glyph.glyph == "-")
-        {
+        } else if glyph.screen_pos.0 > glyphs.word_margin && test_break(&glyph) {
             // break after space
             next_screen_pos.0 = 0;
             next_screen_pos.1 += 1;
@@ -442,7 +456,7 @@ where
             next_pos.x += 1;
             // next_pos.1 doesn't change
 
-            if glyph.glyph == " " || glyph.glyph == "-" {
+            if test_break(&glyph) {
                 space_pos = glyph.pos;
                 space_screen_pos = glyph.screen_pos.0;
                 space_byte = glyph.text_bytes.end;
@@ -454,13 +468,11 @@ where
             }
         }
     }
-
-    debug!("word cache {:#?}", cache);
 }
 
 fn word_wrap_next<'a, Graphemes>(
     iter: &mut GlyphIter2<'a, Graphemes>,
-    glyph: Glyph2<'a>,
+    mut glyph: Glyph2<'a>,
 ) -> ControlFlow<Option<Glyph2<'a>>>
 where
     Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine + Clone,
@@ -499,8 +511,15 @@ where
             screen_pos: (glyph.screen_pos.0 + 1, glyph.screen_pos.1),
             screen_width: if iter.wrap_ctrl { 1 } else { 0 },
             line_break: true,
+            soft_break: false,
+            soft_glyph: Cow::Borrowed(""),
             pos: glyph.pos,
         });
+
+        if glyph.soft_break {
+            glyph.screen_width = 1;
+            mem::swap(&mut glyph.glyph, &mut glyph.soft_glyph);
+        }
 
         glyph.validate();
 
@@ -570,6 +589,8 @@ where
             screen_pos: (0, glyph.screen_pos.1 + 1),
             screen_width: glyph.screen_width,
             line_break: false,
+            soft_break: false,
+            soft_glyph: Cow::Borrowed(""),
             pos: glyph.pos,
         });
 
@@ -785,6 +806,18 @@ fn remap_glyph(glyph: &mut Glyph2<'_>, lf_breaks: bool, show_ctrl: bool, tabs: u
         glyph.line_break = false;
         glyph.screen_width = tabs - (glyph.screen_pos.0 % tabs);
         glyph.glyph = Cow::Borrowed(if show_ctrl { "\u{2409}" } else { " " });
+    } else if glyph.glyph == "\u{00AD}" {
+        glyph.line_break = false;
+        glyph.screen_width = if show_ctrl { 1 } else { 0 };
+        glyph.glyph = Cow::Borrowed(if show_ctrl { "\u{2E1A}" } else { "" });
+        glyph.soft_break = true;
+        glyph.soft_glyph = Cow::Borrowed("-");
+    } else if glyph.glyph == "\u{200B}" {
+        glyph.line_break = false;
+        glyph.screen_width = if show_ctrl { 1 } else { 0 };
+        glyph.glyph = Cow::Borrowed(if show_ctrl { "\u{00A8}" } else { "" });
+        glyph.soft_break = true;
+        glyph.soft_glyph = Cow::Borrowed(" ");
     } else if ("\x00".."\x20").contains(&glyph.glyph.as_ref()) {
         glyph.line_break = false;
         glyph.screen_width = 1;

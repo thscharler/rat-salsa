@@ -1,7 +1,7 @@
 use crate::mini_salsa::{fill_buf_area, run_ui, setup_logging, MiniSalsaState};
 use crate::text_samples::{
-    add_range_styles, sample_emoji, sample_long, sample_lorem, sample_medium, sample_scott_1,
-    sample_short, sample_tabs,
+    add_range_styles, sample_bosworth_1, sample_emoji, sample_long, sample_lorem, sample_medium,
+    sample_scott_1, sample_short, sample_tabs,
 };
 use log::debug;
 use rat_event::{ct_event, try_flow, Outcome};
@@ -253,7 +253,7 @@ fn handle_input(
             Outcome::Changed
         }
         ct_event!(key press ALT-'6') => {
-            let (text, styles) = sample_short();
+            let (text, styles) = sample_bosworth_1();
             state.textarea.set_rope(text);
             add_range_styles(&mut state.textarea, styles);
             Outcome::Changed
