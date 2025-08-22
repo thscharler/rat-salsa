@@ -23,7 +23,7 @@ pub trait SkipLine: Iterator {
 
 /// Backing store for the TextCore.
 pub trait TextStore {
-    type GraphemeIter<'a>: Cursor<Item = Grapheme<'a>> + SkipLine
+    type GraphemeIter<'a>: Cursor<Item = Grapheme<'a>> + SkipLine + Clone
     where
         Self: 'a;
 

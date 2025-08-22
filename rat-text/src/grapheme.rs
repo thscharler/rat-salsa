@@ -67,7 +67,7 @@ impl<'a> Grapheme<'a> {
 }
 
 /// A cursor over graphemes of a string.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StrGraphemes<'a> {
     text_offset: usize,
     text: &'a str,
@@ -198,7 +198,7 @@ impl SkipLine for RevStrGraphemes<'_> {
 
 /// An implementation of a graphemes iterator, for iterating over
 /// the graphemes of a RopeSlice.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RopeGraphemes<'a> {
     text_offset: usize,
     text: RopeSlice<'a>,

@@ -3,6 +3,7 @@ use crate::core::{TextCore, TextString};
 #[allow(deprecated)]
 use crate::glyph::{Glyph, GlyphIter};
 use crate::glyph2::{Glyph2, GlyphIter2, TextWrap2};
+use crate::grapheme::StrGraphemes;
 use crate::text_mask_core::mask::{EditDirection, Mask, MaskToken};
 use crate::text_store::SkipLine;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
@@ -10,9 +11,9 @@ use crate::{upos_type, Cursor, Grapheme, TextError, TextPosition, TextRange};
 use format_num_pattern::core::{clean_num, map_num};
 use format_num_pattern::{CurrencySym, NumberFormat, NumberSymbols};
 use std::borrow::Cow;
-use std::fmt;
 use std::iter::once;
 use std::ops::Range;
+use std::{fmt, slice};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Text editing core.
@@ -796,72 +797,16 @@ impl MaskedCore {
             TextRange::new((0, rows.start), (0, rows.end)),
             TextPosition::new(0, rows.start),
         )?;
-
         let mask_iter = self.mask.iter();
 
-        let sym_neg = || self.neg_sym().to_string();
-        let sym_dec = || self.dec_sep().to_string();
-        let sym_grp = || self.grp_sep().to_string();
-        let sym_pos = || self.pos_sym().to_string();
-
         let iter = MaskedGraphemes {
-            iter: Box::new(
-                grapheme_iter
-                    .zip(mask_iter) //
-                    .filter_map(move |(g, t)| match (condensed, &t.right, g.grapheme()) {
-                        (true, Mask::Numeric(_), "-") => {
-                            Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                        }
-                        (true, Mask::DecimalSep, ".") => {
-                            Some(Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()))
-                        }
-                        (true, Mask::GroupingSep, ",") => {
-                            Some(Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()))
-                        }
-                        (true, Mask::GroupingSep, "-") => {
-                            Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                        }
-                        (true, Mask::Sign, "-") => {
-                            Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                        }
-
-                        (true, Mask::Numeric(_), " ") => None,
-                        (true, Mask::Digit(_), " ") => None,
-                        (true, Mask::DecimalSep, " ") => None,
-                        (true, Mask::GroupingSep, " ") => None,
-                        (true, Mask::Sign, _) => {
-                            if self.pos_sym() != ' ' {
-                                Some(Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes()))
-                            } else {
-                                None
-                            }
-                        }
-                        (true, Mask::Hex, " ") => None,
-                        (true, Mask::Oct, " ") => None,
-                        (true, Mask::Dec, " ") => None,
-
-                        (false, Mask::Numeric(_), "-") => {
-                            Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                        }
-                        (false, Mask::DecimalSep, ".") => {
-                            Some(Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()))
-                        }
-                        (false, Mask::GroupingSep, ",") => {
-                            Some(Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()))
-                        }
-                        (false, Mask::GroupingSep, "-") => {
-                            Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                        }
-                        (false, Mask::Sign, "-") => {
-                            Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                        }
-                        (false, Mask::Sign, _) => {
-                            Some(Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes()))
-                        }
-
-                        (_, _, _) => Some(g),
-                    }),
-            ),
+            iter_str: grapheme_iter,
+            iter_mask: mask_iter,
+            condensed,
+            sym_neg: self.neg_sym().to_string(),
+            sym_dec: self.dec_sep().to_string(),
+            sym_grp: self.grp_sep().to_string(),
+            sym_pos: self.pos_sym().to_string(),
             byte_pos: 0,
         };
 
@@ -911,8 +856,17 @@ impl MaskedCore {
     }
 }
 
+#[derive(Debug, Clone)]
 struct MaskedGraphemes<'a> {
-    iter: Box<dyn Iterator<Item = Grapheme<'a>> + 'a>,
+    iter_str: StrGraphemes<'a>,
+    iter_mask: slice::Iter<'a, MaskToken>,
+
+    condensed: bool,
+    sym_neg: String,
+    sym_dec: String,
+    sym_grp: String,
+    sym_pos: String,
+
     byte_pos: usize,
 }
 
@@ -920,11 +874,81 @@ impl<'a> Iterator for MaskedGraphemes<'a> {
     type Item = Grapheme<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(v) = self.iter.next() {
-            self.byte_pos = v.text_bytes().end;
-            Some(v)
-        } else {
-            None
+        let g = self.iter_str.next();
+        let t = self.iter_mask.next();
+
+        let (Some(g), Some(t)) = (g, t) else {
+            return None;
+        };
+
+        self.byte_pos = g.text_bytes().end;
+
+        match (self.condensed, &t.right, g.grapheme()) {
+            (true, Mask::Numeric(_), "-") => Some(Grapheme::new(
+                Cow::Owned(self.sym_neg.clone()),
+                g.text_bytes(),
+            )),
+            (true, Mask::DecimalSep, ".") => Some(Grapheme::new(
+                Cow::Owned(self.sym_dec.clone()),
+                g.text_bytes(),
+            )),
+            (true, Mask::GroupingSep, ",") => Some(Grapheme::new(
+                Cow::Owned(self.sym_grp.clone()),
+                g.text_bytes(),
+            )),
+            (true, Mask::GroupingSep, "-") => Some(Grapheme::new(
+                Cow::Owned(self.sym_neg.clone()),
+                g.text_bytes(),
+            )),
+            (true, Mask::Sign, "-") => Some(Grapheme::new(
+                Cow::Owned(self.sym_neg.clone()),
+                g.text_bytes(),
+            )),
+
+            (true, Mask::Numeric(_), " ") => None,
+            (true, Mask::Digit(_), " ") => None,
+            (true, Mask::DecimalSep, " ") => None,
+            (true, Mask::GroupingSep, " ") => None,
+            (true, Mask::Sign, _) => {
+                if self.sym_pos != " " {
+                    Some(Grapheme::new(
+                        Cow::Owned(self.sym_pos.clone()),
+                        g.text_bytes(),
+                    ))
+                } else {
+                    None
+                }
+            }
+            (true, Mask::Hex, " ") => None,
+            (true, Mask::Oct, " ") => None,
+            (true, Mask::Dec, " ") => None,
+
+            (false, Mask::Numeric(_), "-") => Some(Grapheme::new(
+                Cow::Owned(self.sym_neg.clone()),
+                g.text_bytes(),
+            )),
+            (false, Mask::DecimalSep, ".") => Some(Grapheme::new(
+                Cow::Owned(self.sym_dec.clone()),
+                g.text_bytes(),
+            )),
+            (false, Mask::GroupingSep, ",") => Some(Grapheme::new(
+                Cow::Owned(self.sym_grp.clone()),
+                g.text_bytes(),
+            )),
+            (false, Mask::GroupingSep, "-") => Some(Grapheme::new(
+                Cow::Owned(self.sym_neg.clone()),
+                g.text_bytes(),
+            )),
+            (false, Mask::Sign, "-") => Some(Grapheme::new(
+                Cow::Owned(self.sym_neg.clone()),
+                g.text_bytes(),
+            )),
+            (false, Mask::Sign, _) => Some(Grapheme::new(
+                Cow::Owned(self.sym_pos.clone()),
+                g.text_bytes(),
+            )),
+
+            (_, _, _) => Some(g),
         }
     }
 }
@@ -932,7 +956,8 @@ impl<'a> Iterator for MaskedGraphemes<'a> {
 impl<'a> SkipLine for MaskedGraphemes<'a> {
     fn skip_line(&mut self) -> Result<(), TextError> {
         // all in one line, eat the rest.
-        for _ in self.iter.by_ref() {}
+        for _ in self.iter_str.by_ref() {}
+        for _ in self.iter_mask.by_ref() {}
         Ok(())
     }
 
@@ -942,7 +967,9 @@ impl<'a> SkipLine for MaskedGraphemes<'a> {
         } else if byte_pos == self.byte_pos {
             Ok(())
         } else {
-            for g in self.iter.by_ref() {
+            for g in self.iter_str.by_ref() {
+                _ = self.iter_mask.next();
+
                 if byte_pos == g.text_bytes().end {
                     return Ok(());
                 } else if byte_pos < g.text_bytes().end {

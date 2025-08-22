@@ -38,7 +38,9 @@ pub struct Cache {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct LineOffsetCache {
+    // start column of the row
     pub pos_x: upos_type,
+    // start screen column of the row
     pub screen_pos_x: upos_type,
     // byte pos of the line start offset
     pub byte_pos: usize,
@@ -46,6 +48,7 @@ pub(crate) struct LineOffsetCache {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct LineBreakCache {
+    // start of new line.
     pub start_pos: TextPosition,
     // byte pos of the break
     pub byte_pos: usize,
@@ -53,6 +56,7 @@ pub(crate) struct LineBreakCache {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct LineWidthCache {
+    // line-width
     pub width: upos_type,
     // start byte pos of the line
     pub byte_pos: usize,

@@ -1833,7 +1833,9 @@ impl TextAreaState {
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
         let t = SystemTime::now();
         let cursor = self.cursor();
+        debug!("move_to_line_end {:?}", cursor);
         let line_end = self.pos_to_line_end(cursor);
+        debug!("move_to_line_end {:?}", line_end);
         if let Some(scr_pos) = self.pos_to_relative_screen(line_end) {
             self.set_move_col(Some(scr_pos.0));
         }
@@ -2078,6 +2080,7 @@ impl TextAreaState {
 
     /// Return the end position for the visible line containing the given position.
     pub fn pos_to_line_end(&self, pos: TextPosition) -> TextPosition {
+        debug!("    line_end {:?}", pos);
         self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
             .expect("valid-row");
 
@@ -2085,7 +2088,12 @@ impl TextAreaState {
         for (break_pos, _) in self.value.cache().line_break.borrow().range(
             TextPosition::new(0, pos.y)..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
         ) {
+            debug!("    line_end break {:?}", break_pos);
             if pos >= end_pos && &pos <= break_pos {
+                debug!(
+                    "    line_end {:?} >= {:?} && {:?} <= {:?} => {:?}",
+                    pos, end_pos, pos, break_pos, break_pos
+                );
                 end_pos = *break_pos;
                 break;
             }
