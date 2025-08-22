@@ -98,7 +98,7 @@ impl<'a> Glyph2<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub(crate) enum TextWrap2 {
     /// shift glyphs to the left and clip at right margin.

@@ -106,25 +106,20 @@ impl Cache {
         screen_height: upos_type,
         byte_pos: Option<usize>,
     ) {
+        if text_wrap != self.text_wrap.get() {
+            self.full_line_break.borrow_mut().clear();
+            self.line_break.borrow_mut().clear();
+            self.line_start.borrow_mut().clear();
+        }
+
         match text_wrap {
             TextWrap2::Shift => {
-                if let TextWrap2::Hard | TextWrap2::Word = self.text_wrap.get() {
-                    self.full_line_break.borrow_mut().clear();
-                    self.line_break.borrow_mut().clear();
-                }
-
                 if self.shift_left.get() != shift_left {
                     self.line_start.borrow_mut().clear();
                 }
             }
             TextWrap2::Hard | TextWrap2::Word => {
-                if let TextWrap2::Shift = self.text_wrap.get() {
-                    self.full_line_break.borrow_mut().clear();
-                    self.line_break.borrow_mut().clear();
-                }
-
                 self.line_start.borrow_mut().clear();
-
                 if self.screen_width.get() != screen_width
                     || self.screen_height.get() != screen_height
                 {
