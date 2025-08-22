@@ -448,7 +448,8 @@ fn render_text_area(
             break;
         }
 
-        if g.pos() == state.cursor() {
+        // ignore synthetic glyphs used for wrapping.
+        if g.pos() == state.cursor() && !g.soft_break() {
             screen_cursor = Some(g.screen_pos());
         }
 
@@ -2085,9 +2086,13 @@ impl TextAreaState {
             .expect("valid-row");
 
         let mut end_pos = TextPosition::new(0, pos.y);
-        for (break_pos, _) in self.value.cache().line_break.borrow().range(
-            TextPosition::new(0, pos.y)..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
-        ) {
+        for (break_pos, _) in self
+            .value
+            .cache()
+            .line_break
+            .borrow()
+            .range(TextPosition::new(0, pos.y)..TextPosition::new(0, pos.y + 1))
+        {
             debug!("    line_end break {:?}", break_pos);
             if pos >= end_pos && &pos <= break_pos {
                 debug!(
@@ -2294,7 +2299,7 @@ impl TextAreaState {
                     }
                     if g.pos() == pos {
                         let screen_pos = g.screen_pos();
-                        // debug!("    pos_to_screen found pos {:?}", t.elapsed());
+                        debug!("    pos_to_screen screen_pos {:?}", screen_pos);
                         return Some((
                             screen_pos.0 as i16 - self.dark_offset.0 as i16,
                             screen_pos.1 as i16 - self.dark_offset.1 as i16,

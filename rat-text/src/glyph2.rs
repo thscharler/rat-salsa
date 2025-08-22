@@ -4,7 +4,6 @@ use crate::{upos_type, Grapheme, TextPosition};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
-use std::mem;
 use std::ops::ControlFlow::{Break, Continue};
 use std::ops::{ControlFlow, Range};
 
@@ -12,25 +11,27 @@ use std::ops::{ControlFlow, Range};
 #[derive(Debug)]
 pub(crate) struct Glyph2<'a> {
     /// Display glyph.
-    pub(crate) glyph: Cow<'a, str>,
+    glyph: Cow<'a, str>,
     /// byte-range of the glyph in the given slice.
-    pub(crate) text_bytes: Range<usize>,
+    text_bytes: Range<usize>,
+
     /// screen-position corrected by text_offset.
     /// first visible column is at 0.
     /// Warning: this is not an upos_type, but an u16.
-    pub(crate) screen_pos: (upos_type, upos_type),
+    screen_pos: (upos_type, upos_type),
     /// Display length for the glyph.
-    pub(crate) screen_width: upos_type,
-    /// Last item in this screen-line.
-    pub(crate) line_break: bool,
-    /// A glyph indicating a soft-break. It will not
-    /// be displayed but can help a wrapping algorithm
-    /// find a position to break.
-    pub(crate) soft_break: bool,
-    /// Display glyph when a soft-break is actually displayed.
-    pub(crate) soft_glyph: Cow<'a, str>,
+    screen_width: upos_type,
     /// text-position
-    pub(crate) pos: TextPosition,
+    pos: TextPosition,
+
+    /// Last item in this screen-line.
+    line_break: bool,
+    /// Is the line-break a soft-break used for text-wrapping.
+    soft_break: bool,
+    /// Is this a Unicode character for a hidden word-break.
+    hidden_break: bool,
+    /// The replacement glyph in case that a word-break happens.
+    hidden_glyph: Cow<'a, str>,
 }
 
 impl<'a> Glyph2<'a> {
@@ -63,6 +64,11 @@ impl<'a> Glyph2<'a> {
     /// Last item in this screen line
     pub fn line_break(&self) -> bool {
         self.line_break
+    }
+
+    /// Possible soft-break.
+    pub fn soft_break(&self) -> bool {
+        self.soft_break
     }
 
     /// Does the glyph cover the given screen-position?
@@ -314,7 +320,8 @@ where
                     screen_width: if self.wrap_ctrl { 1 } else { 0 },
                     line_break: true,
                     soft_break: false,
-                    soft_glyph: Cow::Borrowed(""),
+                    hidden_break: false,
+                    hidden_glyph: Cow::Borrowed(""),
                     pos: self.next_pos,
                 };
 
@@ -330,7 +337,8 @@ where
                 screen_width: 0,
                 line_break: false,
                 soft_break: false,
-                soft_glyph: Cow::Borrowed(""),
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
                 pos: self.next_pos,
             };
 
@@ -386,7 +394,8 @@ where
             screen_width: 0,
             line_break: false,
             soft_break: false,
-            soft_glyph: Cow::Borrowed(""),
+            hidden_break: false,
+            hidden_glyph: Cow::Borrowed(""),
             pos: next_pos,
         };
 
@@ -400,7 +409,7 @@ where
         );
 
         fn test_break(glyph: &Glyph2) -> bool {
-            glyph.glyph == " " || glyph.glyph == "-" || glyph.soft_break
+            glyph.glyph == " " || glyph.glyph == "-" || glyph.hidden_break
         }
 
         if glyph.line_break {
@@ -523,14 +532,15 @@ where
             screen_pos: (glyph.screen_pos.0 + 1, glyph.screen_pos.1),
             screen_width: if iter.wrap_ctrl { 1 } else { 0 },
             line_break: true,
-            soft_break: false,
-            soft_glyph: Cow::Borrowed(""),
+            soft_break: true,
+            hidden_break: false,
+            hidden_glyph: Cow::Borrowed(""),
             pos: glyph.pos,
         });
 
-        if glyph.soft_break {
+        if glyph.hidden_break {
             glyph.screen_width = 1;
-            mem::swap(&mut glyph.glyph, &mut glyph.soft_glyph);
+            glyph.glyph = glyph.hidden_glyph.clone();
         }
 
         glyph.validate();
@@ -588,6 +598,10 @@ where
     } else if glyph.screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin() {
         // break before glyph
 
+        // append a break glyph at this position.
+        let last_pos = iter.last_pos;
+
+        // next glyph positioning
         iter.next_screen_pos.0 = glyph.screen_width as upos_type;
         iter.next_screen_pos.1 += 1;
         iter.next_pos.x += 1;
@@ -602,10 +616,12 @@ where
             screen_width: glyph.screen_width,
             line_break: false,
             soft_break: false,
-            soft_glyph: Cow::Borrowed(""),
+            hidden_break: false,
+            hidden_glyph: Cow::Borrowed(""),
             pos: glyph.pos,
         });
 
+        // addendum to the last glyph
         glyph.glyph = if iter.wrap_ctrl {
             Cow::Borrowed("\u{21B5}")
         } else {
@@ -615,7 +631,8 @@ where
         // screen_pos is ok
         glyph.screen_width = if iter.wrap_ctrl { 1 } else { 0 };
         glyph.line_break = true;
-        glyph.pos = iter.last_pos;
+        glyph.soft_break = true;
+        glyph.pos = last_pos;
 
         glyph.validate();
 
@@ -832,8 +849,8 @@ fn remap_glyph(
         } else {
             ""
         });
-        glyph.soft_break = true;
-        glyph.soft_glyph = Cow::Borrowed("-");
+        glyph.hidden_break = true;
+        glyph.hidden_glyph = Cow::Borrowed("-");
     } else if glyph.glyph == "\u{200B}" {
         glyph.line_break = false;
         glyph.screen_width = if show_ctrl || wrap_ctrl { 1 } else { 0 };
@@ -842,8 +859,8 @@ fn remap_glyph(
         } else {
             ""
         });
-        glyph.soft_break = true;
-        glyph.soft_glyph = Cow::Borrowed(" ");
+        glyph.hidden_break = true;
+        glyph.hidden_glyph = Cow::Borrowed(" ");
     } else if ("\x00".."\x20").contains(&glyph.glyph.as_ref()) {
         glyph.line_break = false;
         glyph.screen_width = 1;
