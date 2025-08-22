@@ -3,15 +3,17 @@ use crate::text_samples::{
     add_range_styles, sample_bosworth_1, sample_emoji, sample_long, sample_lorem, sample_medium,
     sample_scott_1, sample_short, sample_tabs,
 };
-use log::debug;
+use log::{debug, warn};
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
+use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::{text_area, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
 use ratatui::Frame;
+use std::cell::RefCell;
 use std::time::SystemTime;
 
 mod mini_salsa;
@@ -19,6 +21,8 @@ mod text_samples;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
+
+    set_global_clipboard(CliClipboard::default());
 
     let mut data = Data {};
 
@@ -275,7 +279,7 @@ fn handle_input(
             Outcome::Changed
         }
         ct_event!(key press ALT-'w') => {
-            state.textarea.set_text_wrap(TextWrap::Word(10));
+            state.textarea.set_text_wrap(TextWrap::Word(7));
             Outcome::Changed
         }
         ct_event!(key press ALT-'e') => {
@@ -302,4 +306,34 @@ fn handle_input(
     });
 
     Ok(Outcome::Continue)
+}
+
+#[derive(Debug, Default, Clone)]
+struct CliClipboard {
+    clip: RefCell<String>,
+}
+
+impl Clipboard for CliClipboard {
+    fn get_string(&self) -> Result<String, ClipboardError> {
+        match cli_clipboard::get_contents() {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                warn!("{:?}", e);
+                Ok(self.clip.borrow().clone())
+            }
+        }
+    }
+
+    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+        let mut clip = self.clip.borrow_mut();
+        *clip = s.to_string();
+
+        match cli_clipboard::set_contents(s.to_string()) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                warn!("{:?}", e);
+                Err(ClipboardError)
+            }
+        }
+    }
 }

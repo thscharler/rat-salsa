@@ -335,7 +335,13 @@ where
             };
 
             // remap grapheme
-            remap_glyph(&mut glyph, self.line_break, self.show_ctrl, self.tabs);
+            remap_glyph(
+                &mut glyph,
+                self.line_break,
+                self.show_ctrl,
+                self.wrap_ctrl,
+                self.tabs,
+            );
 
             // next glyph positioning
             let r = match self.text_wrap {
@@ -385,7 +391,13 @@ where
         };
 
         // remap grapheme
-        remap_glyph(&mut glyph, glyphs.line_break, glyphs.show_ctrl, glyphs.tabs);
+        remap_glyph(
+            &mut glyph,
+            glyphs.line_break,
+            glyphs.show_ctrl,
+            glyphs.wrap_ctrl,
+            glyphs.tabs,
+        );
 
         fn test_break(glyph: &Glyph2) -> bool {
             glyph.glyph == " " || glyph.glyph == "-" || glyph.soft_break
@@ -791,7 +803,13 @@ where
     }
 }
 
-fn remap_glyph(glyph: &mut Glyph2<'_>, lf_breaks: bool, show_ctrl: bool, tabs: upos_type) {
+fn remap_glyph(
+    glyph: &mut Glyph2<'_>,
+    lf_breaks: bool,
+    show_ctrl: bool,
+    wrap_ctrl: bool,
+    tabs: upos_type,
+) {
     if glyph.glyph == "\n" || glyph.glyph == "\r\n" {
         if lf_breaks {
             glyph.line_break = true;
@@ -808,14 +826,22 @@ fn remap_glyph(glyph: &mut Glyph2<'_>, lf_breaks: bool, show_ctrl: bool, tabs: u
         glyph.glyph = Cow::Borrowed(if show_ctrl { "\u{2409}" } else { " " });
     } else if glyph.glyph == "\u{00AD}" {
         glyph.line_break = false;
-        glyph.screen_width = if show_ctrl { 1 } else { 0 };
-        glyph.glyph = Cow::Borrowed(if show_ctrl { "\u{2E1A}" } else { "" });
+        glyph.screen_width = if show_ctrl || wrap_ctrl { 1 } else { 0 };
+        glyph.glyph = Cow::Borrowed(if show_ctrl || wrap_ctrl {
+            "\u{2E1A}"
+        } else {
+            ""
+        });
         glyph.soft_break = true;
         glyph.soft_glyph = Cow::Borrowed("-");
     } else if glyph.glyph == "\u{200B}" {
         glyph.line_break = false;
-        glyph.screen_width = if show_ctrl { 1 } else { 0 };
-        glyph.glyph = Cow::Borrowed(if show_ctrl { "\u{00A8}" } else { "" });
+        glyph.screen_width = if show_ctrl || wrap_ctrl { 1 } else { 0 };
+        glyph.glyph = Cow::Borrowed(if show_ctrl || wrap_ctrl {
+            "\u{00A8}"
+        } else {
+            ""
+        });
         glyph.soft_break = true;
         glyph.soft_glyph = Cow::Borrowed(" ");
     } else if ("\x00".."\x20").contains(&glyph.glyph.as_ref()) {
