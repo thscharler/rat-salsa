@@ -2257,27 +2257,66 @@ impl TextAreaState {
                     return None;
                 }
 
-                for g in self
-                    .glyphs2(
-                        0,
-                        sub_row_offset,
-                        oy..min(oy + self.rendered.height as upos_type, self.len_lines()),
-                    )
-                    .expect("valid-offset")
-                {
-                    if g.screen_pos().1 >= self.rendered.height {
-                        return None;
-                    }
-                    if g.pos() == pos {
-                        let screen_pos = g.screen_pos();
-                        return Some((
-                            screen_pos.0 as i16 - self.dark_offset.0 as i16,
-                            screen_pos.1 as i16 - self.dark_offset.1 as i16,
-                        ));
-                    }
-                }
+                self.fill_cache(
+                    0,
+                    sub_row_offset,
+                    oy..min(oy + self.rendered.height as upos_type, self.len_lines()),
+                )
+                .expect("valid-rows");
 
-                None
+                let (screen_y, start_pos) = 'f: {
+                    let mut prev_screen_y = 0;
+                    let mut prev_pos = TextPosition::new(sub_row_offset, oy);
+                    let mut screen_y = 0;
+                    let mut start_pos = TextPosition::new(sub_row_offset, oy);
+
+                    for (_, cache) in self.value.cache().line_break.borrow().range(
+                        TextPosition::new(sub_row_offset, oy)
+                            ..TextPosition::new(
+                                0,
+                                min(oy + self.rendered.height as upos_type, self.len_lines()),
+                            ),
+                    ) {
+                        if screen_y >= self.rendered.height {
+                            return None;
+                        }
+                        if pos < cache.start_pos {
+                            break 'f (screen_y, start_pos);
+                        }
+
+                        prev_pos = start_pos;
+                        prev_screen_y = screen_y;
+
+                        screen_y += 1;
+                        start_pos = cache.start_pos;
+                    }
+
+                    // very last position on the very last row without a \n
+                    if pos == start_pos {
+                        break 'f (prev_screen_y, prev_pos);
+                    }
+                    return None;
+                };
+
+                let screen_x = 'f: {
+                    for g in self
+                        .glyphs2(0, start_pos.x, pos.y..min(pos.y + 1, self.len_lines()))
+                        .expect("valid-row")
+                    {
+                        if g.pos().x == pos.x {
+                            break 'f g.screen_pos().0;
+                        } else if g.line_break() {
+                            break 'f g.screen_pos().0;
+                        }
+                    }
+                    return None;
+                };
+                assert!(screen_x <= self.rendered.width);
+
+                Some((
+                    screen_x as i16 - self.dark_offset.0 as i16,
+                    screen_y as i16 - self.dark_offset.1 as i16,
+                ))
             }
         }
     }
@@ -2296,45 +2335,43 @@ impl TextAreaState {
                 if oy >= self.len_lines() {
                     return None;
                 }
-
                 if scr_pos.1 < 0 {
                     // before the first visible line. fall back to col 0.
-                    Some(TextPosition::new(
+                    return Some(TextPosition::new(
                         0,
                         oy.saturating_add_signed(scr_pos.1 as ipos_type),
-                    ))
-                } else if (oy + scr_pos.1 as upos_type) > self.len_lines() {
+                    ));
+                }
+                if (oy + scr_pos.1 as upos_type) > self.len_lines() {
                     // after the last visible line. fall back to width.
-                    Some(TextPosition::new(
+                    return Some(TextPosition::new(
                         self.line_width(self.len_lines()),
                         self.len_lines(),
-                    ))
-                } else {
-                    let pos_y = oy + scr_pos.1 as upos_type;
+                    ));
+                }
 
-                    if scr_pos.0 < 0 {
-                        Some(TextPosition::new(
-                            ox.saturating_add_signed(scr_pos.0 as ipos_type),
-                            pos_y,
-                        ))
-                    } else if scr_pos.0 as u16 >= self.rendered.width {
-                        Some(TextPosition::new(
-                            min(ox + scr_pos.0 as upos_type, self.line_width(pos_y)),
-                            pos_y,
-                        ))
-                    } else {
-                        'f: {
-                            for g in self
-                                .glyphs2(ox, 0, pos_y..min(pos_y + 1, self.len_lines()))
-                                .expect("valid-position")
-                            {
-                                if g.contains_screen_x(scr_pos.0 as u16) {
-                                    break 'f Some(TextPosition::new(g.pos().x, pos_y));
-                                }
-                            }
-                            unreachable!();
+                let pos_y = oy + scr_pos.1 as upos_type;
+
+                if scr_pos.0 < 0 {
+                    return Some(TextPosition::new(
+                        ox.saturating_add_signed(scr_pos.0 as ipos_type),
+                        pos_y,
+                    ));
+                } else if scr_pos.0 as u16 >= self.rendered.width {
+                    return Some(TextPosition::new(
+                        min(ox + scr_pos.0 as upos_type, self.line_width(pos_y)),
+                        pos_y,
+                    ));
+                } else {
+                    for g in self
+                        .glyphs2(ox, 0, pos_y..min(pos_y + 1, self.len_lines()))
+                        .expect("valid-position")
+                    {
+                        if g.contains_screen_x(scr_pos.0 as u16) {
+                            return Some(TextPosition::new(g.pos().x, pos_y));
                         }
                     }
+                    unreachable!();
                 }
             }
             TextWrap::Hard | TextWrap::Word(_) => {
