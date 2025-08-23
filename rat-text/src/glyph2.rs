@@ -415,6 +415,10 @@ where
         if glyph.line_break {
             // \n found
 
+            next_screen_x = 0;
+            next_pos.x = 0;
+            next_pos.y += 1;
+
             // caching
             if glyph.pos.x == 0 {
                 zero_row = Some(glyph.pos.y);
@@ -437,6 +441,7 @@ where
 
             (space_pos, space_screen_pos, space_byte) = (None, None, None);
         } else if glyph.screen_pos.0 > glyphs.word_margin && test_break(&glyph) {
+            (space_pos, space_screen_x, space_byte) = (None, None, None);
             // break after space
             next_screen_pos.0 = 0;
             next_screen_pos.1 += 1;
