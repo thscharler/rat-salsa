@@ -1,6 +1,6 @@
 use crate::cache::{Cache, LineBreakCache, LineOffsetCache};
 use crate::text_store::SkipLine;
-use crate::{upos_type, Grapheme, TextPosition};
+use crate::{upos_type, Grapheme, TextError, TextPosition};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -273,7 +273,7 @@ where
             TextWrap2::Shift => {}
             TextWrap2::Hard => {}
             TextWrap2::Word => {
-                init_word_wrap(self);
+                init_word_wrap(self).expect("fine");
             }
         }
     }
@@ -365,7 +365,7 @@ where
     }
 }
 
-fn init_word_wrap<'a, Graphemes>(glyphs: &mut GlyphIter2<'a, Graphemes>)
+fn init_word_wrap<'a, Graphemes>(glyphs: &mut GlyphIter2<'a, Graphemes>) -> Result<(), TextError>
 where
     Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine + Clone,
 {
@@ -374,10 +374,10 @@ where
 
     // Next glyph position.
     let mut next_pos = glyphs.next_pos;
-    let mut next_screen_pos = glyphs.next_screen_pos;
+    let mut next_screen_x = 0;
     // Last space seen
     let mut space_pos = None;
-    let mut space_screen_pos = None;
+    let mut space_screen_x = None;
     let mut space_byte = None;
     let mut zero_row = None;
     loop {
@@ -390,7 +390,7 @@ where
         let mut glyph = Glyph2 {
             glyph: grapheme,
             text_bytes: grapheme_bytes,
-            screen_pos: (next_screen_pos.0, next_screen_pos.1),
+            screen_pos: (next_screen_x, 0),
             screen_width: 0,
             line_break: false,
             soft_break: false,
@@ -408,10 +408,26 @@ where
             glyphs.tabs,
         );
 
-        fn test_break(glyph: &Glyph2) -> bool {
-            glyph.glyph == " " || glyph.glyph == "-" || glyph.hidden_break
+        // row-start seen
+        if glyph.pos.x == 0 {
+            zero_row = Some(glyph.pos.y);
         }
 
+        // Is the current row already cached?
+        // Guard: Do nothing for empty rows.
+        if !glyph.line_break && cache.full_line_break.borrow().contains(&glyph.pos.y) {
+            iter.skip_line()?;
+
+            next_screen_x = 0;
+            next_pos.x = 0;
+            next_pos.y += 1;
+            (space_pos, space_screen_x, space_byte) = (None, None, None);
+            zero_row = None;
+
+            continue;
+        }
+
+        // do line-break
         if glyph.line_break {
             // \n found
 
@@ -420,12 +436,6 @@ where
             next_pos.y += 1;
 
             // caching
-            if glyph.pos.x == 0 {
-                zero_row = Some(glyph.pos.y);
-            }
-            if Some(glyph.pos.y) == zero_row {
-                cache.full_line_break.borrow_mut().insert(glyph.pos.y);
-            }
             cache.line_break.borrow_mut().insert(
                 glyph.pos,
                 LineBreakCache {
@@ -433,25 +443,21 @@ where
                     byte_pos: glyph.text_bytes.end,
                 },
             );
+            if Some(glyph.pos.y) == zero_row {
+                cache.full_line_break.borrow_mut().insert(glyph.pos.y);
+            }
 
-            next_screen_pos.0 = 0;
-            next_screen_pos.1 += 1;
-            next_pos.x = 0;
-            next_pos.y += 1;
-
-            (space_pos, space_screen_pos, space_byte) = (None, None, None);
-        } else if glyph.screen_pos.0 > glyphs.word_margin && test_break(&glyph) {
             (space_pos, space_screen_x, space_byte) = (None, None, None);
+        } else if glyph.screen_pos.0 > glyphs.word_margin
+            && (glyph.glyph == " " || glyph.glyph == "-" || glyph.hidden_break)
+        {
             // break after space
-            next_screen_pos.0 = 0;
-            next_screen_pos.1 += 1;
+
+            next_screen_x = 0;
             next_pos.x += 1;
             // next_pos.y doesn't change
 
             // caching
-            if glyph.pos.x == 0 {
-                zero_row = Some(glyph.pos.y);
-            }
             cache.line_break.borrow_mut().insert(
                 glyph.pos,
                 LineBreakCache {
@@ -460,22 +466,18 @@ where
                 },
             );
 
-            (space_pos, space_screen_pos, space_byte) = (None, None, None);
+            (space_pos, space_screen_x, space_byte) = (None, None, None);
         } else if glyph.screen_pos.0 + glyph.screen_width >= glyphs.true_right_margin() {
             // break at last space before
 
             if let (Some(space_screen_pos), Some(space_pos), Some(space_byte)) =
-                (space_screen_pos, space_pos, space_byte)
+                (space_screen_x, space_pos, space_byte)
             {
-                next_screen_pos.0 = glyph.screen_pos.0 - space_screen_pos;
-                next_screen_pos.1 += 1;
+                next_screen_x = glyph.screen_pos.0 - space_screen_pos;
                 next_pos.x += 1;
                 // next_pos.y doesn't change
 
                 // caching
-                if glyph.pos.x == 0 {
-                    zero_row = Some(glyph.pos.y);
-                }
                 cache.line_break.borrow_mut().insert(
                     space_pos,
                     LineBreakCache {
@@ -487,15 +489,11 @@ where
                 // no space on this text-row. hard-break.
 
                 // next glyph positioning
-                next_screen_pos.0 = 0;
-                next_screen_pos.1 += 1;
+                next_screen_x = 0;
                 next_pos.x += 1;
                 // next_pos.y doesn't change
 
                 // caching
-                if glyph.pos.x == 0 {
-                    zero_row = Some(glyph.pos.y);
-                }
                 cache.line_break.borrow_mut().insert(
                     glyph.pos,
                     LineBreakCache {
@@ -505,25 +503,22 @@ where
                 );
             }
 
-            (space_pos, space_screen_pos, space_byte) = (None, None, None);
+            (space_pos, space_screen_x, space_byte) = (None, None, None);
         } else {
-            next_screen_pos.0 += glyph.screen_width as upos_type;
+            next_screen_x += glyph.screen_width as upos_type;
             // next_screen_pos.1 doesn't change
             next_pos.x += 1;
             // next_pos.1 doesn't change
 
-            if test_break(&glyph) {
+            if glyph.glyph == " " || glyph.glyph == "-" || glyph.hidden_break {
                 space_pos = Some(glyph.pos);
-                space_screen_pos = Some(glyph.screen_pos.0);
+                space_screen_x = Some(glyph.screen_pos.0);
                 space_byte = Some(glyph.text_bytes.end);
-            }
-
-            // caching
-            if glyph.pos.x == 0 {
-                zero_row = Some(glyph.pos.y);
             }
         }
     }
+
+    Ok(())
 }
 
 fn word_wrap_next<'a, Graphemes>(
@@ -602,6 +597,10 @@ fn hard_wrap_next<'a, Graphemes>(
 where
     Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine + Clone,
 {
+    if glyph.pos.x == 0 {
+        iter.zero_row = Some(glyph.pos.y);
+    }
+
     if glyph.line_break {
         // new-line
 
@@ -615,12 +614,6 @@ where
         glyph.validate();
 
         // caching
-        if glyph.pos.x == 0 {
-            iter.zero_row = Some(glyph.pos.y);
-        }
-        if Some(glyph.pos.y) == iter.zero_row {
-            iter.cache.full_line_break.borrow_mut().insert(glyph.pos.y);
-        }
         iter.cache.line_break.borrow_mut().insert(
             glyph.pos,
             LineBreakCache {
@@ -628,6 +621,9 @@ where
                 byte_pos: glyph.text_bytes.end,
             },
         );
+        if Some(glyph.pos.y) == iter.zero_row {
+            iter.cache.full_line_break.borrow_mut().insert(glyph.pos.y);
+        }
 
         Break(Some(glyph))
     } else if glyph.screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin() {
@@ -672,9 +668,6 @@ where
         glyph.validate();
 
         // caching
-        if glyph.pos.x == 0 {
-            iter.zero_row = Some(glyph.pos.y);
-        }
         iter.cache.line_break.borrow_mut().insert(
             glyph.pos,
             LineBreakCache {
@@ -693,11 +686,6 @@ where
         iter.last_byte = glyph.text_bytes.end;
 
         glyph.validate();
-
-        // caching
-        if glyph.pos.x == 0 {
-            iter.zero_row = Some(glyph.pos.y);
-        }
 
         Break(Some(glyph))
     }
@@ -725,7 +713,6 @@ where
             glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
             glyph.validate();
 
-            iter.cache.full_line_break.borrow_mut().insert(glyph.pos.y);
             iter.cache.line_break.borrow_mut().insert(
                 glyph.pos,
                 LineBreakCache {
@@ -733,6 +720,7 @@ where
                     byte_pos: glyph.text_bytes.end,
                 },
             );
+            iter.cache.full_line_break.borrow_mut().insert(glyph.pos.y);
 
             Break(Some(glyph))
         } else {
