@@ -681,7 +681,8 @@ where
         // break before glyph
 
         // append a break glyph at this position.
-        let last_pos = iter.last_pos;
+        let break_pos = iter.last_pos;
+        let break_pos_next = glyph.pos;
 
         // next glyph positioning
         iter.next_screen_pos.0 = glyph.screen_width as upos_type;
@@ -714,7 +715,7 @@ where
         glyph.screen_width = if iter.wrap_ctrl { 1 } else { 0 };
         glyph.line_break = true;
         glyph.soft_break = true;
-        glyph.pos = last_pos;
+        glyph.pos = break_pos;
 
         glyph.validate();
 
@@ -722,7 +723,7 @@ where
         iter.cache.line_break.borrow_mut().insert(
             glyph.pos,
             LineBreakCache {
-                start_pos: iter.next_pos,
+                start_pos: break_pos_next,
                 byte_pos: glyph.text_bytes.end,
             },
         );
