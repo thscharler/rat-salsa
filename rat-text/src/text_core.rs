@@ -1,4 +1,4 @@
-use crate::cache::{Cache, LineBreakCache, LineWidthCache};
+use crate::cache::{Cache, LineWidthCache};
 use crate::clipboard::Clipboard;
 #[allow(deprecated)]
 use crate::glyph::{Glyph, GlyphIter};
@@ -835,67 +835,16 @@ impl<Store: TextStore + Default> TextCore<Store> {
         right_margin: upos_type,
         word_margin: upos_type,
     ) -> Result<(), TextError> {
-        match text_wrap {
-            TextWrap2::Shift => {
-                // need to do the calculations here.
-                // glyph-iter uses an algorithm that can't produce this stuff.
-
-                self.cache.validate(
-                    text_wrap,
-                    left_margin,
-                    rendered.width as upos_type,
-                    rendered.height as upos_type,
-                    ctrl_char,
-                    self.min_changed(),
-                );
-
-                // fill in missing line-break data.
-                let mut full_line_break = self.cache.full_line_break.borrow_mut();
-                let mut line_break = self.cache.line_break.borrow_mut();
-                for row in rows.clone() {
-                    if !full_line_break.contains(&row) {
-                        let end = self.line_width(row)?;
-                        let end_byte = self.byte_at(TextPosition::new(end, row))?;
-
-                        full_line_break.insert(row);
-                        line_break.insert(
-                            TextPosition::new(end, row),
-                            LineBreakCache {
-                                start_pos: TextPosition::new(0, row + 1),
-                                byte_pos: end_byte.end,
-                            },
-                        );
-                    }
-                }
-            }
-            TextWrap2::Hard | TextWrap2::Word => {
-                // check for full_line_break available
-                let mut build_cache = false;
-                {
-                    let full_line_break = self.cache.full_line_break.borrow();
-                    for row in rows.clone() {
-                        if !full_line_break.contains(&row) {
-                            build_cache = true;
-                            break;
-                        }
-                    }
-                }
-
-                if build_cache {
-                    for _ in self.glyphs2(
-                        rendered,
-                        sub_row_offset,
-                        rows,
-                        text_wrap,
-                        ctrl_char,
-                        left_margin,
-                        right_margin,
-                        word_margin,
-                    )? {}
-                }
-            }
-        }
-
+        _ = self.glyphs2(
+            rendered,
+            sub_row_offset,
+            rows,
+            text_wrap,
+            ctrl_char,
+            left_margin,
+            right_margin,
+            word_margin,
+        )?;
         Ok(())
     }
 
@@ -935,13 +884,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
         it.set_tabs(self.tabs as upos_type);
         it.set_show_ctrl(self.glyph_ctrl);
         it.set_wrap_ctrl(self.wrap_ctrl);
-        it.set_line_break(self.glyph_line_break);
+        it.set_lf_breaks(self.glyph_line_break);
         it.set_text_wrap(text_wrap);
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
         it.set_word_margin(word_margin);
         let t = SystemTime::now();
-        it.init();
+        it.prepare()?;
         debug!("        glyphs init {:?}", t.elapsed());
         Ok(it)
     }

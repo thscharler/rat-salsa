@@ -2,7 +2,9 @@ use crate::glyph2::TextWrap2;
 use crate::{upos_type, TextPosition};
 use fxhash::FxBuildHasher;
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+#[cfg(not(debug_assertions))]
+use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -31,7 +33,11 @@ pub struct Cache {
     pub(crate) line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache, FxBuildHasher>>>,
 
     /// Has the specific line been wrapped completely.
+    #[cfg(debug_assertions)]
     pub(crate) full_line_break: Rc<RefCell<BTreeSet<upos_type>>>,
+    #[cfg(not(debug_assertions))]
+    pub(crate) full_line_break: Rc<RefCell<HashSet<upos_type, FxBuildHasher>>>,
+
     /// All known line-breaks for wrapped text.
     /// Has the text-position of the glyph which is marked as 'line-break'.
     /// That means the line-break occurs *after* this position.

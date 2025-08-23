@@ -813,12 +813,12 @@ impl MaskedCore {
         let mut it = GlyphIter2::new(TextPosition::new(0, rows.start), iter, Default::default());
         it.set_tabs(self.masked.tab_width() as upos_type);
         it.set_show_ctrl(self.masked.glyph_ctrl());
-        it.set_line_break(self.masked.glyph_line_break());
+        it.set_lf_breaks(self.masked.glyph_line_break());
         it.set_text_wrap(TextWrap2::Shift);
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
         it.set_word_margin(right_margin);
-        it.init();
+        it.prepare()?;
         Ok(Box::new(it))
     }
 

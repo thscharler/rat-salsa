@@ -71,23 +71,6 @@ impl<'a> Glyph2<'a> {
         self.soft_break
     }
 
-    /// Does the glyph cover the given screen-position?
-    pub fn contains_screen_pos(&self, screen_pos: (u16, u16)) -> bool {
-        if self.screen_pos.1 == screen_pos.1 as upos_type {
-            if screen_pos.0 as upos_type >= self.screen_pos.0 {
-                if (screen_pos.0 as upos_type) < self.screen_pos.0 + self.screen_width as upos_type
-                {
-                    return true;
-                }
-                if self.line_break {
-                    return true;
-                }
-            }
-        }
-
-        false
-    }
-
     /// Does the glyph cover the given x-position.
     /// Doesn't check for the y-position.
     pub fn contains_screen_x(&self, screen_x: u16) -> bool {
@@ -143,8 +126,6 @@ pub(crate) struct GlyphIter2<'a, Graphemes> {
     last_pos: TextPosition,
     last_byte: usize,
 
-    /// Zero position encountered for row.
-    zero_row: Option<upos_type>,
     /// Glyph cache
     cache: Cache,
 
@@ -155,7 +136,7 @@ pub(crate) struct GlyphIter2<'a, Graphemes> {
     /// Show TEXT-WRAP glyphs
     wrap_ctrl: bool,
     /// Line-break enabled?
-    line_break: bool,
+    lf_breaks: bool,
     /// Text-break enabled?
     text_wrap: TextWrap2,
     /// Left margin
@@ -180,7 +161,7 @@ impl<'a, Graphemes> Debug for GlyphIter2<'a, Graphemes> {
             .field("tabs", &self.tabs)
             .field("show_ctrl", &self.show_ctrl)
             .field("wrap_ctrl", &self.wrap_ctrl)
-            .field("line_break", &self.line_break)
+            .field("lf_breaks", &self.lf_breaks)
             .field("text_wrap", &self.text_wrap)
             .field("left_margin", &self.left_margin)
             .field("right_margin", &self.right_margin)
@@ -204,12 +185,11 @@ where
             next_screen_pos: Default::default(),
             last_pos: Default::default(),
             last_byte: Default::default(),
-            zero_row: Default::default(),
             cache,
             tabs: 8,
             show_ctrl: false,
             wrap_ctrl: false,
-            line_break: true,
+            lf_breaks: true,
             text_wrap: Default::default(),
             left_margin: Default::default(),
             right_margin: Default::default(),
@@ -224,8 +204,8 @@ where
     }
 
     /// Handle line-breaks. If false everything is treated as one line.
-    pub(crate) fn set_line_break(&mut self, line_break: bool) {
-        self.line_break = line_break;
+    pub(crate) fn set_lf_breaks(&mut self, line_break: bool) {
+        self.lf_breaks = line_break;
     }
 
     /// Show ASCII control codes.
@@ -265,16 +245,14 @@ where
         self.word_margin = word_margin;
     }
 
-    /// Initialize caching etc before running the iterator.
-    pub(crate) fn init(&mut self) {
+    /// Build cache before running the iterator.
+    pub(crate) fn prepare(&mut self) -> Result<(), TextError> {
         self.init = true;
 
         match self.text_wrap {
-            TextWrap2::Shift => {}
-            TextWrap2::Hard => {}
-            TextWrap2::Word => {
-                init_word_wrap(self).expect("fine");
-            }
+            TextWrap2::Shift => prepare_shift_clip(self),
+            TextWrap2::Hard => prepare_hard_wrap(self),
+            TextWrap2::Word => prepare_word_wrap(self),
         }
     }
 }
@@ -303,12 +281,6 @@ where
         loop {
             let Some(grapheme) = self.iter.next() else {
                 self.done = true;
-
-                match self.text_wrap {
-                    TextWrap2::Shift => {}
-                    TextWrap2::Hard => hard_wrap_last(self),
-                    TextWrap2::Word => {}
-                }
 
                 // emit a synthetic EOT at the very end.
                 // helps if the last line doesn't end in a line-break.
@@ -351,7 +323,7 @@ where
             // remap grapheme
             remap_glyph(
                 &mut glyph,
-                self.line_break,
+                self.lf_breaks,
                 self.show_ctrl,
                 self.wrap_ctrl,
                 self.tabs,
@@ -360,8 +332,8 @@ where
             // next glyph positioning
             let r = match self.text_wrap {
                 TextWrap2::Shift => shift_clip_next(self, glyph),
-                TextWrap2::Hard => hard_wrap_next(self, glyph),
-                TextWrap2::Word => word_wrap_next(self, glyph),
+                TextWrap2::Hard => wrap_next(self, glyph),
+                TextWrap2::Word => wrap_next(self, glyph),
             };
             match r {
                 Continue(_) => continue,
@@ -371,7 +343,7 @@ where
     }
 }
 
-fn init_word_wrap<'a, Graphemes>(glyphs: &mut GlyphIter2<'a, Graphemes>) -> Result<(), TextError>
+fn prepare_word_wrap<'a, Graphemes>(glyphs: &mut GlyphIter2<'a, Graphemes>) -> Result<(), TextError>
 where
     Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine + Clone,
 {
@@ -424,7 +396,7 @@ where
         // remap grapheme
         remap_glyph(
             &mut glyph,
-            glyphs.line_break,
+            glyphs.lf_breaks,
             glyphs.show_ctrl,
             glyphs.wrap_ctrl,
             glyphs.tabs,
@@ -549,7 +521,7 @@ where
     Ok(())
 }
 
-fn word_wrap_next<'a, Graphemes>(
+fn wrap_next<'a, Graphemes>(
     iter: &mut GlyphIter2<'a, Graphemes>,
     mut glyph: Glyph2<'a>,
 ) -> ControlFlow<Option<Glyph2<'a>>>
@@ -618,129 +590,205 @@ where
     }
 }
 
-fn hard_wrap_last<'a, Graphemes>(iter: &mut GlyphIter2<'a, Graphemes>)
+fn prepare_hard_wrap<'a, Graphemes>(glyphs: &mut GlyphIter2<'a, Graphemes>) -> Result<(), TextError>
 where
     Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine + Clone,
 {
-    // last line doesn't terminate with \n
-    if iter.next_pos.x != 0 {
-        // caching
-        iter.cache.line_break.borrow_mut().insert(
-            iter.next_pos,
-            LineBreakCache {
-                start_pos: iter.next_pos,
-                byte_pos: iter.last_byte,
-            },
-        );
-        if Some(iter.next_pos.y) == iter.zero_row {
-            iter.cache
-                .full_line_break
-                .borrow_mut()
-                .insert(iter.next_pos.y);
-        }
-    }
-}
+    let mut iter = glyphs.iter.clone();
+    let cache = &glyphs.cache;
 
-fn hard_wrap_next<'a, Graphemes>(
-    iter: &mut GlyphIter2<'a, Graphemes>,
-    mut glyph: Glyph2<'a>,
-) -> ControlFlow<Option<Glyph2<'a>>>
-where
-    Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine + Clone,
-{
-    if glyph.pos.x == 0 {
-        iter.zero_row = Some(glyph.pos.y);
-    }
+    // Next glyph position.
+    let mut next_pos = glyphs.next_pos;
+    let mut next_screen_x = 0;
+    let mut next_byte = 0;
+    let mut zero_row = None;
+    loop {
+        let Some(grapheme) = iter.next() else {
+            // did the last line end with a \n?
+            if next_pos.x != 0 {
+                // caching
+                cache.line_break.borrow_mut().insert(
+                    next_pos,
+                    LineBreakCache {
+                        start_pos: next_pos,
+                        byte_pos: next_byte,
+                    },
+                );
+                if Some(next_pos.y) == zero_row {
+                    cache.full_line_break.borrow_mut().insert(next_pos.y);
+                }
+            }
 
-    if glyph.line_break {
-        // new-line
+            break;
+        };
 
-        iter.next_screen_pos.0 = 0;
-        iter.next_screen_pos.1 += 1;
-        iter.next_pos.x = 0;
-        iter.next_pos.y += 1;
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        let (grapheme, grapheme_bytes) = grapheme.into_parts();
 
-        glyph.validate();
-
-        // caching
-        iter.cache.line_break.borrow_mut().insert(
-            glyph.pos,
-            LineBreakCache {
-                start_pos: iter.next_pos,
-                byte_pos: glyph.text_bytes.end,
-            },
-        );
-        if Some(glyph.pos.y) == iter.zero_row {
-            iter.cache.full_line_break.borrow_mut().insert(glyph.pos.y);
-        }
-
-        Break(Some(glyph))
-    } else if glyph.screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin() {
-        // break before glyph
-
-        // append a break glyph at this position.
-        let break_pos = iter.last_pos;
-        let break_pos_next = glyph.pos;
-
-        // next glyph positioning
-        iter.next_screen_pos.0 = glyph.screen_width as upos_type;
-        iter.next_screen_pos.1 += 1;
-        iter.next_pos.x += 1;
-        // next_pos.y doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
-
-        iter.next_glyph = Some(Glyph2 {
-            glyph: Cow::Owned(glyph.glyph.to_string()),
-            text_bytes: glyph.text_bytes.clone(),
-            screen_pos: (0, glyph.screen_pos.1 + 1),
-            screen_width: glyph.screen_width,
+        let mut glyph = Glyph2 {
+            glyph: grapheme,
+            text_bytes: grapheme_bytes,
+            screen_pos: (next_screen_x, 0),
+            screen_width: 0,
             line_break: false,
             soft_break: false,
             hidden_break: false,
             hidden_glyph: Cow::Borrowed(""),
-            pos: glyph.pos,
-        });
-
-        // addendum to the last glyph
-        glyph.glyph = if iter.wrap_ctrl {
-            Cow::Borrowed("\u{21B5}")
-        } else {
-            Cow::Borrowed("")
+            pos: next_pos,
         };
-        glyph.text_bytes = glyph.text_bytes.start..glyph.text_bytes.start;
-        // screen_pos is ok
-        glyph.screen_width = if iter.wrap_ctrl { 1 } else { 0 };
-        glyph.line_break = true;
-        glyph.soft_break = true;
-        glyph.pos = break_pos;
 
-        glyph.validate();
-
-        // caching
-        iter.cache.line_break.borrow_mut().insert(
-            glyph.pos,
-            LineBreakCache {
-                start_pos: break_pos_next,
-                byte_pos: glyph.text_bytes.end,
-            },
+        // remap grapheme
+        remap_glyph(
+            &mut glyph,
+            glyphs.lf_breaks,
+            glyphs.show_ctrl,
+            glyphs.wrap_ctrl,
+            glyphs.tabs,
         );
 
-        Break(Some(glyph))
-    } else {
-        iter.next_screen_pos.0 += glyph.screen_width as upos_type;
-        // next_screen_pos.1 doesn't change
-        iter.next_pos.x += 1;
-        // next_pos.1 doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        // row-start seen
+        if glyph.pos.x == 0 {
+            zero_row = Some(glyph.pos.y);
+        }
 
-        glyph.validate();
+        // Is the current row already cached?
+        // Guard: Do nothing for empty rows.
+        if !glyph.line_break && cache.full_line_break.borrow().contains(&glyph.pos.y) {
+            iter.skip_line()?;
 
-        Break(Some(glyph))
+            next_screen_x = 0;
+            next_pos.x = 0;
+            next_pos.y += 1;
+            next_byte = 0;
+            zero_row = None;
+
+            continue;
+        }
+
+        // do line-break
+        if glyph.line_break {
+            // \n found
+
+            next_screen_x = 0;
+            next_pos.x = 0;
+            next_pos.y += 1;
+            next_byte = glyph.text_bytes.end;
+
+            // caching
+            cache.line_break.borrow_mut().insert(
+                glyph.pos,
+                LineBreakCache {
+                    start_pos: next_pos,
+                    byte_pos: glyph.text_bytes.end,
+                },
+            );
+            if Some(glyph.pos.y) == zero_row {
+                cache.full_line_break.borrow_mut().insert(glyph.pos.y);
+            }
+        } else if glyph.screen_pos.0 + glyph.screen_width >= glyphs.true_right_margin() {
+            // break before glyph
+
+            // next glyph positioning
+            next_screen_x = 0;
+            next_pos.x += 1;
+            // next_pos.y doesn't change
+            next_byte = glyph.text_bytes.end;
+
+            // caching
+            cache.line_break.borrow_mut().insert(
+                glyph.pos,
+                LineBreakCache {
+                    start_pos: next_pos,
+                    byte_pos: glyph.text_bytes.start,
+                },
+            );
+        } else {
+            next_screen_x += glyph.screen_width as upos_type;
+            // next_screen_pos.1 doesn't change
+            next_pos.x += 1;
+            // next_pos.1 doesn't change
+            next_byte = glyph.text_bytes.end;
+        }
     }
+
+    Ok(())
+}
+
+fn prepare_shift_clip<'a, Graphemes>(
+    glyphs: &mut GlyphIter2<'a, Graphemes>,
+) -> Result<(), TextError>
+where
+    Graphemes: SkipLine + Iterator<Item = Grapheme<'a>> + Clone,
+{
+    let mut iter = glyphs.iter.clone();
+    let cache = &glyphs.cache;
+
+    // Next glyph position.
+    let mut next_pos = glyphs.next_pos;
+    let mut last_byte = 0;
+
+    // fill in missing line-break data.
+    loop {
+        let Some(grapheme) = iter.next() else {
+            // Last line can end without \n
+            if next_pos.x != 0 {
+                let pos = next_pos;
+
+                cache.full_line_break.borrow_mut().insert(pos.y);
+                cache.line_break.borrow_mut().insert(
+                    pos,
+                    LineBreakCache {
+                        start_pos: next_pos,
+                        byte_pos: last_byte,
+                    },
+                );
+            }
+
+            break;
+        };
+
+        if cache.full_line_break.borrow().contains(&next_pos.y) {
+            next_pos.x = 0;
+            next_pos.y += 1;
+            last_byte = 0;
+
+            // skip to next_line
+            iter.skip_line().expect("fine");
+
+            continue;
+        }
+
+        let pos = next_pos;
+        let line_break = if grapheme == "\n" || grapheme == "\r\n" {
+            if glyphs.lf_breaks {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if line_break {
+            next_pos.x = 0;
+            next_pos.y += 1;
+            last_byte = grapheme.text_bytes().end;
+
+            cache.full_line_break.borrow_mut().insert(pos.y);
+            cache.line_break.borrow_mut().insert(
+                pos,
+                LineBreakCache {
+                    start_pos: next_pos,
+                    byte_pos: grapheme.text_bytes().end,
+                },
+            );
+        } else {
+            next_pos.x += 1;
+            // iter.next_pos.y doesn't change.
+            last_byte = grapheme.text_bytes().end;
+        }
+    }
+
+    Ok(())
 }
 
 fn shift_clip_next<'a, Graphemes>(
