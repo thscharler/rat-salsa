@@ -304,6 +304,12 @@ where
             let Some(grapheme) = self.iter.next() else {
                 self.done = true;
 
+                match self.text_wrap {
+                    TextWrap2::Shift => {}
+                    TextWrap2::Hard => hard_wrap_last(self),
+                    TextWrap2::Word => {}
+                }
+
                 // emit a synthetic EOT at the very end.
                 // helps if the last line doesn't end in a line-break.
                 let glyph = Glyph2 {
@@ -375,6 +381,7 @@ where
     // Next glyph position.
     let mut next_pos = glyphs.next_pos;
     let mut next_screen_x = 0;
+    let mut next_byte = 0;
     // Last space seen
     let mut space_pos = None;
     let mut space_screen_x = None;
@@ -382,6 +389,21 @@ where
     let mut zero_row = None;
     loop {
         let Some(grapheme) = iter.next() else {
+            // did the last line end with a \n?
+            if next_pos.x != 0 {
+                // caching
+                cache.line_break.borrow_mut().insert(
+                    next_pos,
+                    LineBreakCache {
+                        start_pos: next_pos,
+                        byte_pos: next_byte,
+                    },
+                );
+                if Some(next_pos.y) == zero_row {
+                    cache.full_line_break.borrow_mut().insert(next_pos.y);
+                }
+            }
+
             break;
         };
 
@@ -421,6 +443,7 @@ where
             next_screen_x = 0;
             next_pos.x = 0;
             next_pos.y += 1;
+            next_byte = 0;
             (space_pos, space_screen_x, space_byte) = (None, None, None);
             zero_row = None;
 
@@ -434,6 +457,7 @@ where
             next_screen_x = 0;
             next_pos.x = 0;
             next_pos.y += 1;
+            next_byte = glyph.text_bytes.end;
 
             // caching
             cache.line_break.borrow_mut().insert(
@@ -456,6 +480,7 @@ where
             next_screen_x = 0;
             next_pos.x += 1;
             // next_pos.y doesn't change
+            next_byte = glyph.text_bytes.end;
 
             // caching
             cache.line_break.borrow_mut().insert(
@@ -476,6 +501,7 @@ where
                 next_screen_x = glyph.screen_pos.0 - space_screen_pos;
                 next_pos.x += 1;
                 // next_pos.y doesn't change
+                next_byte = glyph.text_bytes.end;
 
                 // caching
                 cache.line_break.borrow_mut().insert(
@@ -492,6 +518,7 @@ where
                 next_screen_x = 0;
                 next_pos.x += 1;
                 // next_pos.y doesn't change
+                next_byte = glyph.text_bytes.end;
 
                 // caching
                 cache.line_break.borrow_mut().insert(
@@ -509,6 +536,7 @@ where
             // next_screen_pos.1 doesn't change
             next_pos.x += 1;
             // next_pos.1 doesn't change
+            next_byte = glyph.text_bytes.end;
 
             if glyph.glyph == " " || glyph.glyph == "-" || glyph.hidden_break {
                 space_pos = Some(glyph.pos);
@@ -587,6 +615,29 @@ where
         glyph.validate();
 
         Break(Some(glyph))
+    }
+}
+
+fn hard_wrap_last<'a, Graphemes>(iter: &mut GlyphIter2<'a, Graphemes>)
+where
+    Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine + Clone,
+{
+    // last line doesn't terminate with \n
+    if iter.next_pos.x != 0 {
+        // caching
+        iter.cache.line_break.borrow_mut().insert(
+            iter.next_pos,
+            LineBreakCache {
+                start_pos: iter.next_pos,
+                byte_pos: iter.last_byte,
+            },
+        );
+        if Some(iter.next_pos.y) == iter.zero_row {
+            iter.cache
+                .full_line_break
+                .borrow_mut()
+                .insert(iter.next_pos.y);
+        }
     }
 }
 
@@ -699,6 +750,7 @@ where
     Graphemes: SkipLine + Iterator<Item = Grapheme<'a>> + Clone,
 {
     // Clip glyphs and correct left offset
+
     if glyph.line_break {
         iter.next_screen_pos.0 = 0;
         iter.next_screen_pos.1 += 1;
@@ -707,8 +759,8 @@ where
         iter.last_pos = glyph.pos;
         iter.last_byte = glyph.text_bytes.end;
 
-        // line-break just beyond the right margin will end here.
-        // every other line-break should be skipped.
+        // a line-break just beyond the right margin will end up here.
+        // every other line-break will be skipped instead.
         if glyph.screen_pos.0 <= iter.true_right_margin() + 1 {
             glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
             glyph.validate();
@@ -730,6 +782,8 @@ where
     } else if glyph.screen_pos.0 < iter.left_margin
         && glyph.screen_pos.0 + glyph.screen_width > iter.left_margin
     {
+        // glyph crossing the left margin
+
         // show replacement for split glyph
         glyph.glyph = Cow::Borrowed("\u{2426}");
         glyph.screen_width = iter.next_screen_pos.0 + glyph.screen_width - iter.left_margin;
@@ -753,8 +807,11 @@ where
         iter.last_byte = glyph.text_bytes.end;
 
         glyph.validate();
+
         Break(Some(glyph))
     } else if glyph.screen_pos.0 < iter.left_margin {
+        // glyph before the left margin
+
         iter.next_screen_pos.0 += glyph.screen_width;
         // iter.next_screen_pos.1 doesn't change
         iter.next_pos.x += 1;
@@ -771,38 +828,11 @@ where
             // not yet cached. go the long way.
             Continue(())
         }
-    } else if glyph.screen_pos.0 == iter.true_right_margin() {
-        glyph.line_break = true;
-        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
-        glyph.screen_width = if iter.wrap_ctrl { 1 } else { 0 };
-        glyph.glyph = Cow::Borrowed(if iter.wrap_ctrl { "\u{2424}" } else { "" });
-        glyph.text_bytes = iter.last_byte..iter.last_byte;
-
-        iter.next_screen_pos.0 += 1;
-        // iter.next_screen_pos.1 doesn't change
-        iter.next_pos.x += 1;
-        // next_pos.y doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
-
-        glyph.validate();
-        Break(Some(glyph))
-    } else if glyph.screen_pos.0 > iter.true_right_margin() {
-        // skip to next_line
-        iter.iter.skip_line().expect("fine");
-
-        // do the line-break here.
-        iter.next_screen_pos.0 = 0;
-        iter.next_screen_pos.1 += 1;
-        iter.next_pos.x = 0;
-        iter.next_pos.y += 1;
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
-
-        Continue(())
     } else if iter.next_screen_pos.0 < iter.true_right_margin()
         && iter.next_screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin()
     {
+        // glyph crosses the right margin
+
         // show replacement for split glyph
         glyph.glyph = Cow::Borrowed("\u{2426}");
         glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
@@ -816,7 +846,44 @@ where
         iter.last_byte = glyph.text_bytes.end;
 
         glyph.validate();
+
         Break(Some(glyph))
+    } else if glyph.screen_pos.0 == iter.true_right_margin() {
+        // glyph exactly at right margin
+
+        // drop glyph and emit a line-break instead.
+        glyph.line_break = true;
+        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
+        glyph.screen_width = if iter.wrap_ctrl { 1 } else { 0 };
+        glyph.glyph = Cow::Borrowed(if iter.wrap_ctrl { "\u{2424}" } else { "" });
+        glyph.text_bytes = iter.last_byte..iter.last_byte;
+
+        // still advance x, next iteration will skip the rest of the line.
+        iter.next_screen_pos.0 += 1;
+        // iter.next_screen_pos.1 doesn't change
+        iter.next_pos.x += 1;
+        // next_pos.y doesn't change
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        glyph.validate();
+
+        Break(Some(glyph))
+    } else if glyph.screen_pos.0 > iter.true_right_margin() {
+        // glyph after the right margin.
+
+        // skip to next_line
+        iter.iter.skip_line().expect("fine");
+
+        // do the line-break here.
+        iter.next_screen_pos.0 = 0;
+        iter.next_screen_pos.1 += 1;
+        iter.next_pos.x = 0;
+        iter.next_pos.y += 1;
+        iter.last_pos = glyph.pos;
+        iter.last_byte = glyph.text_bytes.end;
+
+        Continue(())
     } else {
         glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
 
@@ -839,6 +906,7 @@ where
         iter.last_byte = glyph.text_bytes.end;
 
         glyph.validate();
+
         Break(Some(glyph))
     }
 }

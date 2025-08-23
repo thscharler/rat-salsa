@@ -835,7 +835,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
         right_margin: upos_type,
         word_margin: upos_type,
     ) -> Result<(), TextError> {
-        debug!("        *** fill_cache {:?} {:?}", sub_row_offset, rows,);
         match text_wrap {
             TextWrap2::Shift => {
                 // need to do the calculations here.
@@ -914,7 +913,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
         right_margin: upos_type,
         word_margin: upos_type,
     ) -> Result<GlyphIter2<Store::GraphemeIter<'_>>, TextError> {
-        debug!("        *** glyphs2 {:?} {:?}", sub_row_offset, rows,);
         self.cache.validate(
             text_wrap,
             left_margin,

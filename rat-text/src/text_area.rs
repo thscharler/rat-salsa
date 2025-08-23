@@ -1771,7 +1771,7 @@ impl TextAreaState {
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
-        debug!("*** move_down");
+        debug!(">>> move_down");
         let t = SystemTime::now();
 
         let cursor = self.cursor();
@@ -1791,7 +1791,7 @@ impl TextAreaState {
             self.scroll_cursor_to_visible();
             true
         };
-        debug!("move_down {:?}", t.elapsed());
+        debug!("<<< move_down {:?}", t.elapsed());
         r
     }
 
@@ -2096,12 +2096,12 @@ impl TextAreaState {
             .borrow()
             .range(TextPosition::new(0, pos.y)..TextPosition::new(0, pos.y + 1))
         {
-            // debug!("    line_end break {:?}", break_pos);
+            debug!("    line_end break {:?}", break_pos);
             if pos >= end_pos && &pos <= break_pos {
-                // debug!(
-                //     "    line_end {:?} >= {:?} && {:?} <= {:?} => {:?}",
-                //     pos, end_pos, pos, break_pos, break_pos
-                // );
+                debug!(
+                    "    line_end {:?} >= {:?} && {:?} <= {:?} => {:?}",
+                    pos, end_pos, pos, break_pos, break_pos
+                );
                 end_pos = *break_pos;
                 break;
             }
