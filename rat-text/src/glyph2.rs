@@ -456,7 +456,7 @@ where
             );
 
             (space_pos, space_screen_pos, space_byte) = (None, None, None);
-        } else if glyph.screen_pos.0 + glyph.screen_width >= glyphs.right_margin {
+        } else if glyph.screen_pos.0 + glyph.screen_width >= glyphs.true_right_margin() {
             // break at last space before
 
             if let (Some(space_screen_pos), Some(space_pos), Some(space_byte)) =
@@ -576,24 +576,6 @@ where
         glyph.validate();
 
         Break(Some(glyph))
-    // } else if glyph.screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin() {
-    //     // very narrow display width.
-    //     // don't display beyond the width.
-    //
-    //     iter.next_screen_pos.0 += glyph.screen_width as upos_type;
-    //     // next_screen_pos.1 doesn't change
-    //     iter.next_pos.x += 1;
-    //     // next_pos.1 doesn't change
-    //     iter.last_pos = glyph.pos;
-    //     iter.last_byte = glyph.text_bytes.end;
-    //
-    //     // hide glyph
-    //     glyph.screen_pos.0 = iter.true_right_margin();
-    //     glyph.screen_width = 0;
-    //
-    //     glyph.validate();
-    //
-    //     Break(Some(glyph))
     } else {
         iter.next_screen_pos.0 += glyph.screen_width as upos_type;
         // next_screen_pos.1 doesn't change

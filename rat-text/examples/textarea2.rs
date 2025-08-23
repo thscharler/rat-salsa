@@ -279,7 +279,7 @@ fn handle_input(
             Outcome::Changed
         }
         ct_event!(key press ALT-'w') => {
-            state.textarea.set_text_wrap(TextWrap::Word(7));
+            state.textarea.set_text_wrap(TextWrap::Word(9));
             Outcome::Changed
         }
         ct_event!(key press ALT-'e') => {
