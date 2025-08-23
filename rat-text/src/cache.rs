@@ -2,7 +2,7 @@ use crate::glyph2::TextWrap2;
 use crate::{upos_type, TextPosition};
 use fxhash::FxBuildHasher;
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -17,6 +17,8 @@ pub struct Cache {
     pub(crate) screen_width: Cell<upos_type>,
     /// Cache validity: rendered text-height.
     pub(crate) screen_height: Cell<upos_type>,
+    /// Cache validity: show ctrl-chars (changes width!)
+    pub(crate) screen_ctrl: Cell<bool>,
 
     /// len_lines seems expensive too.
     pub(crate) len_lines: Cell<Option<upos_type>>,
@@ -29,7 +31,7 @@ pub struct Cache {
     pub(crate) line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache, FxBuildHasher>>>,
 
     /// Has the specific line been wrapped completely.
-    pub(crate) full_line_break: Rc<RefCell<HashSet<upos_type, FxBuildHasher>>>,
+    pub(crate) full_line_break: Rc<RefCell<BTreeSet<upos_type>>>,
     /// All known line-breaks for wrapped text.
     /// Has the text-position of the glyph which is marked as 'line-break'.
     /// That means the line-break occurs *after* this position.
@@ -69,6 +71,7 @@ impl Cache {
         self.shift_left.set(0);
         self.screen_width.set(0);
         self.screen_height.set(0);
+        self.screen_ctrl.set(false);
         self.line_start.borrow_mut().clear();
         self.full_line_break.borrow_mut().clear();
         self.line_break.borrow_mut().clear();
@@ -108,6 +111,7 @@ impl Cache {
         shift_left: upos_type,
         screen_width: upos_type,
         screen_height: upos_type,
+        screen_ctrl: bool,
         byte_pos: Option<usize>,
     ) {
         if text_wrap != self.text_wrap.get() {
@@ -126,6 +130,7 @@ impl Cache {
                 self.line_start.borrow_mut().clear();
                 if self.screen_width.get() != screen_width
                     || self.screen_height.get() != screen_height
+                    || self.screen_ctrl.get() != screen_ctrl
                 {
                     self.line_break.borrow_mut().clear();
                     self.full_line_break.borrow_mut().clear();
@@ -139,5 +144,6 @@ impl Cache {
         self.shift_left.set(shift_left);
         self.screen_width.set(screen_width);
         self.screen_height.set(screen_height);
+        self.screen_ctrl.set(screen_ctrl);
     }
 }

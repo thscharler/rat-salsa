@@ -1309,6 +1309,7 @@ impl TextInputState {
                 0,
                 0..1,
                 text_wrap,
+                false,
                 left_margin,
                 right_margin,
                 word_margin,

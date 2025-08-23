@@ -9,10 +9,12 @@ use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
+use log::debug;
 use ratatui::layout::Size;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::ops::Range;
+use std::time::SystemTime;
 
 /// Core for text editing.
 #[derive(Debug)]
@@ -828,10 +830,12 @@ impl<Store: TextStore + Default> TextCore<Store> {
         sub_row_offset: upos_type,
         rows: Range<upos_type>,
         text_wrap: TextWrap2,
+        ctrl_char: bool,
         left_margin: upos_type,
         right_margin: upos_type,
         word_margin: upos_type,
     ) -> Result<(), TextError> {
+        debug!("        *** fill_cache {:?} {:?}", sub_row_offset, rows,);
         match text_wrap {
             TextWrap2::Shift => {
                 // need to do the calculations here.
@@ -842,6 +846,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     left_margin,
                     rendered.width as upos_type,
                     rendered.height as upos_type,
+                    ctrl_char,
                     self.min_changed(),
                 );
 
@@ -883,6 +888,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                         sub_row_offset,
                         rows,
                         text_wrap,
+                        ctrl_char,
                         left_margin,
                         right_margin,
                         word_margin,
@@ -903,15 +909,18 @@ impl<Store: TextStore + Default> TextCore<Store> {
         sub_row_offset: upos_type,
         rows: Range<upos_type>,
         text_wrap: TextWrap2,
+        ctrl_char: bool,
         left_margin: upos_type,
         right_margin: upos_type,
         word_margin: upos_type,
     ) -> Result<GlyphIter2<Store::GraphemeIter<'_>>, TextError> {
+        debug!("        *** glyphs2 {:?} {:?}", sub_row_offset, rows,);
         self.cache.validate(
             text_wrap,
             left_margin,
             rendered.width as upos_type,
             rendered.height as upos_type,
+            ctrl_char,
             self.min_changed(),
         );
 
@@ -933,7 +942,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
         it.set_word_margin(word_margin);
+        let t = SystemTime::now();
         it.init();
+        debug!("        glyphs init {:?}", t.elapsed());
         Ok(it)
     }
 

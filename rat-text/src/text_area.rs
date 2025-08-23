@@ -1697,7 +1697,7 @@ impl TextAreaState {
     /// Move the cursor left. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_left(&mut self, n: u16, extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
 
         let mut cursor = self.cursor();
         if cursor.x == 0 {
@@ -1714,14 +1714,14 @@ impl TextAreaState {
         }
 
         let r = self.set_cursor(cursor, extend_selection);
-        debug!("move_left {:?}", t.elapsed());
+        // debug!("move_left {:?}", t.elapsed());
         r
     }
 
     /// Move the cursor right. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_right(&mut self, n: u16, extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
 
         let mut cursor = self.cursor();
         let c_line_width = self.line_width(cursor.y);
@@ -1738,14 +1738,14 @@ impl TextAreaState {
             self.set_move_col(Some(scr_cursor.0));
         }
         let r = self.set_cursor(cursor, extend_selection);
-        debug!("move_right {:?}", t.elapsed());
+        // debug!("move_right {:?}", t.elapsed());
         r
     }
 
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
 
         let cursor = self.cursor();
         let r = if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
@@ -1764,13 +1764,14 @@ impl TextAreaState {
             self.scroll_cursor_to_visible();
             true
         };
-        debug!("move_up {:?}", t.elapsed());
+        // debug!("move_up {:?}", t.elapsed());
         r
     }
 
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
+        debug!("*** move_down");
         let t = SystemTime::now();
 
         let cursor = self.cursor();
@@ -1798,7 +1799,7 @@ impl TextAreaState {
     /// Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
 
         let (shift_left, _, _) = self.clean_offset();
         let cursor = self.cursor();
@@ -1824,7 +1825,7 @@ impl TextAreaState {
             self.set_move_col(Some(scr_pos.0));
         }
         let r = self.set_cursor(line_start, extend_selection);
-        debug!("move_to_line_start {:?}", t.elapsed());
+        // debug!("move_to_line_start {:?}", t.elapsed());
         r
     }
 
@@ -1832,16 +1833,16 @@ impl TextAreaState {
     /// necessary.
     /// Returns true if there was any real change.
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
         let cursor = self.cursor();
-        debug!("move_to_line_end {:?}", cursor);
+        // debug!("move_to_line_end {:?}", cursor);
         let line_end = self.pos_to_line_end(cursor);
-        debug!("move_to_line_end {:?}", line_end);
+        // debug!("move_to_line_end {:?}", line_end);
         if let Some(scr_pos) = self.pos_to_relative_screen(line_end) {
             self.set_move_col(Some(scr_pos.0));
         }
         let r = self.set_cursor(line_end, extend_selection);
-        debug!("move_to_line_end {:?}", t.elapsed());
+        // debug!("move_to_line_end {:?}", t.elapsed());
         r
     }
 
@@ -1855,7 +1856,7 @@ impl TextAreaState {
 
     /// Move the cursor to the document end.
     pub fn move_to_end(&mut self, extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
         let cursor = TextPosition::new(
             self.line_width(self.len_lines().saturating_sub(1)),
             self.len_lines().saturating_sub(1),
@@ -1864,7 +1865,7 @@ impl TextAreaState {
         let line_start = self.pos_to_line_start(cursor);
         self.set_move_col(Some(0));
         let r = self.set_cursor(line_start, extend_selection);
-        debug!("move_end {:?}", t.elapsed());
+        // debug!("move_end {:?}", t.elapsed());
         r
     }
 
@@ -1880,7 +1881,7 @@ impl TextAreaState {
 
     /// Move the cursor to the end of the visible area.
     pub fn move_to_screen_end(&mut self, extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
         let scr_end = (0, (self.inner.height as i16).saturating_sub(1));
         let r = if let Some(pos) = self.relative_screen_to_pos(scr_end) {
             self.set_move_col(Some(0));
@@ -1889,43 +1890,43 @@ impl TextAreaState {
             self.scroll_cursor_to_visible();
             true
         };
-        debug!("move_to_screen_end {:?}", t.elapsed());
+        // debug!("move_to_screen_end {:?}", t.elapsed());
         r
     }
 
     /// Move the cursor to the next word.
     pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
         let cursor = self.cursor();
 
         let word = self.next_word_end(cursor);
-        debug!("move_to_next_word find {:?}", t.elapsed());
-        let t = SystemTime::now();
+        // debug!("move_to_next_word find {:?}", t.elapsed());
+        // let t = SystemTime::now();
 
         if let Some(scr_pos) = self.pos_to_relative_screen(word) {
             self.set_move_col(Some(scr_pos.0));
         }
-        debug!("move_to_next_word pos_to_screen {:?}", t.elapsed());
-        let t = SystemTime::now();
+        // debug!("move_to_next_word pos_to_screen {:?}", t.elapsed());
+        // let t = SystemTime::now();
         let r = self.set_cursor(word, extend_selection);
-        debug!("move_to_next_word {:?}", t.elapsed());
+        // debug!("move_to_next_word {:?}", t.elapsed());
         r
     }
 
     /// Move the cursor to the previous word.
     pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
         let cursor = self.cursor();
 
         let word = self.prev_word_start(cursor);
-        debug!("move_to_prev_word find {:?}", t.elapsed());
-        let t = SystemTime::now();
+        // debug!("move_to_prev_word find {:?}", t.elapsed());
+        // let t = SystemTime::now();
 
         if let Some(scr_pos) = self.pos_to_relative_screen(word) {
             self.set_move_col(Some(scr_pos.0));
         }
         let r = self.set_cursor(word, extend_selection);
-        debug!("move_to_prev_word {:?}", t.elapsed());
+        // debug!("move_to_prev_word {:?}", t.elapsed());
         r
     }
 }
@@ -2006,6 +2007,7 @@ impl TextAreaState {
             sub_row_offset,
             rows,
             text_wrap,
+            self.wrap_ctrl() | self.show_ctrl(),
             left_margin,
             right_margin,
             word_margin,
@@ -2024,6 +2026,7 @@ impl TextAreaState {
             sub_row_offset,
             rows,
             text_wrap,
+            self.wrap_ctrl() | self.show_ctrl(),
             left_margin,
             right_margin,
             word_margin,
@@ -2081,7 +2084,7 @@ impl TextAreaState {
 
     /// Return the end position for the visible line containing the given position.
     pub fn pos_to_line_end(&self, pos: TextPosition) -> TextPosition {
-        debug!("    line_end {:?}", pos);
+        // debug!("    line_end {:?}", pos);
         self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
             .expect("valid-row");
 
@@ -2093,12 +2096,12 @@ impl TextAreaState {
             .borrow()
             .range(TextPosition::new(0, pos.y)..TextPosition::new(0, pos.y + 1))
         {
-            debug!("    line_end break {:?}", break_pos);
+            // debug!("    line_end break {:?}", break_pos);
             if pos >= end_pos && &pos <= break_pos {
-                debug!(
-                    "    line_end {:?} >= {:?} && {:?} <= {:?} => {:?}",
-                    pos, end_pos, pos, break_pos, break_pos
-                );
+                // debug!(
+                //     "    line_end {:?} >= {:?} && {:?} <= {:?} => {:?}",
+                //     pos, end_pos, pos, break_pos, break_pos
+                // );
                 end_pos = *break_pos;
                 break;
             }
@@ -2299,7 +2302,7 @@ impl TextAreaState {
                     }
                     if g.pos() == pos {
                         let screen_pos = g.screen_pos();
-                        debug!("    pos_to_screen screen_pos {:?}", screen_pos);
+                        // debug!("    pos_to_screen screen_pos {:?}", screen_pos);
                         return Some((
                             screen_pos.0 as i16 - self.dark_offset.0 as i16,
                             screen_pos.1 as i16 - self.dark_offset.1 as i16,
@@ -2441,23 +2444,57 @@ impl TextAreaState {
                 } else {
                     let scr_pos = (max(0, scr_pos.0) as u16, scr_pos.1 as u16);
 
-                    // start at the offset and find the screen-position.
-                    let mut fallback = None;
+                    // row-0 equals the current offset. done.
+                    let n_start_pos = if scr_pos.1 == 0 {
+                        TextPosition::new(sub_row_offset, oy)
+                    } else {
+                        // start at the offset and find the screen-position.
+                        // count backwards
+                        self.fill_cache(
+                            0,
+                            sub_row_offset,
+                            oy..min(oy + scr_pos.1 as upos_type, self.len_lines()),
+                        )
+                        .expect("valid-rows");
+
+                        // debug!("    screen_to_pos fill_cache {:?}", t.elapsed());
+                        // let t = SystemTime::now();
+
+                        'f: {
+                            let mut nrows = scr_pos.1 - 1;
+                            let mut fallback = TextPosition::new(0, 0);
+                            for (_break_pos, cache) in self.value.cache().line_break.borrow().range(
+                                TextPosition::new(sub_row_offset, oy)
+                                    ..TextPosition::new(0, self.len_lines()),
+                            ) {
+                                if nrows == 0 {
+                                    // debug!("    screen_to_pos find_row {:?}", t.elapsed());
+                                    // let t = SystemTime::now();
+                                    break 'f cache.start_pos;
+                                }
+                                fallback = cache.start_pos;
+                                nrows -= 1;
+                            }
+                            // debug!("    screen_to_pos find_row {:?}", t.elapsed());
+                            // let t = SystemTime::now();
+                            fallback
+                        }
+                    };
+
                     for g in self
-                        .glyphs2(0, sub_row_offset, oy..self.len_lines())
-                        .expect("valid-position")
+                        .glyphs2(
+                            0,
+                            n_start_pos.x,
+                            n_start_pos.y..min(n_start_pos.y + 1, self.len_lines()),
+                        )
+                        .expect("valid-rows")
                     {
-                        if g.contains_screen_pos(scr_pos) {
-                            // debug!("    screen_to_pos path2 {:?}", t.elapsed());
+                        if g.contains_screen_x(scr_pos.0) {
+                            // debug!("    screen_to_pos-2 found_col {:?}", t.elapsed());
                             return Some(g.pos());
                         }
-                        // fallback is end of last line
-                        if g.line_break() {
-                            fallback = Some(g.pos());
-                        }
                     }
-                    // debug!("    screen_to_pos path2 {:?}", t.elapsed());
-                    fallback
+                    unreachable!("impossible screen-pos");
                 }
             }
         }
@@ -2605,16 +2642,16 @@ impl TextAreaState {
     /// They may be negative too, this allows setting the cursor
     /// to a position that is currently scrolled away.
     pub fn set_screen_cursor(&mut self, cursor: (i16, i16), extend_selection: bool) -> bool {
-        let t = SystemTime::now();
+        // let t = SystemTime::now();
         let Some(cursor) = self.relative_screen_to_pos(cursor) else {
             return false;
         };
-        debug!("set_cursor screen_to_pos {:?}", t.elapsed());
-        let t = SystemTime::now();
+        // debug!("set_cursor screen_to_pos {:?}", t.elapsed());
+        // let t = SystemTime::now();
         if let Some(scr_cursor) = self.pos_to_relative_screen(cursor) {
             self.set_move_col(Some(scr_cursor.0));
         }
-        debug!("set_cursor set_move_col {:?}", t.elapsed());
+        // debug!("set_cursor set_move_col {:?}", t.elapsed());
         self.set_cursor(cursor, extend_selection)
     }
 
@@ -2759,7 +2796,10 @@ impl TextAreaState {
 
     /// Scrolling
     pub fn scroll_down(&mut self, delta: usize) -> bool {
+        // debug!("scroll_down {}", delta);
+        // let t = SystemTime::now();
         if let Some(pos) = self.relative_screen_to_pos((0, delta as i16)) {
+            // debug!("scroll_down screen_to_pos {:?}", t.elapsed());
             self.sub_row_offset = pos.x;
             self.vscroll.set_offset(pos.y as usize);
             true
