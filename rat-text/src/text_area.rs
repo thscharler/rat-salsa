@@ -187,8 +187,6 @@ pub enum TextWrap {
     /// Word break within the given right margin.
     /// If not possible do a hard break.
     Word(u16),
-    ///
-    Block,
 }
 
 impl<'a> TextArea<'a> {
@@ -905,7 +903,7 @@ impl TextAreaState {
             oy = 0;
         }
 
-        if let TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block = self.text_wrap {
+        if let TextWrap::Hard | TextWrap::Word(_) = self.text_wrap {
             // sub_row_offset can be any value. limit somewhat.
             if let Ok(max_col) = self.try_line_width(oy) {
                 (0, min(self.sub_row_offset, max_col), oy)
@@ -1965,12 +1963,6 @@ impl TextAreaState {
                 self.rendered.width as upos_type,
                 self.rendered.width.saturating_sub(margin) as upos_type,
             ),
-            TextWrap::Block => (
-                TextWrap2::Block,
-                0,
-                self.rendered.width as upos_type,
-                self.rendered.width as upos_type,
-            ),
         }
     }
 
@@ -2043,7 +2035,7 @@ impl TextAreaState {
                 //
                 TextPosition::new(0, pos.y)
             }
-            TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block => {
+            TextWrap::Hard | TextWrap::Word(_) => {
                 self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
                     .expect("valid-row");
 
@@ -2122,7 +2114,7 @@ impl TextAreaState {
 
                 nsub_row_offset = 0;
             }
-            TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block => {
+            TextWrap::Hard | TextWrap::Word(_) => {
                 let (ox, sub_row_offset, oy) = self.clean_offset();
 
                 // try to find the cursor on the visible screen.
@@ -2236,7 +2228,7 @@ impl TextAreaState {
                     screen_y as i16 - self.dark_offset.1 as i16,
                 ))
             }
-            TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block => {
+            TextWrap::Hard | TextWrap::Word(_) => {
                 let (_, sub_row_offset, oy) = self.clean_offset();
 
                 if oy > self.len_lines() {
@@ -2370,7 +2362,7 @@ impl TextAreaState {
                     unreachable!();
                 }
             }
-            TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block => {
+            TextWrap::Hard | TextWrap::Word(_) => {
                 let (_, sub_row_offset, oy) = self.clean_offset();
 
                 if oy >= self.len_lines() {

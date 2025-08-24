@@ -319,10 +319,6 @@ fn handle_input(
             state.textarea.set_text_wrap(TextWrap::Hard);
             Outcome::Changed
         }
-        ct_event!(key press ALT-'r') => {
-            state.textarea.set_text_wrap(TextWrap::Block);
-            Outcome::Changed
-        }
         ct_event!(key press ALT-'c') => {
             state.textarea.set_show_ctrl(!state.textarea.show_ctrl());
             Outcome::Changed

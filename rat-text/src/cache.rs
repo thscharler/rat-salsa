@@ -57,9 +57,6 @@ pub struct Cache {
     /// Has the text-position of the glyph which is marked as 'line-break'.
     /// That means the line-break occurs *after* this position.
     pub(crate) line_break: Rc<RefCell<BTreeMap<TextPosition, LineBreakCache>>>,
-
-    /// Adjust glyph widths.
-    pub(crate) width_adjust: Rc<RefCell<BTreeMap<TextPosition, WidthAdjustCache>>>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -76,14 +73,6 @@ pub(crate) struct LineOffsetCache {
 pub(crate) struct LineBreakCache {
     // start of new line.
     pub start_pos: TextPosition,
-    // byte pos of the break
-    pub byte_pos: usize,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct WidthAdjustCache {
-    // start of new line.
-    pub add_width: upos_type,
     // byte pos of the break
     pub byte_pos: usize,
 }
@@ -134,9 +123,6 @@ impl Cache {
         self.range_to_bytes
             .borrow_mut()
             .retain(|_, cache| cache.end < byte_pos);
-        self.width_adjust
-            .borrow_mut()
-            .retain(|key, cache| cache.byte_pos < byte_pos);
 
         self.line_break.borrow_mut().retain(|pos, cache| {
             if cache.byte_pos < byte_pos {
@@ -162,7 +148,6 @@ impl Cache {
             self.full_line_break.borrow_mut().clear();
             self.line_break.borrow_mut().clear();
             self.line_start.borrow_mut().clear();
-            self.width_adjust.borrow_mut().clear();
         }
 
         match text_wrap {
@@ -171,7 +156,7 @@ impl Cache {
                     self.line_start.borrow_mut().clear();
                 }
             }
-            TextWrap2::Hard | TextWrap2::Word | TextWrap2::Block => {
+            TextWrap2::Hard | TextWrap2::Word => {
                 self.line_start.borrow_mut().clear();
                 if self.screen_width.get() != screen_width
                     || self.screen_height.get() != screen_height
@@ -179,7 +164,6 @@ impl Cache {
                 {
                     self.line_break.borrow_mut().clear();
                     self.full_line_break.borrow_mut().clear();
-                    self.width_adjust.borrow_mut().clear();
                 }
             }
         }
