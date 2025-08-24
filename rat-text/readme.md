@@ -21,6 +21,7 @@ Features for all widgets:
 * Sync another widget
 * Support double-width characters
 * Range based text styling
+* Wrapped text
 * Clipboard trait to link to some clipboard implementation.
 
   > There is no general solution for clipboards but this way you
@@ -30,7 +31,6 @@ Features for all widgets:
 
 * Lots of text manipulation functions.
     * Line/TextRange/byte indexes supported.
-    * Glyph iteration (glyph=grapheme+display information)
     * Grapheme iterator/cursor
     * byte-pos to TextPosition and vice versa.
     * Screen position to text position.
@@ -39,20 +39,70 @@ Features for all widgets:
 
 Single line text input widget.
 
+```
+// actual text is held in the state:
+state.textinput.set_value("sample");
+
+// render
+TextInput::new()
+    .style(Style::default().white().on_dark_gray())
+    .select_style(Style::default().black().on_yellow())
+    .render(txt_area, frame.buffer_mut(), &mut state.textinput);
+    
+// during event-handling
+match text_input::handle_events(&mut state.textinput, true /*focused*/, event) {
+    TextOutcome::Continue => { /* no handling */ }
+    TextOutcome::Unchanged => { /* event recognized, but no changes */ }
+    TextOutcome::Changed => { /* render required */ }
+    TextOutcome::TextChanged => { /* actual edit */ }
+}
+```
+
 ## [TextArea](crate::text_area::TextArea)
 
 Textarea with tendencies to being an editor.
 
-Uses [Rope][refRopey] backend for a good editing
-experience for longer text. Starts lagging a bit if you have
-more than 10,000 style ranges or so (wip).
+Uses [ropey][refRopey] as backend and [iset][refIset] to
+manage the text-styles.
 
 * Tab width/Tab expand to space.
 * Indent/dedent selection.
 * Newline starts at indent.
 * Mouse selection can work word-wise.
-* Renders this text in ~400µs
+* Decent speed even for large text (millons of lines and text-width ~100_000 tested).
+* Word-wrap mode.
 * Add Quotes/Braces/Brackets to selection.
+
+```
+// text is stored in the state
+state.textarea.set_text("some text");
+
+// render
+TextArea::new()
+  .block(Block::bordered())
+  .vscroll(
+      Scroll::new()
+          .scroll_by(1)
+          .policy(ScrollbarPolicy::Always),
+  )
+  .hscroll(Scroll::new().policy(ScrollbarPolicy::Always))
+  .styles(istate.theme.textarea_style())
+  .text_style([
+      Style::new().red(),
+      Style::new().underlined(),
+      Style::new().green(),
+      Style::new().on_yellow(),
+  ])
+  .render(layout[2], frame.buffer_mut(), &mut state.textarea);
+  
+// event-handling
+match text_area::handle_events(&mut state.textarea, true /* focused */, event) {
+    TextOutcome::Continue => { /* no handling */ }
+    TextOutcome::Unchanged => { /* event recognized, but no changes */ }
+    TextOutcome::Changed => { /* render required */ }
+    TextOutcome::TextChanged => { /* actual edit */ }
+}
+```
 
 There is an extended example `mdedit.rs` for TextArea in
 [rat-salsa][refRatSalsa]
@@ -94,6 +144,8 @@ Line numbers widget that can be combined with TextArea.
 [refRatScrolled]: https://docs.rs/rat-scrolled/latest/rat_scrolled/
 
 [refRopey]: https://docs.rs/ropey/
+
+[refIset]: https://docs.rs/iset/
 
 [refChrono]: https://docs.rs/chrono
 

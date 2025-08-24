@@ -7,6 +7,8 @@
       and TextWrap::Word for word-breaking.
     * Word-breaking supports soft-hyphen and soft-spaces in text.
     *
+* feature: LineNumbers::with_textarea() can now take the row data
+  from the textarea. This is very necessary when using text-wrapping.
 
 * add a caching layer. used for line-breaking and a few common but
   expensive functions (len_lines() and line_width()).

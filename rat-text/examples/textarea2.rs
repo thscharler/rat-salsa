@@ -1,7 +1,7 @@
 use crate::mini_salsa::{fill_buf_area, run_ui, setup_logging, MiniSalsaState};
 use crate::text_samples::{
     add_range_styles, sample_bosworth_1, sample_emoji, sample_long, sample_lorem_ipsum,
-    sample_medium, sample_scott_1, sample_short, sample_tabs,
+    sample_medium, sample_scott_1, sample_tabs,
 };
 use log::{debug, warn};
 use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
@@ -12,7 +12,7 @@ use rat_text::event::TextOutcome;
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::{TextInput, TextInputState};
-use rat_text::{upos_type, HasScreenCursor};
+use rat_text::{text_area, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::symbols::border::EMPTY;
@@ -240,6 +240,12 @@ fn handle_input(
         try_flow!({
             let t = SystemTime::now();
             let r = state.textarea.handle(event, Regular);
+            match text_area::handle_events(&mut state.textarea, true, event) {
+                TextOutcome::Continue => {}
+                TextOutcome::Unchanged => {}
+                TextOutcome::Changed => {}
+                TextOutcome::TextChanged => {}
+            };
             let el = t.elapsed().expect("timing");
             istate.status[2] = format!("H{}|{:?}", istate.event_cnt, el).to_string();
             r

@@ -1,6 +1,12 @@
 //!
 //! There are too many clipboard crates.
 //!
+//! Provides the Clipboard trait to connect all text-widgets
+//! with the clipboard crate of your choice.
+//!
+//! There is a default implementation that allows copying
+//! within the application.
+//!
 
 use crate::TextError;
 use dyn_clone::{clone_box, DynClone};
@@ -30,7 +36,7 @@ pub trait Clipboard: DynClone + Debug {
     /// Get text from the clipboard.
     fn get_string(&self) -> Result<String, ClipboardError>;
 
-    /// Set text from the clipboard.
+    /// Set text to the clipboard.
     fn set_string(&self, s: &str) -> Result<(), ClipboardError>;
 }
 

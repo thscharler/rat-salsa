@@ -1,6 +1,7 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_reloc::RelocatableState;
+use rat_text::event::TextOutcome;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{text_input, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -162,6 +163,13 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
+    match text_input::handle_events(&mut state.textinput, true, event) {
+        TextOutcome::Continue => {}
+        TextOutcome::Unchanged => {}
+        TextOutcome::Changed => {}
+        TextOutcome::TextChanged => {}
+    }
+
     try_flow!(text_input::handle_events(&mut state.textinput, true, event));
 
     try_flow!(match event {

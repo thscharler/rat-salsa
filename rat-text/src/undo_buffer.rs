@@ -11,6 +11,7 @@ use std::ops::Range;
 /// Undo buffer.
 ///
 /// Keeps up to undo_count operations that can be undone/redone.
+///
 /// Additionally, it can provide a change-log which can be used
 /// to sync other text-widgets.
 ///
