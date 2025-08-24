@@ -1,6 +1,6 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use crate::text_samples::{
-    add_range_styles, sample_emoji, sample_lorem, sample_scott_0, sample_tabs,
+    add_range_styles, sample_emoji, sample_lorem_rustum, sample_scott_0, sample_tabs,
 };
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_reloc::RelocatableState;
@@ -206,7 +206,7 @@ fn handle_input(
             Outcome::Changed
         }
         ct_event!(key press ALT-'5') => {
-            let (text, styles) = sample_lorem();
+            let (text, styles) = sample_lorem_rustum();
             state.textarea.set_rope(text);
             state.textarea.set_styles(styles);
             Outcome::Changed

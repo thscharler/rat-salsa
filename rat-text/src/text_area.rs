@@ -18,6 +18,7 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -187,6 +188,8 @@ pub enum TextWrap {
     /// Word break within the given right margin.
     /// If not possible do a hard break.
     Word(u16),
+    ///
+    Block,
 }
 
 impl<'a> TextArea<'a> {
@@ -1771,18 +1774,22 @@ impl TextAreaState {
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
         let cursor = self.cursor();
         let r = if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
+            debug!("move_down pos_to_screen {:?}", scr_cursor);
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
             scr_cursor.1 += n as i16;
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
+                debug!("move_down screen_to_pos {:?}", new_cursor);
                 self.set_cursor(new_cursor, extend_selection)
             } else {
+                debug!("move_down screen_to_pos fail");
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
+            debug!("move_down screen_to_pos fail");
             self.scroll_cursor_to_visible();
             true
         };
@@ -1963,6 +1970,12 @@ impl TextAreaState {
                 self.rendered.width as upos_type,
                 self.rendered.width.saturating_sub(margin) as upos_type,
             ),
+            TextWrap::Block => (
+                TextWrap2::Block,
+                0,
+                self.rendered.width as upos_type,
+                self.rendered.width as upos_type,
+            ),
         }
     }
 
@@ -2035,7 +2048,7 @@ impl TextAreaState {
                 //
                 TextPosition::new(0, pos.y)
             }
-            TextWrap::Hard | TextWrap::Word(_) => {
+            TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block => {
                 self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
                     .expect("valid-row");
 
@@ -2114,7 +2127,7 @@ impl TextAreaState {
 
                 nsub_row_offset = 0;
             }
-            TextWrap::Hard | TextWrap::Word(_) => {
+            TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block => {
                 let (ox, sub_row_offset, oy) = self.clean_offset();
 
                 // try to find the cursor on the visible screen.
@@ -2228,7 +2241,7 @@ impl TextAreaState {
                     screen_y as i16 - self.dark_offset.1 as i16,
                 ))
             }
-            TextWrap::Hard | TextWrap::Word(_) => {
+            TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block => {
                 let (_, sub_row_offset, oy) = self.clean_offset();
 
                 if oy > self.len_lines() {
@@ -2362,7 +2375,7 @@ impl TextAreaState {
                     unreachable!();
                 }
             }
-            TextWrap::Hard | TextWrap::Word(_) => {
+            TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block => {
                 let (_, sub_row_offset, oy) = self.clean_offset();
 
                 if oy >= self.len_lines() {

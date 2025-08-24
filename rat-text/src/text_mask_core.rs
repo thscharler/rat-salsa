@@ -788,15 +788,13 @@ impl MaskedCore {
     #[inline]
     pub(crate) fn glyphs2(
         &self,
-        rows: Range<upos_type>,
         left_margin: upos_type,
         right_margin: upos_type,
         condensed: bool,
     ) -> Result<Box<dyn Iterator<Item = Glyph2<'_>> + '_>, TextError> {
-        let grapheme_iter = self.masked.graphemes(
-            TextRange::new((0, rows.start), (0, rows.end)),
-            TextPosition::new(0, rows.start),
-        )?;
+        let grapheme_iter = self
+            .masked
+            .graphemes(TextRange::new((0, 0), (0, 1)), TextPosition::new(0, 0))?;
         let mask_iter = self.mask.iter();
 
         let iter = MaskedGraphemes {
@@ -810,7 +808,7 @@ impl MaskedCore {
             byte_pos: 0,
         };
 
-        let mut it = GlyphIter2::new(TextPosition::new(0, rows.start), iter, Default::default());
+        let mut it = GlyphIter2::new(TextPosition::new(0, 0), iter, Default::default());
         it.set_tabs(self.masked.tab_width() as upos_type);
         it.set_show_ctrl(self.masked.glyph_ctrl());
         it.set_lf_breaks(self.masked.glyph_line_break());

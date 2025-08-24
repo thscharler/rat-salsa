@@ -44,6 +44,7 @@ rat-scrolled = { version = "1.1", path = "../rat-scrolled" }
 fern = "0.7"
 anyhow = "1.0"
 lorem-rustum = "0.0.5"
+lipsum = "0.9.1"
 cli-clipboard = "0.4"
 
 

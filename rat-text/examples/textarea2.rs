@@ -1,7 +1,7 @@
 use crate::mini_salsa::{fill_buf_area, run_ui, setup_logging, MiniSalsaState};
 use crate::text_samples::{
-    add_range_styles, sample_bosworth_1, sample_emoji, sample_long, sample_lorem, sample_medium,
-    sample_scott_1, sample_short, sample_tabs,
+    add_range_styles, sample_bosworth_1, sample_emoji, sample_long, sample_lorem_ipsum,
+    sample_lorem_rustum, sample_medium, sample_scott_1, sample_short, sample_tabs,
 };
 use log::{debug, warn};
 use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
@@ -40,9 +40,8 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.textarea.focus.set(true);
     state.textarea.set_auto_indent(false);
-    state.textarea.set_text_wrap(TextWrap::Shift);
-
-    let (text, styles) = sample_scott_1();
+    state.textarea.set_text_wrap(TextWrap::Word(2));
+    let (text, styles) = sample_bosworth_1();
     state.textarea.set_rope(text);
     // state.textarea.set_styles(styles);
     add_range_styles(&mut state.textarea, styles);
@@ -265,9 +264,12 @@ fn handle_input(
             Outcome::Changed
         }
         ct_event!(key press ALT-'5') => {
-            let (text, styles) = sample_lorem();
+            let (text, styles) = sample_lorem_ipsum();
             state.textarea.set_rope(text);
-            state.textarea.set_styles(styles);
+            add_range_styles(&mut state.textarea, styles);
+            // let (text, styles) = sample_lorem_rustum();
+            // state.textarea.set_rope(text);
+            // state.textarea.set_styles(styles);
             Outcome::Changed
         }
         ct_event!(key press ALT-'6') => {
@@ -315,6 +317,10 @@ fn handle_input(
         }
         ct_event!(key press ALT-'e') => {
             state.textarea.set_text_wrap(TextWrap::Hard);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'r') => {
+            state.textarea.set_text_wrap(TextWrap::Block);
             Outcome::Changed
         }
         ct_event!(key press ALT-'c') => {

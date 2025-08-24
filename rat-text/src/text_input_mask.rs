@@ -1330,7 +1330,6 @@ impl MaskedInputState {
     fn glyphs2(&self) -> impl Iterator<Item = Glyph2<'_>> {
         self.value
             .glyphs2(
-                0..1,
                 self.offset(),
                 self.offset() + self.rendered.width as upos_type,
                 self.compact && !self.is_focused(),
