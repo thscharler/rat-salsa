@@ -1799,7 +1799,7 @@ impl TextAreaState {
         let mut line_start = self.pos_to_line_start(cursor);
         for g in self
             .glyphs2(
-                shift_left,
+                0,
                 line_start.x,
                 line_start.y..min(line_start.y + 1, self.len_lines()),
             )

@@ -212,6 +212,7 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
+    focus.enable_log();
 
     try_flow!(focus.handle(event, Regular));
 
