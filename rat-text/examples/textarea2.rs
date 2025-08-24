@@ -4,16 +4,22 @@ use crate::text_samples::{
     sample_scott_1, sample_short, sample_tabs,
 };
 use log::{debug, warn};
-use rat_event::{ct_event, try_flow, Outcome};
+use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
+use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
+use rat_text::event::TextOutcome;
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
+use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{text_area, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
 use ratatui::Frame;
+use ropey::Rope;
 use std::cell::RefCell;
+use std::fs::File;
+use std::io::BufReader;
 use std::time::SystemTime;
 
 mod mini_salsa;
@@ -28,6 +34,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         info: true,
+        search: Default::default(),
         textarea: Default::default(),
         help: false,
     };
@@ -55,6 +62,7 @@ struct Data {}
 
 struct State {
     pub info: bool,
+    pub search: TextInputState,
     pub textarea: TextAreaState,
     pub help: bool,
 }
@@ -67,7 +75,8 @@ fn repaint_input(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
-        Constraint::Length(2),
+        Constraint::Length(1),
+        Constraint::Length(1),
         Constraint::Fill(1),
         Constraint::Length(2),
         Constraint::Length(1),
@@ -75,14 +84,11 @@ fn repaint_input(
     .split(area);
 
     let l2 = Layout::horizontal([
-        Constraint::Length(0),
         Constraint::Length(2),
         Constraint::Fill(1),
         Constraint::Length(2),
     ])
-    .split(l1[1]);
-
-    let txt_area = l2[2];
+    .split(l1[2]);
 
     let textarea = TextArea::new()
         .block(Block::bordered())
@@ -100,19 +106,42 @@ fn repaint_input(
             Style::new().underlined(),
             Style::new().green(),
             Style::new().on_yellow(),
-        ]);
+        ])
+        .text_style_idx(
+            999,
+            Style::new()
+                .bg(istate.theme.bluegreen[1])
+                .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
+        );
 
     let t = SystemTime::now();
-    textarea.render(txt_area, frame.buffer_mut(), &mut state.textarea);
+    textarea.render(l2[1], frame.buffer_mut(), &mut state.textarea);
     let el = t.elapsed().expect("timinig");
+
     istate.status[1] = format!("R{}|{:.0?}", frame.count(), el).to_string();
 
-    let screen_cursor = state.textarea.screen_cursor();
+    let l3 = Layout::horizontal([
+        Constraint::Length(43),
+        Constraint::Fill(1),
+        Constraint::Length(10),
+    ])
+    .split(l1[0]);
+
+    TextInput::new().styles(istate.theme.input_style()).render(
+        l3[1],
+        frame.buffer_mut(),
+        &mut state.search,
+    );
+
+    let screen_cursor = state
+        .textarea
+        .screen_cursor()
+        .or(state.search.screen_cursor());
     if let Some((cx, cy)) = screen_cursor {
         frame.set_cursor_position((cx, cy));
     }
 
-    "F1 toggle help | Ctrl+Q quit".render(l1[0], frame.buffer_mut());
+    "F1 toggle help | Ctrl+Q quit | Alt-F(ind) ".render(l1[0], frame.buffer_mut());
 
     if state.help {
         fill_buf_area(
@@ -126,6 +155,7 @@ fn repaint_input(
         Paragraph::new(
             r#"
     ALT-0..8 Sample text
+    ALT-l    open 'log.log'
     ALT-q    no wrap
     ALT-w    word wrap
     ALT-e    hard wrap
@@ -207,19 +237,41 @@ fn repaint_input(
     Ok(())
 }
 
+fn focus(state: &mut State) -> Focus {
+    let mut ff = FocusBuilder::new(None);
+    ff.widget(&state.textarea);
+    ff.widget(&state.search);
+    ff.build()
+}
+
 fn handle_input(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
+    let mut focus = focus(state);
+
+    try_flow!(focus.handle(event, Regular));
+
     if !state.help {
         try_flow!({
             let t = SystemTime::now();
-            let r = text_area::handle_events(&mut state.textarea, true, event);
+            let r = state.textarea.handle(event, Regular);
             let el = t.elapsed().expect("timing");
             istate.status[2] = format!("H{}|{:?}", istate.event_cnt, el).to_string();
             r
+        });
+
+        try_flow!({
+            let r = state.search.handle(event, Regular);
+            match r {
+                TextOutcome::TextChanged => {
+                    run_search(state);
+                    TextOutcome::Changed
+                }
+                r => r,
+            }
         });
     }
 
@@ -274,6 +326,23 @@ fn handle_input(
             add_range_styles(&mut state.textarea, styles);
             Outcome::Changed
         }
+        ct_event!(key press ALT-'l') => {
+            let file = File::open("log.log")?;
+            let buf = BufReader::new(file);
+            let text = Rope::from_reader(buf)?;
+            state.textarea.set_rope(text);
+            Outcome::Changed
+        }
+
+        ct_event!(key press ALT-'f') => {
+            if state.search.is_focused() {
+                focus.focus(&state.textarea);
+            } else {
+                focus.focus(&state.search);
+            }
+            Outcome::Changed
+        }
+
         ct_event!(key press ALT-'q') => {
             state.textarea.set_text_wrap(TextWrap::Shift);
             Outcome::Changed
@@ -306,6 +375,31 @@ fn handle_input(
     });
 
     Ok(Outcome::Continue)
+}
+
+fn run_search(state: &mut State) {
+    let search_text = state.search.text();
+
+    // TODO: will kill any sample styling ...
+    state.textarea.set_styles(Vec::default());
+
+    if search_text.len() < 1 {
+        return;
+    }
+
+    // TODO: this is not fast
+    let text = state.textarea.text();
+
+    let mut start = 0;
+    loop {
+        let Some(pos) = text[start..].find(search_text) else {
+            break;
+        };
+        state
+            .textarea
+            .add_style(start + pos..start + pos + search_text.len(), 999);
+        start = start + pos + search_text.len();
+    }
 }
 
 #[derive(Debug, Default, Clone)]
