@@ -2300,7 +2300,11 @@ impl TextAreaState {
 
                 let screen_x = 'f: {
                     for g in self
-                        .glyphs2(0, start_pos.x, pos.y..min(pos.y + 1, self.len_lines()))
+                        .glyphs2(
+                            0,
+                            start_pos.x,
+                            start_pos.y..min(start_pos.y + 1, self.len_lines()),
+                        )
                         .expect("valid-row")
                     {
                         if g.pos().x == pos.x {
