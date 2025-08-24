@@ -23,9 +23,7 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
-use std::cell::RefCell;
 use std::cmp::max;
-use std::rc::Rc;
 
 mod data {
     pub(crate) static TINY_DATA: [&str; 10] = [

@@ -1,4 +1,5 @@
-![stable](https://img.shields.io/badge/stability-β--3-850101)
+![semver](https://img.shields.io/badge/semver-☑-FFD700)
+![stable](https://img.shields.io/badge/stability-stable-8A2BE2)
 [![crates.io](https://img.shields.io/crates/v/rat-text.svg)](https://crates.io/crates/rat-text)
 [![Documentation](https://docs.rs/rat-text/badge.svg)](https://docs.rs/rat-text)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)

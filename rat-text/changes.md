@@ -1,3 +1,24 @@
+# 1.1.0
+
+* feature: new glyph iteration.
+    * Adds a word-breaking algorithm.
+    * activate with text_area_state.set_text_wrap()
+    * adds TextWrap::Shift for current behaviour, TextWrap::Hard for vi-style wrapping
+      and TextWrap::Word for word-breaking.
+    * Word-breaking supports soft-hyphen and soft-spaces in text.
+    *
+
+* add a caching layer. used for line-breaking and a few common but
+  expensive functions (len_lines() and line_width()).
+  Navigation functions now use this cache to speed up cursor
+  positioning.
+* speed up glyph iteration with SkipLine trait. This is implemented
+  by the grapheme level iterators and allows to skip the rest of
+  a text-line or to jump to a specific byte-index. This significantly
+  speeds up rendering long lines too.
+
+* deprecated old glyphs() function and made the new one only pub(crate).
+
 # 1.0.5
 
 * update dependencies

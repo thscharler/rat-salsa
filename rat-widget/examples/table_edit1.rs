@@ -450,12 +450,12 @@ impl TableEditorState for SampleEditorState {
             self.text => Some(0),
             self.num1 => Some(1),
             self.num2 => Some(2),
-            self.num3 => Some(3)
-            , _ => None
+            self.num3 => Some(3),
+            _ => None
         )
     }
 
-    fn set_focused_col(&self, col: usize) {
+    fn set_focused_col(&self, _col: usize) {
         todo!()
     }
 }

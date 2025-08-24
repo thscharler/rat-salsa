@@ -1,3 +1,7 @@
+# 1.1.3
+
+* fix ScrollPolicy::Always + max_offset 0 doesn't show anything.
+
 # 1.1.2
 
 * fix: set_offset() can be set to any value. This is necessary to set

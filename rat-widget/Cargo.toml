@@ -7,7 +7,7 @@ description = "ratatui widgets extended edition"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/thscharler/rat-salsa"
 readme = "readme.md"
-keywords = ["ratatui", "widget"]
+keywords = ["tui", "ratatui", "input", "widget"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "textarea.gif"]
 
