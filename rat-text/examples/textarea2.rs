@@ -9,12 +9,14 @@ use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
 use rat_text::event::TextOutcome;
+use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::{TextInput, TextInputState};
-use rat_text::HasScreenCursor;
+use rat_text::{upos_type, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
+use ratatui::symbols::border::EMPTY;
+use ratatui::widgets::{Block, Borders, Paragraph, StatefulWidget, Widget};
 use ratatui::Frame;
 use ropey::Rope;
 use std::cell::RefCell;
@@ -34,8 +36,10 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         info: true,
+        relative_line_nr: false,
         search: Default::default(),
         textarea: Default::default(),
+        line_numbers: Default::default(),
         help: false,
     };
     state.textarea.focus.set(true);
@@ -62,8 +66,10 @@ struct Data {}
 
 struct State {
     pub info: bool,
+    pub relative_line_nr: bool,
     pub search: TextInputState,
     pub textarea: TextAreaState,
+    pub line_numbers: LineNumberState,
     pub help: bool,
 }
 
@@ -83,8 +89,11 @@ fn repaint_input(
     ])
     .split(area);
 
+    let line_number_width = LineNumbers::width_for(state.textarea.offset().1, 0, (0, 0), 0);
+
     let l2 = Layout::horizontal([
         Constraint::Length(2),
+        Constraint::Length(line_number_width),
         Constraint::Fill(1),
         Constraint::Length(2),
     ])
@@ -113,10 +122,20 @@ fn repaint_input(
                 .bg(istate.theme.bluegreen[0])
                 .fg(istate.theme.text_color(istate.theme.bluegreen[0])),
         );
-
     let t = SystemTime::now();
-    textarea.render(l2[1], frame.buffer_mut(), &mut state.textarea);
+    textarea.render(l2[2], frame.buffer_mut(), &mut state.textarea);
     let el = t.elapsed().expect("timinig");
+
+    LineNumbers::new()
+        .block(
+            Block::new()
+                .borders(Borders::TOP | Borders::BOTTOM)
+                .border_set(EMPTY),
+        )
+        .styles(istate.theme.line_nr_style())
+        .with_textarea(&state.textarea)
+        .relative(state.relative_line_nr)
+        .render(l2[1], frame.buffer_mut(), &mut state.line_numbers);
 
     istate.status[1] = format!("R{}|{:.0?}", frame.count(), el,).to_string();
 
@@ -157,7 +176,7 @@ fn repaint_input(
     if state.help {
         fill_buf_area(
             frame.buffer_mut(),
-            l2[1],
+            l2[2],
             " ",
             Style::new()
                 .bg(istate.theme.bluegreen[1])
@@ -175,6 +194,7 @@ fn repaint_input(
     ALT-c    show ctrl
     ALT-x    show breaks
     ALT-d    dump cache (to log)
+    Alt-n    toggle absolute/relative line nr
 "#,
         )
         .style(
@@ -182,7 +202,7 @@ fn repaint_input(
                 .bg(istate.theme.bluegreen[1])
                 .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
         )
-        .render(l2[1], frame.buffer_mut());
+        .render(l2[2], frame.buffer_mut());
     }
 
     let ccursor = state.textarea.selection();
@@ -305,6 +325,11 @@ fn handle_input(
             } else {
                 focus.focus(&state.search);
             }
+            Outcome::Changed
+        }
+
+        ct_event!(key press ALT-'n') => {
+            state.relative_line_nr = !state.relative_line_nr;
             Outcome::Changed
         }
 

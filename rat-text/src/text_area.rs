@@ -375,13 +375,14 @@ fn render_text_area(
         Style::default().black().on_yellow()
     };
 
-    let sa = ScrollArea::new()
+    // sync scroll and cursor
+    state.area = area;
+    state.screen_cursor = None;
+    state.inner = ScrollArea::new()
         .block(widget.block.as_ref())
         .h_scroll(widget.hscroll.as_ref())
         .v_scroll(widget.vscroll.as_ref())
-        .style(style);
-
-    state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
+        .inner(area, Some(&state.hscroll), Some(&state.vscroll));
     state.rendered = state.inner.as_size();
 
     if let Some(h_max_offset) = widget.h_max_offset {
@@ -408,30 +409,33 @@ fn render_text_area(
         state.scroll_to_cursor();
     }
 
-    let inner = state.inner;
+    // scroll + background
+    ScrollArea::new()
+        .block(widget.block.as_ref())
+        .h_scroll(widget.hscroll.as_ref())
+        .v_scroll(widget.vscroll.as_ref())
+        .style(style)
+        .render(
+            area,
+            buf,
+            &mut ScrollAreaState::new()
+                .h_scroll(&mut state.hscroll)
+                .v_scroll(&mut state.vscroll),
+        );
 
-    // set base style
-    sa.render(
-        area,
-        buf,
-        &mut ScrollAreaState::new()
-            .h_scroll(&mut state.hscroll)
-            .v_scroll(&mut state.vscroll),
-    );
-
-    if inner.width == 0 || inner.height == 0 {
+    if state.inner.width == 0 || state.inner.height == 0 {
         // noop
         return;
     }
-
     if state.vscroll.offset() > state.value.len_lines() as usize {
+        // noop
         return;
     }
 
     let (shift_left, sub_row_offset, start_row) = state.clean_offset();
     let page_rows = start_row
         ..min(
-            start_row + inner.height as upos_type,
+            start_row + state.inner.height as upos_type,
             state.value.len_lines(),
         );
     let page_bytes = state
@@ -478,15 +482,18 @@ fn render_text_area(
             };
 
             // render glyph
-            if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
+            if let Some(cell) =
+                buf.cell_mut((state.inner.x + screen_pos.0, state.inner.y + screen_pos.1))
+            {
                 cell.set_symbol(g.glyph());
                 cell.set_style(style);
             }
             // clear the reset of the cells to avoid interferences.
             for d in 1..g.screen_width() {
-                if let Some(cell) =
-                    buf.cell_mut((inner.x + screen_pos.0 + d, inner.y + screen_pos.1))
-                {
+                if let Some(cell) = buf.cell_mut((
+                    state.inner.x + screen_pos.0 + d,
+                    state.inner.y + screen_pos.1,
+                )) {
                     cell.reset();
                     cell.set_style(style);
                 }

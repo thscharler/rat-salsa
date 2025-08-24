@@ -3,7 +3,8 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::upos_type;
+use crate::text_area::TextAreaState;
+use crate::{upos_type, TextPosition};
 use format_num_pattern::NumberFormat;
 use rat_event::util::MouseFlags;
 use ratatui::buffer::Buffer;
@@ -21,12 +22,13 @@ use ratatui::widgets::{Block, Widget};
 /// [`LineNumberState`] to handle common actions.
 #[derive(Debug, Default, Clone)]
 pub struct LineNumbers<'a> {
-    start: upos_type,
+    start: Option<upos_type>,
     end: Option<upos_type>,
-    cursor: upos_type,
+    cursor: Option<upos_type>,
+    text_area: Option<&'a TextAreaState>,
+
     relative: bool,
     flags: Vec<Line<'a>>,
-
     flag_width: Option<u16>,
     margin: (u16, u16),
 
@@ -56,6 +58,7 @@ pub struct LineNumberState {
     pub area: Rect,
     pub inner: Rect,
 
+    /// First rendered line-number
     pub start: upos_type,
 
     /// Helper for mouse.
@@ -69,9 +72,19 @@ impl<'a> LineNumbers<'a> {
         Self::default()
     }
 
+    /// Sync with this text-area.
+    ///
+    /// To make this work correctly, the TextArea must be rendered
+    /// first to make sure that all layout-information stored in the
+    /// state is accurate.
+    pub fn with_textarea(mut self, text_area: &'a TextAreaState) -> Self {
+        self.text_area = Some(text_area);
+        self
+    }
+
     /// Start position.
     pub fn start(mut self, start: upos_type) -> Self {
-        self.start = start;
+        self.start = Some(start);
         self
     }
 
@@ -83,7 +96,7 @@ impl<'a> LineNumbers<'a> {
 
     /// Current line for highlighting.
     pub fn cursor(mut self, cursor: upos_type) -> Self {
-        self.cursor = cursor;
+        self.cursor = Some(cursor);
         self
     }
 
@@ -105,7 +118,7 @@ impl<'a> LineNumbers<'a> {
         self
     }
 
-    /// Extra margin.
+    /// Extra margin as (left-margin, right-margin).
     pub fn margin(mut self, margin: (u16, u16)) -> Self {
         self.margin = margin;
         self
@@ -159,12 +172,18 @@ impl<'a> LineNumbers<'a> {
     }
 
     /// Calculates the necessary width for the configuration.
+    #[deprecated(since = "1.1.0", note = "use width_for()")]
     pub fn width(&self) -> u16 {
-        let nr_width = if let Some(end) = self.end {
+        let nr_width = if let Some(text_area) = self.text_area {
+            (text_area.vscroll.offset() + 100).ilog10() as u16 + 1
+        } else if let Some(end) = self.end {
             end.ilog10() as u16 + 1
+        } else if let Some(start) = self.start {
+            (start + 100).ilog10() as u16 + 1
         } else {
-            (self.start + 100).ilog10() as u16 + 1
+            3
         };
+
         let flag_width = if let Some(flag_width) = self.flag_width {
             flag_width
         } else {
@@ -174,12 +193,19 @@ impl<'a> LineNumbers<'a> {
                 .max()
                 .unwrap_or_default()
         };
+
         let block_width = {
             let area = self.block.inner_if_some(Rect::new(0, 0, 2, 2));
             2 - area.width
         };
 
         nr_width + flag_width + self.margin.0 + self.margin.1 + block_width + 1
+    }
+
+    /// Required width for the line-numbers.
+    pub fn width_for(start_nr: usize, flag_width: u16, margin: (u16, u16), block: u16) -> u16 {
+        let nr_width = (start_nr + 100).ilog10() as u16 + 1;
+        nr_width + flag_width + margin.0 + margin.1 + block + 1
     }
 }
 
@@ -203,13 +229,30 @@ impl StatefulWidget for LineNumbers<'_> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
         state.inner = self.block.inner_if_some(area);
-        state.start = self.start;
-        let end = self.end.unwrap_or(upos_type::MAX);
 
-        let nr_width = if let Some(end) = self.end {
-            end.ilog10() as u16 + 1
+        state.start = if let Some(text_area) = self.text_area {
+            text_area.offset().1 as upos_type
+        } else if let Some(start) = self.start {
+            start
         } else {
-            (self.start + 100).ilog10() as u16 + 1
+            0
+        };
+        let end = if let Some(text_area) = self.text_area {
+            text_area.len_lines()
+        } else if let Some(end) = self.end {
+            end
+        } else {
+            state.start + state.inner.height as upos_type
+        };
+
+        let nr_width = if let Some(text_area) = self.text_area {
+            (text_area.vscroll.offset() + 100).ilog10() as u16 + 1
+        } else if let Some(end) = self.end {
+            end.ilog10() as u16 + 1
+        } else if let Some(start) = self.start {
+            (start + 100).ilog10() as u16 + 1
+        } else {
+            3
         };
 
         let flag_width = if let Some(flag_width) = self.flag_width {
@@ -242,22 +285,61 @@ impl StatefulWidget for LineNumbers<'_> {
             buf.set_style(area, self.style);
         }
 
-        let mut tmp = String::new();
-        for y in state.inner.top()..state.inner.bottom() {
-            let (nr, is_cursor) = if self.relative {
-                let pos = self.start + (y - state.inner.y) as upos_type;
-                (pos.abs_diff(self.cursor), pos == self.cursor)
-            } else {
-                let pos = self.start + (y - state.inner.y) as upos_type;
-                (pos, pos == self.cursor)
-            };
+        let cursor = if let Some(text_area) = self.text_area {
+            text_area.cursor()
+        } else if let Some(cursor) = self.cursor {
+            TextPosition::new(0, cursor)
+        } else {
+            TextPosition::new(0, upos_type::MAX)
+        };
 
-            tmp.clear();
-            if nr < end {
-                _ = format.fmt_to(nr, &mut tmp);
+        let mut tmp = String::new();
+        let mut prev_nr = upos_type::MAX;
+
+        for y in state.inner.top()..state.inner.bottom() {
+            let nr;
+            let rel_nr;
+            let render_nr;
+            let render_cursor;
+
+            if let Some(text_area) = self.text_area {
+                let rel_y = y - state.inner.y;
+                if let Some(pos) = text_area.relative_screen_to_pos((0, rel_y as i16)) {
+                    nr = pos.y;
+                    if self.relative {
+                        rel_nr = nr.abs_diff(cursor.y);
+                    } else {
+                        rel_nr = nr;
+                    }
+                    render_nr = pos.y != prev_nr;
+                    render_cursor = pos.y == cursor.y;
+                } else {
+                    nr = 0;
+                    rel_nr = 0;
+                    render_nr = false;
+                    render_cursor = false;
+                }
+            } else {
+                nr = state.start + (y - state.inner.y) as upos_type;
+                render_nr = nr < end;
+                render_cursor = Some(nr) == self.cursor;
+                if self.relative {
+                    rel_nr = nr.abs_diff(self.cursor.unwrap_or_default());
+                } else {
+                    rel_nr = nr;
+                }
             }
 
-            let style = if is_cursor { cursor_style } else { self.style };
+            tmp.clear();
+            if render_nr {
+                _ = format.fmt_to(rel_nr, &mut tmp);
+            }
+
+            let style = if render_cursor {
+                cursor_style
+            } else {
+                self.style
+            };
 
             let nr_area = Rect::new(
                 state.inner.x + self.margin.0, //
@@ -279,6 +361,8 @@ impl StatefulWidget for LineNumbers<'_> {
                     buf,
                 );
             }
+
+            prev_nr = nr;
         }
     }
 }
