@@ -38,6 +38,7 @@ fn main() -> Result<(), anyhow::Error> {
         textarea: Default::default(),
         help: false,
     };
+    state.textarea.focus.set(true);
     state.textarea.set_auto_indent(false);
     state.textarea.set_text_wrap(TextWrap::Shift);
 
@@ -118,7 +119,7 @@ fn repaint_input(
     textarea.render(l2[1], frame.buffer_mut(), &mut state.textarea);
     let el = t.elapsed().expect("timinig");
 
-    istate.status[1] = format!("R{}|{:.0?}", frame.count(), el).to_string();
+    istate.status[1] = format!("R{}|{:.0?}", frame.count(), el,).to_string();
 
     let l3 = Layout::horizontal([
         Constraint::Length(43),
@@ -133,10 +134,14 @@ fn repaint_input(
         &mut state.search,
     );
 
-    let screen_cursor = state
-        .textarea
-        .screen_cursor()
-        .or(state.search.screen_cursor());
+    let screen_cursor = if !state.help {
+        state
+            .textarea
+            .screen_cursor()
+            .or(state.search.screen_cursor())
+    } else {
+        None
+    };
     if let Some((cx, cy)) = screen_cursor {
         frame.set_cursor_position((cx, cy));
     }
@@ -146,7 +151,7 @@ fn repaint_input(
     if state.help {
         fill_buf_area(
             frame.buffer_mut(),
-            l2[2],
+            l2[1],
             " ",
             Style::new()
                 .bg(istate.theme.bluegreen[1])
@@ -154,6 +159,8 @@ fn repaint_input(
         );
         Paragraph::new(
             r#"
+    ** HELP **            
+            
     ALT-0..8 Sample text
     ALT-l    open 'log.log'
     ALT-q    no wrap
@@ -169,69 +176,17 @@ fn repaint_input(
                 .bg(istate.theme.bluegreen[1])
                 .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
         )
-        .render(l2[2], frame.buffer_mut());
+        .render(l2[1], frame.buffer_mut());
     }
-
-    // if state.info {
-    //     use fmt::Write;
-    //     let mut stats = String::new();
-    //     _ = writeln!(&mut stats);
-    //     _ = writeln!(
-    //         &mut stats,
-    //         "offset: {:?} {:?}",
-    //         state.textarea.offset(),
-    //         state.textarea.sub_row_offset
-    //     );
-    //     _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
-    //     _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
-    //     if let Some((scx, scy)) = screen_cursor {
-    //         _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
-    //     } else {
-    //         _ = writeln!(&mut stats, "screen: None",);
-    //     }
-    //     _ = writeln!(
-    //         &mut stats,
-    //         "width: {:?} ",
-    //         state.textarea.line_width(state.textarea.cursor().y)
-    //     );
-    //     _ = writeln!(
-    //         &mut stats,
-    //         "next word: {:?} {:?}",
-    //         state.textarea.next_word_start(state.textarea.cursor()),
-    //         state.textarea.next_word_end(state.textarea.cursor())
-    //     );
-    //     _ = writeln!(
-    //         &mut stats,
-    //         "prev word: {:?} {:?}",
-    //         state.textarea.prev_word_start(state.textarea.cursor()),
-    //         state.textarea.prev_word_end(state.textarea.cursor())
-    //     );
-    //
-    //     _ = write!(&mut stats, "cursor-styles: ",);
-    //     let mut styles = Vec::new();
-    //     let cursor_byte = state.textarea.byte_at(state.textarea.cursor());
-    //     state.textarea.styles_at(cursor_byte.start, &mut styles);
-    //     for (_, s) in styles {
-    //         _ = write!(&mut stats, "{}, ", s);
-    //     }
-    //     _ = writeln!(&mut stats);
-    //
-    //     if let Some(st) = state.textarea.value.styles() {
-    //         _ = writeln!(&mut stats, "text-styles: {}", st.count());
-    //     }
-    //     if let Some(st) = state.textarea.value.styles() {
-    //         for r in st.take(20) {
-    //             _ = writeln!(&mut stats, "    {:?}", r);
-    //         }
-    //     }
-    //     let dbg = Paragraph::new(stats);
-    //     frame.render_widget(dbg, l2[1]);
-    // }
 
     let ccursor = state.textarea.selection();
     istate.status[0] = format!(
-        "{}:{} - {}:{}",
-        ccursor.start.y, ccursor.start.x, ccursor.end.y, ccursor.end.x,
+        "{}:{} - {}:{} | wrap {:?}",
+        ccursor.start.y,
+        ccursor.start.x,
+        ccursor.end.y,
+        ccursor.end.x,
+        state.textarea.text_wrap()
     );
 
     Ok(())
