@@ -669,7 +669,7 @@ impl MaskedCore {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "discontinued api")]
     #[allow(deprecated)]
     pub fn glyphs(
         &self,
@@ -715,7 +715,7 @@ impl MaskedCore {
     ///
     /// This omits unnecessary white-space.
     #[inline]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "discontinued api")]
     #[allow(deprecated)]
     pub fn condensed_glyphs(
         &self,

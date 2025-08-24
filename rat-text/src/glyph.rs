@@ -5,7 +5,7 @@ use std::ops::Range;
 
 /// Data for rendering/mapping graphemes to screen coordinates.
 #[derive(Debug)]
-#[deprecated]
+#[deprecated(since = "1.1.0", note = "discontinued api")]
 pub struct Glyph<'a> {
     /// Display glyph.
     glyph: Cow<'a, str>,

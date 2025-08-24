@@ -1079,7 +1079,7 @@ impl TextAreaState {
     /// Glyphs here a grapheme + display length.
     #[inline]
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "discontinued api")]
     pub fn glyphs(
         &self,
         rows: Range<upos_type>,
@@ -1095,7 +1095,7 @@ impl TextAreaState {
     /// Glyphs here a grapheme + display length.
     #[inline]
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "discontinued api")]
     pub fn try_glyphs(
         &self,
         rows: Range<upos_type>,
@@ -1793,7 +1793,6 @@ impl TextAreaState {
     /// Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let (shift_left, _, _) = self.clean_offset();
         let cursor = self.cursor();
 
         let mut line_start = self.pos_to_line_start(cursor);
@@ -2475,7 +2474,7 @@ impl TextAreaState {
 impl TextAreaState {
     /// Converts from a widget relative screen coordinate to a line.
     /// It limits its result to a valid row.
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by relative_screen_to_pos()")]
     pub fn screen_to_row(&self, scy: i16) -> upos_type {
         let (_, oy) = self.offset();
         let oy = oy as upos_type + self.dark_offset.1 as upos_type;
@@ -2502,7 +2501,7 @@ impl TextAreaState {
     ///   with screen_to_row().
     /// * x is the relative screen position.
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by relative_screen_to_pos()")]
     pub fn screen_to_col(&self, row: upos_type, scx: i16) -> upos_type {
         self.try_screen_to_col(row, scx).expect("valid_row")
     }
@@ -2514,7 +2513,7 @@ impl TextAreaState {
     ///   with screen_to_row().
     /// * x is the relative screen position.
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by relative_screen_to_pos()")]
     pub fn try_screen_to_col(&self, row: upos_type, scx: i16) -> Result<upos_type, TextError> {
         let (ox, _) = self.offset();
 
@@ -2546,7 +2545,7 @@ impl TextAreaState {
 
     /// Converts the row of the position to a screen position
     /// relative to the widget area.
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by pos_to_relative_screen()")]
     pub fn row_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
         let pos = pos.into();
         let (_, oy) = self.offset();
@@ -2567,7 +2566,7 @@ impl TextAreaState {
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by pos_to_relative_screen()")]
     pub fn col_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
         self.try_col_to_screen(pos).expect("valid_pos")
     }
@@ -2575,7 +2574,7 @@ impl TextAreaState {
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by pos_to_relative_screen()")]
     pub fn try_col_to_screen(
         &self,
         pos: impl Into<TextPosition>,

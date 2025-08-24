@@ -1,4 +1,4 @@
-use lipsum::{lipsum, lipsum_words};
+use lipsum::lipsum;
 use rat_text::text_area::TextAreaState;
 use rat_text::TextRange;
 use ropey::{Rope, RopeBuilder};

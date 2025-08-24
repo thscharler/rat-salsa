@@ -941,7 +941,7 @@ impl MaskedInputState {
     /// Glyphs here a grapheme + display length.
     #[inline]
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "discontinued api")]
     pub fn glyphs(&self, screen_offset: u16, screen_width: u16) -> impl Iterator<Item = Glyph<'_>> {
         self.value
             .glyphs(0..1, screen_offset, screen_width)
@@ -952,7 +952,7 @@ impl MaskedInputState {
     /// Glyphs here a grapheme + display length.
     #[inline]
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "discontinued api")]
     pub fn condensed_glyphs(
         &self,
         screen_offset: u16,

@@ -1,7 +1,7 @@
 use crate::mini_salsa::{fill_buf_area, run_ui, setup_logging, MiniSalsaState};
 use crate::text_samples::{
     add_range_styles, sample_bosworth_1, sample_emoji, sample_long, sample_lorem_ipsum,
-    sample_lorem_rustum, sample_medium, sample_scott_1, sample_short, sample_tabs,
+    sample_medium, sample_scott_1, sample_short, sample_tabs,
 };
 use log::{debug, warn};
 use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
@@ -11,7 +11,7 @@ use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
 use rat_text::event::TextOutcome;
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::{TextInput, TextInputState};
-use rat_text::{text_area, HasScreenCursor};
+use rat_text::HasScreenCursor;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};

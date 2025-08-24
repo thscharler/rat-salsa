@@ -79,7 +79,7 @@ pub trait TextStore {
     ///
     /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by grapheme_bytes")]
     fn graphemes(
         &self,
         range: TextRange,
