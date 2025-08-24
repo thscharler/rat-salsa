@@ -750,7 +750,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.text.len_lines() == 1 && self.text.line_width(0).expect("line") == 0
+        self.len_lines() == 1 && self.line_width(0).expect("line") == 0
     }
 
     /// Grapheme position to byte position.
@@ -910,8 +910,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
         &self,
         pos: TextPosition,
     ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
-        let rows = self.text.len_lines();
-        let cols = self.text.line_width(rows).expect("valid_row");
+        let rows = self.len_lines();
+        let cols = self.line_width(rows).expect("valid_row");
         self.text
             .graphemes(TextRange::new((0, 0), (cols, rows)), pos)
     }
