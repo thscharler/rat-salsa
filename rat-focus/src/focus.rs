@@ -1664,7 +1664,11 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
                     "Tab {:?}",
                     self.focused().map(|v| v.name().to_string())
                 );
-                let r = self.next().into();
+                let r = if self.next() {
+                    Outcome::Changed
+                } else {
+                    Outcome::Continue
+                };
                 focus_debug!(
                     self.core.log,
                     "    -> {:?}",
@@ -1678,7 +1682,11 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
                     "BackTab {:?}",
                     self.focused().map(|v| v.name().to_string())
                 );
-                let r = self.prev().into();
+                let r = if self.prev() {
+                    Outcome::Changed
+                } else {
+                    Outcome::Continue
+                };
                 focus_debug!(
                     self.core.log,
                     "    -> {:?}",
