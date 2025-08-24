@@ -111,8 +111,8 @@ fn repaint_input(
         .text_style_idx(
             999,
             Style::new()
-                .bg(istate.theme.bluegreen[1])
-                .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
+                .bg(istate.theme.bluegreen[0])
+                .fg(istate.theme.text_color(istate.theme.bluegreen[0])),
         );
 
     let t = SystemTime::now();
@@ -128,6 +128,15 @@ fn repaint_input(
     ])
     .split(l1[0]);
 
+    fill_buf_area(
+        frame.buffer_mut(),
+        l1[0],
+        " ",
+        Style::new()
+            .bg(istate.theme.orange[0])
+            .fg(istate.theme.text_color(istate.theme.orange[0])),
+    );
+    "F1 toggle help | Ctrl+Q quit | Alt-F(ind) ".render(l1[0], frame.buffer_mut());
     TextInput::new().styles(istate.theme.input_style()).render(
         l3[1],
         frame.buffer_mut(),
@@ -145,8 +154,6 @@ fn repaint_input(
     if let Some((cx, cy)) = screen_cursor {
         frame.set_cursor_position((cx, cy));
     }
-
-    "F1 toggle help | Ctrl+Q quit | Alt-F(ind) ".render(l1[0], frame.buffer_mut());
 
     if state.help {
         fill_buf_area(

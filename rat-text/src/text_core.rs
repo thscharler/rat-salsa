@@ -696,10 +696,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
     pub fn select_all(&mut self) -> bool {
         let old_selection = self.selection();
 
-        self.set_cursor(TextPosition::new(0, 0), false);
         let last = self.len_lines().saturating_sub(1);
         let last_width = self.line_width(last).expect("valid_line");
-        self.set_cursor(TextPosition::new(last_width, last), true);
+        self.set_cursor(TextPosition::new(last_width, last), false);
+        self.set_cursor(TextPosition::new(0, 0), true);
 
         old_selection != self.selection()
     }
