@@ -9,12 +9,10 @@ use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
-use log::debug;
 use ratatui::layout::Size;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::ops::Range;
-use std::time::SystemTime;
 
 /// Core for text editing.
 #[derive(Debug)]
@@ -871,10 +869,31 @@ impl<Store: TextStore + Default> TextCore<Store> {
             self.min_changed(),
         );
 
-        let iter = self.graphemes(
-            TextRange::new((sub_row_offset, rows.start), (0, rows.end)),
-            TextPosition::new(sub_row_offset, rows.start),
-        )?;
+        let range = TextRange::new((sub_row_offset, rows.start), (0, rows.end));
+        let pos = TextPosition::new(sub_row_offset, rows.start);
+
+        let range_bytes;
+        let pos_byte;
+
+        let mut range_to_bytes = self.cache.range_to_bytes.borrow_mut();
+        if let Some(cache) = range_to_bytes.get(&range) {
+            range_bytes = cache.clone();
+        } else {
+            let cache = self.text.byte_range(range)?;
+            range_to_bytes.insert(range, cache.clone());
+            range_bytes = cache;
+        }
+
+        let mut pos_to_bytes = self.cache.pos_to_bytes.borrow_mut();
+        if let Some(cache) = pos_to_bytes.get(&pos) {
+            pos_byte = cache.start;
+        } else {
+            let cache = self.text.byte_range_at(pos)?;
+            pos_to_bytes.insert(pos, cache.clone());
+            pos_byte = cache.start;
+        }
+
+        let iter = self.graphemes_byte(range_bytes, pos_byte)?;
 
         let mut it = GlyphIter2::new(
             TextPosition::new(sub_row_offset, rows.start),
@@ -889,18 +908,18 @@ impl<Store: TextStore + Default> TextCore<Store> {
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
         it.set_word_margin(word_margin);
-        let t = SystemTime::now();
         it.prepare()?;
-        debug!("        glyphs init {:?}", t.elapsed());
         Ok(it)
     }
 
     /// Get the grapheme at the given position.
     #[inline]
     pub fn grapheme_at(&self, pos: TextPosition) -> Result<Option<Grapheme<'_>>, TextError> {
-        let mut it = self
-            .text
-            .graphemes(TextRange::new(pos, (pos.x + 1, pos.y)), pos)?;
+        let range_bytes = self.bytes_at_range(TextRange::new(pos, (pos.x + 1, pos.y)))?;
+        let pos_byte = self.byte_at(pos)?.start;
+
+        let mut it = self.text.graphemes_byte(range_bytes, pos_byte)?;
+
         Ok(it.next())
     }
 
@@ -912,8 +931,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
     ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         let rows = self.len_lines();
         let cols = self.line_width(rows).expect("valid_row");
-        self.text
-            .graphemes(TextRange::new((0, 0), (cols, rows)), pos)
+
+        let range_bytes = self.bytes_at_range(TextRange::new((0, 0), (cols, rows)))?;
+        let pos_byte = self.byte_at(pos)?.start;
+
+        self.text.graphemes_byte(range_bytes, pos_byte)
     }
 
     /// Get a cursor over the text-range the current position set at pos.
@@ -923,7 +945,20 @@ impl<Store: TextStore + Default> TextCore<Store> {
         range: TextRange,
         pos: TextPosition,
     ) -> Result<Store::GraphemeIter<'_>, TextError> {
-        self.text.graphemes(range, pos)
+        let range_bytes = self.bytes_at_range(range)?;
+        let pos_byte = self.byte_at(pos)?.start;
+
+        self.text.graphemes_byte(range_bytes, pos_byte)
+    }
+
+    /// Get a cursor over the text-range the current position set at pos.
+    #[inline]
+    pub fn graphemes_byte(
+        &self,
+        range: Range<usize>,
+        pos: usize,
+    ) -> Result<Store::GraphemeIter<'_>, TextError> {
+        self.text.graphemes_byte(range, pos)
     }
 
     /// Line as str.
@@ -954,7 +989,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Line width as grapheme count. Excludes the terminating '\n'.
     #[inline]
     pub fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
-        // don't use clean_offset(). would recurse to this.
         self.cache.validate_byte_pos(self.min_changed());
 
         let mut line_width = self.cache.line_width.borrow_mut();

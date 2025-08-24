@@ -79,10 +79,21 @@ pub trait TextStore {
     ///
     /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
+    #[deprecated]
     fn graphemes(
         &self,
         range: TextRange,
         pos: TextPosition,
+    ) -> Result<Self::GraphemeIter<'_>, TextError>;
+
+    /// Return a cursor over the graphemes of the range, start at the given position.
+    ///
+    /// * range must be a valid byte-range.
+    /// * pos must be inside of range.
+    fn graphemes_byte(
+        &self,
+        range: Range<usize>,
+        pos: usize,
     ) -> Result<Self::GraphemeIter<'_>, TextError>;
 
     /// Line as str.
@@ -503,10 +514,28 @@ pub(crate) mod text_rope {
                 .get_byte_slice(range_bytes.clone())
                 .expect("valid_range");
 
-            Ok(
-                RopeGraphemes::new_offset(range_bytes.start, s, pos_byte - range_bytes.start)
-                    .expect("valid_bytes"),
-            )
+            let r = RopeGraphemes::new_offset(range_bytes.start, s, pos_byte - range_bytes.start)
+                .expect("valid_bytes");
+
+            Ok(r)
+        }
+
+        fn graphemes_byte(
+            &self,
+            range: Range<usize>,
+            pos: usize,
+        ) -> Result<Self::GraphemeIter<'_>, TextError> {
+            if !range.contains(&pos) && range.end != pos {
+                return Err(TextError::ByteIndexOutOfBounds(pos, range.end));
+            }
+
+            let Some(s) = self.text.get_byte_slice(range.clone()) else {
+                return Err(TextError::ByteRangeInvalid(range.start, range.end));
+            };
+
+            let r = RopeGraphemes::new_offset(range.start, s, pos - range.start)?;
+
+            Ok(r)
         }
 
         /// Line as str.
@@ -1106,6 +1135,31 @@ pub(crate) mod text_string {
                 range_byte.start,
                 &self.text[range_byte.clone()],
                 pos_byte.start - range_byte.start,
+            ))
+        }
+
+        fn graphemes_byte(
+            &self,
+            range: Range<usize>,
+            pos: usize,
+        ) -> Result<Self::GraphemeIter<'_>, TextError> {
+            if !range.contains(&pos) && range.end != pos {
+                return Err(TextError::ByteIndexOutOfBounds(pos, range.end));
+            }
+            if !self.text.is_char_boundary(range.start) || !self.text.is_char_boundary(range.end) {
+                return Err(TextError::ByteRangeNotCharBoundary(
+                    Some(range.start),
+                    Some(range.end),
+                ));
+            }
+            if !self.text.is_char_boundary(pos) {
+                return Err(TextError::ByteIndexNotCharBoundary(pos));
+            }
+
+            Ok(StrGraphemes::new_offset(
+                range.start,
+                &self.text[range.clone()],
+                pos - range.start,
             ))
         }
 

@@ -260,7 +260,7 @@ pub type upos_type = u32;
 pub type ipos_type = i32;
 
 /// Text position.
-#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct TextPosition {
     pub y: upos_type,
     pub x: upos_type,
@@ -295,7 +295,7 @@ impl From<TextPosition> for (upos_type, upos_type) {
 }
 
 /// Exclusive range for text ranges.
-#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct TextRange {
     /// column, row
     pub start: TextPosition,

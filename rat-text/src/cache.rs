@@ -1,12 +1,26 @@
 use crate::glyph2::TextWrap2;
-use crate::{upos_type, TextPosition};
+use crate::{upos_type, TextPosition, TextRange};
+#[cfg(not(debug_assertions))]
 use fxhash::FxBuildHasher;
 use std::cell::{Cell, RefCell};
+use std::collections::BTreeMap;
+#[cfg(debug_assertions)]
+use std::collections::BTreeSet;
 #[cfg(not(debug_assertions))]
-use std::collections::HashSet;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::ops::Range;
 use std::rc::Rc;
+
+#[cfg(not(debug_assertions))]
+type Map<K, V> = HashMap<K, V, FxBuildHasher>;
+#[cfg(debug_assertions)]
+type Map<K, V> = BTreeMap<K, V>;
+
+#[cfg(not(debug_assertions))]
+type Set<K> = HashSet<K, FxBuildHasher>;
+#[cfg(debug_assertions)]
+type Set<K> = BTreeSet<K>;
 
 /// Glyph cache.
 #[derive(Debug, Clone, Default)]
@@ -25,18 +39,19 @@ pub struct Cache {
     /// len_lines seems expensive too.
     pub(crate) len_lines: Cell<Option<upos_type>>,
     /// line-width the same
-    pub(crate) line_width: Rc<RefCell<HashMap<upos_type, LineWidthCache, FxBuildHasher>>>,
+    pub(crate) line_width: Rc<RefCell<Map<upos_type, LineWidthCache>>>,
+    /// position to bytes
+    pub(crate) pos_to_bytes: Rc<RefCell<Map<TextPosition, Range<usize>>>>,
+    /// range to bytes
+    pub(crate) range_to_bytes: Rc<RefCell<Map<TextRange, Range<usize>>>>,
 
     /// Mark the byte-positions of each line-start.
     ///
     /// Used when text-wrap is ShiftText.
-    pub(crate) line_start: Rc<RefCell<HashMap<upos_type, LineOffsetCache, FxBuildHasher>>>,
+    pub(crate) line_start: Rc<RefCell<Map<upos_type, LineOffsetCache>>>,
 
     /// Has the specific line been wrapped completely.
-    #[cfg(debug_assertions)]
-    pub(crate) full_line_break: Rc<RefCell<BTreeSet<upos_type>>>,
-    #[cfg(not(debug_assertions))]
-    pub(crate) full_line_break: Rc<RefCell<HashSet<upos_type, FxBuildHasher>>>,
+    pub(crate) full_line_break: Rc<RefCell<Set<upos_type>>>,
 
     /// All known line-breaks for wrapped text.
     /// Has the text-position of the glyph which is marked as 'line-break'.
@@ -74,6 +89,8 @@ impl Cache {
     pub(crate) fn clear(&self) {
         self.len_lines.set(None);
         self.line_width.borrow_mut().clear();
+        self.pos_to_bytes.borrow_mut().clear();
+        self.range_to_bytes.borrow_mut().clear();
         self.shift_left.set(0);
         self.screen_width.set(0);
         self.screen_height.set(0);
@@ -99,6 +116,13 @@ impl Cache {
         self.line_start
             .borrow_mut()
             .retain(|_, cache| cache.byte_pos < byte_pos);
+
+        self.pos_to_bytes
+            .borrow_mut()
+            .retain(|_, cache| cache.end < byte_pos);
+        self.range_to_bytes
+            .borrow_mut()
+            .retain(|_, cache| cache.end < byte_pos);
 
         self.line_break.borrow_mut().retain(|pos, cache| {
             if cache.byte_pos < byte_pos {

@@ -18,7 +18,6 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
-use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -34,7 +33,6 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::ops::Range;
-use std::time::SystemTime;
 
 /// Text area widget.
 ///
@@ -247,6 +245,15 @@ impl<'a> TextArea<'a> {
     /// Selection style.
     pub fn select_style(mut self, style: Style) -> Self {
         self.select_style = Some(style);
+        self
+    }
+
+    /// Indexed text-style.
+    ///
+    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// one of these styles.
+    pub fn text_style_idx(mut self, idx: usize, style: Style) -> Self {
+        self.text_style.insert(idx, style);
         self
     }
 
@@ -1739,64 +1746,46 @@ impl TextAreaState {
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
-        debug!(">>> move_up");
-        let t = SystemTime::now();
-
         let cursor = self.cursor();
         let r = if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
-            debug!("    move_up pos_to_screen {:?}", t.elapsed());
-            let t = SystemTime::now();
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
             scr_cursor.1 -= n as i16;
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
-                debug!("    move_up screen_to_pos {:?}", t.elapsed());
                 self.set_cursor(new_cursor, extend_selection)
             } else {
-                debug!("    move_up screen_to_pos {:?}", t.elapsed());
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
-            debug!("    move_up screen_to_pos {:?}", t.elapsed());
             self.scroll_cursor_to_visible();
             true
         };
-        debug!("<<< move_up {:?}", t.elapsed());
         r
     }
 
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
-        debug!(">>> move_down");
-        let t = SystemTime::now();
-
         let cursor = self.cursor();
         let r = if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
-            debug!("    move_down pos_to_screen {:?}", t.elapsed());
-            let t = SystemTime::now();
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
             scr_cursor.1 += n as i16;
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
-                debug!("    move_down screen_to_pos {:?}", t.elapsed());
                 self.set_cursor(new_cursor, extend_selection)
             } else {
-                debug!("    move_down screen_to_pos {:?}", t.elapsed());
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
-            debug!("    move_down screen_to_pos {:?}", t.elapsed());
             self.scroll_cursor_to_visible();
             true
         };
-        debug!("<<< move_down {:?}", t.elapsed());
         r
     }
 
@@ -2079,12 +2068,7 @@ impl TextAreaState {
             .borrow()
             .range(TextPosition::new(0, pos.y)..TextPosition::new(0, pos.y + 1))
         {
-            debug!("    line_end break {:?}", break_pos);
             if pos >= end_pos && &pos <= break_pos {
-                debug!(
-                    "    line_end {:?} >= {:?} && {:?} <= {:?} => {:?}",
-                    pos, end_pos, pos, break_pos, break_pos
-                );
                 end_pos = *break_pos;
                 break;
             }
