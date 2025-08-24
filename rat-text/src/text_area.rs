@@ -18,7 +18,6 @@ use crate::{
     ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
-use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -906,7 +905,7 @@ impl TextAreaState {
             oy = 0;
         }
 
-        if let TextWrap::Hard | TextWrap::Word(_) = self.text_wrap {
+        if let TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block = self.text_wrap {
             // sub_row_offset can be any value. limit somewhat.
             if let Ok(max_col) = self.try_line_width(oy) {
                 (0, min(self.sub_row_offset, max_col), oy)
@@ -1774,22 +1773,18 @@ impl TextAreaState {
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
         let cursor = self.cursor();
         let r = if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
-            debug!("move_down pos_to_screen {:?}", scr_cursor);
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
             scr_cursor.1 += n as i16;
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
-                debug!("move_down screen_to_pos {:?}", new_cursor);
                 self.set_cursor(new_cursor, extend_selection)
             } else {
-                debug!("move_down screen_to_pos fail");
                 self.scroll_cursor_to_visible();
                 true
             }
         } else {
-            debug!("move_down screen_to_pos fail");
             self.scroll_cursor_to_visible();
             true
         };
