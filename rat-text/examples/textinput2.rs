@@ -1,14 +1,14 @@
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{fill_buf_area, run_ui, setup_logging, MiniSalsaState};
 use log::{debug, warn};
 use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
-use rat_focus::{Focus, FocusBuilder};
-use rat_text::clipboard::{Clipboard, ClipboardError};
+use rat_focus::{match_focus, Focus, FocusBuilder};
+use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
 use rat_text::event::TextOutcome;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::HasScreenCursor;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget};
+use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::cell::RefCell;
 use std::fmt;
@@ -18,10 +18,13 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
+    set_global_clipboard(CliClipboard::default());
+
     let mut data = Data {};
 
     let mut state = State {
         info: true,
+        help: false,
         textinput1: Default::default(),
         textinput2: Default::default(),
         textinput3: Default::default(),
@@ -42,6 +45,7 @@ struct Data {}
 
 struct State {
     pub(crate) info: bool,
+    pub(crate) help: bool,
     pub(crate) textinput1: TextInputState,
     pub(crate) textinput2: TextInputState,
     pub(crate) textinput3: TextInputState,
@@ -54,6 +58,11 @@ fn repaint_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
+    let l1 = Layout::vertical([
+        Constraint::Length(1), //
+        Constraint::Fill(1),
+    ])
+    .split(area);
     let l2 = Layout::horizontal([
         Constraint::Length(15),
         Constraint::Fill(1),
@@ -62,7 +71,7 @@ fn repaint_input(
     ])
     .split(area);
     let l_txt = Layout::vertical([
-        Constraint::Length(1),
+        Constraint::Length(2),
         Constraint::Length(3),
         Constraint::Length(1),
         Constraint::Length(1),
@@ -106,55 +115,102 @@ fn repaint_input(
         frame.set_cursor_position(c);
     }
 
-    if state.info {
-        use fmt::Write;
-        let mut stats = String::new();
-        _ = writeln!(&mut stats);
-        _ = writeln!(&mut stats, "cursor: {:?}", state.textinput1.cursor(),);
-        _ = writeln!(&mut stats, "anchor: {:?}", state.textinput1.anchor());
-        if let Some((scx, scy)) = state.textinput1.screen_cursor() {
-            _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
-        } else {
-            _ = writeln!(&mut stats, "screen: None",);
-        }
-        _ = writeln!(&mut stats, "width: {:?} ", state.textinput1.line_width());
+    fill_buf_area(
+        frame.buffer_mut(),
+        l1[0],
+        " ",
+        Style::new()
+            .bg(istate.theme.orange[0])
+            .fg(istate.theme.text_color(istate.theme.orange[0])),
+    );
+    "F1 toggle help | Ctrl+Q quit".render(l1[0], frame.buffer_mut());
 
-        _ = writeln!(
-            &mut stats,
-            "next word: {:?} {:?}",
-            state.textinput1.next_word_start(state.textinput1.cursor()),
-            state.textinput1.next_word_end(state.textinput1.cursor())
+    if state.help {
+        let help_area = l1[1].intersection(l2[1]);
+        fill_buf_area(
+            frame.buffer_mut(),
+            help_area,
+            " ",
+            Style::new()
+                .bg(istate.theme.bluegreen[1])
+                .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
         );
-        _ = writeln!(
-            &mut stats,
-            "prev word: {:?} {:?}",
-            state.textinput1.prev_word_start(state.textinput1.cursor()),
-            state.textinput1.prev_word_end(state.textinput1.cursor())
-        );
-
-        _ = write!(&mut stats, "cursor-styles: ",);
-        let mut styles = Vec::new();
-        let cursor_byte = state.textinput1.byte_at(state.textinput1.cursor());
-        state.textinput1.styles_at(cursor_byte.start, &mut styles);
-        for (_r, s) in styles {
-            _ = write!(&mut stats, "{}, ", s);
-        }
-        _ = writeln!(&mut stats);
-
-        if let Some(st) = state.textinput1.value.styles() {
-            _ = writeln!(&mut stats, "text-styles: {}", st.count());
-        }
-        if let Some(st) = state.textinput1.value.styles() {
-            for r in st.take(20) {
-                _ = writeln!(&mut stats, "    {:?}", r);
-            }
-        }
-        let dbg = Paragraph::new(stats);
-        frame.render_widget(dbg, l2[3]);
+        Paragraph::new(
+            r#"
+    ** HELP **            
+            
+    ALT-1..4 Sample text
+    ALT-0    toggle info
+    ALT-c    show ctrl
+    ALT-d    dump cache (to log)
+"#,
+        )
+        .style(
+            Style::new()
+                .bg(istate.theme.bluegreen[1])
+                .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
+        )
+        .render(help_area, frame.buffer_mut());
     }
 
-    let ccursor = state.textinput1.selection();
-    istate.status[0] = format!("{}-{}", ccursor.start, ccursor.end);
+    if let Some(textinput) = match_focus!(
+        state.textinput1 => Some(&state.textinput1),
+        state.textinput2 => Some(&state.textinput2),
+        state.textinput3 => Some(&state.textinput3),
+        _ => None
+    ) {
+        if state.info {
+            use fmt::Write;
+            let mut stats = String::new();
+            _ = writeln!(&mut stats);
+            _ = writeln!(&mut stats, "cursor: {:?}", textinput.cursor(),);
+            _ = writeln!(&mut stats, "anchor: {:?}", textinput.anchor());
+            if let Some((scx, scy)) = textinput.screen_cursor() {
+                _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
+            } else {
+                _ = writeln!(&mut stats, "screen: None",);
+            }
+            _ = writeln!(&mut stats, "width: {:?} ", textinput.line_width());
+
+            _ = writeln!(
+                &mut stats,
+                "next word: {:?} {:?}",
+                textinput.next_word_start(textinput.cursor()),
+                textinput.next_word_end(textinput.cursor())
+            );
+            _ = writeln!(
+                &mut stats,
+                "prev word: {:?} {:?}",
+                textinput.prev_word_start(textinput.cursor()),
+                textinput.prev_word_end(textinput.cursor())
+            );
+
+            _ = write!(&mut stats, "cursor-styles: ",);
+            let mut styles = Vec::new();
+            let cursor_byte = textinput.byte_at(textinput.cursor());
+            textinput.styles_at(cursor_byte.start, &mut styles);
+            for (_r, s) in styles {
+                _ = write!(&mut stats, "{}, ", s);
+            }
+            _ = writeln!(&mut stats);
+
+            if let Some(st) = textinput.value.styles() {
+                _ = writeln!(&mut stats, "text-styles: {}", st.count());
+            }
+            if let Some(st) = textinput.value.styles() {
+                for r in st.take(20) {
+                    _ = writeln!(&mut stats, "    {:?}", r);
+                }
+            }
+            let dbg = Paragraph::new(stats);
+            frame.render_widget(dbg, l1[1].intersection(l2[3]));
+        }
+
+        let ccursor = textinput.selection();
+        istate.status[0] = format!("{}-{}", ccursor.start, ccursor.end);
+    } else {
+        istate.status[0] = Default::default();
+    }
 
     Ok(())
 }
@@ -209,7 +265,10 @@ fn handle_input(
             debug!("{:#?}", state.textinput1.value.cache());
             Outcome::Changed
         }
-
+        ct_event!(keycode press F(1) ) => {
+            state.help = !state.help;
+            Outcome::Changed
+        }
         _ => Outcome::Continue,
     });
 

@@ -618,10 +618,24 @@ pub(crate) mod text_rope {
         /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
         fn insert_char(
             &mut self,
-            pos: TextPosition,
+            mut pos: TextPosition,
             ch: char,
         ) -> Result<(TextRange, Range<usize>), TextError> {
             let pos_byte = self.byte_range_at(pos)?;
+
+            // is this the hyperreal position, one line past the end?
+            // if so correct the pos to something real.
+            if pos_byte.start == self.rope().len_bytes() {
+                let mut it_gr = RopeGraphemes::new_offset(0, self.text.slice(..), pos_byte.start)
+                    .expect("valid_bytes");
+                if let Some(prev) = it_gr.prev() {
+                    if !prev.is_line_break() {
+                        // yes
+                        pos = self.byte_to_pos(pos_byte.start)?;
+                    }
+                }
+            }
+
             let pos_char = self
                 .text
                 .try_byte_to_char(pos_byte.start)
@@ -657,6 +671,7 @@ pub(crate) mod text_rope {
                     TextRange::new(pos, (0, pos.y + 1))
                 }
             } else {
+                // test for combining codecs.
                 let mut len = 0;
                 self.buf.clear();
                 if let Some(prev) = prev {

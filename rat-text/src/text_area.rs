@@ -952,15 +952,16 @@ impl TextAreaState {
             oy = 0;
         }
 
-        if let TextWrap::Hard | TextWrap::Word(_) = self.text_wrap {
-            // sub_row_offset can be any value. limit somewhat.
-            if let Ok(max_col) = self.try_line_width(oy) {
-                (0, min(self.sub_row_offset, max_col), oy)
-            } else {
-                (0, 0, oy)
+        match self.text_wrap {
+            TextWrap::Shift => (ox, 0, oy),
+            TextWrap::Hard | TextWrap::Word(_) => {
+                // sub_row_offset can be any value. limit somewhat.
+                if let Ok(max_col) = self.try_line_width(oy) {
+                    (0, min(self.sub_row_offset, max_col), oy)
+                } else {
+                    (0, 0, oy)
+                }
             }
-        } else {
-            (ox, 0, oy)
         }
     }
 

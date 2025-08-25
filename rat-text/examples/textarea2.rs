@@ -45,10 +45,11 @@ fn main() -> Result<(), anyhow::Error> {
     state.textarea.focus.set(true);
     state.textarea.set_auto_indent(false);
     state.textarea.set_text_wrap(TextWrap::Word(2));
-    let (text, styles) = sample_bosworth_1();
-    state.textarea.set_rope(text);
+    state.textarea.clear();
+    // let (text, styles) = sample_bosworth_1();
+    // state.textarea.set_rope(text);
     // state.textarea.set_styles(styles);
-    add_range_styles(&mut state.textarea, styles);
+    // add_range_styles(&mut state.textarea, styles);
 
     run_ui(
         "textarea2",
@@ -95,7 +96,7 @@ fn repaint_input(
         Constraint::Length(2),
         Constraint::Length(line_number_width),
         Constraint::Fill(1),
-        Constraint::Length(2),
+        Constraint::Length(25),
     ])
     .split(l1[2]);
 
@@ -186,7 +187,7 @@ fn repaint_input(
             r#"
     ** HELP **            
             
-    ALT-0..8 Sample text
+    ALT-1..8 Sample text
     ALT-l    open 'log.log'
     ALT-q    no wrap
     ALT-w    word wrap
@@ -203,6 +204,56 @@ fn repaint_input(
                 .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
         )
         .render(l2[2], frame.buffer_mut());
+    }
+
+    if state.info {
+        use std::fmt::Write;
+        let mut stats = String::new();
+        _ = writeln!(&mut stats);
+        _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
+        _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
+        if let Some((scx, scy)) = state.textarea.screen_cursor() {
+            _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
+        } else {
+            _ = writeln!(&mut stats, "screen: None",);
+        }
+        _ = writeln!(
+            &mut stats,
+            "width: {:?} ",
+            state.textarea.line_width(state.textarea.cursor().y)
+        );
+        _ = writeln!(
+            &mut stats,
+            "next word: {:?} {:?}",
+            state.textarea.next_word_start(state.textarea.cursor()),
+            state.textarea.next_word_end(state.textarea.cursor())
+        );
+        _ = writeln!(
+            &mut stats,
+            "prev word: {:?} {:?}",
+            state.textarea.prev_word_start(state.textarea.cursor()),
+            state.textarea.prev_word_end(state.textarea.cursor())
+        );
+
+        _ = write!(&mut stats, "cursor-styles: ",);
+        let mut styles = Vec::new();
+        let cursor_byte = state.textarea.byte_at(state.textarea.cursor());
+        state.textarea.styles_at(cursor_byte.start, &mut styles);
+        for (_, s) in styles {
+            _ = write!(&mut stats, "{}, ", s);
+        }
+        _ = writeln!(&mut stats);
+
+        if let Some(st) = state.textarea.value.styles() {
+            _ = writeln!(&mut stats, "text-styles: {}", st.count());
+        }
+        if let Some(st) = state.textarea.value.styles() {
+            for r in st.take(20) {
+                _ = writeln!(&mut stats, "    {:?}", r);
+            }
+        }
+        let dbg = Paragraph::new(stats);
+        frame.render_widget(dbg, l2[3]);
     }
 
     let ccursor = state.textarea.selection();
@@ -240,12 +291,6 @@ fn handle_input(
         try_flow!({
             let t = SystemTime::now();
             let r = state.textarea.handle(event, Regular);
-            match text_area::handle_events(&mut state.textarea, true, event) {
-                TextOutcome::Continue => {}
-                TextOutcome::Unchanged => {}
-                TextOutcome::Changed => {}
-                TextOutcome::TextChanged => {}
-            };
             let el = t.elapsed().expect("timing");
             istate.status[2] = format!("H{}|{:?}", istate.event_cnt, el).to_string();
             r

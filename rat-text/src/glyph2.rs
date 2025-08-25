@@ -367,7 +367,7 @@ where
                 cache.line_break.borrow_mut().insert(
                     next_pos,
                     LineBreakCache {
-                        start_pos: next_pos,
+                        start_pos: TextPosition::new(0, next_pos.y + 1),
                         byte_pos: next_byte,
                     },
                 );
@@ -612,7 +612,7 @@ where
                 cache.line_break.borrow_mut().insert(
                     next_pos,
                     LineBreakCache {
-                        start_pos: next_pos,
+                        start_pos: TextPosition::new(0, next_pos.y + 1),
                         byte_pos: next_byte,
                     },
                 );
@@ -739,7 +739,7 @@ where
                 cache.line_break.borrow_mut().insert(
                     pos,
                     LineBreakCache {
-                        start_pos: next_pos,
+                        start_pos: TextPosition::new(0, next_pos.y + 1),
                         byte_pos: last_byte,
                     },
                 );
