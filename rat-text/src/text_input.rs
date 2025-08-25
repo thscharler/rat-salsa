@@ -160,7 +160,6 @@ impl<'a> TextInput<'a> {
     #[inline]
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
-        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -199,7 +198,6 @@ impl<'a> TextInput<'a> {
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
-        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -268,8 +266,6 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         state.set_offset(no);
     }
 
-    let inner = state.inner;
-
     let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -313,11 +309,10 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     // set base style
     if let Some(block) = &widget.block {
         block.render(area, buf);
-    } else {
-        buf.set_style(area, style);
     }
+    buf.set_style(state.inner, style);
 
-    if inner.width == 0 || inner.height == 0 {
+    if state.inner.width == 0 || state.inner.height == 0 {
         // noop
         return;
     }
@@ -326,7 +321,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     // this is just a guess at the display-width
     let show_range = {
         let start = ox as upos_type;
-        let end = min(start + inner.width as upos_type, state.len());
+        let end = min(start + state.inner.width as upos_type, state.len());
         state.bytes_at_range(start..end)
     };
     let selection = state.selection();
@@ -337,7 +332,6 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         for g in state.glyphs2() {
             if g.screen_width() > 0 {
                 let mut style = style;
-                styles.clear();
                 state
                     .value
                     .styles_at_page(g.text_bytes().start, show_range.clone(), &mut styles);
@@ -355,15 +349,18 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 let screen_pos = g.screen_pos();
 
                 // render glyph
-                if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
+                if let Some(cell) =
+                    buf.cell_mut((state.inner.x + screen_pos.0, state.inner.y + screen_pos.1))
+                {
                     cell.set_symbol("*");
                     cell.set_style(style);
                 }
                 // clear the reset of the cells to avoid interferences.
                 for d in 1..g.screen_width() {
-                    if let Some(cell) =
-                        buf.cell_mut((inner.x + screen_pos.0 + d, inner.y + screen_pos.1))
-                    {
+                    if let Some(cell) = buf.cell_mut((
+                        state.inner.x + screen_pos.0 + d,
+                        state.inner.y + screen_pos.1,
+                    )) {
                         cell.reset();
                         cell.set_style(style);
                     }
@@ -374,7 +371,6 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         for g in state.glyphs2() {
             if g.screen_width() > 0 {
                 let mut style = style;
-                styles.clear();
                 state
                     .value
                     .styles_at_page(g.text_bytes().start, show_range.clone(), &mut styles);
@@ -392,15 +388,18 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 let screen_pos = g.screen_pos();
 
                 // render glyph
-                if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
+                if let Some(cell) =
+                    buf.cell_mut((state.inner.x + screen_pos.0, state.inner.y + screen_pos.1))
+                {
                     cell.set_symbol(g.glyph());
                     cell.set_style(style);
                 }
                 // clear the reset of the cells to avoid interferences.
                 for d in 1..g.screen_width() {
-                    if let Some(cell) =
-                        buf.cell_mut((inner.x + screen_pos.0 + d, inner.y + screen_pos.1))
-                    {
+                    if let Some(cell) = buf.cell_mut((
+                        state.inner.x + screen_pos.0 + d,
+                        state.inner.y + screen_pos.1,
+                    )) {
                         cell.reset();
                         cell.set_style(style);
                     }
@@ -507,6 +506,17 @@ impl TextInputState {
     #[inline]
     pub fn overwrite(&self) -> bool {
         self.overwrite
+    }
+
+    /// Show glyphs for control characters.
+    #[inline]
+    pub fn set_show_ctrl(&mut self, show_ctrl: bool) {
+        self.value.set_glyph_ctrl(show_ctrl);
+    }
+
+    /// Show glyphs for control characters.
+    pub fn show_ctrl(&self) -> bool {
+        self.value.glyph_ctrl()
     }
 }
 

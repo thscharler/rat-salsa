@@ -475,7 +475,6 @@ fn render_text_area(
         if g.screen_width() > 0 {
             let mut style = style;
             // text-styles
-            styles.clear();
             state
                 .value
                 .styles_at_page(g.text_bytes().start, page_bytes.clone(), &mut styles);

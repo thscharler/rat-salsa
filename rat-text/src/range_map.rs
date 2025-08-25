@@ -9,8 +9,20 @@ pub(crate) struct RangeMap {
     map: IntervalMap<usize, usize>,
 
     // cache for page-render
+    cache: RangeMapCache,
+}
+
+#[derive(Debug, Default, Clone)]
+pub(crate) struct RangeMapCache {
     page: RefCell<Range<usize>>,
     page_map: RefCell<IntervalMap<usize, usize>>,
+}
+
+impl RangeMapCache {
+    fn clear(&self) {
+        *self.page.borrow_mut() = Default::default();
+        self.page_map.borrow_mut().clear();
+    }
 }
 
 impl RangeMap {
@@ -18,8 +30,7 @@ impl RangeMap {
     pub(crate) fn clear(&mut self) {
         self.buf.clear();
         self.map.clear();
-        self.page = Default::default();
-        self.page_map.borrow_mut().clear();
+        self.cache = Default::default();
     }
 
     /// Sets a list of byte-range/style.
@@ -29,8 +40,7 @@ impl RangeMap {
     /// Empty ranges are ignored.
     pub(crate) fn set(&mut self, styles: impl Iterator<Item = (Range<usize>, usize)>) {
         self.map.clear();
-        self.page = Default::default();
-        self.page_map.borrow_mut().clear();
+        self.cache.clear();
         for (r, v) in styles {
             if !r.is_empty() {
                 self.map.force_insert(r, v);
@@ -49,8 +59,7 @@ impl RangeMap {
         if !self.map.values_at(range.clone()).any(|v| *v == value) {
             self.map.force_insert(range, value);
         }
-        self.page = Default::default();
-        self.page_map.borrow_mut().clear();
+        self.cache.clear();
     }
 
     /// Remove a value for a range.
@@ -61,8 +70,7 @@ impl RangeMap {
             return;
         }
         self.map.remove_where(range, |v| *v == value);
-        self.page = Default::default();
-        self.page_map.borrow_mut().clear();
+        self.cache.clear();
     }
 
     /// List of all values.
@@ -72,9 +80,10 @@ impl RangeMap {
 
     /// Find all values for the page that touch the given position.
     pub(crate) fn values_at_page(&self, pos: usize, range: Range<usize>, buf: &mut Vec<usize>) {
-        let mut page_map = self.page_map.borrow_mut();
-        if *self.page.borrow() != range {
-            *self.page.borrow_mut() = range.clone();
+        if range != *self.cache.page.borrow() {
+            *self.cache.page.borrow_mut() = range.clone();
+
+            let mut page_map = self.cache.page_map.borrow_mut();
             page_map.clear();
             if !range.is_empty() {
                 for (r, v) in self.map.iter(range) {
@@ -82,7 +91,9 @@ impl RangeMap {
                 }
             }
         }
-        for v in page_map.overlap(pos).map(|v| v.1) {
+
+        buf.clear();
+        for v in self.cache.page_map.borrow().overlap(pos).map(|v| v.1) {
             buf.push(*v);
         }
     }
@@ -145,8 +156,7 @@ impl RangeMap {
                 }
             }
         }
-        self.page = Default::default();
-        self.page_map.borrow_mut().clear();
+        self.cache.clear();
     }
 }
 

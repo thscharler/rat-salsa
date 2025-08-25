@@ -583,9 +583,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
     }
 
-    /// Find all values for the given position.
+    /// Find all values for the given position and writes them
+    /// to the output buffer. Clears the output buffer first.
     ///
-    /// Creates a cache for the styles in range.
+    /// This creates a cache for the styles in the given range.
     #[inline]
     pub(crate) fn styles_at_page(&self, pos: usize, range: Range<usize>, buf: &mut Vec<usize>) {
         if let Some(sty) = &self.styles {
