@@ -1,3 +1,7 @@
+# 1.0.0
+
+* stabilize api
+
 # 0.29.1
 
 * refactor: rename Scheme to Palette.
