@@ -633,6 +633,9 @@ pub(crate) mod text_rope {
                         // yes
                         pos = self.byte_to_pos(pos_byte.start)?;
                     }
+                } else {
+                    // yes 2
+                    pos = self.byte_to_pos(pos_byte.start)?;
                 }
             }
 

@@ -44,7 +44,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.textarea.focus.set(true);
     state.textarea.set_auto_indent(false);
-    state.textarea.set_text_wrap(TextWrap::Word(2));
+    // state.textarea.set_text_wrap(TextWrap::Word(2));
     state.textarea.clear();
     // let (text, styles) = sample_bosworth_1();
     // state.textarea.set_rope(text);
