@@ -2386,11 +2386,11 @@ impl TextAreaState {
                         oy.saturating_add_signed(scr_pos.1 as ipos_type),
                     ));
                 }
-                if (oy + scr_pos.1 as upos_type) > self.len_lines() {
+                if (oy + scr_pos.1 as upos_type) >= self.len_lines() {
                     // after the last visible line. fall back to width.
                     return Some(TextPosition::new(
-                        self.line_width(self.len_lines()),
-                        self.len_lines(),
+                        self.line_width(self.len_lines().saturating_sub(1)),
+                        self.len_lines().saturating_sub(1),
                     ));
                 }
 
