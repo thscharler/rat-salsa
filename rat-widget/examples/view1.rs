@@ -2,7 +2,7 @@
 
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_event::{try_flow, ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::Scroll;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
@@ -27,7 +27,14 @@ fn main() -> Result<(), anyhow::Error> {
         second: Default::default(),
     };
 
-    run_ui("view1", handle_text, repaint_text, &mut data, &mut state)
+    run_ui(
+        "view1",
+        |_| {},
+        handle_text,
+        repaint_text,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {
@@ -106,18 +113,17 @@ fn focus(state: &mut State) -> Focus {
 fn handle_text(
     event: &crossterm::event::Event,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus(state).handle(event, Regular);
+    istate.focus_outcome = focus(state).handle(event, Regular);
 
     // handle inner first.
-    let r = Outcome::Continue;
-    let r = r.or_else(|| state.first.handle(event, Regular));
-    let r = r.or_else(|| state.second.handle(event, Regular));
-    let r = r.or_else(|| state.view_state.handle(event, Regular));
+    try_flow!(state.first.handle(event, Regular));
+    try_flow!(state.second.handle(event, Regular));
+    try_flow!(state.view_state.handle(event, Regular));
 
-    Ok(f.max(r))
+    Ok(Outcome::Continue)
 }
 
 static SAMPLE1: &'static str = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.

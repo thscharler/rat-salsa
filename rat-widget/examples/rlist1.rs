@@ -1,6 +1,6 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, MiniSalsaState};
-use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
+use rat_event::{try_flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::event::EditOutcome;
 use rat_menu::event::MenuOutcome;
@@ -56,7 +56,14 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::default();
     focus(&state).first();
 
-    mini_salsa::run_ui("rlist1", handle_input, repaint_input, &mut data, &mut state)
+    mini_salsa::run_ui(
+        "rlist1",
+        |_| {},
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 #[derive(Default)]
@@ -213,9 +220,9 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus(state).handle(event, Regular);
+    istate.focus_outcome = focus(state).handle(event, Regular);
 
-    let mut r = match state.menu.handle(event, Popup) {
+    try_flow!(match state.menu.handle(event, Popup) {
         MenuOutcome::MenuSelected(v, w) => {
             istate.status[0] = format!("Selected {}-{}", v, w);
             Outcome::Changed
@@ -230,9 +237,9 @@ fn handle_input(
             Outcome::Changed
         }
         r => r.into(),
-    };
+    });
 
-    r = r.or_else(|| {
+    try_flow!({
         fn insert(data: &mut Data, state: &mut State) -> Outcome {
             if let Some(sel) = state.list1.list.selected() {
                 data.data.insert(sel, "".into());
@@ -311,5 +318,5 @@ fn handle_input(
         }
     });
 
-    Ok(max(r, f))
+    Ok(Outcome::Continue)
 }

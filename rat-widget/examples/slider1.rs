@@ -1,7 +1,7 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use map_range_int::MapRange;
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -13,7 +13,6 @@ use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use ratatui::Frame;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -40,6 +39,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "slider1",
+        |_| {},
         handle_input,
         repaint_input,
         &mut data,
@@ -276,16 +276,16 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
-    let f = focus.handle(event, Regular);
 
-    let r = Outcome::Continue;
-    let r = r.or_else(|| state.c1.handle(event, Regular).into());
-    let r = r.or_else(|| state.c2.handle(event, Regular).into());
-    let r = r.or_else(|| state.r.handle(event, Regular).into());
-    let r = r.or_else(|| state.g.handle(event, Regular).into());
-    let r = r.or_else(|| state.b.handle(event, Regular).into());
+    istate.focus_outcome = focus.handle(event, Regular);
 
-    let r = r.or_else(|| match event {
+    try_flow!(state.c1.handle(event, Regular));
+    try_flow!(state.c2.handle(event, Regular));
+    try_flow!(state.r.handle(event, Regular));
+    try_flow!(state.g.handle(event, Regular));
+    try_flow!(state.b.handle(event, Regular));
+
+    try_flow!(match event {
         ct_event!(keycode press F(2)) => {
             state.direction = match state.direction {
                 Direction::Horizontal => Direction::Vertical,
@@ -311,19 +311,18 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    let r = r.or_else(|| match state.menu.handle(event, Regular) {
+    try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(v) => {
             match v {
                 0 => {
                     istate.quit = true;
-                    return Outcome::Changed;
+                    Outcome::Changed
                 }
-                _ => {}
+                _ => Outcome::Changed,
             }
-            Outcome::Changed
         }
         r => r.into(),
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }

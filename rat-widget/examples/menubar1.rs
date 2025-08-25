@@ -19,6 +19,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     mini_salsa::run_ui(
         "menubar1",
+        |_| {},
         handle_input,
         repaint_input,
         &mut data,

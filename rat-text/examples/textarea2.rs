@@ -234,7 +234,7 @@ fn handle_input(
     let mut focus = focus(state);
     focus.enable_log();
 
-    try_flow!(focus.handle(event, Regular));
+    istate.focus_outcome = focus.handle(event, Regular);
 
     if !state.help {
         try_flow!({

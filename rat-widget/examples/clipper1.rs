@@ -3,7 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ConsumedEvent, HandleEvent, Regular};
+use rat_event::{try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -16,7 +16,6 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
 use std::array;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -36,6 +35,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "clipper1",
+        |_| {},
         handle_input,
         repaint_input,
         &mut data,
@@ -154,15 +154,15 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
-    let f = focus.handle(event, Regular);
 
-    if f == Outcome::Changed {
+    istate.focus_outcome = focus.handle(event, Regular);
+    if istate.focus_outcome == Outcome::Changed {
         if let Some(ff) = focus.focused() {
             state.clipper.show(ff);
         }
     }
 
-    let r = match state.clipper.handle(event, Regular) {
+    try_flow!(match state.clipper.handle(event, Regular) {
         Outcome::Changed => {
             // if let Some(ff) = state.clipper.first() {
             //     focus.focus_flag(ff);
@@ -170,9 +170,9 @@ fn handle_input(
             Outcome::Changed
         }
         r => r.into(),
-    };
+    });
 
-    let r = r.or_else(|| match state.menu.handle(event, Regular) {
+    try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
             Outcome::Changed
@@ -180,5 +180,5 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }

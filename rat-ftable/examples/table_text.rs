@@ -33,7 +33,14 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
     };
 
-    run_ui("text", handle_table, repaint_table, &mut data, &mut state)
+    run_ui(
+        "text",
+        |_| {},
+        handle_table,
+        repaint_table,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Sample {

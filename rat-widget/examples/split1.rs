@@ -3,7 +3,7 @@
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -17,7 +17,6 @@ use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget, Wrap};
 use ratatui::Frame;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -32,7 +31,7 @@ fn main() -> Result<(), anyhow::Error> {
         border_type: None,
         inner_border_type: None,
         resize: Default::default(),
-        focus: None,
+        focus: Default::default(),
         split: Default::default(),
         left: Default::default(),
         right: Default::default(),
@@ -42,7 +41,14 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui("split1", handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "split1",
+        |_| {},
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
@@ -54,7 +60,7 @@ struct State {
     inner_border_type: Option<BorderType>,
     resize: SplitResize,
 
-    focus: Option<Focus>,
+    focus: Focus,
 
     split: SplitState,
     left: ParagraphState,
@@ -235,10 +241,10 @@ fn repaint_input(
 }
 
 // handle focus
-fn focus(state: &mut State, event: &crossterm::event::Event) -> Outcome {
+fn focus(state: &mut State) -> Focus {
     // rebuild, using the old focus for storage and to reset
     // widgets no longer in the focus loop.
-    let mut builder = FocusBuilder::new(state.focus.take());
+    let mut builder = FocusBuilder::new(None);
     builder.widget(&state.split);
     if !state.split.is_hidden(0) {
         builder.widget(&state.left);
@@ -246,15 +252,7 @@ fn focus(state: &mut State, event: &crossterm::event::Event) -> Outcome {
     builder.widget(&state.right);
     builder.widget(&state.right_right);
     builder.widget(&state.menu);
-    let mut focus = builder.build();
-
-    // handle focus events
-    let r = focus.handle(event, Regular);
-
-    // keep for reuse
-    state.focus = Some(focus);
-
-    r
+    builder.build()
 }
 
 fn handle_input(
@@ -263,9 +261,12 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus(state, event);
+    state.focus = focus(state);
 
-    let mut r = match event {
+    // handle focus events
+    istate.focus_outcome = state.focus.handle(event, Regular);
+
+    try_flow!(match event {
         ct_event!(keycode press F(1)) => {
             if state.split.is_hidden(0) {
                 state.split.show_split(0);
@@ -372,16 +373,16 @@ fn handle_input(
             Outcome::Changed
         }
         _ => Outcome::Continue,
-    };
+    });
 
-    r = r.or_else(|| state.split.handle(event, Regular).into());
-    r = r.or_else(|| match state.left.handle(event, Regular) {
+    try_flow!(state.split.handle(event, Regular));
+    try_flow!(match state.left.handle(event, Regular) {
         Outcome::Changed => Outcome::Changed,
         r => r,
     });
-    r = r.or_else(|| state.right.handle(event, Regular));
-    r = r.or_else(|| state.right_right.handle(event, Regular));
-    r = r.or_else(|| match state.menu.handle(event, Regular) {
+    try_flow!(state.right.handle(event, Regular));
+    try_flow!(state.right_right.handle(event, Regular));
+    try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
             Outcome::Changed
@@ -389,7 +390,7 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }
 
 static TEXT: &str="Stanislaus Kostka

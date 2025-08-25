@@ -23,6 +23,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "dateinput1",
+        |_| {},
         handle_input,
         repaint_input,
         &mut data,
@@ -87,5 +88,6 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(date_input::handle_events(&mut state.input, true, event));
+
     Ok(Outcome::Continue)
 }

@@ -1,0 +1,308 @@
+use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use log::{debug, warn};
+use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
+use rat_focus::{Focus, FocusBuilder};
+use rat_text::clipboard::{Clipboard, ClipboardError};
+use rat_text::event::TextOutcome;
+use rat_text::text_input::{TextInput, TextInputState};
+use rat_text::HasScreenCursor;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::{Style, Stylize};
+use ratatui::widgets::{Block, Paragraph, StatefulWidget};
+use ratatui::Frame;
+use std::cell::RefCell;
+use std::fmt;
+
+mod mini_salsa;
+
+fn main() -> Result<(), anyhow::Error> {
+    setup_logging()?;
+
+    let mut data = Data {};
+
+    let mut state = State {
+        info: true,
+        textinput1: Default::default(),
+        textinput2: Default::default(),
+        textinput3: Default::default(),
+    };
+    insert_text_1(&mut state);
+
+    run_ui(
+        "textinput2",
+        |_| {},
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
+}
+
+struct Data {}
+
+struct State {
+    pub(crate) info: bool,
+    pub(crate) textinput1: TextInputState,
+    pub(crate) textinput2: TextInputState,
+    pub(crate) textinput3: TextInputState,
+}
+
+fn repaint_input(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    _data: &mut Data,
+    istate: &mut MiniSalsaState,
+    state: &mut State,
+) -> Result<(), anyhow::Error> {
+    let l2 = Layout::horizontal([
+        Constraint::Length(15),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+        Constraint::Length(25),
+    ])
+    .split(area);
+    let l_txt = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Length(3),
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+        Constraint::Length(1),
+    ])
+    .split(l2[1]);
+
+    TextInput::new()
+        .block(Block::bordered())
+        .styles(istate.theme.input_style())
+        .text_style([
+            Style::new().red(),
+            Style::new().underlined(),
+            Style::new().green(),
+            Style::new().on_yellow(),
+        ])
+        .render(l_txt[1], frame.buffer_mut(), &mut state.textinput1);
+
+    TextInput::new().styles(istate.theme.input_style()).render(
+        l_txt[3],
+        frame.buffer_mut(),
+        &mut state.textinput2,
+    );
+
+    TextInput::new().styles(istate.theme.input_style()).render(
+        l_txt[5],
+        frame.buffer_mut(),
+        &mut state.textinput3,
+    );
+
+    if let Some(c) = state
+        .textinput1
+        .screen_cursor()
+        .or(state.textinput2.screen_cursor())
+        .or(state.textinput3.screen_cursor())
+    {
+        frame.set_cursor_position(c);
+    }
+
+    if state.info {
+        use fmt::Write;
+        let mut stats = String::new();
+        _ = writeln!(&mut stats);
+        _ = writeln!(&mut stats, "cursor: {:?}", state.textinput1.cursor(),);
+        _ = writeln!(&mut stats, "anchor: {:?}", state.textinput1.anchor());
+        if let Some((scx, scy)) = state.textinput1.screen_cursor() {
+            _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
+        } else {
+            _ = writeln!(&mut stats, "screen: None",);
+        }
+        _ = writeln!(&mut stats, "width: {:?} ", state.textinput1.line_width());
+
+        _ = writeln!(
+            &mut stats,
+            "next word: {:?} {:?}",
+            state.textinput1.next_word_start(state.textinput1.cursor()),
+            state.textinput1.next_word_end(state.textinput1.cursor())
+        );
+        _ = writeln!(
+            &mut stats,
+            "prev word: {:?} {:?}",
+            state.textinput1.prev_word_start(state.textinput1.cursor()),
+            state.textinput1.prev_word_end(state.textinput1.cursor())
+        );
+
+        _ = write!(&mut stats, "cursor-styles: ",);
+        let mut styles = Vec::new();
+        let cursor_byte = state.textinput1.byte_at(state.textinput1.cursor());
+        state.textinput1.styles_at(cursor_byte.start, &mut styles);
+        for (_r, s) in styles {
+            _ = write!(&mut stats, "{}, ", s);
+        }
+        _ = writeln!(&mut stats);
+
+        if let Some(st) = state.textinput1.value.styles() {
+            _ = writeln!(&mut stats, "text-styles: {}", st.count());
+        }
+        if let Some(st) = state.textinput1.value.styles() {
+            for r in st.take(20) {
+                _ = writeln!(&mut stats, "    {:?}", r);
+            }
+        }
+        let dbg = Paragraph::new(stats);
+        frame.render_widget(dbg, l2[3]);
+    }
+
+    let ccursor = state.textinput1.selection();
+    istate.status[0] = format!("{}-{}", ccursor.start, ccursor.end);
+
+    Ok(())
+}
+
+fn focus(state: &mut State) -> Focus {
+    let mut builder = FocusBuilder::new(None);
+    builder.widget(&state.textinput1);
+    builder.widget(&state.textinput2);
+    builder.widget(&state.textinput3);
+    builder.build()
+}
+
+fn handle_input(
+    event: &crossterm::event::Event,
+    _data: &mut Data,
+    istate: &mut MiniSalsaState,
+    state: &mut State,
+) -> Result<Outcome, anyhow::Error> {
+    let mut focus = focus(state);
+
+    istate.focus_outcome = focus.handle(event, Regular);
+
+    try_flow!({
+        match state.textinput1.handle(event, Regular) {
+            TextOutcome::TextChanged => {
+                state.textinput1.invalid = state.textinput1.text() == "42";
+                TextOutcome::Changed
+            }
+            r => r,
+        }
+    });
+    try_flow!(state.textinput2.handle(event, Regular));
+    try_flow!(state.textinput3.handle(event, Regular));
+
+    try_flow!(match event {
+        ct_event!(key press ALT-'0') => {
+            state.info = !state.info;
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'1') => insert_text_0(state),
+        ct_event!(key press ALT-'2') => insert_text_1(state),
+        ct_event!(key press ALT-'3') => insert_text_2(state),
+        ct_event!(key press ALT-'4') => insert_text_3(state),
+
+        ct_event!(key press ALT-'c') => {
+            state
+                .textinput1
+                .set_show_ctrl(!state.textinput1.show_ctrl());
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'d') => {
+            debug!("{:#?}", state.textinput1.value.cache());
+            Outcome::Changed
+        }
+
+        _ => Outcome::Continue,
+    });
+
+    Ok(Outcome::Continue)
+}
+
+pub(crate) fn insert_text_3(state: &mut State) -> Outcome {
+    let l = lorem_rustum::LoremRustum::new(1_000);
+
+    let mut style = Vec::new();
+
+    let mut buf = String::new();
+    let mut pos = 0;
+    let mut width = 0;
+    for p in l.body {
+        buf.push_str(p);
+        buf.push_str(" ");
+        width += p.len() + 1;
+
+        if p == "macro" {
+            style.push((pos..pos + p.len(), 0));
+        } else if p == "assert!" {
+            style.push((pos..pos + p.len(), 1));
+        } else if p == "<'a>" {
+            style.push((pos..pos + p.len(), 2));
+        } else if p == "await" {
+            style.push((pos..pos + p.len(), 3));
+        }
+
+        pos += p.len() + 1;
+
+        if width > 66 {
+            buf.push_str("\n");
+            width = 0;
+            pos += 1;
+        }
+    }
+
+    state.textinput1.set_text(buf);
+    state.textinput1.set_styles(style);
+
+    Outcome::Changed
+}
+
+pub(crate) fn insert_text_2(state: &mut State) -> Outcome {
+    state.textinput1.set_text("");
+    Outcome::Changed
+}
+
+pub(crate) fn insert_text_1(state: &mut State) -> Outcome {
+    let str = "w🤷‍♂️x w🤷‍♀️x w🤦‍♂️x w❤️x w🤦‍♀️x w💕x w🙍🏿‍♀️x";
+    // let str = "word word word word word word word";
+    state.textinput1.set_text(str);
+    Outcome::Changed
+}
+
+pub(crate) fn insert_text_0(state: &mut State) -> Outcome {
+    state.textinput1.set_text(
+        "Sir Ridley Scott GBE[1] (* 30. November 1937 in South Shields, England) ist ein
+britischer Filmregisseur und Filmproduzent.",
+    );
+
+    state.textinput1.add_range_style(4..16, 0).unwrap();
+
+    Outcome::Changed
+}
+
+#[derive(Debug, Default, Clone)]
+struct CliClipboard {
+    clip: RefCell<String>,
+}
+
+impl Clipboard for CliClipboard {
+    fn get_string(&self) -> Result<String, ClipboardError> {
+        match cli_clipboard::get_contents() {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                warn!("{:?}", e);
+                Ok(self.clip.borrow().clone())
+            }
+        }
+    }
+
+    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+        let mut clip = self.clip.borrow_mut();
+        *clip = s.to_string();
+
+        match cli_clipboard::set_contents(s.to_string()) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                warn!("{:?}", e);
+                Err(ClipboardError)
+            }
+        }
+    }
+}

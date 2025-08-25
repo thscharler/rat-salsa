@@ -43,6 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "iter_ref",
+        |_| {},
         handle_table,
         repaint_table,
         &mut data,

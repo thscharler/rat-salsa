@@ -47,6 +47,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "0_height",
+        |_| {},
         handle_table,
         repaint_table,
         &mut data,

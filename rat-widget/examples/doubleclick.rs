@@ -3,14 +3,13 @@ use chrono::{Local, NaiveTime};
 use crossterm::event::{Event, KeyModifiers, MouseEvent, MouseEventKind};
 use format_num_pattern::NumberFormat;
 use rat_event::util::{set_double_click_timeout, Clicks, MouseFlags};
-use rat_event::{ct_event, Outcome};
+use rat_event::{ct_event, try_flow, Outcome};
 use rat_widget::layout::layout_grid;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
 use ratatui::widgets::Widget;
 use ratatui::Frame;
-use std::cmp::max;
 use std::time::{Duration, SystemTime};
 
 mod mini_salsa;
@@ -34,6 +33,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "doubleclick",
+        |_| {},
         handle_buttons,
         repaint_buttons,
         &mut data,
@@ -189,7 +189,7 @@ fn handle_buttons(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let r1 = match event {
+    try_flow!(match event {
         ct_event!(mouse any for m) if state.mouse.doubleclick(state.area, m) => {
             data.journal
                 .push((Local::now().time(), Journal::DoubleClick()));
@@ -211,9 +211,9 @@ fn handle_buttons(
             Outcome::Changed
         }
         _ => Outcome::Continue,
-    };
+    });
 
-    let r2 = match event {
+    try_flow!(match event {
         Event::Mouse(
             m @ MouseEvent {
                 kind: MouseEventKind::Up(_) | MouseEventKind::Down(_) | MouseEventKind::Drag(_),
@@ -231,7 +231,7 @@ fn handle_buttons(
             }
         }
         _ => Outcome::Continue,
-    };
+    });
 
-    Ok(max(r1, r2))
+    Ok(Outcome::Continue)
 }

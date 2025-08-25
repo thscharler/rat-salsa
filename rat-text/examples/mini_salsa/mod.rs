@@ -28,6 +28,8 @@ use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::Widget;
 use ratatui::{Frame, Terminal};
+use std::cell::Cell;
+use std::cmp::max;
 use std::fs;
 use std::io::{stdout, Stdout};
 use std::time::{Duration, SystemTime};
@@ -40,6 +42,8 @@ pub struct MiniSalsaState {
     pub event_cnt: usize,
     pub timing: bool,
     pub status: [String; 3],
+    pub focus_outcome: Outcome,
+    pub focus_outcome_cell: Cell<Outcome>,
     pub quit: bool,
 }
 
@@ -52,6 +56,8 @@ impl MiniSalsaState {
             event_cnt: 0,
             timing: true,
             status: Default::default(),
+            focus_outcome: Default::default(),
+            focus_outcome_cell: Default::default(),
             quit: false,
         };
         s.status[0] = "Ctrl-Q to quit.".into();
@@ -112,6 +118,9 @@ pub fn run_ui<Data, State>(
     istate.frame = repaint_ui(&mut terminal, repaint, data, &mut istate, state)?;
 
     let r = 'l: loop {
+        istate.focus_outcome = Outcome::Continue;
+        istate.focus_outcome_cell.set(Outcome::Continue);
+
         let o = match crossterm::event::poll(Duration::from_millis(10)) {
             Ok(true) => {
                 let event = match crossterm::event::read() {
@@ -119,7 +128,10 @@ pub fn run_ui<Data, State>(
                     Err(e) => break 'l Err(anyhow!(e)),
                 };
                 match handle_event(handle, event, data, &mut istate, state) {
-                    Ok(v) => v,
+                    Ok(v) => max(
+                        max(v, istate.focus_outcome),
+                        istate.focus_outcome_cell.get(),
+                    ),
                     Err(e) => break 'l Err(e),
                 }
             }

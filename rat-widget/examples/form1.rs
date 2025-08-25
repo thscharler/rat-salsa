@@ -3,7 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{HandleEvent, Regular};
+use rat_event::{try_flow, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -16,7 +16,6 @@ use ratatui::text::Span;
 use ratatui::widgets::Padding;
 use ratatui::Frame;
 use std::array;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -34,7 +33,14 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui("pager1", handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "pager1",
+        |_| {},
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
@@ -159,15 +165,16 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
-    let f = focus.handle(event, Regular);
 
-    let r = match state.menu.handle(event, Regular) {
+    istate.focus_outcome = focus.handle(event, Regular);
+
+    try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
             Outcome::Changed
         }
         _ => Outcome::Continue,
-    };
+    });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }

@@ -3,7 +3,7 @@
 use crate::adapter::paragraph::{ParagraphS, ParagraphSState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{HandleEvent, MouseOnly, Outcome};
+use rat_event::{try_flow, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget, Wrap};
@@ -27,6 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "sparagraph",
+        |_| {},
         handle_text,
         repaint_text,
         &mut data,
@@ -77,19 +78,8 @@ fn handle_text(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let mut r: Outcome;
-
-    r = state.text1.handle(event, MouseOnly).into();
-    match r {
-        Outcome::Continue => {}
-        r => return Ok(r),
-    };
-    r = state.text2.handle(event, MouseOnly).into();
-    match r {
-        Outcome::Continue => {}
-        r => return Ok(r),
-    };
-
+    try_flow!(state.text1.handle(event, MouseOnly));
+    try_flow!(state.text2.handle(event, MouseOnly));
     Ok(Outcome::Continue)
 }
 

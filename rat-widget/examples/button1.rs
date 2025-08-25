@@ -1,6 +1,6 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ConsumedEvent, HandleEvent, Regular};
+use rat_event::{try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::{ButtonOutcome, Outcome};
@@ -9,7 +9,6 @@ use ratatui::text::Span;
 use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::Widget;
 use ratatui::Frame;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -30,6 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "button1",
+        |_| {},
         handle_buttons,
         repaint_buttons,
         &mut data,
@@ -109,27 +109,27 @@ fn focus(state: &mut State) -> Focus {
 fn handle_buttons(
     event: &crossterm::event::Event,
     data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
-    let f = focus.handle(event, Regular);
+    istate.focus_outcome = focus.handle(event, Regular);
 
-    let mut r = match state.button1.handle(event, Regular) {
+    try_flow!(match state.button1.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             data.p0 += 1;
             Outcome::Changed
         }
         r => r.into(),
-    };
-    r = r.or_else(|| match state.button2.handle(event, Regular) {
+    });
+    try_flow!(match state.button2.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             data.p1 += 1;
             Outcome::Changed
         }
         r => r.into(),
     });
-    r = r.or_else(|| match state.button3.handle(event, Regular) {
+    try_flow!(match state.button3.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             data.p2 += 1;
             Outcome::Changed
@@ -137,5 +137,5 @@ fn handle_buttons(
         r => r.into(),
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }

@@ -3,7 +3,7 @@
 
 use crate::blue::{Blue, BlueState};
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuitem::Separator;
@@ -15,7 +15,6 @@ use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -37,6 +36,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "popup_menu1",
+        |_| {},
         handle_stuff,
         repaint_stuff,
         &mut data,
@@ -140,32 +140,34 @@ fn handle_stuff(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus(state).handle(event, Regular);
-    if f == Outcome::Changed {
+    istate.focus_outcome = focus(state).handle(event, Regular);
+    if istate.focus_outcome == Outcome::Changed {
         state.popup.set_active(false);
     }
 
-    let r = match popup_menu::handle_popup_events(&mut state.popup, event) {
-        MenuOutcome::Hide => {
-            match event {
-                ct_event!(mouse down Right for _x, _y) => {
-                    // reposition. later.
-                    Outcome::Continue
-                }
-                _ => {
-                    state.popup.set_active(false);
-                    Outcome::Changed
+    try_flow!(
+        match popup_menu::handle_popup_events(&mut state.popup, event) {
+            MenuOutcome::Hide => {
+                match event {
+                    ct_event!(mouse down Right for _x, _y) => {
+                        // reposition. later.
+                        Outcome::Continue
+                    }
+                    _ => {
+                        state.popup.set_active(false);
+                        Outcome::Changed
+                    }
                 }
             }
+            MenuOutcome::Activated(n) => {
+                istate.status[0] = format!("Activated {}", n);
+                Outcome::Changed
+            }
+            r => r.into(),
         }
-        MenuOutcome::Activated(n) => {
-            istate.status[0] = format!("Activated {}", n);
-            Outcome::Changed
-        }
-        r => r.into(),
-    };
+    );
 
-    let r = r.or_else(|| match event {
+    try_flow!(match event {
         ct_event!(key press CONTROL-' ') => {
             // placement relative to cursor
             state.placement = PopupConstraint::Above(Alignment::Left, state.blue.area);
@@ -201,7 +203,7 @@ fn handle_stuff(
         _ => Outcome::Continue,
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }
 
 mod blue {

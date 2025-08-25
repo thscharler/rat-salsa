@@ -3,7 +3,7 @@
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -19,7 +19,6 @@ use ratatui::symbols::border;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use ratatui::Frame;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -44,6 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "tabbed1",
+        |_| {},
         handle_input,
         repaint_input,
         &mut data,
@@ -204,9 +204,9 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus(state).handle(event, Regular);
+    istate.focus_outcome = focus(state).handle(event, Regular);
 
-    let mut r = match event {
+    try_flow!(match event {
         ct_event!(keycode press F(1)) => {
             state.close = !state.close;
             Outcome::Changed
@@ -316,11 +316,11 @@ fn handle_input(
             Outcome::Changed
         }
         _ => Outcome::Continue,
-    };
+    });
 
-    r = r.or_else(|| HandleEvent::handle(&mut state.tabbed, event, Regular).into());
+    try_flow!(HandleEvent::handle(&mut state.tabbed, event, Regular));
 
-    r = r.or_else(|| {
+    try_flow!({
         if let Some(sel) = state.tabbed.selected() {
             match sel {
                 0 => state.tabs_0.handle(event, Regular),
@@ -333,7 +333,7 @@ fn handle_input(
         }
     });
 
-    r = r.or_else(|| match state.menu.handle(event, Regular) {
+    try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
             Outcome::Changed
@@ -341,7 +341,7 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }
 
 static LIST: [&str; 28] = [

@@ -33,6 +33,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "iter_endless",
+        |_| {},
         handle_table,
         repaint_table,
         &mut data,

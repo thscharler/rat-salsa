@@ -3,7 +3,7 @@
 use crate::adapter::list::{ListS, ListSState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{HandleEvent, MouseOnly, Outcome};
+use rat_event::{try_flow, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{ListDirection, StatefulWidget};
@@ -38,7 +38,14 @@ fn main() -> Result<(), anyhow::Error> {
         list4: Default::default(),
     };
 
-    run_ui("slist", handle_lists, repaint_lists, &mut data, &mut state)
+    run_ui(
+        "slist",
+        |_| {},
+        handle_lists,
+        repaint_lists,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {
@@ -101,22 +108,9 @@ fn handle_lists(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    match state.list1.handle(event, MouseOnly).into() {
-        Outcome::Continue => {}
-        r => return Ok(r),
-    };
-    match state.list2.handle(event, MouseOnly).into() {
-        Outcome::Continue => {}
-        r => return Ok(r),
-    };
-    match state.list3.handle(event, MouseOnly).into() {
-        Outcome::Continue => {}
-        r => return Ok(r),
-    };
-    match state.list4.handle(event, MouseOnly).into() {
-        Outcome::Continue => {}
-        r => return Ok(r),
-    };
-
+    try_flow!(state.list1.handle(event, MouseOnly));
+    try_flow!(state.list2.handle(event, MouseOnly));
+    try_flow!(state.list3.handle(event, MouseOnly));
+    try_flow!(state.list4.handle(event, MouseOnly));
     Ok(Outcome::Continue)
 }

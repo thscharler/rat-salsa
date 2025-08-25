@@ -41,7 +41,14 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
     };
 
-    run_ui("slice", handle_table, repaint_table, &mut data, &mut state)
+    run_ui(
+        "slice",
+        |_| {},
+        handle_table,
+        repaint_table,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Sample {
@@ -158,12 +165,12 @@ fn focus(state: &mut State) -> Focus {
 fn handle_table(
     event: &crossterm::event::Event,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus(state).handle(event, Regular);
+    istate.focus_outcome = focus(state).handle(event, Regular);
 
     let r = state.table.handle(event, Regular);
 
-    Ok(max(f, r.into()))
+    Ok(r.into())
 }

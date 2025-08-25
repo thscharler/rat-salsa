@@ -8,7 +8,7 @@ use anyhow::Error;
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
-use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_event::{try_flow, ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::edit::vec::{EditableTableVec, EditableTableVecState};
 use rat_ftable::edit::{TableEditor, TableEditorState};
@@ -23,7 +23,6 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
-use std::cmp::max;
 
 mod data {
     pub(crate) static TINY_DATA: [&str; 10] = [
@@ -69,6 +68,7 @@ fn main() -> Result<(), Error> {
 
     run_ui(
         "table_edit2",
+        |_| {},
         handle_table,
         repaint_table,
         &mut data,
@@ -242,19 +242,18 @@ fn handle_table(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    let f = FocusBuilder::build_for(state).handle(event, Regular);
+    istate.focus_outcome = FocusBuilder::build_for(state).handle(event, Regular);
 
-    let mut r = Outcome::Continue;
-    r = r.or_else(|| state.text1.handle(event, Regular).into());
-    r = r.or_else(|| {
+    try_flow!(state.text1.handle(event, Regular));
+    try_flow!({
         state.table.handle(event, istate).unwrap_or_else(|e| {
             istate.status[0] = format!("{}", e);
             Outcome::Changed
         })
     });
-    r = r.or_else(|| state.text2.handle(event, Regular).into());
+    try_flow!(state.text2.handle(event, Regular));
 
-    Ok(max(Outcome::from(r), f))
+    Ok(Outcome::Continue)
 }
 
 // -------------------------------------------------------------
@@ -391,16 +390,16 @@ impl HandleEvent<crossterm::event::Event, &MiniSalsaState, Result<Outcome, Error
     fn handle(
         &mut self,
         event: &crossterm::event::Event,
-        _ctx: &MiniSalsaState,
+        ctx: &MiniSalsaState,
     ) -> Result<Outcome, Error> {
-        let f = FocusBuilder::build_for(self).handle(event, Regular);
+        ctx.focus_outcome_cell
+            .set(FocusBuilder::build_for(self).handle(event, Regular));
 
-        let mut r = Outcome::Continue;
-        r = r.or_else(|| self.text.handle(event, Regular).into());
-        r = r.or_else(|| self.num1.handle(event, Regular).into());
-        r = r.or_else(|| self.num2.handle(event, Regular).into());
-        r = r.or_else(|| self.num3.handle(event, Regular).into());
+        try_flow!(self.text.handle(event, Regular));
+        try_flow!(self.num1.handle(event, Regular));
+        try_flow!(self.num2.handle(event, Regular));
+        try_flow!(self.num3.handle(event, Regular));
 
-        Ok(max(f, r))
+        Ok(Outcome::Continue)
     }
 }

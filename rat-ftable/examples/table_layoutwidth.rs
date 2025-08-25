@@ -42,6 +42,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "layoutwidth",
+        |_| {},
         handle_table,
         repaint_table,
         &mut data,

@@ -1,7 +1,7 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use log::debug;
-use rat_event::{ConsumedEvent, HandleEvent, Popup, Regular};
+use rat_event::{try_flow, ConsumedEvent, HandleEvent, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -12,7 +12,6 @@ use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
 use ratatui::Frame;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -30,6 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "choice1",
+        |_| {},
         handle_input,
         repaint_input,
         &mut data,
@@ -144,12 +144,12 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
-    let f = focus.handle(event, Regular);
+    istate.focus_outcome = focus.handle(event, Regular);
 
     // popup handling first
-    let r: Outcome = state.c1.handle(event, Popup).into();
-    let r = r.or_else(|| state.c2.handle(event, Popup).into());
-    let r = r.or_else(|| match state.c3.handle(event, Popup) {
+    try_flow!(state.c1.handle(event, Popup));
+    try_flow!(state.c2.handle(event, Popup));
+    try_flow!(match state.c3.handle(event, Popup) {
         ChoiceOutcome::Value => {
             debug!("c3 {:?}", state.c3.value());
             Outcome::Changed
@@ -157,19 +157,18 @@ fn handle_input(
         r => r.into(),
     });
 
-    let r = r.or_else(|| match state.menu.handle(event, Regular) {
+    try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(v) => {
             match v {
                 0 => {
                     istate.quit = true;
-                    return Outcome::Changed;
+                    Outcome::Changed
                 }
-                _ => {}
+                _ => Outcome::Changed,
             }
-            Outcome::Changed
         }
         r => r.into(),
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }

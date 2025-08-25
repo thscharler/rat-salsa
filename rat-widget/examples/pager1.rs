@@ -3,7 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -16,7 +16,6 @@ use ratatui::text::Span;
 use ratatui::widgets::Padding;
 use ratatui::Frame;
 use std::array;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -34,7 +33,14 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui("pager1", handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "pager1",
+        |_| {},
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
@@ -163,10 +169,10 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
-    let f = focus.handle(event, Regular);
 
+    istate.focus_outcome = focus.handle(event, Regular);
     // set the page from focus.
-    if f == Outcome::Changed {
+    if istate.focus_outcome == Outcome::Changed {
         if let Some(ff) = focus.focused() {
             if let Some(page) = state.pager.page_of(ff) {
                 state.pager.set_page(page);
@@ -174,7 +180,7 @@ fn handle_input(
         }
     }
 
-    let r = match state.pager.handle(event, Regular) {
+    try_flow!(match state.pager.handle(event, Regular) {
         PagerOutcome::Page(p) => {
             if let Some(first) = state.pager.first(p) {
                 focus.focus(&first);
@@ -182,9 +188,9 @@ fn handle_input(
             Outcome::Changed
         }
         r => r.into(),
-    };
+    });
 
-    let r = r.or_else(|| match event {
+    try_flow!(match event {
         ct_event!(keycode press F(4)) => {
             if state.pager.prev_page() {
                 if let Some(widget) = state.pager.first(state.pager.page()) {
@@ -208,7 +214,7 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    let r = r.or_else(|| match state.menu.handle(event, Regular) {
+    try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
             Outcome::Changed
@@ -216,5 +222,5 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }

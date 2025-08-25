@@ -3,7 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -18,7 +18,6 @@ use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
 use std::array;
 use std::cell::RefCell;
-use std::cmp::max;
 use std::rc::Rc;
 use std::time::SystemTime;
 
@@ -43,7 +42,14 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui("pager3", handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "pager3",
+        |_| {},
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
@@ -268,10 +274,9 @@ fn handle_input(
     state.t_focus += tt.as_secs_f64();
     state.n_focus += 1f64;
 
-    let f = focus.handle(event, Regular);
-
+    istate.focus_outcome = focus.handle(event, Regular);
     // set the page from focus.
-    if f == Outcome::Changed {
+    if istate.focus_outcome == Outcome::Changed {
         if let Some(ff) = focus.focused() {
             if let Some(page) = state.layout.borrow().page_of(ff) {
                 let page = page / 2;
@@ -282,7 +287,7 @@ fn handle_input(
         }
     }
 
-    let mut r = match state.page_nav.handle(event, Regular) {
+    try_flow!(match state.page_nav.handle(event, Regular) {
         PagerOutcome::Page(p) => {
             if let Some(w) = state.layout.borrow().first(p * 2) {
                 focus.focus(&w);
@@ -290,9 +295,9 @@ fn handle_input(
             Outcome::Changed
         }
         r => r.into(),
-    };
+    });
 
-    r = r.or_else(|| match event {
+    try_flow!(match event {
         ct_event!(keycode press F(4)) => {
             if state.page_nav.prev_page() {
                 if let Some(w) = state.layout.borrow().first(state.page_nav.page * 2) {
@@ -328,7 +333,7 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    r = r.or_else(|| match state.menu.handle(event, Regular) {
+    try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
             Outcome::Changed
@@ -338,5 +343,5 @@ fn handle_input(
 
     state.focus = Some(focus);
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }

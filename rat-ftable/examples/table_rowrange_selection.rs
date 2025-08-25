@@ -40,6 +40,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "rowrange_selection",
+        |_| {},
         handle_table,
         repaint_table,
         &mut data,

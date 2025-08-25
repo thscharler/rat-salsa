@@ -26,7 +26,14 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
     };
 
-    run_ui("empty", handle_table, repaint_table, &mut data, &mut state)
+    run_ui(
+        "empty",
+        |_| {},
+        handle_table,
+        repaint_table,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}

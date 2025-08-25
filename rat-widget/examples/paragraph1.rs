@@ -2,7 +2,7 @@
 
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::line_number::{LineNumberState, LineNumbers};
@@ -10,7 +10,6 @@ use rat_widget::paragraph::{Paragraph, ParagraphState};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget, Wrap};
 use ratatui::Frame;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -29,7 +28,8 @@ fn main() -> Result<(), anyhow::Error> {
     };
 
     run_ui(
-        "paragraph",
+        "paragraph1",
+        |_| {},
         handle_text,
         repaint_text,
         &mut data,
@@ -109,14 +109,14 @@ fn focus(state: &State) -> Focus {
 fn handle_text(
     event: &crossterm::event::Event,
     data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus(state).handle(event, Regular);
+    istate.focus_outcome = focus(state).handle(event, Regular);
 
-    let r = state.para.handle(event, Regular);
+    try_flow!(state.para.handle(event, Regular));
 
-    let r = r.or_else(|| match event {
+    try_flow!(match event {
         ct_event!(keycode press F(2)) => {
             state.wrap = !state.wrap;
             Outcome::Changed
@@ -137,7 +137,7 @@ fn handle_text(
         _ => Outcome::Continue,
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }
 
 static SAMPLE1: &str = "Craters of the Moon National Monument and Preserve is a U.S. national monument and national preserve in the Snake River Plain in central Idaho. It is along US 20 (concurrent with US 93 and US 26), between the small towns of Arco and Carey, at an average elevation of 5,900 feet (1,800 m) above sea level.

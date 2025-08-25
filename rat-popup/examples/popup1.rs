@@ -9,7 +9,7 @@ use crate::variants::popup_lock_edit::{PopLockMagenta, PopLockMagentaState};
 use crate::variants::popup_nonfocus::{PopNonFocusRed, PopNonFocusRedState};
 use log::debug;
 use rat_cursor::HasScreenCursor;
-use rat_event::{ct_event, HandleEvent, Outcome, Regular};
+use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_popup::event::PopupOutcome;
 use rat_popup::PopupConstraint;
@@ -42,7 +42,14 @@ fn main() -> Result<(), anyhow::Error> {
         poplock: PopLockMagentaState::default(),
     };
 
-    run_ui("popup1", handle_stuff, repaint_stuff, &mut data, &mut state)
+    run_ui(
+        "popup1",
+        |_| {},
+        handle_stuff,
+        repaint_stuff,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
@@ -197,43 +204,43 @@ fn focus(state: &mut State) -> Focus {
 fn handle_stuff(
     event: &crossterm::event::Event,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
 
-    let f = focus.handle(event, Regular);
+    istate.focus_outcome = focus.handle(event, Regular);
 
-    let r0 = match state.popfoc.handle(event, Regular) {
+    try_flow!(match state.popfoc.handle(event, Regular) {
         PopupOutcome::Hide => {
             focus.next();
             Outcome::Changed
         }
         r => r.into(),
-    };
-    let r1 = match state.popact.handle(event, Regular) {
+    });
+    try_flow!(match state.popact.handle(event, Regular) {
         PopupOutcome::Hide => {
             state.popact.hide();
             Outcome::Changed
         }
         r => r.into(),
-    };
-    let r2 = match state.popedit.handle(event, Regular) {
+    });
+    try_flow!(match state.popedit.handle(event, Regular) {
         PopupOutcome::Hide => {
             state.popedit.hide(&mut focus);
             Outcome::Changed
         }
         r => r.into(),
-    };
-    let r3 = match state.poplock.handle(event, Regular) {
+    });
+    try_flow!(match state.poplock.handle(event, Regular) {
         PopupOutcome::Hide => {
             state.poplock.hide(&mut focus);
             Outcome::Changed
         }
         r => r.into(),
-    };
+    });
 
-    let r4 = match event {
+    try_flow!(match event {
         ct_event!(keycode press F(1)) => {
             debug!("change blue");
             state.which_blue = (state.which_blue + 1) % 4;
@@ -348,7 +355,7 @@ fn handle_stuff(
             }
         }
         _ => Outcome::Continue,
-    };
+    });
 
-    Ok([f, r0, r1, r2, r3, r4].iter().max().copied().expect("r"))
+    Ok(Outcome::Continue)
 }

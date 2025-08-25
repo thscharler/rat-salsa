@@ -3,7 +3,7 @@
 use crate::adapter::table::{TableS, TableSState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{HandleEvent, MouseOnly, Outcome};
+use rat_event::{try_flow, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Text;
@@ -33,7 +33,14 @@ fn main() -> Result<(), anyhow::Error> {
         table2: Default::default(),
     };
 
-    run_ui("stable", handle_lists, repaint_lists, &mut data, &mut state)
+    run_ui(
+        "stable",
+        |_| {},
+        handle_lists,
+        repaint_lists,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {
@@ -130,14 +137,7 @@ fn handle_lists(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    match Outcome::from(state.table1.handle(event, MouseOnly)) {
-        Outcome::Continue => {}
-        r => return Ok(r),
-    };
-    match Outcome::from(state.table2.handle(event, MouseOnly)) {
-        Outcome::Continue => {}
-        r => return Ok(r),
-    };
-
+    try_flow!(Outcome::from(state.table1.handle(event, MouseOnly)));
+    try_flow!(Outcome::from(state.table2.handle(event, MouseOnly)));
     Ok(Outcome::Continue)
 }

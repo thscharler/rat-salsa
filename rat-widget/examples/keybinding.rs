@@ -2,7 +2,7 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use chrono::{Local, NaiveTime};
 use crossterm::event::{Event, KeyEvent};
 use format_num_pattern::NumberFormat;
-use rat_event::Outcome;
+use rat_event::{try_flow, Outcome};
 use ratatui::layout::Rect;
 use ratatui::text::Span;
 use ratatui::widgets::Widget;
@@ -21,6 +21,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "keybinding",
+        |_| {},
         handle_buttons,
         repaint_buttons,
         &mut data,
@@ -81,13 +82,13 @@ fn handle_buttons(
     _istate: &mut MiniSalsaState,
     _state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let r2 = match event {
+    try_flow!(match event {
         Event::Key(k) => {
             data.journal.push((Local::now().time(), k.clone()));
             Outcome::Changed
         }
         _ => Outcome::Continue,
-    };
+    });
 
-    Ok(r2)
+    Ok(Outcome::Continue)
 }

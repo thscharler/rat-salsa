@@ -1,6 +1,6 @@
 use rat_scrolled::ScrollStyle;
 use rat_text::line_number::LineNumberStyle;
-use rat_text::TextStyle;
+use rat_text::{TextFocusGained, TextFocusLost, TextStyle};
 use ratatui::style::{Color, Style};
 
 #[derive(Debug, Default, Clone)]
@@ -238,9 +238,12 @@ impl Scheme {
     pub fn input_style(&self) -> TextStyle {
         TextStyle {
             style: self.text_input(),
+            border_style: Some(self.text_input()),
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
             invalid: Some(Style::default().bg(self.red[3])),
+            on_focus_gained: Some(TextFocusGained::Overwrite),
+            on_focus_lost: Some(TextFocusLost::Position0),
             ..TextStyle::default()
         }
     }

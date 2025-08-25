@@ -8,7 +8,7 @@ use anyhow::Error;
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
-use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_event::{flow, try_flow, HandleEvent, Outcome, Regular};
 use rat_focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::edit::table::{EditableTable, EditableTableState};
 use rat_ftable::edit::{TableEditor, TableEditorState};
@@ -24,7 +24,6 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
-use std::cmp::max;
 
 mod data {
     pub(crate) static TINY_DATA: [&str; 10] = [
@@ -68,6 +67,7 @@ fn main() -> Result<(), Error> {
 
     run_ui(
         "table_edit1",
+        |_| {},
         handle_input,
         repaint_input,
         &mut data,
@@ -239,19 +239,18 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    let f = FocusBuilder::build_for(state).handle(event, Regular);
+    istate.focus_outcome = FocusBuilder::build_for(state).handle(event, Regular);
 
-    let mut r = Outcome::Continue;
-    r = r.or_else(|| state.text1.handle(event, Regular).into());
-    r = r.or_else(|| {
+    try_flow!(state.text1.handle(event, Regular));
+    try_flow!({
         handle_table(event, data, istate, state).unwrap_or_else(|e| {
             istate.status[0] = format!("{}", e);
             Outcome::Changed
         })
     });
-    r = r.or_else(|| state.text2.handle(event, Regular).into());
+    try_flow!(state.text2.handle(event, Regular));
 
-    Ok(max(Outcome::from(r), f))
+    Ok(Outcome::Continue)
 }
 
 fn handle_table(
@@ -260,8 +259,7 @@ fn handle_table(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    let mut r = Outcome::Continue;
-    r = r.or_else_try::<_, Error>(|| match state.table.handle(event, istate) {
+    try_flow!(match state.table.handle(event, istate) {
         EditOutcome::Edit => {
             if let Some(sel_row) = state.table.table.selected_checked() {
                 state
@@ -270,22 +268,22 @@ fn handle_table(
                     .set_value(data.table_data[sel_row].clone(), istate)?;
                 state.table.edit(0, sel_row);
             }
-            Ok(Outcome::Changed)
+            Outcome::Changed
         }
         EditOutcome::Cancel => {
             if let Some(sel) = state.table.table.selected_checked() {
                 cancel_edit(data, sel, istate, state)?;
-                Ok(Outcome::Changed)
+                Outcome::Changed
             } else {
-                Ok(Outcome::Continue)
+                Outcome::Continue
             }
         }
         EditOutcome::Commit => {
             if let Some(sel) = state.table.table.selected_checked() {
                 commit_edit(data, sel, istate, state)?;
-                Ok(Outcome::Changed)
+                Outcome::Changed
             } else {
-                Ok(Outcome::Continue)
+                Outcome::Continue
             }
         }
         EditOutcome::CommitAndAppend => {
@@ -298,7 +296,7 @@ fn handle_table(
                 data.table_data.insert(sel + 1, value);
                 state.table.edit_new(sel + 1);
             }
-            Ok(Outcome::Changed)
+            Outcome::Changed
         }
         EditOutcome::CommitAndEdit => {
             if let Some(sel_row) = state.table.table.selected_checked() {
@@ -309,7 +307,7 @@ fn handle_table(
                     .set_value(data.table_data[sel_row + 1].clone(), istate)?;
                 state.table.edit(0, sel_row + 1);
             }
-            Ok(Outcome::Changed)
+            Outcome::Changed
         }
         EditOutcome::Insert => {
             if let Some(sel) = state.table.table.selected_checked() {
@@ -318,14 +316,14 @@ fn handle_table(
                 data.table_data.insert(sel, value);
                 state.table.edit_new(sel);
             }
-            Ok(Outcome::Changed)
+            Outcome::Changed
         }
         EditOutcome::Append => {
             let value = state.table.editor.create_value(istate)?;
             state.table.editor.set_value(value.clone(), istate)?;
             data.table_data.push(value);
             state.table.edit_new(data.table_data.len() - 1);
-            Ok(Outcome::Changed)
+            Outcome::Changed
         }
         EditOutcome::Remove => {
             if let Some(sel) = state.table.table.selected_checked() {
@@ -334,13 +332,13 @@ fn handle_table(
                     state.table.remove(sel);
                 }
             }
-            Ok(Outcome::Changed)
+            Outcome::Changed
         }
 
-        r => Ok(r.into()),
-    })?;
+        r => Outcome::from(r),
+    });
 
-    Ok(r)
+    Ok(Outcome::Continue)
 }
 
 fn cancel_edit(
@@ -491,15 +489,15 @@ impl HasScreenCursor for SampleEditorState {
 impl<'a> HandleEvent<crossterm::event::Event, &'a MiniSalsaState, EditOutcome>
     for SampleEditorState
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _ctx: &'a MiniSalsaState) -> EditOutcome {
-        let f = FocusBuilder::build_for(self).handle(event, Regular);
+    fn handle(&mut self, event: &crossterm::event::Event, ctx: &'a MiniSalsaState) -> EditOutcome {
+        ctx.focus_outcome_cell
+            .set(FocusBuilder::build_for(self).handle(event, Regular));
 
-        let mut r = Outcome::Continue;
-        r = r.or_else(|| self.text.handle(event, Regular).into());
-        r = r.or_else(|| self.num1.handle(event, Regular).into());
-        r = r.or_else(|| self.num2.handle(event, Regular).into());
-        r = r.or_else(|| self.num3.handle(event, Regular).into());
+        flow!(Outcome::from(self.text.handle(event, Regular)));
+        flow!(Outcome::from(self.num1.handle(event, Regular)));
+        flow!(Outcome::from(self.num2.handle(event, Regular)));
+        flow!(Outcome::from(self.num3.handle(event, Regular)));
 
-        Outcome::from(max(f, r)).into()
+        EditOutcome::Continue
     }
 }

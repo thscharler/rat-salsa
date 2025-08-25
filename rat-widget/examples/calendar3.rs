@@ -4,7 +4,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use chrono::{Datelike, Local, Months, NaiveDate};
 use pure_rust_locales::Locale;
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -17,7 +17,6 @@ use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use ratatui::Frame;
-use std::cmp::max;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -31,7 +30,8 @@ fn main() -> Result<(), anyhow::Error> {
     rebuild_cal_style(&mut state);
 
     run_ui(
-        "calendar1",
+        "calendar3",
+        |_| {},
         handle_input,
         repaint_input,
         &mut (),
@@ -213,17 +213,17 @@ fn handle_input(
     istate.status[0] = "Ctrl+Q to quit. F1 horizontal | F2 vertical".into();
 
     let mut focus = focus(state);
-    let f = focus.handle(event, Regular);
+    istate.focus_outcome = focus.handle(event, Regular);
 
-    let mut r: Outcome = match state.calendar.handle(event, Regular) {
+    try_flow!(match state.calendar.handle(event, Regular) {
         CalOutcome::Selected | CalOutcome::Changed => {
             rebuild_cal_style(state);
             Outcome::Changed
         }
         r => r.into(),
-    };
+    });
 
-    r = r.or_else(|| match state.menu.handle(event, Regular) {
+    try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
             Outcome::Changed
@@ -231,7 +231,7 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    r = r.or_else(|| match state.prev.handle(event, Regular) {
+    try_flow!(match state.prev.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.prev_month();
             rebuild_cal_style(state);
@@ -239,7 +239,7 @@ fn handle_input(
         }
         r => r.into(),
     });
-    r = r.or_else(|| match state.next.handle(event, Regular) {
+    try_flow!(match state.next.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.next_month();
             rebuild_cal_style(state);
@@ -248,7 +248,7 @@ fn handle_input(
         r => r.into(),
     });
 
-    r = r.or_else(|| match event {
+    try_flow!(match event {
         ct_event!(keycode press F(1)) => {
             state.direction = Direction::Horizontal;
             Outcome::Changed
@@ -260,7 +260,7 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }
 
 fn rebuild_cal_style(state: &mut State) {

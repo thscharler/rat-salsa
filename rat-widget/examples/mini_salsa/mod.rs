@@ -22,10 +22,14 @@ use log::error;
 use rat_event::util::set_have_keyboard_enhancement;
 use rat_event::Outcome;
 use ratatui::backend::CrosstermBackend;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::Widget;
 use ratatui::{Frame, Terminal};
+use std::cell::Cell;
+use std::cmp::max;
 use std::fs;
 use std::io::{stdout, Stdout};
 use std::time::{Duration, SystemTime};
@@ -35,7 +39,11 @@ pub struct MiniSalsaState {
     pub name: String,
     pub theme: Scheme,
     pub frame: usize,
+    pub event_cnt: usize,
+    pub timing: bool,
     pub status: [String; 3],
+    pub focus_outcome: Outcome,
+    pub focus_outcome_cell: Cell<Outcome>,
     pub quit: bool,
 }
 
@@ -45,7 +53,11 @@ impl MiniSalsaState {
             name: name.to_string(),
             theme: THEME,
             frame: 0,
+            event_cnt: 0,
+            timing: true,
             status: Default::default(),
+            focus_outcome: Default::default(),
+            focus_outcome_cell: Default::default(),
             quit: false,
         };
         s.status[0] = "Ctrl-Q to quit.".into();
@@ -55,6 +67,7 @@ impl MiniSalsaState {
 
 pub fn run_ui<Data, State>(
     name: &str,
+    init: fn(&mut MiniSalsaState),
     handle: fn(
         &crossterm::event::Event,
         data: &mut Data,
@@ -100,9 +113,14 @@ pub fn run_ui<Data, State>(
 
     let mut istate = MiniSalsaState::new(name);
 
+    init(&mut istate);
+
     istate.frame = repaint_ui(&mut terminal, repaint, data, &mut istate, state)?;
 
     let r = 'l: loop {
+        istate.focus_outcome = Outcome::Continue;
+        istate.focus_outcome_cell.set(Outcome::Continue);
+
         let o = match crossterm::event::poll(Duration::from_millis(10)) {
             Ok(true) => {
                 let event = match crossterm::event::read() {
@@ -110,7 +128,10 @@ pub fn run_ui<Data, State>(
                     Err(e) => break 'l Err(anyhow!(e)),
                 };
                 match handle_event(handle, event, data, &mut istate, state) {
-                    Ok(v) => v,
+                    Ok(v) => max(
+                        max(v, istate.focus_outcome),
+                        istate.focus_outcome_cell.get(),
+                    ),
                     Err(e) => break 'l Err(e),
                 }
             }
@@ -191,7 +212,6 @@ fn repaint_tui<Data, State>(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let t0 = SystemTime::now();
     let area = frame.area();
 
     let l1 = Layout::vertical([
@@ -200,10 +220,13 @@ fn repaint_tui<Data, State>(
     ])
     .split(area);
 
+    let t0 = SystemTime::now();
     repaint(frame, l1[0], data, istate, state)?;
-
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    istate.status[1] = format!("Render #{} | {:.0?}", frame.count(), el).to_string();
+
+    if istate.timing {
+        istate.status[1] = format!("Render #{} | {:.0?}", frame.count(), el).to_string();
+    }
 
     let l_status = Layout::horizontal([
         Constraint::Length(2 + istate.name.graphemes(true).count() as u16),
@@ -245,8 +268,9 @@ fn handle_event<Data, State>(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let t0 = SystemTime::now();
+    istate.event_cnt += 1;
 
+    let t0 = SystemTime::now();
     let r = {
         use crossterm::event::Event;
         match event {
@@ -265,9 +289,11 @@ fn handle_event<Data, State>(
 
         handle(&event, data, istate, state)?
     };
-
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    istate.status[2] = format!(" Handle {:.0?}", el).to_string();
+
+    if istate.timing {
+        istate.status[2] = format!(" Handle {:.0?}", el).to_string();
+    }
 
     Ok(r)
 }
@@ -302,6 +328,21 @@ pub fn layout_grid<const X: usize, const Y: usize>(
     }
 
     res
+}
+
+/// Fill the given area of the buffer.
+pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Into<Style>) {
+    let style = style.into();
+
+    for y in area.top()..area.bottom() {
+        for x in area.left()..area.right() {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.reset();
+                cell.set_symbol(symbol);
+                cell.set_style(style);
+            }
+        }
+    }
 }
 
 pub mod endless_scroll;

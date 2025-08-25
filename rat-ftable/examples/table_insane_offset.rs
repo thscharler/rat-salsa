@@ -55,6 +55,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "insane_offset",
+        |_| {},
         handle_table,
         repaint_table,
         &mut data,
