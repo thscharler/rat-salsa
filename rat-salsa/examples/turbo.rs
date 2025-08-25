@@ -14,7 +14,7 @@ use crate::theme::TurboTheme;
 use anyhow::Error;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, RunConfig};
-use rat_theme2::schemes::BASE16;
+use rat_theme2::palettes::BASE16;
 use std::fs;
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, TurboEvent, Error>;
@@ -627,7 +627,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme2::{Contrast, Scheme};
+    use rat_theme2::{Contrast, Palette};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::line_number::LineNumberStyle;
@@ -646,12 +646,12 @@ pub mod theme {
 
     #[derive(Debug, Clone)]
     pub struct TurboTheme {
-        s: Scheme,
+        s: Palette,
         name: String,
     }
 
     impl TurboTheme {
-        pub fn new(name: String, s: Scheme) -> Self {
+        pub fn new(name: String, s: Palette) -> Self {
             Self { s, name }
         }
     }
@@ -668,7 +668,7 @@ pub mod theme {
         }
 
         /// The underlying scheme.
-        pub fn scheme(&self) -> &Scheme {
+        pub fn scheme(&self) -> &Palette {
             &self.s
         }
 

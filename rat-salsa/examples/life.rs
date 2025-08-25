@@ -14,7 +14,7 @@ use crate::global::{GlobalState, PollTick};
 use anyhow::Error;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, RunConfig};
-use rat_theme2::schemes::IMPERIAL;
+use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use std::env::args;
 use std::fs;

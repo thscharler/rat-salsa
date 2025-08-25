@@ -1,14 +1,14 @@
-use crate::Scheme;
+use crate::Palette;
 use ratatui::style::Color;
 
 ///
-/// Almost genuine black&white color-scheme.
+/// Almost genuine black&white color-palette.
 ///
 /// It uses black, white and bright as the standard colors.
-/// To match the Scheme semantics I needed two gray-scales
-/// to make it work like the other color-schemes.
+/// To match the Palette semantics I needed two gray-scales
+/// to make it work like the other color-palettes.
 ///
-pub const BLACKWHITE: Scheme = Scheme {
+pub const BLACKWHITE: Palette = Palette {
     primary: interpolate(0xffffff, 0xffffff, 0xaaaaaa, 0xaaaaaa),
     secondary: interpolate(0x000000, 0x000000, 0x000000, 0x000000),
 

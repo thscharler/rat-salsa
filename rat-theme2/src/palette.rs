@@ -1,6 +1,6 @@
 use ratatui::style::{Color, Style};
 
-/// Color scheme.
+/// Color palette.
 ///
 /// This provides the palette used for a theme.
 ///
@@ -14,7 +14,7 @@ use ratatui::style::{Color, Style};
 /// * Background colors need extra considerations. Extend to 8.
 ///
 #[derive(Debug, Default, Clone)]
-pub struct Scheme {
+pub struct Palette {
     pub white: [Color; 8],
     pub black: [Color; 8],
     pub gray: [Color; 8],
@@ -50,7 +50,7 @@ pub enum Contrast {
     Normal,
 }
 
-impl Scheme {
+impl Palette {
     /// Color index for a bright variant of the base color.
     /// Brightness increases with the number.
     pub const BRIGHT_0: usize = 0;
@@ -179,7 +179,7 @@ impl Scheme {
     }
 }
 
-impl Scheme {
+impl Palette {
     /// Create a style with the given background color and
     /// contrast.
     pub fn style(&self, color: Color, contrast: Contrast) -> Style {

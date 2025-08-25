@@ -18,7 +18,7 @@ mod radium;
 mod tundra;
 mod vscode_dark;
 
-/// Color schemes
+/// Color palettes
 pub mod scheme {
     pub use crate::base16::BASE16;
     pub use crate::base16r::BASE16_RELAXED;
@@ -576,7 +576,7 @@ impl Scheme {
     }
 }
 
-/// All currently existing color schemes.
+/// All currently existing color palettes.
 pub fn color_schemes() -> Vec<(String, Scheme)> {
     vec![
         ("Imperial".to_string(), IMPERIAL),
@@ -592,7 +592,7 @@ pub fn color_schemes() -> Vec<(String, Scheme)> {
     ]
 }
 
-/// A list of DarkTheme for all color schemes.
+/// A list of DarkTheme for all color palettes.
 pub fn dark_themes() -> Vec<DarkTheme> {
     vec![
         DarkTheme::new("Imperial".to_string(), IMPERIAL),

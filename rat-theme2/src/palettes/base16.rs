@@ -1,4 +1,4 @@
-use crate::Scheme;
+use crate::Palette;
 use ratatui::style::Color;
 
 /// Base 16
@@ -7,7 +7,7 @@ use ratatui::style::Color;
 /// No gradients.
 const DARKNESS: u8 = 63;
 
-pub const BASE16: Scheme = Scheme {
+pub const BASE16: Palette = Palette {
     primary: fillin(0x00aa00, DARKNESS),
     secondary: fillin(0x00aaaa, DARKNESS),
 
@@ -62,9 +62,9 @@ const fn fillin(c0: u32, dark_scale_to: u8) -> [Color; 8] {
     let b0 = c0 as u8;
 
     // dark
-    let r4 = Scheme::scale_to(r0, dark_scale_to);
-    let g4 = Scheme::scale_to(g0, dark_scale_to);
-    let b4 = Scheme::scale_to(b0, dark_scale_to);
+    let r4 = Palette::scale_to(r0, dark_scale_to);
+    let g4 = Palette::scale_to(g0, dark_scale_to);
+    let b4 = Palette::scale_to(b0, dark_scale_to);
 
     [
         Color::Rgb(r0, g0, b0),

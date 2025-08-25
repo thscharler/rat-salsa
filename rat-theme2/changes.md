@@ -1,3 +1,7 @@
+# 0.29.1
+
+* refactor: rename Scheme to Palette.
+
 # 0.28.1
 
 * feature: add Black&White color scheme and make it

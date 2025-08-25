@@ -1,3 +1,7 @@
+# 0.28.0
+
+* discontinued. use rat-theme2 instead.
+
 # 0.27.11
 
 * bump version.

@@ -6,7 +6,7 @@ use crossterm::event::Event;
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
-use rat_theme2::schemes::IMPERIAL;
+use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -291,7 +291,7 @@ pub mod mask0 {
                 .into_buffer(layout[0], &mut state.scroll);
 
             v_buf.render_stateful(
-                ShowScheme::new(theme.name(), theme.scheme()),
+                ShowScheme::new(theme.name(), theme.palette()),
                 Rect::new(0, 0, view_area.width, 38),
                 &mut state.scheme,
             );
@@ -352,7 +352,7 @@ pub mod mask0 {
 // -----------------------------------------------------------------------
 
 pub mod show_scheme {
-    use rat_theme2::{Scheme, TextColorRating};
+    use rat_theme2::{Palette, TextColorRating};
     use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::reloc::{relocate_area, RelocatableState};
@@ -366,7 +366,7 @@ pub mod show_scheme {
     #[derive(Debug)]
     pub struct ShowScheme<'a> {
         name: &'a str,
-        scheme: &'a Scheme,
+        scheme: &'a Palette,
     }
 
     #[derive(Debug, Default)]
@@ -396,7 +396,7 @@ pub mod show_scheme {
     }
 
     impl<'a> ShowScheme<'a> {
-        pub fn new(name: &'a str, scheme: &'a Scheme) -> Self {
+        pub fn new(name: &'a str, scheme: &'a Palette) -> Self {
             Self { name, scheme }
         }
     }
@@ -447,7 +447,7 @@ pub mod show_scheme {
                 .style(Style::new().fg(self.scheme.secondary[3]))
                 .render(l1[0], buf);
 
-            let make_fg = |c| match Scheme::rate_text_color(c) {
+            let make_fg = |c| match Palette::rate_text_color(c) {
                 None => Color::Reset,
                 Some(TextColorRating::Light) => self.scheme.white[0],
                 Some(TextColorRating::Dark) => self.scheme.black[3],
@@ -487,8 +487,8 @@ pub mod show_scheme {
                     Span::from("  MID-2  ").bg(c[6]).fg(make_fg(c[6])),
                     Span::from("  LIGHT  ").bg(c[7]).fg(make_fg(c[7])),
                     Span::from("  GRAY   ")
-                        .bg(Scheme::grayscale(c[3]))
-                        .fg(make_fg(Scheme::grayscale(c[3]))),
+                        .bg(Palette::grayscale(c[3]))
+                        .fg(make_fg(Palette::grayscale(c[3]))),
                 ])
                 .render(l1[i + 1], buf);
             }

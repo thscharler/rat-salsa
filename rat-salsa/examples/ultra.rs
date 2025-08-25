@@ -1,7 +1,7 @@
 use anyhow::Error;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
-use rat_theme2::schemes::IMPERIAL;
+use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::ct_event;
 use ratatui::buffer::Buffer;

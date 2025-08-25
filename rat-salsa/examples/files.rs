@@ -7,7 +7,7 @@ use crossbeam::channel::Sender;
 use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::thread_pool::Cancel;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
-use rat_theme2::schemes::IMPERIAL;
+use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::{dark_themes, DarkTheme};
 use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
@@ -325,7 +325,7 @@ impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
 
         Text::from(state.main_dir.to_string_lossy())
             .alignment(Alignment::Right)
-            .style(theme.black(3).fg(theme.scheme().secondary[2]))
+            .style(theme.black(3).fg(theme.palette().secondary[2]))
             .render(path_area, buf);
 
         let (split, split_layout) = Split::horizontal()
