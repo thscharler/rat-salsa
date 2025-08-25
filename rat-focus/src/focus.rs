@@ -11,7 +11,7 @@ use std::ops::Range;
 /// copies of the widget-areas for mouse-handling.
 ///
 /// In practice, construct it, when you first need it.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Focus {
     last: FocusCore,
     core: FocusCore,
