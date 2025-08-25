@@ -49,6 +49,13 @@ pub fn sample_scott_1() -> (Rope, Vec<(TextRange, usize)>) {
 
 #[allow(unused)]
 pub fn sample_bosworth_1() -> (Rope, Vec<(TextRange, usize)>) {
+    (Rope::from_str("Battle of Bosworth Field
+
+throne. The Yorkist king, Edward IV, was in complete control of England.[4] He attainted those who refused to submit to his rule, such as Jasper Tudor and his nephew Henry, naming them traitors and "), Vec::new())
+}
+
+#[allow(unused)]
+pub fn sample_bosworth_2() -> (Rope, Vec<(TextRange, usize)>) {
     (Rope::from_str(BOSWORTH), Vec::new())
 }
 

@@ -36,6 +36,8 @@ use std::ops::Range;
 
 /// Text area widget.
 ///
+/// [Example](https://github.com/thscharler/rat-salsa/blob/master/rat-text/examples/textarea2.rs)
+///
 /// Backend used is [ropey](https://docs.rs/ropey/latest/ropey/), so large
 /// texts are no problem. Editing time increases with the number of
 /// styles applied. Everything below a million styles should be fine.
@@ -54,9 +56,8 @@ use std::ops::Range;
 /// Scrolling doesn't depend on the cursor, but the editing and move
 /// functions take care that the cursor stays visible.
 ///
-/// Wordwrap is not available. For display only use
-/// [Paragraph](https://docs.rs/ratatui/latest/ratatui/widgets/struct.Paragraph.html), as
-/// for editing: why?
+/// Text wrapping is available, hard line-breaks at the right margin,
+/// or decent word-wrapping.
 ///
 /// You can directly access the underlying Rope for readonly purposes, and
 /// conversion from/to byte/char positions are available. That should probably be
@@ -182,10 +183,17 @@ impl Clone for TextAreaState {
 pub enum TextWrap {
     /// Don't break, shift text to the left.
     Shift,
-    /// Hard break at the width.
+    /// Hard break at the right border.
     Hard,
-    /// Word break within the given right margin.
-    /// If not possible do a hard break.
+    /// Wraps the text at word boundaries.
+    ///
+    /// The parameter gives an area before the right border where
+    /// breaks are preferred. The first space that falls in this
+    /// region will break. Otherwise, the last space before will be
+    /// used, or the word will be hard-wrapped.
+    ///
+    /// Space is the word-separator. Words will be broken if they
+    /// contain a hyphen, a soft-hyphen or a zero-width-space.
     Word(u16),
     ///
     Block,
@@ -377,13 +385,14 @@ fn render_text_area(
         Style::default().black().on_yellow()
     };
 
-    let sa = ScrollArea::new()
+    // sync scroll and cursor
+    state.area = area;
+    state.screen_cursor = None;
+    state.inner = ScrollArea::new()
         .block(widget.block.as_ref())
         .h_scroll(widget.hscroll.as_ref())
         .v_scroll(widget.vscroll.as_ref())
-        .style(style);
-
-    state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
+        .inner(area, Some(&state.hscroll), Some(&state.vscroll));
     state.rendered = state.inner.as_size();
 
     if let Some(h_max_offset) = widget.h_max_offset {
@@ -410,30 +419,33 @@ fn render_text_area(
         state.scroll_to_cursor();
     }
 
-    let inner = state.inner;
+    // scroll + background
+    ScrollArea::new()
+        .block(widget.block.as_ref())
+        .h_scroll(widget.hscroll.as_ref())
+        .v_scroll(widget.vscroll.as_ref())
+        .style(style)
+        .render(
+            area,
+            buf,
+            &mut ScrollAreaState::new()
+                .h_scroll(&mut state.hscroll)
+                .v_scroll(&mut state.vscroll),
+        );
 
-    // set base style
-    sa.render(
-        area,
-        buf,
-        &mut ScrollAreaState::new()
-            .h_scroll(&mut state.hscroll)
-            .v_scroll(&mut state.vscroll),
-    );
-
-    if inner.width == 0 || inner.height == 0 {
+    if state.inner.width == 0 || state.inner.height == 0 {
         // noop
         return;
     }
-
     if state.vscroll.offset() > state.value.len_lines() as usize {
+        // noop
         return;
     }
 
     let (shift_left, sub_row_offset, start_row) = state.clean_offset();
     let page_rows = start_row
         ..min(
-            start_row + inner.height as upos_type,
+            start_row + state.inner.height as upos_type,
             state.value.len_lines(),
         );
     let page_bytes = state
@@ -465,7 +477,6 @@ fn render_text_area(
         if g.screen_width() > 0 {
             let mut style = style;
             // text-styles
-            styles.clear();
             state
                 .value
                 .styles_at_page(g.text_bytes().start, page_bytes.clone(), &mut styles);
@@ -480,15 +491,18 @@ fn render_text_area(
             };
 
             // render glyph
-            if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
+            if let Some(cell) =
+                buf.cell_mut((state.inner.x + screen_pos.0, state.inner.y + screen_pos.1))
+            {
                 cell.set_symbol(g.glyph());
                 cell.set_style(style);
             }
             // clear the reset of the cells to avoid interferences.
             for d in 1..g.screen_width() {
-                if let Some(cell) =
-                    buf.cell_mut((inner.x + screen_pos.0 + d, inner.y + screen_pos.1))
-                {
+                if let Some(cell) = buf.cell_mut((
+                    state.inner.x + screen_pos.0 + d,
+                    state.inner.y + screen_pos.1,
+                )) {
                     cell.reset();
                     cell.set_style(style);
                 }
@@ -612,34 +626,47 @@ impl TextAreaState {
         self.value.expand_tabs()
     }
 
-    /// Show control characters.
+    /// Show glyphs for control characters.
     #[inline]
     pub fn set_show_ctrl(&mut self, show_ctrl: bool) {
         self.value.set_glyph_ctrl(show_ctrl);
     }
 
-    /// Show control characters.
+    /// Show glyphs for control characters.
     pub fn show_ctrl(&self) -> bool {
         self.value.glyph_ctrl()
     }
 
-    /// Show glyphs for text-wrap.
+    /// Show glyphs for text-wrapping.
+    /// Shows inserted line-breaks, zero-width space (U+200B) or the soft hyphen (U+00AD).
     #[inline]
     pub fn set_wrap_ctrl(&mut self, wrap_ctrl: bool) {
         self.value.set_wrap_ctrl(wrap_ctrl);
     }
 
-    /// Show control characters.
+    /// Show glyphs for text-wrapping.
+    /// Shows inserted line-breaks, zero-width space (U+200B) or the soft hyphen (U+00AD).
     pub fn wrap_ctrl(&self) -> bool {
         self.value.wrap_ctrl()
     }
 
-    /// Text breaking.
+    /// Text wrapping mode.
+    ///
+    /// * TextWrap::Shift means no wrapping.
+    /// * TextWrap::Hard hard-wraps at the right border.
+    /// * TextWrap::Word(n) does word wrapping.
+    ///   n gives the size of the break-region close to the right border.
+    ///   The first space that falls in this region is taken as a break.
+    ///   If that is not possible this will break at the last space before.
+    ///   If there is no space it will hard-wrap the word.
+    ///
+    ///   Space is used as word separator. Hyphen will be used to break
+    ///   a word, and soft-hyphen and zero-width-space will be recognized too.
     pub fn set_text_wrap(&mut self, text_wrap: TextWrap) {
         self.text_wrap = text_wrap;
     }
 
-    /// Text breaking.
+    /// Text wrapping.
     pub fn text_wrap(&self) -> TextWrap {
         self.text_wrap
     }
@@ -683,7 +710,7 @@ impl TextAreaState {
         self.value.clipboard()
     }
 
-    /// Copy to internal buffer
+    /// Copy selection to clipboard.
     #[inline]
     pub fn copy_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
@@ -694,7 +721,7 @@ impl TextAreaState {
         false
     }
 
-    /// Cut to internal buffer
+    /// Cut selection to clipboard.
     #[inline]
     pub fn cut_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
@@ -707,7 +734,7 @@ impl TextAreaState {
         }
     }
 
-    /// Paste from internal buffer.
+    /// Paste from clipboard.
     #[inline]
     pub fn paste_from_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
@@ -723,7 +750,12 @@ impl TextAreaState {
 }
 
 impl TextAreaState {
-    /// Set undo buffer.
+    /// Set the undo buffer.
+    ///
+    /// Default is an undo-buffer with 99 undoes.
+    ///
+    /// Adjacent edits will be merged automatically into a single undo.
+    /// (Type multiple characters, they will be undone in one go.)
     #[inline]
     pub fn set_undo_buffer(&mut self, undo: Option<impl UndoBuffer + 'static>) {
         match undo {
@@ -732,19 +764,23 @@ impl TextAreaState {
         }
     }
 
-    /// Undo
+    /// Access the undo buffer.
     #[inline]
     pub fn undo_buffer(&self) -> Option<&dyn UndoBuffer> {
         self.value.undo_buffer()
     }
 
-    /// Undo
+    /// Access the undo buffer.
     #[inline]
     pub fn undo_buffer_mut(&mut self) -> Option<&mut dyn UndoBuffer> {
         self.value.undo_buffer_mut()
     }
 
     /// Begin a sequence of changes that should be undone in one go.
+    ///
+    /// Call begin_undo_seq(), then call any edit-functions. When
+    /// you are done call end_undo_seq(). Any changes will be undone
+    /// in a single step.
     #[inline]
     pub fn begin_undo_seq(&mut self) {
         self.value.begin_undo_seq()
@@ -756,25 +792,30 @@ impl TextAreaState {
         self.value.end_undo_seq()
     }
 
-    /// Get all recent replay recordings.
+    /// Get all recent replay recordings. This log can be sent
+    /// to a second TextAreaState and can be applied with replay_log().
+    ///
+    /// There are some [caveats](UndoBuffer::enable_replay_log).
     #[inline]
     pub fn recent_replay_log(&mut self) -> Vec<UndoEntry> {
         self.value.recent_replay_log()
     }
 
     /// Apply the replay recording.
+    ///
+    /// There are some [caveats](UndoBuffer::enable_replay_log).
     #[inline]
     pub fn replay_log(&mut self, replay: &[UndoEntry]) {
         self.value.replay_log(replay)
     }
 
-    /// Undo operation
+    /// Do one undo.
     #[inline]
     pub fn undo(&mut self) -> bool {
         self.value.undo()
     }
 
-    /// Redo operation
+    /// Do one redo.
     #[inline]
     pub fn redo(&mut self) -> bool {
         self.value.redo()
@@ -797,7 +838,7 @@ impl TextAreaState {
         self.value.set_styles(styles);
     }
 
-    /// Add a style for a [TextRange].
+    /// Add a style for a byte-range.
     ///
     /// The style-idx refers to one of the styles set with the widget.
     /// Missing styles are just ignored.
@@ -816,7 +857,7 @@ impl TextAreaState {
         Ok(())
     }
 
-    /// Remove the exact TextRange and style.
+    /// Remove the exact byte-range and style.
     #[inline]
     pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
         self.value.remove_style(range, style);
@@ -864,9 +905,8 @@ impl TextAreaState {
 
     /// Set the offset for scrolling.
     ///
-    /// The offset uses usize for consistency, but it shouldn't
-    /// exceed u32::MAX.
-    /// TODO: details
+    /// The offset uses usize, but it shouldn't exceed (u32::MAX, u32::MAX).
+    /// This is due to the internal ScrollState that only knows usize.
     #[inline]
     pub fn set_offset(&mut self, offset: (usize, usize)) -> bool {
         self.scroll_to_cursor = false;
@@ -875,10 +915,17 @@ impl TextAreaState {
         r || c
     }
 
-    /// Offset into the first row when text-wrapping is active.
-    /// This allows displaying only part of the first text-row.
+    /// Scrolling uses the offset() for the start of the displayed text.
+    /// When text-wrapping is active, this is not enough. This gives
+    /// an extra offset into the first row where rendering should start.
     ///
-    /// This value will be trimmed before use.
+    /// You probably don't want to set this value. Use set_cursor()
+    /// instead, it will automatically scroll to make the cursor visible.
+    ///
+    /// If you really want, pos_to_line_start() can help to find the
+    /// start-position of a visual row. The x-value of the returned
+    /// TextPosition is a valid value for this function.
+    ///
     pub fn set_sub_row_offset(&mut self, sub_row_offset: upos_type) -> bool {
         self.scroll_to_cursor = false;
         let old = self.sub_row_offset;
@@ -886,8 +933,10 @@ impl TextAreaState {
         sub_row_offset != old
     }
 
-    /// Returns the offset into the first row, when text-wrapping
-    /// is active.
+    /// Returns the extra offset into the first row where rendering
+    /// starts. This is only valid if text-wrapping is active.
+    ///
+    /// Returns the index of the column.
     pub fn sub_row_offset(&self) -> upos_type {
         self.sub_row_offset
     }
@@ -896,7 +945,7 @@ impl TextAreaState {
     /// all trimmed to upos_type. sub_row_offset will only have a value if
     /// there is some text-wrapping active. hscroll.offset will only have
     /// an offset if there is *no* text-wrapping active.
-    pub fn clean_offset(&self) -> (upos_type, upos_type, upos_type) {
+    fn clean_offset(&self) -> (upos_type, upos_type, upos_type) {
         let ox = self.hscroll.offset as upos_type;
         let mut oy = self.vscroll.offset as upos_type;
 
@@ -905,15 +954,16 @@ impl TextAreaState {
             oy = 0;
         }
 
-        if let TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block = self.text_wrap {
-            // sub_row_offset can be any value. limit somewhat.
-            if let Ok(max_col) = self.try_line_width(oy) {
-                (0, min(self.sub_row_offset, max_col), oy)
-            } else {
-                (0, 0, oy)
+        match self.text_wrap {
+            TextWrap::Shift => (ox, 0, oy),
+            TextWrap::Hard | TextWrap::Word(_) | TextWrap::Block => {
+                // sub_row_offset can be any value. limit somewhat.
+                if let Ok(max_col) = self.try_line_width(oy) {
+                    (0, min(self.sub_row_offset, max_col), oy)
+                } else {
+                    (0, 0, oy)
+                }
             }
-        } else {
-            (ox, 0, oy)
         }
     }
 
@@ -984,13 +1034,13 @@ impl TextAreaState {
         self.value.is_empty()
     }
 
-    /// Borrow the rope
+    /// Access the underlying rope.
     #[inline]
     pub fn rope(&self) -> &Rope {
         self.value.text().rope()
     }
 
-    /// Text value
+    /// Copy of the text-value.
     #[inline]
     pub fn text(&self) -> String {
         self.value.text().string()
@@ -1044,7 +1094,7 @@ impl TextAreaState {
         self.value.line_width(row)
     }
 
-    /// Line as RopeSlice.
+    /// Line as Cow<str>.
     /// This contains the \n at the end.
     ///
     /// Panics for an invalid row.
@@ -1053,7 +1103,7 @@ impl TextAreaState {
         self.value.line_at(row).expect("valid_row")
     }
 
-    /// Line as RopeSlice.
+    /// Line as Cow<str>.
     /// This contains the \n at the end.
     #[inline]
     pub fn try_line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
@@ -1081,7 +1131,7 @@ impl TextAreaState {
     /// Glyphs here a grapheme + display length.
     #[inline]
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "discontinued api")]
     pub fn glyphs(
         &self,
         rows: Range<upos_type>,
@@ -1097,7 +1147,7 @@ impl TextAreaState {
     /// Glyphs here a grapheme + display length.
     #[inline]
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "discontinued api")]
     pub fn try_glyphs(
         &self,
         rows: Range<upos_type>,
@@ -1239,6 +1289,7 @@ impl TextAreaState {
     }
 
     /// Set the text value.
+    ///
     /// Resets all internal state.
     #[inline]
     pub fn set_text<S: AsRef<str>>(&mut self, s: S) {
@@ -1246,6 +1297,7 @@ impl TextAreaState {
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
+        self.move_col = None;
 
         self.value.set_text(TextRope::new_text(s.as_ref()));
     }
@@ -1258,6 +1310,7 @@ impl TextAreaState {
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
+        self.move_col = None;
 
         self.value.set_text(TextRope::new_rope(r));
     }
@@ -1265,9 +1318,13 @@ impl TextAreaState {
     /// Insert a character at the cursor position.
     /// Removes the selection and inserts the char.
     ///
-    /// This insert makes no special actions when encountering
-    /// a new-line or tab. Use insert_newline and insert_tab for
-    /// this.
+    /// You can insert a tab with this. But it will not
+    /// indent the current selection. It will expand
+    /// the tab though. Use insert_tab() for this.
+    ///
+    /// You can insert a new-line with this. But it will
+    /// not do an auto-indent.
+    /// Use insert_new_line() for this.
     pub fn insert_char(&mut self, c: char) -> bool {
         let mut insert = true;
         if self.has_selection() {
@@ -1795,13 +1852,12 @@ impl TextAreaState {
     /// Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let (shift_left, _, _) = self.clean_offset();
         let cursor = self.cursor();
 
         let mut line_start = self.pos_to_line_start(cursor);
         for g in self
             .glyphs2(
-                shift_left,
+                0,
                 line_start.x,
                 line_start.y..min(line_start.y + 1, self.len_lines()),
             )
@@ -2338,11 +2394,11 @@ impl TextAreaState {
                         oy.saturating_add_signed(scr_pos.1 as ipos_type),
                     ));
                 }
-                if (oy + scr_pos.1 as upos_type) > self.len_lines() {
+                if (oy + scr_pos.1 as upos_type) >= self.len_lines() {
                     // after the last visible line. fall back to width.
                     return Some(TextPosition::new(
-                        self.line_width(self.len_lines()),
-                        self.len_lines(),
+                        self.line_width(self.len_lines().saturating_sub(1)),
+                        self.len_lines().saturating_sub(1),
                     ));
                 }
 
@@ -2483,7 +2539,7 @@ impl TextAreaState {
 impl TextAreaState {
     /// Converts from a widget relative screen coordinate to a line.
     /// It limits its result to a valid row.
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by relative_screen_to_pos()")]
     pub fn screen_to_row(&self, scy: i16) -> upos_type {
         let (_, oy) = self.offset();
         let oy = oy as upos_type + self.dark_offset.1 as upos_type;
@@ -2510,7 +2566,7 @@ impl TextAreaState {
     ///   with screen_to_row().
     /// * x is the relative screen position.
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by relative_screen_to_pos()")]
     pub fn screen_to_col(&self, row: upos_type, scx: i16) -> upos_type {
         self.try_screen_to_col(row, scx).expect("valid_row")
     }
@@ -2522,7 +2578,7 @@ impl TextAreaState {
     ///   with screen_to_row().
     /// * x is the relative screen position.
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by relative_screen_to_pos()")]
     pub fn try_screen_to_col(&self, row: upos_type, scx: i16) -> Result<upos_type, TextError> {
         let (ox, _) = self.offset();
 
@@ -2554,7 +2610,7 @@ impl TextAreaState {
 
     /// Converts the row of the position to a screen position
     /// relative to the widget area.
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by pos_to_relative_screen()")]
     pub fn row_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
         let pos = pos.into();
         let (_, oy) = self.offset();
@@ -2575,7 +2631,7 @@ impl TextAreaState {
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by pos_to_relative_screen()")]
     pub fn col_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
         self.try_col_to_screen(pos).expect("valid_pos")
     }
@@ -2583,7 +2639,7 @@ impl TextAreaState {
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
     #[allow(deprecated)]
-    #[deprecated]
+    #[deprecated(since = "1.1.0", note = "replaced by pos_to_relative_screen()")]
     pub fn try_col_to_screen(
         &self,
         pos: impl Into<TextPosition>,

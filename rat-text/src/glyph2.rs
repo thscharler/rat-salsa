@@ -3,7 +3,7 @@ use crate::text_store::SkipLine;
 use crate::{upos_type, Grapheme, TextError, TextPosition};
 use log::debug;
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::ops::ControlFlow::{Break, Continue};
@@ -373,7 +373,7 @@ where
                 cache.line_break.borrow_mut().insert(
                     next_pos,
                     LineBreakCache {
-                        start_pos: next_pos,
+                        start_pos: TextPosition::new(0, next_pos.y + 1),
                         byte_pos: next_byte,
                     },
                 );
@@ -541,13 +541,13 @@ where
     let mut next_screen_x = 0;
     let mut next_byte = 0;
     // Last space seen
-    let mut space_pos = None;
+    let mut space_pos: Option<TextPosition> = None;
     let mut space_screen_x = None;
     let mut space_byte = None;
     // Block setting parameters
-    let mut adjust_priority_1 = Vec::new();
-    let mut adjust_priority_2 = Vec::new();
-    let mut adjust_priority_3 = Vec::new();
+    let mut adjust_priority_1 = HashSet::new();
+    let mut adjust_priority_2 = HashSet::new();
+    let mut adjust_priority_3 = HashSet::new();
     // Temporary output
     let mut width_adjust: HashMap<TextPosition, WidthAdjustCache> = HashMap::new();
     // Previous glyph
@@ -680,21 +680,43 @@ where
             if let (Some(space_screen_pos), Some(space_pos), Some(space_byte)) =
                 (space_screen_x, space_pos, space_byte)
             {
+                debug!(
+                    "pos {:?} : screen_pos {:?} - space_screen_pos {}",
+                    glyph.pos, glyph.screen_pos.0, space_screen_pos
+                );
                 next_screen_x = glyph.screen_pos.0 - space_screen_pos;
                 next_pos.x += 1;
                 // next_pos.y doesn't change
                 next_byte = glyph.text_bytes.end;
                 // don't change line_start_byte
 
+                // remove breaking space and any variable width before.
+                adjust_priority_3.remove(&space_pos);
+                let before_space = TextPosition::new(space_pos.x.saturating_sub(1), space_pos.y);
+                adjust_priority_1.remove(&before_space);
+                adjust_priority_2.remove(&before_space);
+                adjust_priority_3.remove(&before_space);
+
                 // adjust spacing of the current line.
                 if adjust_priority_1.len() + adjust_priority_2.len() + adjust_priority_3.len() > 0 {
+                    debug!("pos {:?}", glyph.pos());
+                    debug!("space {:?} {:?}", space_pos, space_screen_pos);
                     let mut extra = glyphs.true_right_margin() - space_screen_pos - 1;
+                    debug!(
+                        "extra {} - {} - 1 = {}",
+                        glyphs.true_right_margin(),
+                        space_screen_pos,
+                        extra
+                    );
                     'l: loop {
                         for insert_pos in adjust_priority_1
                             .iter() //x
                             .chain(adjust_priority_2.iter())
                             .chain(adjust_priority_3.iter())
                         {
+                            if extra == 0 {
+                                break 'l;
+                            }
                             width_adjust
                                 .entry(*insert_pos)
                                 .and_modify(|v: &mut WidthAdjustCache| {
@@ -705,9 +727,6 @@ where
                                     byte_pos: 0,
                                 });
                             extra -= 1;
-                            if extra == 0 {
-                                break 'l;
-                            }
                         }
                     }
                 }
@@ -755,24 +774,18 @@ where
             // line_start_byte doesn't change
 
             if glyph.screen_pos.0 > 0 {
-                if glyph.glyph == "."
-                    || glyph.glyph == ","
-                    || glyph.glyph == ";"
+                if glyph.glyph == "." || glyph.glyph == ":" || glyph.glyph == ";" {
+                    adjust_priority_1.insert(glyph.pos);
+                }
+                if glyph.glyph == ","
                     || glyph.glyph == ")"
+                    || glyph.glyph == "]"
+                    || glyph.glyph == "}"
                 {
-                    adjust_priority_1.push(glyph.pos);
+                    adjust_priority_2.insert(glyph.pos);
                 }
-
-                if last_glyph == Some(Cow::Borrowed(" ")) {
-                    if let Some(c) = glyph.glyph.chars().next() {
-                        if c.is_uppercase() {
-                            adjust_priority_1.push(last_glyph_pos.expect("last_glyph_pos"));
-                        }
-                    }
-                }
-
                 if glyph.glyph == " " {
-                    adjust_priority_3.push(glyph.pos);
+                    adjust_priority_3.insert(glyph.pos);
                 }
             }
 
@@ -885,7 +898,7 @@ where
                 cache.line_break.borrow_mut().insert(
                     next_pos,
                     LineBreakCache {
-                        start_pos: next_pos,
+                        start_pos: TextPosition::new(0, next_pos.y + 1),
                         byte_pos: next_byte,
                     },
                 );
@@ -1012,7 +1025,7 @@ where
                 cache.line_break.borrow_mut().insert(
                     pos,
                     LineBreakCache {
-                        start_pos: next_pos,
+                        start_pos: TextPosition::new(0, next_pos.y + 1),
                         byte_pos: last_byte,
                     },
                 );
