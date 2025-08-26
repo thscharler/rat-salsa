@@ -175,6 +175,7 @@ pub mod text_input_mask {
 pub mod textarea {
     pub use rat_text::text_area::{
         handle_events, handle_mouse_events, handle_readonly_events, TextArea, TextAreaState,
+        TextWrap,
     };
 }
 pub mod range_op;
