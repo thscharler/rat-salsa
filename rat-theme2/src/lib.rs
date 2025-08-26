@@ -1,6 +1,6 @@
 use crate::palettes::{
     BASE16, BASE16_RELAXED, BLACKWHITE, IMPERIAL, MONEKAI, MONOCHROME, OCEAN, OXOCARBON, RADIUM,
-    TUNDRA, VSCODE_DARK,
+    SOLARIZED, VSCODE_DARK,
 };
 
 mod dark_theme;
@@ -16,9 +16,10 @@ pub fn color_palettes() -> Vec<(String, Palette)> {
         ("Black&White".to_string(), BLACKWHITE),
         ("Imperial".to_string(), IMPERIAL),
         ("Radium".to_string(), RADIUM),
-        ("Tundra".to_string(), TUNDRA),
+        ("Tundra".to_string(), SOLARIZED),
         ("Monochrome".to_string(), MONOCHROME),
         ("Monekai".to_string(), MONEKAI),
+        ("Solarized".to_string(), SOLARIZED),
         ("OxoCarbon".to_string(), OXOCARBON),
         ("VSCodeDark".to_string(), VSCODE_DARK),
         ("Ocean".to_string(), OCEAN),
@@ -33,9 +34,10 @@ pub fn dark_themes() -> Vec<DarkTheme> {
         DarkTheme::new("Black&White".to_string(), BLACKWHITE),
         DarkTheme::new("Imperial".to_string(), IMPERIAL),
         DarkTheme::new("Radium".to_string(), RADIUM),
-        DarkTheme::new("Tundra".to_string(), TUNDRA),
+        DarkTheme::new("Tundra".to_string(), SOLARIZED),
         DarkTheme::new("Monochrome".to_string(), MONOCHROME),
         DarkTheme::new("Monekai".to_string(), MONEKAI),
+        DarkTheme::new("Solarized".to_string(), SOLARIZED),
         DarkTheme::new("Oxocarbon".to_string(), OXOCARBON),
         DarkTheme::new("VSCodeDark".to_string(), VSCODE_DARK),
         DarkTheme::new("Ocean".to_string(), OCEAN),

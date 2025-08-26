@@ -7,6 +7,7 @@ mod monochrome;
 mod ocean;
 mod oxocarbon;
 mod radium;
+mod solarized;
 mod tundra;
 mod vscode_dark;
 
@@ -19,5 +20,6 @@ pub use monochrome::MONOCHROME;
 pub use ocean::OCEAN;
 pub use oxocarbon::OXOCARBON;
 pub use radium::RADIUM;
+pub use solarized::SOLARIZED;
 pub use tundra::TUNDRA;
 pub use vscode_dark::VSCODE_DARK;
