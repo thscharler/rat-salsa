@@ -175,11 +175,11 @@ impl<'a> LineNumbers<'a> {
     #[deprecated(since = "1.1.0", note = "use width_for()")]
     pub fn width(&self) -> u16 {
         let nr_width = if let Some(text_area) = self.text_area {
-            (text_area.vscroll.offset() + 100).ilog10() as u16 + 1
+            (text_area.vscroll.offset() + 50).ilog10() as u16 + 1
         } else if let Some(end) = self.end {
             end.ilog10() as u16 + 1
         } else if let Some(start) = self.start {
-            (start + 100).ilog10() as u16 + 1
+            (start + 50).ilog10() as u16 + 1
         } else {
             3
         };
@@ -204,7 +204,7 @@ impl<'a> LineNumbers<'a> {
 
     /// Required width for the line-numbers.
     pub fn width_for(start_nr: usize, flag_width: u16, margin: (u16, u16), block: u16) -> u16 {
-        let nr_width = (start_nr + 100).ilog10() as u16 + 1;
+        let nr_width = (start_nr + 50).ilog10() as u16 + 1;
         nr_width + flag_width + margin.0 + margin.1 + block + 1
     }
 }
@@ -246,11 +246,11 @@ impl StatefulWidget for LineNumbers<'_> {
         };
 
         let nr_width = if let Some(text_area) = self.text_area {
-            (text_area.vscroll.offset() + 100).ilog10() as u16 + 1
+            (text_area.vscroll.offset() + 50).ilog10() as u16 + 1
         } else if let Some(end) = self.end {
             end.ilog10() as u16 + 1
         } else if let Some(start) = self.start {
-            (start + 100).ilog10() as u16 + 1
+            (start + 50).ilog10() as u16 + 1
         } else {
             3
         };
