@@ -32,7 +32,7 @@ fern = "0.7"
 dirs = "6.0"
 sysinfo = "0.33"
 
-rat-theme2 = { version = "0.28", path = "../rat-theme2" }
+rat-theme2 = { version = "1.0", path = "../rat-theme2" }
 
 [[example]]
 name = "async1"

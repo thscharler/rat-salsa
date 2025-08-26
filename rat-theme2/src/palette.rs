@@ -191,7 +191,7 @@ impl Palette {
 
     /// Create a style with the given background color.
     /// Uses `white[3]` or `black[0]` for the foreground,
-    /// dependent on `rat_text_color`.
+    /// based on `rate_text_color`.
     pub fn high_contrast(&self, color: Color) -> Style {
         match Self::rate_text_color(color) {
             None => Style::reset(),
@@ -202,7 +202,7 @@ impl Palette {
 
     /// Create a style with the given background color.
     /// Uses `white[0]` or `black[3]` for the foreground,
-    /// dependent on `rat_text_color`.
+    /// based on `rate_text_color`.
     pub fn normal_contrast(&self, color: Color) -> Style {
         match Self::rate_text_color(color) {
             None => Style::reset(),

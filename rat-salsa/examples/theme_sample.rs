@@ -478,15 +478,15 @@ pub mod show_scheme {
             {
                 Line::from(vec![
                     Span::from(format!("{:10}", n)),
-                    Span::from("  THEME  ").bg(c[0]).fg(make_fg(c[0])),
-                    Span::from("  MID-1  ").bg(c[1]).fg(make_fg(c[1])),
-                    Span::from("  MID-2  ").bg(c[2]).fg(make_fg(c[2])),
-                    Span::from("  LIGHT  ").bg(c[3]).fg(make_fg(c[3])),
-                    Span::from("  BACK   ").bg(c[4]).fg(make_fg(c[4])),
-                    Span::from("  MID-1  ").bg(c[5]).fg(make_fg(c[5])),
-                    Span::from("  MID-2  ").bg(c[6]).fg(make_fg(c[6])),
-                    Span::from("  LIGHT  ").bg(c[7]).fg(make_fg(c[7])),
-                    Span::from("  GRAY   ")
+                    Span::from("  FG-0  ").bg(c[0]).fg(make_fg(c[0])),
+                    Span::from("  FG-1  ").bg(c[1]).fg(make_fg(c[1])),
+                    Span::from("  FG-2  ").bg(c[2]).fg(make_fg(c[2])),
+                    Span::from("  FG-3  ").bg(c[3]).fg(make_fg(c[3])),
+                    Span::from("  BG-0   ").bg(c[4]).fg(make_fg(c[4])),
+                    Span::from("  BG-1  ").bg(c[5]).fg(make_fg(c[5])),
+                    Span::from("  BG-3  ").bg(c[6]).fg(make_fg(c[6])),
+                    Span::from("  BG-4  ").bg(c[7]).fg(make_fg(c[7])),
+                    Span::from("  grayscale  ")
                         .bg(Palette::grayscale(c[3]))
                         .fg(make_fg(Palette::grayscale(c[3]))),
                 ])
