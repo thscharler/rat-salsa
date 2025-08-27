@@ -8,7 +8,7 @@ pub(crate) mod text_string;
 
 /// Extended Iterator that can skip over parts of
 /// the underlying data.
-pub(crate) trait SkipLine: Iterator {
+pub trait SkipLine: Iterator {
     /// Set the iterator to the start of the next line.
     fn skip_line(&mut self) -> Result<(), TextError>;
 

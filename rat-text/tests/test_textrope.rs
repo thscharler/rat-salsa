@@ -136,9 +136,10 @@ fn test_string3() {
     // grapheme
     let s = TextRope::new_text("asöfg");
 
-    let mut g = s
-        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(1, 0))
-        .unwrap();
+    let range = s.byte_range(TextRange::new((1, 0), (4, 0))).expect("valid");
+    let pos = s.byte_range_at(TextPosition::new(1, 0)).expect("valid");
+
+    let mut g = s.graphemes_byte(range, pos.start).unwrap();
     let gg = g.next().unwrap();
     assert_eq!(gg.text_bytes(), 1..2);
     assert_eq!(gg.grapheme(), "s");
@@ -180,24 +181,24 @@ fn test_string3_2() {
     // grapheme iterator at the boundaries.
     let s = TextRope::new_text("asöfg");
 
-    let mut g = s
-        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(1, 0))
-        .unwrap();
+    let range = s.byte_range(TextRange::new((1, 0), (4, 0))).expect("valid");
+    let pos = s.byte_range_at(TextPosition::new(1, 0)).expect("valid");
+    let mut g = s.graphemes_byte(range, pos.start).unwrap();
     assert_eq!(g.prev(), None);
 
-    let mut g = s
-        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(4, 0))
-        .unwrap();
+    let range = s.byte_range(TextRange::new((1, 0), (4, 0))).expect("valid");
+    let pos = s.byte_range_at(TextPosition::new(4, 0)).expect("valid");
+    let mut g = s.graphemes_byte(range, pos.start).unwrap();
     assert_eq!(g.prev().unwrap(), "f");
 
-    let mut g = s
-        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(1, 0))
-        .unwrap();
+    let range = s.byte_range(TextRange::new((1, 0), (4, 0))).expect("valid");
+    let pos = s.byte_range_at(TextPosition::new(1, 0)).expect("valid");
+    let mut g = s.graphemes_byte(range, pos.start).unwrap();
     assert_eq!(g.next().unwrap(), "s");
 
-    let mut g = s
-        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(4, 0))
-        .unwrap();
+    let range = s.byte_range(TextRange::new((1, 0), (4, 0))).expect("valid");
+    let pos = s.byte_range_at(TextPosition::new(4, 0)).expect("valid");
+    let mut g = s.graphemes_byte(range, pos.start).unwrap();
     assert_eq!(g.next(), None);
 }
 
@@ -311,5 +312,403 @@ fn test_cr2() {
     assert_eq!(
         s.insert_str(TextPosition::new(2, 0), "\r\n"),
         Ok((TextRange::new((2, 0), (0, 1)), 2..4))
+    );
+}
+
+#[test]
+#[should_panic]
+fn test_str_slice_panic_1() {
+    let s = TextRope::new_text("1234\r\n");
+    s.str_slice(TextRange::new((0, 0), (6, 0))).expect("valid");
+}
+
+#[test]
+#[should_panic]
+fn test_str_slice_panic_2() {
+    let s = TextRope::new_text("1234\r\n");
+    s.str_slice(TextRange::new((0, 0), (0, 3))).expect("valid");
+}
+
+#[test]
+fn test_str_slice() {
+    let s = TextRope::new_text("1234");
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 0), (1, 0))).expect("valid"),
+        "1"
+    );
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 0), (4, 0))).expect("valid"),
+        "1234"
+    );
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 0), (0, 1))).expect("valid"),
+        "1234"
+    );
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 1), (0, 1))).expect("valid"),
+        ""
+    );
+
+    let s = TextRope::new_text("1234\r\n");
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 0), (1, 0))).expect("valid"),
+        "1"
+    );
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 0), (4, 0))).expect("valid"),
+        "1234"
+    );
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 0), (5, 0))).expect("valid"),
+        "1234\r\n"
+    );
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 0), (0, 1))).expect("valid"),
+        "1234\r\n"
+    );
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 1), (0, 1))).expect("valid"),
+        ""
+    );
+    assert_eq!(
+        s.str_slice(TextRange::new((0, 1), (0, 2))).expect("valid"),
+        ""
+    );
+}
+
+#[test]
+#[should_panic]
+fn test_line_at_panic_1() {
+    let s = TextRope::new_text("1234");
+    assert_eq!(s.line_at(2).expect("valid"), "1234");
+}
+
+#[test]
+#[should_panic]
+fn test_line_at_panic_2() {
+    let s = TextRope::new_text("1234\r\n");
+    assert_eq!(s.line_at(3).expect("valid"), "1234");
+}
+
+#[test]
+fn test_line_at() {
+    let s = TextRope::new_text("1234");
+    assert_eq!(s.line_at(0).expect("valid"), "1234");
+    assert_eq!(s.line_at(1).expect("valid"), "");
+
+    let s = TextRope::new_text("1234\r\n");
+    assert_eq!(s.line_at(0).expect("valid"), "1234\r\n");
+    assert_eq!(s.line_at(1).expect("valid"), "");
+    assert_eq!(s.line_at(2).expect("valid"), "");
+}
+
+#[test]
+fn test_insert_char_0() {
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(0, 0), 'x').expect("valid");
+    assert_eq!(r, TextRange::new((0, 0), (1, 0)));
+    assert_eq!(b, 0..1);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(4, 0), 'x').expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (5, 0)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(0, 1), 'x').expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (5, 0)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234");
+    assert!(matches!(
+        s.insert_char(TextPosition::new(0, 2), 'x'),
+        Err(_)
+    ));
+}
+
+#[test]
+fn test_insert_char_1() {
+    // multi byte
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(0, 0), 'ß').expect("valid");
+    assert_eq!(r, TextRange::new((0, 0), (1, 0)));
+    assert_eq!(b, 0..2);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(4, 0), 'ß').expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (5, 0)));
+    assert_eq!(b, 4..6);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(0, 1), 'ß').expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (5, 0)));
+    assert_eq!(b, 4..6);
+
+    let mut s = TextRope::new_text("1234");
+    assert!(matches!(
+        s.insert_char(TextPosition::new(0, 2), 'ß'),
+        Err(_)
+    ));
+}
+
+#[test]
+fn test_insert_char_2() {
+    // lf
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(0, 0), '\n').expect("valid");
+    assert_eq!(r, TextRange::new((0, 0), (0, 1)));
+    assert_eq!(b, 0..1);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(4, 0), '\n').expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(0, 1), '\n').expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(0, 0), '\r').expect("valid");
+    assert_eq!(r, TextRange::new((0, 0), (0, 1)));
+    assert_eq!(b, 0..1);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(4, 0), '\r').expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_char(TextPosition::new(0, 1), '\r').expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_char(TextPosition::new(0, 0), '\n').expect("valid");
+    assert_eq!(r, TextRange::new((0, 0), (0, 1)));
+    assert_eq!(b, 0..1);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_char(TextPosition::new(4, 0), '\n').expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_char(TextPosition::new(5, 0), '\n').expect("valid");
+    assert_eq!(r, TextRange::new((0, 1), (0, 1)));
+    assert_eq!(b, 5..6);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_char(TextPosition::new(0, 1), '\n').expect("valid");
+    assert_eq!(r, TextRange::new((0, 1), (0, 1)));
+    assert_eq!(b, 5..6);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_char(TextPosition::new(0, 2), '\n').expect("valid");
+    assert_eq!(r, TextRange::new((0, 1), (0, 1)));
+    assert_eq!(b, 5..6);
+
+    let mut s = TextRope::new_text("1234\r");
+    assert!(matches!(
+        s.insert_char(TextPosition::new(0, 3), '\n'),
+        Err(_)
+    ));
+}
+
+#[test]
+fn test_insert_str_2() {
+    // lf
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_str(TextPosition::new(0, 0), "\n").expect("valid");
+    assert_eq!(r, TextRange::new((0, 0), (0, 1)));
+    assert_eq!(b, 0..1);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_str(TextPosition::new(4, 0), "\n").expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_str(TextPosition::new(0, 1), "\n").expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_str(TextPosition::new(0, 0), "\r").expect("valid");
+    assert_eq!(r, TextRange::new((0, 0), (0, 1)));
+    assert_eq!(b, 0..1);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_str(TextPosition::new(4, 0), "\r").expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234");
+    let (r, b) = s.insert_str(TextPosition::new(0, 1), "\r").expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_str(TextPosition::new(0, 0), "\n").expect("valid");
+    assert_eq!(r, TextRange::new((0, 0), (0, 1)));
+    assert_eq!(b, 0..1);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_str(TextPosition::new(4, 0), "\n").expect("valid");
+    assert_eq!(r, TextRange::new((4, 0), (0, 1)));
+    assert_eq!(b, 4..5);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_str(TextPosition::new(5, 0), "\n").expect("valid");
+    assert_eq!(r, TextRange::new((5, 0), (0, 1)));
+    assert_eq!(b, 5..6);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_str(TextPosition::new(0, 1), "\n").expect("valid");
+    assert_eq!(r, TextRange::new((0, 1), (0, 2)));
+    assert_eq!(b, 5..6);
+
+    let mut s = TextRope::new_text("1234\r");
+    let (r, b) = s.insert_str(TextPosition::new(0, 2), "\n").expect("valid");
+    assert_eq!(r, TextRange::new((0, 1), (0, 2)));
+    assert_eq!(b, 5..6);
+
+    let mut s = TextRope::new_text("1234\r");
+    assert!(matches!(
+        s.insert_str(TextPosition::new(0, 3), "\n"),
+        Err(_)
+    ));
+}
+
+#[test]
+fn test_remove_1() {
+    let mut s = TextRope::new_text("1234");
+    assert_eq!(
+        s.remove(TextRange::new((0, 0), (0, 0))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 0), (0, 0)), 0..0))
+    );
+
+    let mut s = TextRope::new_text("1234");
+    assert_eq!(
+        s.remove(TextRange::new((3, 0), (4, 0))).expect("fine"),
+        (String::from("4"), (TextRange::new((3, 0), (4, 0)), 3..4))
+    );
+
+    let mut s = TextRope::new_text("1234");
+    assert_eq!(
+        s.remove(TextRange::new((4, 0), (0, 1))).expect("fine"),
+        (String::from(""), (TextRange::new((4, 0), (4, 0)), 4..4))
+    );
+
+    let mut s = TextRope::new_text("1234");
+    assert_eq!(
+        s.remove(TextRange::new((0, 1), (0, 1))).expect("fine"),
+        (String::from(""), (TextRange::new((4, 0), (4, 0)), 4..4))
+    );
+}
+
+#[test]
+fn test_remove_2() {
+    let mut s = TextRope::new_text("1234\n");
+    assert_eq!(
+        s.remove(TextRange::new((0, 0), (0, 0))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 0), (0, 0)), 0..0))
+    );
+
+    let mut s = TextRope::new_text("1234\n");
+    assert_eq!(
+        s.remove(TextRange::new((3, 0), (4, 0))).expect("fine"),
+        (String::from("4"), (TextRange::new((3, 0), (4, 0)), 3..4))
+    );
+
+    let mut s = TextRope::new_text("1234\n");
+    assert_eq!(
+        s.remove(TextRange::new((4, 0), (0, 1))).expect("fine"),
+        (String::from("\n"), (TextRange::new((4, 0), (0, 1)), 4..5))
+    );
+
+    let mut s = TextRope::new_text("1234\n");
+    assert_eq!(
+        s.remove(TextRange::new((0, 1), (0, 1))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 1), (0, 1)), 5..5))
+    );
+
+    let mut s = TextRope::new_text("1234\n");
+    assert_eq!(
+        s.remove(TextRange::new((0, 2), (0, 2))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 1), (0, 1)), 5..5))
+    );
+}
+
+#[test]
+fn test_remove_3() {
+    let mut s = TextRope::new_text("1234\r");
+    assert_eq!(
+        s.remove(TextRange::new((0, 0), (0, 0))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 0), (0, 0)), 0..0))
+    );
+
+    let mut s = TextRope::new_text("1234\r");
+    assert_eq!(
+        s.remove(TextRange::new((3, 0), (4, 0))).expect("fine"),
+        (String::from("4"), (TextRange::new((3, 0), (4, 0)), 3..4))
+    );
+
+    let mut s = TextRope::new_text("1234\r");
+    assert_eq!(
+        s.remove(TextRange::new((4, 0), (0, 1))).expect("fine"),
+        (String::from("\r"), (TextRange::new((4, 0), (0, 1)), 4..5))
+    );
+
+    let mut s = TextRope::new_text("1234\r");
+    assert_eq!(
+        s.remove(TextRange::new((0, 1), (0, 1))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 1), (0, 1)), 5..5))
+    );
+
+    let mut s = TextRope::new_text("1234\r");
+    assert_eq!(
+        s.remove(TextRange::new((0, 2), (0, 2))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 1), (0, 1)), 5..5))
+    );
+}
+
+#[test]
+fn test_remove_4() {
+    let mut s = TextRope::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(TextRange::new((0, 0), (0, 0))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 0), (0, 0)), 0..0))
+    );
+
+    let mut s = TextRope::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(TextRange::new((3, 0), (4, 0))).expect("fine"),
+        (String::from("4"), (TextRange::new((3, 0), (4, 0)), 3..4))
+    );
+
+    let mut s = TextRope::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(TextRange::new((4, 0), (0, 1))).expect("fine"),
+        (String::from("\r\n"), (TextRange::new((4, 0), (0, 1)), 4..6))
+    );
+
+    let mut s = TextRope::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(TextRange::new((5, 0), (0, 1))).expect("fine"),
+        (String::from(""), (TextRange::new((5, 0), (0, 1)), 6..6))
+    );
+
+    let mut s = TextRope::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(TextRange::new((0, 1), (0, 1))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 1), (0, 1)), 6..6))
+    );
+
+    let mut s = TextRope::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(TextRange::new((0, 2), (0, 2))).expect("fine"),
+        (String::from(""), (TextRange::new((0, 1), (0, 1)), 6..6))
     );
 }

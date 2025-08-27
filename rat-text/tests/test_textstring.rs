@@ -74,9 +74,10 @@ fn test_string3() {
     // grapheme
     let s = TextString::new_text("asöfg");
 
-    let mut g = s
-        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(1, 0))
-        .unwrap();
+    let r = s.byte_range(TextRange::new((1, 0), (4, 0))).expect("valid");
+    let p = s.byte_range_at(TextPosition::new(1, 0)).expect("valid");
+
+    let mut g = s.graphemes_byte(r, p.start).unwrap();
     let gg = g.next().unwrap();
     assert_eq!(gg.text_bytes(), 1..2);
     assert_eq!(gg.grapheme(), "s");
