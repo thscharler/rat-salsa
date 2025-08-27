@@ -1013,15 +1013,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Number of lines.
     #[inline]
     pub fn len_lines(&self) -> upos_type {
-        self.cache.validate_byte_pos(self.min_changed());
-
-        if let Some(len_lines) = self.cache.len_lines.get() {
-            len_lines
-        } else {
-            let len_lines = self.text.len_lines();
-            self.cache.len_lines.set(Some(len_lines));
-            len_lines
-        }
+        self.text.len_lines()
     }
 }
 
@@ -1162,10 +1154,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Insert a line break.
     pub fn insert_newline(&mut self, mut pos: TextPosition) -> Result<bool, TextError> {
         if self.text.is_multi_line() {
-            for c in self.newline.clone().chars() {
-                self.insert_char(pos, c)?;
-                pos.x += 1;
-            }
+            let newline = mem::take(&mut self.newline);
+            let r = self.insert_str(pos, &newline);
+            self.newline = newline;
+            r?;
             Ok(true)
         } else {
             Ok(false)

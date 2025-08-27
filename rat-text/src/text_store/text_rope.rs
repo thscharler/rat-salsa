@@ -448,7 +448,7 @@ impl TextStore for TextRope {
     /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     fn insert_char(
         &mut self,
-        mut pos: TextPosition,
+        pos: TextPosition,
         ch: char,
     ) -> Result<(TextRange, Range<usize>), TextError> {
         let pos_byte = self.byte_range_at(pos)?;

@@ -39,7 +39,7 @@ Features for all widgets:
 
 Single line text input widget.
 
-```
+```ignore
 // actual text is held in the state:
 state.textinput.set_value("sample");
 
@@ -73,7 +73,7 @@ manage the text-styles.
 * Word-wrap mode.
 * Add Quotes/Braces/Brackets to selection.
 
-```
+```ignore
 // text is stored in the state
 state.textarea.set_text("some text");
 

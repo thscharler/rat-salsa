@@ -36,8 +36,6 @@ pub struct Cache {
     /// Cache validity: show ctrl-chars (changes width!)
     pub(crate) screen_ctrl: Cell<bool>,
 
-    /// len_lines seems expensive too.
-    pub(crate) len_lines: Cell<Option<upos_type>>,
     /// line-width the same
     pub(crate) line_width: Rc<RefCell<Map<upos_type, LineWidthCache>>>,
     /// position to bytes
@@ -87,7 +85,6 @@ pub(crate) struct LineWidthCache {
 
 impl Cache {
     pub(crate) fn clear(&self) {
-        self.len_lines.set(None);
         self.line_width.borrow_mut().clear();
         self.pos_to_bytes.borrow_mut().clear();
         self.range_to_bytes.borrow_mut().clear();
@@ -106,8 +103,6 @@ impl Cache {
         let Some(byte_pos) = byte_pos else {
             return;
         };
-
-        self.len_lines.set(None);
 
         self.line_width
             .borrow_mut()
