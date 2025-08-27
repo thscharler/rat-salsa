@@ -1295,7 +1295,7 @@ impl TextAreaState {
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
-        self.move_col = None;
+        self.set_move_col(None);
 
         self.value.set_text(TextRope::new_text(s.as_ref()));
     }
@@ -1308,7 +1308,7 @@ impl TextAreaState {
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
-        self.move_col = None;
+        self.set_move_col(None);
 
         self.value.set_text(TextRope::new_rope(r));
     }
