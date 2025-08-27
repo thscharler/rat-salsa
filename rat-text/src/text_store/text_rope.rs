@@ -80,10 +80,10 @@ impl TextRope {
 
     /// A range of the text as RopeSlice.
     #[inline]
+    #[deprecated]
     pub fn rope_slice(&self, range: TextRange) -> Result<RopeSlice<'_>, TextError> {
-        let s = self.char_at(range.start)?;
-        let e = self.char_at(range.end)?;
-        Ok(self.text.get_slice(s..e).expect("valid_range"))
+        let s = self.byte_range(range)?;
+        Ok(self.text.get_byte_slice(s).expect("valid_range"))
     }
 }
 
@@ -349,6 +349,10 @@ impl TextStore for TextRope {
         Ok(r)
     }
 
+    /// Return a cursor over the graphemes of the range, start at the given position.
+    ///
+    /// * range must be a valid byte-range.
+    /// * pos must be inside of range.
     fn graphemes_byte(
         &self,
         range: Range<usize>,
@@ -449,21 +453,12 @@ impl TextStore for TextRope {
     ) -> Result<(TextRange, Range<usize>), TextError> {
         let pos_byte = self.byte_range_at(pos)?;
 
-        // is this the hyperreal position, one line past the end?
-        // if so correct the pos to something real.
-        if pos_byte.start == self.rope().len_bytes() {
-            let mut it_gr = RopeGraphemes::new_offset(0, self.text.slice(..), pos_byte.start)
-                .expect("valid_bytes");
-            if let Some(prev) = it_gr.prev() {
-                if !prev.is_line_break() {
-                    // yes
-                    pos = self.byte_to_pos(pos_byte.start)?;
-                }
-            } else {
-                // yes 2
-                pos = self.byte_to_pos(pos_byte.start)?;
-            }
-        }
+        // normalize the position (0, len_lines) to something sane.
+        let pos = if pos.x == 0 && pos.y == self.len_lines() {
+            self.byte_to_pos(pos_byte.start)?
+        } else {
+            pos
+        };
 
         self.set_min_changed(pos_byte.start);
 

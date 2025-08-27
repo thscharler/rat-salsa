@@ -712,3 +712,51 @@ fn test_remove_4() {
         (String::from(""), (TextRange::new((0, 1), (0, 1)), 6..6))
     );
 }
+
+#[test]
+fn test_len_lines() {
+    let s = TextRope::new_text("");
+    assert_eq!(s.len_lines(), 1);
+
+    let s = TextRope::new_text("abcde");
+    assert_eq!(s.len_lines(), 1);
+
+    let s = TextRope::new_text("\n");
+    assert_eq!(s.len_lines(), 2);
+    assert_eq!(
+        s.byte_range_at(TextPosition::new(0, 2))
+            .expect("valid")
+            .start,
+        1
+    );
+
+    let s = TextRope::new_text("abcde\n");
+    assert_eq!(s.len_lines(), 2);
+    assert_eq!(
+        s.byte_range_at(TextPosition::new(0, 2))
+            .expect("valid")
+            .start,
+        6
+    );
+
+    let s = TextRope::new_text("abcde\nfghij");
+    assert_eq!(s.len_lines(), 2);
+    assert_eq!(
+        s.byte_range_at(TextPosition::new(0, 1))
+            .expect("valid")
+            .start,
+        6
+    );
+    assert_eq!(
+        s.byte_range_at(TextPosition::new(5, 1))
+            .expect("valid")
+            .start,
+        11
+    );
+    assert_eq!(
+        s.byte_range_at(TextPosition::new(0, 2))
+            .expect("valid")
+            .start,
+        11
+    );
+}
