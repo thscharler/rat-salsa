@@ -44,12 +44,12 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.textarea.focus.set(true);
     state.textarea.set_auto_indent(false);
-    // state.textarea.set_text_wrap(TextWrap::Word(2));
+    state.textarea.set_text_wrap(TextWrap::Word(2));
     state.textarea.clear();
-    // let (text, styles) = sample_bosworth_1();
-    // state.textarea.set_rope(text);
+    let (text, styles) = sample_bosworth_1();
+    state.textarea.set_rope(text);
     // state.textarea.set_styles(styles);
-    // add_range_styles(&mut state.textarea, styles);
+    add_range_styles(&mut state.textarea, styles);
 
     run_ui(
         "textarea2",
@@ -212,6 +212,7 @@ fn repaint_input(
         _ = writeln!(&mut stats);
         _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
         _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
+        _ = writeln!(&mut stats, "movecol: {:?}", state.textarea.move_col());
         if let Some((scx, scy)) = state.textarea.screen_cursor() {
             _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
         } else {

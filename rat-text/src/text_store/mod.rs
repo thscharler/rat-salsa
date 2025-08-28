@@ -34,6 +34,22 @@ pub trait TextStore {
     /// Can store multi-line content?
     fn is_multi_line(&self) -> bool;
 
+    /// Does the last line end with a newline '\n'.
+    fn has_final_newline(&self) -> bool;
+
+    /// Number of lines.
+    ///
+    /// This counts the number of newline '\n' and adds one
+    /// for the first row. And it adds one more if the last
+    /// line doesn't end with a newline.
+    ///
+    /// `""` -> 1
+    /// `"a"` -> 1
+    /// `"a\n"` -> 2
+    /// `"a\na"` -> 3
+    /// `"a\na\n"` -> 3
+    fn len_lines(&self) -> upos_type;
+
     /// Minimum byte position that has been changed
     /// since the last call of min_changed().
     ///
@@ -49,12 +65,12 @@ pub trait TextStore {
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
     ///
-    /// * pos must be a valid position: row <= len_lines, col <= line_width of the row.
+    /// * pos must be a valid position: row < len_lines, col <= line_width of the row.
     fn byte_range_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError>;
 
     /// Grapheme range to byte range.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     fn byte_range(&self, range: TextRange) -> Result<Range<usize>, TextError>;
 
     /// Byte position to grapheme position.
@@ -70,7 +86,7 @@ pub trait TextStore {
 
     /// A range of the text as `Cow<str>`.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
     fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError>;
 
@@ -81,7 +97,7 @@ pub trait TextStore {
 
     /// Return a cursor over the graphemes of the range, start at the given position.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
     #[deprecated(since = "1.1.0", note = "replaced by grapheme_bytes")]
     fn graphemes(
@@ -102,45 +118,29 @@ pub trait TextStore {
 
     /// Line as str.
     ///
-    /// * row must be <= len_lines
+    /// * row must be < len_lines
     fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError>;
 
     /// Iterate over text-lines, starting at line-offset.
     ///
-    /// * row must be <= len_lines
+    /// * row must be < len_lines
     fn lines_at(&self, row: upos_type) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError>;
 
     /// Return a line as an iterator over the graphemes.
     /// This contains the '\n' at the end.
     ///
-    /// * row must be <= len_lines
+    /// * row must be < len_lines
     fn line_graphemes(&self, row: upos_type) -> Result<Self::GraphemeIter<'_>, TextError>;
 
     /// Line width of row as grapheme count.
     /// Excludes the terminating '\n'.
     ///
-    /// * row must be <= len_lines
+    /// * row must be < len_lines
     fn line_width(&self, row: upos_type) -> Result<upos_type, TextError>;
-
-    /// Does the last line end with a newline '\n'.
-    fn has_final_newline(&self) -> bool;
-
-    /// Number of lines.
-    ///
-    /// This counts the number of newline '\n' and adds one
-    /// for the first row. And it adds one more if the last
-    /// line doesn't end with a newline.
-    ///
-    /// `""` -> 1
-    /// `"a"` -> 1
-    /// `"a\n"` -> 2
-    /// `"a\na"` -> 3
-    /// `"a\na\n"` -> 3
-    fn len_lines(&self) -> upos_type;
 
     /// Insert a char at the given position.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     fn insert_char(
         &mut self,
         pos: TextPosition,
@@ -149,7 +149,7 @@ pub trait TextStore {
 
     /// Insert a text str at the given position.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     fn insert_str(
         &mut self,
         pos: TextPosition,
@@ -158,7 +158,7 @@ pub trait TextStore {
 
     /// Remove the given text range.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     fn remove(
         &mut self,
         range: TextRange,
