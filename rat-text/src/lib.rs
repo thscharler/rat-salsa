@@ -324,6 +324,15 @@ impl From<Range<TextPosition>> for TextRange {
     }
 }
 
+impl From<Range<(upos_type, upos_type)>> for TextRange {
+    fn from(value: Range<(upos_type, upos_type)>) -> Self {
+        Self {
+            start: TextPosition::from(value.start),
+            end: TextPosition::from(value.end),
+        }
+    }
+}
+
 impl From<TextRange> for Range<TextPosition> {
     fn from(value: TextRange) -> Self {
         value.start..value.end

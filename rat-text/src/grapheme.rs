@@ -44,7 +44,15 @@ impl<'a> Grapheme<'a> {
     /// Is a linebreak.
     #[inline]
     pub fn is_line_break(&self) -> bool {
-        self.grapheme == "\n" || self.grapheme == "\r\n"
+        self.grapheme == "\r"
+            || self.grapheme == "\n"
+            || self.grapheme == "\r\n"
+            || self.grapheme == "\u{000D}"
+            || self.grapheme == "\u{000C}"
+            || self.grapheme == "\u{000B}"
+            || self.grapheme == "\u{0085}"
+            || self.grapheme == "\u{2028}"
+            || self.grapheme == "\u{2029}"
     }
 
     /// Get the grapheme.
@@ -494,6 +502,13 @@ mod test_str {
     use crate::Cursor;
 
     #[test]
+    fn test_str_graphemes0() {
+        let s = String::from("\r\n");
+        let mut s0 = StrGraphemes::new(0, &s);
+        assert_eq!(s0.next().unwrap(), "\r\n");
+    }
+
+    #[test]
     fn test_str_graphemes1() {
         // basic graphemes
         let s = String::from("qwertz");
@@ -657,7 +672,7 @@ mod test_str {
 
 #[cfg(test)]
 mod test_rope {
-    use crate::grapheme::RopeGraphemes;
+    use crate::grapheme::{RopeGraphemes, StrGraphemes};
     use crate::Cursor;
     use ropey::Rope;
 
@@ -902,5 +917,20 @@ mod test_rope {
         assert_eq!(s0.text_offset(), 613);
         assert_eq!(s0.next().unwrap(), "1");
         assert_eq!(s0.text_offset(), 614);
+    }
+
+    #[test]
+    fn test_rev_graphemes() {
+        let mut it = StrGraphemes::new_offset(0, "\r\n", 2);
+        assert_eq!(it.prev().unwrap(), "\r\n");
+
+        let mut it = StrGraphemes::new_offset(0, "\r\r\n", 3);
+        assert_eq!(it.prev().unwrap(), "\r\n");
+        assert_eq!(it.prev().unwrap(), "\r");
+
+        let mut it = StrGraphemes::new_offset(0, "\r\r\n\n", 4);
+        assert_eq!(it.prev().unwrap(), "\n");
+        assert_eq!(it.prev().unwrap(), "\r\n");
+        assert_eq!(it.prev().unwrap(), "\r");
     }
 }

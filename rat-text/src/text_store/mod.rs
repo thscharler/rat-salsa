@@ -25,6 +25,7 @@ pub trait SkipLine: Iterator {
 }
 
 /// Backing store for the TextCore.
+//TODO: make pub(crate)
 pub trait TextStore {
     type GraphemeIter<'a>: Cursor<Item = Grapheme<'a>> + SkipLine + Clone
     where
@@ -121,7 +122,20 @@ pub trait TextStore {
     /// * row must be <= len_lines
     fn line_width(&self, row: upos_type) -> Result<upos_type, TextError>;
 
+    /// Does the last line end with a newline '\n'.
+    fn has_final_newline(&self) -> bool;
+
     /// Number of lines.
+    ///
+    /// This counts the number of newline '\n' and adds one
+    /// for the first row. And it adds one more if the last
+    /// line doesn't end with a newline.
+    ///
+    /// `""` -> 1
+    /// `"a"` -> 1
+    /// `"a\n"` -> 2
+    /// `"a\na"` -> 3
+    /// `"a\na\n"` -> 3
     fn len_lines(&self) -> upos_type;
 
     /// Insert a char at the given position.

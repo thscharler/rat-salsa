@@ -9,10 +9,10 @@ use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
-use log::debug;
 use ratatui::layout::Size;
 use std::borrow::Cow;
 use std::cmp::min;
+use std::mem;
 use std::ops::Range;
 
 /// Core for text editing.
@@ -1152,7 +1152,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Insert a line break.
-    pub fn insert_newline(&mut self, mut pos: TextPosition) -> Result<bool, TextError> {
+    pub fn insert_newline(&mut self, pos: TextPosition) -> Result<bool, TextError> {
         if self.text.is_multi_line() {
             let newline = mem::take(&mut self.newline);
             let r = self.insert_str(pos, &newline);

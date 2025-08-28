@@ -79,10 +79,12 @@ impl TextStore for TextString {
     type GraphemeIter<'a> = StrGraphemes<'a>;
 
     /// Can store multi-line content?
+    #[inline]
     fn is_multi_line(&self) -> bool {
         false
     }
 
+    #[inline]
     fn min_changed(&self) -> Option<usize> {
         self.min_changed.take()
     }
@@ -262,6 +264,7 @@ impl TextStore for TextString {
     ///
     /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
+    #[inline]
     fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError> {
         let range = self.byte_range(range)?;
         Ok(Cow::Borrowed(&self.text[range.start..range.end]))
@@ -270,6 +273,7 @@ impl TextStore for TextString {
     /// A range of the text as `Cow<str>`.
     ///
     /// * range must be valid
+    #[inline]
     fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
         Ok(Cow::Borrowed(&self.text[range.start..range.end]))
     }
@@ -320,6 +324,7 @@ impl TextStore for TextString {
     /// Line as str.
     ///
     /// * row must be <= len_lines
+    #[inline]
     fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
         if row == 0 {
             Ok(Cow::Borrowed(&self.text))
@@ -333,6 +338,7 @@ impl TextStore for TextString {
     /// Iterate over text-lines, starting at line-offset.
     ///
     /// * row must be <= len_lines
+    #[inline]
     fn lines_at(&self, row: upos_type) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
         if row == 0 {
             Ok(once(Cow::Borrowed(self.text.as_str())))
@@ -347,6 +353,7 @@ impl TextStore for TextString {
     /// This contains the '\n' at the end.
     ///
     /// * row must be <= len_lines
+    #[inline]
     fn line_graphemes(&self, row: upos_type) -> Result<Self::GraphemeIter<'_>, TextError> {
         if row == 0 {
             Ok(StrGraphemes::new(0, &self.text))
@@ -361,6 +368,7 @@ impl TextStore for TextString {
     /// Excludes the terminating '\n'.
     ///
     /// * row must be <= len_lines
+    #[inline]
     fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
         if row == 0 {
             Ok(self.len)
@@ -371,7 +379,14 @@ impl TextStore for TextString {
         }
     }
 
+    ///
+    fn has_final_newline(&self) -> bool {
+        // TODO: verify
+        true
+    }
+
     /// Number of lines.
+    #[inline]
     fn len_lines(&self) -> upos_type {
         1
     }

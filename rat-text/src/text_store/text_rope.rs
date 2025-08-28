@@ -1,4 +1,4 @@
-use crate::grapheme::RopeGraphemes;
+use crate::grapheme::{RopeGraphemes, StrGraphemes};
 use crate::text_store::{Cursor, TextStore};
 use crate::{upos_type, TextError, TextPosition, TextRange};
 use ropey::{Rope, RopeSlice};
@@ -34,7 +34,17 @@ fn rope_line_len(r: RopeSlice<'_>) -> upos_type {
 unsafe fn str_line_len(s: &[u8]) -> upos_type {
     let s = unsafe { str::from_utf8_unchecked(s) };
     let it = s.graphemes(true);
-    it.filter(|c| *c != "\n" && *c != "\r\n").count() as upos_type
+    it.filter(|c| {
+        *c != "\r"
+            && *c != "\n"
+            && *c != "\r\n"
+            && *c != "\u{000C}"
+            && *c != "\u{000B}"
+            && *c != "\u{0085}"
+            && *c != "\u{2028}"
+            && *c != "\u{2029}"
+    })
+    .count() as upos_type
 }
 
 /// Length as grapheme count, including line breaks.
@@ -110,7 +120,7 @@ impl TextStore for TextRope {
     /// Minimum byte position that has been changed
     /// since the last call of min_changed().
     ///
-    /// Can be used to invalidate caches.
+    /// Used to invalidate caches.
     fn min_changed(&self) -> Option<usize> {
         self.min_changed.take()
     }
@@ -129,7 +139,7 @@ impl TextStore for TextRope {
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
     ///
-    /// * pos must be a valid position: row <= len_lines, col <= line_width of the row.
+    /// * pos must be a valid position: row < len_lines, col <= line_width of the row.
     fn byte_range_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
         let it_line = self.line_graphemes(pos.y)?;
 
@@ -152,7 +162,7 @@ impl TextStore for TextRope {
 
     /// Grapheme range to byte range.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     fn byte_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
         if range.start.y == range.end.y {
             let it_line = self.line_graphemes(range.start.y)?;
@@ -294,7 +304,7 @@ impl TextStore for TextRope {
 
     /// A range of the text as `Cow<str>`.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
     fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError> {
         let range = self.byte_range(range)?;
@@ -324,7 +334,7 @@ impl TextStore for TextRope {
 
     /// Return a cursor over the graphemes of the range, start at the given position.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
     fn graphemes(
         &self,
@@ -373,79 +383,122 @@ impl TextStore for TextRope {
 
     /// Line as str.
     ///
-    /// * row must be <= len_lines
+    /// * row must be < len_lines
     fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
-        let len = self.text.len_lines() as upos_type;
-        if row > len {
-            Err(TextError::LineIndexOutOfBounds(row, len))
-        } else if row == len {
-            Ok(Cow::Borrowed(""))
-        } else {
-            let v = self.text.get_line(row as usize).expect("valid_row");
-            match v.as_str() {
-                Some(v) => Ok(Cow::Borrowed(v)),
-                None => Ok(Cow::Owned(v.to_string())),
+        let len = self.len_lines() as upos_type;
+        if row < len {
+            if row < self.text.len_lines() as upos_type {
+                let v = self.text.get_line(row as usize).expect("valid_row");
+                match v.as_str() {
+                    Some(v) => Ok(Cow::Borrowed(v)),
+                    None => Ok(Cow::Owned(v.to_string())),
+                }
+            } else {
+                Ok(Cow::Borrowed(""))
             }
+        } else {
+            Err(TextError::LineIndexOutOfBounds(row, len))
         }
     }
 
     /// Iterate over text-lines, starting at line-offset.
     ///
-    /// * row must be <= len_lines
+    /// * row must be < len_lines
     fn lines_at(&self, row: upos_type) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
-        let len = self.text.len_lines() as upos_type;
-        if row > len {
-            Err(TextError::LineIndexOutOfBounds(row, len))
-        } else {
+        let len = self.len_lines() as upos_type;
+        if row < len {
             let it = self.text.get_lines_at(row as usize).expect("valid_row");
             Ok(it.map(|v| match v.as_str() {
                 Some(v) => Cow::Borrowed(v),
                 None => Cow::Owned(v.to_string()),
             }))
+        } else {
+            Err(TextError::LineIndexOutOfBounds(row, len))
         }
     }
 
     /// Return a line as an iterator over the graphemes.
     /// This contains the '\n' at the end.
     ///
-    /// * row must be <= len_lines
+    /// * row must be < len_lines
     #[inline]
     fn line_graphemes(&self, row: upos_type) -> Result<Self::GraphemeIter<'_>, TextError> {
-        let line_byte = self.text.try_line_to_byte(row as usize)?;
-        // try_line_to_byte and get_line don't have the same boundaries.
-        // the former accepts one past the end, the latter doesn't.
-        // here we need the first behaviour.
-        if let Some(line) = self.text.get_line(row as usize) {
+        let len = self.len_lines() as upos_type;
+        if row < len {
+            let line_byte = self.text.try_line_to_byte(row as usize)?;
+            let line = if row < self.text.len_lines() as upos_type {
+                self.text.get_line(row as usize).expect("valid_row")
+            } else {
+                RopeSlice::from("")
+            };
             Ok(RopeGraphemes::new(line_byte, line))
         } else {
-            Ok(RopeGraphemes::new(line_byte, RopeSlice::from("")))
+            Err(TextError::LineIndexOutOfBounds(row, len))
         }
     }
 
     /// Line width as grapheme count.
     /// Excludes the terminating '\n'.
     ///
-    /// * row must be <= len_lines
+    /// * row must be < len_lines
     #[inline]
     fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
-        let len = self.text.len_lines() as upos_type;
-        if row > len {
-            Err(TextError::LineIndexOutOfBounds(row, len))
-        } else if row == len {
-            Ok(0)
+        let len = self.len_lines() as upos_type;
+        if row < len {
+            if row < self.text.len_lines() as upos_type {
+                let v = self.text.get_line(row as usize).expect("valid_row");
+                Ok(rope_line_len(v))
+            } else {
+                Ok(0)
+            }
         } else {
-            let v = self.text.get_line(row as usize).expect("valid_row");
-            Ok(rope_line_len(v))
+            Err(TextError::LineIndexOutOfBounds(row, len))
         }
     }
 
+    #[inline]
+    fn has_final_newline(&self) -> bool {
+        let len = self.text.len_bytes();
+        if len > 3 {
+            match (
+                self.text.get_byte(len - 3).expect("valid_pos"),
+                self.text.get_byte(len - 2).expect("valid_pos"),
+                self.text.get_byte(len - 1).expect("valid_pos"),
+            ) {
+                (_, _, b'\n')
+                | (_, _, b'\r')
+                | (_, _, 0x0c)
+                | (_, _, 0x0b)
+                | (_, _, 0x85)
+                | (0xE2, 0x80, 0xA8)
+                | (0xE2, 0x80, 0xA9) => true,
+                _ => false,
+            }
+        } else if len > 0 {
+            match self.text.get_byte(len - 1).expect("valid_pos") {
+                b'\n' | b'\r' | 0x0c | 0x0b | 0x85 => true,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    #[inline]
     fn len_lines(&self) -> upos_type {
-        self.text.len_lines() as upos_type
+        match self.text.len_bytes() {
+            0 => 1,
+            _ => {
+                let l = self.text.len_lines();
+                let t = if self.has_final_newline() { 0 } else { 1 };
+                (t + l) as upos_type
+            }
+        }
     }
 
     /// Insert a char at the given position.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     fn insert_char(
         &mut self,
         pos: TextPosition,
@@ -453,8 +506,8 @@ impl TextStore for TextRope {
     ) -> Result<(TextRange, Range<usize>), TextError> {
         let pos_byte = self.byte_range_at(pos)?;
 
-        // normalize the position (0, len_lines) to something sane.
-        let pos = if pos.x == 0 && pos.y == self.len_lines() {
+        // normalize the position (0, len_lines-1) to something sane.
+        let pos = if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
             self.byte_to_pos(pos_byte.start)?
         } else {
             pos
@@ -488,6 +541,13 @@ impl TextStore for TextRope {
             } else {
                 TextRange::new(pos, (0, pos.y + 1))
             }
+        } else if ch == '\u{000C}'
+            || ch == '\u{000B}'
+            || ch == '\u{0085}'
+            || ch == '\u{2028}'
+            || ch == '\u{2029}'
+        {
+            TextRange::new(pos, (0, pos.y + 1))
         } else {
             // test for combining codepoints.
             let mut len = 0;
@@ -541,8 +601,8 @@ impl TextStore for TextRope {
     ) -> Result<(TextRange, Range<usize>), TextError> {
         let pos_byte = self.byte_range_at(pos)?;
 
-        // normalize the position (0, len_lines) to something sane.
-        let pos = if pos.x == 0 && pos.y == self.len_lines() {
+        // normalize the position (0, len_lines-1) to something sane.
+        let pos = if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
             self.byte_to_pos(pos_byte.start)?
         } else {
             pos
@@ -557,24 +617,21 @@ impl TextStore for TextRope {
 
         let mut line_count = 0;
         let mut last_linebreak_idx = 0;
-        let mut byte_count = 0;
-        let mut was_cr = false;
-        for c in txt.bytes() {
-            if c == b'\r' {
-                was_cr = true;
+        for c in StrGraphemes::new(0, txt) {
+            if c == "\r"
+                || c == "\n"
+                || c == "\r\n"
+                || c == "\u{000C}"
+                || c == "\u{000B}"
+                || c == "\u{0085}"
+                || c == "\u{2028}"
+                || c == "\u{2029}"
+            {
                 line_count += 1;
-                last_linebreak_idx = byte_count + 1;
-            } else if c == b'\n' {
-                if !was_cr {
-                    line_count += 1;
-                }
-                was_cr = false;
-                last_linebreak_idx = byte_count + 1;
-            } else {
-                was_cr = false;
+                last_linebreak_idx = c.text_bytes().end;
             }
-            byte_count += 1;
         }
+        dbg!(line_count, last_linebreak_idx);
 
         let insert_range = if line_count > 0 {
             // Find the length of line after the insert position.
@@ -615,8 +672,8 @@ impl TextStore for TextRope {
             // the difference of the grapheme len seems safe though.
             let old_len = self.line_width(pos.y).expect("valid_line");
             self.text.try_insert(pos_char, txt).expect("valid_pos");
-
             let new_len = self.line_width(pos.y).expect("valid_line");
+
             TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
         };
 
@@ -634,12 +691,17 @@ impl TextStore for TextRope {
         let end_byte_pos = self.byte_range_at(range.end)?;
 
         // normalize the position (0, len_lines) to something sane.
-        range.end = if range.end.x == 0 && range.end.y == self.len_lines() {
-            self.byte_to_pos(end_byte_pos.start)?
-        } else {
-            range.end
-        };
-        range.start = if range.start.x == 0 && range.start.y == self.len_lines() {
+        range.end =
+            if range.end.x == 0 && range.end.y == self.len_lines() - 1 && !self.has_final_newline()
+            {
+                self.byte_to_pos(end_byte_pos.start)?
+            } else {
+                range.end
+            };
+        range.start = if range.start.x == 0
+            && range.start.y == self.len_lines() - 1
+            && !self.has_final_newline()
+        {
             self.byte_to_pos(start_byte_pos.start)?
         } else {
             range.start
