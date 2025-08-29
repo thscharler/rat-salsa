@@ -2494,7 +2494,7 @@ impl TextAreaState {
 
                         'f: {
                             let mut nrows = scr_pos.1 - 1;
-                            let mut fallback = TextPosition::new(0, 0);
+                            let mut fallback = TextPosition::new(sub_row_offset, oy);
                             for (_break_pos, cache) in self.value.cache().line_break.borrow().range(
                                 TextPosition::new(sub_row_offset, oy)
                                     ..TextPosition::new(0, self.len_lines()),

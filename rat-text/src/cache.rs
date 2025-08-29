@@ -38,17 +38,16 @@ pub struct Cache {
 
     /// line-width the same
     pub(crate) line_width: Rc<RefCell<Map<upos_type, LineWidthCache>>>,
-    /// position to bytes
+    /// position to bytes, for glyphs2()
     pub(crate) pos_to_bytes: Rc<RefCell<Map<TextPosition, Range<usize>>>>,
-    /// range to bytes
+    /// range to bytes, for glyphs2()
     pub(crate) range_to_bytes: Rc<RefCell<Map<TextRange, Range<usize>>>>,
 
     /// Mark the byte-positions of each line-start.
-    ///
     /// Used when text-wrap is ShiftText.
     pub(crate) line_start: Rc<RefCell<Map<upos_type, LineOffsetCache>>>,
 
-    /// Has the specific line been wrapped completely.
+    /// Has the specific line been fully wrapped from column 0 to width.
     pub(crate) full_line_break: Rc<RefCell<Set<upos_type>>>,
 
     /// All known line-breaks for wrapped text.
