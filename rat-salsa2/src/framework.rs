@@ -221,7 +221,7 @@ where
 ///
 /// The shortest version I can come up with:
 /// ```rust no_run
-/// use rat_salsa2::{run_tui, AppContext, Control, RenderContext, RunConfig};
+/// use rat_salsa2::{run_tui, Control, RunConfig};
 /// use ratatui::buffer::Buffer;
 /// use ratatui::layout::Rect;
 /// use ratatui::style::Stylize;
@@ -229,15 +229,16 @@ where
 /// use ratatui::widgets::Widget;
 /// use rat_widget::event::{try_flow, ct_event};
 ///
-/// #[derive(Debug)]
-/// struct MainApp;
+/// type AppContext<'a> = rat_salsa2::AppContext<'a, (), Event, anyhow::Error>;
+/// type RenderContext<'a> = rat_salsa2::RenderContext<'a, ()>;
 ///
 /// #[derive(Debug)]
-/// struct MainState;
+/// struct State;
 ///
 /// #[derive(Debug)]
 /// enum Event {
-///     Event(crossterm::event::Event)
+///     Event(crossterm::event::Event),
+///     Dummy
 /// }
 ///
 /// impl From<crossterm::event::Event> for Event {
@@ -246,11 +247,31 @@ where
 ///     }
 /// }
 ///
+/// fn main() -> Result<(), anyhow::Error> {
+///     use rat_salsa2::poll::PollCrossterm;
+///     run_tui(
+///         init,
+///         render,
+///         event,
+///         error,
+///         &mut (),
+///         &mut State,
+///         RunConfig::default()?
+///             .poll(PollCrossterm)
+///     )?;
+///     Ok(())
+/// }
+///
+/// fn init(state: &mut State,
+///     ctx: &mut AppContext<'_>) -> Result<(), anyhow::Error> {
+///     Ok(())
+/// }
+///
 /// fn render(
 ///     area: Rect,
 ///     buf: &mut Buffer,
-///     state: &mut MainState,
-///     ctx: &mut RenderContext<'_, ()>,
+///     state: &mut State,
+///     ctx: &mut RenderContext<'_>,
 /// ) -> Result<(), anyhow::Error> {
 ///     Span::from("Hello world").white().on_blue().render(area, buf);
 ///     Ok(())
@@ -258,38 +279,26 @@ where
 ///
 /// fn event(
 ///     event: &Event,
-///     state: &mut MainState,
-///     ctx: &mut AppContext<'_, (), Event, anyhow::Error>,
+///     state: &mut State,
+///     ctx: &mut AppContext<'_>,
 /// ) -> Result<Control<Event>, anyhow::Error> {
-///         let Event::Event(event) = event else {
-///             return Ok(Control::Continue);
-///         };
-///
+///     if let Event::Event(event) = event {
 ///         try_flow!(match event {
+///             crossterm::event::Event::Resize(_,_) => Control::Changed,
 ///             ct_event!(key press 'q') => Control::Quit,
 ///             _ => Control::Continue,
 ///         });
 ///
 ///         Ok(Control::Continue)
+///     } else {
+///         Ok(Control::Continue)
+///     }
 /// }
 ///
-/// fn error(error: anyhow::Error, state: &mut MainState, ctx: &mut AppContext<'_, (), Event, anyhow::Error>,) -> Result<Control<Event>, anyhow::Error> {
+/// fn error(error: anyhow::Error,
+///     state: &mut State,
+///     ctx: &mut AppContext<'_>) -> Result<Control<Event>, anyhow::Error> {
 ///     Ok(Control::Continue)
-/// }
-///
-/// fn main() -> Result<(), anyhow::Error> {
-///     use rat_salsa2::poll::PollCrossterm;
-///     run_tui(
-///         |_,_|{Ok(())},
-///         render,
-///         event,
-///         error,
-///         &mut (),
-///         &mut MainState,
-///         RunConfig::default()?
-///             .poll(PollCrossterm)
-///     )?;
-///     Ok(())
 /// }
 ///
 /// ```
