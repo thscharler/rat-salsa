@@ -71,11 +71,8 @@ For a start you can have a look at the [book][refRSBook].
 
     * [rat-theme](https://docs.rs/rat-theme)
       Color-palettes and widget styles.
-
-* [rat-window](https://github.com/thscharler/rat-window)
-  __Stopped__ for now. Implement windows in the tui.
-  Can work with dyn StatefulWidgets too. The groundwork is done,
-  but it's missing a lot of implementation.
+    * [rat-theme2](https://docs.rs/rat-theme2)
+      More colors, mainly.
 
 ## Example
 
