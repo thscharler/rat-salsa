@@ -165,7 +165,7 @@ impl TextStore for TextRope {
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
     ///
-    /// * pos must be a valid position: row < len_lines, col <= line_width of the row.
+    /// * pos must be a valid position: row <= len_lines, col <= line_width of the row.
     fn byte_range_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
         let it_line = self.line_graphemes(pos.y)?;
 
@@ -188,7 +188,7 @@ impl TextStore for TextRope {
 
     /// Grapheme range to byte range.
     ///
-    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     fn byte_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
         if range.start.y == range.end.y {
             let it_line = self.line_graphemes(range.start.y)?;
@@ -330,7 +330,7 @@ impl TextStore for TextRope {
 
     /// A range of the text as `Cow<str>`.
     ///
-    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
     fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError> {
         let range = self.byte_range(range)?;
@@ -360,7 +360,7 @@ impl TextStore for TextRope {
 
     /// Return a cursor over the graphemes of the range, start at the given position.
     ///
-    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
     fn graphemes(
         &self,
@@ -409,7 +409,7 @@ impl TextStore for TextRope {
 
     /// Line as str.
     ///
-    /// * row must be < len_lines
+    /// * row must be <= len_lines
     fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
         let len = self.len_lines() as upos_type;
         if row < len {
@@ -429,7 +429,7 @@ impl TextStore for TextRope {
 
     /// Iterate over text-lines, starting at line-offset.
     ///
-    /// * row must be < len_lines
+    /// * row must be <= len_lines
     fn lines_at(&self, row: upos_type) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
         let len = self.len_lines() as upos_type;
         if row < len {
@@ -505,7 +505,7 @@ impl TextStore for TextRope {
 
     /// Insert a char at the given position.
     ///
-    /// * range must be a valid range. row < len_lines, col <= line_width of the row.
+    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     fn insert_char(
         &mut self,
         mut pos: TextPosition,
