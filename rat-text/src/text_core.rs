@@ -1167,7 +1167,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Insert a character.
     pub fn insert_char(&mut self, pos: TextPosition, c: char) -> Result<bool, TextError> {
         // auto insert newline
-        // TODO
+        if self.text.should_insert_newline(pos) {
+            let mut tmp = self.newline.clone();
+            tmp.push(c);
+            return self.insert_str(pos, &tmp);
+        }
 
         let (inserted_range, inserted_bytes) = self.text.insert_char(pos, c)?;
 
