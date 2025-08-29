@@ -20,7 +20,8 @@ fn test_string_0() {
         Err(TextError::ColumnIndexOutOfBounds(6, 5))
     );
     assert_eq!(s.byte_range_at((0, 1).into()).unwrap(), 5..5);
-    assert!(matches!(s.byte_range_at((0, 2).into()), Err(_)));
+    assert_eq!(s.byte_range_at((0, 2).into()).unwrap(), 5..5);
+    assert!(matches!(s.byte_range_at((0, 3).into()), Err(_)));
 
     assert_eq!(s.byte_range(TextRange::new((1, 0), (4, 0))).unwrap(), 1..4);
 
@@ -64,7 +65,8 @@ fn test_string_1() {
     assert!(matches!(s.byte_range_at((7, 1).into()), Err(_)));
     assert_eq!(s.byte_range_at((0, 2).into()).unwrap(), 14..14);
     assert!(matches!(s.byte_range_at((1, 2).into()), Err(_)));
-    assert!(matches!(dbg!(s.byte_range_at((0, 3).into())), Err(_)));
+    assert_eq!(s.byte_range_at((0, 3).into()).unwrap(), 14..14);
+    assert!(matches!(s.byte_range_at((0, 4).into()), Err(_)));
 
     assert_eq!(s.byte_range(TextRange::new((0, 1), (0, 2))).unwrap(), 6..14);
     assert_eq!(s.byte_range(TextRange::new((1, 0), (1, 1))).unwrap(), 1..7);
@@ -316,7 +318,8 @@ fn test_byte_range_at() {
     let s = TextRope::new_text("");
     assert_eq!(s.byte_range_at((0, 0).into()), Ok(0..0));
     assert!(matches!(s.byte_range_at((1, 0).into()), Err(_)));
-    assert!(matches!(s.byte_range_at((0, 1).into()), Err(_)));
+    assert_eq!(s.byte_range_at((0, 1).into()), Ok(0..0));
+    assert!(matches!(s.byte_range_at((0, 2).into()), Err(_)));
 
     let s = TextRope::new_text("abcd");
     assert_eq!(s.byte_range_at((0, 0).into()), Ok(0..1));
@@ -325,7 +328,8 @@ fn test_byte_range_at() {
     assert_eq!(s.byte_range_at((3, 0).into()), Ok(3..4));
     assert_eq!(s.byte_range_at((4, 0).into()), Ok(4..4));
     assert_eq!(s.byte_range_at((0, 1).into()), Ok(4..4));
-    assert!(matches!(s.byte_range_at((0, 2).into()), Err(_)));
+    assert_eq!(s.byte_range_at((0, 2).into()), Ok(4..4));
+    assert!(matches!(s.byte_range_at((0, 3).into()), Err(_)));
     let s = TextRope::new_text("abcd\n");
     assert_eq!(s.byte_range_at((0, 0).into()), Ok(0..1));
     assert_eq!(s.byte_range_at((1, 0).into()), Ok(1..2));
@@ -334,7 +338,8 @@ fn test_byte_range_at() {
     assert_eq!(s.byte_range_at((4, 0).into()), Ok(4..5));
     assert_eq!(s.byte_range_at((5, 0).into()), Ok(5..5));
     assert_eq!(s.byte_range_at((0, 1).into()), Ok(5..5));
-    assert!(matches!(s.byte_range_at((0, 2).into()), Err(_)));
+    assert_eq!(s.byte_range_at((0, 2).into()), Ok(5..5));
+    assert!(matches!(s.byte_range_at((0, 3).into()), Err(_)));
 }
 
 #[test]
@@ -349,8 +354,9 @@ fn test_byte_range() {
         s.byte_range(TextRange::new((0, 0), (1, 0))),
         Err(_)
     ));
+    assert_eq!(s.byte_range(TextRange::new((0, 1), (0, 1))), Ok(0..0));
     assert!(matches!(
-        s.byte_range(TextRange::new((0, 1), (0, 1))),
+        s.byte_range(TextRange::new((0, 2), (0, 2))),
         Err(_)
     ));
 
@@ -363,8 +369,9 @@ fn test_byte_range() {
         Err(_)
     ));
     assert_eq!(s.byte_range(TextRange::new((1, 0), (0, 1))), Ok(1..4));
+    assert_eq!(s.byte_range(TextRange::new((0, 1), (0, 2))), Ok(4..4));
     assert!(matches!(
-        s.byte_range(TextRange::new((0, 1), (0, 2))),
+        s.byte_range(TextRange::new((0, 2), (0, 3))),
         Err(_)
     ));
     let s = TextRope::new_text("abcd\n");
@@ -377,8 +384,9 @@ fn test_byte_range() {
         Err(_)
     ));
     assert_eq!(s.byte_range(TextRange::new((1, 0), (0, 1))), Ok(1..5));
+    assert_eq!(s.byte_range(TextRange::new((0, 1), (0, 2))), Ok(5..5));
     assert!(matches!(
-        s.byte_range(TextRange::new((0, 1), (0, 2))),
+        s.byte_range(TextRange::new((0, 2), (0, 3))),
         Err(_)
     ));
 }
@@ -404,7 +412,7 @@ fn test_str_slice() {
         "abcd\r\n"
     );
     assert_eq!(s.str_slice(((0, 1)..(0, 1)).into()).expect("valid"), "");
-    assert!(matches!(s.str_slice(((0, 0)..(0, 2)).into()), Err(_)));
+    assert_eq!(s.str_slice(((0, 2)..(0, 2)).into()).expect("valid"), "");
     assert!(matches!(s.str_slice(((0, 0)..(0, 3)).into()), Err(_)));
 }
 
@@ -480,88 +488,120 @@ fn test_line_grapheme_0() {
     let s = TextRope::new_text("abcd");
     assert!(matches!(s.line_graphemes(0), Ok(_)));
     assert!(matches!(s.line_graphemes(1), Ok(_)));
-    assert!(matches!(s.line_graphemes(2), Err(_)));
+    assert!(matches!(s.line_graphemes(2), Ok(_)));
+    assert!(matches!(s.line_graphemes(3), Err(_)));
     let s = TextRope::new_text("abcd\n");
     assert!(matches!(s.line_graphemes(0), Ok(_)));
     assert!(matches!(s.line_graphemes(1), Ok(_)));
-    assert!(matches!(s.line_graphemes(2), Err(_)));
+    assert!(matches!(s.line_graphemes(2), Ok(_)));
+    assert!(matches!(s.line_graphemes(3), Err(_)));
     let s = TextRope::new_text("abcd\r");
     assert!(matches!(s.line_graphemes(0), Ok(_)));
     assert!(matches!(s.line_graphemes(1), Ok(_)));
-    assert!(matches!(s.line_graphemes(2), Err(_)));
+    assert!(matches!(s.line_graphemes(2), Ok(_)));
+    assert!(matches!(s.line_graphemes(3), Err(_)));
     let s = TextRope::new_text("abcd\r\n");
     assert!(matches!(s.line_graphemes(0), Ok(_)));
     assert!(matches!(s.line_graphemes(1), Ok(_)));
-    assert!(matches!(s.line_graphemes(2), Err(_)));
+    assert!(matches!(s.line_graphemes(2), Ok(_)));
+    assert!(matches!(s.line_graphemes(3), Err(_)));
 
     let s = TextRope::new_text("abcd\na");
     assert!(matches!(s.line_graphemes(2), Ok(_)));
-    assert!(matches!(s.line_graphemes(3), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Ok(_)));
+    assert!(matches!(s.line_graphemes(4), Err(_)));
     let s = TextRope::new_text("abcd\ra");
     assert!(matches!(s.line_graphemes(2), Ok(_)));
-    assert!(matches!(s.line_graphemes(3), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Ok(_)));
+    assert!(matches!(s.line_graphemes(4), Err(_)));
     let s = TextRope::new_text("abcd\r\na");
     assert!(matches!(s.line_graphemes(2), Ok(_)));
-    assert!(matches!(s.line_graphemes(3), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Ok(_)));
+    assert!(matches!(s.line_graphemes(4), Err(_)));
 
     let s = TextRope::new_text("abcd\na");
     assert!(matches!(s.line_graphemes(2), Ok(_)));
-    assert!(matches!(s.line_graphemes(3), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Ok(_)));
+    assert!(matches!(s.line_graphemes(4), Err(_)));
     let s = TextRope::new_text("abcd\na\n");
     assert!(matches!(s.line_graphemes(2), Ok(_)));
-    assert!(matches!(s.line_graphemes(3), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Ok(_)));
+    assert!(matches!(s.line_graphemes(4), Err(_)));
 }
 
 #[test]
 fn test_line_width() {
     let s = TextRope::new_text("");
     assert_eq!(s.line_width(0), Ok(0));
-    assert!(matches!(s.line_width(1), Err(_)));
+    assert_eq!(s.line_width(1), Ok(0));
+    assert!(matches!(s.line_width(2), Err(_)));
     assert!(matches!(s.line_width(2), Err(_)));
 
     let s = TextRope::new_text("abcd");
     assert_eq!(s.line_width(0), Ok(4));
     assert_eq!(s.line_width(1), Ok(0));
-    assert!(matches!(s.line_width(2), Err(_)));
+    assert_eq!(s.line_width(2), Ok(0));
+    assert!(matches!(s.line_width(3), Err(_)));
     let s = TextRope::new_text("abcd\n");
     assert_eq!(s.line_width(0), Ok(4));
     assert_eq!(s.line_width(1), Ok(0));
-    assert!(matches!(s.line_width(2), Err(_)));
+    assert_eq!(s.line_width(2), Ok(0));
+    assert!(matches!(s.line_width(3), Err(_)));
     let s = TextRope::new_text("abcd\r");
     assert_eq!(s.line_width(0), Ok(4));
     assert_eq!(s.line_width(1), Ok(0));
-    assert!(matches!(s.line_width(2), Err(_)));
+    assert_eq!(s.line_width(2), Ok(0));
+    assert!(matches!(s.line_width(3), Err(_)));
     let s = TextRope::new_text("abcd\r\n");
     assert_eq!(s.line_width(0), Ok(4));
     assert_eq!(s.line_width(1), Ok(0));
-    assert!(matches!(s.line_width(2), Err(_)));
+    assert_eq!(s.line_width(2), Ok(0));
+    assert!(matches!(s.line_width(3), Err(_)));
 
     let s = TextRope::new_text("abcd\nefghi");
     assert_eq!(s.line_width(0), Ok(4));
     assert_eq!(s.line_width(1), Ok(5));
     assert_eq!(s.line_width(2), Ok(0));
-    assert!(matches!(s.line_width(3), Err(_)));
+    assert_eq!(s.line_width(3), Ok(0));
+    assert!(matches!(s.line_width(4), Err(_)));
     let s = TextRope::new_text("abcd\nefghi\n");
     assert_eq!(s.line_width(0), Ok(4));
     assert_eq!(s.line_width(1), Ok(5));
     assert_eq!(s.line_width(2), Ok(0));
-    assert!(matches!(s.line_width(3), Err(_)));
+    assert_eq!(s.line_width(3), Ok(0));
+    assert!(matches!(s.line_width(4), Err(_)));
 }
 
 #[test]
 fn test_final_newline() {
     let s = TextRope::new_text("");
-    assert!(!s.should_insert_newline((0, 1).into()));
+    assert!(s.should_insert_newline((0, 0).into()));
+    assert!(s.should_insert_newline((0, 1).into()));
 
     let s = TextRope::new_text("abcd");
+    assert!(!s.should_insert_newline((0, 0).into()));
+    assert!(!s.should_insert_newline((1, 0).into()));
+    assert!(!s.should_insert_newline((2, 0).into()));
+    assert!(!s.should_insert_newline((3, 0).into()));
+    assert!(!s.should_insert_newline((4, 0).into()));
     assert!(s.should_insert_newline((0, 1).into()));
+
     let s = TextRope::new_text("abcd\n");
+    assert!(!s.should_insert_newline((0, 0).into()));
+    assert!(!s.should_insert_newline((4, 0).into()));
+    assert!(!s.should_insert_newline((5, 0).into()));
     assert!(!s.should_insert_newline((0, 1).into()));
     assert!(!s.should_insert_newline((0, 2).into()));
     let s = TextRope::new_text("abcd\r");
+    assert!(!s.should_insert_newline((0, 0).into()));
+    assert!(!s.should_insert_newline((4, 0).into()));
+    assert!(!s.should_insert_newline((5, 0).into()));
     assert!(!s.should_insert_newline((0, 1).into()));
     assert!(!s.should_insert_newline((0, 2).into()));
     let s = TextRope::new_text("abcd\r\n");
+    assert!(!s.should_insert_newline((0, 0).into()));
+    assert!(!s.should_insert_newline((4, 0).into()));
+    assert!(!s.should_insert_newline((5, 0).into()));
     assert!(!s.should_insert_newline((0, 1).into()));
     assert!(!s.should_insert_newline((0, 2).into()));
 }
@@ -586,12 +626,19 @@ fn test_insert_char_0() {
     let (r, b) = s.clone().insert_char((0, 1).into(), 'x').expect("valid");
     assert_eq!(r, ((4, 0)..(5, 0)).into());
     assert_eq!(b, 4..5);
-    assert!(matches!(s.clone().insert_char((0, 2).into(), 'x'), Err(_)));
+    let (r, b) = s.clone().insert_char((0, 2).into(), 'x').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    assert!(matches!(s.clone().insert_char((0, 3).into(), 'x'), Err(_)));
 
     let s = TextRope::new_text("1234\n");
     let (r, b) = s.clone().insert_char((0, 1).into(), 'x').expect("valid");
     assert_eq!(r, ((0, 1)..(1, 1)).into());
     assert_eq!(b, 5..6);
+    let (r, b) = s.clone().insert_char((0, 2).into(), 'x').expect("valid");
+    assert_eq!(r, ((0, 1)..(1, 1)).into());
+    assert_eq!(b, 5..6);
+    assert!(matches!(s.clone().insert_char((0, 3).into(), 'x'), Err(_)));
 }
 
 #[test]
@@ -607,7 +654,10 @@ fn test_insert_char_1() {
     let (r, b) = s.clone().insert_char((0, 1).into(), 'ß').expect("valid");
     assert_eq!(r, ((4, 0)..(5, 0)).into());
     assert_eq!(b, 4..6);
-    assert!(matches!(s.clone().insert_char((0, 2).into(), 'ß'), Err(_)));
+    let (r, b) = s.clone().insert_char((0, 2).into(), 'ß').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..6);
+    assert!(matches!(s.clone().insert_char((0, 3).into(), 'ß'), Err(_)));
 }
 
 #[test]
@@ -639,8 +689,12 @@ fn test_insert_char_2() {
     let (r, b) = s.clone().insert_char((0, 1).into(), '\n').expect("valid");
     assert_eq!(r, ((0, 1)..(0, 1)).into());
     assert_eq!(b, 5..6);
-    assert!(matches!(s.clone().insert_char((0, 2).into(), '\n'), Ok(_)));
-    assert!(matches!(s.clone().insert_char((0, 3).into(), '\n'), Err(_)));
+    let (r, b) = s.clone().insert_char((0, 2).into(), '\n').expect("valid");
+    assert_eq!(r, ((4, 1)..(0, 2)).into());
+    assert_eq!(b, 9..10);
+    let (r, b) = s.clone().insert_char((0, 3).into(), '\n').expect("valid");
+    assert_eq!(r, ((4, 1)..(0, 2)).into());
+    assert_eq!(b, 9..10);
     assert!(matches!(s.clone().insert_char((0, 4).into(), '\n'), Err(_)));
 }
 
@@ -695,8 +749,11 @@ fn test_insert_str_2() {
     let (r, b) = s.clone().insert_str((0, 1).into(), "\n").expect("valid");
     assert_eq!(r, ((0, 1)..(0, 2)).into());
     assert_eq!(b, 5..6);
-    assert!(matches!(s.clone().insert_str((0, 2).into(), "\n"), Err(_)));
+    let (r, b) = s.clone().insert_str((0, 2).into(), "\n").expect("valid");
+    assert_eq!(r, ((0, 1)..(0, 2)).into());
+    assert_eq!(b, 5..6);
     assert!(matches!(s.clone().insert_str((0, 3).into(), "\n"), Err(_)));
+    assert!(matches!(s.clone().insert_str((0, 4).into(), "\n"), Err(_)));
 }
 
 #[test]
@@ -739,7 +796,11 @@ fn test_remove_2() {
         s.clone().remove(((0, 1)..(0, 1)).into()).expect("fine"),
         (String::from(""), (((0, 1)..(0, 1)).into(), 5..5))
     );
-    assert!(matches!(s.clone().remove(((0, 2)..(0, 2)).into()), Err(_)));
+    assert_eq!(
+        s.clone().remove(((0, 2)..(0, 2)).into()).expect("fine"),
+        (String::from(""), (((0, 1)..(0, 1)).into(), 5..5))
+    );
+    assert!(matches!(s.clone().remove(((0, 3)..(0, 3)).into()), Err(_)));
 }
 
 #[test]
@@ -761,43 +822,41 @@ fn test_remove_3() {
         s.clone().remove(((0, 1)..(0, 1)).into()).expect("fine"),
         (String::from(""), (((0, 1)..(0, 1)).into(), 5..5))
     );
-    assert!(matches!(s.clone().remove(((0, 2)..(0, 2)).into()), Err(_)));
+    assert_eq!(
+        s.clone().remove(((0, 2)..(0, 2)).into()).expect("fine"),
+        (String::from(""), (((0, 1)..(0, 1)).into(), 5..5))
+    );
+    assert!(matches!(s.clone().remove(((0, 3)..(0, 3)).into()), Err(_)));
 }
 
 #[test]
 fn test_remove_4() {
-    let mut s = TextRope::new_text("1234\r\n");
+    let s = TextRope::new_text("1234\r\n");
     assert_eq!(
-        s.remove(((0, 0)..(0, 0)).into()).expect("fine"),
+        s.clone().remove(((0, 0)..(0, 0)).into()).expect("fine"),
         (String::from(""), (((0, 0)..(0, 0)).into(), 0..0))
     );
-
-    let mut s = TextRope::new_text("1234\r\n");
     assert_eq!(
-        s.remove(((3, 0)..(4, 0)).into()).expect("fine"),
+        s.clone().remove(((3, 0)..(4, 0)).into()).expect("fine"),
         (String::from("4"), (((3, 0)..(4, 0)).into(), 3..4))
     );
-
-    let mut s = TextRope::new_text("1234\r\n");
     assert_eq!(
-        s.remove(((4, 0)..(0, 1)).into()).expect("fine"),
+        s.clone().remove(((4, 0)..(0, 1)).into()).expect("fine"),
         (String::from("\r\n"), (((4, 0)..(0, 1)).into(), 4..6))
     );
-
-    let mut s = TextRope::new_text("1234\r\n");
     assert_eq!(
-        s.remove(((5, 0)..(0, 1)).into()).expect("fine"),
+        s.clone().remove(((5, 0)..(0, 1)).into()).expect("fine"),
         (String::from(""), (((5, 0)..(0, 1)).into(), 6..6))
     );
-
-    let mut s = TextRope::new_text("1234\r\n");
     assert_eq!(
-        s.remove(((0, 1)..(0, 1)).into()).expect("fine"),
+        s.clone().remove(((0, 1)..(0, 1)).into()).expect("fine"),
         (String::from(""), (((0, 1)..(0, 1)).into(), 6..6))
     );
-
-    let mut s = TextRope::new_text("1234\r\n");
-    assert!(matches!(s.remove(((0, 2)..(0, 2)).into()), Err(_)));
+    assert_eq!(
+        s.clone().remove(((0, 2)..(0, 2)).into()).expect("fine"),
+        (String::from(""), (((0, 1)..(0, 1)).into(), 6..6))
+    );
+    assert!(matches!(s.clone().remove(((0, 3)..(0, 3)).into()), Err(_)));
 }
 
 #[test]
@@ -827,4 +886,208 @@ fn test_len_lines() {
     assert_eq!(s.len_lines(), 4);
     let s = TextRope::new_text("abcde\nfghij\nklmno\n");
     assert_eq!(s.len_lines(), 4);
+}
+
+#[test]
+fn test_end_positions() {
+    let s = TextRope::new_text("");
+    assert_eq!(s.len_lines(), 1);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 1).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "A");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 2).into(), 'A').is_err());
+    }
+
+    let s = TextRope::new_text("\n");
+    assert_eq!(s.len_lines(), 2);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "\nA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 3).into(), 'A').is_err());
+    }
+    let s = TextRope::new_text("\n\n");
+    assert_eq!(s.len_lines(), 3);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "\n\nA");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 3).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "\n\nA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 4).into(), 'A').is_err());
+    }
+
+    let s = TextRope::new_text("abcde");
+    assert_eq!(s.len_lines(), 2);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 1).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcdeA");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcdeA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 3).into(), 'A').is_err());
+    }
+    let s = TextRope::new_text("abcde\n");
+    assert_eq!(s.len_lines(), 2);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 1).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nA");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 3).into(), 'A').is_err());
+    }
+    let s = TextRope::new_text("abcde\r");
+    assert_eq!(s.len_lines(), 2);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 1).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\rA");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\rA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 3).into(), 'A').is_err());
+    }
+    let s = TextRope::new_text("abcde\r\n");
+    assert_eq!(s.len_lines(), 2);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 1).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\r\nA");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\r\nA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 3).into(), 'A').is_err());
+    }
+
+    let s = TextRope::new_text("abcde\nfghij");
+    assert_eq!(s.len_lines(), 3);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 1).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nAfghij");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghijA");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 3).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghijA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 4).into(), 'A').is_err());
+    }
+    let s = TextRope::new_text("abcde\nfghij\n");
+    assert_eq!(s.len_lines(), 3);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 1).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nAfghij\n");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghij\nA");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 3).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghij\nA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 4).into(), 'A').is_err());
+    }
+
+    let s = TextRope::new_text("abcde\nfghij\nklmno");
+    assert_eq!(s.len_lines(), 4);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 1).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nAfghij\nklmno");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghij\nAklmno");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 3).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghij\nklmnoA");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 4).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghij\nklmnoA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 5).into(), 'A').is_err());
+    }
+    let s = TextRope::new_text("abcde\nfghij\nklmno\n");
+    assert_eq!(s.len_lines(), 4);
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 1).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nAfghij\nklmno\n");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 2).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghij\nAklmno\n");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 3).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghij\nklmno\nA");
+    }
+    {
+        let mut s = s.clone();
+        s.insert_char((0, 4).into(), 'A').expect("fine");
+        assert_eq!(s.string(), "abcde\nfghij\nklmno\nA");
+    }
+    {
+        let mut s = s.clone();
+        assert!(s.insert_char((0, 5).into(), 'A').is_err());
+    }
 }

@@ -407,50 +407,74 @@ impl TextStore for TextRope {
     /// Return a line as an iterator over the graphemes.
     /// This contains the '\n' at the end.
     ///
-    /// * row must be < len_lines
+    /// * row must be <= len_lines
     #[inline]
     fn line_graphemes(&self, row: upos_type) -> Result<Self::GraphemeIter<'_>, TextError> {
-        let len = self.len_lines() as upos_type;
-        if row < len {
-            let line_byte = self.text.try_line_to_byte(row as usize)?;
-            let line = if row < self.text.len_lines() as upos_type {
-                self.text.get_line(row as usize).expect("valid_row")
-            } else {
-                RopeSlice::from("")
-            };
-            Ok(RopeGraphemes::new(line_byte, line))
+        let row = self.normalize_row(row)?;
+        let line_byte = self.text.try_line_to_byte(row as usize)?;
+        let line = if row < self.text.len_lines() as upos_type {
+            self.text.get_line(row as usize).expect("valid_row")
         } else {
-            Err(TextError::LineIndexOutOfBounds(row, len))
-        }
+            RopeSlice::from("")
+        };
+        Ok(RopeGraphemes::new(line_byte, line))
     }
 
     /// Line width as grapheme count.
     /// Excludes the terminating '\n'.
     ///
-    /// * row must be < len_lines
+    /// * row must be <= len_lines
     #[inline]
     fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
-        let len = self.len_lines() as upos_type;
-        if row < len {
-            if row < self.text.len_lines() as upos_type {
-                let r = self.text.get_line(row as usize).expect("valid_row");
+        let row = self.normalize_row(row)?;
 
-                let len = RopeGraphemes::new(0, r)
-                    .filter(|g| !g.is_line_break())
-                    .count() as upos_type;
-
-                Ok(len)
-            } else {
-                Ok(0)
-            }
+        if row < self.text.len_lines() as upos_type {
+            let r = self.text.get_line(row as usize).expect("valid_row");
+            let len = RopeGraphemes::new(0, r)
+                .filter(|g| !g.is_line_break())
+                .count() as upos_type;
+            Ok(len)
         } else {
-            Err(TextError::LineIndexOutOfBounds(row, len))
+            Ok(0)
         }
     }
 
     #[inline]
     fn should_insert_newline(&self, pos: TextPosition) -> bool {
-        pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline()
+        pos.x == 0 && pos.y == self.len_lines() && !self.has_final_newline()
+            || pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline()
+    }
+
+    fn normalize_row(&self, row: upos_type) -> Result<upos_type, TextError> {
+        let text_len = self.len_lines() as upos_type;
+        let rope_len = self.text.len_lines() as upos_type;
+
+        if row <= rope_len {
+            Ok(row)
+        } else if row <= text_len {
+            Ok(row - 1)
+        } else {
+            return Err(TextError::LineIndexOutOfBounds(row, text_len));
+        }
+    }
+
+    fn normalize(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
+        let len = self.len_lines();
+        if pos.y > len {
+            Err(TextError::LineIndexOutOfBounds(pos.y, len))
+        } else if pos.x > 0 && pos.y == len {
+            Err(TextError::ColumnIndexOutOfBounds(pos.x, 0))
+        } else if pos.x > 0 && pos.y == len - 1 && !self.has_final_newline() {
+            Err(TextError::ColumnIndexOutOfBounds(pos.x, 0))
+        } else if pos.x == 0 && pos.y == len {
+            let pos_byte = self.byte_range_at(pos)?;
+            Ok(self.byte_to_pos(pos_byte.start).expect("valid-byte"))
+        } else if pos.x == 0 && pos.y == len - 1 && !self.has_final_newline() {
+            let pos_byte = self.byte_range_at(pos)?;
+            Ok(self.byte_to_pos(pos_byte.start).expect("valid-byte"))
+        } else {
+            Ok(pos)
+        }
     }
 
     #[inline]
@@ -473,12 +497,10 @@ impl TextStore for TextRope {
         mut pos: TextPosition,
         ch: char,
     ) -> Result<(TextRange, Range<usize>), TextError> {
-        let pos_byte = self.byte_range_at(pos)?;
+        // normalize the position (0, len_lines) to something sane.
+        pos = self.normalize(pos)?; // TODO: pos_byte
 
-        // normalize the position (0, len_lines-1) to something sane.
-        if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
-            pos = self.byte_to_pos(pos_byte.start)?;
-        }
+        let pos_byte = self.byte_range_at(pos)?;
 
         // invalidate cache
         self.invalidate(pos_byte.start);
@@ -567,12 +589,10 @@ impl TextStore for TextRope {
         mut pos: TextPosition,
         txt: &str,
     ) -> Result<(TextRange, Range<usize>), TextError> {
-        let pos_byte = self.byte_range_at(pos)?;
-
         // normalize the position (0, len_lines-1) to something sane.
-        if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
-            pos = self.byte_to_pos(pos_byte.start)?;
-        }
+        pos = self.normalize(pos)?; // TODO: pos_byte
+
+        let pos_byte = self.byte_range_at(pos)?;
 
         self.invalidate(pos_byte.start);
 
@@ -652,18 +672,11 @@ impl TextStore for TextRope {
         &mut self,
         mut range: TextRange,
     ) -> Result<(String, (TextRange, Range<usize>)), TextError> {
+        range.start = self.normalize(range.start)?;
+        range.end = self.normalize(range.end)?;
+
         let start_byte_pos = self.byte_range_at(range.start)?;
         let end_byte_pos = self.byte_range_at(range.end)?;
-
-        // normalize the position (0, len_lines) to something sane.
-        let has_final_newline = self.has_final_newline();
-        let len = self.len_lines();
-        if range.end.x == 0 && range.end.y == len - 1 && !has_final_newline {
-            range.end = self.byte_to_pos(end_byte_pos.start)?;
-        };
-        if range.start.x == 0 && range.start.y == len - 1 && !has_final_newline {
-            range.start = self.byte_to_pos(start_byte_pos.start)?;
-        }
 
         self.invalidate(start_byte_pos.start);
 
