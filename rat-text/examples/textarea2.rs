@@ -284,7 +284,7 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
-    focus.enable_log();
+    // focus.enable_log();
 
     istate.focus_outcome = focus.handle(event, Regular);
 

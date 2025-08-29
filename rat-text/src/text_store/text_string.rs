@@ -67,12 +67,35 @@ impl TextString {
 }
 
 impl TextString {
-    fn set_min_changed(&self, byte_pos: usize) {
+    fn invalidate_cache(&self, byte_pos: usize) {
         self.min_changed.update(|v| match v {
             None => Some(byte_pos),
             Some(w) => Some(min(byte_pos, w)),
         });
     }
+
+    // fn normalize_row(&self, row: upos_type) -> Result<upos_type, TextError> {
+    //     if row > 1 {
+    //         Err(TextError::LineIndexOutOfBounds(row, 1))
+    //     } else if row == 1 {
+    //         Ok(0)
+    //     } else {
+    //         Ok(row)
+    //     }
+    // }
+    //
+    // #[inline]
+    // fn normalize(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
+    //     if pos.y > 1 {
+    //         Err(TextError::LineIndexOutOfBounds(pos.y, 1))
+    //     } else if pos.x > 0 && pos.y == 1 {
+    //         Err(TextError::ColumnIndexOutOfBounds(pos.x, 0))
+    //     } else if pos.x == 0 && pos.y == 1 {
+    //         Ok(TextPosition::new(self.len, 0))
+    //     } else {
+    //         Ok(pos)
+    //     }
+    // }
 }
 
 impl TextStore for TextString {
@@ -87,29 +110,6 @@ impl TextStore for TextString {
     #[inline]
     fn should_insert_newline(&self, _: TextPosition) -> bool {
         false
-    }
-
-    fn normalize_row(&self, row: upos_type) -> Result<upos_type, TextError> {
-        if row > 1 {
-            Err(TextError::LineIndexOutOfBounds(row, 1))
-        } else if row == 1 {
-            Ok(0)
-        } else {
-            Ok(row)
-        }
-    }
-
-    #[inline]
-    fn normalize(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        if pos.y > 1 {
-            Err(TextError::LineIndexOutOfBounds(pos.y, 1))
-        } else if pos.x > 0 && pos.y == 1 {
-            Err(TextError::ColumnIndexOutOfBounds(pos.x, 0))
-        } else if pos.x == 0 && pos.y == 1 {
-            Ok(TextPosition::new(self.len, 0))
-        } else {
-            Ok(pos)
-        }
     }
 
     /// Number of lines.
@@ -130,7 +130,7 @@ impl TextStore for TextString {
 
     /// Set content as string.
     fn set_string(&mut self, t: &str) {
-        self.set_min_changed(0);
+        self.invalidate_cache(0);
         self.text = t.to_string();
         self.len = str_len(&self.text);
     }
@@ -434,7 +434,7 @@ impl TextStore for TextString {
         let byte_pos = self.byte_range_at(pos)?;
         let (before, after) = self.text.split_at(byte_pos.start);
 
-        self.set_min_changed(byte_pos.start);
+        self.invalidate_cache(byte_pos.start);
 
         let old_len = self.len;
         self.buf.clear();
@@ -471,7 +471,7 @@ impl TextStore for TextString {
         let byte_pos = self.byte_range_at(pos)?;
         let (before, after) = self.text.split_at(byte_pos.start);
 
-        self.set_min_changed(byte_pos.start);
+        self.invalidate_cache(byte_pos.start);
 
         let old_len = self.len;
         self.buf.clear();
@@ -512,7 +512,7 @@ impl TextStore for TextString {
 
         let bytes = self.byte_range(range)?;
 
-        self.set_min_changed(bytes.start);
+        self.invalidate_cache(bytes.start);
 
         let (before, remove, after) = (
             &self.text[..bytes.start],
@@ -544,7 +544,7 @@ impl TextStore for TextString {
             return Err(TextError::ByteIndexNotCharBoundary(byte_pos));
         };
 
-        self.set_min_changed(byte_pos);
+        self.invalidate_cache(byte_pos);
 
         self.buf.clear();
         self.buf.push_str(before);
@@ -568,7 +568,7 @@ impl TextStore for TextString {
             return Err(TextError::ByteIndexNotCharBoundary(byte_range.end));
         };
 
-        self.set_min_changed(byte_range.start);
+        self.invalidate_cache(byte_range.start);
 
         self.buf.clear();
         self.buf.push_str(before);

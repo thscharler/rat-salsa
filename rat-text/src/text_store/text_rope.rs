@@ -91,6 +91,45 @@ impl TextRope {
             false
         }
     }
+
+    fn normalize_row(&self, row: upos_type) -> Result<upos_type, TextError> {
+        let text_len = self.len_lines() as upos_type;
+        let rope_len = self.text.len_lines() as upos_type;
+
+        if row <= rope_len {
+            Ok(row)
+        } else if row <= text_len {
+            Ok(row - 1)
+        } else {
+            return Err(TextError::LineIndexOutOfBounds(row, text_len));
+        }
+    }
+
+    fn normalize(&self, pos: TextPosition) -> Result<(TextPosition, usize), TextError> {
+        let len = self.len_lines();
+        if pos.y > len {
+            Err(TextError::LineIndexOutOfBounds(pos.y, len))
+        } else if pos.x > 0 && pos.y == len {
+            Err(TextError::ColumnIndexOutOfBounds(pos.x, 0))
+        } else if pos.x > 0 && pos.y == len - 1 && !self.has_final_newline() {
+            Err(TextError::ColumnIndexOutOfBounds(pos.x, 0))
+        } else if pos.x == 0 && pos.y == len {
+            let pos_byte = self.byte_range_at(pos)?;
+            Ok((
+                self.byte_to_pos(pos_byte.start).expect("valid-byte"),
+                pos_byte.start,
+            ))
+        } else if pos.x == 0 && pos.y == len - 1 && !self.has_final_newline() {
+            let pos_byte = self.byte_range_at(pos)?;
+            Ok((
+                self.byte_to_pos(pos_byte.start).expect("valid-byte"),
+                pos_byte.start,
+            ))
+        } else {
+            let pos_byte = self.byte_range_at(pos)?;
+            Ok((pos, pos_byte.start))
+        }
+    }
 }
 
 impl TextStore for TextRope {
@@ -441,39 +480,14 @@ impl TextStore for TextRope {
 
     #[inline]
     fn should_insert_newline(&self, pos: TextPosition) -> bool {
-        pos.x == 0 && pos.y == self.len_lines() && !self.has_final_newline()
-            || pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline()
-    }
-
-    fn normalize_row(&self, row: upos_type) -> Result<upos_type, TextError> {
-        let text_len = self.len_lines() as upos_type;
-        let rope_len = self.text.len_lines() as upos_type;
-
-        if row <= rope_len {
-            Ok(row)
-        } else if row <= text_len {
-            Ok(row - 1)
+        if pos.x == 0 && pos.y == 0 {
+            false
+        } else if pos.x == 0 && pos.y == self.len_lines() && !self.has_final_newline() {
+            true
+        } else if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
+            true
         } else {
-            return Err(TextError::LineIndexOutOfBounds(row, text_len));
-        }
-    }
-
-    fn normalize(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let len = self.len_lines();
-        if pos.y > len {
-            Err(TextError::LineIndexOutOfBounds(pos.y, len))
-        } else if pos.x > 0 && pos.y == len {
-            Err(TextError::ColumnIndexOutOfBounds(pos.x, 0))
-        } else if pos.x > 0 && pos.y == len - 1 && !self.has_final_newline() {
-            Err(TextError::ColumnIndexOutOfBounds(pos.x, 0))
-        } else if pos.x == 0 && pos.y == len {
-            let pos_byte = self.byte_range_at(pos)?;
-            Ok(self.byte_to_pos(pos_byte.start).expect("valid-byte"))
-        } else if pos.x == 0 && pos.y == len - 1 && !self.has_final_newline() {
-            let pos_byte = self.byte_range_at(pos)?;
-            Ok(self.byte_to_pos(pos_byte.start).expect("valid-byte"))
-        } else {
-            Ok(pos)
+            false
         }
     }
 
@@ -498,15 +512,14 @@ impl TextStore for TextRope {
         ch: char,
     ) -> Result<(TextRange, Range<usize>), TextError> {
         // normalize the position (0, len_lines) to something sane.
-        pos = self.normalize(pos)?; // TODO: pos_byte
-
-        let pos_byte = self.byte_range_at(pos)?;
+        let pos_byte;
+        (pos, pos_byte) = self.normalize(pos)?;
 
         // invalidate cache
-        self.invalidate(pos_byte.start);
+        self.invalidate(pos_byte);
 
         let mut it_gr =
-            RopeGraphemes::new_offset(0, self.text.slice(..), pos_byte.start).expect("valid_bytes");
+            RopeGraphemes::new_offset(0, self.text.slice(..), pos_byte).expect("valid_bytes");
         let prev = it_gr.prev();
         it_gr.next();
         let next = it_gr.next();
@@ -569,16 +582,13 @@ impl TextStore for TextRope {
             }
         };
 
-        let pos_char = self
-            .text
-            .try_byte_to_char(pos_byte.start)
-            .expect("valid_bytes");
+        let pos_char = self.text.try_byte_to_char(pos_byte).expect("valid_bytes");
 
         self.text
             .try_insert_char(pos_char, ch)
             .expect("valid_chars");
 
-        Ok((insert_range, pos_byte.start..pos_byte.start + ch.len_utf8()))
+        Ok((insert_range, pos_byte..pos_byte + ch.len_utf8()))
     }
 
     /// Insert a text str at the given position.
@@ -590,16 +600,12 @@ impl TextStore for TextRope {
         txt: &str,
     ) -> Result<(TextRange, Range<usize>), TextError> {
         // normalize the position (0, len_lines-1) to something sane.
-        pos = self.normalize(pos)?; // TODO: pos_byte
+        let pos_byte;
+        (pos, pos_byte) = self.normalize(pos)?;
 
-        let pos_byte = self.byte_range_at(pos)?;
+        self.invalidate(pos_byte);
 
-        self.invalidate(pos_byte.start);
-
-        let pos_char = self
-            .text
-            .try_byte_to_char(pos_byte.start)
-            .expect("valid_bytes");
+        let pos_char = self.text.try_byte_to_char(pos_byte).expect("valid_bytes");
 
         let mut line_count = 0;
         let mut last_linebreak_idx = 0;
@@ -662,7 +668,7 @@ impl TextStore for TextRope {
             TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
         };
 
-        Ok((insert_range, pos_byte.start..pos_byte.start + txt.len()))
+        Ok((insert_range, pos_byte..pos_byte + txt.len()))
     }
 
     /// Remove the given text range.
@@ -672,32 +678,32 @@ impl TextStore for TextRope {
         &mut self,
         mut range: TextRange,
     ) -> Result<(String, (TextRange, Range<usize>)), TextError> {
-        range.start = self.normalize(range.start)?;
-        range.end = self.normalize(range.end)?;
+        let start_byte_pos;
+        let end_byte_pos;
 
-        let start_byte_pos = self.byte_range_at(range.start)?;
-        let end_byte_pos = self.byte_range_at(range.end)?;
+        (range.start, start_byte_pos) = self.normalize(range.start)?;
+        (range.end, end_byte_pos) = self.normalize(range.end)?;
 
-        self.invalidate(start_byte_pos.start);
+        self.invalidate(start_byte_pos);
 
         let old_text = self
             .text
-            .get_byte_slice(start_byte_pos.start..end_byte_pos.start)
+            .get_byte_slice(start_byte_pos..end_byte_pos)
             .expect("valid_bytes");
         let old_text = old_text.to_string();
 
         let start_pos = self
             .text
-            .try_byte_to_char(start_byte_pos.start)
+            .try_byte_to_char(start_byte_pos)
             .expect("valid_bytes");
         let end_pos = self
             .text
-            .try_byte_to_char(end_byte_pos.start)
+            .try_byte_to_char(end_byte_pos)
             .expect("valid_bytes");
 
         self.text.try_remove(start_pos..end_pos).expect("valid_pos");
 
-        Ok((old_text, (range, start_byte_pos.start..end_byte_pos.start)))
+        Ok((old_text, (range, start_byte_pos..end_byte_pos)))
     }
 
     /// Insert a string at the given byte index.

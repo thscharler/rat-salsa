@@ -38,12 +38,6 @@ pub trait TextStore {
     /// before NOT end with a newline?
     fn should_insert_newline(&self, pos: TextPosition) -> bool;
 
-    /// Normalizes the given row.
-    fn normalize_row(&self, row: upos_type) -> Result<upos_type, TextError>;
-
-    /// This normalizes the given position.
-    fn normalize(&self, pos: TextPosition) -> Result<TextPosition, TextError>;
-
     /// Number of lines.
     ///
     /// This counts the number of newline '\n' and adds one

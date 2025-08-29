@@ -698,7 +698,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     pub fn select_all(&mut self) -> bool {
         let old_selection = self.selection();
 
-        let last = self.len_lines().saturating_sub(1);
+        let last = self.len_lines() - 1;
         let last_width = self.line_width(last).expect("valid_line");
         self.set_cursor(TextPosition::new(last_width, last), false);
         self.set_cursor(TextPosition::new(0, 0), true);
@@ -931,7 +931,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         &self,
         pos: TextPosition,
     ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
-        let rows = self.len_lines();
+        let rows = self.len_lines() - 1;
         let cols = self.line_width(rows).expect("valid_row");
 
         let range_bytes = self.bytes_at_range(TextRange::new((0, 0), (cols, rows)))?;
@@ -1166,11 +1166,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Insert a character.
     pub fn insert_char(&mut self, pos: TextPosition, c: char) -> Result<bool, TextError> {
-        // auto insert newline
+        // if the very last line doesn't end with a newline,
+        // if the insert-position is at (0,len_lines).
         if self.text.should_insert_newline(pos) {
-            let mut tmp = self.newline.clone();
-            tmp.push(c);
-            return self.insert_str(pos, &tmp);
+            let save_anchor = self.anchor;
+            let save_cursor = self.cursor;
+            self.insert_newline(pos)?;
+            self.anchor = save_anchor;
+            self.cursor = save_cursor;
         }
 
         let (inserted_range, inserted_bytes) = self.text.insert_char(pos, c)?;
@@ -1251,7 +1254,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Remove the next characters.
     pub fn remove_next_char(&mut self, pos: TextPosition) -> Result<bool, TextError> {
         let c_line_width = self.line_width(pos.y)?;
-        let c_last_line = self.len_lines().saturating_sub(1);
+        let c_last_line = self.len_lines() - 1;
 
         let (ex, ey) = if pos.y == c_last_line && pos.x == c_line_width {
             (pos.x, pos.y)
