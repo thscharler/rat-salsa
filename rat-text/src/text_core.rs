@@ -552,7 +552,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// The ranges are byte-ranges. The usize value is the index of the
     /// actual style. Those are set with the widget.
     #[inline]
-    pub fn set_styles(&mut self, mut new_styles: Vec<(Range<usize>, usize)>) {
+    pub fn set_styles(&mut self, new_styles: Vec<(Range<usize>, usize)>) {
         self.init_styles();
 
         let Some(sty) = &mut self.styles else {
