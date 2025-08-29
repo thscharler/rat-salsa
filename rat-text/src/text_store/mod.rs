@@ -34,8 +34,9 @@ pub trait TextStore {
     /// Can store multi-line content?
     fn is_multi_line(&self) -> bool;
 
-    /// Does the last line end with a newline '\n'.
-    fn has_final_newline(&self) -> bool;
+    /// Is this the special EOT position, and does the line
+    /// before NOT end with a newline?
+    fn should_insert_newline(&self, pos: TextPosition) -> bool;
 
     /// Number of lines.
     ///
@@ -52,9 +53,7 @@ pub trait TextStore {
 
     /// Minimum byte position that has been changed
     /// since the last call of min_changed().
-    ///
-    /// Can be used to invalidate caches.
-    fn min_changed(&self) -> Option<usize>;
+    fn cache_validity(&self) -> Option<usize>;
 
     /// Get content as string.
     fn string(&self) -> String;

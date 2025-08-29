@@ -63,6 +63,34 @@ impl TextRope {
             Some(w) => Some(min(byte_pos, w)),
         });
     }
+
+    #[inline]
+    fn has_final_newline(&self) -> bool {
+        let len = self.text.len_bytes();
+        if len > 3 {
+            match (
+                self.text.get_byte(len - 3).expect("valid_pos"),
+                self.text.get_byte(len - 2).expect("valid_pos"),
+                self.text.get_byte(len - 1).expect("valid_pos"),
+            ) {
+                (_, _, b'\n')
+                | (_, _, b'\r')
+                | (_, _, 0x0c)
+                | (_, _, 0x0b)
+                | (_, _, 0x85)
+                | (0xE2, 0x80, 0xA8)
+                | (0xE2, 0x80, 0xA9) => true,
+                _ => false,
+            }
+        } else if len > 0 {
+            match self.text.get_byte(len - 1).expect("valid_pos") {
+                b'\n' | b'\r' | 0x0c | 0x0b | 0x85 => true,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
 }
 
 impl TextStore for TextRope {
@@ -80,7 +108,7 @@ impl TextStore for TextRope {
     /// since the last call of min_changed().
     ///
     /// Used to invalidate caches.
-    fn min_changed(&self) -> Option<usize> {
+    fn cache_validity(&self) -> Option<usize> {
         self.min_changed.take()
     }
 
@@ -421,31 +449,8 @@ impl TextStore for TextRope {
     }
 
     #[inline]
-    fn has_final_newline(&self) -> bool {
-        let len = self.text.len_bytes();
-        if len > 3 {
-            match (
-                self.text.get_byte(len - 3).expect("valid_pos"),
-                self.text.get_byte(len - 2).expect("valid_pos"),
-                self.text.get_byte(len - 1).expect("valid_pos"),
-            ) {
-                (_, _, b'\n')
-                | (_, _, b'\r')
-                | (_, _, 0x0c)
-                | (_, _, 0x0b)
-                | (_, _, 0x85)
-                | (0xE2, 0x80, 0xA8)
-                | (0xE2, 0x80, 0xA9) => true,
-                _ => false,
-            }
-        } else if len > 0 {
-            match self.text.get_byte(len - 1).expect("valid_pos") {
-                b'\n' | b'\r' | 0x0c | 0x0b | 0x85 => true,
-                _ => false,
-            }
-        } else {
-            false
-        }
+    fn should_insert_newline(&self, pos: TextPosition) -> bool {
+        pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline()
     }
 
     #[inline]

@@ -742,7 +742,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     ///
     /// Can be used to invalidate caches.
     pub(crate) fn min_changed(&self) -> Option<usize> {
-        self.text.min_changed()
+        self.text.cache_validity()
     }
 }
 
@@ -1166,6 +1166,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Insert a character.
     pub fn insert_char(&mut self, pos: TextPosition, c: char) -> Result<bool, TextError> {
+        // auto insert newline
+        // TODO
+
         let (inserted_range, inserted_bytes) = self.text.insert_char(pos, c)?;
 
         let old_cursor = self.cursor;

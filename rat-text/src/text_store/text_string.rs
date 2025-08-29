@@ -84,9 +84,9 @@ impl TextStore for TextString {
         false
     }
 
-    /// Always true.
-    fn has_final_newline(&self) -> bool {
-        true
+    #[inline]
+    fn should_insert_newline(&self, _: TextPosition) -> bool {
+        false
     }
 
     /// Number of lines.
@@ -96,7 +96,7 @@ impl TextStore for TextString {
     }
 
     #[inline]
-    fn min_changed(&self) -> Option<usize> {
+    fn cache_validity(&self) -> Option<usize> {
         self.min_changed.take()
     }
 

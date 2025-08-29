@@ -394,16 +394,16 @@ fn test_line_width() {
 #[test]
 fn test_final_newline() {
     let s = TextString::new_text("");
-    assert!(s.has_final_newline());
+    assert!(!s.should_insert_newline((0, 1).into()));
 
     let s = TextString::new_text("abcd");
-    assert!(s.has_final_newline());
+    assert!(!s.should_insert_newline((0, 1).into()));
     let s = TextString::new_text("abcd\n");
-    assert!(s.has_final_newline());
+    assert!(!s.should_insert_newline((0, 1).into()));
     let s = TextString::new_text("abcd\r");
-    assert!(s.has_final_newline());
+    assert!(!s.should_insert_newline((0, 1).into()));
     let s = TextString::new_text("abcd\r\n");
-    assert!(s.has_final_newline());
+    assert!(!s.should_insert_newline((0, 1).into()));
 }
 
 // TODO: ---
