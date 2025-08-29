@@ -823,7 +823,28 @@ impl TextAreaState {
 impl TextAreaState {
     /// Set and replace all styles.
     ///
-    /// The ranges are byte-ranges into the text.
+    /// The ranges are byte-ranges into the text. There is no
+    /// verification that the ranges fit the text.
+    ///
+    /// Each byte-range maps to an index into the styles set
+    /// with the widget.
+    ///
+    /// Any style-idx that don't have a match there are just
+    /// ignored. You can use this to store other range based information.
+    /// The ranges are corrected during edits, no need to recalculate
+    /// everything after each keystroke.
+    ///
+    /// But this is only a very basic correction based on
+    /// insertions and deletes. If you use this for syntax-highlighting
+    /// you probably need to rebuild the styles.
+    #[inline]
+    pub fn set_styles(&mut self, styles: Vec<(Range<usize>, usize)>) {
+        self.value.set_styles(styles);
+    }
+
+    /// Set and replace all styles.
+    ///
+    /// The ranges are TextRanges into the text.
     /// Each byte-range maps to an index into the styles set
     /// with the widget.
     ///
@@ -832,8 +853,8 @@ impl TextAreaState {
     /// The ranges are corrected during edits, no need to recalculate
     /// everything after each keystroke.
     #[inline]
-    pub fn set_styles(&mut self, styles: Vec<(Range<usize>, usize)>) {
-        self.value.set_styles(styles);
+    pub fn set_range_styles(&mut self, styles: Vec<(TextRange, usize)>) -> Result<(), TextError> {
+        self.value.set_range_styles(styles)
     }
 
     /// Add a style for a byte-range.

@@ -531,10 +531,28 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Set all styles.
     ///
+    /// The ranges are TextRanges. The usize value is the index of the
+    /// actual style. Those are set with the widget.
+    #[inline]
+    pub fn set_range_styles(
+        &mut self,
+        new_styles: Vec<(TextRange, usize)>,
+    ) -> Result<(), TextError> {
+        let mut mapped = Vec::with_capacity(new_styles.len());
+        for (r, s) in new_styles {
+            let rr = self.bytes_at_range(r)?;
+            mapped.push((rr, s));
+        }
+        self.set_styles(mapped);
+        Ok(())
+    }
+
+    /// Set all styles.
+    ///
     /// The ranges are byte-ranges. The usize value is the index of the
     /// actual style. Those are set with the widget.
     #[inline]
-    pub fn set_styles(&mut self, new_styles: Vec<(Range<usize>, usize)>) {
+    pub fn set_styles(&mut self, mut new_styles: Vec<(Range<usize>, usize)>) {
         self.init_styles();
 
         let Some(sty) = &mut self.styles else {
@@ -548,7 +566,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 });
             }
         }
-        sty.set(new_styles.iter().cloned());
+        sty.set(new_styles.into_iter());
     }
 
     /// Add a style for the given byte-range.
@@ -698,9 +716,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     pub fn select_all(&mut self) -> bool {
         let old_selection = self.selection();
 
-        let last = self.len_lines() - 1;
-        let last_width = self.line_width(last).expect("valid_line");
-        self.set_cursor(TextPosition::new(last_width, last), false);
+        self.set_cursor(TextPosition::new(0, self.len_lines()), false);
         self.set_cursor(TextPosition::new(0, 0), true);
 
         old_selection != self.selection()
@@ -741,7 +757,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// since the last call of min_changed().
     ///
     /// Can be used to invalidate caches.
-    pub(crate) fn min_changed(&self) -> Option<usize> {
+    pub(crate) fn cache_validity(&self) -> Option<usize> {
         self.text.cache_validity()
     }
 }
@@ -868,7 +884,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             rendered.width as upos_type,
             rendered.height as upos_type,
             ctrl_char,
-            self.min_changed(),
+            self.cache_validity(),
         );
 
         let range = TextRange::new((sub_row_offset, rows.start), (0, rows.end));
@@ -953,7 +969,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.text.graphemes_byte(range_bytes, pos_byte)
     }
 
-    /// Get a cursor over the text-range the current position set at pos.
+    /// Get a cursor over the text-range with the current position set at pos.
     #[inline]
     pub fn graphemes_byte(
         &self,
@@ -965,7 +981,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Line as str.
     ///
-    /// * row must be < len_lines
+    /// * row must be <= len_lines
     #[inline]
     pub fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
         self.text.line_at(row)
@@ -973,7 +989,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Iterate over text-lines, starting at row.
     ///
-    /// * row must be < len_lines
+    /// * row must be <= len_lines
     #[inline]
     pub fn lines_at(
         &self,
@@ -991,7 +1007,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Line width as grapheme count. Excludes the terminating '\n'.
     #[inline]
     pub fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
-        self.cache.validate_byte_pos(self.min_changed());
+        self.cache.validate_byte_pos(self.cache_validity());
 
         let mut line_width = self.cache.line_width.borrow_mut();
         if let Some(cache) = line_width.get(&row) {

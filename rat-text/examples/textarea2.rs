@@ -156,11 +156,11 @@ fn repaint_input(
             .fg(istate.theme.text_color(istate.theme.orange[0])),
     );
     "F1 toggle help | Ctrl+Q quit | Alt-F(ind) ".render(l1[0], frame.buffer_mut());
-    TextInput::new().styles(istate.theme.input_style()).render(
-        l3[1],
-        frame.buffer_mut(),
-        &mut state.search,
-    );
+    // TextInput::new().styles(istate.theme.input_style()).render(
+    //     l3[1],
+    //     frame.buffer_mut(),
+    //     &mut state.search,
+    // );
 
     let screen_cursor = if !state.help {
         state
