@@ -1,6 +1,6 @@
 use rat_text::core::{TextRope, TextStore};
 use rat_text::Cursor;
-use rat_text::{TextError, TextPosition, TextRange};
+use rat_text::{TextError,  TextRange};
 
 #[test]
 fn test_string_0() {
@@ -681,6 +681,7 @@ fn test_insert_str_2() {
     assert_eq!(b, 4..5);
 
     let s = TextRope::new_text("1234\r");
+
     let (r, b) = s.clone().insert_str((0, 0).into(), "\n").expect("valid");
     assert_eq!(r, ((0, 0)..(0, 1)).into());
     assert_eq!(b, 0..1);

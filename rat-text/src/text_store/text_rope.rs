@@ -15,48 +15,7 @@ pub struct TextRope {
     // minimum byte position changed since last reset.
     min_changed: Cell<Option<usize>>,
     // tmp buf
-    buf: Vec<u8>,
-}
-
-/// Length as grapheme count, excluding line breaks.
-#[inline]
-fn rope_line_len(r: RopeSlice<'_>) -> upos_type {
-    let it = RopeGraphemes::new(0, r);
-    it.filter(|g| !g.is_line_break()).count() as upos_type
-}
-
-/// Length as grapheme count, excluding line breaks.
-///
-/// Safety
-///
-/// Bytes must be valid UTF-8
-#[inline]
-unsafe fn str_line_len(s: &[u8]) -> upos_type {
-    let s = unsafe { str::from_utf8_unchecked(s) };
-    let it = s.graphemes(true);
-    it.filter(|c| {
-        *c != "\r"
-            && *c != "\n"
-            && *c != "\r\n"
-            && *c != "\u{000C}"
-            && *c != "\u{000B}"
-            && *c != "\u{0085}"
-            && *c != "\u{2028}"
-            && *c != "\u{2029}"
-    })
-    .count() as upos_type
-}
-
-/// Length as grapheme count, including line breaks.
-///
-/// Safety
-///
-/// Bytes must be valid UTF-8
-#[inline]
-unsafe fn str_grapheme_len(s: &[u8]) -> upos_type {
-    let s = unsafe { str::from_utf8_unchecked(s) };
-    let it = s.graphemes(true);
-    it.count() as upos_type
+    buf: String,
 }
 
 impl TextRope {
@@ -98,7 +57,7 @@ impl TextRope {
 }
 
 impl TextRope {
-    fn set_min_changed(&self, byte_pos: usize) {
+    fn invalidate(&self, byte_pos: usize) {
         self.min_changed.update(|v| match v {
             None => Some(byte_pos),
             Some(w) => Some(min(byte_pos, w)),
@@ -132,7 +91,7 @@ impl TextStore for TextRope {
 
     /// Set content.
     fn set_string(&mut self, t: &str) {
-        self.set_min_changed(0);
+        self.invalidate(0);
         self.text = Rope::from_str(t);
     }
 
@@ -446,8 +405,13 @@ impl TextStore for TextRope {
         let len = self.len_lines() as upos_type;
         if row < len {
             if row < self.text.len_lines() as upos_type {
-                let v = self.text.get_line(row as usize).expect("valid_row");
-                Ok(rope_line_len(v))
+                let r = self.text.get_line(row as usize).expect("valid_row");
+
+                let len = RopeGraphemes::new(0, r)
+                    .filter(|g| !g.is_line_break())
+                    .count() as upos_type;
+
+                Ok(len)
             } else {
                 Ok(0)
             }
@@ -491,7 +455,7 @@ impl TextStore for TextRope {
             _ => {
                 let l = self.text.len_lines();
                 let t = if self.has_final_newline() { 0 } else { 1 };
-                (t + l) as upos_type
+                (l + t) as upos_type
             }
         }
     }
@@ -501,19 +465,18 @@ impl TextStore for TextRope {
     /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     fn insert_char(
         &mut self,
-        pos: TextPosition,
+        mut pos: TextPosition,
         ch: char,
     ) -> Result<(TextRange, Range<usize>), TextError> {
         let pos_byte = self.byte_range_at(pos)?;
 
         // normalize the position (0, len_lines-1) to something sane.
-        let pos = if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
-            self.byte_to_pos(pos_byte.start)?
-        } else {
-            pos
-        };
+        if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
+            pos = self.byte_to_pos(pos_byte.start)?;
+        }
 
-        self.set_min_changed(pos_byte.start);
+        // invalidate cache
+        self.invalidate(pos_byte.start);
 
         let mut it_gr =
             RopeGraphemes::new_offset(0, self.text.slice(..), pos_byte.start).expect("valid_bytes");
@@ -554,19 +517,18 @@ impl TextStore for TextRope {
             self.buf.clear();
             if let Some(prev) = prev {
                 len += 1;
-                self.buf.extend_from_slice(prev.grapheme().as_bytes());
+                self.buf.push_str(prev.grapheme());
             }
             len += 1;
-            let mut ch_buf = [0; 4];
-            let ch_buf = ch.encode_utf8(&mut ch_buf);
-            self.buf.extend_from_slice(ch_buf.as_bytes());
-
+            self.buf.push(ch);
             if let Some(next) = next {
                 len += 1;
-                self.buf.extend_from_slice(next.grapheme().as_bytes());
+                self.buf.push_str(next.grapheme());
             }
+            let buf_len = self.buf.graphemes(true).count();
 
-            let n = len - unsafe { str_grapheme_len(&self.buf) };
+            let n = len - buf_len;
+
             if n == 0 {
                 TextRange::new(pos, (pos.x + 1, pos.y))
             } else if n == 1 {
@@ -584,6 +546,7 @@ impl TextStore for TextRope {
             .text
             .try_byte_to_char(pos_byte.start)
             .expect("valid_bytes");
+
         self.text
             .try_insert_char(pos_char, ch)
             .expect("valid_chars");
@@ -596,19 +559,17 @@ impl TextStore for TextRope {
     /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     fn insert_str(
         &mut self,
-        pos: TextPosition,
+        mut pos: TextPosition,
         txt: &str,
     ) -> Result<(TextRange, Range<usize>), TextError> {
         let pos_byte = self.byte_range_at(pos)?;
 
         // normalize the position (0, len_lines-1) to something sane.
-        let pos = if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
-            self.byte_to_pos(pos_byte.start)?
-        } else {
-            pos
-        };
+        if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
+            pos = self.byte_to_pos(pos_byte.start)?;
+        }
 
-        self.set_min_changed(pos_byte.start);
+        self.invalidate(pos_byte.start);
 
         let pos_char = self
             .text
@@ -631,38 +592,37 @@ impl TextStore for TextRope {
                 last_linebreak_idx = c.text_bytes().end;
             }
         }
-        dbg!(line_count, last_linebreak_idx);
 
         let insert_range = if line_count > 0 {
-            // Find the length of line after the insert position.
-            let split = self.byte_range_at(pos).expect("valid_pos");
+            // the remainder of the line after pos extends the last line of
+            // the inserted text. they might combine in some way.
 
-            let line = self
+            // Fill in the last line of the inserted text.
+            self.buf.clear();
+            self.buf.push_str(&txt[last_linebreak_idx..]);
+            let old_offset = self.buf.len();
+
+            // Fill in the remainder of the current text after the insert position.
+            let line_offset = self
+                .text
+                .try_line_to_byte(pos.y as usize)
+                .expect("valid-pos");
+            let split = self //
+                .byte_range_at(pos)
+                .expect("valid_pos")
+                .start
+                - line_offset;
+            let remainder = self
                 .text
                 .get_line(pos.y as usize)
-                .expect("valid_pos")
-                .bytes();
-            self.buf.clear();
-            for c in line.skip(split.start) {
-                self.buf.push(c);
+                .expect("valid-pos")
+                .get_byte_slice(split..)
+                .expect("valid-pos");
+            for cc in remainder.chars() {
+                self.buf.push(cc);
             }
-            let old_len = unsafe { str_line_len(&self.buf) };
-            self.buf.clear();
-
-            // compose the new line and find its length.
-            self.buf
-                .extend_from_slice(&txt.as_bytes()[last_linebreak_idx..]);
-
-            let line = self
-                .text
-                .get_line(pos.y as usize)
-                .expect("valid_pos")
-                .bytes();
-            for c in line.skip(split.start) {
-                self.buf.push(c);
-            }
-            let new_len = unsafe { str_line_len(&self.buf) };
-            self.buf.clear();
+            let new_len = self.buf.graphemes(true).count() as upos_type;
+            let old_len = self.buf[old_offset..].graphemes(true).count() as upos_type;
 
             self.text.try_insert(pos_char, txt).expect("valid_pos");
 
@@ -691,23 +651,16 @@ impl TextStore for TextRope {
         let end_byte_pos = self.byte_range_at(range.end)?;
 
         // normalize the position (0, len_lines) to something sane.
-        range.end =
-            if range.end.x == 0 && range.end.y == self.len_lines() - 1 && !self.has_final_newline()
-            {
-                self.byte_to_pos(end_byte_pos.start)?
-            } else {
-                range.end
-            };
-        range.start = if range.start.x == 0
-            && range.start.y == self.len_lines() - 1
-            && !self.has_final_newline()
-        {
-            self.byte_to_pos(start_byte_pos.start)?
-        } else {
-            range.start
+        let has_final_newline = self.has_final_newline();
+        let len = self.len_lines();
+        if range.end.x == 0 && range.end.y == len - 1 && !has_final_newline {
+            range.end = self.byte_to_pos(end_byte_pos.start)?;
         };
+        if range.start.x == 0 && range.start.y == len - 1 && !has_final_newline {
+            range.start = self.byte_to_pos(start_byte_pos.start)?;
+        }
 
-        self.set_min_changed(start_byte_pos.start);
+        self.invalidate(start_byte_pos.start);
 
         let old_text = self
             .text
@@ -736,7 +689,7 @@ impl TextStore for TextRope {
     fn insert_b(&mut self, byte_pos: usize, t: &str) -> Result<(), TextError> {
         let pos_char = self.text.try_byte_to_char(byte_pos)?;
 
-        self.set_min_changed(byte_pos);
+        self.invalidate(byte_pos);
         self.text.try_insert(pos_char, t).expect("valid_pos");
         Ok(())
     }
@@ -749,7 +702,7 @@ impl TextStore for TextRope {
         let start_char = self.text.try_byte_to_char(byte_range.start)?;
         let end_char = self.text.try_byte_to_char(byte_range.end)?;
 
-        self.set_min_changed(byte_range.start);
+        self.invalidate(byte_range.start);
         self.text
             .try_remove(start_char..end_char)
             .expect("valid_range");
