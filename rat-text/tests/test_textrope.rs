@@ -1,6 +1,6 @@
 use rat_text::core::{TextRope, TextStore};
 use rat_text::Cursor;
-use rat_text::{TextError,  TextRange};
+use rat_text::{TextError, TextRange};
 
 #[test]
 fn test_string_0() {
@@ -310,8 +310,6 @@ fn test_cr_1() {
         Ok((TextRange::new((2, 0), (0, 1)), 2..4))
     );
 }
-
-// TODO: ---
 
 #[test]
 fn test_byte_range_at() {

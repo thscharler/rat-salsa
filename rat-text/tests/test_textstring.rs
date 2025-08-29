@@ -144,3 +144,527 @@ fn test_string6() {
     );
     assert_eq!(s.string(), "");
 }
+
+// TODO
+
+#[test]
+fn test_byte_range_at() {
+    let s = TextString::new_text("");
+    assert_eq!(s.byte_range_at((0, 0).into()), Ok(0..0));
+    assert!(matches!(s.byte_range_at((1, 0).into()), Err(_)));
+    assert_eq!(s.byte_range_at((0, 1).into()), Ok(0..0));
+    assert!(matches!(s.byte_range_at((0, 2).into()), Err(_)));
+
+    let s = TextString::new_text("abcd");
+    assert_eq!(s.byte_range_at((0, 0).into()), Ok(0..1));
+    assert_eq!(s.byte_range_at((1, 0).into()), Ok(1..2));
+    assert_eq!(s.byte_range_at((2, 0).into()), Ok(2..3));
+    assert_eq!(s.byte_range_at((3, 0).into()), Ok(3..4));
+    assert_eq!(s.byte_range_at((4, 0).into()), Ok(4..4));
+    assert_eq!(s.byte_range_at((0, 1).into()), Ok(4..4));
+    assert!(matches!(s.byte_range_at((0, 2).into()), Err(_)));
+    let s = TextString::new_text("abcd\n");
+    assert_eq!(s.byte_range_at((0, 0).into()), Ok(0..1));
+    assert_eq!(s.byte_range_at((1, 0).into()), Ok(1..2));
+    assert_eq!(s.byte_range_at((2, 0).into()), Ok(2..3));
+    assert_eq!(s.byte_range_at((3, 0).into()), Ok(3..4));
+    assert_eq!(s.byte_range_at((4, 0).into()), Ok(4..5));
+    assert_eq!(s.byte_range_at((5, 0).into()), Ok(5..5));
+    assert_eq!(s.byte_range_at((0, 1).into()), Ok(5..5));
+    assert!(matches!(s.byte_range_at((0, 2).into()), Err(_)));
+}
+
+#[test]
+fn test_byte_range() {
+    let s = TextString::new_text("");
+    assert_eq!(s.byte_range(TextRange::new((0, 0), (0, 0))), Ok(0..0));
+    assert!(matches!(
+        s.byte_range(TextRange::new((1, 0), (1, 0))),
+        Err(_)
+    ));
+    assert!(matches!(
+        s.byte_range(TextRange::new((0, 0), (1, 0))),
+        Err(_)
+    ));
+    assert_eq!(s.byte_range(TextRange::new((0, 1), (0, 1))), Ok(0..0));
+    assert!(matches!(
+        s.byte_range(TextRange::new((0, 1), (0, 2))),
+        Err(_)
+    ));
+
+    let s = TextString::new_text("abcd");
+    assert_eq!(s.byte_range(TextRange::new((0, 0), (1, 0))), Ok(0..1));
+    assert_eq!(s.byte_range(TextRange::new((1, 0), (3, 0))), Ok(1..3));
+    assert_eq!(s.byte_range(TextRange::new((1, 0), (4, 0))), Ok(1..4));
+    assert!(matches!(
+        s.byte_range(TextRange::new((1, 0), (5, 0))),
+        Err(_)
+    ));
+    assert_eq!(s.byte_range(TextRange::new((1, 0), (0, 1))), Ok(1..4));
+    assert!(matches!(
+        s.byte_range(TextRange::new((0, 1), (0, 2))),
+        Err(_)
+    ));
+    let s = TextString::new_text("abcd\n");
+    assert_eq!(s.byte_range(TextRange::new((0, 0), (1, 0))), Ok(0..1));
+    assert_eq!(s.byte_range(TextRange::new((1, 0), (3, 0))), Ok(1..3));
+    assert_eq!(s.byte_range(TextRange::new((1, 0), (4, 0))), Ok(1..4));
+    assert_eq!(s.byte_range(TextRange::new((1, 0), (5, 0))), Ok(1..5));
+    assert!(matches!(
+        s.byte_range(TextRange::new((1, 0), (6, 0))),
+        Err(_)
+    ));
+    assert_eq!(s.byte_range(TextRange::new((1, 0), (0, 1))), Ok(1..5));
+    assert!(matches!(
+        s.byte_range(TextRange::new((0, 1), (0, 2))),
+        Err(_)
+    ));
+}
+
+#[test]
+fn test_str_slice() {
+    let s = TextString::new_text("abcd");
+    assert_eq!(s.str_slice(((0, 0)..(1, 0)).into()).expect("valid"), "a");
+    assert_eq!(s.str_slice(((0, 0)..(4, 0)).into()).expect("valid"), "abcd");
+    assert_eq!(s.str_slice(((0, 0)..(0, 1)).into()).expect("valid"), "abcd");
+    assert_eq!(s.str_slice(((0, 1)..(0, 1)).into()).expect("valid"), "");
+
+    let s = TextString::new_text("abcd\r\n");
+    assert_eq!(s.str_slice(((0, 0)..(1, 0)).into()).expect("valid"), "a");
+    assert_eq!(s.str_slice(((0, 0)..(4, 0)).into()).expect("valid"), "abcd");
+    assert_eq!(
+        s.str_slice(((0, 0)..(5, 0)).into()).expect("valid"),
+        "abcd\r\n"
+    );
+    assert!(matches!(s.str_slice(((0, 0)..(6, 0)).into()), Err(_)));
+    assert_eq!(
+        s.str_slice(((0, 0)..(0, 1)).into()).expect("valid"),
+        "abcd\r\n"
+    );
+    assert_eq!(s.str_slice(((0, 1)..(0, 1)).into()).expect("valid"), "");
+    assert!(matches!(s.str_slice(((0, 0)..(0, 2)).into()), Err(_)));
+    assert!(matches!(s.str_slice(((0, 0)..(0, 3)).into()), Err(_)));
+}
+
+#[test]
+fn test_line_at() {
+    let s = TextString::new_text("");
+    assert_eq!(s.line_at(0).expect("valid"), "");
+    assert!(matches!(s.line_at(1), Ok(_)));
+    assert!(matches!(s.line_at(2), Err(_)));
+
+    let s = TextString::new_text("abcd");
+    assert_eq!(s.line_at(0).expect("valid"), "abcd");
+    assert_eq!(s.line_at(1).expect("valid"), "");
+    assert!(matches!(s.line_at(2), Err(_)));
+    let s = TextString::new_text("abcd\n");
+    assert_eq!(s.line_at(0).expect("valid"), "abcd\n");
+    assert_eq!(s.line_at(1).expect("valid"), "");
+    assert!(matches!(s.line_at(2), Err(_)));
+    assert!(matches!(s.line_at(3), Err(_)));
+    let s = TextString::new_text("abcd\r");
+    assert_eq!(s.line_at(0).expect("valid"), "abcd\r");
+    assert_eq!(s.line_at(1).expect("valid"), "");
+    assert!(matches!(s.line_at(2), Err(_)));
+    assert!(matches!(s.line_at(3), Err(_)));
+    let s = TextString::new_text("abcd\r\n");
+    assert_eq!(s.line_at(0).expect("valid"), "abcd\r\n");
+    assert_eq!(s.line_at(1).expect("valid"), "");
+    assert!(matches!(s.line_at(2), Err(_)));
+    assert!(matches!(s.line_at(3), Err(_)));
+}
+
+#[test]
+fn test_lines_at() {
+    let s = TextString::new_text("");
+    assert!(matches!(s.lines_at(0), Ok(_)));
+    assert!(matches!(s.lines_at(1), Ok(_)));
+    assert!(matches!(s.lines_at(2), Err(_)));
+
+    let s = TextString::new_text("abcd");
+    assert!(matches!(s.lines_at(0), Ok(_)));
+    assert!(matches!(s.lines_at(1), Ok(_)));
+    assert!(matches!(s.lines_at(2), Err(_)));
+    let s = TextString::new_text("abcd\n");
+    assert!(matches!(s.lines_at(0), Ok(_)));
+    assert!(matches!(s.line_at(1), Ok(_)));
+    assert!(matches!(s.line_at(2), Err(_)));
+    assert!(matches!(s.line_at(3), Err(_)));
+    let s = TextString::new_text("abcd\r");
+    assert!(matches!(s.lines_at(0), Ok(_)));
+    assert!(matches!(s.line_at(1), Ok(_)));
+    assert!(matches!(s.line_at(2), Err(_)));
+    assert!(matches!(s.line_at(3), Err(_)));
+    let s = TextString::new_text("abcd\r\n");
+    assert!(matches!(s.lines_at(0), Ok(_)));
+    assert!(matches!(s.line_at(1), Ok(_)));
+    assert!(matches!(s.line_at(2), Err(_)));
+    assert!(matches!(s.line_at(3), Err(_)));
+
+    let s = TextString::new_text("1234\nabcd");
+    assert!(matches!(s.lines_at(0), Ok(_)));
+    assert!(matches!(s.line_at(1), Ok(_)));
+    assert!(matches!(s.line_at(2), Err(_)));
+    assert!(matches!(s.line_at(3), Err(_)));
+    let s = TextString::new_text("1234\nabcd\n");
+    assert!(matches!(s.lines_at(0), Ok(_)));
+    assert!(matches!(s.line_at(1), Ok(_)));
+    assert!(matches!(s.line_at(2), Err(_)));
+    assert!(matches!(s.line_at(3), Err(_)));
+}
+
+#[test]
+fn test_line_grapheme_0() {
+    let s = TextString::new_text("abcd");
+    assert!(matches!(s.line_graphemes(0), Ok(_)));
+    assert!(matches!(s.line_graphemes(1), Ok(_)));
+    assert!(matches!(s.line_graphemes(2), Err(_)));
+    let s = TextString::new_text("abcd\n");
+    assert!(matches!(s.line_graphemes(0), Ok(_)));
+    assert!(matches!(s.line_graphemes(1), Ok(_)));
+    assert!(matches!(s.line_graphemes(2), Err(_)));
+    let s = TextString::new_text("abcd\r");
+    assert!(matches!(s.line_graphemes(0), Ok(_)));
+    assert!(matches!(s.line_graphemes(1), Ok(_)));
+    assert!(matches!(s.line_graphemes(2), Err(_)));
+    let s = TextString::new_text("abcd\r\n");
+    assert!(matches!(s.line_graphemes(0), Ok(_)));
+    assert!(matches!(s.line_graphemes(1), Ok(_)));
+    assert!(matches!(s.line_graphemes(2), Err(_)));
+
+    let s = TextString::new_text("abcd\na");
+    assert!(matches!(s.line_graphemes(1), Ok(_)));
+    assert!(matches!(s.line_graphemes(2), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Err(_)));
+    let s = TextString::new_text("abcd\ra");
+    assert!(matches!(s.line_graphemes(1), Ok(_)));
+    assert!(matches!(s.line_graphemes(2), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Err(_)));
+    let s = TextString::new_text("abcd\r\na");
+    assert!(matches!(s.line_graphemes(1), Ok(_)));
+    assert!(matches!(s.line_graphemes(2), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Err(_)));
+
+    let s = TextString::new_text("abcd\na");
+    assert!(matches!(s.line_graphemes(1), Ok(_)));
+    assert!(matches!(s.line_graphemes(2), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Err(_)));
+    let s = TextString::new_text("abcd\na\n");
+    assert!(matches!(s.line_graphemes(1), Ok(_)));
+    assert!(matches!(s.line_graphemes(2), Err(_)));
+    assert!(matches!(s.line_graphemes(3), Err(_)));
+}
+
+#[test]
+fn test_line_width() {
+    let s = TextString::new_text("");
+    assert_eq!(s.line_width(0), Ok(0));
+    assert!(matches!(s.line_width(1), Ok(0)));
+    assert!(matches!(s.line_width(2), Err(_)));
+
+    let s = TextString::new_text("abcd");
+    assert_eq!(s.line_width(0), Ok(4));
+    assert_eq!(s.line_width(1), Ok(0));
+    assert!(matches!(s.line_width(2), Err(_)));
+    let s = TextString::new_text("abcd\n");
+    assert_eq!(s.line_width(0), Ok(5));
+    assert_eq!(s.line_width(1), Ok(0));
+    assert!(matches!(s.line_width(2), Err(_)));
+    let s = TextString::new_text("abcd\r");
+    assert_eq!(s.line_width(0), Ok(5));
+    assert_eq!(s.line_width(1), Ok(0));
+    assert!(matches!(s.line_width(2), Err(_)));
+    let s = TextString::new_text("abcd\r\n");
+    assert_eq!(s.line_width(0), Ok(5));
+    assert_eq!(s.line_width(1), Ok(0));
+    assert!(matches!(s.line_width(2), Err(_)));
+
+    let s = TextString::new_text("abcd\nefghi");
+    assert_eq!(s.line_width(0), Ok(10));
+    assert_eq!(s.line_width(1), Ok(0));
+    assert!(matches!(s.line_width(2), Err(_)));
+    assert!(matches!(s.line_width(3), Err(_)));
+    let s = TextString::new_text("abcd\nefghi\n");
+    assert_eq!(s.line_width(0), Ok(11));
+    assert_eq!(s.line_width(1), Ok(0));
+    assert!(matches!(s.line_width(2), Err(_)));
+    assert!(matches!(s.line_width(3), Err(_)));
+}
+
+#[test]
+fn test_final_newline() {
+    let s = TextString::new_text("");
+    assert!(s.has_final_newline());
+
+    let s = TextString::new_text("abcd");
+    assert!(s.has_final_newline());
+    let s = TextString::new_text("abcd\n");
+    assert!(s.has_final_newline());
+    let s = TextString::new_text("abcd\r");
+    assert!(s.has_final_newline());
+    let s = TextString::new_text("abcd\r\n");
+    assert!(s.has_final_newline());
+}
+
+// TODO: ---
+
+#[test]
+fn test_insert_char_0() {
+    let s = TextString::new_text("");
+    let (r, b) = s.clone().insert_char((0, 0).into(), 'x').expect("valid");
+    assert_eq!(r, ((0, 0)..(1, 0)).into());
+    assert_eq!(b, 0..1);
+
+    let s = TextString::new_text("1234");
+    let (r, b) = s.clone().insert_char((0, 0).into(), 'x').expect("valid");
+    assert_eq!(r, ((0, 0)..(1, 0)).into());
+    assert_eq!(b, 0..1);
+    let (r, b) = s.clone().insert_char((4, 0).into(), 'x').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    assert_eq!(s.len_lines(), 1);
+    let (r, b) = s.clone().insert_char((0, 1).into(), 'x').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    assert!(matches!(s.clone().insert_char((0, 2).into(), 'x'), Err(_)));
+
+    let s = TextString::new_text("1234\n");
+    let (r, b) = s.clone().insert_char((0, 1).into(), 'x').expect("valid");
+    assert_eq!(r, ((5, 0)..(6, 0)).into());
+    assert_eq!(b, 5..6);
+}
+
+#[test]
+fn test_insert_char_1() {
+    // multi byte
+    let s = TextString::new_text("1234");
+    let (r, b) = s.clone().insert_char((0, 0).into(), 'ß').expect("valid");
+    assert_eq!(r, ((0, 0)..(1, 0)).into());
+    assert_eq!(b, 0..2);
+    let (r, b) = s.clone().insert_char((4, 0).into(), 'ß').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..6);
+    let (r, b) = s.clone().insert_char((0, 1).into(), 'ß').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..6);
+    assert!(matches!(s.clone().insert_char((0, 2).into(), 'ß'), Err(_)));
+}
+
+#[test]
+fn test_insert_char_2() {
+    // lf
+    let s = TextString::new_text("1234");
+    let (r, b) = s.clone().insert_char((0, 0).into(), '\n').expect("valid");
+    assert_eq!(r, ((0, 0)..(1, 0)).into());
+    assert_eq!(b, 0..1);
+    let (r, b) = s.clone().insert_char((4, 0).into(), '\n').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    let (r, b) = s.clone().insert_char((0, 1).into(), '\n').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+
+    let s = TextString::new_text("1234\rabcd");
+    let (r, b) = s.clone().insert_char((0, 0).into(), '\n').expect("valid");
+    assert_eq!(r, ((0, 0)..(1, 0)).into());
+    assert_eq!(b, 0..1);
+    let (r, b) = s.clone().insert_char((4, 0).into(), '\n').expect("valid");
+    assert_eq!(s.len_lines(), 1);
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    let (r, b) = s.clone().insert_char((5, 0).into(), '\n').expect("valid");
+    assert_eq!(s.len_lines(), 1);
+    assert_eq!(r, ((5, 0)..(5, 0)).into());
+    assert_eq!(b, 5..6);
+    let (r, b) = s.clone().insert_char((0, 1).into(), '\n').expect("valid");
+    assert_eq!(r, ((9, 0)..(10, 0)).into());
+    assert_eq!(b, 9..10);
+    assert!(matches!(s.clone().insert_char((0, 2).into(), '\n'), Err(_)));
+    assert!(matches!(s.clone().insert_char((0, 3).into(), '\n'), Err(_)));
+    assert!(matches!(s.clone().insert_char((0, 4).into(), '\n'), Err(_)));
+}
+
+#[test]
+fn test_insert_char_3() {
+    let s = TextString::new_text("1234");
+    let (r, b) = s.clone().insert_char((0, 0).into(), '\r').expect("valid");
+    assert_eq!(r, ((0, 0)..(1, 0)).into());
+    assert_eq!(b, 0..1);
+    let (r, b) = s.clone().insert_char((4, 0).into(), '\r').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    let (r, b) = s.clone().insert_char((0, 1).into(), '\r').expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+}
+
+#[test]
+fn test_insert_str_2() {
+    // lf
+    let s = TextString::new_text("1234");
+    let (r, b) = s.clone().insert_str((0, 0).into(), "\n").expect("valid");
+    assert_eq!(r, ((0, 0)..(1, 0)).into());
+    assert_eq!(b, 0..1);
+    let (r, b) = s.clone().insert_str((4, 0).into(), "\n").expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    let (r, b) = s.clone().insert_str((0, 1).into(), "\n").expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    let (r, b) = s.clone().insert_str((0, 0).into(), "\r").expect("valid");
+    assert_eq!(r, ((0, 0)..(1, 0)).into());
+    assert_eq!(b, 0..1);
+    let (r, b) = s.clone().insert_str((4, 0).into(), "\r").expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    let (r, b) = s.clone().insert_str((0, 1).into(), "\r").expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+
+    let s = TextString::new_text("1234\r");
+
+    let (r, b) = s.clone().insert_str((0, 0).into(), "\n").expect("valid");
+    assert_eq!(r, ((0, 0)..(1, 0)).into());
+    assert_eq!(b, 0..1);
+    let (r, b) = s.clone().insert_str((4, 0).into(), "\n").expect("valid");
+    assert_eq!(r, ((4, 0)..(5, 0)).into());
+    assert_eq!(b, 4..5);
+    let (r, b) = s.clone().insert_str((5, 0).into(), "\n").expect("valid");
+    assert_eq!(r, ((5, 0)..(5, 0)).into());
+    assert_eq!(b, 5..6);
+    let (r, b) = s.clone().insert_str((0, 1).into(), "\n").expect("valid");
+    assert_eq!(r, ((5, 0)..(5, 0)).into());
+    assert_eq!(b, 5..6);
+    assert!(matches!(s.clone().insert_str((0, 2).into(), "\n"), Err(_)));
+    assert!(matches!(s.clone().insert_str((0, 3).into(), "\n"), Err(_)));
+}
+
+#[test]
+fn test_remove_1() {
+    let s = TextString::new_text("1234");
+    assert_eq!(
+        s.clone().remove(((0, 0)..(0, 0)).into()).expect("fine"),
+        (String::from(""), (((0, 0)..(0, 0)).into(), 0..0))
+    );
+    assert_eq!(
+        s.clone().remove(((3, 0)..(4, 0)).into()).expect("fine"),
+        (String::from("4"), (((3, 0)..(4, 0)).into(), 3..4))
+    );
+    assert_eq!(
+        s.clone().remove(((4, 0)..(0, 1)).into()).expect("fine"),
+        (String::from(""), (((4, 0)..(4, 0)).into(), 4..4))
+    );
+    assert_eq!(
+        s.clone().remove(((0, 1)..(0, 1)).into()).expect("fine"),
+        (String::from(""), (((4, 0)..(4, 0)).into(), 4..4))
+    );
+}
+
+#[test]
+fn test_remove_2() {
+    let s = TextString::new_text("1234\n");
+    assert_eq!(
+        s.clone().remove(((0, 0)..(0, 0)).into()).expect("fine"),
+        (String::from(""), (((0, 0)..(0, 0)).into(), 0..0))
+    );
+    assert_eq!(
+        s.clone().remove(((3, 0)..(4, 0)).into()).expect("fine"),
+        (String::from("4"), (((3, 0)..(4, 0)).into(), 3..4))
+    );
+    assert_eq!(
+        s.clone().remove(((4, 0)..(0, 1)).into()).expect("fine"),
+        (String::from("\n"), (((4, 0)..(5, 0)).into(), 4..5))
+    );
+    assert_eq!(
+        s.clone().remove(((0, 1)..(0, 1)).into()).expect("fine"),
+        (String::from(""), (((5, 0)..(5, 0)).into(), 5..5))
+    );
+    assert!(matches!(s.clone().remove(((0, 2)..(0, 2)).into()), Err(_)));
+}
+
+#[test]
+fn test_remove_3() {
+    let s = TextString::new_text("1234\r");
+    assert_eq!(
+        s.clone().remove(((0, 0)..(0, 0)).into()).expect("fine"),
+        (String::from(""), (((0, 0)..(0, 0)).into(), 0..0))
+    );
+    assert_eq!(
+        s.clone().remove(((3, 0)..(4, 0)).into()).expect("fine"),
+        (String::from("4"), (((3, 0)..(4, 0)).into(), 3..4))
+    );
+    assert_eq!(
+        s.clone().remove(((4, 0)..(0, 1)).into()).expect("fine"),
+        (String::from("\r"), (((4, 0)..(5, 0)).into(), 4..5))
+    );
+    assert_eq!(
+        s.clone().remove(((0, 1)..(0, 1)).into()).expect("fine"),
+        (String::from(""), (((5, 0)..(5, 0)).into(), 5..5))
+    );
+    assert!(matches!(s.clone().remove(((0, 2)..(0, 2)).into()), Err(_)));
+}
+
+#[test]
+fn test_remove_4() {
+    let mut s = TextString::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(((0, 0)..(0, 0)).into()).expect("fine"),
+        (String::from(""), (((0, 0)..(0, 0)).into(), 0..0))
+    );
+
+    let mut s = TextString::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(((3, 0)..(4, 0)).into()).expect("fine"),
+        (String::from("4"), (((3, 0)..(4, 0)).into(), 3..4))
+    );
+
+    let mut s = TextString::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(((4, 0)..(0, 1)).into()).expect("fine"),
+        (String::from("\r\n"), (((4, 0)..(5, 0)).into(), 4..6))
+    );
+
+    let mut s = TextString::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(((5, 0)..(0, 1)).into()).expect("fine"),
+        (String::from(""), (((5, 0)..(5, 0)).into(), 6..6))
+    );
+
+    let mut s = TextString::new_text("1234\r\n");
+    assert_eq!(
+        s.remove(((0, 1)..(0, 1)).into()).expect("fine"),
+        (String::from(""), (((5, 0)..(5, 0)).into(), 6..6))
+    );
+
+    let mut s = TextString::new_text("1234\r\n");
+    assert!(matches!(s.remove(((0, 2)..(0, 2)).into()), Err(_)));
+}
+
+#[test]
+fn test_len_lines() {
+    let s = TextString::new_text("");
+    assert_eq!(s.len_lines(), 1);
+    let s = TextString::new_text("\n");
+    assert_eq!(s.len_lines(), 1);
+    let s = TextString::new_text("\n\n");
+    assert_eq!(s.len_lines(), 1);
+
+    let s = TextString::new_text("abcde");
+    assert_eq!(s.len_lines(), 1);
+    let s = TextString::new_text("abcde\n");
+    assert_eq!(s.len_lines(), 1);
+    let s = TextString::new_text("abcde\r");
+    assert_eq!(s.len_lines(), 1);
+    let s = TextString::new_text("abcde\r\n");
+    assert_eq!(s.len_lines(), 1);
+
+    let s = TextString::new_text("abcde\nfghij");
+    assert_eq!(s.len_lines(), 1);
+    let s = TextString::new_text("abcde\nfghij\n");
+    assert_eq!(s.len_lines(), 1);
+
+    let s = TextString::new_text("abcde\nfghij\nklmno");
+    assert_eq!(s.len_lines(), 1);
+    let s = TextString::new_text("abcde\nfghij\nklmno\n");
+    assert_eq!(s.len_lines(), 1);
+}

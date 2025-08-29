@@ -117,14 +117,14 @@ impl TextStore for TextString {
     ///
     /// * pos must be a valid position: row < len_lines, col <= line_width of the row.
     fn byte_range_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
-        if pos.y != 0 && pos != TextPosition::new(0, 1) {
-            return Err(TextError::LineIndexOutOfBounds(pos.y, 1));
-        };
-
         if pos == TextPosition::new(0, 1) {
             let len = self.text.len();
             return Ok(len..len);
         }
+
+        if pos.y != 0 {
+            return Err(TextError::LineIndexOutOfBounds(pos.y, 1));
+        };
 
         let mut byte_range = None;
         for (cidx, (idx, c)) in self
@@ -150,6 +150,8 @@ impl TextStore for TextString {
     }
 
     /// Grapheme range to byte range.
+    ///
+    /// Allows the special text-position (0,1) as a substitute for EOL.
     ///
     /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     fn byte_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
@@ -395,10 +397,14 @@ impl TextStore for TextString {
     /// * range must be a valid range. row < len_lines, col <= line_width of the row.
     fn insert_char(
         &mut self,
-        pos: TextPosition,
+        mut pos: TextPosition,
         c: char,
     ) -> Result<(TextRange, Range<usize>), TextError> {
-        if pos.y != 0 && pos != TextPosition::new(0, 1) {
+        if pos == TextPosition::new(0, 1) {
+            pos = TextPosition::new(self.len, 0);
+        }
+
+        if pos.y != 0 {
             return Err(TextError::TextPositionOutOfBounds(pos));
         }
 
@@ -428,10 +434,14 @@ impl TextStore for TextString {
     /// Insert a str at position.
     fn insert_str(
         &mut self,
-        pos: TextPosition,
+        mut pos: TextPosition,
         t: &str,
     ) -> Result<(TextRange, Range<usize>), TextError> {
-        if pos.y != 0 && pos != TextPosition::new(0, 1) {
+        if pos == TextPosition::new(0, 1) {
+            pos = TextPosition::new(self.len, 0);
+        }
+
+        if pos.y != 0 {
             return Err(TextError::TextPositionOutOfBounds(pos));
         }
 
@@ -461,12 +471,19 @@ impl TextStore for TextString {
     /// Remove a range.
     fn remove(
         &mut self,
-        range: TextRange,
+        mut range: TextRange,
     ) -> Result<(String, (TextRange, Range<usize>)), TextError> {
-        if range.start.y != 0 && range.start != TextPosition::new(0, 1) {
+        if range.start == TextPosition::new(0, 1) {
+            range.start = TextPosition::new(self.len, 0);
+        }
+        if range.end == TextPosition::new(0, 1) {
+            range.end = TextPosition::new(self.len, 0);
+        }
+
+        if range.start.y != 0 {
             return Err(TextError::TextRangeOutOfBounds(range));
         }
-        if range.end.y != 0 && range.end != TextPosition::new(0, 1) {
+        if range.end.y != 0 {
             return Err(TextError::TextRangeOutOfBounds(range));
         }
 
