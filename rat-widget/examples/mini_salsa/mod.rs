@@ -67,7 +67,7 @@ impl MiniSalsaState {
 
 pub fn run_ui<Data, State>(
     name: &str,
-    init: fn(&mut MiniSalsaState),
+    init: fn(&mut Data, &mut MiniSalsaState, &mut State),
     handle: fn(
         &crossterm::event::Event,
         data: &mut Data,
@@ -113,7 +113,7 @@ pub fn run_ui<Data, State>(
 
     let mut istate = MiniSalsaState::new(name);
 
-    init(&mut istate);
+    init(data, &mut istate, state);
 
     istate.frame = repaint_ui(&mut terminal, repaint, data, &mut istate, state)?;
 

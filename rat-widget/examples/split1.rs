@@ -43,7 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "split1",
-        |_| {},
+        |_, _, _| {},
         handle_input,
         repaint_input,
         &mut data,

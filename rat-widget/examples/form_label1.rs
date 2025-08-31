@@ -9,7 +9,7 @@ use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::text_area::{TextArea, TextAreaState};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
-use rat_widget::caption::{CaptionState, WithFocus};
+use rat_widget::caption::{CaptionState, CaptionStyle, HotkeyAlignment, HotkeyPolicy, WithFocus};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
@@ -17,7 +17,7 @@ use rat_widget::pager::{DualPager, DualPagerState};
 use rat_widget::paired::{Paired, PairedState, PairedWidget};
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::text::HasScreenCursor;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
 use ratatui::widgets::Padding;
 use ratatui::Frame;
@@ -29,40 +29,13 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut data = Data {};
 
-    let mut state = State {
-        form: Default::default(),
-        label_name: Default::default(),
-        name: Default::default(),
-        label_version: Default::default(),
-        version: Default::default(),
-        label_edition: Default::default(),
-        edition: Default::default(),
-        label_author: Default::default(),
-        author: Default::default(),
-        label_description: Default::default(),
-        description: Default::default(),
-        label_license: Default::default(),
-        license: Default::default(),
-        label_repository: Default::default(),
-        repository: Default::default(),
-        label_readme: Default::default(),
-        readme: Default::default(),
-        label_keywords: Default::default(),
-        keywords: Default::default(),
-        label_categories: Default::default(),
-        category1: Default::default(),
-        category2: Default::default(),
-        category3: Default::default(),
-        category4: Default::default(),
-        category5: Default::default(),
-        menu: Default::default(),
-    };
+    let mut state = State::default();
     state.edition.set_value(2024);
     state.menu.focus.set(true);
 
     run_ui(
         "label_and_form",
-        |_| {},
+        init_input,
         handle_input,
         repaint_input,
         &mut data,
@@ -73,6 +46,8 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
+    caption_style: CaptionStyle,
+
     form: DualPagerState<usize>,
 
     label_name: CaptionState,
@@ -105,6 +80,7 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         let mut s = Self {
+            caption_style: Default::default(),
             form: Default::default(),
             label_name: Default::default(),
             name: Default::default(),
@@ -139,6 +115,10 @@ impl Default for State {
     }
 }
 
+fn init_input(_data: &mut Data, istate: &mut MiniSalsaState, state: &mut State) {
+    state.caption_style = istate.theme.caption_style();
+}
+
 fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
@@ -164,6 +144,7 @@ fn repaint_input(
     // set up form
     let form = DualPager::new()
         .styles(THEME.pager_style())
+        .caption_style(state.caption_style.clone())
         .auto_label(false);
 
     // maybe rebuild layout
@@ -187,7 +168,7 @@ fn repaint_input(
         form.widget(
             state.edition.id(),
             FormLabel::Str("_Edition"),
-            FormWidget::Width(22),
+            FormWidget::Width(32),
         );
         form.widget(
             state.author.id(),
@@ -263,7 +244,11 @@ fn repaint_input(
     form.render_caption(state.version.id(), &state.version, &mut state.label_version);
     form.render(
         state.version.id(),
-        || MaskedInput::new().styles(istate.theme.input_style()),
+        || {
+            MaskedInput::new()
+                .styles(istate.theme.input_style())
+                .compact(true)
+        },
         &mut state.version,
     );
     form.render_caption(state.edition.id(), &state.edition, &mut state.label_edition);
@@ -430,6 +415,36 @@ fn handle_input(
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
+            Outcome::Changed
+        }
+        _ => Outcome::Continue,
+    });
+
+    try_flow!(match event {
+        ct_event!(keycode press F(1)) => {
+            state.caption_style.hotkey_policy = match state.caption_style.hotkey_policy {
+                Some(HotkeyPolicy::Always) => Some(HotkeyPolicy::OnHover),
+                Some(HotkeyPolicy::OnHover) => Some(HotkeyPolicy::WhenFocused),
+                Some(HotkeyPolicy::WhenFocused) => Some(HotkeyPolicy::Always),
+                None => Some(HotkeyPolicy::Always),
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(2)) => {
+            state.caption_style.hotkey_align = match state.caption_style.hotkey_align {
+                Some(HotkeyAlignment::LabelHotkey) => Some(HotkeyAlignment::HotkeyLabel),
+                Some(HotkeyAlignment::HotkeyLabel) => Some(HotkeyAlignment::LabelHotkey),
+                None => Some(HotkeyAlignment::LabelHotkey),
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(3)) => {
+            state.caption_style.align = match state.caption_style.align {
+                Some(Alignment::Left) => Some(Alignment::Center),
+                Some(Alignment::Center) => Some(Alignment::Right),
+                Some(Alignment::Right) => Some(Alignment::Left),
+                None => Some(Alignment::Left),
+            };
             Outcome::Changed
         }
         _ => Outcome::Continue,

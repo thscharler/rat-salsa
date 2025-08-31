@@ -29,7 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "view1",
-        |_| {},
+        |_, _, _| {},
         handle_text,
         repaint_text,
         &mut data,

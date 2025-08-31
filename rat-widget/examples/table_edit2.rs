@@ -68,7 +68,7 @@ fn main() -> Result<(), Error> {
 
     run_ui(
         "table_edit2",
-        |_| {},
+        |_, _, _| {},
         handle_table,
         repaint_table,
         &mut data,

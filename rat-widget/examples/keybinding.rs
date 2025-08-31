@@ -21,7 +21,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "keybinding",
-        |_| {},
+        |_, _, _| {},
         handle_buttons,
         repaint_buttons,
         &mut data,

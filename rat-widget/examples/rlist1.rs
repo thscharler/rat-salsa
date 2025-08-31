@@ -58,7 +58,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     mini_salsa::run_ui(
         "rlist1",
-        |_| {},
+        |_, _, _| {},
         handle_input,
         repaint_input,
         &mut data,

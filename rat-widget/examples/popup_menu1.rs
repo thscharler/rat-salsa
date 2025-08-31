@@ -36,7 +36,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "popup_menu1",
-        |_| {},
+        |_, _, _| {},
         handle_stuff,
         repaint_stuff,
         &mut data,

@@ -33,7 +33,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "doubleclick",
-        |_| {},
+        |_, _, _| {},
         handle_buttons,
         repaint_buttons,
         &mut data,
