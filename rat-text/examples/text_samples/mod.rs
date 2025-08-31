@@ -68,6 +68,7 @@ pub fn sample_tabs() -> (Rope, Vec<(TextRange, usize)>) {
     )
 }
 
+#[allow(unused)]
 pub fn sample_lorem_ipsum() -> (Rope, Vec<(TextRange, usize)>) {
     let styles = Vec::new();
     let mut buf = RopeBuilder::new();
