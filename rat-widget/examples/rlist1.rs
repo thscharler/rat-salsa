@@ -1,6 +1,6 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, MiniSalsaState};
-use rat_event::{try_flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
+use rat_event::{try_flow, HandleEvent, MouseOnly, Outcome, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::event::EditOutcome;
 use rat_menu::event::MenuOutcome;
@@ -17,7 +17,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, ListItem, StatefulWidget, Widget};
 use ratatui::Frame;
-use std::cmp::{max, min};
+use std::cmp::min;
 
 mod mini_salsa;
 

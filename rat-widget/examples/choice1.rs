@@ -1,7 +1,7 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use log::debug;
-use rat_event::{try_flow, ConsumedEvent, HandleEvent, Popup, Regular};
+use rat_event::{try_flow, HandleEvent, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};

@@ -2,7 +2,7 @@
 
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_event::{try_flow, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::Scroll;
 use rat_widget::paragraph::{Paragraph, ParagraphState};

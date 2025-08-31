@@ -1,6 +1,6 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{try_flow, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::{ButtonOutcome, Outcome};

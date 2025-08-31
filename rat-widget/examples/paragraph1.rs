@@ -2,7 +2,7 @@
 
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::line_number::{LineNumberState, LineNumbers};

@@ -4,7 +4,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use chrono::{Datelike, Local, Months, NaiveDate};
 use pure_rust_locales::Locale;
-use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};

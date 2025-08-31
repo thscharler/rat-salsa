@@ -10,6 +10,7 @@ use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
 use rat_widget::file_dialog::FileDialogStyle;
+use rat_widget::label::{LabelStyle, RightAlignment, RightSidePolicy};
 use rat_widget::list::ListStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::pager::PagerStyle;
@@ -276,6 +277,16 @@ impl Scheme {
             select: Some(self.text_select()),
             scroll: Some(self.scroll_style()),
             ..TextStyle::default()
+        }
+    }
+
+    pub fn label_style(&self) -> LabelStyle {
+        LabelStyle {
+            style: self.container(),
+            right: Some(self.secondary(0)),
+            align: Some(RightAlignment::RightLeft),
+            right_policy: Some(RightSidePolicy::OnHover),
+            ..Default::default()
         }
     }
 

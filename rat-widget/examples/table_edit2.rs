@@ -8,7 +8,7 @@ use anyhow::Error;
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
-use rat_event::{try_flow, ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_event::{try_flow, HandleEvent, Outcome, Regular};
 use rat_focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::edit::vec::{EditableTableVec, EditableTableVecState};
 use rat_ftable::edit::{TableEditor, TableEditorState};
@@ -199,7 +199,7 @@ fn repaint_table(
     );
 
     EditableTableVec::new(
-        |data: &[Sample]| {
+        |_: &[Sample]| {
             Table::default()
                 .data(TableData1 {
                     data: Default::default(),

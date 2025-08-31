@@ -3,7 +3,7 @@
 
 use crate::blue::{Blue, BlueState};
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuitem::Separator;
