@@ -23,6 +23,7 @@ where
     layout: Option<GenericLayout<W>>,
     pager: Pager<W>,
     page_nav: PageNavigation<'a>,
+    auto_label: bool,
 }
 
 /// Renders directly to the frame buffer.
@@ -37,6 +38,7 @@ where
     W: Eq + Hash + Clone,
 {
     pager: PagerBuffer<'a, W>,
+    auto_label: bool,
 }
 
 /// Widget state.
@@ -66,6 +68,7 @@ where
             layout: Default::default(),
             pager: Default::default(),
             page_nav: Default::default(),
+            auto_label: true,
         }
     }
 }
@@ -90,6 +93,14 @@ where
     pub fn style(mut self, style: Style) -> Self {
         self.pager = self.pager.style(style);
         self.page_nav = self.page_nav.style(style);
+        self
+    }
+
+    /// Render the label automatically when rendering the widget.
+    ///
+    /// Default: true
+    pub fn auto_label(mut self, auto: bool) -> Self {
+        self.auto_label = auto;
         self
     }
 
@@ -161,7 +172,7 @@ where
     }
 
     /// Render the page navigation and create the SinglePagerBuffer
-    /// that will do the actual widget rendering.
+    /// that will do the actual rendering.
     pub fn into_buffer(
         self,
         area: Rect,
@@ -184,6 +195,7 @@ where
                 .layout(state.layout.clone())
                 .page(state.nav.page)
                 .into_buffer(state.nav.widget_areas[0], Rc::new(RefCell::new(buf))),
+            auto_label: self.auto_label,
         }
     }
 }
@@ -208,10 +220,9 @@ where
 
     /// Render a manual label.
     #[inline(always)]
-    pub fn render_label<FN, WW>(&mut self, widget: W, render_fn: FN) -> bool
+    pub fn render_label<FN>(&mut self, widget: W, render_fn: FN) -> bool
     where
-        FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
-        WW: Widget,
+        FN: FnOnce(&Cow<'static, str>, Rect, &mut Buffer),
     {
         let Some(idx) = self.pager.widget_idx(widget) else {
             return false;
@@ -229,7 +240,9 @@ where
         let Some(idx) = self.pager.widget_idx(widget) else {
             return false;
         };
-        self.pager.render_auto_label(idx);
+        if self.auto_label {
+            self.pager.render_auto_label(idx);
+        }
         self.pager.render_widget(idx, render_fn)
     }
 
@@ -244,7 +257,9 @@ where
         let Some(idx) = self.pager.widget_idx(widget) else {
             return false;
         };
-        self.pager.render_auto_label(idx);
+        if self.auto_label {
+            self.pager.render_auto_label(idx);
+        }
         if !self.pager.render_opt(idx, render_fn, state) {
             self.hidden(state);
             false
@@ -264,12 +279,14 @@ where
         let Some(idx) = self.pager.widget_idx(widget) else {
             return false;
         };
-        self.pager.render_auto_label(idx);
-        if !self.pager.render(idx, render_fn, state) {
+        if self.auto_label {
+            self.pager.render_auto_label(idx);
+        }
+        if self.pager.render(idx, render_fn, state) {
+            true
+        } else {
             self.hidden(state);
             false
-        } else {
-            true
         }
     }
 
@@ -277,7 +294,6 @@ where
     /// The closure can return a second value, which will be forwarded
     /// if the widget is visible.
     #[inline(always)]
-    #[allow(clippy::question_mark)]
     pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
     where
         FN: FnOnce() -> (WW, R),
@@ -287,7 +303,9 @@ where
         let Some(idx) = self.pager.widget_idx(widget) else {
             return None;
         };
-        self.pager.render_auto_label(idx);
+        if self.auto_label {
+            self.pager.render_auto_label(idx);
+        }
         if let Some(remainder) = self.pager.render2(idx, render_fn, state) {
             Some(remainder)
         } else {
@@ -379,6 +397,12 @@ where
         Self::default()
     }
 
+    /// Clear the layout data and reset the page/page-count.
+    pub fn clear(&mut self) {
+        self.layout.borrow_mut().clear();
+        self.nav.clear();
+    }
+
     /// Layout needs to change?
     pub fn valid_layout(&self, size: Size) -> bool {
         let layout = self.layout.borrow();
@@ -393,12 +417,6 @@ where
     /// Layout.
     pub fn layout(&self) -> Ref<'_, GenericLayout<W>> {
         self.layout.borrow()
-    }
-
-    /// Clear the layout data and reset the page/page-count.
-    pub fn clear(&mut self) {
-        self.layout.borrow_mut().clear();
-        self.nav.clear();
     }
 
     /// Show the page for this widget.

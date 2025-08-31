@@ -165,23 +165,24 @@ where
         self.layout.borrow().try_index_of(widget)
     }
 
-    /// Render a manual label.
+    /// Render a label.
     #[inline(always)]
-    pub fn render_label<FN, WW>(&mut self, idx: usize, render_fn: FN) -> bool
+    pub fn render_label<FN>(&mut self, idx: usize, render_fn: FN) -> bool
     where
-        FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
-        WW: Widget,
+        FN: FnOnce(&Cow<'static, str>, Rect, &mut Buffer),
     {
         let Some(label_area) = self.locate_label(idx) else {
             return false;
         };
         let layout = self.layout.borrow();
         let label_str = layout.try_label_str(idx);
-
-        let mut buffer = self.buffer.borrow_mut();
-        render_fn(label_str).render(label_area, *buffer);
-
-        true
+        if let Some(label_str) = label_str {
+            let mut buffer = self.buffer.borrow_mut();
+            render_fn(label_str, label_area, *buffer);
+            true
+        } else {
+            false
+        }
     }
 
     /// Render the label with the set style and alignment.
@@ -241,7 +242,6 @@ where
 
     /// Render a stateful widget.
     #[inline(always)]
-    #[deprecated(since = "1.0.5", note = "unnecessary")]
     pub fn render_opt<FN, WW, SS>(&mut self, idx: usize, render_fn: FN, state: &mut SS) -> bool
     where
         FN: FnOnce() -> Option<WW>,

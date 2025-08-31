@@ -84,7 +84,6 @@ use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
 use std::cell::{Ref, RefCell, RefMut};
 use std::hash::Hash;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 /// A widget that helps with rendering a Form.
@@ -96,11 +95,11 @@ pub struct Form<'a, W>
 where
     W: Eq + Hash + Clone,
 {
-    style: Style,
-    block: Option<Block<'a>>,
     layout: Option<GenericLayout<W>>,
     pager: Pager<W>,
-    phantom: PhantomData<&'a ()>,
+    style: Style,
+    block: Option<Block<'a>>,
+    auto_label: bool,
 }
 
 /// Renders directly to the frame buffer.
@@ -115,6 +114,7 @@ where
     W: Eq + Hash + Clone,
 {
     pager: PagerBuffer<'a, W>,
+    auto_label: bool,
 }
 
 /// Widget state.
@@ -124,7 +124,7 @@ where
     W: Eq + Hash + Clone,
 {
     /// Page layout
-    /// __read+write__ renewed with each render.
+    /// __read+write__ might be overwritten from widget.
     pub layout: Rc<RefCell<GenericLayout<W>>>,
 
     /// Only construct with `..Default::default()`.
@@ -137,11 +137,11 @@ where
 {
     fn default() -> Self {
         Self {
-            style: Default::default(),
-            block: Default::default(),
             layout: Default::default(),
             pager: Default::default(),
-            phantom: Default::default(),
+            style: Default::default(),
+            block: Default::default(),
+            auto_label: true,
         }
     }
 }
@@ -164,35 +164,43 @@ where
 
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
+        self.pager = self.pager.style(style);
         self.style = style;
         self.block = self.block.map(|v| v.style(style));
-        self.pager = self.pager.style(style);
         self
     }
 
-    /// Style for text labels.
+    /// Render the label automatically when rendering the widget.
+    ///
+    /// Default: true
+    pub fn auto_label(mut self, auto: bool) -> Self {
+        self.auto_label = auto;
+        self
+    }
+
+    /// Style for auto-labels.
     pub fn label_style(mut self, style: Style) -> Self {
         self.pager = self.pager.label_style(style);
         self
     }
 
-    /// Alignment for text labels.
+    /// Alignment for auto-labels.
     pub fn label_alignment(mut self, alignment: Alignment) -> Self {
         self.pager = self.pager.label_alignment(alignment);
-        self
-    }
-
-    /// Set all styles.
-    pub fn styles(mut self, styles: PagerStyle) -> Self {
-        self.style = styles.style;
-        self.block = self.block.map(|v| v.style(styles.style));
-        self.pager = self.pager.styles(styles.clone());
         self
     }
 
     /// Block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block.style(self.style));
+        self
+    }
+
+    /// Set all styles.
+    pub fn styles(mut self, styles: PagerStyle) -> Self {
+        self.pager = self.pager.styles(styles.clone());
+        self.style = styles.style;
+        self.block = self.block.map(|v| v.style(styles.style));
         self
     }
 
@@ -206,8 +214,8 @@ where
         self.block.inner_if_some(area)
     }
 
-    /// Render the page navigation and create the SinglePagerBuffer
-    /// that will do the actual widget rendering.
+    /// Render the page navigation and create the FormBuffer
+    /// that will do the actual rendering.
     pub fn into_buffer(
         self,
         area: Rect,
@@ -227,6 +235,7 @@ where
                 .layout(state.layout.clone())
                 .page(0)
                 .into_buffer(area, Rc::new(RefCell::new(buf))),
+            auto_label: self.auto_label,
         }
     }
 }
@@ -251,10 +260,9 @@ where
 
     /// Render a manual label.
     #[inline(always)]
-    pub fn render_label<FN, WW>(&mut self, widget: W, render_fn: FN) -> bool
+    pub fn render_label<FN>(&mut self, widget: W, render_fn: FN) -> bool
     where
-        FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
-        WW: Widget,
+        FN: FnOnce(&Cow<'static, str>, Rect, &mut Buffer),
     {
         let Some(idx) = self.pager.widget_idx(widget) else {
             return false;
@@ -272,7 +280,9 @@ where
         let Some(idx) = self.pager.widget_idx(widget) else {
             return false;
         };
-        self.pager.render_auto_label(idx);
+        if self.auto_label {
+            self.pager.render_auto_label(idx);
+        }
         self.pager.render_widget(idx, render_fn)
     }
 
@@ -287,7 +297,9 @@ where
         let Some(idx) = self.pager.widget_idx(widget) else {
             return false;
         };
-        self.pager.render_auto_label(idx);
+        if self.auto_label {
+            self.pager.render_auto_label(idx);
+        }
         if !self.pager.render_opt(idx, render_fn, state) {
             self.hidden(state);
             false
@@ -307,12 +319,14 @@ where
         let Some(idx) = self.pager.widget_idx(widget) else {
             return false;
         };
-        self.pager.render_auto_label(idx);
-        if !self.pager.render(idx, render_fn, state) {
+        if self.auto_label {
+            self.pager.render_auto_label(idx);
+        }
+        if self.pager.render(idx, render_fn, state) {
+            true
+        } else {
             self.hidden(state);
             false
-        } else {
-            true
         }
     }
 
@@ -330,7 +344,9 @@ where
         let Some(idx) = self.pager.widget_idx(widget) else {
             return None;
         };
-        self.pager.render_auto_label(idx);
+        if self.auto_label {
+            self.pager.render_auto_label(idx);
+        }
         if let Some(remainder) = self.pager.render2(idx, render_fn, state) {
             Some(remainder)
         } else {
@@ -421,6 +437,11 @@ where
         Self::default()
     }
 
+    /// Clear the layout data and reset the page/page-count.
+    pub fn clear(&mut self) {
+        self.layout.borrow_mut().clear();
+    }
+
     /// Layout needs to change?
     pub fn valid_layout(&self, size: Size) -> bool {
         let layout = self.layout.borrow();
@@ -435,10 +456,5 @@ where
     /// Layout.
     pub fn layout(&self) -> Ref<'_, GenericLayout<W>> {
         self.layout.borrow()
-    }
-
-    /// Clear the layout data and reset the page/page-count.
-    pub fn clear(&mut self) {
-        self.layout.borrow_mut().clear();
     }
 }

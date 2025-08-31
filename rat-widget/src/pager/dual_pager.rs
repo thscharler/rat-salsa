@@ -23,6 +23,7 @@ where
     layout: Option<GenericLayout<W>>,
     pager: Pager<W>,
     page_nav: PageNavigation<'a>,
+    auto_label: bool,
 }
 
 /// Renders directly to the frame buffer.
@@ -38,6 +39,7 @@ where
 {
     pager0: PagerBuffer<'a, W>,
     pager1: PagerBuffer<'a, W>,
+    auto_label: bool,
 }
 
 /// Widget state.
@@ -47,7 +49,7 @@ where
     W: Eq + Hash + Clone,
 {
     /// Page layout
-    /// __read+write__ renewed with each render.
+    /// __read+write__ might be overwritten from widget.
     pub layout: Rc<RefCell<GenericLayout<W>>>,
 
     /// PageNavigationState holds most of our state.
@@ -67,6 +69,7 @@ where
             layout: Default::default(),
             pager: Default::default(),
             page_nav: PageNavigation::new().pages(2),
+            auto_label: true,
         }
     }
 }
@@ -91,6 +94,14 @@ where
     pub fn style(mut self, style: Style) -> Self {
         self.pager = self.pager.style(style);
         self.page_nav = self.page_nav.style(style);
+        self
+    }
+
+    /// Render the label automatically when rendering the widget.
+    ///
+    /// Default: true
+    pub fn auto_label(mut self, auto: bool) -> Self {
+        self.auto_label = auto;
         self
     }
 
@@ -124,6 +135,26 @@ where
         self
     }
 
+    pub fn next_page_mark(mut self, txt: &'a str) -> Self {
+        self.page_nav = self.page_nav.next_page_mark(txt);
+        self
+    }
+
+    pub fn prev_page_mark(mut self, txt: &'a str) -> Self {
+        self.page_nav = self.page_nav.prev_page_mark(txt);
+        self
+    }
+
+    pub fn first_page_mark(mut self, txt: &'a str) -> Self {
+        self.page_nav = self.page_nav.first_page_mark(txt);
+        self
+    }
+
+    pub fn last_page_mark(mut self, txt: &'a str) -> Self {
+        self.page_nav = self.page_nav.last_page_mark(txt);
+        self
+    }
+
     /// Set all styles.
     pub fn styles(mut self, styles: PagerStyle) -> Self {
         self.pager = self.pager.styles(styles.clone());
@@ -136,7 +167,13 @@ where
         self.page_nav.layout_size(area)
     }
 
-    /// Run the layout and create the second stage.
+    // Calculate the view area for all columns.
+    pub fn inner(&self, area: Rect) -> Rect {
+        self.page_nav.inner(area)
+    }
+
+    /// Render the page navigation and create the SinglePagerBuffer
+    /// that will do the actual rendering.
     pub fn into_buffer(
         self,
         area: Rect,
@@ -168,6 +205,7 @@ where
                 .layout(state.layout.clone())
                 .page(state.nav.page * 2 + 1)
                 .into_buffer(state.nav.widget_areas[1], buf),
+            auto_label: self.auto_label,
         }
     }
 }
@@ -193,10 +231,9 @@ where
 
     /// Render a manual label.
     #[inline(always)]
-    pub fn render_label<FN, WW>(&mut self, widget: W, render_fn: FN) -> bool
+    pub fn render_label<FN>(&mut self, widget: W, render_fn: FN) -> bool
     where
-        FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
-        WW: Widget,
+        FN: FnOnce(&Cow<'static, str>, Rect, &mut Buffer),
     {
         let Some(idx) = self.pager0.widget_idx(widget) else {
             return false;
@@ -218,7 +255,9 @@ where
         let Some(idx) = self.pager0.widget_idx(widget) else {
             return false;
         };
-        _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+        if self.auto_label {
+            _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+        }
         if self.pager0.is_visible(idx) {
             self.pager0.render_widget(idx, render_fn)
         } else {
@@ -237,7 +276,9 @@ where
         let Some(idx) = self.pager0.widget_idx(widget) else {
             return false;
         };
-        _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+        if self.auto_label {
+            _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+        }
 
         if self.pager0.is_visible(idx) {
             if self.pager0.render_opt(idx, render_fn, state) {
@@ -267,7 +308,9 @@ where
         let Some(idx) = self.pager0.widget_idx(widget) else {
             return false;
         };
-        _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+        if self.auto_label {
+            _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+        }
         if self.pager0.is_visible(idx) {
             if self.pager0.render(idx, render_fn, state) {
                 true
@@ -289,7 +332,6 @@ where
     /// The closure can return a second value, which will be forwarded
     /// if the widget is visible.
     #[inline(always)]
-    #[allow(clippy::question_mark)]
     pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
     where
         FN: FnOnce() -> (WW, R),
@@ -299,7 +341,9 @@ where
         let Some(idx) = self.pager0.widget_idx(widget) else {
             return None;
         };
-        _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+        if self.auto_label {
+            _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+        }
 
         if self.pager0.is_visible(idx) {
             if let Some(remainder) = self.pager0.render2(idx, render_fn, state) {
@@ -403,7 +447,6 @@ impl<W> DualPagerState<W>
 where
     W: Eq + Hash + Clone,
 {
-    /// State
     pub fn new() -> Self {
         Self::default()
     }
@@ -430,10 +473,14 @@ where
         self.layout.borrow()
     }
 
-    /// Show the page for this rect.
+    /// Show the page for this widget.
+    /// If there is no widget for the given identifier, this
+    /// will set the page to 0.
     pub fn show(&mut self, widget: W) {
         if let Some(page) = self.layout.borrow().page_of(widget) {
             self.nav.set_page(page / 2);
+        } else {
+            self.nav.set_page(0);
         }
     }
 
