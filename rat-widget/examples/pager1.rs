@@ -3,7 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -13,7 +13,7 @@ use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use rat_widget::pager::{SinglePager, SinglePagerState};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::Padding;
+use ratatui::widgets::{Padding, Widget};
 use ratatui::Frame;
 use std::array;
 
@@ -121,7 +121,7 @@ fn repaint_input(
         // render manual label
         pager.render_label(
             state.hundred[i].focus.clone(), //
-            |_| Span::from("<<?>>"),
+            |_, a, b| Span::from("<<?>>").render(a, b),
         );
 
         // map our widget area.

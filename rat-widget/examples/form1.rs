@@ -13,7 +13,7 @@ use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use rat_widget::pager::{Form, FormState};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{Padding, StatefulWidget, Widget};
+use ratatui::widgets::{Padding, Widget};
 use ratatui::Frame;
 use std::array;
 
@@ -123,12 +123,11 @@ fn repaint_input(
         // map our widget area.
         pager.render(
             state.hundred[i].focus.clone(),
-            |a, b, s| {
+            || {
                 TextInputMock::default()
                     .sample(format!("{:?}", i))
                     .style(THEME.limegreen(0))
                     .focus_style(THEME.limegreen(2))
-                    .render(a, b, s)
             },
             &mut state.hundred[i],
         );

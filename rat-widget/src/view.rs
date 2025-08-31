@@ -56,6 +56,7 @@ use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
+use ratatui::style::Style;
 use ratatui::widgets::Block;
 use ratatui::widgets::{StatefulWidget, Widget};
 
@@ -64,7 +65,7 @@ use ratatui::widgets::{StatefulWidget, Widget};
 pub struct View<'a> {
     layout: Rect,
     view_size: Option<Size>,
-
+    style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
@@ -88,6 +89,7 @@ pub struct ViewBuffer<'a> {
     // inner area that will finally be rendered.
     widget_area: Rect,
 
+    style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
@@ -100,17 +102,18 @@ pub struct ViewWidget<'a> {
     offset: Position,
     buffer: Buffer,
 
+    style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
 }
 
-/// All styles for a xview.
+/// All styles for a view.
 #[derive(Debug)]
 pub struct ViewStyle {
+    pub style: Style,
     pub block: Option<Block<'static>>,
     pub scroll: Option<ScrollStyle>,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -158,6 +161,13 @@ impl<'a> View<'a> {
         self
     }
 
+    /// Base style.
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self.block = self.block.map(|v| v.style(style));
+        self
+    }
+
     /// Block for border
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
@@ -185,6 +195,7 @@ impl<'a> View<'a> {
 
     /// Combined style.
     pub fn styles(mut self, styles: ViewStyle) -> Self {
+        self.style = styles.style;
         if styles.block.is_some() {
             self.block = styles.block;
         }
@@ -192,6 +203,7 @@ impl<'a> View<'a> {
             self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
             self.vscroll = self.vscroll.map(|v| v.styles(styles.clone()));
         }
+        self.block = self.block.map(|v| v.style(styles.style));
         self
     }
 
@@ -248,19 +260,21 @@ impl<'a> View<'a> {
 
         // resize buffer to fit the layout.
         let buffer_area = state.layout;
-        let buffer = if let Some(mut buffer) = state.buffer.take() {
+        let mut buffer = if let Some(mut buffer) = state.buffer.take() {
             buffer.reset();
             buffer.resize(buffer_area);
             buffer
         } else {
             Buffer::empty(buffer_area)
         };
+        buffer.set_style(buffer_area, self.style);
 
         ViewBuffer {
             layout: self.layout,
             offset,
             buffer,
             widget_area: state.widget_area,
+            style: self.style,
             block: self.block,
             hscroll: self.hscroll,
             vscroll: self.vscroll,
@@ -365,6 +379,7 @@ impl<'a> ViewBuffer<'a> {
             vscroll: self.vscroll,
             offset: self.offset,
             buffer: self.buffer,
+            style: self.style,
         }
     }
 }
@@ -376,6 +391,7 @@ impl StatefulWidget for ViewWidget<'_> {
         assert_eq!(area, state.area);
 
         ScrollArea::new()
+            .style(self.style)
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
             .v_scroll(self.vscroll.as_ref())
@@ -440,6 +456,7 @@ impl StatefulWidget for ViewWidget<'_> {
 impl Default for ViewStyle {
     fn default() -> Self {
         Self {
+            style: Default::default(),
             block: None,
             scroll: None,
             non_exhaustive: NonExhaustive,

@@ -3,7 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -231,7 +231,7 @@ fn render_page(
                 pager.render(
                     idx,
                     || {
-                        // lazy construction
+                        // lazy render
                         TextInputMock::default()
                             .style(THEME.limegreen(0))
                             .focus_style(THEME.limegreen(2))

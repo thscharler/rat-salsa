@@ -11,8 +11,8 @@
 //!     # use rat_widget::clipper::{Clipper, ClipperState};
 //!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
 //!     # use ratatui::prelude::*;
-//! use rat_focus::FocusFlag;
-//! use rat_widget::layout::GenericLayout;
+//!     # use rat_focus::{FocusFlag, HasFocus};
+//!     # use rat_widget::layout::GenericLayout;
 //!     #
 //!     # let l2 = [Rect::ZERO, Rect::ZERO];
 //!     # struct State {
@@ -24,12 +24,9 @@
 //!     #      check_states: Vec::default()
 //!     #  };
 //!     # let mut buf = Buffer::default();
-//!     ///
+//!
 //!     /// Create the layout. The layout can be stored long-term
 //!     /// and needs to be rebuilt only if your widget layout changes.
-//!     ///
-//!     ///> __Note__: add() returns a handle for the area. Can be used later
-//!     ///> to refer to the stored area.
 //!
 //!     let clipper = Clipper::new();
 //!     let layout_size = clipper.layout_size(l2[1], &mut state.clipper);
@@ -37,7 +34,7 @@
 //!     if !state.clipper.valid_layout(layout_size) {
 //!         let mut cl = GenericLayout::new();
 //!         for i in 0..100 {
-//!             cl.add(state.check_states[i].focus.clone(),
+//!             cl.add(state.check_states[i].focus(),
 //!                 Rect::new(10, i as u16 *11, 15, 10),
 //!                 None,
 //!                 Rect::default()
@@ -60,7 +57,7 @@
 //!     for i in 0..100 {
 //!         // refer by handle
 //!         clip_buf.render(
-//!             state.check_states[i].focus.clone(),
+//!             state.check_states[i].focus(),
 //!             || {
 //!                 Checkbox::new()
 //!                 .text(format!("{:?}", i))

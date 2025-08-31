@@ -19,27 +19,31 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
+/// This widget allows rendering to a temp-buffer and clips
+/// it to size for the final rendering.
 #[derive(Debug)]
 pub struct Clipper<'a, W>
 where
     W: Eq + Clone + Hash,
 {
+    layout: Option<GenericLayout<W>>,
     style: Style,
     block: Option<Block<'a>>,
-    layout: Option<GenericLayout<W>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
-    phantom: PhantomData<W>,
+    auto_label: bool,
 }
 
+/// Intermediate stage for rendering. Uses a temp-buffer.
 #[derive(Debug)]
 pub struct ClipperBuffer<'a, W>
 where
     W: Eq + Clone + Hash,
 {
     layout: Rc<RefCell<GenericLayout<W>>>,
+    auto_label: bool,
 
     // offset from buffer to scroll area
     offset: Position,
@@ -118,7 +122,7 @@ where
             vscroll: self.vscroll.clone(),
             label_style: self.label_style.clone(),
             label_alignment: self.label_alignment.clone(),
-            phantom: Default::default(),
+            auto_label: self.auto_label,
         }
     }
 }
@@ -136,7 +140,7 @@ where
             vscroll: Default::default(),
             label_style: Default::default(),
             label_alignment: Default::default(),
-            phantom: Default::default(),
+            auto_label: true,
         }
     }
 }
@@ -161,6 +165,14 @@ where
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self.block = self.block.map(|v| v.style(style));
+        self
+    }
+
+    /// Render the label automatically when rendering the widget.
+    ///
+    /// Default: true
+    pub fn auto_label(mut self, auto: bool) -> Self {
+        self.auto_label = auto;
         self
     }
 
@@ -335,6 +347,7 @@ where
 
         ClipperBuffer {
             layout: state.layout.clone(),
+            auto_label: self.auto_label,
             offset,
             buffer,
             widget_area: state.widget_area,
@@ -383,12 +396,23 @@ where
         true
     }
 
+    /// Render all visible blocks.
+    pub fn render_block(&mut self) {
+        let layout = self.layout.borrow();
+        for (idx, block_area) in layout.block_area_iter().enumerate() {
+            if let Some(block_area) = self.locate_area(*block_area) {
+                if let Some(block) = layout.block(idx) {
+                    block.render(block_area, &mut self.buffer);
+                }
+            }
+        }
+    }
+
     /// Render the label for the given widget.
     #[inline(always)]
-    pub fn render_label<FN, WW>(&mut self, widget: W, render_fn: FN) -> bool
+    pub fn render_label<FN>(&mut self, widget: W, render_fn: FN) -> bool
     where
-        FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
-        WW: Widget,
+        FN: FnOnce(&Option<Cow<'static, str>>, Rect, &mut Buffer),
     {
         let layout = self.layout.borrow();
         let Some(idx) = layout.try_index_of(widget) else {
@@ -398,9 +422,7 @@ where
             return false;
         };
         let label_str = layout.try_label_str(idx);
-
-        render_fn(label_str).render(label_area, &mut self.buffer);
-
+        render_fn(label_str, label_area, &mut self.buffer);
         true
     }
 
@@ -414,14 +436,13 @@ where
         let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return false;
         };
-
-        self.render_auto_label(idx);
-
+        if self.auto_label {
+            self.render_auto_label(idx);
+        }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
             return false;
         };
         render_fn().render(widget_area, &mut self.buffer);
-
         true
     }
 
@@ -436,34 +457,20 @@ where
         let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return false;
         };
-
-        self.render_auto_label(idx);
-
+        if self.auto_label {
+            self.render_auto_label(idx);
+        }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
             self.hidden(state);
             return false;
         };
         render_fn().render(widget_area, &mut self.buffer, state);
         self.relocate(state);
-
         true
-    }
-
-    /// Render all visible blocks.
-    pub fn render_block(&mut self) {
-        let layout = self.layout.borrow();
-        for (idx, block_area) in layout.block_area_iter().enumerate() {
-            if let Some(block_area) = self.locate_area(*block_area) {
-                if let Some(block) = layout.block(idx) {
-                    block.render(block_area, &mut self.buffer);
-                }
-            }
-        }
     }
 
     /// Get the buffer coordinates for the given widget.
     #[inline]
-    #[allow(clippy::question_mark)]
     pub fn locate_widget(&self, widget: W) -> Option<Rect> {
         let layout = self.layout.borrow();
         let Some(idx) = layout.try_index_of(widget) else {
