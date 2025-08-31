@@ -2,14 +2,15 @@
 
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, HandleEvent, Popup, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Popup, Regular};
+use rat_focus::event::FocusTraversal;
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::text_area::{TextArea, TextAreaState};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
-use rat_widget::caption::{CaptionState, CaptionStyle, HotkeyAlignment, HotkeyPolicy, WithFocus};
+use rat_widget::caption::{CaptionState, CaptionStyle, HotkeyAlignment, HotkeyPolicy};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
@@ -410,7 +411,9 @@ fn handle_input(
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
 
-    istate.focus_outcome = focus.handle(event, Regular);
+    istate.focus_outcome = focus
+        .handle(event, Regular)
+        .or_else(|| state.description.handle(event, FocusTraversal(&focus)));
 
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
@@ -450,6 +453,7 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
+    // page navigation for the form.
     try_flow!(match state.form.handle(event, Regular) {
         PagerOutcome::Page(n) => {
             if let Some(first) = state.form.first(n) {
@@ -470,7 +474,8 @@ fn handle_input(
     // popups first
     try_flow!(state.license.handle(event, Popup));
 
-    try_flow!(state.label_name.handle(event, WithFocus(&focus)));
+    // regular event-handling
+    try_flow!(state.label_name.handle(event, &focus));
     try_flow!(state.name.handle(event, Regular));
     try_flow!(match event {
         ct_event!(keycode press F(5)) => {
@@ -479,33 +484,22 @@ fn handle_input(
         }
         _ => Outcome::Continue,
     });
-    try_flow!(state.label_version.handle(event, WithFocus(&focus)));
+    try_flow!(state.label_version.handle(event, &focus));
     try_flow!(state.version.handle(event, Regular));
-    try_flow!(state.label_edition.handle(event, WithFocus(&focus)));
+    try_flow!(state.label_edition.handle(event, &focus));
     try_flow!(state.edition.handle(event, Regular));
-    try_flow!(state.label_author.handle(event, WithFocus(&focus)));
+    try_flow!(state.label_author.handle(event, &focus));
     try_flow!(state.author.handle(event, Regular));
-    try_flow!(state.label_description.handle(event, WithFocus(&focus)));
+    try_flow!(state.label_description.handle(event, &focus));
     try_flow!(state.description.handle(event, Regular));
-    try_flow!(match event {
-        ct_event!(keycode press Esc) => {
-            if state.description.is_focused() {
-                focus.next_force();
-                Outcome::Changed
-            } else {
-                Outcome::Continue
-            }
-        }
-        _ => Outcome::Continue,
-    });
-    try_flow!(state.label_license.handle(event, WithFocus(&focus)));
-    try_flow!(state.label_repository.handle(event, WithFocus(&focus)));
+    try_flow!(state.label_license.handle(event, &focus));
+    try_flow!(state.label_repository.handle(event, &focus));
     try_flow!(state.repository.handle(event, Regular));
-    try_flow!(state.label_readme.handle(event, WithFocus(&focus)));
+    try_flow!(state.label_readme.handle(event, &focus));
     try_flow!(state.readme.handle(event, Regular));
-    try_flow!(state.label_keywords.handle(event, WithFocus(&focus)));
+    try_flow!(state.label_keywords.handle(event, &focus));
     try_flow!(state.keywords.handle(event, Regular));
-    try_flow!(state.label_categories.handle(event, WithFocus(&focus)));
+    try_flow!(state.label_categories.handle(event, &focus));
     try_flow!(state.category1.handle(event, Regular));
     try_flow!(state.category2.handle(event, Regular));
     try_flow!(state.category3.handle(event, Regular));

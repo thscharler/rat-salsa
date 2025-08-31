@@ -761,10 +761,10 @@ impl TextInputState {
     pub fn selection(&self) -> Range<upos_type> {
         let mut v = self.value.selection();
         if v.start == TextPosition::new(0, 1) {
-            v.start = TextPosition::new(self.len(), 0);
+            v.start = TextPosition::new(self.line_width(), 0);
         }
         if v.end == TextPosition::new(0, 1) {
-            v.end = TextPosition::new(self.len(), 0);
+            v.end = TextPosition::new(self.line_width(), 0);
         }
         v.start.x..v.end.x
     }

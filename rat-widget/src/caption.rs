@@ -5,7 +5,6 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::util::revert_style;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, Outcome};
 use rat_focus::{Focus, FocusFlag, HasFocus};
@@ -37,7 +36,7 @@ pub struct Caption<'a> {
     /// Hotkey policy
     hotkey_policy: HotkeyPolicy,
     /// Hot-key 2
-    hotkey: Option<KeyEvent>,
+    hotkey: Option<crossterm::event::KeyEvent>,
     /// Text/Hotkey spacing
     spacing: u16,
     /// Label alignment
@@ -63,7 +62,7 @@ pub struct CaptionState {
     pub navchar: Option<char>,
     /// Hot-key 2
     /// __limited__. renewed for each render if set with the widget.
-    pub hotkey: Option<KeyEvent>,
+    pub hotkey: Option<crossterm::event::KeyEvent>,
 
     /// Associated widget
     pub linked: FocusFlag,
@@ -238,7 +237,7 @@ impl<'a> Caption<'a> {
     }
 
     /// Alternate navigation key
-    pub fn hotkey(mut self, hotkey: KeyEvent) -> Self {
+    pub fn hotkey(mut self, hotkey: crossterm::event::KeyEvent) -> Self {
         self.hotkey = Some(hotkey);
         self
     }
@@ -586,11 +585,11 @@ impl CaptionState {
         self.navchar = navchar;
     }
 
-    pub fn hotkey(&self) -> Option<KeyEvent> {
+    pub fn hotkey(&self) -> Option<crossterm::event::KeyEvent> {
         self.hotkey
     }
 
-    pub fn set_hotkey(&mut self, hotkey: Option<KeyEvent>) {
+    pub fn set_hotkey(&mut self, hotkey: Option<crossterm::event::KeyEvent>) {
         self.hotkey = hotkey;
     }
 
@@ -609,27 +608,24 @@ impl RelocatableState for CaptionState {
     }
 }
 
-/// Event-handling context for the caption.
-pub struct WithFocus<'a>(pub &'a Focus);
-
-impl HandleEvent<Event, WithFocus<'_>, Outcome> for CaptionState {
-    fn handle(&mut self, event: &Event, qualifier: WithFocus<'_>) -> Outcome {
+impl<'a> HandleEvent<crossterm::event::Event, &'a Focus, Outcome> for CaptionState {
+    fn handle(&mut self, event: &crossterm::event::Event, focus: &'a Focus) -> Outcome {
         if let Some(navchar) = self.navchar {
-            if let Event::Key(KeyEvent {
-                code: KeyCode::Char(test),
-                modifiers: KeyModifiers::ALT,
-                kind: KeyEventKind::Release,
+            if let crossterm::event::Event::Key(crossterm::event::KeyEvent {
+                code: crossterm::event::KeyCode::Char(test),
+                modifiers: crossterm::event::KeyModifiers::ALT,
+                kind: crossterm::event::KeyEventKind::Release,
                 ..
             }) = event
             {
                 if navchar == *test {
-                    qualifier.0.focus(&self.linked);
+                    focus.focus(&self.linked);
                     return Outcome::Changed;
                 }
             }
         }
         if let Some(hotkey) = self.hotkey {
-            if let Event::Key(KeyEvent {
+            if let crossterm::event::Event::Key(crossterm::event::KeyEvent {
                 code,
                 modifiers,
                 kind,
@@ -637,7 +633,7 @@ impl HandleEvent<Event, WithFocus<'_>, Outcome> for CaptionState {
             }) = event
             {
                 if hotkey.code == *code && hotkey.modifiers == *modifiers && hotkey.kind == *kind {
-                    qualifier.0.focus(&self.linked);
+                    focus.focus(&self.linked);
                     return Outcome::Changed;
                 }
             }
@@ -649,7 +645,7 @@ impl HandleEvent<Event, WithFocus<'_>, Outcome> for CaptionState {
                 return Outcome::Changed
             }
             ct_event!(mouse down Left for x,y) if self.area.contains((*x, *y).into()) => {
-                qualifier.0.focus(&self.linked);
+                focus.focus(&self.linked);
                 return Outcome::Changed;
             }
             _ => {}
@@ -657,4 +653,16 @@ impl HandleEvent<Event, WithFocus<'_>, Outcome> for CaptionState {
 
         Outcome::Continue
     }
+}
+
+/// Handle all events. for a Caption.
+///
+/// This additionally requires a valid Focus instance to handle
+/// the hot-keys.
+pub fn handle_events(
+    state: &mut CaptionState,
+    focus: &Focus,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    HandleEvent::handle(state, event, focus)
 }

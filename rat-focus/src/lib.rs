@@ -12,8 +12,18 @@ use std::rc::Rc;
 pub use crate::focus::{handle_focus, Focus, FocusBuilder};
 
 pub mod event {
-    //! Rexported eventhandling traits.
     pub use rat_event::*;
+
+    /// Special focus-traversal.
+    ///
+    /// There are some widgets that have special keys that
+    /// interact with focus. This marks an event-handler for
+    /// such a case and provides it with the valid Focus instance
+    /// for the application.
+    ///
+    /// eg:
+    /// - Leaving a textarea with some navigation key other than tab.
+    pub struct FocusTraversal<'a>(pub &'a crate::Focus);
 }
 
 /// Holds the flags for the focus.

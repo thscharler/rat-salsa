@@ -19,7 +19,8 @@ use crate::{
 };
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_focus::event::FocusTraversal;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{relocate_area, relocate_dark_offset, relocate_pos_tuple, RelocatableState};
 use rat_scrolled::event::ScrollOutcome;
@@ -2896,6 +2897,37 @@ impl TextAreaState {
     /// All move-fn do this automatically.
     pub fn scroll_cursor_to_visible(&mut self) {
         self.scroll_to_cursor = true;
+    }
+}
+
+/// Adds focus-handling for a text-area.
+///
+/// Regular focus traversal with Tab is not possible for a TextArea,
+/// but this adds Esc and SHIFT-Esc as special traversal keys.
+///
+/// This is a secondary event-handler and doesn't forward to Regular
+/// event-handling.
+impl<'a> HandleEvent<crossterm::event::Event, FocusTraversal<'a>, Outcome> for TextAreaState {
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        qualifier: FocusTraversal<'a>,
+    ) -> Outcome {
+        if self.is_focused() {
+            match event {
+                ct_event!(keycode press Esc) => {
+                    qualifier.0.next_force();
+                    Outcome::Changed
+                }
+                ct_event!(keycode press SHIFT-Esc) => {
+                    qualifier.0.prev_force();
+                    Outcome::Changed
+                }
+                _ => Outcome::Continue,
+            }
+        } else {
+            Outcome::Continue
+        }
     }
 }
 
