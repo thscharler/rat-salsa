@@ -15,7 +15,6 @@ use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::caption::{CaptionState, CaptionStyle, HotkeyAlignment, HotkeyPolicy};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use rat_widget::pager::{DualPager, DualPagerState};
 use rat_widget::paired::{Paired, PairedState, PairedWidget};
 use rat_widget::slider::{Slider, SliderState};

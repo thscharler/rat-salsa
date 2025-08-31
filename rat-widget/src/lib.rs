@@ -23,6 +23,7 @@ pub mod event {
     pub use crate::radio::event::RadioOutcome;
     pub use crate::slider::event::SliderOutcome;
     pub use crate::tabbed::event::TabbedOutcome;
+    pub use rat_focus::event::FocusTraversal;
     pub use rat_ftable::event::{DoubleClickOutcome, EditOutcome, TableOutcome};
     pub use rat_menu::event::MenuOutcome;
     pub use rat_popup::event::PopupOutcome;
