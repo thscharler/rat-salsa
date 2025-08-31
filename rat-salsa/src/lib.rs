@@ -383,6 +383,12 @@ where
         rt.spawn(Box::new(future))
     }
 
+    /// Queue an application event.
+    #[inline]
+    pub fn queue_event(&self, event: Event) {
+        self.queue.push(Ok(Control::Event(event)));
+    }
+
     /// Queue additional results.
     #[inline]
     pub fn queue(&self, ctrl: impl Into<Control<Event>>) {
