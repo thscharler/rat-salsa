@@ -1356,7 +1356,7 @@ impl MaskedInputState {
 
             let mut col = ox;
             for g in line {
-                if scx < g.screen_pos().0 + g.screen_width() {
+                if g.contains_screen_x(scx) {
                     break;
                 }
                 col = g.pos().x + 1;

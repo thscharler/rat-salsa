@@ -251,19 +251,23 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         let c = state.cursor();
         let o = state.offset();
 
-        let mut no = if c < o {
-            c
-        } else if c >= o + (state.inner.width + state.dark_offset.0) as upos_type {
-            c.saturating_sub((state.inner.width + state.dark_offset.0) as upos_type)
+        if state.rendered.width > 0 {
+            let mut no = if c < o {
+                c
+            } else if c >= o + state.rendered.width as upos_type {
+                c.saturating_sub(state.rendered.width as upos_type)
+            } else {
+                o
+            };
+            // correct by one at right margin. block cursors appear as part of the
+            // right border otherwise.
+            if c == no + state.rendered.width as upos_type {
+                no = no.saturating_add(1);
+            }
+            state.set_offset(no);
         } else {
-            o
-        };
-        // correct by one at right margin. block cursors appear as part of the
-        // right border otherwise.
-        if c == no + (state.inner.width + state.dark_offset.0) as upos_type {
-            no = no.saturating_add(1);
+            // no render area. don't do nothing.
         }
-        state.set_offset(no);
     }
 
     let style = widget.style;
@@ -320,7 +324,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     let ox = state.offset() as u16;
     // this is just a guess at the display-width
     let show_range = {
-        let start = ox as upos_type;
+        let start = min(ox as upos_type, state.len());
         let end = min(start + state.inner.width as upos_type, state.len());
         state.bytes_at_range(start..end)
     };
@@ -490,7 +494,14 @@ impl TextInputState {
 
     /// Renders the widget in invalid style.
     #[inline]
+    #[deprecated(since = "1.0.5", note = "wrong convention")]
     pub fn get_invalid(&self) -> bool {
+        self.invalid
+    }
+
+    /// Renders the widget in invalid style.
+    #[inline]
+    pub fn invalid(&self) -> bool {
         self.invalid
     }
 
@@ -1351,7 +1362,7 @@ impl TextInputState {
 
             let mut col = ox;
             for g in line {
-                if scx < g.screen_pos().0 + g.screen_width() {
+                if g.contains_screen_x(scx) {
                     break;
                 }
                 col = g.pos().x + 1;
