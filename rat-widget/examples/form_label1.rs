@@ -2,11 +2,13 @@
 
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use log::warn;
 use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Popup, Regular};
 use rat_focus::event::FocusTraversal;
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
 use rat_text::text_area::{TextArea, TextAreaState};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
@@ -22,11 +24,14 @@ use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
 use ratatui::widgets::Padding;
 use ratatui::Frame;
+use std::cell::RefCell;
 
 mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
+
+    set_global_clipboard(CliClipboard::default());
 
     let mut data = Data {};
 
@@ -59,8 +64,8 @@ struct State {
     edition: SliderState<u16>,
     label_author: CaptionState,
     author: TextInputState,
-    label_description: CaptionState,
-    description: TextAreaState,
+    label_descr: CaptionState,
+    descr: TextAreaState,
     label_license: CaptionState,
     license: ChoiceState<String>,
     label_repository: CaptionState,
@@ -91,8 +96,8 @@ impl Default for State {
             edition: Default::default(),
             label_author: Default::default(),
             author: Default::default(),
-            label_description: Default::default(),
-            description: Default::default(),
+            label_descr: Default::default(),
+            descr: Default::default(),
             label_license: Default::default(),
             license: Default::default(),
             label_repository: Default::default(),
@@ -127,20 +132,8 @@ fn repaint_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l1 = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Fill(1),
-        Constraint::Length(1),
-        Constraint::Length(1),
-    ])
-    .split(area);
-
-    let l2 = Layout::horizontal([
-        Constraint::Length(3),
-        Constraint::Fill(1),
-        Constraint::Length(3),
-    ])
-    .split(l1[1]);
+    let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
+    let l2 = Layout::horizontal([Constraint::Fill(1)]).split(l1[0]);
 
     // set up form
     let form = DualPager::new()
@@ -149,91 +142,35 @@ fn repaint_input(
         .auto_label(false);
 
     // maybe rebuild layout
-    let layout_size = form.layout_size(l2[1]);
-    if !state.form.valid_layout(layout_size) {
-        let mut form = LayoutForm::new() //
+    use rat_widget::layout::{FormLabel as L, FormWidget as W, LayoutForm};
+    if !state.form.valid_layout(form.layout_size(l2[0])) {
+        let mut lf = LayoutForm::new() //
             .spacing(1)
             .line_spacing(1)
             .flex(Flex::Legacy);
 
-        form.widget(
-            state.name.id(),
-            FormLabel::Str("_Name|F5"),
-            FormWidget::Width(20),
-        );
-        form.widget(
-            state.version.id(),
-            FormLabel::Str("_Version"),
-            FormWidget::Width(12),
-        );
-        form.widget(
-            state.edition.id(),
-            FormLabel::Str("_Edition"),
-            FormWidget::Width(32),
-        );
-        form.widget(
-            state.author.id(),
-            FormLabel::Str("_Author"),
-            FormWidget::Width(20),
-        );
-        form.widget(
-            state.description.id(),
-            FormLabel::Str("_Description"),
-            FormWidget::StretchXY(30, 4),
-        );
-        form.widget(
-            state.license.id(),
-            FormLabel::Str("_License"),
-            FormWidget::Width(18),
-        );
-        form.widget(
-            state.repository.id(),
-            FormLabel::Str("_Repository"),
-            FormWidget::Width(35),
-        );
-        form.widget(
-            state.readme.id(),
-            FormLabel::Str("_Readme"),
-            FormWidget::Width(20),
-        );
-        form.widget(
-            state.keywords.id(),
-            FormLabel::Str("_Keywords"),
-            FormWidget::Width(25),
-        );
-        form.widget(
-            state.category1.id(),
-            FormLabel::Str("_Category"),
-            FormWidget::Width(25),
-        );
-        form.widget(
-            state.category2.id(),
-            FormLabel::Str(""),
-            FormWidget::Width(25),
-        );
-        form.widget(
-            state.category3.id(),
-            FormLabel::Str(""),
-            FormWidget::Width(25),
-        );
-        form.widget(
-            state.category4.id(),
-            FormLabel::Str(""),
-            FormWidget::Width(25),
-        );
-        form.widget(
-            state.category5.id(),
-            FormLabel::Str(""),
-            FormWidget::Width(25),
-        );
+        lf.widget(state.name.id(), L::Str("_Name|F5"), W::Width(20));
+        lf.widget(state.version.id(), L::Str("_Version"), W::Width(12));
+        lf.widget(state.edition.id(), L::Str("_Edition"), W::Width(20));
+        lf.widget(state.author.id(), L::Str("_Author"), W::Width(20));
+        lf.widget(state.descr.id(), L::Str("_Describe"), W::StretchXY(20, 4));
+        lf.widget(state.license.id(), L::Str("_License"), W::Width(18));
+        lf.widget(state.repository.id(), L::Str("_Repository"), W::Width(25));
+        lf.widget(state.readme.id(), L::Str("Read_me"), W::Width(20));
+        lf.widget(state.keywords.id(), L::Str("_Keywords"), W::Width(25));
+        lf.page_break();
+        lf.widget(state.category1.id(), L::Str("_Category"), W::Width(25));
+        lf.widget(state.category2.id(), L::None, W::Width(25));
+        lf.widget(state.category3.id(), L::None, W::Width(25));
+        lf.widget(state.category4.id(), L::None, W::Width(25));
+        lf.widget(state.category5.id(), L::None, W::Width(25));
 
         state
             .form
-            .set_layout(form.paged(layout_size, Padding::new(2, 2, 1, 1)));
+            .set_layout(lf.paged(form.layout_size(l2[0]), Padding::new(2, 2, 1, 1)));
     }
-
     // set current layout and prepare rendering.
-    let mut form = form.into_buffer(l2[1], frame.buffer_mut(), &mut state.form);
+    let mut form = form.into_buffer(l2[0], frame.buffer_mut(), &mut state.form);
 
     // render the input fields.
     form.render_caption(state.name.id(), &state.name, &mut state.label_name);
@@ -273,15 +210,11 @@ fn repaint_input(
         || TextInput::new().styles(istate.theme.input_style()),
         &mut state.author,
     );
-    form.render_caption(
-        state.description.id(),
-        &state.description,
-        &mut state.label_description,
-    );
+    form.render_caption(state.descr.id(), &state.descr, &mut state.label_descr);
     form.render(
-        state.description.id(),
+        state.descr.id(),
         || TextArea::new().styles(istate.theme.textarea_style()),
-        &mut state.description,
+        &mut state.descr,
     );
     form.render_caption(state.license.id(), &state.license, &mut state.label_license);
     let license_popup = form.render2(
@@ -353,7 +286,7 @@ fn repaint_input(
 
     // popups
     if let Some(license_popup) = license_popup {
-        form.render(5, || license_popup, &mut state.license);
+        form.render(state.license.id(), || license_popup, &mut state.license);
     }
 
     if let Some(cursor) = state
@@ -361,7 +294,7 @@ fn repaint_input(
         .screen_cursor()
         .or(state.version.screen_cursor())
         .or(state.author.screen_cursor())
-        .or(state.description.screen_cursor())
+        .or(state.descr.screen_cursor())
         .or(state.repository.screen_cursor())
         .or(state.readme.screen_cursor())
         .or(state.keywords.screen_cursor())
@@ -378,7 +311,7 @@ fn repaint_input(
         .title("#.#")
         .item_parsed("_Quit")
         .styles(THEME.menu_style());
-    frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
+    frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
 
     Ok(())
 }
@@ -390,7 +323,7 @@ fn focus(state: &State) -> Focus {
     fb.widget(&state.version);
     fb.widget(&state.edition);
     fb.widget(&state.author);
-    fb.widget(&state.description);
+    fb.widget(&state.descr);
     fb.widget(&state.license);
     fb.widget(&state.repository);
     fb.widget(&state.readme);
@@ -413,7 +346,7 @@ fn handle_input(
 
     istate.focus_outcome = focus
         .handle(event, Regular)
-        .or_else(|| state.description.handle(event, FocusTraversal(&focus)));
+        .or_else(|| state.descr.handle(event, FocusTraversal(&focus)));
 
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
@@ -490,8 +423,8 @@ fn handle_input(
     try_flow!(state.edition.handle(event, Regular));
     try_flow!(state.label_author.handle(event, &focus));
     try_flow!(state.author.handle(event, Regular));
-    try_flow!(state.label_description.handle(event, &focus));
-    try_flow!(state.description.handle(event, Regular));
+    try_flow!(state.label_descr.handle(event, &focus));
+    try_flow!(state.descr.handle(event, Regular));
     try_flow!(state.label_license.handle(event, &focus));
     try_flow!(state.label_repository.handle(event, &focus));
     try_flow!(state.repository.handle(event, Regular));
@@ -507,4 +440,34 @@ fn handle_input(
     try_flow!(state.category5.handle(event, Regular));
 
     Ok(Outcome::Continue)
+}
+
+#[derive(Debug, Default, Clone)]
+struct CliClipboard {
+    clip: RefCell<String>,
+}
+
+impl Clipboard for CliClipboard {
+    fn get_string(&self) -> Result<String, ClipboardError> {
+        match cli_clipboard::get_contents() {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                warn!("{:?}", e);
+                Ok(self.clip.borrow().clone())
+            }
+        }
+    }
+
+    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+        let mut clip = self.clip.borrow_mut();
+        *clip = s.to_string();
+
+        match cli_clipboard::set_contents(s.to_string()) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                warn!("{:?}", e);
+                Err(ClipboardError)
+            }
+        }
+    }
 }

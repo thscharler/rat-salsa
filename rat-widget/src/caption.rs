@@ -21,6 +21,8 @@ use unicode_segmentation::UnicodeSegmentation;
 ///
 /// A label/caption linked to another widget.
 ///
+/// *** unstable ***
+///
 #[derive(Debug, Clone)]
 pub struct Caption<'a> {
     /// Text

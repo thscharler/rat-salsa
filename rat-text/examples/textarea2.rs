@@ -11,8 +11,8 @@ use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
 use rat_text::event::TextOutcome;
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
-use rat_text::text_input::{TextInput, TextInputState};
-use rat_text::{text_area, HasScreenCursor};
+use rat_text::text_input::TextInputState;
+use rat_text::HasScreenCursor;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::symbols::border::EMPTY;
@@ -140,7 +140,7 @@ fn repaint_input(
 
     istate.status[1] = format!("R{}|{:.0?}", frame.count(), el,).to_string();
 
-    let l3 = Layout::horizontal([
+    let _l3 = Layout::horizontal([
         Constraint::Length(43),
         Constraint::Fill(1),
         Constraint::Length(10),
