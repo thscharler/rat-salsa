@@ -5,6 +5,7 @@
 use crate::{Contrast, Palette};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
+use rat_widget::caption::{CaptionStyle, HotkeyAlignment, HotkeyPolicy};
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
@@ -24,6 +25,7 @@ use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
+use ratatui::layout::Alignment;
 use ratatui::style::Color;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Borders};
@@ -323,6 +325,25 @@ impl DarkTheme {
             select: Some(self.text_select()),
             invalid: Some(Style::default().bg(self.p.red[3])),
             ..TextStyle::default()
+        }
+    }
+
+    /// Text-label style.
+    pub fn label_style(&self) -> Style {
+        self.container_base()
+    }
+
+    /// Label/Caption style
+    pub fn caption_style(&self) -> CaptionStyle {
+        CaptionStyle {
+            style: self.container_base(),
+            hover: Some(self.secondary(0)),
+            hotkey: Some(self.secondary(3)),
+            focus: Some(Style::new().fg(self.palette().secondary[2])),
+            hotkey_align: Some(HotkeyAlignment::HotkeyLabel),
+            align: Some(Alignment::Right),
+            hotkey_policy: Some(HotkeyPolicy::OnHover),
+            ..Default::default()
         }
     }
 
