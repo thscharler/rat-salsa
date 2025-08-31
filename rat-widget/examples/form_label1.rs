@@ -2,21 +2,24 @@
 
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, HandleEvent, Regular};
-use rat_focus::{Focus, FocusBuilder};
+use rat_event::{ct_event, try_flow, HandleEvent, Popup, Regular};
+use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
-use rat_text::text_area::TextAreaState;
-use rat_text::text_input::TextInputState;
-use rat_text::text_input_mask::MaskedInputState;
-use rat_widget::choice::ChoiceState;
-use rat_widget::event::Outcome;
-use rat_widget::label::{Label, LabelState};
+use rat_text::text_area::{TextArea, TextAreaState};
+use rat_text::text_input::{TextInput, TextInputState};
+use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
+use rat_widget::caption::{CaptionState, WithFocus};
+use rat_widget::choice::{Choice, ChoiceState};
+use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use rat_widget::pager::{Form, FormState};
-use rat_widget::slider::SliderState;
+use rat_widget::pager::{DualPager, DualPagerState};
+use rat_widget::paired::{Paired, PairedState, PairedWidget};
+use rat_widget::slider::{Slider, SliderState};
+use rat_widget::text::HasScreenCursor;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::widgets::{Padding, StatefulWidget};
+use ratatui::text::Line;
+use ratatui::widgets::Padding;
 use ratatui::Frame;
 
 mod mini_salsa;
@@ -27,7 +30,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        form: FormState::default(),
+        form: Default::default(),
         label_name: Default::default(),
         name: Default::default(),
         label_version: Default::default(),
@@ -54,6 +57,7 @@ fn main() -> Result<(), anyhow::Error> {
         category5: Default::default(),
         menu: Default::default(),
     };
+    state.edition.set_value(2024);
     state.menu.focus.set(true);
 
     run_ui(
@@ -69,27 +73,27 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    form: FormState<u16>,
+    form: DualPagerState<usize>,
 
-    label_name: LabelState,
+    label_name: CaptionState,
     name: TextInputState,
-    label_version: LabelState,
+    label_version: CaptionState,
     version: MaskedInputState,
-    label_edition: LabelState,
+    label_edition: CaptionState,
     edition: SliderState<u16>,
-    label_author: LabelState,
+    label_author: CaptionState,
     author: TextInputState,
-    label_description: LabelState,
+    label_description: CaptionState,
     description: TextAreaState,
-    label_license: LabelState,
-    license: ChoiceState,
-    label_repository: LabelState,
+    label_license: CaptionState,
+    license: ChoiceState<String>,
+    label_repository: CaptionState,
     repository: TextInputState,
-    label_readme: LabelState,
+    label_readme: CaptionState,
     readme: TextInputState,
-    label_keywords: LabelState,
+    label_keywords: CaptionState,
     keywords: TextInputState,
-    label_categories: LabelState,
+    label_categories: CaptionState,
     category1: TextInputState,
     category2: TextInputState,
     category3: TextInputState,
@@ -130,9 +134,7 @@ impl Default for State {
         };
 
         s.version.set_mask("##0\\.##0\\.##0").expect("ok");
-        s.edition.set_value(2024);
-        s.edition.set_range((2015, 2024));
-        s.edition.set_step(3);
+
         s
     }
 }
@@ -160,7 +162,9 @@ fn repaint_input(
     .split(l1[1]);
 
     // set up form
-    let form = Form::new().styles(THEME.pager_style());
+    let form = DualPager::new()
+        .styles(THEME.pager_style())
+        .auto_label(false);
 
     // maybe rebuild layout
     let layout_size = form.layout_size(l2[1]);
@@ -170,24 +174,76 @@ fn repaint_input(
             .line_spacing(1)
             .flex(Flex::Legacy);
 
-        form.widget(0, FormLabel::Str("_Name"), FormWidget::Width(20));
-        form.widget(1, FormLabel::Str("_Version"), FormWidget::Width(12));
-        form.widget(2, FormLabel::Str("_Edition"), FormWidget::Width(8));
-        form.widget(3, FormLabel::Str("_Author"), FormWidget::Width(20));
         form.widget(
-            4,
+            state.name.id(),
+            FormLabel::Str("_Name|F5"),
+            FormWidget::Width(20),
+        );
+        form.widget(
+            state.version.id(),
+            FormLabel::Str("_Version"),
+            FormWidget::Width(12),
+        );
+        form.widget(
+            state.edition.id(),
+            FormLabel::Str("_Edition"),
+            FormWidget::Width(22),
+        );
+        form.widget(
+            state.author.id(),
+            FormLabel::Str("_Author"),
+            FormWidget::Width(20),
+        );
+        form.widget(
+            state.description.id(),
             FormLabel::Str("_Description"),
             FormWidget::StretchXY(30, 4),
         );
-        form.widget(5, FormLabel::Str("_License"), FormWidget::Width(15));
-        form.widget(6, FormLabel::Str("_Repository"), FormWidget::Width(35));
-        form.widget(7, FormLabel::Str("_Readme"), FormWidget::Width(20));
-        form.widget(8, FormLabel::Str("_Keywords"), FormWidget::Width(25));
-        form.widget(9, FormLabel::Str("_Category"), FormWidget::Width(25));
-        form.widget(10, FormLabel::Str(""), FormWidget::Width(25));
-        form.widget(11, FormLabel::Str(""), FormWidget::Width(25));
-        form.widget(12, FormLabel::Str(""), FormWidget::Width(25));
-        form.widget(13, FormLabel::Str(""), FormWidget::Width(25));
+        form.widget(
+            state.license.id(),
+            FormLabel::Str("_License"),
+            FormWidget::Width(18),
+        );
+        form.widget(
+            state.repository.id(),
+            FormLabel::Str("_Repository"),
+            FormWidget::Width(35),
+        );
+        form.widget(
+            state.readme.id(),
+            FormLabel::Str("_Readme"),
+            FormWidget::Width(20),
+        );
+        form.widget(
+            state.keywords.id(),
+            FormLabel::Str("_Keywords"),
+            FormWidget::Width(25),
+        );
+        form.widget(
+            state.category1.id(),
+            FormLabel::Str("_Category"),
+            FormWidget::Width(25),
+        );
+        form.widget(
+            state.category2.id(),
+            FormLabel::Str(""),
+            FormWidget::Width(25),
+        );
+        form.widget(
+            state.category3.id(),
+            FormLabel::Str(""),
+            FormWidget::Width(25),
+        );
+        form.widget(
+            state.category4.id(),
+            FormLabel::Str(""),
+            FormWidget::Width(25),
+        );
+        form.widget(
+            state.category5.id(),
+            FormLabel::Str(""),
+            FormWidget::Width(25),
+        );
 
         state
             .form
@@ -198,12 +254,139 @@ fn repaint_input(
     let mut form = form.into_buffer(l2[1], frame.buffer_mut(), &mut state.form);
 
     // render the input fields.
-    form.render_label(0, |s, a, b| {
-        Label::new_parsed(s.as_ref())
-            .styles(istate.theme.label_style())
-            .link(&state.name)
-            .render(a, b, &mut state.label_name)
-    });
+    form.render_caption(state.name.id(), &state.name, &mut state.label_name);
+    form.render(
+        state.name.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.name,
+    );
+    form.render_caption(state.version.id(), &state.version, &mut state.label_version);
+    form.render(
+        state.version.id(),
+        || MaskedInput::new().styles(istate.theme.input_style()),
+        &mut state.version,
+    );
+    form.render_caption(state.edition.id(), &state.edition, &mut state.label_edition);
+    let value = format!("{}", state.edition.value());
+    form.render(
+        state.edition.id(),
+        || {
+            Paired::new(
+                Slider::new()
+                    .styles(istate.theme.slider_style())
+                    .range((2015, 2024))
+                    .step(3),
+                PairedWidget::new(Line::from(value)),
+            )
+        },
+        &mut PairedState::new(&mut state.edition, &mut ()),
+    );
+    form.render_caption(state.author.id(), &state.author, &mut state.label_author);
+    form.render(
+        state.author.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.author,
+    );
+    form.render_caption(
+        state.description.id(),
+        &state.description,
+        &mut state.label_description,
+    );
+    form.render(
+        state.description.id(),
+        || TextArea::new().styles(istate.theme.textarea_style()),
+        &mut state.description,
+    );
+    form.render_caption(state.license.id(), &state.license, &mut state.label_license);
+    let license_popup = form.render2(
+        state.license.id(),
+        || {
+            Choice::new()
+                .styles(istate.theme.choice_style())
+                .items([(String::from("MIT/Apache-2.0"), "MIT/Apache-2.0")])
+                .into_widgets()
+        },
+        &mut state.license,
+    );
+    form.render_caption(
+        state.repository.id(),
+        &state.repository,
+        &mut state.label_repository,
+    );
+    form.render(
+        state.repository.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.repository,
+    );
+    form.render_caption(state.readme.id(), &state.readme, &mut state.label_readme);
+    form.render(
+        state.readme.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.readme,
+    );
+    form.render_caption(
+        state.keywords.id(),
+        &state.keywords,
+        &mut state.label_keywords,
+    );
+    form.render(
+        state.keywords.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.keywords,
+    );
+    form.render_caption(
+        state.category1.id(),
+        &state.category1,
+        &mut state.label_categories,
+    );
+    form.render(
+        state.category1.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.category1,
+    );
+    form.render(
+        state.category2.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.category2,
+    );
+    form.render(
+        state.category3.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.category3,
+    );
+    form.render(
+        state.category4.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.category4,
+    );
+    form.render(
+        state.category5.id(),
+        || TextInput::new().styles(istate.theme.input_style()),
+        &mut state.category5,
+    );
+
+    // popups
+    if let Some(license_popup) = license_popup {
+        form.render(5, || license_popup, &mut state.license);
+    }
+
+    if let Some(cursor) = state
+        .name
+        .screen_cursor()
+        .or(state.version.screen_cursor())
+        .or(state.author.screen_cursor())
+        .or(state.description.screen_cursor())
+        .or(state.repository.screen_cursor())
+        .or(state.readme.screen_cursor())
+        .or(state.keywords.screen_cursor())
+        .or(state.category1.screen_cursor())
+        .or(state.category2.screen_cursor())
+        .or(state.category3.screen_cursor())
+        .or(state.category4.screen_cursor())
+        .or(state.category5.screen_cursor())
+    {
+        frame.set_cursor_position(cursor);
+    }
 
     let menu1 = MenuLine::new()
         .title("#.#")
@@ -217,7 +400,20 @@ fn repaint_input(
 fn focus(state: &State) -> Focus {
     let mut fb = FocusBuilder::default();
     fb.widget(&state.menu);
-    // TODO
+    fb.widget(&state.name);
+    fb.widget(&state.version);
+    fb.widget(&state.edition);
+    fb.widget(&state.author);
+    fb.widget(&state.description);
+    fb.widget(&state.license);
+    fb.widget(&state.repository);
+    fb.widget(&state.readme);
+    fb.widget(&state.keywords);
+    fb.widget(&state.category1);
+    fb.widget(&state.category2);
+    fb.widget(&state.category3);
+    fb.widget(&state.category4);
+    fb.widget(&state.category5);
     fb.build()
 }
 
@@ -238,6 +434,68 @@ fn handle_input(
         }
         _ => Outcome::Continue,
     });
+
+    try_flow!(match state.form.handle(event, Regular) {
+        PagerOutcome::Page(n) => {
+            if let Some(first) = state.form.first(n) {
+                focus.by_widget_id(first);
+            } else {
+                unreachable!();
+            }
+            Outcome::Changed
+        }
+        r => {
+            if let Some(focused) = focus.focused() {
+                state.form.show(focused.widget_id());
+            }
+            r.into()
+        }
+    });
+
+    // popups first
+    try_flow!(state.license.handle(event, Popup));
+
+    try_flow!(state.label_name.handle(event, WithFocus(&focus)));
+    try_flow!(state.name.handle(event, Regular));
+    try_flow!(match event {
+        ct_event!(keycode press F(5)) => {
+            focus.focus(&state.name);
+            Outcome::Changed
+        }
+        _ => Outcome::Continue,
+    });
+    try_flow!(state.label_version.handle(event, WithFocus(&focus)));
+    try_flow!(state.version.handle(event, Regular));
+    try_flow!(state.label_edition.handle(event, WithFocus(&focus)));
+    try_flow!(state.edition.handle(event, Regular));
+    try_flow!(state.label_author.handle(event, WithFocus(&focus)));
+    try_flow!(state.author.handle(event, Regular));
+    try_flow!(state.label_description.handle(event, WithFocus(&focus)));
+    try_flow!(state.description.handle(event, Regular));
+    try_flow!(match event {
+        ct_event!(keycode press Esc) => {
+            if state.description.is_focused() {
+                focus.next_force();
+                Outcome::Changed
+            } else {
+                Outcome::Continue
+            }
+        }
+        _ => Outcome::Continue,
+    });
+    try_flow!(state.label_license.handle(event, WithFocus(&focus)));
+    try_flow!(state.label_repository.handle(event, WithFocus(&focus)));
+    try_flow!(state.repository.handle(event, Regular));
+    try_flow!(state.label_readme.handle(event, WithFocus(&focus)));
+    try_flow!(state.readme.handle(event, Regular));
+    try_flow!(state.label_keywords.handle(event, WithFocus(&focus)));
+    try_flow!(state.keywords.handle(event, Regular));
+    try_flow!(state.label_categories.handle(event, WithFocus(&focus)));
+    try_flow!(state.category1.handle(event, Regular));
+    try_flow!(state.category2.handle(event, Regular));
+    try_flow!(state.category3.handle(event, Regular));
+    try_flow!(state.category4.handle(event, Regular));
+    try_flow!(state.category5.handle(event, Regular));
 
     Ok(Outcome::Continue)
 }

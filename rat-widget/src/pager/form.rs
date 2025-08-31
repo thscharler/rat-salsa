@@ -73,8 +73,10 @@
 //! ```
 
 use crate::_private::NonExhaustive;
+use crate::caption::CaptionState;
 use crate::layout::GenericLayout;
 use crate::pager::{Pager, PagerBuffer, PagerStyle};
+use rat_focus::HasFocus;
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
@@ -268,6 +270,20 @@ where
             return false;
         };
         self.pager.render_label(idx, render_fn)
+    }
+
+    /// Render the label as a caption with the set style.
+    #[inline(always)]
+    pub fn render_caption(
+        &mut self,
+        widget: W,
+        link: &impl HasFocus,
+        state: &mut CaptionState,
+    ) -> bool {
+        let Some(idx) = self.pager.widget_idx(widget) else {
+            return false;
+        };
+        self.pager.render_caption(idx, &link.focus(), state)
     }
 
     /// Render a stateless widget and its label, if any.

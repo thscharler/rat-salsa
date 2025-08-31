@@ -88,6 +88,7 @@ pub mod date_input {
         handle_events, handle_mouse_events, handle_readonly_events, DateInput, DateInputState,
     };
 }
+pub mod caption;
 pub mod file_dialog;
 pub mod hover;
 /// Line numbers widget.

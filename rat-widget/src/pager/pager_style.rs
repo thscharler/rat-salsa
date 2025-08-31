@@ -1,4 +1,5 @@
 use crate::_private::NonExhaustive;
+use crate::caption::CaptionStyle;
 use ratatui::layout::Alignment;
 use ratatui::style::Style;
 use ratatui::widgets::Block;
@@ -9,6 +10,7 @@ pub struct PagerStyle {
     pub style: Style,
     pub label_style: Option<Style>,
     pub label_alignment: Option<Alignment>,
+    pub caption_style: Option<CaptionStyle>,
     pub navigation: Option<Style>,
     pub title: Option<Style>,
     pub block: Option<Block<'static>>,
@@ -25,6 +27,7 @@ impl Default for PagerStyle {
             style: Default::default(),
             label_style: None,
             label_alignment: None,
+            caption_style: None,
             navigation: None,
             title: None,
             block: None,

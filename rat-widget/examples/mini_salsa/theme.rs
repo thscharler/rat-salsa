@@ -6,11 +6,11 @@ use rat_text::line_number::LineNumberStyle;
 use rat_text::{TextFocusGained, TextFocusLost, TextStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
+use rat_widget::caption::{CaptionStyle, HotkeyAlignment, HotkeySidePolicy};
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
 use rat_widget::file_dialog::FileDialogStyle;
-use rat_widget::label::{LabelStyle, RightAlignment, RightSidePolicy};
 use rat_widget::list::ListStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::pager::PagerStyle;
@@ -169,7 +169,7 @@ impl Scheme {
 
     /// Focused text field style.
     pub fn text_focus(&self) -> Style {
-        self.style(self.primary[0])
+        self.style(self.primary[2])
     }
 
     /// Text selection style.
@@ -272,7 +272,7 @@ impl Scheme {
     /// Complete TextAreaStyle
     pub fn textarea_style(&self) -> TextStyle {
         TextStyle {
-            style: self.data_base(),
+            style: self.text_input(),
             focus: Some(self.focus()),
             select: Some(self.text_select()),
             scroll: Some(self.scroll_style()),
@@ -280,12 +280,15 @@ impl Scheme {
         }
     }
 
-    pub fn label_style(&self) -> LabelStyle {
-        LabelStyle {
-            style: self.container(),
-            right: Some(self.secondary(0)),
-            align: Some(RightAlignment::RightLeft),
-            right_policy: Some(RightSidePolicy::OnHover),
+    pub fn caption_style(&self) -> CaptionStyle {
+        CaptionStyle {
+            style: Style::new().fg(self.text_color(self.black[0])),
+            focus: Some(Style::new().fg(self.secondary[2])),
+            hover: Some(self.secondary(2)),
+            align: Some(Alignment::Right),
+            hotkey: Some(self.secondary(0)),
+            hotkey_align: Some(HotkeyAlignment::HotkeyLabel),
+            hotkey_policy: Some(HotkeySidePolicy::WhenFocused),
             ..Default::default()
         }
     }
@@ -499,9 +502,12 @@ impl Scheme {
     /// Pager style.
     pub fn pager_style(&self) -> PagerStyle {
         PagerStyle {
-            style: self.container(),
+            style: Style::default()
+                .bg(self.black[0])
+                .fg(self.text_color(self.black[0])),
             navigation: Some(self.container_arrow()),
             label_style: Some(Style::new().fg(THEME.white[3]).bg(THEME.orange[0])),
+            caption_style: Some(self.caption_style()),
             ..Default::default()
         }
     }
@@ -509,6 +515,9 @@ impl Scheme {
     /// Clipper style.
     pub fn clipper_style(&self) -> ClipperStyle {
         ClipperStyle {
+            style: Style::default()
+                .bg(self.black[0])
+                .fg(self.text_color(self.black[0])),
             scroll: Some(self.scroll_style()),
             label_style: Some(Style::new().fg(THEME.white[3]).bg(THEME.orange[0])),
             ..Default::default()

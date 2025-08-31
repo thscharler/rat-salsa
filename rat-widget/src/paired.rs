@@ -171,3 +171,36 @@ impl<'a, TS, US> PairedState<'a, TS, US> {
         }
     }
 }
+
+/// If you want to pair up a StatefulWidget and a Widget you
+/// need this adapter for the widget.
+pub struct PairedWidget<'a, T> {
+    widget: T,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl<'a, T> PairedWidget<'a, T> {
+    pub fn new(widget: T) -> Self {
+        Self {
+            widget,
+            phantom: Default::default(),
+        }
+    }
+}
+
+impl<'a, T> StatefulWidget for PairedWidget<'a, T>
+where
+    T: Widget,
+{
+    type State = ();
+
+    fn render(self, area: Rect, buf: &mut Buffer, _: &mut Self::State) {
+        self.widget.render(area, buf);
+    }
+}
+
+impl<'a, T> HasScreenCursor for PairedWidget<'a, T> {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
