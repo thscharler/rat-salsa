@@ -46,6 +46,9 @@ pub struct PageNavigationState {
     /// Current, left-most page.
     /// __read+write__
     pub page: usize,
+    /// Increment by n when navigating.
+    /// __read only__ renewed with each render.
+    pub page_inc: usize,
 
     /// Page count.
     /// __read+write__
@@ -188,6 +191,7 @@ impl StatefulWidget for PageNavigation<'_> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
+        state.page_inc = self.pages as usize;
 
         let widget_area = self.inner(area);
 
@@ -283,6 +287,7 @@ impl Default for PageNavigationState {
             prev_area: Default::default(),
             next_area: Default::default(),
             page: Default::default(),
+            page_inc: 1,
             page_count: Default::default(),
             container: Default::default(),
             mouse: Default::default(),
@@ -329,10 +334,12 @@ impl PageNavigationState {
     pub fn next_page(&mut self) -> bool {
         let old_page = self.page;
 
-        if self.page + 1 >= self.page_count {
+        if self.page + self.page_inc == self.page_count {
+            // don't change
+        } else if self.page + self.page_inc > self.page_count {
             self.page = self.page_count.saturating_sub(1);
         } else {
-            self.page += 1;
+            self.page += self.page_inc;
         }
 
         old_page != self.page
@@ -340,8 +347,11 @@ impl PageNavigationState {
 
     /// Select prev page.
     pub fn prev_page(&mut self) -> bool {
-        if self.page > 0 {
-            self.page -= 1;
+        if self.page >= self.page_inc {
+            self.page -= self.page_inc;
+            true
+        } else if self.page > 0 {
+            self.page = 0;
             true
         } else {
             false

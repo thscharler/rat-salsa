@@ -187,7 +187,7 @@ where
             state.layout = Rc::new(RefCell::new(layout));
         }
 
-        state.nav.page_count = state.layout.borrow().page_count().div_ceil(2);
+        state.nav.page_count = state.layout.borrow().page_count();
         state.nav.set_page(state.nav.page);
 
         self.page_nav.render(area, buf, &mut state.nav);
@@ -199,13 +199,13 @@ where
                 .pager
                 .clone()
                 .layout(state.layout.clone())
-                .page(state.nav.page * 2)
+                .page(state.nav.page)
                 .into_buffer(state.nav.widget_areas[0], buf.clone()),
             pager1: self
                 .pager
                 .clone()
                 .layout(state.layout.clone())
-                .page(state.nav.page * 2 + 1)
+                .page(state.nav.page + 1)
                 .into_buffer(state.nav.widget_areas[1], buf),
             auto_label: self.auto_label,
         }
@@ -498,7 +498,7 @@ where
     /// will set the page to 0.
     pub fn show(&mut self, widget: W) {
         if let Some(page) = self.layout.borrow().page_of(widget) {
-            self.nav.set_page(page / 2);
+            self.nav.set_page(page);
         } else {
             self.nav.set_page(0);
         }
@@ -506,12 +506,12 @@ where
 
     /// Returns the first widget for the given page.
     pub fn first(&self, page: usize) -> Option<W> {
-        self.layout.borrow().first(page * 2)
+        self.layout.borrow().first(page)
     }
 
     /// Calculates the page of the widget.
     pub fn page_of(&self, widget: W) -> Option<usize> {
-        self.layout.borrow().page_of(widget).map(|v| v / 2)
+        self.layout.borrow().page_of(widget).map(|v| v)
     }
 
     /// Set the visible page.
