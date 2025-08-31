@@ -255,6 +255,11 @@ pub trait HasFocus {
     /// Access to the flag for the rest.
     fn focus(&self) -> FocusFlag;
 
+    /// Provide a unique id for the widget.
+    fn id(&self) -> usize {
+        self.focus().widget_id()
+    }
+
     /// Area for mouse focus.
     ///
     /// This area shouldn't overlap with areas returned by other widgets.

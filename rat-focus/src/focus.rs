@@ -184,6 +184,39 @@ impl Focus {
     /// If this ends up with the same widget as
     /// before gained and lost flags are not set.
     #[inline]
+    pub fn by_widget_id(&self, widget_id: usize) {
+        let widget_state = self.core.find_widget_id(widget_id);
+        focus_debug!(self.core.log, "focus {:?} -> {:?}", widget_id, widget_state);
+        let Some(widget_state) = widget_state else {
+            return;
+        };
+
+        let flag = widget_state.focus();
+        if self.core.is_widget(&flag) {
+            if let Some(n) = self.core.index_of(&flag) {
+                self.core.focus_idx(n, true);
+            } else {
+                focus_debug!(self.core.log, "    => widget not found");
+            }
+        } else if self.core.is_container(&flag) {
+            if let Some((_idx, range)) = self.core.container_index_of(&flag) {
+                self.core.focus_idx(range.start, true);
+                focus_debug!(self.core.log, "    -> focused");
+            } else {
+                focus_debug!(self.core.log, "    => container not found");
+            }
+        } else {
+            focus_debug!(self.core.log, "    => not a valid widget");
+        }
+    }
+
+    /// Sets the focus to the given widget.
+    ///
+    /// Sets the focus, gained and lost flags.
+    ///
+    /// If this ends up with the same widget as
+    /// before gained and lost flags are not set.
+    #[inline]
     pub fn focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(self.core.log, "focus {:?}", widget_state.focus().name());
         let flag = widget_state.focus();
@@ -920,6 +953,14 @@ mod core {
             self.navigable.clear();
             self.container_ids.clear();
             self.containers.clear();
+        }
+
+        /// Find the FocusFlag by widget_id
+        pub(super) fn find_widget_id(&self, widget_id: usize) -> Option<FocusFlag> {
+            self.focus_flags
+                .iter()
+                .find(|v| widget_id == v.widget_id())
+                .cloned()
         }
 
         /// Is a widget?
