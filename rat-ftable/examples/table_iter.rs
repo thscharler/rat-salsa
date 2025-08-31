@@ -17,7 +17,6 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
-use std::cmp::max;
 use std::iter::Enumerate;
 use std::slice::Iter;
 
