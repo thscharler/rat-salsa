@@ -10,12 +10,7 @@ use std::cell::{RefCell, RefMut};
 use std::hash::Hash;
 use std::rc::Rc;
 
-///
 /// Renders widgets for one page of a [GenericLayout].
-///
-///
-///
-///
 #[derive(Debug)]
 pub struct Pager<W>
 where
@@ -177,7 +172,7 @@ where
         FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
         WW: Widget,
     {
-        let Some(label_area) = self.locate_area(self.layout.borrow().label(idx)) else {
+        let Some(label_area) = self.locate_label(idx) else {
             return false;
         };
         let layout = self.layout.borrow();
@@ -192,7 +187,7 @@ where
     /// Render the label with the set style and alignment.
     #[inline(always)]
     pub fn render_auto_label(&mut self, idx: usize) -> bool {
-        let Some(label_area) = self.locate_area(self.layout.borrow().label(idx)) else {
+        let Some(label_area) = self.locate_label(idx) else {
             return false;
         };
         let layout = self.layout.borrow();
@@ -220,10 +215,9 @@ where
         FN: FnOnce() -> WW,
         WW: Widget,
     {
-        let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
+        let Some(widget_area) = self.locate_widget(idx) else {
             return false;
         };
-
         let mut buffer = self.buffer.borrow_mut();
         render_fn().render(widget_area, *buffer);
         true
@@ -236,10 +230,9 @@ where
         FN: FnOnce() -> WW,
         WW: StatefulWidget<State = SS>,
     {
-        let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
+        let Some(widget_area) = self.locate_widget(idx) else {
             return false;
         };
-
         let mut buffer = self.buffer.borrow_mut();
         render_fn().render(widget_area, *buffer, state);
 
@@ -248,25 +241,26 @@ where
 
     /// Render a stateful widget.
     #[inline(always)]
+    #[deprecated(since = "1.0.5", note = "unnecessary")]
     pub fn render_opt<FN, WW, SS>(&mut self, idx: usize, render_fn: FN, state: &mut SS) -> bool
     where
         FN: FnOnce() -> Option<WW>,
         WW: StatefulWidget<State = SS>,
     {
-        let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
+        let Some(widget_area) = self.locate_widget(idx) else {
             return false;
         };
-
         let mut buffer = self.buffer.borrow_mut();
         let widget = render_fn();
         if let Some(widget) = widget {
             widget.render(widget_area, *buffer, state);
         }
-
         true
     }
 
-    /// Render a stateful widget.
+    /// Render a stateful widget that will split in two parts.
+    /// Render the first part and return the second part to be
+    /// rendered later/elsewhere.
     #[inline(always)]
     #[allow(clippy::question_mark)]
     pub fn render2<FN, WW, SS, R>(&mut self, idx: usize, render_fn: FN, state: &mut SS) -> Option<R>
@@ -274,10 +268,9 @@ where
         FN: FnOnce() -> (WW, R),
         WW: StatefulWidget<State = SS>,
     {
-        let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
+        let Some(widget_area) = self.locate_widget(idx) else {
             return None;
         };
-
         let mut buffer = self.buffer.borrow_mut();
         let (widget, remainder) = render_fn();
         widget.render(widget_area, *buffer, state);
@@ -287,9 +280,9 @@ where
 
     /// Render all blocks for the current page.
     pub fn render_block(&mut self) {
+        let mut buffer = self.buffer.borrow_mut();
         for (idx, block_area) in self.layout.borrow().block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
-                let mut buffer = self.buffer.borrow_mut();
                 if let Some(block) = self.layout.borrow().block(idx) {
                     block.render(block_area, *buffer);
                 }
