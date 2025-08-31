@@ -23,6 +23,7 @@ ratatui = { version = "0.29" }
 tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
 
 rat-widget = { version = "1.0", path = "../rat-widget" }
+regex = "1.11.2"
 
 [dev-dependencies]
 anyhow = "1.0"
@@ -32,6 +33,7 @@ fern = "0.7"
 dirs = "6.0"
 sysinfo = "0.33"
 ropey = "1.6.1"
+regex-cursor = "0.1.5"
 
 rat-theme2 = { version = "1.0", path = "../rat-theme2" }
 
