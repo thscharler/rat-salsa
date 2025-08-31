@@ -587,6 +587,7 @@ impl MaskedInputState {
     ///
     /// Inspired by <https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da>
     #[inline]
+    // TODO: make available with the widget.
     pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
         self.value.set_mask(s)
     }
