@@ -35,7 +35,7 @@ pub struct Caption<'a> {
     /// Hotkey alignment
     hotkey_align: HotkeyAlignment,
     /// Hotkey policy
-    hotkey_policy: HotkeySidePolicy,
+    hotkey_policy: HotkeyPolicy,
     /// Hot-key 2
     hotkey: Option<KeyEvent>,
     /// Text/Hotkey spacing
@@ -58,12 +58,6 @@ pub struct CaptionState {
     /// Area for the whole widget.
     /// __readonly__. renewed for each render.
     pub area: Rect,
-    /// Area for the text.
-    /// __readonly__. renewed for each render.
-    pub text_area: Rect,
-    /// Area for the hotkey-display.
-    /// __readonly__. renewed for each render.
-    pub hotkey_area: Rect,
     /// Hot-key 1
     /// __readonly__. renewed for each render.
     pub navchar: Option<char>,
@@ -100,7 +94,7 @@ pub struct CaptionStyle {
     /// Hotkey alignment
     pub hotkey_align: Option<HotkeyAlignment>,
     /// Hotkey policy
-    pub hotkey_policy: Option<HotkeySidePolicy>,
+    pub hotkey_policy: Option<HotkeyPolicy>,
     /// Label/hotkey spacing
     pub spacing: Option<u16>,
 
@@ -109,7 +103,7 @@ pub struct CaptionStyle {
 
 /// Policy for hover.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum HotkeySidePolicy {
+pub enum HotkeyPolicy {
     /// No special behaviour. Hotkey text is always shown.
     #[default]
     Always,
@@ -262,7 +256,7 @@ impl<'a> Caption<'a> {
     }
 
     /// Policy for when to show the hotkey text.
-    pub fn hotkey_policy(mut self, policy: HotkeySidePolicy) -> Self {
+    pub fn hotkey_policy(mut self, policy: HotkeyPolicy) -> Self {
         self.hotkey_policy = policy;
         self
     }
@@ -423,6 +417,7 @@ impl<'a> StatefulWidget for Caption<'a> {
 
 fn render_ref(widget: &Caption<'_>, area: Rect, buf: &mut Buffer, state: &mut CaptionState) {
     state.area = area;
+
     if widget.navchar.is_some() {
         state.navchar = widget.navchar;
     }
@@ -436,60 +431,7 @@ fn render_ref(widget: &Caption<'_>, area: Rect, buf: &mut Buffer, state: &mut Ca
     let mut prepend = String::default();
     let mut append = String::default();
 
-    // layout
-    match widget.hotkey_align {
-        HotkeyAlignment::LabelHotkey => {
-            if widget.hotkey_policy == HotkeySidePolicy::WhenFocused && state.linked.get()
-                || widget.hotkey_policy == HotkeySidePolicy::OnHover && state.mouse.hover.get()
-                || widget.hotkey_policy == HotkeySidePolicy::Always
-            {
-                state.hotkey_area = Rect::new(
-                    area.right() - widget.hotkey_width(),
-                    area.y,
-                    widget.hotkey_width(),
-                    area.height,
-                );
-                if !widget.hotkey_text.is_empty() && widget.spacing > 0 {
-                    append = " ".repeat(widget.spacing as usize);
-                }
-                state.text_area = Rect::new(
-                    area.x,
-                    area.y,
-                    area.width - state.hotkey_area.width,
-                    area.height,
-                )
-            } else {
-                state.hotkey_area = Rect::new(area.right(), area.y, 0, area.height);
-                state.text_area = area;
-            }
-        }
-        HotkeyAlignment::HotkeyLabel => {
-            if widget.hotkey_policy == HotkeySidePolicy::WhenFocused && state.linked.get()
-                || widget.hotkey_policy == HotkeySidePolicy::OnHover && state.mouse.hover.get()
-                || widget.hotkey_policy == HotkeySidePolicy::Always
-            {
-                state.hotkey_area = Rect::new(
-                    area.x, //
-                    area.y,
-                    widget.hotkey_width(),
-                    area.height,
-                );
-                if !widget.hotkey_text.is_empty() && widget.spacing > 0 {
-                    prepend = " ".repeat(widget.spacing as usize);
-                }
-                state.text_area = Rect::new(
-                    area.x + state.hotkey_area.width,
-                    area.y,
-                    area.width - state.hotkey_area.width,
-                    area.height,
-                )
-            } else {
-                state.hotkey_area = Rect::new(area.x, area.y, 0, area.height);
-                state.text_area = area;
-            }
-        }
-    }
-
+    // styles
     let style = if state.linked.is_focused() {
         if let Some(focus_style) = widget.focus_style {
             focus_style
@@ -524,30 +466,68 @@ fn render_ref(widget: &Caption<'_>, area: Rect, buf: &mut Buffer, state: &mut Ca
     }
     hotkey_style = style.patch(hotkey_style);
 
-    let text_line = if let Some(highlight) = widget.highlight.clone() {
-        Line::from_iter([
-            Span::from(prepend),
-            Span::from(&widget.text[..highlight.start - 1]), // account for _
-            Span::from(&widget.text[highlight.start..highlight.end]).style(highlight_style),
-            Span::from(&widget.text[highlight.end..]),
-            Span::from(append),
-        ])
+    // layout
+
+    let hotkey_text = if widget.hotkey_policy == HotkeyPolicy::WhenFocused && state.linked.get()
+        || widget.hotkey_policy == HotkeyPolicy::OnHover && state.mouse.hover.get()
+        || widget.hotkey_policy == HotkeyPolicy::Always
+    {
+        widget.hotkey_text.as_ref()
     } else {
-        Line::from_iter([
-            Span::from(prepend), //
-            Span::from(widget.text.as_ref()),
-            Span::from(append),
-        ])
+        ""
     };
 
-    text_line
-        .alignment(widget.align)
-        .style(style) //
-        .render(state.text_area, buf);
+    if !hotkey_text.is_empty() && widget.spacing > 0 {
+        match widget.hotkey_align {
+            HotkeyAlignment::LabelHotkey => {
+                append = " ".repeat(widget.spacing as usize);
+            }
+            HotkeyAlignment::HotkeyLabel => {
+                prepend = " ".repeat(widget.spacing as usize);
+            }
+        }
+    }
 
-    Line::from(widget.hotkey_text.as_ref())
-        .style(hotkey_style)
-        .render(state.hotkey_area, buf);
+    let text_line = match widget.hotkey_align {
+        HotkeyAlignment::LabelHotkey => {
+            if let Some(highlight) = widget.highlight.clone() {
+                Line::from_iter([
+                    Span::from(&widget.text[..highlight.start - 1]), // account for _
+                    Span::from(&widget.text[highlight.start..highlight.end]).style(highlight_style),
+                    Span::from(&widget.text[highlight.end..]),
+                    Span::from(append),
+                    Span::from(hotkey_text).style(hotkey_style),
+                ])
+            } else {
+                Line::from_iter([
+                    Span::from(widget.text.as_ref()), //
+                    Span::from(append),
+                    Span::from(hotkey_text).style(hotkey_style),
+                ])
+            }
+        }
+        HotkeyAlignment::HotkeyLabel => {
+            if let Some(highlight) = widget.highlight.clone() {
+                Line::from_iter([
+                    Span::from(hotkey_text).style(hotkey_style),
+                    Span::from(prepend),
+                    Span::from(&widget.text[..highlight.start - 1]), // account for _
+                    Span::from(&widget.text[highlight.start..highlight.end]).style(highlight_style),
+                    Span::from(&widget.text[highlight.end..]),
+                ])
+            } else {
+                Line::from_iter([
+                    Span::from(hotkey_text).style(hotkey_style),
+                    Span::from(prepend), //
+                    Span::from(widget.text.as_ref()),
+                ])
+            }
+        }
+    };
+    text_line
+        .alignment(widget.align) //
+        .style(style)
+        .render(state.area, buf);
 }
 
 impl Default for CaptionStyle {
@@ -571,8 +551,6 @@ impl Clone for CaptionState {
     fn clone(&self) -> Self {
         Self {
             area: self.area,
-            text_area: self.text_area,
-            hotkey_area: self.hotkey_area,
             navchar: self.navchar,
             hotkey: self.hotkey,
             linked: self.linked.clone(),
@@ -586,8 +564,6 @@ impl Default for CaptionState {
     fn default() -> Self {
         Self {
             area: Default::default(),
-            text_area: Default::default(),
-            hotkey_area: Default::default(),
             navchar: Default::default(),
             hotkey: Default::default(),
             linked: Default::default(),
@@ -630,8 +606,6 @@ impl CaptionState {
 impl RelocatableState for CaptionState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
-        self.text_area = relocate_area(self.text_area, shift, clip);
-        self.hotkey_area = relocate_area(self.hotkey_area, shift, clip);
     }
 }
 

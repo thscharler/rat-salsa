@@ -1,5 +1,5 @@
 use crate::_private::NonExhaustive;
-use crate::caption::CaptionState;
+use crate::caption::{CaptionState, CaptionStyle};
 use crate::event::PagerOutcome;
 use crate::layout::GenericLayout;
 use crate::pager::{PageNavigation, PageNavigationState, Pager, PagerBuffer, PagerStyle};
@@ -116,6 +116,12 @@ where
     /// Alignment for text labels.
     pub fn label_alignment(mut self, alignment: Alignment) -> Self {
         self.pager = self.pager.label_alignment(alignment);
+        self
+    }
+
+    /// Styles for caption labels.
+    pub fn caption_style(mut self, style: CaptionStyle) -> Self {
+        self.pager = self.pager.caption_style(style);
         self
     }
 
@@ -498,7 +504,7 @@ where
     /// will set the page to 0.
     pub fn show(&mut self, widget: W) {
         if let Some(page) = self.layout.borrow().page_of(widget) {
-            self.nav.set_page(page);
+            self.nav.set_page(page & !0x1);
         } else {
             self.nav.set_page(0);
         }

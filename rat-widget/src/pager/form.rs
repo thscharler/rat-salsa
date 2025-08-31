@@ -73,7 +73,7 @@
 //! ```
 
 use crate::_private::NonExhaustive;
-use crate::caption::CaptionState;
+use crate::caption::{CaptionState, CaptionStyle};
 use crate::layout::GenericLayout;
 use crate::pager::{Pager, PagerBuffer, PagerStyle};
 use rat_focus::HasFocus;
@@ -189,6 +189,12 @@ where
     /// Alignment for auto-labels.
     pub fn label_alignment(mut self, alignment: Alignment) -> Self {
         self.pager = self.pager.label_alignment(alignment);
+        self
+    }
+
+    /// Styles for caption labels.
+    pub fn caption_style(mut self, style: CaptionStyle) -> Self {
+        self.pager = self.pager.caption_style(style);
         self
     }
 
