@@ -43,6 +43,10 @@ impl RelocatableState for [Rect] {
     }
 }
 
+impl RelocatableState for () {
+    fn relocate(&mut self, _shift: (i16, i16), _clip: Rect) {}
+}
+
 /// Shift the area by offset and clip it.
 pub fn relocate_areas(area: &mut [Rect], shift: (i16, i16), clip: Rect) {
     for a in area {
