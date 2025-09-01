@@ -10,15 +10,16 @@ use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use std::fmt::Debug;
 use std::fs;
+use std::path::PathBuf;
 use std::rc::Rc;
 
-type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, ThemeEvent, Error>;
+type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, ThemesEvent, Error>;
 type RenderContext<'a> = rat_salsa2::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let config = MinimalConfig::default();
+    let config = Config::default();
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
@@ -40,16 +41,14 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-// -----------------------------------------------------------------------
-
 #[derive(Debug)]
 pub struct GlobalState {
-    pub cfg: MinimalConfig,
+    pub cfg: Config,
     pub theme: Rc<DarkTheme>,
 }
 
 impl GlobalState {
-    fn new(cfg: MinimalConfig, theme: DarkTheme) -> Self {
+    fn new(cfg: Config, theme: DarkTheme) -> Self {
         Self {
             cfg,
             theme: Rc::new(theme),
@@ -57,36 +56,32 @@ impl GlobalState {
     }
 }
 
-// -----------------------------------------------------------------------
-
 #[derive(Debug, Default)]
-pub struct MinimalConfig {}
+pub struct Config {}
 
 #[derive(Debug)]
-pub enum ThemeEvent {
+pub enum ThemesEvent {
     Event(crossterm::event::Event),
     TimeOut(TimeOut),
     Message(String),
     Status(usize, String),
 }
 
-impl From<crossterm::event::Event> for ThemeEvent {
+impl From<crossterm::event::Event> for ThemesEvent {
     fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }
 
-impl From<TimeOut> for ThemeEvent {
+impl From<TimeOut> for ThemesEvent {
     fn from(value: TimeOut) -> Self {
         Self::TimeOut(value)
     }
 }
 
-// -----------------------------------------------------------------------
-
 mod scenery {
     use crate::mask0::Mask0State;
-    use crate::{mask0, AppContext, RenderContext, ThemeEvent};
+    use crate::{mask0, AppContext, RenderContext, ThemesEvent};
     use anyhow::Error;
     use crossterm::event::Event;
     use rat_salsa2::Control;
@@ -151,14 +146,14 @@ mod scenery {
     }
 
     pub fn event(
-        event: &ThemeEvent,
+        event: &ThemesEvent,
         state: &mut SceneryState,
         ctx: &mut AppContext<'_>,
-    ) -> Result<Control<ThemeEvent>, Error> {
+    ) -> Result<Control<ThemesEvent>, Error> {
         let t0 = SystemTime::now();
 
         let r = match event {
-            ThemeEvent::Event(event) => {
+            ThemesEvent::Event(event) => {
                 try_flow!(match &event {
                     Event::Resize(_, _) => Control::Changed,
                     ct_event!(key press CONTROL-'q') => Control::Quit,
@@ -175,11 +170,11 @@ mod scenery {
 
                 Control::Continue
             }
-            ThemeEvent::Message(s) => {
+            ThemesEvent::Message(s) => {
                 state.error_dlg.append(s.as_str());
                 Control::Changed
             }
-            ThemeEvent::Status(n, s) => {
+            ThemesEvent::Status(n, s) => {
                 state.status.status(*n, s);
                 Control::Changed
             }
@@ -198,7 +193,7 @@ mod scenery {
         event: Error,
         state: &mut SceneryState,
         ctx: &mut AppContext<'_>,
-    ) -> Result<Control<ThemeEvent>, Error> {
+    ) -> Result<Control<ThemesEvent>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Changed)
     }
@@ -206,7 +201,7 @@ mod scenery {
 
 pub mod mask0 {
     use crate::show_scheme::{ShowScheme, ShowSchemeState};
-    use crate::{AppContext, RenderContext, ThemeEvent};
+    use crate::{AppContext, RenderContext, ThemesEvent};
     use anyhow::Error;
     use rat_salsa2::Control;
     use rat_theme2::dark_themes;
@@ -311,12 +306,12 @@ pub mod mask0 {
     }
 
     pub fn event(
-        event: &ThemeEvent,
+        event: &ThemesEvent,
         state: &mut Mask0State,
         ctx: &mut AppContext<'_>,
-    ) -> Result<Control<ThemeEvent>, Error> {
+    ) -> Result<Control<ThemesEvent>, Error> {
         let r = match event {
-            ThemeEvent::Event(event) => {
+            ThemesEvent::Event(event) => {
                 try_flow!(match state.menu.handle(event, Popup) {
                     MenuOutcome::MenuSelected(0, n) => {
                         ctx.g.theme = Rc::new(dark_themes()[n].clone());
@@ -443,8 +438,8 @@ pub mod show_scheme {
 
             let make_fg = |c| match Palette::rate_text_color(c) {
                 None => Color::Reset,
-                Some(TextColorRating::Light) => self.scheme.white[0],
-                Some(TextColorRating::Dark) => self.scheme.black[3],
+                Some(TextColorRating::Light) => self.scheme.white[3],
+                Some(TextColorRating::Dark) => self.scheme.black[0],
             };
 
             let sc = self.scheme;
@@ -470,6 +465,18 @@ pub mod show_scheme {
             .iter()
             .enumerate()
             {
+                // for idx in 0..4 {
+                //     match c[idx] {
+                //         Color::Rgb(r, g, b) => {
+                //             let grey = r as f32 * 0.3f32 + g as f32 * 0.59f32 + b as f32 * 0.11f32;
+                //             debug!("ratings {}{} {} {} ", n, idx, grey, grey >= 105f32);
+                //         }
+                //         _ => {
+                //             debug!("ratings {}{} none", n, idx);
+                //         }
+                //     }
+                // }
+
                 Line::from(vec![
                     Span::from(format!("{:10}", n)),
                     Span::from("  FG-0  ").bg(c[0]).fg(make_fg(c[0])),
@@ -504,10 +511,11 @@ pub mod show_scheme {
 
 fn setup_logging() -> Result<(), Error> {
     if let Some(cache) = dirs::cache_dir() {
-        let log_path = cache.join("rat-salsa");
-        if !log_path.exists() {
-            fs::create_dir_all(&log_path)?;
-        }
+        // let log_path = cache.join("rat-salsa");
+        // if !log_path.exists() {
+        //     fs::create_dir_all(&log_path)?;
+        // }
+        let log_path = PathBuf::from(".");
 
         let log_file = log_path.join("theme_sample.log");
         _ = fs::remove_file(&log_file);

@@ -1,6 +1,6 @@
 use crate::palettes::{
     BASE16, BASE16_RELAXED, BLACKWHITE, IMPERIAL, MONEKAI, MONOCHROME, OCEAN, OXOCARBON, RADIUM,
-    SOLARIZED, VSCODE_DARK,
+    SOLARIZED, TUNDRA, VSCODE_DARK,
 };
 
 mod dark_theme;
@@ -34,7 +34,7 @@ pub fn dark_themes() -> Vec<DarkTheme> {
         DarkTheme::new("Black&White".to_string(), BLACKWHITE),
         DarkTheme::new("Imperial".to_string(), IMPERIAL),
         DarkTheme::new("Radium".to_string(), RADIUM),
-        DarkTheme::new("Tundra".to_string(), SOLARIZED),
+        DarkTheme::new("Tundra".to_string(), TUNDRA),
         DarkTheme::new("Monochrome".to_string(), MONOCHROME),
         DarkTheme::new("Monekai".to_string(), MONEKAI),
         DarkTheme::new("Solarized".to_string(), SOLARIZED),
