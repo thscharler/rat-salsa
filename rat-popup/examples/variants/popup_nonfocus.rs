@@ -46,7 +46,7 @@ impl PopNonFocusRedState {
     pub fn new() -> Self {
         Self {
             placement: Default::default(),
-            popup: PopupCoreState::named("act-popup"),
+            popup: Default::default(),
         }
     }
 

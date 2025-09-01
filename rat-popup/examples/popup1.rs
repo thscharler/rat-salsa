@@ -213,7 +213,7 @@ fn handle_stuff(
 
     try_flow!(match state.popfoc.handle(event, Regular) {
         PopupOutcome::Hide => {
-            focus.next();
+            state.popfoc.hide(&focus);
             Outcome::Changed
         }
         r => r.into(),
@@ -245,10 +245,10 @@ fn handle_stuff(
             debug!("change blue");
             state.which_blue = (state.which_blue + 1) % 4;
             match state.which_blue {
-                0 => state.popfoc.hide(&mut focus),
+                0 => state.popfoc.hide(&focus),
                 1 => state.popact.hide(),
                 2 => state.popedit.hide(&mut focus),
-                3 => state.poplock.hide(&mut focus),
+                3 => state.poplock.hide(&focus),
                 _ => {}
             }
             Outcome::Changed
@@ -313,7 +313,7 @@ fn handle_stuff(
             };
             match state.which_blue {
                 0 => {
-                    state.popfoc.show(placement, &mut focus);
+                    state.popfoc.show(placement, &focus);
                     Outcome::Changed
                 }
                 1 => {
@@ -325,7 +325,7 @@ fn handle_stuff(
                     Outcome::Changed
                 }
                 3 => {
-                    state.poplock.show(placement, &mut focus);
+                    state.poplock.show(placement, &focus);
                     Outcome::Changed
                 }
                 _ => Outcome::Continue,

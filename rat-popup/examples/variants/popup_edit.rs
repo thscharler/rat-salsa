@@ -27,6 +27,8 @@ pub struct PopEditGreenState {
     pub edit1: TextInputMockState,
     pub edit2: TextInputMockState,
     pub edit3: TextInputMockState,
+
+    pub container: FocusFlag,
 }
 
 impl StatefulWidget for PopEditGreen {
@@ -78,6 +80,7 @@ impl Default for PopEditGreenState {
             edit1: TextInputMockState::new(),
             edit2: TextInputMockState::new(),
             edit3: TextInputMockState::new(),
+            container: FocusFlag::new(),
         }
     }
 }
@@ -104,7 +107,7 @@ impl HasFocus for PopEditGreenState {
     }
 
     fn focus(&self) -> FocusFlag {
-        self.popup.active.clone()
+        self.container.clone()
     }
 
     fn area(&self) -> Rect {
@@ -116,10 +119,11 @@ impl PopEditGreenState {
     pub fn new() -> Self {
         Self {
             placement: Default::default(),
-            popup: PopupCoreState::named("act-popup"),
+            popup: Default::default(),
             edit1: Default::default(),
             edit2: Default::default(),
             edit3: Default::default(),
+            container: Default::default(),
         }
     }
 
@@ -147,6 +151,9 @@ impl PopEditGreenState {
 
 impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopEditGreenState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
+        if self.container.lost_focus() {
+            self.popup.set_active(false);
+        }
         let r0 = self.popup.handle(event, Popup);
         r0
     }

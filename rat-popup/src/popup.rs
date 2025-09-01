@@ -3,7 +3,7 @@ use crate::event::PopupOutcome;
 use crate::{Placement, PopupConstraint};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, Popup};
-use rat_focus::{FocusFlag, HasFocus};
+use rat_focus::FocusFlag;
 use rat_reloc::{relocate_area, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
@@ -104,6 +104,10 @@ pub struct PopupCoreState {
     /// __See__
     /// See the examples how to use for both cases.
     /// __read+write__
+    #[deprecated(
+        since = "1.0.2",
+        note = "use is_active() and set_active() instead. will change type."
+    )]
     pub active: FocusFlag,
 
     /// Mouse flags.
@@ -302,8 +306,9 @@ impl StatefulWidget for PopupCore<'_> {
     }
 }
 
+#[allow(deprecated)]
 fn render_popup(widget: &PopupCore<'_>, area: Rect, buf: &mut Buffer, state: &mut PopupCoreState) {
-    if !state.active.is_focused() {
+    if !state.active.get() {
         state.clear_areas();
         return;
     }
@@ -613,6 +618,7 @@ impl Default for PopupStyle {
 }
 
 impl Clone for PopupCoreState {
+    #[allow(deprecated)]
     fn clone(&self) -> Self {
         Self {
             area: self.area,
@@ -620,7 +626,7 @@ impl Clone for PopupCoreState {
             widget_area: self.widget_area,
             h_scroll: self.h_scroll.clone(),
             v_scroll: self.v_scroll.clone(),
-            active: FocusFlag::named(self.active.name()),
+            active: self.active.clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -628,6 +634,7 @@ impl Clone for PopupCoreState {
 }
 
 impl Default for PopupCoreState {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             area: Default::default(),
@@ -635,7 +642,7 @@ impl Default for PopupCoreState {
             widget_area: Default::default(),
             h_scroll: Default::default(),
             v_scroll: Default::default(),
-            active: FocusFlag::named("popup"),
+            active: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -657,11 +664,9 @@ impl PopupCoreState {
     }
 
     /// New with a focus name.
-    pub fn named(name: &str) -> Self {
-        Self {
-            active: FocusFlag::named(name),
-            ..Default::default()
-        }
+    #[deprecated(since = "1.0.2", note = "name is ignored")]
+    pub fn named(_name: &str) -> Self {
+        Default::default()
     }
 
     /// Set the z-index of the popup.
@@ -675,8 +680,9 @@ impl PopupCoreState {
     }
 
     /// Is the popup active/visible.
+    #[allow(deprecated)]
     pub fn is_active(&self) -> bool {
-        self.active.is_focused()
+        self.active.get()
     }
 
     /// Flip visibility of the popup.
@@ -687,27 +693,10 @@ impl PopupCoreState {
     /// Show the popup.
     /// This will set gained/lost flags according to the change.
     /// If the popup is hidden this will clear all flags.
+    #[allow(deprecated)]
     pub fn set_active(&mut self, active: bool) -> bool {
         let old_value = self.is_active();
-        if active {
-            if !self.is_active() {
-                self.active.set(true);
-                self.active.set_gained(true);
-                self.active.set_lost(false);
-            } else {
-                self.active.set_gained(false);
-                self.active.set_lost(false);
-            }
-        } else {
-            if self.is_active() {
-                self.active.set(false);
-                self.active.set_gained(false);
-                self.active.set_lost(true);
-            } else {
-                self.active.set_gained(false);
-                self.active.set_lost(false);
-            }
-        }
+        self.active.set(active);
         old_value != self.is_active()
     }
 

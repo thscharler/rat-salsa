@@ -62,7 +62,7 @@ impl PopFocusBlueState {
             area: Default::default(),
             cc: ' ',
             placement: Default::default(),
-            popup: PopupCoreState::named("foc-popup"),
+            popup: Default::default(),
             focus: FocusFlag::named("foc"),
         }
     }
@@ -71,12 +71,14 @@ impl PopFocusBlueState {
         self.popup.is_active()
     }
 
-    pub fn show(&mut self, placement: PopupConstraint, focus: &mut Focus) {
+    pub fn show(&mut self, placement: PopupConstraint, focus: &Focus) {
         self.placement = placement;
+        self.popup.set_active(true);
         focus.focus(&self.focus);
     }
 
-    pub fn hide(&mut self, focus: &mut Focus) {
+    pub fn hide(&mut self, focus: &Focus) {
+        self.popup.set_active(false);
         if self.focus.is_focused() {
             focus.next();
         }
@@ -85,24 +87,27 @@ impl PopFocusBlueState {
 
 impl HasFocus for PopFocusBlueState {
     fn build(&self, builder: &mut FocusBuilder) {
-        // use container-flag to auto-hide.
-        let tag = builder.start(self);
-        // cannot reach with tab but may leave.
         builder.widget_with_flags(self.focus.clone(), self.area, 0, Navigation::Leave);
-        builder.end(tag);
     }
 
     fn focus(&self) -> FocusFlag {
-        self.popup.active.clone()
+        self.focus.clone()
     }
 
     fn area(&self) -> Rect {
-        self.popup.active.area()
+        self.area
     }
 }
 
 impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopFocusBlueState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
+        if self.focus.gained_focus() {
+            self.popup.set_active(true);
+        }
+        if self.focus.lost_focus() {
+            self.popup.set_active(false);
+        }
+
         let r0 = self.popup.handle(event, Popup);
 
         let r1 = if self.is_active() {

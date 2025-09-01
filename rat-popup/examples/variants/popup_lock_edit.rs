@@ -21,6 +21,7 @@ pub struct PopLockMagenta;
 #[derive(Debug)]
 pub struct PopLockMagentaState {
     pub outer_focus: FocusFlag,
+    pub inner_focus: FocusFlag,
 
     /// Where to place the popup
     pub placement: PopupConstraint,
@@ -77,6 +78,7 @@ impl Default for PopLockMagentaState {
     fn default() -> Self {
         Self {
             outer_focus: Default::default(),
+            inner_focus: Default::default(),
             placement: Default::default(),
             popup: Default::default(),
             edit1: TextInputMockState::new(),
@@ -122,8 +124,9 @@ impl PopLockMagentaState {
     pub fn new() -> Self {
         Self {
             outer_focus: Default::default(),
+            inner_focus: Default::default(),
             placement: Default::default(),
-            popup: PopupCoreState::named("act-popup"),
+            popup: Default::default(),
             edit1: Default::default(),
             edit2: Default::default(),
             edit3: Default::default(),
@@ -134,7 +137,7 @@ impl PopLockMagentaState {
         self.popup.is_active()
     }
 
-    pub fn show(&mut self, placement: PopupConstraint, focus: &mut Focus) {
+    pub fn show(&mut self, placement: PopupConstraint, focus: &Focus) {
         self.placement = placement;
         // set outer focus and active
         self.popup.set_active(true);
@@ -143,7 +146,7 @@ impl PopLockMagentaState {
         self.inner_focus().first();
     }
 
-    pub fn hide(&mut self, focus: &mut Focus) {
+    pub fn hide(&mut self, focus: &Focus) {
         // set outer focus and active
         self.popup.set_active(false);
         focus.expel_focus(&*self);
@@ -153,12 +156,14 @@ impl PopLockMagentaState {
 
     fn inner_focus(&mut self) -> Focus {
         let mut fb = FocusBuilder::new(None);
-        let tag = fb.start_with_flags(self.popup.active.clone(), self.popup.area, 0);
+        let tag = fb.start_with_flags(self.inner_focus.clone(), self.popup.area, 0);
         fb.widget(&self.edit1);
         fb.widget(&self.edit2);
         fb.widget(&self.edit3);
         fb.end(tag);
-        fb.build()
+        let f = fb.build();
+        f.enable_log();
+        f
     }
 }
 
