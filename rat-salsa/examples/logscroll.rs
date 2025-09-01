@@ -222,15 +222,13 @@ mod logscroll {
     use crate::event::LogScrollEvent;
     use crate::{AppContext, GlobalState, RenderContext};
     use anyhow::Error;
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use log::debug;
     use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_theme2::DarkTheme;
     use rat_widget::caption::{Caption, CaptionState, HotkeyPolicy};
     use rat_widget::event::{
-        ct_event, try_flow, FocusTraversal, HandleEvent, ReadOnly, Regular, TableOutcome,
-        TextOutcome,
+        ct_event, try_flow, HandleEvent, ReadOnly, Regular, TableOutcome, TextOutcome,
     };
     use rat_widget::focus::{impl_has_focus, HasFocus, Navigation};
     use rat_widget::paired::{PairSplit, Paired, PairedState};
@@ -243,12 +241,11 @@ mod logscroll {
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::style::Style;
     use ratatui::text::{Line, Span};
     use ratatui::widgets::{StatefulWidget, Widget};
     use regex_cursor::engines::dfa::{find_iter, Regex};
     use regex_cursor::{Input, RopeyCursor};
-    use ropey::{Rope, RopeBuilder};
+    use ropey::RopeBuilder;
     use std::fs::File;
     use std::io::{Read, Seek, SeekFrom};
     use std::ops::Range;
