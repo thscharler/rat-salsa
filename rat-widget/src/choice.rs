@@ -1335,8 +1335,8 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
     for ChoiceState<T>
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> ChoiceOutcome {
-        if !self.is_focused() && self.is_popup_active() {
-            self.set_popup_active(false);
+        if !self.is_focused() && self.popup.is_active() {
+            self.popup.set_active(false);
             // focus change triggers the repaint.
         }
 
@@ -1407,8 +1407,6 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, MouseO
 
         r = r.or_else(|| mouse_trap(event, self.popup.area).into());
 
-        self.popup.active.set_lost(false);
-        self.popup.active.set_gained(false);
         r
     }
 }
@@ -1422,7 +1420,7 @@ fn handle_mouse<T: PartialEq + Clone + Default>(
             if state.item_area.contains((*x, *y).into())
                 || state.button_area.contains((*x, *y).into()) =>
         {
-            if !state.gained_focus() && !state.popup.active.lost() {
+            if !state.gained_focus() {
                 state.flip_popup_active();
                 ChoiceOutcome::Changed
             } else {
