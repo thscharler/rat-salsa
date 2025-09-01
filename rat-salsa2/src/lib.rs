@@ -8,6 +8,8 @@ use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use rat_widget::event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_widget::focus::Focus;
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 #[cfg(feature = "async")]
@@ -307,6 +309,12 @@ where
         let rt = self.tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");
         let future = cr_future(rt.sender());
         rt.spawn(Box::new(future))
+    }
+
+    /// Queue an application event.
+    #[inline]
+    pub fn queue_event(&self, event: Event) {
+        self.queue.push(Ok(Control::Event(event)));
     }
 
     /// Queue additional results.

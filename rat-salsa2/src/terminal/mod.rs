@@ -134,7 +134,7 @@ where
         Error: From<io::Error>,
     {
         let mut res = Ok(0);
-        _ = self.term.hide_cursor();
+        // _ = self.term.hide_cursor();
         self.term.draw(|frame| res = f(frame))?;
         res
     }

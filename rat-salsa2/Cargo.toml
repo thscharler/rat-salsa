@@ -31,10 +31,11 @@ rand = "0.8"
 fern = "0.7"
 dirs = "6.0"
 sysinfo = "0.33"
-notify = "8.2"
+ropey = "1.6.1"
+regex-cursor = "0.1.5"
 
 rat-theme2 = { version = "1.0", path = "../rat-theme2" }
 
-#[[example]]
-#name = "async1"
-#required-features = ["async"]
+[[example]]
+name = "async1"
+required-features = ["async"]
