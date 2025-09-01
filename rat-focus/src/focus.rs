@@ -402,7 +402,10 @@ impl Focus {
                 focus_debug!(
                     self.core.log,
                     "next after {:?}",
-                    self.core.focused().map(|v| v.name().to_string())
+                    self.core
+                        .focused()
+                        .map(|v| v.name().to_string())
+                        .unwrap_or("None".into())
                 );
                 self.core.next()
             }
@@ -410,7 +413,10 @@ impl Focus {
                 focus_debug!(
                     self.core.log,
                     "next after {:?}, but navigation says {:?}",
-                    self.core.focused().map(|v| v.name().to_string()),
+                    self.core
+                        .focused()
+                        .map(|v| v.name().to_string())
+                        .unwrap_or("None".into()),
                     v
                 );
                 false
@@ -435,7 +441,10 @@ impl Focus {
                 focus_debug!(
                     self.core.log,
                     "prev before {:?}",
-                    self.core.focused().map(|v| v.name().to_string())
+                    self.core
+                        .focused()
+                        .map(|v| v.name().to_string())
+                        .unwrap_or("None".into())
                 );
                 self.core.prev()
             }
@@ -443,7 +452,10 @@ impl Focus {
                 focus_debug!(
                     self.core.log,
                     "prev before {:?}, but navigation says {:?}",
-                    self.core.focused().map(|v| v.name().to_string()),
+                    self.core
+                        .focused()
+                        .map(|v| v.name().to_string())
+                        .unwrap_or("None".into()),
                     v
                 );
                 false
@@ -1148,7 +1160,7 @@ mod core {
         /// other flags.
         fn __focus(&self, n: usize, set_lost: bool) -> bool {
             if let Some(f) = self.focus_flags.get(n) {
-                focus_debug!(self.log, "    -> manual focus {:?}", f.name());
+                focus_debug!(self.log, "    -> focus {}:{:?}", n, f.name());
                 f.set(true);
                 if set_lost {
                     if f.lost() {
@@ -1216,14 +1228,13 @@ mod core {
 
         /// Set the initial focus.
         pub(super) fn first(&self) {
-            self.__start_change(true);
             if let Some(n) = self.first_navigable(0) {
-                focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                self.__start_change(true);
                 self.__focus(n, true);
+                self.__accumulate();
             } else {
                 focus_debug!(self.log, "    -> no navigable widget");
             }
-            self.__accumulate();
         }
 
         /// Clear the focus.
@@ -1234,12 +1245,14 @@ mod core {
 
         /// Set the initial focus.
         pub(super) fn first_container(&self, container: &FocusFlag) {
-            self.__start_change(true);
             if let Some((_idx, range)) = self.container_index_of(container) {
                 if let Some(n) = self.first_navigable(range.start) {
                     if n < range.end {
-                        focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                        self.__start_change(true);
                         self.__focus(n, true);
+                        self.__accumulate();
+                    } else {
+                        focus_debug!(self.log, "    -> no navigable widget for container");
                     }
                 } else {
                     focus_debug!(self.log, "    -> no navigable widget");
@@ -1247,7 +1260,6 @@ mod core {
             } else {
                 focus_debug!(self.log, "    => container not found");
             }
-            self.__accumulate();
         }
 
         /// Set the focus at the given index.
@@ -1320,11 +1332,6 @@ mod core {
                             self.__start_change(true);
                             let r = self.__focus(idx, true);
                             self.__accumulate();
-                            focus_debug!(
-                                self.log,
-                                "    -> focus {:?}",
-                                self.focus_flags[idx].name()
-                            );
                             return r;
                         } else {
                             focus_debug!(
@@ -1341,7 +1348,6 @@ mod core {
                             self.__start_change(true);
                             let r = self.__focus(n, true);
                             self.__accumulate();
-                            focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
                             return r;
                         }
                     }
@@ -1381,7 +1387,6 @@ mod core {
             self.__start_change(true);
             for (n, p) in self.focus_flags.iter().enumerate() {
                 if p.lost() {
-                    focus_debug!(self.log, "    current {:?}", p.name());
                     let n = self.next_navigable(n);
                     self.__focus(n, true);
                     self.__accumulate();
@@ -1389,7 +1394,12 @@ mod core {
                 }
             }
             if let Some(n) = self.first_navigable(0) {
-                focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                focus_debug!(
+                    self.log,
+                    "    use first_navigable {}:{:?}",
+                    n,
+                    self.focus_flags[n].name()
+                );
                 self.__focus(n, true);
                 self.__accumulate();
                 return true;
@@ -1403,7 +1413,6 @@ mod core {
             self.__start_change(true);
             for (i, p) in self.focus_flags.iter().enumerate() {
                 if p.lost() {
-                    focus_debug!(self.log, "    current {:?}", p.name());
                     let n = self.prev_navigable(i);
                     self.__focus(n, true);
                     self.__accumulate();
@@ -1411,7 +1420,12 @@ mod core {
                 }
             }
             if let Some(n) = self.first_navigable(0) {
-                focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                focus_debug!(
+                    self.log,
+                    "    use first_navigable {}:{:?}",
+                    n,
+                    self.focus_flags[n].name()
+                );
                 self.__focus(n, true);
                 self.__accumulate();
                 return true;
@@ -1448,7 +1462,8 @@ mod core {
         fn first_navigable(&self, start: usize) -> Option<usize> {
             focus_debug!(
                 self.log,
-                "first navigable, start at {:?} ",
+                "first navigable, start at {}:{:?} ",
+                start,
                 if start < self.focus_flags.len() {
                     self.focus_flags[start].name()
                 } else {
@@ -1463,7 +1478,7 @@ mod core {
                         | Navigation::ReachLeaveFront
                         | Navigation::Regular
                 ) {
-                    focus_debug!(self.log, "    -> {:?}", self.focus_flags[n].name());
+                    focus_debug!(self.log, "    -> {}:{:?}", n, self.focus_flags[n].name());
                     return Some(n);
                 }
             }
@@ -1475,7 +1490,8 @@ mod core {
         fn next_navigable(&self, start: usize) -> usize {
             focus_debug!(
                 self.log,
-                "next navigable after {:?}",
+                "next navigable after {}:{:?}",
+                start,
                 if start < self.focus_flags.len() {
                     self.focus_flags[start].name()
                 } else {
@@ -1511,7 +1527,8 @@ mod core {
         fn prev_navigable(&self, start: usize) -> usize {
             focus_debug!(
                 self.log,
-                "prev navigable before {:?}",
+                "prev navigable before {}:{:?}",
+                start,
                 self.focus_flags[start].name()
             );
 
