@@ -113,6 +113,7 @@ impl Default for TextWrap2 {
 
 pub(crate) struct GlyphIter2<'a, Graphemes> {
     init: bool,
+    prepared: bool,
     iter: Graphemes,
     done: bool,
 
@@ -177,7 +178,8 @@ where
     /// New iterator.
     pub(crate) fn new(pos: TextPosition, iter: Graphemes, cache: Cache) -> Self {
         Self {
-            init: false,
+            init: true,
+            prepared: false,
             iter,
             done: Default::default(),
             next_glyph: Default::default(),
@@ -248,6 +250,7 @@ where
     /// Build cache before running the iterator.
     pub(crate) fn prepare(&mut self) -> Result<(), TextError> {
         self.init = true;
+        self.prepared = true;
 
         match self.text_wrap {
             TextWrap2::Shift => prepare_shift_clip(self),
@@ -264,7 +267,7 @@ where
     type Item = Glyph2<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        assert!(self.init);
+        assert!(self.prepared);
 
         if self.done {
             return None;
@@ -362,8 +365,8 @@ where
     loop {
         let Some(grapheme) = iter.next() else {
             // did the last line end with a \n?
-            if next_pos.x != 0 {
-                // caching
+            // is this dead on arrival?
+            if next_pos.x != 0 && !glyphs.init {
                 cache.line_break.borrow_mut().insert(
                     next_pos,
                     LineBreakCache {
@@ -378,6 +381,8 @@ where
 
             break;
         };
+
+        glyphs.init = false;
 
         let (grapheme, grapheme_bytes) = grapheme.into_parts();
 
@@ -624,6 +629,8 @@ where
             break;
         };
 
+        glyphs.init = false;
+
         let (grapheme, grapheme_bytes) = grapheme.into_parts();
 
         let mut glyph = Glyph2 {
@@ -747,6 +754,8 @@ where
 
             break;
         };
+
+        glyphs.init = false;
 
         if cache.full_line_break.borrow().contains(&next_pos.y) {
             next_pos.x = 0;
