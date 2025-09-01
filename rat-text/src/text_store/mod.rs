@@ -25,7 +25,6 @@ pub trait SkipLine: Iterator {
 }
 
 /// Backing store for the TextCore.
-//TODO: make pub(crate)
 pub trait TextStore {
     type GraphemeIter<'a>: Cursor<Item = Grapheme<'a>> + SkipLine + Clone
     where

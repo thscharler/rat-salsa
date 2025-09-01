@@ -1434,7 +1434,7 @@ impl TextAreaState {
     ///
     /// This can be deactivated with auto_indent=false.
     pub fn insert_backtab(&mut self) -> bool {
-        if self.has_selection() && self.auto_indent {
+        if self.has_selection() {
             let sel = self.selection();
 
             self.value.begin_undo_seq();

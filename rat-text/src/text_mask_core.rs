@@ -16,7 +16,7 @@ use std::ops::Range;
 use std::{fmt, slice};
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Text editing core.
+/// Text editing core for MaskedInput.
 #[derive(Debug, Clone)]
 pub struct MaskedCore {
     // text
