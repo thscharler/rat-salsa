@@ -19,7 +19,7 @@ fn main() -> Result<(), Error> {
         event,
         error,
         &mut GlobalState::new(DarkTheme::new("Imperial".into(), IMPERIAL)),
-        &mut UltraState::default(),
+        &mut Ultra::default(),
         RunConfig::default()?.poll(PollCrossterm),
     )
 }
@@ -51,12 +51,12 @@ impl From<crossterm::event::Event> for UltraEvent {
 }
 
 #[derive(Debug, Default)]
-pub struct UltraState;
+pub struct Ultra;
 
 fn render(
     area: Rect,
     buf: &mut Buffer,
-    _state: &mut UltraState,
+    _state: &mut Ultra,
     ctx: &mut RenderContext<'_>,
 ) -> Result<(), Error> {
     ctx.g.err_msg.as_str().render(area, buf);
@@ -65,7 +65,7 @@ fn render(
 
 fn event(
     event: &UltraEvent,
-    _state: &mut UltraState,
+    _state: &mut Ultra,
     _ctx: &mut AppContext<'_>,
 ) -> Result<Control<UltraEvent>, Error> {
     let r = match event {
@@ -80,7 +80,7 @@ fn event(
 
 fn error(
     event: Error,
-    _state: &mut UltraState,
+    _state: &mut Ultra,
     ctx: &mut AppContext<'_>,
 ) -> Result<Control<UltraEvent>, Error> {
     ctx.g.err_msg = format!("{:?}", event).to_string();

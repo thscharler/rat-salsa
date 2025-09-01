@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 
-use crate::scenery::{error, event, init, render, SceneryState};
+use crate::scenery::{error, event, init, render, Scenery};
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa2::poll::{PollCrossterm, PollTasks, PollTimers};
@@ -23,7 +23,7 @@ fn main() -> Result<(), Error> {
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
-    let mut state = SceneryState::default();
+    let mut state = Scenery::default();
 
     run_tui(
         init,
@@ -80,7 +80,7 @@ impl From<TimeOut> for ThemesEvent {
 }
 
 mod scenery {
-    use crate::mask0::Mask0State;
+    use crate::mask0::Mask0;
     use crate::{mask0, AppContext, RenderContext, ThemesEvent};
     use anyhow::Error;
     use crossterm::event::Event;
@@ -94,8 +94,8 @@ mod scenery {
     use std::time::{Duration, SystemTime};
 
     #[derive(Debug, Default)]
-    pub struct SceneryState {
-        mask0: Mask0State,
+    pub struct Scenery {
+        mask0: Mask0,
         status: StatusLineState,
         error_dlg: MsgDialogState,
     }
@@ -103,7 +103,7 @@ mod scenery {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
@@ -141,13 +141,13 @@ mod scenery {
         Ok(())
     }
 
-    pub fn init(_state: &mut SceneryState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(_state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         Ok(())
     }
 
     pub fn event(
         event: &ThemesEvent,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<ThemesEvent>, Error> {
         let t0 = SystemTime::now();
@@ -191,7 +191,7 @@ mod scenery {
 
     pub fn error(
         event: Error,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<ThemesEvent>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
@@ -217,14 +217,14 @@ pub mod mask0 {
     use std::rc::Rc;
 
     #[derive(Debug)]
-    pub struct Mask0State {
+    pub struct Mask0 {
         pub menu: MenubarState,
         pub scroll: ViewState,
         pub scheme: ShowSchemeState,
         pub theme: usize,
     }
 
-    impl Default for Mask0State {
+    impl Default for Mask0 {
         fn default() -> Self {
             let s = Self {
                 menu: Default::default(),
@@ -260,11 +260,9 @@ pub mod mask0 {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut Mask0State,
+        state: &mut Mask0,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
-        // TODO: repaint_mask
-
         let theme = ctx.g.theme.clone();
 
         let layout = Layout::new(
@@ -307,7 +305,7 @@ pub mod mask0 {
 
     pub fn event(
         event: &ThemesEvent,
-        state: &mut Mask0State,
+        state: &mut Mask0,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<ThemesEvent>, Error> {
         let r = match event {
@@ -337,8 +335,6 @@ pub mod mask0 {
         Ok(r)
     }
 }
-
-// -----------------------------------------------------------------------
 
 pub mod show_scheme {
     use rat_theme2::{Palette, TextColorRating};

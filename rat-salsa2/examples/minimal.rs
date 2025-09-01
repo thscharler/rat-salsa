@@ -1,4 +1,4 @@
-use crate::scenery::SceneryState;
+use crate::scenery::Scenery;
 use anyhow::Error;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa2::rendered::RenderedEvent;
@@ -18,7 +18,7 @@ fn main() -> Result<(), Error> {
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
-    let mut state = SceneryState::default();
+    let mut state = Scenery::default();
 
     run_tui(
         scenery::init,
@@ -84,7 +84,7 @@ impl From<crossterm::event::Event> for MinimalEvent {
 }
 
 pub mod scenery {
-    use crate::minimal::MinimalState;
+    use crate::minimal::Minimal;
     use crate::{minimal, AppContext, MinimalEvent, RenderContext};
     use anyhow::Error;
     use rat_salsa2::Control;
@@ -98,8 +98,8 @@ pub mod scenery {
     use std::time::{Duration, SystemTime};
 
     #[derive(Debug, Default)]
-    pub struct SceneryState {
-        pub minimal: MinimalState,
+    pub struct Scenery {
+        pub minimal: Minimal,
         pub status: StatusLineState,
         pub error_dlg: MsgDialogState,
     }
@@ -107,7 +107,7 @@ pub mod scenery {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
@@ -138,7 +138,7 @@ pub mod scenery {
         Ok(())
     }
 
-    pub fn init(state: &mut SceneryState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         ctx.focus = Some(FocusBuilder::build_for(&state.minimal));
         minimal::init(&mut state.minimal, ctx)?;
         Ok(())
@@ -146,7 +146,7 @@ pub mod scenery {
 
     pub fn event(
         event: &MinimalEvent,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<MinimalEvent>, Error> {
         let t0 = SystemTime::now();
@@ -197,7 +197,7 @@ pub mod scenery {
 
     pub fn error(
         event: Error,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         _ctx: &mut AppContext<'_>,
     ) -> Result<Control<MinimalEvent>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
@@ -217,14 +217,14 @@ pub mod minimal {
     use ratatui::widgets::StatefulWidget;
 
     #[derive(Debug, Default)]
-    pub struct MinimalState {
+    pub struct Minimal {
         pub menu: MenuLineState,
     }
 
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut MinimalState,
+        state: &mut Minimal,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         // TODO: repaint_mask
@@ -246,9 +246,9 @@ pub mod minimal {
         Ok(())
     }
 
-    impl_has_focus!(menu for MinimalState);
+    impl_has_focus!(menu for Minimal);
 
-    pub fn init(_state: &mut MinimalState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(_state: &mut Minimal, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         ctx.focus().first();
         Ok(())
     }
@@ -256,7 +256,7 @@ pub mod minimal {
     #[allow(unused_variables)]
     pub fn event(
         event: &MinimalEvent,
-        state: &mut MinimalState,
+        state: &mut Minimal,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<MinimalEvent>, Error> {
         match event {

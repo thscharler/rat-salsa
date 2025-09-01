@@ -7,7 +7,7 @@
 //! own trait.
 //!
 
-use crate::app::SceneryState;
+use crate::app::Scenery;
 use crate::config::LifeConfig;
 use crate::event::LifeEvent;
 use crate::global::{GlobalState, PollTick};
@@ -31,7 +31,7 @@ fn main() -> Result<(), Error> {
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
-    let mut state = SceneryState::new();
+    let mut state = Scenery::new();
     state.set_game(if let Some(f) = args().nth(1) {
         game::load_life(&PathBuf::from(f), &global.theme)?
     } else {
@@ -179,7 +179,7 @@ pub mod event {
 pub mod app {
     use crate::event::LifeEvent;
     use crate::game::LifeGameState;
-    use crate::life::LifeState;
+    use crate::life::Life;
     use crate::{life, AppContext, RenderContext};
     use anyhow::Error;
     use rat_salsa2::Control;
@@ -193,14 +193,14 @@ pub mod app {
     use std::time::{Duration, SystemTime};
 
     #[derive(Debug)]
-    pub struct SceneryState {
-        pub life: LifeState,
+    pub struct Scenery {
+        pub life: Life,
         pub rt: SystemTime,
         pub status: StatusLineState,
         pub error_dlg: MsgDialogState,
     }
 
-    impl Default for SceneryState {
+    impl Default for Scenery {
         fn default() -> Self {
             Self {
                 life: Default::default(),
@@ -211,7 +211,7 @@ pub mod app {
         }
     }
 
-    impl SceneryState {
+    impl Scenery {
         pub fn new() -> Self {
             Self::default()
         }
@@ -224,7 +224,7 @@ pub mod app {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         let theme = ctx.g.theme.clone();
@@ -258,7 +258,7 @@ pub mod app {
         Ok(())
     }
 
-    pub fn init(state: &mut SceneryState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         ctx.focus = Some(FocusBuilder::build_for(&state.life));
         life::init(&mut state.life, ctx)?;
         Ok(())
@@ -266,13 +266,16 @@ pub mod app {
 
     pub fn event(
         event: &LifeEvent,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<LifeEvent>, Error> {
         let t0 = SystemTime::now();
 
         let mut r = match event {
-            LifeEvent::Event(event) => crossterm(event, state, ctx),
+            LifeEvent::Event(event) => {
+                //
+                crossterm(event, state, ctx)
+            }
             LifeEvent::Message(s) => {
                 state.error_dlg.append(s);
                 Ok(Control::Changed)
@@ -294,7 +297,7 @@ pub mod app {
 
     pub fn error(
         event: Error,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         _ctx: &mut AppContext<'_>,
     ) -> Result<Control<LifeEvent>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
@@ -303,7 +306,7 @@ pub mod app {
 
     fn crossterm(
         event: &crossterm::event::Event,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut AppContext,
     ) -> Result<Control<LifeEvent>, Error> {
         let mut r = match &event {
@@ -351,12 +354,12 @@ pub mod life {
     use std::time::Duration;
 
     #[derive(Debug)]
-    pub struct LifeState {
+    pub struct Life {
         pub game: LifeGameState,
         pub menu: MenuLineState,
     }
 
-    impl Default for LifeState {
+    impl Default for Life {
         fn default() -> Self {
             Self {
                 game: LifeGameState::default(),
@@ -368,7 +371,7 @@ pub mod life {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut LifeState,
+        state: &mut Life,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         let theme = ctx.g.theme.clone();
@@ -399,7 +402,7 @@ pub mod life {
         Ok(())
     }
 
-    impl HasFocus for LifeState {
+    impl HasFocus for Life {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.menu);
         }
@@ -413,14 +416,14 @@ pub mod life {
         }
     }
 
-    pub fn init(_state: &mut LifeState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(_state: &mut Life, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         ctx.focus().first();
         Ok(())
     }
 
     pub fn event(
         event: &LifeEvent,
-        state: &mut LifeState,
+        state: &mut Life,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<LifeEvent>, Error> {
         match event {

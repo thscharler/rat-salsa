@@ -1,5 +1,5 @@
 use crate::event::Async1Event;
-use crate::scenery::SceneryState;
+use crate::scenery::Scenery;
 use anyhow::Error;
 use dirs::cache_dir;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
@@ -22,7 +22,7 @@ fn main() -> Result<(), Error> {
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
-    let mut state = SceneryState::default();
+    let mut state = Scenery::default();
 
     let mut run_cfg = RunConfig::default()?
         .poll(PollCrossterm)
@@ -103,7 +103,7 @@ pub mod event {
 
 pub mod scenery {
     use crate::async1;
-    use crate::async1::Async1State;
+    use crate::async1::Async1;
     use crate::event::Async1Event;
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
@@ -118,12 +118,9 @@ pub mod scenery {
     use ratatui::widgets::StatefulWidget;
     use std::time::{Duration, SystemTime};
 
-    #[derive(Debug)]
-    pub struct Scenery;
-
     #[derive(Debug, Default)]
-    pub struct SceneryState {
-        pub async1: Async1State,
+    pub struct Scenery {
+        pub async1: Async1,
         pub status: StatusLineState,
         pub error_dlg: MsgDialogState,
     }
@@ -131,7 +128,7 @@ pub mod scenery {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
@@ -173,7 +170,7 @@ pub mod scenery {
         Ok(())
     }
 
-    pub fn init(state: &mut SceneryState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         ctx.focus = Some(FocusBuilder::build_for(&state.async1));
         async1::init(&mut state.async1, ctx)?;
         Ok(())
@@ -181,7 +178,7 @@ pub mod scenery {
 
     pub fn event(
         event: &Async1Event,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<Async1Event>, Error> {
         let t0 = SystemTime::now();
@@ -232,7 +229,7 @@ pub mod scenery {
 
     pub fn error(
         event: Error,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         _ctx: &mut AppContext<'_>,
     ) -> Result<Control<Async1Event>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
@@ -254,14 +251,14 @@ pub mod async1 {
     use std::time::Duration;
 
     #[derive(Debug, Default)]
-    pub struct Async1State {
+    pub struct Async1 {
         pub menu: MenuLineState,
     }
 
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut Async1State,
+        state: &mut Async1,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         // TODO: repaint_mask
@@ -286,7 +283,7 @@ pub mod async1 {
         Ok(())
     }
 
-    impl HasFocus for Async1State {
+    impl HasFocus for Async1 {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.menu);
         }
@@ -301,7 +298,7 @@ pub mod async1 {
     }
 
     pub fn init(
-        _state: &mut Async1State, //
+        _state: &mut Async1, //
         ctx: &mut AppContext<'_>,
     ) -> Result<(), Error> {
         ctx.focus().first();
@@ -310,7 +307,7 @@ pub mod async1 {
 
     pub fn event(
         event: &Async1Event,
-        state: &mut Async1State,
+        state: &mut Async1,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<Async1Event>, Error> {
         let r = match event {

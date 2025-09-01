@@ -6,7 +6,7 @@
 //!
 //!
 
-use crate::scenery::{error, event, init, render, SceneryState};
+use crate::scenery::{error, event, init, render, Scenery};
 use crate::theme::TurboTheme;
 use anyhow::Error;
 use crossterm::event::Event;
@@ -26,7 +26,7 @@ fn main() -> Result<(), Error> {
     let theme = TurboTheme::new("Base16".into(), BASE16);
     let mut global = GlobalState::new(config, theme);
 
-    let mut state = SceneryState::default();
+    let mut state = Scenery::default();
 
     run_tui(
         init,
@@ -78,7 +78,7 @@ impl From<Event> for TurboEvent {
 }
 
 pub mod scenery {
-    use crate::turbo::TurboState;
+    use crate::turbo::Turbo;
     use crate::{turbo, TurboEvent};
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
@@ -94,8 +94,8 @@ pub mod scenery {
     use std::time::{Duration, SystemTime};
 
     #[derive(Debug, Default)]
-    pub struct SceneryState {
-        pub turbo: TurboState,
+    pub struct Scenery {
+        pub turbo: Turbo,
         pub status: StatusLineState,
         pub error_dlg: MsgDialogState,
     }
@@ -103,7 +103,7 @@ pub mod scenery {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
@@ -170,7 +170,7 @@ pub mod scenery {
         v_layout[1]
     }
 
-    pub fn init(state: &mut SceneryState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         ctx.focus = Some(FocusBuilder::build_for(&state.turbo));
         turbo::init(&mut state.turbo, ctx)?;
         state.status.status(0, "Ctrl-Q to quit.");
@@ -179,7 +179,7 @@ pub mod scenery {
 
     pub fn event(
         event: &TurboEvent,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<TurboEvent>, Error> {
         let t0 = SystemTime::now();
@@ -230,7 +230,7 @@ pub mod scenery {
 
     pub fn error(
         event: Error,
-        state: &mut SceneryState,
+        state: &mut Scenery,
         _ctx: &mut AppContext<'_>,
     ) -> Result<Control<TurboEvent>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
@@ -256,7 +256,7 @@ pub mod turbo {
     use ratatui::widgets::{Block, StatefulWidget};
 
     #[derive(Debug)]
-    pub struct TurboState {
+    pub struct Turbo {
         pub menu: MenubarState,
         pub menu_environment: PopupMenuState,
     }
@@ -416,7 +416,7 @@ pub mod turbo {
         }
     }
 
-    impl Default for TurboState {
+    impl Default for Turbo {
         fn default() -> Self {
             Self {
                 menu: Default::default(),
@@ -428,7 +428,7 @@ pub mod turbo {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut TurboState,
+        state: &mut Turbo,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         let theme = ctx.g.theme.clone();
@@ -491,16 +491,16 @@ pub mod turbo {
         Ok(())
     }
 
-    impl_has_focus!(menu for TurboState);
+    impl_has_focus!(menu for Turbo);
 
-    pub fn init(_state: &mut TurboState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(_state: &mut Turbo, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         ctx.focus().first();
         Ok(())
     }
 
     pub fn event(
         event: &TurboEvent,
-        state: &mut TurboState,
+        state: &mut Turbo,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<TurboEvent>, Error> {
         let r = match event {

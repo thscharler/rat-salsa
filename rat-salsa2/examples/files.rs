@@ -49,7 +49,7 @@ fn main() -> Result<(), Error> {
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
-    let mut state = FilesState::default();
+    let mut state = Files::default();
 
     run_tui(
         init,
@@ -119,7 +119,7 @@ pub enum Relative {
 // -----------------------------------------------------------------------
 
 #[derive(Debug)]
-pub struct FilesState {
+pub struct Files {
     pub main_dir: PathBuf,
     pub sub_dirs: Vec<OsString>,
     pub files: Vec<(OsString, bool)>,
@@ -138,7 +138,7 @@ pub struct FilesState {
     pub error_dlg: MsgDialogState,
 }
 
-impl Default for FilesState {
+impl Default for Files {
     fn default() -> Self {
         let mut zelf = Self {
             main_dir: Default::default(),
@@ -314,7 +314,7 @@ impl<'a> MenuStructure<'a> for Menu {
 fn render(
     area: Rect,
     buf: &mut Buffer,
-    state: &mut FilesState,
+    state: &mut Files,
     ctx: &mut RenderContext<'_>,
 ) -> Result<(), Error> {
     let t0 = SystemTime::now();
@@ -373,7 +373,7 @@ fn render(
 
         Table::new()
             .data(FileData {
-                dir: state.current_dir(),
+                dir: current_dir(state),
                 files: &state.files,
                 err: &state.err,
                 dir_style: theme.gray(0),
@@ -442,7 +442,7 @@ fn render(
     Ok(())
 }
 
-fn init(state: &mut FilesState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+fn init(state: &mut Files, ctx: &mut AppContext<'_>) -> Result<(), Error> {
     state.main_dir = if let Ok(dot) = PathBuf::from(".").canonicalize() {
         dot
     } else {
@@ -463,7 +463,7 @@ fn init(state: &mut FilesState, ctx: &mut AppContext<'_>) -> Result<(), Error> {
 
 fn event(
     event: &FilesEvent,
-    state: &mut FilesState,
+    state: &mut Files,
     ctx: &mut AppContext<'_>,
 ) -> Result<Control<FilesEvent>, Error> {
     let t0 = SystemTime::now();
@@ -479,12 +479,15 @@ fn event(
             Control::Changed
         }
         FilesEvent::ReadDir(rel, path, sub) => {
-            state.read_dir(*rel, path, sub, ctx)? //
+            read_dir(state, *rel, path, sub, ctx)? //
         }
         FilesEvent::Update(rel, path, subdir, ddd, fff, err) => {
-            state.update_dirs(*rel, path, subdir, ddd, fff, err, ctx)?
+            update_dirs(state, *rel, path, subdir, ddd, fff, err, ctx)?
         }
-        FilesEvent::UpdateFile(path, text) => state.update_preview(path, text, ctx)?,
+        FilesEvent::UpdateFile(path, text) => {
+            //
+            update_preview(state, path, text, ctx)?
+        }
     };
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -493,18 +496,9 @@ fn event(
     Ok(r)
 }
 
-fn error(
-    event: Error,
-    state: &mut FilesState,
-    ctx: &mut AppContext<'_>,
-) -> Result<Control<FilesEvent>, Error> {
-    state.error_dlg.append(format!("{:?}", &*event).as_str());
-    Ok(Control::Changed)
-}
-
 fn crossterm(
     event: &crossterm::event::Event,
-    state: &mut FilesState,
+    state: &mut Files,
     ctx: &mut AppContext,
 ) -> Result<Control<FilesEvent>, Error> {
     try_flow!(match &event {
@@ -571,7 +565,7 @@ fn crossterm(
         state.w_files => {
             match event {
                 ct_event!(keycode press Enter) => {
-                    state.follow_file(ctx)?
+                    follow_file(state, ctx)?
                 }
                 _=> Control::Continue
             }
@@ -579,7 +573,7 @@ fn crossterm(
         state.w_dirs => {
             match event {
                 ct_event!(keycode press Enter) => {
-                    state.follow_dir(ctx)?
+                    follow_dir(state, ctx)?
                 }
                 _=> Control::Continue
             }
@@ -590,25 +584,25 @@ fn crossterm(
     ));
     try_flow!(match state.w_files.handle(event, DoubleClick) {
         DoubleClickOutcome::ClickClick(_, _) => {
-            state.follow_file(ctx)?
+            follow_file(state, ctx)?
         }
         r => r.into(),
     });
     try_flow!(match state.w_files.handle(event, Regular) {
         TableOutcome::Selected => {
-            state.show_file(ctx)?
+            show_file(state, ctx)?
         }
         r => r.into(),
     });
     try_flow!(match state.w_dirs.handle(event, DoubleClick) {
         DoubleClickOutcome::ClickClick(_, _) => {
-            state.follow_dir(ctx)?
+            follow_dir(state, ctx)?
         }
         r => r.into(),
     });
     try_flow!(match state.w_dirs.handle(event, Regular) {
         TableOutcome::Selected => {
-            state.show_dir()?
+            show_dir(state)?
         }
         v => Control::from(v),
     });
@@ -617,388 +611,396 @@ fn crossterm(
     Ok(Control::Continue)
 }
 
-impl_screen_cursor!(w_data for FilesState);
-impl_has_focus!(w_split, w_dirs, w_files, w_data, w_menu for FilesState);
+fn error(
+    event: Error,
+    state: &mut Files,
+    ctx: &mut AppContext<'_>,
+) -> Result<Control<FilesEvent>, Error> {
+    state.error_dlg.append(format!("{:?}", &*event).as_str());
+    Ok(Control::Changed)
+}
 
-impl FilesState {
-    fn show_dir(&mut self) -> Result<Control<FilesEvent>, Error> {
-        if let Some(n) = self.w_dirs.selected() {
-            if let Some(sub) = self.sub_dirs.get(n) {
-                if sub == &OsString::from(".") {
-                    Ok(Control::Event(FilesEvent::ReadDir(
-                        Current,
-                        self.main_dir.clone(),
-                        None,
-                    )))
-                } else if sub == &OsString::from("..") {
-                    Ok(Control::Event(FilesEvent::ReadDir(
-                        Parent,
-                        self.main_dir.clone(),
-                        None,
-                    )))
-                } else {
-                    Ok(Control::Event(FilesEvent::ReadDir(
-                        SubDir,
-                        self.main_dir.clone(),
-                        Some(sub.clone()),
-                    )))
-                }
-            } else {
-                self.files.clear();
-                Ok(Control::Changed)
-            }
-        } else {
-            Ok(Control::Changed)
-        }
-    }
+impl_screen_cursor!(w_data for Files);
+impl_has_focus!(w_split, w_dirs, w_files, w_data, w_menu for Files);
 
-    fn update_preview(
-        &mut self,
-        path: &PathBuf,
-        text: &String,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesEvent>, Error> {
-        let sel = self.current_file();
-        if Some(path) == sel.as_ref() {
-            self.w_data.set_text(text);
-            Ok(Control::Changed)
-        } else {
-            Ok(Control::Continue)
-        }
-    }
-
-    fn update_dirs(
-        &mut self,
-        rel: Relative,
-        path: &PathBuf,
-        sub: &Option<OsString>,
-        ddd: &Vec<OsString>,
-        fff: &Vec<OsString>,
-        err: &Option<String>,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesEvent>, Error> {
-        let selected = if let Some(n) = self.w_dirs.selected() {
-            self.sub_dirs.get(n).cloned()
-        } else {
-            None
-        };
-
-        self.err = err.clone();
-
-        match rel {
-            Full => {
-                self.main_dir = path.clone();
-                self.sub_dirs.clear();
-                self.sub_dirs.extend(ddd.iter().cloned());
-                self.files.clear();
-                self.files.extend(fff.iter().cloned().map(|v| (v, false)));
-
-                self.w_dirs.select(Some(0));
-                self.w_files.select(Some(0));
-            }
-            Parent => {
-                if selected == Some(OsString::from("..")) {
-                    self.files.clear();
-                    self.files.extend(ddd.iter().cloned().map(|v| (v, true)));
-                    self.files.extend(fff.iter().cloned().map(|v| (v, false)));
-                    self.w_files.select(Some(0));
-                }
-            }
-            Current => {
-                if selected == Some(OsString::from(".")) {
-                    self.files.clear();
-                    self.files.extend(fff.iter().cloned().map(|v| (v, false)));
-                    self.w_files.select(Some(0));
-                }
-            }
-            SubDir => {
-                if selected == sub.as_ref().cloned() {
-                    self.files.clear();
-                    self.files.extend(ddd.iter().cloned().map(|v| (v, true)));
-                    self.files.extend(fff.iter().cloned().map(|v| (v, false)));
-                    self.w_files.select(Some(0));
-                }
-            }
-        }
-
-        _ = self.show_file(ctx)?;
-
-        Ok(Control::Changed)
-    }
-
-    fn read_dir(
-        &mut self,
-        rel: Relative,
-        path: &PathBuf,
-        sub: &Option<OsString>,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesEvent>, Error> {
-        let path = path.clone();
-        let sub = sub.clone();
-
-        _ = ctx.spawn(move |can, snd| {
-            let Some(read_path) = (match rel {
-                Full => Some(path.clone()),
-                Parent => path.parent().map(|v| v.to_path_buf()),
-                Current => Some(path.clone()),
-                SubDir => {
-                    if let Some(sub) = sub.as_ref() {
-                        Some(path.join(sub))
-                    } else {
-                        None
-                    }
-                }
-            }) else {
-                return Ok(Control::Continue);
-            };
-
-            match fs::read_dir(read_path) {
-                Ok(r) => {
-                    let mut ddd = Vec::new();
-                    if rel == Full {
-                        ddd.push(".".into());
-                        ddd.push("..".into());
-                    }
-                    let mut fff = Vec::new();
-                    for f in r {
-                        if can.is_canceled() {
-                            return Ok(Control::Continue);
-                        }
-
-                        if let Ok(f) = f {
-                            if f.metadata()?.is_dir() {
-                                ddd.push(f.file_name());
-                            } else {
-                                fff.push(f.file_name());
-                            }
-                        }
-                    }
-                    Ok(Control::Event(FilesEvent::Update(
-                        rel,
-                        path.clone(),
-                        sub.clone(),
-                        ddd,
-                        fff,
-                        None,
-                    )))
-                }
-                Err(e) => {
-                    let msg = format!("{:?}", e);
-                    Ok(Control::Event(FilesEvent::Update(
-                        rel,
-                        path.clone(),
-                        sub.clone(),
-                        Vec::default(),
-                        Vec::default(),
-                        Some(msg),
-                    )))
-                }
-            }
-        });
-
-        Ok(Control::Continue)
-    }
-
-    fn follow_dir(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
-        if let Some(n) = self.w_dirs.selected() {
-            if let Some(sub) = self.sub_dirs.get(n) {
-                if sub == &OsString::from("..") {
-                    if let Some(file) = self.main_dir.parent() {
-                        ctx.queue(Control::Event(FilesEvent::ReadDir(
-                            Full,
-                            file.to_path_buf(),
-                            Some(OsString::from("..")),
-                        )));
-                        ctx.queue(Control::Event(FilesEvent::ReadDir(
-                            Parent,
-                            file.to_path_buf(),
-                            None,
-                        )));
-                    }
-                } else if sub == &OsString::from(".") {
-                    // noop
-                } else {
-                    let file = self.main_dir.join(sub);
-                    ctx.queue(Control::Event(FilesEvent::ReadDir(Full, file, None)))
-                }
-            }
-        }
-        Ok(Control::Continue)
-    }
-
-    fn current_dir(&mut self) -> Option<PathBuf> {
-        let dir = if let Some(n) = self.w_dirs.selected() {
-            if let Some(sub) = self.sub_dirs.get(n) {
-                if sub == &OsString::from("..") {
-                    self.main_dir.parent().map(|v| v.to_path_buf())
-                } else if sub == &OsString::from(".") {
-                    Some(self.main_dir.clone())
-                } else {
-                    Some(self.main_dir.join(sub))
-                }
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        dir
-    }
-
-    fn current_file(&mut self) -> Option<PathBuf> {
-        let dir = self.current_dir();
-
-        let file = if let Some(n) = self.w_files.selected() {
-            self.files
-                .get(n)
-                .map(|(v, _)| dir.map(|d| d.join(v)))
-                .flatten()
-        } else {
-            None
-        };
-
-        file
-    }
-
-    fn show_file(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
-        let file = self.current_file();
-
-        if let Some(file) = file {
-            if file.is_file() {
-                if let Some(cancel_show) = &self.cancel_show {
-                    cancel_show.cancel();
-                }
-
-                let cancel_show = ctx.spawn(move |can, snd| match fs::read(&file) {
-                    Ok(data) => {
-                        let str_data = FilesState::display_text(can, snd, &file, &data)?;
-                        Ok(Control::Event(FilesEvent::UpdateFile(file, str_data)))
-                    }
-                    Err(e) => Ok(Control::Event(FilesEvent::UpdateFile(
-                        file,
-                        format!("{:?}", e).to_string(),
-                    ))),
-                })?;
-
-                self.cancel_show = Some(cancel_show);
-
-                Ok(Control::Changed)
-            } else {
-                self.w_data.set_text("");
-                Ok(Control::Changed)
-            }
-        } else {
-            self.w_data.set_text("");
-            Ok(Control::Changed)
-        }
-    }
-
-    fn display_text(
-        can: Cancel,
-        snd: &Sender<Result<Control<FilesEvent>, Error>>,
-        file: &Path,
-        text: &Vec<u8>,
-    ) -> Result<String, Error> {
-        let t0 = Some(SystemTime::now());
-
-        let hex = 'f: {
-            for c in text.iter().take(1024) {
-                if *c < 0x20 && *c != b'\n' && *c != b'\r' && *c != b'\t' {
-                    break 'f true;
-                }
-            }
-            false
-        };
-
-        let str_text = if hex {
-            use std::fmt::Write;
-
-            let mut v = String::new();
-
-            let mut mm = String::new();
-            let mut b0 = Vec::new();
-            let mut b1 = String::new();
-            let hex = [
-                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
-            ];
-            let mut mega = 0;
-
-            _ = write!(mm, "{:8x} ", 0);
-            for (n, b) in text.iter().enumerate() {
-                b0.push(hex[(b / 16) as usize] as u8);
-                b0.push(hex[(b % 16) as usize] as u8);
-                if n % 16 == 7 {
-                    b0.push(b' ');
-                }
-
-                if *b < 0x20 {
-                    b1.push('_');
-                } else if *b < 0x7F {
-                    b1.push(*b as char);
-                } else if *b < 0xA0 {
-                    b1.push('_')
-                } else {
-                    b1.push(*b as char);
-                }
-
-                if n > 0 && (n + 1) % 16 == 0 {
-                    v.push_str(mm.as_str());
-                    v.push_str(from_utf8(&b0).expect("str"));
-                    v.push(' ');
-                    v.push_str(b1.as_str());
-                    v.push('\n');
-
-                    b0.clear();
-                    b1.clear();
-
-                    mm.clear();
-                    _ = write!(mm, "{:08x} ", n + 1);
-                }
-
-                if v.len() / 1_000_000 > mega {
-                    if can.is_canceled() {
-                        return Ok("!Canceled!".to_string());
-                    }
-
-                    mega = v.len() / 1_000_000;
-
-                    if mega == 1 {
-                        _ = snd.send(Ok(Control::Event(FilesEvent::UpdateFile(
-                            file.to_path_buf(),
-                            v.clone(),
-                        ))));
-                    }
-                }
-            }
-            v.push_str(mm.as_str());
-            _ = write!(v, "{:33}", from_utf8(&b0).expect("str"));
-            v.push(' ');
-            v.push_str(b1.as_str());
-            v.push('\n');
-            v
-        } else {
-            String::from_utf8_lossy(&text).to_string()
-        };
-
-        Ok(str_text)
-    }
-
-    fn follow_file(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
-        let file = self.current_file();
-
-        if let Some(file) = file {
-            if file.metadata()?.is_dir() {
-                ctx.queue(Control::Event(FilesEvent::ReadDir(
-                    Full,
-                    file.clone(),
+fn show_dir(state: &mut Files) -> Result<Control<FilesEvent>, Error> {
+    if let Some(n) = state.w_dirs.selected() {
+        if let Some(sub) = state.sub_dirs.get(n) {
+            if sub == &OsString::from(".") {
+                Ok(Control::Event(FilesEvent::ReadDir(
+                    Current,
+                    state.main_dir.clone(),
                     None,
-                )));
-                ctx.queue(Control::Event(FilesEvent::ReadDir(Parent, file, None)));
+                )))
+            } else if sub == &OsString::from("..") {
+                Ok(Control::Event(FilesEvent::ReadDir(
+                    Parent,
+                    state.main_dir.clone(),
+                    None,
+                )))
+            } else {
+                Ok(Control::Event(FilesEvent::ReadDir(
+                    SubDir,
+                    state.main_dir.clone(),
+                    Some(sub.clone()),
+                )))
             }
-        };
+        } else {
+            state.files.clear();
+            Ok(Control::Changed)
+        }
+    } else {
         Ok(Control::Changed)
     }
+}
+
+fn update_preview(
+    state: &mut Files,
+    path: &PathBuf,
+    text: &String,
+    ctx: &mut AppContext<'_>,
+) -> Result<Control<FilesEvent>, Error> {
+    let sel = current_file(state);
+    if Some(path) == sel.as_ref() {
+        state.w_data.set_text(text);
+        Ok(Control::Changed)
+    } else {
+        Ok(Control::Continue)
+    }
+}
+
+fn update_dirs(
+    state: &mut Files,
+    rel: Relative,
+    path: &PathBuf,
+    sub: &Option<OsString>,
+    ddd: &Vec<OsString>,
+    fff: &Vec<OsString>,
+    err: &Option<String>,
+    ctx: &mut AppContext<'_>,
+) -> Result<Control<FilesEvent>, Error> {
+    let selected = if let Some(n) = state.w_dirs.selected() {
+        state.sub_dirs.get(n).cloned()
+    } else {
+        None
+    };
+
+    state.err = err.clone();
+
+    match rel {
+        Full => {
+            state.main_dir = path.clone();
+            state.sub_dirs.clear();
+            state.sub_dirs.extend(ddd.iter().cloned());
+            state.files.clear();
+            state.files.extend(fff.iter().cloned().map(|v| (v, false)));
+
+            state.w_dirs.select(Some(0));
+            state.w_files.select(Some(0));
+        }
+        Parent => {
+            if selected == Some(OsString::from("..")) {
+                state.files.clear();
+                state.files.extend(ddd.iter().cloned().map(|v| (v, true)));
+                state.files.extend(fff.iter().cloned().map(|v| (v, false)));
+                state.w_files.select(Some(0));
+            }
+        }
+        Current => {
+            if selected == Some(OsString::from(".")) {
+                state.files.clear();
+                state.files.extend(fff.iter().cloned().map(|v| (v, false)));
+                state.w_files.select(Some(0));
+            }
+        }
+        SubDir => {
+            if selected == sub.as_ref().cloned() {
+                state.files.clear();
+                state.files.extend(ddd.iter().cloned().map(|v| (v, true)));
+                state.files.extend(fff.iter().cloned().map(|v| (v, false)));
+                state.w_files.select(Some(0));
+            }
+        }
+    }
+
+    _ = show_file(state, ctx)?;
+
+    Ok(Control::Changed)
+}
+
+fn read_dir(
+    state: &mut Files,
+    rel: Relative,
+    path: &PathBuf,
+    sub: &Option<OsString>,
+    ctx: &mut AppContext<'_>,
+) -> Result<Control<FilesEvent>, Error> {
+    let path = path.clone();
+    let sub = sub.clone();
+
+    _ = ctx.spawn(move |can, snd| {
+        let Some(read_path) = (match rel {
+            Full => Some(path.clone()),
+            Parent => path.parent().map(|v| v.to_path_buf()),
+            Current => Some(path.clone()),
+            SubDir => {
+                if let Some(sub) = sub.as_ref() {
+                    Some(path.join(sub))
+                } else {
+                    None
+                }
+            }
+        }) else {
+            return Ok(Control::Continue);
+        };
+
+        match fs::read_dir(read_path) {
+            Ok(r) => {
+                let mut ddd = Vec::new();
+                if rel == Full {
+                    ddd.push(".".into());
+                    ddd.push("..".into());
+                }
+                let mut fff = Vec::new();
+                for f in r {
+                    if can.is_canceled() {
+                        return Ok(Control::Continue);
+                    }
+
+                    if let Ok(f) = f {
+                        if f.metadata()?.is_dir() {
+                            ddd.push(f.file_name());
+                        } else {
+                            fff.push(f.file_name());
+                        }
+                    }
+                }
+                Ok(Control::Event(FilesEvent::Update(
+                    rel,
+                    path.clone(),
+                    sub.clone(),
+                    ddd,
+                    fff,
+                    None,
+                )))
+            }
+            Err(e) => {
+                let msg = format!("{:?}", e);
+                Ok(Control::Event(FilesEvent::Update(
+                    rel,
+                    path.clone(),
+                    sub.clone(),
+                    Vec::default(),
+                    Vec::default(),
+                    Some(msg),
+                )))
+            }
+        }
+    });
+
+    Ok(Control::Continue)
+}
+
+fn follow_dir(state: &mut Files, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
+    if let Some(n) = state.w_dirs.selected() {
+        if let Some(sub) = state.sub_dirs.get(n) {
+            if sub == &OsString::from("..") {
+                if let Some(file) = state.main_dir.parent() {
+                    ctx.queue(Control::Event(FilesEvent::ReadDir(
+                        Full,
+                        file.to_path_buf(),
+                        Some(OsString::from("..")),
+                    )));
+                    ctx.queue(Control::Event(FilesEvent::ReadDir(
+                        Parent,
+                        file.to_path_buf(),
+                        None,
+                    )));
+                }
+            } else if sub == &OsString::from(".") {
+                // noop
+            } else {
+                let file = state.main_dir.join(sub);
+                ctx.queue(Control::Event(FilesEvent::ReadDir(Full, file, None)))
+            }
+        }
+    }
+    Ok(Control::Continue)
+}
+
+fn current_dir(state: &mut Files) -> Option<PathBuf> {
+    let dir = if let Some(n) = state.w_dirs.selected() {
+        if let Some(sub) = state.sub_dirs.get(n) {
+            if sub == &OsString::from("..") {
+                state.main_dir.parent().map(|v| v.to_path_buf())
+            } else if sub == &OsString::from(".") {
+                Some(state.main_dir.clone())
+            } else {
+                Some(state.main_dir.join(sub))
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    dir
+}
+
+fn current_file(state: &mut Files) -> Option<PathBuf> {
+    let dir = current_dir(state);
+
+    let file = if let Some(n) = state.w_files.selected() {
+        state
+            .files
+            .get(n)
+            .map(|(v, _)| dir.map(|d| d.join(v)))
+            .flatten()
+    } else {
+        None
+    };
+
+    file
+}
+
+fn show_file(state: &mut Files, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
+    let file = current_file(state);
+
+    if let Some(file) = file {
+        if file.is_file() {
+            if let Some(cancel_show) = &state.cancel_show {
+                cancel_show.cancel();
+            }
+
+            let cancel_show = ctx.spawn(move |can, snd| match fs::read(&file) {
+                Ok(data) => {
+                    let str_data = display_text(can, snd, &file, &data)?;
+                    Ok(Control::Event(FilesEvent::UpdateFile(file, str_data)))
+                }
+                Err(e) => Ok(Control::Event(FilesEvent::UpdateFile(
+                    file,
+                    format!("{:?}", e).to_string(),
+                ))),
+            })?;
+
+            state.cancel_show = Some(cancel_show);
+
+            Ok(Control::Changed)
+        } else {
+            state.w_data.set_text("");
+            Ok(Control::Changed)
+        }
+    } else {
+        state.w_data.set_text("");
+        Ok(Control::Changed)
+    }
+}
+
+fn display_text(
+    can: Cancel,
+    snd: &Sender<Result<Control<FilesEvent>, Error>>,
+    file: &Path,
+    text: &Vec<u8>,
+) -> Result<String, Error> {
+    let t0 = Some(SystemTime::now());
+
+    let hex = 'f: {
+        for c in text.iter().take(1024) {
+            if *c < 0x20 && *c != b'\n' && *c != b'\r' && *c != b'\t' {
+                break 'f true;
+            }
+        }
+        false
+    };
+
+    let str_text = if hex {
+        use std::fmt::Write;
+
+        let mut v = String::new();
+
+        let mut mm = String::new();
+        let mut b0 = Vec::new();
+        let mut b1 = String::new();
+        let hex = [
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+        ];
+        let mut mega = 0;
+
+        _ = write!(mm, "{:8x} ", 0);
+        for (n, b) in text.iter().enumerate() {
+            b0.push(hex[(b / 16) as usize] as u8);
+            b0.push(hex[(b % 16) as usize] as u8);
+            if n % 16 == 7 {
+                b0.push(b' ');
+            }
+
+            if *b < 0x20 {
+                b1.push('_');
+            } else if *b < 0x7F {
+                b1.push(*b as char);
+            } else if *b < 0xA0 {
+                b1.push('_')
+            } else {
+                b1.push(*b as char);
+            }
+
+            if n > 0 && (n + 1) % 16 == 0 {
+                v.push_str(mm.as_str());
+                v.push_str(from_utf8(&b0).expect("str"));
+                v.push(' ');
+                v.push_str(b1.as_str());
+                v.push('\n');
+
+                b0.clear();
+                b1.clear();
+
+                mm.clear();
+                _ = write!(mm, "{:08x} ", n + 1);
+            }
+
+            if v.len() / 1_000_000 > mega {
+                if can.is_canceled() {
+                    return Ok("!Canceled!".to_string());
+                }
+
+                mega = v.len() / 1_000_000;
+
+                if mega == 1 {
+                    _ = snd.send(Ok(Control::Event(FilesEvent::UpdateFile(
+                        file.to_path_buf(),
+                        v.clone(),
+                    ))));
+                }
+            }
+        }
+        v.push_str(mm.as_str());
+        _ = write!(v, "{:33}", from_utf8(&b0).expect("str"));
+        v.push(' ');
+        v.push_str(b1.as_str());
+        v.push('\n');
+        v
+    } else {
+        String::from_utf8_lossy(&text).to_string()
+    };
+
+    Ok(str_text)
+}
+
+fn follow_file(state: &mut Files, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
+    let file = current_file(state);
+
+    if let Some(file) = file {
+        if file.metadata()?.is_dir() {
+            ctx.queue(Control::Event(FilesEvent::ReadDir(
+                Full,
+                file.clone(),
+                None,
+            )));
+            ctx.queue(Control::Event(FilesEvent::ReadDir(Parent, file, None)));
+        }
+    };
+    Ok(Control::Changed)
 }
 
 fn setup_logging() -> Result<(), Error> {
