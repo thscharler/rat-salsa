@@ -165,7 +165,6 @@ impl<'a> PageNavigation<'a> {
         if let Some(txt) = styles.last_page_mark {
             self.last_page = txt;
         }
-        //todo
         self.block = self.block.map(|v| v.style(styles.style));
         self
     }

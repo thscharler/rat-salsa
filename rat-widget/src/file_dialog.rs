@@ -857,10 +857,7 @@ impl FileDialogState {
             self.files = files;
 
             self.path_state.set_text(self.path.to_string_lossy());
-            if self.path_state.inner.width != 0 {
-                // only works when this has been rendered once. todo:
-                self.path_state.move_to_line_end(false);
-            }
+            self.path_state.move_to_line_end(false);
 
             self.dir_state.cancel();
             if !self.dirs.is_empty() {
