@@ -1,14 +1,27 @@
 # 1.1.0
 
+* break: change move_col from upos_type to i16.
+  this is a screen-position now.
+* break: TextStore now uses an associated type for it's iterator and
+  has a few other changes.
+
 * feature: new glyph iteration.
     * Adds a word-breaking algorithm.
     * activate with text_area_state.set_text_wrap()
     * adds TextWrap::Shift for current behaviour, TextWrap::Hard for vi-style wrapping
       and TextWrap::Word for word-breaking.
-    * Word-breaking supports soft-hyphen and soft-spaces in text.
-    *
+    * Word-breaking supports soft-hyphen and zero-width-spaces in text.
+
+* feature: TextAreaState::set_show_ctrl(true) shows all control-characters and introduced line-breaks.
+* feature: TextAreaState::set_wrap_ctrl(true) shows all line-breaks and hidden characters
+  as soft-hyphen and zero-width-space.
+* feature: TextAreaState::set_focus_navigation() to change the default navigation.
+  If set to regular Tab is used for navigation instead of editing.
+* feature: TextArea::text_style_idx() added.
+
 * feature: LineNumbers::with_textarea() can now take the row data
-  from the textarea. This is very necessary when using text-wrapping.
+  from the textarea. This is very necessary when using text-wrapping and
+  shows only the first occurrence of a line.
 
 * add a caching layer. used for line-breaking and a few common but
   expensive functions (len_lines() and line_width()).
@@ -20,6 +33,10 @@
   speeds up rendering long lines too.
 
 * deprecated old glyphs() function and made the new one only pub(crate).
+* deprecated old screen to pos and pos to screen functions.
+  they still work, but only if no text-wrapping is used.
+
+* fix: word_end() at the end of a line gave a wrong offset.
 
 # 1.0.5
 

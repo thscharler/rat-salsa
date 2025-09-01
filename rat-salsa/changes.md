@@ -1,3 +1,10 @@
+# 1.0.2
+
+* feature: add AppContext::queue_event() for ease of use. Puts an
+  application-event in the queue.
+
+* new: example logscroll.
+
 # 1.0.1
 
 concerns only the examples ...

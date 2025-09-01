@@ -1,3 +1,7 @@
+# 1.1.3
+
+* feature: impl RelocatableState for `()`.
+
 # 1.1.2
 
 * feature: impl RelocatableState for [Rect] too.

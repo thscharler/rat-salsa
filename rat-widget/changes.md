@@ -1,3 +1,22 @@
+# 1.0.6
+
+* new: Add widget `Caption` that can be used as a label.
+  It can use a hotkey to set the focus to an associated widget.
+  It can show the hotkey as part of the label either always, on hover
+  or when the widget is focused.
+    * added to SinglePager, DualPager, Form and Clipper as alternate label.
+
+* new: PairedWidget is a wrapper for widgets. With this wrapper a Widget
+  can be paired with a StatefulWidget for display.
+
+* fix: SinglePager shows the first page if called with an unknown widget.
+* fix: Display of the next page was wrong with DualPager.
+* fix: Form, Pager, SinglePager, DualPager: render_label had a broken api. fix.
+
+* feature: Form, Pager, SinglePager, DualPager: add auto_label() flag to
+  disable default label rendering.
+* feature: View: add Style for areas outside the rendered view.
+
 # 1.0.5
 
 * fix: FileDialog: missing active()

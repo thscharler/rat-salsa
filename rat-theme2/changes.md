@@ -1,3 +1,7 @@
+# 1.0.1
+
+* feature: add CaptionStyle
+
 # 1.0.0
 
 * stabilize api

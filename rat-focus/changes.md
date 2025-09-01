@@ -2,6 +2,13 @@
 
 * fix: Focus::handle() event shouldn't return 'Unchanged' but 'Continue'
   for unprocessed events.
+* feature: add HasFocus::id() as a unique identifier for a widget.
+  Returns a unique usize value. Allow focusing by this id. This is
+  for interop with other subsystems where using the FocusFlag feels
+  strange.
+* Add a qualifier FocusTraversal for event-handling.
+  This is used by TextArea to provide alternative navigation keys instead
+  of tab. Uses Esc to focus the next widget after a TextArea.
 
 # 1.0.2
 

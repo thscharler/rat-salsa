@@ -1,3 +1,7 @@
+# 1.0.3
+
+* simplify active to a boolean flag. really replace in a future iteration.
+
 # 1.0.2
 
 * update dependencies
