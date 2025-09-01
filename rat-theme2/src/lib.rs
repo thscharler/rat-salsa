@@ -16,7 +16,7 @@ pub fn color_palettes() -> Vec<(String, Palette)> {
         ("Black&White".to_string(), BLACKWHITE),
         ("Imperial".to_string(), IMPERIAL),
         ("Radium".to_string(), RADIUM),
-        ("Tundra".to_string(), SOLARIZED),
+        ("Tundra".to_string(), TUNDRA),
         ("Monochrome".to_string(), MONOCHROME),
         ("Monekai".to_string(), MONEKAI),
         ("Solarized".to_string(), SOLARIZED),
