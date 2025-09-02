@@ -26,13 +26,13 @@ rat-widget = { version = "1.0", path = "../rat-widget" }
 
 [dev-dependencies]
 anyhow = "1.0"
-configparser = { version = "3.1", features = ["indexmap"] }
 rand = "0.8"
 fern = "0.7"
 dirs = "6.0"
 sysinfo = "0.33"
 ropey = "1.6.1"
 regex-cursor = "0.1.5"
+rust-ini = "0.21"
 
 rat-theme2 = { version = "1.0", path = "../rat-theme2" }
 

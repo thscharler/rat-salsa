@@ -496,7 +496,7 @@ pub mod life {
 
 pub mod game {
     use anyhow::{anyhow, Error};
-    use configparser::ini::Ini;
+    use ini::Ini;
     use rand::random;
     use rat_theme2::DarkTheme;
     use ratatui::buffer::Buffer;
@@ -946,27 +946,22 @@ pub mod game {
     }
 
     pub fn load_life(file: &Path, theme: &DarkTheme) -> Result<LifeGameState, Error> {
-        let mut ini = Ini::new();
-        if let Err(e) = ini.load(file) {
-            return Err(anyhow!("{}", e));
-        }
+        let ini = Ini::load_from_file(file)?;
 
         let name = file.file_stem().expect("name").to_string_lossy();
-        let rule = rule(&ini.get("life", "rules").unwrap_or("23/3".into()));
-        let one = ini.get("life", "one").unwrap_or("1Xx".into());
-        let one_color = color(
-            &ini.get("life", "one.color").unwrap_or("cccccc".into()),
-            theme,
-        )?;
+
+        let rule = rule(&ini.get_from_or(Some("life"), "rules", "23/3"));
+        let one = ini.get_from_or(Some("life"), "one", "1Xx");
+        let one_color = color(&ini.get_from_or(Some("life"), "one.color", "cccccc"), theme)?;
         let zero_color = color(
-            &ini.get("life", "zero.color").unwrap_or("000000".into()),
+            &ini.get_from_or(Some("life"), "zero.color", "000000"),
             theme,
         )?;
 
         let mut height = 0;
         let mut width = 0;
         loop {
-            if let Some(v) = ini.get("data", &format!("{}", height)) {
+            if let Some(v) = ini.get_from(Some("data"), &format!("{}", height)) {
                 let v = v.trim_matches('"').trim_matches('\'');
                 width = max(width, v.chars().count() as u16);
             } else {
@@ -976,7 +971,7 @@ pub mod game {
         }
         let mut world_0 = vec![0; width as usize * height as usize];
         for row in 0..height {
-            if let Some(d) = ini.get("data", &format!("{}", row)) {
+            if let Some(d) = ini.get_from(Some("data"), &format!("{}", row)) {
                 let d = d.trim_matches('"').trim_matches('\'');
                 for (col, c) in d.chars().enumerate() {
                     if col >= width as usize {

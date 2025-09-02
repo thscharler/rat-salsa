@@ -2,13 +2,16 @@
 
 use crate::event::LogScrollEvent;
 use crate::scenery::Scenery;
-use anyhow::Error;
+use anyhow::{anyhow, Error};
+use dirs::config_dir;
+use ini::Ini;
 use rat_salsa2::poll::{PollCrossterm, PollTimers};
 use rat_salsa2::{run_tui, RunConfig};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use std::env::args;
 use std::fs;
+use std::fs::create_dir_all;
 use std::path::PathBuf;
 
 type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, LogScrollEvent, Error>;
@@ -29,7 +32,7 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
-    let config = LogScrollConfig::default();
+    let config = load_config()?;
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
 
     let mut global = GlobalState::new(config, theme);
@@ -53,7 +56,46 @@ fn main() -> Result<(), Error> {
 }
 
 #[derive(Debug, Default)]
-pub struct LogScrollConfig {}
+pub struct LogScrollConfig {
+    split_pos: u16,
+}
+
+fn load_config() -> Result<LogScrollConfig, Error> {
+    if let Some(config) = config_dir() {
+        let config = config.join("logscroll").join("logscroll.ini");
+        if config.exists() {
+            let ini = Ini::load_from_file(config)?;
+            let sec = ini.general_section();
+            let split_pos: u16 = sec.get("split").unwrap_or("25").parse()?;
+            return Ok(LogScrollConfig { split_pos });
+        }
+    };
+
+    Ok(LogScrollConfig { split_pos: 25 })
+}
+
+fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
+    if let Some(config_dir) = config_dir() {
+        let config_path = config_dir.join("logscroll");
+        create_dir_all(&config_path)?;
+        let config = config_path.join("logscroll.ini");
+
+        let mut ini = if config.exists() {
+            Ini::load_from_file(&config)?
+        } else {
+            Ini::default()
+        };
+
+        let mut sec = ini.with_general_section();
+        sec.set("split", cfg.split_pos.to_string());
+
+        ini.write_to_file(config)?;
+
+        Ok(())
+    } else {
+        Err(anyhow!("Can't save config."))
+    }
+}
 
 #[derive(Debug)]
 pub struct GlobalState {
@@ -81,6 +123,8 @@ mod event {
         TimeOut(TimeOut),
         Message(String),
         Status(usize, String),
+
+        StoreCfg,
     }
 
     impl From<crossterm::event::Event> for LogScrollEvent {
@@ -99,7 +143,7 @@ mod event {
 mod scenery {
     use crate::event::LogScrollEvent;
     use crate::logscroll::LogScroll;
-    use crate::{logscroll, AppContext, RenderContext};
+    use crate::{logscroll, store_config, AppContext, RenderContext};
     use anyhow::Error;
     use log::debug;
     use rat_salsa2::Control;
@@ -211,6 +255,10 @@ mod scenery {
                 state.status.status(*n, s);
                 Control::Changed
             }
+            LogScrollEvent::StoreCfg => {
+                store_config(&ctx.g.cfg)?;
+                Control::Continue
+            }
             _ => Control::Continue,
         };
 
@@ -243,7 +291,7 @@ mod logscroll {
     use rat_theme2::DarkTheme;
     use rat_widget::caption::{Caption, CaptionState, HotkeyPolicy};
     use rat_widget::event::{
-        ct_event, try_flow, HandleEvent, ReadOnly, Regular, TableOutcome, TextOutcome,
+        ct_event, try_flow, HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome,
     };
     use rat_widget::focus::{impl_has_focus, HasFocus, Navigation};
     use rat_widget::paired::{PairSplit, Paired, PairedState};
@@ -311,7 +359,7 @@ mod logscroll {
             .styles(ctx.g.theme.split_style())
             .constraints([
                 Constraint::Fill(1), //
-                Constraint::Length(25),
+                Constraint::Length(ctx.g.cfg.split_pos),
             ])
             .into_widget_layout(l0[1], &mut state.split);
 
@@ -636,7 +684,14 @@ mod logscroll {
                     _ => Control::Continue,
                 });
 
-                try_flow!(state.split.handle(event, Regular));
+                try_flow!(match state.split.handle(event, Regular) {
+                    Outcome::Changed => {
+                        ctx.g.cfg.split_pos = state.split.area_len(1);
+                        ctx.queue_event(LogScrollEvent::StoreCfg);
+                        Control::Changed
+                    }
+                    r => r.into(),
+                });
                 try_flow!(state.logtext.handle(event, ReadOnly));
                 try_flow!(state.find_label.handle(event, ctx.focus()));
                 try_flow!(match state.find.handle(event, Regular) {
