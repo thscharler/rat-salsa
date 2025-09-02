@@ -658,9 +658,11 @@ impl<'a, Selection> Table<'a, Selection> {
         self
     }
 
-    /// Overrides the width of the rendering area for layout purposes.
-    /// Layout uses this width, even if it means that some columns are
-    /// not visible.
+    /// Set the display width of the table.
+    /// If this is not set, the width of the rendered area is used.
+    /// The column layout uses this width.
+    ///
+    /// See also [auto_layout_width].
     #[inline]
     pub fn layout_width(mut self, width: u16) -> Self {
         self.layout_width = Some(width);
@@ -668,7 +670,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Calculates the width from the given column-constraints.
-    /// If a fixed layout_width() is set too, that one will win.
+    /// If a fixed [layout_width] is set too, that one will win.
     ///
     /// Panic:
     /// Rendering will panic, if any constraint other than Constraint::Length(),
