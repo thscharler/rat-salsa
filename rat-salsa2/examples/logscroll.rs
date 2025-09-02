@@ -1,24 +1,36 @@
 #![allow(dead_code)]
 
-use crate::event::LogScrollEvent;
-use crate::scenery::Scenery;
 use anyhow::{anyhow, Error};
 use dirs::config_dir;
 use ini::Ini;
+use log::{debug, warn};
 use rat_salsa2::poll::{PollCrossterm, PollTimers};
-use rat_salsa2::{run_tui, RunConfig};
-use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::DarkTheme;
+use rat_salsa2::timer::TimeOut;
+use rat_salsa2::{run_tui, Control, RunConfig};
+use rat_theme2::{dark_themes, DarkTheme, Palette};
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_widget::focus::FocusBuilder;
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::statusline::{StatusLine, StatusLineState};
+use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
+use rat_widget::text::HasScreenCursor;
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{StatefulWidget, Widget};
+use std::cell::RefCell;
 use std::env::args;
 use std::fs;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 
 type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, LogScrollEvent, Error>;
 type RenderContext<'a> = rat_salsa2::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
+    set_global_clipboard(CliClipboard::default());
 
     let mut args = args();
     args.next();
@@ -33,18 +45,18 @@ fn main() -> Result<(), Error> {
     }
 
     let config = load_config()?;
-    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+    let theme = config_theme(&config);
 
     let mut global = GlobalState::new(config, theme);
-    global.current = current;
+    global.file_path = current;
 
     let mut state = Scenery::default();
 
     run_tui(
-        scenery::init,
-        scenery::render,
-        scenery::event,
-        scenery::error,
+        init,
+        render,
+        event,
+        error,
         &mut global,
         &mut state,
         RunConfig::default()?
@@ -58,6 +70,15 @@ fn main() -> Result<(), Error> {
 #[derive(Debug, Default)]
 pub struct LogScrollConfig {
     split_pos: u16,
+    theme: String,
+}
+
+fn config_theme(config: &LogScrollConfig) -> DarkTheme {
+    dark_themes()
+        .iter()
+        .find(|v| v.name() == config.theme)
+        .cloned()
+        .unwrap_or(dark_themes()[0].clone())
 }
 
 fn load_config() -> Result<LogScrollConfig, Error> {
@@ -67,11 +88,18 @@ fn load_config() -> Result<LogScrollConfig, Error> {
             let ini = Ini::load_from_file(config)?;
             let sec = ini.general_section();
             let split_pos: u16 = sec.get("split").unwrap_or("25").parse()?;
-            return Ok(LogScrollConfig { split_pos });
+            let theme = sec.get("theme").unwrap_or("");
+            return Ok(LogScrollConfig {
+                split_pos,
+                theme: theme.into(),
+            });
         }
     };
 
-    Ok(LogScrollConfig { split_pos: 25 })
+    Ok(LogScrollConfig {
+        split_pos: 25,
+        theme: Default::default(),
+    })
 }
 
 fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
@@ -88,6 +116,7 @@ fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
 
         let mut sec = ini.with_general_section();
         sec.set("split", cfg.split_pos.to_string());
+        sec.set("theme", cfg.theme.clone());
 
         ini.write_to_file(config)?;
 
@@ -101,7 +130,7 @@ fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
 pub struct GlobalState {
     pub cfg: LogScrollConfig,
     pub theme: DarkTheme,
-    pub current: PathBuf,
+    pub file_path: PathBuf,
 }
 
 impl GlobalState {
@@ -109,186 +138,188 @@ impl GlobalState {
         Self {
             cfg,
             theme,
-            current: Default::default(),
+            file_path: Default::default(),
         }
     }
 }
 
-mod event {
-    use rat_salsa2::timer::TimeOut;
+#[derive(Debug)]
+pub enum LogScrollEvent {
+    Event(crossterm::event::Event),
+    TimeOut(TimeOut),
+    Message(String),
+    Status(usize, String),
 
-    #[derive(Debug)]
-    pub enum LogScrollEvent {
-        Event(crossterm::event::Event),
-        TimeOut(TimeOut),
-        Message(String),
-        Status(usize, String),
+    Cursor,
+    StoreCfg,
+}
 
-        StoreCfg,
-    }
-
-    impl From<crossterm::event::Event> for LogScrollEvent {
-        fn from(value: crossterm::event::Event) -> Self {
-            Self::Event(value)
-        }
-    }
-
-    impl From<TimeOut> for LogScrollEvent {
-        fn from(value: TimeOut) -> Self {
-            Self::TimeOut(value)
-        }
+impl From<crossterm::event::Event> for LogScrollEvent {
+    fn from(value: crossterm::event::Event) -> Self {
+        Self::Event(value)
     }
 }
 
-mod scenery {
-    use crate::event::LogScrollEvent;
-    use crate::logscroll::LogScroll;
-    use crate::{logscroll, store_config, AppContext, RenderContext};
-    use anyhow::Error;
-    use log::debug;
-    use rat_salsa2::Control;
-    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
-    use rat_widget::focus::FocusBuilder;
-    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-    use rat_widget::statusline::{StatusLine, StatusLineState};
-    use rat_widget::text::HasScreenCursor;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
-    use std::time::{Duration, SystemTime};
+impl From<TimeOut> for LogScrollEvent {
+    fn from(value: TimeOut) -> Self {
+        Self::TimeOut(value)
+    }
+}
 
-    #[derive(Debug, Default)]
-    pub struct Scenery {
-        pub logscroll: LogScroll,
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
+#[derive(Debug, Default)]
+pub struct Scenery {
+    pub logscroll: logscroll::LogScroll,
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,
+}
+
+pub fn render(
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut Scenery,
+    ctx: &mut RenderContext<'_>,
+) -> Result<(), Error> {
+    let t0 = SystemTime::now();
+
+    let layout = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Fill(1), //
+        Constraint::Length(1),
+    ])
+    .split(area);
+
+    logscroll::render(area, buf, &mut state.logscroll, ctx)?;
+    ctx.set_screen_cursor(state.logscroll.screen_cursor());
+
+    Line::from_iter([
+        Span::from("log/scroll "),
+        Span::from(format!("{:?}", ctx.g.file_path)),
+    ])
+    .style(ctx.g.theme.red(Palette::DARK_3))
+    .render(layout[0], buf);
+
+    if state.error_dlg.active() {
+        let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
+        err.render(area, buf, &mut state.error_dlg);
     }
 
-    pub fn render(
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Scenery,
-        ctx: &mut RenderContext<'_>,
-    ) -> Result<(), Error> {
-        let t0 = SystemTime::now();
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state
+        .status
+        .status(2, format!("R{} {:.0?}", ctx.count, el).to_string());
 
-        let layout = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Fill(1), //
-            Constraint::Length(1),
+    let status = StatusLine::new()
+        .layout([
+            Constraint::Fill(1),
+            Constraint::Length(12),
+            Constraint::Length(12),
+            Constraint::Length(12),
         ])
-        .split(area);
+        .styles(vec![
+            ctx.g.theme.status_base(),
+            ctx.g.theme.status_base(),
+            ctx.g.theme.status_base(),
+            ctx.g.theme.status_base(),
+        ]);
+    status.render(layout[2], buf, &mut state.status);
 
-        logscroll::render(area, buf, &mut state.logscroll, ctx)?;
+    Ok(())
+}
 
-        ctx.set_screen_cursor(state.logscroll.screen_cursor());
+pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    ctx.focus = Some(FocusBuilder::build_for(&state.logscroll));
+    ctx.focus().enable_log();
+    logscroll::init(&mut state.logscroll, ctx)?;
+    Ok(())
+}
 
-        if state.error_dlg.active() {
-            let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(area, buf, &mut state.error_dlg);
+pub fn event(
+    event: &LogScrollEvent,
+    state: &mut Scenery,
+    ctx: &mut AppContext<'_>,
+) -> Result<Control<LogScrollEvent>, Error> {
+    let t0 = SystemTime::now();
+
+    let mut r = match event {
+        LogScrollEvent::Event(event) => {
+            ctx.focus = Some(FocusBuilder::rebuild_for(
+                &state.logscroll,
+                ctx.focus.take(),
+            ));
+            ctx.focus().enable_log();
+
+            let mut r = match &event {
+                ct_event!(resized) => Control::Changed,
+                ct_event!(key press CONTROL-'q') => Control::Quit,
+                ct_event!(keycode press F(1)) => {
+                    Control::Event(LogScrollEvent::Message(HELP_TEXT.to_string()))
+                }
+                _ => Control::Continue,
+            };
+
+            r = r.or_else(|| {
+                if state.error_dlg.active() {
+                    state.error_dlg.handle(event, Dialog).into()
+                } else {
+                    Control::Continue
+                }
+            });
+
+            let f = ctx.focus_mut().handle(event, Regular);
+            ctx.queue(f);
+
+            r
         }
+        LogScrollEvent::Message(s) => {
+            state.error_dlg.append(s.as_str());
+            Control::Changed
+        }
+        LogScrollEvent::Status(n, s) => {
+            state.status.status(*n, s);
+            Control::Changed
+        }
+        LogScrollEvent::StoreCfg => {
+            store_config(&ctx.g.cfg)?;
+            Control::Continue
+        }
+        LogScrollEvent::Cursor => {
+            let cursor = format!(
+                "{}:{}",
+                state.logscroll.logtext.cursor().x,
+                state.logscroll.logtext.cursor().y
+            );
+            state.status.status(1, cursor);
+            Control::Changed
+        }
+        _ => Control::Continue,
+    };
 
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        state
-            .status
-            .status(2, format!("R{} {:.0?}", ctx.count, el).to_string());
+    r = r.or_else_try(|| logscroll::event(event, &mut state.logscroll, ctx))?;
 
-        let status = StatusLine::new()
-            .layout([
-                Constraint::Fill(1),
-                Constraint::Length(12),
-                Constraint::Length(12),
-                Constraint::Length(12),
-            ])
-            .styles(ctx.g.theme.statusline_style());
-        status.render(layout[2], buf, &mut state.status);
+    let el = t0.elapsed()?;
+    state.status.status(3, format!("E {:.0?}", el).to_string());
 
-        Ok(())
-    }
+    Ok(r)
+}
 
-    pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-        ctx.focus = Some(FocusBuilder::build_for(&state.logscroll));
-        ctx.focus().enable_log();
-        logscroll::init(&mut state.logscroll, ctx)?;
-        Ok(())
-    }
-
-    pub fn event(
-        event: &LogScrollEvent,
-        state: &mut Scenery,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<LogScrollEvent>, Error> {
-        let t0 = SystemTime::now();
-
-        let mut r = match event {
-            LogScrollEvent::Event(event) => {
-                ctx.focus = Some(FocusBuilder::rebuild_for(
-                    &state.logscroll,
-                    ctx.focus.take(),
-                ));
-                ctx.focus().enable_log();
-
-                let mut r = match &event {
-                    ct_event!(resized) => Control::Changed,
-                    ct_event!(key press CONTROL-'q') => Control::Quit,
-                    _ => Control::Continue,
-                };
-
-                r = r.or_else(|| {
-                    if state.error_dlg.active() {
-                        state.error_dlg.handle(event, Dialog).into()
-                    } else {
-                        Control::Continue
-                    }
-                });
-
-                let f = ctx.focus_mut().handle(event, Regular);
-                ctx.queue(f);
-
-                r
-            }
-            LogScrollEvent::Message(s) => {
-                state.error_dlg.append(s.as_str());
-                Control::Changed
-            }
-            LogScrollEvent::Status(n, s) => {
-                state.status.status(*n, s);
-                Control::Changed
-            }
-            LogScrollEvent::StoreCfg => {
-                store_config(&ctx.g.cfg)?;
-                Control::Continue
-            }
-            _ => Control::Continue,
-        };
-
-        r = r.or_else_try(|| logscroll::event(event, &mut state.logscroll, ctx))?;
-
-        let el = t0.elapsed()?;
-        state.status.status(3, format!("E {:.0?}", el).to_string());
-
-        Ok(r)
-    }
-
-    pub fn error(
-        event: Error,
-        _state: &mut Scenery,
-        _ctx: &mut AppContext<'_>,
-    ) -> Result<Control<LogScrollEvent>, Error> {
-        debug!("ERROR {:#?}", event);
-        // self.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Changed)
-    }
+pub fn error(
+    event: Error,
+    _state: &mut Scenery,
+    _ctx: &mut AppContext<'_>,
+) -> Result<Control<LogScrollEvent>, Error> {
+    debug!("ERROR {:#?}", event);
+    // self.error_dlg.append(format!("{:?}", &*event).as_str());
+    Ok(Control::Changed)
 }
 
 mod logscroll {
-    use crate::event::LogScrollEvent;
+    use crate::LogScrollEvent;
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
     use log::debug;
     use rat_salsa2::timer::{TimerDef, TimerHandle};
     use rat_salsa2::Control;
-    use rat_theme2::DarkTheme;
+    use rat_theme2::{dark_themes, DarkTheme, Palette};
     use rat_widget::caption::{Caption, CaptionState, HotkeyPolicy};
     use rat_widget::event::{
         ct_event, try_flow, HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome,
@@ -313,17 +344,18 @@ mod logscroll {
     use std::io::{Read, Seek, SeekFrom};
     use std::ops::Range;
     use std::path::Path;
-    use std::time::Duration;
+    use std::time::{Duration, SystemTime};
+    use unicode_segmentation::UnicodeSegmentation;
 
     #[derive(Debug)]
     pub struct LogScroll {
-        split: SplitState,
-        logtext: TextAreaState,
-        find_label: CaptionState,
-        find: TextInputState,
-        find_matches: Vec<Range<usize>>,
-        find_table: TableState<RowSelection>,
-        pollution: TimerHandle,
+        pub split: SplitState,
+        pub logtext: TextAreaState,
+        pub find_label: CaptionState,
+        pub find: TextInputState,
+        pub find_matches: Vec<Range<usize>>,
+        pub find_table: TableState<RowSelection>,
+        pub pollution: TimerHandle,
     }
 
     impl Default for LogScroll {
@@ -338,6 +370,7 @@ mod logscroll {
                 pollution: Default::default(),
             };
             zelf.logtext.set_focus_navigation(Navigation::Regular);
+            zelf.find_table.set_scroll_selection(true);
             zelf
         }
     }
@@ -378,6 +411,7 @@ mod logscroll {
         let l2 = Layout::vertical([
             Constraint::Length(1), //
             Constraint::Fill(1),
+            Constraint::Length(1),
         ])
         .split(ls[1]);
 
@@ -405,6 +439,10 @@ mod logscroll {
                 data: &state.find_matches,
             })
             .render(l2[1], buf, &mut state.find_table);
+
+        Line::from(format!("{} matches", state.find_matches.len()))
+            .style(ctx.g.theme.red(Palette::DARK_3))
+            .render(l2[2], buf);
 
         split.render(l0[1], buf, &mut state.split);
 
@@ -450,6 +488,38 @@ mod logscroll {
             let line_prefix = &line_text[..data_start];
             let line_match = &line_text[data_start..data_end];
             let line_suffix = &line_text[data_end..];
+
+            let mut prefix_len = line_prefix.graphemes(true).count();
+            let match_len = line_match.graphemes(true).count();
+            let mut suffix_len = line_suffix.graphemes(true).count();
+            let mut area_width = area.width as usize;
+
+            if prefix_len + match_len + suffix_len > area_width {
+                area_width = area_width.saturating_sub(match_len);
+
+                if suffix_len > area_width / 2 && prefix_len > area_width / 2 {
+                    prefix_len = area_width / 2;
+                    suffix_len = area_width / 2;
+                } else if prefix_len > area_width / 2 {
+                    prefix_len = area_width - suffix_len;
+                } else if suffix_len > area_width / 2 {
+                    suffix_len = area_width - prefix_len;
+                } else {
+                    // nice
+                }
+            }
+
+            let line_prefix = line_prefix
+                .graphemes(true)
+                .rev()
+                .take(prefix_len)
+                .collect::<String>();
+            let line_prefix = line_prefix.graphemes(true).rev().collect::<String>();
+
+            let line_suffix = line_suffix
+                .graphemes(true)
+                .take(suffix_len)
+                .collect::<String>();
 
             let pos_txt = format!("\u{2316} {}:{}", line.x, line.y);
             let l0 = Line::from_iter([
@@ -600,7 +670,7 @@ mod logscroll {
             state.find_matches.clear();
             state.logtext.set_styles(Vec::default());
             state.find_table.clear_offset();
-            state.find_table.clear_selection();
+            state.find_table.select(Some(0));
             return Ok(());
         }
 
@@ -638,7 +708,7 @@ mod logscroll {
     pub fn init(state: &mut LogScroll, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         ctx.focus().first();
 
-        load_file(state, &ctx.g.current)?;
+        load_file(state, &ctx.g.file_path)?;
 
         ctx.add_timer(
             TimerDef::new()
@@ -672,15 +742,32 @@ mod logscroll {
                         Control::Changed
                     }
                     ct_event!(key press ALT-'f') | ct_event!(keycode press F(3)) => {
-                        if state.split.is_hidden(1) {
+                        if state.find.is_focused() {
+                            if state.split.is_hidden(1) {
+                                state.split.show_split(1);
+                                ctx.focus().focus(&state.find);
+                            } else {
+                                state.split.hide_split(1);
+                                ctx.focus().focus(&state.logtext);
+                            }
+                        } else {
                             state.split.show_split(1);
                             ctx.focus().focus(&state.find);
-                        } else {
-                            state.split.hide_split(1);
-                            ctx.focus().focus(&state.logtext);
                         }
                         Control::Changed
                     }
+                    ct_event!(keycode press F(8)) => {
+                        let themes = dark_themes();
+                        let pos = themes
+                            .iter()
+                            .position(|v| v.name() == ctx.g.theme.name())
+                            .unwrap_or(0);
+                        let pos = (pos + 1) % themes.len();
+                        ctx.g.theme = themes[pos].clone();
+                        ctx.queue_event(LogScrollEvent::Status(0, ctx.g.theme.name().into()));
+                        Control::Changed
+                    }
+
                     _ => Control::Continue,
                 });
 
@@ -692,7 +779,12 @@ mod logscroll {
                     }
                     r => r.into(),
                 });
-                try_flow!(state.logtext.handle(event, ReadOnly));
+                try_flow!(match state.logtext.handle(event, ReadOnly) {
+                    TextOutcome::Changed | TextOutcome::TextChanged => {
+                        Control::Event(LogScrollEvent::Cursor)
+                    }
+                    r => r.into(),
+                });
                 try_flow!(state.find_label.handle(event, ctx.focus()));
                 try_flow!(match state.find.handle(event, Regular) {
                     TextOutcome::TextChanged => {
@@ -707,6 +799,7 @@ mod logscroll {
                             let range = state.find_matches[selected].clone();
                             let text_range = state.logtext.byte_range(range.clone());
                             state.logtext.set_cursor(text_range.start, false);
+                            ctx.queue_event(LogScrollEvent::Cursor);
 
                             let old_style = state.logtext.styles().find(|(_, s)| *s == 100);
                             if let Some((range, style)) = old_style {
@@ -726,27 +819,17 @@ mod logscroll {
                 Control::Continue
             }
             LogScrollEvent::TimeOut(t) if t.handle != state.pollution => {
-                if log_grows(state, &ctx.g.current)? {
-                    ctx.queue(Control::Event(LogScrollEvent::Status(
-                        0,
-                        "grows".to_string(),
-                    )));
-                    if update_file(state, &ctx.g.current)? {
-                        let file_size = format!("{}l", state.logtext.len_lines());
-                        ctx.queue(Control::Event(LogScrollEvent::Status(1, file_size)));
+                if log_grows(state, &ctx.g.file_path)? {
+                    if update_file(state, &ctx.g.file_path)? {
+                        ctx.queue_event(LogScrollEvent::Cursor);
                         Control::Changed
                     } else {
                         Control::Continue
                     }
-                } else if log_shrinks(state, &ctx.g.current)? {
-                    ctx.queue(Control::Event(LogScrollEvent::Status(
-                        0,
-                        "shrinks".to_string(),
-                    )));
-                    load_file(state, &ctx.g.current)?;
+                } else if log_shrinks(state, &ctx.g.file_path)? {
+                    load_file(state, &ctx.g.file_path)?;
                     run_search(state, ctx)?;
-                    let file_size = format!("{}l", state.logtext.len_lines());
-                    ctx.queue(Control::Event(LogScrollEvent::Status(1, file_size)));
+                    ctx.queue_event(LogScrollEvent::Cursor);
                     Control::Changed
                 } else {
                     Control::Continue
@@ -785,3 +868,58 @@ fn setup_logging() -> Result<(), Error> {
     }
     Ok(())
 }
+
+#[derive(Debug, Default, Clone)]
+struct CliClipboard {
+    clip: RefCell<String>,
+}
+
+impl Clipboard for CliClipboard {
+    fn get_string(&self) -> Result<String, ClipboardError> {
+        match cli_clipboard::get_contents() {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                warn!("{:?}", e);
+                Ok(self.clip.borrow().clone())
+            }
+        }
+    }
+
+    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+        let mut clip = self.clip.borrow_mut();
+        *clip = s.to_string();
+
+        match cli_clipboard::set_contents(s.to_string()) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                warn!("{:?}", e);
+                Err(ClipboardError)
+            }
+        }
+    }
+}
+
+static HELP_TEXT: &str = r#"
+
+### HELP ###
+
+F1      show this
+F2      change split position
+F3      jump to find / toggle find
+F8      next theme
+
+### Navigation ###
+
+Tab/
+Shift-Tab   standard navigation
+
+### Log ###
+Ctrl+End    jump to end of log and stick there
+...         standard navigation with arrow-keys etc
+Ctrl+C      copy to clipboard
+
+
+
+
+
+"#;
