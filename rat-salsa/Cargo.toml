@@ -21,8 +21,8 @@ crossterm = "0.28"
 log = "0.4"
 ratatui = { version = "0.29" }
 tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
-
-rat-widget = { version = "1.0", path = "../rat-widget" }
+rat-event = { version = "1.2", path = "../rat-event" }
+rat-focus = { version = "1.0", path = "../rat-focus" }
 
 [dev-dependencies]
 anyhow = "1.0"
@@ -34,6 +34,7 @@ sysinfo = "0.37"
 ropey = "1.6.1"
 regex-cursor = "0.1.5"
 
+rat-widget = { version = "1.0", path = "../rat-widget" }
 rat-theme2 = { version = "1.0", path = "../rat-theme2" }
 
 [[example]]

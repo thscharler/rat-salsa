@@ -6,8 +6,8 @@ use crate::timer::{TimerDef, TimerHandle, Timers};
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
-use rat_widget::event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_widget::focus::Focus;
+use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_focus::Focus;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::cmp::Ordering;

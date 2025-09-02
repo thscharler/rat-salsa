@@ -19,7 +19,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
-use rat_widget::event::util::set_have_keyboard_enhancement;
+use rat_event::util::set_have_keyboard_enhancement;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Frame;
 use std::fmt::Debug;
