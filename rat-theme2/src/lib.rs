@@ -31,17 +31,17 @@ pub fn color_palettes() -> Vec<(String, Palette)> {
 /// A list of DarkTheme for all color palettes.
 pub fn dark_themes() -> Vec<DarkTheme> {
     vec![
-        DarkTheme::new("Black&White".to_string(), BLACKWHITE),
         DarkTheme::new("Imperial".to_string(), IMPERIAL),
         DarkTheme::new("Radium".to_string(), RADIUM),
         DarkTheme::new("Tundra".to_string(), TUNDRA),
+        DarkTheme::new("Ocean".to_string(), OCEAN),
         DarkTheme::new("Monochrome".to_string(), MONOCHROME),
+        DarkTheme::new("Black&White".to_string(), BLACKWHITE),
+        DarkTheme::new("Base16".to_string(), BASE16),
+        DarkTheme::new("Base16Relaxed".to_string(), BASE16_RELAXED),
         DarkTheme::new("Monekai".to_string(), MONEKAI),
         DarkTheme::new("Solarized".to_string(), SOLARIZED),
         DarkTheme::new("Oxocarbon".to_string(), OXOCARBON),
         DarkTheme::new("VSCodeDark".to_string(), VSCODE_DARK),
-        DarkTheme::new("Ocean".to_string(), OCEAN),
-        DarkTheme::new("Base16".to_string(), BASE16),
-        DarkTheme::new("Base16Relaxed".to_string(), BASE16_RELAXED),
     ]
 }
