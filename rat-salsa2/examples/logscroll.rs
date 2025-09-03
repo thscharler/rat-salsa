@@ -344,7 +344,7 @@ mod logscroll {
     use std::io::{Read, Seek, SeekFrom};
     use std::ops::Range;
     use std::path::Path;
-    use std::time::{Duration, SystemTime};
+    use std::time::Duration;
     use unicode_segmentation::UnicodeSegmentation;
 
     #[derive(Debug)]
