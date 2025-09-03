@@ -5,14 +5,15 @@
 use crate::_private::NonExhaustive;
 use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
+use crate::styles::StylizeExt;
 use crate::util::{fallback_select_style, revert_style};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::{Block, ListDirection, ListItem, StatefulWidget};
+use ratatui::style::{Style, Stylize};
+use ratatui::widgets::{Block, HighlightSpacing, ListDirection, ListItem, StatefulWidget};
 use std::cmp::min;
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -51,6 +52,10 @@ pub struct List<'a, Selection> {
     select_style: Option<Style>,
     focus_style: Option<Style>,
     direction: ListDirection,
+    highlight_spacing: HighlightSpacing,
+    highlight_symbol: Option<&'static str>,
+    repeat_highlight_symbol: bool,
+    scroll_padding: usize,
 
     _phantom: PhantomData<Selection>,
 }
@@ -67,6 +72,11 @@ pub struct ListStyle {
 
     pub block: Option<Block<'static>>,
     pub scroll: Option<ScrollStyle>,
+
+    pub highlight_spacing: Option<HighlightSpacing>,
+    pub highlight_symbol: Option<&'static str>,
+    pub repeat_highlight_symbol: Option<bool>,
+    pub scroll_padding: Option<usize>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -111,8 +121,38 @@ impl Default for ListStyle {
             focus: None,
             block: None,
             scroll: None,
+            highlight_spacing: None,
+            highlight_symbol: None,
+            repeat_highlight_symbol: None,
+            scroll_padding: None,
             non_exhaustive: NonExhaustive,
         }
+    }
+}
+
+impl StylizeExt<ListStyle> for ratatui::widgets::List<'_> {
+    fn styles(mut self, styles: ListStyle) -> Self {
+        self = self.style(styles.style);
+        if let Some(select) = styles.select {
+            self = self.highlight_style(select);
+        }
+        if let Some(mut block) = styles.block {
+            block = block.style(styles.style);
+            self = self.block(block);
+        }
+        if let Some(highlight_spacing) = styles.highlight_spacing {
+            self = self.highlight_spacing(highlight_spacing);
+        }
+        if let Some(highlight_symbol) = styles.highlight_symbol {
+            self = self.highlight_symbol(highlight_symbol);
+        }
+        if let Some(repeat_highlight_symbol) = styles.repeat_highlight_symbol {
+            self = self.repeat_highlight_symbol(repeat_highlight_symbol);
+        }
+        if let Some(scroll_padding) = styles.scroll_padding {
+            self = self.scroll_padding(scroll_padding);
+        }
+        self
     }
 }
 
@@ -133,6 +173,10 @@ impl<'a, Selection> List<'a, Selection> {
             select_style: Default::default(),
             focus_style: Default::default(),
             direction: Default::default(),
+            highlight_spacing: Default::default(),
+            highlight_symbol: Default::default(),
+            repeat_highlight_symbol: false,
+            scroll_padding: 0,
             _phantom: Default::default(),
         }
     }
@@ -188,6 +232,18 @@ impl<'a, Selection> List<'a, Selection> {
         }
         if let Some(block) = styles.block {
             self.block = Some(block);
+        }
+        if let Some(highlight_spacing) = styles.highlight_spacing {
+            self.highlight_spacing = highlight_spacing;
+        }
+        if let Some(highlight_symbol) = styles.highlight_symbol {
+            self.highlight_symbol = Some(highlight_symbol);
+        }
+        if let Some(repeat_highlight_symbol) = styles.repeat_highlight_symbol {
+            self.repeat_highlight_symbol = repeat_highlight_symbol;
+        }
+        if let Some(scroll_padding) = styles.scroll_padding {
+            self.scroll_padding = scroll_padding;
         }
         self.block = self.block.map(|v| v.style(self.style));
         self
@@ -334,15 +390,17 @@ fn render_list<Selection: ListSelection>(
 
     let mut list_state = ratatui::widgets::ListState::default().with_offset(state.scroll.offset());
 
-    StatefulWidget::render(
-        ratatui::widgets::List::default()
-            .items(items)
-            .style(widget.style)
-            .direction(widget.direction),
-        state.inner,
-        buf,
-        &mut list_state,
-    );
+    let mut list = ratatui::widgets::List::default()
+        .items(items)
+        .style(widget.style)
+        .direction(widget.direction)
+        .highlight_spacing(widget.highlight_spacing)
+        .repeat_highlight_symbol(widget.repeat_highlight_symbol)
+        .scroll_padding(widget.scroll_padding);
+    if let Some(highlight_symbol) = widget.highlight_symbol {
+        list = list.highlight_symbol(highlight_symbol);
+    }
+    list.render(state.inner, buf, &mut list_state);
 }
 
 impl<Selection> HasFocus for ListState<Selection> {

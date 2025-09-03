@@ -62,6 +62,15 @@ pub mod scrolled {
     };
 }
 
+/// Extension trait for foreign styling.
+pub mod styles {
+    /// Extension trait for xxxStyles structs that want
+    /// to be applied to an external widget.
+    pub trait StylizeExt<Styles> {
+        fn styles(self, styles: Styles) -> Self;
+    }
+}
+
 /// Text editing core functionality and utilities.
 pub mod text {
     pub use rat_text::clipboard;
