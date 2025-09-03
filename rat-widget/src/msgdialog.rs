@@ -138,6 +138,15 @@ impl MsgDialogState {
         Self::default()
     }
 
+    /// New dialog with active-flag set.
+    pub fn new_active(title: impl Into<String>, msg: impl AsRef<str>) -> Self {
+        let zelf = Self::default();
+        zelf.set_active(true);
+        zelf.title(title);
+        zelf.append(msg.as_ref());
+        zelf
+    }
+
     /// Show the dialog.
     pub fn set_active(&self, active: bool) {
         self.active.set(active);
