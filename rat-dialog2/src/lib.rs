@@ -55,27 +55,15 @@ impl<Event> ConsumedEvent for StackControl<Event> {
     }
 }
 
-impl<Event> From<Outcome> for StackControl<Event> {
-    fn from(value: Outcome) -> Self {
-        match value {
+impl<Event, T> From<T> for StackControl<Event>
+where
+    T: Into<Outcome>,
+{
+    fn from(value: T) -> Self {
+        match value.into() {
             Outcome::Continue => StackControl::Continue,
             Outcome::Unchanged => StackControl::Unchanged,
             Outcome::Changed => StackControl::Changed,
-        }
-    }
-}
-
-impl<Event> From<Control<Event>> for StackControl<Event> {
-    fn from(value: Control<Event>) -> Self {
-        match value {
-            Control::Continue => StackControl::Continue,
-            Control::Unchanged => StackControl::Unchanged,
-            Control::Changed => StackControl::Changed,
-            Control::Event(evt) => StackControl::Event(evt),
-            Control::Quit => StackControl::Quit,
-            _ => {
-                unreachable!()
-            }
         }
     }
 }
@@ -434,7 +422,7 @@ impl<Global, Event, Error>
     HandleEvent<Event, &mut AppContext<'_, Global, Event, Error>, Result<Control<Event>, Error>>
     for DialogStack<Global, Event, Error>
 where
-    Event: 'static + Send + Debug,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     fn handle(
