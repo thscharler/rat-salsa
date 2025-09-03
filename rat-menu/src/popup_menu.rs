@@ -487,7 +487,7 @@ impl PopupMenuState {
     /// New state with a focus name.
     pub fn named(name: &'static str) -> Self {
         Self {
-            popup: PopupCoreState::named(format!("{}.popup", name).to_string().leak()),
+            popup: PopupCoreState::new(),
             ..Default::default()
         }
     }
