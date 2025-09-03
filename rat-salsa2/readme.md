@@ -78,6 +78,10 @@ The examples directory contains some examples
 - [files.rs][refFiles]: Minimal filesystem browser.
 - [mdedit.rs][refMDEdit]: Minimal markdown editor.
 - [life.rs][refLife]: Game of Life.
+- [async1.rs][refAsync1]: Async tasks.
+- [logscroll.rs][refLogscroll]: Logfile view and find.
+- [theme_samples.rs][refThemeSamples]: Theme show-room.
+- [turbo.rs][refTurbo]: Reboot Turbo Pascal.
 
 There are some starters too
 
@@ -93,6 +97,15 @@ There are some starters too
 
 [refLife]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/life.rs
 
+[refAsync1]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/async1.rs
+
+[refLogscroll]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/logscroll.rs
+
+[refThemeSamples]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/theme_samples.rs
+
+[refTurbo]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/turbo.rs
+
+x
 [refMDEdit]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/mdedit.rs
 
 [refFiles]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/files.rs
