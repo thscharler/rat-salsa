@@ -6,7 +6,7 @@ use anyhow::Error;
 use crossbeam::channel::Sender;
 use rat_salsa2::poll::{PollCrossterm, PollTasks};
 use rat_salsa2::thread_pool::Cancel;
-use rat_salsa2::{run_tui, SalsaAppContext, SalsaContext, Control, RunConfig};
+use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::{dark_themes, DarkTheme};
 use rat_widget::event::{

@@ -11,7 +11,7 @@ use crate::theme::TurboTheme;
 use anyhow::Error;
 use rat_dialog2::DialogStack;
 use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{run_tui, SalsaAppContext, SalsaContext, RunConfig};
+use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::BASE16;
 use std::fs;
 use std::path::PathBuf;
@@ -103,7 +103,7 @@ pub mod app {
     use anyhow::Error;
     use rat_dialog2::StackControl;
     use rat_event::{Dialog, Outcome};
-    use rat_salsa2::{SalsaContext, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{ct_event, ConsumedEvent, HandleEvent};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
@@ -267,7 +267,7 @@ pub mod turbo {
     use anyhow::Error;
     use rat_dialog2::StackControl;
     use rat_event::{Dialog, Outcome};
-    use rat_salsa2::{SalsaContext, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{ct_event, try_flow, FileOutcome, HandleEvent, MenuOutcome, Popup};
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::focus::impl_has_focus;
