@@ -10,7 +10,7 @@ use crate::theme::TurboTheme;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{run_tui, AppContext, Context, RunConfig};
+use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::BASE16;
 use std::fs;
 use std::rc::Rc;
@@ -40,18 +40,18 @@ fn main() -> Result<(), Error> {
 /// Globally accessible data/state.
 #[derive(Debug)]
 pub struct TurboGlobal {
-    ctx: AppContext<TurboEvent, Error>,
+    ctx: SalsaAppContext<TurboEvent, Error>,
     pub cfg: TurboConfig,
     pub theme: Rc<TurboTheme>,
 }
 
-impl Context<TurboEvent, Error> for TurboGlobal {
-    fn set_app_ctx(&mut self, app_ctx: AppContext<TurboEvent, Error>) {
+impl SalsaContext<TurboEvent, Error> for TurboGlobal {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<TurboEvent, Error>) {
         self.ctx = app_ctx;
     }
 
     #[inline]
-    fn app_ctx(&self) -> &AppContext<TurboEvent, Error> {
+    fn salsa_ctx(&self) -> &SalsaAppContext<TurboEvent, Error> {
         &self.ctx
     }
 }
@@ -89,7 +89,7 @@ pub mod scenery {
     use crate::turbo::Turbo;
     use crate::{turbo, TurboEvent, TurboGlobal};
     use anyhow::Error;
-    use rat_salsa2::{Context, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -247,7 +247,7 @@ pub mod scenery {
 pub mod turbo {
     use crate::{TurboEvent, TurboGlobal};
     use anyhow::Error;
-    use rat_salsa2::{Context, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{

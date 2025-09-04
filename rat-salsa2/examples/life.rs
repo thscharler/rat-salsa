@@ -59,8 +59,8 @@ pub mod global {
     use crate::config::LifeConfig;
     use crate::event::LifeEvent;
     use crate::game::LifeGameState;
-    use rat_salsa2::{AppContext, Control};
-    use rat_salsa2::{Context, PollEvents};
+    use rat_salsa2::{Control, SalsaAppContext};
+    use rat_salsa2::{PollEvents, SalsaContext};
     use rat_theme2::DarkTheme;
     use std::any::Any;
     use std::cell::RefCell;
@@ -91,7 +91,7 @@ pub mod global {
 
     #[derive(Debug)]
     pub struct GlobalState {
-        pub ctx: AppContext<LifeEvent, anyhow::Error>,
+        pub ctx: SalsaAppContext<LifeEvent, anyhow::Error>,
         pub cfg: LifeConfig,
         pub theme: Rc<DarkTheme>,
 
@@ -139,12 +139,12 @@ pub mod global {
         }
     }
 
-    impl Context<LifeEvent, anyhow::Error> for GlobalState {
-        fn set_app_ctx(&mut self, app_ctx: AppContext<LifeEvent, anyhow::Error>) {
+    impl SalsaContext<LifeEvent, anyhow::Error> for GlobalState {
+        fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<LifeEvent, anyhow::Error>) {
             self.ctx = app_ctx;
         }
 
-        fn app_ctx(&self) -> &AppContext<LifeEvent, anyhow::Error> {
+        fn salsa_ctx(&self) -> &SalsaAppContext<LifeEvent, anyhow::Error> {
             &self.ctx
         }
     }
@@ -192,7 +192,7 @@ pub mod app {
     use crate::life;
     use crate::life::Life;
     use anyhow::Error;
-    use rat_salsa2::{Context, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -349,7 +349,7 @@ pub mod life {
     use crate::global::GlobalState;
     use crate::LifeEvent;
     use anyhow::Error;
-    use rat_salsa2::{Context, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::menu::{MenuLine, MenuLineState};

@@ -3,7 +3,7 @@ use crate::scenery::Scenery;
 use anyhow::Error;
 use dirs::cache_dir;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa2::{run_tui, AppContext, Context, RunConfig};
+use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use std::fs;
@@ -45,17 +45,17 @@ fn main() -> Result<(), Error> {
 /// Globally accessible data/state.
 #[derive(Debug)]
 pub struct Global {
-    ctx: AppContext<AppEvent, Error>,
+    pub ctx: SalsaAppContext<AppEvent, Error>,
     pub cfg: Config,
     pub theme: Rc<DarkTheme>,
 }
 
-impl Context<AppEvent, Error> for Global {
-    fn set_app_ctx(&mut self, app_ctx: AppContext<AppEvent, Error>) {
+impl SalsaContext<AppEvent, Error> for Global {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<AppEvent, Error>) {
         self.ctx = app_ctx;
     }
 
-    fn app_ctx(&self) -> &AppContext<AppEvent, Error> {
+    fn salsa_ctx(&self) -> &SalsaAppContext<AppEvent, Error> {
         &self.ctx
     }
 }
@@ -114,7 +114,7 @@ pub mod scenery {
     use crate::main_ui::MainUI;
     use crate::{main_ui, Global};
     use anyhow::Error;
-    use rat_salsa2::{Context, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
@@ -248,7 +248,7 @@ pub mod main_ui {
     use crate::Global;
     use anyhow::Error;
     use rat_focus::impl_has_focus;
-    use rat_salsa2::{Context, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{HandleEvent, MenuOutcome, Regular};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;

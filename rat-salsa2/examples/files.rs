@@ -6,7 +6,7 @@ use anyhow::Error;
 use crossbeam::channel::Sender;
 use rat_salsa2::poll::{PollCrossterm, PollTasks};
 use rat_salsa2::thread_pool::Cancel;
-use rat_salsa2::{run_tui, AppContext, Context, Control, RunConfig};
+use rat_salsa2::{run_tui, SalsaAppContext, SalsaContext, Control, RunConfig};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::{dark_themes, DarkTheme};
 use rat_widget::event::{
@@ -66,18 +66,18 @@ fn main() -> Result<(), Error> {
 
 #[derive(Debug)]
 pub struct GlobalState {
-    ctx: AppContext<FilesEvent, Error>,
+    ctx: SalsaAppContext<FilesEvent, Error>,
     pub cfg: FilesConfig,
     pub theme: DarkTheme,
 }
 
-impl Context<FilesEvent, Error> for GlobalState {
-    fn set_app_ctx(&mut self, app_ctx: AppContext<FilesEvent, Error>) {
+impl SalsaContext<FilesEvent, Error> for GlobalState {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<FilesEvent, Error>) {
         self.ctx = app_ctx;
     }
 
     #[inline]
-    fn app_ctx(&self) -> &AppContext<FilesEvent, Error> {
+    fn salsa_ctx(&self) -> &SalsaAppContext<FilesEvent, Error> {
         &self.ctx
     }
 }

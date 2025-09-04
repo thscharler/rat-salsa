@@ -88,7 +88,7 @@ pub enum Control<Event> {
     /// disconnected parts of your application. And indeed there is
     /// a hidden message-queue as part of the event-loop.
     ///
-    /// The other way is to call [AppContext::queue] to initiate such
+    /// The other way is to call [SalsaAppContext::queue] to initiate such
     /// events.
     Event(Event),
     /// Quit the application.
@@ -176,7 +176,7 @@ impl<Event, T: Into<Outcome>> From<T> for Control<Event> {
 ///
 ///
 ///
-pub trait Context<Event, Error>
+pub trait SalsaContext<Event, Error>
 where
     Event: 'static + Send,
     Error: 'static + Send,
@@ -184,14 +184,14 @@ where
     /// The AppContext struct holds all the data for the rat-salsa
     /// functionality. run_tui calls this to set the initialized
     /// struct.
-    fn set_app_ctx(&mut self, app_ctx: AppContext<Event, Error>);
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<Event, Error>);
 
     /// Access the AppContext previously set.
-    fn app_ctx(&self) -> &AppContext<Event, Error>;
+    fn salsa_ctx(&self) -> &SalsaAppContext<Event, Error>;
 
     /// Get the current frame/render-count.
     fn count(&self) -> usize {
-        self.app_ctx().count.get()
+        self.salsa_ctx().count.get()
     }
 
     /// Set the cursor, if the given value is something,
@@ -200,7 +200,7 @@ where
     /// This should only be set during rendering.
     fn set_screen_cursor(&self, cursor: Option<(u16, u16)>) {
         if let Some(c) = cursor {
-            self.app_ctx().cursor.set(Some(c));
+            self.salsa_ctx().cursor.set(Some(c));
         }
     }
 
@@ -211,7 +211,7 @@ where
     /// Panics if no timer support is configured.
     #[inline]
     fn add_timer(&self, t: TimerDef) -> TimerHandle {
-        self.app_ctx()
+        self.salsa_ctx()
             .timers
             .as_ref()
             .expect("No timers configured. In main() add RunConfig::default()?.poll(PollTimers)")
@@ -225,7 +225,7 @@ where
     /// Panics if no timer support is configured.
     #[inline]
     fn remove_timer(&self, tag: TimerHandle) {
-        self.app_ctx()
+        self.salsa_ctx()
             .timers
             .as_ref()
             .expect("No timers configured. In main() add RunConfig::default()?.poll(PollTimers)")
@@ -270,7 +270,7 @@ where
         Event: 'static + Send,
         Error: 'static + Send,
     {
-        self.app_ctx()
+        self.salsa_ctx()
             .tasks
             .as_ref()
             .expect(
@@ -290,7 +290,7 @@ where
     where
         F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
     {
-        self.app_ctx().tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))")
+        self.salsa_ctx().tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))")
             .spawn(Box::new(future))
     }
 
@@ -307,7 +307,7 @@ where
         C: FnOnce(tokio::sync::mpsc::Sender<Result<Control<Event>, Error>>) -> F,
         F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
     {
-        let rt = self.app_ctx().tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");
+        let rt = self.salsa_ctx().tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");
         let future = cr_future(rt.sender());
         rt.spawn(Box::new(future))
     }
@@ -315,37 +315,37 @@ where
     /// Queue an application event.
     #[inline]
     fn queue_event(&self, event: Event) {
-        self.app_ctx().queue.push(Ok(Control::Event(event)));
+        self.salsa_ctx().queue.push(Ok(Control::Event(event)));
     }
 
     /// Queue additional results.
     #[inline]
     fn queue(&self, ctrl: impl Into<Control<Event>>) {
-        self.app_ctx().queue.push(Ok(ctrl.into()));
+        self.salsa_ctx().queue.push(Ok(ctrl.into()));
     }
 
     /// Queue an error.
     #[inline]
     fn queue_err(&self, err: Error) {
-        self.app_ctx().queue.push(Err(err));
+        self.salsa_ctx().queue.push(Err(err));
     }
 
     /// Set the `Focus`.
     #[inline]
     fn set_focus(&self, focus: Focus) {
-        self.app_ctx().focus.replace(Some(focus));
+        self.salsa_ctx().focus.replace(Some(focus));
     }
 
     /// Take the `Focus` back from the Context.
     #[inline]
     fn take_focus(&self) -> Option<Focus> {
-        self.app_ctx().focus.take()
+        self.salsa_ctx().focus.take()
     }
 
     /// Clear the `Focus`.
     #[inline]
     fn clear_focus(&self) {
-        self.app_ctx().focus.replace(None);
+        self.salsa_ctx().focus.replace(None);
     }
 
     /// Access the `Focus`.
@@ -355,7 +355,7 @@ where
     /// Panics if no focus has been set.
     #[inline]
     fn focus<'a>(&'a self) -> Ref<'a, Focus> {
-        let borrow = self.app_ctx().focus.borrow();
+        let borrow = self.salsa_ctx().focus.borrow();
         Ref::map(borrow, |v| v.as_ref().expect("focus"))
     }
 
@@ -366,7 +366,7 @@ where
     /// Panics if no focus has been set.
     #[inline]
     fn focus_mut<'a>(&'a mut self) -> RefMut<'a, Focus> {
-        let borrow = self.app_ctx().focus.borrow_mut();
+        let borrow = self.salsa_ctx().focus.borrow_mut();
         RefMut::map(borrow, |v| v.as_mut().expect("focus"))
     }
 
@@ -380,7 +380,7 @@ where
     where
         Focus: HandleEvent<E, Regular, Outcome>,
     {
-        let mut borrow = self.app_ctx().focus.borrow_mut();
+        let mut borrow = self.salsa_ctx().focus.borrow_mut();
         let focus = borrow.as_mut().expect("focus");
         let r = focus.handle(event, Regular);
         if r.is_consumed() {
@@ -397,7 +397,7 @@ where
 /// initialize this field with some dummy values. It will
 /// be set correctly when calling `run_tui()`.
 ///
-pub struct AppContext<Event, Error>
+pub struct SalsaAppContext<Event, Error>
 where
     Event: 'static + Send,
     Error: 'static + Send,
@@ -420,7 +420,7 @@ where
     pub(crate) queue: ControlQueue<Event, Error>,
 }
 
-impl<Event, Error> Debug for AppContext<Event, Error>
+impl<Event, Error> Debug for SalsaAppContext<Event, Error>
 where
     Event: 'static + Send,
     Error: 'static + Send,
@@ -441,7 +441,7 @@ where
     }
 }
 
-impl<Event, Error> Default for AppContext<Event, Error>
+impl<Event, Error> Default for SalsaAppContext<Event, Error>
 where
     Event: 'static + Send,
     Error: 'static + Send,
@@ -460,18 +460,18 @@ where
     }
 }
 
-impl<Event, Error> Context<Event, Error> for AppContext<Event, Error>
+impl<Event, Error> SalsaContext<Event, Error> for SalsaAppContext<Event, Error>
 where
     Event: 'static + Send,
     Error: 'static + Send,
 {
     #[inline]
-    fn set_app_ctx(&mut self, app_ctx: AppContext<Event, Error>) {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<Event, Error>) {
         *self = app_ctx;
     }
 
     #[inline]
-    fn app_ctx(&self) -> &AppContext<Event, Error> {
+    fn salsa_ctx(&self) -> &SalsaAppContext<Event, Error> {
         self
     }
 }

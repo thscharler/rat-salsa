@@ -3,7 +3,7 @@ use crate::framework::control_queue::ControlQueue;
 use crate::poll::PollTokio;
 use crate::poll::{PollRendered, PollTasks, PollTimers};
 use crate::run_config::RunConfig;
-use crate::{AppContext, Context, Control};
+use crate::{Control, SalsaAppContext, SalsaContext};
 use poll_queue::PollQueue;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -46,7 +46,7 @@ fn _run_tui<Global, State, Event, Error>(
     cfg: &mut RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
-    Global: Context<Event, Error>,
+    Global: SalsaContext<Event, Error>,
     Event: Send + 'static,
     Error: Send + 'static + From<io::Error>,
 {
@@ -77,7 +77,7 @@ where
             .map(|t| t.get_tasks())
     });
 
-    global.set_app_ctx(AppContext {
+    global.set_salsa_ctx(SalsaAppContext {
         focus: Default::default(),
         count: Default::default(),
         cursor: Default::default(),
@@ -98,20 +98,20 @@ where
     term.render(&mut |frame| {
         let frame_area = frame.area();
         render(frame_area, frame.buffer_mut(), state, global)?;
-        if let Some((cursor_x, cursor_y)) = global.app_ctx().cursor.get() {
+        if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
             frame.set_cursor_position((cursor_x, cursor_y));
         }
-        global.app_ctx().count.set(frame.count());
-        global.app_ctx().cursor.set(None);
+        global.salsa_ctx().count.set(frame.count());
+        global.salsa_ctx().cursor.set(None);
         Ok(())
     })?;
     if let Some(idx) = rendered_event {
-        global.app_ctx().queue.push(poll[idx].read());
+        global.salsa_ctx().queue.push(poll[idx].read());
     }
 
     'ui: loop {
         // panic on worker panic
-        if let Some(tasks) = &global.app_ctx().tasks {
+        if let Some(tasks) = &global.salsa_ctx().tasks {
             if !tasks.check_liveness() {
                 dbg!("worker panicked");
                 break 'ui;
@@ -119,7 +119,7 @@ where
         }
 
         // No events queued, check here.
-        if global.app_ctx().queue.is_empty() {
+        if global.salsa_ctx().queue.is_empty() {
             // The events are not processed immediately, but all
             // notifies are queued in the poll_queue.
             if poll_queue.is_empty() {
@@ -130,7 +130,7 @@ where
                         }
                         Ok(false) => {}
                         Err(e) => {
-                            global.app_ctx().queue.push(Err(e));
+                            global.salsa_ctx().queue.push(Err(e));
                         }
                     }
                 }
@@ -138,7 +138,7 @@ where
 
             // Sleep regime.
             if poll_queue.is_empty() {
-                let t = if let Some(timers) = &global.app_ctx().timers {
+                let t = if let Some(timers) = &global.salsa_ctx().timers {
                     if let Some(timer_sleep) = timers.sleep_time() {
                         min(timer_sleep, poll_sleep)
                     } else {
@@ -160,18 +160,18 @@ where
 
         // All the fall-out of the last event has cleared.
         // Run the next event.
-        if global.app_ctx().queue.is_empty() {
+        if global.salsa_ctx().queue.is_empty() {
             if let Some(h) = poll_queue.take() {
-                global.app_ctx().queue.push(poll[h].read());
+                global.salsa_ctx().queue.push(poll[h].read());
             }
         }
 
         // Result of event-handling.
-        if let Some(ctrl) = global.app_ctx().queue.take() {
+        if let Some(ctrl) = global.salsa_ctx().queue.take() {
             match ctrl {
                 Err(e) => {
                     let r = error(e, state, global);
-                    global.app_ctx().queue.push(r);
+                    global.salsa_ctx().queue.push(r);
                 }
                 Ok(Control::Continue) => {}
                 Ok(Control::Unchanged) => {}
@@ -179,25 +179,25 @@ where
                     let r = term.render(&mut |frame| {
                         let frame_area = frame.area();
                         render(frame_area, frame.buffer_mut(), state, global)?;
-                        if let Some((cursor_x, cursor_y)) = global.app_ctx().cursor.get() {
+                        if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
                             frame.set_cursor_position((cursor_x, cursor_y));
                         }
-                        global.app_ctx().count.set(frame.count());
-                        global.app_ctx().cursor.set(None);
+                        global.salsa_ctx().count.set(frame.count());
+                        global.salsa_ctx().cursor.set(None);
                         Ok(())
                     });
                     match r {
                         Ok(_) => {
                             if let Some(h) = rendered_event {
-                                global.app_ctx().queue.push(poll[h].read());
+                                global.salsa_ctx().queue.push(poll[h].read());
                             }
                         }
-                        Err(e) => global.app_ctx().queue.push(Err(e)),
+                        Err(e) => global.salsa_ctx().queue.push(Err(e)),
                     }
                 }
                 Ok(Control::Event(a)) => {
                     let r = event(&a, state, global);
-                    global.app_ctx().queue.push(r);
+                    global.salsa_ctx().queue.push(r);
                 }
                 Ok(Control::Quit) => {
                     break 'ui;
@@ -215,7 +215,7 @@ where
 ///
 /// The shortest version I can come up with:
 /// ```rust no_run
-/// use rat_salsa2::{run_tui, Context, AppContext, Control, RunConfig};
+/// use rat_salsa2::{run_tui, SalsaContext, SalsaAppContext, Control, RunConfig};
 /// use ratatui::buffer::Buffer;
 /// use ratatui::layout::Rect;
 /// use ratatui::style::Stylize;
@@ -239,16 +239,16 @@ where
 /// }
 ///
 /// struct Global {
-///     app_ctx: Option<AppContext<Event, anyhow::Error>>
+///     app_ctx: Option<SalsaAppContext<Event, anyhow::Error>>
 /// }
 ///
-/// impl Context<Event, anyhow::Error> for Global {
-///     fn set_app_ctx(&mut self, app_ctx: AppContext<Event, anyhow::Error>) {
+/// impl SalsaContext<Event, anyhow::Error> for Global {
+///     fn set_app_ctx(&mut self, app_ctx: SalsaAppContext<Event, anyhow::Error>) {
 ///         self.app_ctx = Some(app_ctx);
 ///     }
 ///
 ///     #[inline]
-///     fn app_ctx(&self) -> &AppContext<Event, anyhow::Error> {
+///     fn app_ctx(&self) -> &SalsaAppContext<Event, anyhow::Error> {
 ///         self.app_ctx.as_ref().expect("app-ctx")
 ///     }
 /// }
@@ -337,7 +337,7 @@ pub fn run_tui<Global, State, Event, Error>(
     mut cfg: RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
-    Global: Context<Event, Error>,
+    Global: SalsaContext<Event, Error>,
     Event: Send + 'static,
     Error: Send + 'static + From<io::Error>,
 {

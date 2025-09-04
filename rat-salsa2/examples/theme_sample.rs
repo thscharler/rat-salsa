@@ -5,7 +5,7 @@ use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa2::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa2::timer::TimeOut;
-use rat_salsa2::{run_tui, AppContext, Context, RunConfig};
+use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use std::fmt::Debug;
@@ -39,17 +39,17 @@ fn main() -> Result<(), Error> {
 
 #[derive(Debug)]
 pub struct GlobalState {
-    pub ctx: AppContext<ThemesEvent, Error>,
+    pub ctx: SalsaAppContext<ThemesEvent, Error>,
     pub cfg: Config,
     pub theme: Rc<DarkTheme>,
 }
 
-impl Context<ThemesEvent, Error> for GlobalState {
-    fn set_app_ctx(&mut self, app_ctx: AppContext<ThemesEvent, Error>) {
+impl SalsaContext<ThemesEvent, Error> for GlobalState {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<ThemesEvent, Error>) {
         self.ctx = app_ctx;
     }
 
-    fn app_ctx(&self) -> &AppContext<ThemesEvent, Error> {
+    fn salsa_ctx(&self) -> &SalsaAppContext<ThemesEvent, Error> {
         &self.ctx
     }
 }

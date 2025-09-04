@@ -1,5 +1,5 @@
 use rat_event::{ConsumedEvent, HandleEvent, Outcome};
-use rat_salsa2::{Context, Control};
+use rat_salsa2::{Control, SalsaContext};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{type_name, Any, TypeId};
@@ -401,7 +401,7 @@ where
 impl<Global, Event, Error> HandleEvent<Event, &mut Global, Result<Control<Event>, Error>>
     for DialogStack<Global, Event, Error>
 where
-    Global: Context<Event, Error>,
+    Global: SalsaContext<Event, Error>,
     Event: 'static + Send,
     Error: 'static + Send,
 {

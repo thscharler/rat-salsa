@@ -1,6 +1,6 @@
 use anyhow::Error;
 use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{run_tui, AppContext, Context, Control, RunConfig};
+use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::ct_event;
@@ -23,17 +23,17 @@ fn main() -> Result<(), Error> {
 
 #[derive(Debug)]
 pub struct Global {
-    ctx: AppContext<UltraEvent, Error>,
+    ctx: SalsaAppContext<UltraEvent, Error>,
     pub theme: DarkTheme,
     pub err_msg: String,
 }
 
-impl Context<UltraEvent, Error> for Global {
-    fn set_app_ctx(&mut self, app_ctx: AppContext<UltraEvent, Error>) {
+impl SalsaContext<UltraEvent, Error> for Global {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<UltraEvent, Error>) {
         self.ctx = app_ctx;
     }
 
-    fn app_ctx(&self) -> &AppContext<UltraEvent, Error> {
+    fn salsa_ctx(&self) -> &SalsaAppContext<UltraEvent, Error> {
         &self.ctx
     }
 }

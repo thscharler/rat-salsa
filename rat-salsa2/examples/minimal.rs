@@ -3,7 +3,7 @@ use anyhow::Error;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa2::rendered::RenderedEvent;
 use rat_salsa2::timer::TimeOut;
-use rat_salsa2::{run_tui, AppContext, Context, RunConfig};
+use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use std::fs;
@@ -36,18 +36,18 @@ fn main() -> Result<(), Error> {
 /// Globally accessible data/state.
 #[derive(Debug)]
 pub struct Global {
-    ctx: AppContext<AppEvent, Error>,
+    ctx: SalsaAppContext<AppEvent, Error>,
     pub cfg: Config,
     pub theme: DarkTheme,
 }
 
-impl Context<AppEvent, Error> for Global {
-    fn set_app_ctx(&mut self, app_ctx: AppContext<AppEvent, Error>) {
+impl SalsaContext<AppEvent, Error> for Global {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<AppEvent, Error>) {
         self.ctx = app_ctx;
     }
 
     #[inline(always)]
-    fn app_ctx(&self) -> &AppContext<AppEvent, Error> {
+    fn salsa_ctx(&self) -> &SalsaAppContext<AppEvent, Error> {
         &self.ctx
     }
 }
@@ -99,7 +99,7 @@ pub mod scenery {
     use crate::minimal::Minimal;
     use crate::{minimal, AppEvent, Global};
     use anyhow::Error;
-    use rat_salsa2::{Context, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -220,7 +220,7 @@ pub mod scenery {
 pub mod minimal {
     use crate::{AppEvent, Global};
     use anyhow::Error;
-    use rat_salsa2::{Context, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{MenuLine, MenuLineState};

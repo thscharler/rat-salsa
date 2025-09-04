@@ -6,7 +6,7 @@ use ini::Ini;
 use log::{debug, warn};
 use rat_salsa2::poll::{PollCrossterm, PollTimers};
 use rat_salsa2::timer::TimeOut;
-use rat_salsa2::{run_tui, AppContext, Context, Control, RunConfig};
+use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::{dark_themes, DarkTheme, Palette};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
@@ -125,19 +125,19 @@ fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
 
 #[derive(Debug)]
 pub struct GlobalState {
-    pub ctx: AppContext<LogScrollEvent, Error>,
+    pub ctx: SalsaAppContext<LogScrollEvent, Error>,
     pub cfg: LogScrollConfig,
     pub theme: DarkTheme,
     pub file_path: PathBuf,
 }
 
-impl Context<LogScrollEvent, Error> for GlobalState {
-    fn set_app_ctx(&mut self, app_ctx: AppContext<LogScrollEvent, Error>) {
+impl SalsaContext<LogScrollEvent, Error> for GlobalState {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<LogScrollEvent, Error>) {
         self.ctx = app_ctx;
     }
 
     #[inline]
-    fn app_ctx(&self) -> &AppContext<LogScrollEvent, Error> {
+    fn salsa_ctx(&self) -> &SalsaAppContext<LogScrollEvent, Error> {
         &self.ctx
     }
 }
@@ -327,7 +327,7 @@ mod logscroll {
     use anyhow::Error;
     use log::debug;
     use rat_salsa2::timer::{TimerDef, TimerHandle};
-    use rat_salsa2::{Context, Control};
+    use rat_salsa2::{Control, SalsaContext};
     use rat_theme2::{dark_themes, DarkTheme, Palette};
     use rat_widget::caption::{Caption, CaptionState, HotkeyPolicy};
     use rat_widget::event::{
