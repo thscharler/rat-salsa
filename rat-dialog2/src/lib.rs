@@ -1,5 +1,5 @@
 use rat_event::{ConsumedEvent, HandleEvent, Outcome};
-use rat_salsa2::{AppContext, Control, RenderContext};
+use rat_salsa2::{Context, Control};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{type_name, Any, TypeId};
@@ -96,12 +96,7 @@ where
     render: RefCell<
         Vec<
             Box<
-                dyn Fn(
-                        Rect,
-                        &mut Buffer,
-                        &mut dyn Any,
-                        &'_ mut RenderContext<'_, Global>,
-                    ) -> Result<(), Error>
+                dyn Fn(Rect, &mut Buffer, &mut dyn Any, &'_ mut Global) -> Result<(), Error>
                     + 'static,
             >,
         >,
@@ -112,7 +107,7 @@ where
                 dyn Fn(
                     &Event, //
                     &mut dyn Any,
-                    &'_ mut AppContext<'_, Global, Event, Error>,
+                    &'_ mut Global,
                 ) -> Result<StackControl<Event>, Error>,
             >,
         >,
@@ -175,12 +170,7 @@ where
     Error: Send + 'static,
 {
     /// Render all dialog-windows in stack-order.
-    pub fn render(
-        self,
-        area: Rect,
-        buf: &mut Buffer,
-        ctx: &mut RenderContext<'_, Global>,
-    ) -> Result<(), Error>
+    pub fn render(self, area: Rect, buf: &mut Buffer, ctx: &mut Global) -> Result<(), Error>
     where
         Event: 'static + Send,
         Error: 'static + Send,
@@ -222,18 +212,8 @@ where
     /// - state as Any
     pub fn push(
         &self,
-        render: impl Fn(
-                Rect,
-                &mut Buffer,
-                &mut dyn Any,
-                &'_ mut RenderContext<'_, Global>,
-            ) -> Result<(), Error>
-            + 'static,
-        event: impl Fn(
-                &Event,
-                &mut dyn Any,
-                &'_ mut AppContext<'_, Global, Event, Error>,
-            ) -> Result<StackControl<Event>, Error>
+        render: impl Fn(Rect, &mut Buffer, &mut dyn Any, &'_ mut Global) -> Result<(), Error> + 'static,
+        event: impl Fn(&Event, &mut dyn Any, &'_ mut Global) -> Result<StackControl<Event>, Error>
             + 'static,
         state: impl Any,
     ) {
@@ -418,18 +398,14 @@ where
 /// Panic
 ///
 /// This function is not reentrant, it will panic when called from within it's call-stack.
-impl<Global, Event, Error>
-    HandleEvent<Event, &mut AppContext<'_, Global, Event, Error>, Result<Control<Event>, Error>>
+impl<Global, Event, Error> HandleEvent<Event, &mut Global, Result<Control<Event>, Error>>
     for DialogStack<Global, Event, Error>
 where
+    Global: Context<Event, Error>,
     Event: 'static + Send,
     Error: 'static + Send,
 {
-    fn handle(
-        &mut self,
-        event: &Event,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
-    ) -> Result<Control<Event>, Error> {
+    fn handle(&mut self, event: &Event, ctx: &mut Global) -> Result<Control<Event>, Error> {
         let mut rr = Control::Continue;
 
         for n in (0..self.core.len.get()).rev() {
