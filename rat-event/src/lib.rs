@@ -318,3 +318,41 @@ macro_rules! try_flow {
         }
     }};
 }
+
+/// Breaks the control-flow if the block returns a value
+/// for which [ConsumedEvent::is_consumed] is true.
+///
+/// It does the classic `into()`-conversion and *breaks* with the result
+/// to the enclosing block given as a `'l:{}` labeled block.
+///
+/// * The difference to [try_flow] is that this on doesn't Ok-wrap the result.*
+/// * The difference to [flow] is that this breaks instead of return_ing.
+///
+/// Extras: If you add a marker as in `break_flow!(log 'f: ident: {...});`
+/// the result of the operation is written to the log.
+///
+/// Note:
+#[macro_export]
+macro_rules! break_flow {
+    (log $l:lifetime: $n:ident: $x:expr) => {{
+        use log::debug;
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            debug!("{} {:#?}", stringify!($n), r);
+            break $l r.into();
+        } else {
+            debug!("{} continue", stringify!($n));
+            _ = r;
+        }
+    }};
+    ($l:lifetime: $x:expr) => {{
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            break $l r.into();
+        } else {
+            _ = r;
+        }
+    }};
+}
