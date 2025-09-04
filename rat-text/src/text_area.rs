@@ -171,7 +171,7 @@ impl Clone for TextAreaState {
             move_col: None,
             auto_indent: self.auto_indent,
             auto_quote: self.auto_quote,
-            text_wrap: TextWrap::Shift,
+            text_wrap: self.text_wrap,
             focus: FocusFlag::named(self.focus.name()),
             focus_navigation: self.focus_navigation,
             mouse: Default::default(),
