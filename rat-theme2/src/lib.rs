@@ -13,18 +13,18 @@ pub use palette::*;
 /// All currently existing color palettes.
 pub fn color_palettes() -> Vec<(String, Palette)> {
     vec![
-        ("Black&White".to_string(), BLACKWHITE),
         ("Imperial".to_string(), IMPERIAL),
         ("Radium".to_string(), RADIUM),
         ("Tundra".to_string(), TUNDRA),
+        ("Ocean".to_string(), OCEAN),
         ("Monochrome".to_string(), MONOCHROME),
+        ("Black&White".to_string(), BLACKWHITE),
+        ("Base16".to_string(), BASE16),
+        ("Base16Relaxed".to_string(), BASE16_RELAXED),
         ("Monekai".to_string(), MONEKAI),
         ("Solarized".to_string(), SOLARIZED),
         ("OxoCarbon".to_string(), OXOCARBON),
         ("VSCodeDark".to_string(), VSCODE_DARK),
-        ("Ocean".to_string(), OCEAN),
-        ("Base16".to_string(), BASE16),
-        ("Base16Relaxed".to_string(), BASE16_RELAXED),
     ]
 }
 
