@@ -1,4 +1,4 @@
-use crate::event::Async1Event;
+use crate::event::AppEvent;
 use crate::scenery::Scenery;
 use anyhow::Error;
 use dirs::cache_dir;
@@ -10,17 +10,17 @@ use std::fs;
 use std::fs::create_dir_all;
 use std::rc::Rc;
 
-type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, Async1Event, Error>;
-type RenderContext<'a> = rat_salsa2::RenderContext<'a, GlobalState>;
+type AppContext<'a> = rat_salsa2::AppContext<'a, Global, AppEvent, Error>;
+type RenderContext<'a> = rat_salsa2::RenderContext<'a, Global>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let rt = tokio::runtime::Runtime::new()?;
 
-    let config = MinimalConfig::default();
+    let config = Config::default();
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
-    let mut global = GlobalState::new(config, theme);
+    let mut global = Global::new(config, theme);
 
     let mut state = Scenery::default();
 
@@ -48,13 +48,13 @@ fn main() -> Result<(), Error> {
 
 /// Globally accessible data/state.
 #[derive(Debug)]
-pub struct GlobalState {
-    pub cfg: MinimalConfig,
+pub struct Global {
+    pub cfg: Config,
     pub theme: Rc<DarkTheme>,
 }
 
-impl GlobalState {
-    pub fn new(cfg: MinimalConfig, theme: DarkTheme) -> Self {
+impl Global {
+    pub fn new(cfg: Config, theme: DarkTheme) -> Self {
         Self {
             cfg,
             theme: Rc::new(theme),
@@ -64,7 +64,7 @@ impl GlobalState {
 
 /// Configuration.
 #[derive(Debug, Default)]
-pub struct MinimalConfig {}
+pub struct Config {}
 
 /// Application wide messages.
 pub mod event {
@@ -72,29 +72,29 @@ pub mod event {
     use rat_salsa2::timer::TimeOut;
 
     #[derive(Debug)]
-    pub enum Async1Event {
+    pub enum AppEvent {
         Timer(TimeOut),
         Event(crossterm::event::Event),
         Rendered,
         Message(String),
         Status(usize, String),
-        FromAsync(String),
+        AsyncMsg(String),
         AsyncTick(u32),
     }
 
-    impl From<RenderedEvent> for Async1Event {
+    impl From<RenderedEvent> for AppEvent {
         fn from(_: RenderedEvent) -> Self {
             Self::Rendered
         }
     }
 
-    impl From<TimeOut> for Async1Event {
+    impl From<TimeOut> for AppEvent {
         fn from(value: TimeOut) -> Self {
             Self::Timer(value)
         }
     }
 
-    impl From<crossterm::event::Event> for Async1Event {
+    impl From<crossterm::event::Event> for AppEvent {
         fn from(value: crossterm::event::Event) -> Self {
             Self::Event(value)
         }
@@ -102,9 +102,9 @@ pub mod event {
 }
 
 pub mod scenery {
-    use crate::async1;
-    use crate::async1::Async1;
-    use crate::event::Async1Event;
+    use crate::event::AppEvent;
+    use crate::main_ui;
+    use crate::main_ui::MainUI;
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
     use rat_salsa2::Control;
@@ -120,7 +120,7 @@ pub mod scenery {
 
     #[derive(Debug, Default)]
     pub struct Scenery {
-        pub async1: Async1,
+        pub async1: MainUI,
         pub status: StatusLineState,
         pub error_dlg: MsgDialogState,
     }
@@ -136,7 +136,7 @@ pub mod scenery {
 
         let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
-        async1::render(area, buf, &mut state.async1, ctx)?;
+        main_ui::render(area, buf, &mut state.async1, ctx)?;
 
         if state.error_dlg.active() {
             let err = MsgDialog::new().styles(theme.msg_dialog_style());
@@ -172,19 +172,19 @@ pub mod scenery {
 
     pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         ctx.focus = Some(FocusBuilder::build_for(&state.async1));
-        async1::init(&mut state.async1, ctx)?;
+        main_ui::init(&mut state.async1, ctx)?;
         Ok(())
     }
 
     pub fn event(
-        event: &Async1Event,
+        event: &AppEvent,
         state: &mut Scenery,
         ctx: &mut AppContext<'_>,
-    ) -> Result<Control<Async1Event>, Error> {
+    ) -> Result<Control<AppEvent>, Error> {
         let t0 = SystemTime::now();
 
         let mut r = match event {
-            Async1Event::Event(event) => {
+            AppEvent::Event(event) => {
                 let mut r = match &event {
                     ct_event!(resized) => Control::Changed,
                     ct_event!(key press CONTROL-'q') => Control::Quit,
@@ -204,22 +204,22 @@ pub mod scenery {
 
                 r
             }
-            Async1Event::Rendered => {
+            AppEvent::Rendered => {
                 ctx.focus = Some(FocusBuilder::rebuild_for(&state.async1, ctx.focus.take()));
                 Control::Continue
             }
-            Async1Event::Message(s) => {
+            AppEvent::Message(s) => {
                 state.error_dlg.append(&*s);
                 Control::Changed
             }
-            Async1Event::Status(n, s) => {
+            AppEvent::Status(n, s) => {
                 state.status.status(*n, s);
                 Control::Changed
             }
             _ => Control::Continue,
         };
 
-        r = r.or_else_try(|| async1::event(event, &mut state.async1, ctx))?;
+        r = r.or_else_try(|| main_ui::event(event, &mut state.async1, ctx))?;
 
         let el = t0.elapsed()?;
         state.status.status(2, format!("E {:.0?}", el).to_string());
@@ -231,19 +231,19 @@ pub mod scenery {
         event: Error,
         state: &mut Scenery,
         _ctx: &mut AppContext<'_>,
-    ) -> Result<Control<Async1Event>, Error> {
+    ) -> Result<Control<AppEvent>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Changed)
     }
 }
 
-pub mod async1 {
-    use crate::event::Async1Event;
+pub mod main_ui {
+    use crate::event::AppEvent;
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
+    use rat_focus::impl_has_focus;
     use rat_salsa2::Control;
     use rat_widget::event::{HandleEvent, MenuOutcome, Regular};
-    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -251,14 +251,14 @@ pub mod async1 {
     use std::time::Duration;
 
     #[derive(Debug, Default)]
-    pub struct Async1 {
+    pub struct MainUI {
         pub menu: MenuLineState,
     }
 
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut Async1,
+        state: &mut MainUI,
         ctx: &mut RenderContext<'_>,
     ) -> Result<(), Error> {
         // TODO: repaint_mask
@@ -283,22 +283,10 @@ pub mod async1 {
         Ok(())
     }
 
-    impl HasFocus for Async1 {
-        fn build(&self, builder: &mut FocusBuilder) {
-            builder.widget(&self.menu);
-        }
-
-        fn focus(&self) -> FocusFlag {
-            unimplemented!("not in use, silent container")
-        }
-
-        fn area(&self) -> Rect {
-            unimplemented!("not in use, silent container")
-        }
-    }
+    impl_has_focus!(menu for MainUI);
 
     pub fn init(
-        _state: &mut Async1, //
+        _state: &mut MainUI, //
         ctx: &mut AppContext<'_>,
     ) -> Result<(), Error> {
         ctx.focus().first();
@@ -306,19 +294,19 @@ pub mod async1 {
     }
 
     pub fn event(
-        event: &Async1Event,
-        state: &mut Async1,
+        event: &AppEvent,
+        state: &mut MainUI,
         ctx: &mut AppContext<'_>,
-    ) -> Result<Control<Async1Event>, Error> {
+    ) -> Result<Control<AppEvent>, Error> {
         let r = match event {
-            Async1Event::Event(event) => match state.menu.handle(event, Regular) {
+            AppEvent::Event(event) => match state.menu.handle(event, Regular) {
                 MenuOutcome::Activated(0) => {
                     // spawn async task ...
                     ctx.spawn_async(async {
                         // to some awaiting
                         tokio::time::sleep(Duration::from_secs(2)).await;
 
-                        Ok(Control::Event(Async1Event::FromAsync(
+                        Ok(Control::Event(AppEvent::AsyncMsg(
                             "result of async computation".into(),
                         )))
                     });
@@ -334,12 +322,11 @@ pub mod async1 {
 
                         for i in 0..1200 {
                             interval.tick().await;
-                            _ = chan
-                                .send(Ok(Control::Event(Async1Event::AsyncTick(i))))
-                                .await
+                            // send back intermediate results.
+                            _ = chan.send(Ok(Control::Event(AppEvent::AsyncTick(i)))).await
                         }
 
-                        Ok(Control::Event(Async1Event::AsyncTick(300)))
+                        Ok(Control::Event(AppEvent::AsyncTick(300)))
                     });
                     // that's it.
                     Control::Continue
@@ -347,13 +334,11 @@ pub mod async1 {
                 MenuOutcome::Activated(2) => Control::Quit,
                 v => v.into(),
             },
-            Async1Event::FromAsync(s) => {
+            AppEvent::AsyncMsg(s) => {
                 // receive result from async operation
-                Control::Event(Async1Event::Message(s.clone()))
+                Control::Event(AppEvent::Message(s.clone()))
             }
-            Async1Event::AsyncTick(n) => {
-                Control::Event(Async1Event::Status(0, format!("--- {} ---", n)))
-            }
+            AppEvent::AsyncTick(n) => Control::Event(AppEvent::Status(0, format!("--- {} ---", n))),
             _ => Control::Continue,
         };
 

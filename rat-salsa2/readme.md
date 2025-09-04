@@ -37,7 +37,7 @@ returns a [control-flow](Control) which dictates further actions.
   widget library. Incorporates everything below, but each crate
   can be used on its own too.
 
-  Foundational crates:
+  Foundational crates
 
     * [rat-event](https://docs.rs/rat-event)
       Defines the primitives for event-handling.
@@ -51,8 +51,10 @@ returns a [control-flow](Control) which dictates further actions.
       Utility widgets for scrolling.
     * [rat-popup](https://docs.rs/rat-popup)
       Utility widget to help with popups.
+    * [rat-dialog](https:://docs.rs/rat-dialog)
+      Stacks windows/dialogs above the main application. 
 
-  Crates that deal with specific categories of widgets.
+  Crates for specific widgets
 
     * [rat-ftable](https://docs.rs/rat-ftable)
       table. uses traits to render your data, and renders only the visible cells.
@@ -105,7 +107,6 @@ There are some starters too
 
 [refTurbo]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/turbo.rs
 
-x
 [refMDEdit]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/mdedit.rs
 
 [refFiles]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/files.rs
