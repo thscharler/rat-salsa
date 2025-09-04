@@ -12,7 +12,7 @@ use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Style, Stylize};
+use ratatui::style::Style;
 use ratatui::widgets::{Block, HighlightSpacing, ListDirection, ListItem, StatefulWidget};
 use std::cmp::min;
 use std::collections::HashSet;
