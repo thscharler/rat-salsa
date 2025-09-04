@@ -1,15 +1,12 @@
 use anyhow::Error;
 use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{run_tui, Control, RunConfig};
+use rat_salsa2::{run_tui, AppContext, Context, Control, RunConfig};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::ct_event;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
-
-type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, UltraEvent, Error>;
-type RenderContext<'a> = rat_salsa2::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -18,21 +15,33 @@ fn main() -> Result<(), Error> {
         render,
         event,
         error,
-        &mut GlobalState::new(DarkTheme::new("Imperial".into(), IMPERIAL)),
+        &mut Global::new(DarkTheme::new("Imperial".into(), IMPERIAL)),
         &mut Ultra::default(),
         RunConfig::default()?.poll(PollCrossterm),
     )
 }
 
 #[derive(Debug)]
-pub struct GlobalState {
+pub struct Global {
+    ctx: AppContext<UltraEvent, Error>,
     pub theme: DarkTheme,
     pub err_msg: String,
 }
 
-impl GlobalState {
+impl Context<UltraEvent, Error> for Global {
+    fn set_app_ctx(&mut self, app_ctx: AppContext<UltraEvent, Error>) {
+        self.ctx = app_ctx;
+    }
+
+    fn app_ctx(&self) -> &AppContext<UltraEvent, Error> {
+        &self.ctx
+    }
+}
+
+impl Global {
     pub fn new(theme: DarkTheme) -> Self {
         Self {
+            ctx: Default::default(),
             theme,
             err_msg: Default::default(),
         }
@@ -53,20 +62,15 @@ impl From<crossterm::event::Event> for UltraEvent {
 #[derive(Debug, Default)]
 pub struct Ultra;
 
-fn render(
-    area: Rect,
-    buf: &mut Buffer,
-    _state: &mut Ultra,
-    ctx: &mut RenderContext<'_>,
-) -> Result<(), Error> {
-    ctx.g.err_msg.as_str().render(area, buf);
+fn render(area: Rect, buf: &mut Buffer, _state: &mut Ultra, ctx: &mut Global) -> Result<(), Error> {
+    ctx.err_msg.as_str().render(area, buf);
     Ok(())
 }
 
 fn event(
     event: &UltraEvent,
     _state: &mut Ultra,
-    _ctx: &mut AppContext<'_>,
+    _ctx: &mut Global,
 ) -> Result<Control<UltraEvent>, Error> {
     let r = match event {
         UltraEvent::Event(event) => match event {
@@ -78,12 +82,8 @@ fn event(
     Ok(r)
 }
 
-fn error(
-    event: Error,
-    _state: &mut Ultra,
-    ctx: &mut AppContext<'_>,
-) -> Result<Control<UltraEvent>, Error> {
-    ctx.g.err_msg = format!("{:?}", event).to_string();
+fn error(event: Error, _state: &mut Ultra, ctx: &mut Global) -> Result<Control<UltraEvent>, Error> {
+    ctx.err_msg = format!("{:?}", event).to_string();
     Ok(Control::Continue)
 }
 

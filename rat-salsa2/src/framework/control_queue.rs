@@ -5,15 +5,27 @@
 use crate::Control;
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::fmt::{Debug, Formatter};
 
 /// Queue for event-handling results.
-#[derive(Debug)]
 pub(crate) struct ControlQueue<Event, Error>
 where
     Event: 'static + Send,
     Error: 'static + Send,
 {
     queue: RefCell<VecDeque<Result<Control<Event>, Error>>>,
+}
+
+impl<Event, Error> Debug for ControlQueue<Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ControlQueue")
+            .field("queue.len", &self.queue.borrow().len())
+            .finish()
+    }
 }
 
 impl<Event, Error> Default for ControlQueue<Event, Error>

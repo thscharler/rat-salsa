@@ -8,8 +8,9 @@ use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
+use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::Ordering;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 #[cfg(feature = "async")]
 use std::future::Future;
 use std::mem;
@@ -167,59 +168,51 @@ impl<Event, T: Into<Outcome>> From<T> for Control<Event> {
     }
 }
 
+/// This trait gives access to all facilities built into rat-salsa.
 ///
-/// Application context for event handling.
+/// This trait is implemented for the global state struct and gives
+/// access to all rat-salsa functions at the same level as your
+/// own global stuff.
 ///
-#[derive(Debug)]
-pub struct AppContext<'a, Global, Event, Error>
+///
+///
+pub trait Context<Event, Error>
 where
     Event: 'static + Send,
     Error: 'static + Send,
 {
-    /// Global state for the application.
-    pub g: &'a mut Global,
-    /// Can be set to hold a Focus, if needed.
-    pub focus: Option<Focus>,
-    /// Last frame count rendered.
-    pub count: usize,
+    /// The AppContext struct holds all the data for the rat-salsa
+    /// functionality. run_tui calls this to set the initialized
+    /// struct.
+    fn set_app_ctx(&mut self, app_ctx: AppContext<Event, Error>);
 
-    /// Application timers.
-    pub(crate) timers: Option<Rc<Timers>>,
-    /// Background tasks.
-    pub(crate) tasks: Option<Rc<ThreadPool<Event, Error>>>,
-    /// Background tasks.
-    #[cfg(feature = "async")]
-    pub(crate) tokio: Option<Rc<TokioTasks<Event, Error>>>,
-    /// Queue foreground tasks.
-    pub(crate) queue: &'a ControlQueue<Event, Error>,
-}
+    /// Access the AppContext previously set.
+    fn app_ctx(&self) -> &AppContext<Event, Error>;
 
-///
-/// Application context for rendering.
-///
-#[derive(Debug)]
-pub struct RenderContext<'a, Global> {
-    /// Some global state for the application.
-    pub g: &'a mut Global,
-    /// Frame counter.
-    pub count: usize,
-    /// Output cursor position. Set after rendering is complete.
-    pub cursor: Option<(u16, u16)>,
-}
+    /// Get the current frame/render-count.
+    fn count(&self) -> usize {
+        self.app_ctx().count.get()
+    }
 
-impl<Global, Event, Error> AppContext<'_, Global, Event, Error>
-where
-    Event: 'static + Send,
-    Error: 'static + Send,
-{
+    /// Set the cursor, if the given value is something,
+    /// hides it otherwise.
+    ///
+    /// This should only be set during rendering.
+    fn set_screen_cursor(&self, cursor: Option<(u16, u16)>) {
+        if let Some(c) = cursor {
+            self.app_ctx().cursor.set(Some(c));
+        }
+    }
+
     /// Add a timer.
     ///
     /// __Panic__
     ///
     /// Panics if no timer support is configured.
     #[inline]
-    pub fn add_timer(&self, t: TimerDef) -> TimerHandle {
-        self.timers
+    fn add_timer(&self, t: TimerDef) -> TimerHandle {
+        self.app_ctx()
+            .timers
             .as_ref()
             .expect("No timers configured. In main() add RunConfig::default()?.poll(PollTimers)")
             .add(t)
@@ -231,8 +224,9 @@ where
     ///
     /// Panics if no timer support is configured.
     #[inline]
-    pub fn remove_timer(&self, tag: TimerHandle) {
-        self.timers
+    fn remove_timer(&self, tag: TimerHandle) {
+        self.app_ctx()
+            .timers
             .as_ref()
             .expect("No timers configured. In main() add RunConfig::default()?.poll(PollTimers)")
             .remove(tag);
@@ -246,7 +240,7 @@ where
     ///
     /// Panics if no timer support is configured.
     #[inline]
-    pub fn replace_timer(&self, h: Option<TimerHandle>, t: TimerDef) -> TimerHandle {
+    fn replace_timer(&self, h: Option<TimerHandle>, t: TimerDef) -> TimerHandle {
         if let Some(h) = h {
             self.remove_timer(h);
         }
@@ -266,7 +260,7 @@ where
     ///
     /// Panics if no worker-thread support is configured.
     #[inline]
-    pub fn spawn(
+    fn spawn(
         &self,
         task: impl FnOnce(Cancel, &Sender<Result<Control<Event>, Error>>) -> Result<Control<Event>, Error>
             + Send
@@ -276,7 +270,8 @@ where
         Event: 'static + Send,
         Error: 'static + Send,
     {
-        self.tasks
+        self.app_ctx()
+            .tasks
             .as_ref()
             .expect(
                 "No thread-pool configured. In main() add RunConfig::default()?.poll(PollTasks)",
@@ -285,66 +280,94 @@ where
     }
 
     /// Spawn a future in the executor.
+    ///
+    /// Panic
+    ///
+    /// Panics if tokio is not configured.
     #[inline]
     #[cfg(feature = "async")]
-    pub fn spawn_async<F>(&self, future: F) -> AbortHandle
+    fn spawn_async<F>(&self, future: F) -> AbortHandle
     where
         F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
     {
-        self.tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))")
+        self.app_ctx().tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))")
             .spawn(Box::new(future))
     }
 
     /// Spawn a future in the executor.
     /// You get an extra channel to send back more than one result.
+    ///
+    /// Panic
+    ///
+    /// Panics if tokio is not configured.
     #[inline]
     #[cfg(feature = "async")]
-    pub fn spawn_async_ext<C, F>(&self, cr_future: C) -> AbortHandle
+    fn spawn_async_ext<C, F>(&self, cr_future: C) -> AbortHandle
     where
         C: FnOnce(tokio::sync::mpsc::Sender<Result<Control<Event>, Error>>) -> F,
         F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
     {
-        let rt = self.tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");
+        let rt = self.app_ctx().tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");
         let future = cr_future(rt.sender());
         rt.spawn(Box::new(future))
     }
 
     /// Queue an application event.
     #[inline]
-    pub fn queue_event(&self, event: Event) {
-        self.queue.push(Ok(Control::Event(event)));
+    fn queue_event(&self, event: Event) {
+        self.app_ctx().queue.push(Ok(Control::Event(event)));
     }
 
     /// Queue additional results.
     #[inline]
-    pub fn queue(&self, ctrl: impl Into<Control<Event>>) {
-        self.queue.push(Ok(ctrl.into()));
+    fn queue(&self, ctrl: impl Into<Control<Event>>) {
+        self.app_ctx().queue.push(Ok(ctrl.into()));
     }
 
     /// Queue an error.
     #[inline]
-    pub fn queue_err(&self, err: Error) {
-        self.queue.push(Err(err));
+    fn queue_err(&self, err: Error) {
+        self.app_ctx().queue.push(Err(err));
     }
 
-    /// Access the focus-field.
+    /// Set the `Focus`.
+    #[inline]
+    fn set_focus(&self, focus: Focus) {
+        self.app_ctx().focus.replace(Some(focus));
+    }
+
+    /// Take the `Focus` back from the Context.
+    #[inline]
+    fn take_focus(&self) -> Option<Focus> {
+        self.app_ctx().focus.take()
+    }
+
+    /// Clear the `Focus`.
+    #[inline]
+    fn clear_focus(&self) {
+        self.app_ctx().focus.replace(None);
+    }
+
+    /// Access the `Focus`.
     ///
     /// __Panic__
     ///
     /// Panics if no focus has been set.
     #[inline]
-    pub fn focus(&self) -> &Focus {
-        self.focus.as_ref().expect("focus")
+    fn focus<'a>(&'a self) -> Ref<'a, Focus> {
+        let borrow = self.app_ctx().focus.borrow();
+        Ref::map(borrow, |v| v.as_ref().expect("focus"))
     }
 
-    /// Access the focus-field.
+    /// Mutably access the focus-field.
     ///
     /// __Panic__
     ///
     /// Panics if no focus has been set.
     #[inline]
-    pub fn focus_mut(&mut self) -> &mut Focus {
-        self.focus.as_mut().expect("focus")
+    fn focus_mut<'a>(&'a mut self) -> RefMut<'a, Focus> {
+        let borrow = self.app_ctx().focus.borrow_mut();
+        RefMut::map(borrow, |v| v.as_mut().expect("focus"))
     }
 
     /// Handle the focus-event and automatically queue the result.
@@ -353,11 +376,12 @@ where
     ///
     /// Panics if no focus has been set.
     #[inline]
-    pub fn focus_event<E>(&mut self, event: &E)
+    fn focus_event<E>(&mut self, event: &E)
     where
         Focus: HandleEvent<E, Regular, Outcome>,
     {
-        let focus = self.focus.as_mut().expect("focus");
+        let mut borrow = self.app_ctx().focus.borrow_mut();
+        let focus = borrow.as_mut().expect("focus");
         let r = focus.handle(event, Regular);
         if r.is_consumed() {
             self.queue(r);
@@ -365,11 +389,89 @@ where
     }
 }
 
-impl<Global> RenderContext<'_, Global> {
-    /// Set the cursor, if the given value is Some.
-    pub fn set_screen_cursor(&mut self, cursor: Option<(u16, u16)>) {
-        if let Some(c) = cursor {
-            self.cursor = Some(c);
+///
+/// Application context for event handling.
+///
+/// Add this to your global state and implement `Context` to
+/// access the facilities of rat-salsa. You can Default::default()
+/// initialize this field with some dummy values. It will
+/// be set correctly when calling `run_tui()`.
+///
+pub struct AppContext<Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    /// Can be set to hold a Focus, if needed.
+    pub(crate) focus: RefCell<Option<Focus>>,
+    /// Last frame count rendered.
+    pub(crate) count: Cell<usize>,
+    /// Output cursor position. Set to Frame after rendering is complete.
+    pub(crate) cursor: Cell<Option<(u16, u16)>>,
+
+    /// Application timers.
+    pub(crate) timers: Option<Rc<Timers>>,
+    /// Background tasks.
+    pub(crate) tasks: Option<Rc<ThreadPool<Event, Error>>>,
+    /// Background tasks.
+    #[cfg(feature = "async")]
+    pub(crate) tokio: Option<Rc<TokioTasks<Event, Error>>>,
+    /// Queue foreground tasks.
+    pub(crate) queue: ControlQueue<Event, Error>,
+}
+
+impl<Event, Error> Debug for AppContext<Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut ff = f.debug_struct("AppContext");
+        ff.field("focus", &self.focus)
+            .field("count", &self.count)
+            .field("cursor", &self.cursor)
+            .field("timers", &self.timers)
+            .field("tasks", &self.tasks)
+            .field("queue", &self.queue);
+        #[cfg(feature = "async")]
+        {
+            ff.field("tokio", &self.tokio);
         }
+        ff.finish()
+    }
+}
+
+impl<Event, Error> Default for AppContext<Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    fn default() -> Self {
+        Self {
+            focus: Default::default(),
+            count: Default::default(),
+            cursor: Default::default(),
+            timers: Default::default(),
+            tasks: Default::default(),
+            #[cfg(feature = "async")]
+            tokio: Default::default(),
+            queue: Default::default(),
+        }
+    }
+}
+
+impl<Event, Error> Context<Event, Error> for AppContext<Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    #[inline]
+    fn set_app_ctx(&mut self, app_ctx: AppContext<Event, Error>) {
+        *self = app_ctx;
+    }
+
+    #[inline]
+    fn app_ctx(&self) -> &AppContext<Event, Error> {
+        self
     }
 }

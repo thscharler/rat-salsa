@@ -54,8 +54,8 @@ where
     #[allow(clippy::type_complexity)]
     fn render(
         &mut self,
-        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<usize, Error>,
-    ) -> Result<usize, Error>
+        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<(), Error>,
+    ) -> Result<(), Error>
     where
         Error: From<io::Error>;
 }
@@ -125,15 +125,14 @@ where
         Ok(())
     }
 
-    #[allow(clippy::needless_lifetimes)]
     fn render(
         &mut self,
-        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<usize, Error>,
-    ) -> Result<usize, Error>
+        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<(), Error>,
+    ) -> Result<(), Error>
     where
         Error: From<io::Error>,
     {
-        let mut res = Ok(0);
+        let mut res = Ok(());
         // _ = self.term.hide_cursor();
         self.term.draw(|frame| res = f(frame))?;
         res

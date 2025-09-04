@@ -1,16 +1,30 @@
 use crate::Control;
 use log::error;
 use std::cell::RefCell;
+use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::{AbortHandle, JoinHandle};
 
-#[derive(Debug)]
 pub(crate) struct TokioTasks<Event, Error> {
     rt: Runtime,
     pending: RefCell<Vec<JoinHandle<Result<Control<Event>, Error>>>>,
     send_queue: Sender<Result<Control<Event>, Error>>,
+}
+
+impl<Event, Error> Debug for TokioTasks<Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TokioTasks")
+            .field("rt", &self.rt)
+            .field("pending.len", &self.pending.borrow().len())
+            .field("send_queue.is_closed", &self.send_queue.is_closed())
+            .finish()
+    }
 }
 
 impl<Event, Error> TokioTasks<Event, Error>

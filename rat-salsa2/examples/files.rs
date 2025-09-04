@@ -6,7 +6,7 @@ use anyhow::Error;
 use crossbeam::channel::Sender;
 use rat_salsa2::poll::{PollCrossterm, PollTasks};
 use rat_salsa2::thread_pool::Cancel;
-use rat_salsa2::{run_tui, Control, RunConfig};
+use rat_salsa2::{run_tui, AppContext, Context, Control, RunConfig};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::{dark_themes, DarkTheme};
 use rat_widget::event::{
@@ -39,16 +39,12 @@ use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use sysinfo::Disks;
 
-type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, FilesEvent, Error>;
-type RenderContext<'a> = rat_salsa2::RenderContext<'a, GlobalState>;
-
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = FilesConfig::default();
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
-
     let mut state = Files::default();
 
     run_tui(
@@ -70,13 +66,29 @@ fn main() -> Result<(), Error> {
 
 #[derive(Debug)]
 pub struct GlobalState {
+    ctx: AppContext<FilesEvent, Error>,
     pub cfg: FilesConfig,
     pub theme: DarkTheme,
 }
 
+impl Context<FilesEvent, Error> for GlobalState {
+    fn set_app_ctx(&mut self, app_ctx: AppContext<FilesEvent, Error>) {
+        self.ctx = app_ctx;
+    }
+
+    #[inline]
+    fn app_ctx(&self) -> &AppContext<FilesEvent, Error> {
+        &self.ctx
+    }
+}
+
 impl GlobalState {
     fn new(cfg: FilesConfig, theme: DarkTheme) -> Self {
-        Self { cfg, theme: theme }
+        Self {
+            ctx: Default::default(),
+            cfg,
+            theme,
+        }
     }
 }
 
@@ -223,13 +235,13 @@ impl<'a> TableData<'a> for FileData<'a> {
     }
 }
 
-struct DirData<'a, 'b> {
-    ctx: &'a RenderContext<'b>,
+struct DirData<'a> {
+    ctx: &'a GlobalState,
     dir: Option<PathBuf>,
     dirs: &'a [OsString],
 }
 
-impl<'a, 'b> TableData<'a> for DirData<'a, 'b> {
+impl<'a> TableData<'a> for DirData<'a> {
     fn rows(&self) -> usize {
         self.dirs.len()
     }
@@ -253,7 +265,7 @@ impl<'a, 'b> TableData<'a> for DirData<'a, 'b> {
                 if name.as_ref() == "." {
                     let mut l = Line::default();
                     if !t_ctx.focus || !t_ctx.selected_row {
-                        l = l.style(self.ctx.g.theme.limegreen(0));
+                        l = l.style(self.ctx.theme.limegreen(0));
                     }
                     if let Some(dir) = &self.dir {
                         if let Some(name) = dir.file_name() {
@@ -264,7 +276,7 @@ impl<'a, 'b> TableData<'a> for DirData<'a, 'b> {
                 } else if name.as_ref() == ".." {
                     let mut l = Line::default();
                     if !t_ctx.focus || !t_ctx.selected_row {
-                        l = l.style(self.ctx.g.theme.green(0));
+                        l = l.style(self.ctx.theme.green(0));
                     }
                     if let Some(dir) = &self.dir {
                         if let Some(parent) = dir.parent() {
@@ -315,10 +327,9 @@ fn render(
     area: Rect,
     buf: &mut Buffer,
     state: &mut Files,
-    ctx: &mut RenderContext<'_>,
+    ctx: &mut GlobalState,
 ) -> Result<(), Error> {
     let t0 = SystemTime::now();
-    let theme = ctx.g.theme.clone();
 
     let &[path_area, split_area, menu_area] = Layout::vertical([
         Constraint::Length(1),
@@ -341,7 +352,7 @@ fn render(
 
     Text::from(state.main_dir.to_string_lossy())
         .alignment(Alignment::Right)
-        .style(theme.black(3).fg(theme.palette().secondary[2]))
+        .style(ctx.theme.black(3).fg(ctx.theme.palette().secondary[2]))
         .render(path_area, buf);
 
     let (split, split_layout) = Split::horizontal()
@@ -351,7 +362,7 @@ fn render(
             Constraint::Fill(1),
         ])
         .split_type(SplitType::Scroll)
-        .styles(theme.split_style())
+        .styles(ctx.theme.split_style())
         .into_widget_layout(split_area, &mut state.w_split);
 
     // split content
@@ -368,7 +379,7 @@ fn render(
                     .border_type(BorderType::Rounded),
             )
             .vscroll(Scroll::new().start_margin(2).scroll_by(1))
-            .styles(theme.table_style())
+            .styles(ctx.theme.table_style())
             .render(split_layout[0], buf, &mut state.w_dirs);
 
         Table::new()
@@ -376,8 +387,8 @@ fn render(
                 dir: current_dir(state),
                 files: &state.files,
                 err: &state.err,
-                dir_style: theme.gray(0),
-                err_style: theme.red(1),
+                dir_style: ctx.theme.gray(0),
+                err_style: ctx.theme.red(1),
             })
             .block(
                 Block::new()
@@ -385,11 +396,11 @@ fn render(
                     .border_type(BorderType::Rounded),
             )
             .vscroll(Scroll::new().start_margin(2).scroll_by(1))
-            .styles(theme.table_style())
+            .styles(ctx.theme.table_style())
             .render(split_layout[1], buf, &mut state.w_files);
 
         let title = if state.w_data.is_focused() {
-            Title::from(Line::from("Content").style(theme.focus()))
+            Title::from(Line::from("Content").style(ctx.theme.focus()))
         } else {
             Title::from("Content")
         };
@@ -401,7 +412,7 @@ fn render(
                     .border_set(EMPTY)
                     .title(title),
             )
-            .styles(theme.textarea_style())
+            .styles(ctx.theme.textarea_style())
             .render(split_layout[2], buf, &mut state.w_data);
     }
 
@@ -412,7 +423,7 @@ fn render(
         .title("[-.-]")
         .popup_block(Block::bordered())
         .popup_placement(Placement::Above)
-        .styles(theme.menu_style())
+        .styles(ctx.theme.menu_style())
         .into_widgets();
     menu.render(menu_area, buf, &mut state.w_menu);
     menu_popup.render(menu_area, buf, &mut state.w_menu);
@@ -422,7 +433,7 @@ fn render(
 
     // render error dialog
     if state.error_dlg.active() {
-        let err = MsgDialog::new().styles(theme.msg_dialog_style());
+        let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
         err.render(split_area, buf, &mut state.error_dlg);
     }
 
@@ -436,13 +447,13 @@ fn render(
             Constraint::Length(12),
             Constraint::Length(12),
         ])
-        .styles(theme.statusline_style());
+        .styles(ctx.theme.statusline_style());
     status.render(status_area, buf, &mut state.status);
 
     Ok(())
 }
 
-fn init(state: &mut Files, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+fn init(state: &mut Files, ctx: &mut GlobalState) -> Result<(), Error> {
     state.main_dir = if let Ok(dot) = PathBuf::from(".").canonicalize() {
         dot
     } else {
@@ -464,7 +475,7 @@ fn init(state: &mut Files, ctx: &mut AppContext<'_>) -> Result<(), Error> {
 fn event(
     event: &FilesEvent,
     state: &mut Files,
-    ctx: &mut AppContext<'_>,
+    ctx: &mut GlobalState,
 ) -> Result<Control<FilesEvent>, Error> {
     let t0 = SystemTime::now();
 
@@ -499,7 +510,7 @@ fn event(
 fn crossterm(
     event: &crossterm::event::Event,
     state: &mut Files,
-    ctx: &mut AppContext,
+    ctx: &mut GlobalState,
 ) -> Result<Control<FilesEvent>, Error> {
     try_flow!(match &event {
         ct_event!(resized) => Control::Changed,
@@ -515,7 +526,7 @@ fn crossterm(
         }
     });
 
-    ctx.focus = Some(FocusBuilder::rebuild_for(state, ctx.focus.take()));
+    ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
     ctx.focus_event(event);
 
     try_flow!(match event {
@@ -546,11 +557,11 @@ fn crossterm(
             Control::Changed
         }
         MenuOutcome::MenuSelected(1, n) => {
-            ctx.g.theme = dark_themes()[n].clone();
+            ctx.theme = dark_themes()[n].clone();
             Control::Changed
         }
         MenuOutcome::MenuActivated(1, n) => {
-            ctx.g.theme = dark_themes()[n].clone();
+            ctx.theme = dark_themes()[n].clone();
             Control::Changed
         }
         MenuOutcome::Activated(2) => {
@@ -614,7 +625,7 @@ fn crossterm(
 fn error(
     event: Error,
     state: &mut Files,
-    ctx: &mut AppContext<'_>,
+    ctx: &mut GlobalState,
 ) -> Result<Control<FilesEvent>, Error> {
     state.error_dlg.append(format!("{:?}", &*event).as_str());
     Ok(Control::Changed)
@@ -658,7 +669,7 @@ fn update_preview(
     state: &mut Files,
     path: &PathBuf,
     text: &String,
-    ctx: &mut AppContext<'_>,
+    ctx: &mut GlobalState,
 ) -> Result<Control<FilesEvent>, Error> {
     let sel = current_file(state);
     if Some(path) == sel.as_ref() {
@@ -677,7 +688,7 @@ fn update_dirs(
     ddd: &Vec<OsString>,
     fff: &Vec<OsString>,
     err: &Option<String>,
-    ctx: &mut AppContext<'_>,
+    ctx: &mut GlobalState,
 ) -> Result<Control<FilesEvent>, Error> {
     let selected = if let Some(n) = state.w_dirs.selected() {
         state.sub_dirs.get(n).cloned()
@@ -733,7 +744,7 @@ fn read_dir(
     rel: Relative,
     path: &PathBuf,
     sub: &Option<OsString>,
-    ctx: &mut AppContext<'_>,
+    ctx: &mut GlobalState,
 ) -> Result<Control<FilesEvent>, Error> {
     let path = path.clone();
     let sub = sub.clone();
@@ -801,7 +812,7 @@ fn read_dir(
     Ok(Control::Continue)
 }
 
-fn follow_dir(state: &mut Files, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
+fn follow_dir(state: &mut Files, ctx: &mut GlobalState) -> Result<Control<FilesEvent>, Error> {
     if let Some(n) = state.w_dirs.selected() {
         if let Some(sub) = state.sub_dirs.get(n) {
             if sub == &OsString::from("..") {
@@ -864,7 +875,7 @@ fn current_file(state: &mut Files) -> Option<PathBuf> {
     file
 }
 
-fn show_file(state: &mut Files, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
+fn show_file(state: &mut Files, ctx: &mut GlobalState) -> Result<Control<FilesEvent>, Error> {
     let file = current_file(state);
 
     if let Some(file) = file {
@@ -987,7 +998,7 @@ fn display_text(
     Ok(str_text)
 }
 
-fn follow_file(state: &mut Files, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
+fn follow_file(state: &mut Files, ctx: &mut GlobalState) -> Result<Control<FilesEvent>, Error> {
     let file = current_file(state);
 
     if let Some(file) = file {

@@ -3,6 +3,7 @@
 use crate::Control;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
 use log::warn;
+use std::fmt::{Debug, Formatter};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -36,7 +37,6 @@ impl Cancel {
 ///
 ///
 ///
-#[derive(Debug)]
 pub(crate) struct ThreadPool<Event, Error>
 where
     Event: 'static + Send,
@@ -45,6 +45,20 @@ where
     send: Sender<(Cancel, BoxTask<Event, Error>)>,
     recv: Receiver<Result<Control<Event>, Error>>,
     handles: Vec<JoinHandle<()>>,
+}
+
+impl<Event, Error> Debug for ThreadPool<Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ThreadPool")
+            .field("send", &self.send)
+            .field("recv", &self.recv)
+            .field("handles", &self.handles)
+            .finish()
+    }
 }
 
 impl<Event, Error> ThreadPool<Event, Error>

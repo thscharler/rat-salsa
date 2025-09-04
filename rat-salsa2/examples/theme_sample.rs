@@ -5,7 +5,7 @@ use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa2::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa2::timer::TimeOut;
-use rat_salsa2::{run_tui, RunConfig};
+use rat_salsa2::{run_tui, AppContext, Context, RunConfig};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use std::fmt::Debug;
@@ -13,16 +13,12 @@ use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, ThemesEvent, Error>;
-type RenderContext<'a> = rat_salsa2::RenderContext<'a, GlobalState>;
-
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
-
     let mut state = Scenery::default();
 
     run_tui(
@@ -43,13 +39,25 @@ fn main() -> Result<(), Error> {
 
 #[derive(Debug)]
 pub struct GlobalState {
+    pub ctx: AppContext<ThemesEvent, Error>,
     pub cfg: Config,
     pub theme: Rc<DarkTheme>,
+}
+
+impl Context<ThemesEvent, Error> for GlobalState {
+    fn set_app_ctx(&mut self, app_ctx: AppContext<ThemesEvent, Error>) {
+        self.ctx = app_ctx;
+    }
+
+    fn app_ctx(&self) -> &AppContext<ThemesEvent, Error> {
+        &self.ctx
+    }
 }
 
 impl GlobalState {
     fn new(cfg: Config, theme: DarkTheme) -> Self {
         Self {
+            ctx: Default::default(),
             cfg,
             theme: Rc::new(theme),
         }
@@ -81,7 +89,7 @@ impl From<TimeOut> for ThemesEvent {
 
 mod scenery {
     use crate::mask0::Mask0;
-    use crate::{mask0, AppContext, RenderContext, ThemesEvent};
+    use crate::{mask0, GlobalState, ThemesEvent};
     use anyhow::Error;
     use crossterm::event::Event;
     use rat_salsa2::Control;
@@ -104,10 +112,9 @@ mod scenery {
         area: Rect,
         buf: &mut Buffer,
         state: &mut Scenery,
-        ctx: &mut RenderContext<'_>,
+        ctx: &mut GlobalState,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
-        let theme = ctx.g.theme.clone();
 
         let layout = Layout::new(
             Direction::Vertical,
@@ -118,7 +125,7 @@ mod scenery {
         mask0::render(area, buf, &mut state.mask0, ctx)?;
 
         if state.error_dlg.active() {
-            let err = MsgDialog::new().styles(theme.msg_dialog_style());
+            let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
             err.render(layout[0], buf, &mut state.error_dlg);
         }
 
@@ -135,20 +142,20 @@ mod scenery {
                 Constraint::Length(12),
                 Constraint::Length(12),
             ])
-            .styles(theme.statusline_style());
+            .styles(ctx.theme.statusline_style());
         status.render(layout_status[1], buf, &mut state.status);
 
         Ok(())
     }
 
-    pub fn init(_state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(_state: &mut Scenery, _ctx: &mut GlobalState) -> Result<(), Error> {
         Ok(())
     }
 
     pub fn event(
         event: &ThemesEvent,
         state: &mut Scenery,
-        ctx: &mut AppContext<'_>,
+        ctx: &mut GlobalState,
     ) -> Result<Control<ThemesEvent>, Error> {
         let t0 = SystemTime::now();
 
@@ -192,7 +199,7 @@ mod scenery {
     pub fn error(
         event: Error,
         state: &mut Scenery,
-        ctx: &mut AppContext<'_>,
+        ctx: &mut GlobalState,
     ) -> Result<Control<ThemesEvent>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Changed)
@@ -201,7 +208,7 @@ mod scenery {
 
 pub mod mask0 {
     use crate::show_scheme::{ShowScheme, ShowSchemeState};
-    use crate::{AppContext, RenderContext, ThemesEvent};
+    use crate::{GlobalState, ThemesEvent};
     use anyhow::Error;
     use rat_salsa2::Control;
     use rat_theme2::dark_themes;
@@ -261,10 +268,8 @@ pub mod mask0 {
         area: Rect,
         buf: &mut Buffer,
         state: &mut Mask0,
-        ctx: &mut RenderContext<'_>,
+        ctx: &mut GlobalState,
     ) -> Result<(), Error> {
-        let theme = ctx.g.theme.clone();
-
         let layout = Layout::new(
             Direction::Vertical,
             [Constraint::Fill(1), Constraint::Length(1)],
@@ -273,7 +278,7 @@ pub mod mask0 {
 
         let view = View::new()
             .block(Block::bordered())
-            .vscroll(Scroll::new().styles(theme.scroll_style()));
+            .vscroll(Scroll::new().styles(ctx.theme.scroll_style()));
         let view_area = view.inner(layout[0], &mut state.scroll);
 
         let mut v_buf = view
@@ -281,7 +286,7 @@ pub mod mask0 {
             .into_buffer(layout[0], &mut state.scroll);
 
         v_buf.render_stateful(
-            ShowScheme::new(theme.name(), theme.palette()),
+            ShowScheme::new(ctx.theme.name(), ctx.theme.palette()),
             Rect::new(0, 0, view_area.width, 38),
             &mut state.scheme,
         );
@@ -294,7 +299,7 @@ pub mod mask0 {
             Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
                 .split(layout[1]);
         let menu = Menubar::new(&Menu)
-            .styles(theme.menu_style())
+            .styles(ctx.theme.menu_style())
             .popup_placement(Placement::Above)
             .into_widgets();
         menu.0.render(layout_menu[0], buf, &mut state.menu);
@@ -306,17 +311,17 @@ pub mod mask0 {
     pub fn event(
         event: &ThemesEvent,
         state: &mut Mask0,
-        ctx: &mut AppContext<'_>,
+        ctx: &mut GlobalState,
     ) -> Result<Control<ThemesEvent>, Error> {
         let r = match event {
             ThemesEvent::Event(event) => {
                 try_flow!(match state.menu.handle(event, Popup) {
                     MenuOutcome::MenuSelected(0, n) => {
-                        ctx.g.theme = Rc::new(dark_themes()[n].clone());
+                        ctx.theme = Rc::new(dark_themes()[n].clone());
                         Control::Changed
                     }
                     MenuOutcome::MenuActivated(0, n) => {
-                        ctx.g.theme = Rc::new(dark_themes()[n].clone());
+                        ctx.theme = Rc::new(dark_themes()[n].clone());
                         Control::Changed
                     }
                     MenuOutcome::Activated(1) => {

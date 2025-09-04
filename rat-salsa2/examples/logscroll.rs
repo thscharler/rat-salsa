@@ -6,7 +6,7 @@ use ini::Ini;
 use log::{debug, warn};
 use rat_salsa2::poll::{PollCrossterm, PollTimers};
 use rat_salsa2::timer::TimeOut;
-use rat_salsa2::{run_tui, Control, RunConfig};
+use rat_salsa2::{run_tui, AppContext, Context, Control, RunConfig};
 use rat_theme2::{dark_themes, DarkTheme, Palette};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
@@ -24,9 +24,6 @@ use std::fs;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
-
-type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, LogScrollEvent, Error>;
-type RenderContext<'a> = rat_salsa2::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -128,14 +125,27 @@ fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
 
 #[derive(Debug)]
 pub struct GlobalState {
+    pub ctx: AppContext<LogScrollEvent, Error>,
     pub cfg: LogScrollConfig,
     pub theme: DarkTheme,
     pub file_path: PathBuf,
 }
 
+impl Context<LogScrollEvent, Error> for GlobalState {
+    fn set_app_ctx(&mut self, app_ctx: AppContext<LogScrollEvent, Error>) {
+        self.ctx = app_ctx;
+    }
+
+    #[inline]
+    fn app_ctx(&self) -> &AppContext<LogScrollEvent, Error> {
+        &self.ctx
+    }
+}
+
 impl GlobalState {
     pub fn new(cfg: LogScrollConfig, theme: DarkTheme) -> Self {
         Self {
+            ctx: Default::default(),
             cfg,
             theme,
             file_path: Default::default(),
@@ -177,7 +187,7 @@ pub fn render(
     area: Rect,
     buf: &mut Buffer,
     state: &mut Scenery,
-    ctx: &mut RenderContext<'_>,
+    ctx: &mut GlobalState,
 ) -> Result<(), Error> {
     let t0 = SystemTime::now();
 
@@ -193,20 +203,20 @@ pub fn render(
 
     Line::from_iter([
         Span::from("log/scroll "),
-        Span::from(format!("{:?}", ctx.g.file_path)),
+        Span::from(format!("{:?}", ctx.file_path)),
     ])
-    .style(ctx.g.theme.red(Palette::DARK_3))
+    .style(ctx.theme.red(Palette::DARK_3))
     .render(layout[0], buf);
 
     if state.error_dlg.active() {
-        let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
+        let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
         err.render(area, buf, &mut state.error_dlg);
     }
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
     state
         .status
-        .status(2, format!("R{} {:.0?}", ctx.count, el).to_string());
+        .status(2, format!("R{} {:.0?}", ctx.count(), el).to_string());
 
     let status = StatusLine::new()
         .layout([
@@ -216,18 +226,18 @@ pub fn render(
             Constraint::Length(12),
         ])
         .styles(vec![
-            ctx.g.theme.status_base(),
-            ctx.g.theme.status_base(),
-            ctx.g.theme.status_base(),
-            ctx.g.theme.status_base(),
+            ctx.theme.status_base(),
+            ctx.theme.status_base(),
+            ctx.theme.status_base(),
+            ctx.theme.status_base(),
         ]);
     status.render(layout[2], buf, &mut state.status);
 
     Ok(())
 }
 
-pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-    ctx.focus = Some(FocusBuilder::build_for(&state.logscroll));
+pub fn init(state: &mut Scenery, ctx: &mut GlobalState) -> Result<(), Error> {
+    ctx.set_focus(FocusBuilder::build_for(&state.logscroll));
     ctx.focus().enable_log();
     logscroll::init(&mut state.logscroll, ctx)?;
     Ok(())
@@ -236,15 +246,15 @@ pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> 
 pub fn event(
     event: &LogScrollEvent,
     state: &mut Scenery,
-    ctx: &mut AppContext<'_>,
+    ctx: &mut GlobalState,
 ) -> Result<Control<LogScrollEvent>, Error> {
     let t0 = SystemTime::now();
 
     let mut r = match event {
         LogScrollEvent::Event(event) => {
-            ctx.focus = Some(FocusBuilder::rebuild_for(
+            ctx.set_focus(FocusBuilder::rebuild_for(
                 &state.logscroll,
-                ctx.focus.take(),
+                ctx.take_focus(),
             ));
             ctx.focus().enable_log();
 
@@ -279,7 +289,7 @@ pub fn event(
             Control::Changed
         }
         LogScrollEvent::StoreCfg => {
-            store_config(&ctx.g.cfg)?;
+            store_config(&ctx.cfg)?;
             Control::Continue
         }
         LogScrollEvent::Cursor => {
@@ -305,7 +315,7 @@ pub fn event(
 pub fn error(
     event: Error,
     _state: &mut Scenery,
-    _ctx: &mut AppContext<'_>,
+    _ctx: &mut GlobalState,
 ) -> Result<Control<LogScrollEvent>, Error> {
     debug!("ERROR {:#?}", event);
     // self.error_dlg.append(format!("{:?}", &*event).as_str());
@@ -313,12 +323,11 @@ pub fn error(
 }
 
 mod logscroll {
-    use crate::LogScrollEvent;
-    use crate::{AppContext, RenderContext};
+    use crate::{GlobalState, LogScrollEvent};
     use anyhow::Error;
     use log::debug;
     use rat_salsa2::timer::{TimerDef, TimerHandle};
-    use rat_salsa2::Control;
+    use rat_salsa2::{Context, Control};
     use rat_theme2::{dark_themes, DarkTheme, Palette};
     use rat_widget::caption::{Caption, CaptionState, HotkeyPolicy};
     use rat_widget::event::{
@@ -379,7 +388,7 @@ mod logscroll {
         area: Rect,
         buf: &mut Buffer,
         state: &mut LogScroll,
-        ctx: &mut RenderContext<'_>,
+        ctx: &mut GlobalState,
     ) -> Result<(), Error> {
         let l0 = Layout::vertical([
             Constraint::Length(1),
@@ -389,10 +398,10 @@ mod logscroll {
         .split(area);
 
         let (split, ls) = Split::vertical()
-            .styles(ctx.g.theme.split_style())
+            .styles(ctx.theme.split_style())
             .constraints([
                 Constraint::Fill(1), //
-                Constraint::Length(ctx.g.cfg.split_pos),
+                Constraint::Length(ctx.cfg.split_pos),
             ])
             .into_widget_layout(l0[1], &mut state.split);
 
@@ -401,9 +410,9 @@ mod logscroll {
         TextArea::new()
             .vscroll(Scroll::new())
             .hscroll(Scroll::new())
-            .styles(ctx.g.theme.textarea_style())
-            .text_style_idx(99, ctx.g.theme.secondary(2))
-            .text_style_idx(100, ctx.g.theme.limegreen(2))
+            .styles(ctx.theme.textarea_style())
+            .text_style_idx(99, ctx.theme.secondary(2))
+            .text_style_idx(100, ctx.theme.limegreen(2))
             .render(ls[0], buf, &mut state.logtext);
 
         // right side
@@ -417,11 +426,11 @@ mod logscroll {
 
         Paired::new(
             Caption::parse("_Find| F3 ")
-                .styles(ctx.g.theme.caption_style())
+                .styles(ctx.theme.caption_style())
                 .hotkey_policy(HotkeyPolicy::Always)
                 .spacing(1)
                 .link(&state.find.focus()),
-            TextInput::new().styles(ctx.g.theme.text_style()),
+            TextInput::new().styles(ctx.theme.text_style()),
         )
         .split(PairSplit::Fix1(8))
         .render(
@@ -432,16 +441,16 @@ mod logscroll {
 
         Table::new()
             .vscroll(Scroll::new())
-            .styles(ctx.g.theme.table_style())
+            .styles(ctx.theme.table_style())
             .data(FindData {
-                theme: &ctx.g.theme,
+                theme: &ctx.theme,
                 text: &state.logtext,
                 data: &state.find_matches,
             })
             .render(l2[1], buf, &mut state.find_table);
 
         Line::from(format!("{} matches", state.find_matches.len()))
-            .style(ctx.g.theme.red(Palette::DARK_3))
+            .style(ctx.theme.red(Palette::DARK_3))
             .render(l2[2], buf);
 
         split.render(l0[1], buf, &mut state.split);
@@ -661,7 +670,7 @@ mod logscroll {
         Ok(true)
     }
 
-    fn run_search(state: &mut LogScroll, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    fn run_search(state: &mut LogScroll, ctx: &mut GlobalState) -> Result<(), Error> {
         let text = state.find.text();
 
         if text.is_empty() {
@@ -705,10 +714,10 @@ mod logscroll {
         Ok(())
     }
 
-    pub fn init(state: &mut LogScroll, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(state: &mut LogScroll, ctx: &mut GlobalState) -> Result<(), Error> {
         ctx.focus().first();
 
-        load_file(state, &ctx.g.file_path)?;
+        load_file(state, &ctx.file_path)?;
 
         ctx.add_timer(
             TimerDef::new()
@@ -728,7 +737,7 @@ mod logscroll {
     pub fn event(
         event: &LogScrollEvent,
         state: &mut LogScroll,
-        ctx: &mut AppContext<'_>,
+        ctx: &mut GlobalState,
     ) -> Result<Control<LogScrollEvent>, Error> {
         let r = match event {
             LogScrollEvent::Event(event) => {
@@ -760,11 +769,11 @@ mod logscroll {
                         let themes = dark_themes();
                         let pos = themes
                             .iter()
-                            .position(|v| v.name() == ctx.g.theme.name())
+                            .position(|v| v.name() == ctx.theme.name())
                             .unwrap_or(0);
                         let pos = (pos + 1) % themes.len();
-                        ctx.g.theme = themes[pos].clone();
-                        ctx.queue_event(LogScrollEvent::Status(0, ctx.g.theme.name().into()));
+                        ctx.theme = themes[pos].clone();
+                        ctx.queue_event(LogScrollEvent::Status(0, ctx.theme.name().into()));
                         Control::Changed
                     }
 
@@ -773,7 +782,7 @@ mod logscroll {
 
                 try_flow!(match state.split.handle(event, Regular) {
                     Outcome::Changed => {
-                        ctx.g.cfg.split_pos = state.split.area_len(1);
+                        ctx.cfg.split_pos = state.split.area_len(1);
                         ctx.queue_event(LogScrollEvent::StoreCfg);
                         Control::Changed
                     }
@@ -785,7 +794,7 @@ mod logscroll {
                     }
                     r => r.into(),
                 });
-                try_flow!(state.find_label.handle(event, ctx.focus()));
+                try_flow!(state.find_label.handle(event, &*ctx.focus()));
                 try_flow!(match state.find.handle(event, Regular) {
                     TextOutcome::TextChanged => {
                         run_search(state, ctx)?;
@@ -819,15 +828,15 @@ mod logscroll {
                 Control::Continue
             }
             LogScrollEvent::TimeOut(t) if t.handle != state.pollution => {
-                if log_grows(state, &ctx.g.file_path)? {
-                    if update_file(state, &ctx.g.file_path)? {
+                if log_grows(state, &ctx.file_path)? {
+                    if update_file(state, &ctx.file_path)? {
                         ctx.queue_event(LogScrollEvent::Cursor);
                         Control::Changed
                     } else {
                         Control::Continue
                     }
-                } else if log_shrinks(state, &ctx.g.file_path)? {
-                    load_file(state, &ctx.g.file_path)?;
+                } else if log_shrinks(state, &ctx.file_path)? {
+                    load_file(state, &ctx.file_path)?;
                     run_search(state, ctx)?;
                     ctx.queue_event(LogScrollEvent::Cursor);
                     Control::Changed

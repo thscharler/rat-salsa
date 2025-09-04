@@ -3,15 +3,12 @@ use crate::scenery::Scenery;
 use anyhow::Error;
 use dirs::cache_dir;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa2::{run_tui, RunConfig};
+use rat_salsa2::{run_tui, AppContext, Context, RunConfig};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use std::fs;
 use std::fs::create_dir_all;
 use std::rc::Rc;
-
-type AppContext<'a> = rat_salsa2::AppContext<'a, Global, AppEvent, Error>;
-type RenderContext<'a> = rat_salsa2::RenderContext<'a, Global>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -21,7 +18,6 @@ fn main() -> Result<(), Error> {
     let config = Config::default();
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = Global::new(config, theme);
-
     let mut state = Scenery::default();
 
     let mut run_cfg = RunConfig::default()?
@@ -49,13 +45,25 @@ fn main() -> Result<(), Error> {
 /// Globally accessible data/state.
 #[derive(Debug)]
 pub struct Global {
+    ctx: AppContext<AppEvent, Error>,
     pub cfg: Config,
     pub theme: Rc<DarkTheme>,
+}
+
+impl Context<AppEvent, Error> for Global {
+    fn set_app_ctx(&mut self, app_ctx: AppContext<AppEvent, Error>) {
+        self.ctx = app_ctx;
+    }
+
+    fn app_ctx(&self) -> &AppContext<AppEvent, Error> {
+        &self.ctx
+    }
 }
 
 impl Global {
     pub fn new(cfg: Config, theme: DarkTheme) -> Self {
         Self {
+            ctx: Default::default(),
             cfg,
             theme: Rc::new(theme),
         }
@@ -103,11 +111,10 @@ pub mod event {
 
 pub mod scenery {
     use crate::event::AppEvent;
-    use crate::main_ui;
     use crate::main_ui::MainUI;
-    use crate::{AppContext, RenderContext};
+    use crate::{main_ui, Global};
     use anyhow::Error;
-    use rat_salsa2::Control;
+    use rat_salsa2::{Context, Control};
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
@@ -129,17 +136,16 @@ pub mod scenery {
         area: Rect,
         buf: &mut Buffer,
         state: &mut Scenery,
-        ctx: &mut RenderContext<'_>,
+        ctx: &mut Global,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
-        let theme = ctx.g.theme.clone();
 
         let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
         main_ui::render(area, buf, &mut state.async1, ctx)?;
 
         if state.error_dlg.active() {
-            let err = MsgDialog::new().styles(theme.msg_dialog_style());
+            let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
             err.render(
                 layout_middle(
                     layout[0],
@@ -164,14 +170,14 @@ pub mod scenery {
                 Constraint::Length(8),
                 Constraint::Length(8),
             ])
-            .styles(theme.statusline_style());
+            .styles(ctx.theme.statusline_style());
         status.render(status_layout[1], buf, &mut state.status);
 
         Ok(())
     }
 
-    pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-        ctx.focus = Some(FocusBuilder::build_for(&state.async1));
+    pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
+        ctx.set_focus(FocusBuilder::build_for(&state.async1));
         main_ui::init(&mut state.async1, ctx)?;
         Ok(())
     }
@@ -179,7 +185,7 @@ pub mod scenery {
     pub fn event(
         event: &AppEvent,
         state: &mut Scenery,
-        ctx: &mut AppContext<'_>,
+        ctx: &mut Global,
     ) -> Result<Control<AppEvent>, Error> {
         let t0 = SystemTime::now();
 
@@ -205,7 +211,7 @@ pub mod scenery {
                 r
             }
             AppEvent::Rendered => {
-                ctx.focus = Some(FocusBuilder::rebuild_for(&state.async1, ctx.focus.take()));
+                ctx.set_focus(FocusBuilder::rebuild_for(&state.async1, ctx.take_focus()));
                 Control::Continue
             }
             AppEvent::Message(s) => {
@@ -230,7 +236,7 @@ pub mod scenery {
     pub fn error(
         event: Error,
         state: &mut Scenery,
-        _ctx: &mut AppContext<'_>,
+        _ctx: &mut Global,
     ) -> Result<Control<AppEvent>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Changed)
@@ -239,10 +245,10 @@ pub mod scenery {
 
 pub mod main_ui {
     use crate::event::AppEvent;
-    use crate::{AppContext, RenderContext};
+    use crate::Global;
     use anyhow::Error;
     use rat_focus::impl_has_focus;
-    use rat_salsa2::Control;
+    use rat_salsa2::{Context, Control};
     use rat_widget::event::{HandleEvent, MenuOutcome, Regular};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
@@ -259,11 +265,9 @@ pub mod main_ui {
         area: Rect,
         buf: &mut Buffer,
         state: &mut MainUI,
-        ctx: &mut RenderContext<'_>,
+        ctx: &mut Global,
     ) -> Result<(), Error> {
         // TODO: repaint_mask
-        let theme = ctx.g.theme.clone();
-
         let r = Layout::new(
             Direction::Vertical,
             [
@@ -274,7 +278,7 @@ pub mod main_ui {
         .split(area);
 
         let menu = MenuLine::new()
-            .styles(theme.menu_style())
+            .styles(ctx.theme.menu_style())
             .item_parsed("_Simple Async")
             .item_parsed("_Long Running")
             .item_parsed("_Quit");
@@ -287,7 +291,7 @@ pub mod main_ui {
 
     pub fn init(
         _state: &mut MainUI, //
-        ctx: &mut AppContext<'_>,
+        ctx: &mut Global,
     ) -> Result<(), Error> {
         ctx.focus().first();
         Ok(())
@@ -296,7 +300,7 @@ pub mod main_ui {
     pub fn event(
         event: &AppEvent,
         state: &mut MainUI,
-        ctx: &mut AppContext<'_>,
+        ctx: &mut Global,
     ) -> Result<Control<AppEvent>, Error> {
         let r = match event {
             AppEvent::Event(event) => match state.menu.handle(event, Regular) {

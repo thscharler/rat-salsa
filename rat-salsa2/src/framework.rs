@@ -3,7 +3,7 @@ use crate::framework::control_queue::ControlQueue;
 use crate::poll::PollTokio;
 use crate::poll::{PollRendered, PollTasks, PollTimers};
 use crate::run_config::RunConfig;
-use crate::{AppContext, Control, RenderContext};
+use crate::{AppContext, Context, Control};
 use poll_queue::PollQueue;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -23,30 +23,30 @@ const FAST_SLEEP: u64 = 100; // µs
 fn _run_tui<Global, State, Event, Error>(
     init: fn(
         state: &mut State, //
-        ctx: &mut AppContext<'_, Global, Event, Error>,
+        ctx: &mut Global,
     ) -> Result<(), Error>,
     render: fn(
         area: Rect, //
         buf: &mut Buffer,
         state: &mut State,
-        ctx: &mut RenderContext<'_, Global>,
+        ctx: &mut Global,
     ) -> Result<(), Error>,
     event: fn(
         event: &Event, //
         state: &mut State,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
+        ctx: &mut Global,
     ) -> Result<Control<Event>, Error>,
     error: fn(
         error: Error, //
         state: &mut State,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
+        ctx: &mut Global,
     ) -> Result<Control<Event>, Error>,
     global: &mut Global,
     state: &mut State,
     cfg: &mut RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
-    Global: 'static,
+    Global: Context<Event, Error>,
     Event: Send + 'static,
     Error: Send + 'static + From<io::Error>,
 {
@@ -76,46 +76,42 @@ where
             .downcast_ref::<PollTokio<Event, Error>>()
             .map(|t| t.get_tasks())
     });
-    let queue = ControlQueue::default();
 
-    let mut appctx = AppContext {
-        g: global,
-        focus: None,
-        count: 0,
+    global.set_app_ctx(AppContext {
+        focus: Default::default(),
+        count: Default::default(),
+        cursor: Default::default(),
         timers,
         tasks,
         #[cfg(feature = "async")]
         tokio,
-        queue: &queue,
-    };
+        queue: ControlQueue::default(),
+    });
 
     let poll_queue = PollQueue::default();
     let mut poll_sleep = Duration::from_micros(SLEEP);
 
     // init state
-    init(state, &mut appctx)?;
+    init(state, global)?;
 
     // initial render
-    appctx.count = term.render(&mut |frame| {
-        let mut ctx = RenderContext {
-            g: appctx.g,
-            count: frame.count(),
-            cursor: None,
-        };
+    term.render(&mut |frame| {
         let frame_area = frame.area();
-        render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
-        if let Some((cursor_x, cursor_y)) = ctx.cursor {
+        render(frame_area, frame.buffer_mut(), state, global)?;
+        if let Some((cursor_x, cursor_y)) = global.app_ctx().cursor.get() {
             frame.set_cursor_position((cursor_x, cursor_y));
         }
-        Ok(frame.count())
+        global.app_ctx().count.set(frame.count());
+        global.app_ctx().cursor.set(None);
+        Ok(())
     })?;
     if let Some(idx) = rendered_event {
-        queue.push(poll[idx].read());
+        global.app_ctx().queue.push(poll[idx].read());
     }
 
     'ui: loop {
         // panic on worker panic
-        if let Some(tasks) = &appctx.tasks {
+        if let Some(tasks) = &global.app_ctx().tasks {
             if !tasks.check_liveness() {
                 dbg!("worker panicked");
                 break 'ui;
@@ -123,7 +119,7 @@ where
         }
 
         // No events queued, check here.
-        if queue.is_empty() {
+        if global.app_ctx().queue.is_empty() {
             // The events are not processed immediately, but all
             // notifies are queued in the poll_queue.
             if poll_queue.is_empty() {
@@ -134,7 +130,7 @@ where
                         }
                         Ok(false) => {}
                         Err(e) => {
-                            queue.push(Err(e));
+                            global.app_ctx().queue.push(Err(e));
                         }
                     }
                 }
@@ -142,7 +138,7 @@ where
 
             // Sleep regime.
             if poll_queue.is_empty() {
-                let t = if let Some(timers) = &appctx.timers {
+                let t = if let Some(timers) = &global.app_ctx().timers {
                     if let Some(timer_sleep) = timers.sleep_time() {
                         min(timer_sleep, poll_sleep)
                     } else {
@@ -164,46 +160,44 @@ where
 
         // All the fall-out of the last event has cleared.
         // Run the next event.
-        if queue.is_empty() {
+        if global.app_ctx().queue.is_empty() {
             if let Some(h) = poll_queue.take() {
-                queue.push(poll[h].read());
+                global.app_ctx().queue.push(poll[h].read());
             }
         }
 
         // Result of event-handling.
-        if let Some(ctrl) = queue.take() {
+        if let Some(ctrl) = global.app_ctx().queue.take() {
             match ctrl {
                 Err(e) => {
-                    queue.push(error(e, state, &mut appctx));
+                    let r = error(e, state, global);
+                    global.app_ctx().queue.push(r);
                 }
                 Ok(Control::Continue) => {}
                 Ok(Control::Unchanged) => {}
                 Ok(Control::Changed) => {
                     let r = term.render(&mut |frame| {
-                        let mut ctx = RenderContext {
-                            g: appctx.g,
-                            count: frame.count(),
-                            cursor: None,
-                        };
                         let frame_area = frame.area();
-                        render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
-                        if let Some((cursor_x, cursor_y)) = ctx.cursor {
+                        render(frame_area, frame.buffer_mut(), state, global)?;
+                        if let Some((cursor_x, cursor_y)) = global.app_ctx().cursor.get() {
                             frame.set_cursor_position((cursor_x, cursor_y));
                         }
-                        Ok(frame.count())
+                        global.app_ctx().count.set(frame.count());
+                        global.app_ctx().cursor.set(None);
+                        Ok(())
                     });
                     match r {
-                        Ok(v) => {
-                            appctx.count = v;
+                        Ok(_) => {
                             if let Some(h) = rendered_event {
-                                queue.push(poll[h].read());
+                                global.app_ctx().queue.push(poll[h].read());
                             }
                         }
-                        Err(e) => queue.push(Err(e)),
+                        Err(e) => global.app_ctx().queue.push(Err(e)),
                     }
                 }
                 Ok(Control::Event(a)) => {
-                    queue.push(event(&a, state, &mut appctx));
+                    let r = event(&a, state, global);
+                    global.app_ctx().queue.push(r);
                 }
                 Ok(Control::Quit) => {
                     break 'ui;
@@ -221,16 +215,13 @@ where
 ///
 /// The shortest version I can come up with:
 /// ```rust no_run
-/// use rat_salsa2::{run_tui, Control, RunConfig};
+/// use rat_salsa2::{run_tui, Context, AppContext, Control, RunConfig};
 /// use ratatui::buffer::Buffer;
 /// use ratatui::layout::Rect;
 /// use ratatui::style::Stylize;
 /// use ratatui::text::Span;
 /// use ratatui::widgets::Widget;
 /// use rat_widget::event::{try_flow, ct_event};
-///
-/// type AppContext<'a> = rat_salsa2::AppContext<'a, (), Event, anyhow::Error>;
-/// type RenderContext<'a> = rat_salsa2::RenderContext<'a, ()>;
 ///
 /// #[derive(Debug)]
 /// struct State;
@@ -247,6 +238,21 @@ where
 ///     }
 /// }
 ///
+/// struct Global {
+///     app_ctx: Option<AppContext<Event, anyhow::Error>>
+/// }
+///
+/// impl Context<Event, anyhow::Error> for Global {
+///     fn set_app_ctx(&mut self, app_ctx: AppContext<Event, anyhow::Error>) {
+///         self.app_ctx = Some(app_ctx);
+///     }
+///
+///     #[inline]
+///     fn app_ctx(&self) -> &AppContext<Event, anyhow::Error> {
+///         self.app_ctx.as_ref().expect("app-ctx")
+///     }
+/// }
+///
 /// fn main() -> Result<(), anyhow::Error> {
 ///     use rat_salsa2::poll::PollCrossterm;
 ///     run_tui(
@@ -254,7 +260,7 @@ where
 ///         render,
 ///         event,
 ///         error,
-///         &mut (),
+///         &mut Global {app_ctx: None},
 ///         &mut State,
 ///         RunConfig::default()?
 ///             .poll(PollCrossterm)
@@ -263,7 +269,7 @@ where
 /// }
 ///
 /// fn init(state: &mut State,
-///     ctx: &mut AppContext<'_>) -> Result<(), anyhow::Error> {
+///     ctx: &mut Global) -> Result<(), anyhow::Error> {
 ///     Ok(())
 /// }
 ///
@@ -271,7 +277,7 @@ where
 ///     area: Rect,
 ///     buf: &mut Buffer,
 ///     state: &mut State,
-///     ctx: &mut RenderContext<'_>,
+///     ctx: &mut Global,
 /// ) -> Result<(), anyhow::Error> {
 ///     Span::from("Hello world").white().on_blue().render(area, buf);
 ///     Ok(())
@@ -280,7 +286,7 @@ where
 /// fn event(
 ///     event: &Event,
 ///     state: &mut State,
-///     ctx: &mut AppContext<'_>,
+///     ctx: &mut Global,
 /// ) -> Result<Control<Event>, anyhow::Error> {
 ///     if let Event::Event(event) = event {
 ///         try_flow!(match event {
@@ -297,7 +303,7 @@ where
 ///
 /// fn error(error: anyhow::Error,
 ///     state: &mut State,
-///     ctx: &mut AppContext<'_>) -> Result<Control<Event>, anyhow::Error> {
+///     ctx: &mut Global) -> Result<Control<Event>, anyhow::Error> {
 ///     Ok(Control::Continue)
 /// }
 ///
@@ -308,30 +314,30 @@ where
 pub fn run_tui<Global, State, Event, Error>(
     init: fn(
         state: &mut State, //
-        ctx: &mut AppContext<'_, Global, Event, Error>,
+        ctx: &mut Global,
     ) -> Result<(), Error>,
     render: fn(
         area: Rect, //
         buf: &mut Buffer,
         state: &mut State,
-        ctx: &mut RenderContext<'_, Global>,
+        ctx: &mut Global,
     ) -> Result<(), Error>,
     event: fn(
         event: &Event, //
         state: &mut State,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
+        ctx: &mut Global,
     ) -> Result<Control<Event>, Error>,
     error: fn(
         error: Error, //
         state: &mut State,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
+        ctx: &mut Global,
     ) -> Result<Control<Event>, Error>,
     global: &mut Global,
     state: &mut State,
     mut cfg: RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
-    Global: 'static,
+    Global: Context<Event, Error>,
     Event: Send + 'static,
     Error: Send + 'static + From<io::Error>,
 {

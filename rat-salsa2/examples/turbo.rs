@@ -5,27 +5,22 @@
 //! look too bad.
 //!
 //!
-
 use crate::scenery::{error, event, init, render, Scenery};
 use crate::theme::TurboTheme;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{run_tui, RunConfig};
+use rat_salsa2::{run_tui, AppContext, Context, RunConfig};
 use rat_theme2::palettes::BASE16;
 use std::fs;
 use std::rc::Rc;
-
-type AppContext<'a> = rat_salsa2::AppContext<'a, GlobalState, TurboEvent, Error>;
-type RenderContext<'a> = rat_salsa2::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = TurboConfig::default();
     let theme = TurboTheme::new("Base16".into(), BASE16);
-    let mut global = GlobalState::new(config, theme);
-
+    let mut global = TurboGlobal::new(config, theme);
     let mut state = Scenery::default();
 
     run_tui(
@@ -44,14 +39,27 @@ fn main() -> Result<(), Error> {
 
 /// Globally accessible data/state.
 #[derive(Debug)]
-pub struct GlobalState {
+pub struct TurboGlobal {
+    ctx: AppContext<TurboEvent, Error>,
     pub cfg: TurboConfig,
     pub theme: Rc<TurboTheme>,
 }
 
-impl GlobalState {
+impl Context<TurboEvent, Error> for TurboGlobal {
+    fn set_app_ctx(&mut self, app_ctx: AppContext<TurboEvent, Error>) {
+        self.ctx = app_ctx;
+    }
+
+    #[inline]
+    fn app_ctx(&self) -> &AppContext<TurboEvent, Error> {
+        &self.ctx
+    }
+}
+
+impl TurboGlobal {
     pub fn new(cfg: TurboConfig, theme: TurboTheme) -> Self {
         Self {
+            ctx: Default::default(),
             cfg,
             theme: Rc::new(theme),
         }
@@ -79,10 +87,9 @@ impl From<Event> for TurboEvent {
 
 pub mod scenery {
     use crate::turbo::Turbo;
-    use crate::{turbo, TurboEvent};
-    use crate::{AppContext, RenderContext};
+    use crate::{turbo, TurboEvent, TurboGlobal};
     use anyhow::Error;
-    use rat_salsa2::Control;
+    use rat_salsa2::{Context, Control};
     use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -104,10 +111,9 @@ pub mod scenery {
         area: Rect,
         buf: &mut Buffer,
         state: &mut Scenery,
-        ctx: &mut RenderContext<'_>,
+        ctx: &mut TurboGlobal,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
-        let theme = ctx.g.theme.clone();
 
         let layout = Layout::vertical([
             Constraint::Length(1),
@@ -116,7 +122,7 @@ pub mod scenery {
         ])
         .split(area);
 
-        fill_buf_area(buf, layout[1], " ", theme.data());
+        fill_buf_area(buf, layout[1], " ", ctx.theme.data());
 
         turbo::render(area, buf, &mut state.turbo, ctx)?;
 
@@ -128,7 +134,7 @@ pub mod scenery {
                 Constraint::Length(2),
                 Constraint::Length(2),
             );
-            let err = MsgDialog::new().styles(theme.msg_dialog_style());
+            let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
             err.render(layout_error, buf, &mut state.error_dlg);
         }
 
@@ -141,7 +147,7 @@ pub mod scenery {
                 Constraint::Length(8),
                 Constraint::Length(8),
             ])
-            .styles(theme.statusline_style());
+            .styles(ctx.theme.statusline_style());
         status.render(layout[2], buf, &mut state.status);
 
         Ok(())
@@ -170,8 +176,8 @@ pub mod scenery {
         v_layout[1]
     }
 
-    pub fn init(state: &mut Scenery, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-        ctx.focus = Some(FocusBuilder::build_for(&state.turbo));
+    pub fn init(state: &mut Scenery, ctx: &mut TurboGlobal) -> Result<(), Error> {
+        ctx.set_focus(FocusBuilder::build_for(&state.turbo));
         turbo::init(&mut state.turbo, ctx)?;
         state.status.status(0, "Ctrl-Q to quit.");
         Ok(())
@@ -180,7 +186,7 @@ pub mod scenery {
     pub fn event(
         event: &TurboEvent,
         state: &mut Scenery,
-        ctx: &mut AppContext<'_>,
+        ctx: &mut TurboGlobal,
     ) -> Result<Control<TurboEvent>, Error> {
         let t0 = SystemTime::now();
 
@@ -202,7 +208,7 @@ pub mod scenery {
                 });
 
                 r = r.or_else(|| {
-                    ctx.focus = Some(FocusBuilder::rebuild_for(&state.turbo, ctx.focus.take()));
+                    ctx.set_focus(FocusBuilder::rebuild_for(&state.turbo, ctx.take_focus()));
                     let f = ctx.focus_mut().handle(event, Regular);
                     ctx.queue(f);
                     Control::Continue
@@ -231,7 +237,7 @@ pub mod scenery {
     pub fn error(
         event: Error,
         state: &mut Scenery,
-        _ctx: &mut AppContext<'_>,
+        _ctx: &mut TurboGlobal,
     ) -> Result<Control<TurboEvent>, Error> {
         state.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Changed)
@@ -239,9 +245,9 @@ pub mod scenery {
 }
 
 pub mod turbo {
-    use crate::{AppContext, RenderContext, TurboEvent};
+    use crate::{TurboEvent, TurboGlobal};
     use anyhow::Error;
-    use rat_salsa2::Control;
+    use rat_salsa2::{Context, Control};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{
@@ -429,9 +435,8 @@ pub mod turbo {
         area: Rect,
         buf: &mut Buffer,
         state: &mut Turbo,
-        ctx: &mut RenderContext<'_>,
+        ctx: &mut TurboGlobal,
     ) -> Result<(), Error> {
-        let theme = ctx.g.theme.clone();
         // TODO: repaint_mask
 
         let r = Layout::new(
@@ -445,10 +450,10 @@ pub mod turbo {
         .split(area);
 
         let (menubar, popup) = Menubar::new(&Menu)
-            .styles(theme.menu_style())
+            .styles(ctx.theme.menu_style())
             .title("  ")
             .popup_placement(Placement::Below)
-            .popup_block(Block::bordered().style(theme.menu_style().style))
+            .popup_block(Block::bordered().style(ctx.theme.menu_style().style))
             .into_widgets();
         menubar.render(r[0], buf, &mut state.menu);
         popup.render(r[0], buf, &mut state.menu);
@@ -470,7 +475,7 @@ pub mod turbo {
                 .unwrap_or_default();
 
             PopupMenu::new()
-                .styles(theme.menu_style())
+                .styles(ctx.theme.menu_style())
                 .item_parsed("_Preferences...")
                 .item_parsed("_Editor...")
                 .item_parsed("_Mouse...")
@@ -493,7 +498,7 @@ pub mod turbo {
 
     impl_has_focus!(menu for Turbo);
 
-    pub fn init(_state: &mut Turbo, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+    pub fn init(_state: &mut Turbo, ctx: &mut TurboGlobal) -> Result<(), Error> {
         ctx.focus().first();
         Ok(())
     }
@@ -501,7 +506,7 @@ pub mod turbo {
     pub fn event(
         event: &TurboEvent,
         state: &mut Turbo,
-        ctx: &mut AppContext<'_>,
+        ctx: &mut TurboGlobal,
     ) -> Result<Control<TurboEvent>, Error> {
         let r = match event {
             TurboEvent::Event(event) => {
