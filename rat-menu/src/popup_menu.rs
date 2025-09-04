@@ -485,7 +485,8 @@ impl PopupMenuState {
     }
 
     /// New state with a focus name.
-    pub fn named(name: &'static str) -> Self {
+    #[deprecated(since = "1.0.5", note = "no longer useful")]
+    pub fn named(_: &'static str) -> Self {
         Self {
             popup: PopupCoreState::new(),
             ..Default::default()
