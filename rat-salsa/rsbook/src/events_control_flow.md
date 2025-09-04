@@ -38,7 +38,7 @@ or the other is easier/clearer.
     
   - Widgets often have action-functions that return bool to
     indicate 'changed'/'not changed'. There is a conversion for
-    Outcome that maps true/false to Changed/Unchanged. So those
+    Outcome that maps true/false to Changed/Continue. So those
     results are integrated too.
     
 - Ord for Outcome/Control

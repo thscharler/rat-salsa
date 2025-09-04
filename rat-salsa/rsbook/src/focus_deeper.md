@@ -55,8 +55,8 @@ This flag controls the interaction of a widget with Focus.
 
 * Reach - Widget can gain focus, but not loose it.
 
-  There is one bastard of a widget: TextAreas. They want
-  their tabs for themselves.
+  There is one bastard of a widget: TextArea. It really wants
+  to use tabs. 
 
 * Lock - Focus is locked to stay with this widget.
 

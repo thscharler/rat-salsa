@@ -38,17 +38,18 @@ If it does so,
 
 - Other functions of Focus will differentiate between Widgets and Containers too.
 
-Containers can be used to update the Focus structure after creation.
-There are Focus::update_container(), remove_container() and replace_container()
-that take containers and change the internal structure. As the Focus is
-rebuilt regularly this is rarely needed.
+Containers can be used to update the Focus structure after
+creation. There are Focus::update_container(), remove_container()
+and replace_container() that take containers and change the
+internal structure. As the Focus is rebuilt regularly this is
+rarely needed.
 
-There can be state changes that
-will change Focus the next time it is rebuilt. But with the same state
-change you already want to act upon the new future structure. e.g.
-when changing the selected tab. Focus on tabs is created for the visible
-tab only, and with the tab change the focus should be transferred to
-the first widget on the newly visible tab.
+There can be state changes that will change Focus the next time
+it is rebuilt. But with the same state change you already want
+to act upon the new future structure. e.g. when changing the
+selected tab. Focus on tabs is created for the visible tab only,
+and with the tab change the focus should be transferred to the
+first widget on the newly visible tab.
 
 ## Anonymous
 

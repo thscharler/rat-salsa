@@ -9,10 +9,10 @@ in AppContext.
 ## Usage
 
 ```rust
-    if self .w_split.is_focused() {
-ctx.focus().next();
+if self.w_split.is_focused() {
+    ctx.focus().next();
 } else {
-ctx.focus().focus( & self.w_split);
+    ctx.focus().focus(&self.w_split);
 }
 ```
 
@@ -65,7 +65,7 @@ and
 - there is room for optimizations later.
 
 ```rust
-    ctx.focus = Some(FocusBuilder::for_container( & self .app));
+    ctx.focus = Some(FocusBuilder::for_container(&self.app));
 ```
 
 If you have a AppWidget that `HasFocus` you can simply use
@@ -77,9 +77,7 @@ in the `ctx` it is immediately accessible everywhere.
 Focus implements HandleEvent, so event handling is simple.
 
 ```rust
-    let f = Control::from(
-ctx.focus_mut().handle(event, Regular)
-);
+    let f = Control::from(ctx.focus_mut().handle(event, Regular));
 ```
 
 `Regular` event-handling for focus is
@@ -103,7 +101,7 @@ instead of Control, thus the conversion.
 
 ```rust
     let f = Control::from(ctx.focus_mut().handle(event, Regular));
-let r = self .app.crossterm(event, ctx) ?;
+    let r = self .app.crossterm(event, ctx) ?;
 ```
 
 > Here `Ord` comes to the rescue. The values of Control are
@@ -121,7 +119,7 @@ Or you can just return a second result to the event-loop using
 
 ```rust
     let f = ctx.focus_mut().handle(event, Regular);
-ctx.queue(f);
+    ctx.queue(f);
 ```    
 
 and be done with it.
@@ -136,7 +134,5 @@ and be done with it.
 [refFocusBuilder]: https://docs.rs/rat-focus/latest/rat_focus/struct.FocusBuilder.html
 
 [refFocus]: https://docs.rs/rat-focus/latest/rat_focus/struct.Focus.html
-
-
 
 
