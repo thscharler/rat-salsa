@@ -1,9 +1,11 @@
 //! Thread pool.
 
+use crate::tasks::Liveness;
 use crate::Control;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
-use log::warn;
+use log::error;
 use std::fmt::{Debug, Formatter};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -34,15 +36,12 @@ impl Cancel {
 }
 
 /// Basic thread-pool.
-///
-///
-///
 pub(crate) struct ThreadPool<Event, Error>
 where
     Event: 'static + Send,
     Error: 'static + Send,
 {
-    send: Sender<(Cancel, BoxTask<Event, Error>)>,
+    send: Sender<(Cancel, Liveness, BoxTask<Event, Error>)>,
     recv: Receiver<Result<Control<Event>, Error>>,
     handles: Vec<JoinHandle<()>>,
 }
@@ -68,7 +67,7 @@ where
 {
     /// New thread-pool with the given task executor.
     pub(crate) fn new(n_worker: usize) -> Self {
-        let (send, t_recv) = unbounded::<(Cancel, BoxTask<Event, Error>)>();
+        let (send, t_recv) = unbounded::<(Cancel, Liveness, BoxTask<Event, Error>)>();
         let (t_send, recv) = unbounded::<Result<Control<Event>, Error>>();
 
         let mut handles = Vec::new();
@@ -82,15 +81,24 @@ where
 
                 'l: loop {
                     match t_recv.recv() {
-                        Ok((cancel, task)) => {
-                            let flow = task(cancel, &t_send);
+                        Ok((cancel, liveness, task)) => {
+                            let flow = match catch_unwind(AssertUnwindSafe(|| {
+                                task(cancel, &t_send) //
+                            })) {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    error!("{:?}", e);
+                                    continue;
+                                }
+                            };
+                            liveness.dead();
                             if let Err(err) = t_send.send(flow) {
-                                warn!("{:?}", err);
+                                error!("{:?}", err);
                                 break 'l;
                             }
                         }
                         Err(err) => {
-                            warn!("{:?}", err);
+                            error!("{:?}", err);
                             break 'l;
                         }
                     }
@@ -116,14 +124,18 @@ where
     ///
     /// If you need more, create an extra channel for communication to the background task.
     #[inline]
-    pub(crate) fn spawn(&self, task: BoxTask<Event, Error>) -> Result<Cancel, SendError<()>> {
+    pub(crate) fn spawn(
+        &self,
+        task: BoxTask<Event, Error>,
+    ) -> Result<(Cancel, Liveness), SendError<()>> {
         if self.handles.is_empty() {
             return Err(SendError(()));
         }
 
         let cancel = Cancel::new();
-        match self.send.send((cancel.clone(), task)) {
-            Ok(_) => Ok(cancel),
+        let liveness = Liveness::new();
+        match self.send.send((cancel.clone(), liveness.clone(), task)) {
+            Ok(_) => Ok((cancel, liveness)),
             Err(_) => Err(SendError(())),
         }
     }

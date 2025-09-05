@@ -1,3 +1,4 @@
+use crate::tasks::Liveness;
 use crate::Control;
 use log::error;
 use std::cell::RefCell;
@@ -9,7 +10,7 @@ use tokio::task::{AbortHandle, JoinHandle};
 
 pub(crate) struct TokioTasks<Event, Error> {
     rt: Runtime,
-    pending: RefCell<Vec<JoinHandle<Result<Control<Event>, Error>>>>,
+    pending: RefCell<Vec<(JoinHandle<Result<Control<Event>, Error>>, Liveness)>>,
     send_queue: Sender<Result<Control<Event>, Error>>,
 }
 
@@ -47,11 +48,12 @@ where
     pub(crate) fn spawn(
         &self,
         future: Box<dyn Future<Output = Result<Control<Event>, Error>> + Send>,
-    ) -> AbortHandle {
+    ) -> (AbortHandle, Liveness) {
+        let l = Liveness::new();
         let h = self.rt.spawn(Box::into_pin(future));
         let ah = h.abort_handle();
-        self.pending.borrow_mut().push(h);
-        ah
+        self.pending.borrow_mut().push((h, l.clone()));
+        (ah, l)
     }
 
     pub(crate) fn sender(&self) -> Sender<Result<Control<Event>, Error>> {
@@ -59,15 +61,19 @@ where
     }
 
     pub(crate) fn poll_finished(&self) -> Result<(), Error> {
-        self.pending.borrow_mut().retain_mut(|v| {
+        self.pending.borrow_mut().retain_mut(|(v, l)| {
             if v.is_finished() {
                 match self.rt.block_on(v) {
                     Ok(r) => {
+                        l.dead();
                         if let Err(e) = self.send_queue.try_send(r) {
                             error!("{:?}", e);
                         }
                     }
-                    Err(e) => error!("{:?}", e),
+                    Err(e) => {
+                        l.dead();
+                        error!("{:?}", e)
+                    }
                 }
                 false
             } else {

@@ -22,6 +22,7 @@ mod framework;
 mod poll_events;
 pub mod rendered;
 mod run_config;
+pub mod tasks;
 pub mod terminal;
 pub mod thread_pool;
 pub mod timer;
@@ -45,6 +46,7 @@ pub mod poll {
     pub use tokio_tasks::PollTokio;
 }
 
+use crate::tasks::Liveness;
 pub use framework::run_tui;
 pub use poll_events::PollEvents;
 pub use run_config::RunConfig;
@@ -252,20 +254,35 @@ where
     /// ```rust ignore
     /// let cancel = ctx.spawn(|cancel, send| {
     ///     // ... do stuff
+    ///     if cancel.is_canceled() {
+    ///         return; // return early
+    ///     }
     ///     Ok(Control::Continue)
     /// });
     /// ```
+    ///
+    /// - Cancel token
+    ///
+    /// The cancel token can be used by the application to signal an early
+    /// cancellation of a long-running task. This cancellation is cooperative,
+    /// the background task must regularly check for cancellation and quit
+    /// if needed.
+    ///
+    /// - Liveness token
+    ///
+    /// This token is set whenever the given task has finished, be it
+    /// regularly or by panicking.
     ///
     /// __Panic__
     ///
     /// Panics if no worker-thread support is configured.
     #[inline]
-    fn spawn(
+    fn spawn_ext(
         &self,
         task: impl FnOnce(Cancel, &Sender<Result<Control<Event>, Error>>) -> Result<Control<Event>, Error>
             + Send
             + 'static,
-    ) -> Result<Cancel, SendError<()>>
+    ) -> Result<(Cancel, Liveness), SendError<()>>
     where
         Event: 'static + Send,
         Error: 'static + Send,
@@ -279,6 +296,38 @@ where
             .spawn(Box::new(task))
     }
 
+    /// Add a background worker task.
+    ///
+    /// ```rust ignore
+    /// let cancel = ctx.spawn(|| {
+    ///     // ...
+    ///     Ok(Control::Continue)
+    /// });
+    /// ```
+    ///
+    /// __Panic__
+    ///
+    /// Panics if no worker-thread support is configured.
+    #[inline]
+    fn spawn(
+        &self,
+        task: impl FnOnce() -> Result<Control<Event>, Error> + Send + 'static,
+    ) -> Result<(), SendError<()>>
+    where
+        Event: 'static + Send,
+        Error: 'static + Send,
+    {
+        _ = self
+            .salsa_ctx()
+            .tasks
+            .as_ref()
+            .expect(
+                "No thread-pool configured. In main() add RunConfig::default()?.poll(PollTasks)",
+            )
+            .spawn(Box::new(|_, _| task()))?;
+        Ok(())
+    }
+
     /// Spawn a future in the executor.
     ///
     /// Panic
@@ -286,28 +335,44 @@ where
     /// Panics if tokio is not configured.
     #[inline]
     #[cfg(feature = "async")]
-    fn spawn_async<F>(&self, future: F) -> AbortHandle
+    fn spawn_async<F>(&self, future: F)
     where
         F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
     {
-        self.salsa_ctx().tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))")
-            .spawn(Box::new(future))
+        _ = self.salsa_ctx() //
+            .tokio
+            .as_ref()
+            .expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))")
+            .spawn(Box::new(future));
     }
 
     /// Spawn a future in the executor.
     /// You get an extra channel to send back more than one result.
     ///
+    /// - AbortHandle
+    ///
+    /// The tokio AbortHandle to abort a spawned task.
+    ///
+    /// - Liveness
+    ///
+    /// This token is set whenever the given task has finished, be it
+    /// regularly or by panicking.
+    ///
     /// Panic
     ///
     /// Panics if tokio is not configured.
     #[inline]
     #[cfg(feature = "async")]
-    fn spawn_async_ext<C, F>(&self, cr_future: C) -> AbortHandle
+    fn spawn_async_ext<C, F>(&self, cr_future: C) -> (AbortHandle, Liveness)
     where
         C: FnOnce(tokio::sync::mpsc::Sender<Result<Control<Event>, Error>>) -> F,
         F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
     {
-        let rt = self.salsa_ctx().tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");
+        let rt = self
+            .salsa_ctx()//
+            .tokio
+            .as_ref()
+            .expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");
         let future = cr_future(rt.sender());
         rt.spawn(Box::new(future))
     }
