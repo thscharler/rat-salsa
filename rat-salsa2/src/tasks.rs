@@ -12,10 +12,14 @@ impl Liveness {
     }
 
     pub fn is_alive(&self) -> bool {
-        !self.0.load(Ordering::Acquire)
+        self.0.load(Ordering::Acquire)
+    }
+
+    pub fn born(&self) {
+        self.0.store(true, Ordering::Release);
     }
 
     pub fn dead(&self) {
-        self.0.store(true, Ordering::Release);
+        self.0.store(false, Ordering::Release);
     }
 }

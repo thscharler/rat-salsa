@@ -82,6 +82,7 @@ where
                 'l: loop {
                     match t_recv.recv() {
                         Ok((cancel, liveness, task)) => {
+                            liveness.born();
                             let flow = match catch_unwind(AssertUnwindSafe(|| {
                                 task(cancel, &t_send) //
                             })) {

@@ -50,6 +50,7 @@ where
         future: Box<dyn Future<Output = Result<Control<Event>, Error>> + Send>,
     ) -> (AbortHandle, Liveness) {
         let l = Liveness::new();
+        l.born();
         let h = self.rt.spawn(Box::into_pin(future));
         let ah = h.abort_handle();
         self.pending.borrow_mut().push((h, l.clone()));
