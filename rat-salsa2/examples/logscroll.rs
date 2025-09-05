@@ -4,7 +4,7 @@ use anyhow::{anyhow, Error};
 use dirs::config_dir;
 use ini::Ini;
 use log::{debug, warn};
-use rat_salsa2::poll::{PollCrossterm, PollTimers};
+use rat_salsa2::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa2::timer::TimeOut;
 use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::{dark_themes, DarkTheme, Palette};
@@ -18,6 +18,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
+use ropey::Rope;
 use std::cell::RefCell;
 use std::env::args;
 use std::fs;
@@ -58,6 +59,7 @@ fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::default()?
             .poll(PollCrossterm)
+            .poll(PollTasks::new(2))
             .poll(PollTimers::new()),
     )?;
 
@@ -153,12 +155,14 @@ impl GlobalState {
     }
 }
 
-#[derive(Debug)]
 pub enum LogScrollEvent {
     Event(crossterm::event::Event),
     TimeOut(TimeOut),
     Message(String),
     Status(usize, String),
+
+    Load(Rope),
+    Append(String),
 
     Cursor,
     StoreCfg,
@@ -183,6 +187,7 @@ pub struct Scenery {
     pub error_dlg: MsgDialogState,
 }
 
+// scenery rendering.
 pub fn render(
     area: Rect,
     buf: &mut Buffer,
@@ -198,15 +203,15 @@ pub fn render(
     ])
     .split(area);
 
-    logscroll::render(area, buf, &mut state.logscroll, ctx)?;
-    ctx.set_screen_cursor(state.logscroll.screen_cursor());
-
     Line::from_iter([
         Span::from("log/scroll "),
         Span::from(format!("{:?}", ctx.file_path)),
     ])
     .style(ctx.theme.red(Palette::DARK_3))
     .render(layout[0], buf);
+
+    logscroll::render(area, buf, &mut state.logscroll, ctx)?;
+    ctx.set_screen_cursor(state.logscroll.screen_cursor());
 
     if state.error_dlg.active() {
         let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
@@ -239,7 +244,9 @@ pub fn render(
 pub fn init(state: &mut Scenery, ctx: &mut GlobalState) -> Result<(), Error> {
     ctx.set_focus(FocusBuilder::build_for(&state.logscroll));
     ctx.focus().enable_log();
+
     logscroll::init(&mut state.logscroll, ctx)?;
+
     Ok(())
 }
 
@@ -314,18 +321,22 @@ pub fn event(
 
 pub fn error(
     event: Error,
-    _state: &mut Scenery,
+    state: &mut Scenery,
     _ctx: &mut GlobalState,
 ) -> Result<Control<LogScrollEvent>, Error> {
     debug!("ERROR {:#?}", event);
-    // self.error_dlg.append(format!("{:?}", &*event).as_str());
+    state.error_dlg.append(format!("{:?}", &*event).as_str());
     Ok(Control::Changed)
 }
 
+// main application code
 mod logscroll {
     use crate::{GlobalState, LogScrollEvent};
     use anyhow::Error;
+    use crossbeam::channel::Sender;
     use log::debug;
+    use rat_salsa2::tasks::Liveness;
+    use rat_salsa2::thread_pool::Cancel;
     use rat_salsa2::timer::{TimerDef, TimerHandle};
     use rat_salsa2::{Control, SalsaContext};
     use rat_theme2::{dark_themes, DarkTheme, Palette};
@@ -348,11 +359,12 @@ mod logscroll {
     use ratatui::widgets::{StatefulWidget, Widget};
     use regex_cursor::engines::dfa::{find_iter, Regex};
     use regex_cursor::{Input, RopeyCursor};
-    use ropey::RopeBuilder;
+    use ropey::{Rope, RopeBuilder};
     use std::fs::File;
     use std::io::{Read, Seek, SeekFrom};
     use std::ops::Range;
     use std::path::Path;
+    use std::thread::sleep;
     use std::time::Duration;
     use unicode_segmentation::UnicodeSegmentation;
 
@@ -364,6 +376,10 @@ mod logscroll {
         pub find: TextInputState,
         pub find_matches: Vec<Range<usize>>,
         pub find_table: TableState<RowSelection>,
+
+        pub t_cancel: Cancel,
+        pub t_live: Liveness,
+
         pub pollution: TimerHandle,
     }
 
@@ -376,6 +392,8 @@ mod logscroll {
                 find: Default::default(),
                 find_matches: Default::default(),
                 find_table: Default::default(),
+                t_cancel: Default::default(),
+                t_live: Default::default(),
                 pollution: Default::default(),
             };
             zelf.logtext.set_focus_navigation(Navigation::Regular);
@@ -549,9 +567,57 @@ mod logscroll {
     impl_has_focus!(logtext, split, find, find_table for LogScroll);
     impl_screen_cursor!(logtext, find for LogScroll);
 
-    fn load_file(state: &mut LogScroll, path: &Path) -> Result<(), Error> {
-        let mut f = File::open(path)?;
+    fn loop_file(
+        path: &Path,
+        can: Cancel,
+        queue: &Sender<Result<Control<LogScrollEvent>, Error>>,
+    ) -> Result<Control<LogScrollEvent>, Error> {
+        // startup load
+        let mut buf_len = load_file(path, &can, queue)?;
 
+        if can.is_canceled() {
+            return Ok(Control::Continue);
+        }
+
+        // loop and check
+        loop {
+            update_file(path, &can, queue, &mut buf_len)?;
+            if can.is_canceled() {
+                break;
+            }
+            sleep(Duration::from_millis(500));
+        }
+
+        Ok(Control::Continue)
+    }
+
+    fn update_file(
+        path: &Path,
+        can: &Cancel,
+        queue: &Sender<Result<Control<LogScrollEvent>, Error>>,
+        buf_len: &mut u64,
+    ) -> Result<(), Error> {
+        let new_len = path.metadata()?.len();
+        if new_len < *buf_len {
+            *buf_len = load_file(path, &can, queue)?;
+        } else if new_len > *buf_len {
+            let mut f = File::open(path)?;
+            f.seek(SeekFrom::Start(*buf_len))?;
+
+            let mut buf = String::new();
+            *buf_len += f.read_to_string(&mut buf)? as u64;
+
+            queue.send(Ok(Control::Event(LogScrollEvent::Append(buf))))?;
+        }
+        Ok(())
+    }
+
+    fn load_file(
+        path: &Path,
+        can: &Cancel,
+        queue: &Sender<Result<Control<LogScrollEvent>, Error>>,
+    ) -> Result<u64, Error> {
+        let mut f = File::open(path)?;
         let mut buf = String::with_capacity(4096);
         let mut txt = RopeBuilder::new();
         loop {
@@ -566,71 +632,37 @@ mod logscroll {
                     return Err(e.into());
                 }
             }
+
+            if can.is_canceled() {
+                return Ok(0);
+            }
         }
-        state.logtext.set_rope(txt.finish());
+        let txt = txt.finish();
+
+        let buf_len = txt.len_bytes();
+
+        queue.send(Ok(Control::Event(LogScrollEvent::Load(txt))))?;
+
+        Ok(buf_len as u64)
+    }
+
+    fn reload_log(state: &mut LogScroll, txt: Rope) -> Result<(), Error> {
+        state.logtext.set_rope(txt);
         state.logtext.set_styles(Vec::default());
         state
             .logtext
             .set_cursor((0, state.logtext.len_lines()), false);
         state.logtext.scroll_cursor_to_visible();
-
         Ok(())
     }
 
-    fn log_grows(state: &mut LogScroll, path: &Path) -> Result<bool, Error> {
-        let rope = state.logtext.rope().clone();
-        let old_len_bytes = rope.len_bytes();
-
-        if path.metadata()?.len() > old_len_bytes as u64 {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    fn log_shrinks(state: &mut LogScroll, path: &Path) -> Result<bool, Error> {
-        let rope = state.logtext.rope().clone();
-        let old_len_bytes = rope.len_bytes();
-
-        if path.metadata()?.len() < old_len_bytes as u64 {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    fn update_file(state: &mut LogScroll, path: &Path) -> Result<bool, Error> {
-        if log_shrinks(state, path)? {
-            unreachable!("log shrink");
-        }
-        if !log_grows(state, path)? {
-            return Ok(false);
-        }
-
-        let rope = state.logtext.rope().clone();
-        let old_len_bytes = rope.len_bytes();
-
-        let mut f = File::open(path)?;
-        f.seek(SeekFrom::Start(old_len_bytes as u64))?;
-
+    fn append_log(state: &mut LogScroll, txt: &str) -> Result<bool, Error> {
+        let old_len_bytes = state.logtext.rope().len_bytes();
         let cursor_at_end = state.logtext.cursor().y == state.logtext.len_lines()
             || state.logtext.cursor().y == state.logtext.len_lines() - 1;
 
-        let mut buf = String::with_capacity(4096);
-        loop {
-            match f.read_to_string(&mut buf) {
-                Ok(0) => {
-                    break;
-                }
-                Ok(_) => {
-                    let pos = TextPosition::new(0, state.logtext.len_lines());
-                    state.logtext.value.insert_str(pos, &buf).expect("fine");
-                }
-                Err(e) => {
-                    return Err(e.into());
-                }
-            }
-        }
+        let pos = TextPosition::new(0, state.logtext.len_lines());
+        state.logtext.value.insert_str(pos, txt).expect("fine");
 
         if cursor_at_end {
             state
@@ -717,13 +749,18 @@ mod logscroll {
     pub fn init(state: &mut LogScroll, ctx: &mut GlobalState) -> Result<(), Error> {
         ctx.focus().first();
 
-        load_file(state, &ctx.file_path)?;
+        let file_path = ctx.file_path.clone();
+        (state.t_cancel, state.t_live) = ctx.spawn_ext(move |can, chan| {
+            loop_file(&file_path, can, chan) //
+        })?;
 
-        ctx.add_timer(
-            TimerDef::new()
-                .repeat_forever()
-                .timer(Duration::from_millis(500)),
-        );
+        // load_file(state, &ctx.file_path)?;
+
+        // ctx.add_timer(
+        //     TimerDef::new()
+        //         .repeat_forever()
+        //         .timer(Duration::from_millis(500)),
+        // );
 
         state.pollution = ctx.add_timer(
             TimerDef::new()
@@ -827,17 +864,12 @@ mod logscroll {
                 debug!("log-pollution {:?}", t);
                 Control::Continue
             }
-            LogScrollEvent::TimeOut(t) if t.handle != state.pollution => {
-                if log_grows(state, &ctx.file_path)? {
-                    if update_file(state, &ctx.file_path)? {
-                        ctx.queue_event(LogScrollEvent::Cursor);
-                        Control::Changed
-                    } else {
-                        Control::Continue
-                    }
-                } else if log_shrinks(state, &ctx.file_path)? {
-                    load_file(state, &ctx.file_path)?;
-                    run_search(state, ctx)?;
+            LogScrollEvent::Load(r) => {
+                reload_log(state, r.clone())?;
+                Control::Changed
+            }
+            LogScrollEvent::Append(s) => {
+                if append_log(state, &s)? {
                     ctx.queue_event(LogScrollEvent::Cursor);
                     Control::Changed
                 } else {

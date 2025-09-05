@@ -749,7 +749,7 @@ fn read_dir(
     let path = path.clone();
     let sub = sub.clone();
 
-    _ = ctx.spawn(move |can, snd| {
+    ctx.spawn(move || {
         let Some(read_path) = (match rel {
             Full => Some(path.clone()),
             Parent => path.parent().map(|v| v.to_path_buf()),
@@ -774,10 +774,6 @@ fn read_dir(
                 }
                 let mut fff = Vec::new();
                 for f in r {
-                    if can.is_canceled() {
-                        return Ok(Control::Continue);
-                    }
-
                     if let Ok(f) = f {
                         if f.metadata()?.is_dir() {
                             ddd.push(f.file_name());
@@ -807,7 +803,7 @@ fn read_dir(
                 )))
             }
         }
-    });
+    })?;
 
     Ok(Control::Continue)
 }
@@ -884,7 +880,7 @@ fn show_file(state: &mut Files, ctx: &mut GlobalState) -> Result<Control<FilesEv
                 cancel_show.cancel();
             }
 
-            let cancel_show = ctx.spawn(move |can, snd| match fs::read(&file) {
+            let (cancel_show, _) = ctx.spawn_ext(move |can, snd| match fs::read(&file) {
                 Ok(data) => {
                     let str_data = display_text(can, snd, &file, &data)?;
                     Ok(Control::Event(FilesEvent::UpdateFile(file, str_data)))
