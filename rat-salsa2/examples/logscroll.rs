@@ -869,6 +869,7 @@ mod logscroll {
                         if let Some(selected) = state.find_table.selected() {
                             let range = state.find_matches[selected].clone();
 
+                            // change highlight
                             state.logtext.remove_style(
                                 state.select_match.0..state.select_match.1,
                                 state.select_match.2,
@@ -876,8 +877,10 @@ mod logscroll {
                             state.logtext.add_style(range.0..range.1, 101);
                             state.select_match = (range.0, range.1, 101);
 
+                            // scroll to find
                             let text_range = state.logtext.byte_range(range.0..range.1);
                             state.logtext.set_cursor(text_range.start, false);
+
                             ctx.queue_event(LogScrollEvent::Cursor);
                         }
                         Control::Changed
