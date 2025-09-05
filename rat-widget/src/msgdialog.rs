@@ -1,6 +1,42 @@
 //!
 //! A message dialog.
 //!
+//! ```
+//! use ratatui::buffer::Buffer;
+//! use ratatui::prelude::Rect;
+//! use ratatui::widgets::{Block, StatefulWidget};
+//! use rat_event::{Dialog, HandleEvent, Outcome};
+//! use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+//!
+//! let mut state = MsgDialogState::new_active(
+//!     "Warning",
+//!     "This is some warning etc etc");
+//!
+//! # let area = Rect::new(5,5,60,15);
+//! # let buf = Buffer::empty(area);
+//!
+//! MsgDialog::new()
+//!     .block(Block::bordered())
+//!     .render(area, buf, &mut state);
+//!
+//!
+//! // ...
+//!
+//! # let event = crossterm::event::Event::FocusGained;//dummy
+//! match state.handle(event, Dialog) {
+//!     Outcome::Continue => {}
+//!     Outcome::Unchanged | Outcome::Changed => { return; }
+//! };
+//!
+//! ```
+//!
+//! The trick to make this work like a dialog is to render it
+//! as the last thing during your rendering and to let it
+//! handle events before any other widgets.
+//!
+//! Then it will be rendered on top of everything else and will
+//! react to events first if it is `active`.
+//!
 
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonState, ButtonStyle};

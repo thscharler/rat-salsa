@@ -5,7 +5,6 @@
 use crate::_private::NonExhaustive;
 use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
-use crate::styles::StylizeExt;
 use crate::util::{fallback_select_style, revert_style};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
@@ -127,32 +126,6 @@ impl Default for ListStyle {
             scroll_padding: None,
             non_exhaustive: NonExhaustive,
         }
-    }
-}
-
-impl StylizeExt<ListStyle> for ratatui::widgets::List<'_> {
-    fn styles(mut self, styles: ListStyle) -> Self {
-        self = self.style(styles.style);
-        if let Some(select) = styles.select {
-            self = self.highlight_style(select);
-        }
-        if let Some(mut block) = styles.block {
-            block = block.style(styles.style);
-            self = self.block(block);
-        }
-        if let Some(highlight_spacing) = styles.highlight_spacing {
-            self = self.highlight_spacing(highlight_spacing);
-        }
-        if let Some(highlight_symbol) = styles.highlight_symbol {
-            self = self.highlight_symbol(highlight_symbol);
-        }
-        if let Some(repeat_highlight_symbol) = styles.repeat_highlight_symbol {
-            self = self.repeat_highlight_symbol(repeat_highlight_symbol);
-        }
-        if let Some(scroll_padding) = styles.scroll_padding {
-            self = self.scroll_padding(scroll_padding);
-        }
-        self
     }
 }
 

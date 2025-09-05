@@ -77,12 +77,12 @@ impl RangeOp for f32 {
     type Step = f32;
 
     #[inline(always)]
-    fn add_clamp(self, delta: Self, bounds: (Self, Self)) -> Self {
+    fn add_clamp(self, delta: Self::Step, bounds: (Self, Self)) -> Self {
         (self + delta).clamp(bounds.0, bounds.1)
     }
 
     #[inline(always)]
-    fn sub_clamp(self, delta: Self, bounds: (Self, Self)) -> Self {
+    fn sub_clamp(self, delta: Self::Step, bounds: (Self, Self)) -> Self {
         (self - delta).clamp(bounds.0, bounds.1)
     }
 }
@@ -91,12 +91,12 @@ impl RangeOp for f64 {
     type Step = f64;
 
     #[inline(always)]
-    fn add_clamp(self, delta: Self, bounds: (Self, Self)) -> Self {
+    fn add_clamp(self, delta: Self::Step, bounds: (Self, Self)) -> Self {
         (self + delta).clamp(bounds.0, bounds.1)
     }
 
     #[inline(always)]
-    fn sub_clamp(self, delta: Self, bounds: (Self, Self)) -> Self {
+    fn sub_clamp(self, delta: Self::Step, bounds: (Self, Self)) -> Self {
         (self - delta).clamp(bounds.0, bounds.1)
     }
 }

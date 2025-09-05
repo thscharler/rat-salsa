@@ -3,7 +3,6 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::styles::StylizeExt;
 use crate::util::revert_style;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
@@ -84,17 +83,6 @@ impl Default for ParagraphStyle {
             scroll: None,
             non_exhaustive: NonExhaustive,
         }
-    }
-}
-
-impl StylizeExt<ParagraphStyle> for ratatui::widgets::Paragraph<'_> {
-    fn styles(mut self, styles: ParagraphStyle) -> Self {
-        self = self.style(styles.style);
-        if let Some(block) = styles.block {
-            let block = block.style(styles.style);
-            self = self.block(block);
-        }
-        self
     }
 }
 

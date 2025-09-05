@@ -1,6 +1,37 @@
 //!
 //! Statusbar with multiple sections.
 //!
+//! ```
+//!
+//! use ratatui::buffer::Buffer;
+//! use ratatui::layout::{Constraint, Rect};
+//! use ratatui::style::{Style, Stylize};
+//! use ratatui::widgets::StatefulWidget;
+//! use rat_widget::statusline::{StatusLine, StatusLineState};
+//!
+//! let mut status_line_state = StatusLineState::new();
+//! status_line_state.status(0, "Everything's fine.");
+//! status_line_state.status(1, "50%");
+//! status_line_state.status(2, "72%");
+//!
+//!
+//! # let area = Rect::new(0,24,80,1);
+//! # let buf = Buffer::empty(area);
+//!
+//! StatusLine::new()
+//!     .layout([
+//!         Constraint::Fill(1),
+//!         Constraint::Length(8),
+//!         Constraint::Length(8)
+//!     ])
+//!     .styles([
+//!         Style::new().white().on_dark_gray(),
+//!         Style::new().white().on_cyan(),
+//!         Style::new().white().on_blue()
+//!     ])
+//!     .render(area, buf, &mut status_line_state);
+//!
+//! ```
 
 use crate::_private::NonExhaustive;
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};

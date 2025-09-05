@@ -1,6 +1,41 @@
 //!
 //! Render two widgets in one area.
 //!
+//! This is nice when you have your layout figured out and
+//! then there is the special case where you have to fit
+//! two widgets in one layout-area.
+//!
+//! ```
+//! use ratatui::buffer::Buffer;
+//! use ratatui::layout::Rect;
+//! use ratatui::text::Line;
+//! use ratatui::widgets::StatefulWidget;
+//! use rat_widget::paired::{PairSplit, Paired, PairedState, PairedWidget};
+//! use rat_widget::slider::{Slider, SliderState};
+//!
+//! let value = "2024";
+//! # let area = Rect::new(10, 10, 30, 1);
+//! # let buf = Buffer::empty(area);
+//! # let mut slider_state = SliderState::new_range((2015,2024), 3);
+//!
+//! Paired::new(
+//!     Slider::new()
+//!         .range((2015, 2024))
+//!         .step(3),
+//!     PairedWidget::new(Line::from(value)),
+//! )
+//! .split(PairSplit::Fix1(18))
+//! .render(area, buf, PairedState::new(
+//!     &mut slider_state,
+//!     &mut ()
+//! ));
+//!
+//! ```
+//!
+//! This example also uses `PairedWidget` to convert a Widget to
+//! a StatefulWidget. Otherwise, you can only combine two Widgets
+//! or two StatefulWidgets.
+//!
 use crate::_private::NonExhaustive;
 use map_range_int::MapRange;
 use rat_reloc::RelocatableState;
@@ -14,9 +49,17 @@ use std::marker::PhantomData;
 /// How to split the area for the two widgets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PairSplit {
+    /// Both widgets have a preferred size.
+    /// Both start at their preferred size and get
+    /// resized with half of the remainder.  
     Fix(u16, u16),
+    /// The first widget has a preferred size.
+    /// The second gets the rest.
     Fix1(u16),
+    /// The second widget has a preferred size.
+    /// The first gets the rest.
     Fix2(u16),
+    /// Always split the area in the given ratio.
     Ratio(u16, u16),
 }
 

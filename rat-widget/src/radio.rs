@@ -19,9 +19,13 @@ use ratatui::widgets::{Block, Widget};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Radio style.
+/// Layout of the items when they are rendered to a bigger
+/// area than needed.
 ///
-/// This is used, if you don't provide your own layout constraints.
+/// - Stacked stacks one item directly next to another
+///   and leave the remaining space free.
+/// - Spaced fills all the area with the items and
+///   adds space in between.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum RadioLayout {
     /// Stacked one item after the other.
