@@ -262,10 +262,10 @@ impl From<bool> for Outcome {
 /// the result of the operation is written to the log.
 #[macro_export]
 macro_rules! flow {
-    (log $n:ident: $x:expr) => {{
+    (log $n:ident: $($x:tt)*) => {{
         use log::debug;
         use $crate::ConsumedEvent;
-        let r = $x;
+        let r = { $($x)* };
         if r.is_consumed() {
             debug!("{} {:#?}", stringify!($n), r);
             return r.into();
@@ -274,9 +274,9 @@ macro_rules! flow {
             _ = r;
         }
     }};
-    ($x:expr) => {{
+    ($($x:tt)*) => {{
         use $crate::ConsumedEvent;
-        let r = $x;
+        let r = { $($x)* };
         if r.is_consumed() {
             return r.into();
         } else {
@@ -296,10 +296,10 @@ macro_rules! flow {
 /// the result of the operation is written to the log.
 #[macro_export]
 macro_rules! try_flow {
-    (log $n:ident: $x:expr) => {{
+    (log $n:ident: $($x:tt)*) => {{
         use log::debug;
         use $crate::ConsumedEvent;
-        let r = $x;
+        let r = { $($x)* };
         if r.is_consumed() {
             debug!("{} {:#?}", stringify!($n), r);
             return Ok(r.into());
@@ -308,9 +308,9 @@ macro_rules! try_flow {
             _ = r;
         }
     }};
-    ($x:expr) => {{
+    ($($x:tt)*) => {{
         use $crate::ConsumedEvent;
-        let r = $x;
+        let r = { $($x)* };
         if r.is_consumed() {
             return Ok(r.into());
         } else {
@@ -334,10 +334,10 @@ macro_rules! try_flow {
 /// Note:
 #[macro_export]
 macro_rules! break_flow {
-    (log $l:lifetime: $n:ident: $x:expr) => {{
+    (log $l:lifetime: $n:ident: $($x:tt)*) => {{
         use log::debug;
         use $crate::ConsumedEvent;
-        let r = $x;
+        let r = { $($x)* };
         if r.is_consumed() {
             debug!("{} {:#?}", stringify!($n), r);
             break $l r.into();
@@ -346,9 +346,9 @@ macro_rules! break_flow {
             _ = r;
         }
     }};
-    ($l:lifetime: $x:expr) => {{
+    ($l:lifetime: $($x:tt)*) => {{
         use $crate::ConsumedEvent;
-        let r = $x;
+        let r = { $($x)* };
         if r.is_consumed() {
             break $l r.into();
         } else {
