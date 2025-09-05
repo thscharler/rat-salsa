@@ -23,6 +23,7 @@ use std::cell::RefCell;
 use std::env::args;
 use std::fs;
 use std::fs::create_dir_all;
+use std::ops::Range;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
@@ -163,6 +164,7 @@ pub enum LogScrollEvent {
 
     Load(Rope),
     Append(String),
+    Found(usize, usize, Vec<Range<usize>>),
 
     Cursor,
     StoreCfg,
@@ -267,7 +269,10 @@ pub fn event(
 
             let mut r = match &event {
                 ct_event!(resized) => Control::Changed,
-                ct_event!(key press CONTROL-'q') => Control::Quit,
+                ct_event!(key press CONTROL-'q') => {
+                    state.logscroll.t_cancel.cancel();
+                    Control::Quit
+                }
                 ct_event!(keycode press F(1)) => {
                     Control::Event(LogScrollEvent::Message(HELP_TEXT.to_string()))
                 }
@@ -349,17 +354,20 @@ mod logscroll {
     use rat_widget::scrolled::Scroll;
     use rat_widget::splitter::{Split, SplitState};
     use rat_widget::table::selection::RowSelection;
-    use rat_widget::table::{Table, TableContext, TableData, TableState};
+    use rat_widget::table::{Table, TableContext, TableData, TableDataIter, TableState};
     use rat_widget::text::{impl_screen_cursor, TextPosition};
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
+    use ratatui::style::Style;
     use ratatui::text::{Line, Span};
     use ratatui::widgets::{StatefulWidget, Widget};
     use regex_cursor::engines::dfa::{find_iter, Regex};
     use regex_cursor::{Input, RopeyCursor};
     use ropey::{Rope, RopeBuilder};
+    use std::cmp::min;
+    use std::collections::{BTreeMap, BTreeSet};
     use std::fs::File;
     use std::io::{Read, Seek, SeekFrom};
     use std::ops::Range;
@@ -374,7 +382,10 @@ mod logscroll {
         pub logtext: TextAreaState,
         pub find_label: CaptionState,
         pub find: TextInputState,
-        pub find_matches: Vec<Range<usize>>,
+
+        pub logtext_id: usize,
+        pub find_matches: Vec<(usize, usize, usize)>,
+        pub select_match: (usize, usize, usize),
         pub find_table: TableState<RowSelection>,
 
         pub t_cancel: Cancel,
@@ -390,7 +401,9 @@ mod logscroll {
                 logtext: Default::default(),
                 find_label: Default::default(),
                 find: Default::default(),
+                logtext_id: 0,
                 find_matches: Default::default(),
+                select_match: (0, 0, 0),
                 find_table: Default::default(),
                 t_cancel: Default::default(),
                 t_live: Default::default(),
@@ -429,8 +442,18 @@ mod logscroll {
             .vscroll(Scroll::new())
             .hscroll(Scroll::new())
             .styles(ctx.theme.textarea_style())
+            .text_style_idx(0, ctx.theme.orange(0))
+            .text_style_idx(1, ctx.theme.yellow(0))
+            .text_style_idx(2, ctx.theme.green(0))
+            .text_style_idx(3, ctx.theme.bluegreen(0))
+            .text_style_idx(4, ctx.theme.cyan(0))
+            .text_style_idx(5, ctx.theme.blue(0))
+            .text_style_idx(6, ctx.theme.deepblue(0))
+            .text_style_idx(7, ctx.theme.purple(0))
+            .text_style_idx(8, ctx.theme.magenta(0))
+            .text_style_idx(9, ctx.theme.redpink(0))
             .text_style_idx(99, ctx.theme.secondary(2))
-            .text_style_idx(100, ctx.theme.limegreen(2))
+            .text_style_idx(101, ctx.theme.limegreen(2))
             .render(ls[0], buf, &mut state.logtext);
 
         // right side
@@ -479,7 +502,24 @@ mod logscroll {
     struct FindData<'a> {
         theme: &'a DarkTheme,
         text: &'a TextAreaState,
-        data: &'a [Range<usize>],
+        data: &'a [(usize, usize, usize)],
+    }
+
+    impl<'a> FindData<'a> {
+        fn color(&self, n: usize) -> Style {
+            match n {
+                0 => self.theme.orange(0),
+                1 => self.theme.yellow(0),
+                2 => self.theme.green(0),
+                3 => self.theme.bluegreen(0),
+                4 => self.theme.cyan(0),
+                5 => self.theme.blue(0),
+                6 => self.theme.deepblue(0),
+                7 => self.theme.purple(0),
+                8 => self.theme.magenta(0),
+                _ => self.theme.redpink(0),
+            }
+        }
     }
 
     impl<'a> TableData<'a> for FindData<'a> {
@@ -505,11 +545,11 @@ mod logscroll {
         ) {
             let data = self.data[row].clone();
 
-            let line = self.text.byte_pos(data.start);
+            let line = self.text.byte_pos(data.0);
 
             let line_byte = self.text.byte_at(TextPosition::new(0, line.y));
-            let data_start = data.start - line_byte.start;
-            let data_end = data.end - line_byte.start;
+            let data_start = data.0 - line_byte.start;
+            let data_end = data.1 - line_byte.start;
 
             let line_text = self.text.line_at(line.y);
             let line_prefix = &line_text[..data_start];
@@ -555,7 +595,7 @@ mod logscroll {
             .style(self.theme.deepblue(7));
             let l1 = Line::from_iter([
                 Span::from(line_prefix),
-                Span::from(line_match).style(self.theme.secondary(1)),
+                Span::from(line_match).style(self.color(data.2)),
                 Span::from(line_suffix),
             ]);
 
@@ -646,17 +686,7 @@ mod logscroll {
         Ok(buf_len as u64)
     }
 
-    fn reload_log(state: &mut LogScroll, txt: Rope) -> Result<(), Error> {
-        state.logtext.set_rope(txt);
-        state.logtext.set_styles(Vec::default());
-        state
-            .logtext
-            .set_cursor((0, state.logtext.len_lines()), false);
-        state.logtext.scroll_cursor_to_visible();
-        Ok(())
-    }
-
-    fn append_log(state: &mut LogScroll, txt: &str) -> Result<bool, Error> {
+    fn append_log(state: &mut LogScroll, txt: &str) -> Result<Range<usize>, Error> {
         let old_len_bytes = state.logtext.rope().len_bytes();
         let cursor_at_end = state.logtext.cursor().y == state.logtext.len_lines()
             || state.logtext.cursor().y == state.logtext.len_lines() - 1;
@@ -674,76 +704,72 @@ mod logscroll {
             );
         }
 
-        // update find
-        let find = state.find.text();
-        if !find.is_empty() {
-            if let Ok(re) = Regex::new(find) {
-                let new_len_bytes = state.logtext.rope().len_bytes();
+        let new_len_bytes = state.logtext.rope().len_bytes();
 
-                let cursor = RopeyCursor::new(
-                    state
-                        .logtext
-                        .rope()
-                        .byte_slice(old_len_bytes..new_len_bytes),
-                );
-                let input = Input::new(cursor);
-
-                for m in find_iter(&re, input) {
-                    state
-                        .find_matches
-                        .push(old_len_bytes + m.start()..old_len_bytes + m.end());
-                }
-                for m in &state.find_matches {
-                    state.logtext.add_style(m.clone(), 99);
-                }
-            }
-        }
-
-        Ok(true)
+        Ok(old_len_bytes..new_len_bytes)
     }
 
-    fn run_search(state: &mut LogScroll, ctx: &mut GlobalState) -> Result<(), Error> {
-        let text = state.find.text();
-
-        if text.is_empty() {
-            ctx.queue_event(LogScrollEvent::Status(0, String::default()));
-            state.find.set_invalid(false);
-            state.find_matches.clear();
-            state.logtext.set_styles(Vec::default());
-            state.find_table.clear_offset();
-            state.find_table.select(Some(0));
-            return Ok(());
-        }
-
-        match Regex::new(text) {
-            Ok(re) => {
-                if state.find.invalid() {
-                    ctx.queue_event(LogScrollEvent::Status(0, String::default()));
-                    state.find.set_invalid(false);
-                }
-
-                let cursor = RopeyCursor::new(state.logtext.rope().byte_slice(..));
+    fn scan_regex_file(
+        log_id: usize,
+        id: usize,
+        find: String,
+        rope: Rope,
+        slice: Range<usize>,
+        can: Cancel,
+        queue: &Sender<Result<Control<LogScrollEvent>, Error>>,
+    ) -> Result<Control<LogScrollEvent>, Error> {
+        // update find
+        if !find.is_empty() {
+            if let Ok(re) = Regex::new(&find) {
+                let cursor = RopeyCursor::new(rope.byte_slice(slice.clone()));
                 let input = Input::new(cursor);
-                let mut matches = Vec::new();
-                state.find_matches.clear();
-                state.find_table.clear_offset();
-                state.find_table.clear_selection();
+
+                let mut find_matches = Vec::new();
                 for m in find_iter(&re, input) {
-                    state.find_matches.push(m.range());
-                    matches.push((m.range(), 99));
+                    find_matches.push(slice.start + m.start()..slice.start + m.end());
+
+                    if find_matches.len() >= 10000 {
+                        queue.send(Ok(Control::Event(LogScrollEvent::Found(
+                            log_id,
+                            id,
+                            find_matches,
+                        ))))?;
+                        find_matches = Vec::new();
+                    }
+
+                    if can.is_canceled() {
+                        break;
+                    }
                 }
-                state.logtext.set_styles(matches);
+
+                Ok(Control::Event(LogScrollEvent::Found(
+                    log_id,
+                    id,
+                    find_matches,
+                )))
+            } else {
+                Ok(Control::Continue)
             }
-            Err(err) => {
-                ctx.queue_event(LogScrollEvent::Status(0, format!("{:?}", err)));
-                state.find.set_invalid(true);
-                state.find_matches.clear();
-                state.find_table.clear_offset();
-                state.find_table.clear_selection();
+        } else {
+            Ok(Control::Continue)
+        }
+    }
+
+    fn do_search(state: &mut LogScroll, slice: Range<usize>, ctx: &mut GlobalState) {
+        let text = state.find.text();
+        let log_id = state.logtext_id;
+        for (id, regex) in text.split('|').enumerate() {
+            // TODO: |
+            if !regex.is_empty() {
+                let id = min(id, 9);
+                let rope = state.logtext.rope().clone();
+                let slice = slice.clone();
+                let regex = regex.to_string();
+                _ = ctx.spawn_ext(move |can, chan| {
+                    scan_regex_file(log_id, id, regex, rope, slice, can, chan)
+                });
             }
         }
-
-        Ok(())
     }
 
     pub fn init(state: &mut LogScroll, ctx: &mut GlobalState) -> Result<(), Error> {
@@ -753,14 +779,6 @@ mod logscroll {
         (state.t_cancel, state.t_live) = ctx.spawn_ext(move |can, chan| {
             loop_file(&file_path, can, chan) //
         })?;
-
-        // load_file(state, &ctx.file_path)?;
-
-        // ctx.add_timer(
-        //     TimerDef::new()
-        //         .repeat_forever()
-        //         .timer(Duration::from_millis(500)),
-        // );
 
         state.pollution = ctx.add_timer(
             TimerDef::new()
@@ -834,7 +852,14 @@ mod logscroll {
                 try_flow!(state.find_label.handle(event, &*ctx.focus()));
                 try_flow!(match state.find.handle(event, Regular) {
                     TextOutcome::TextChanged => {
-                        run_search(state, ctx)?;
+                        state.find.set_invalid(false);
+                        state.find_matches.clear();
+                        state.find_table.clear_offset();
+                        state.find_table.select(None);
+                        state.logtext_id += 1;
+                        state.logtext.set_styles(Vec::default());
+
+                        do_search(state, 0..state.logtext.rope().len_bytes(), ctx);
                         Control::Changed
                     }
                     r => r.into(),
@@ -843,15 +868,17 @@ mod logscroll {
                     TableOutcome::Selected => {
                         if let Some(selected) = state.find_table.selected() {
                             let range = state.find_matches[selected].clone();
-                            let text_range = state.logtext.byte_range(range.clone());
+
+                            state.logtext.remove_style(
+                                state.select_match.0..state.select_match.1,
+                                state.select_match.2,
+                            );
+                            state.logtext.add_style(range.0..range.1, 101);
+                            state.select_match = (range.0, range.1, 101);
+
+                            let text_range = state.logtext.byte_range(range.0..range.1);
                             state.logtext.set_cursor(text_range.start, false);
                             ctx.queue_event(LogScrollEvent::Cursor);
-
-                            let old_style = state.logtext.styles().find(|(_, s)| *s == 100);
-                            if let Some((range, style)) = old_style {
-                                state.logtext.remove_style(range, style);
-                            }
-                            state.logtext.add_style(range, 100);
                         }
                         Control::Changed
                     }
@@ -865,12 +892,46 @@ mod logscroll {
                 Control::Continue
             }
             LogScrollEvent::Load(r) => {
-                reload_log(state, r.clone())?;
+                ctx.queue_event(LogScrollEvent::Status(0, String::default()));
+
+                state.find.set_invalid(false);
+                state.find_matches.clear();
+                state.find_table.clear_offset();
+                state.find_table.select(None);
+                state.logtext_id += 1;
+
+                state.logtext.set_rope(r.clone());
+                state.logtext.set_styles(Vec::default());
+                state
+                    .logtext
+                    .set_cursor((0, state.logtext.len_lines()), false);
+                state.logtext.scroll_cursor_to_visible();
+
+                do_search(state, 0..r.len_bytes(), ctx);
+
                 Control::Changed
             }
             LogScrollEvent::Append(s) => {
-                if append_log(state, &s)? {
-                    ctx.queue_event(LogScrollEvent::Cursor);
+                ctx.queue_event(LogScrollEvent::Cursor);
+
+                let r = append_log(state, &s)?;
+                do_search(state, r, ctx);
+
+                Control::Changed
+            }
+            LogScrollEvent::Found(log_id, id, found) => {
+                if state.logtext_id == *log_id {
+                    for r in found {
+                        match state.find_matches.binary_search(&(r.start, r.end, *id)) {
+                            Ok(i) => {
+                                state.find_matches[i] = (r.start, r.end, *id);
+                            }
+                            Err(i) => {
+                                state.find_matches.insert(i, (r.start, r.end, *id));
+                            }
+                        };
+                        state.logtext.add_style(r.clone(), *id);
+                    }
                     Control::Changed
                 } else {
                     Control::Continue
