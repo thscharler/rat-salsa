@@ -369,6 +369,15 @@ pub fn error(
 [rat-focus][https://docs.rs/rat-focus/]
 [rat-widget][https://docs.rs/rat-widget]
 
+This example
+
+[minimal.rs][https://github.com/thscharler/rat-salsa/blob/master/rat-salsa2/examples/minimal.rs]
+
+Another minimal example, with app-level components.
+
+[nominal.rs][https://github.com/thscharler/rat-salsa/blob/master/rat-salsa2/examples/nominal.rs]
+
+
 
 [refSalsaContext]: https://docs.rs/rat-salsa/latest/rat_salsa/trait.SalsaContext.html
 
