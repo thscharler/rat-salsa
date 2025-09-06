@@ -1,4 +1,4 @@
-use crate::minimal::Minimal;
+use crate::nominal::{Nominal, NominalState};
 use anyhow::Error;
 use rat_salsa2::event::RenderedEvent;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
@@ -104,7 +104,7 @@ impl From<crossterm::event::Event> for AppEvent {
 
 #[derive(Debug, Default)]
 pub struct Scenery {
-    pub minimal: Minimal,
+    pub nominal: NominalState,
     pub status: StatusLineState,
     pub error_dlg: MsgDialogState,
 }
@@ -117,7 +117,7 @@ pub fn render(
 ) -> Result<(), Error> {
     let t0 = SystemTime::now();
 
-    minimal::render(area, buf, &mut state.minimal, ctx)?;
+    Nominal.render(area, buf, &mut state.nominal, ctx)?;
 
     let layout = Layout::vertical([
         Constraint::Fill(1), //
@@ -132,7 +132,7 @@ pub fn render(
     }
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    state.status.status(1, format!("R {:.0?}", el).to_string());
+    state.status.status(2, format!("R {:.0?}", el).to_string());
 
     let status_layout = Layout::horizontal([
         Constraint::Fill(61), //
@@ -145,6 +145,7 @@ pub fn render(
             Constraint::Fill(1),
             Constraint::Length(8),
             Constraint::Length(8),
+            Constraint::Length(8),
         ])
         .styles(ctx.theme.statusline_style())
         .render(status_layout[1], buf, &mut state.status);
@@ -153,8 +154,8 @@ pub fn render(
 }
 
 pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
-    ctx.set_focus(FocusBuilder::build_for(&state.minimal));
-    minimal::init(&mut state.minimal, ctx)?;
+    ctx.set_focus(FocusBuilder::build_for(&state.nominal));
+    state.nominal.init(ctx)?;
     Ok(())
 }
 
@@ -187,7 +188,7 @@ pub fn event(
             r
         }
         AppEvent::Rendered => {
-            ctx.set_focus(FocusBuilder::rebuild_for(&state.minimal, ctx.take_focus()));
+            ctx.set_focus(FocusBuilder::rebuild_for(&state.nominal, ctx.take_focus()));
             Control::Continue
         }
         AppEvent::Message(s) => {
@@ -201,10 +202,10 @@ pub fn event(
         _ => Control::Continue,
     };
 
-    r = r.or_else_try(|| minimal::event(event, &mut state.minimal, ctx))?;
+    r = r.or_else_try(|| state.nominal.event(event, ctx))?;
 
     let el = t0.elapsed()?;
-    state.status.status(2, format!("E {:.0?}", el).to_string());
+    state.status.status(3, format!("E {:.0?}", el).to_string());
 
     Ok(r)
 }
@@ -218,9 +219,10 @@ pub fn error(
     Ok(Control::Changed)
 }
 
-pub mod minimal {
+pub mod nominal {
     use crate::{AppEvent, Global};
     use anyhow::Error;
+    use rat_salsa2::timer::TimerDef;
     use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::impl_has_focus;
@@ -228,59 +230,96 @@ pub mod minimal {
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::widgets::StatefulWidget;
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    pub struct Nominal;
 
     #[derive(Debug, Default)]
-    pub struct Minimal {
+    pub struct NominalState {
         pub menu: MenuLineState,
     }
 
-    pub fn render(
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Minimal,
-        ctx: &mut Global,
-    ) -> Result<(), Error> {
-        // TODO: repaint_mask
+    impl Nominal {
+        pub fn render(
+            &self,
+            area: Rect,
+            buf: &mut Buffer,
+            state: &mut NominalState,
+            ctx: &mut Global,
+        ) -> Result<(), Error> {
+            // TODO: repaint_mask
 
-        let r = Layout::new(
-            Direction::Vertical,
-            [
-                Constraint::Fill(1), //
-                Constraint::Length(1),
-            ],
-        )
-        .split(area);
+            let r = Layout::new(
+                Direction::Vertical,
+                [
+                    Constraint::Fill(1), //
+                    Constraint::Length(1),
+                ],
+            )
+            .split(area);
 
-        MenuLine::new()
-            .styles(ctx.theme.menu_style())
-            .item_parsed("_Quit")
-            .render(r[1], buf, &mut state.menu);
+            MenuLine::new()
+                .styles(ctx.theme.menu_style())
+                .item_parsed("_Thread")
+                .item_parsed("_Timer")
+                .item_parsed("_Quit")
+                .render(r[1], buf, &mut state.menu);
 
-        Ok(())
+            Ok(())
+        }
     }
 
-    impl_has_focus!(menu for Minimal);
+    impl_has_focus!(menu for NominalState);
 
-    pub fn init(_state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
-        ctx.focus().first();
-        Ok(())
-    }
+    impl NominalState {
+        pub fn init(
+            &mut self, //
+            ctx: &mut Global,
+        ) -> Result<(), Error> {
+            ctx.focus().first();
+            Ok(())
+        }
 
-    #[allow(unused_variables)]
-    pub fn event(
-        event: &AppEvent,
-        state: &mut Minimal,
-        ctx: &mut Global,
-    ) -> Result<Control<AppEvent>, Error> {
-        match event {
-            AppEvent::Event(event) => {
-                try_flow!(match state.menu.handle(event, Regular) {
-                    MenuOutcome::Activated(0) => Control::Quit,
-                    v => v.into(),
-                });
-                Ok(Control::Continue)
+        #[allow(unused_variables)]
+        pub fn event(
+            &mut self,
+            event: &AppEvent,
+            ctx: &mut Global,
+        ) -> Result<Control<AppEvent>, Error> {
+            match event {
+                AppEvent::Event(event) => {
+                    try_flow!(match self.menu.handle(event, Regular) {
+                        MenuOutcome::Activated(0) => {
+                            ctx.spawn(|| {
+                                sleep(Duration::from_secs(5));
+                                Ok(Control::Event(AppEvent::Message(
+                                    "waiting is over".to_string(),
+                                )))
+                            })?;
+                            Control::Changed
+                        }
+                        MenuOutcome::Activated(1) => {
+                            ctx.add_timer(
+                                TimerDef::new().repeat(21).timer(Duration::from_millis(500)),
+                            );
+                            Control::Changed
+                        }
+                        MenuOutcome::Activated(2) => {
+                            Control::Quit //
+                        }
+                        v => v.into(),
+                    });
+                    Ok(Control::Continue)
+                }
+                AppEvent::Timer(t) => {
+                    Ok(Control::Event(
+                        //
+                        AppEvent::Status(1, format!("TICK-{}", t.counter)),
+                    ))
+                }
+                _ => Ok(Control::Continue),
             }
-            _ => Ok(Control::Continue),
         }
     }
 }
