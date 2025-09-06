@@ -1330,6 +1330,9 @@ impl SplitState {
     /// rendering related.
     ///
     pub fn area_len(&self, n: usize) -> u16 {
+        if n >= self.area_length.len() {
+            return 0;
+        }
         self.area_length[n]
     }
 
@@ -1365,7 +1368,15 @@ impl SplitState {
     /// - A value of 1 is fine.
     /// - The last area can have a length 0 and that's fine too.
     ///
+    /// __Caution__
+    ///
+    /// Before the first render this will do nothing.
+    /// Use [set_area_lengths] to initialize the areas.
+    ///
     pub fn set_area_len(&mut self, n: usize, len: u16) {
+        if n >= self.area_length.len() {
+            return;
+        }
         self.area_length[n] = len;
         self.hidden_length[n] = 0;
     }
@@ -1381,8 +1392,10 @@ impl SplitState {
     ///
     /// This returns the position of the gap between two adjacent
     /// split-areas. Use `splitline_areas` for anything rendering related.
-    ///
     pub fn split_pos(&self, n: usize) -> u16 {
+        if n + 1 >= self.area_length.len() {
+            return self.area_length.iter().sum();
+        }
         self.area_length[..n + 1].iter().sum()
     }
 
