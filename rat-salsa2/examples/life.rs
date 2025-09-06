@@ -283,7 +283,7 @@ pub fn event(
 
             r = r.or_else(|| {
                 ctx.set_focus(FocusBuilder::rebuild_for(&state.life, ctx.take_focus()));
-                ctx.focus_event(event);
+                ctx.handle_focus(event);
                 Control::Continue
             });
 

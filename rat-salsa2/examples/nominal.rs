@@ -1,22 +1,19 @@
+use crate::minimal::Minimal;
 use anyhow::Error;
-use log::error;
-use rat_event::try_flow;
-use rat_focus::impl_has_focus;
 use rat_salsa2::event::RenderedEvent;
-use rat_salsa2::poll::{PollCrossterm, PollRendered};
+use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
+use rat_salsa2::timer::TimeOut;
 use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
-use rat_widget::event::{ct_event, Dialog, HandleEvent, MenuOutcome, Regular};
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
-use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
 use std::fs;
-use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
@@ -25,7 +22,7 @@ fn main() -> Result<(), Error> {
     let config = Config::default();
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = Global::new(config, theme);
-    let mut state = Minimal::default();
+    let mut state = Scenery::default();
 
     run_tui(
         init,
@@ -35,7 +32,9 @@ fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::default()?
-            .poll(PollCrossterm) //
+            .poll(PollCrossterm)
+            .poll(PollTimers::default())
+            .poll(PollTasks::default())
             .poll(PollRendered),
     )?;
 
@@ -78,6 +77,7 @@ pub struct Config {}
 /// Application wide messages.
 #[derive(Debug)]
 pub enum AppEvent {
+    Timer(TimeOut),
     Event(crossterm::event::Event),
     Rendered,
     Message(String),
@@ -90,6 +90,12 @@ impl From<RenderedEvent> for AppEvent {
     }
 }
 
+impl From<TimeOut> for AppEvent {
+    fn from(value: TimeOut) -> Self {
+        Self::Timer(value)
+    }
+}
+
 impl From<crossterm::event::Event> for AppEvent {
     fn from(value: crossterm::event::Event) -> Self {
         Self::Event(value)
@@ -97,32 +103,27 @@ impl From<crossterm::event::Event> for AppEvent {
 }
 
 #[derive(Debug, Default)]
-pub struct Minimal {
-    pub menu: MenuLineState,
+pub struct Scenery {
+    pub minimal: Minimal,
     pub status: StatusLineState,
     pub error_dlg: MsgDialogState,
 }
 
-impl_has_focus!(menu for Minimal);
-
 pub fn render(
     area: Rect,
     buf: &mut Buffer,
-    state: &mut Minimal,
+    state: &mut Scenery,
     ctx: &mut Global,
 ) -> Result<(), Error> {
     let t0 = SystemTime::now();
+
+    minimal::render(area, buf, &mut state.minimal, ctx)?;
 
     let layout = Layout::vertical([
         Constraint::Fill(1), //
         Constraint::Length(1),
     ])
     .split(area);
-
-    MenuLine::new()
-        .styles(ctx.theme.menu_style())
-        .item_parsed("_Quit")
-        .render(layout[1], buf, &mut state.menu);
 
     if state.error_dlg.active() {
         MsgDialog::new()
@@ -151,26 +152,28 @@ pub fn render(
     Ok(())
 }
 
-pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
-    ctx.set_focus(FocusBuilder::build_for(state));
-    ctx.focus().first();
+pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
+    ctx.set_focus(FocusBuilder::build_for(&state.minimal));
+    minimal::init(&mut state.minimal, ctx)?;
     Ok(())
 }
 
 pub fn event(
     event: &AppEvent,
-    state: &mut Minimal,
+    state: &mut Scenery,
     ctx: &mut Global,
 ) -> Result<Control<AppEvent>, Error> {
-    match event {
+    let t0 = SystemTime::now();
+
+    let mut r = match event {
         AppEvent::Event(event) => {
-            try_flow!(match &event {
+            let mut r = match &event {
                 ct_event!(resized) => Control::Changed,
                 ct_event!(key press CONTROL-'q') => Control::Quit,
                 _ => Control::Continue,
-            });
+            };
 
-            try_flow!({
+            r = r.or_else(|| {
                 if state.error_dlg.active() {
                     state.error_dlg.handle(event, Dialog).into()
                 } else {
@@ -178,50 +181,126 @@ pub fn event(
                 }
             });
 
-            ctx.handle_focus(event);
+            let f = ctx.focus_mut().handle(event, Regular);
+            ctx.queue(f);
 
-            try_flow!(match state.menu.handle(event, Regular) {
-                MenuOutcome::Activated(0) => Control::Quit,
-                v => v.into(),
-            });
-
-            Ok(Control::Continue)
+            r
         }
         AppEvent::Rendered => {
-            ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
-            Ok(Control::Continue)
+            ctx.set_focus(FocusBuilder::rebuild_for(&state.minimal, ctx.take_focus()));
+            Control::Continue
         }
         AppEvent::Message(s) => {
             state.error_dlg.append(s.as_str());
-            Ok(Control::Changed)
+            Control::Changed
         }
         AppEvent::Status(n, s) => {
             state.status.status(*n, s);
-            Ok(Control::Changed)
+            Control::Changed
         }
-    }
+        _ => Control::Continue,
+    };
+
+    r = r.or_else_try(|| minimal::event(event, &mut state.minimal, ctx))?;
+
+    let el = t0.elapsed()?;
+    state.status.status(2, format!("E {:.0?}", el).to_string());
+
+    Ok(r)
 }
 
 pub fn error(
     event: Error,
-    state: &mut Minimal,
+    state: &mut Scenery,
     _ctx: &mut Global,
 ) -> Result<Control<AppEvent>, Error> {
-    error!("{:?}", event);
     state.error_dlg.append(format!("{:?}", &*event).as_str());
     Ok(Control::Changed)
 }
 
+pub mod minimal {
+    use crate::{AppEvent, Global};
+    use anyhow::Error;
+    use rat_salsa2::{Control, SalsaContext};
+    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
+    use rat_widget::focus::impl_has_focus;
+    use rat_widget::menu::{MenuLine, MenuLineState};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::widgets::StatefulWidget;
+
+    #[derive(Debug, Default)]
+    pub struct Minimal {
+        pub menu: MenuLineState,
+    }
+
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Minimal,
+        ctx: &mut Global,
+    ) -> Result<(), Error> {
+        // TODO: repaint_mask
+
+        let r = Layout::new(
+            Direction::Vertical,
+            [
+                Constraint::Fill(1), //
+                Constraint::Length(1),
+            ],
+        )
+        .split(area);
+
+        MenuLine::new()
+            .styles(ctx.theme.menu_style())
+            .item_parsed("_Quit")
+            .render(r[1], buf, &mut state.menu);
+
+        Ok(())
+    }
+
+    impl_has_focus!(menu for Minimal);
+
+    pub fn init(_state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
+        ctx.focus().first();
+        Ok(())
+    }
+
+    #[allow(unused_variables)]
+    pub fn event(
+        event: &AppEvent,
+        state: &mut Minimal,
+        ctx: &mut Global,
+    ) -> Result<Control<AppEvent>, Error> {
+        match event {
+            AppEvent::Event(event) => {
+                try_flow!(match state.menu.handle(event, Regular) {
+                    MenuOutcome::Activated(0) => Control::Quit,
+                    v => v.into(),
+                });
+                Ok(Control::Continue)
+            }
+            _ => Ok(Control::Continue),
+        }
+    }
+}
+
 fn setup_logging() -> Result<(), Error> {
-    let log_path = PathBuf::from(".");
-    let log_file = log_path.join("minimal.log");
-    _ = fs::remove_file(&log_file);
-    fern::Dispatch::new()
-        .format(|out, message, _record| {
-            out.finish(format_args!("{}", message)) //
-        })
-        .level(log::LevelFilter::Debug)
-        .chain(fern::log_file(&log_file)?)
-        .apply()?;
+    if let Some(cache) = dirs::cache_dir() {
+        let log_path = cache.join("rat-salsa");
+        if !log_path.exists() {
+            fs::create_dir_all(&log_path)?;
+        }
+
+        let log_file = log_path.join("minimal.log");
+        _ = fs::remove_file(&log_file);
+        fern::Dispatch::new()
+            .format(|out, message, _record| {
+                out.finish(format_args!("{}", message)) //
+            })
+            .level(log::LevelFilter::Debug)
+            .chain(fern::log_file(&log_file)?)
+            .apply()?;
+    }
     Ok(())
 }

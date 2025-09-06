@@ -9,22 +9,30 @@ The traits are well established, don't touch those.
 
 - Buffer
 
-The buffer is less intriguing. Can't do layers and
-setting the cursor only works on the Frame. But its
-tightly integrated with Widget, so work with what you
-have.
+The buffer is less intriguing. Can't do layers and setting the
+cursor only works on the Frame. But its tightly integrated with
+Widget, so don't touch this too.
 
-> All the widgets are plain ratatui Widgets/
-> StatefulWidgets and work around the given
-> limitations.
+- All the background stuff to make things work. Terminals have
+  a legacy that's far older than COBOL, that should tell you
+  something...
+  
+I'm very grateful that I don't have to deal with ESC sequences 
+myself :-)  
 
-You can see this in the [rat-widget][refRatWidget] crate. 
+=> So any widgets work as plain ratatui Widget/StatefulWidget and
+workaround its limitations, maybe add things at the edges. 
+  
+You can see the result in the [rat-widget][refRatWidget] crate. 
 
-## Missing bits
+
+## And the missing bits
 
 - [Event handling][refRatEvent]
 
-Customizable, no Rc/Arc necessary because no callbacks, supports not only crossterm events. 
+Defines some common ground that is customizable, needs no Arc or callbacks. 
+And theoretically supports other event-systems than crossterm even if 
+I don't implement any. 
 
 - [Screen cursor][refRatCursor]
 
@@ -32,11 +40,13 @@ A tiny tweak to get the darn cursor position up to the main renderer.
 
 - [Focus handling][refRatFocus]
 
-I need this.
+This is basics. Works with a tiny bit of state shared between the Focus
+management and the widgets. So both can be kept mostly independent and
+the widgets will still work even if no Focus is present. 
 
 - [Scrolling][refRatScrolled]
 
-There is Scrollbar and some widgets support offsets, but nothing reusable. 
+There is Scrollbar and some widgets support offsets, but nothing reusable.
 
 - [Windows/Dialogs][refRatDialog]
 

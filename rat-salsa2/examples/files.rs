@@ -522,7 +522,7 @@ fn crossterm(
     });
 
     ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
-    ctx.focus_event(event);
+    ctx.handle_focus(event);
 
     try_flow!(match event {
         ct_event!(keycode press F(5)) => {
