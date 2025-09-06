@@ -1,8 +1,11 @@
+use crate::poll::PollEvents;
 use crate::thread_pool::ThreadPool;
-use crate::{Control, PollEvents};
+use crate::Control;
 use crossbeam::channel::TryRecvError;
 use std::any::Any;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /// Processes results from background tasks.
 #[derive(Debug)]

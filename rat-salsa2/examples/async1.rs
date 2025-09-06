@@ -1,8 +1,8 @@
 use crate::main_ui::MainUI;
 use anyhow::Error;
 use dirs::cache_dir;
+use rat_salsa2::event::RenderedEvent;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa2::rendered::RenderedEvent;
 use rat_salsa2::timer::TimeOut;
 use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;

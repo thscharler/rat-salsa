@@ -1,5 +1,6 @@
+use crate::poll::PollEvents;
 use crate::timer::{TimeOut, Timers};
-use crate::{Control, PollEvents};
+use crate::Control;
 use std::any::Any;
 use std::rc::Rc;
 

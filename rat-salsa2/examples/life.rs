@@ -10,9 +10,9 @@
 use crate::game::LifeGameState;
 use crate::life::Life;
 use anyhow::Error;
-use rat_salsa2::poll::PollCrossterm;
+use rat_salsa2::poll::{PollCrossterm, PollEvents};
 use rat_salsa2::{run_tui, RunConfig};
-use rat_salsa2::{Control, PollEvents, SalsaAppContext, SalsaContext};
+use rat_salsa2::{Control, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};

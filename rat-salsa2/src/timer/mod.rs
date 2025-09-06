@@ -1,6 +1,7 @@
 //!
 //! Support for timers.
 //!
+use crate::event::TimerEvent;
 use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
 
@@ -136,10 +137,6 @@ pub struct TimeOut {
     pub handle: TimerHandle,
     pub counter: usize,
 }
-
-/// Timer event.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TimerEvent(pub TimeOut);
 
 /// Holds the information to start a timer.
 #[derive(Debug, Default)]

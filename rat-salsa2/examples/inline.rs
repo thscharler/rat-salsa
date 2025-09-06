@@ -4,8 +4,8 @@
 ///
 use crate::minimal::Minimal;
 use anyhow::Error;
+use rat_salsa2::event::RenderedEvent;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa2::rendered::RenderedEvent;
 use rat_salsa2::terminal::CrosstermTerminal;
 use rat_salsa2::timer::TimeOut;
 use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};

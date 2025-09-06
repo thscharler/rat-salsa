@@ -340,8 +340,7 @@ mod logscroll {
     use anyhow::Error;
     use crossbeam::channel::Sender;
     use log::debug;
-    use rat_salsa2::tasks::Liveness;
-    use rat_salsa2::thread_pool::Cancel;
+    use rat_salsa2::tasks::{Cancel, Liveness};
     use rat_salsa2::timer::{TimerDef, TimerHandle};
     use rat_salsa2::{Control, SalsaContext};
     use rat_theme2::{dark_themes, DarkTheme, Palette};

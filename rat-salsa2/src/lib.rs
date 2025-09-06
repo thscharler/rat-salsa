@@ -1,7 +1,8 @@
 #![doc = include_str!("../readme.md")]
 
 use crate::framework::control_queue::ControlQueue;
-use crate::thread_pool::{Cancel, ThreadPool};
+use crate::tasks::{Cancel, Liveness};
+use crate::thread_pool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
@@ -19,19 +20,66 @@ use std::rc::Rc;
 use tokio::task::AbortHandle;
 
 mod framework;
-mod poll_events;
-pub mod rendered;
 mod run_config;
 pub mod tasks;
 pub mod terminal;
-pub mod thread_pool;
+mod thread_pool;
 pub mod timer;
 #[cfg(feature = "async")]
 mod tokio_tasks;
 
+pub use framework::run_tui;
+pub use run_config::RunConfig;
+
+/// Event types.
+pub mod event {
+    /// Timer event.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct TimerEvent(pub crate::timer::TimeOut);
+
+    /// Event sent immediately after rendering.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct RenderedEvent;
+
+    /// Event sent immediately before quitting the application.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct QuitEvent;
+}
+
 /// Event sources.
 pub mod poll {
+    /// Trait for an event-source.
+    ///
+    /// If you need to add your own do the following:
+    ///
+    /// * Implement this trait for a struct that fits.
+    ///
+    pub trait PollEvents<Event, Error>: std::any::Any
+    where
+        Event: 'static + Send,
+        Error: 'static + Send,
+    {
+        fn as_any(&self) -> &dyn std::any::Any;
+
+        /// Poll for a new event.
+        ///
+        /// Events are not processed immediately when they occur. Instead,
+        /// all event sources are polled, the poll state is put into a queue.
+        /// Then the queue is emptied one by one and `read_execute()` is called.
+        ///
+        /// This prevents issues with poll-ordering of multiple sources, and
+        /// one source cannot just flood the app with events.
+        fn poll(&mut self) -> Result<bool, Error>;
+
+        /// Read the event and distribute it.
+        ///
+        /// If you add a new event, that doesn't fit into AppEvents, you'll
+        /// have to define a new trait for your AppState and use that.
+        fn read(&mut self) -> Result<crate::Control<Event>, Error>;
+    }
+
     mod crossterm;
+    mod quit;
     mod rendered;
     mod thread_pool;
     mod timer;
@@ -39,6 +87,7 @@ pub mod poll {
     mod tokio_tasks;
 
     pub use crossterm::PollCrossterm;
+    pub use quit::PollQuit;
     pub use rendered::PollRendered;
     pub use thread_pool::PollTasks;
     pub use timer::PollTimers;
@@ -46,13 +95,14 @@ pub mod poll {
     pub use tokio_tasks::PollTokio;
 }
 
-use crate::tasks::Liveness;
-pub use framework::run_tui;
 pub mod mock {
-    use crate::Control;
+    //! Provides dummy implementations for some functions.
 
     /// Empty placeholder for [run_tui].
-    pub fn init<State, Global, Error>(_state: &mut State, _ctx: &mut Global) -> Result<(), Error> {
+    pub fn init<State, Global, Error>(
+        _state: &mut State, //
+        _ctx: &mut Global,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
@@ -61,12 +111,10 @@ pub mod mock {
         _error: Error,
         _state: &mut State,
         _ctx: &mut Global,
-    ) -> Result<Control<Event>, Error> {
-        Ok(Control::Continue)
+    ) -> Result<crate::Control<Event>, Error> {
+        Ok(crate::Control::Continue)
     }
 }
-pub use poll_events::PollEvents;
-pub use run_config::RunConfig;
 
 /// Result enum for event handling.
 ///

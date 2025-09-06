@@ -1,7 +1,8 @@
 use crate::framework::control_queue::ControlQueue;
+use crate::poll::PollEvents;
 #[cfg(feature = "async")]
 use crate::poll::PollTokio;
-use crate::poll::{PollRendered, PollTasks, PollTimers};
+use crate::poll::{PollQuit, PollRendered, PollTasks, PollTimers};
 use crate::run_config::RunConfig;
 use crate::{Control, SalsaAppContext, SalsaContext};
 use poll_queue::PollQueue;
@@ -63,13 +64,13 @@ where
             .downcast_ref::<PollTasks<Event, Error>>()
             .map(|t| t.get_tasks())
     });
-    let rendered_event = poll.iter().enumerate().find_map(|(n, v)| {
-        if v.as_ref().type_id() == TypeId::of::<PollRendered>() {
-            Some(n)
-        } else {
-            None
-        }
-    });
+    let rendered_event = poll
+        .iter()
+        .position(|v| v.as_ref().type_id() == TypeId::of::<PollRendered>());
+    let quit = poll
+        .iter()
+        .position(|v| v.as_ref().type_id() == TypeId::of::<PollQuit>());
+
     #[cfg(feature = "async")]
     let tokio = poll.iter().find_map(|v| {
         v.as_any()
@@ -200,6 +201,16 @@ where
                     global.salsa_ctx().queue.push(r);
                 }
                 Ok(Control::Quit) => {
+                    if let Some(quit) = quit {
+                        let Control::Event(a) = poll[quit].read().unwrap_or(Control::Quit) else {
+                            unreachable!();
+                        };
+                        match event(&a, state, global) {
+                            Ok(Control::Quit) => { /* really quit now */ }
+                            Ok(v) => global.salsa_ctx().queue.push(Ok(v)),
+                            Err(e) => global.salsa_ctx().queue.push(Err(e)),
+                        };
+                    }
                     break 'ui;
                 }
             }

@@ -1,4 +1,4 @@
-use crate::poll_events::PollEvents;
+use crate::poll::PollEvents;
 use crate::terminal::{CrosstermTerminal, Terminal};
 use crossbeam::channel::TryRecvError;
 use std::fmt::{Debug, Formatter};

@@ -1,4 +1,5 @@
-use crate::{Control, PollEvents};
+use crate::poll::PollEvents;
+use crate::Control;
 use std::any::Any;
 use std::time::Duration;
 

@@ -5,7 +5,7 @@ use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
 use rat_salsa2::poll::{PollCrossterm, PollTasks};
-use rat_salsa2::thread_pool::Cancel;
+use rat_salsa2::tasks::Cancel;
 use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::{dark_themes, DarkTheme};
