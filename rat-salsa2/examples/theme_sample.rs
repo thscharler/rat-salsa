@@ -77,13 +77,13 @@ pub struct Config {}
 
 #[derive(Debug)]
 pub enum ThemesEvent {
-    Event(crossterm::event::Event),
+    Event(Event),
     TimeOut(TimeOut),
     Message(String),
     Status(usize, String),
 }
 
-impl From<crossterm::event::Event> for ThemesEvent {
+impl From<Event> for ThemesEvent {
     fn from(value: Event) -> Self {
         Self::Event(value)
     }

@@ -115,7 +115,7 @@ impl PollTick {
 
 impl<Error> PollEvents<LifeEvent, Error> for PollTick
 where
-    Error: 'static + Send + Debug,
+    Error: 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -136,12 +136,12 @@ where
     }
 }
 
-impl SalsaContext<LifeEvent, anyhow::Error> for GlobalState {
-    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<LifeEvent, anyhow::Error>) {
+impl SalsaContext<LifeEvent, Error> for GlobalState {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<LifeEvent, Error>) {
         self.ctx = app_ctx;
     }
 
-    fn salsa_ctx(&self) -> &SalsaAppContext<LifeEvent, anyhow::Error> {
+    fn salsa_ctx(&self) -> &SalsaAppContext<LifeEvent, Error> {
         &self.ctx
     }
 }

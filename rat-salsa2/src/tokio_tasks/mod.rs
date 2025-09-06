@@ -16,8 +16,8 @@ pub(crate) struct TokioTasks<Event, Error> {
 
 impl<Event, Error> Debug for TokioTasks<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TokioTasks")

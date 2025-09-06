@@ -35,6 +35,7 @@ use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use sysinfo::Disks;

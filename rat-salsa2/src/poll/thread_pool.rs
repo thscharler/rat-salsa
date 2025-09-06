@@ -4,15 +4,13 @@ use crate::Control;
 use crossbeam::channel::TryRecvError;
 use std::any::Any;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 /// Processes results from background tasks.
 #[derive(Debug)]
 pub struct PollTasks<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     tasks: Rc<ThreadPool<Event, Error>>,
 }
@@ -37,7 +35,13 @@ where
             tasks: Rc::new(ThreadPool::new(num_workers)),
         }
     }
+}
 
+impl<Event, Error> PollTasks<Event, Error>
+where
+    Event: 'static,
+    Error: 'static,
+{
     pub(crate) fn get_tasks(&self) -> Rc<ThreadPool<Event, Error>> {
         self.tasks.clone()
     }

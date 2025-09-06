@@ -11,8 +11,8 @@ pub struct PollQuit;
 
 impl<Event, Error> PollEvents<Event, Error> for PollQuit
 where
-    Event: 'static + Send + From<QuitEvent>,
-    Error: 'static + Send,
+    Event: 'static + From<QuitEvent>,
+    Error: 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self

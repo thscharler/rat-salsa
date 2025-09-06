@@ -1,5 +1,4 @@
 use crate::framework::control_queue::ControlQueue;
-use crate::poll::PollEvents;
 #[cfg(feature = "async")]
 use crate::poll::PollTokio;
 use crate::poll::{PollQuit, PollRendered, PollTasks, PollTimers};
@@ -48,8 +47,8 @@ fn _run_tui<Global, State, Event, Error>(
 ) -> Result<(), Error>
 where
     Global: SalsaContext<Event, Error>,
-    Event: Send + 'static,
-    Error: Send + 'static + From<io::Error>,
+    Event: 'static,
+    Error: 'static + From<io::Error>,
 {
     let term = cfg.term.as_mut();
     let poll = cfg.poll.as_mut_slice();
@@ -70,7 +69,6 @@ where
     let quit = poll
         .iter()
         .position(|v| v.as_ref().type_id() == TypeId::of::<PollQuit>());
-
     #[cfg(feature = "async")]
     let tokio = poll.iter().find_map(|v| {
         v.as_any()
@@ -349,8 +347,8 @@ pub fn run_tui<Global, State, Event, Error>(
 ) -> Result<(), Error>
 where
     Global: SalsaContext<Event, Error>,
-    Event: Send + 'static,
-    Error: Send + 'static + From<io::Error>,
+    Event: 'static,
+    Error: 'static + From<io::Error>,
 {
     cfg.term.init()?;
 

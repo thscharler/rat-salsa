@@ -35,7 +35,7 @@ use std::io::{stdout, Stdout};
 /// implement this trait.
 pub trait Terminal<Error>
 where
-    Error: 'static + Send + From<io::Error>,
+    Error: 'static + From<io::Error>,
 {
     /// Terminal init.
     fn init(&mut self) -> Result<(), Error>;
@@ -139,7 +139,7 @@ impl CrosstermTerminal {
 
 impl<Error> Terminal<Error> for CrosstermTerminal
 where
-    Error: 'static + Send + From<io::Error>,
+    Error: 'static + From<io::Error>,
 {
     fn init(&mut self) -> Result<(), Error> {
         init(&self.cfg)?;

@@ -15,6 +15,7 @@ use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
+use std::cell::Cell;
 use std::fs;
 use std::fs::create_dir_all;
 use std::rc::Rc;

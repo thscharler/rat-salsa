@@ -18,8 +18,8 @@ type BoxTask<Event, Error> = Box<
 /// Basic thread-pool.
 pub(crate) struct ThreadPool<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     send: Sender<(Cancel, Liveness, BoxTask<Event, Error>)>,
     recv: Receiver<Result<Control<Event>, Error>>,
@@ -28,8 +28,8 @@ where
 
 impl<Event, Error> Debug for ThreadPool<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ThreadPool")
@@ -121,16 +121,6 @@ where
         }
     }
 
-    /// Check the workers for liveness.
-    pub(crate) fn check_liveness(&self) -> bool {
-        for h in &self.handles {
-            if h.is_finished() {
-                return false;
-            }
-        }
-        true
-    }
-
     /// Is the receive-channel empty?
     #[inline]
     pub(crate) fn is_empty(&self) -> bool {
@@ -150,10 +140,26 @@ where
     }
 }
 
+impl<Event, Error> ThreadPool<Event, Error>
+where
+    Event: 'static,
+    Error: 'static,
+{
+    /// Check the workers for liveness.
+    pub(crate) fn check_liveness(&self) -> bool {
+        for h in &self.handles {
+            if h.is_finished() {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 impl<Event, Error> Drop for ThreadPool<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     fn drop(&mut self) {
         // dropping the channel will be noticed by the threads running the

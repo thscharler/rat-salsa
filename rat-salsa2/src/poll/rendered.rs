@@ -9,8 +9,8 @@ pub struct PollRendered;
 
 impl<Event, Error> PollEvents<Event, Error> for PollRendered
 where
-    Event: 'static + Send + From<RenderedEvent>,
-    Error: 'static + Send + From<std::io::Error>,
+    Event: 'static + From<RenderedEvent>,
+    Error: 'static + From<std::io::Error>,
 {
     fn as_any(&self) -> &dyn Any {
         self

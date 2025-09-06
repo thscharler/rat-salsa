@@ -353,7 +353,7 @@ mod logscroll {
     use rat_widget::scrolled::Scroll;
     use rat_widget::splitter::{Split, SplitState};
     use rat_widget::table::selection::RowSelection;
-    use rat_widget::table::{Table, TableContext, TableData, TableDataIter, TableState};
+    use rat_widget::table::{Table, TableContext, TableData, TableState};
     use rat_widget::text::{impl_screen_cursor, TextPosition};
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState};
@@ -366,7 +366,6 @@ mod logscroll {
     use regex_cursor::{Input, RopeyCursor};
     use ropey::{Rope, RopeBuilder};
     use std::cmp::min;
-    use std::collections::{BTreeMap, BTreeSet};
     use std::fs::File;
     use std::io::{Read, Seek, SeekFrom};
     use std::ops::Range;

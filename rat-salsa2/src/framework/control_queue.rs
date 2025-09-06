@@ -10,16 +10,16 @@ use std::fmt::{Debug, Formatter};
 /// Queue for event-handling results.
 pub(crate) struct ControlQueue<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     queue: RefCell<VecDeque<Result<Control<Event>, Error>>>,
 }
 
 impl<Event, Error> Debug for ControlQueue<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ControlQueue")
@@ -30,8 +30,8 @@ where
 
 impl<Event, Error> Default for ControlQueue<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     fn default() -> Self {
         Self {
@@ -42,8 +42,8 @@ where
 
 impl<Event, Error> ControlQueue<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     /// is empty
     pub(crate) fn is_empty(&self) -> bool {

@@ -56,8 +56,8 @@ pub mod poll {
     ///
     pub trait PollEvents<Event, Error>: std::any::Any
     where
-        Event: 'static + Send,
-        Error: 'static + Send,
+        Event: 'static,
+        Error: 'static,
     {
         fn as_any(&self) -> &dyn std::any::Any;
 
@@ -245,8 +245,8 @@ impl<Event, T: Into<Outcome>> From<T> for Control<Event> {
 ///
 pub trait SalsaContext<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     /// The AppContext struct holds all the data for the rat-salsa
     /// functionality. run_tui calls this to set the initialized
@@ -403,6 +403,8 @@ where
     fn spawn_async<F>(&self, future: F)
     where
         F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
+        Event: 'static + Send,
+        Error: 'static + Send,
     {
         _ = self.salsa_ctx() //
             .tokio
@@ -432,6 +434,8 @@ where
     where
         C: FnOnce(tokio::sync::mpsc::Sender<Result<Control<Event>, Error>>) -> F,
         F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
+        Event: 'static + Send,
+        Error: 'static + Send,
     {
         let rt = self
             .salsa_ctx()//
@@ -529,8 +533,8 @@ where
 ///
 pub struct SalsaAppContext<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     /// Can be set to hold a Focus, if needed.
     pub(crate) focus: RefCell<Option<Focus>>,
@@ -550,11 +554,7 @@ where
     pub(crate) queue: ControlQueue<Event, Error>,
 }
 
-impl<Event, Error> Debug for SalsaAppContext<Event, Error>
-where
-    Event: 'static + Send,
-    Error: 'static + Send,
-{
+impl<Event, Error> Debug for SalsaAppContext<Event, Error> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut ff = f.debug_struct("AppContext");
         ff.field("focus", &self.focus)
@@ -573,8 +573,8 @@ where
 
 impl<Event, Error> Default for SalsaAppContext<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     fn default() -> Self {
         Self {
@@ -592,8 +592,8 @@ where
 
 impl<Event, Error> SalsaContext<Event, Error> for SalsaAppContext<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     #[inline]
     fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<Event, Error>) {

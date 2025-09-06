@@ -9,8 +9,8 @@ pub struct PollCrossterm;
 
 impl<Event, Error> PollEvents<Event, Error> for PollCrossterm
 where
-    Event: 'static + Send + From<crossterm::event::Event>,
-    Error: 'static + Send + From<std::io::Error>,
+    Event: 'static + From<crossterm::event::Event>,
+    Error: 'static + From<std::io::Error>,
 {
     fn as_any(&self) -> &dyn Any {
         self
