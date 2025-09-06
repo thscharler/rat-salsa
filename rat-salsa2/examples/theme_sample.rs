@@ -1,17 +1,25 @@
 #![allow(unused_variables)]
 
-use crate::scenery::{error, event, init, render, Scenery};
+use crate::mask0::Mask0;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa2::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa2::timer::TimeOut;
+use rat_salsa2::Control;
 use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
+use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::statusline::{StatusLine, StatusLineState};
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::widgets::StatefulWidget;
 use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -87,123 +95,110 @@ impl From<TimeOut> for ThemesEvent {
     }
 }
 
-mod scenery {
-    use crate::mask0::Mask0;
-    use crate::{mask0, GlobalState, ThemesEvent};
-    use anyhow::Error;
-    use crossterm::event::Event;
-    use rat_salsa2::Control;
-    use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
-    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-    use rat_widget::statusline::{StatusLine, StatusLineState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
-    use std::time::{Duration, SystemTime};
+#[derive(Debug, Default)]
+pub struct Scenery {
+    mask0: Mask0,
+    status: StatusLineState,
+    error_dlg: MsgDialogState,
+}
 
-    #[derive(Debug, Default)]
-    pub struct Scenery {
-        mask0: Mask0,
-        status: StatusLineState,
-        error_dlg: MsgDialogState,
+pub fn render(
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<(), Error> {
+    let t0 = SystemTime::now();
+
+    // forward
+    mask0::render(area, buf, &mut state.mask0, ctx)?;
+
+    let layout = Layout::new(
+        Direction::Vertical,
+        [Constraint::Fill(1), Constraint::Length(1)],
+    )
+    .split(area);
+
+    if state.error_dlg.active() {
+        MsgDialog::new()
+            .styles(ctx.theme.msg_dialog_style())
+            .render(layout[0], buf, &mut state.error_dlg);
     }
 
-    pub fn render(
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Scenery,
-        ctx: &mut GlobalState,
-    ) -> Result<(), Error> {
-        let t0 = SystemTime::now();
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(1, format!("R {:.3?}", el).to_string());
 
-        let layout = Layout::new(
-            Direction::Vertical,
-            [Constraint::Fill(1), Constraint::Length(1)],
-        )
-        .split(area);
+    let layout_status =
+        Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
+            .split(layout[1]);
+    StatusLine::new()
+        .layout([
+            Constraint::Fill(1),
+            Constraint::Length(12),
+            Constraint::Length(12),
+            Constraint::Length(12),
+        ])
+        .styles(ctx.theme.statusline_style())
+        .render(layout_status[1], buf, &mut state.status);
 
-        mask0::render(area, buf, &mut state.mask0, ctx)?;
+    Ok(())
+}
 
-        if state.error_dlg.active() {
-            let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
-            err.render(layout[0], buf, &mut state.error_dlg);
+pub fn init(_state: &mut Scenery, _ctx: &mut GlobalState) -> Result<(), Error> {
+    Ok(())
+}
+
+pub fn event(
+    event: &ThemesEvent,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<Control<ThemesEvent>, Error> {
+    let t0 = SystemTime::now();
+
+    let r = match event {
+        ThemesEvent::Event(event) => {
+            try_flow!(match &event {
+                Event::Resize(_, _) => Control::Changed,
+                ct_event!(key press CONTROL-'q') => Control::Quit,
+                _ => Control::Continue,
+            });
+
+            try_flow!({
+                if state.error_dlg.active() {
+                    state.error_dlg.handle(&event, Dialog).into()
+                } else {
+                    Control::Continue
+                }
+            });
+
+            Control::Continue
         }
+        ThemesEvent::Message(s) => {
+            state.error_dlg.append(s.as_str());
+            Control::Changed
+        }
+        ThemesEvent::Status(n, s) => {
+            state.status.status(*n, s);
+            Control::Changed
+        }
+        _ => Control::Continue,
+    };
 
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        state.status.status(1, format!("R {:.3?}", el).to_string());
+    try_flow!(mask0::event(&event, &mut state.mask0, ctx)?);
 
-        let layout_status =
-            Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
-                .split(layout[1]);
-        let status = StatusLine::new()
-            .layout([
-                Constraint::Fill(1),
-                Constraint::Length(12),
-                Constraint::Length(12),
-                Constraint::Length(12),
-            ])
-            .styles(ctx.theme.statusline_style());
-        status.render(layout_status[1], buf, &mut state.status);
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(3, format!("H {:.3?}", el).to_string());
 
-        Ok(())
-    }
+    Ok(r)
+}
 
-    pub fn init(_state: &mut Scenery, _ctx: &mut GlobalState) -> Result<(), Error> {
-        Ok(())
-    }
-
-    pub fn event(
-        event: &ThemesEvent,
-        state: &mut Scenery,
-        ctx: &mut GlobalState,
-    ) -> Result<Control<ThemesEvent>, Error> {
-        let t0 = SystemTime::now();
-
-        let r = match event {
-            ThemesEvent::Event(event) => {
-                try_flow!(match &event {
-                    Event::Resize(_, _) => Control::Changed,
-                    ct_event!(key press CONTROL-'q') => Control::Quit,
-                    _ => Control::Continue,
-                });
-
-                try_flow!({
-                    if state.error_dlg.active() {
-                        state.error_dlg.handle(&event, Dialog).into()
-                    } else {
-                        Control::Continue
-                    }
-                });
-
-                Control::Continue
-            }
-            ThemesEvent::Message(s) => {
-                state.error_dlg.append(s.as_str());
-                Control::Changed
-            }
-            ThemesEvent::Status(n, s) => {
-                state.status.status(*n, s);
-                Control::Changed
-            }
-            _ => Control::Continue,
-        };
-
-        try_flow!(mask0::event(&event, &mut state.mask0, ctx)?);
-
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        state.status.status(3, format!("H {:.3?}", el).to_string());
-
-        Ok(r)
-    }
-
-    pub fn error(
-        event: Error,
-        state: &mut Scenery,
-        ctx: &mut GlobalState,
-    ) -> Result<Control<ThemesEvent>, Error> {
-        state.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Changed)
-    }
+pub fn error(
+    event: Error,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<Control<ThemesEvent>, Error> {
+    state.error_dlg.append(format!("{:?}", &*event).as_str());
+    Ok(Control::Changed)
 }
 
 pub mod mask0 {
@@ -298,12 +293,12 @@ pub mod mask0 {
         let layout_menu =
             Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
                 .split(layout[1]);
-        let menu = Menubar::new(&Menu)
+        let (menu, menu_popup) = Menubar::new(&Menu)
             .styles(ctx.theme.menu_style())
             .popup_placement(Placement::Above)
             .into_widgets();
-        menu.0.render(layout_menu[0], buf, &mut state.menu);
-        menu.1.render(layout_menu[0], buf, &mut state.menu);
+        menu.render(layout_menu[0], buf, &mut state.menu);
+        menu_popup.render(layout_menu[0], buf, &mut state.menu);
 
         Ok(())
     }
@@ -466,18 +461,6 @@ pub mod show_scheme {
             .iter()
             .enumerate()
             {
-                // for idx in 0..4 {
-                //     match c[idx] {
-                //         Color::Rgb(r, g, b) => {
-                //             let grey = r as f32 * 0.3f32 + g as f32 * 0.59f32 + b as f32 * 0.11f32;
-                //             debug!("ratings {}{} {} {} ", n, idx, grey, grey >= 105f32);
-                //         }
-                //         _ => {
-                //             debug!("ratings {}{} none", n, idx);
-                //         }
-                //     }
-                // }
-
                 Line::from(vec![
                     Span::from(format!("{:10}", n)),
                     Span::from("  FG-0  ").bg(c[0]).fg(make_fg(c[0])),

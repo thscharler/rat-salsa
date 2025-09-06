@@ -1,14 +1,24 @@
-use crate::event::AppEvent;
-use crate::scenery::Scenery;
+use crate::main_ui::MainUI;
 use anyhow::Error;
 use dirs::cache_dir;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa2::rendered::RenderedEvent;
+use rat_salsa2::timer::TimeOut;
+use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_widget::focus::FocusBuilder;
+use rat_widget::layout::layout_middle;
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::statusline::{StatusLine, StatusLineState};
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::widgets::StatefulWidget;
 use std::fs;
 use std::fs::create_dir_all;
 use std::rc::Rc;
+use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -20,23 +30,19 @@ fn main() -> Result<(), Error> {
     let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 
-    let mut run_cfg = RunConfig::default()?
-        .poll(PollCrossterm)
-        .poll(PollTimers::default())
-        .poll(PollTasks::default())
-        .poll(PollRendered);
-    if cfg!(feature = "async") {
-        run_cfg = run_cfg.poll(rat_salsa2::poll::PollTokio::new(rt));
-    }
-
     run_tui(
-        scenery::init,
-        scenery::render,
-        scenery::event,
-        scenery::error,
+        init, //
+        render,
+        event,
+        error,
         &mut global,
         &mut state,
-        run_cfg,
+        RunConfig::default()?
+            .poll(PollCrossterm)
+            .poll(PollTimers::default())
+            .poll(PollTasks::default())
+            .poll(PollRendered)
+            .poll(rat_salsa2::poll::PollTokio::new(rt)),
     )?;
 
     Ok(())
@@ -75,78 +81,63 @@ impl Global {
 pub struct Config {}
 
 /// Application wide messages.
-pub mod event {
-    use rat_salsa2::rendered::RenderedEvent;
-    use rat_salsa2::timer::TimeOut;
+#[derive(Debug)]
+pub enum AppEvent {
+    Timer(TimeOut),
+    Event(crossterm::event::Event),
+    Rendered,
+    Message(String),
+    Status(usize, String),
+    AsyncMsg(String),
+    AsyncTick(u32),
+}
 
-    #[derive(Debug)]
-    pub enum AppEvent {
-        Timer(TimeOut),
-        Event(crossterm::event::Event),
-        Rendered,
-        Message(String),
-        Status(usize, String),
-        AsyncMsg(String),
-        AsyncTick(u32),
-    }
-
-    impl From<RenderedEvent> for AppEvent {
-        fn from(_: RenderedEvent) -> Self {
-            Self::Rendered
-        }
-    }
-
-    impl From<TimeOut> for AppEvent {
-        fn from(value: TimeOut) -> Self {
-            Self::Timer(value)
-        }
-    }
-
-    impl From<crossterm::event::Event> for AppEvent {
-        fn from(value: crossterm::event::Event) -> Self {
-            Self::Event(value)
-        }
+impl From<RenderedEvent> for AppEvent {
+    fn from(_: RenderedEvent) -> Self {
+        Self::Rendered
     }
 }
 
-pub mod scenery {
-    use crate::event::AppEvent;
-    use crate::main_ui::MainUI;
-    use crate::{main_ui, Global};
-    use anyhow::Error;
-    use rat_salsa2::{Control, SalsaContext};
-    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
-    use rat_widget::focus::FocusBuilder;
-    use rat_widget::layout::layout_middle;
-    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-    use rat_widget::statusline::{StatusLine, StatusLineState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
-    use std::time::{Duration, SystemTime};
-
-    #[derive(Debug, Default)]
-    pub struct Scenery {
-        pub async1: MainUI,
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
+impl From<TimeOut> for AppEvent {
+    fn from(value: TimeOut) -> Self {
+        Self::Timer(value)
     }
+}
 
-    pub fn render(
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Scenery,
-        ctx: &mut Global,
-    ) -> Result<(), Error> {
-        let t0 = SystemTime::now();
+impl From<crossterm::event::Event> for AppEvent {
+    fn from(value: crossterm::event::Event) -> Self {
+        Self::Event(value)
+    }
+}
 
-        let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
+#[derive(Debug, Default)]
+pub struct Scenery {
+    pub async1: MainUI,
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,
+}
 
-        main_ui::render(area, buf, &mut state.async1, ctx)?;
+pub fn render(
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut Scenery,
+    ctx: &mut Global,
+) -> Result<(), Error> {
+    let t0 = SystemTime::now();
 
-        if state.error_dlg.active() {
-            let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
-            err.render(
+    // forward
+    main_ui::render(area, buf, &mut state.async1, ctx)?;
+
+    let layout = Layout::vertical([
+        Constraint::Fill(1), //
+        Constraint::Length(1),
+    ])
+    .split(area);
+
+    if state.error_dlg.active() {
+        MsgDialog::new()
+            .styles(ctx.theme.msg_dialog_style())
+            .render(
                 layout_middle(
                     layout[0],
                     Constraint::Percentage(20),
@@ -157,94 +148,97 @@ pub mod scenery {
                 buf,
                 &mut state.error_dlg,
             );
+    }
+
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(1, format!("R {:.0?}", el).to_string());
+
+    let status_layout = Layout::horizontal([
+        Constraint::Fill(61), //
+        Constraint::Fill(39),
+    ])
+    .split(layout[1]);
+
+    StatusLine::new()
+        .layout([
+            Constraint::Fill(1),
+            Constraint::Length(8),
+            Constraint::Length(8),
+        ])
+        .styles(ctx.theme.statusline_style())
+        .render(status_layout[1], buf, &mut state.status);
+
+    Ok(())
+}
+
+pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
+    ctx.set_focus(FocusBuilder::build_for(&state.async1));
+    main_ui::init(&mut state.async1, ctx)?;
+    Ok(())
+}
+
+pub fn event(
+    event: &AppEvent,
+    state: &mut Scenery,
+    ctx: &mut Global,
+) -> Result<Control<AppEvent>, Error> {
+    let t0 = SystemTime::now();
+
+    let mut r = match event {
+        AppEvent::Event(event) => {
+            let mut r = match &event {
+                ct_event!(resized) => Control::Changed,
+                ct_event!(key press CONTROL-'q') => Control::Quit,
+                _ => Control::Continue,
+            };
+
+            r = r.or_else(|| {
+                if state.error_dlg.active() {
+                    state.error_dlg.handle(event, Dialog).into()
+                } else {
+                    Control::Continue
+                }
+            });
+
+            let f = ctx.focus_mut().handle(event, Regular);
+            ctx.queue(f);
+
+            r
         }
+        AppEvent::Rendered => {
+            ctx.set_focus(FocusBuilder::rebuild_for(&state.async1, ctx.take_focus()));
+            Control::Continue
+        }
+        AppEvent::Message(s) => {
+            state.error_dlg.append(&*s);
+            Control::Changed
+        }
+        AppEvent::Status(n, s) => {
+            state.status.status(*n, s);
+            Control::Changed
+        }
+        _ => Control::Continue,
+    };
 
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        state.status.status(1, format!("R {:.0?}", el).to_string());
+    r = r.or_else_try(|| main_ui::event(event, &mut state.async1, ctx))?;
 
-        let status_layout =
-            Layout::horizontal([Constraint::Fill(61), Constraint::Fill(39)]).split(layout[1]);
-        let status = StatusLine::new()
-            .layout([
-                Constraint::Fill(1),
-                Constraint::Length(8),
-                Constraint::Length(8),
-            ])
-            .styles(ctx.theme.statusline_style());
-        status.render(status_layout[1], buf, &mut state.status);
+    let el = t0.elapsed()?;
+    state.status.status(2, format!("E {:.0?}", el).to_string());
 
-        Ok(())
-    }
+    Ok(r)
+}
 
-    pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
-        ctx.set_focus(FocusBuilder::build_for(&state.async1));
-        main_ui::init(&mut state.async1, ctx)?;
-        Ok(())
-    }
-
-    pub fn event(
-        event: &AppEvent,
-        state: &mut Scenery,
-        ctx: &mut Global,
-    ) -> Result<Control<AppEvent>, Error> {
-        let t0 = SystemTime::now();
-
-        let mut r = match event {
-            AppEvent::Event(event) => {
-                let mut r = match &event {
-                    ct_event!(resized) => Control::Changed,
-                    ct_event!(key press CONTROL-'q') => Control::Quit,
-                    _ => Control::Continue,
-                };
-
-                r = r.or_else(|| {
-                    if state.error_dlg.active() {
-                        state.error_dlg.handle(event, Dialog).into()
-                    } else {
-                        Control::Continue
-                    }
-                });
-
-                let f = ctx.focus_mut().handle(event, Regular);
-                ctx.queue(f);
-
-                r
-            }
-            AppEvent::Rendered => {
-                ctx.set_focus(FocusBuilder::rebuild_for(&state.async1, ctx.take_focus()));
-                Control::Continue
-            }
-            AppEvent::Message(s) => {
-                state.error_dlg.append(&*s);
-                Control::Changed
-            }
-            AppEvent::Status(n, s) => {
-                state.status.status(*n, s);
-                Control::Changed
-            }
-            _ => Control::Continue,
-        };
-
-        r = r.or_else_try(|| main_ui::event(event, &mut state.async1, ctx))?;
-
-        let el = t0.elapsed()?;
-        state.status.status(2, format!("E {:.0?}", el).to_string());
-
-        Ok(r)
-    }
-
-    pub fn error(
-        event: Error,
-        state: &mut Scenery,
-        _ctx: &mut Global,
-    ) -> Result<Control<AppEvent>, Error> {
-        state.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Changed)
-    }
+pub fn error(
+    event: Error,
+    state: &mut Scenery,
+    _ctx: &mut Global,
+) -> Result<Control<AppEvent>, Error> {
+    state.error_dlg.append(format!("{:?}", &*event).as_str());
+    Ok(Control::Changed)
 }
 
 pub mod main_ui {
-    use crate::event::AppEvent;
+    use crate::AppEvent;
     use crate::Global;
     use anyhow::Error;
     use rat_focus::impl_has_focus;

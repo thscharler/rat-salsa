@@ -62,8 +62,6 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-// -----------------------------------------------------------------------
-
 #[derive(Debug)]
 pub struct GlobalState {
     ctx: SalsaAppContext<FilesEvent, Error>,
@@ -91,8 +89,6 @@ impl GlobalState {
         }
     }
 }
-
-// -----------------------------------------------------------------------
 
 #[derive(Debug, Default)]
 pub struct FilesConfig {}
@@ -127,8 +123,6 @@ pub enum Relative {
     Current,
     SubDir,
 }
-
-// -----------------------------------------------------------------------
 
 #[derive(Debug)]
 pub struct Files {

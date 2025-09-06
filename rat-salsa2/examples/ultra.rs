@@ -1,6 +1,6 @@
 use anyhow::Error;
 use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa2::{mock, run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::ct_event;
@@ -11,7 +11,7 @@ use ratatui::widgets::Widget;
 fn main() -> Result<(), Error> {
     setup_logging()?;
     run_tui(
-        |_, _| Ok(()),
+        mock::init,
         render,
         event,
         error,

@@ -1,14 +1,25 @@
-use crate::scenery::Scenery;
+///
+/// Inline rendering in the console.
+/// Uses only 10 lines for the UI.
+///
+use crate::minimal::Minimal;
 use anyhow::Error;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa2::rendered::RenderedEvent;
-use rat_salsa2::terminal::{CrosstermTerminal, SalsaOptions};
+use rat_salsa2::terminal::CrosstermTerminal;
 use rat_salsa2::timer::TimeOut;
-use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
-use ratatui::{TerminalOptions, Viewport};
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_widget::focus::FocusBuilder;
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::statusline::{StatusLine, StatusLineState};
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::widgets::StatefulWidget;
 use std::fs;
+use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -18,23 +29,14 @@ fn main() -> Result<(), Error> {
     let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 
-    let terminal = CrosstermTerminal::with_options(SalsaOptions {
-        alternate_screen: false,
-        shutdown_clear: true,
-        ratatui_options: TerminalOptions {
-            viewport: Viewport::Inline(10),
-        },
-        ..Default::default()
-    })?;
-
     run_tui(
-        scenery::init,
-        scenery::render,
-        scenery::event,
-        scenery::error,
+        init,
+        render,
+        event,
+        error,
         &mut global,
         &mut state,
-        RunConfig::new(terminal)
+        RunConfig::new(CrosstermTerminal::inline(10, true)?)
             .poll(PollCrossterm)
             .poll(PollTimers::default())
             .poll(PollTasks::default())
@@ -106,132 +108,118 @@ impl From<crossterm::event::Event> for AppEvent {
     }
 }
 
-pub mod scenery {
-    use crate::minimal::Minimal;
-    use crate::{minimal, AppEvent, Global};
-    use anyhow::Error;
-    use rat_salsa2::{Control, SalsaContext};
-    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
-    use rat_widget::focus::FocusBuilder;
-    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-    use rat_widget::statusline::{StatusLine, StatusLineState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
-    use std::time::{Duration, SystemTime};
+#[derive(Debug, Default)]
+pub struct Scenery {
+    pub minimal: Minimal,
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,
+}
 
-    #[derive(Debug, Default)]
-    pub struct Scenery {
-        pub minimal: Minimal,
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
+pub fn render(
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut Scenery,
+    ctx: &mut Global,
+) -> Result<(), Error> {
+    let t0 = SystemTime::now();
+
+    // forward
+    minimal::render(area, buf, &mut state.minimal, ctx)?;
+
+    let layout = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Fill(1), //
+    ])
+    .split(area);
+
+    if state.error_dlg.active() {
+        MsgDialog::new().render(layout[1], buf, &mut state.error_dlg);
     }
 
-    pub fn render(
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Scenery,
-        ctx: &mut Global,
-    ) -> Result<(), Error> {
-        let t0 = SystemTime::now();
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(1, format!("R {:.0?}", el).to_string());
 
-        let layout = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Fill(1), //
+    let status_layout = Layout::horizontal([
+        Constraint::Fill(61), //
+        Constraint::Fill(39),
+    ])
+    .split(layout[0]);
+
+    StatusLine::new()
+        .layout([
+            Constraint::Fill(1),
+            Constraint::Length(8),
+            Constraint::Length(8),
         ])
-        .split(area);
+        .render(status_layout[1], buf, &mut state.status);
 
-        minimal::render(area, buf, &mut state.minimal, ctx)?;
+    Ok(())
+}
 
-        if state.error_dlg.active() {
-            MsgDialog::new().render(layout[1], buf, &mut state.error_dlg);
+pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
+    ctx.set_focus(FocusBuilder::build_for(&state.minimal));
+    minimal::init(&mut state.minimal, ctx)?;
+    Ok(())
+}
+
+pub fn event(
+    event: &AppEvent,
+    state: &mut Scenery,
+    ctx: &mut Global,
+) -> Result<Control<AppEvent>, Error> {
+    let t0 = SystemTime::now();
+
+    let mut r = match event {
+        AppEvent::Event(event) => {
+            let mut r = match &event {
+                ct_event!(resized) => Control::Changed,
+                ct_event!(key press CONTROL-'q') => Control::Quit,
+                _ => Control::Continue,
+            };
+
+            r = r.or_else(|| {
+                if state.error_dlg.active() {
+                    state.error_dlg.handle(event, Dialog).into()
+                } else {
+                    Control::Continue
+                }
+            });
+
+            let f = ctx.focus_mut().handle(event, Regular);
+            ctx.queue(f);
+
+            r
         }
+        AppEvent::Rendered => {
+            ctx.set_focus(FocusBuilder::rebuild_for(&state.minimal, ctx.take_focus()));
+            Control::Continue
+        }
+        AppEvent::Message(s) => {
+            state.error_dlg.append(s.as_str());
+            Control::Changed
+        }
+        AppEvent::Status(n, s) => {
+            state.status.status(*n, s);
+            Control::Changed
+        }
+        _ => Control::Continue,
+    };
 
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        state.status.status(1, format!("R {:.0?}", el).to_string());
+    r = r.or_else_try(|| minimal::event(event, &mut state.minimal, ctx))?;
 
-        let status_layout = Layout::horizontal([
-            Constraint::Fill(61), //
-            Constraint::Fill(39),
-        ])
-        .split(layout[0]);
+    let el = t0.elapsed()?;
+    state.status.status(2, format!("E {:.0?}", el).to_string());
 
-        StatusLine::new()
-            .layout([
-                Constraint::Fill(1),
-                Constraint::Length(8),
-                Constraint::Length(8),
-            ])
-            .render(status_layout[1], buf, &mut state.status);
+    Ok(r)
+}
 
-        Ok(())
-    }
-
-    pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
-        ctx.set_focus(FocusBuilder::build_for(&state.minimal));
-        minimal::init(&mut state.minimal, ctx)?;
-        Ok(())
-    }
-
-    pub fn event(
-        event: &AppEvent,
-        state: &mut Scenery,
-        ctx: &mut Global,
-    ) -> Result<Control<AppEvent>, Error> {
-        let t0 = SystemTime::now();
-
-        let mut r = match event {
-            AppEvent::Event(event) => {
-                let mut r = match &event {
-                    ct_event!(resized) => Control::Changed,
-                    ct_event!(key press CONTROL-'q') => Control::Quit,
-                    _ => Control::Continue,
-                };
-
-                r = r.or_else(|| {
-                    if state.error_dlg.active() {
-                        state.error_dlg.handle(event, Dialog).into()
-                    } else {
-                        Control::Continue
-                    }
-                });
-
-                let f = ctx.focus_mut().handle(event, Regular);
-                ctx.queue(f);
-
-                r
-            }
-            AppEvent::Rendered => {
-                ctx.set_focus(FocusBuilder::rebuild_for(&state.minimal, ctx.take_focus()));
-                Control::Continue
-            }
-            AppEvent::Message(s) => {
-                state.error_dlg.append(s.as_str());
-                Control::Changed
-            }
-            AppEvent::Status(n, s) => {
-                state.status.status(*n, s);
-                Control::Changed
-            }
-            _ => Control::Continue,
-        };
-
-        r = r.or_else_try(|| minimal::event(event, &mut state.minimal, ctx))?;
-
-        let el = t0.elapsed()?;
-        state.status.status(2, format!("E {:.0?}", el).to_string());
-
-        Ok(r)
-    }
-
-    pub fn error(
-        event: Error,
-        state: &mut Scenery,
-        _ctx: &mut Global,
-    ) -> Result<Control<AppEvent>, Error> {
-        state.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Changed)
-    }
+pub fn error(
+    event: Error,
+    state: &mut Scenery,
+    _ctx: &mut Global,
+) -> Result<Control<AppEvent>, Error> {
+    state.error_dlg.append(format!("{:?}", &*event).as_str());
+    Ok(Control::Changed)
 }
 
 pub mod minimal {

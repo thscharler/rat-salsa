@@ -95,11 +95,33 @@ pub struct CrosstermTerminal {
 }
 
 impl CrosstermTerminal {
+    /// Create a full-screen, alternate screen terminal.
     pub fn new() -> Result<Self, io::Error> {
         set_panic_hook();
         Ok(Self {
             term: ratatui::Terminal::new(CrosstermBackend::new(stdout()))?,
             cfg: Default::default(),
+        })
+    }
+
+    /// Create an inline terminal.
+    pub fn inline(lines: u16, clear_on_shutdown: bool) -> Result<Self, io::Error> {
+        let options = SalsaOptions {
+            alternate_screen: false,
+            shutdown_clear: clear_on_shutdown,
+            ratatui_options: TerminalOptions {
+                viewport: Viewport::Inline(lines),
+            },
+            ..Default::default()
+        };
+
+        set_panic_hook();
+        Ok(Self {
+            term: ratatui::Terminal::with_options(
+                CrosstermBackend::new(stdout()),
+                options.ratatui_options.clone(),
+            )?,
+            cfg: options,
         })
     }
 

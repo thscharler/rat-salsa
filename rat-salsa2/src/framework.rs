@@ -243,12 +243,12 @@ where
 /// }
 ///
 /// impl SalsaContext<Event, anyhow::Error> for Global {
-///     fn set_app_ctx(&mut self, app_ctx: SalsaAppContext<Event, anyhow::Error>) {
+///     fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<Event, anyhow::Error>) {
 ///         self.app_ctx = Some(app_ctx);
 ///     }
 ///
 ///     #[inline]
-///     fn app_ctx(&self) -> &SalsaAppContext<Event, anyhow::Error> {
+///     fn salsa_ctx(&self) -> &SalsaAppContext<Event, anyhow::Error> {
 ///         self.app_ctx.as_ref().expect("app-ctx")
 ///     }
 /// }

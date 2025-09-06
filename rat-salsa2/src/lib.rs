@@ -48,6 +48,23 @@ pub mod poll {
 
 use crate::tasks::Liveness;
 pub use framework::run_tui;
+pub mod mock {
+    use crate::Control;
+
+    /// Empty placeholder for [run_tui].
+    pub fn init<State, Global, Error>(_state: &mut State, _ctx: &mut Global) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// Empty placeholder for [run_tui].
+    pub fn error<Global, State, Event, Error>(
+        _error: Error,
+        _state: &mut State,
+        _ctx: &mut Global,
+    ) -> Result<Control<Event>, Error> {
+        Ok(Control::Continue)
+    }
+}
 pub use poll_events::PollEvents;
 pub use run_config::RunConfig;
 

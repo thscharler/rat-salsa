@@ -5,15 +5,24 @@
 //! look too bad.
 //!
 //!
-use crate::scenery::{error, event, init, render, Scenery};
 use crate::theme::TurboTheme;
+use crate::turbo::Turbo;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::BASE16;
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_widget::focus::FocusBuilder;
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::statusline::{StatusLine, StatusLineState};
+use rat_widget::util::fill_buf_area;
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::widgets::StatefulWidget;
 use std::fs;
 use std::rc::Rc;
+use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -85,163 +94,148 @@ impl From<Event> for TurboEvent {
     }
 }
 
-pub mod scenery {
-    use crate::turbo::Turbo;
-    use crate::{turbo, TurboEvent, TurboGlobal};
-    use anyhow::Error;
-    use rat_salsa2::{Control, SalsaContext};
-    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
-    use rat_widget::focus::FocusBuilder;
-    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-    use rat_widget::statusline::{StatusLine, StatusLineState};
-    use rat_widget::util::fill_buf_area;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
-    use std::time::{Duration, SystemTime};
+#[derive(Debug, Default)]
+pub struct Scenery {
+    pub turbo: Turbo,
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,
+}
 
-    #[derive(Debug, Default)]
-    pub struct Scenery {
-        pub turbo: Turbo,
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
+pub fn render(
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut Scenery,
+    ctx: &mut TurboGlobal,
+) -> Result<(), Error> {
+    let t0 = SystemTime::now();
+
+    let layout = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+    ])
+    .split(area);
+
+    fill_buf_area(buf, layout[1], " ", ctx.theme.data());
+
+    turbo::render(area, buf, &mut state.turbo, ctx)?;
+
+    if state.error_dlg.active() {
+        let layout_error = layout_middle(
+            layout[1],
+            Constraint::Percentage(19),
+            Constraint::Percentage(19),
+            Constraint::Length(2),
+            Constraint::Length(2),
+        );
+        MsgDialog::new()
+            .styles(ctx.theme.msg_dialog_style())
+            .render(layout_error, buf, &mut state.error_dlg);
     }
 
-    pub fn render(
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Scenery,
-        ctx: &mut TurboGlobal,
-    ) -> Result<(), Error> {
-        let t0 = SystemTime::now();
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(1, format!("R {:.0?}", el).to_string());
 
-        let layout = Layout::vertical([
-            Constraint::Length(1),
+    StatusLine::new()
+        .layout([
             Constraint::Fill(1),
-            Constraint::Length(1),
+            Constraint::Length(8),
+            Constraint::Length(8),
         ])
-        .split(area);
+        .styles(ctx.theme.statusline_style())
+        .render(layout[2], buf, &mut state.status);
 
-        fill_buf_area(buf, layout[1], " ", ctx.theme.data());
+    Ok(())
+}
 
-        turbo::render(area, buf, &mut state.turbo, ctx)?;
+/// Calculate the middle Rect inside a given area.
+fn layout_middle(
+    area: Rect,
+    left: Constraint,
+    right: Constraint,
+    top: Constraint,
+    bottom: Constraint,
+) -> Rect {
+    let h_layout = Layout::horizontal([
+        left, //
+        Constraint::Fill(1),
+        right,
+    ])
+    .split(area);
+    let v_layout = Layout::vertical([
+        top, //
+        Constraint::Fill(1),
+        bottom,
+    ])
+    .split(h_layout[1]);
+    v_layout[1]
+}
 
-        if state.error_dlg.active() {
-            let layout_error = layout_middle(
-                layout[1],
-                Constraint::Percentage(19),
-                Constraint::Percentage(19),
-                Constraint::Length(2),
-                Constraint::Length(2),
-            );
-            let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
-            err.render(layout_error, buf, &mut state.error_dlg);
-        }
+pub fn init(state: &mut Scenery, ctx: &mut TurboGlobal) -> Result<(), Error> {
+    ctx.set_focus(FocusBuilder::build_for(&state.turbo));
+    turbo::init(&mut state.turbo, ctx)?;
+    state.status.status(0, "Ctrl-Q to quit.");
+    Ok(())
+}
 
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        state.status.status(1, format!("R {:.0?}", el).to_string());
+pub fn event(
+    event: &TurboEvent,
+    state: &mut Scenery,
+    ctx: &mut TurboGlobal,
+) -> Result<Control<TurboEvent>, Error> {
+    let t0 = SystemTime::now();
 
-        let status = StatusLine::new()
-            .layout([
-                Constraint::Fill(1),
-                Constraint::Length(8),
-                Constraint::Length(8),
-            ])
-            .styles(ctx.theme.statusline_style());
-        status.render(layout[2], buf, &mut state.status);
+    let mut r = match event {
+        TurboEvent::Event(event) => {
+            let mut r = match &event {
+                ct_event!(resized) => Control::Changed,
+                ct_event!(key press CONTROL-'q') => Control::Quit,
+                ct_event!(key press ALT-'x') => Control::Quit,
+                _ => Control::Continue,
+            };
 
-        Ok(())
-    }
-
-    /// Calculate the middle Rect inside a given area.
-    fn layout_middle(
-        area: Rect,
-        left: Constraint,
-        right: Constraint,
-        top: Constraint,
-        bottom: Constraint,
-    ) -> Rect {
-        let h_layout = Layout::horizontal([
-            left, //
-            Constraint::Fill(1),
-            right,
-        ])
-        .split(area);
-        let v_layout = Layout::vertical([
-            top, //
-            Constraint::Fill(1),
-            bottom,
-        ])
-        .split(h_layout[1]);
-        v_layout[1]
-    }
-
-    pub fn init(state: &mut Scenery, ctx: &mut TurboGlobal) -> Result<(), Error> {
-        ctx.set_focus(FocusBuilder::build_for(&state.turbo));
-        turbo::init(&mut state.turbo, ctx)?;
-        state.status.status(0, "Ctrl-Q to quit.");
-        Ok(())
-    }
-
-    pub fn event(
-        event: &TurboEvent,
-        state: &mut Scenery,
-        ctx: &mut TurboGlobal,
-    ) -> Result<Control<TurboEvent>, Error> {
-        let t0 = SystemTime::now();
-
-        let mut r = match event {
-            TurboEvent::Event(event) => {
-                let mut r = match &event {
-                    ct_event!(resized) => Control::Changed,
-                    ct_event!(key press CONTROL-'q') => Control::Quit,
-                    ct_event!(key press ALT-'x') => Control::Quit,
-                    _ => Control::Continue,
-                };
-
-                r = r.or_else(|| {
-                    if state.error_dlg.active() {
-                        state.error_dlg.handle(&event, Dialog).into()
-                    } else {
-                        Control::Continue
-                    }
-                });
-
-                r = r.or_else(|| {
-                    ctx.set_focus(FocusBuilder::rebuild_for(&state.turbo, ctx.take_focus()));
-                    let f = ctx.focus_mut().handle(event, Regular);
-                    ctx.queue(f);
+            r = r.or_else(|| {
+                if state.error_dlg.active() {
+                    state.error_dlg.handle(&event, Dialog).into()
+                } else {
                     Control::Continue
-                });
+                }
+            });
 
-                r
-            }
-            TurboEvent::Message(s) => {
-                state.error_dlg.append(s.as_str());
-                Control::Changed
-            }
-            TurboEvent::Status(n, s) => {
-                state.status.status(*n, s);
-                Control::Changed
-            }
-        };
+            r = r.or_else(|| {
+                ctx.set_focus(FocusBuilder::rebuild_for(&state.turbo, ctx.take_focus()));
+                let f = ctx.focus_mut().handle(event, Regular);
+                ctx.queue(f);
+                Control::Continue
+            });
 
-        r = r.or_else_try(|| turbo::event(&event, &mut state.turbo, ctx))?;
+            r
+        }
+        TurboEvent::Message(s) => {
+            state.error_dlg.append(s.as_str());
+            Control::Changed
+        }
+        TurboEvent::Status(n, s) => {
+            state.status.status(*n, s);
+            Control::Changed
+        }
+    };
 
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        state.status.status(2, format!("H {:.0?}", el).to_string());
+    r = r.or_else_try(|| turbo::event(&event, &mut state.turbo, ctx))?;
 
-        Ok(r)
-    }
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(2, format!("H {:.0?}", el).to_string());
 
-    pub fn error(
-        event: Error,
-        state: &mut Scenery,
-        _ctx: &mut TurboGlobal,
-    ) -> Result<Control<TurboEvent>, Error> {
-        state.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Changed)
-    }
+    Ok(r)
+}
+
+pub fn error(
+    event: Error,
+    state: &mut Scenery,
+    _ctx: &mut TurboGlobal,
+) -> Result<Control<TurboEvent>, Error> {
+    state.error_dlg.append(format!("{:?}", &*event).as_str());
+    Ok(Control::Changed)
 }
 
 pub mod turbo {
