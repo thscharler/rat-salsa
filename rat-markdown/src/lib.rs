@@ -57,7 +57,7 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
                 ct_event!(key press ANY-'*') => md_strong(self, '*'),
                 ct_event!(key press ANY-'_') => md_strong(self, '_'),
                 ct_event!(key press ANY-'~') => md_strong(self, '~'),
-                ct_event!(key press ALT-'c') => md_surround(self, "```", None, "```", None),
+                ct_event!(key press ALT-'c') => md_surround(self, "```\n", None, "\n```", Some(0)),
                 ct_event!(key press ALT-'i') => md_surround(self, "![", None, "]()", Some(2)),
                 ct_event!(key press ALT-'l') => md_surround(self, "[", None, "]()", Some(2)),
                 ct_event!(key press ALT-'k') => md_surround(self, "[", None, "][]", Some(2)),
