@@ -1,9 +1,11 @@
+#![allow(clippy::uninlined_format_args)]
+
 use crate::styles::MDStyle;
 use log::info;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+use rat_text::TextRange;
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
-use rat_text::TextRange;
 
 pub fn md_dump_styles(state: &mut TextAreaState) -> TextOutcome {
     let cursor = state.cursor();
@@ -26,30 +28,27 @@ pub fn md_dump(state: &TextAreaState) -> TextOutcome {
         let mut sty = Vec::new();
         state.styles_at(cursor_byte, &mut sty);
 
-        let first = sty
-            .iter()
-            .filter(|(_, s)| {
-                matches!(
-                    MDStyle::try_from(*s).expect("fine"),
-                    MDStyle::Heading1
-                        | MDStyle::Heading2
-                        | MDStyle::Heading3
-                        | MDStyle::Heading4
-                        | MDStyle::Heading5
-                        | MDStyle::Heading6
-                        | MDStyle::Paragraph
-                        | MDStyle::BlockQuote
-                        | MDStyle::CodeBlock
-                        | MDStyle::MathDisplay
-                        | MDStyle::Rule
-                        | MDStyle::Html
-                        | MDStyle::FootnoteDefinition
-                        | MDStyle::List
-                        | MDStyle::DefinitionList
-                        | MDStyle::Table
-                )
-            })
-            .next();
+        let first = sty.iter().find(|(_, s)| {
+            matches!(
+                MDStyle::try_from(*s).expect("fine"),
+                MDStyle::Heading1
+                    | MDStyle::Heading2
+                    | MDStyle::Heading3
+                    | MDStyle::Heading4
+                    | MDStyle::Heading5
+                    | MDStyle::Heading6
+                    | MDStyle::Paragraph
+                    | MDStyle::BlockQuote
+                    | MDStyle::CodeBlock
+                    | MDStyle::MathDisplay
+                    | MDStyle::Rule
+                    | MDStyle::Html
+                    | MDStyle::FootnoteDefinition
+                    | MDStyle::List
+                    | MDStyle::DefinitionList
+                    | MDStyle::Table
+            )
+        });
 
         if let Some((r, _)) = first {
             let r = state.byte_range(r.clone());

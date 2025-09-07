@@ -30,6 +30,7 @@ use std::mem;
 ///
 /// It's parameterized with a `Editor` widget, that renders
 /// the input line and handles events.
+#[allow(clippy::type_complexity)]
 pub struct EditableTableVec<'a, E>
 where
     E: TableEditor + 'a,

@@ -1797,8 +1797,7 @@ impl TextAreaState {
             self.set_move_col(Some(scr_cursor.0));
         }
 
-        let r = self.set_cursor(cursor, extend_selection);
-        r
+        self.set_cursor(cursor, extend_selection)
     }
 
     /// Move the cursor right. Scrolls the cursor to visible.
@@ -1818,15 +1817,14 @@ impl TextAreaState {
         if let Some(scr_cursor) = self.pos_to_relative_screen(cursor) {
             self.set_move_col(Some(scr_cursor.0));
         }
-        let r = self.set_cursor(cursor, extend_selection);
-        r
+        self.set_cursor(cursor, extend_selection)
     }
 
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
         let cursor = self.cursor();
-        let r = if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
+        if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
@@ -1841,15 +1839,14 @@ impl TextAreaState {
         } else {
             self.scroll_cursor_to_visible();
             true
-        };
-        r
+        }
     }
 
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
         let cursor = self.cursor();
-        let r = if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
+        if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
@@ -1864,8 +1861,7 @@ impl TextAreaState {
         } else {
             self.scroll_cursor_to_visible();
             true
-        };
-        r
+        }
     }
 
     /// Move the cursor to the start of the line.
@@ -1894,8 +1890,7 @@ impl TextAreaState {
         if let Some(scr_pos) = self.pos_to_relative_screen(line_start) {
             self.set_move_col(Some(scr_pos.0));
         }
-        let r = self.set_cursor(line_start, extend_selection);
-        r
+        self.set_cursor(line_start, extend_selection)
     }
 
     /// Move the cursor to the end of the line. Scrolls to visible, if
@@ -1907,8 +1902,7 @@ impl TextAreaState {
         if let Some(scr_pos) = self.pos_to_relative_screen(line_end) {
             self.set_move_col(Some(scr_pos.0));
         }
-        let r = self.set_cursor(line_end, extend_selection);
-        r
+        self.set_cursor(line_end, extend_selection)
     }
 
     /// Move the cursor to the document start.
@@ -1928,8 +1922,7 @@ impl TextAreaState {
 
         let line_start = self.pos_to_line_start(cursor);
         self.set_move_col(Some(0));
-        let r = self.set_cursor(line_start, extend_selection);
-        r
+        self.set_cursor(line_start, extend_selection)
     }
 
     /// Move the cursor to the start of the visible area.
@@ -1945,14 +1938,13 @@ impl TextAreaState {
     /// Move the cursor to the end of the visible area.
     pub fn move_to_screen_end(&mut self, extend_selection: bool) -> bool {
         let scr_end = (0, (self.inner.height as i16).saturating_sub(1));
-        let r = if let Some(pos) = self.relative_screen_to_pos(scr_end) {
+        if let Some(pos) = self.relative_screen_to_pos(scr_end) {
             self.set_move_col(Some(0));
             self.set_cursor(pos, extend_selection)
         } else {
             self.scroll_cursor_to_visible();
             true
-        };
-        r
+        }
     }
 
     /// Move the cursor to the next word.
@@ -1964,8 +1956,7 @@ impl TextAreaState {
         if let Some(scr_pos) = self.pos_to_relative_screen(word) {
             self.set_move_col(Some(scr_pos.0));
         }
-        let r = self.set_cursor(word, extend_selection);
-        r
+        self.set_cursor(word, extend_selection)
     }
 
     /// Move the cursor to the previous word.
@@ -1977,13 +1968,13 @@ impl TextAreaState {
         if let Some(scr_pos) = self.pos_to_relative_screen(word) {
             self.set_move_col(Some(scr_pos.0));
         }
-        let r = self.set_cursor(word, extend_selection);
-        r
+        self.set_cursor(word, extend_selection)
     }
 }
 
 impl HasScreenCursor for TextAreaState {
     /// Cursor position on the screen.
+    #[allow(clippy::question_mark)]
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {
             if self.has_selection() {
@@ -2015,7 +2006,7 @@ impl RelocatableState for TextAreaState {
         self.area = relocate_area(self.area, shift, clip);
         self.inner = relocate_area(self.inner, shift, clip);
         if let Some(screen_cursor) = self.screen_cursor {
-            self.screen_cursor = relocate_pos_tuple(screen_cursor.into(), shift, clip);
+            self.screen_cursor = relocate_pos_tuple(screen_cursor, shift, clip);
         }
     }
 }
@@ -2265,6 +2256,7 @@ impl TextAreaState {
     ///
     /// If the text-position is outside the rendered area,
     /// this will return None.
+    #[allow(clippy::explicit_counter_loop)]
     pub fn pos_to_relative_screen(&self, pos: TextPosition) -> Option<(i16, i16)> {
         match self.text_wrap {
             TextWrap::Shift => {
@@ -2388,6 +2380,7 @@ impl TextAreaState {
     }
 
     /// Find the text-position for the widget-relative screen-position.
+    #[allow(clippy::needless_return)]
     pub fn relative_screen_to_pos(&self, scr_pos: (i16, i16)) -> Option<TextPosition> {
         let scr_pos = (
             scr_pos.0 + self.dark_offset.0 as i16,

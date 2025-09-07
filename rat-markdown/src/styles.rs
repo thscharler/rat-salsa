@@ -153,7 +153,7 @@ pub fn parse_md_styles(txt: &str) -> Vec<(Range<usize>, usize)> {
             Event::Start(Tag::Item) => {
                 // only color the marker
                 let item_text = &txt[r.clone()];
-                let item = parse_md_item(r.start, item_text.as_ref()).expect("md item");
+                let item = parse_md_item(r.start, item_text).expect("md item");
                 styles.push((
                     item.mark_bytes.start..item.mark_bytes.end,
                     MDStyle::ItemTag as usize,

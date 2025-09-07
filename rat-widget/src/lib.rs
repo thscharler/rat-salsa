@@ -5,6 +5,8 @@
 #![allow(clippy::if_same_then_else)]
 #![allow(clippy::clone_on_copy)]
 #![allow(clippy::assigning_clones)]
+#![allow(clippy::question_mark)]
+#![allow(clippy::uninlined_format_args)]
 
 pub mod event {
     //!
@@ -35,8 +37,8 @@ pub mod event {
 /// See [rat-focus](https://docs.rs/rat-focus)
 pub mod focus {
     pub use rat_focus::{
-        handle_focus, impl_has_focus, match_focus, on_gained, on_lost, Focus, FocusBuilder,
-        FocusFlag, HasFocus, Navigation,
+        Focus, FocusBuilder, FocusFlag, HasFocus, Navigation, handle_focus, impl_has_focus,
+        match_focus, on_gained, on_lost,
     };
 }
 
@@ -47,8 +49,8 @@ pub mod layout;
 /// See also [rat-reloc](https://docs.rs/rat-reloc/latest/rat_reloc/)
 pub mod reloc {
     pub use rat_reloc::{
-        impl_relocatable_state, relocate_area, relocate_areas, relocate_position,
-        relocate_positions, RelocatableState,
+        RelocatableState, impl_relocatable_state, relocate_area, relocate_areas, relocate_position,
+        relocate_positions,
     };
 }
 
@@ -56,22 +58,23 @@ pub mod reloc {
 /// See [rat-scrolled](https://docs.rs/rat-scrolled/latest/rat_scrolled/)
 pub mod scrolled {
     pub use rat_scrolled::{
-        Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle, ScrollSymbols,
-        ScrollbarPolicy, SCROLLBAR_DOUBLE_HORIZONTAL, SCROLLBAR_DOUBLE_VERTICAL,
-        SCROLLBAR_HORIZONTAL, SCROLLBAR_VERTICAL,
+        SCROLLBAR_DOUBLE_HORIZONTAL, SCROLLBAR_DOUBLE_VERTICAL, SCROLLBAR_HORIZONTAL,
+        SCROLLBAR_VERTICAL, Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle,
+        ScrollSymbols, ScrollbarPolicy,
     };
 }
 
 /// Text editing core functionality and utilities.
 pub mod text {
+    #[allow(deprecated)]
+    pub use rat_text::Glyph;
     pub use rat_text::clipboard;
     pub use rat_text::core;
     pub use rat_text::undo_buffer;
-    #[allow(deprecated)]
-    pub use rat_text::Glyph;
     pub use rat_text::{
-        impl_screen_cursor, ipos_type, screen_cursor, upos_type, Cursor, Grapheme, HasScreenCursor,
-        Locale, TextError, TextFocusGained, TextFocusLost, TextPosition, TextRange, TextStyle,
+        Cursor, Grapheme, HasScreenCursor, Locale, TextError, TextFocusGained, TextFocusLost,
+        TextPosition, TextRange, TextStyle, impl_screen_cursor, ipos_type, screen_cursor,
+        upos_type,
     };
 }
 
@@ -86,7 +89,7 @@ pub mod clipper;
 /// See also [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod date_input {
     pub use rat_text::date_input::{
-        handle_events, handle_mouse_events, handle_readonly_events, DateInput, DateInputState,
+        DateInput, DateInputState, handle_events, handle_mouse_events, handle_readonly_events,
     };
 }
 pub mod caption;
@@ -122,7 +125,7 @@ pub mod msgdialog;
 /// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod number_input {
     pub use rat_text::number_input::{
-        handle_events, handle_mouse_events, handle_readonly_events, NumberInput, NumberInputState,
+        NumberInput, NumberInputState, handle_events, handle_mouse_events, handle_readonly_events,
     };
 }
 pub mod pager;
@@ -153,8 +156,8 @@ pub mod statusline;
 /// See [rat-ftable](https://docs.rs/rat-ftable/latest/rat_ftable/)
 pub mod table {
     pub use rat_ftable::{
-        edit, selection, textdata, Table, TableContext, TableData, TableDataIter, TableSelection,
-        TableState, TableStyle,
+        Table, TableContext, TableData, TableDataIter, TableSelection, TableState, TableStyle,
+        edit, selection, textdata,
     };
 }
 pub mod tabbed;
@@ -162,22 +165,22 @@ pub mod tabbed;
 /// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod text_input {
     pub use rat_text::text_input::{
-        handle_events, handle_mouse_events, handle_readonly_events, TextInput, TextInputState,
+        TextInput, TextInputState, handle_events, handle_mouse_events, handle_readonly_events,
     };
 }
 /// Text-Input with pattern/mask.
 /// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod text_input_mask {
     pub use rat_text::text_input_mask::{
-        handle_events, handle_mouse_events, handle_readonly_events, MaskedInput, MaskedInputState,
+        MaskedInput, MaskedInputState, handle_events, handle_mouse_events, handle_readonly_events,
     };
 }
 /// Text-Area.
 /// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
 pub mod textarea {
     pub use rat_text::text_area::{
-        handle_events, handle_mouse_events, handle_readonly_events, TextArea, TextAreaState,
-        TextWrap,
+        TextArea, TextAreaState, TextWrap, handle_events, handle_mouse_events,
+        handle_readonly_events,
     };
 }
 pub mod range_op;

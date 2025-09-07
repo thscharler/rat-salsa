@@ -517,7 +517,7 @@ where
 
     /// Calculates the page of the widget.
     pub fn page_of(&self, widget: W) -> Option<usize> {
-        self.layout.borrow().page_of(widget).map(|v| v)
+        self.layout.borrow().page_of(widget)
     }
 
     /// Set the visible page.

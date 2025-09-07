@@ -1,5 +1,4 @@
 //! Thread pool.
-
 use crate::tasks::{Cancel, Liveness};
 use crate::Control;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};

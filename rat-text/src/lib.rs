@@ -1,5 +1,5 @@
 #![doc = include_str!("../readme.md")]
-
+#![allow(clippy::uninlined_format_args)]
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
@@ -28,7 +28,7 @@ pub use grapheme::Grapheme;
 
 use crate::_private::NonExhaustive;
 pub use pure_rust_locales::Locale;
-pub use rat_cursor::{impl_screen_cursor, screen_cursor, HasScreenCursor};
+pub use rat_cursor::{HasScreenCursor, impl_screen_cursor, screen_cursor};
 use rat_scrolled::ScrollStyle;
 use ratatui::style::Style;
 use ratatui::widgets::Block;
@@ -167,10 +167,10 @@ pub mod core {
 
     pub use crate::text_core::TextCore;
     pub use crate::text_mask_core::MaskedCore;
-    pub use crate::text_store::text_rope::TextRope;
-    pub use crate::text_store::text_string::TextString;
     pub use crate::text_store::SkipLine;
     pub use crate::text_store::TextStore;
+    pub use crate::text_store::text_rope::TextRope;
+    pub use crate::text_store::text_string::TextString;
 }
 
 #[derive(Debug, PartialEq)]

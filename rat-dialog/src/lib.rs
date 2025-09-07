@@ -1,3 +1,5 @@
+#![allow(clippy::question_mark)]
+#![allow(clippy::type_complexity)]
 use rat_event::{ConsumedEvent, HandleEvent, Outcome};
 use rat_salsa::{Control, SalsaContext};
 use ratatui::buffer::Buffer;
@@ -265,13 +267,12 @@ where
         self.core.type_id.borrow_mut().remove(n);
         _ = self.core.event.borrow_mut().remove(n);
         _ = self.core.render.borrow_mut().remove(n);
-        let s = self
-            .core
+
+        self.core
             .state
             .borrow_mut()
             .remove(n)
-            .expect("state exists");
-        s
+            .expect("state exists")
     }
 
     /// Move the given dialog-window to the top of the stack.
@@ -317,6 +318,7 @@ where
     }
 
     /// Find first state with this type.
+    #[allow(clippy::manual_find)]
     pub fn first<S: 'static>(&self) -> Option<usize> {
         for n in (0..self.core.len.get()).rev() {
             if self.core.type_id.borrow()[n] == TypeId::of::<S>() {

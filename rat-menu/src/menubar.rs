@@ -14,6 +14,7 @@
 //! and must be called before the [Regular] event-handlers to work correctly.
 //! Event-handling for the menu line is via the [Regular] event-handler.
 //!
+#![allow(clippy::uninlined_format_args)]
 use crate::event::MenuOutcome;
 use crate::menuline::{MenuLine, MenuLineState};
 use crate::popup_menu::{PopupMenu, PopupMenuState};

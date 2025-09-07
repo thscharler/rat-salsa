@@ -1,6 +1,6 @@
 use crate::grapheme::{RopeGraphemes, StrGraphemes};
 use crate::text_store::{Cursor, TextStore};
-use crate::{upos_type, TextError, TextPosition, TextRange};
+use crate::{TextError, TextPosition, TextRange, upos_type};
 use ropey::{Rope, RopeSlice};
 use std::borrow::Cow;
 use std::cell::Cell;
@@ -65,6 +65,7 @@ impl TextRope {
     }
 
     #[inline]
+    #[allow(clippy::match_like_matches_macro)]
     fn has_final_newline(&self) -> bool {
         let len = self.text.len_bytes();
         if len > 3 {
@@ -479,6 +480,7 @@ impl TextStore for TextRope {
     }
 
     #[inline]
+    #[allow(clippy::needless_bool)]
     fn should_insert_newline(&self, pos: TextPosition) -> bool {
         if pos.x == 0 && pos.y == 0 {
             false

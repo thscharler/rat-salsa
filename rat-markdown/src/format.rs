@@ -1,4 +1,4 @@
-use crate::parser::{parse_md_block_quote, parse_md_item, parse_md_link_ref, parse_md_row, MDItem};
+use crate::parser::{MDItem, parse_md_block_quote, parse_md_item, parse_md_link_ref, parse_md_row};
 use crate::styles::MDStyle;
 use crate::util::str_line_len;
 use pulldown_cmark::{
@@ -7,7 +7,7 @@ use pulldown_cmark::{
 };
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
-use rat_text::{upos_type, TextPosition, TextRange};
+use rat_text::{TextPosition, TextRange, upos_type};
 use std::mem;
 use std::ops::Range;
 use textwrap::core::Word;
@@ -29,30 +29,27 @@ pub fn md_format(
         let mut sty = Vec::new();
         state.styles_at(cursor_byte, &mut sty);
 
-        let first = sty
-            .iter()
-            .filter(|(_, s)| {
-                matches!(
-                    MDStyle::try_from(*s).expect("fine"),
-                    MDStyle::Heading1
-                        | MDStyle::Heading2
-                        | MDStyle::Heading3
-                        | MDStyle::Heading4
-                        | MDStyle::Heading5
-                        | MDStyle::Heading6
-                        | MDStyle::Paragraph
-                        | MDStyle::BlockQuote
-                        | MDStyle::CodeBlock
-                        | MDStyle::MathDisplay
-                        | MDStyle::Rule
-                        | MDStyle::Html
-                        | MDStyle::FootnoteDefinition
-                        | MDStyle::List
-                        | MDStyle::DefinitionList
-                        | MDStyle::Table
-                )
-            })
-            .next();
+        let first = sty.iter().find(|(_, s)| {
+            matches!(
+                MDStyle::try_from(*s).expect("fine"),
+                MDStyle::Heading1
+                    | MDStyle::Heading2
+                    | MDStyle::Heading3
+                    | MDStyle::Heading4
+                    | MDStyle::Heading5
+                    | MDStyle::Heading6
+                    | MDStyle::Paragraph
+                    | MDStyle::BlockQuote
+                    | MDStyle::CodeBlock
+                    | MDStyle::MathDisplay
+                    | MDStyle::Rule
+                    | MDStyle::Html
+                    | MDStyle::FootnoteDefinition
+                    | MDStyle::List
+                    | MDStyle::DefinitionList
+                    | MDStyle::Table
+            )
+        });
 
         if let Some((r, _)) = first {
             let r = state.byte_range(r.clone());
@@ -225,7 +222,7 @@ impl<'a> Reformat<'a> {
         // reduce indent by current indent.
         let follow_len = self.follow_len();
         if start_byte + follow_len <= pos_byte {
-            start_byte = start_byte + follow_len;
+            start_byte += follow_len;
         } else {
             // whatever
         }
@@ -444,12 +441,12 @@ pub fn reformat(
     }
 
     for (link_name, linkdef) in it.reference_definitions().iter() {
-        out.txt.push_str("[");
+        out.txt.push('[');
         out.txt.push_str(link_name);
         out.txt.push_str("]: ");
         out.txt.push_str(linkdef.dest.as_ref());
         if let Some(title) = linkdef.title.as_ref() {
-            out.txt.push_str(" ");
+            out.txt.push(' ');
             out.txt.push_str(title.as_ref());
         }
         out.txt.push_str(newline);
@@ -590,11 +587,8 @@ fn reformat_list_item<'a>(
         if collect_inline(arg, &event, range.clone(), out) {
             continue;
         }
-        match event {
-            Event::End(TagEnd::Item) => {
-                break;
-            }
-            _ => {}
+        if let Event::End(TagEnd::Item) = event {
+            break;
         }
         if recurse_container(arg, &event, range.clone(), it, out) {
             continue;
@@ -657,7 +651,7 @@ fn reformat_codeblock<'a>(
         unreachable!("{:?} {:?}", event, range);
     }
 
-    if buf.len() > 0 {
+    if !buf.is_empty() {
         for line in buf.lines() {
             arg.first_out(out);
             out.txt.push_str(line);
@@ -691,11 +685,11 @@ fn reformat_blockquote<'a>(
         arg.first_out(out);
         out.txt.push_str("> ");
         match kind {
-            BlockQuoteKind::Note => _ = out.txt.push_str("[!NOTE] "),
-            BlockQuoteKind::Tip => _ = out.txt.push_str("[!TIP] "),
-            BlockQuoteKind::Important => _ = out.txt.push_str("[!IMPORTANT] "),
-            BlockQuoteKind::Warning => _ = out.txt.push_str("[!WARNING] "),
-            BlockQuoteKind::Caution => _ = out.txt.push_str("[!CAUTION] "),
+            BlockQuoteKind::Note => out.txt.push_str("[!NOTE] "),
+            BlockQuoteKind::Tip => out.txt.push_str("[!TIP] "),
+            BlockQuoteKind::Important => out.txt.push_str("[!IMPORTANT] "),
+            BlockQuoteKind::Warning => out.txt.push_str("[!WARNING] "),
+            BlockQuoteKind::Caution => out.txt.push_str("[!CAUTION] "),
         }
         out.txt.push_str(arg.newline);
     }
@@ -777,6 +771,7 @@ fn reformat_blockquote<'a>(
     arg.leave_frame();
 }
 
+#[allow(clippy::needless_range_loop)]
 fn reformat_table<'a>(
     arg: &mut Reformat<'a>,
     it: &mut OffsetIter<'a>,
@@ -788,11 +783,8 @@ fn reformat_table<'a>(
     // eat events. don't use them for the table.
     loop {
         let Some((e, _)) = it.next() else { break };
-        match e {
-            Event::End(TagEnd::Table) => {
-                break;
-            }
-            _ => {}
+        if let Event::End(TagEnd::Table) = e {
+            break;
         }
     }
 
@@ -813,7 +805,7 @@ fn reformat_table<'a>(
     let mut width = Vec::new();
     // only use header widths
     if let Some(row) = table.first() {
-        for (_idx, cell) in row.row.iter().enumerate() {
+        for cell in row.row.iter() {
             width.push(str_line_len(cell.txt));
         }
     }
@@ -831,7 +823,7 @@ fn reformat_table<'a>(
         arg.first_out(out);
 
         // cell 0. before the first |
-        if let Some(cell) = row.row.get(0) {
+        if let Some(cell) = row.row.first() {
             let col_idx = 0;
             let _len = width[col_idx];
             if !cell.txt.trim().is_empty() {
@@ -908,11 +900,8 @@ fn reformat_footnote<'a>(
         let Some((event, range)) = it.next() else {
             break;
         };
-        match event {
-            Event::End(TagEnd::FootnoteDefinition) => {
-                break;
-            }
-            _ => {}
+        if let Event::End(TagEnd::FootnoteDefinition) = event {
+            break;
         }
         if recurse_container(arg, &event, range.clone(), it, out) {
             continue;
@@ -991,11 +980,8 @@ fn reformat_heading<'a>(
         if collect_inline(arg, &event, range.clone(), out) {
             continue;
         }
-        match event {
-            Event::End(TagEnd::Heading(_)) => {
-                break;
-            }
-            _ => {}
+        if let Event::End(TagEnd::Heading(_)) = event {
+            break;
         }
         unreachable!("{:?} {:?}", event, range);
     }
@@ -1016,11 +1002,8 @@ fn reformat_paragraph<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: 
         if collect_inline(arg, &event, range.clone(), out) {
             continue;
         }
-        match event {
-            Event::End(TagEnd::Paragraph) => {
-                break;
-            }
-            _ => {}
+        if let Event::End(TagEnd::Paragraph) = event {
+            break;
         }
         unreachable!("{:?} {:?}", event, range);
     }
@@ -1241,6 +1224,7 @@ enum NewLine {
 // append words into out.
 // use prefix+follow.
 // cleanup afterwards.
+#[allow(clippy::needless_range_loop)]
 fn append_wrapped<'a>(
     arg: &mut Reformat<'a>,
     wrapped: Vec<&[Word<'a>]>,
@@ -1263,7 +1247,7 @@ fn append_wrapped<'a>(
             }
             out.txt.push_str(line[i].whitespace);
         }
-        if line.len() > 0 {
+        if !line.is_empty() {
             let last_idx = line.len() - 1;
             if let Some(cur) = arg.word_cursor(line[last_idx].word) {
                 out.cursor = out.txt.len() + cur;

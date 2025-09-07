@@ -1,6 +1,6 @@
 use crate::cache::{Cache, LineBreakCache, LineOffsetCache};
 use crate::text_store::SkipLine;
-use crate::{upos_type, Grapheme, TextError, TextPosition};
+use crate::{Grapheme, TextError, TextPosition, upos_type};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -759,11 +759,7 @@ where
 
         let pos = next_pos;
         let line_break = if grapheme == "\n" || grapheme == "\r\n" {
-            if glyphs.lf_breaks {
-                true
-            } else {
-                false
-            }
+            glyphs.lf_breaks
         } else {
             false
         };
@@ -1032,9 +1028,9 @@ fn remap_glyph(
 
 #[cfg(test)]
 mod test_glyph {
+    use crate::TextPosition;
     use crate::glyph::GlyphIter;
     use crate::grapheme::RopeGraphemes;
-    use crate::TextPosition;
     use ropey::Rope;
 
     #[test]

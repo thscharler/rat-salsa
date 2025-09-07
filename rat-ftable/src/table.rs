@@ -939,7 +939,7 @@ where
     type State = TableState<Selection>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let iter = (&self.data).iter();
+        let iter = self.data.iter();
         self.render_iter(iter, area, buf, state);
     }
 }

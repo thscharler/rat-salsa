@@ -455,11 +455,7 @@ fn render_ref(widget: &Caption<'_>, area: Rect, buf: &mut Buffer, state: &mut Ca
     }
     highlight_style = style.patch(highlight_style);
 
-    let mut hotkey_style = if let Some(hotkey_style) = widget.hotkey_style {
-        hotkey_style
-    } else {
-        Style::default()
-    };
+    let mut hotkey_style = widget.hotkey_style.unwrap_or_default();
     if let Some(hover_style) = widget.hover_style {
         if state.mouse.hover.get() {
             hotkey_style = hotkey_style.patch(hover_style);

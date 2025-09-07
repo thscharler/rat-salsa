@@ -1,7 +1,7 @@
 use crate::text_store::SkipLine;
 use crate::{Cursor, TextError};
-use ropey::iter::Chunks;
 use ropey::RopeSlice;
+use ropey::iter::Chunks;
 use std::borrow::Cow;
 use std::cmp;
 use std::fmt::Debug;
@@ -43,6 +43,7 @@ impl<'a> Grapheme<'a> {
 
     /// Is a linebreak.
     #[inline]
+    #[allow(clippy::nonminimal_bool)]
     pub fn is_line_break(&self) -> bool {
         self.grapheme == "\r"
             || self.grapheme == "\n"
@@ -498,8 +499,8 @@ impl SkipLine for RevRopeGraphemes<'_> {
 
 #[cfg(test)]
 mod test_str {
-    use crate::grapheme::StrGraphemes;
     use crate::Cursor;
+    use crate::grapheme::StrGraphemes;
 
     #[test]
     fn test_str_graphemes0() {
@@ -672,8 +673,8 @@ mod test_str {
 
 #[cfg(test)]
 mod test_rope {
-    use crate::grapheme::{RopeGraphemes, StrGraphemes};
     use crate::Cursor;
+    use crate::grapheme::{RopeGraphemes, StrGraphemes};
     use ropey::Rope;
 
     #[test]
@@ -855,7 +856,7 @@ mod test_rope {
              abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
              012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
              abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
-             "
+             ",
         );
         assert_eq!(s.len_bytes(), 1200);
         let mut s0 = RopeGraphemes::new_offset(1, s.byte_slice(1..1199), 0).expect("fine");
@@ -889,7 +890,7 @@ mod test_rope {
              abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
              012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
              abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
-             "
+             ",
         );
         assert_eq!(s.len_bytes(), 1212);
         assert_eq!(s.chunks().next().unwrap().len(), 606);

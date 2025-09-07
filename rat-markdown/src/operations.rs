@@ -3,7 +3,7 @@ use crate::styles::MDStyle;
 use crate::util::str_line_len;
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
-use rat_text::{upos_type, TextPosition, TextRange};
+use rat_text::{TextPosition, TextRange, upos_type};
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -11,7 +11,7 @@ use unicode_segmentation::UnicodeSegmentation;
 /// Reformat header
 ///
 pub fn md_make_header(state: &mut TextAreaState, header: u8) -> TextOutcome {
-    if let Some(_) = md_paragraph(state) {
+    if md_paragraph(state).is_some() {
         let cursor = state.cursor();
         let pos = TextPosition::new(0, cursor.y);
 
@@ -36,7 +36,7 @@ pub fn md_make_header(state: &mut TextAreaState, header: u8) -> TextOutcome {
             )
         } else {
             (
-                format!("{}", md_header.text),
+                md_header.text.to_string(),
                 TextPosition::new(cursor.x - md_header.header as upos_type, cursor.y),
             )
         };
@@ -179,7 +179,7 @@ fn empty_md_row(txt: &str, newline: &str) -> (upos_type, String) {
         new_row.push('|');
     }
 
-    let x = if row.row.len() > 1 && row.row[1].txt.len() > 0 {
+    let x = if row.row.len() > 1 && !row.row[1].txt.is_empty() {
         str_line_len(row.row[0].txt) + 1 + 1
     } else {
         str_line_len(row.row[0].txt) + 1
@@ -326,6 +326,7 @@ fn prev_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
 }
 
 /// Extract the paragraph at the cursor position.
+#[allow(clippy::manual_map)]
 fn md_paragraph(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
@@ -340,6 +341,7 @@ fn md_paragraph(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
 }
 
 /// Extract the header at the cursor position.
+#[allow(clippy::manual_map)]
 fn md_header(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
@@ -372,6 +374,7 @@ fn md_header(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
 }
 
 /// Extract the list item at the cursor position.
+#[allow(clippy::manual_map)]
 fn md_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
@@ -398,7 +401,10 @@ fn md_prev_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
             let mut sty = Vec::new();
             state.styles_in(list_byte.start..item_byte.start, &mut sty);
 
-            let prev = sty.iter().filter(|v| v.1 == MDStyle::Item as usize).last();
+            let prev = sty
+                .iter()
+                .filter(|v| v.1 == MDStyle::Item as usize)
+                .next_back();
 
             if let Some((prev_bytes, _)) = prev {
                 let prev = state.byte_range(prev_bytes.clone());
@@ -427,7 +433,7 @@ fn md_next_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
             let mut sty = Vec::new();
             state.styles_in(item_byte.end..list_byte.end, &mut sty);
 
-            let next = sty.iter().filter(|v| v.1 == MDStyle::Item as usize).next();
+            let next = sty.iter().find(|v| v.1 == MDStyle::Item as usize);
 
             if let Some((next_bytes, _)) = next {
                 let next = state.byte_range(next_bytes.clone());
@@ -475,6 +481,7 @@ pub fn md_surround(
 
 /// Insert and replace quote-like markup like '_', '*' and '~'.
 /// Only those are allowed for c here.
+#[allow(clippy::needless_bool)]
 pub fn md_strong(state: &mut TextAreaState, c: char) -> TextOutcome {
     let mut sel = state.selection();
 
@@ -520,7 +527,7 @@ pub fn md_strong(state: &mut TextAreaState, c: char) -> TextOutcome {
             }
         } else {
             let len = state.value.line_width(sel.start.y).expect("valid_range");
-            if sel.start.x + 1 <= len && sel.end.x > 0 {
+            if sel.start.x < len && sel.end.x > 0 {
                 start2 = TextRange::new(sel.start, (sel.start.x + 1, sel.start.y));
                 end2 = TextRange::new((sel.end.x - 1, sel.end.y), sel.end);
                 true

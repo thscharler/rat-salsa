@@ -4,10 +4,10 @@ use crate::clipboard::Clipboard;
 use crate::glyph::{Glyph, GlyphIter};
 use crate::glyph2::{GlyphIter2, TextWrap2};
 use crate::grapheme::Grapheme;
-use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
+use crate::range_map::{RangeMap, expand_range_by, ranges_intersect, shrink_range_by};
 use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
-use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
+use crate::{Cursor, TextError, TextPosition, TextRange, upos_type};
 use dyn_clone::clone_box;
 use ratatui::layout::Size;
 use std::borrow::Cow;
@@ -840,6 +840,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Fill the cache for all the given rows completely.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn fill_cache(
         &self,
         rendered: Size,
@@ -867,6 +868,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn glyphs2(
         &self,
         rendered: Size,

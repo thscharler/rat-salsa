@@ -1,5 +1,5 @@
 #![doc = include_str!("../readme.md")]
-
+#![allow(clippy::uninlined_format_args)]
 use crate::framework::control_queue::ControlQueue;
 use crate::tasks::{Cancel, Liveness};
 use crate::thread_pool::ThreadPool;

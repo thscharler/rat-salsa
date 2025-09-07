@@ -4,7 +4,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::text_area::TextAreaState;
-use crate::{upos_type, TextPosition};
+use crate::{TextPosition, upos_type};
 use format_num_pattern::NumberFormat;
 use rat_event::util::MouseFlags;
 use ratatui::buffer::Buffer;
@@ -226,6 +226,8 @@ impl Default for LineNumberStyle {
 impl StatefulWidget for LineNumbers<'_> {
     type State = LineNumberState;
 
+    #[allow(clippy::manual_unwrap_or_default)]
+    #[allow(clippy::manual_unwrap_or)]
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
         state.inner = self.block.inner_if_some(area);
