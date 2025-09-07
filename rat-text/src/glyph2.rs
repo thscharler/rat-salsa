@@ -757,17 +757,6 @@ where
 
         glyphs.init = false;
 
-        if cache.full_line_break.borrow().contains(&next_pos.y) {
-            next_pos.x = 0;
-            next_pos.y += 1;
-            last_byte = 0;
-
-            // skip to next_line
-            iter.skip_line().expect("fine");
-
-            continue;
-        }
-
         let pos = next_pos;
         let line_break = if grapheme == "\n" || grapheme == "\r\n" {
             if glyphs.lf_breaks {
@@ -778,6 +767,17 @@ where
         } else {
             false
         };
+
+        if !line_break && cache.full_line_break.borrow().contains(&next_pos.y) {
+            next_pos.x = 0;
+            next_pos.y += 1;
+            last_byte = 0;
+
+            // skip to next_line
+            iter.skip_line().expect("fine");
+
+            continue;
+        }
 
         if line_break {
             next_pos.x = 0;
@@ -826,15 +826,6 @@ where
         if glyph.screen_pos.0 <= iter.true_right_margin() + 1 {
             glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
             glyph.validate();
-
-            cache.line_break.borrow_mut().insert(
-                glyph.pos,
-                LineBreakCache {
-                    start_pos: iter.next_pos,
-                    byte_pos: glyph.text_bytes.end,
-                },
-            );
-            cache.full_line_break.borrow_mut().insert(glyph.pos.y);
 
             Break(Some(glyph))
         } else {

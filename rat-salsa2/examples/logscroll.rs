@@ -1026,6 +1026,7 @@ F1      show this
 F2      change split position
 F3      jump to find / toggle find
 F8      next theme
+Ctrl+Q  quit
 
 ### Navigation ###
 
