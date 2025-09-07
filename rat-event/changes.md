@@ -1,3 +1,8 @@
+# 1.2.4
+
+* add break_flow! macro
+* change flow! macro, accepts 'tt' now.
+
 # 1.2.3
 
 * fix: naming of and() and and_try() was wrong. add and_then() and
