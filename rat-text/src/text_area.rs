@@ -146,7 +146,6 @@ pub struct TextAreaState {
 
     /// Current focus state.
     pub focus: FocusFlag,
-    pub focus_navigation: Navigation,
 
     /// Mouse selection in progress.
     /// __read+write__
@@ -173,7 +172,6 @@ impl Clone for TextAreaState {
             auto_quote: self.auto_quote,
             text_wrap: self.text_wrap,
             focus: FocusFlag::named(self.focus.name()),
-            focus_navigation: self.focus_navigation,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -532,7 +530,6 @@ impl Default for TextAreaState {
             auto_quote: true,
             text_wrap: TextWrap::Shift,
             focus: Default::default(),
-            focus_navigation: Navigation::Reach,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         };
@@ -556,7 +553,7 @@ impl HasFocus for TextAreaState {
     }
 
     fn navigable(&self) -> Navigation {
-        self.focus_navigation
+        Navigation::Reach
     }
 }
 
@@ -691,14 +688,6 @@ impl TextAreaState {
     #[inline]
     pub fn move_col(&mut self) -> Option<i16> {
         self.move_col
-    }
-
-    /// Change focus navigation.
-    ///
-    /// Default is Navigation::Reach, change it to Navigation::Regular
-    /// if you want normal tab behaviour.
-    pub fn set_focus_navigation(&mut self, navigation: Navigation) {
-        self.focus_navigation = navigation;
     }
 }
 
