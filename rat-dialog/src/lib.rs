@@ -1,437 +1,471 @@
-#![doc = include_str!("../readme.md")]
-
-use rat_salsa::{AppContext, AppState, AppWidget, Control, RenderContext};
+use rat_event::{ConsumedEvent, HandleEvent, Outcome};
+use rat_salsa::{Control, SalsaContext};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use std::any::{Any, TypeId};
-use std::cell::Cell;
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Deref, DerefMut};
+use std::any::{type_name, Any, TypeId};
+use std::cell::{Cell, RefCell};
+use std::fmt::{Debug, Formatter};
+use std::mem;
 use std::rc::Rc;
 
-pub mod widgets;
-
-/// DialogStack.
-///
-/// Call render() for this as the last action when rendering your
-/// application.
-///
-#[derive(Debug)]
-pub struct DialogStack;
-
-/// State of the dialog stack.
-///
-/// Add this to your global state.
-///
-
-///
-/// ** unstable **
-pub struct DialogStackState<Global, Event, Error> {
-    inner: Rc<Cell<Inner<Global, Event, Error>>>,
+/// Extends rat-salsa::Control with some dialog specific options.
+#[derive(Debug, Clone, Copy)]
+#[must_use]
+#[non_exhaustive]
+pub enum StackControl<Event> {
+    /// Continue with event-handling.
+    /// In the event-loop this waits for the next event.
+    Continue,
+    /// Break event-handling without repaint.
+    /// In the event-loop this waits for the next event.
+    Unchanged,
+    /// Break event-handling and repaints/renders the application.
+    /// In the event-loop this calls `render`.
+    Changed,
+    /// Eventhandling can cause secondary application specific events.
+    /// One common way is to return this `Control::Message(my_event)`
+    /// to reenter the event-loop with your own secondary event.
+    ///
+    /// This acts quite like a message-queue to communicate between
+    /// disconnected parts of your application. And indeed there is
+    /// a hidden message-queue as part of the event-loop.
+    ///
+    /// The other way is to call [AppContext::queue] to initiate such
+    /// events.
+    Event(Event),
+    /// Quit the application.
+    Quit,
+    /// Close the dialog
+    Pop,
+    /// Move to front
+    ToFront,
 }
 
-/// Errors for some operations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DialogStackError {
-    /// During event-handling the top dialog is taken from the
-    /// stack to avoid problems if this ever recurses.
-    /// Some operations are not available during this time.
-    InvalidDuringEventHandling,
-    /// No dialogs on the stack.
-    StackIsEmpty,
-    /// Downcasting error.
-    TypeMismatch,
-}
+impl<Event> Eq for StackControl<Event> {}
 
-impl Display for DialogStackError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+impl<Event> PartialEq for StackControl<Event> {
+    fn eq(&self, other: &Self) -> bool {
+        mem::discriminant(self) == mem::discriminant(other)
     }
 }
 
-impl Error for DialogStackError {}
-
-/// Behind the scenes.
-struct Inner<Global, Event, Error> {
-    // don't hold the Widgets just a constructor.
-    render: Vec<
-        Box<
-            dyn Fn(
-                    Rect,
-                    &mut Buffer,
-                    &mut dyn DialogState<Global, Event, Error>,
-                    &'_ mut RenderContext<'_, Global>,
-                ) -> Result<(), Error>
-                + 'static,
-        >,
-    >,
-    // dialog states
-    state: Vec<Box<dyn DialogState<Global, Event, Error>>>,
-
-    // top has been detached.
-    detached: bool,
-    // top will be popped later, if it is currently detached.
-    pop_top: bool,
+impl<Event> ConsumedEvent for StackControl<Event> {
+    fn is_consumed(&self) -> bool {
+        !matches!(self, StackControl::Continue)
+    }
 }
 
-///
-/// DialogWidget mimics AppWidget.
-///
-/// This needs a separate trait otherwise DialogState would
-/// need to be an AppState too, which is rather inconvenient.
-///
-pub trait DialogWidget<Global, Event, Error>
+impl<Event, T> From<T> for StackControl<Event>
 where
-    Global: 'static,
+    T: Into<Outcome>,
+{
+    fn from(value: T) -> Self {
+        match value.into() {
+            Outcome::Continue => StackControl::Continue,
+            Outcome::Unchanged => StackControl::Unchanged,
+            Outcome::Changed => StackControl::Changed,
+        }
+    }
+}
+
+/// Hold a stack of widgets.
+///
+/// Renders the widgets and can handle events.
+///
+/// Hold the dialog-stack in your global state,
+/// call render() at the very end of rendering and
+/// handle() near the start of event-handling.
+///
+/// This will not handle modality, so make sure
+/// to consume all events you don't want to propagate.
+///
+pub struct DialogStack<Global, Event, Error>
+where
     Event: 'static + Send,
     Error: 'static + Send,
 {
-    /// Type of the State.
-    type State: DialogState<Global, Event, Error> + ?Sized;
-
-    /// Renders an application widget.
-    fn render(
-        &self,
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Self::State,
-        ctx: &mut RenderContext<'_, Global>,
-    ) -> Result<(), Error>;
+    core: Rc<DialogStackCore<Global, Event, Error>>,
 }
 
-/// Trait for a dialogs state.
-///
-/// A separate trait is necessary because this needs Any in the vtable.
-/// It mimics AppState without a few lifecycle functions.
-#[allow(unused_variables)]
-pub trait DialogState<Global, Event, Error>: Any
+struct DialogStackCore<Global, Event, Error>
 where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
+    Event: 'static + Send,
+    Error: 'static + Send,
 {
-    /// Is the dialog still active.
-    ///
-    /// Whenever this goes to false during event handling the dialog
-    /// will be popped from the stack.
-    fn active(&self) -> bool;
-
-    /// Handle an event.
-    fn event(
-        &mut self,
-        event: &Event,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
-    ) -> Result<Control<Event>, Error>;
+    len: Cell<usize>,
+    render: RefCell<
+        Vec<
+            Box<
+                dyn Fn(Rect, &mut Buffer, &mut dyn Any, &'_ mut Global) -> Result<(), Error>
+                    + 'static,
+            >,
+        >,
+    >,
+    event: RefCell<
+        Vec<
+            Box<
+                dyn Fn(
+                    &Event, //
+                    &mut dyn Any,
+                    &'_ mut Global,
+                ) -> Result<StackControl<Event>, Error>,
+            >,
+        >,
+    >,
+    type_id: RefCell<Vec<TypeId>>,
+    state: RefCell<Vec<Option<Box<dyn Any>>>>,
 }
 
-impl<Global, Event, Error> dyn DialogState<Global, Event, Error>
+impl<Global, Event, Error> Clone for DialogStack<Global, Event, Error>
 where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    /// down cast Any style.
-    pub fn downcast_ref<R: DialogState<Global, Event, Error>>(&self) -> Option<&R> {
-        if self.type_id() == TypeId::of::<R>() {
-            let p: *const dyn DialogState<Global, Event, Error> = self;
-            Some(unsafe { &*(p as *const R) })
-        } else {
-            None
-        }
-    }
-
-    /// down cast Any style.
-    pub fn downcast_mut<R: DialogState<Global, Event, Error>>(&'_ mut self) -> Option<&'_ mut R> {
-        if (*self).type_id() == TypeId::of::<R>() {
-            let p: *mut dyn DialogState<Global, Event, Error> = self;
-            Some(unsafe { &mut *(p as *mut R) })
-        } else {
-            None
-        }
-    }
-}
-
-impl<Global, Event, Error> AppWidget<Global, Event, Error> for DialogStack
-where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    type State = DialogStackState<Global, Event, Error>;
-
-    fn render(
-        &self,
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Self::State,
-        ctx: &mut RenderContext<'_, Global>,
-    ) -> Result<(), Error> {
-        // render in order. last is top.
-        let mut inner = state.inner.replace(Inner::default());
-
-        let r = 'l: {
-            // render in order. last is top.
-            for (render, state) in inner.render.iter().zip(inner.state.iter_mut()) {
-                let r = render(area, buf, state.as_mut(), ctx);
-                if r.is_err() {
-                    break 'l r;
-                }
-            }
-            Ok(())
-        };
-
-        state.inner.set(inner);
-
-        Ok(r?)
-    }
-}
-
-impl<Global, Event, Error> Debug for Inner<Global, Event, Error>
-where
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Inner").field("..dyn..", &()).finish()
-    }
-}
-
-impl<Global, Event, Error> Default for Inner<Global, Event, Error>
-where
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    fn default() -> Self {
-        Self {
-            render: Default::default(),
-            state: Default::default(),
-            detached: Default::default(),
-            pop_top: Default::default(),
-        }
-    }
-}
-
-impl<Global, Event, Error> AppState<Global, Event, Error> for DialogStackState<Global, Event, Error>
-where
-    Global: 'static,
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    fn init(&mut self, _ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<(), Error> {
-        // no special init
-        Ok(())
-    }
-
-    fn event(
-        &mut self,
-        event: &Event,
-        ctx: &mut AppContext<'_, Global, Event, Error>,
-    ) -> Result<Control<Event>, Error> {
-        let (idx, dialog, mut state) = {
-            let mut inner = self.inner.replace(Inner::default());
-
-            if inner.render.is_empty() {
-                self.inner.set(inner);
-                return Ok(Control::Continue);
-            }
-
-            // only the top dialog gets any events.
-            let dialog = inner.render.pop().expect("dialog");
-            let state = inner.state.pop().expect("state");
-            let idx = inner.render.len();
-
-            inner.detached = true;
-            self.inner.set(inner);
-
-            (idx, dialog, state)
-        };
-
-        let r = state.event(event, ctx);
-        let active = state.active();
-
-        {
-            let mut inner = self.inner.replace(Inner::default());
-            if inner.pop_top || !active {
-                inner.detached = false;
-                inner.pop_top = false;
-            } else {
-                inner.detached = false;
-                inner.render.insert(idx, dialog);
-                inner.state.insert(idx, state);
-            }
-            self.inner.set(inner);
-        }
-
-        r
-    }
-}
-
-impl<Global, Event, Error> Debug for DialogStackState<Global, Event, Error>
-where
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DialogStackState").finish()
-    }
-}
-
-impl<Global, Event, Error> Default for DialogStackState<Global, Event, Error>
-where
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
-    fn default() -> Self {
-        Self {
-            inner: Default::default(),
-        }
-    }
-}
-
-impl<Global, Event, Error> Clone for DialogStackState<Global, Event, Error>
-where
-    Event: Send + 'static,
-    Error: Send + 'static,
+    Event: 'static + Send,
+    Error: 'static + Send,
 {
     fn clone(&self) -> Self {
         Self {
-            inner: Rc::clone(&self.inner),
+            core: self.core.clone(),
         }
     }
 }
 
-impl<Global, Event, Error> DialogStackState<Global, Event, Error>
+impl<Global, Event, Error> Default for DialogStack<Global, Event, Error>
 where
-    Global: 'static,
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    fn default() -> Self {
+        Self {
+            core: Rc::new(DialogStackCore {
+                len: Cell::new(0),
+                render: Default::default(),
+                event: Default::default(),
+                type_id: Default::default(),
+                state: Default::default(),
+            }),
+        }
+    }
+}
+
+impl<Global, Event, Error> Debug for DialogStack<Global, Event, Error>
+where
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let state = self.core.state.borrow();
+        let is_proxy = state.iter().map(|v| v.is_none()).collect::<Vec<_>>();
+        let type_id = self.core.type_id.borrow();
+
+        f.debug_struct("DialogStackCore")
+            .field("len", &self.core.len.get())
+            .field("type_id", &type_id)
+            .field("is_proxy", &is_proxy)
+            .finish()
+    }
+}
+
+impl<Global, Event, Error> DialogStack<Global, Event, Error>
+where
     Event: Send + 'static,
     Error: Send + 'static,
 {
-    /// New dialog stack state.
+    /// Render all dialog-windows in stack-order.
+    pub fn render(self, area: Rect, buf: &mut Buffer, ctx: &mut Global) -> Result<(), Error>
+    where
+        Event: 'static + Send,
+        Error: 'static + Send,
+    {
+        for n in 0..self.core.len.get() {
+            let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
+                panic!("state is gone");
+            };
+            let render_fn = mem::replace(
+                &mut self.core.render.borrow_mut()[n],
+                Box::new(|_, _, _, _| Ok(())),
+            );
+
+            let r = render_fn(area, buf, state.as_mut(), ctx);
+
+            self.core.render.borrow_mut()[n] = render_fn;
+            self.core.state.borrow_mut()[n] = Some(state);
+
+            r?
+        }
+        Ok(())
+    }
+}
+
+impl<Global, Event, Error> DialogStack<Global, Event, Error>
+where
+    Event: Send + 'static,
+    Error: Send + 'static,
+{
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Push a new dialog window on the stack.
-    ///
-    /// This takes
-    /// * a constructor for the AppWidget. This is called for every render
-    ///   and can adjust construction to the environment.
-    /// * the dialogs state.
-    ///
-    /// __Note__
-    ///
-    /// This can be called during event handling of a dialog.
-    pub fn push_dialog<Render, State>(&mut self, render: Render, state: State)
-    where
-        Render: Fn(
-                Rect,
-                &mut Buffer,
-                &mut dyn DialogState<Global, Event, Error>,
-                &'_ mut RenderContext<'_, Global>,
-            ) -> Result<(), Error>
+    /// Push a dialog-window on the stack.
+    /// - render is called in reverse stack order, to render bottom to top.
+    /// - event is called in stack-order to handle events.
+    ///   if you don't want events to propagate to dialog-windows in the
+    ///   background, you must consume them by returning StackControl::Unchanged.
+    /// - state as Any
+    pub fn push(
+        &self,
+        render: impl Fn(Rect, &mut Buffer, &mut dyn Any, &'_ mut Global) -> Result<(), Error> + 'static,
+        event: impl Fn(&Event, &mut dyn Any, &'_ mut Global) -> Result<StackControl<Event>, Error>
             + 'static,
-        State: DialogState<Global, Event, Error> + 'static,
-    {
-        let mut inner = self.inner.replace(Inner::default());
-
-        inner.render.push(Box::new(render));
-        inner.state.push(Box::new(state));
-
-        self.inner.set(inner);
+        state: impl Any,
+    ) {
+        self.core.len.update(|v| v + 1);
+        self.core.type_id.borrow_mut().push(state.type_id());
+        self.core.state.borrow_mut().push(Some(Box::new(state)));
+        self.core.event.borrow_mut().push(Box::new(event));
+        self.core.render.borrow_mut().push(Box::new(render));
     }
 
-    /// Pop the top dialog from the stack.
+    /// Pop the top dialog-window from the stack.
     ///
-    /// This can be called repeatedly if necessary.
+    /// It will return None if the stack is empty.
     ///
-    /// __Note__
+    /// Panic
     ///
-    /// This can be called during event handling of a dialog.
-    pub fn pop_dialog(&mut self) {
-        let mut inner = self.inner.replace(Inner::default());
-
-        if inner.detached && !inner.pop_top {
-            inner.pop_top = true;
-
-            self.inner.set(inner);
-        } else {
-            _ = inner.render.pop().expect("render");
-            _ = inner.state.pop().expect("state");
-
-            self.inner.set(inner);
+    /// This function is partially reentrant. When called during rendering/event-handling
+    /// it will panic when trying to pop your current dialog-window.
+    /// Return StackControl::Pop instead of calling this function.
+    pub fn pop(&self) -> Option<Box<dyn Any>> {
+        self.core.len.update(|v| v - 1);
+        self.core.type_id.borrow_mut().pop();
+        self.core.event.borrow_mut().pop();
+        self.core.render.borrow_mut().pop();
+        let Some(s) = self.core.state.borrow_mut().pop() else {
+            return None;
+        };
+        if s.is_none() {
+            panic!("state is gone");
         }
+        s
     }
 
-    /// Is the dialog stack empty?
+    /// Remove some dialog-window.
     ///
-    /// __Note__
+    /// Panic
     ///
-    /// This can be called during event handling of a dialog.
+    /// This function is not reentrant. It will panic when called during
+    /// rendering or event-handling of any dialog-window.
+    /// Panics when out-of-bounds.
+    pub fn remove(&self, n: usize) -> Box<dyn Any> {
+        for s in self.core.state.borrow().iter() {
+            if s.is_none() {
+                panic!("state is gone");
+            }
+        }
+
+        self.core.len.update(|v| v - 1);
+        self.core.type_id.borrow_mut().remove(n);
+        _ = self.core.event.borrow_mut().remove(n);
+        _ = self.core.render.borrow_mut().remove(n);
+        let s = self
+            .core
+            .state
+            .borrow_mut()
+            .remove(n)
+            .expect("state exists");
+        s
+    }
+
+    /// Move the given dialog-window to the top of the stack.
+    ///
+    /// Panic
+    ///
+    /// This function is not reentrant. It will panic when called during
+    /// rendering or event-handling of any dialog-window. Use StackControl::ToFront
+    /// for this.
+    ///
+    /// Panics when out-of-bounds.
+    pub fn to_front(&self, n: usize) {
+        for s in self.core.state.borrow().iter() {
+            if s.is_none() {
+                panic!("state is gone");
+            }
+        }
+
+        let type_id = self.core.type_id.borrow_mut().remove(n);
+        let state = self.core.state.borrow_mut().remove(n);
+        let event = self.core.event.borrow_mut().remove(n);
+        let render = self.core.render.borrow_mut().remove(n);
+
+        self.core.type_id.borrow_mut().push(type_id);
+        self.core.state.borrow_mut().push(state);
+        self.core.event.borrow_mut().push(event);
+        self.core.render.borrow_mut().push(render);
+    }
+
+    /// No windows.
     pub fn is_empty(&self) -> bool {
-        let inner = self.inner.replace(Inner::default());
+        self.core.type_id.borrow().is_empty()
+    }
 
-        let r = inner.state.is_empty() && !inner.detached;
+    /// Number of dialog-windows.
+    pub fn len(&self) -> usize {
+        self.core.len.get()
+    }
 
-        self.inner.set(inner);
+    /// Typecheck the state.
+    pub fn state_is<S: 'static>(&self, n: usize) -> bool {
+        self.core.type_id.borrow()[n] == TypeId::of::<S>()
+    }
 
+    /// Find first state with this type.
+    pub fn first<S: 'static>(&self) -> Option<usize> {
+        for n in (0..self.core.len.get()).rev() {
+            if self.core.type_id.borrow()[n] == TypeId::of::<S>() {
+                return Some(n);
+            }
+        }
+        None
+    }
+
+    /// Find all states with this type.
+    pub fn find<S: 'static>(&self) -> Vec<usize> {
+        self.core
+            .type_id
+            .borrow()
+            .iter()
+            .enumerate()
+            .rev()
+            .filter_map(|(n, v)| {
+                if *v == TypeId::of::<S>() {
+                    Some(n)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Run f for the given instance of S.
+    ///
+    /// Panic
+    ///
+    /// Panics when out-of-bounds.
+    /// Panics when recursively accessing the same state. Accessing a
+    /// *different* window-state is fine.
+    /// Panics when the types don't match.
+    pub fn apply<S: 'static, R>(&self, n: usize, f: impl Fn(&S) -> R) -> R {
+        let Some(state) = self.core.state.borrow_mut()[n].take() else {
+            panic!("state is gone");
+        };
+
+        let r = if let Some(state) = state.as_ref().downcast_ref::<S>() {
+            f(state)
+        } else {
+            self.core.state.borrow_mut()[n] = Some(state);
+            panic!("state is not {:?}", type_name::<S>());
+        };
+
+        self.core.state.borrow_mut()[n] = Some(state);
         r
     }
 
-    /// Test the type of the top dialog state.
+    /// Run f for the given instance of S with exclusive/mutabel access.
     ///
-    /// __Note__
+    /// Panic
     ///
-    /// This will not work during event-handling of a dialog.
-    pub fn top_state_is<S: 'static>(&self) -> Result<bool, DialogStackError> {
-        let inner = self.inner.replace(Inner::default());
+    /// Panics when out-of-bounds.
+    /// Panics when recursively accessing the same state. Accessing a
+    /// *different* window-state is fine.
+    /// Panics when the types don't match.
+    pub fn apply_mut<S: 'static, R>(&mut self, n: usize, f: impl Fn(&mut S) -> R) -> R {
+        let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
+            panic!("state is gone");
+        };
 
-        if inner.detached {
-            self.inner.set(inner);
-            return Err(DialogStackError::InvalidDuringEventHandling);
-        }
-        if inner.state.is_empty() {
-            self.inner.set(inner);
-            return Err(DialogStackError::StackIsEmpty);
-        }
+        let r = if let Some(state) = state.as_mut().downcast_mut::<S>() {
+            f(state)
+        } else {
+            self.core.state.borrow_mut()[n] = Some(state);
+            panic!("state is not {:?}", type_name::<S>());
+        };
 
-        let state = inner.state.last().expect("state");
-        let dyn_transformed = &*state.deref();
-        let r = dyn_transformed.type_id() == TypeId::of::<S>();
-
-        self.inner.set(inner);
-
-        Ok(r)
+        self.core.state.borrow_mut()[n] = Some(state);
+        r
     }
+}
 
-    /// Calls the closure with the top state of the stack if the type matches.
-    ///
-    /// __Note__
-    ///
-    /// This will not work during event-handling of a dialog.
-    pub fn map_top_state_if<S, MAP, R>(&self, map: MAP) -> Result<R, DialogStackError>
-    where
-        MAP: FnOnce(&mut S) -> R,
-        S: DialogState<Global, Event, Error>,
-    {
-        if !self.top_state_is::<S>()? {
-            return Err(DialogStackError::TypeMismatch);
+/// Handle events from top to bottom of the stack.
+///
+/// Panic
+///
+/// This function is not reentrant, it will panic when called from within it's call-stack.
+impl<Global, Event, Error> HandleEvent<Event, &mut Global, Result<Control<Event>, Error>>
+    for DialogStack<Global, Event, Error>
+where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send,
+    Error: 'static + Send,
+{
+    fn handle(&mut self, event: &Event, ctx: &mut Global) -> Result<Control<Event>, Error> {
+        let mut rr = Control::Continue;
+
+        for n in (0..self.core.len.get()).rev() {
+            let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
+                panic!("state is gone");
+            };
+            let event_fn = mem::replace(
+                &mut self.core.event.borrow_mut()[n],
+                Box::new(|_, _, _| Ok(StackControl::Continue)),
+            );
+
+            let r = event_fn(event, state.as_mut(), ctx);
+
+            self.core.event.borrow_mut()[n] = event_fn;
+            self.core.state.borrow_mut()[n] = Some(state);
+
+            match r {
+                Ok(r) => {
+                    match r {
+                        StackControl::Continue => {
+                            // noop, bottom of it
+                        }
+                        StackControl::Unchanged => {
+                            if rr < Control::Unchanged {
+                                rr = Control::Unchanged
+                            }
+                        }
+                        StackControl::Changed => {
+                            if rr < Control::Changed {
+                                rr = Control::Changed
+                            }
+                        }
+                        StackControl::Event(evt) => {
+                            ctx.queue_event(evt);
+                            // don't change rr. besides queuing the event
+                            // this is Control::Continue anyway.
+                        }
+                        StackControl::Quit => {
+                            if rr < Control::Quit {
+                                rr = Control::Quit
+                            }
+                        }
+                        StackControl::Pop => {
+                            self.remove(n);
+                            if rr < Control::Changed {
+                                rr = Control::Changed
+                            }
+                        }
+                        StackControl::ToFront => {
+                            self.to_front(n);
+                            if rr < Control::Changed {
+                                rr = Control::Changed
+                            }
+                        }
+                    }
+                }
+                Err(e) => return Err(e),
+            }
         }
 
-        let mut inner = self.inner.replace(Inner::default());
-
-        let dialog = inner.render.pop().expect("render");
-        let mut state = inner.state.pop().expect("state");
-
-        let dyn_state = &mut *state.deref_mut();
-        let state_t = dyn_state.downcast_mut::<S>().expect("state");
-        let r = map(state_t);
-
-        inner.render.push(dialog);
-        inner.state.push(state);
-
-        self.inner.set(inner);
-
-        Ok(r)
+        Ok(rr)
     }
 }

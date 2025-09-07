@@ -1,21 +1,35 @@
 #![allow(dead_code)]
 
-use crate::event::LogScrollEvent;
-use crate::scenery::{Scenery, SceneryState};
-use anyhow::Error;
-use rat_salsa::poll::{PollCrossterm, PollTimers};
-use rat_salsa::{run_tui, RunConfig};
-use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::DarkTheme;
+use anyhow::{anyhow, Error};
+use dirs::config_dir;
+use ini::Ini;
+use log::{debug, warn};
+use rat_salsa2::poll::{PollCrossterm, PollTasks, PollTimers};
+use rat_salsa2::timer::TimeOut;
+use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_theme2::{dark_themes, DarkTheme, Palette};
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_widget::focus::FocusBuilder;
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::statusline::{StatusLine, StatusLineState};
+use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
+use rat_widget::text::HasScreenCursor;
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{StatefulWidget, Widget};
+use ropey::Rope;
+use std::cell::RefCell;
 use std::env::args;
 use std::fs;
+use std::fs::create_dir_all;
+use std::ops::Range;
 use std::path::PathBuf;
-
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, LogScrollEvent, Error>;
-type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
+use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
+    set_global_clipboard(CliClipboard::default());
 
     let mut args = args();
     args.next();
@@ -29,207 +43,311 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
-    let config = LogScrollConfig::default();
-    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+    let config = load_config()?;
+    let theme = config_theme(&config);
 
     let mut global = GlobalState::new(config, theme);
-    global.current = current;
+    global.file_path = current;
 
-    let app = Scenery;
-    let mut state = SceneryState::default();
+    let mut state = Scenery::default();
 
     run_tui(
-        app,
+        init,
+        render,
+        event,
+        error,
         &mut global,
         &mut state,
         RunConfig::default()?
             .poll(PollCrossterm)
+            .poll(PollTasks::new(2))
             .poll(PollTimers::new()),
     )?;
 
     Ok(())
 }
 
-mod event {
-    use rat_salsa::timer::TimeOut;
+#[derive(Debug, Default)]
+pub struct LogScrollConfig {
+    split_pos: u16,
+    theme: String,
+}
 
-    #[derive(Debug)]
-    pub enum LogScrollEvent {
-        Event(crossterm::event::Event),
-        TimeOut(TimeOut),
-        Message(String),
-        Status(usize, String),
-    }
+fn config_theme(config: &LogScrollConfig) -> DarkTheme {
+    dark_themes()
+        .iter()
+        .find(|v| v.name() == config.theme)
+        .cloned()
+        .unwrap_or(dark_themes()[0].clone())
+}
 
-    impl From<crossterm::event::Event> for LogScrollEvent {
-        fn from(value: crossterm::event::Event) -> Self {
-            Self::Event(value)
+fn load_config() -> Result<LogScrollConfig, Error> {
+    if let Some(config) = config_dir() {
+        let config = config.join("logscroll").join("logscroll.ini");
+        if config.exists() {
+            let ini = Ini::load_from_file(config)?;
+            let sec = ini.general_section();
+            let split_pos: u16 = sec.get("split").unwrap_or("25").parse()?;
+            let theme = sec.get("theme").unwrap_or("");
+            return Ok(LogScrollConfig {
+                split_pos,
+                theme: theme.into(),
+            });
         }
+    };
+
+    Ok(LogScrollConfig {
+        split_pos: 25,
+        theme: Default::default(),
+    })
+}
+
+fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
+    if let Some(config_dir) = config_dir() {
+        let config_path = config_dir.join("logscroll");
+        create_dir_all(&config_path)?;
+        let config = config_path.join("logscroll.ini");
+
+        let mut ini = if config.exists() {
+            Ini::load_from_file(&config)?
+        } else {
+            Ini::default()
+        };
+
+        let mut sec = ini.with_general_section();
+        sec.set("split", cfg.split_pos.to_string());
+        sec.set("theme", cfg.theme.clone());
+
+        ini.write_to_file(config)?;
+
+        Ok(())
+    } else {
+        Err(anyhow!("Can't save config."))
+    }
+}
+
+#[derive(Debug)]
+pub struct GlobalState {
+    pub ctx: SalsaAppContext<LogScrollEvent, Error>,
+    pub cfg: LogScrollConfig,
+    pub theme: DarkTheme,
+    pub file_path: PathBuf,
+}
+
+impl SalsaContext<LogScrollEvent, Error> for GlobalState {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<LogScrollEvent, Error>) {
+        self.ctx = app_ctx;
     }
 
-    impl From<TimeOut> for LogScrollEvent {
-        fn from(value: TimeOut) -> Self {
-            Self::TimeOut(value)
+    #[inline]
+    fn salsa_ctx(&self) -> &SalsaAppContext<LogScrollEvent, Error> {
+        &self.ctx
+    }
+}
+
+impl GlobalState {
+    pub fn new(cfg: LogScrollConfig, theme: DarkTheme) -> Self {
+        Self {
+            ctx: Default::default(),
+            cfg,
+            theme,
+            file_path: Default::default(),
         }
     }
 }
 
-mod scenery {
-    use crate::event::LogScrollEvent;
-    use crate::logscroll::{LogScroll, LogScrollState};
-    use crate::{AppContext, GlobalState, RenderContext};
-    use anyhow::Error;
-    use log::debug;
-    use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
-    use rat_widget::focus::FocusBuilder;
-    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-    use rat_widget::statusline::{StatusLine, StatusLineState};
-    use rat_widget::text::HasScreenCursor;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
-    use std::time::{Duration, SystemTime};
+pub enum LogScrollEvent {
+    Event(crossterm::event::Event),
+    TimeOut(TimeOut),
+    Message(String),
+    Status(usize, String),
 
-    #[derive(Debug)]
-    pub struct Scenery;
+    Load(Rope),
+    Append(String),
+    Found(usize, usize, Vec<Range<usize>>),
 
-    #[derive(Debug, Default)]
-    pub struct SceneryState {
-        pub logscroll: LogScrollState,
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
+    Cursor,
+    StoreCfg,
+}
+
+impl From<crossterm::event::Event> for LogScrollEvent {
+    fn from(value: crossterm::event::Event) -> Self {
+        Self::Event(value)
+    }
+}
+
+impl From<TimeOut> for LogScrollEvent {
+    fn from(value: TimeOut) -> Self {
+        Self::TimeOut(value)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Scenery {
+    pub logscroll: logscroll::LogScroll,
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,
+}
+
+// scenery rendering.
+pub fn render(
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<(), Error> {
+    let t0 = SystemTime::now();
+
+    let layout = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Fill(1), //
+        Constraint::Length(1),
+    ])
+    .split(area);
+
+    Line::from_iter([
+        Span::from("log/scroll "),
+        Span::from(format!("{:?}", ctx.file_path)),
+    ])
+    .style(ctx.theme.red(Palette::DARK_3))
+    .render(layout[0], buf);
+
+    logscroll::render(area, buf, &mut state.logscroll, ctx)?;
+    ctx.set_screen_cursor(state.logscroll.screen_cursor());
+
+    if state.error_dlg.active() {
+        let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
+        err.render(area, buf, &mut state.error_dlg);
     }
 
-    impl AppWidget<GlobalState, LogScrollEvent, Error> for Scenery {
-        type State = SceneryState;
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state
+        .status
+        .status(2, format!("R{} {:.0?}", ctx.count(), el).to_string());
 
-        fn render(
-            &self,
-            area: Rect,
-            buf: &mut Buffer,
-            state: &mut Self::State,
-            ctx: &mut RenderContext<'_>,
-        ) -> Result<(), Error> {
-            let t0 = SystemTime::now();
+    let status = StatusLine::new()
+        .layout([
+            Constraint::Fill(1),
+            Constraint::Length(12),
+            Constraint::Length(12),
+            Constraint::Length(12),
+        ])
+        .styles(vec![
+            ctx.theme.status_base(),
+            ctx.theme.status_base(),
+            ctx.theme.status_base(),
+            ctx.theme.status_base(),
+        ]);
+    status.render(layout[2], buf, &mut state.status);
 
-            let layout = Layout::vertical([
-                Constraint::Length(1),
-                Constraint::Fill(1), //
-                Constraint::Length(1),
-            ])
-            .split(area);
+    Ok(())
+}
 
-            LogScroll.render(area, buf, &mut state.logscroll, ctx)?;
+pub fn init(state: &mut Scenery, ctx: &mut GlobalState) -> Result<(), Error> {
+    ctx.set_focus(FocusBuilder::build_for(&state.logscroll));
+    ctx.focus().enable_log();
 
-            ctx.set_screen_cursor(state.logscroll.screen_cursor());
+    logscroll::init(&mut state.logscroll, ctx)?;
 
-            if state.error_dlg.active() {
-                let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-                err.render(area, buf, &mut state.error_dlg);
-            }
+    Ok(())
+}
 
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            state
-                .status
-                .status(2, format!("R{} {:.0?}", ctx.count, el).to_string());
+pub fn event(
+    event: &LogScrollEvent,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<Control<LogScrollEvent>, Error> {
+    let t0 = SystemTime::now();
 
-            let status = StatusLine::new()
-                .layout([
-                    Constraint::Fill(1),
-                    Constraint::Length(12),
-                    Constraint::Length(12),
-                    Constraint::Length(12),
-                ])
-                .styles(ctx.g.theme.statusline_style());
-            status.render(layout[2], buf, &mut state.status);
-
-            Ok(())
-        }
-    }
-
-    impl AppState<GlobalState, LogScrollEvent, Error> for SceneryState {
-        fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(FocusBuilder::build_for(&self.logscroll));
+    let mut r = match event {
+        LogScrollEvent::Event(event) => {
+            ctx.set_focus(FocusBuilder::rebuild_for(
+                &state.logscroll,
+                ctx.take_focus(),
+            ));
             ctx.focus().enable_log();
-            self.logscroll.init(ctx)?;
-            Ok(())
-        }
 
-        fn event(
-            &mut self,
-            event: &LogScrollEvent,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, LogScrollEvent, Error>,
-        ) -> Result<Control<LogScrollEvent>, Error> {
-            let t0 = SystemTime::now();
-
-            let mut r = match event {
-                LogScrollEvent::Event(event) => {
-                    ctx.focus = Some(FocusBuilder::rebuild_for(&self.logscroll, ctx.focus.take()));
-                    ctx.focus().enable_log();
-
-                    let mut r = match &event {
-                        ct_event!(resized) => Control::Changed,
-                        ct_event!(key press CONTROL-'q') => Control::Quit,
-                        _ => Control::Continue,
-                    };
-
-                    r = r.or_else(|| {
-                        if self.error_dlg.active() {
-                            self.error_dlg.handle(event, Dialog).into()
-                        } else {
-                            Control::Continue
-                        }
-                    });
-
-                    let f = ctx.focus_mut().handle(event, Regular);
-                    ctx.queue(f);
-
-                    r
+            let mut r = match &event {
+                ct_event!(resized) => Control::Changed,
+                ct_event!(key press CONTROL-'q') => {
+                    state.logscroll.t_cancel.cancel();
+                    Control::Quit
                 }
-                LogScrollEvent::Message(s) => {
-                    self.error_dlg.append(s.as_str());
-                    Control::Changed
-                }
-                LogScrollEvent::Status(n, s) => {
-                    self.status.status(*n, s);
-                    Control::Changed
+                ct_event!(keycode press F(1)) => {
+                    Control::Event(LogScrollEvent::Message(HELP_TEXT.to_string()))
                 }
                 _ => Control::Continue,
             };
 
-            r = r.or_else_try(|| self.logscroll.event(event, ctx))?;
+            r = r.or_else(|| {
+                if state.error_dlg.active() {
+                    state.error_dlg.handle(event, Dialog).into()
+                } else {
+                    Control::Continue
+                }
+            });
 
-            let el = t0.elapsed()?;
-            self.status.status(3, format!("E {:.0?}", el).to_string());
+            let f = ctx.focus_mut().handle(event, Regular);
+            ctx.queue(f);
 
-            Ok(r)
+            r
         }
-
-        fn error(
-            &self,
-            event: Error,
-            _ctx: &mut AppContext<'_>,
-        ) -> Result<Control<LogScrollEvent>, Error> {
-            debug!("ERROR {:#?}", event);
-            // self.error_dlg.append(format!("{:?}", &*event).as_str());
-            Ok(Control::Changed)
+        LogScrollEvent::Message(s) => {
+            state.error_dlg.append(s.as_str());
+            Control::Changed
         }
-    }
+        LogScrollEvent::Status(n, s) => {
+            state.status.status(*n, s);
+            Control::Changed
+        }
+        LogScrollEvent::StoreCfg => {
+            store_config(&ctx.cfg)?;
+            Control::Continue
+        }
+        LogScrollEvent::Cursor => {
+            let cursor = format!(
+                "{}:{}",
+                state.logscroll.logtext.cursor().x,
+                state.logscroll.logtext.cursor().y
+            );
+            state.status.status(1, cursor);
+            Control::Changed
+        }
+        _ => Control::Continue,
+    };
+
+    r = r.or_else_try(|| logscroll::event(event, &mut state.logscroll, ctx))?;
+
+    let el = t0.elapsed()?;
+    state.status.status(3, format!("E {:.0?}", el).to_string());
+
+    Ok(r)
 }
 
+pub fn error(
+    event: Error,
+    state: &mut Scenery,
+    _ctx: &mut GlobalState,
+) -> Result<Control<LogScrollEvent>, Error> {
+    debug!("ERROR {:#?}", event);
+    state.error_dlg.append(format!("{:?}", &*event).as_str());
+    Ok(Control::Changed)
+}
+
+// main application code
 mod logscroll {
-    use crate::event::LogScrollEvent;
-    use crate::{AppContext, GlobalState, RenderContext};
+    use crate::{GlobalState, LogScrollEvent};
     use anyhow::Error;
+    use crossbeam::channel::Sender;
     use log::debug;
-    use rat_focus::FocusBuilder;
-    use rat_salsa::timer::{TimerDef, TimerHandle};
-    use rat_salsa::{AppState, AppWidget, Control};
-    use rat_theme2::DarkTheme;
+    use rat_focus::{FocusBuilder, FocusFlag};
+    use rat_salsa2::tasks::{Cancel, Liveness};
+    use rat_salsa2::timer::{TimerDef, TimerHandle};
+    use rat_salsa2::{Control, SalsaContext};
+    use rat_theme2::{dark_themes, DarkTheme, Palette};
     use rat_widget::caption::{Caption, CaptionState, HotkeyPolicy};
     use rat_widget::event::{
-        ct_event, try_flow, HandleEvent, ReadOnly, Regular, TableOutcome, TextOutcome,
+        ct_event, try_flow, HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome,
     };
     use rat_widget::focus::{HasFocus, Navigation};
     use rat_widget::paired::{PairSplit, Paired, PairedState};
@@ -237,128 +355,173 @@ mod logscroll {
     use rat_widget::splitter::{Split, SplitState};
     use rat_widget::table::selection::RowSelection;
     use rat_widget::table::{Table, TableContext, TableData, TableState};
-    use rat_widget::text::{impl_screen_cursor, TextPosition};
+    use rat_widget::text::{impl_screen_cursor, upos_type, TextPosition};
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
+    use ratatui::style::Style;
     use ratatui::text::{Line, Span};
     use ratatui::widgets::{StatefulWidget, Widget};
     use regex_cursor::engines::dfa::{find_iter, Regex};
     use regex_cursor::{Input, RopeyCursor};
-    use ropey::RopeBuilder;
+    use ropey::{Rope, RopeBuilder};
+    use std::cmp::min;
     use std::fs::File;
     use std::io::{Read, Seek, SeekFrom};
     use std::ops::Range;
     use std::path::Path;
+    use std::thread::sleep;
     use std::time::Duration;
+    use unicode_segmentation::UnicodeSegmentation;
 
     #[derive(Debug)]
-    pub(crate) struct LogScroll;
+    pub struct LogScroll {
+        pub split: SplitState,
+        pub start_line: upos_type,
+        pub logtext: TextAreaState,
+        pub find_label: CaptionState,
+        pub find: TextInputState,
 
-    #[derive(Debug)]
-    pub struct LogScrollState {
-        split: SplitState,
-        logtext: TextAreaState,
-        find_label: CaptionState,
-        find: TextInputState,
-        find_matches: Vec<Range<usize>>,
-        find_table: TableState<RowSelection>,
-        pollution: TimerHandle,
+        pub logtext_id: usize,
+        pub find_matches: Vec<(usize, usize, usize)>,
+        pub select_match: (usize, usize, usize),
+        pub find_table: TableState<RowSelection>,
+
+        pub t_cancel: Cancel,
+        pub t_live: Liveness,
+
+        pub pollution: TimerHandle,
     }
 
-    impl Default for LogScrollState {
+    impl Default for LogScroll {
         fn default() -> Self {
-            Self {
+            let mut zelf = Self {
                 split: Default::default(),
+                start_line: 0,
                 logtext: Default::default(),
                 find_label: Default::default(),
                 find: Default::default(),
+                logtext_id: 0,
                 find_matches: Default::default(),
+                select_match: (0, 0, 0),
                 find_table: Default::default(),
+                t_cancel: Default::default(),
+                t_live: Default::default(),
                 pollution: Default::default(),
-            }
+            };
+            zelf.find_table.set_scroll_selection(true);
+            zelf
         }
     }
 
-    impl AppWidget<GlobalState, LogScrollEvent, Error> for LogScroll {
-        type State = LogScrollState;
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut LogScroll,
+        ctx: &mut GlobalState,
+    ) -> Result<(), Error> {
+        let l0 = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Fill(1), //
+            Constraint::Length(1),
+        ])
+        .split(area);
 
-        fn render(
-            &self,
-            area: Rect,
-            buf: &mut Buffer,
-            state: &mut Self::State,
-            ctx: &mut RenderContext<'_>,
-        ) -> Result<(), Error> {
-            let l0 = Layout::vertical([
-                Constraint::Length(1),
+        let (split, ls) = Split::vertical()
+            .styles(ctx.theme.split_style())
+            .constraints([
                 Constraint::Fill(1), //
-                Constraint::Length(1),
+                Constraint::Length(ctx.cfg.split_pos),
             ])
-            .split(area);
+            .into_widget_layout(l0[1], &mut state.split);
 
-            let (split, ls) = Split::vertical()
-                .styles(ctx.g.theme.split_style())
-                .constraints([
-                    Constraint::Fill(1), //
-                    Constraint::Length(25),
-                ])
-                .into_widget_layout(l0[1], &mut state.split);
+        // left side
 
-            // left side
+        TextArea::new()
+            .vscroll(Scroll::new())
+            .hscroll(Scroll::new())
+            .styles(ctx.theme.textarea_style())
+            .text_style_idx(0, ctx.theme.orange(0))
+            .text_style_idx(1, ctx.theme.yellow(0))
+            .text_style_idx(2, ctx.theme.green(0))
+            .text_style_idx(3, ctx.theme.bluegreen(0))
+            .text_style_idx(4, ctx.theme.cyan(0))
+            .text_style_idx(5, ctx.theme.blue(0))
+            .text_style_idx(6, ctx.theme.deepblue(0))
+            .text_style_idx(7, ctx.theme.purple(0))
+            .text_style_idx(8, ctx.theme.magenta(0))
+            .text_style_idx(9, ctx.theme.redpink(0))
+            .text_style_idx(99, ctx.theme.secondary(2))
+            .text_style_idx(101, ctx.theme.limegreen(2))
+            .render(ls[0], buf, &mut state.logtext);
 
-            TextArea::new()
-                .vscroll(Scroll::new())
-                .hscroll(Scroll::new())
-                .styles(ctx.g.theme.textarea_style())
-                .text_style_idx(99, ctx.g.theme.secondary(2))
-                .text_style_idx(100, ctx.g.theme.limegreen(2))
-                .render(ls[0], buf, &mut state.logtext);
+        // right side
 
-            // right side
+        let l2 = Layout::vertical([
+            Constraint::Length(1), //
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ])
+        .split(ls[1]);
 
-            let l2 = Layout::vertical([
-                Constraint::Length(1), //
-                Constraint::Fill(1),
-            ])
-            .split(ls[1]);
+        Paired::new(
+            Caption::parse("_Find| F3 ")
+                .styles(ctx.theme.caption_style())
+                .hotkey_policy(HotkeyPolicy::Always)
+                .spacing(1)
+                .link(&state.find.focus()),
+            TextInput::new().styles(ctx.theme.text_style()),
+        )
+        .split(PairSplit::Fix1(8))
+        .render(
+            l2[0],
+            buf,
+            &mut PairedState::new(&mut state.find_label, &mut state.find),
+        );
 
-            Paired::new(
-                Caption::parse("_Find| F3 ")
-                    .styles(ctx.g.theme.caption_style())
-                    .hotkey_policy(HotkeyPolicy::Always)
-                    .spacing(1)
-                    .link(&state.find.focus()),
-                TextInput::new().styles(ctx.g.theme.text_style()),
-            )
-            .split(PairSplit::Fix1(8))
-            .render(
-                l2[0],
-                buf,
-                &mut PairedState::new(&mut state.find_label, &mut state.find),
-            );
+        Table::new()
+            .vscroll(Scroll::new())
+            .styles(ctx.theme.table_style())
+            .data(FindData {
+                theme: &ctx.theme,
+                text: &state.logtext,
+                start_line: state.start_line,
+                data: &state.find_matches,
+            })
+            .render(l2[1], buf, &mut state.find_table);
 
-            Table::new()
-                .vscroll(Scroll::new())
-                .styles(ctx.g.theme.table_style())
-                .data(FindData {
-                    theme: &ctx.g.theme,
-                    text: &state.logtext,
-                    data: &state.find_matches,
-                })
-                .render(l2[1], buf, &mut state.find_table);
+        Line::from(format!("{} matches", state.find_matches.len()))
+            .style(ctx.theme.red(Palette::DARK_3))
+            .render(l2[2], buf);
 
-            split.render(l0[1], buf, &mut state.split);
+        split.render(l0[1], buf, &mut state.split);
 
-            Ok(())
-        }
+        Ok(())
     }
 
     struct FindData<'a> {
         theme: &'a DarkTheme,
         text: &'a TextAreaState,
-        data: &'a [Range<usize>],
+        start_line: upos_type,
+        data: &'a [(usize, usize, usize)],
+    }
+
+    impl<'a> FindData<'a> {
+        fn color(&self, n: usize) -> Style {
+            match n {
+                0 => self.theme.orange(0),
+                1 => self.theme.yellow(0),
+                2 => self.theme.green(0),
+                3 => self.theme.bluegreen(0),
+                4 => self.theme.cyan(0),
+                5 => self.theme.blue(0),
+                6 => self.theme.deepblue(0),
+                7 => self.theme.purple(0),
+                8 => self.theme.magenta(0),
+                _ => self.theme.redpink(0),
+            }
+        }
     }
 
     impl<'a> TableData<'a> for FindData<'a> {
@@ -384,25 +547,57 @@ mod logscroll {
         ) {
             let data = self.data[row].clone();
 
-            let line = self.text.byte_pos(data.start);
+            let line = self.text.byte_pos(data.0);
 
             let line_byte = self.text.byte_at(TextPosition::new(0, line.y));
-            let data_start = data.start - line_byte.start;
-            let data_end = data.end - line_byte.start;
+            let data_start = data.0 - line_byte.start;
+            let data_end = data.1 - line_byte.start;
 
             let line_text = self.text.line_at(line.y);
             let line_prefix = &line_text[..data_start];
             let line_match = &line_text[data_start..data_end];
             let line_suffix = &line_text[data_end..];
 
-            let pos_txt = format!("\u{2316} {}:{}", line.x, line.y);
+            let mut prefix_len = line_prefix.graphemes(true).count();
+            let match_len = line_match.graphemes(true).count();
+            let mut suffix_len = line_suffix.graphemes(true).count();
+            let mut area_width = area.width as usize;
+
+            if prefix_len + match_len + suffix_len > area_width {
+                area_width = area_width.saturating_sub(match_len);
+
+                if suffix_len > area_width / 2 && prefix_len > area_width / 2 {
+                    prefix_len = area_width / 2;
+                    suffix_len = area_width / 2;
+                } else if prefix_len > area_width / 2 {
+                    prefix_len = area_width - suffix_len;
+                } else if suffix_len > area_width / 2 {
+                    suffix_len = area_width - prefix_len;
+                } else {
+                    // nice
+                }
+            }
+
+            let line_prefix = line_prefix
+                .graphemes(true)
+                .rev()
+                .take(prefix_len)
+                .collect::<String>();
+            let line_prefix = line_prefix.graphemes(true).rev().collect::<String>();
+
+            let line_suffix = line_suffix
+                .graphemes(true)
+                .take(suffix_len)
+                .collect::<String>();
+
+            let pos_txt = format!("\u{2316} {}:{}", line.x, self.start_line + line.y);
             let l0 = Line::from_iter([
                 Span::from(pos_txt), //
             ])
             .style(self.theme.deepblue(7));
             let l1 = Line::from_iter([
                 Span::from(line_prefix),
-                Span::from(line_match).style(self.theme.secondary(1)),
+                Span::from(line_match).style(self.color(data.2)),
                 Span::from(line_suffix),
             ]);
 
@@ -411,7 +606,7 @@ mod logscroll {
         }
     }
 
-    impl HasFocus for LogScrollState {
+    impl HasFocus for LogScroll {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget_navigate(&self.logtext, Navigation::Regular);
             builder.widget(&self.split);
@@ -419,7 +614,7 @@ mod logscroll {
             builder.widget(&self.find_table);
         }
 
-        fn focus(&self) -> ::rat_focus::FocusFlag {
+        fn focus(&self) -> FocusFlag {
             unimplemented!("not defined")
         }
 
@@ -428,270 +623,361 @@ mod logscroll {
         }
     }
 
-    impl_screen_cursor!(logtext, find for LogScrollState);
+    impl_screen_cursor!(logtext, find for LogScroll);
 
-    impl LogScrollState {
-        fn load_file(&mut self, path: &Path) -> Result<(), Error> {
-            let mut f = File::open(path)?;
+    fn loop_file(
+        path: &Path,
+        can: Cancel,
+        queue: &Sender<Result<Control<LogScrollEvent>, Error>>,
+    ) -> Result<Control<LogScrollEvent>, Error> {
+        // startup load
+        let mut buf_len = load_file(path, &can, queue)?;
 
-            let mut buf = String::with_capacity(4096);
-            let mut txt = RopeBuilder::new();
-            loop {
-                match f.read_to_string(&mut buf) {
-                    Ok(0) => {
-                        break;
-                    }
-                    Ok(_) => {
-                        txt.append(&buf);
-                    }
-                    Err(e) => {
-                        return Err(e.into());
-                    }
-                }
-            }
-            self.logtext.set_rope(txt.finish());
-            self.logtext
-                .set_cursor((0, self.logtext.len_lines()), false);
-            self.logtext.scroll_cursor_to_visible();
-
-            Ok(())
+        if can.is_canceled() {
+            return Ok(Control::Continue);
         }
 
-        fn update_file(&mut self, path: &Path) -> Result<bool, Error> {
-            let rope = self.logtext.rope().clone();
-            let old_len_bytes = rope.len_bytes();
-
-            if path.metadata()?.len() == old_len_bytes as u64 {
-                return Ok(false);
+        // loop and check
+        loop {
+            update_file(path, &can, queue, &mut buf_len)?;
+            if can.is_canceled() {
+                break;
             }
-
-            let mut f = File::open(path)?;
-            f.seek(SeekFrom::Start(old_len_bytes as u64))?;
-
-            let cursor_at_end = self.logtext.cursor().y == self.logtext.len_lines()
-                || self.logtext.cursor().y == self.logtext.len_lines() - 1;
-
-            let mut buf = String::with_capacity(4096);
-            loop {
-                match f.read_to_string(&mut buf) {
-                    Ok(0) => {
-                        break;
-                    }
-                    Ok(_) => {
-                        let pos = TextPosition::new(0, self.logtext.len_lines());
-                        self.logtext.value.insert_str(pos, &buf).expect("fine");
-                    }
-                    Err(e) => {
-                        return Err(e.into());
-                    }
-                }
-            }
-
-            if cursor_at_end {
-                self.logtext
-                    .value
-                    .set_cursor(TextPosition::new(0, self.logtext.len_lines()), false);
-                self.logtext.set_vertical_offset(
-                    (self.logtext.len_lines() as usize)
-                        .saturating_sub(self.logtext.vertical_page()),
-                );
-            }
-
-            // update find
-            let find = self.find.text();
-            if !find.is_empty() {
-                if let Ok(re) = Regex::new(find) {
-                    let new_len_bytes = self.logtext.rope().len_bytes();
-
-                    let cursor = RopeyCursor::new(
-                        self.logtext.rope().byte_slice(old_len_bytes..new_len_bytes),
-                    );
-                    let input = Input::new(cursor);
-
-                    for m in find_iter(&re, input) {
-                        self.find_matches
-                            .push(old_len_bytes + m.start()..old_len_bytes + m.end());
-                    }
-                    for m in &self.find_matches {
-                        self.logtext.add_style(m.clone(), 99);
-                    }
-                }
-            }
-
-            Ok(true)
+            sleep(Duration::from_millis(500));
         }
 
-        fn run_search(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            let text = self.find.text();
+        Ok(Control::Continue)
+    }
 
-            if text.is_empty() {
-                ctx.queue_event(LogScrollEvent::Status(0, String::default()));
-                self.find.set_invalid(false);
-                self.find_matches.clear();
-                self.logtext.set_styles(Vec::default());
-                self.find_table.clear_offset();
-                self.find_table.clear_selection();
-                return Ok(());
+    fn update_file(
+        path: &Path,
+        can: &Cancel,
+        queue: &Sender<Result<Control<LogScrollEvent>, Error>>,
+        buf_len: &mut u64,
+    ) -> Result<(), Error> {
+        let new_len = path.metadata()?.len();
+        if new_len < *buf_len {
+            *buf_len = load_file(path, &can, queue)?;
+        } else if new_len > *buf_len {
+            let mut f = File::open(path)?;
+            f.seek(SeekFrom::Start(*buf_len))?;
+
+            let mut buf = String::new();
+            *buf_len += f.read_to_string(&mut buf)? as u64;
+
+            queue.send(Ok(Control::Event(LogScrollEvent::Append(buf))))?;
+        }
+        Ok(())
+    }
+
+    fn load_file(
+        path: &Path,
+        can: &Cancel,
+        queue: &Sender<Result<Control<LogScrollEvent>, Error>>,
+    ) -> Result<u64, Error> {
+        let mut f = File::open(path)?;
+        let mut buf = String::with_capacity(4096);
+        let mut txt = RopeBuilder::new();
+        loop {
+            match f.read_to_string(&mut buf) {
+                Ok(0) => {
+                    break;
+                }
+                Ok(_) => {
+                    txt.append(&buf);
+                }
+                Err(e) => {
+                    return Err(e.into());
+                }
             }
 
-            match Regex::new(text) {
-                Ok(re) => {
-                    if self.find.invalid() {
-                        ctx.queue_event(LogScrollEvent::Status(0, String::default()));
-                        self.find.set_invalid(false);
-                    }
-
-                    let cursor = RopeyCursor::new(self.logtext.rope().byte_slice(..));
-                    let input = Input::new(cursor);
-                    let mut matches = Vec::new();
-                    self.find_matches.clear();
-                    self.find_table.clear_offset();
-                    self.find_table.clear_selection();
-                    for m in find_iter(&re, input) {
-                        self.find_matches.push(m.range());
-                        matches.push((m.range(), 99));
-                    }
-                    self.logtext.set_styles(matches);
-                }
-                Err(err) => {
-                    ctx.queue_event(LogScrollEvent::Status(0, format!("{:?}", err)));
-                    self.find.set_invalid(true);
-                    self.find_matches.clear();
-                    self.find_table.clear_offset();
-                    self.find_table.clear_selection();
-                }
+            if can.is_canceled() {
+                return Ok(0);
             }
+        }
+        let txt = txt.finish();
 
-            Ok(())
+        let buf_len = txt.len_bytes();
+
+        queue.send(Ok(Control::Event(LogScrollEvent::Load(txt))))?;
+
+        Ok(buf_len as u64)
+    }
+
+    fn append_log(state: &mut LogScroll, txt: &str) -> Result<Range<usize>, Error> {
+        let old_len_bytes = state.logtext.rope().len_bytes();
+        let cursor_at_end = state.logtext.cursor().y == state.logtext.len_lines()
+            || state.logtext.cursor().y == state.logtext.len_lines() - 1;
+
+        let pos = TextPosition::new(0, state.logtext.len_lines());
+        state.logtext.value.insert_str(pos, txt).expect("fine");
+
+        if cursor_at_end {
+            state
+                .logtext
+                .value
+                .set_cursor(TextPosition::new(0, state.logtext.len_lines()), false);
+            state.logtext.set_vertical_offset(
+                (state.logtext.len_lines() as usize).saturating_sub(state.logtext.vertical_page()),
+            );
+        }
+
+        let new_len_bytes = state.logtext.rope().len_bytes();
+
+        Ok(old_len_bytes..new_len_bytes)
+    }
+
+    fn scan_regex_file(
+        log_id: usize,
+        id: usize,
+        find: String,
+        rope: Rope,
+        slice: Range<usize>,
+        can: Cancel,
+        queue: &Sender<Result<Control<LogScrollEvent>, Error>>,
+    ) -> Result<Control<LogScrollEvent>, Error> {
+        // update find
+        if !find.is_empty() {
+            if let Ok(re) = Regex::new(&find) {
+                let cursor = RopeyCursor::new(rope.byte_slice(slice.clone()));
+                let input = Input::new(cursor);
+
+                let mut find_matches = Vec::new();
+                for m in find_iter(&re, input) {
+                    find_matches.push(slice.start + m.start()..slice.start + m.end());
+
+                    if find_matches.len() >= 10000 {
+                        queue.send(Ok(Control::Event(LogScrollEvent::Found(
+                            log_id,
+                            id,
+                            find_matches,
+                        ))))?;
+                        find_matches = Vec::new();
+                    }
+
+                    if can.is_canceled() {
+                        break;
+                    }
+                }
+
+                Ok(Control::Event(LogScrollEvent::Found(
+                    log_id,
+                    id,
+                    find_matches,
+                )))
+            } else {
+                Ok(Control::Continue)
+            }
+        } else {
+            Ok(Control::Continue)
         }
     }
 
-    impl AppState<GlobalState, LogScrollEvent, Error> for LogScrollState {
-        fn init(
-            &mut self,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, LogScrollEvent, Error>,
-        ) -> Result<(), Error> {
-            ctx.focus().first();
-
-            self.load_file(&ctx.g.current)?;
-
-            ctx.add_timer(
-                TimerDef::new()
-                    .repeat_forever()
-                    .timer(Duration::from_millis(500)),
-            );
-
-            self.pollution = ctx.add_timer(
-                TimerDef::new()
-                    .repeat_forever()
-                    .timer(Duration::from_millis(1000)),
-            );
-
-            Ok(())
+    fn do_search(state: &mut LogScroll, slice: Range<usize>, ctx: &mut GlobalState) {
+        let text = state.find.text();
+        let log_id = state.logtext_id;
+        for (id, regex) in text.split('|').enumerate() {
+            // TODO: |
+            if !regex.is_empty() {
+                let id = min(id, 9);
+                let rope = state.logtext.rope().clone();
+                let slice = slice.clone();
+                let regex = regex.to_string();
+                _ = ctx.spawn_ext(move |can, chan| {
+                    scan_regex_file(log_id, id, regex, rope, slice, can, chan)
+                });
+            }
         }
+    }
 
-        #[allow(unused_variables)]
-        fn event(
-            &mut self,
-            event: &LogScrollEvent,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<LogScrollEvent>, Error> {
-            let r = match event {
-                LogScrollEvent::Event(event) => {
-                    try_flow!(match event {
-                        ct_event!(keycode press F(2)) => {
-                            if !self.split.is_focused() {
-                                ctx.focus().focus(&self.split);
-                            } else {
-                                ctx.focus().next();
-                            }
-                            Control::Changed
-                        }
-                        ct_event!(key press ALT-'f') | ct_event!(keycode press F(3)) => {
-                            if self.split.is_hidden(1) {
-                                self.split.show_split(1);
-                                ctx.focus().focus(&self.find);
-                            } else {
-                                self.split.hide_split(1);
-                                ctx.focus().focus(&self.logtext);
-                            }
-                            Control::Changed
-                        }
-                        _ => Control::Continue,
-                    });
+    pub fn init(state: &mut LogScroll, ctx: &mut GlobalState) -> Result<(), Error> {
+        ctx.focus().first();
 
-                    try_flow!(self.split.handle(event, Regular));
-                    try_flow!(self.logtext.handle(event, ReadOnly));
-                    try_flow!(self.find_label.handle(event, ctx.focus()));
-                    try_flow!(match self.find.handle(event, Regular) {
-                        TextOutcome::TextChanged => {
-                            self.run_search(ctx)?;
-                            Control::Changed
-                        }
-                        r => r.into(),
-                    });
-                    try_flow!(match self.find_table.handle(event, Regular) {
-                        TableOutcome::Selected => {
-                            if let Some(selected) = self.find_table.selected() {
-                                let range = self.find_matches[selected].clone();
-                                let text_range = self.logtext.byte_range(range.clone());
-                                self.logtext.set_cursor(text_range.start, false);
+        let file_path = ctx.file_path.clone();
+        (state.t_cancel, state.t_live) = ctx.spawn_ext(move |can, chan| {
+            loop_file(&file_path, can, chan) //
+        })?;
 
-                                let old_style = self.logtext.styles().find(|(_, s)| *s == 100);
-                                if let Some((range, style)) = old_style {
-                                    self.logtext.remove_style(range, style);
-                                }
-                                self.logtext.add_style(range, 100);
-                            }
-                            Control::Changed
-                        }
-                        r => r.into(),
-                    });
+        state.pollution = ctx.add_timer(
+            TimerDef::new()
+                .repeat_forever()
+                .timer(Duration::from_millis(1000)),
+        );
 
-                    Control::Continue
-                }
-                LogScrollEvent::TimeOut(t) if t.handle == self.pollution => {
-                    debug!("log-pollution {:?}", t);
-                    Control::Continue
-                }
-                LogScrollEvent::TimeOut(t) if t.handle != self.pollution => {
-                    if self.update_file(&ctx.g.current)? {
-                        ctx.queue(Control::Event(LogScrollEvent::Status(
-                            1,
-                            format!("{}l", self.logtext.len_lines()),
-                        )));
+        Ok(())
+    }
+
+    pub fn event(
+        event: &LogScrollEvent,
+        state: &mut LogScroll,
+        ctx: &mut GlobalState,
+    ) -> Result<Control<LogScrollEvent>, Error> {
+        let r = match event {
+            LogScrollEvent::Event(event) => {
+                try_flow!(match event {
+                    ct_event!(keycode press F(2)) => {
+                        if !state.split.is_focused() {
+                            ctx.focus().focus(&state.split);
+                        } else {
+                            ctx.focus().next();
+                        }
                         Control::Changed
-                    } else {
-                        Control::Continue
                     }
+                    ct_event!(key press ALT-'f') | ct_event!(keycode press F(3)) => {
+                        if state.find.is_focused() {
+                            if state.split.is_hidden(1) {
+                                state.split.show_split(1);
+                                ctx.focus().focus(&state.find);
+                            } else {
+                                state.split.hide_split(1);
+                                ctx.focus().focus(&state.logtext);
+                            }
+                        } else {
+                            state.split.show_split(1);
+                            ctx.focus().focus(&state.find);
+                        }
+                        Control::Changed
+                    }
+                    ct_event!(keycode press F(4)) => {
+                        state
+                            .logtext
+                            .set_cursor((0, state.logtext.len_lines()), false);
+                        Control::Changed
+                    }
+                    ct_event!(keycode press F(5)) => {
+                        state.start_line += state.logtext.len_lines().saturating_sub(1);
+                        state.logtext.clear();
+                        state.select_match = (0, 0, 0);
+                        state.find_matches.clear();
+                        state.find_table.clear_selection();
+                        state.find_table.clear_offset();
+                        Control::Changed
+                    }
+                    ct_event!(keycode press F(8)) => {
+                        let themes = dark_themes();
+                        let pos = themes
+                            .iter()
+                            .position(|v| v.name() == ctx.theme.name())
+                            .unwrap_or(0);
+                        let pos = (pos + 1) % themes.len();
+                        ctx.theme = themes[pos].clone();
+                        ctx.queue_event(LogScrollEvent::Status(0, ctx.theme.name().into()));
+                        Control::Changed
+                    }
+
+                    _ => Control::Continue,
+                });
+
+                try_flow!(match state.split.handle(event, Regular) {
+                    Outcome::Changed => {
+                        ctx.cfg.split_pos = state.split.area_len(1);
+                        ctx.queue_event(LogScrollEvent::StoreCfg);
+                        Control::Changed
+                    }
+                    r => r.into(),
+                });
+                try_flow!(match state.logtext.handle(event, ReadOnly) {
+                    TextOutcome::Changed | TextOutcome::TextChanged => {
+                        Control::Event(LogScrollEvent::Cursor)
+                    }
+                    r => r.into(),
+                });
+                try_flow!(state.find_label.handle(event, &*ctx.focus()));
+                try_flow!(match state.find.handle(event, Regular) {
+                    TextOutcome::TextChanged => {
+                        state.find.set_invalid(false);
+                        state.find_matches.clear();
+                        state.find_table.clear_offset();
+                        state.find_table.select(None);
+                        state.logtext_id += 1;
+                        state.logtext.set_styles(Vec::default());
+
+                        do_search(state, 0..state.logtext.rope().len_bytes(), ctx);
+                        Control::Changed
+                    }
+                    r => r.into(),
+                });
+                try_flow!(match state.find_table.handle(event, Regular) {
+                    TableOutcome::Selected => {
+                        if let Some(selected) = state.find_table.selected() {
+                            let range = state.find_matches[selected].clone();
+
+                            // change highlight
+                            state.logtext.remove_style(
+                                state.select_match.0..state.select_match.1,
+                                state.select_match.2,
+                            );
+                            state.logtext.add_style(range.0..range.1, 101);
+                            state.select_match = (range.0, range.1, 101);
+
+                            // scroll to find
+                            let text_range = state.logtext.byte_range(range.0..range.1);
+                            state.logtext.set_cursor(text_range.start, false);
+
+                            ctx.queue_event(LogScrollEvent::Cursor);
+                        }
+                        Control::Changed
+                    }
+                    r => r.into(),
+                });
+
+                Control::Continue
+            }
+            LogScrollEvent::TimeOut(t) if t.handle == state.pollution => {
+                debug!("log-pollution {:?}", t);
+                Control::Continue
+            }
+            LogScrollEvent::Load(r) => {
+                ctx.queue_event(LogScrollEvent::Status(0, String::default()));
+
+                state.find.set_invalid(false);
+                state.find_matches.clear();
+                state.find_table.clear_offset();
+                state.find_table.select(None);
+                state.logtext_id += 1;
+
+                state.start_line = 0;
+                state.logtext.set_rope(r.clone());
+                state.logtext.set_styles(Vec::default());
+                state
+                    .logtext
+                    .set_cursor((0, state.logtext.len_lines()), false);
+                state.logtext.scroll_cursor_to_visible();
+
+                do_search(state, 0..r.len_bytes(), ctx);
+
+                Control::Changed
+            }
+            LogScrollEvent::Append(s) => {
+                ctx.queue_event(LogScrollEvent::Cursor);
+
+                let r = append_log(state, &s)?;
+                do_search(state, r, ctx);
+
+                Control::Changed
+            }
+            LogScrollEvent::Found(log_id, id, found) => {
+                if state.logtext_id == *log_id {
+                    for r in found {
+                        match state.find_matches.binary_search(&(r.start, r.end, *id)) {
+                            Ok(i) => {
+                                state.find_matches[i] = (r.start, r.end, *id);
+                            }
+                            Err(i) => {
+                                state.find_matches.insert(i, (r.start, r.end, *id));
+                            }
+                        };
+                        state.logtext.add_style(r.clone(), *id);
+                    }
+                    Control::Changed
+                } else {
+                    Control::Continue
                 }
-                _ => Control::Continue,
-            };
+            }
+            _ => Control::Continue,
+        };
 
-            // TODO
-
-            Ok(r)
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct LogScrollConfig {}
-
-#[derive(Debug)]
-pub struct GlobalState {
-    pub cfg: LogScrollConfig,
-    pub theme: DarkTheme,
-    pub current: PathBuf,
-}
-
-impl GlobalState {
-    pub fn new(cfg: LogScrollConfig, theme: DarkTheme) -> Self {
-        Self {
-            cfg,
-            theme,
-            current: Default::default(),
-        }
+        Ok(r)
     }
 }
 
@@ -721,3 +1007,57 @@ fn setup_logging() -> Result<(), Error> {
     }
     Ok(())
 }
+
+#[derive(Debug, Default, Clone)]
+struct CliClipboard {
+    clip: RefCell<String>,
+}
+
+impl Clipboard for CliClipboard {
+    fn get_string(&self) -> Result<String, ClipboardError> {
+        match cli_clipboard::get_contents() {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                warn!("{:?}", e);
+                Ok(self.clip.borrow().clone())
+            }
+        }
+    }
+
+    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+        let mut clip = self.clip.borrow_mut();
+        *clip = s.to_string();
+
+        match cli_clipboard::set_contents(s.to_string()) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                warn!("{:?}", e);
+                Err(ClipboardError)
+            }
+        }
+    }
+}
+
+static HELP_TEXT: &str = r#"
+
+### HELP ###
+
+F1      show this
+F2      change split position
+F3      jump to find / toggle find
+F4      jump to end of log
+F5      truncate log
+F8      next theme
+Ctrl+Q  quit
+
+### Navigation ###
+
+Tab/
+Shift-Tab   standard navigation
+
+### Log ###
+Ctrl+End    jump to end of log and stick there
+...         standard navigation with arrow-keys etc
+Ctrl+C      copy to clipboard
+
+"#;

@@ -1,7 +1,7 @@
 [package]
 name = "rat-markdown"
-version = "0.5.2"
-edition = "2021"
+version = "0.5.3"
+edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "markdown support for rat-text"
 license = "MIT/Apache-2.0"

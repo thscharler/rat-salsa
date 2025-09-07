@@ -1,10 +1,11 @@
 //! Thread pool.
 
+use crate::tasks::{Cancel, Liveness};
 use crate::Control;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
-use log::warn;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use log::error;
+use std::fmt::{Debug, Formatter};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::thread::JoinHandle;
 use std::{mem, thread};
 
@@ -14,37 +15,29 @@ type BoxTask<Event, Error> = Box<
         + Send,
 >;
 
-/// Cancel background tasks.
-#[derive(Debug, Default, Clone)]
-pub struct Cancel(Arc<AtomicBool>);
-
-impl Cancel {
-    pub fn new() -> Self {
-        Self(Arc::new(AtomicBool::new(false)))
-    }
-
-    pub fn is_canceled(&self) -> bool {
-        self.0.load(Ordering::Acquire)
-    }
-
-    pub fn cancel(&self) {
-        self.0.store(true, Ordering::Release);
-    }
-}
-
 /// Basic thread-pool.
-///
-///
-///
-#[derive(Debug)]
 pub(crate) struct ThreadPool<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
-    send: Sender<(Cancel, BoxTask<Event, Error>)>,
+    send: Sender<(Cancel, Liveness, BoxTask<Event, Error>)>,
     recv: Receiver<Result<Control<Event>, Error>>,
     handles: Vec<JoinHandle<()>>,
+}
+
+impl<Event, Error> Debug for ThreadPool<Event, Error>
+where
+    Event: 'static,
+    Error: 'static,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ThreadPool")
+            .field("send", &self.send)
+            .field("recv", &self.recv)
+            .field("handles", &self.handles)
+            .finish()
+    }
 }
 
 impl<Event, Error> ThreadPool<Event, Error>
@@ -54,7 +47,7 @@ where
 {
     /// New thread-pool with the given task executor.
     pub(crate) fn new(n_worker: usize) -> Self {
-        let (send, t_recv) = unbounded::<(Cancel, BoxTask<Event, Error>)>();
+        let (send, t_recv) = unbounded::<(Cancel, Liveness, BoxTask<Event, Error>)>();
         let (t_send, recv) = unbounded::<Result<Control<Event>, Error>>();
 
         let mut handles = Vec::new();
@@ -68,15 +61,25 @@ where
 
                 'l: loop {
                     match t_recv.recv() {
-                        Ok((cancel, task)) => {
-                            let flow = task(cancel, &t_send);
+                        Ok((cancel, liveness, task)) => {
+                            liveness.born();
+                            let flow = match catch_unwind(AssertUnwindSafe(|| {
+                                task(cancel, &t_send) //
+                            })) {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    error!("{:?}", e);
+                                    continue;
+                                }
+                            };
+                            liveness.dead();
                             if let Err(err) = t_send.send(flow) {
-                                warn!("{:?}", err);
+                                error!("{:?}", err);
                                 break 'l;
                             }
                         }
                         Err(err) => {
-                            warn!("{:?}", err);
+                            error!("{:?}", err);
                             break 'l;
                         }
                     }
@@ -102,26 +105,20 @@ where
     ///
     /// If you need more, create an extra channel for communication to the background task.
     #[inline]
-    pub(crate) fn spawn(&self, task: BoxTask<Event, Error>) -> Result<Cancel, SendError<()>> {
+    pub(crate) fn spawn(
+        &self,
+        task: BoxTask<Event, Error>,
+    ) -> Result<(Cancel, Liveness), SendError<()>> {
         if self.handles.is_empty() {
             return Err(SendError(()));
         }
 
         let cancel = Cancel::new();
-        match self.send.send((cancel.clone(), task)) {
-            Ok(_) => Ok(cancel),
+        let liveness = Liveness::new();
+        match self.send.send((cancel.clone(), liveness.clone(), task)) {
+            Ok(_) => Ok((cancel, liveness)),
             Err(_) => Err(SendError(())),
         }
-    }
-
-    /// Check the workers for liveness.
-    pub(crate) fn check_liveness(&self) -> bool {
-        for h in &self.handles {
-            if h.is_finished() {
-                return false;
-            }
-        }
-        true
     }
 
     /// Is the receive-channel empty?
@@ -143,10 +140,26 @@ where
     }
 }
 
+impl<Event, Error> ThreadPool<Event, Error>
+where
+    Event: 'static,
+    Error: 'static,
+{
+    /// Check the workers for liveness.
+    pub(crate) fn check_liveness(&self) -> bool {
+        for h in &self.handles {
+            if h.is_finished() {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 impl<Event, Error> Drop for ThreadPool<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     fn drop(&mut self) {
         // dropping the channel will be noticed by the threads running the

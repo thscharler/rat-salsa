@@ -1,38 +1,35 @@
 ![semver](https://img.shields.io/badge/semver-☑-FFD700)
 ![stable](https://img.shields.io/badge/stability-stable-8A2BE2)
-[![crates.io](https://img.shields.io/crates/v/rat-salsa.svg)](https://crates.io/crates/rat-salsa)
-[![Documentation](https://docs.rs/rat-salsa/badge.svg)](https://docs.rs/rat-salsa)
+[![crates.io](https://img.shields.io/crates/v/rat-salsa2.svg)](https://crates.io/crates/rat-salsa2)
+[![Documentation](https://docs.rs/rat-salsa2/badge.svg)](https://docs.rs/rat-salsa2)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![](https://tokei.rs/b1/github/thscharler/rat-salsa)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa2)
 
-# rat-salsa
+# rat-salsa-2
 
-An application event-loop with ratatui and crossterm.
+Runs an application event-loop for ratatui and crossterm.
 
-![image][refMDEditGif]
+It can
 
-rat-salsa provides
+- poll multiple event-sources fairly
+- run [background tasks](AppContext::spawn) in one or more worker threads.
+- run [background tasks](AppContext::spawn_async) as async tasks.
+- define [timers](AppContext::add_timer).
+- work as a message-queue for in-app messages.
+- support focus-handling with [AppContext::focus](AppContext::focus)
 
-- application event loop [run_tui]
-    - [background tasks](AppContext::spawn)
-    - [background async tasks](AppContext::spawn_async)
-    - [timers](AppContext::add_timer)
-    - crossterm
-    - [messages](AppContext::queue)
-    - [focus](AppContext::focus)
-    - [control-flow](Control)
-- traits for
-    - [AppWidget]
-    - [AppState]
+All incoming events are converted to an application defined event-type,
+and are distributed by calling an event-handler function. This function
+returns a [control-flow](Control) which dictates further actions.
 
 ## Changes
 
-[Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/changes.md)
+[Changes](https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/changes.md)
 
 ## Book
 
-For a start you can have a look at the [book][refRSBook].
+... coming soon(ish) ...
 
 ## Companion Crates
 
@@ -40,7 +37,7 @@ For a start you can have a look at the [book][refRSBook].
   widget library. Incorporates everything below, but each crate
   can be used on its own too.
 
-  Foundational crates:
+  Foundational crates
 
     * [rat-event](https://docs.rs/rat-event)
       Defines the primitives for event-handling.
@@ -54,8 +51,10 @@ For a start you can have a look at the [book][refRSBook].
       Utility widgets for scrolling.
     * [rat-popup](https://docs.rs/rat-popup)
       Utility widget to help with popups.
+    * [rat-dialog](https:://docs.rs/rat-dialog)
+      Stacks windows/dialogs above the main application. 
 
-  Crates that deal with specific categories of widgets.
+  Crates for specific widgets
 
     * [rat-ftable](https://docs.rs/rat-ftable)
       table. uses traits to render your data, and renders only the visible cells.
@@ -81,6 +80,10 @@ The examples directory contains some examples
 - [files.rs][refFiles]: Minimal filesystem browser.
 - [mdedit.rs][refMDEdit]: Minimal markdown editor.
 - [life.rs][refLife]: Game of Life.
+- [async1.rs][refAsync1]: Async tasks.
+- [logscroll.rs][refLogscroll]: Logfile view and find.
+- [theme_samples.rs][refThemeSamples]: Theme show-room.
+- [turbo.rs][refTurbo]: Reboot Turbo Pascal.
 
 There are some starters too
 
@@ -90,18 +93,30 @@ There are some starters too
 ![image][refFilesGif]
 
 
-[refFilesGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/files.gif?raw=true
+[refFilesGif]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/files.gif?raw=true
 
-[refMDEditGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/mdedit.gif?raw=true
+[refMDEditGif]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/mdedit.gif?raw=true
 
-[refLife]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/life.rs
+[refLife]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/life.rs
 
-[refMDEdit]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/mdedit.rs
+[refAsync1]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/async1.rs
 
-[refFiles]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/files.rs
+[refLogscroll]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/logscroll.rs
 
-[refMinimal]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/minimal.rs
+[refThemeSamples]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/theme_samples.rs
 
-[refUltra]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/ultra.rs
+[refTurbo]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/turbo.rs
 
-[refRSBook]: https://thscharler.github.io/rat-salsa/
+[refMDEdit]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/mdedit.rs
+
+[refFiles]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/files.rs
+
+[refMinimal]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/minimal.rs
+
+[refUltra]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/ultra.rs
+
+[refRSBook]: https://thscharler.github.io/rat-salsa2/
+
+
+
+

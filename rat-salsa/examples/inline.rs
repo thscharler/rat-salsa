@@ -1,30 +1,28 @@
-use crate::main_ui::MainUI;
+///
+/// Inline rendering in the console.
+/// Uses only 10 lines for the UI.
+///
+use crate::minimal::Minimal;
 use anyhow::Error;
-use dirs::cache_dir;
 use rat_salsa2::event::RenderedEvent;
 use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
+use rat_salsa2::terminal::CrosstermTerminal;
 use rat_salsa2::timer::TimeOut;
 use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
-use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
-use std::cell::Cell;
 use std::fs;
-use std::fs::create_dir_all;
-use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
-
-    let rt = tokio::runtime::Runtime::new()?;
 
     let config = Config::default();
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
@@ -32,18 +30,17 @@ fn main() -> Result<(), Error> {
     let mut state = Scenery::default();
 
     run_tui(
-        init, //
+        init,
         render,
         event,
         error,
         &mut global,
         &mut state,
-        RunConfig::default()?
+        RunConfig::new(CrosstermTerminal::inline(10, true)?)
             .poll(PollCrossterm)
             .poll(PollTimers::default())
             .poll(PollTasks::default())
-            .poll(PollRendered)
-            .poll(rat_salsa2::poll::PollTokio::new(rt)),
+            .poll(PollRendered),
     )?;
 
     Ok(())
@@ -52,9 +49,9 @@ fn main() -> Result<(), Error> {
 /// Globally accessible data/state.
 #[derive(Debug)]
 pub struct Global {
-    pub ctx: SalsaAppContext<AppEvent, Error>,
+    ctx: SalsaAppContext<AppEvent, Error>,
     pub cfg: Config,
-    pub theme: Rc<DarkTheme>,
+    pub theme: DarkTheme,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -62,6 +59,7 @@ impl SalsaContext<AppEvent, Error> for Global {
         self.ctx = app_ctx;
     }
 
+    #[inline(always)]
     fn salsa_ctx(&self) -> &SalsaAppContext<AppEvent, Error> {
         &self.ctx
     }
@@ -72,7 +70,7 @@ impl Global {
         Self {
             ctx: Default::default(),
             cfg,
-            theme: Rc::new(theme),
+            theme,
         }
     }
 }
@@ -82,6 +80,7 @@ impl Global {
 pub struct Config {}
 
 /// Application wide messages.
+
 #[derive(Debug)]
 pub enum AppEvent {
     Timer(TimeOut),
@@ -89,8 +88,6 @@ pub enum AppEvent {
     Rendered,
     Message(String),
     Status(usize, String),
-    AsyncMsg(String),
-    AsyncTick(u32),
 }
 
 impl From<RenderedEvent> for AppEvent {
@@ -113,7 +110,7 @@ impl From<crossterm::event::Event> for AppEvent {
 
 #[derive(Debug, Default)]
 pub struct Scenery {
-    pub async1: MainUI,
+    pub minimal: Minimal,
     pub status: StatusLineState,
     pub error_dlg: MsgDialogState,
 }
@@ -127,28 +124,16 @@ pub fn render(
     let t0 = SystemTime::now();
 
     // forward
-    main_ui::render(area, buf, &mut state.async1, ctx)?;
+    minimal::render(area, buf, &mut state.minimal, ctx)?;
 
     let layout = Layout::vertical([
-        Constraint::Fill(1), //
         Constraint::Length(1),
+        Constraint::Fill(1), //
     ])
     .split(area);
 
     if state.error_dlg.active() {
-        MsgDialog::new()
-            .styles(ctx.theme.msg_dialog_style())
-            .render(
-                layout_middle(
-                    layout[0],
-                    Constraint::Percentage(20),
-                    Constraint::Percentage(20),
-                    Constraint::Length(1),
-                    Constraint::Length(1),
-                ),
-                buf,
-                &mut state.error_dlg,
-            );
+        MsgDialog::new().render(layout[1], buf, &mut state.error_dlg);
     }
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -158,7 +143,7 @@ pub fn render(
         Constraint::Fill(61), //
         Constraint::Fill(39),
     ])
-    .split(layout[1]);
+    .split(layout[0]);
 
     StatusLine::new()
         .layout([
@@ -166,15 +151,14 @@ pub fn render(
             Constraint::Length(8),
             Constraint::Length(8),
         ])
-        .styles(ctx.theme.statusline_style())
         .render(status_layout[1], buf, &mut state.status);
 
     Ok(())
 }
 
 pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
-    ctx.set_focus(FocusBuilder::build_for(&state.async1));
-    main_ui::init(&mut state.async1, ctx)?;
+    ctx.set_focus(FocusBuilder::build_for(&state.minimal));
+    minimal::init(&mut state.minimal, ctx)?;
     Ok(())
 }
 
@@ -207,11 +191,11 @@ pub fn event(
             r
         }
         AppEvent::Rendered => {
-            ctx.set_focus(FocusBuilder::rebuild_for(&state.async1, ctx.take_focus()));
+            ctx.set_focus(FocusBuilder::rebuild_for(&state.minimal, ctx.take_focus()));
             Control::Continue
         }
         AppEvent::Message(s) => {
-            state.error_dlg.append(&*s);
+            state.error_dlg.append(s.as_str());
             Control::Changed
         }
         AppEvent::Status(n, s) => {
@@ -221,7 +205,7 @@ pub fn event(
         _ => Control::Continue,
     };
 
-    r = r.or_else_try(|| main_ui::event(event, &mut state.async1, ctx))?;
+    r = r.or_else_try(|| minimal::event(event, &mut state.minimal, ctx))?;
 
     let el = t0.elapsed()?;
     state.status.status(2, format!("E {:.0?}", el).to_string());
@@ -238,121 +222,96 @@ pub fn error(
     Ok(Control::Changed)
 }
 
-pub mod main_ui {
-    use crate::AppEvent;
-    use crate::Global;
+pub mod minimal {
+    use crate::{AppEvent, Global};
     use anyhow::Error;
-    use rat_focus::impl_has_focus;
     use rat_salsa2::{Control, SalsaContext};
-    use rat_widget::event::{HandleEvent, MenuOutcome, Regular};
+    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
+    use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
-    use std::time::Duration;
+    use ratatui::layout::{Constraint, Layout, Rect};
+    use ratatui::text::{Line, Text};
+    use ratatui::widgets::{StatefulWidget, Widget};
 
     #[derive(Debug, Default)]
-    pub struct MainUI {
+    pub struct Minimal {
         pub menu: MenuLineState,
     }
 
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut MainUI,
+        state: &mut Minimal,
         ctx: &mut Global,
     ) -> Result<(), Error> {
         // TODO: repaint_mask
-        let r = Layout::new(
-            Direction::Vertical,
-            [
-                Constraint::Fill(1), //
-                Constraint::Length(1),
-            ],
-        )
+
+        let r = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Fill(1), //
+        ])
         .split(area);
 
-        let menu = MenuLine::new()
+        Text::from_iter([
+            Line::from("text text"),
+            Line::from("text text"),
+            Line::from("text text"),
+            Line::from("text text"),
+            Line::from("text text"),
+            Line::from("text text"),
+            Line::from("text text"),
+            Line::from("text text"),
+            Line::from("text text"),
+        ])
+        .style(ctx.theme.container_base())
+        .render(r[1], buf);
+
+        MenuLine::new()
+            .item_parsed("_First")
+            .item_parsed("_Second")
+            .item_parsed("_Third")
+            .item_parsed("_Quit")
             .styles(ctx.theme.menu_style())
-            .item_parsed("_Simple Async")
-            .item_parsed("_Long Running")
-            .item_parsed("_Quit");
-        menu.render(r[1], buf, &mut state.menu);
+            .render(r[0], buf, &mut state.menu);
 
         Ok(())
     }
 
-    impl_has_focus!(menu for MainUI);
+    impl_has_focus!(menu for Minimal);
 
-    pub fn init(
-        _state: &mut MainUI, //
-        ctx: &mut Global,
-    ) -> Result<(), Error> {
+    pub fn init(_state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
         ctx.focus().first();
         Ok(())
     }
 
+    #[allow(unused_variables)]
     pub fn event(
         event: &AppEvent,
-        state: &mut MainUI,
+        state: &mut Minimal,
         ctx: &mut Global,
     ) -> Result<Control<AppEvent>, Error> {
-        let r = match event {
-            AppEvent::Event(event) => match state.menu.handle(event, Regular) {
-                MenuOutcome::Activated(0) => {
-                    // spawn async task ...
-                    ctx.spawn_async(async {
-                        // to some awaiting
-                        tokio::time::sleep(Duration::from_secs(2)).await;
-
-                        Ok(Control::Event(AppEvent::AsyncMsg(
-                            "result of async computation".into(),
-                        )))
-                    });
-                    // that's it.
-                    Control::Continue
-                }
-                MenuOutcome::Activated(1) => {
-                    // spawn async task ...
-                    ctx.spawn_async_ext(|chan| async move {
-                        // to some awaiting
-                        let period = Duration::from_secs_f32(1.0 / 60.0);
-                        let mut interval = tokio::time::interval(period);
-
-                        for i in 0..1200 {
-                            interval.tick().await;
-                            // send back intermediate results.
-                            _ = chan.send(Ok(Control::Event(AppEvent::AsyncTick(i)))).await
-                        }
-
-                        Ok(Control::Event(AppEvent::AsyncTick(300)))
-                    });
-                    // that's it.
-                    Control::Continue
-                }
-                MenuOutcome::Activated(2) => Control::Quit,
-                v => v.into(),
-            },
-            AppEvent::AsyncMsg(s) => {
-                // receive result from async operation
-                Control::Event(AppEvent::Message(s.clone()))
+        match event {
+            AppEvent::Event(event) => {
+                try_flow!(match state.menu.handle(event, Regular) {
+                    MenuOutcome::Activated(3) => Control::Quit,
+                    v => v.into(),
+                });
+                Ok(Control::Continue)
             }
-            AppEvent::AsyncTick(n) => Control::Event(AppEvent::Status(0, format!("--- {} ---", n))),
-            _ => Control::Continue,
-        };
-
-        Ok(r)
+            _ => Ok(Control::Continue),
+        }
     }
 }
 
 fn setup_logging() -> Result<(), Error> {
-    if let Some(cache) = cache_dir() {
+    if let Some(cache) = dirs::cache_dir() {
         let log_path = cache.join("rat-salsa");
         if !log_path.exists() {
-            create_dir_all(&log_path)?;
+            fs::create_dir_all(&log_path)?;
         }
 
-        let log_file = log_path.join("async1.log");
+        let log_file = log_path.join("minimal.log");
         _ = fs::remove_file(&log_file);
         fern::Dispatch::new()
             .format(|out, message, _record| {

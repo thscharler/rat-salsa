@@ -1,4 +1,4 @@
-use crate::poll_events::PollEvents;
+use crate::poll::PollEvents;
 use crate::terminal::{CrosstermTerminal, Terminal};
 use crossbeam::channel::TryRecvError;
 use std::fmt::{Debug, Formatter};
@@ -7,8 +7,8 @@ use std::io;
 /// Captures some parameters for [crate::run_tui()].
 pub struct RunConfig<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     /// This is the renderer that connects to the backend, and calls out
     /// for rendering the application.
@@ -23,8 +23,8 @@ where
 
 impl<Event, Error> Debug for RunConfig<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Event: 'static,
+    Error: 'static,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RunConfig")
@@ -36,8 +36,8 @@ where
 
 impl<Event, Error> RunConfig<Event, Error>
 where
-    Event: 'static + Send,
-    Error: 'static + Send + From<io::Error> + From<TryRecvError>,
+    Event: 'static,
+    Error: 'static + From<io::Error> + From<TryRecvError>,
 {
     /// New configuration with some defaults.
     #[allow(clippy::should_implement_trait)]

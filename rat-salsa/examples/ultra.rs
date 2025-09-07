@@ -1,38 +1,39 @@
-use anyhow::Error;
-use rat_salsa::poll::PollCrossterm;
-use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
-use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::DarkTheme;
+use anyhow::{anyhow, Error};
+use rat_salsa2::poll::PollCrossterm;
+use rat_salsa2::{mock, run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_widget::event::ct_event;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::style::Stylize;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::Widget;
 
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, UltraEvent, Error>;
-type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
-
 fn main() -> Result<(), Error> {
-    setup_logging()?;
     run_tui(
-        Ultra,
-        &mut GlobalState::new(DarkTheme::new("Imperial".into(), IMPERIAL)),
-        &mut UltraState::default(),
+        mock::init,
+        render,
+        event,
+        error,
+        &mut Global::default(),
+        &mut Ultra,
         RunConfig::default()?.poll(PollCrossterm),
     )
 }
 
-#[derive(Debug)]
-pub struct GlobalState {
-    pub theme: DarkTheme,
+#[derive(Debug, Default)]
+pub struct Global {
+    ctx: SalsaAppContext<UltraEvent, Error>,
+    pub err_cnt: u32,
     pub err_msg: String,
 }
 
-impl GlobalState {
-    pub fn new(theme: DarkTheme) -> Self {
-        Self {
-            theme,
-            err_msg: Default::default(),
-        }
+impl SalsaContext<UltraEvent, Error> for Global {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<UltraEvent, Error>) {
+        self.ctx = app_ctx;
+    }
+
+    fn salsa_ctx(&self) -> &SalsaAppContext<UltraEvent, Error> {
+        &self.ctx
     }
 }
 
@@ -47,54 +48,53 @@ impl From<crossterm::event::Event> for UltraEvent {
     }
 }
 
-#[derive(Debug, Default)]
 pub struct Ultra;
 
-#[derive(Debug, Default)]
-pub struct UltraState;
-
-impl AppWidget<GlobalState, UltraEvent, Error> for Ultra {
-    type State = UltraState;
-
-    fn render(
-        &self,
-        area: Rect,
-        buf: &mut Buffer,
-        _state: &mut Self::State,
-        ctx: &mut RenderContext<'_>,
-    ) -> Result<(), Error> {
-        ctx.g.err_msg.as_str().render(area, buf);
-        Ok(())
-    }
-}
-
-impl AppState<GlobalState, UltraEvent, Error> for UltraState {
-    fn event(
-        &mut self,
-        event: &UltraEvent,
-        _ctx: &mut AppContext<'_>,
-    ) -> Result<Control<UltraEvent>, Error> {
-        let r = match event {
-            UltraEvent::Event(event) => match event {
-                ct_event!(key press 'q') => Control::Quit,
-                ct_event!(key press CONTROL-'q') => Control::Quit,
-                _ => Control::Continue,
-            },
-        };
-        Ok(r)
-    }
-
-    fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<UltraEvent>, Error> {
-        ctx.g.err_msg = format!("{:?}", event).to_string();
-        Ok(Control::Continue)
-    }
-}
-
-fn setup_logging() -> Result<(), Error> {
-    fern::Dispatch::new()
-        .format(|out, message, _| out.finish(format_args!("{}", message)))
-        .level(log::LevelFilter::Debug)
-        .chain(fern::log_file("log.log")?)
-        .apply()?;
+fn render(area: Rect, buf: &mut Buffer, _state: &mut Ultra, ctx: &mut Global) -> Result<(), Error> {
+    Line::from_iter([Span::from("'q' to quit, 'e' for error, 'r' for repair")])
+        .render(Rect::new(area.x, area.y, area.width, 1), buf);
+    Line::from_iter([
+        Span::from("Hello world!").green(),
+        Span::from(" Status: "),
+        if ctx.err_cnt > 0 {
+            Span::from(&ctx.err_msg).red().underlined()
+        } else {
+            Span::from(&ctx.err_msg).cyan().underlined()
+        },
+    ])
+    .render(Rect::new(area.x, area.y + 2, area.width, 1), buf);
     Ok(())
+}
+
+fn event(
+    event: &UltraEvent,
+    _state: &mut Ultra,
+    ctx: &mut Global,
+) -> Result<Control<UltraEvent>, Error> {
+    match event {
+        UltraEvent::Event(event) => match event {
+            ct_event!(key press 'q') => Ok(Control::Quit),
+            ct_event!(key press 'e') => return Err(anyhow!("An error occured.")),
+            ct_event!(key press 'r') => {
+                if ctx.err_cnt > 1 {
+                    ctx.err_cnt -= 1;
+                    ctx.err_msg = format!("#{}# One error repaired.", ctx.err_cnt).to_string();
+                } else if ctx.err_cnt == 1 {
+                    ctx.err_cnt -= 1;
+                    ctx.err_msg = "All within norms.".to_string();
+                } else {
+                    ctx.err_cnt = 1;
+                    ctx.err_msg = format!("#{}# Over-repaired.", ctx.err_cnt).to_string();
+                }
+                Ok(Control::Changed)
+            }
+            _ => Ok(Control::Continue),
+        },
+    }
+}
+
+fn error(event: Error, _state: &mut Ultra, ctx: &mut Global) -> Result<Control<UltraEvent>, Error> {
+    ctx.err_cnt += 1;
+    ctx.err_msg = format!("#{}# {}", ctx.err_cnt, event).to_string();
+    Ok(Control::Changed)
 }

@@ -1,3 +1,7 @@
+# 1.0.5
+
+* fix upstream deprecated from rat-popup
+
 # 1.0.4
 
 * update dependencies

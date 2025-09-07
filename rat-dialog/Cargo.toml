@@ -1,8 +1,8 @@
 [package]
 name = "rat-dialog"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["thscharler <thscharler@gmail.com>"]
-edition = "2021"
+edition = "2024"
 description = "stacked dialog windows"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/thscharler/rat-salsa"
@@ -18,14 +18,13 @@ default = []
 crossterm = "0.28"
 log = "0.4"
 ratatui = { version = "0.29" }
-
-rat-widget = { version = "1.0", path = "../rat-widget" }
-rat-salsa = { version = "1.0", path = "../rat-salsa" }
+rat-salsa = { version = "2.0", path = "../rat-salsa" }
+rat-event = { version = "1.2", path = "../rat-event" }
 
 [dev-dependencies]
 anyhow = "1.0"
 fern = "0.7"
 dirs = "6.0"
-
+rat-widget = { version = "1.0", path = "../rat-widget" }
 rat-theme2 = { version = "1.0", path = "../rat-theme2" }
 

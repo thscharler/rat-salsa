@@ -1,4 +1,4 @@
-# 1.0.6
+# 1.1.0
 
 * new: Add widget `Caption` that can be used as a label.
   It can use a hotkey to set the focus to an associated widget.

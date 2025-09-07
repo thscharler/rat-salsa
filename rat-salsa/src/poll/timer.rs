@@ -1,5 +1,6 @@
+use crate::poll::PollEvents;
 use crate::timer::{TimeOut, Timers};
-use crate::{Control, PollEvents};
+use crate::Control;
 use std::any::Any;
 use std::rc::Rc;
 
@@ -23,8 +24,8 @@ impl PollTimers {
 
 impl<Event, Error> PollEvents<Event, Error> for PollTimers
 where
-    Event: 'static + Send + From<TimeOut>,
-    Error: 'static + Send + From<std::io::Error>,
+    Event: 'static + From<TimeOut>,
+    Error: 'static + From<std::io::Error>,
 {
     fn as_any(&self) -> &dyn Any {
         self

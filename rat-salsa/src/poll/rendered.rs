@@ -1,5 +1,6 @@
-use crate::rendered::RenderedEvent;
-use crate::{Control, PollEvents};
+use crate::event::RenderedEvent;
+use crate::poll::PollEvents;
+use crate::Control;
 use std::any::Any;
 
 /// Sends an event after a render of the UI.
@@ -8,8 +9,8 @@ pub struct PollRendered;
 
 impl<Event, Error> PollEvents<Event, Error> for PollRendered
 where
-    Event: 'static + Send + From<RenderedEvent>,
-    Error: 'static + Send + From<std::io::Error>,
+    Event: 'static + From<RenderedEvent>,
+    Error: 'static + From<std::io::Error>,
 {
     fn as_any(&self) -> &dyn Any {
         self

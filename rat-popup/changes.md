@@ -1,6 +1,6 @@
-# 1.0.3
+# 1.1.0
 
-* simplify active to a boolean flag. really replace in a future iteration.
+* simplify active to a boolean flag. really replace it in a future iteration.
 
 # 1.0.2
 

@@ -7,22 +7,29 @@
 //! own trait.
 //!
 
-use crate::app::{Scenery, SceneryState};
-use crate::config::LifeConfig;
-use crate::event::LifeEvent;
-use crate::global::{GlobalState, PollTick};
+use crate::game::LifeGameState;
+use crate::life::Life;
 use anyhow::Error;
-use rat_salsa::poll::PollCrossterm;
-use rat_salsa::{run_tui, RunConfig};
+use rat_salsa2::poll::{PollCrossterm, PollEvents};
+use rat_salsa2::{run_tui, RunConfig};
+use rat_salsa2::{Control, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
+use rat_widget::focus::FocusBuilder;
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::statusline::{StatusLine, StatusLineState};
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::widgets::StatefulWidget;
+use std::any::Any;
+use std::cell::RefCell;
 use std::env::args;
+use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
-use std::time::Duration;
-
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, LifeEvent, Error>;
-type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
+use std::rc::Rc;
+use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -31,11 +38,11 @@ fn main() -> Result<(), Error> {
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
-    let mut state = SceneryState::new();
+    let mut state = Scenery::new();
     state.set_game(if let Some(f) = args().nth(1) {
         game::load_life(&PathBuf::from(f), &global.theme)?
     } else {
-        global::rat_state()
+        rat_state()
     });
 
     // init event-src + configuration
@@ -43,7 +50,10 @@ fn main() -> Result<(), Error> {
     global.tick = tick_cfg;
 
     run_tui(
-        Scenery,
+        init,
+        render,
+        event,
+        error,
         &mut global,
         &mut state,
         RunConfig::default()? //
@@ -55,269 +65,206 @@ fn main() -> Result<(), Error> {
 }
 
 /// Globally accessible data/state.
-pub mod global {
-    use crate::config::LifeConfig;
-    use crate::event::LifeEvent;
-    use crate::game::LifeGameState;
-    use rat_salsa::Control;
-    use rat_salsa::PollEvents;
-    use rat_theme2::DarkTheme;
-    use std::any::Any;
-    use std::cell::RefCell;
-    use std::fmt::Debug;
-    use std::rc::Rc;
-    use std::time::{Duration, SystemTime};
+#[rustfmt::skip]
+pub fn rat_state() -> LifeGameState {
+    LifeGameState::new(
+        "rat",
+        "1357/1357",
+        (17, 10),
+        vec![
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,1,1,1,1,1,0,1,1,0,0,0,
+            0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,1,0,
+            0,0,1,0,0,0,1,1,1,1,1,0,1,1,0,0,0,
+            0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        ],
+    )
+}
 
-    #[rustfmt::skip]
-    pub fn rat_state() -> LifeGameState {
-        LifeGameState::new(
-            "rat",
-            "1357/1357",
-            (17, 10),
-            vec![
-                0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,1,1,1,1,1,0,1,1,0,0,0,
-                0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,1,0,
-                0,0,1,0,0,0,1,1,1,1,1,0,1,1,0,0,0,
-                0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-            ],
-        )
+#[derive(Debug)]
+pub struct GlobalState {
+    pub ctx: SalsaAppContext<LifeEvent, anyhow::Error>,
+    pub cfg: LifeConfig,
+    pub theme: Rc<DarkTheme>,
+
+    pub running: bool,
+    pub tick: Rc<RefCell<Duration>>,
+}
+
+#[derive(Debug)]
+pub struct PollTick {
+    tick: Rc<RefCell<Duration>>,
+    next: SystemTime,
+}
+
+impl PollTick {
+    pub fn new(start: Duration, interval: Duration) -> (Self, Rc<RefCell<Duration>>) {
+        let tick = Self {
+            tick: Rc::new(RefCell::new(interval)),
+            next: SystemTime::now() + start,
+        };
+        let tick_cfg = tick.tick.clone();
+        (tick, tick_cfg)
+    }
+}
+
+impl<Error> PollEvents<LifeEvent, Error> for PollTick
+where
+    Error: 'static,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
-    #[derive(Debug)]
-    pub struct GlobalState {
-        pub cfg: LifeConfig,
-        pub theme: Rc<DarkTheme>,
-
-        pub running: bool,
-        pub tick: Rc<RefCell<Duration>>,
+    fn poll(&mut self) -> Result<bool, Error> {
+        Ok(self.next <= SystemTime::now())
     }
 
-    #[derive(Debug)]
-    pub struct PollTick {
-        tick: Rc<RefCell<Duration>>,
-        next: SystemTime,
-    }
-
-    impl PollTick {
-        pub fn new(start: Duration, interval: Duration) -> (Self, Rc<RefCell<Duration>>) {
-            let tick = Self {
-                tick: Rc::new(RefCell::new(interval)),
-                next: SystemTime::now() + start,
-            };
-            let tick_cfg = tick.tick.clone();
-            (tick, tick_cfg)
+    fn read(&mut self) -> Result<Control<LifeEvent>, Error> {
+        if self.next <= SystemTime::now() {
+            let tick = *self.tick.borrow();
+            self.next += tick;
+            Ok(Control::Event(LifeEvent::Tick))
+        } else {
+            Ok(Control::Continue)
         }
     }
+}
 
-    impl<Error> PollEvents<LifeEvent, Error> for PollTick
-    where
-        Error: 'static + Send + Debug,
-    {
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
-        fn poll(&mut self) -> Result<bool, Error> {
-            Ok(self.next <= SystemTime::now())
-        }
-
-        fn read(&mut self) -> Result<Control<LifeEvent>, Error> {
-            if self.next <= SystemTime::now() {
-                let tick = *self.tick.borrow();
-                self.next += tick;
-                Ok(Control::Event(LifeEvent::Tick))
-            } else {
-                Ok(Control::Continue)
-            }
-        }
+impl SalsaContext<LifeEvent, Error> for GlobalState {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<LifeEvent, Error>) {
+        self.ctx = app_ctx;
     }
 
-    impl GlobalState {
-        pub fn new(cfg: LifeConfig, theme: DarkTheme) -> Self {
-            Self {
-                cfg,
-                theme: Rc::new(theme),
-                running: true,
-                tick: Default::default(),
-            }
+    fn salsa_ctx(&self) -> &SalsaAppContext<LifeEvent, Error> {
+        &self.ctx
+    }
+}
+
+impl GlobalState {
+    pub fn new(cfg: LifeConfig, theme: DarkTheme) -> Self {
+        Self {
+            ctx: Default::default(),
+            cfg,
+            theme: Rc::new(theme),
+            running: true,
+            tick: Default::default(),
         }
     }
 }
 
 /// Configuration.
-pub mod config {
-    #[derive(Debug, Default)]
-    pub struct LifeConfig {}
-}
+#[derive(Debug, Default)]
+pub struct LifeConfig {}
 
 /// Application event.
-pub mod event {
-    #[derive(Debug)]
-    pub enum LifeEvent {
-        Event(crossterm::event::Event),
-        Tick,
-        Message(String),
-        Status(usize, String),
-    }
+#[derive(Debug)]
+pub enum LifeEvent {
+    Event(crossterm::event::Event),
+    Tick,
+    Message(String),
+    Status(usize, String),
+}
 
-    impl From<crossterm::event::Event> for LifeEvent {
-        fn from(value: crossterm::event::Event) -> Self {
-            Self::Event(value)
+impl From<crossterm::event::Event> for LifeEvent {
+    fn from(value: crossterm::event::Event) -> Self {
+        Self::Event(value)
+    }
+}
+
+#[derive(Debug)]
+pub struct Scenery {
+    pub life: Life,
+    pub rt: SystemTime,
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,
+}
+
+impl Default for Scenery {
+    fn default() -> Self {
+        Self {
+            life: Default::default(),
+            rt: SystemTime::now(),
+            status: Default::default(),
+            error_dlg: Default::default(),
         }
     }
 }
 
-pub mod app {
-    use crate::event::LifeEvent;
-    use crate::game::LifeGameState;
-    use crate::global::GlobalState;
-    use crate::life::{Life, LifeState};
-    use crate::{AppContext, RenderContext};
-    use anyhow::Error;
-    use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
-    use rat_widget::focus::FocusBuilder;
-    use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-    use rat_widget::statusline::{StatusLine, StatusLineState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
-    use std::time::{Duration, SystemTime};
-
-    #[derive(Debug)]
-    pub struct Scenery;
-
-    #[derive(Debug)]
-    pub struct SceneryState {
-        pub life: LifeState,
-        pub rt: SystemTime,
-        pub status: StatusLineState,
-        pub error_dlg: MsgDialogState,
+impl Scenery {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    impl Default for SceneryState {
-        fn default() -> Self {
-            Self {
-                life: Default::default(),
-                rt: SystemTime::now(),
-                status: Default::default(),
-                error_dlg: Default::default(),
-            }
-        }
+    pub fn set_game(&mut self, game: LifeGameState) {
+        self.life.game = game;
+    }
+}
+
+pub fn render(
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<(), Error> {
+    // forward
+    life::render(area, buf, &mut state.life, ctx)?;
+
+    let layout = Layout::vertical([
+        Constraint::Fill(1), //
+        Constraint::Length(1),
+    ])
+    .split(area);
+
+    if state.error_dlg.active() {
+        let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
+        err.render(layout[0], buf, &mut state.error_dlg);
     }
 
-    impl SceneryState {
-        pub fn new() -> Self {
-            Self::default()
-        }
+    let el = state.rt.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(2, format!("R {:.0?}", el).to_string());
 
-        pub fn set_game(&mut self, game: LifeGameState) {
-            self.life.game = game;
-        }
-    }
+    let status_layout = Layout::horizontal([
+        Constraint::Fill(61), //
+        Constraint::Fill(39),
+    ])
+    .split(layout[1]);
+    StatusLine::new()
+        .layout([
+            Constraint::Fill(1),
+            Constraint::Length(7),
+            Constraint::Length(8),
+            Constraint::Length(8),
+        ])
+        .styles(ctx.theme.statusline_style())
+        .render(status_layout[1], buf, &mut state.status);
 
-    impl AppWidget<GlobalState, LifeEvent, Error> for Scenery {
-        type State = SceneryState;
+    state.rt = SystemTime::now();
 
-        fn render(
-            &self,
-            area: Rect,
-            buf: &mut Buffer,
-            state: &mut Self::State,
-            ctx: &mut RenderContext<'_>,
-        ) -> Result<(), Error> {
-            let theme = ctx.g.theme.clone();
+    Ok(())
+}
 
-            let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
+pub fn init(state: &mut Scenery, ctx: &mut GlobalState) -> Result<(), Error> {
+    ctx.set_focus(FocusBuilder::build_for(&state.life));
+    life::init(&mut state.life, ctx)?;
+    Ok(())
+}
 
-            Life::new()
-                .style(theme.limegreen(2))
-                .render(area, buf, &mut state.life, ctx)?;
+pub fn event(
+    event: &LifeEvent,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<Control<LifeEvent>, Error> {
+    let t0 = SystemTime::now();
 
-            if state.error_dlg.active() {
-                let err = MsgDialog::new().styles(theme.msg_dialog_style());
-                err.render(layout[0], buf, &mut state.error_dlg);
-            }
-
-            let el = state.rt.elapsed().unwrap_or(Duration::from_nanos(0));
-            state.status.status(2, format!("R {:.0?}", el).to_string());
-
-            let status_layout =
-                Layout::horizontal([Constraint::Fill(61), Constraint::Fill(39)]).split(layout[1]);
-            let status = StatusLine::new()
-                .layout([
-                    Constraint::Fill(1),
-                    Constraint::Length(7),
-                    Constraint::Length(8),
-                    Constraint::Length(8),
-                ])
-                .styles(theme.statusline_style());
-            status.render(status_layout[1], buf, &mut state.status);
-
-            state.rt = SystemTime::now();
-
-            Ok(())
-        }
-    }
-
-    impl AppState<GlobalState, LifeEvent, Error> for SceneryState {
-        fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(FocusBuilder::build_for(&self.life));
-            self.life.init(ctx)?;
-            Ok(())
-        }
-
-        fn event(
-            &mut self,
-            event: &LifeEvent,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, LifeEvent, Error>,
-        ) -> Result<Control<LifeEvent>, Error> {
-            let t0 = SystemTime::now();
-
-            let mut r = match event {
-                LifeEvent::Event(event) => self.crossterm(event, ctx),
-                LifeEvent::Message(s) => {
-                    self.error_dlg.append(s);
-                    Ok(Control::Changed)
-                }
-                LifeEvent::Status(n, s) => {
-                    self.status.status(*n, s);
-                    Ok(Control::Changed)
-                }
-                _ => Ok(Control::Continue),
-            }?;
-
-            r = r.or_else_try(|| self.life.event(event, ctx))?;
-
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            self.status.status(3, format!("H {:.0?}", el).to_string());
-
-            Ok(r)
-        }
-
-        fn error(
-            &self,
-            event: Error,
-            _ctx: &mut AppContext<'_>,
-        ) -> Result<Control<LifeEvent>, Error> {
-            self.error_dlg.append(format!("{:?}", &*event).as_str());
-            Ok(Control::Changed)
-        }
-    }
-
-    impl SceneryState {
-        fn crossterm(
-            &mut self,
-            event: &crossterm::event::Event,
-            ctx: &mut AppContext,
-        ) -> Result<Control<LifeEvent>, Error> {
-            let mut r = match &event {
+    let mut r = match event {
+        LifeEvent::Event(event) => {
+            let mut r: Control<LifeEvent> = match &event {
                 ct_event!(resized) => {
                     ctx.queue(Control::Changed);
                     Control::Continue
@@ -327,65 +274,72 @@ pub mod app {
             };
 
             r = r.or_else(|| {
-                if self.error_dlg.active() {
-                    self.error_dlg.handle(&event, Dialog).into()
+                if state.error_dlg.active() {
+                    state.error_dlg.handle(&event, Dialog).into()
                 } else {
                     Control::Continue
                 }
             });
 
             r = r.or_else(|| {
-                ctx.focus = Some(FocusBuilder::rebuild_for(&self.life, ctx.focus.take()));
-
-                let f = ctx.focus_mut().handle(event, Regular);
-                ctx.queue(f);
-
+                ctx.set_focus(FocusBuilder::rebuild_for(&state.life, ctx.take_focus()));
+                ctx.handle_focus(event);
                 Control::Continue
             });
 
-            Ok(r)
+            r
         }
-    }
+        LifeEvent::Message(s) => {
+            state.error_dlg.append(s);
+            Control::Changed
+        }
+        LifeEvent::Status(n, s) => {
+            state.status.status(*n, s);
+            Control::Changed
+        }
+        _ => Control::Continue,
+    };
+
+    // forward
+    r = r.or_else_try(|| life::event(event, &mut state.life, ctx))?;
+
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(3, format!("H {:.0?}", el).to_string());
+
+    Ok(r)
+}
+
+pub fn error(
+    event: Error,
+    state: &mut Scenery,
+    _ctx: &mut GlobalState,
+) -> Result<Control<LifeEvent>, Error> {
+    state.error_dlg.append(format!("{:?}", &*event).as_str());
+    Ok(Control::Changed)
 }
 
 pub mod life {
     use crate::game::{LifeGame, LifeGameState};
-    use crate::{GlobalState, LifeEvent, RenderContext};
+    use crate::GlobalState;
+    use crate::LifeEvent;
     use anyhow::Error;
-    use rat_salsa::{AppState, AppWidget, Control};
+    use rat_focus::impl_has_focus;
+    use rat_salsa2::{Control, SalsaContext};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
-    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
-    use ratatui::style::Style;
+    use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::widgets::StatefulWidget;
     use std::fmt::Debug;
     use std::time::Duration;
 
-    #[derive(Debug, Default)]
-    pub struct Life {
-        pub style: Style,
-    }
-
-    impl Life {
-        pub fn new() -> Life {
-            Self::default()
-        }
-
-        pub fn style(mut self, style: Style) -> Self {
-            self.style = style;
-            self
-        }
-    }
-
     #[derive(Debug)]
-    pub struct LifeState {
+    pub struct Life {
         pub game: LifeGameState,
         pub menu: MenuLineState,
     }
 
-    impl Default for LifeState {
+    impl Default for Life {
         fn default() -> Self {
             Self {
                 game: LifeGameState::default(),
@@ -394,145 +348,118 @@ pub mod life {
         }
     }
 
-    impl AppWidget<GlobalState, LifeEvent, Error> for Life {
-        type State = LifeState;
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Life,
+        ctx: &mut GlobalState,
+    ) -> Result<(), Error> {
+        let r = Layout::vertical([
+            Constraint::Fill(1), //
+            Constraint::Length(1),
+        ])
+        .split(area);
 
-        fn render(
-            &self,
-            area: Rect,
-            buf: &mut Buffer,
-            state: &mut Self::State,
-            ctx: &mut RenderContext<'_>,
-        ) -> Result<(), Error> {
-            let theme = ctx.g.theme.clone();
+        LifeGame.render(r[0], buf, &mut state.game);
 
-            let r = Layout::new(
-                Direction::Vertical,
-                [
-                    Constraint::Fill(1), //
-                    Constraint::Length(1),
-                ],
-            )
-            .split(area);
+        MenuLine::new()
+            .styles(ctx.theme.menu_style())
+            .title(format!("--({})>", state.game.name))
+            .item_parsed(if ctx.running { "Pau_se" } else { "_Start" })
+            .item_parsed("_Next")
+            .item_parsed("_Faster")
+            .item_parsed("Slowe_r")
+            .item_parsed("Rest_art")
+            .item_parsed("Ran_dom")
+            .item_parsed("_Quit")
+            .render(r[1], buf, &mut state.menu);
 
-            LifeGame.render(r[0], buf, &mut state.game);
-
-            let menu = MenuLine::new()
-                .styles(theme.menu_style())
-                .title(format!("--({})>", state.game.name))
-                .item_parsed(if ctx.g.running { "Pau_se" } else { "_Start" })
-                .item_parsed("_Next")
-                .item_parsed("_Faster")
-                .item_parsed("Slowe_r")
-                .item_parsed("Rest_art")
-                .item_parsed("Ran_dom")
-                .item_parsed("_Quit");
-            menu.render(r[1], buf, &mut state.menu);
-
-            Ok(())
-        }
+        Ok(())
     }
 
-    impl HasFocus for LifeState {
-        fn build(&self, builder: &mut FocusBuilder) {
-            builder.widget(&self.menu);
-        }
+    impl_has_focus!(menu for Life);
 
-        fn focus(&self) -> FocusFlag {
-            unimplemented!("don't use this")
-        }
-
-        fn area(&self) -> Rect {
-            unimplemented!("don't use this")
-        }
+    pub fn init(_state: &mut Life, ctx: &mut GlobalState) -> Result<(), Error> {
+        ctx.focus().first();
+        Ok(())
     }
 
-    impl AppState<GlobalState, LifeEvent, Error> for LifeState {
-        fn init(
-            &mut self,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, LifeEvent, Error>,
-        ) -> Result<(), Error> {
-            ctx.focus().first();
-            Ok(())
-        }
-
-        fn event(
-            &mut self,
-            event: &LifeEvent,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, LifeEvent, Error>,
-        ) -> Result<Control<LifeEvent>, Error> {
-            match event {
-                LifeEvent::Event(event) => {
-                    try_flow!(match self.menu.handle(event, Regular) {
-                        MenuOutcome::Activated(0) => {
-                            ctx.g.running = !ctx.g.running;
-                            Control::Changed
+    pub fn event(
+        event: &LifeEvent,
+        state: &mut Life,
+        ctx: &mut GlobalState,
+    ) -> Result<Control<LifeEvent>, Error> {
+        match event {
+            LifeEvent::Event(event) => {
+                try_flow!(match state.menu.handle(event, Regular) {
+                    MenuOutcome::Activated(0) => {
+                        ctx.running = !ctx.running;
+                        Control::Changed
+                    }
+                    MenuOutcome::Activated(1) => {
+                        state.game.turn();
+                        Control::Event(LifeEvent::Status(1, state.game.round.to_string()))
+                    }
+                    MenuOutcome::Activated(2) => {
+                        let mut tick = *ctx.tick.borrow();
+                        if tick.as_millis() == 0 {
+                            // noop
+                        } else if tick.as_millis() <= 10 {
+                            tick -= Duration::from_millis(1);
+                        } else if tick.as_millis() <= 100 {
+                            tick -= Duration::from_millis(10);
+                        } else {
+                            tick -= Duration::from_millis(100);
                         }
-                        MenuOutcome::Activated(1) => {
-                            self.game.turn();
-                            Control::Event(LifeEvent::Status(1, self.game.round.to_string()))
+                        *ctx.tick.borrow_mut() = tick;
+                        Control::Event(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
+                    }
+                    MenuOutcome::Activated(3) => {
+                        let mut tick = *ctx.tick.borrow();
+                        if tick.as_millis() < 10 {
+                            tick += Duration::from_millis(1);
+                        } else if tick.as_millis() < 100 {
+                            tick += Duration::from_millis(10);
+                        } else {
+                            tick += Duration::from_millis(100);
                         }
-                        MenuOutcome::Activated(2) => {
-                            let mut tick = *ctx.g.tick.borrow();
-                            if tick.as_millis() == 0 {
-                                // noop
-                            } else if tick.as_millis() <= 10 {
-                                tick -= Duration::from_millis(1);
-                            } else if tick.as_millis() <= 100 {
-                                tick -= Duration::from_millis(10);
-                            } else {
-                                tick -= Duration::from_millis(100);
-                            }
-                            *ctx.g.tick.borrow_mut() = tick;
-                            Control::Event(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
-                        }
-                        MenuOutcome::Activated(3) => {
-                            let mut tick = *ctx.g.tick.borrow();
-                            if tick.as_millis() < 10 {
-                                tick += Duration::from_millis(1);
-                            } else if tick.as_millis() < 100 {
-                                tick += Duration::from_millis(10);
-                            } else {
-                                tick += Duration::from_millis(100);
-                            }
-                            *ctx.g.tick.borrow_mut() = tick;
-                            Control::Event(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
-                        }
-                        MenuOutcome::Activated(4) => {
-                            self.game.restart();
-                            Control::Changed
-                        }
-                        MenuOutcome::Activated(5) => {
-                            self.game.random();
-                            Control::Changed
-                        }
-                        MenuOutcome::Activated(6) => {
-                            Control::Quit
-                        }
-                        v => v.into(),
-                    });
+                        *ctx.tick.borrow_mut() = tick;
+                        Control::Event(LifeEvent::Status(0, format!("Tick {:#?}", tick)))
+                    }
+                    MenuOutcome::Activated(4) => {
+                        state.game.restart();
+                        Control::Changed
+                    }
+                    MenuOutcome::Activated(5) => {
+                        state.game.random();
+                        Control::Changed
+                    }
+                    MenuOutcome::Activated(6) => {
+                        Control::Quit
+                    }
+                    v => v.into(),
+                });
+                Ok(Control::Continue)
+            }
+            LifeEvent::Tick => {
+                if ctx.running {
+                    state.game.turn();
+                    Ok(Control::Event(LifeEvent::Status(
+                        1,
+                        state.game.round.to_string(),
+                    )))
+                } else {
                     Ok(Control::Continue)
                 }
-                LifeEvent::Tick => {
-                    if ctx.g.running {
-                        self.game.turn();
-                        Ok(Control::Event(LifeEvent::Status(
-                            1,
-                            self.game.round.to_string(),
-                        )))
-                    } else {
-                        Ok(Control::Continue)
-                    }
-                }
-                _ => Ok(Control::Continue),
             }
+            _ => Ok(Control::Continue),
         }
     }
 }
 
 pub mod game {
     use anyhow::{anyhow, Error};
-    use configparser::ini::Ini;
+    use ini::Ini;
     use rand::random;
     use rat_theme2::DarkTheme;
     use ratatui::buffer::Buffer;
@@ -982,27 +909,22 @@ pub mod game {
     }
 
     pub fn load_life(file: &Path, theme: &DarkTheme) -> Result<LifeGameState, Error> {
-        let mut ini = Ini::new();
-        if let Err(e) = ini.load(file) {
-            return Err(anyhow!("{}", e));
-        }
+        let ini = Ini::load_from_file(file)?;
 
         let name = file.file_stem().expect("name").to_string_lossy();
-        let rule = rule(&ini.get("life", "rules").unwrap_or("23/3".into()));
-        let one = ini.get("life", "one").unwrap_or("1Xx".into());
-        let one_color = color(
-            &ini.get("life", "one.color").unwrap_or("cccccc".into()),
-            theme,
-        )?;
+
+        let rule = rule(&ini.get_from_or(Some("life"), "rules", "23/3"));
+        let one = ini.get_from_or(Some("life"), "one", "1Xx");
+        let one_color = color(&ini.get_from_or(Some("life"), "one.color", "cccccc"), theme)?;
         let zero_color = color(
-            &ini.get("life", "zero.color").unwrap_or("000000".into()),
+            &ini.get_from_or(Some("life"), "zero.color", "000000"),
             theme,
         )?;
 
         let mut height = 0;
         let mut width = 0;
         loop {
-            if let Some(v) = ini.get("data", &format!("{}", height)) {
+            if let Some(v) = ini.get_from(Some("data"), &format!("{}", height)) {
                 let v = v.trim_matches('"').trim_matches('\'');
                 width = max(width, v.chars().count() as u16);
             } else {
@@ -1012,7 +934,7 @@ pub mod game {
         }
         let mut world_0 = vec![0; width as usize * height as usize];
         for row in 0..height {
-            if let Some(d) = ini.get("data", &format!("{}", row)) {
+            if let Some(d) = ini.get_from(Some("data"), &format!("{}", row)) {
                 let d = d.trim_matches('"').trim_matches('\'');
                 for (col, c) in d.chars().enumerate() {
                     if col >= width as usize {

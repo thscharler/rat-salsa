@@ -1,7 +1,7 @@
 [package]
 name = "rat-scrolled"
-version = "1.1.2"
-edition = "2021"
+version = "1.1.3"
+edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui scroll widget and traits"
 license = "MIT/Apache-2.0"

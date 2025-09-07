@@ -1,3 +1,7 @@
+# 0.5.3
+
+* fix: code quotes
+
 # 0.5.2
 
 * update dependencies

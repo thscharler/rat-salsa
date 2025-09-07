@@ -1,4 +1,4 @@
-# 1.0.1
+# 1.1.0
 
 * feature: add CaptionStyle
 * fix: reorder by niceness

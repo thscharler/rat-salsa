@@ -2,7 +2,7 @@
 name = "rat-dialog2"
 version = "0.3.0"
 authors = ["thscharler <thscharler@gmail.com>"]
-edition = "2021"
+edition = "2024"
 description = "stacked dialog windows"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/thscharler/rat-salsa"

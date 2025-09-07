@@ -1,4 +1,4 @@
-# 1.0.3
+# 1.1.0
 
 * fix: Focus::handle() event shouldn't return 'Unchanged' but 'Continue'
   for unprocessed events.

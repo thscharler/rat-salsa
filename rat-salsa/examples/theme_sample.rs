@@ -1,11 +1,12 @@
 #![allow(unused_variables)]
 
-use crate::mask0::{Mask0, Mask0State};
+use crate::mask0::Mask0;
 use anyhow::Error;
 use crossterm::event::Event;
-use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
-use rat_salsa::timer::TimeOut;
-use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
+use rat_salsa2::poll::{PollCrossterm, PollTasks, PollTimers};
+use rat_salsa2::timer::TimeOut;
+use rat_salsa2::Control;
+use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
@@ -16,24 +17,23 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
 use std::fmt::Debug;
 use std::fs;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
-
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, ThemeEvent, Error>;
-type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let config = MinimalConfig::default();
+    let config = Config::default();
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
-
-    let app = MinimalApp;
-    let mut state = MinimalState::default();
+    let mut state = Scenery::default();
 
     run_tui(
-        app,
+        init,
+        render,
+        event,
+        error,
         &mut global,
         &mut state,
         RunConfig::default()?
@@ -45,166 +45,167 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-// -----------------------------------------------------------------------
-
 #[derive(Debug)]
 pub struct GlobalState {
-    pub cfg: MinimalConfig,
+    pub ctx: SalsaAppContext<ThemesEvent, Error>,
+    pub cfg: Config,
     pub theme: Rc<DarkTheme>,
 }
 
+impl SalsaContext<ThemesEvent, Error> for GlobalState {
+    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<ThemesEvent, Error>) {
+        self.ctx = app_ctx;
+    }
+
+    fn salsa_ctx(&self) -> &SalsaAppContext<ThemesEvent, Error> {
+        &self.ctx
+    }
+}
+
 impl GlobalState {
-    fn new(cfg: MinimalConfig, theme: DarkTheme) -> Self {
+    fn new(cfg: Config, theme: DarkTheme) -> Self {
         Self {
+            ctx: Default::default(),
             cfg,
             theme: Rc::new(theme),
         }
     }
 }
 
-// -----------------------------------------------------------------------
-
 #[derive(Debug, Default)]
-pub struct MinimalConfig {}
+pub struct Config {}
 
 #[derive(Debug)]
-pub enum ThemeEvent {
-    Event(crossterm::event::Event),
+pub enum ThemesEvent {
+    Event(Event),
     TimeOut(TimeOut),
     Message(String),
     Status(usize, String),
 }
 
-impl From<crossterm::event::Event> for ThemeEvent {
+impl From<Event> for ThemesEvent {
     fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }
 
-impl From<TimeOut> for ThemeEvent {
+impl From<TimeOut> for ThemesEvent {
     fn from(value: TimeOut) -> Self {
         Self::TimeOut(value)
     }
 }
 
-// -----------------------------------------------------------------------
-
-#[derive(Debug)]
-struct MinimalApp;
-
 #[derive(Debug, Default)]
-struct MinimalState {
-    mask0: Mask0State,
+pub struct Scenery {
+    mask0: Mask0,
     status: StatusLineState,
     error_dlg: MsgDialogState,
 }
 
-impl AppWidget<GlobalState, ThemeEvent, Error> for MinimalApp {
-    type State = MinimalState;
+pub fn render(
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<(), Error> {
+    let t0 = SystemTime::now();
 
-    fn render(
-        &self,
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Self::State,
-        ctx: &mut RenderContext<'_>,
-    ) -> Result<(), Error> {
-        let t0 = SystemTime::now();
-        let theme = ctx.g.theme.clone();
+    // forward
+    mask0::render(area, buf, &mut state.mask0, ctx)?;
 
-        let layout = Layout::new(
-            Direction::Vertical,
-            [Constraint::Fill(1), Constraint::Length(1)],
-        )
-        .split(area);
+    let layout = Layout::new(
+        Direction::Vertical,
+        [Constraint::Fill(1), Constraint::Length(1)],
+    )
+    .split(area);
 
-        Mask0.render(area, buf, &mut state.mask0, ctx)?;
-
-        if state.error_dlg.active() {
-            let err = MsgDialog::new().styles(theme.msg_dialog_style());
-            err.render(layout[0], buf, &mut state.error_dlg);
-        }
-
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        state.status.status(1, format!("R {:.3?}", el).to_string());
-
-        let layout_status =
-            Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
-                .split(layout[1]);
-        let status = StatusLine::new()
-            .layout([
-                Constraint::Fill(1),
-                Constraint::Length(12),
-                Constraint::Length(12),
-                Constraint::Length(12),
-            ])
-            .styles(theme.statusline_style());
-        status.render(layout_status[1], buf, &mut state.status);
-
-        Ok(())
+    if state.error_dlg.active() {
+        MsgDialog::new()
+            .styles(ctx.theme.msg_dialog_style())
+            .render(layout[0], buf, &mut state.error_dlg);
     }
+
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(1, format!("R {:.3?}", el).to_string());
+
+    let layout_status =
+        Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
+            .split(layout[1]);
+    StatusLine::new()
+        .layout([
+            Constraint::Fill(1),
+            Constraint::Length(12),
+            Constraint::Length(12),
+            Constraint::Length(12),
+        ])
+        .styles(ctx.theme.statusline_style())
+        .render(layout_status[1], buf, &mut state.status);
+
+    Ok(())
 }
 
-impl AppState<GlobalState, ThemeEvent, Error> for MinimalState {
-    fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-        Ok(())
-    }
+pub fn init(_state: &mut Scenery, _ctx: &mut GlobalState) -> Result<(), Error> {
+    Ok(())
+}
 
-    fn event(
-        &mut self,
-        event: &ThemeEvent,
-        ctx: &mut rat_salsa::AppContext<'_, GlobalState, ThemeEvent, Error>,
-    ) -> Result<Control<ThemeEvent>, Error> {
-        let t0 = SystemTime::now();
+pub fn event(
+    event: &ThemesEvent,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<Control<ThemesEvent>, Error> {
+    let t0 = SystemTime::now();
 
-        let r = match event {
-            ThemeEvent::Event(event) => {
-                try_flow!(match &event {
-                    Event::Resize(_, _) => Control::Changed,
-                    ct_event!(key press CONTROL-'q') => Control::Quit,
-                    _ => Control::Continue,
-                });
+    let r = match event {
+        ThemesEvent::Event(event) => {
+            try_flow!(match &event {
+                Event::Resize(_, _) => Control::Changed,
+                ct_event!(key press CONTROL-'q') => Control::Quit,
+                _ => Control::Continue,
+            });
 
-                try_flow!({
-                    if self.error_dlg.active() {
-                        self.error_dlg.handle(&event, Dialog).into()
-                    } else {
-                        Control::Continue
-                    }
-                });
+            try_flow!({
+                if state.error_dlg.active() {
+                    state.error_dlg.handle(&event, Dialog).into()
+                } else {
+                    Control::Continue
+                }
+            });
 
-                Control::Continue
-            }
-            ThemeEvent::Message(s) => {
-                self.error_dlg.append(s.as_str());
-                Control::Changed
-            }
-            ThemeEvent::Status(n, s) => {
-                self.status.status(*n, s);
-                Control::Changed
-            }
-            _ => Control::Continue,
-        };
+            Control::Continue
+        }
+        ThemesEvent::Message(s) => {
+            state.error_dlg.append(s.as_str());
+            Control::Changed
+        }
+        ThemesEvent::Status(n, s) => {
+            state.status.status(*n, s);
+            Control::Changed
+        }
+        _ => Control::Continue,
+    };
 
-        try_flow!(self.mask0.event(&event, ctx)?);
+    try_flow!(mask0::event(&event, &mut state.mask0, ctx)?);
 
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        self.status.status(3, format!("H {:.3?}", el).to_string());
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state.status.status(3, format!("H {:.3?}", el).to_string());
 
-        Ok(r)
-    }
+    Ok(r)
+}
 
-    fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<ThemeEvent>, Error> {
-        self.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Changed)
-    }
+pub fn error(
+    event: Error,
+    state: &mut Scenery,
+    ctx: &mut GlobalState,
+) -> Result<Control<ThemesEvent>, Error> {
+    state.error_dlg.append(format!("{:?}", &*event).as_str());
+    Ok(Control::Changed)
 }
 
 pub mod mask0 {
     use crate::show_scheme::{ShowScheme, ShowSchemeState};
-    use crate::{GlobalState, RenderContext, ThemeEvent};
+    use crate::{GlobalState, ThemesEvent};
     use anyhow::Error;
-    use rat_salsa::{AppState, AppWidget, Control};
+    use rat_salsa2::Control;
     use rat_theme2::dark_themes;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
@@ -218,17 +219,14 @@ pub mod mask0 {
     use std::rc::Rc;
 
     #[derive(Debug)]
-    pub struct Mask0;
-
-    #[derive(Debug)]
-    pub struct Mask0State {
+    pub struct Mask0 {
         pub menu: MenubarState,
         pub scroll: ViewState,
         pub scheme: ShowSchemeState,
         pub theme: usize,
     }
 
-    impl Default for Mask0State {
+    impl Default for Mask0 {
         fn default() -> Self {
             let s = Self {
                 menu: Default::default(),
@@ -261,95 +259,82 @@ pub mod mask0 {
         }
     }
 
-    impl AppWidget<GlobalState, ThemeEvent, Error> for Mask0 {
-        type State = Mask0State;
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Mask0,
+        ctx: &mut GlobalState,
+    ) -> Result<(), Error> {
+        let layout = Layout::new(
+            Direction::Vertical,
+            [Constraint::Fill(1), Constraint::Length(1)],
+        )
+        .split(area);
 
-        fn render(
-            &self,
-            area: Rect,
-            buf: &mut Buffer,
-            state: &mut Self::State,
-            ctx: &mut RenderContext<'_>,
-        ) -> Result<(), Error> {
-            // TODO: repaint_mask
+        let view = View::new()
+            .block(Block::bordered())
+            .vscroll(Scroll::new().styles(ctx.theme.scroll_style()));
+        let view_area = view.inner(layout[0], &mut state.scroll);
 
-            let theme = ctx.g.theme.clone();
+        let mut v_buf = view
+            .layout(Rect::new(0, 0, view_area.width, 38))
+            .into_buffer(layout[0], &mut state.scroll);
 
-            let layout = Layout::new(
-                Direction::Vertical,
-                [Constraint::Fill(1), Constraint::Length(1)],
-            )
-            .split(area);
+        v_buf.render_stateful(
+            ShowScheme::new(ctx.theme.name(), ctx.theme.palette()),
+            Rect::new(0, 0, view_area.width, 38),
+            &mut state.scheme,
+        );
 
-            let view = View::new()
-                .block(Block::bordered())
-                .vscroll(Scroll::new().styles(theme.scroll_style()));
-            let view_area = view.inner(layout[0], &mut state.scroll);
+        v_buf
+            .into_widget()
+            .render(layout[0], buf, &mut state.scroll);
 
-            let mut v_buf = view
-                .layout(Rect::new(0, 0, view_area.width, 38))
-                .into_buffer(layout[0], &mut state.scroll);
+        let layout_menu =
+            Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
+                .split(layout[1]);
+        let (menu, menu_popup) = Menubar::new(&Menu)
+            .styles(ctx.theme.menu_style())
+            .popup_placement(Placement::Above)
+            .into_widgets();
+        menu.render(layout_menu[0], buf, &mut state.menu);
+        menu_popup.render(layout_menu[0], buf, &mut state.menu);
 
-            v_buf.render_stateful(
-                ShowScheme::new(theme.name(), theme.palette()),
-                Rect::new(0, 0, view_area.width, 38),
-                &mut state.scheme,
-            );
-
-            v_buf
-                .into_widget()
-                .render(layout[0], buf, &mut state.scroll);
-
-            let layout_menu =
-                Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
-                    .split(layout[1]);
-            let menu = Menubar::new(&Menu)
-                .styles(theme.menu_style())
-                .popup_placement(Placement::Above)
-                .into_widgets();
-            menu.0.render(layout_menu[0], buf, &mut state.menu);
-            menu.1.render(layout_menu[0], buf, &mut state.menu);
-
-            Ok(())
-        }
+        Ok(())
     }
 
-    impl AppState<GlobalState, ThemeEvent, Error> for Mask0State {
-        fn event(
-            &mut self,
-            event: &ThemeEvent,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, ThemeEvent, Error>,
-        ) -> Result<Control<ThemeEvent>, Error> {
-            let r = match event {
-                ThemeEvent::Event(event) => {
-                    try_flow!(match self.menu.handle(event, Popup) {
-                        MenuOutcome::MenuSelected(0, n) => {
-                            ctx.g.theme = Rc::new(dark_themes()[n].clone());
-                            Control::Changed
-                        }
-                        MenuOutcome::MenuActivated(0, n) => {
-                            ctx.g.theme = Rc::new(dark_themes()[n].clone());
-                            Control::Changed
-                        }
-                        MenuOutcome::Activated(1) => {
-                            Control::Quit
-                        }
-                        r => r.into(),
-                    });
+    pub fn event(
+        event: &ThemesEvent,
+        state: &mut Mask0,
+        ctx: &mut GlobalState,
+    ) -> Result<Control<ThemesEvent>, Error> {
+        let r = match event {
+            ThemesEvent::Event(event) => {
+                try_flow!(match state.menu.handle(event, Popup) {
+                    MenuOutcome::MenuSelected(0, n) => {
+                        ctx.theme = Rc::new(dark_themes()[n].clone());
+                        Control::Changed
+                    }
+                    MenuOutcome::MenuActivated(0, n) => {
+                        ctx.theme = Rc::new(dark_themes()[n].clone());
+                        Control::Changed
+                    }
+                    MenuOutcome::Activated(1) => {
+                        Control::Quit
+                    }
+                    r => r.into(),
+                });
 
-                    try_flow!(self.scroll.handle(event, Regular));
+                try_flow!(state.scroll.handle(event, Regular));
 
-                    Control::Continue
-                }
-                _ => Control::Continue,
-            };
+                Control::Continue
+            }
+            _ => Control::Continue,
+        };
 
-            Ok(r)
-        }
+        Ok(r)
     }
 }
-
-// -----------------------------------------------------------------------
 
 pub mod show_scheme {
     use rat_theme2::{Palette, TextColorRating};
@@ -449,8 +434,8 @@ pub mod show_scheme {
 
             let make_fg = |c| match Palette::rate_text_color(c) {
                 None => Color::Reset,
-                Some(TextColorRating::Light) => self.scheme.white[0],
-                Some(TextColorRating::Dark) => self.scheme.black[3],
+                Some(TextColorRating::Light) => self.scheme.white[3],
+                Some(TextColorRating::Dark) => self.scheme.black[0],
             };
 
             let sc = self.scheme;
@@ -510,10 +495,11 @@ pub mod show_scheme {
 
 fn setup_logging() -> Result<(), Error> {
     if let Some(cache) = dirs::cache_dir() {
-        let log_path = cache.join("rat-salsa");
-        if !log_path.exists() {
-            fs::create_dir_all(&log_path)?;
-        }
+        // let log_path = cache.join("rat-salsa");
+        // if !log_path.exists() {
+        //     fs::create_dir_all(&log_path)?;
+        // }
+        let log_path = PathBuf::from(".");
 
         let log_file = log_path.join("theme_sample.log");
         _ = fs::remove_file(&log_file);
