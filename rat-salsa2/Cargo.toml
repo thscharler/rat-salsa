@@ -35,7 +35,7 @@ regex-cursor = "0.1.5"
 rust-ini = "0.21"
 unicode-segmentation = "1.11"
 cli-clipboard = "0.4"
-rat-widget = { version = "1.0", path = "../rat-widget" }
+rat-widget = { version = "1.0", path = "../rat-widget", features = ["user_directories"] }
 rat-theme2 = { version = "1.0", path = "../rat-theme2" }
 
 [[example]]

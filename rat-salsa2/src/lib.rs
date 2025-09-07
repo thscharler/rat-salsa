@@ -237,11 +237,11 @@ impl<Event, T: Into<Outcome>> From<T> for Control<Event> {
 
 /// This trait gives access to all facilities built into rat-salsa.
 ///
-/// This trait is implemented for the global state struct and gives
-/// access to all rat-salsa functions at the same level as your
-/// own global stuff.
+/// Your global state struct has to implement this trait. This allows
+/// rat-salsa to add its facilities to it.  
 ///
-///
+/// run_tui() sets it during initialization, it will be up and
+/// running by the time init() is called.
 ///
 pub trait SalsaContext<Event, Error>
 where
