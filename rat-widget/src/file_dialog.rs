@@ -57,6 +57,7 @@ use sysinfo::Disks;
 #[derive(Debug, Clone)]
 pub struct FileDialog<'a> {
     block: Option<Block<'a>>,
+    no_block: bool,
 
     style: Style,
     list_style: Option<ListStyle>,
@@ -252,6 +253,7 @@ impl<'a> Default for FileDialog<'a> {
     fn default() -> Self {
         Self {
             block: Default::default(),
+            no_block: false,
             style: Default::default(),
             list_style: Default::default(),
             roots_style: Default::default(),
@@ -285,6 +287,13 @@ impl<'a> FileDialog<'a> {
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self.block = self.block.map(|v| v.style(self.style));
+        self
+    }
+
+    /// Remove block
+    pub fn no_block(mut self) -> Self {
+        self.block = None;
+        self.no_block = true;
         self
     }
 
@@ -412,7 +421,7 @@ impl StatefulWidget for FileDialog<'_> {
         let block;
         let block = if let Some(block) = self.block.as_ref() {
             block
-        } else {
+        } else if !self.no_block {
             block = Block::bordered()
                 .title(match state.mode {
                     Mode::Open => " Open ",
@@ -420,6 +429,9 @@ impl StatefulWidget for FileDialog<'_> {
                     Mode::Dir => " Directory ",
                 })
                 .style(self.style);
+            &block
+        } else {
+            block = Block::new().style(self.style);
             &block
         };
 
