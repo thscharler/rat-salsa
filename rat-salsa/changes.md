@@ -1,3 +1,7 @@
+# 2.0.1
+
+* fix: for linux
+
 # 2.0.0
 
 Remove AppWidget and AppState and replace it with plain functions.
