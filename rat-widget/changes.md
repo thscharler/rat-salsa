@@ -12,10 +12,13 @@
 * fix: SinglePager shows the first page if called with an unknown widget.
 * fix: Display of the next page was wrong with DualPager.
 * fix: Form, Pager, SinglePager, DualPager: render_label had a broken api. fix.
+* fix: Split adds a few length checks and ignores some out-of-bounds requests.
 
 * feature: Form, Pager, SinglePager, DualPager: add auto_label() flag to
   disable default label rendering.
 * feature: View: add Style for areas outside the rendered view.
+* feature: MsgDialogState::new_active() added.
+* feature: add no_block() to FileDialog if you really don't want a border.
 
 # 1.0.5
 

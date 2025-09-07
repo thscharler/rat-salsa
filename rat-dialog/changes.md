@@ -1,3 +1,7 @@
+# 0.3.0
+
+* rebuild with rat-salsa 2.0
+
 # 0.2.0
 
 * use a render Fn instead of creating and returning an AppWidget.

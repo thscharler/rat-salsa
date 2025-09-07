@@ -4,6 +4,35 @@ Remove AppWidget and AppState and replace it with plain functions.
 Prime example for traits rooted in old habits and too much object-oriented
 thinking.
 
+- break: remove the difference between AppContext and RenderContext.
+- break: remove AppContext as a separate unit and make it part of the Global
+  struct of the application. This removes the obnoxious '.g' when accessing
+  global data and brings AppContext and Global to the same level.
+  Renamed to SalsaAppContext and add a trait SalsaContext that can do
+  everything the current AppContext can. Easy to plug it to the Global
+  struct this way. And less lifetime annotations this way.
+- break: simplify spawn() and add spawn_ext() with the full functionality.
+- break: rename focus_event() to handle_focus()
+
+- book: there is a new one.
+- feature: add a Liveness flag that can track a background task. Not
+  very useful for short-lived task, but if you want to run a permanent
+  background worker it might be useful.
+- feature: add mock::init() and mock::error() to use with run_tui() if
+  you don't need init or error handling.
+- feature: add PollQuit that will send a message immediately before
+  quitting. If you return anything but Quit it will cancel the quit.
+- feature: remove the Send bound where it is not absolutely necessary.
+  Now your Event and Error type don't need to be Send if you don't
+  use thread-tasks or future-tasks.
+
+- feature: really minimize down the minimal.rs example. And add a
+  nominal.rs that shows some internal structuring.
+- feature: make ultra.rs nicer. and still <= 100loc
+-
+
+- fix: don't use all of rat-widget, just rat-event and rat-focus are needed.
+
 # 1.0.1
 
 concerns only the examples ...

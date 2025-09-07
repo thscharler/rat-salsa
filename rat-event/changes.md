@@ -3,6 +3,10 @@
 * fix: naming of and() and and_try() was wrong. add and_then() and
   and_then_try() to stay in line with Result and Option.
   deprecate the old variants.
+* feature: add break_flow! macro, that doesn't return but does a labeled break
+  instead.
+* feature: flow!, try_flow! and break_flow! now accept a full :tt instead of an
+  expression.
 
 # 1.2.2
 

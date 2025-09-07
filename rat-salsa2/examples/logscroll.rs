@@ -355,7 +355,7 @@ mod logscroll {
     use rat_widget::splitter::{Split, SplitState};
     use rat_widget::table::selection::RowSelection;
     use rat_widget::table::{Table, TableContext, TableData, TableState};
-    use rat_widget::text::{impl_screen_cursor, TextPosition};
+    use rat_widget::text::{impl_screen_cursor, upos_type, TextPosition};
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
@@ -378,6 +378,7 @@ mod logscroll {
     #[derive(Debug)]
     pub struct LogScroll {
         pub split: SplitState,
+        pub start_line: upos_type,
         pub logtext: TextAreaState,
         pub find_label: CaptionState,
         pub find: TextInputState,
@@ -397,6 +398,7 @@ mod logscroll {
         fn default() -> Self {
             let mut zelf = Self {
                 split: Default::default(),
+                start_line: 0,
                 logtext: Default::default(),
                 find_label: Default::default(),
                 find: Default::default(),
@@ -484,6 +486,7 @@ mod logscroll {
             .data(FindData {
                 theme: &ctx.theme,
                 text: &state.logtext,
+                start_line: state.start_line,
                 data: &state.find_matches,
             })
             .render(l2[1], buf, &mut state.find_table);
@@ -500,6 +503,7 @@ mod logscroll {
     struct FindData<'a> {
         theme: &'a DarkTheme,
         text: &'a TextAreaState,
+        start_line: upos_type,
         data: &'a [(usize, usize, usize)],
     }
 
@@ -586,7 +590,7 @@ mod logscroll {
                 .take(suffix_len)
                 .collect::<String>();
 
-            let pos_txt = format!("\u{2316} {}:{}", line.x, line.y);
+            let pos_txt = format!("\u{2316} {}:{}", line.x, self.start_line + line.y);
             let l0 = Line::from_iter([
                 Span::from(pos_txt), //
             ])
@@ -834,6 +838,21 @@ mod logscroll {
                         }
                         Control::Changed
                     }
+                    ct_event!(keycode press F(4)) => {
+                        state
+                            .logtext
+                            .set_cursor((0, state.logtext.len_lines()), false);
+                        Control::Changed
+                    }
+                    ct_event!(keycode press F(5)) => {
+                        state.start_line += state.logtext.len_lines().saturating_sub(1);
+                        state.logtext.clear();
+                        state.select_match = (0, 0, 0);
+                        state.find_matches.clear();
+                        state.find_table.clear_selection();
+                        state.find_table.clear_offset();
+                        Control::Changed
+                    }
                     ct_event!(keycode press F(8)) => {
                         let themes = dark_themes();
                         let pos = themes
@@ -917,6 +936,7 @@ mod logscroll {
                 state.find_table.select(None);
                 state.logtext_id += 1;
 
+                state.start_line = 0;
                 state.logtext.set_rope(r.clone());
                 state.logtext.set_styles(Vec::default());
                 state
@@ -1025,6 +1045,8 @@ static HELP_TEXT: &str = r#"
 F1      show this
 F2      change split position
 F3      jump to find / toggle find
+F4      jump to end of log
+F5      truncate log
 F8      next theme
 Ctrl+Q  quit
 
@@ -1037,9 +1059,5 @@ Shift-Tab   standard navigation
 Ctrl+End    jump to end of log and stick there
 ...         standard navigation with arrow-keys etc
 Ctrl+C      copy to clipboard
-
-
-
-
 
 "#;
