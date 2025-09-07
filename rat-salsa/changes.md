@@ -1,3 +1,7 @@
+# 2.0.2
+
+* fix: for linux
+
 # 2.0.1
 
 * fix: for linux
