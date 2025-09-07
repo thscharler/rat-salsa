@@ -223,6 +223,7 @@ mod logscroll {
     use crate::{AppContext, GlobalState, RenderContext};
     use anyhow::Error;
     use log::debug;
+    use rat_focus::FocusBuilder;
     use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_theme2::DarkTheme;
@@ -230,7 +231,7 @@ mod logscroll {
     use rat_widget::event::{
         ct_event, try_flow, HandleEvent, ReadOnly, Regular, TableOutcome, TextOutcome,
     };
-    use rat_widget::focus::{impl_has_focus, HasFocus, Navigation};
+    use rat_widget::focus::{HasFocus, Navigation};
     use rat_widget::paired::{PairSplit, Paired, PairedState};
     use rat_widget::scrolled::Scroll;
     use rat_widget::splitter::{Split, SplitState};
@@ -268,7 +269,7 @@ mod logscroll {
 
     impl Default for LogScrollState {
         fn default() -> Self {
-            let mut zelf = Self {
+            Self {
                 split: Default::default(),
                 logtext: Default::default(),
                 find_label: Default::default(),
@@ -276,9 +277,7 @@ mod logscroll {
                 find_matches: Default::default(),
                 find_table: Default::default(),
                 pollution: Default::default(),
-            };
-            zelf.logtext.set_focus_navigation(Navigation::Regular);
-            zelf
+            }
         }
     }
 
@@ -412,7 +411,23 @@ mod logscroll {
         }
     }
 
-    impl_has_focus!(logtext, split, find, find_table for LogScrollState);
+    impl HasFocus for LogScrollState {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget_navigate(&self.logtext, Navigation::Regular);
+            builder.widget(&self.split);
+            builder.widget(&self.find);
+            builder.widget(&self.find_table);
+        }
+
+        fn focus(&self) -> ::rat_focus::FocusFlag {
+            unimplemented!("not defined")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("not defined")
+        }
+    }
+
     impl_screen_cursor!(logtext, find for LogScrollState);
 
     impl LogScrollState {

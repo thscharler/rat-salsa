@@ -13,7 +13,7 @@ use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
     ReadOnly, Regular, TableOutcome,
 };
-use rat_widget::focus::{impl_has_focus, match_focus, FocusBuilder, HasFocus, Navigation};
+use rat_widget::focus::{match_focus, FocusBuilder, HasFocus, Navigation};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -35,7 +35,6 @@ use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use sysinfo::Disks;
@@ -161,7 +160,6 @@ impl Default for Files {
             status: Default::default(),
             error_dlg: Default::default(),
         };
-        zelf.w_data.set_focus_navigation(Navigation::Regular);
         zelf
     }
 }
@@ -627,7 +625,24 @@ fn error(
 }
 
 impl_screen_cursor!(w_data for Files);
-impl_has_focus!(w_split, w_dirs, w_files, w_data, w_menu for Files);
+
+impl HasFocus for Files {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.widget(&self.w_split);
+        builder.widget(&self.w_dirs);
+        builder.widget(&self.w_files);
+        builder.widget_navigate(&self.w_data, Navigation::Regular);
+        builder.widget(&self.w_menu);
+    }
+
+    fn focus(&self) -> ::rat_focus::FocusFlag {
+        unimplemented!("not defined")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not defined")
+    }
+}
 
 fn show_dir(state: &mut Files) -> Result<Control<FilesEvent>, Error> {
     if let Some(n) = state.w_dirs.selected() {

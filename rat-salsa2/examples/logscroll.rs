@@ -340,6 +340,7 @@ mod logscroll {
     use anyhow::Error;
     use crossbeam::channel::Sender;
     use log::debug;
+    use rat_focus::{FocusBuilder, FocusFlag};
     use rat_salsa2::tasks::{Cancel, Liveness};
     use rat_salsa2::timer::{TimerDef, TimerHandle};
     use rat_salsa2::{Control, SalsaContext};
@@ -348,7 +349,7 @@ mod logscroll {
     use rat_widget::event::{
         ct_event, try_flow, HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome,
     };
-    use rat_widget::focus::{impl_has_focus, HasFocus, Navigation};
+    use rat_widget::focus::{HasFocus, Navigation};
     use rat_widget::paired::{PairSplit, Paired, PairedState};
     use rat_widget::scrolled::Scroll;
     use rat_widget::splitter::{Split, SplitState};
@@ -407,7 +408,6 @@ mod logscroll {
                 t_live: Default::default(),
                 pollution: Default::default(),
             };
-            zelf.logtext.set_focus_navigation(Navigation::Regular);
             zelf.find_table.set_scroll_selection(true);
             zelf
         }
@@ -602,7 +602,23 @@ mod logscroll {
         }
     }
 
-    impl_has_focus!(logtext, split, find, find_table for LogScroll);
+    impl HasFocus for LogScroll {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget_navigate(&self.logtext, Navigation::Regular);
+            builder.widget(&self.split);
+            builder.widget(&self.find);
+            builder.widget(&self.find_table);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("not defined")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("not defined")
+        }
+    }
+
     impl_screen_cursor!(logtext, find for LogScroll);
 
     fn loop_file(
