@@ -18,10 +18,10 @@ log = "0.4"
 fxhash = "0.2"
 
 rat-event = { version = "1.2", path = "../rat-event" }
-rat-reloc = { version = "1.1", path = "../rat-reloc" }
+rat-reloc = { version = "1.2", path = "../rat-reloc" }
 
 [dev-dependencies]
 fern = "0.7"
 anyhow = "1.0"
 unicode-segmentation = "1.11"
-rat-cursor = { version = "1.1", path = "../rat-cursor" }
+rat-cursor = { version = "1.2", path = "../rat-cursor" }

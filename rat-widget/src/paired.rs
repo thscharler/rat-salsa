@@ -15,7 +15,8 @@
 //!
 //! let value = "2024";
 //! # let area = Rect::new(10, 10, 30, 1);
-//! # let buf = Buffer::empty(area);
+//! # let mut buf = Buffer::empty(area);
+//! # let buf = &mut buf;
 //! # let mut slider_state = SliderState::new_range((2015,2024), 3);
 //!
 //! Paired::new(

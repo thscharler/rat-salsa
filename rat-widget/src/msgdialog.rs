@@ -13,7 +13,8 @@
 //!     "This is some warning etc etc");
 //!
 //! # let area = Rect::new(5,5,60,15);
-//! # let buf = Buffer::empty(area);
+//! # let mut buf = Buffer::empty(area);
+//! # let buf = &mut buf;
 //!
 //! MsgDialog::new()
 //!     .block(Block::bordered())
@@ -23,6 +24,7 @@
 //! // ...
 //!
 //! # let event = crossterm::event::Event::FocusGained;//dummy
+//! # let event = &event;
 //! match state.handle(event, Dialog) {
 //!     Outcome::Continue => {}
 //!     Outcome::Unchanged | Outcome::Changed => { return; }
@@ -41,11 +43,11 @@
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::event::ButtonOutcome;
-use crate::layout::{layout_dialog, DialogItem};
+use crate::layout::{DialogItem, layout_dialog};
 use crate::paragraph::{Paragraph, ParagraphState};
 use crate::util::{block_padding2, reset_buf_area};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
+use rat_event::{ConsumedEvent, Dialog, HandleEvent, Outcome, Regular, ct_event};
 use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;

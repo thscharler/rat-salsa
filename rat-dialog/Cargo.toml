@@ -25,6 +25,6 @@ rat-event = { version = "1.2", path = "../rat-event" }
 anyhow = "1.0"
 fern = "0.7"
 dirs = "6.0"
-rat-widget = { version = "1.0", path = "../rat-widget" }
-rat-theme2 = { version = "1.0", path = "../rat-theme2" }
+rat-widget = { version = "1.1", path = "../rat-widget" }
+rat-theme2 = { version = "1.1", path = "../rat-theme2" }
 

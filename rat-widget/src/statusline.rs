@@ -16,7 +16,8 @@
 //!
 //!
 //! # let area = Rect::new(0,24,80,1);
-//! # let buf = Buffer::empty(area);
+//! # let mut buf = Buffer::empty(area);
+//! # let buf = &mut buf;
 //!
 //! StatusLine::new()
 //!     .layout([
@@ -34,7 +35,7 @@
 //! ```
 
 use crate::_private::NonExhaustive;
-use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
