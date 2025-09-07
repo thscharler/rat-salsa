@@ -4,9 +4,9 @@ use anyhow::{anyhow, Error};
 use dirs::config_dir;
 use ini::Ini;
 use log::{debug, warn};
-use rat_salsa2::poll::{PollCrossterm, PollTasks, PollTimers};
-use rat_salsa2::timer::TimeOut;
-use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
+use rat_salsa::timer::TimeOut;
+use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::{dark_themes, DarkTheme, Palette};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
@@ -341,9 +341,9 @@ mod logscroll {
     use crossbeam::channel::Sender;
     use log::debug;
     use rat_focus::{FocusBuilder, FocusFlag};
-    use rat_salsa2::tasks::{Cancel, Liveness};
-    use rat_salsa2::timer::{TimerDef, TimerHandle};
-    use rat_salsa2::{Control, SalsaContext};
+    use rat_salsa::tasks::{Cancel, Liveness};
+    use rat_salsa::timer::{TimerDef, TimerHandle};
+    use rat_salsa::{Control, SalsaContext};
     use rat_theme2::{dark_themes, DarkTheme, Palette};
     use rat_widget::caption::{Caption, CaptionState, HotkeyPolicy};
     use rat_widget::event::{

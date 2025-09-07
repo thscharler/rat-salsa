@@ -4,9 +4,9 @@
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
-use rat_salsa2::poll::{PollCrossterm, PollTasks};
-use rat_salsa2::tasks::Cancel;
-use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa::poll::{PollCrossterm, PollTasks};
+use rat_salsa::tasks::Cancel;
+use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::{dark_themes, DarkTheme};
 use rat_widget::event::{
@@ -146,7 +146,7 @@ pub struct Files {
 
 impl Default for Files {
     fn default() -> Self {
-        let mut zelf = Self {
+        Self {
             main_dir: Default::default(),
             sub_dirs: Default::default(),
             files: Default::default(),
@@ -159,8 +159,7 @@ impl Default for Files {
             w_menu: Default::default(),
             status: Default::default(),
             error_dlg: Default::default(),
-        };
-        zelf
+        }
     }
 }
 
@@ -582,7 +581,7 @@ fn crossterm(
                 _=> Control::Continue
             }
         },
-        _ => {
+        else => {
             Control::Continue
         }
     ));

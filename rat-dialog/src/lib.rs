@@ -2,7 +2,7 @@ use rat_event::{ConsumedEvent, HandleEvent, Outcome};
 use rat_salsa::{Control, SalsaContext};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use std::any::{type_name, Any, TypeId};
+use std::any::{Any, TypeId, type_name};
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
 use std::mem;
@@ -30,7 +30,7 @@ pub enum StackControl<Event> {
     /// disconnected parts of your application. And indeed there is
     /// a hidden message-queue as part of the event-loop.
     ///
-    /// The other way is to call [AppContext::queue] to initiate such
+    /// The other way is to call [SalsaContext::queue] to initiate such
     /// events.
     Event(Event),
     /// Quit the application.
@@ -214,7 +214,7 @@ where
         &self,
         render: impl Fn(Rect, &mut Buffer, &mut dyn Any, &'_ mut Global) -> Result<(), Error> + 'static,
         event: impl Fn(&Event, &mut dyn Any, &'_ mut Global) -> Result<StackControl<Event>, Error>
-            + 'static,
+        + 'static,
         state: impl Any,
     ) {
         self.core.len.update(|v| v + 1);

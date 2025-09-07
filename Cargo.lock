@@ -1034,22 +1034,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rat-dialog2"
-version = "0.3.0"
-dependencies = [
- "anyhow",
- "crossterm",
- "dirs",
- "fern",
- "log",
- "rat-event",
- "rat-salsa2",
- "rat-theme2",
- "rat-widget",
- "ratatui",
-]
-
-[[package]]
 name = "rat-event"
 version = "1.2.3"
 dependencies = [
@@ -1076,7 +1060,7 @@ dependencies = [
 
 [[package]]
 name = "rat-ftable"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1149,31 +1133,6 @@ dependencies = [
 
 [[package]]
 name = "rat-salsa"
-version = "2.0.0"
-dependencies = [
- "anyhow",
- "cli-clipboard",
- "crossbeam",
- "crossterm",
- "dirs",
- "fern",
- "log",
- "rand",
- "rat-event",
- "rat-focus",
- "rat-theme2",
- "rat-widget",
- "ratatui",
- "regex-cursor",
- "ropey",
- "rust-ini",
- "sysinfo",
- "tokio",
- "unicode-segmentation",
-]
-
-[[package]]
-name = "rat-salsa2"
 version = "2.0.0"
 dependencies = [
  "anyhow",

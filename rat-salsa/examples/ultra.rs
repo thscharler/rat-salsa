@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Error};
-use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{mock, run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa::poll::PollCrossterm;
+use rat_salsa::{mock, run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_widget::event::ct_event;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

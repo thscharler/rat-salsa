@@ -1,13 +1,13 @@
 use crate::moving::{Moving, MovingState};
 use anyhow::Error;
-use rat_dialog2::DialogStack;
-use rat_salsa2::event::RenderedEvent;
-use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa2::timer::TimeOut;
-use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme2::palettes::IMPERIAL;
+use rat_dialog::DialogStack;
+use rat_salsa::event::RenderedEvent;
+use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
+use rat_salsa::timer::TimeOut;
+use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme2::DarkTheme;
-use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_theme2::palettes::IMPERIAL;
+use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -231,11 +231,11 @@ pub mod moving {
     use crate::window::{Window, WindowOutcome, WindowState};
     use crate::{AppEvent, Global};
     use anyhow::Error;
-    use rat_dialog2::StackControl;
+    use rat_dialog::StackControl;
     use rat_event::{Dialog, Popup};
-    use rat_salsa2::timer::TimerDef;
-    use rat_salsa2::{Control, SalsaContext};
-    use rat_widget::event::{try_flow, FileOutcome, HandleEvent, MenuOutcome, Regular};
+    use rat_salsa::timer::TimerDef;
+    use rat_salsa::{Control, SalsaContext};
+    use rat_widget::event::{FileOutcome, HandleEvent, MenuOutcome, Regular, try_flow};
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::layout::layout_middle;
@@ -432,7 +432,7 @@ fn setup_logging() -> Result<(), Error> {
 
 mod window {
     use rat_event::util::MouseFlags;
-    use rat_event::{ct_event, ConsumedEvent, HandleEvent, Outcome, Regular};
+    use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular, ct_event};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Position, Rect};
     use ratatui::style::Style;

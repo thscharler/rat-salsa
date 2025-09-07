@@ -1,4 +1,4 @@
-# 1.1
+# 1.1.0
 
 * Some breaking changes for TableEditor.
   // There is currently no known user for this api, so I allow myself to just do it:
@@ -9,6 +9,7 @@
       is held. This allows to get rid of the rc for the actual data.
     * Add TableEditorState::set_focused_col(). This allows to directly
       edit a specific cell of the table.
+* fix: docs
 
 # 1.0.1
 

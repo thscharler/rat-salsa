@@ -3,27 +3,27 @@
 //!
 
 use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use anyhow::Error;
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
-use rat_event::{flow, try_flow, HandleEvent, Outcome, Regular};
-use rat_focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
+use rat_event::{HandleEvent, Outcome, Regular, flow, try_flow};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, match_focus};
 use rat_ftable::edit::table::{EditableTable, EditableTableState};
 use rat_ftable::edit::{TableEditor, TableEditorState};
 use rat_ftable::event::EditOutcome;
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableData};
 use rat_scrolled::Scroll;
+use rat_text::HasScreenCursor;
 use rat_text::number_input::{NumberInput, NumberInputState};
 use rat_text::text_input::{TextInput, TextInputState};
-use rat_text::HasScreenCursor;
+use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{block, Block, StatefulWidget, Widget};
-use ratatui::Frame;
+use ratatui::widgets::{Block, StatefulWidget, Widget, block};
 
 mod data {
     pub(crate) static TINY_DATA: [&str; 10] = [
@@ -449,7 +449,7 @@ impl TableEditorState for SampleEditorState {
             self.num1 => Some(1),
             self.num2 => Some(2),
             self.num3 => Some(3),
-            _ => None
+            else => None
         )
     }
 

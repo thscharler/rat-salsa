@@ -1,5 +1,5 @@
-use rat_text::core::{TextRope, TextStore};
 use rat_text::Cursor;
+use rat_text::core::{TextRope, TextStore};
 use rat_text::{TextError, TextRange};
 
 #[test]
@@ -575,7 +575,7 @@ fn test_line_width() {
 #[test]
 fn test_final_newline() {
     let s = TextRope::new_text("");
-    assert!(s.should_insert_newline((0, 0).into()));
+    assert!(!s.should_insert_newline((0, 0).into()));
     assert!(s.should_insert_newline((0, 1).into()));
 
     let s = TextRope::new_text("abcd");

@@ -2,8 +2,8 @@ use crate::event::AppEvent;
 use anyhow::Error;
 use rat_event::try_flow;
 use rat_focus::impl_has_focus;
-use rat_salsa2::poll::{PollCrossterm, PollRendered};
-use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa::poll::{PollCrossterm, PollRendered};
+use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::MONOCHROME;
 use rat_theme2::DarkTheme;
 use rat_widget::button::{Button, ButtonState};
@@ -74,7 +74,7 @@ impl Global {
 
 /// Application wide messages.
 pub mod event {
-    use rat_salsa2::event::RenderedEvent;
+    use rat_salsa::event::RenderedEvent;
 
     #[derive(Debug)]
     pub enum AppEvent {

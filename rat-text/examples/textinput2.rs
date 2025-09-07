@@ -1,15 +1,15 @@
-use crate::mini_salsa::{fill_buf_area, run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, fill_buf_area, run_ui, setup_logging};
 use log::{debug, warn};
-use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
-use rat_focus::{match_focus, Focus, FocusBuilder};
-use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
+use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
+use rat_focus::{Focus, FocusBuilder, match_focus};
+use rat_text::HasScreenCursor;
+use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::event::TextOutcome;
 use rat_text::text_input::{TextInput, TextInputState};
-use rat_text::HasScreenCursor;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
-use ratatui::Frame;
 use std::cell::RefCell;
 use std::fmt;
 
@@ -157,7 +157,7 @@ fn repaint_input(
         state.textinput1 => Some(&state.textinput1),
         state.textinput2 => Some(&state.textinput2),
         state.textinput3 => Some(&state.textinput3),
-        _ => None
+        else => None
     ) {
         if state.info {
             use fmt::Write;

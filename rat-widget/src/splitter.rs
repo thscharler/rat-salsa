@@ -5,9 +5,9 @@
 use crate::_private::NonExhaustive;
 use crate::util::{fill_buf_area, revert_style};
 use rat_event::util::MouseFlagsN;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-use rat_reloc::{relocate_area, relocate_areas, relocate_positions, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area, relocate_areas, relocate_positions};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
@@ -1371,7 +1371,7 @@ impl SplitState {
     /// __Caution__
     ///
     /// Before the first render this will do nothing.
-    /// Use [set_area_lengths] to initialize the areas.
+    /// Use [set_area_lengths](SplitState::set_area_lengths) to initialize the areas.
     ///
     pub fn set_area_len(&mut self, n: usize, len: u16) {
         if n >= self.area_length.len() {

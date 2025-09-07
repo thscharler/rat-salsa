@@ -4,11 +4,11 @@
 ///
 use crate::minimal::Minimal;
 use anyhow::Error;
-use rat_salsa2::event::RenderedEvent;
-use rat_salsa2::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa2::terminal::CrosstermTerminal;
-use rat_salsa2::timer::TimeOut;
-use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa::event::RenderedEvent;
+use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
+use rat_salsa::terminal::CrosstermTerminal;
+use rat_salsa::timer::TimeOut;
+use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
@@ -225,7 +225,7 @@ pub fn error(
 pub mod minimal {
     use crate::{AppEvent, Global};
     use anyhow::Error;
-    use rat_salsa2::{Control, SalsaContext};
+    use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{MenuLine, MenuLineState};

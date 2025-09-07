@@ -4,25 +4,25 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::clipboard::{global_clipboard, Clipboard};
+use crate::clipboard::{Clipboard, global_clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
 use crate::glyph2::{GlyphIter2, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
-use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
+use crate::text_store::text_rope::TextRope;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
-    ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
+    Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle, ipos_type, upos_type,
 };
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
 use rat_focus::event::FocusTraversal;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-use rat_reloc::{relocate_area, relocate_dark_offset, relocate_pos_tuple, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area, relocate_dark_offset, relocate_pos_tuple};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
@@ -1114,7 +1114,7 @@ impl TextAreaState {
         self.value.line_width(row)
     }
 
-    /// Line as Cow<str>.
+    /// Line as `Cow<str>`.
     /// This contains the \n at the end.
     ///
     /// Panics for an invalid row.
@@ -1123,7 +1123,7 @@ impl TextAreaState {
         self.value.line_at(row).expect("valid_row")
     }
 
-    /// Line as Cow<str>.
+    /// Line as `Cow<str>`.
     /// This contains the \n at the end.
     #[inline]
     pub fn try_line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {

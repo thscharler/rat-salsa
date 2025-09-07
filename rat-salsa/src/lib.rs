@@ -98,7 +98,7 @@ pub mod poll {
 pub mod mock {
     //! Provides dummy implementations for some functions.
 
-    /// Empty placeholder for [run_tui].
+    /// Empty placeholder for [run_tui](crate::run_tui).
     pub fn init<State, Global, Error>(
         _state: &mut State, //
         _ctx: &mut Global,
@@ -106,7 +106,7 @@ pub mod mock {
         Ok(())
     }
 
-    /// Empty placeholder for [run_tui].
+    /// Empty placeholder for [run_tui](crate::run_tui).
     pub fn error<Global, State, Event, Error>(
         _error: Error,
         _state: &mut State,
@@ -131,8 +131,8 @@ pub mod mock {
 ///
 /// __See__
 ///
-/// - [flow!](rat_widget::event::flow)
-/// - [try_flow!](rat_widget::event::try_flow)
+/// - [flow!](rat_event::flow)
+/// - [try_flow!](rat_event::try_flow)
 /// - [ConsumedEvent]
 #[derive(Debug, Clone, Copy)]
 #[must_use]
@@ -240,7 +240,7 @@ impl<Event, T: Into<Outcome>> From<T> for Control<Event> {
 /// Your global state struct has to implement this trait. This allows
 /// rat-salsa to add its facilities to it.  
 ///
-/// run_tui() sets it during initialization, it will be up and
+/// [run_tui] sets it during initialization, it will be up and
 /// running by the time init() is called.
 ///
 pub trait SalsaContext<Event, Error>
@@ -249,7 +249,7 @@ where
     Error: 'static,
 {
     /// The AppContext struct holds all the data for the rat-salsa
-    /// functionality. run_tui calls this to set the initialized
+    /// functionality. [run_tui] calls this to set the initialized
     /// struct.
     fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<Event, Error>);
 
@@ -526,10 +526,10 @@ where
 ///
 /// Application context for event handling.
 ///
-/// Add this to your global state and implement `Context` to
+/// Add this to your global state and implement [SalsaContext] to
 /// access the facilities of rat-salsa. You can Default::default()
 /// initialize this field with some dummy values. It will
-/// be set correctly when calling `run_tui()`.
+/// be set correctly when calling [run_tui].
 ///
 pub struct SalsaAppContext<Event, Error>
 where

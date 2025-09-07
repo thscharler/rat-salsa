@@ -9,9 +9,9 @@
 use crate::app::Scenery;
 use crate::theme::TurboTheme;
 use anyhow::Error;
-use rat_dialog2::DialogStack;
-use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
+use rat_dialog::DialogStack;
+use rat_salsa::poll::PollCrossterm;
+use rat_salsa::{RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme2::palettes::BASE16;
 use std::fs;
 use std::path::PathBuf;
@@ -99,12 +99,12 @@ impl<'a> TryFrom<&'a TurboEvent> for &'a crossterm::event::Event {
 
 pub mod app {
     use crate::turbo::Turbo;
-    use crate::{turbo, GlobalState, TurboEvent};
+    use crate::{GlobalState, TurboEvent, turbo};
     use anyhow::Error;
-    use rat_dialog2::StackControl;
+    use rat_dialog::StackControl;
     use rat_event::{Dialog, Outcome};
-    use rat_salsa2::{Control, SalsaContext};
-    use rat_widget::event::{ct_event, ConsumedEvent, HandleEvent};
+    use rat_salsa::{Control, SalsaContext};
+    use rat_widget::event::{ConsumedEvent, HandleEvent, ct_event};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
     use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -265,10 +265,10 @@ pub mod app {
 pub mod turbo {
     use crate::{GlobalState, TurboEvent};
     use anyhow::Error;
-    use rat_dialog2::StackControl;
+    use rat_dialog::StackControl;
     use rat_event::{Dialog, Outcome};
-    use rat_salsa2::{Control, SalsaContext};
-    use rat_widget::event::{ct_event, try_flow, FileOutcome, HandleEvent, MenuOutcome, Popup};
+    use rat_salsa::{Control, SalsaContext};
+    use rat_widget::event::{FileOutcome, HandleEvent, MenuOutcome, Popup, ct_event, try_flow};
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::layout::layout_middle;

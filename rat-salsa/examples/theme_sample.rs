@@ -3,10 +3,10 @@
 use crate::mask0::Mask0;
 use anyhow::Error;
 use crossterm::event::Event;
-use rat_salsa2::poll::{PollCrossterm, PollTasks, PollTimers};
-use rat_salsa2::timer::TimeOut;
-use rat_salsa2::Control;
-use rat_salsa2::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
+use rat_salsa::timer::TimeOut;
+use rat_salsa::Control;
+use rat_salsa::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
@@ -205,7 +205,7 @@ pub mod mask0 {
     use crate::show_scheme::{ShowScheme, ShowSchemeState};
     use crate::{GlobalState, ThemesEvent};
     use anyhow::Error;
-    use rat_salsa2::Control;
+    use rat_salsa::Control;
     use rat_theme2::dark_themes;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};

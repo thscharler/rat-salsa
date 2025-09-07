@@ -9,9 +9,9 @@ rat-text: 1.1.0
 rat-theme2: 1.1.0
 rat-widget: 1.1.0
 rat-salsa: 2.0.0
+rat-ftable: 1.1.0
 
 ---
 
 rat-cursor: 1.2.0
 rat-event: 1.2.3
-rat-ftable: 1.0.1

@@ -15,7 +15,7 @@ use crate::{Table, TableState};
 use log::warn;
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
+use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
@@ -74,14 +74,14 @@ where
     ///
     /// A bit tricky bc lifetimes of the table-data.
     ///
-    /// * table: constructor for the Table widget. This gets a &[Value] slice
+    /// * table: constructor for the Table widget. This gets a `&[Value]` slice
     ///   to display and returns the configured table.
     /// * editor: editor widget.
     pub fn new(
         table: impl for<'b> Fn(
-                &'b [<<E as TableEditor>::State as TableEditorState>::Value],
-            ) -> Table<'b, RowSelection>
-            + 'a,
+            &'b [<<E as TableEditor>::State as TableEditorState>::Value],
+        ) -> Table<'b, RowSelection>
+        + 'a,
         editor: E,
     ) -> Self {
         Self {

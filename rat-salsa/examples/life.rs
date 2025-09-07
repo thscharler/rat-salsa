@@ -10,9 +10,9 @@
 use crate::game::LifeGameState;
 use crate::life::Life;
 use anyhow::Error;
-use rat_salsa2::poll::{PollCrossterm, PollEvents};
-use rat_salsa2::{run_tui, RunConfig};
-use rat_salsa2::{Control, SalsaAppContext, SalsaContext};
+use rat_salsa::poll::{PollCrossterm, PollEvents};
+use rat_salsa::{run_tui, RunConfig};
+use rat_salsa::{Control, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
@@ -324,7 +324,7 @@ pub mod life {
     use crate::LifeEvent;
     use anyhow::Error;
     use rat_focus::impl_has_focus;
-    use rat_salsa2::{Control, SalsaContext};
+    use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;

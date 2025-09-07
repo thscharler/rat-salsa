@@ -6,9 +6,9 @@
 use crate::_private::NonExhaustive;
 use crate::util::revert_style;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, Outcome};
+use rat_event::{HandleEvent, Outcome, ct_event};
 use rat_focus::{Focus, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Style, Stylize};
@@ -224,7 +224,7 @@ impl<'a> Caption<'a> {
 
     /// Set the label text.
     ///
-    /// You probably want to use [parsed] instead.
+    /// You probably want to use [parse](Caption::parse) instead.
     /// This is only useful if you want manual control over
     /// highlight-range and hotkey text.
     pub fn text(mut self, txt: &'a str) -> Self {
@@ -644,7 +644,7 @@ impl<'a> HandleEvent<crossterm::event::Event, &'a Focus, Outcome> for CaptionSta
         // no separate mouse-handler, isok
         match event {
             ct_event!(mouse any for m) if self.mouse.hover(self.area, m) => {
-                return Outcome::Changed
+                return Outcome::Changed;
             }
             ct_event!(mouse down Left for x,y) if self.area.contains((*x, *y).into()) => {
                 focus.focus(&self.linked);

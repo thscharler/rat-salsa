@@ -9,7 +9,7 @@ use std::hash::{Hash, Hasher};
 use std::ptr;
 use std::rc::Rc;
 
-pub use crate::focus::{handle_focus, Focus, FocusBuilder};
+pub use crate::focus::{Focus, FocusBuilder, handle_focus};
 
 pub mod event {
     pub use rat_event::*;
@@ -481,7 +481,7 @@ macro_rules! on_gained {
 ///
 #[macro_export]
 macro_rules! match_focus {
-    ($($field:expr => $block:expr),* $(, _ => $final:expr)?) => {{
+    ($($field:expr => $block:expr),* $(, else => $final:expr)?) => {{
         use $crate::HasFocus;
         if false {
             unreachable!();

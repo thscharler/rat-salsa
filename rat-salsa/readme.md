@@ -13,11 +13,11 @@ Runs an application event-loop for ratatui and crossterm.
 It can
 
 - poll multiple event-sources fairly
-- run [background tasks](AppContext::spawn) in one or more worker threads.
-- run [background tasks](AppContext::spawn_async) as async tasks.
-- define [timers](AppContext::add_timer).
+- run [background tasks](SalsaContext::spawn) in one or more worker threads.
+- run [background tasks](SalsaContext::spawn_async) as async tasks.
+- define [timers](SalsaContext::add_timer).
 - work as a message-queue for in-app messages.
-- support focus-handling with [AppContext::focus](AppContext::focus)
+- support focus-handling with [SalsaContext::focus](SalsaContext::focus)
 
 All incoming events are converted to an application defined event-type,
 and are distributed by calling an event-handler function. This function
@@ -52,7 +52,7 @@ returns a [control-flow](Control) which dictates further actions.
     * [rat-popup](https://docs.rs/rat-popup)
       Utility widget to help with popups.
     * [rat-dialog](https:://docs.rs/rat-dialog)
-      Stacks windows/dialogs above the main application. 
+      Stacks windows/dialogs above the main application.
 
   Crates for specific widgets
 

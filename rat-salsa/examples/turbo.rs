@@ -9,8 +9,8 @@ use crate::theme::TurboTheme;
 use crate::turbo::Turbo;
 use anyhow::Error;
 use crossterm::event::Event;
-use rat_salsa2::poll::PollCrossterm;
-use rat_salsa2::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa::poll::PollCrossterm;
+use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::BASE16;
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
@@ -241,7 +241,7 @@ pub fn error(
 pub mod turbo {
     use crate::{TurboEvent, TurboGlobal};
     use anyhow::Error;
-    use rat_salsa2::{Control, SalsaContext};
+    use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{

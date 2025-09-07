@@ -1,5 +1,8 @@
 # 1.1.0
 
+* break: match_focus doesn't work any more with changes in macro_rules!
+  changed fallback branch from '_' to 'else'
+
 * fix: Focus::handle() event shouldn't return 'Unchanged' but 'Continue'
   for unprocessed events.
 * feature: add HasFocus::id() as a unique identifier for a widget.

@@ -8,9 +8,9 @@ use crate::textdata::{Row, TextTableData};
 use crate::util::{fallback_select_style, revert_style, transfer_buffer};
 use crate::{TableContext, TableData, TableDataIter, TableSelection};
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent};
+use rat_event::{HandleEvent, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -207,7 +207,9 @@ mod data {
                 DataReprIter::Invalid(_) => {
                     if column == 0 {
                         #[cfg(debug_assertions)]
-                        warn!("Table::render_ref - TableDataIter must implement a valid cloned() for this to work.");
+                        warn!(
+                            "Table::render_ref - TableDataIter must implement a valid cloned() for this to work."
+                        );
 
                         buf.set_string(
                             area.x,
@@ -662,7 +664,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// If this is not set, the width of the rendered area is used.
     /// The column layout uses this width.
     ///
-    /// See also [auto_layout_width].
+    /// See also [auto_layout_width](Table::auto_layout_width).
     #[inline]
     pub fn layout_width(mut self, width: u16) -> Self {
         self.layout_width = Some(width);
@@ -670,7 +672,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Calculates the width from the given column-constraints.
-    /// If a fixed [layout_width] is set too, that one will win.
+    /// If a fixed [layout_width](Table::layout_width) is set too, that one will win.
     ///
     /// Panic:
     /// Rendering will panic, if any constraint other than Constraint::Length(),
@@ -1329,9 +1331,13 @@ where
             use std::fmt::Write;
             let mut msg = String::new();
             if insane_offset {
-                _= write!(msg,
-                          "Table::render:\n        offset {}\n        rows {}\n        iter-rows {}max\n    don't match up\nCode X{}X\n",
-                          state.vscroll.offset(), state.rows, state._counted_rows, algorithm
+                _ = write!(
+                    msg,
+                    "Table::render:\n        offset {}\n        rows {}\n        iter-rows {}max\n    don't match up\nCode X{}X\n",
+                    state.vscroll.offset(),
+                    state.rows,
+                    state._counted_rows,
+                    algorithm
                 );
             }
             if state.rows != state._counted_rows {
