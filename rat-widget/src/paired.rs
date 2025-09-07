@@ -17,16 +17,16 @@
 //! # let area = Rect::new(10, 10, 30, 1);
 //! # let mut buf = Buffer::empty(area);
 //! # let buf = &mut buf;
-//! # let mut slider_state = SliderState::new_range((2015,2024), 3);
+//! # let mut slider_state = SliderState::new_range((2015u32, 2024u32), 3u32);
 //!
 //! Paired::new(
 //!     Slider::new()
-//!         .range((2015, 2024))
-//!         .step(3),
+//!         .range((2015u32, 2024u32))
+//!         .step(3u32),
 //!     PairedWidget::new(Line::from(value)),
 //! )
 //! .split(PairSplit::Fix1(18))
-//! .render(area, buf, PairedState::new(
+//! .render(area, buf, &mut PairedState::new(
 //!     &mut slider_state,
 //!     &mut ()
 //! ));
