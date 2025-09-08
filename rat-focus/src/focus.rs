@@ -1,7 +1,7 @@
 use crate::focus::core::FocusCore;
 use crate::{FocusFlag, HasFocus, Navigation};
 pub use core::FocusBuilder;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event};
 use ratatui::layout::Rect;
 use std::ops::Range;
 
@@ -17,7 +17,6 @@ pub struct Focus {
     core: FocusCore,
 }
 
-#[macro_export]
 macro_rules! focus_debug {
     ($log:expr, $($arg:tt)+) => {
         if $log.get() {

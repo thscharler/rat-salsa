@@ -449,10 +449,9 @@ macro_rules! on_gained {
     }};
 }
 
-/// Does a match on the state struct of a widget. If
-/// `widget_state.is_focused()` is true the block is executed.
-/// There is a `_` branch too, that is evaluated if none of the
-/// given widget-states has the focus.
+/// Does a match on several fields and can return a result.
+/// Does a `widget_state.is_focused()` for each field and returns
+/// the first that is true. There is an `else` branch too.
 ///
 /// This requires that `widget_state` implements [HasFocus],
 /// but that's the basic requirement for this whole crate.
@@ -469,7 +468,7 @@ macro_rules! on_gained {
 ///         // do that
 ///         true
 ///     },
-///     _ => {
+///     else => {
 ///         false
 ///     }
 /// );
@@ -493,6 +492,28 @@ macro_rules! match_focus {
 
 /// Create the implementation of HasFocus for the
 /// given list of struct members.
+///
+/// Create a container with no identity.
+/// ```
+/// # use rat_focus::{impl_has_focus, FocusFlag};
+/// # struct MyState { field1: FocusFlag, field2: FocusFlag, field3: FocusFlag }
+/// impl_has_focus!(field1, field2, field3 for MyState);
+/// ```
+///
+/// Create a container with an identity.
+/// ```
+/// # use rat_focus::{impl_has_focus, FocusFlag};
+/// # struct MyState { container: FocusFlag, field1: FocusFlag, field2: FocusFlag, field3: FocusFlag }
+/// impl_has_focus!(container: field1, field2, field3 for MyState);
+/// ```
+///
+/// Create a container with an identity and an area that will react to mouse clicks.
+/// ```
+/// # use ratatui::layout::Rect;
+/// # use rat_focus::{impl_has_focus, FocusFlag};
+/// # struct MyState { container: FocusFlag, area: Rect, field1: FocusFlag, field2: FocusFlag, field3: FocusFlag }
+/// impl_has_focus!(container:area: field1, field2, field3 for MyState);
+/// ```
 #[macro_export]
 macro_rules! impl_has_focus {
     ($cc:ident:$area:ident: $($n:ident),* for $ty:ty) => {
