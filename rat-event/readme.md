@@ -80,12 +80,12 @@ handled by the widget and further event-handling can stop.
 To set a baseline for the return type this crate defines the enum
 [Outcome](Outcome) which can indicate if a render is necessary or not.
 
-> For interop all return types in rat-salsa are convertible
-> to/from Outcome.
+> All return types in rat-salsa/rat-widget are convertible
+> to/from Outcome and implement ConsumedEvent.
 
-> There is one constraint for the return type: It must implement
-> Consumed to indicate the fundamental property of an event being
-> consumed by a widget. This lib has some control-flow constructs
-> that use this property.
+## ConsumedEvent
+
+ConsumedEvent has a few method to combine two Outcomes.
+Plus there are a few macros that work with ConsumedEvent too.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/

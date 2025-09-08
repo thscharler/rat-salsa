@@ -106,9 +106,13 @@ impl<E, Q> HandleEvent<E, Q, Outcome> for () {
 }
 
 /// When calling multiple event-handlers, the minimum information required
-/// from the result is consumed the event/didn't consume the event.
+/// from the result is 'has consumed/didn't consume' the event.
 ///
-/// See also [flow] and [try_flow] macros.
+/// The event-handler **may** also react to the event and not call it
+/// 'consuming the event'. But this is tricky, non-obvious and frowned upon.
+/// The caller **may** also just ignore the fact.
+///
+/// See also [flow] and [try_flow] macros. And the extra [break_flow].
 pub trait ConsumedEvent {
     /// Is this the 'consumed' result.
     fn is_consumed(&self) -> bool;
@@ -120,11 +124,7 @@ pub trait ConsumedEvent {
         F: FnOnce() -> Self,
         Self: Sized,
     {
-        if self.is_consumed() {
-            self
-        } else {
-            f()
-        }
+        if self.is_consumed() { self } else { f() }
     }
 
     /// Or-Else chaining with `is_consumed()` as the split.
@@ -217,7 +217,8 @@ where
 /// The baseline outcome for an event-handler.
 ///
 /// A widget can define its own type, if it has more things to report.
-/// It would be nice if those types are convertible to/from Outcome.
+/// It would be nice if those types are convertible to/from `Outcome`
+/// and implement `ConsumedEvent` as well.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Outcome {
     /// The given event has not been used at all.
@@ -251,10 +252,14 @@ impl From<bool> for Outcome {
     }
 }
 
-/// Breaks the control-flow if the block returns a value
-/// for which [ConsumedEvent::is_consumed] is true.
+/// Returns from the current function if the block returns
+/// a value for which `[ConsumedEvent::is_consumed] == true`.
 ///
-/// It does the classic `into()`-conversion and returns the result.
+/// This breaks the control-flow of the current function effectively.
+///
+/// As the return type of the current function can differ from
+/// whatever function has been called, an `ìnto()` conversion
+/// is thrown in too.  
 ///
 /// *The difference to [try_flow] is that this on doesn't Ok-wrap the result.*
 ///
@@ -285,10 +290,14 @@ macro_rules! flow {
     }};
 }
 
-/// Breaks the control-flow if the block returns a value
-/// for which [ConsumedEvent::is_consumed] is true.
+/// Returns from the current function if the block returns
+/// a value for which `[ConsumedEvent::is_consumed] == true`.
 ///
-/// It does the classic `into()`-conversion and returns the result.
+/// This breaks the control-flow of the current function effectively.
+///
+/// As the return type of the current function can differ from
+/// whatever function has been called, an `ìnto()` conversion
+/// is thrown in too.
 ///
 /// *The difference to [flow] is that this one Ok-wraps the result.*
 ///
@@ -319,19 +328,18 @@ macro_rules! try_flow {
     }};
 }
 
-/// Breaks the control-flow if the block returns a value
-/// for which [ConsumedEvent::is_consumed] is true.
+/// This macro doesn't return from the current function, but
+/// does a labeled break if the block returns a value for
+/// which `[ConsumedEvent::is_consumed] == true`.
 ///
-/// It does the classic `into()`-conversion and *breaks* with the result
-/// to the enclosing block given as a `'l:{}` labeled block.
+/// It also does and `into()` conversion and *breaks* with the
+/// result to the enclosing block given as a `'l:{}` labeled block.
 ///
 /// * The difference to [try_flow] is that this on doesn't Ok-wrap the result.*
 /// * The difference to [flow] is that this breaks instead of return_ing.
 ///
 /// Extras: If you add a marker as in `break_flow!(log 'f: ident: {...});`
 /// the result of the operation is written to the log.
-///
-/// Note:
 #[macro_export]
 macro_rules! break_flow {
     (log $l:lifetime: $n:ident: $($x:tt)*) => {{
