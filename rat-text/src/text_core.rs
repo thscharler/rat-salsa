@@ -879,7 +879,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         left_margin: upos_type,
         right_margin: upos_type,
         word_margin: upos_type,
-    ) -> Result<GlyphIter2<Store::GraphemeIter<'_>>, TextError> {
+    ) -> Result<GlyphIter2<'_, Store::GraphemeIter<'_>>, TextError> {
         self.cache.validate(
             text_wrap,
             left_margin,

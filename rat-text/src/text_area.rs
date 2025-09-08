@@ -2061,7 +2061,7 @@ impl TextAreaState {
         shift_left: upos_type,
         sub_row_offset: upos_type,
         rows: Range<upos_type>,
-    ) -> Result<GlyphIter2<<TextRope as TextStore>::GraphemeIter<'_>>, TextError> {
+    ) -> Result<GlyphIter2<'_, <TextRope as TextStore>::GraphemeIter<'_>>, TextError> {
         let (text_wrap, left_margin, right_margin, word_margin) = self.text_wrap_2(shift_left);
         self.value.glyphs2(
             self.rendered,
