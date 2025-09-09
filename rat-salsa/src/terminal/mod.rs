@@ -7,12 +7,12 @@
 
 use crate::_private::NonExhaustive;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
-#[cfg(not(windows))]
-use crossterm::event::PopKeyboardEnhancementFlags;
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
     KeyboardEnhancementFlags,
 };
+#[cfg(not(windows))]
+use crossterm::event::{PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
 #[cfg(not(windows))]
 use crossterm::terminal::supports_keyboard_enhancement;
 use crossterm::terminal::{
