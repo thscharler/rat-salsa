@@ -1,6 +1,6 @@
 [package]
 name = "rat-focus"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "focus handling for ratatui widgets"

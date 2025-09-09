@@ -1,3 +1,7 @@
+# 1.1.1
+
+* fix: impl_has_focus! should use full path for Rect.
+
 # 1.1.0
 
 * break: match_focus doesn't work any more with changes in macro_rules!

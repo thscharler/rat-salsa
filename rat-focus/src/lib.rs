@@ -2,14 +2,13 @@
 
 mod focus;
 
+pub use crate::focus::{Focus, FocusBuilder, handle_focus};
 use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ptr;
 use std::rc::Rc;
-
-pub use crate::focus::{Focus, FocusBuilder, handle_focus};
 
 pub mod event {
     pub use rat_event::*;
@@ -528,7 +527,7 @@ macro_rules! impl_has_focus {
                 self.$cc.clone()
             }
 
-            fn area(&self) -> Rect {
+            fn area(&self) -> ratatui::layout::Rect {
                 self.$area
             }
         }
@@ -545,8 +544,8 @@ macro_rules! impl_has_focus {
                 self.$cc.clone()
             }
 
-            fn area(&self) -> Rect {
-                Rect::default()
+            fn area(&self) -> ratatui::layout::Rect {
+                ratatui::layout::Rect::default()
             }
         }
     };
@@ -560,7 +559,7 @@ macro_rules! impl_has_focus {
                 unimplemented!("not defined")
             }
 
-            fn area(&self) -> Rect {
+            fn area(&self) -> ratatui::layout::Rect {
                 unimplemented!("not defined")
             }
         }
