@@ -44,7 +44,7 @@ pub struct GlobalState {
     ctx: SalsaAppContext<TurboEvent, Error>,
     pub cfg: TurboConfig,
     pub theme: TurboTheme,
-    pub dialogs: DialogStack<GlobalState, TurboEvent, Error>,
+    pub dialogs: DialogStack<TurboEvent, GlobalState, Error>,
 }
 
 impl SalsaContext<TurboEvent, Error> for GlobalState {
@@ -101,7 +101,7 @@ pub mod app {
     use crate::turbo::Turbo;
     use crate::{GlobalState, TurboEvent, turbo};
     use anyhow::Error;
-    use rat_dialog::StackControl;
+    use rat_dialog::DialogControl;
     use rat_event::{Dialog, Outcome};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{ConsumedEvent, HandleEvent, ct_event};
@@ -140,7 +140,7 @@ pub mod app {
 
         turbo::render(area, buf, &mut state.turbo, ctx)?;
 
-        ctx.dialogs.clone().render(area, buf, ctx)?;
+        ctx.dialogs.clone().render(area, buf, ctx);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         state.status.status(1, format!("R {:.0?}", el).to_string());
@@ -195,7 +195,12 @@ pub mod app {
             }
         };
 
-        r = r.or_else_try(|| ctx.dialogs.clone().handle(tevent, ctx))?;
+        r = r.or_else_try(|| {
+            ctx.dialogs
+                .clone()
+                .handle(tevent, ctx)
+                .map(|v| Control::from(v))
+        })?;
         r = r.or_else_try(|| turbo::event(&tevent, &mut state.turbo, ctx))?;
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -232,7 +237,6 @@ pub mod app {
                     MsgDialog::new()
                         .styles(ctx.theme.msg_dialog_style())
                         .render(area, buf, state);
-                    Ok(())
                 },
                 |event, state, _| {
                     let r = if let TurboEvent::Event(event) = event {
@@ -243,15 +247,15 @@ pub mod app {
                         match state.handle(event, Dialog) {
                             Outcome::Changed => {
                                 if !state.active() {
-                                    StackControl::Pop
+                                    DialogControl::Close(None)
                                 } else {
-                                    StackControl::Changed
+                                    DialogControl::Changed
                                 }
                             }
                             r => r.into(),
                         }
                     } else {
-                        StackControl::Continue
+                        DialogControl::Continue
                     };
                     Ok(r)
                 },
@@ -265,7 +269,7 @@ pub mod app {
 pub mod turbo {
     use crate::{GlobalState, TurboEvent};
     use anyhow::Error;
-    use rat_dialog::StackControl;
+    use rat_dialog::DialogControl;
     use rat_event::{Dialog, Outcome};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{FileOutcome, HandleEvent, MenuOutcome, Popup, ct_event, try_flow};
@@ -609,8 +613,6 @@ pub mod turbo {
                     .render(area, buf, state);
 
                 ctx.set_screen_cursor(state.screen_cursor());
-
-                Ok(())
             },
             |event, state, ctx| {
                 let state = state
@@ -618,14 +620,13 @@ pub mod turbo {
                     .expect("dialog-state");
                 match event {
                     TurboEvent::Event(event) => match state.handle(event, Dialog)? {
-                        FileOutcome::Cancel => Ok(StackControl::Pop),
-                        FileOutcome::Ok(f) => {
-                            ctx.queue_event(TurboEvent::Message(format!("New file {:?}", f)));
-                            Ok(StackControl::Pop)
-                        }
+                        FileOutcome::Cancel => Ok(DialogControl::Close(None)),
+                        FileOutcome::Ok(f) => Ok(DialogControl::Close(Some(TurboEvent::Message(
+                            format!("New file {:?}", f),
+                        )))),
                         r => Ok(Outcome::from(r).into()),
                     },
-                    _ => Ok(StackControl::Continue),
+                    _ => Ok(DialogControl::Continue),
                 }
             },
             state,
@@ -653,8 +654,6 @@ pub mod turbo {
                     .render(area, buf, state);
 
                 ctx.set_screen_cursor(state.screen_cursor());
-
-                Ok(())
             },
             |event, state, ctx| {
                 let state = state
@@ -663,14 +662,14 @@ pub mod turbo {
 
                 match event {
                     TurboEvent::Event(event) => match state.handle(event, Dialog)? {
-                        FileOutcome::Cancel => Ok(StackControl::Pop),
-                        FileOutcome::Ok(f) => {
-                            ctx.queue_event(TurboEvent::Status(0, format!("Opened file {:?}", f)));
-                            Ok(StackControl::Pop)
-                        }
+                        FileOutcome::Cancel => Ok(DialogControl::Close(None)),
+                        FileOutcome::Ok(f) => Ok(DialogControl::Close(Some(TurboEvent::Status(
+                            0,
+                            format!("Opened file {:?}", f),
+                        )))),
                         r => Ok(Outcome::from(r).into()),
                     },
-                    _ => Ok(StackControl::Continue),
+                    _ => Ok(DialogControl::Continue),
                 }
             },
             state,
@@ -698,8 +697,6 @@ pub mod turbo {
                     .render(area, buf, state);
 
                 ctx.set_screen_cursor(state.screen_cursor());
-
-                Ok(())
             },
             |event, state, ctx| {
                 let state = state
@@ -707,14 +704,14 @@ pub mod turbo {
                     .expect("dialog-state");
                 match event {
                     TurboEvent::Event(event) => match state.handle(event, Dialog)? {
-                        FileOutcome::Cancel => Ok(StackControl::Pop),
-                        FileOutcome::Ok(f) => {
-                            ctx.queue_event(TurboEvent::Status(0, format!("Save as {:?}", f)));
-                            Ok(StackControl::Pop)
-                        }
+                        FileOutcome::Cancel => Ok(DialogControl::Close(None)),
+                        FileOutcome::Ok(f) => Ok(DialogControl::Close(Some(TurboEvent::Status(
+                            0,
+                            format!("Save as {:?}", f),
+                        )))),
                         r => Ok(Outcome::from(r).into()),
                     },
-                    _ => Ok(StackControl::Continue),
+                    _ => Ok(DialogControl::Continue),
                 }
             },
             state,

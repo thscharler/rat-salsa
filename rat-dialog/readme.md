@@ -1,4 +1,4 @@
-![alpha 1](https://img.shields.io/badge/stability-ɑ--1-850101)
+![alpha 2](https://img.shields.io/badge/stability-ɑ--2-850101)
 [![crates.io](https://img.shields.io/crates/v/rat-dialog.svg)](https://crates.io/crates/rat-dialog)
 [![Documentation](https://docs.rs/rat-dialog/badge.svg)](https://docs.rs/rat-dialog)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)

@@ -6,15 +6,16 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{Any, TypeId, type_name};
 use std::cell::{Cell, RefCell};
+use std::cmp::max;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::rc::Rc;
 
 /// Extends rat-salsa::Control with some dialog specific options.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[must_use]
 #[non_exhaustive]
-pub enum StackControl<Event> {
+pub enum DialogControl<Event> {
     /// Continue with event-handling.
     /// In the event-loop this waits for the next event.
     Continue,
@@ -24,48 +25,29 @@ pub enum StackControl<Event> {
     /// Break event-handling and repaints/renders the application.
     /// In the event-loop this calls `render`.
     Changed,
-    /// Eventhandling can cause secondary application specific events.
-    /// One common way is to return this `Control::Message(my_event)`
-    /// to reenter the event-loop with your own secondary event.
-    ///
-    /// This acts quite like a message-queue to communicate between
-    /// disconnected parts of your application. And indeed there is
-    /// a hidden message-queue as part of the event-loop.
-    ///
-    /// The other way is to call [SalsaContext::queue] to initiate such
-    /// events.
+    /// Return back some application event.
     Event(Event),
-    /// Quit the application.
-    Quit,
     /// Close the dialog
-    Pop,
+    Close(Option<Event>),
     /// Move to front
     ToFront,
+    /// Quit
+    Quit,
 }
 
-impl<Event> Eq for StackControl<Event> {}
-
-impl<Event> PartialEq for StackControl<Event> {
-    fn eq(&self, other: &Self) -> bool {
-        mem::discriminant(self) == mem::discriminant(other)
-    }
-}
-
-impl<Event> ConsumedEvent for StackControl<Event> {
+impl<Event> ConsumedEvent for DialogControl<Event> {
     fn is_consumed(&self) -> bool {
-        !matches!(self, StackControl::Continue)
+        !matches!(self, DialogControl::Continue)
     }
 }
 
-impl<Event, T> From<T> for StackControl<Event>
-where
-    T: Into<Outcome>,
-{
+impl<Event, T: Into<Outcome>> From<T> for DialogControl<Event> {
     fn from(value: T) -> Self {
-        match value.into() {
-            Outcome::Continue => StackControl::Continue,
-            Outcome::Unchanged => StackControl::Unchanged,
-            Outcome::Changed => StackControl::Changed,
+        let r = value.into();
+        match r {
+            Outcome::Continue => DialogControl::Continue,
+            Outcome::Unchanged => DialogControl::Unchanged,
+            Outcome::Changed => DialogControl::Changed,
         }
     }
 }
@@ -81,36 +63,18 @@ where
 /// This will not handle modality, so make sure
 /// to consume all events you don't want to propagate.
 ///
-pub struct DialogStack<Global, Event, Error>
-where
-    Event: 'static + Send,
-    Error: 'static + Send,
-{
-    core: Rc<DialogStackCore<Global, Event, Error>>,
+pub struct DialogStack<Event, Context, Error> {
+    core: Rc<DialogStackCore<Event, Context, Error>>,
 }
 
-struct DialogStackCore<Global, Event, Error>
-where
-    Event: 'static + Send,
-    Error: 'static + Send,
-{
+struct DialogStackCore<Event, Context, Error> {
     len: Cell<usize>,
-    render: RefCell<
-        Vec<
-            Box<
-                dyn Fn(Rect, &mut Buffer, &mut dyn Any, &'_ mut Global) -> Result<(), Error>
-                    + 'static,
-            >,
-        >,
-    >,
+    render: RefCell<Vec<Box<dyn Fn(Rect, &mut Buffer, &mut dyn Any, &mut Context) + 'static>>>,
     event: RefCell<
         Vec<
             Box<
-                dyn Fn(
-                    &Event, //
-                    &mut dyn Any,
-                    &'_ mut Global,
-                ) -> Result<StackControl<Event>, Error>,
+                dyn Fn(&Event, &mut dyn Any, &mut Context) -> Result<DialogControl<Event>, Error>
+                    + 'static,
             >,
         >,
     >,
@@ -118,11 +82,7 @@ where
     state: RefCell<Vec<Option<Box<dyn Any>>>>,
 }
 
-impl<Global, Event, Error> Clone for DialogStack<Global, Event, Error>
-where
-    Event: 'static + Send,
-    Error: 'static + Send,
-{
+impl<Event, Context, Error> Clone for DialogStack<Event, Context, Error> {
     fn clone(&self) -> Self {
         Self {
             core: self.core.clone(),
@@ -130,11 +90,7 @@ where
     }
 }
 
-impl<Global, Event, Error> Default for DialogStack<Global, Event, Error>
-where
-    Event: 'static + Send,
-    Error: 'static + Send,
-{
+impl<Event, Context, Error> Default for DialogStack<Event, Context, Error> {
     fn default() -> Self {
         Self {
             core: Rc::new(DialogStackCore {
@@ -148,11 +104,7 @@ where
     }
 }
 
-impl<Global, Event, Error> Debug for DialogStack<Global, Event, Error>
-where
-    Event: 'static + Send,
-    Error: 'static + Send,
-{
+impl<Event, Context, Error> Debug for DialogStack<Event, Context, Error> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let state = self.core.state.borrow();
         let is_proxy = state.iter().map(|v| v.is_none()).collect::<Vec<_>>();
@@ -166,42 +118,27 @@ where
     }
 }
 
-impl<Global, Event, Error> DialogStack<Global, Event, Error>
-where
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
+impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     /// Render all dialog-windows in stack-order.
-    pub fn render(self, area: Rect, buf: &mut Buffer, ctx: &mut Global) -> Result<(), Error>
-    where
-        Event: 'static + Send,
-        Error: 'static + Send,
-    {
+    pub fn render(self, area: Rect, buf: &mut Buffer, ctx: &mut Context) {
         for n in 0..self.core.len.get() {
             let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
                 panic!("state is gone");
             };
             let render_fn = mem::replace(
                 &mut self.core.render.borrow_mut()[n],
-                Box::new(|_, _, _, _| Ok(())),
+                Box::new(|_, _, _, _| {}),
             );
 
-            let r = render_fn(area, buf, state.as_mut(), ctx);
+            render_fn(area, buf, state.as_mut(), ctx);
 
             self.core.render.borrow_mut()[n] = render_fn;
             self.core.state.borrow_mut()[n] = Some(state);
-
-            r?
         }
-        Ok(())
     }
 }
 
-impl<Global, Event, Error> DialogStack<Global, Event, Error>
-where
-    Event: Send + 'static,
-    Error: Send + 'static,
-{
+impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -214,8 +151,8 @@ where
     /// - state as Any
     pub fn push(
         &self,
-        render: impl Fn(Rect, &mut Buffer, &mut dyn Any, &'_ mut Global) -> Result<(), Error> + 'static,
-        event: impl Fn(&Event, &mut dyn Any, &'_ mut Global) -> Result<StackControl<Event>, Error>
+        render: impl Fn(Rect, &mut Buffer, &mut dyn Any, &'_ mut Context) + 'static,
+        event: impl Fn(&Event, &mut dyn Any, &'_ mut Context) -> Result<DialogControl<Event>, Error>
         + 'static,
         state: impl Any,
     ) {
@@ -400,23 +337,24 @@ where
 /// Panic
 ///
 /// This function is not reentrant, it will panic when called from within it's call-stack.
-impl<Global, Event, Error> HandleEvent<Event, &mut Global, Result<Control<Event>, Error>>
-    for DialogStack<Global, Event, Error>
+impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<Control<Event>, Error>>
+    for DialogStack<Event, Context, Error>
 where
-    Global: SalsaContext<Event, Error>,
-    Event: 'static + Send,
-    Error: 'static + Send,
+    Context: SalsaContext<Event, Error>,
+    Error: 'static,
+    Event: 'static,
 {
-    fn handle(&mut self, event: &Event, ctx: &mut Global) -> Result<Control<Event>, Error> {
+    fn handle(&mut self, event: &Event, ctx: &mut Context) -> Result<Control<Event>, Error> {
         let mut rr = Control::Continue;
 
         for n in (0..self.core.len.get()).rev() {
             let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
                 panic!("state is gone");
             };
+
             let event_fn = mem::replace(
                 &mut self.core.event.borrow_mut()[n],
-                Box::new(|_, _, _| Ok(StackControl::Continue)),
+                Box::new(|_, _, _| Ok(DialogControl::Continue)),
             );
 
             let r = event_fn(event, state.as_mut(), ctx);
@@ -425,45 +363,35 @@ where
             self.core.state.borrow_mut()[n] = Some(state);
 
             match r {
-                Ok(r) => {
-                    match r {
-                        StackControl::Continue => {
-                            // noop, bottom of it
+                Ok(r) => match r {
+                    DialogControl::Close(event) => {
+                        self.remove(n);
+                        if let Some(event) = event {
+                            ctx.queue_event(event);
                         }
-                        StackControl::Unchanged => {
-                            if rr < Control::Unchanged {
-                                rr = Control::Unchanged
-                            }
-                        }
-                        StackControl::Changed => {
-                            if rr < Control::Changed {
-                                rr = Control::Changed
-                            }
-                        }
-                        StackControl::Event(evt) => {
-                            ctx.queue_event(evt);
-                            // don't change rr. besides queuing the event
-                            // this is Control::Continue anyway.
-                        }
-                        StackControl::Quit => {
-                            if rr < Control::Quit {
-                                rr = Control::Quit
-                            }
-                        }
-                        StackControl::Pop => {
-                            self.remove(n);
-                            if rr < Control::Changed {
-                                rr = Control::Changed
-                            }
-                        }
-                        StackControl::ToFront => {
-                            self.to_front(n);
-                            if rr < Control::Changed {
-                                rr = Control::Changed
-                            }
-                        }
+                        rr = max(rr, Control::Changed);
                     }
-                }
+                    DialogControl::Event(event) => {
+                        ctx.queue_event(event);
+                        rr = max(rr, Control::Continue);
+                    }
+                    DialogControl::ToFront => {
+                        self.to_front(n);
+                        rr = max(rr, Control::Changed);
+                    }
+                    DialogControl::Continue => {
+                        rr = max(rr, Control::Continue);
+                    }
+                    DialogControl::Unchanged => {
+                        rr = max(rr, Control::Unchanged);
+                    }
+                    DialogControl::Changed => {
+                        rr = max(rr, Control::Changed);
+                    }
+                    DialogControl::Quit => {
+                        rr = max(rr, Control::Quit);
+                    }
+                },
                 Err(e) => return Err(e),
             }
         }

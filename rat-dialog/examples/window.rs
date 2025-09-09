@@ -49,7 +49,7 @@ pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
     pub cfg: Config,
     pub theme: DarkTheme,
-    pub dialogs: DialogStack<Global, AppEvent, Error>,
+    pub dialogs: DialogStack<AppEvent, Global, Error>,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -129,7 +129,7 @@ pub fn render(
     ])
     .split(area);
 
-    ctx.dialogs.clone().render(layout[0], buf, ctx)?;
+    ctx.dialogs.clone().render(layout[0], buf, ctx);
 
     if state.error_dlg.active() {
         MsgDialog::new()
@@ -208,7 +208,12 @@ pub fn event(
         _ => Control::Continue,
     };
 
-    r = r.or_else_try(|| ctx.dialogs.clone().handle(event, ctx))?;
+    r = r.or_else_try(|| {
+        ctx.dialogs
+            .clone()
+            .handle(event, ctx)
+            .map(|v| Control::from(v))
+    })?;
 
     r = r.or_else_try(|| state.nominal.event(event, ctx))?;
 
@@ -231,7 +236,7 @@ pub mod moving {
     use crate::window::{Window, WindowOutcome, WindowState};
     use crate::{AppEvent, Global};
     use anyhow::Error;
-    use rat_dialog::StackControl;
+    use rat_dialog::DialogControl;
     use rat_event::{Dialog, Popup};
     use rat_salsa::timer::TimerDef;
     use rat_salsa::{Control, SalsaContext};
@@ -361,8 +366,8 @@ pub mod moving {
                     }
 
                     Window::new()
-                        .drag(ctx.theme.limegreen(2))
-                        .hover(ctx.theme.red(1))
+                        .drag(ctx.theme.dialog_base())
+                        .hover(ctx.theme.limegreen(1))
                         .style(ctx.theme.dialog_base())
                         .block(
                             Block::bordered()
@@ -377,8 +382,6 @@ pub mod moving {
                         .render(state.window.inner_area, buf, &mut state.filedlg);
 
                     ctx.set_screen_cursor(state.filedlg.screen_cursor());
-
-                    Ok(())
                 },
                 |event, state, ctx| {
                     let state = state.downcast_mut::<OpenState>().expect("open-state");
@@ -386,26 +389,25 @@ pub mod moving {
                         AppEvent::Event(event) => {
                             try_flow!(match state.window.handle(event, Regular) {
                                 WindowOutcome::ShouldClose => {
-                                    StackControl::Pop
+                                    DialogControl::Close(None)
                                 }
                                 r => r.into(),
                             });
 
                             try_flow!(match state.filedlg.handle(event, Dialog)? {
-                                FileOutcome::Cancel => StackControl::Pop,
+                                FileOutcome::Cancel => DialogControl::Close(None),
                                 FileOutcome::Ok(f) => {
-                                    ctx.queue_event(AppEvent::Status(
+                                    DialogControl::Close(Some(AppEvent::Status(
                                         0,
                                         format!("Open file {:?}", f),
-                                    ));
-                                    StackControl::Pop
+                                    )))
                                 }
                                 r => r.into(),
                             });
 
-                            Ok(StackControl::Continue)
+                            Ok(DialogControl::Continue)
                         }
-                        _ => Ok(StackControl::Continue),
+                        _ => Ok(DialogControl::Continue),
                     }
                 },
                 state,
@@ -520,6 +522,7 @@ mod window {
         pub area: Rect,
         pub inner_area: Rect,
 
+        // move area
         pub move_: Rect,
         pub resize: Rect,
         pub close: Rect,
@@ -576,6 +579,10 @@ mod window {
     impl WindowState {
         pub fn new() -> Self {
             Self::default()
+        }
+
+        pub fn needs_init(&self) -> bool {
+            self.limit.is_empty()
         }
     }
 

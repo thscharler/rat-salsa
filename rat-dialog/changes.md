@@ -1,6 +1,10 @@
+# 0.4.0
+
+* break: rename StackControl to DialogControl. rename Pop to Close. add payload to Close.
+
 # 0.3.0
 
-* rebuild with rat-salsa 2.0
+* rebuilt with rat-salsa 2.0
 
 # 0.2.0
 
