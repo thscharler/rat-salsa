@@ -17,6 +17,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
 use std::fs;
 use std::fs::create_dir_all;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
@@ -345,21 +346,15 @@ pub mod main_ui {
 }
 
 fn setup_logging() -> Result<(), Error> {
-    if let Some(cache) = cache_dir() {
-        let log_path = cache.join("rat-salsa");
-        if !log_path.exists() {
-            create_dir_all(&log_path)?;
-        }
-
-        let log_file = log_path.join("async1.log");
-        _ = fs::remove_file(&log_file);
-        fern::Dispatch::new()
-            .format(|out, message, _record| {
-                out.finish(format_args!("{}", message)) //
-            })
-            .level(log::LevelFilter::Debug)
-            .chain(fern::log_file(&log_file)?)
-            .apply()?;
-    }
+    let log_path = PathBuf::from(".");
+    let log_file = log_path.join("log.log");
+    _ = fs::remove_file(&log_file);
+    fern::Dispatch::new()
+        .format(|out, message, _record| {
+            out.finish(format_args!("{}", message)) //
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(fern::log_file(&log_file)?)
+        .apply()?;
     Ok(())
 }

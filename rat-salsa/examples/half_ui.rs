@@ -2,25 +2,29 @@
 /// Inline rendering in the console.
 /// Uses only 10 lines for the UI.
 ///
-use crate::minimal::Minimal;
 use anyhow::Error;
+use rat_focus::impl_has_focus;
 use rat_salsa::event::RenderedEvent;
-use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa::terminal::CrosstermTerminal;
+use rat_salsa::poll::{PollCrossterm, PollRendered};
+use rat_salsa::terminal::{CrosstermTerminal, SalsaOptions};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
 use rat_theme2::DarkTheme;
-use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, MenuOutcome, Regular};
 use rat_widget::focus::FocusBuilder;
+use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::prelude::Widget;
+use ratatui::text::{Line, Text};
 use ratatui::widgets::StatefulWidget;
+use ratatui::{TerminalOptions, Viewport};
 use std::fs;
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -37,11 +41,16 @@ fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(CrosstermTerminal::inline(10, true)?)
-            .poll(PollCrossterm)
-            .poll(PollTimers::default())
-            .poll(PollTasks::default())
-            .poll(PollRendered),
+        RunConfig::new(CrosstermTerminal::with_options(SalsaOptions {
+            alternate_screen: false,
+            shutdown_clear: true,
+            ratatui_options: TerminalOptions {
+                viewport: Viewport::Inline(4),
+            },
+            ..Default::default()
+        })?)
+        .poll(PollCrossterm)
+        .poll(PollRendered),
     )?;
 
     Ok(())
@@ -51,6 +60,7 @@ fn main() -> Result<(), Error> {
 #[derive(Debug)]
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
+
     pub cfg: Config,
     pub theme: DarkTheme,
 }
@@ -111,7 +121,7 @@ impl From<crossterm::event::Event> for AppEvent {
 
 #[derive(Debug, Default)]
 pub struct Scenery {
-    pub minimal: Minimal,
+    pub menu: MenuLineState,
     pub status: StatusLineState,
     pub error_dlg: MsgDialogState,
 }
@@ -122,11 +132,6 @@ pub fn render(
     state: &mut Scenery,
     ctx: &mut Global,
 ) -> Result<(), Error> {
-    let t0 = SystemTime::now();
-
-    // forward
-    minimal::render(area, buf, &mut state.minimal, ctx)?;
-
     let layout = Layout::vertical([
         Constraint::Length(1),
         Constraint::Fill(1), //
@@ -137,8 +142,21 @@ pub fn render(
         MsgDialog::new().render(layout[1], buf, &mut state.error_dlg);
     }
 
-    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    state.status.status(1, format!("R {:.0?}", el).to_string());
+    Text::from_iter([
+        Line::from("ui ui ui ui "),
+        Line::from("ui ui ui ui "),
+        Line::from("ui ui ui ui "),
+    ])
+    .style(ctx.theme.container_base())
+    .render(layout[1], buf);
+
+    MenuLine::new()
+        .item_parsed("_First")
+        .item_parsed("_Second")
+        .item_parsed("_Third")
+        .item_parsed("_Quit")
+        .styles(ctx.theme.menu_style())
+        .render(layout[0], buf, &mut state.menu);
 
     let status_layout = Layout::horizontal([
         Constraint::Fill(61), //
@@ -157,9 +175,11 @@ pub fn render(
     Ok(())
 }
 
+impl_has_focus!(menu for Scenery);
+
 pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
-    ctx.set_focus(FocusBuilder::build_for(&state.minimal));
-    minimal::init(&mut state.minimal, ctx)?;
+    ctx.set_focus(FocusBuilder::build_for(state));
+    ctx.focus().first();
     Ok(())
 }
 
@@ -170,7 +190,7 @@ pub fn event(
 ) -> Result<Control<AppEvent>, Error> {
     let t0 = SystemTime::now();
 
-    let mut r = match event {
+    let r = match event {
         AppEvent::Event(event) => {
             let mut r = match &event {
                 ct_event!(resized) => Control::Changed,
@@ -186,13 +206,20 @@ pub fn event(
                 }
             });
 
-            let f = ctx.focus_mut().handle(event, Regular);
-            ctx.queue(f);
+            ctx.handle_focus(event);
+
+            r = r.or_else_try(|| match state.menu.handle(event, Regular) {
+                MenuOutcome::Activated(0) => dump_raw(TEXT1.into(), ctx),
+                MenuOutcome::Activated(1) => dump_raw(TEXT2.into(), ctx),
+                MenuOutcome::Activated(2) => dump_raw(TEXT3.into(), ctx),
+                MenuOutcome::Activated(3) => Ok(Control::Quit),
+                v => Ok(v.into()),
+            })?;
 
             r
         }
         AppEvent::Rendered => {
-            ctx.set_focus(FocusBuilder::rebuild_for(&state.minimal, ctx.take_focus()));
+            ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
             Control::Continue
         }
         AppEvent::Message(s) => {
@@ -203,16 +230,77 @@ pub fn event(
             state.status.status(*n, s);
             Control::Changed
         }
+
         _ => Control::Continue,
     };
-
-    r = r.or_else_try(|| minimal::event(event, &mut state.minimal, ctx))?;
 
     let el = t0.elapsed()?;
     state.status.status(2, format!("E {:.0?}", el).to_string());
 
     Ok(r)
 }
+
+fn dump_raw(p0: String, ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
+    let n_lines = p0.split('\n').count() as u16;
+    ctx.insert_before(n_lines, move |buf| {
+        Text::from(p0).render(buf.area, buf);
+    });
+    Ok(Control::Changed)
+}
+
+static TEXT3: &str = r#"
+more bla
+bla
+bla
+bla
+bla
+"#;
+
+static TEXT2: &str = r#"
+...
+...
+...
+...
+"#;
+
+static TEXT1: &str = r#"
+    |                                                                 ^^^ variant or associated item not found in `StackControl<_>`
+
+error[E0599]: no variant or associated item named `Pop` found for enum `StackControl` in the current scope
+   --> rat-salsa\rat-dialog\examples\turbo2.rs:669:46
+    |
+669 | ...                   Ok(StackControl::Pop)
+    |                                        ^^^ variant or associated item not found in `StackControl<_>`
+
+error[E0599]: no variant or associated item named `Pop` found for enum `StackControl` in the current scope
+   --> rat-salsa\rat-dialog\examples\turbo2.rs:708:65
+    |
+708 |                         FileOutcome::Cancel => Ok(StackControl::Pop),
+    |                                                                 ^^^ variant or associated item not found in `StackControl<_>`
+
+error[E0599]: no variant or associated item named `Pop` found for enum `StackControl` in the current scope
+   --> rat-salsa\rat-dialog\examples\turbo2.rs:711:46
+    |
+711 | ...                   Ok(StackControl::Pop)
+    |                                        ^^^ variant or associated item not found in `StackControl<_>`
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `rat-dialog` (example "turbo2") due to 7 previous errors
+   Compiling rat-dialog v0.3.0 (C:\Users\stommy\Documents\Workspaces\biosys\rat-salsa\rat-dialog)
+warning: unused variable: `ctx`
+   --> rat-salsa\rat-dialog\examples\window.rs:386:32
+    |
+386 |                 |event, state, ctx| {
+    |                                ^^^ help: if this is intentional, prefix it with an underscore: `_ctx`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `rat-dialog` (example "window") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 2.27s
+     Running `D:\target\release\examples\window.exe`
+
+C:\Users\stommy\Documents\Workspaces\biosys>
+    "#;
 
 pub fn error(
     event: Error,
@@ -221,88 +309,6 @@ pub fn error(
 ) -> Result<Control<AppEvent>, Error> {
     state.error_dlg.append(format!("{:?}", &*event).as_str());
     Ok(Control::Changed)
-}
-
-pub mod minimal {
-    use crate::{AppEvent, Global};
-    use anyhow::Error;
-    use rat_salsa::{Control, SalsaContext};
-    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
-    use rat_widget::focus::impl_has_focus;
-    use rat_widget::menu::{MenuLine, MenuLineState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::text::{Line, Text};
-    use ratatui::widgets::{StatefulWidget, Widget};
-
-    #[derive(Debug, Default)]
-    pub struct Minimal {
-        pub menu: MenuLineState,
-    }
-
-    pub fn render(
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Minimal,
-        ctx: &mut Global,
-    ) -> Result<(), Error> {
-        // TODO: repaint_mask
-
-        let r = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Fill(1), //
-        ])
-        .split(area);
-
-        Text::from_iter([
-            Line::from("text text"),
-            Line::from("text text"),
-            Line::from("text text"),
-            Line::from("text text"),
-            Line::from("text text"),
-            Line::from("text text"),
-            Line::from("text text"),
-            Line::from("text text"),
-            Line::from("text text"),
-        ])
-        .style(ctx.theme.container_base())
-        .render(r[1], buf);
-
-        MenuLine::new()
-            .item_parsed("_First")
-            .item_parsed("_Second")
-            .item_parsed("_Third")
-            .item_parsed("_Quit")
-            .styles(ctx.theme.menu_style())
-            .render(r[0], buf, &mut state.menu);
-
-        Ok(())
-    }
-
-    impl_has_focus!(menu for Minimal);
-
-    pub fn init(_state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
-        ctx.focus().first();
-        Ok(())
-    }
-
-    #[allow(unused_variables)]
-    pub fn event(
-        event: &AppEvent,
-        state: &mut Minimal,
-        ctx: &mut Global,
-    ) -> Result<Control<AppEvent>, Error> {
-        match event {
-            AppEvent::Event(event) => {
-                try_flow!(match state.menu.handle(event, Regular) {
-                    MenuOutcome::Activated(3) => Control::Quit,
-                    v => v.into(),
-                });
-                Ok(Control::Continue)
-            }
-            _ => Ok(Control::Continue),
-        }
-    }
 }
 
 fn setup_logging() -> Result<(), Error> {

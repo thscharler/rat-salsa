@@ -10,6 +10,8 @@ where
     Event: 'static,
     Error: 'static,
 {
+    /// Don't run init/shutdown.
+    pub(crate) manual: bool,
     /// This is the renderer that connects to the backend, and calls out
     /// for rendering the application.
     ///
@@ -43,6 +45,7 @@ where
     #[allow(clippy::should_implement_trait)]
     pub fn default() -> Result<Self, Error> {
         Ok(Self {
+            manual: Default::default(),
             term: Box::new(CrosstermTerminal::new()?),
             poll: Default::default(),
         })
@@ -51,9 +54,17 @@ where
     /// Terminal is a rat-salsa::terminal::Terminal not a ratatui::Terminal.
     pub fn new(term: impl Terminal<Error> + 'static) -> Self {
         Self {
+            manual: Default::default(),
             term: Box::new(term),
             poll: Default::default(),
         }
+    }
+
+    /// Don't run [Terminal::init] and [Terminal::shutdown].
+    /// You can run your own terminal initialization/shutdown before/after calling run_tui(),
+    pub fn manual_mode(mut self) -> Self {
+        self.manual = true;
+        self
     }
 
     /// Add one more poll impl.

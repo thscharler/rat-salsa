@@ -1,3 +1,10 @@
+# 2.1.0
+
+break: extend Terminal trait to mirror ratatui::Terminal.
+
+feature: add SalsaContext::clear_terminal() and SalsaContext::insert_before().
+feature: add RunConfig::manual_mode() to do custom init/shutdown of the terminal.
+
 # 2.0.2
 
 * fix: for linux

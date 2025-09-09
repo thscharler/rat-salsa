@@ -968,21 +968,15 @@ pub mod game {
 }
 
 fn setup_logging() -> Result<(), Error> {
-    if let Some(cache) = dirs::cache_dir() {
-        let log_path = cache.join("rat-salsa");
-        if !log_path.exists() {
-            fs::create_dir_all(&log_path)?;
-        }
-
-        let log_file = log_path.join("life.log");
-        _ = fs::remove_file(&log_file);
-        fern::Dispatch::new()
-            .format(|out, message, _record| {
-                out.finish(format_args!("{}", message)) //
-            })
-            .level(log::LevelFilter::Debug)
-            .chain(fern::log_file(&log_file)?)
-            .apply()?;
-    }
+    let log_path = PathBuf::from(".");
+    let log_file = log_path.join("log.log");
+    _ = fs::remove_file(&log_file);
+    fern::Dispatch::new()
+        .format(|out, message, _record| {
+            out.finish(format_args!("{}", message)) //
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(fern::log_file(&log_file)?)
+        .apply()?;
     Ok(())
 }

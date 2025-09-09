@@ -214,7 +214,7 @@ pub fn error(
 
 fn setup_logging() -> Result<(), Error> {
     let log_path = PathBuf::from(".");
-    let log_file = log_path.join("minimal.log");
+    let log_file = log_path.join("log.log");
     _ = fs::remove_file(&log_file);
     fern::Dispatch::new()
         .format(|out, message, _record| {

@@ -9,6 +9,7 @@ use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
+use ratatui::buffer::Buffer;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
@@ -521,6 +522,21 @@ where
             self.queue(r);
         }
     }
+
+    /// Clear the terminal and do a full redraw before the next draw.
+    #[inline]
+    fn clear_terminal(&mut self) {
+        self.salsa_ctx().clear_terminal.set(true);
+    }
+
+    /// Call insert_before() before the next draw.
+    #[inline]
+    fn insert_before(&mut self, height: u16, draw_fn: impl FnOnce(&mut Buffer) + 'static) {
+        self.salsa_ctx().insert_before.set(InsertBefore {
+            height,
+            draw_fn: Box::new(draw_fn),
+        });
+    }
 }
 
 ///
@@ -542,6 +558,10 @@ where
     pub(crate) count: Cell<usize>,
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
+    /// Clear terminal before next draw.
+    pub(crate) clear_terminal: Cell<bool>,
+    /// Call insert_before before the next draw.
+    pub(crate) insert_before: Cell<InsertBefore>,
 
     /// Application timers.
     pub(crate) timers: Option<Rc<Timers>>,
@@ -554,12 +574,37 @@ where
     pub(crate) queue: ControlQueue<Event, Error>,
 }
 
+struct InsertBefore {
+    height: u16,
+    draw_fn: Box<dyn FnOnce(&mut Buffer)>,
+}
+
+impl Debug for InsertBefore {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InsertBefore")
+            .field("height", &self.height)
+            .field("draw_fn", &"dyn Fn()")
+            .finish()
+    }
+}
+
+impl Default for InsertBefore {
+    fn default() -> Self {
+        Self {
+            height: 0,
+            draw_fn: Box::new(|_| {}),
+        }
+    }
+}
+
 impl<Event, Error> Debug for SalsaAppContext<Event, Error> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut ff = f.debug_struct("AppContext");
         ff.field("focus", &self.focus)
             .field("count", &self.count)
             .field("cursor", &self.cursor)
+            .field("clear_terminal", &self.clear_terminal)
+            .field("insert_before", &"n/a")
             .field("timers", &self.timers)
             .field("tasks", &self.tasks)
             .field("queue", &self.queue);
@@ -581,6 +626,8 @@ where
             focus: Default::default(),
             count: Default::default(),
             cursor: Default::default(),
+            clear_terminal: Default::default(),
+            insert_before: Default::default(),
             timers: Default::default(),
             tasks: Default::default(),
             #[cfg(feature = "async")]

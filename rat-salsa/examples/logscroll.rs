@@ -28,26 +28,39 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
-    setup_logging()?;
-    set_global_clipboard(CliClipboard::default());
-
     let mut args = args();
     args.next();
-    let Some(current) = args.next() else {
-        eprintln!("usage: logscroll <file>");
+    let mut test = false;
+    let mut current_file = None;
+    for v in args {
+        match v.as_str() {
+            "--test" => test = true,
+            "--help" => {
+                eprintln!("usage: logscroll [--test] <file>");
+                return Ok(());
+            }
+            s => current_file = Some(s.to_string()),
+        }
+    }
+    let Some(current_file) = current_file else {
+        eprintln!("usage: logscroll [--test] <file>");
         return Ok(());
     };
-    let current = PathBuf::from(current);
+    let current = PathBuf::from(current_file);
     if !current.exists() {
         eprintln!("file {:?} does not exist.", current);
         return Ok(());
     }
+
+    setup_logging(test)?;
+    set_global_clipboard(CliClipboard::default());
 
     let config = load_config()?;
     let theme = config_theme(&config);
 
     let mut global = GlobalState::new(config, theme);
     global.file_path = current;
+    global.test = test;
 
     let mut state = Scenery::default();
 
@@ -132,6 +145,7 @@ pub struct GlobalState {
     pub cfg: LogScrollConfig,
     pub theme: DarkTheme,
     pub file_path: PathBuf,
+    pub test: bool,
 }
 
 impl SalsaContext<LogScrollEvent, Error> for GlobalState {
@@ -152,6 +166,7 @@ impl GlobalState {
             cfg,
             theme,
             file_path: Default::default(),
+            test: false,
         }
     }
 }
@@ -798,11 +813,14 @@ mod logscroll {
             loop_file(&file_path, can, chan) //
         })?;
 
-        state.pollution = ctx.add_timer(
-            TimerDef::new()
-                .repeat_forever()
-                .timer(Duration::from_millis(1000)),
-        );
+        if ctx.test {
+            // fill the log
+            state.pollution = ctx.add_timer(
+                TimerDef::new()
+                    .repeat_forever()
+                    .timer(Duration::from_millis(400)),
+            );
+        }
 
         Ok(())
     }
@@ -981,19 +999,17 @@ mod logscroll {
     }
 }
 
-fn setup_logging() -> Result<(), Error> {
-    if let Some(_cache) = dirs::cache_dir() {
-        // TODO:??
-        // let log_path = if cfg!(debug_assertions) {
-        //     PathBuf::from(".")
-        // } else {
-        //     let log_path = cache.join("rat-salsa");
-        //     if !log_path.exists() {
-        //         fs::create_dir_all(&log_path)?;
-        //     }
-        //     log_path
-        // };
-        let log_path = PathBuf::from(".");
+fn setup_logging(test: bool) -> Result<(), Error> {
+    if let Some(cache) = dirs::cache_dir() {
+        let log_path = if test {
+            PathBuf::from(".")
+        } else {
+            let log_path = cache.join("rat-salsa");
+            if !log_path.exists() {
+                fs::create_dir_all(&log_path)?;
+            }
+            log_path
+        };
 
         let log_file = log_path.join("logscroll.log");
         _ = fs::remove_file(&log_file);

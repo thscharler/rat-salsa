@@ -80,6 +80,8 @@ where
         focus: Default::default(),
         count: Default::default(),
         cursor: Default::default(),
+        clear_terminal: Default::default(),
+        insert_before: Default::default(),
         timers,
         tasks,
         #[cfg(feature = "async")]
@@ -94,6 +96,10 @@ where
     init(state, global)?;
 
     // initial render
+    let ib = global.salsa_ctx().insert_before.take();
+    if ib.height > 0 {
+        term.insert_before(ib.height, ib.draw_fn)?;
+    }
     term.render(&mut |frame| {
         let frame_area = frame.area();
         render(frame_area, frame.buffer_mut(), state, global)?;
@@ -175,6 +181,16 @@ where
                 Ok(Control::Continue) => {}
                 Ok(Control::Unchanged) => {}
                 Ok(Control::Changed) => {
+                    if global.salsa_ctx().clear_terminal.get() {
+                        global.salsa_ctx().clear_terminal.set(false);
+                        if let Err(e) = term.clear() {
+                            global.salsa_ctx().queue.push(Err(e.into()));
+                        }
+                    }
+                    let ib = global.salsa_ctx().insert_before.take();
+                    if ib.height > 0 {
+                        term.insert_before(ib.height, ib.draw_fn)?;
+                    }
                     let r = term.render(&mut |frame| {
                         let frame_area = frame.area();
                         render(frame_area, frame.buffer_mut(), state, global)?;
@@ -358,19 +374,25 @@ where
     Event: 'static,
     Error: 'static + From<io::Error>,
 {
-    cfg.term.init()?;
+    if !cfg.manual {
+        cfg.term.init()?;
+    }
 
     let r = match catch_unwind(AssertUnwindSafe(|| {
         _run_tui(init, render, event, error, global, state, &mut cfg)
     })) {
         Ok(v) => v,
         Err(e) => {
-            _ = cfg.term.shutdown();
+            if !cfg.manual {
+                _ = cfg.term.shutdown();
+            }
             resume_unwind(e);
         }
     };
 
-    cfg.term.shutdown()?;
+    if !cfg.manual {
+        cfg.term.shutdown()?;
+    }
 
     r
 }
