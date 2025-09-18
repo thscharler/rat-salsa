@@ -2,6 +2,8 @@
 
 * docs
 * fix: don't reexport rat-event.
+* fix: when setting the focus to a container, set to the first
+  *navigable* widget instead of just the first.
 
 # 1.1.1
 
