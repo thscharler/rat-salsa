@@ -14,12 +14,11 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 ## Why?
 
-This crate defines just the trait [HasScreenCursor](HasScreenCursor) for use in
-other crates. This aims to overcome the shortcomings of ratatui
-to handle cursor positioning by widgets.
+This crate defines the trait [HasScreenCursor](HasScreenCursor).
 
-> In the long run I hope there will be a solution within ratatui
-> which will make this obsolete, but for now ...
+This aims to overcome the shortcomings of ratatui. ratatui
+can set the cursor with the Frame, but if you implement
+StatefulWidget all you get is the Buffer.
 
 ```rust
 pub trait HasScreenCursor {
@@ -27,11 +26,11 @@ pub trait HasScreenCursor {
 }
 ```
 
-## Use
+## Usage
 
-### Widget
+### StatefulWidget
 
-This trait is implemented for the widget-state struct.
+Implement the trait for the widget state struct.
 
 > It's implemented for the state struct because the widget
 > might need to run the full layout process to know the cursor
@@ -60,5 +59,5 @@ A container widget can cascade down to its components.
 }
 ```
 
-[refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
+[refRatSalsa]: https://docs.rs/rat-salsa/
 

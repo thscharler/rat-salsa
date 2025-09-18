@@ -1,3 +1,7 @@
+# 1.2.1
+
+* fix docs
+
 # 1.2.0
 
 * add impl_screen_cursor! for quick impl
