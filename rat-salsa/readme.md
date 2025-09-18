@@ -1,12 +1,12 @@
 ![semver](https://img.shields.io/badge/semver-☑-FFD700)
 ![stable](https://img.shields.io/badge/stability-stable-8A2BE2)
-[![crates.io](https://img.shields.io/crates/v/rat-salsa2.svg)](https://crates.io/crates/rat-salsa2)
-[![Documentation](https://docs.rs/rat-salsa2/badge.svg)](https://docs.rs/rat-salsa2)
+[![crates.io](https://img.shields.io/crates/v/rat-salsa.svg)](https://crates.io/crates/rat-salsa)
+[![Documentation](https://docs.rs/rat-salsa/badge.svg)](https://docs.rs/rat-salsa)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![](https://tokei.rs/b1/github/thscharler/rat-salsa2)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa)
 
-# rat-salsa-2
+# rat-salsa 2
 
 Runs an application event-loop for ratatui and crossterm.
 
@@ -25,7 +25,7 @@ returns a [control-flow](Control) which dictates further actions.
 
 ## Changes
 
-[Changes](https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/changes.md)
+[Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/changes.md)
 
 ## Book
 
@@ -93,29 +93,29 @@ There are some starters too
 ![image][refFilesGif]
 
 
-[refFilesGif]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/files.gif?raw=true
+[refFilesGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/files.gif?raw=true
 
-[refMDEditGif]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/mdedit.gif?raw=true
+[refMDEditGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/mdedit.gif?raw=true
 
-[refLife]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/life.rs
+[refLife]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/life.rs
 
-[refAsync1]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/async1.rs
+[refAsync1]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/async1.rs
 
-[refLogscroll]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/logscroll.rs
+[refLogscroll]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/logscroll.rs
 
-[refThemeSamples]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/theme_samples.rs
+[refThemeSamples]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/theme_samples.rs
 
-[refTurbo]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/turbo.rs
+[refTurbo]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/turbo.rs
 
-[refMDEdit]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/mdedit.rs
+[refMDEdit]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/mdedit.rs
 
-[refFiles]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/files.rs
+[refFiles]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/files.rs
 
-[refMinimal]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/minimal.rs
+[refMinimal]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/minimal.rs
 
-[refUltra]: https://github.com/thscharler/rat-salsa2/blob/master/rat-salsa2/examples/ultra.rs
+[refUltra]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/ultra.rs
 
-[refRSBook]: https://thscharler.github.io/rat-salsa2/
+[refRSBook]: https://thscharler.github.io/rat-salsa/
 
 
 
