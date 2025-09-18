@@ -20,19 +20,24 @@ pub mod event {
     ///
     /// eg:
     /// - Leaving a textarea with some navigation key other than tab.
+    #[deprecated(since = "1.1.2", note = "not very useful as is")]
     pub struct FocusTraversal<'a>(pub &'a crate::Focus);
 }
 
 /// Holds the flags for the focus.
 ///
-/// Add this to the widget state.
+/// Add this to the widget state and implement [HasFocus] to
+/// manage your widgets focus state.
+///
+/// __Note__
 ///
 /// This struct is intended to be cloned and uses a Rc internally
 /// to share the state.
 ///
-/// __Attention__
-/// Equality for FocusFlag means pointer-equality of the underlying
-/// Rc using Rc::ptr_eq.
+/// __Note__
+///
+/// Equality and Hash and the id() function use the memory address of the
+/// FocusFlag behind the internal Rc<>.
 ///
 /// __See__
 /// [HasFocus], [on_gained!](crate::on_gained!) and
@@ -85,7 +90,6 @@ impl HasFocus for FocusFlag {
     }
 }
 
-// not Clone, always Rc<>
 #[derive(Default)]
 struct FocusFlagCore {
     /// Field name for debugging purposes.

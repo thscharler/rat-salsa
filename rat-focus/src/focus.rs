@@ -41,10 +41,16 @@ impl Focus {
 
     /// Sets the focus to the given widget.
     ///
-    /// Sets the focus, gained and lost flags.
+    /// This changes the focus and the gained/lost flags.
+    /// If this ends up with the same widget as before
+    /// gained and lost flags are not set.
     ///
-    /// If this ends up with the same widget as
-    /// before gained and lost flags are not set.
+    /// This will ignore the [Navigation] flag of the
+    /// currently focused widget.
+    ///
+    /// You can also use a container-widget for this.
+    /// It will set the focus to the first widget of the
+    /// container.
     #[inline]
     pub fn focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(self.core.log, "focus {:?}", widget_state.focus().name());
@@ -56,6 +62,7 @@ impl Focus {
                 focus_debug!(self.core.log, "    => widget not found");
             }
         } else if self.core.is_container(&flag) {
+            // TODO
             if let Some((_idx, range)) = self.core.container_index_of(&flag) {
                 self.core.focus_idx(range.start, true);
                 focus_debug!(self.core.log, "    -> focused");
@@ -67,12 +74,22 @@ impl Focus {
         }
     }
 
-    /// Sets the focus to the given widget.
+    /// Sets the focus to the widget by its widget-id.
     ///
-    /// Sets the focus, gained and lost flags.
+    /// This can be useful if you want to store references
+    /// to widgets in some extra subsystem and can't use
+    /// a clone of the FocusFlag for that.
     ///
-    /// If this ends up with the same widget as
-    /// before gained and lost flags are not set.
+    /// This changes the focus and the gained/lost flags.
+    /// If this ends up with the same widget as before
+    /// gained and lost flags are not set.
+    ///
+    /// This will ignore the [Navigation] flag of the
+    /// currently focused widget.
+    ///
+    /// You can also use a container-widget for this.
+    /// It will set the focus to the first widget of the
+    /// container.
     #[inline]
     pub fn by_widget_id(&self, widget_id: usize) {
         let widget_state = self.core.find_widget_id(widget_id);
@@ -89,6 +106,7 @@ impl Focus {
                 focus_debug!(self.core.log, "    => widget not found");
             }
         } else if self.core.is_container(&flag) {
+            // TODO:
             if let Some((_idx, range)) = self.core.container_index_of(&flag) {
                 self.core.focus_idx(range.start, true);
                 focus_debug!(self.core.log, "    -> focused");
@@ -100,33 +118,23 @@ impl Focus {
         }
     }
 
-    /// Change to focus to the given position.
-    /// Returns true if there is any focus-change.
-    #[inline(always)]
-    pub fn focus_at(&self, col: u16, row: u16) -> bool {
-        focus_debug!(self.core.log, "focus at {},{}", col, row);
-        match self.navigation() {
-            Some(Navigation::Lock) => {
-                focus_debug!(self.core.log, "    -> locked");
-                false
-            }
-            _ => self.core.focus_at(col, row),
-        }
-    }
-
-    /// Set the focus to the first widget.
+    /// Set the focus to the first navigable widget.
+    ///
+    /// This changes the focus and the gained/lost flags.
+    /// If this ends up with the same widget as before
+    /// gained and lost flags are not set.
+    ///
+    /// This will ignore the [Navigation] flag of the
+    /// currently focused widget.
     #[inline(always)]
     pub fn first(&self) {
         focus_debug!(self.core.log, "focus first");
         self.core.first();
     }
 
-    /// Focus the first widget of a given container.
-    /// It the given HasFocus is a widget it will get the focus.
-    ///
-    /// The first navigable widget in the container gets the focus.
-    #[inline]
+    #[deprecated(since = "1.1.2", note = "use focus() instead")]
     pub fn first_in(&self, container: &'_ dyn HasFocus) {
+        // TODO: dup focus()
         focus_debug!(
             self.core.log,
             "focus first in container {:?} ",
@@ -148,8 +156,8 @@ impl Focus {
 
     /// Clear the focus for all widgets.
     ///
-    /// When navigating after this focus will restart somewhere,
-    /// most probably the very first widget.
+    /// This will reset the focus, gained and lost flags for
+    /// all widgets.
     #[inline(always)]
     pub fn none(&self) {
         focus_debug!(self.core.log, "focus none");
@@ -157,12 +165,35 @@ impl Focus {
         focus_debug!(self.core.log, "    -> done");
     }
 
+    /// Change to focus to the widget at the given position.
+    ///
+    /// This changes the focus and the gained/lost flags.
+    /// If this ends up with the same widget as before
+    /// gained and lost flags are not set.
+    ///
+    /// If the current widget has a [Navigation::Lock], this will
+    /// do nothing.
+    #[inline(always)]
+    pub fn focus_at(&self, col: u16, row: u16) -> bool {
+        focus_debug!(self.core.log, "focus at {},{}", col, row);
+        match self.navigation() {
+            Some(Navigation::Lock) => {
+                focus_debug!(self.core.log, "    -> locked");
+                false
+            }
+            _ => self.core.focus_at(col, row),
+        }
+    }
+
     /// Focus the next widget in the cycle.
     ///
-    /// Sets the focus, gained and lost flags. If this ends up with
-    /// the same widget as before focus, gained and lost flag are all set.
+    /// This function will use the [Navigation] of the current widget
+    /// and only focus the next widget if it is `Leave`, `ReachLeaveBack` or
+    /// `Regular`.
     ///
-    /// If no field has the focus the first one gets it.
+    /// If no field has the focus the first navigable one gets it.
+    /// Sets the focus, gained and lost flags. If this ends up with
+    /// the same widget as before focus, gained and lost flag are not set.
     #[inline]
     pub fn next(&self) -> bool {
         match self.navigation() {
@@ -198,10 +229,13 @@ impl Focus {
 
     /// Focus the previous widget in the cycle.
     ///
-    /// Sets the focus and lost flags. If this ends up with the same widget as
-    /// before it returns *true* and sets the focus, gained and lost flag.
+    /// This function will use the [Navigation] of the current widget
+    /// and only focus the next widget if it is `Leave`, `ReachLeaveFront` or
+    /// `Regular`.
     ///
-    /// If no field has the focus the first one gets it.
+    /// If no field has the focus the first navigable one gets it.
+    /// Sets the focus, gained and lost flags. If this ends up with
+    /// the same widget as before focus, gained and lost flag are not set.
     #[inline]
     pub fn prev(&self) -> bool {
         match self.navigation() {
@@ -236,13 +270,16 @@ impl Focus {
     }
 
     /// Focus the next widget in the cycle.
-    /// Applies some extra force to this action and allows leaving
-    /// widgets that have Navigation::(Mouse, ReachLeafFront, Reach).
+    ///
+    /// Applies some extra force to this action and allows
+    /// leaving widgets that have [Navigation] `Reach` and `ReachLeaveFront`
+    /// in addition to the regular `Leave`, `ReachLeaveBack` or
+    /// `Regular`.
+    ///
+    /// If no field has the focus the first navigable one gets it.
     ///
     /// Sets the focus, gained and lost flags. If this ends up with
-    /// the same widget as before focus, gained and lost flag are all set.
-    ///
-    /// If no field has the focus the first one gets it.
+    /// the same widget as before focus, gained and lost flag are not set.
     #[inline]
     pub fn next_force(&self) -> bool {
         match self.navigation() {
@@ -278,13 +315,15 @@ impl Focus {
 
     /// Focus the previous widget in the cycle.
     ///
-    /// Applies some extra force to this action and allows leaving
-    /// widgets that have Navigation::(Mouse, ReachLeafBack, Reach).
+    /// Applies some extra force to this action and allows
+    /// leaving widgets that have [Navigation] `Reach` and `ReachLeaveBack`
+    /// in addition to the regular `Leave`, `ReachLeaveFront` or
+    /// `Regular`.
     ///
-    /// Sets the focus and lost flags. If this ends up with the same widget as
-    /// before it returns *true* and sets the focus, gained and lost flag.
+    /// If no field has the focus the first navigable one gets it.
     ///
-    /// If no field has the focus the first one gets it.
+    /// Sets the focus, gained and lost flags. If this ends up with
+    /// the same widget as before focus, gained and lost flag are not set.
     #[inline]
     pub fn prev_force(&self) -> bool {
         match self.navigation() {
@@ -327,14 +366,22 @@ impl Focus {
         self.core.focused()
     }
 
+    /// Returns the focused widget as widget-id.
+    ///
+    /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
+    /// will be nicer.
+    #[inline(always)]
+    pub fn focused_widget_id(&self) -> Option<usize> {
+        self.core.focused().map(|v| v.id())
+    }
+
     /// Returns the debug name of the focused widget.
-    /// This is mainly for debugging purposes.
     #[inline(always)]
     pub fn focused_name(&self) -> Option<String> {
         self.core.focused().map(|v| v.name().to_string())
     }
 
-    /// Returns the navigation flag for the focused widget.
+    /// Returns the [Navigation] flag for the focused widget.
     #[inline(always)]
     pub fn navigation(&self) -> Option<Navigation> {
         self.core.navigation()
@@ -358,14 +405,20 @@ impl Focus {
         self.core.gained_focus()
     }
 
-    /// Sets the focus to the widget.
+    /// Sets the focus to the given widget, but doesn't set
+    /// lost and gained. This can be used to prevent any side
+    /// effects that use the gained/lost state.
     ///
-    /// Sets the focus, but doesn't set lost or gained.
-    /// This can be used to prevent any side effects that
-    /// use the gained/lost state.
+    /// This changes the focus and the gained/lost flags.
+    /// If this ends up with the same widget as before
+    /// gained and lost flags are not set.
     ///
-    /// This can be used with a container to set the
-    /// focus to the first widget of the container.
+    /// This will ignore the [Navigation] flag of the
+    /// currently focused widget.
+    ///
+    /// You can also use a container-widget for this.
+    /// It will set the focus to the first widget of the
+    /// container.
     #[inline]
     pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(
@@ -381,6 +434,7 @@ impl Focus {
                 focus_debug!(self.core.log, "    => widget not found");
             }
         } else if self.core.is_container(&flag) {
+            // TODO
             if let Some((_idx, range)) = self.core.container_index_of(&flag) {
                 self.core.focus_idx(range.start, false);
                 focus_debug!(self.core.log, "    -> focused");
@@ -392,12 +446,17 @@ impl Focus {
         }
     }
 
-    /// Expels the focus from the given widget regardless of
-    /// the current state.
+    /// This expels the focus from the given widget/container.
     ///
     /// This is sometimes useful to set the focus to **somewhere else**.
     /// This is especially useful when used for a container-widget that will
-    /// be hidden. Ensures there is still some widget with focus afterwards.
+    /// be hidden. Ensures there is still some widget with focus afterward.
+    ///
+    /// It will try to set the focus to the next widget or the
+    /// next widget following the container. If this ends up within
+    /// the given container it will set the focus to none.
+    ///
+    /// This function doesn't use the Navigation of the current widget.
     #[inline]
     pub fn expel_focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(
