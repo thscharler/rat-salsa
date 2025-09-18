@@ -17,13 +17,13 @@ For examples see [rat-popup GitHub][refGitHubPopup]
 This is not a standalone widget, this is support for widgets that need
 a popup window.
 
-The main function is, that is uses the [Placement](crate::Placement)
-constraint and a few others to find out where to render the popup.
-When rendering the PopupCore it calculates the area for the popup
-and resets the space.
+The point is, that it uses a
+[PopupConstraint](https://docs.rs/rat-popup/latest/rat_popup/enum.PopupConstraint.html)
+to place the popup relative to some widget-area.
+After rendering the PopupCore the actual area has been
+calculated and cleared.
 
-The main widget then can use the resulting PopupCoreState::area
-to render its own content.
+Your widget can then use the calculated area to render its content.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
