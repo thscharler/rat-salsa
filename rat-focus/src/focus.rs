@@ -49,8 +49,8 @@ impl Focus {
     /// currently focused widget.
     ///
     /// You can also use a container-widget for this.
-    /// It will set the focus to the first widget of the
-    /// container.
+    /// It will set the focus to the first navigable widget
+    /// of the container.
     #[inline]
     pub fn focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(self.core.log, "focus {:?}", widget_state.focus().name());
@@ -62,13 +62,7 @@ impl Focus {
                 focus_debug!(self.core.log, "    => widget not found");
             }
         } else if self.core.is_container(&flag) {
-            // TODO
-            if let Some((_idx, range)) = self.core.container_index_of(&flag) {
-                self.core.focus_idx(range.start, true);
-                focus_debug!(self.core.log, "    -> focused");
-            } else {
-                focus_debug!(self.core.log, "    => container not found");
-            }
+            self.core.first_container(&flag);
         } else {
             focus_debug!(self.core.log, "    => not a valid widget");
         }
@@ -106,13 +100,7 @@ impl Focus {
                 focus_debug!(self.core.log, "    => widget not found");
             }
         } else if self.core.is_container(&flag) {
-            // TODO:
-            if let Some((_idx, range)) = self.core.container_index_of(&flag) {
-                self.core.focus_idx(range.start, true);
-                focus_debug!(self.core.log, "    -> focused");
-            } else {
-                focus_debug!(self.core.log, "    => container not found");
-            }
+            self.core.first_container(&flag);
         } else {
             focus_debug!(self.core.log, "    => not a valid widget");
         }
@@ -134,24 +122,7 @@ impl Focus {
 
     #[deprecated(since = "1.1.2", note = "use focus() instead")]
     pub fn first_in(&self, container: &'_ dyn HasFocus) {
-        // TODO: dup focus()
-        focus_debug!(
-            self.core.log,
-            "focus first in container {:?} ",
-            container.focus().name()
-        );
-        let flag = container.focus();
-        if self.core.is_container(&flag) {
-            self.core.first_container(&flag);
-        } else if self.core.is_widget(&flag) {
-            if let Some(n) = self.core.index_of(&flag) {
-                self.core.focus_idx(n, true);
-            } else {
-                focus_debug!(self.core.log, "    => widget not found");
-            }
-        } else {
-            focus_debug!(self.core.log, "    -> not a container");
-        }
+        self.focus(container);
     }
 
     /// Clear the focus for all widgets.
@@ -434,13 +405,7 @@ impl Focus {
                 focus_debug!(self.core.log, "    => widget not found");
             }
         } else if self.core.is_container(&flag) {
-            // TODO
-            if let Some((_idx, range)) = self.core.container_index_of(&flag) {
-                self.core.focus_idx(range.start, false);
-                focus_debug!(self.core.log, "    -> focused");
-            } else {
-                focus_debug!(self.core.log, "    => container not found");
-            }
+            self.core.first_container(&flag);
         } else {
             focus_debug!(self.core.log, "    => not a valid widget");
         }
