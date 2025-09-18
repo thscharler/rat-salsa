@@ -1,6 +1,6 @@
 //! Popup acts as a single widget, and takes part of the focus.
 
-use rat_event::{ct_event, HandleEvent, Popup, Regular};
+use rat_event::{HandleEvent, Popup, Regular, ct_event};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
@@ -21,18 +21,21 @@ impl StatefulWidget for PopFocusBlue {
         if state.popup.is_active() {
             PopupCore::new()
                 .constraint(state.placement)
-                .block(Block::bordered().style(Style::new().black().on_yellow()))
                 .render(area, buf, &mut state.popup);
+
+            let block = Block::bordered().style(Style::new().black().on_yellow());
+            let widget_area = block.inner(area);
+            block.render(area, buf);
 
             state.area = state.popup.area;
 
-            buf.set_style(state.popup.widget_area, Style::new().black().on_yellow());
+            buf.set_style(widget_area, Style::new().black().on_yellow());
 
-            let mut a1 = state.popup.widget_area;
+            let mut a1 = widget_area;
             a1.height = 1;
             Span::from(" p-o-p-u-p ").render(a1, buf);
 
-            let mut a2 = state.popup.widget_area;
+            let mut a2 = widget_area;
             a2.y += 1;
             a2.height = 1;
             Span::from(state.cc.to_string()).render(a2, buf);

@@ -2,9 +2,9 @@ use crate::_private::NonExhaustive;
 use crate::event::PopupOutcome;
 use crate::{Placement, PopupConstraint};
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, Popup};
+use rat_event::{HandleEvent, Popup, ct_event};
 use rat_focus::FocusFlag;
-use rat_reloc::{relocate_area, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
@@ -38,12 +38,20 @@ use std::cmp::max;
 pub struct PopupCore<'a> {
     pub style: Style,
 
+    /// Constraints for the popup.
     pub constraint: Cell<PopupConstraint>,
+    /// Extra offset after calculating the position
+    /// with constraint.
     pub offset: (i16, i16),
+    /// Outer boundary for the popup-placement.
+    /// If not set uses the buffer-area.
     pub boundary_area: Option<Rect>,
 
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub block: Option<Block<'a>>,
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub h_scroll: Option<Scroll<'a>>,
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub v_scroll: Option<Scroll<'a>>,
 
     pub non_exhaustive: NonExhaustive,
@@ -57,12 +65,15 @@ pub struct PopupStyle {
     /// Extra offset added after applying the constraints.
     pub offset: Option<(i16, i16)>,
     /// Block for the popup.
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub block: Option<Block<'static>>,
     /// Style for the block border.
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub border_style: Option<Style>,
     /// Style for scroll bars.
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub scroll: Option<ScrollStyle>,
-    /// Placement
+    /// Alignment.
     pub alignment: Option<Alignment>,
     /// Placement
     pub placement: Option<Placement>,
@@ -83,13 +94,16 @@ pub struct PopupCoreState {
     pub area_z: u16,
     /// Area where the widget can render it's content.
     /// __read only__. renewed for each render.
+    #[deprecated(since = "1.1.1", note = "use area instead")]
     pub widget_area: Rect,
 
     /// Horizontal scroll state if active.
     /// __read+write__
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub h_scroll: ScrollState,
     /// Vertical scroll state if active.
     /// __read+write__
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub v_scroll: ScrollState,
 
     /// Active flag for the popup.
@@ -119,6 +133,7 @@ pub struct PopupCoreState {
 }
 
 impl Default for PopupCore<'_> {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             style: Default::default(),
@@ -140,6 +155,7 @@ impl<'a> PopupCore<'a> {
     }
 
     /// Placement of the popup widget + the area of the main widget.
+    /// Can change the constraint even if you only have a &PopupCore.
     pub fn ref_constraint(&self, constraint: PopupConstraint) -> &Self {
         self.constraint.set(constraint);
         self
@@ -188,6 +204,7 @@ impl<'a> PopupCore<'a> {
     }
 
     /// Set styles
+    #[allow(deprecated)]
     pub fn styles(mut self, styles: PopupStyle) -> Self {
         self.style = styles.style;
         if let Some(offset) = styles.offset {
@@ -213,6 +230,7 @@ impl<'a> PopupCore<'a> {
     }
 
     /// Base style for the popup.
+    #[allow(deprecated)]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self.block = self.block.map(|v| v.style(self.style));
@@ -220,6 +238,8 @@ impl<'a> PopupCore<'a> {
     }
 
     /// Block
+    #[allow(deprecated)]
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self.block = self.block.map(|v| v.style(self.style));
@@ -227,6 +247,8 @@ impl<'a> PopupCore<'a> {
     }
 
     /// Block
+    #[allow(deprecated)]
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub fn block_opt(mut self, block: Option<Block<'a>>) -> Self {
         self.block = block;
         self.block = self.block.map(|v| v.style(self.style));
@@ -234,30 +256,40 @@ impl<'a> PopupCore<'a> {
     }
 
     /// Horizontal scroll
+    #[allow(deprecated)]
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub fn h_scroll(mut self, h_scroll: Scroll<'a>) -> Self {
         self.h_scroll = Some(h_scroll);
         self
     }
 
     /// Horizontal scroll
+    #[allow(deprecated)]
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub fn h_scroll_opt(mut self, h_scroll: Option<Scroll<'a>>) -> Self {
         self.h_scroll = h_scroll;
         self
     }
 
     /// Vertical scroll
+    #[allow(deprecated)]
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub fn v_scroll(mut self, v_scroll: Scroll<'a>) -> Self {
         self.v_scroll = Some(v_scroll);
         self
     }
 
     /// Vertical scroll
+    #[allow(deprecated)]
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub fn v_scroll_opt(mut self, v_scroll: Option<Scroll<'a>>) -> Self {
         self.v_scroll = v_scroll;
         self
     }
 
     /// Get the padding the block imposes as  Size.
+    #[allow(deprecated)]
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub fn get_block_size(&self) -> Size {
         let area = Rect::new(0, 0, 20, 20);
         let inner = self.block.inner_if_some(area);
@@ -268,6 +300,8 @@ impl<'a> PopupCore<'a> {
     }
 
     /// Get the padding the block imposes as Padding.
+    #[allow(deprecated)]
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub fn get_block_padding(&self) -> Padding {
         let area = Rect::new(0, 0, 20, 20);
         let inner = self.block.inner_if_some(area);
@@ -280,6 +314,8 @@ impl<'a> PopupCore<'a> {
     }
 
     /// Calculate the inner area.
+    #[allow(deprecated)]
+    #[deprecated(since = "1.1.1", note = "job for the widget")]
     pub fn inner(&self, area: Rect) -> Rect {
         self.block.inner_if_some(area)
     }
@@ -317,21 +353,25 @@ fn render_popup(widget: &PopupCore<'_>, area: Rect, buf: &mut Buffer, state: &mu
 
     reset_buf_area(state.area, buf);
 
-    let sa = ScrollArea::new()
-        .block(widget.block.as_ref())
-        .h_scroll(widget.h_scroll.as_ref())
-        .v_scroll(widget.v_scroll.as_ref())
-        .style(fallback_popup_style(widget.style));
+    if widget.block.is_some() || widget.h_scroll.is_some() || widget.v_scroll.is_some() {
+        let sa = ScrollArea::new()
+            .block(widget.block.as_ref())
+            .h_scroll(widget.h_scroll.as_ref())
+            .v_scroll(widget.v_scroll.as_ref())
+            .style(fallback_popup_style(widget.style));
 
-    state.widget_area = sa.inner(state.area, Some(&state.h_scroll), Some(&state.v_scroll));
+        state.widget_area = sa.inner(state.area, Some(&state.h_scroll), Some(&state.v_scroll));
 
-    sa.render(
-        state.area,
-        buf,
-        &mut ScrollAreaState::new()
-            .h_scroll(&mut state.h_scroll)
-            .v_scroll(&mut state.v_scroll),
-    );
+        sa.render(
+            state.area,
+            buf,
+            &mut ScrollAreaState::new()
+                .h_scroll(&mut state.h_scroll)
+                .v_scroll(&mut state.v_scroll),
+        );
+    } else {
+        buf.set_style(area, fallback_popup_style(widget.style));
+    }
 }
 
 /// Fallback for popup style.
@@ -603,6 +643,7 @@ impl PopupCore<'_> {
 }
 
 impl Default for PopupStyle {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             style: Default::default(),
@@ -650,6 +691,7 @@ impl Default for PopupCoreState {
 }
 
 impl RelocatableState for PopupCoreState {
+    #[allow(deprecated)]
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
         self.widget_area = relocate_area(self.widget_area, shift, clip);
@@ -701,6 +743,7 @@ impl PopupCoreState {
     }
 
     /// Clear the areas.
+    #[allow(deprecated)]
     pub fn clear_areas(&mut self) {
         self.area = Default::default();
         self.widget_area = Default::default();

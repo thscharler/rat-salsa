@@ -11,8 +11,8 @@ use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, BorderType};
+use ratatui::widgets::{StatefulWidget, Widget};
 
 #[derive(Debug, Default)]
 pub struct PopEditGreen;
@@ -39,21 +39,22 @@ impl StatefulWidget for PopEditGreen {
             PopupCore::new()
                 .constraint(state.placement)
                 .offset(calc_dxy(state.placement, 1))
-                .block(
-                    Block::bordered()
-                        .border_type(BorderType::Rounded)
-                        .style(THEME.text_input()),
-                )
                 .render(area, buf, &mut state.popup);
 
-            let mut a1 = state.popup.widget_area;
+            let block = Block::bordered()
+                .border_type(BorderType::Rounded)
+                .style(THEME.text_input());
+            let widget_area = block.inner(area);
+            block.render(area, buf);
+
+            let mut a1 = widget_area;
             a1.height = 1;
             TextInputMock::default()
                 .style(THEME.text_input())
                 .focus_style(THEME.text_focus())
                 .render(a1, buf, &mut state.edit1);
 
-            let mut a2 = state.popup.widget_area;
+            let mut a2 = widget_area;
             a2.y += 1;
             a2.height = 1;
             TextInputMock::default()
@@ -61,7 +62,7 @@ impl StatefulWidget for PopEditGreen {
                 .focus_style(THEME.text_focus())
                 .render(a2, buf, &mut state.edit2);
 
-            let mut a3 = state.popup.widget_area;
+            let mut a3 = widget_area;
             a3.y += 2;
             a3.height = 1;
             TextInputMock::default()
@@ -136,7 +137,7 @@ impl PopEditGreenState {
         // set active, update Focus and focus first widget.
         self.popup.set_active(true);
         focus.update_container(&*self);
-        focus.first_in(&*self);
+        focus.focus(&*self);
     }
 
     pub fn hide(&mut self, focus: &mut Focus) {

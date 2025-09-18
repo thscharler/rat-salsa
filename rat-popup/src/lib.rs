@@ -89,15 +89,19 @@ impl Placement {
     }
 }
 
-/// Placement relative to the widget area + the widget area.
+/// Placement relative to the main-widget area + the main-widget area.
 ///
-/// The render() call for PopupCore will only use the size of
-/// the area given to the render call as the size of the popup.
-/// It will calculate the position of the popup given one of
-/// these constraints.
+/// The render() call for PopupCore will use the size of
+/// the area given to render() as the size of the popup and
+/// ignore the position.
+///
+/// It will calculate the position of the popup using these
+/// constraints.
 ///
 /// If you build a widget that uses a PopupCore internally you
-/// will rather use Placement as a parameter
+/// will rather use Placement as a parameter for your widget.
+/// You can construct the PopupConstraint when rendering
+/// your widget and set it in PopupCore.
 ///
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]

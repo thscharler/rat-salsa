@@ -21,15 +21,16 @@ impl StatefulWidget for PopNonFocusRed {
             PopupCore::new()
                 .constraint(state.placement)
                 .offset(calc_dxy(state.placement, 1))
-                .block(
-                    Block::bordered()
-                        .border_type(BorderType::Rounded)
-                        .style(Style::new().black().on_cyan()),
-                )
                 .render(area, buf, &mut state.popup);
 
-            buf.set_style(state.popup.widget_area, Style::new().black().on_cyan());
-            Span::from("*** ***").render(state.popup.widget_area, buf);
+            let block = Block::bordered()
+                .border_type(BorderType::Rounded)
+                .style(Style::new().black().on_cyan());
+            let widget_area = block.inner(area);
+            block.render(area, buf);
+
+            buf.set_style(widget_area, Style::new().black().on_cyan());
+            Span::from("*** ***").render(widget_area, buf);
         }
     }
 }

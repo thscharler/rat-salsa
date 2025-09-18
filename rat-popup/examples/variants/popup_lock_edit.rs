@@ -3,7 +3,7 @@ use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::variants::calc_dxy;
 use rat_cursor::HasScreenCursor;
-use rat_event::{ct_event, HandleEvent, Outcome, Popup, Regular};
+use rat_event::{HandleEvent, Outcome, Popup, Regular, ct_event};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
@@ -11,8 +11,8 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::style::Stylize;
-use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, BorderType};
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::cmp::max;
 
 #[derive(Debug, Default)]
@@ -41,21 +41,22 @@ impl StatefulWidget for PopLockMagenta {
             PopupCore::new()
                 .constraint(state.placement)
                 .offset(calc_dxy(state.placement, 1))
-                .block(
-                    Block::bordered()
-                        .border_type(BorderType::Rounded)
-                        .style(Style::new().black().on_dark_gray()),
-                )
                 .render(area, buf, &mut state.popup);
 
-            let mut a1 = state.popup.widget_area;
+            let block = Block::bordered()
+                .border_type(BorderType::Rounded)
+                .style(Style::new().black().on_dark_gray());
+            let widget_area = block.inner(area);
+            block.render(area, buf);
+
+            let mut a1 = widget_area;
             a1.height = 1;
             TextInputMock::default()
                 .style(THEME.text_input())
                 .focus_style(THEME.text_focus())
                 .render(a1, buf, &mut state.edit1);
 
-            let mut a2 = state.popup.widget_area;
+            let mut a2 = widget_area;
             a2.y += 1;
             a2.height = 1;
             TextInputMock::default()
@@ -63,7 +64,7 @@ impl StatefulWidget for PopLockMagenta {
                 .focus_style(THEME.text_focus())
                 .render(a2, buf, &mut state.edit2);
 
-            let mut a3 = state.popup.widget_area;
+            let mut a3 = widget_area;
             a3.y += 2;
             a3.height = 1;
             TextInputMock::default()
