@@ -1,5 +1,5 @@
 use crate::adapter::_private::NonExhaustive;
-use rat_event::{flow, HandleEvent, MouseOnly, Outcome};
+use rat_event::{HandleEvent, MouseOnly, Outcome, flow};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
@@ -185,18 +185,6 @@ impl ParagraphSState {
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphSState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        flow!(match self.hscroll.handle(event, MouseOnly) {
-            ScrollOutcome::HPos(v) => {
-                self.set_horizontal_offset(v).into()
-            }
-            r => Outcome::from(r),
-        });
-        flow!(match self.vscroll.handle(event, MouseOnly) {
-            ScrollOutcome::VPos(v) => {
-                self.set_vertical_offset(v).into()
-            }
-            r => Outcome::from(r),
-        });
         flow!({
             let mut sas = ScrollAreaState::new()
                 .area(self.inner)
@@ -231,6 +219,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphSStat
                         Outcome::Continue
                     }
                 }
+                ScrollOutcome::HPos(v) => self.set_horizontal_offset(v).into(),
+                ScrollOutcome::VPos(v) => self.set_vertical_offset(v).into(),
+
                 r => Outcome::from(r),
             }
         });

@@ -1,16 +1,14 @@
 use crate::event::ScrollOutcome;
 use crate::{Scroll, ScrollState, ScrollbarPolicy};
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly};
+use rat_event::{HandleEvent, MouseOnly, ct_event, flow};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, Padding, ScrollbarOrientation, StatefulWidget, Widget};
 use std::cmp::max;
 
-/// Utility widget for layout/rendering the combined block and scrollbars.
-///
-/// It can calculate the layout for any combination and layouts the
-/// scrollbars on top of the border if one exists.
+/// Utility widget for rendering a combination of a Block and
+/// one or two Scroll(bars). Any of these can be None.
 #[derive(Debug, Default, Clone)]
 pub struct ScrollArea<'a> {
     style: Style,
@@ -21,8 +19,8 @@ pub struct ScrollArea<'a> {
 
 /// Temporary state for ScrollArea.
 ///
-/// This state is not meant to keep, it just packages the widgets state
-/// for use by ScrollArea.
+/// This state is not meant to keep, it just repackages the
+/// widget state for use by ScrollArea.
 #[derive(Debug, Default)]
 pub struct ScrollAreaState<'a> {
     /// This area is only used for event-handling.
@@ -63,7 +61,7 @@ impl<'a> ScrollArea<'a> {
         self
     }
 
-    /// What padding does this effect.
+    /// What is the combined Padding.
     pub fn padding(&self) -> Padding {
         let mut padding = block_padding(&self.block);
         if let Some(h_scroll) = self.h_scroll {
@@ -206,8 +204,8 @@ fn layout<'a>(
                 match hscroll.get_orientation() {
                     ScrollbarOrientation::VerticalRight => {
                         unimplemented!(
-                        "ScrollbarOrientation::VerticalRight not supported for horizontal scrolling."
-                    );
+                            "ScrollbarOrientation::VerticalRight not supported for horizontal scrolling."
+                        );
                     }
                     ScrollbarOrientation::VerticalLeft => {
                         unimplemented!(
@@ -259,8 +257,8 @@ fn layout<'a>(
                     }
                     ScrollbarOrientation::HorizontalTop => {
                         unimplemented!(
-                        "ScrollbarOrientation::HorizontalTop not supported for vertical scrolling."
-                    );
+                            "ScrollbarOrientation::HorizontalTop not supported for vertical scrolling."
+                        );
                     }
                 }
             }

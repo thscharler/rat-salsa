@@ -14,8 +14,8 @@ For examples see [rat-scrolled GitHub][refGitHubScrolled]
 
 # Scroll
 
-[Scroll](Scroll) adds support for widgets that want to scroll their
-content.
+[Scroll](https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.Scroll.html) adds
+support for widgets that want to scroll their content.
 
 Scroll works analogous to Block, it can be set on the widget
 struct where it is supported. The widget can decide which
@@ -23,11 +23,30 @@ scrolling it can do, horizontal vertical or both.
 
 # Adding scroll to a widget
 
-- Add [Scroll](Scroll) to the widget struct.
-- Use [ScrollArea](ScrollArea) for the layout and rendering of
-  the combination of Block+Scroll+Scroll your widget supports.
-- Add [ScrollState](ScrollState) to the widget state struct.
-- Create a [ScrollAreaState](ScrollAreaState) for event-handling.
+- Add [Scroll](https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.Scroll.html)
+  to the widget struct.
+- Use [ScrollArea](https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.ScrollArea.html)
+  for the layout and rendering of the combination of
+  Block+Scroll+Scroll your widget supports.
+- Add [ScrollState](https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.ScrollState.html)
+  to the widget state struct.
+- Use a [ScrollAreaState](https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.ScrollAreaState.html)
+  for event-handling.
+
+[Examples](https://github.com/thscharler/rat-salsa/tree/master/rat-scrolled/examples)
+
+# For what?
+
+This is for widgets that handle their scrolling internally.
+They use [ScrollState::offset](https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.ScrollState.html)
+to manage what they have to render. And they
+set [ScrollState::page_len](https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.ScrollState.html)
+and [ScrollState::max_offset](https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.ScrollState.html) to get a correct
+scrollbar displayed.
+
+Widgets that don't want to do this can be rendered using
+[View](https://docs.rs/rat-widget/latest/rat_widget/view/index.html) or
+[Clipper](https://docs.rs/rat-widget/latest/rat_widget/clipper/index.html).
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 

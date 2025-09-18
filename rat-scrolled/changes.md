@@ -1,3 +1,7 @@
+# 1.1.4
+
+* docs
+
 # 1.1.3
 
 * fix ScrollPolicy::Always + max_offset 0 doesn't show anything.
