@@ -1,6 +1,7 @@
-# 1.1.1
+# 1.2.0
 
-*
+* deprecate all but the basic rendering. everything else should be
+  done by the widget using PopupCore.
 
 # 1.1.0
 

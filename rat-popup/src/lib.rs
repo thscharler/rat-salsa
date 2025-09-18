@@ -47,81 +47,75 @@ pub mod event {
 
 /// Placement of the popup.
 ///
-/// This enum is for use in a widget that then uses PopupCore
-/// internally. Expose Placement to the users of your widget
-/// to let them define a popup placement. Convert the Placement
-/// to a PopupConstraint internally when forwarding this
-/// to PopupCore.
+/// Use this enum for your widgets API.
+///
+/// Then convert the Placement to a [PopupConstraint] and
+/// set the constraint with the PopupCore.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Placement {
     /// Use the render-area for the popup as is.
     #[default]
     None,
-    /// Place above the given area.
+    /// Place above the main widget area.
     Above,
-    /// Place below the given area:
+    /// Place below the main widget area.
     Below,
-    /// Place left of the given area.
+    /// Place left of the main widget area.
     Left,
-    /// Place right of the given area.
+    /// Place right of the main widget area.
     Right,
-    /// Above or below dependent on available space. Aligned left.
+    /// Above or below the main widget dependent on available space.
     AboveOrBelow,
-    /// Below or above dependent on available space. Aligned left.
+    /// Below or above the main widget dependent on available space.
     BelowOrAbove,
-    /// Use the render-area for the popup, but place it at position (x,y).
+    /// Place the popup at this position.
     Position(u16, u16),
 }
 
 impl Placement {
-    pub fn into_constraint(self, alignment: Alignment, rel_area: Rect) -> PopupConstraint {
+    /// Convert the placement to a PopupConstraint.
+    /// Needs an extra alignment and the area of the main widget.
+    ///
+    pub fn into_constraint(self, alignment: Alignment, relative_to_area: Rect) -> PopupConstraint {
         match self {
             Placement::None => PopupConstraint::None,
-            Placement::Above => PopupConstraint::Above(alignment, rel_area),
-            Placement::Below => PopupConstraint::Below(alignment, rel_area),
-            Placement::Left => PopupConstraint::Left(alignment, rel_area),
-            Placement::Right => PopupConstraint::Right(alignment, rel_area),
-            Placement::AboveOrBelow => PopupConstraint::AboveOrBelow(alignment, rel_area),
-            Placement::BelowOrAbove => PopupConstraint::BelowOrAbove(alignment, rel_area),
+            Placement::Above => PopupConstraint::Above(alignment, relative_to_area),
+            Placement::Below => PopupConstraint::Below(alignment, relative_to_area),
+            Placement::Left => PopupConstraint::Left(alignment, relative_to_area),
+            Placement::Right => PopupConstraint::Right(alignment, relative_to_area),
+            Placement::AboveOrBelow => PopupConstraint::AboveOrBelow(alignment, relative_to_area),
+            Placement::BelowOrAbove => PopupConstraint::BelowOrAbove(alignment, relative_to_area),
             Placement::Position(x, y) => PopupConstraint::Position(x, y),
         }
     }
 }
 
-/// Placement relative to the main-widget area + the main-widget area.
+/// Placement constraint for PopupCore.
 ///
-/// The render() call for PopupCore will use the size of
-/// the area given to render() as the size of the popup and
-/// ignore the position.
-///
-/// It will calculate the position of the popup using these
-/// constraints.
-///
-/// If you build a widget that uses a PopupCore internally you
-/// will rather use Placement as a parameter for your widget.
-/// You can construct the PopupConstraint when rendering
-/// your widget and set it in PopupCore.
-///
+/// This defines a position relative to the main widget,
+/// plus an alignment and the main widget area.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum PopupConstraint {
     /// Use the render-area for the popup as is.
     #[default]
     None,
-    /// Synonym for AboveLeft
+    /// Place above the main widget area.
     Above(Alignment, Rect),
-    /// Synonym for BelowLeft
+    /// Place below the main widget area.
     Below(Alignment, Rect),
-    /// Synonym for LeftTop
+    /// Place left of the main widget area.
+    /// Alignment::Left == Top, Alignment::Center == Middle, Alignment::Right == Bottom
     Left(Alignment, Rect),
-    /// Synonym for RightTop
+    /// Place right of the main widget area.
+    /// Alignment::Left == Top, Alignment::Center == Middle, Alignment::Right == Bottom
     Right(Alignment, Rect),
-    /// Above or below dependent on available space. Aligned left.
+    /// Above or below the main widget dependent on available space.
     AboveOrBelow(Alignment, Rect),
-    /// Below or above dependent on available space. Aligned left.
+    /// Below or above the main widget dependent on available space.
     BelowOrAbove(Alignment, Rect),
-    /// Use the render-area for the popup, but place it at position (x,y).
+    /// Place the popup at this position.
     Position(u16, u16),
 }
 
