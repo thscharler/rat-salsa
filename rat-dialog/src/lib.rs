@@ -5,7 +5,7 @@ use rat_salsa::{Control, SalsaContext};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{Any, TypeId, type_name};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::max;
 use std::fmt::{Debug, Formatter};
 use std::mem;
@@ -171,7 +171,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     ///
     /// This function is partially reentrant. When called during rendering/event-handling
     /// it will panic when trying to pop your current dialog-window.
-    /// Return StackControl::Pop instead of calling this function.
+    /// Return [DialogControl::Close] instead of calling this function.
     pub fn pop(&self) -> Option<Box<dyn Any>> {
         self.core.len.update(|v| v - 1);
         self.core.type_id.borrow_mut().pop();
@@ -192,6 +192,8 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     ///
     /// This function is not reentrant. It will panic when called during
     /// rendering or event-handling of any dialog-window.
+    /// Return [DialogControl::Close] instead of calling this function.
+    ///
     /// Panics when out-of-bounds.
     pub fn remove(&self, n: usize) -> Box<dyn Any> {
         for s in self.core.state.borrow().iter() {
@@ -217,7 +219,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     /// Panic
     ///
     /// This function is not reentrant. It will panic when called during
-    /// rendering or event-handling of any dialog-window. Use StackControl::ToFront
+    /// rendering or event-handling of any dialog-window. Use [DialogControl::ToFront]
     /// for this.
     ///
     /// Panics when out-of-bounds.
@@ -283,7 +285,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
             .collect()
     }
 
-    /// Run f for the given instance of S.
+    /// Get a reference to the state at index n.
     ///
     /// Panic
     ///
@@ -291,23 +293,24 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     /// Panics when recursively accessing the same state. Accessing a
     /// *different* window-state is fine.
     /// Panics when the types don't match.
-    pub fn apply<S: 'static, R>(&self, n: usize, f: impl Fn(&S) -> R) -> R {
-        let Some(state) = self.core.state.borrow_mut()[n].take() else {
-            panic!("state is gone");
-        };
+    pub fn get<'a, S: 'static>(&'a self, n: usize) -> Ref<'a, S> {
+        let state = self.core.state.borrow();
 
-        let r = if let Some(state) = state.as_ref().downcast_ref::<S>() {
-            f(state)
-        } else {
-            self.core.state.borrow_mut()[n] = Some(state);
-            panic!("state is not {:?}", type_name::<S>());
-        };
-
-        self.core.state.borrow_mut()[n] = Some(state);
-        r
+        Ref::map(state, |v| {
+            let state = &v[n];
+            if let Some(state) = state.as_ref() {
+                if let Some(state) = state.downcast_ref::<S>() {
+                    state
+                } else {
+                    panic!("state is gone");
+                }
+            } else {
+                panic!("state is not {:?}", type_name::<S>());
+            }
+        })
     }
 
-    /// Run f for the given instance of S with exclusive/mutabel access.
+    /// Get a mutable reference to the state at index n.
     ///
     /// Panic
     ///
@@ -315,20 +318,21 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     /// Panics when recursively accessing the same state. Accessing a
     /// *different* window-state is fine.
     /// Panics when the types don't match.
-    pub fn apply_mut<S: 'static, R>(&mut self, n: usize, f: impl Fn(&mut S) -> R) -> R {
-        let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
-            panic!("state is gone");
-        };
+    pub fn get_mut<'a, S: 'static>(&'a self, n: usize) -> RefMut<'a, S> {
+        let state = self.core.state.borrow_mut();
 
-        let r = if let Some(state) = state.as_mut().downcast_mut::<S>() {
-            f(state)
-        } else {
-            self.core.state.borrow_mut()[n] = Some(state);
-            panic!("state is not {:?}", type_name::<S>());
-        };
-
-        self.core.state.borrow_mut()[n] = Some(state);
-        r
+        RefMut::map(state, |v| {
+            let state = &mut v[n];
+            if let Some(state) = state.as_mut() {
+                if let Some(state) = state.downcast_mut::<S>() {
+                    state
+                } else {
+                    panic!("state is gone");
+                }
+            } else {
+                panic!("state is not {:?}", type_name::<S>());
+            }
+        })
     }
 }
 
@@ -351,7 +355,6 @@ where
             let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
                 panic!("state is gone");
             };
-
             let event_fn = mem::replace(
                 &mut self.core.event.borrow_mut()[n],
                 Box::new(|_, _, _| Ok(DialogControl::Continue)),

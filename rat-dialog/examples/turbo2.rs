@@ -219,7 +219,8 @@ pub mod app {
 
     fn show_message(msg: &str, ctx: &mut GlobalState) -> Control<TurboEvent> {
         if let Some(n) = ctx.dialogs.first::<MsgDialogState>() {
-            ctx.dialogs.apply::<MsgDialogState, _>(n, |v| v.append(msg));
+            let v = ctx.dialogs.get::<MsgDialogState>(n);
+            v.append(msg);
         } else {
             let state = MsgDialogState::new_active("Information", msg);
             ctx.dialogs.push(
