@@ -27,114 +27,6 @@ macro_rules! focus_debug {
 }
 
 impl Focus {
-    /// Dynamic change of the widget structure for a container widget.
-    ///
-    /// This is only necessary if your widget structure changes
-    /// during event-handling, and you need a programmatic
-    /// focus-change for the new structure.
-    ///
-    /// This resets the focus-flags of the removed container.
-    pub fn remove_container(&mut self, container: &'_ dyn HasFocus) {
-        focus_debug!(
-            self.core.log,
-            "focus remove container {:?} ",
-            container.focus().name()
-        );
-        let flag = container.focus();
-        if self.core.is_container(&flag) {
-            if let Some((cidx, _)) = self.core.container_index_of(&flag) {
-                self.core.remove_container(cidx).reset();
-                focus_debug!(self.core.log, "    -> removed");
-            } else {
-                focus_debug!(self.core.log, "    => container not found");
-            }
-        } else {
-            focus_debug!(self.core.log, "    => no container flag");
-        }
-    }
-
-    /// Dynamic change of the widget structure for a container.
-    ///
-    /// This is only necessary if your widget structure changes
-    /// during event-handling, and you need a programmatic
-    /// focus-change for the new structure.
-    ///
-    /// If the widget that currently has the focus is still
-    /// part of the widget structure it keeps the focus.
-    /// The focus-flags for all widgets that are no longer part
-    /// of the widget structure are reset.
-    pub fn update_container(&mut self, container: &'_ dyn HasFocus) {
-        focus_debug!(
-            self.core.log,
-            "focus update container {:?} ",
-            container.focus().name()
-        );
-        let flag = container.focus();
-        if self.core.is_container(&flag) {
-            if let Some((cidx, range)) = self.core.container_index_of(&flag) {
-                let removed = self.core.remove_container(cidx);
-
-                let mut b = FocusBuilder::new(Some(Focus {
-                    last: Default::default(),
-                    core: removed,
-                }));
-                b.widget(container);
-                let insert = b.build();
-
-                self.core.insert_container(range.start, cidx, insert.core);
-
-                focus_debug!(self.core.log, "    -> updated");
-            } else {
-                focus_debug!(self.core.log, "    => container not found");
-            }
-        } else {
-            focus_debug!(self.core.log, "    => no container flag");
-        }
-    }
-
-    /// Dynamic change of the widget structure of a container.
-    ///
-    /// This is only necessary if your widget structure changes
-    /// during event-handling, and you need a programmatic
-    /// focus-change.
-    ///
-    /// This removes the widgets of one container and inserts
-    /// the widgets of the other one in place.
-    ///
-    /// If the widget that currently has the focus is still
-    /// part of the widget structure it keeps the focus.
-    /// The focus-flags for all widgets that are no longer part
-    /// of the widget structure are reset.
-    pub fn replace_container(&mut self, container: &'_ dyn HasFocus, new: &'_ dyn HasFocus) {
-        focus_debug!(
-            self.core.log,
-            "focus replace container {:?} with {:?} ",
-            container.focus().name(),
-            new.focus().name()
-        );
-        let flag = container.focus();
-        if self.core.is_container(&flag) {
-            if let Some((cidx, range)) = self.core.container_index_of(&flag) {
-                let removed = self.core.remove_container(cidx);
-
-                let mut b = FocusBuilder::new(Some(Focus {
-                    last: Default::default(),
-                    core: removed,
-                }));
-                b.widget(new);
-                let insert = b.build();
-
-                self.core.insert_container(range.start, cidx, insert.core);
-
-                focus_debug!(self.core.log, "    -> replaced");
-            } else {
-                focus_debug!(self.core.log, "    => container not found");
-            }
-        } else {
-            focus_debug!(self.core.log, "    => no container flag");
-        }
-    }
-
     /// Writes a log for each operation.
     pub fn enable_log(&self) {
         self.core.log.set(true);
@@ -147,31 +39,25 @@ impl Focus {
         self.last.log.set(false);
     }
 
-    /// Sets the focus to the widget.
+    /// Sets the focus to the given widget.
     ///
-    /// Sets the focus, but doesn't set lost or gained.
-    /// This can be used to prevent any side effects that
-    /// use the gained/lost state.
+    /// Sets the focus, gained and lost flags.
     ///
-    /// This can be used with a container to set the
-    /// focus to the first widget of the container.
+    /// If this ends up with the same widget as
+    /// before gained and lost flags are not set.
     #[inline]
-    pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocus) {
-        focus_debug!(
-            self.core.log,
-            "focus no_lost {:?}",
-            widget_state.focus().name()
-        );
+    pub fn focus(&self, widget_state: &'_ dyn HasFocus) {
+        focus_debug!(self.core.log, "focus {:?}", widget_state.focus().name());
         let flag = widget_state.focus();
         if self.core.is_widget(&flag) {
             if let Some(n) = self.core.index_of(&flag) {
-                self.core.focus_idx(n, false);
+                self.core.focus_idx(n, true);
             } else {
                 focus_debug!(self.core.log, "    => widget not found");
             }
         } else if self.core.is_container(&flag) {
             if let Some((_idx, range)) = self.core.container_index_of(&flag) {
-                self.core.focus_idx(range.start, false);
+                self.core.focus_idx(range.start, true);
                 focus_debug!(self.core.log, "    -> focused");
             } else {
                 focus_debug!(self.core.log, "    => container not found");
@@ -212,126 +98,6 @@ impl Focus {
         } else {
             focus_debug!(self.core.log, "    => not a valid widget");
         }
-    }
-
-    /// Sets the focus to the given widget.
-    ///
-    /// Sets the focus, gained and lost flags.
-    ///
-    /// If this ends up with the same widget as
-    /// before gained and lost flags are not set.
-    #[inline]
-    pub fn focus(&self, widget_state: &'_ dyn HasFocus) {
-        focus_debug!(self.core.log, "focus {:?}", widget_state.focus().name());
-        let flag = widget_state.focus();
-        if self.core.is_widget(&flag) {
-            if let Some(n) = self.core.index_of(&flag) {
-                self.core.focus_idx(n, true);
-            } else {
-                focus_debug!(self.core.log, "    => widget not found");
-            }
-        } else if self.core.is_container(&flag) {
-            if let Some((_idx, range)) = self.core.container_index_of(&flag) {
-                self.core.focus_idx(range.start, true);
-                focus_debug!(self.core.log, "    -> focused");
-            } else {
-                focus_debug!(self.core.log, "    => container not found");
-            }
-        } else {
-            focus_debug!(self.core.log, "    => not a valid widget");
-        }
-    }
-
-    /// Expels the focus from the given widget regardless of
-    /// the current state.
-    ///
-    /// This is sometimes useful to set the focus to **somewhere else**.
-    /// This is especially useful when used for a container-widget that will
-    /// be hidden. Ensures there is still some widget with focus afterwards.
-    #[inline]
-    pub fn expel_focus(&self, widget_state: &'_ dyn HasFocus) {
-        focus_debug!(
-            self.core.log,
-            "expel from widget {:?}",
-            widget_state.focus().name()
-        );
-        let flag = widget_state.focus();
-        if self.core.is_widget(&flag) {
-            if self.core.index_of(&flag).is_some() {
-                if widget_state.is_focused() {
-                    self.core.next();
-                    if widget_state.is_focused() {
-                        focus_debug!(self.core.log, "    -> no other focus, cleared");
-                        flag.clear();
-                    } else {
-                        focus_debug!(self.core.log, "    -> expelled");
-                    }
-                } else {
-                    focus_debug!(self.core.log, "    => widget not focused");
-                }
-            } else {
-                focus_debug!(self.core.log, "    => widget not found");
-            }
-        } else if self.core.is_container(&flag) {
-            if flag.is_focused() {
-                self.core.expel_container(flag);
-            } else {
-                focus_debug!(self.core.log, "    => container not focused");
-            }
-        } else {
-            focus_debug!(self.core.log, "    => not a valid widget");
-        }
-    }
-
-    /// Returns the focused widget as FocusFlag.
-    ///
-    /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
-    /// will be nicer.
-    #[inline(always)]
-    pub fn focused(&self) -> Option<FocusFlag> {
-        self.core.focused()
-    }
-
-    /// Returns the debug name of the focused widget.
-    /// This is mainly for debugging purposes.
-    #[inline(always)]
-    pub fn focused_name(&self) -> Option<String> {
-        self.core.focused().map(|v| v.name().to_string())
-    }
-
-    /// Returns the navigation flag for the focused widget.
-    #[inline(always)]
-    pub fn navigation(&self) -> Option<Navigation> {
-        self.core.navigation()
-    }
-
-    /// Returns the widget that lost the focus as FocusFlag.
-    ///
-    /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
-    /// will be nicer.
-    #[inline(always)]
-    pub fn lost_focus(&self) -> Option<FocusFlag> {
-        self.core.lost_focus()
-    }
-
-    /// Returns the widget that gained the focus as FocusFlag.
-    ///
-    /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
-    /// will be nicer.
-    #[inline(always)]
-    pub fn gained_focus(&self) -> Option<FocusFlag> {
-        self.core.gained_focus()
-    }
-
-    /// Reset lost + gained flags.
-    ///
-    /// This is done automatically during event-handling.
-    /// Lost+Gained flags will only be set while handling
-    /// the original event that made the focus-change.
-    /// The next event, whatever it is, will reset these flags.
-    #[inline(always)]
-    pub fn reset_lost_gained(&self) {
-        self.core.reset_lost_gained();
     }
 
     /// Change to focus to the given position.
@@ -550,6 +316,240 @@ impl Focus {
                 false
             }
         }
+    }
+
+    /// Returns the focused widget as FocusFlag.
+    ///
+    /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
+    /// will be nicer.
+    #[inline(always)]
+    pub fn focused(&self) -> Option<FocusFlag> {
+        self.core.focused()
+    }
+
+    /// Returns the debug name of the focused widget.
+    /// This is mainly for debugging purposes.
+    #[inline(always)]
+    pub fn focused_name(&self) -> Option<String> {
+        self.core.focused().map(|v| v.name().to_string())
+    }
+
+    /// Returns the navigation flag for the focused widget.
+    #[inline(always)]
+    pub fn navigation(&self) -> Option<Navigation> {
+        self.core.navigation()
+    }
+
+    /// Returns the widget that lost the focus as FocusFlag.
+    ///
+    /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
+    /// will be nicer.
+    #[inline(always)]
+    pub fn lost_focus(&self) -> Option<FocusFlag> {
+        self.core.lost_focus()
+    }
+
+    /// Returns the widget that gained the focus as FocusFlag.
+    ///
+    /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
+    /// will be nicer.
+    #[inline(always)]
+    pub fn gained_focus(&self) -> Option<FocusFlag> {
+        self.core.gained_focus()
+    }
+
+    /// Sets the focus to the widget.
+    ///
+    /// Sets the focus, but doesn't set lost or gained.
+    /// This can be used to prevent any side effects that
+    /// use the gained/lost state.
+    ///
+    /// This can be used with a container to set the
+    /// focus to the first widget of the container.
+    #[inline]
+    pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocus) {
+        focus_debug!(
+            self.core.log,
+            "focus no_lost {:?}",
+            widget_state.focus().name()
+        );
+        let flag = widget_state.focus();
+        if self.core.is_widget(&flag) {
+            if let Some(n) = self.core.index_of(&flag) {
+                self.core.focus_idx(n, false);
+            } else {
+                focus_debug!(self.core.log, "    => widget not found");
+            }
+        } else if self.core.is_container(&flag) {
+            if let Some((_idx, range)) = self.core.container_index_of(&flag) {
+                self.core.focus_idx(range.start, false);
+                focus_debug!(self.core.log, "    -> focused");
+            } else {
+                focus_debug!(self.core.log, "    => container not found");
+            }
+        } else {
+            focus_debug!(self.core.log, "    => not a valid widget");
+        }
+    }
+
+    /// Expels the focus from the given widget regardless of
+    /// the current state.
+    ///
+    /// This is sometimes useful to set the focus to **somewhere else**.
+    /// This is especially useful when used for a container-widget that will
+    /// be hidden. Ensures there is still some widget with focus afterwards.
+    #[inline]
+    pub fn expel_focus(&self, widget_state: &'_ dyn HasFocus) {
+        focus_debug!(
+            self.core.log,
+            "expel from widget {:?}",
+            widget_state.focus().name()
+        );
+        let flag = widget_state.focus();
+        if self.core.is_widget(&flag) {
+            if self.core.index_of(&flag).is_some() {
+                if widget_state.is_focused() {
+                    self.core.next();
+                    if widget_state.is_focused() {
+                        focus_debug!(self.core.log, "    -> no other focus, cleared");
+                        flag.clear();
+                    } else {
+                        focus_debug!(self.core.log, "    -> expelled");
+                    }
+                } else {
+                    focus_debug!(self.core.log, "    => widget not focused");
+                }
+            } else {
+                focus_debug!(self.core.log, "    => widget not found");
+            }
+        } else if self.core.is_container(&flag) {
+            if flag.is_focused() {
+                self.core.expel_container(flag);
+            } else {
+                focus_debug!(self.core.log, "    => container not focused");
+            }
+        } else {
+            focus_debug!(self.core.log, "    => not a valid widget");
+        }
+    }
+
+    /// Dynamic change of the widget structure for a container widget.
+    ///
+    /// This is only necessary if your widget structure changes
+    /// during event-handling, and you need a programmatic
+    /// focus-change for the new structure.
+    ///
+    /// This resets the focus-flags of the removed container.
+    pub fn remove_container(&mut self, container: &'_ dyn HasFocus) {
+        focus_debug!(
+            self.core.log,
+            "focus remove container {:?} ",
+            container.focus().name()
+        );
+        let flag = container.focus();
+        if self.core.is_container(&flag) {
+            if let Some((cidx, _)) = self.core.container_index_of(&flag) {
+                self.core.remove_container(cidx).reset();
+                focus_debug!(self.core.log, "    -> removed");
+            } else {
+                focus_debug!(self.core.log, "    => container not found");
+            }
+        } else {
+            focus_debug!(self.core.log, "    => no container flag");
+        }
+    }
+
+    /// Dynamic change of the widget structure for a container.
+    ///
+    /// This is only necessary if your widget structure changes
+    /// during event-handling, and you need a programmatic
+    /// focus-change for the new structure.
+    ///
+    /// If the widget that currently has the focus is still
+    /// part of the widget structure it keeps the focus.
+    /// The focus-flags for all widgets that are no longer part
+    /// of the widget structure are reset.
+    pub fn update_container(&mut self, container: &'_ dyn HasFocus) {
+        focus_debug!(
+            self.core.log,
+            "focus update container {:?} ",
+            container.focus().name()
+        );
+        let flag = container.focus();
+        if self.core.is_container(&flag) {
+            if let Some((cidx, range)) = self.core.container_index_of(&flag) {
+                let removed = self.core.remove_container(cidx);
+
+                let mut b = FocusBuilder::new(Some(Focus {
+                    last: Default::default(),
+                    core: removed,
+                }));
+                b.widget(container);
+                let insert = b.build();
+
+                self.core.insert_container(range.start, cidx, insert.core);
+
+                focus_debug!(self.core.log, "    -> updated");
+            } else {
+                focus_debug!(self.core.log, "    => container not found");
+            }
+        } else {
+            focus_debug!(self.core.log, "    => no container flag");
+        }
+    }
+
+    /// Dynamic change of the widget structure of a container.
+    ///
+    /// This is only necessary if your widget structure changes
+    /// during event-handling, and you need a programmatic
+    /// focus-change.
+    ///
+    /// This removes the widgets of one container and inserts
+    /// the widgets of the other one in place.
+    ///
+    /// If the widget that currently has the focus is still
+    /// part of the widget structure it keeps the focus.
+    /// The focus-flags for all widgets that are no longer part
+    /// of the widget structure are reset.
+    pub fn replace_container(&mut self, container: &'_ dyn HasFocus, new: &'_ dyn HasFocus) {
+        focus_debug!(
+            self.core.log,
+            "focus replace container {:?} with {:?} ",
+            container.focus().name(),
+            new.focus().name()
+        );
+        let flag = container.focus();
+        if self.core.is_container(&flag) {
+            if let Some((cidx, range)) = self.core.container_index_of(&flag) {
+                let removed = self.core.remove_container(cidx);
+
+                let mut b = FocusBuilder::new(Some(Focus {
+                    last: Default::default(),
+                    core: removed,
+                }));
+                b.widget(new);
+                let insert = b.build();
+
+                self.core.insert_container(range.start, cidx, insert.core);
+
+                focus_debug!(self.core.log, "    -> replaced");
+            } else {
+                focus_debug!(self.core.log, "    => container not found");
+            }
+        } else {
+            focus_debug!(self.core.log, "    => no container flag");
+        }
+    }
+
+    /// Reset lost + gained flags.
+    ///
+    /// This is done automatically during event-handling.
+    /// Lost+Gained flags will only be set while handling
+    /// the original event that made the focus-change.
+    /// The next event, whatever it is, will reset these flags.
+    #[inline(always)]
+    pub fn reset_lost_gained(&self) {
+        self.core.reset_lost_gained();
     }
 
     /// Debug destructuring.
