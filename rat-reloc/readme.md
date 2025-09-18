@@ -12,66 +12,27 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 # Rat-Reloc(ate)
 
-RelocatableState enables rendering StatefulWidget's to a temporary buffer.
+This crate defines the trait
+[RelocatableState](https://docs.rs/rat-reloc/latest/rat_reloc/trait.RelocatableState.html)
 
-After rendering a stateful widget all areas derived from the
-render area will be wrong if the temporary buffer is rendered to screen
-at a different location and with some clipping.
+# Why?
 
-This trait defines a [relocate](RelocatableState::relocate) function that
-corrects the areas at some point after rendering the widget.
+Many widgets in rat-widget store one or more areas for mouse interaction.
 
-* Doesn't impact normal rendering of the widget.
-  It can just use the area and be done with it.
+And there are widgets that render other widgets to a temp Buffer and later
+dump parts of it to the main render Buffer. And then all the stored areas
+in the widget-state are wrong.
 
-* Straightforward
+The RelocatableState trait gives the widgets that use such temp Buffers
+a hook to correct for any movement and clipping that has happened.
 
-    ```rust
-      use rat_reloc::{RelocatableState, relocate_area};
-      use ratatui::layout::Rect;
+# Why so complicated?
 
-      # struct ButtonState{ area:Rect, inner:Rect}
-
-      impl RelocatableState for ButtonState {
-          fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-              self.area = relocate_area(self.area, shift, clip);
-              self.inner = relocate_area(self.inner, shift, clip);
-          }
-      }
-    ```
-* Decent to implement for a view widget
-
-    ```rust
-      use ratatui::layout::Rect;
-      use ratatui::buffer::Buffer;
-      use ratatui::widgets::StatefulWidget;
-      use rat_reloc::RelocatableState;
-
-      pub struct RelocatedRender;
-
-      impl RelocatedRender {
-          fn render<W, S>(widget: W, area: Rect, state: &mut S)
-          where
-              W: StatefulWidget<State = S>,
-              S: RelocatableState,
-          {
-              // remap area
-              let area = Rect::default();
-              // use inner buffer
-              let mut buf = Buffer::default();
-
-              // render to buffer
-              widget.render(area, &mut buf, state);
-
-              // calculate shift and clip
-              let shift = (-1, -1);
-              let clip = Rect::default();
-
-              // correct state
-              state.relocate(shift, clip);
-          }
-      }
-    ```
+* This doesn't affect normal rendering of a widget, it's just
+  and afterthought.
+* The widget doesn't need to know what other widgets exist,
+  it just has to provide the function to relocate its areas
+  after rendering.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 

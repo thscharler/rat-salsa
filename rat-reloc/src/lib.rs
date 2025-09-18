@@ -2,17 +2,21 @@
 
 use ratatui::layout::{Position, Rect};
 
-/// Widgets can be rendered to a temporary buffer using
-/// the buffers own coordinate system.
+/// Widgets can be rendered to a temporary Buffer that will
+/// be dumped to the main render Buffer at a later point.
 ///
-/// To adjust the Rects derived during rendering/layout to
-/// the actual screen coordinates a widget can implement this
-/// trait.
+/// This temporary Buffer can have its own coordinate system
+/// and output in the main render Buffer can happen anywhere.
 ///
-/// Container widgets that support this will call relocate()
-/// after rendering the widgets.
+/// Most rat-widgets store one or more areas during rendering
+/// for later mouse interactions. All these areas need to
+/// be adjusted whenever such a temporary Buffer is used.
+///
+/// This trait provides the entry point for such an adjustment.
 pub trait RelocatableState {
     /// Relocate the areas in this widgets state.
+    /// - shift: positions are moved by (x,y)
+    /// - clip: areas must be clipped to the given Rect.
     fn relocate(&mut self, shift: (i16, i16), clip: Rect);
 }
 
@@ -110,13 +114,6 @@ pub fn relocate_dark_offset(area: Rect, shift: (i16, i16), clip: Rect) -> (u16, 
     let clipped = clipped(relocated, clip);
 
     (clipped.x - relocated.x, clipped.y - relocated.y)
-}
-
-pub fn rect_dbg(area: Rect) -> String {
-    use std::fmt::Write;
-    let mut buf = String::new();
-    _ = write!(buf, "{}:{}+{}+{}", area.x, area.y, area.width, area.height);
-    buf
 }
 
 #[inline]
