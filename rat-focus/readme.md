@@ -14,12 +14,12 @@ For examples see [rat-focus GitHub][refGithubFocus].
 
 # Focus handling for ratatui
 
-This crate works by adding a [FocusFlag](FocusFlag) to each widget'
-s state.
+This crate works by adding a [FocusFlag](FocusFlag) to each widget's
+state.
 
-[FocusBuilder](FocusBuilder) then is used to collect an ordered list of
-all widgets that should be considered for focus handling.
-It builds up the [Focus](Focus) which has the functions [next](Focus::next),
+Then [FocusBuilder](FocusBuilder) is used to collect an ordered
+list of all widgets that should be considered for focus handling.
+It builds the [Focus](Focus) which has the functions [next](Focus::next),
 [prev](Focus::prev) and [focus_at](Focus::focus_at) that can do
 the navigation.
 
@@ -62,7 +62,7 @@ fn handle_input(
 
 ### React to focus events
 
-Event handling is implemented for crossterm. It uses Tab+BackTab
+Event handling is implemented for crossterm. It uses Tab/BackTab
 for navigation and handles mouse clicks on the widget's area.
 
 Focus implements [HandleEvent][refHandleEvent], and there is the
@@ -112,7 +112,7 @@ Simple widgets implement at least the first three of these functions.
 - navigable() - A control flag indicating __how__ the widget interacts
   with focus.
 
-## Widgets as Containers
+## Focus for containers
 
 When a widget contains other widgets it also implements HasFocus.
 
@@ -122,7 +122,7 @@ The primary function here is
   can add the separate component widgets of the container.
 
   You can have a FocusFlag marking the whole container.
-  Such a FocusFlag collects the status of each component widget.
+  Such a FocusFlag sums the status of each component widget.
   That means the FocusFlag of the container 'is_focused' when any
   of the components 'is_focused'.
 

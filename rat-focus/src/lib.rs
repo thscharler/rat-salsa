@@ -11,8 +11,6 @@ use std::ptr;
 use std::rc::Rc;
 
 pub mod event {
-    pub use rat_event::*;
-
     /// Special focus-traversal.
     ///
     /// There are some widgets that have special keys that

@@ -7,10 +7,11 @@ use std::ops::Range;
 
 /// Focus deals with all focus-related issues.
 ///
-/// It must be constructed at least after each render(), as it holds
-/// copies of the widget-areas for mouse-handling.
+/// Use [FocusBuilder] to construct the current Focus.
 ///
-/// In practice, construct it, when you first need it.
+/// This is usually quick enough to do it for each event.
+/// It has to be rebuilt if any area has changed, so
+/// rebuilding it after a render() is fine.
 #[derive(Default, Debug, Clone)]
 pub struct Focus {
     last: FocusCore,
@@ -26,7 +27,7 @@ macro_rules! focus_debug {
 }
 
 impl Focus {
-    /// Dynamic change of the widget structure of a container widget.
+    /// Dynamic change of the widget structure for a container widget.
     ///
     /// This is only necessary if your widget structure changes
     /// during event-handling, and you need a programmatic
@@ -52,7 +53,7 @@ impl Focus {
         }
     }
 
-    /// Dynamic change of the widget structure of a container.
+    /// Dynamic change of the widget structure for a container.
     ///
     /// This is only necessary if your widget structure changes
     /// during event-handling, and you need a programmatic
@@ -149,7 +150,11 @@ impl Focus {
     /// Sets the focus to the widget.
     ///
     /// Sets the focus, but doesn't set lost or gained.
-    /// This can be used to prevent validation of the field.
+    /// This can be used to prevent any side effects that
+    /// use the gained/lost state.
+    ///
+    /// This can be used with a container to set the
+    /// focus to the first widget of the container.
     #[inline]
     pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(
@@ -239,6 +244,10 @@ impl Focus {
 
     /// Expels the focus from the given widget regardless of
     /// the current state.
+    ///
+    /// This is sometimes useful to set the focus to **somewhere else**.
+    /// This is especially useful when used for a container-widget that will
+    /// be hidden. Ensures there is still some widget with focus afterwards.
     #[inline]
     pub fn expel_focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(
@@ -276,7 +285,6 @@ impl Focus {
 
     /// Returns the focused widget as FocusFlag.
     ///
-    /// This is mainly for debugging purposes.
     /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
     /// will be nicer.
     #[inline(always)]
@@ -285,7 +293,6 @@ impl Focus {
     }
 
     /// Returns the debug name of the focused widget.
-    ///
     /// This is mainly for debugging purposes.
     #[inline(always)]
     pub fn focused_name(&self) -> Option<String> {
@@ -300,7 +307,6 @@ impl Focus {
 
     /// Returns the widget that lost the focus as FocusFlag.
     ///
-    /// This is mainly for debugging purposes.
     /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
     /// will be nicer.
     #[inline(always)]
@@ -310,7 +316,6 @@ impl Focus {
 
     /// Returns the widget that gained the focus as FocusFlag.
     ///
-    /// This is mainly for debugging purposes.
     /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
     /// will be nicer.
     #[inline(always)]
@@ -319,13 +324,18 @@ impl Focus {
     }
 
     /// Reset lost + gained flags.
-    /// This is done automatically in `HandleEvent::handle()` for every event.
+    ///
+    /// This is done automatically during event-handling.
+    /// Lost+Gained flags will only be set while handling
+    /// the original event that made the focus-change.
+    /// The next event, whatever it is, will reset these flags.
     #[inline(always)]
     pub fn reset_lost_gained(&self) {
         self.core.reset_lost_gained();
     }
 
     /// Change to focus to the given position.
+    /// Returns true if there is any focus-change.
     #[inline(always)]
     pub fn focus_at(&self, col: u16, row: u16) -> bool {
         focus_debug!(self.core.log, "focus at {},{}", col, row);
@@ -338,10 +348,7 @@ impl Focus {
         }
     }
 
-    /// Set the initial state for all widgets.
-    ///
-    /// This ensures that there is only one focused widget.
-    /// The first widget in the list gets the focus.
+    /// Set the focus to the first widget.
     #[inline(always)]
     pub fn first(&self) {
         focus_debug!(self.core.log, "focus first");
@@ -595,6 +602,13 @@ mod core {
     }
 
     impl FocusBuilder {
+        /// Create a new FocusBuilder.
+        ///
+        /// This can take the previous Focus and ensures that
+        /// widgets that are no longer part of the focus list
+        /// have their focus-flag cleared.
+        ///
+        /// It will also recycle the storage of the old Focus.
         pub fn new(last: Option<Focus>) -> FocusBuilder {
             if let Some(mut last) = last {
                 // clear any data but retain the allocation.
@@ -634,6 +648,7 @@ mod core {
         /// This creates a fresh Focus.
         ///
         /// __See__
+        ///
         /// Use [rebuild](FocusBuilder::rebuild_for) if you want to ensure that widgets
         /// that are no longer in the widget structure have their
         /// focus flag reset properly. If you don't have
@@ -667,27 +682,20 @@ mod core {
             self.log.set(false);
         }
 
-        /// Add a widget by calling its build function.
-        /// The build function of the HasFocus trait can
-        /// use builder to define its focus requirements.
-        ///
-        /// The widget is added to all open containers.
+        /// Add a widget by calling its `build` function.
         pub fn widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
             widget.build(self);
             self
         }
 
         /// Add a widget by calling its build function.
-        /// The build function of the HasFocus trait can
-        /// use builder to define its focus requirements.
         ///
         /// This tries to override the default navigation
         /// for the given widget. This will fail if the
         /// widget is a container. It may also fail
         /// for other reasons. Depends on the widget.
-        /// Enable log to check.
         ///
-        /// The widget is added to all open containers.
+        /// Enable log to check.
         #[allow(clippy::collapsible_else_if)]
         pub fn widget_navigate(
             &mut self,
@@ -696,28 +704,29 @@ mod core {
         ) -> &mut Self {
             widget.build(self);
 
+            let widget_flag = widget.focus();
             // override navigation for the widget
-            if let Some(idx) = self.focus_flags.iter().position(|v| *v == widget.focus()) {
+            if let Some(idx) = self.focus_flags.iter().position(|v| *v == widget_flag) {
                 focus_debug!(
                     self.log,
                     "override navigation for {:?} with {:?}",
-                    widget.focus(),
+                    widget_flag,
                     navigation
                 );
 
                 self.navigable[idx] = navigation;
             } else {
-                if self.container_ids.contains(&widget.focus().widget_id()) {
+                if self.container_ids.contains(&widget_flag.widget_id()) {
                     focus_debug!(
                         self.log,
                         "FAIL to override navigation for {:?}. This is a container.",
-                        widget.focus(),
+                        widget_flag,
                     );
                 } else {
                     focus_debug!(
                         self.log,
                         "FAIL to override navigation for {:?}. Widget doesn't use this focus-flag",
-                        widget.focus(),
+                        widget_flag,
                     );
                 }
             }
@@ -725,9 +734,7 @@ mod core {
             self
         }
 
-        /// Add a bunch of widget.
-        ///
-        /// The widget is added to all open containers.
+        /// Add a bunch of widgets.
         #[inline]
         pub fn widgets<const N: usize>(&mut self, widgets: [&dyn HasFocus; N]) -> &mut Self {
             for widget in widgets {
@@ -778,6 +785,15 @@ mod core {
 
         /// Directly add the given widget's flags. Doesn't call
         /// build() instead it uses focus(), etc. and appends a single widget.
+        ///
+        /// This is intended to be used when __implementing__
+        /// HasFocus::build() for a widget.
+        ///
+        /// In all other situations it's better to use [widget()](FocusBuilder::widget).
+        ///
+        /// __Panic__
+        ///
+        /// Panics if the same focus-flag is added twice.
         pub fn leaf_widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
             self.widget_with_flags(
                 widget.focus(),
@@ -824,13 +840,10 @@ mod core {
             self.navigable.push(navigable);
         }
 
-        /// Start a container widget. Must be matched with
-        /// the equivalent [end](Self::end).
+        /// Start a container widget.
         ///
-        /// __Attention__
-        ///
-        /// If container_flag is None a dummy flag will be created and
-        /// returned. Use the returned value when calling [end](Self::end).
+        /// Returns the FocusFlag of the container. This flag must
+        /// be used to close the container with [end](Self::end).
         ///
         /// __Panic__
         ///
@@ -864,10 +877,11 @@ mod core {
             container_flag
         }
 
-        /// Build the final Focus.
+        /// Build the Focus.
         ///
-        /// If the old Focus has been set with new(), all widgets
-        /// that are no longer part of the focus will be cleared().
+        /// If the previous Focus is known, this will also
+        /// reset the FocusFlag for any widget no longer part of
+        /// the Focus.
         pub fn build(mut self) -> Focus {
             // cleanup outcasts.
             for v in &self.last.focus_flags {

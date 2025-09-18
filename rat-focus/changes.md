@@ -1,3 +1,8 @@
+# 1.1.2
+
+* docs
+* fix: don't reexport rat-event.
+
 # 1.1.1
 
 * fix: impl_has_focus! should use full path for Rect.
