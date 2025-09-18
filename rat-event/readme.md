@@ -23,7 +23,7 @@ Objectives are
 - allow for multiple handlers per widget
     - to override the key-bindings
     - to have different key-bindings for certain scenarios.
-- have a return type to indicate what state change occured.
+- have a return type to indicate what state change occurred.
 
 ```rust ignore
 pub trait HandleEvent<Event, Qualifier, Return>
@@ -88,4 +88,4 @@ To set a baseline for the return type this crate defines the enum
 ConsumedEvent has a few method to combine two Outcomes.
 Plus there are a few macros that work with ConsumedEvent too.
 
-[refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
+[refRatSalsa]: https://docs.rs/rat-salsa

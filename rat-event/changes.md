@@ -1,3 +1,7 @@
+# 1.2.5
+
+* docs
+
 # 1.2.4
 
 * add break_flow! macro

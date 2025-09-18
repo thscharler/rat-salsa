@@ -7,8 +7,8 @@ pub mod util;
 
 /// All the regular and expected event-handling a widget can do.
 ///
-/// All the normal key-handling, maybe dependent on an internal
-/// focus-state, all the mouse-handling.
+/// All the normal key-handling dependent on an internal focus-state
+/// All the mouse-handling.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Regular;
 
@@ -112,7 +112,7 @@ impl<E, Q> HandleEvent<E, Q, Outcome> for () {
 /// 'consuming the event'. But this is tricky, non-obvious and frowned upon.
 /// The caller **may** also just ignore the fact.
 ///
-/// See also [flow] and [try_flow] macros. And the extra [break_flow].
+/// See also [flow] and [try_flow] and the extra [break_flow].
 pub trait ConsumedEvent {
     /// Is this the 'consumed' result.
     fn is_consumed(&self) -> bool;

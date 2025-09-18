@@ -19,7 +19,7 @@ pub fn item_at(areas: &[Rect], x_pos: u16, y_pos: u16) -> Option<usize> {
     None
 }
 
-/// Which row of the given contains the position.
+/// Which row of the given area contains the position.
 /// This uses only the vertical components of the given areas.
 ///
 /// You might want to limit calling this functions when the full
@@ -136,7 +136,7 @@ pub enum Clicks {
 pub struct MouseFlags {
     /// Timestamp for double click
     pub time: Cell<Option<SystemTime>>,
-    /// Flag for the first down.
+    /// State for double click.
     pub click: Cell<Clicks>,
     /// Drag enabled.
     pub drag: Cell<bool>,
@@ -655,12 +655,16 @@ static DOUBLE_CLICK: AtomicU32 = AtomicU32::new(250);
 
 /// Sets the global double click time-out between consecutive clicks.
 /// In milliseconds.
+///
+/// Default is 250ms.
 pub fn set_double_click_timeout(timeout: u32) {
     DOUBLE_CLICK.store(timeout, Ordering::Release);
 }
 
 /// The global double click time-out between consecutive clicks.
 /// In milliseconds.
+///
+/// Default is 250ms.
 pub fn double_click_timeout() -> u32 {
     DOUBLE_CLICK.load(Ordering::Acquire)
 }
@@ -668,7 +672,7 @@ pub fn double_click_timeout() -> u32 {
 static ENHANCED_KEYS: AtomicBool = AtomicBool::new(false);
 
 /// Are enhanced keys available?
-/// Only then Release and Repeat keys are available.
+/// Only if true `Release` and `Repeat` keys are available.
 ///
 /// This flag is set during startup of the application when
 /// configuring the terminal.
@@ -678,7 +682,7 @@ pub fn have_keyboard_enhancement() -> bool {
 
 /// Set the flag for enhanced keys.
 ///
-/// For windows + crossterm this can always be set true.
+/// For windows + crossterm this can always be set to true.
 ///
 /// For unix this needs to activate the enhancements with PushKeyboardEnhancementFlags,
 /// and it still needs to query supports_keyboard_enhancement().
