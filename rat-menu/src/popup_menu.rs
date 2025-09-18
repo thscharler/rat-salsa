@@ -1,31 +1,50 @@
+//! Renders a popup menu.
 //!
-//! A popup-menu.
+//! The popup menu ignores the area you give to render() completely.
+//! Instead, you need to call [constraint](PopupMenu::constraint)
+//! to give some constraints where the popup-menu should be rendered.
+//! You can also set an outer [boundary](PopupMenu::boundary) to limit
+//! the area. The size of the popup menu is fully determined by the
+//! menu-items.
 //!
-//! It diverges from other widgets as it doesn't draw
-//! *inside* the given area but aims to stay *outside* of it.
+//! ```
+//! use ratatui::buffer::Buffer;
+//! use ratatui::layout::{Alignment, Rect};
+//! use ratatui::widgets::{Block, StatefulWidget};
+//! use rat_menu::menuitem::Separator;
+//! use rat_menu::popup_menu::{PopupMenu, PopupMenuState};
+//! use rat_popup::PopupConstraint;
 //!
-//! You can give a [PopupConstraint] where the popup-menu should appear
-//! relative to the given area.
+//! # struct State { popup: PopupMenuState }
+//! # let mut state = State { popup: Default::default() };
+//! # let mut buf = Buffer::default();
+//! # let buf = &mut buf;
+//! # let widget_area = Rect::default();
 //!
-//! If you want it to appear at a mouse-click position, use a
-//! `Rect::new(mouse_x, mouse_y, 0,0)` area.
-//! If you want it to appear next to a given widget, use
-//! the widgets drawing area.
+//! PopupMenu::new()
+//!     .item_parsed("Item _1")
+//!     .separator(Separator::Plain)
+//!     .item_parsed("Item _2")
+//!     .item_parsed("Item _3")
+//!     .block(Block::bordered())
+//!     .constraint(
+//!         PopupConstraint::Above(Alignment::Left, widget_area)
+//!     )
+//!     .render(Rect::default(), buf, &mut state.popup);
+//! ```
 //!
-//! If no special boundary is set, the widget tries to stay
-//! inside the `buffer.area`.
-
 use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
-use crate::util::revert_style;
+use crate::util::{get_block_padding, get_block_size, revert_style};
 use crate::{MenuBuilder, MenuItem, MenuStyle, Separator};
-use rat_event::util::{mouse_trap, MouseFlags};
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Popup};
-use rat_popup::event::PopupOutcome;
+use rat_event::util::{MouseFlags, mouse_trap};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, ct_event};
 pub use rat_popup::PopupConstraint;
+use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
+use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::StatefulWidget;
@@ -40,7 +59,7 @@ pub struct PopupMenu<'a> {
 
     width: Option<u16>,
     popup: PopupCore<'a>,
-
+    block: Option<Block<'a>>,
     style: Style,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
@@ -65,8 +84,6 @@ pub struct PopupMenuState {
     pub navchar: Vec<Option<char>>,
     /// Disabled menu-items.
     pub disabled: Vec<bool>,
-
-    // TODO: breaking: remove Option
     /// Selected item.
     /// __read+write__
     pub selected: Option<usize>,
@@ -82,11 +99,11 @@ impl Default for PopupMenuState {
     fn default() -> Self {
         Self {
             popup: Default::default(),
-            item_areas: vec![],
-            sep_areas: vec![],
-            navchar: vec![],
-            disabled: vec![],
-            selected: None,
+            item_areas: Default::default(),
+            sep_areas: Default::default(),
+            navchar: Default::default(),
+            disabled: Default::default(),
+            selected: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -108,7 +125,7 @@ impl PopupMenu<'_> {
         };
         let height = self.menu.items.iter().map(MenuItem::height).sum::<u16>();
 
-        let block = self.popup.get_block_size();
+        let block = get_block_size(&self.block);
 
         #[allow(clippy::if_same_then_else)]
         let vertical_padding = if block.height == 0 { 2 } else { 0 };
@@ -120,8 +137,9 @@ impl PopupMenu<'_> {
         )
     }
 
-    fn layout(&self, area: Rect, inner: Rect, state: &mut PopupMenuState) {
-        let block = Size::new(area.width - inner.width, area.height - inner.height);
+    fn layout(&self, area: Rect, state: &mut PopupMenuState) {
+        let block = get_block_size(&self.block);
+        let inner = self.block.inner_if_some(area);
 
         // add text padding.
         #[allow(clippy::if_same_then_else)]
@@ -240,10 +258,23 @@ impl<'a> PopupMenu<'a> {
     }
 
     /// Set a style-set.
+    #[allow(deprecated)]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
 
+        self.block = self.block.map(|v| v.style(self.style));
+        if styles.popup.block.is_some() {
+            self.block = styles.popup.block.clone();
+        }
+        if let Some(border_style) = styles.popup.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+
         self.popup = self.popup.styles(styles.popup);
+
         if styles.highlight.is_some() {
             self.highlight_style = styles.highlight;
         }
@@ -260,8 +291,10 @@ impl<'a> PopupMenu<'a> {
     }
 
     /// Base style.
+    #[allow(deprecated)]
     pub fn style(mut self, style: Style) -> Self {
         self.popup = self.popup.style(style);
+        self.block = self.block.map(|v| v.style(self.style));
         self.style = style;
         self
     }
@@ -320,24 +353,26 @@ impl<'a> PopupMenu<'a> {
 
     /// Block for borders.
     pub fn block(mut self, block: Block<'a>) -> Self {
-        self.popup = self.popup.block(block);
+        self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Block for borders.
     pub fn block_opt(mut self, block: Option<Block<'a>>) -> Self {
-        self.popup = self.popup.block_opt(block);
+        self.block = block;
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Get the padding the block imposes as a Size.
     pub fn get_block_size(&self) -> Size {
-        self.popup.get_block_size()
+        get_block_size(&self.block)
     }
 
-    /// Get the padding the block imposes as a Size.
+    /// Get the padding the block imposes as Padding.
     pub fn get_block_padding(&self) -> Padding {
-        self.popup.get_block_padding()
+        get_block_padding(&self.block)
     }
 }
 
@@ -381,7 +416,12 @@ fn render_popup_menu(
     let area = Rect::new(0, 0, size.width, size.height);
 
     (&widget.popup).render(area, buf, &mut state.popup);
-    widget.layout(state.popup.area, state.popup.widget_area, state);
+    if widget.block.is_some() {
+        widget.block.render(state.popup.area, buf);
+    } else {
+        buf.set_style(state.popup.area, widget.style);
+    }
+    widget.layout(state.popup.area, state);
     render_items(widget, buf, state);
 }
 
@@ -485,7 +525,7 @@ impl PopupMenuState {
     }
 
     /// New state with a focus name.
-    #[deprecated(since = "1.0.5", note = "no longer useful")]
+    #[deprecated(since = "1.1.0", note = "no longer useful")]
     pub fn named(_: &'static str) -> Self {
         Self {
             popup: PopupCoreState::new(),
@@ -675,6 +715,15 @@ impl PopupMenuState {
 }
 
 impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState {
+    /// Handle all events.
+    ///
+    /// Key-events are only handled when the popup menu
+    /// [is_active](PopupMenuState::is_active).
+    /// You need to set this state according to your logic.
+    ///
+    /// The popup menu will return MenuOutcome::Hide if it
+    /// thinks it should be hidden.
+    ///
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
         let r0 = match self.popup.handle(event, Popup) {
             PopupOutcome::Hide => MenuOutcome::Hide,
@@ -768,7 +817,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
         if self.is_active() {
             let r = match event {
                 ct_event!(mouse moved for col, row)
-                    if self.popup.widget_area.contains((*col, *row).into()) =>
+                    if self.popup.area.contains((*col, *row).into()) =>
                 {
                     if self.select_at((*col, *row)) {
                         MenuOutcome::Selected(self.selected().expect("selection"))
@@ -777,7 +826,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
                     }
                 }
                 ct_event!(mouse down Left for col, row)
-                    if self.popup.widget_area.contains((*col, *row).into()) =>
+                    if self.popup.area.contains((*col, *row).into()) =>
                 {
                     if self.item_at((*col, *row)).is_some() {
                         self.set_active(false);
@@ -797,8 +846,14 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
 }
 
 /// Handle all events.
-/// The assumption is, the popup-menu is focused or it is hidden.
-/// This state must be handled outside of this widget.
+///
+/// Key-events are only handled when the popup menu
+/// [is_active](PopupMenuState::is_active).
+/// You need to set this state according to your logic.
+///
+/// The popup menu will return MenuOutcome::Hide if it
+/// thinks it should be hidden.
+///
 pub fn handle_popup_events(
     state: &mut PopupMenuState,
     event: &crossterm::event::Event,

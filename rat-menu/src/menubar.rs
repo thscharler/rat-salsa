@@ -1,18 +1,20 @@
+//! This widget will render a menubar and one level of menus.
 //!
-//! A menubar with sub-menus.
+//! It is not a Widget itself, instead it will [split into](Menubar::into_widgets)
+//! a [MenubarLine] and a [MenubarPopup] widget that can be rendered.
+//! The MenubarLine can be rendered in its designated area anytime.
+//! The MenubarPopup must be rendered at the end of rendering,
+//! for it to be able to render above the other widgets.
 //!
-//! Combines [MenuLine] and [PopupMenu] and adds a [MenuStructure] trait
-//! to bind all together.
+//! Event handling for the menubar must happen before handling
+//! events for the widgets that might be rendered in the background.
+//! Otherwise, mouse navigation will not work correctly.
 //!
-//! Rendering and events are split in base-widget and popup.
-//! Use [Menubar] to set all configurations and then call [Menubar::into_widgets].
-//! This creates a [MenubarLine] and a [MenubarPopup] which implement
-//! the rendering traits. MenubarPopup must render *after* all regular
-//! widgets, MenubarLine can render whenever.
+//! The structure of the menubar is defined with the trait
+//! [MenuStructure], and there is [StaticMenu](crate::StaticMenu)
+//! which can define the structure as static data.
 //!
-//! Event-handling for the popup menu works with the [Popup] qualifier,
-//! and must be called before the [Regular] event-handlers to work correctly.
-//! Event-handling for the menu line is via the [Regular] event-handler.
+//! [Example](https://github.com/thscharler/rat-salsa/blob/master/rat-widget/examples/menubar1.rs)
 //!
 #![allow(clippy::uninlined_format_args)]
 use crate::event::MenuOutcome;
@@ -30,6 +32,7 @@ use ratatui::widgets::{Block, StatefulWidget};
 use std::fmt::Debug;
 
 /// Menubar widget.
+///
 /// This handles the configuration only, to get the widgets for rendering
 /// call [Menubar::into_widgets] and use both results for rendering.
 #[derive(Debug, Clone)]
@@ -39,7 +42,6 @@ pub struct Menubar<'a> {
     title: Line<'a>,
     style: Style,
     title_style: Option<Style>,
-    select_style: Option<Style>,
     focus_style: Option<Style>,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
@@ -51,7 +53,8 @@ pub struct Menubar<'a> {
 }
 
 /// Menubar line widget.
-/// This implements the actual render function.
+///
+/// This will render the main menu bar.
 #[derive(Debug, Clone)]
 pub struct MenubarLine<'a> {
     structure: Option<&'a dyn MenuStructure<'a>>,
@@ -59,7 +62,6 @@ pub struct MenubarLine<'a> {
     title: Line<'a>,
     style: Style,
     title_style: Option<Style>,
-    select_style: Option<Style>,
     focus_style: Option<Style>,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
@@ -67,7 +69,8 @@ pub struct MenubarLine<'a> {
 }
 
 /// Menubar popup widget.
-/// Separate renderer for the popup part of the menubar.
+///
+/// Separate renderer for the popup part of the menu bar.
 #[derive(Debug, Clone)]
 pub struct MenubarPopup<'a> {
     structure: Option<&'a dyn MenuStructure<'a>>,
@@ -98,15 +101,14 @@ pub struct MenubarState {
 impl Default for Menubar<'_> {
     fn default() -> Self {
         Self {
-            structure: None,
+            structure: Default::default(),
             title: Default::default(),
             style: Default::default(),
-            title_style: None,
-            select_style: None,
-            focus_style: None,
-            highlight_style: None,
-            disabled_style: None,
-            right_style: None,
+            title_style: Default::default(),
+            focus_style: Default::default(),
+            highlight_style: Default::default(),
+            disabled_style: Default::default(),
+            right_style: Default::default(),
             popup_alignment: Alignment::Left,
             popup_placement: Placement::AboveOrBelow,
             popup: Default::default(),
@@ -147,9 +149,6 @@ impl<'a> Menubar<'a> {
         if styles.title.is_some() {
             self.title_style = styles.title;
         }
-        if styles.select.is_some() {
-            self.select_style = styles.select;
-        }
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
@@ -181,8 +180,8 @@ impl<'a> Menubar<'a> {
 
     /// Selection
     #[inline]
-    pub fn select_style(mut self, style: Style) -> Self {
-        self.select_style = Some(style);
+    #[deprecated(since = "1.1.0", note = "merged with focus style")]
+    pub fn select_style(self, _style: Style) -> Self {
         self
     }
 
@@ -219,7 +218,7 @@ impl<'a> Menubar<'a> {
         self
     }
 
-    /// Block for borders.
+    /// Block for the popup menus.
     pub fn popup_block(mut self, block: Block<'a>) -> Self {
         self.popup = self.popup.block(block);
         self
@@ -228,7 +227,7 @@ impl<'a> Menubar<'a> {
     /// Create the widgets for the Menubar. This returns a widget
     /// for the menu-line and for the menu-popup.
     ///
-    /// The menu-popup should be rendered, after all widgets
+    /// The menu-popup should be rendered after all widgets
     /// that might be below the popup have been rendered.
     pub fn into_widgets(self) -> (MenubarLine<'a>, MenubarPopup<'a>) {
         (
@@ -237,7 +236,6 @@ impl<'a> Menubar<'a> {
                 title: self.title,
                 style: self.style,
                 title_style: self.title_style,
-                select_style: self.select_style,
                 focus_style: self.focus_style,
                 highlight_style: self.highlight_style,
                 disabled_style: self.disabled_style,
@@ -276,7 +274,6 @@ fn render_menubar(
         .title(widget.title.clone())
         .style(widget.style)
         .title_style_opt(widget.title_style)
-        .select_style_opt(widget.select_style)
         .focus_style_opt(widget.focus_style)
         .highlight_style_opt(widget.highlight_style)
         .disabled_style_opt(widget.disabled_style)

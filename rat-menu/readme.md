@@ -15,9 +15,9 @@ For examples see [rat-widget GitHub][refGitHubWidget]
 
 # Menu widgets for ratatui
 
-* [MenuLine](crate::menuline::MenuLine)
-* [PopupMenu](crate::popup_menu::PopupMenu)
-* [Menubar](crate::menubar::Menubar)
+* [MenuLine](https://docs.rs/rat-menu/latest/rat_menu/menuline)
+* [PopupMenu](https://docs.rs/rat-menu/latest/rat_menu/popup_menu)
+* [Menubar](https://docs.rs/rat-menu/latest/rat_menu/menubar)
 
 [refGitHubWidget]: https://github.com/thscharler/rat-salsa/blob/master/rat-widget/examples
 

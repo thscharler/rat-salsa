@@ -1,12 +1,36 @@
 //!
 //! A main menu widget.
 //!
+//! ```
+//! use crossterm::event::Event;
+//! use ratatui::buffer::Buffer;
+//! use ratatui::layout::Rect;
+//! use ratatui::widgets::StatefulWidget;
+//! use rat_event::Outcome;
+//! use rat_menu::event::MenuOutcome;
+//! use rat_menu::menuline;
+//! use rat_menu::menuline::{MenuLine, MenuLineState};
+//!
+//! # struct State { menu: MenuLineState }
+//! # let mut state = State { menu: Default::default() };
+//! # let mut buf = Buffer::default();
+//! # let buf = &mut buf;
+//! # let area = Rect::default();
+//!
+//! MenuLine::new()
+//!         .title("Sample")
+//!         .item_parsed("_File")
+//!         .item_parsed("E_dit")
+//!         .item_parsed("_View")
+//!         .item_parsed("_Quit")
+//!         .render(area, buf, &mut state.menu);
+//! ```
 use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
-use crate::util::{fallback_select_style, revert_style};
+use crate::util::revert_style;
 use crate::{MenuBuilder, MenuItem, MenuStyle};
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -18,16 +42,13 @@ use std::fmt::Debug;
 /// Main menu widget.
 #[derive(Debug, Default, Clone)]
 pub struct MenuLine<'a> {
-    title: Line<'a>,
     pub(crate) menu: MenuBuilder<'a>,
-
+    title: Line<'a>,
     style: Style,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
     right_style: Option<Style>,
     title_style: Option<Style>,
-    // TODO: breaking: remove separate select_style
-    select_style: Option<Style>,
     focus_style: Option<Style>,
 }
 
@@ -46,12 +67,9 @@ pub struct MenuLineState {
     /// Disable menu-items.
     /// __readonly__. renewed for each render.
     pub disabled: Vec<bool>,
-
-    // TODO: breaking: remove Option
     /// Selected item.
     /// __read+write__
     pub selected: Option<usize>,
-
     /// Current focus state.
     /// __read+write__
     pub focus: FocusFlag,
@@ -122,9 +140,6 @@ impl<'a> MenuLine<'a> {
         }
         if styles.title.is_some() {
             self.title_style = styles.title;
-        }
-        if styles.select.is_some() {
-            self.select_style = styles.select;
         }
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
@@ -197,15 +212,15 @@ impl<'a> MenuLine<'a> {
 
     /// Selection
     #[inline]
-    pub fn select_style(mut self, style: Style) -> Self {
-        self.select_style = Some(style);
+    #[deprecated(since = "1.1.0", note = "merged with focus style")]
+    pub fn select_style(self, _style: Style) -> Self {
         self
     }
 
     /// Selection
     #[inline]
-    pub fn select_style_opt(mut self, style: Option<Style>) -> Self {
-        self.select_style = style;
+    #[deprecated(since = "1.1.0", note = "merged with focus style")]
+    pub fn select_style_opt(self, _style: Option<Style>) -> Self {
         self
     }
 
@@ -267,11 +282,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
             revert_style(style)
         }
     } else {
-        if let Some(select_style) = widget.select_style {
-            select_style
-        } else {
-            fallback_select_style(style)
-        }
+        style
     };
     let title_style = if let Some(title_style) = widget.title_style {
         title_style

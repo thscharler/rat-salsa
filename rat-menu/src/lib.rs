@@ -4,6 +4,7 @@ use crate::_private::NonExhaustive;
 use crate::menuitem::{MenuItem, Separator};
 use rat_popup::PopupStyle;
 use ratatui::style::Style;
+use ratatui::widgets::Block;
 use std::fmt::Debug;
 use std::ops::Range;
 
@@ -104,29 +105,41 @@ pub mod event {
 /// Combined styles.
 #[derive(Debug, Clone)]
 pub struct MenuStyle {
+    /// Base style.
     pub style: Style,
+    /// Menuline title style.
     pub title: Option<Style>,
+    /// Style for the _ highlight/nav-char
     pub highlight: Option<Style>,
+    /// Style for a disabled item.
     pub disabled: Option<Style>,
+    /// Style for the hotkey
     pub right: Option<Style>,
+    /// Select style.
+    #[deprecated(since = "1.1.0", note = "merged with focus style")]
     pub select: Option<Style>,
+    /// Focus style
     pub focus: Option<Style>,
-
+    /// Block for the popup menus.
+    pub block: Option<Block<'static>>,
+    /// Styling for the popup menus.
     pub popup: PopupStyle,
 
     pub non_exhaustive: NonExhaustive,
 }
 
 impl Default for MenuStyle {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             style: Default::default(),
-            title: None,
-            highlight: None,
-            disabled: None,
-            right: None,
-            select: None,
-            focus: None,
+            title: Default::default(),
+            highlight: Default::default(),
+            disabled: Default::default(),
+            right: Default::default(),
+            select: Default::default(),
+            focus: Default::default(),
+            block: Default::default(),
             popup: Default::default(),
             non_exhaustive: NonExhaustive,
         }

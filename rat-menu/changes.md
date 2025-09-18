@@ -1,6 +1,8 @@
-# 1.0.5
+# 1.1.0
 
-* fix upstream deprecated from rat-popup
+* fix: remove pup use of rat-event.
+* refactor: fix upstream deprecated from rat-popup.
+* refactor: move Block into PopupMenu.
 
 # 1.0.4
 
