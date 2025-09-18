@@ -16,7 +16,7 @@ use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::view::{View, ViewState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
-use ratatui::text::Text;
+use ratatui::text::{Span, Text};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fs;
 use std::path::PathBuf;
@@ -113,18 +113,21 @@ pub fn render(
         .layout(Rect::new(0, 0, 50, 50))
         .into_buffer(layout[1], &mut state.view);
 
-    let link_str = "\u{1B}]8;;https://github.com/ratatui/\u{1B}\\ra";
-    let end_link_str = "\u{1B}]8;;\u{1B}\\";
+    let link_str = "\u{1B}]8;;https://github.com/ratatui/\u{1B}\\ratatui\u{1B}]8;;\u{1B}\\";
 
     vbuf.buffer()
         .cell_mut(Position::new(4, 5))
         .expect("cell")
         .set_symbol(link_str);
-    vbuf.render_widget(Text::from("atatui"), Rect::new(5, 5, 40, 1));
-    vbuf.buffer()
-        .cell_mut(Position::new(45, 5))
-        .expect("cell")
-        .set_symbol(end_link_str);
+
+    Span::from("");
+
+    for c in 5..12 {
+        vbuf.buffer()
+            .cell_mut(Position::new(c, 5))
+            .expect("cell")
+            .skip = true;
+    }
 
     debug!("{:?}", vbuf.buffer());
 
