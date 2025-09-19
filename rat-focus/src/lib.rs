@@ -10,20 +10,6 @@ use std::hash::{Hash, Hasher};
 use std::ptr;
 use std::rc::Rc;
 
-pub mod event {
-    /// Special focus-traversal.
-    ///
-    /// There are some widgets that have special keys that
-    /// interact with focus. This marks an event-handler for
-    /// such a case and provides it with the valid Focus instance
-    /// for the application.
-    ///
-    /// eg:
-    /// - Leaving a textarea with some navigation key other than tab.
-    #[deprecated(since = "1.1.2", note = "not very useful as is")]
-    pub struct FocusTraversal<'a>(pub &'a crate::Focus);
-}
-
 /// Holds the flags for the focus.
 ///
 /// Add this to the widget state and implement [HasFocus] to
