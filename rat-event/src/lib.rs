@@ -267,25 +267,22 @@ impl From<bool> for Outcome {
 /// the result of the operation is written to the log.
 #[macro_export]
 macro_rules! flow {
-    (log $n:ident: $($x:tt)*) => {{
+    (log $n:ident: $x:expr) => {{
         use log::debug;
         use $crate::ConsumedEvent;
-        let r = { $($x)* };
+        let r = $x;
         if r.is_consumed() {
             debug!("{} {:#?}", stringify!($n), r);
             return r.into();
         } else {
             debug!("{} continue", stringify!($n));
-            _ = r;
         }
     }};
-    ($($x:tt)*) => {{
+    ($x:expr) => {{
         use $crate::ConsumedEvent;
-        let r = { $($x)* };
+        let r = $x;
         if r.is_consumed() {
             return r.into();
-        } else {
-            _ = r;
         }
     }};
 }
@@ -305,25 +302,22 @@ macro_rules! flow {
 /// the result of the operation is written to the log.
 #[macro_export]
 macro_rules! try_flow {
-    (log $n:ident: $($x:tt)*) => {{
+    (log $n:ident: $x:expr) => {{
         use log::debug;
         use $crate::ConsumedEvent;
-        let r = { $($x)* };
+        let r = $x;
         if r.is_consumed() {
             debug!("{} {:#?}", stringify!($n), r);
             return Ok(r.into());
         } else {
             debug!("{} continue", stringify!($n));
-            _ = r;
         }
     }};
-    ($($x:tt)*) => {{
+    ($x:expr) => {{
         use $crate::ConsumedEvent;
-        let r = { $($x)* };
+        let r = $x;
         if r.is_consumed() {
             return Ok(r.into());
-        } else {
-            _ = r;
         }
     }};
 }
@@ -342,25 +336,22 @@ macro_rules! try_flow {
 /// the result of the operation is written to the log.
 #[macro_export]
 macro_rules! break_flow {
-    (log $l:lifetime: $n:ident: $($x:tt)*) => {{
+    (log $l:lifetime: $n:ident: $x:expr) => {{
         use log::debug;
         use $crate::ConsumedEvent;
-        let r = { $($x)* };
+        let r = $x;
         if r.is_consumed() {
             debug!("{} {:#?}", stringify!($n), r);
             break $l r.into();
         } else {
             debug!("{} continue", stringify!($n));
-            _ = r;
         }
     }};
-    ($l:lifetime: $($x:tt)*) => {{
+    ($l:lifetime: $x:expr) => {{
         use $crate::ConsumedEvent;
-        let r = { $($x)* };
+        let r = $x;
         if r.is_consumed() {
             break $l r.into();
-        } else {
-            _ = r;
         }
     }};
 }

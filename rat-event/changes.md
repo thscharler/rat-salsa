@@ -1,6 +1,7 @@
 # 1.2.5
 
 * docs
+* undo change in flow! macros.
 
 # 1.2.4
 
