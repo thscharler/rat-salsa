@@ -6,7 +6,6 @@ use rat_text::line_number::LineNumberStyle;
 use rat_text::{TextFocusGained, TextFocusLost, TextStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
-use rat_widget::caption::{CaptionStyle, HotkeyAlignment, HotkeyPolicy};
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
@@ -280,19 +279,6 @@ impl Scheme {
         }
     }
 
-    pub fn caption_style(&self) -> CaptionStyle {
-        CaptionStyle {
-            style: Style::new().fg(self.text_color(self.black[0])),
-            focus: Some(Style::new().fg(self.secondary[2])),
-            hover: Some(self.secondary(2)),
-            align: Some(Alignment::Right),
-            hotkey: Some(self.secondary(0)),
-            hotkey_align: Some(HotkeyAlignment::HotkeyLabel),
-            hotkey_policy: Some(HotkeyPolicy::WhenFocused),
-            ..Default::default()
-        }
-    }
-
     /// Complete TextInputStyle
     pub fn input_style(&self) -> TextStyle {
         TextStyle {
@@ -507,7 +493,6 @@ impl Scheme {
                 .fg(self.text_color(self.black[0])),
             navigation: Some(self.container_arrow()),
             label_style: Some(Style::new().fg(THEME.white[3]).bg(THEME.orange[0])),
-            caption_style: Some(self.caption_style()),
             first_page_mark: Some(""),
             last_page_mark: Some(""),
             ..Default::default()

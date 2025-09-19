@@ -1,10 +1,8 @@
 use crate::_private::NonExhaustive;
-use crate::caption::{CaptionState, CaptionStyle};
 use crate::event::PagerOutcome;
 use crate::layout::GenericLayout;
 use crate::pager::{PageNavigation, PageNavigationState, Pager, PagerBuffer, PagerStyle};
 use rat_event::{HandleEvent, MouseOnly, Regular};
-use rat_focus::HasFocus;
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
@@ -116,12 +114,6 @@ where
     /// Alignment for text labels.
     pub fn label_alignment(mut self, alignment: Alignment) -> Self {
         self.pager = self.pager.label_alignment(alignment);
-        self
-    }
-
-    /// Styles for caption labels.
-    pub fn caption_style(mut self, style: CaptionStyle) -> Self {
-        self.pager = self.pager.caption_style(style);
         self
     }
 
@@ -250,24 +242,6 @@ where
             self.pager0.render_label(idx, render_fn)
         } else {
             self.pager1.render_label(idx, render_fn)
-        }
-    }
-
-    /// Render the label as a caption with the set style.
-    #[inline(always)]
-    pub fn render_caption(
-        &mut self,
-        widget: W,
-        link: &impl HasFocus,
-        state: &mut CaptionState,
-    ) -> bool {
-        let Some(idx) = self.pager0.widget_idx(widget) else {
-            return false;
-        };
-        if self.pager0.is_label_visible(idx) {
-            self.pager0.render_caption(idx, &link.focus(), state)
-        } else {
-            self.pager1.render_caption(idx, &link.focus(), state)
         }
     }
 

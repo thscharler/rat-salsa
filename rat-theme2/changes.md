@@ -1,3 +1,7 @@
+# 1.2.0
+
+* remove: CaptionStyle
+
 # 1.1.0
 
 * feature: add CaptionStyle

@@ -1,7 +1,5 @@
-use crate::caption::{Caption, CaptionState, CaptionStyle};
 use crate::layout::GenericLayout;
 use crate::pager::PagerStyle;
-use rat_focus::FocusFlag;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
@@ -23,7 +21,6 @@ where
     style: Style,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
-    caption_style: Option<CaptionStyle>,
 }
 
 /// Rendering phase.
@@ -38,7 +35,6 @@ where
     buffer: Rc<RefCell<&'a mut Buffer>>,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
-    caption_style: Option<CaptionStyle>,
 }
 
 impl<W> Clone for Pager<W>
@@ -52,7 +48,6 @@ where
             style: self.style,
             label_style: self.label_style,
             label_alignment: self.label_alignment,
-            caption_style: self.caption_style.clone(),
         }
     }
 }
@@ -68,7 +63,6 @@ where
             style: Default::default(),
             label_style: Default::default(),
             label_alignment: Default::default(),
-            caption_style: Default::default(),
         }
     }
 }
@@ -111,12 +105,6 @@ where
         self
     }
 
-    /// Style for auto-captions
-    pub fn caption_style(mut self, style: CaptionStyle) -> Self {
-        self.caption_style = Some(style);
-        self
-    }
-
     /// Set all styles.
     pub fn styles(mut self, styles: PagerStyle) -> Self {
         self.style = styles.style;
@@ -125,9 +113,6 @@ where
         }
         if let Some(alignment) = styles.label_alignment {
             self.label_alignment = Some(alignment);
-        }
-        if let Some(caption_style) = styles.caption_style {
-            self.caption_style = Some(caption_style);
         }
         self
     }
@@ -154,7 +139,6 @@ where
             buffer: buf,
             label_style: self.label_style,
             label_alignment: self.label_alignment,
-            caption_style: self.caption_style,
         }
     }
 }
@@ -201,32 +185,6 @@ where
         } else {
             false
         }
-    }
-
-    /// Render the label as a caption with the set style.
-    #[inline(always)]
-    pub fn render_caption(
-        &mut self,
-        idx: usize,
-        link: &FocusFlag,
-        state: &mut CaptionState,
-    ) -> bool {
-        let Some(label_area) = self.locate_label(idx) else {
-            return false;
-        };
-        let layout = self.layout.borrow();
-        let Some(label_str) = layout.try_label_str(idx) else {
-            return false;
-        };
-
-        let mut buffer = self.buffer.borrow_mut();
-        let mut label = Caption::parse(label_str.as_ref()).link(link);
-        if let Some(style) = &self.caption_style {
-            label = label.styles(style.clone())
-        }
-        label.render(label_area, *buffer, state);
-
-        true
     }
 
     /// Render the label with the set style and alignment.

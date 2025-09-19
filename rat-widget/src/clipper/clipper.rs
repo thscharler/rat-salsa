@@ -1,8 +1,7 @@
 use crate::_private::NonExhaustive;
-use crate::caption::{Caption, CaptionState, CaptionStyle};
 use crate::clipper::ClipperStyle;
 use crate::layout::GenericLayout;
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
@@ -34,7 +33,6 @@ where
     vscroll: Option<Scroll<'a>>,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
-    caption_style: Option<CaptionStyle>,
     auto_label: bool,
 }
 
@@ -60,7 +58,6 @@ where
     vscroll: Option<Scroll<'a>>,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
-    caption_style: Option<CaptionStyle>,
 }
 
 #[derive(Debug)]
@@ -125,7 +122,6 @@ where
             vscroll: self.vscroll.clone(),
             label_style: self.label_style.clone(),
             label_alignment: self.label_alignment.clone(),
-            caption_style: self.caption_style.clone(),
             auto_label: self.auto_label,
         }
     }
@@ -144,7 +140,6 @@ where
             vscroll: Default::default(),
             label_style: Default::default(),
             label_alignment: Default::default(),
-            caption_style: Default::default(),
             auto_label: true,
         }
     }
@@ -190,12 +185,6 @@ where
     /// Widget labels.
     pub fn label_alignment(mut self, alignment: Alignment) -> Self {
         self.label_alignment = Some(alignment);
-        self
-    }
-
-    /// Styles for caption labels.
-    pub fn caption_style(mut self, style: CaptionStyle) -> Self {
-        self.caption_style = Some(style);
         self
     }
 
@@ -368,7 +357,6 @@ where
             vscroll: self.vscroll,
             label_style: self.label_style,
             label_alignment: self.label_alignment,
-            caption_style: self.caption_style,
         }
     }
 }
@@ -435,34 +423,6 @@ where
         };
         let label_str = layout.try_label_str(idx);
         render_fn(label_str, label_area, &mut self.buffer);
-        true
-    }
-
-    /// Render the label as a caption with the set style.
-    #[inline(always)]
-    pub fn render_caption(
-        &mut self,
-        widget: W,
-        link: &FocusFlag,
-        state: &mut CaptionState,
-    ) -> bool {
-        let layout = self.layout.borrow();
-        let Some(idx) = layout.try_index_of(widget) else {
-            return false;
-        };
-        let Some(label_area) = self.locate_area(layout.label(idx)) else {
-            return false;
-        };
-        let Some(label_str) = layout.try_label_str(idx) else {
-            return false;
-        };
-
-        let mut label = Caption::parse(label_str.as_ref()).link(link);
-        if let Some(style) = &self.caption_style {
-            label = label.styles(style.clone())
-        }
-        label.render(label_area, &mut self.buffer, state);
-
         true
     }
 
@@ -537,11 +497,7 @@ where
     #[inline]
     pub fn locate_area(&self, area: Rect) -> Option<Rect> {
         let area = self.buffer.area.intersection(area);
-        if area.is_empty() {
-            None
-        } else {
-            Some(area)
-        }
+        if area.is_empty() { None } else { Some(area) }
     }
 
     /// Calculate the necessary shift from layout to screen.

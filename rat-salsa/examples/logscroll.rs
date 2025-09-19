@@ -360,12 +360,11 @@ mod logscroll {
     use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{Control, SalsaContext};
     use rat_theme2::{dark_themes, DarkTheme, Palette};
-    use rat_widget::caption::{Caption, CaptionState, HotkeyPolicy};
     use rat_widget::event::{
         ct_event, try_flow, HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome,
     };
     use rat_widget::focus::{HasFocus, Navigation};
-    use rat_widget::paired::{PairSplit, Paired, PairedState};
+    use rat_widget::paired::{PairSplit, Paired, PairedState, PairedWidget};
     use rat_widget::scrolled::Scroll;
     use rat_widget::splitter::{Split, SplitState};
     use rat_widget::table::selection::RowSelection;
@@ -395,7 +394,6 @@ mod logscroll {
         pub split: SplitState,
         pub start_line: upos_type,
         pub logtext: TextAreaState,
-        pub find_label: CaptionState,
         pub find: TextInputState,
 
         pub logtext_id: usize,
@@ -415,7 +413,6 @@ mod logscroll {
                 split: Default::default(),
                 start_line: 0,
                 logtext: Default::default(),
-                find_label: Default::default(),
                 find: Default::default(),
                 logtext_id: 0,
                 find_matches: Default::default(),
@@ -481,19 +478,11 @@ mod logscroll {
         .split(ls[1]);
 
         Paired::new(
-            Caption::parse("_Find| F3 ")
-                .styles(ctx.theme.caption_style())
-                .hotkey_policy(HotkeyPolicy::Always)
-                .spacing(1)
-                .link(&state.find.focus()),
+            PairedWidget::new(Span::from("Find")),
             TextInput::new().styles(ctx.theme.text_style()),
         )
-        .split(PairSplit::Fix1(8))
-        .render(
-            l2[0],
-            buf,
-            &mut PairedState::new(&mut state.find_label, &mut state.find),
-        );
+        .split(PairSplit::Fix1(5))
+        .render(l2[0], buf, &mut PairedState::new(&mut (), &mut state.find));
 
         Table::new()
             .vscroll(Scroll::new())
@@ -900,7 +889,6 @@ mod logscroll {
                     }
                     r => r.into(),
                 });
-                try_flow!(state.find_label.handle(event, &*ctx.focus()));
                 try_flow!(match state.find.handle(event, Regular) {
                     TextOutcome::TextChanged => {
                         state.find.set_invalid(false);

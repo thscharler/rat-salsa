@@ -1,28 +1,26 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use log::warn;
-use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Popup, Regular};
-use rat_focus::event::FocusTraversal;
+use rat_event::{HandleEvent, Popup, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
-use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
+use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::text_area::{TextArea, TextAreaState};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
-use rat_widget::caption::{CaptionState, CaptionStyle, HotkeyAlignment, HotkeyPolicy};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::pager::{DualPager, DualPagerState};
 use rat_widget::paired::{Paired, PairedState, PairedWidget};
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::text::HasScreenCursor;
-use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
+use ratatui::Frame;
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
 use ratatui::widgets::Padding;
-use ratatui::Frame;
 use std::cell::RefCell;
 
 mod mini_salsa;
@@ -51,29 +49,17 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    caption_style: CaptionStyle,
-
     form: DualPagerState<usize>,
 
-    label_name: CaptionState,
     name: TextInputState,
-    label_version: CaptionState,
     version: MaskedInputState,
-    label_edition: CaptionState,
     edition: SliderState<u16>,
-    label_author: CaptionState,
     author: TextInputState,
-    label_descr: CaptionState,
     descr: TextAreaState,
-    label_license: CaptionState,
     license: ChoiceState<String>,
-    label_repository: CaptionState,
     repository: TextInputState,
-    label_readme: CaptionState,
     readme: TextInputState,
-    label_keywords: CaptionState,
     keywords: TextInputState,
-    label_categories: CaptionState,
     category1: TextInputState,
     category2: TextInputState,
     category3: TextInputState,
@@ -85,27 +71,16 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         let mut s = Self {
-            caption_style: Default::default(),
             form: Default::default(),
-            label_name: Default::default(),
             name: Default::default(),
-            label_version: Default::default(),
             version: Default::default(),
-            label_edition: Default::default(),
             edition: Default::default(),
-            label_author: Default::default(),
             author: Default::default(),
-            label_descr: Default::default(),
             descr: Default::default(),
-            label_license: Default::default(),
             license: Default::default(),
-            label_repository: Default::default(),
             repository: Default::default(),
-            label_readme: Default::default(),
             readme: Default::default(),
-            label_keywords: Default::default(),
             keywords: Default::default(),
-            label_categories: Default::default(),
             category1: Default::default(),
             category2: Default::default(),
             category3: Default::default(),
@@ -120,9 +95,7 @@ impl Default for State {
     }
 }
 
-fn init_input(_data: &mut Data, istate: &mut MiniSalsaState, state: &mut State) {
-    state.caption_style = istate.theme.caption_style();
-}
+fn init_input(_data: &mut Data, _istate: &mut MiniSalsaState, _state: &mut State) {}
 
 fn repaint_input(
     frame: &mut Frame<'_>,
@@ -137,7 +110,6 @@ fn repaint_input(
     // set up form
     let form = DualPager::new()
         .styles(THEME.pager_style())
-        .caption_style(state.caption_style.clone())
         .auto_label(false);
 
     // maybe rebuild layout
@@ -172,13 +144,11 @@ fn repaint_input(
     let mut form = form.into_buffer(l2[0], frame.buffer_mut(), &mut state.form);
 
     // render the input fields.
-    form.render_caption(state.name.id(), &state.name, &mut state.label_name);
     form.render(
         state.name.id(),
         || TextInput::new().styles(istate.theme.input_style()),
         &mut state.name,
     );
-    form.render_caption(state.version.id(), &state.version, &mut state.label_version);
     form.render(
         state.version.id(),
         || {
@@ -188,7 +158,6 @@ fn repaint_input(
         },
         &mut state.version,
     );
-    form.render_caption(state.edition.id(), &state.edition, &mut state.label_edition);
     let value = format!("{}", state.edition.value());
     form.render(
         state.edition.id(),
@@ -203,19 +172,16 @@ fn repaint_input(
         },
         &mut PairedState::new(&mut state.edition, &mut ()),
     );
-    form.render_caption(state.author.id(), &state.author, &mut state.label_author);
     form.render(
         state.author.id(),
         || TextInput::new().styles(istate.theme.input_style()),
         &mut state.author,
     );
-    form.render_caption(state.descr.id(), &state.descr, &mut state.label_descr);
     form.render(
         state.descr.id(),
         || TextArea::new().styles(istate.theme.textarea_style()),
         &mut state.descr,
     );
-    form.render_caption(state.license.id(), &state.license, &mut state.label_license);
     let license_popup = form.render2(
         state.license.id(),
         || {
@@ -226,36 +192,20 @@ fn repaint_input(
         },
         &mut state.license,
     );
-    form.render_caption(
-        state.repository.id(),
-        &state.repository,
-        &mut state.label_repository,
-    );
     form.render(
         state.repository.id(),
         || TextInput::new().styles(istate.theme.input_style()),
         &mut state.repository,
     );
-    form.render_caption(state.readme.id(), &state.readme, &mut state.label_readme);
     form.render(
         state.readme.id(),
         || TextInput::new().styles(istate.theme.input_style()),
         &mut state.readme,
     );
-    form.render_caption(
-        state.keywords.id(),
-        &state.keywords,
-        &mut state.label_keywords,
-    );
     form.render(
         state.keywords.id(),
         || TextInput::new().styles(istate.theme.input_style()),
         &mut state.keywords,
-    );
-    form.render_caption(
-        state.category1.id(),
-        &state.category1,
-        &mut state.label_categories,
     );
     form.render(
         state.category1.id(),
@@ -343,43 +293,11 @@ fn handle_input(
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
 
-    istate.focus_outcome = focus
-        .handle(event, Regular)
-        .or_else(|| state.descr.handle(event, FocusTraversal(&focus)));
+    istate.focus_outcome = focus.handle(event, Regular);
 
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
-            Outcome::Changed
-        }
-        _ => Outcome::Continue,
-    });
-
-    try_flow!(match event {
-        ct_event!(keycode press F(1)) => {
-            state.caption_style.hotkey_policy = match state.caption_style.hotkey_policy {
-                Some(HotkeyPolicy::Always) => Some(HotkeyPolicy::OnHover),
-                Some(HotkeyPolicy::OnHover) => Some(HotkeyPolicy::WhenFocused),
-                Some(HotkeyPolicy::WhenFocused) => Some(HotkeyPolicy::Always),
-                None => Some(HotkeyPolicy::Always),
-            };
-            Outcome::Changed
-        }
-        ct_event!(keycode press F(2)) => {
-            state.caption_style.hotkey_align = match state.caption_style.hotkey_align {
-                Some(HotkeyAlignment::LabelHotkey) => Some(HotkeyAlignment::HotkeyLabel),
-                Some(HotkeyAlignment::HotkeyLabel) => Some(HotkeyAlignment::LabelHotkey),
-                None => Some(HotkeyAlignment::LabelHotkey),
-            };
-            Outcome::Changed
-        }
-        ct_event!(keycode press F(3)) => {
-            state.caption_style.align = match state.caption_style.align {
-                Some(Alignment::Left) => Some(Alignment::Center),
-                Some(Alignment::Center) => Some(Alignment::Right),
-                Some(Alignment::Right) => Some(Alignment::Left),
-                None => Some(Alignment::Left),
-            };
             Outcome::Changed
         }
         _ => Outcome::Continue,
@@ -407,7 +325,6 @@ fn handle_input(
     try_flow!(state.license.handle(event, Popup));
 
     // regular event-handling
-    try_flow!(state.label_name.handle(event, &focus));
     try_flow!(state.name.handle(event, Regular));
     try_flow!(match event {
         ct_event!(keycode press F(5)) => {
@@ -416,22 +333,13 @@ fn handle_input(
         }
         _ => Outcome::Continue,
     });
-    try_flow!(state.label_version.handle(event, &focus));
     try_flow!(state.version.handle(event, Regular));
-    try_flow!(state.label_edition.handle(event, &focus));
     try_flow!(state.edition.handle(event, Regular));
-    try_flow!(state.label_author.handle(event, &focus));
     try_flow!(state.author.handle(event, Regular));
-    try_flow!(state.label_descr.handle(event, &focus));
     try_flow!(state.descr.handle(event, Regular));
-    try_flow!(state.label_license.handle(event, &focus));
-    try_flow!(state.label_repository.handle(event, &focus));
     try_flow!(state.repository.handle(event, Regular));
-    try_flow!(state.label_readme.handle(event, &focus));
     try_flow!(state.readme.handle(event, Regular));
-    try_flow!(state.label_keywords.handle(event, &focus));
     try_flow!(state.keywords.handle(event, Regular));
-    try_flow!(state.label_categories.handle(event, &focus));
     try_flow!(state.category1.handle(event, Regular));
     try_flow!(state.category2.handle(event, Regular));
     try_flow!(state.category3.handle(event, Regular));
