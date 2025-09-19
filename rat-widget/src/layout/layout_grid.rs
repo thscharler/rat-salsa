@@ -1,5 +1,5 @@
 use crate::layout::GenericLayout;
-use ratatui::layout::{Layout, Rect};
+use ratatui::layout::{Constraint, Layout, Rect};
 
 ///
 /// Calculates a full grid of rects from the horizontal and vertical components.
@@ -49,4 +49,25 @@ pub fn layout_grid<const X: usize, const Y: usize>(
     }
 
     gen_layout
+}
+
+/// Create a basic grid of areas using the given Constraints.
+pub fn simple_grid<const X: usize, const Y: usize>(
+    area: Rect,
+    horizontal: [Constraint; X],
+    vertical: [Constraint; Y],
+) -> [[Rect; Y]; X] {
+    let mut layout = [[Rect::default(); Y]; X];
+
+    let hori = Layout::horizontal(horizontal).split(Rect::new(area.x, 0, area.width, 0));
+    let vert = Layout::vertical(vertical).split(Rect::new(0, area.y, 0, area.height));
+
+    for x in 0..X {
+        for y in 0..Y {
+            let grid_area = Rect::new(hori[x].x, vert[y].y, hori[x].width, vert[y].height);
+            layout[x][y] = grid_area;
+        }
+    }
+
+    layout
 }

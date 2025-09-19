@@ -6,8 +6,8 @@ mod layout_grid;
 mod layout_middle;
 
 pub use generic_layout::GenericLayout;
-pub use layout_dialog::{layout_dialog, DialogItem};
-pub use layout_edit::{layout_edit, EditConstraint};
+pub use layout_dialog::{DialogItem, layout_dialog};
+pub use layout_edit::{EditConstraint, layout_edit};
 pub use layout_form::{FormLabel, FormWidget, LayoutForm};
-pub use layout_grid::layout_grid;
+pub use layout_grid::{layout_grid, simple_grid};
 pub use layout_middle::layout_middle;
