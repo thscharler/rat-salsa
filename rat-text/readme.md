@@ -35,7 +35,7 @@ Features for all widgets:
     * byte-pos to TextPosition and vice versa.
     * Screen position to text position.
 
-## [TextInput](crate::text_input::TextInput)
+## [TextInput](https://docs.rs/rat-text/latest/rat_text/text_input/index.html)
 
 Single line text input widget.
 
@@ -58,7 +58,7 @@ match text_input::handle_events(&mut state.textinput, true /*focused*/, event) {
 }
 ```
 
-## [TextArea](crate::text_area::TextArea)
+## [TextArea](https://docs.rs/rat-text/latest/rat_text/text_area/index.html)
 
 Textarea with tendencies to being an editor.
 
@@ -107,7 +107,7 @@ match text_area::handle_events(&mut state.textarea, true /* focused */, event) {
 There is an extended example `mdedit.rs` for TextArea in
 [rat-salsa][refRatSalsa]
 
-## [MaskedInput](crate::text_input_mask::MaskedInput)
+## [MaskedInput](https://docs.rs/rat-text/latest/rat_text/text_input_mask/index.html)
 
 Single line text input with a text-mask for allowed input.
 
@@ -125,16 +125,16 @@ The widgets
 
 use this as base.
 
-## [DateInput](crate::date_input::DateInput)
+## [DateInput](https://docs.rs/rat-text/latest/rat_text/date_input/index.html)
 
 DateInput with [chrono][refChrono] format patterns.
 
-## [NumberInput](crate::number_input::NumberInput)
+## [NumberInput](https://docs.rs/rat-text/latest/rat_text/number_input/index.html)
 
 NumberInput with [format_num_pattern][refFormatNumPattern]
 backend. A bit similar to javas DecimalFormat.
 
-## [LineNumbers](crate::line_number::LineNumbers)
+## [LineNumbers](https://docs.rs/rat-text/latest/rat_text/line_number/index.html)
 
 Line numbers widget that can be combined with TextArea.
 

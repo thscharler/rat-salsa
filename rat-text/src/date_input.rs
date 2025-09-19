@@ -7,9 +7,9 @@ use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{upos_type, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle};
-use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
+use crate::{HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle, upos_type};
 use chrono::NaiveDate;
+use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
@@ -33,7 +33,7 @@ pub struct DateInput<'a> {
 }
 
 /// State & event-handling.
-/// Use `DateInputState::new(_pattern_)` to set the date pattern.
+/// Use [DateInputState::with_pattern] to set the date pattern.
 #[derive(Debug, Clone)]
 pub struct DateInputState {
     /// Uses MaskedInputState for the actual functionality.
@@ -359,32 +359,32 @@ impl DateInputState {
 
 impl DateInputState {
     /// Clipboard used.
-    /// Default is to use the global_clipboard().
+    /// Default is to use the [global_clipboard](crate::clipboard::global_clipboard).
     #[inline]
     pub fn set_clipboard(&mut self, clip: Option<impl Clipboard + 'static>) {
         self.widget.set_clipboard(clip);
     }
 
     /// Clipboard used.
-    /// Default is to use the global_clipboard().
+    /// Default is to use the [global_clipboard](crate::clipboard::global_clipboard).
     #[inline]
     pub fn clipboard(&self) -> Option<&dyn Clipboard> {
         self.widget.clipboard()
     }
 
-    /// Copy to internal buffer
+    /// Copy to clipboard
     #[inline]
     pub fn copy_to_clip(&mut self) -> bool {
         self.widget.copy_to_clip()
     }
 
-    /// Cut to internal buffer
+    /// Cut to clipboard
     #[inline]
     pub fn cut_to_clip(&mut self) -> bool {
         self.widget.cut_to_clip()
     }
 
-    /// Paste from internal buffer.
+    /// Paste from clipboard.
     #[inline]
     pub fn paste_from_clip(&mut self) -> bool {
         self.widget.paste_from_clip()

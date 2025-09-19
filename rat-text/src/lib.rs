@@ -100,25 +100,33 @@ pub mod event {
     }
 }
 
-/// Behavior modifiers.
+/// This flag sets the behaviour of the widget when
+/// it detects that it gained focus.
+///
+/// Available for all text-input widgets except TextArea.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum TextFocusGained {
     /// None
     #[default]
     None,
-    /// Flag for overwrite.
+    /// Editing overwrites the current content.
+    /// Any movement resets this flag and allows editing.
     Overwrite,
-    /// Select all text.
+    /// Select all text on focus gain.
     SelectAll,
 }
 
-/// Behaviour modifiers.
+/// This flag sets the behaviour of the widget when
+/// it detects that it lost focus.
+///
+/// Available for all text-input widgets except TextArea.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum TextFocusLost {
     /// None
     #[default]
     None,
-    /// Sets the Position back to 0.
+    /// Sets the offset to 0. This prevents strangely clipped
+    /// text for long inputs.
     Position0,
 }
 
