@@ -76,7 +76,7 @@ where
     /// See [ratatui::Backend](ratatui::backend::Backend::scroll_region_up)
     #[cfg(feature = "scrolling-regions")]
     fn scroll_region_up(&mut self, region: Range<u16>, line_count: u16) -> Result<(), io::Error>;
-    /// See [ratatui::Backend](ratatui::backend::Backend::scroll_region_udown
+    /// See [ratatui::Backend](ratatui::backend::Backend::scroll_region_down)
     #[cfg(feature = "scrolling-regions")]
     fn scroll_region_down(&mut self, region: Range<u16>, line_count: u16) -> Result<(), io::Error>;
 
