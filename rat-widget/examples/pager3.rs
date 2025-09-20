@@ -15,7 +15,7 @@ use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
+use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget};
 use std::array;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -23,7 +23,7 @@ use std::time::SystemTime;
 
 mod mini_salsa;
 
-const HUN: usize = 4448;
+const HUN: usize = 48;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -182,8 +182,8 @@ fn repaint_input(
         state.hundred[i].relocate((0, 0), Rect::default());
     }
     // render 2 pages
-    render_page(frame, state.page_nav.page * 2, 0, state)?;
-    render_page(frame, state.page_nav.page * 2 + 1, 1, state)?;
+    render_page(frame, state.page_nav.page, 0, state)?;
+    render_page(frame, state.page_nav.page + 1, 1, state)?;
 
     let menu1 = MenuLine::new()
         .title("#.#")
@@ -277,9 +277,8 @@ fn handle_input(
     if istate.focus_outcome == Outcome::Changed {
         if let Some(ff) = focus.focused() {
             if let Some(page) = state.layout.borrow().page_of(ff) {
-                let page = page / 2;
                 if page != state.page_nav.page {
-                    state.page_nav.set_page(page);
+                    state.page_nav.set_page((page / 2) * 2);
                 }
             }
         }
@@ -287,7 +286,7 @@ fn handle_input(
 
     try_flow!(match state.page_nav.handle(event, Regular) {
         PagerOutcome::Page(p) => {
-            if let Some(w) = state.layout.borrow().first(p * 2) {
+            if let Some(w) = state.layout.borrow().first(p) {
                 focus.focus(&w);
             }
             Outcome::Changed
@@ -298,7 +297,7 @@ fn handle_input(
     try_flow!(match event {
         ct_event!(keycode press F(4)) => {
             if state.page_nav.prev_page() {
-                if let Some(w) = state.layout.borrow().first(state.page_nav.page * 2) {
+                if let Some(w) = state.layout.borrow().first(state.page_nav.page) {
                     focus.focus(&w);
                 }
                 Outcome::Changed
@@ -308,7 +307,7 @@ fn handle_input(
         }
         ct_event!(keycode press F(5)) => {
             if state.page_nav.next_page() {
-                if let Some(w) = state.layout.borrow().first(state.page_nav.page * 2) {
+                if let Some(w) = state.layout.borrow().first(state.page_nav.page) {
                     focus.focus(&w);
                 }
                 Outcome::Changed

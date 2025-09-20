@@ -4,7 +4,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use log::warn;
 use rat_event::{HandleEvent, Popup, Regular, ct_event, try_flow};
-use rat_focus::{Focus, FocusBuilder, HasFocus};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation, impl_has_focus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
@@ -110,7 +110,7 @@ fn repaint_input(
     // set up form
     let form = DualPager::new()
         .styles(THEME.pager_style())
-        .auto_label(false);
+        .auto_label(true);
 
     // maybe rebuild layout
     use rat_widget::layout::{FormLabel as L, FormWidget as W, LayoutForm};
@@ -121,17 +121,17 @@ fn repaint_input(
             .border(Padding::new(2, 2, 1, 1))
             .flex(Flex::Legacy);
 
-        lf.widget(state.name.id(), L::Str("_Name|F5"), W::Width(20));
-        lf.widget(state.version.id(), L::Str("_Version"), W::Width(12));
-        lf.widget(state.edition.id(), L::Str("_Edition"), W::Width(20));
-        lf.widget(state.author.id(), L::Str("_Author"), W::Width(20));
-        lf.widget(state.descr.id(), L::Str("_Describe"), W::StretchXY(20, 4));
-        lf.widget(state.license.id(), L::Str("_License"), W::Width(18));
-        lf.widget(state.repository.id(), L::Str("_Repository"), W::Width(25));
-        lf.widget(state.readme.id(), L::Str("Read_me"), W::Width(20));
-        lf.widget(state.keywords.id(), L::Str("_Keywords"), W::Width(25));
+        lf.widget(state.name.id(), L::Str("Name"), W::Width(20));
+        lf.widget(state.version.id(), L::Str("Version"), W::Width(12));
+        lf.widget(state.edition.id(), L::Str("Edition"), W::Width(20));
+        lf.widget(state.author.id(), L::Str("Author"), W::Width(20));
+        lf.widget(state.descr.id(), L::Str("Describe"), W::StretchXY(20, 4));
+        lf.widget(state.license.id(), L::Str("License"), W::Width(18));
+        lf.widget(state.repository.id(), L::Str("Repository"), W::Width(25));
+        lf.widget(state.readme.id(), L::Str("Readme"), W::Width(20));
+        lf.widget(state.keywords.id(), L::Str("Keywords"), W::Width(25));
         lf.page_break();
-        lf.widget(state.category1.id(), L::Str("_Category"), W::Width(25));
+        lf.widget(state.category1.id(), L::Str("Category"), W::Width(25));
         lf.widget(state.category2.id(), L::None, W::Width(25));
         lf.widget(state.category3.id(), L::None, W::Width(25));
         lf.widget(state.category4.id(), L::None, W::Width(25));
@@ -266,24 +266,36 @@ fn repaint_input(
     Ok(())
 }
 
+impl HasFocus for State {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.widget_navigate(&self.menu, Navigation::Leave);
+        builder.widget(&self.name);
+        builder.widget(&self.version);
+        builder.widget(&self.edition);
+        builder.widget(&self.author);
+        builder.widget(&self.descr);
+        builder.widget(&self.license);
+        builder.widget(&self.repository);
+        builder.widget(&self.readme);
+        builder.widget(&self.keywords);
+        builder.widget(&self.category1);
+        builder.widget(&self.category2);
+        builder.widget(&self.category3);
+        builder.widget(&self.category4);
+        builder.widget(&self.category5);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not defined")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not defined")
+    }
+}
+
 fn focus(state: &State) -> Focus {
-    let mut fb = FocusBuilder::default();
-    fb.widget(&state.menu);
-    fb.widget(&state.name);
-    fb.widget(&state.version);
-    fb.widget(&state.edition);
-    fb.widget(&state.author);
-    fb.widget(&state.descr);
-    fb.widget(&state.license);
-    fb.widget(&state.repository);
-    fb.widget(&state.readme);
-    fb.widget(&state.keywords);
-    fb.widget(&state.category1);
-    fb.widget(&state.category2);
-    fb.widget(&state.category3);
-    fb.widget(&state.category4);
-    fb.widget(&state.category5);
-    fb.build()
+    FocusBuilder::build_for(state)
 }
 
 fn handle_input(
@@ -338,6 +350,13 @@ fn handle_input(
     try_flow!(state.edition.handle(event, Regular));
     try_flow!(state.author.handle(event, Regular));
     try_flow!(state.descr.handle(event, Regular));
+    try_flow!(match event {
+        ct_event!(keycode press Esc) if state.descr.is_focused() => {
+            focus.next_force();
+            Outcome::Changed
+        }
+        _ => Outcome::Continue,
+    });
     try_flow!(state.repository.handle(event, Regular));
     try_flow!(state.readme.handle(event, Regular));
     try_flow!(state.keywords.handle(event, Regular));
@@ -346,6 +365,14 @@ fn handle_input(
     try_flow!(state.category3.handle(event, Regular));
     try_flow!(state.category4.handle(event, Regular));
     try_flow!(state.category5.handle(event, Regular));
+
+    try_flow!(match event {
+        ct_event!(keycode press Esc) => {
+            focus.focus(&state.menu);
+            Outcome::Changed
+        }
+        _ => Outcome::Continue,
+    });
 
     Ok(Outcome::Continue)
 }

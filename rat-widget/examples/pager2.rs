@@ -3,6 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
@@ -182,6 +183,10 @@ fn handle_input(
     });
 
     try_flow!(match event {
+        ct_event!(keycode press F(1)) => {
+            debug!("{:#?}", state.pager.layout.borrow());
+            Outcome::Unchanged
+        }
         ct_event!(keycode press F(4)) => {
             if state.pager.prev_page() {
                 if let Some(first) = state.pager.first(state.pager.page()) {

@@ -9,7 +9,7 @@ use std::hash::Hash;
 use std::mem;
 use std::ops::Range;
 
-/// Label constraints.
+/// Label constraints for [LayoutForm].
 ///
 /// Any given widths and heights will be reduced if there is not enough space.
 #[derive(Debug, Default)]
@@ -45,7 +45,7 @@ pub enum FormLabel {
     Size(u16, u16),
 }
 
-/// Widget constraints.
+/// Widget constraints for [LayoutForm].
 ///
 /// Any given widths and heights will be reduced if there is not enough space.
 #[derive(Debug, Default)]
@@ -357,8 +357,6 @@ struct Page {
     top: u16,
     // bottom border
     bottom: u16,
-    // maximum widget + label height
-    max_height: u16,
 
     // page number
     page_no: u16,
@@ -371,6 +369,8 @@ struct Page {
 
     // current line spacing.
     // set to zero on page-break and restored after the first widget.
+    effective_line_spacing: u16,
+    // line spacing
     line_spacing: u16,
 
     // current page x-positions
@@ -721,7 +721,10 @@ impl XPositions {
         layout_width: u16,
         mut border: Padding,
         mirror: bool,
-    ) -> XPositions {
+    ) -> XPositions
+    where
+        W: Eq + Hash + Clone + Debug,
+    {
         if mirror {
             mem::swap(&mut border.left, &mut border.right);
         }
@@ -825,7 +828,10 @@ impl XPositions {
 }
 
 impl Page {
-    fn new<W>(layout: &LayoutForm<W>, page: Size, border: Padding) -> Self {
+    fn new<W>(layout: &LayoutForm<W>, page: Size, border: Padding) -> Self
+    where
+        W: Eq + Hash + Clone + Debug,
+    {
         let even_pos = XPositions::new(layout, page.width, border, false);
         let odd_pos = XPositions::new(layout, page.width, border, true);
 
@@ -834,12 +840,12 @@ impl Page {
             height: page.height,
             top: border.top,
             bottom: border.bottom,
-            max_height: page.height.saturating_sub(border.top + border.bottom),
             page_no: 0,
             page_start: 0,
             page_end: page.height.saturating_sub(border.bottom),
             y: border.top,
-            line_spacing: 0,
+            effective_line_spacing: 0,
+            line_spacing: layout.line_spacing,
             pos: even_pos,
             even_pos,
             odd_pos,
@@ -854,7 +860,7 @@ impl Page {
             .page_start
             .saturating_add(self.height.saturating_sub(self.bottom));
         self.y = self.page_start.saturating_add(self.top);
-        self.line_spacing = 0;
+        self.effective_line_spacing = 0;
 
         if self.page_no % 2 == 0 {
             self.pos = self.even_pos;
@@ -864,9 +870,9 @@ impl Page {
     }
 
     // advance to next widget
-    fn start_next_widget(&mut self, adjust_spacing: u16) {
-        self.y = self.y.saturating_add(self.line_spacing);
-        self.line_spacing = adjust_spacing;
+    fn start_next_widget(&mut self) {
+        self.y = self.y.saturating_add(self.effective_line_spacing);
+        self.effective_line_spacing = self.line_spacing;
     }
 
     // add next widget's space
@@ -914,81 +920,49 @@ where
 
     // indexes into gen_layout for any generated areas that need y adjustment.
     let mut stretch = Vec::new();
-    let mut blocks = Vec::new();
+    let mut blocks_out = Vec::new();
 
-    for (idx, widget) in layout.widgets.into_iter().enumerate() {
+    for (idx, widget) in layout.widgets.iter_mut().enumerate() {
         // safe point
         saved_page = page;
 
         let mut label_area;
         let mut widget_area;
-        let mut advance;
 
-        // line spacing
-        page.start_next_widget(layout.line_spacing);
-        // start container
-        for cc in layout.blocks.iter_mut() {
-            if cc.range.start == idx {
-                page.start_container(cc);
-            }
-        }
-        // get areas + advance
-        (label_area, widget_area, advance) = areas_and_advance(&page, &widget, &page.pos);
-        page.next_widget(advance);
-        // end and push containers
-        for cc in layout.blocks.iter_mut().rev() {
-            if idx + 1 == cc.range.end {
-                page.end_container(cc);
-                blocks.push(cc.as_out());
-            }
-        }
+        (label_area, widget_area) = next_widget(
+            &mut page,
+            &mut layout.blocks,
+            widget,
+            idx,
+            false,
+            &mut blocks_out,
+        );
 
         // page overflow induces page-break
         if !endless && page.y.saturating_add(widget.opt_bottom_border) >= page.page_end {
             // reset safe-point
             page = saved_page;
             // any container areas are invalid
-            blocks.clear();
-
-            // close and push containers
-            // rev() ensures closing from innermost to outermost container.
-            for cc in layout.blocks.iter_mut().rev() {
-                if idx > cc.range.start && idx < cc.range.end {
-                    page.end_container(cc);
-                    blocks.push(cc.as_out());
-                    // restart on next page
-                    cc.range.start = idx;
-                }
-            }
-            // pop reverts the ordering for render
-            while let Some(cc) = blocks.pop() {
-                gen_layout.add_block(cc.area, cc.block);
-            }
-            // modify layout to add y-stretch
-            adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
-            // next page
-            page.next_page();
+            blocks_out.clear();
+            // page-break
+            page_break(
+                &mut layout.blocks,
+                &mut page,
+                idx,
+                &mut stretch,
+                &mut blocks_out,
+                &mut gen_layout,
+            );
 
             // redo current widget
-            // line spacing
-            page.start_next_widget(layout.line_spacing);
-            // start container
-            for cc in layout.blocks.iter_mut() {
-                if idx == cc.range.start {
-                    page.start_container(cc);
-                }
-            }
-            // get areas + advance
-            (label_area, widget_area, advance) = areas_and_advance(&page, &widget, &page.pos);
-            page.next_widget(advance);
-            // end and push containers
-            // rev() ensures closing from innermost to outermost container.
-            for cc in layout.blocks.iter_mut().rev() {
-                if idx + 1 == cc.range.end {
-                    page.end_container(cc);
-                    blocks.push(cc.as_out());
-                }
-            }
+            (label_area, widget_area) = next_widget(
+                &mut page,
+                &mut layout.blocks,
+                widget,
+                idx,
+                true,
+                &mut blocks_out,
+            );
         }
 
         // remember stretch widget.
@@ -997,35 +971,28 @@ where
         }
 
         // add label + widget
-        gen_layout.add(widget.id.clone(), widget_area, widget.label_str, label_area);
+        gen_layout.add(
+            widget.id.clone(),
+            widget_area,
+            widget.label_str.take(),
+            label_area,
+        );
 
         // pop reverts the ordering for render
-        while let Some(cc) = blocks.pop() {
+        while let Some(cc) = blocks_out.pop() {
             gen_layout.add_block(cc.area, cc.block);
         }
 
         // page-break after widget
         if !endless && layout.page_breaks.contains(&idx) {
-            // close and push containers
-            // rev() ensures closing from innermost to outermost container.
-            for cc in layout.blocks.iter_mut().rev() {
-                if idx + 1 > cc.range.start && idx + 1 < cc.range.end {
-                    page.end_container(cc);
-                    blocks.push(cc.as_out());
-                    // restart on next page
-                    cc.range.start = idx + 1;
-                }
-            }
-            // pop reverts the ordering for render
-            while let Some(cc) = blocks.pop() {
-                gen_layout.add_block(cc.area, cc.block);
-            }
-
-            // modify layout to add y-stretch
-            adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
-
-            // advance
-            page.next_page();
+            page_break(
+                &mut layout.blocks,
+                &mut page,
+                idx + 1,
+                &mut stretch,
+                &mut blocks_out,
+                &mut gen_layout,
+            );
         }
     }
 
@@ -1037,41 +1004,83 @@ where
     gen_layout
 }
 
-// fn page_break<W>(
-//     layout: &mut LayoutForm<W>,
-//     idx: usize,
-//     page: &mut Page,
-//     blocks: &mut Vec<BlockOut>,
-//     stretch: &mut Vec<usize>,
-//     gen_layout: &mut GenericLayout<W>,
-// ) {
-//     // close and push containers
-//     // rev() ensures closing from innermost to outermost container.
-//     for cc in layout.blocks.iter_mut().rev() {
-//         if idx + 1 > cc.range.start && idx + 1 < cc.range.end {
-//             page.end_container(cc);
-//             blocks.push(cc.as_out());
-//             // restart on next page
-//             cc.range.start = idx + 1;
-//         }
-//     }
-//     // pop reverts the ordering for render
-//     while let Some(cc) = blocks.pop() {
-//         gen_layout.add_block(cc.area, cc.block);
-//     }
-//
-//     // modify layout to add y-stretch
-//     adjust_y_stretch(&page, stretch, gen_layout);
-//
-//     // advance
-//     pos = page.next_page(&pos_even, &pos_odd);
-// }
+// add next widget
+fn next_widget<W>(
+    page: &mut Page,
+    block_def: &mut [BlockDef],
+    widget: &WidgetDef<W>,
+    idx: usize,
+    must_fit: bool,
+    blocks: &mut Vec<BlockOut>,
+) -> (Rect, Rect)
+where
+    W: Eq + Hash + Clone + Debug,
+{
+    // line spacing
+    page.start_next_widget();
+
+    // start container
+    for cc in block_def.iter_mut() {
+        if cc.range.start == idx {
+            page.start_container(cc);
+        }
+    }
+
+    // get areas + advance
+    let (label_area, widget_area, advance) = areas_and_advance(&page, &widget, must_fit, &page.pos);
+
+    page.next_widget(advance);
+
+    // end and push containers
+    for cc in block_def.iter_mut().rev() {
+        if idx + 1 == cc.range.end {
+            page.end_container(cc);
+            blocks.push(cc.as_out());
+        }
+    }
+
+    (label_area, widget_area)
+}
+
+// do a page-break
+fn page_break<W>(
+    block_def: &mut [BlockDef],
+    page: &mut Page,
+    idx: usize,
+    stretch: &mut Vec<usize>,
+    blocks_out: &mut Vec<BlockOut>,
+    gen_layout: &mut GenericLayout<W>,
+) where
+    W: Eq + Hash + Clone + Debug,
+{
+    // close and push containers
+    // rev() ensures closing from innermost to outermost container.
+    for cc in block_def.iter_mut().rev() {
+        if idx > cc.range.start && idx < cc.range.end {
+            page.end_container(cc);
+            blocks_out.push(cc.as_out());
+            // restart on next page
+            cc.range.start = idx;
+        }
+    }
+    // pop reverts the ordering for render
+    while let Some(cc) = blocks_out.pop() {
+        gen_layout.add_block(cc.area, cc.block);
+    }
+
+    // modify layout to add y-stretch
+    adjust_y_stretch(&page, stretch, gen_layout);
+
+    // advance
+    page.next_page();
+}
 
 // calculate widget and label area.
 // advance the page.y
 fn areas_and_advance<W: Debug + Clone>(
     page: &Page,
     widget: &WidgetDef<W>,
+    must_fit: bool,
     pos: &XPositions,
 ) -> (Rect, Rect, u16) {
     // [label]
@@ -1105,15 +1114,26 @@ fn areas_and_advance<W: Debug + Clone>(
     let stretch_width = page.pos.container_right.saturating_sub(pos.widget_x);
     let total_stretch_width = page.pos.container_right.saturating_sub(pos.label_x);
 
+    let max_height = if !must_fit {
+        page.height
+            .saturating_sub(page.top)
+            .saturating_sub(page.bottom)
+            .saturating_sub(widget.top_border)
+            .saturating_sub(widget.bottom_border)
+    } else {
+        page.height
+            .saturating_sub(page.bottom)
+            .saturating_add(page.page_start)
+            .saturating_sub(page.y)
+            .saturating_sub(widget.opt_bottom_border)
+    };
+
     if stacked {
-        let max_height = page
-            .max_height
-            .saturating_sub(widget.top_border + widget.bottom_border);
         if label_height + widget_height > max_height {
-            label_height = min(1, max_height.saturating_sub(widget_height));
+            label_height = max(1, max_height.saturating_sub(widget_height));
         }
         if label_height + widget_height > max_height {
-            widget_height = min(1, max_height.saturating_sub(label_height));
+            widget_height = max(1, max_height.saturating_sub(label_height));
         }
         if label_height + widget_height > max_height {
             label_height = 0;
@@ -1180,9 +1200,6 @@ fn areas_and_advance<W: Debug + Clone>(
             label_area.height + widget_area.height,
         )
     } else {
-        let max_height = page
-            .max_height
-            .saturating_sub(widget.top_border + widget.bottom_border);
         label_height = min(label_height, max_height);
         widget_height = min(widget_height, max_height);
 
