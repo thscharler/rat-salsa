@@ -328,7 +328,7 @@ struct BlockOut {
 
 // effective positions for layout construction.
 #[derive(Debug, Default, Clone, Copy)]
-struct Positions {
+struct XPositions {
     // label position
     label_x: u16,
     // label width, max.
@@ -373,10 +373,13 @@ struct Page {
     // set to zero on page-break and restored after the first widget.
     line_spacing: u16,
 
-    // container left pos
-    container_left: u16,
-    // container right pos
-    container_right: u16,
+    // current page x-positions
+    pos: XPositions,
+
+    // x-positions for an even page
+    even_pos: XPositions,
+    // x-positions for an odd page
+    odd_pos: XPositions,
 }
 
 impl BlockDef {
@@ -553,14 +556,6 @@ where
         panic!("No open container.");
     }
 
-    fn validate_containers(&self) {
-        for cc in self.blocks.iter() {
-            if cc.constructing {
-                panic!("Unclosed container {:?}", cc.id);
-            }
-        }
-    }
-
     /// Add label + widget constraint.
     /// Key must be a unique identifier.
     pub fn widget(&mut self, key: W, label: FormLabel, widget: FormWidget) {
@@ -625,6 +620,14 @@ where
         self.page_breaks.push(self.widgets.len() - 1);
     }
 
+    fn validate_containers(&self) {
+        for cc in self.blocks.iter() {
+            if cc.constructing {
+                panic!("Unclosed container {:?}", cc.id);
+            }
+        }
+    }
+
     // Adjust widths to the available sapce.
     fn adjust_widths(&mut self, page_width: u16) {
         // cut excess
@@ -679,115 +682,6 @@ where
         }
     }
 
-    // Find horizontal positions for label and widget for odd pages.
-    fn find_odd_pos(&self, layout_width: u16, mut page_border: Padding) -> Positions {
-        if self.mirror_border {
-            mem::swap(&mut page_border.right, &mut page_border.left);
-            self.find_pos(layout_width, page_border)
-        } else {
-            self.find_pos(layout_width, page_border)
-        }
-    }
-
-    // Find horizontal positions for label and widget.
-    fn find_pos(&self, layout_width: u16, border: Padding) -> Positions {
-        let label_x;
-        let widget_x;
-        let container_left;
-        let container_right;
-        let total_width;
-
-        match self.flex {
-            Flex::Legacy => {
-                label_x = border.left + self.max_left_padding;
-                widget_x = label_x + self.max_label + self.spacing;
-
-                container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = layout_width.saturating_sub(border.right);
-
-                total_width = self.max_label + self.spacing + self.max_widget;
-            }
-            Flex::Start => {
-                label_x = border.left + self.max_left_padding;
-                widget_x = label_x + self.max_label + self.spacing;
-
-                container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = widget_x + self.max_widget + self.max_right_padding;
-
-                total_width = self.max_label + self.spacing + self.max_widget;
-            }
-            Flex::Center => {
-                let rest = layout_width.saturating_sub(
-                    border.left
-                        + self.max_left_padding
-                        + self.max_label
-                        + self.spacing
-                        + self.max_widget
-                        + self.max_right_padding
-                        + border.right,
-                );
-                label_x = border.left + self.max_left_padding + rest / 2;
-                widget_x = label_x + self.max_label + self.spacing;
-
-                container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = widget_x + self.max_widget + self.max_right_padding;
-
-                total_width = self.max_label + self.spacing + self.max_widget;
-            }
-            Flex::End => {
-                widget_x = layout_width
-                    .saturating_sub(border.right + self.max_right_padding + self.max_widget);
-                label_x = widget_x.saturating_sub(self.spacing + self.max_label);
-
-                container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = layout_width.saturating_sub(border.right);
-
-                total_width = self.max_label + self.spacing + self.max_widget;
-            }
-            Flex::SpaceAround => {
-                let rest = layout_width.saturating_sub(
-                    border.left
-                        + self.max_left_padding
-                        + self.max_label
-                        + self.max_widget
-                        + self.max_right_padding
-                        + border.right,
-                );
-                let spacing = rest / 3;
-
-                label_x = border.left + self.max_left_padding + spacing;
-                widget_x = label_x + self.max_label + spacing;
-
-                container_left = border.left;
-                container_right = layout_width.saturating_sub(border.right);
-
-                total_width = self.max_label + spacing + self.max_widget;
-            }
-            Flex::SpaceBetween => {
-                label_x = border.left + self.max_left_padding;
-                widget_x = layout_width
-                    .saturating_sub(border.right + self.max_right_padding + self.max_widget);
-
-                container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = layout_width.saturating_sub(border.right);
-
-                total_width = layout_width.saturating_sub(
-                    border.left + self.max_left_padding + border.right + self.max_right_padding,
-                );
-            }
-        }
-
-        Positions {
-            container_left,
-            label_x,
-            label_width: self.max_label,
-            widget_x,
-            widget_width: self.max_widget,
-            container_right,
-            total_width,
-        }
-    }
-
     /// Calculate a layout without page-breaks using the given layout-width and padding.
     #[inline(always)]
     #[deprecated(since = "1.2.0", note = "use build_endless")]
@@ -821,9 +715,139 @@ where
     }
 }
 
+impl XPositions {
+    fn new<W>(
+        layout: &LayoutForm<W>,
+        layout_width: u16,
+        mut border: Padding,
+        mirror: bool,
+    ) -> XPositions {
+        if mirror {
+            mem::swap(&mut border.left, &mut border.right);
+        }
+
+        let label_x;
+        let widget_x;
+        let container_left;
+        let container_right;
+        let total_width;
+
+        match layout.flex {
+            Flex::Legacy => {
+                label_x = border.left + layout.max_left_padding;
+                widget_x = label_x + layout.max_label + layout.spacing;
+
+                container_left = label_x.saturating_sub(layout.max_left_padding);
+                container_right = layout_width.saturating_sub(border.right);
+
+                total_width = layout.max_label + layout.spacing + layout.max_widget;
+            }
+            Flex::Start => {
+                label_x = border.left + layout.max_left_padding;
+                widget_x = label_x + layout.max_label + layout.spacing;
+
+                container_left = label_x.saturating_sub(layout.max_left_padding);
+                container_right = widget_x + layout.max_widget + layout.max_right_padding;
+
+                total_width = layout.max_label + layout.spacing + layout.max_widget;
+            }
+            Flex::Center => {
+                let rest = layout_width.saturating_sub(
+                    border.left
+                        + layout.max_left_padding
+                        + layout.max_label
+                        + layout.spacing
+                        + layout.max_widget
+                        + layout.max_right_padding
+                        + border.right,
+                );
+                label_x = border.left + layout.max_left_padding + rest / 2;
+                widget_x = label_x + layout.max_label + layout.spacing;
+
+                container_left = label_x.saturating_sub(layout.max_left_padding);
+                container_right = widget_x + layout.max_widget + layout.max_right_padding;
+
+                total_width = layout.max_label + layout.spacing + layout.max_widget;
+            }
+            Flex::End => {
+                widget_x = layout_width
+                    .saturating_sub(border.right + layout.max_right_padding + layout.max_widget);
+                label_x = widget_x.saturating_sub(layout.spacing + layout.max_label);
+
+                container_left = label_x.saturating_sub(layout.max_left_padding);
+                container_right = layout_width.saturating_sub(border.right);
+
+                total_width = layout.max_label + layout.spacing + layout.max_widget;
+            }
+            Flex::SpaceAround => {
+                let rest = layout_width.saturating_sub(
+                    border.left
+                        + layout.max_left_padding
+                        + layout.max_label
+                        + layout.max_widget
+                        + layout.max_right_padding
+                        + border.right,
+                );
+                let spacing = rest / 3;
+
+                label_x = border.left + layout.max_left_padding + spacing;
+                widget_x = label_x + layout.max_label + spacing;
+
+                container_left = border.left;
+                container_right = layout_width.saturating_sub(border.right);
+
+                total_width = layout.max_label + spacing + layout.max_widget;
+            }
+            Flex::SpaceBetween => {
+                label_x = border.left + layout.max_left_padding;
+                widget_x = layout_width
+                    .saturating_sub(border.right + layout.max_right_padding + layout.max_widget);
+
+                container_left = label_x.saturating_sub(layout.max_left_padding);
+                container_right = layout_width.saturating_sub(border.right);
+
+                total_width = layout_width.saturating_sub(
+                    border.left + layout.max_left_padding + border.right + layout.max_right_padding,
+                );
+            }
+        }
+
+        XPositions {
+            container_left,
+            label_x,
+            label_width: layout.max_label,
+            widget_x,
+            widget_width: layout.max_widget,
+            container_right,
+            total_width,
+        }
+    }
+}
+
 impl Page {
+    fn new<W>(layout: &LayoutForm<W>, page: Size, border: Padding) -> Self {
+        let even_pos = XPositions::new(layout, page.width, border, false);
+        let odd_pos = XPositions::new(layout, page.width, border, true);
+
+        Self {
+            width: page.width,
+            height: page.height,
+            top: border.top,
+            bottom: border.bottom,
+            max_height: page.height.saturating_sub(border.top + border.bottom),
+            page_no: 0,
+            page_start: 0,
+            page_end: page.height.saturating_sub(border.bottom),
+            y: border.top,
+            line_spacing: 0,
+            pos: even_pos,
+            even_pos,
+            odd_pos,
+        }
+    }
+
     // advance to next page
-    fn next_page<'a>(&mut self, pos_even: &'a Positions, pos_odd: &'a Positions) -> &'a Positions {
+    fn next_page<'a>(&mut self) {
         self.page_no += 1;
         self.page_start = self.page_no.saturating_mul(self.height);
         self.page_end = self
@@ -833,9 +857,9 @@ impl Page {
         self.line_spacing = 0;
 
         if self.page_no % 2 == 0 {
-            pos_even
+            self.pos = self.even_pos;
         } else {
-            pos_odd
+            self.pos = self.odd_pos;
         }
     }
 
@@ -853,21 +877,24 @@ impl Page {
     // close the given container
     fn end_container(&mut self, cc: &mut BlockDef) {
         self.y = self.y.saturating_add(cc.padding.bottom);
-        self.container_left = self.container_left.saturating_sub(cc.padding.left);
-        self.container_right = self.container_right.saturating_add(cc.padding.right);
+        self.pos.container_left = self.pos.container_left.saturating_sub(cc.padding.left);
+        self.pos.container_right = self.pos.container_right.saturating_add(cc.padding.right);
 
         cc.area.height = self.y.saturating_sub(cc.area.y);
     }
 
     // open the given container
     fn start_container(&mut self, cc: &mut BlockDef) {
-        cc.area.x = self.container_left;
-        cc.area.width = self.container_right.saturating_sub(self.container_left);
+        cc.area.x = self.pos.container_left;
+        cc.area.width = self
+            .pos
+            .container_right
+            .saturating_sub(self.pos.container_left);
         cc.area.y = self.y;
 
         self.y = self.y.saturating_add(cc.padding.top);
-        self.container_left = self.container_left.saturating_add(cc.padding.left);
-        self.container_right = self.container_right.saturating_sub(cc.padding.right);
+        self.pos.container_left = self.pos.container_left.saturating_add(cc.padding.left);
+        self.pos.container_right = self.pos.container_right.saturating_sub(cc.padding.right);
     }
 }
 
@@ -876,41 +903,26 @@ fn build_layout<W>(mut layout: LayoutForm<W>, page: Size, endless: bool) -> Gene
 where
     W: Eq + Hash + Clone + Debug,
 {
-    let pos_even = layout.find_pos(page.width, layout.page_border);
-    let pos_odd = layout.find_odd_pos(page.width, layout.page_border);
-
-    let mut gen_layout = GenericLayout::with_capacity(layout.widgets.len(), layout.blocks.len());
+    let mut gen_layout = GenericLayout::with_capacity(
+        layout.widgets.len(), //
+        layout.blocks.len(),
+    );
     gen_layout.set_page_size(page);
 
-    let mut pos = &pos_even;
     let mut saved_page;
-    let mut page = Page {
-        width: page.width,
-        height: page.height,
-        top: layout.page_border.top,
-        bottom: layout.page_border.bottom,
-        max_height: page
-            .height
-            .saturating_sub(layout.page_border.top + layout.page_border.bottom),
-
-        page_no: 0,
-        page_start: 0,
-        page_end: page.height.saturating_sub(layout.page_border.bottom),
-        y: layout.page_border.top,
-
-        line_spacing: 0,
-
-        container_left: pos.container_left,
-        container_right: pos.container_right,
-    };
+    let mut page = Page::new(&layout, page, layout.page_border);
 
     // indexes into gen_layout for any generated areas that need y adjustment.
-    let mut stretch_y = Vec::new();
-    let mut open_containers = Vec::new();
+    let mut stretch = Vec::new();
+    let mut blocks = Vec::new();
 
     for (idx, widget) in layout.widgets.into_iter().enumerate() {
         // safe point
         saved_page = page;
+
+        let mut label_area;
+        let mut widget_area;
+        let mut advance;
 
         // line spacing
         page.start_next_widget(layout.line_spacing);
@@ -921,14 +933,13 @@ where
             }
         }
         // get areas + advance
-        let (mut label_area, mut widget_area, mut advance) = areas_and_advance(&page, &widget, pos);
+        (label_area, widget_area, advance) = areas_and_advance(&page, &widget, &page.pos);
         page.next_widget(advance);
-
         // end and push containers
         for cc in layout.blocks.iter_mut().rev() {
             if idx + 1 == cc.range.end {
                 page.end_container(cc);
-                open_containers.push(cc.as_out());
+                blocks.push(cc.as_out());
             }
         }
 
@@ -937,31 +948,28 @@ where
             // reset safe-point
             page = saved_page;
             // any container areas are invalid
-            open_containers.clear();
+            blocks.clear();
 
             // close and push containers
             // rev() ensures closing from innermost to outermost container.
             for cc in layout.blocks.iter_mut().rev() {
                 if idx > cc.range.start && idx < cc.range.end {
                     page.end_container(cc);
-                    open_containers.push(cc.as_out());
+                    blocks.push(cc.as_out());
                     // restart on next page
                     cc.range.start = idx;
                 }
             }
             // pop reverts the ordering for render
-            while let Some(cc) = open_containers.pop() {
+            while let Some(cc) = blocks.pop() {
                 gen_layout.add_block(cc.area, cc.block);
             }
-
             // modify layout to add y-stretch
-            adjust_y_stretch(&page, &mut stretch_y, &mut gen_layout);
-
-            // advance
-            pos = page.next_page(&pos_even, &pos_odd);
+            adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
+            // next page
+            page.next_page();
 
             // redo current widget
-
             // line spacing
             page.start_next_widget(layout.line_spacing);
             // start container
@@ -971,27 +979,28 @@ where
                 }
             }
             // get areas + advance
-            (label_area, widget_area, advance) = areas_and_advance(&page, &widget, pos);
+            (label_area, widget_area, advance) = areas_and_advance(&page, &widget, &page.pos);
             page.next_widget(advance);
-
             // end and push containers
             // rev() ensures closing from innermost to outermost container.
             for cc in layout.blocks.iter_mut().rev() {
                 if idx + 1 == cc.range.end {
                     page.end_container(cc);
-                    open_containers.push(cc.as_out());
+                    blocks.push(cc.as_out());
                 }
             }
         }
 
         // remember stretch widget.
         if !endless && widget.widget.is_stretch_y() {
-            stretch_y.push(gen_layout.widget_len());
+            stretch.push(gen_layout.widget_len());
         }
+
         // add label + widget
         gen_layout.add(widget.id.clone(), widget_area, widget.label_str, label_area);
+
         // pop reverts the ordering for render
-        while let Some(cc) = open_containers.pop() {
+        while let Some(cc) = blocks.pop() {
             gen_layout.add_block(cc.area, cc.block);
         }
 
@@ -1002,38 +1011,68 @@ where
             for cc in layout.blocks.iter_mut().rev() {
                 if idx + 1 > cc.range.start && idx + 1 < cc.range.end {
                     page.end_container(cc);
-                    open_containers.push(cc.as_out());
+                    blocks.push(cc.as_out());
                     // restart on next page
                     cc.range.start = idx + 1;
                 }
             }
             // pop reverts the ordering for render
-            while let Some(cc) = open_containers.pop() {
+            while let Some(cc) = blocks.pop() {
                 gen_layout.add_block(cc.area, cc.block);
             }
 
             // modify layout to add y-stretch
-            adjust_y_stretch(&page, &mut stretch_y, &mut gen_layout);
+            adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
 
             // advance
-            pos = page.next_page(&pos_even, &pos_odd);
+            page.next_page();
         }
     }
 
     // modify layout to add y-stretch
-    adjust_y_stretch(&page, &mut stretch_y, &mut gen_layout);
+    adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
 
     gen_layout.set_page_count((page.page_no + 1) as usize);
 
     gen_layout
 }
 
+// fn page_break<W>(
+//     layout: &mut LayoutForm<W>,
+//     idx: usize,
+//     page: &mut Page,
+//     blocks: &mut Vec<BlockOut>,
+//     stretch: &mut Vec<usize>,
+//     gen_layout: &mut GenericLayout<W>,
+// ) {
+//     // close and push containers
+//     // rev() ensures closing from innermost to outermost container.
+//     for cc in layout.blocks.iter_mut().rev() {
+//         if idx + 1 > cc.range.start && idx + 1 < cc.range.end {
+//             page.end_container(cc);
+//             blocks.push(cc.as_out());
+//             // restart on next page
+//             cc.range.start = idx + 1;
+//         }
+//     }
+//     // pop reverts the ordering for render
+//     while let Some(cc) = blocks.pop() {
+//         gen_layout.add_block(cc.area, cc.block);
+//     }
+//
+//     // modify layout to add y-stretch
+//     adjust_y_stretch(&page, stretch, gen_layout);
+//
+//     // advance
+//     pos = page.next_page(&pos_even, &pos_odd);
+// }
+
 // calculate widget and label area.
 // advance the page.y
 fn areas_and_advance<W: Debug + Clone>(
     page: &Page,
     widget: &WidgetDef<W>,
-    pos: &Positions,
+    pos: &XPositions,
 ) -> (Rect, Rect, u16) {
     // [label]
     // [widget]
@@ -1063,8 +1102,8 @@ fn areas_and_advance<W: Debug + Clone>(
         FormWidget::WideStretchXY(_, h) => *h,
     };
 
-    let stretch_width = page.container_right.saturating_sub(pos.widget_x);
-    let total_stretch_width = page.container_right.saturating_sub(pos.label_x);
+    let stretch_width = page.pos.container_right.saturating_sub(pos.widget_x);
+    let total_stretch_width = page.pos.container_right.saturating_sub(pos.label_x);
 
     if stacked {
         let max_height = page
