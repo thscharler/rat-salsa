@@ -2,8 +2,8 @@
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, HandleEvent, Regular};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -12,10 +12,10 @@ use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
 use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
+use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
-use ratatui::Frame;
 use std::array;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -168,9 +168,7 @@ fn repaint_input(
             }
         }
 
-        state.layout = Rc::new(RefCell::new(
-            form_layout.paged(layout_size, Padding::default()),
-        ));
+        state.layout = Rc::new(RefCell::new(form_layout.build_paged(layout_size)));
         state
             .page_nav
             .set_page_count((state.layout.borrow().page_count() + 1) / 2);

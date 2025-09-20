@@ -118,6 +118,7 @@ fn repaint_input(
         let mut lf = LayoutForm::new() //
             .spacing(1)
             .line_spacing(1)
+            .border(Padding::new(2, 2, 1, 1))
             .flex(Flex::Legacy);
 
         lf.widget(state.name.id(), L::Str("_Name|F5"), W::Width(20));
@@ -138,7 +139,7 @@ fn repaint_input(
 
         state
             .form
-            .set_layout(lf.paged(form.layout_size(l2[0]), Padding::new(2, 2, 1, 1)));
+            .set_layout(lf.build_paged(form.layout_size(l2[0])));
     }
     // set current layout and prepare rendering.
     let mut form = form.into_buffer(l2[0], frame.buffer_mut(), &mut state.form);

@@ -2,8 +2,8 @@
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, HandleEvent, Regular};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -11,9 +11,9 @@ use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use rat_widget::pager::{DualPager, DualPagerState};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Padding;
-use ratatui::Frame;
 use std::array;
 
 mod mini_salsa;
@@ -83,7 +83,10 @@ fn repaint_input(
     // maybe rebuild layout
     let layout_size = pager.layout_size(l2[1]);
     if !state.pager.valid_layout(layout_size) {
-        let mut form = LayoutForm::new().mirror_odd_border().min_widget(40);
+        let mut form = LayoutForm::new()
+            .mirror_odd_border()
+            .min_widget(40)
+            .border(Padding::new(2, 1, 1, 0));
 
         for i in 0..state.hundred.len() {
             let h = if i == 0 {
@@ -108,9 +111,7 @@ fn repaint_input(
                 form.page_break();
             }
         }
-        state
-            .pager
-            .set_layout(form.paged(layout_size, Padding::new(2, 1, 1, 0)));
+        state.pager.set_layout(form.build_paged(layout_size));
     }
 
     // set current layout and prepare rendering.
