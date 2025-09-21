@@ -925,15 +925,15 @@ impl Page {
             flex: layout.flex,
             max_left_padding: layout.max_left_padding,
             max_right_padding: layout.max_right_padding,
-            max_label: max_label,
-            max_widget: max_widget,
+            max_label,
+            max_widget,
             width: page_size.width,
             height: page_size.height,
             top: layout.page_border.top,
             bottom: layout.page_border.bottom,
             columns: layout.columns,
             column_spacing: layout.column_spacing,
-            spacing: spacing,
+            spacing,
             line_spacing: layout.line_spacing,
             page_no: 0,
             page_start: 0,
@@ -1081,7 +1081,7 @@ where
     // modify layout to add y-stretch
     adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
 
-    gen_layout.set_page_count((page.page_no + 1) as usize);
+    gen_layout.set_page_count(((page.page_no + page.columns) / page.columns) as usize);
 
     gen_layout
 }
@@ -1141,7 +1141,7 @@ fn page_break<W>(
     let column = page.page_no % page.columns;
     let mirror = (page.page_no / page.columns) % 2 == 1;
 
-    page.page_start = page.page_no.saturating_mul(page.height);
+    page.page_start = (page.page_no / page.columns).saturating_mul(page.height);
     page.page_end = page
         .page_start
         .saturating_add(page.height.saturating_sub(page.bottom));
