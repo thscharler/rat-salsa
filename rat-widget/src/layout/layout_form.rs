@@ -1019,6 +1019,8 @@ fn drop_blocks(block_def: &mut VecDeque<BlockDef>, idx: usize) {
             } else {
                 break;
             }
+        } else {
+            break;
         }
     }
 }

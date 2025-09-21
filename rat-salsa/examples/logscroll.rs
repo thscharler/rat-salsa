@@ -454,16 +454,16 @@ mod logscroll {
             .vscroll(Scroll::new())
             .hscroll(Scroll::new())
             .styles(ctx.theme.textarea_style())
-            .text_style_idx(0, ctx.theme.orange(0))
-            .text_style_idx(1, ctx.theme.yellow(0))
-            .text_style_idx(2, ctx.theme.green(0))
-            .text_style_idx(3, ctx.theme.bluegreen(0))
-            .text_style_idx(4, ctx.theme.cyan(0))
-            .text_style_idx(5, ctx.theme.blue(0))
-            .text_style_idx(6, ctx.theme.deepblue(0))
-            .text_style_idx(7, ctx.theme.purple(0))
-            .text_style_idx(8, ctx.theme.magenta(0))
-            .text_style_idx(9, ctx.theme.redpink(0))
+            .text_style_idx(0, ctx.theme.orange(6))
+            .text_style_idx(1, ctx.theme.yellow(6))
+            .text_style_idx(2, ctx.theme.green(6))
+            .text_style_idx(3, ctx.theme.bluegreen(6))
+            .text_style_idx(4, ctx.theme.cyan(6))
+            .text_style_idx(5, ctx.theme.blue(6))
+            .text_style_idx(6, ctx.theme.deepblue(6))
+            .text_style_idx(7, ctx.theme.purple(6))
+            .text_style_idx(8, ctx.theme.magenta(6))
+            .text_style_idx(9, ctx.theme.redpink(6))
             .text_style_idx(99, ctx.theme.secondary(2))
             .text_style_idx(101, ctx.theme.limegreen(2))
             .render(ls[0], buf, &mut state.logtext);
@@ -514,16 +514,16 @@ mod logscroll {
     impl<'a> FindData<'a> {
         fn color(&self, n: usize) -> Style {
             match n {
-                0 => self.theme.orange(0),
-                1 => self.theme.yellow(0),
-                2 => self.theme.green(0),
-                3 => self.theme.bluegreen(0),
-                4 => self.theme.cyan(0),
-                5 => self.theme.blue(0),
-                6 => self.theme.deepblue(0),
-                7 => self.theme.purple(0),
-                8 => self.theme.magenta(0),
-                _ => self.theme.redpink(0),
+                0 => self.theme.orange(6),
+                1 => self.theme.yellow(6),
+                2 => self.theme.green(6),
+                3 => self.theme.bluegreen(6),
+                4 => self.theme.cyan(6),
+                5 => self.theme.blue(6),
+                6 => self.theme.deepblue(6),
+                7 => self.theme.purple(6),
+                8 => self.theme.magenta(6),
+                _ => self.theme.redpink(6),
             }
         }
     }
@@ -868,6 +868,7 @@ mod logscroll {
                             .unwrap_or(0);
                         let pos = (pos + 1) % themes.len();
                         ctx.theme = themes[pos].clone();
+                        ctx.queue_event(LogScrollEvent::StoreCfg);
                         ctx.queue_event(LogScrollEvent::Status(0, ctx.theme.name().into()));
                         Control::Changed
                     }
@@ -1058,6 +1059,10 @@ Ctrl+Q  quit
 
 Tab/
 Shift-Tab   standard navigation
+
+### Find ###
+
+Use '|' to separate search terms.
 
 ### Log ###
 Ctrl+End    jump to end of log and stick there

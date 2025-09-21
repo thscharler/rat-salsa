@@ -190,9 +190,6 @@ where
 
         self.page_nav.render(area, buf, &mut state.nav);
 
-        buf.set_style(state.nav.widget_areas[0], Style::new().on_blue());
-        buf.set_style(state.nav.widget_areas[1], Style::new().on_dark_gray());
-
         let buf = Rc::new(RefCell::new(buf));
         DualPagerBuffer {
             pager0: self

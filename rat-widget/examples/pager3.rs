@@ -36,6 +36,7 @@ fn main() -> Result<(), anyhow::Error> {
         n_focus: 0.0,
         focus: Default::default(),
         flex: Default::default(),
+        line_spacing: 1,
         layout: Default::default(),
         page_nav: Default::default(),
         hundred: array::from_fn(|n| TextInputMockState::named(format!("{}", n).as_str())),
@@ -60,6 +61,7 @@ struct State {
     n_focus: f64,
     focus: Option<Focus>,
     flex: Flex,
+    line_spacing: u16,
     layout: Rc<RefCell<GenericLayout<FocusFlag>>>,
     page_nav: PageNavigationState,
     hundred: [TextInputMockState; HUN],
@@ -74,7 +76,7 @@ fn repaint_input(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     if istate.status[0] == "Ctrl-Q to quit." {
-        istate.status[0] = "Ctrl-Q to quit. F2 flex. F4/F5 navigate page.".into();
+        istate.status[0] = "Ctrl-Q to quit. F2 flex. F3 line sp. F4/F5 navigate page.".into();
     }
 
     let l1 = Layout::vertical([
@@ -109,7 +111,7 @@ fn repaint_input(
         let mut form_layout = LayoutForm::new()
             .spacing(1)
             .flex(state.flex)
-            .line_spacing(1)
+            .line_spacing(state.line_spacing)
             .min_label(10);
 
         // generate the layout ...
@@ -309,6 +311,16 @@ fn handle_input(
                 Flex::Center => Flex::SpaceBetween,
                 Flex::SpaceBetween => Flex::SpaceAround,
                 Flex::SpaceAround => Flex::Legacy,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(3)) => {
+            state.layout = Default::default();
+            state.line_spacing = match state.line_spacing {
+                0 => 1,
+                1 => 2,
+                2 => 3,
+                _ => 0,
             };
             Outcome::Changed
         }

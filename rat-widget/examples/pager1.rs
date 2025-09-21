@@ -67,7 +67,7 @@ fn repaint_input(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     if istate.status[0] == "Ctrl-Q to quit." {
-        istate.status[0] = "Ctrl-Q to quit. F2 line sp. F3 flex. F4/F5 navigate page.".into();
+        istate.status[0] = "Ctrl-Q to quit. F2 flex. F3 line sp. F4/F5 navigate page.".into();
     }
 
     let l1 = Layout::vertical([
