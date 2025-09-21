@@ -727,8 +727,12 @@ impl XPositions {
             page.page_border
         };
 
-        let layout_width = page.full_width;
+        let layout_width = page
+            .full_width
+            .saturating_sub(border.left)
+            .saturating_sub(border.right);
 
+        let offset;
         let label_left;
         let widget_left;
         let container_left;
@@ -737,99 +741,114 @@ impl XPositions {
 
         match page.flex {
             Flex::Legacy => {
-                label_left = border.left + page.max_left_padding;
+                offset = border.left;
+                label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
-                widget_right = layout_width
-                    .saturating_sub(border.right)
-                    .saturating_sub(page.max_right_padding);
+                widget_right = layout_width.saturating_sub(page.max_right_padding);
 
-                container_left = label_left.saturating_sub(page.max_left_padding);
-                container_right = layout_width.saturating_sub(border.right);
+                container_left = 0;
+                container_right = layout_width;
             }
             Flex::Start => {
-                label_left = border.left + page.max_left_padding;
+                offset = border.left;
+                label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
                 widget_right = widget_left + page.max_widget;
 
-                container_left = label_left.saturating_sub(page.max_left_padding);
-                container_right = widget_left + page.max_widget + page.max_right_padding;
+                container_left = 0;
+                container_right = widget_right + page.max_right_padding;
             }
             Flex::Center => {
-                let rest = layout_width
-                    .saturating_sub(border.left)
-                    .saturating_sub(page.max_left_padding)
-                    .saturating_sub(page.max_label)
-                    .saturating_sub(page.spacing)
-                    .saturating_sub(page.max_widget)
-                    .saturating_sub(page.max_right_padding)
-                    .saturating_sub(border.right);
+                let single_width = page.max_left_padding
+                    + page.max_label
+                    + page.spacing
+                    + page.max_widget
+                    + page.max_right_padding;
 
-                label_left = border.left + page.max_left_padding + rest / 2;
+                let rest = page
+                    .full_width
+                    .saturating_sub(border.left)
+                    .saturating_sub(border.right)
+                    .saturating_sub(single_width);
+
+                offset = border.left + rest / 2;
+                label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
                 widget_right = widget_left + page.max_widget;
 
-                container_left = label_left.saturating_sub(page.max_left_padding);
-                container_right = widget_left + page.max_widget + page.max_right_padding;
+                container_left = 0;
+                container_right = widget_right + page.max_right_padding;
             }
             Flex::End => {
-                widget_left = layout_width
-                    .saturating_sub(border.right)
-                    .saturating_sub(page.max_right_padding)
-                    .saturating_sub(page.max_widget);
-                label_left = widget_left
-                    .saturating_sub(page.spacing)
-                    .saturating_sub(page.max_label);
-                widget_right = layout_width
-                    .saturating_sub(border.right)
-                    .saturating_sub(page.max_right_padding);
+                let single_width = page.max_left_padding
+                    + page.max_label
+                    + page.spacing
+                    + page.max_widget
+                    + page.max_right_padding;
 
-                container_left = label_left.saturating_sub(page.max_left_padding);
-                container_right = layout_width.saturating_sub(border.right);
+                offset = page
+                    .full_width
+                    .saturating_sub(border.right)
+                    .saturating_sub(single_width);
+                label_left = page.max_left_padding;
+                widget_left = label_left + page.max_label + page.spacing;
+                widget_right = widget_left + page.max_widget;
+
+                container_left = 0;
+                container_right = widget_right + page.max_right_padding;
             }
             Flex::SpaceAround => {
-                let rest = layout_width
+                let single_width = page.max_left_padding
+                    + page.max_label
+                    + page.spacing
+                    + page.max_widget
+                    + page.max_right_padding;
+                let rest = page
+                    .full_width
                     .saturating_sub(border.left)
-                    .saturating_sub(page.max_left_padding)
-                    .saturating_sub(page.max_label)
-                    .saturating_sub(page.max_widget)
-                    .saturating_sub(page.max_right_padding)
-                    .saturating_sub(border.right);
-                let spacing = rest / 3;
-
-                label_left = border.left + page.max_left_padding + spacing;
-                widget_left = label_left + page.max_label + spacing;
-                widget_right = layout_width
                     .saturating_sub(border.right)
-                    .saturating_sub(page.max_right_padding)
-                    .saturating_sub(spacing);
+                    .saturating_sub(single_width);
+                let spacing = rest / 2;
 
-                container_left = border.left;
-                container_right = layout_width.saturating_sub(border.right);
+                offset = border.left + spacing;
+                label_left = page.max_left_padding;
+                widget_left = label_left + page.max_label + page.spacing;
+                widget_right = widget_left + page.max_widget;
+
+                container_left = 0;
+                container_right = widget_right + page.max_right_padding;
             }
             Flex::SpaceBetween => {
-                label_left = border.left + page.max_left_padding;
-                widget_left = layout_width
+                let single_width = page.max_left_padding
+                    + page.max_label
+                    + page.max_widget
+                    + page.max_right_padding;
+                let rest = page
+                    .full_width
+                    .saturating_sub(border.left)
                     .saturating_sub(border.right)
-                    .saturating_sub(page.max_right_padding)
-                    .saturating_sub(page.max_widget);
-                widget_right = layout_width
-                    .saturating_sub(border.right)
-                    .saturating_sub(page.max_right_padding);
+                    .saturating_sub(single_width);
+                let spacing = rest / 3;
 
-                container_left = label_left.saturating_sub(page.max_left_padding);
-                container_right = layout_width.saturating_sub(border.right);
+                offset = border.left + spacing;
+                label_left = page.max_left_padding;
+                widget_left = label_left + page.max_label + spacing;
+                widget_right = widget_left + page.max_widget;
+
+                container_left = 0;
+                container_right = widget_right + page.max_right_padding;
             }
         }
 
         XPositions {
-            container_left,
-            label_left,
+            container_left: offset + container_left,
+            label_left: offset + label_left,
             label_width: page.max_label,
-            widget_left,
+            widget_left: offset + widget_left,
             widget_width: page.max_widget,
-            container_right,
+            container_right: offset + container_right,
             total_width: widget_right - label_left,
-            widget_right,
+            widget_right: offset + widget_right,
         }
     }
 }
