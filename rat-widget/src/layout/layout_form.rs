@@ -683,30 +683,6 @@ where
         }
     }
 
-    // remove top/bottom border when squeezed.
-    fn adjust_blocks(&mut self, page_height: u16) {
-        if page_height < 3 {
-            for block_def in self.blocks.iter_mut() {
-                if let Some(block) = block_def.block.as_mut() {
-                    let padding = block_padding2(block);
-                    let borders = if padding.left > 0 {
-                        Borders::LEFT
-                    } else {
-                        Borders::NONE
-                    } | if padding.right > 0 {
-                        Borders::RIGHT
-                    } else {
-                        Borders::NONE
-                    };
-
-                    *block = mem::take(block).borders(borders);
-                    block_def.padding.top = 0;
-                    block_def.padding.bottom = 0;
-                }
-            }
-        }
-    }
-
     /// Calculate a layout without page-breaks using the given layout-width and padding.
     #[inline(always)]
     #[deprecated(since = "1.2.0", note = "use build_endless")]
@@ -725,16 +701,15 @@ where
 
     /// Calculate a layout without page-breaks using the given layout-width and padding.
     #[inline(always)]
-    pub fn build_endless(mut self, width: u16) -> GenericLayout<W> {
+    pub fn build_endless(self, width: u16) -> GenericLayout<W> {
         self.validate_containers();
         build_layout(self, Size::new(width, u16::MAX), true)
     }
 
     /// Calculate the layout for the given page size and padding.
     #[inline(always)]
-    pub fn build_paged(mut self, page: Size) -> GenericLayout<W> {
+    pub fn build_paged(self, page: Size) -> GenericLayout<W> {
         self.validate_containers();
-        self.adjust_blocks(page.height);
         build_layout(self, page, false)
     }
 }
@@ -860,42 +835,6 @@ impl XPositions {
 }
 
 impl Page {
-    fn new<W>(layout: &LayoutForm<W>, page_size: Size) -> Self
-    where
-        W: Eq + Hash + Clone + Debug,
-    {
-        let (max_label, spacing, max_widget) = Self::adjusted_widths(layout, page_size);
-
-        let mut s = Self {
-            page_border: layout.page_border,
-            full_width: page_size.width,
-            flex: layout.flex,
-            max_left_padding: layout.max_left_padding,
-            max_right_padding: layout.max_right_padding,
-            max_label: max_label,
-            max_widget: max_widget,
-            width: page_size.width,
-            height: page_size.height,
-            top: layout.page_border.top,
-            bottom: layout.page_border.bottom,
-            columns: layout.columns,
-            column_spacing: layout.column_spacing,
-            spacing: spacing,
-            line_spacing: layout.line_spacing,
-            page_no: 0,
-            page_start: 0,
-            page_end: page_size.height.saturating_sub(layout.page_border.bottom),
-            y: layout.page_border.top,
-            top_padding: 0,
-            bottom_padding: 0,
-            bottom_padding_break: 0,
-            effective_line_spacing: 0,
-            x_pos: Default::default(),
-        };
-        s.x_pos = XPositions::new(&s, false);
-        s
-    }
-
     fn adjusted_widths<W>(layout: &LayoutForm<W>, page_size: Size) -> (u16, u16, u16)
     where
         W: Eq + Hash + Clone + Debug,
@@ -965,6 +904,73 @@ impl Page {
 
         (max_label, spacing, max_widget)
     }
+
+    fn new<W>(layout: &LayoutForm<W>, page_size: Size) -> Self
+    where
+        W: Eq + Hash + Clone + Debug,
+    {
+        let (max_label, spacing, max_widget) = Self::adjusted_widths(layout, page_size);
+
+        let mut s = Self {
+            page_border: layout.page_border,
+            full_width: page_size.width,
+            flex: layout.flex,
+            max_left_padding: layout.max_left_padding,
+            max_right_padding: layout.max_right_padding,
+            max_label: max_label,
+            max_widget: max_widget,
+            width: page_size.width,
+            height: page_size.height,
+            top: layout.page_border.top,
+            bottom: layout.page_border.bottom,
+            columns: layout.columns,
+            column_spacing: layout.column_spacing,
+            spacing: spacing,
+            line_spacing: layout.line_spacing,
+            page_no: 0,
+            page_start: 0,
+            page_end: page_size.height.saturating_sub(layout.page_border.bottom),
+            y: layout.page_border.top,
+            top_padding: 0,
+            bottom_padding: 0,
+            bottom_padding_break: 0,
+            effective_line_spacing: 0,
+            x_pos: Default::default(),
+        };
+        s.x_pos = XPositions::new(&s, false);
+        s
+    }
+}
+
+// remove top/bottom border when squeezed.
+fn adjust_blocks<W>(layout: &mut LayoutForm<W>, page_height: u16)
+where
+    W: Eq + Hash + Clone + Debug,
+{
+    if page_height == u16::MAX {
+        return;
+    }
+
+    if page_height < 3 {
+        for block_def in layout.blocks.iter_mut() {
+            if let Some(block) = block_def.block.as_mut() {
+                let padding = block_padding2(block);
+                let borders = if padding.left > 0 {
+                    Borders::LEFT
+                } else {
+                    Borders::NONE
+                } | if padding.right > 0 {
+                    Borders::RIGHT
+                } else {
+                    Borders::NONE
+                };
+
+                *block = mem::take(block).borders(borders);
+                block_def.padding.top = 0;
+                block_def.padding.bottom = 0;
+            }
+        }
+    }
 }
 
 /// Calculate the layout for the given page size and padding.
@@ -977,6 +983,9 @@ where
         layout.blocks.len() * 2,
     );
     gen_layout.set_page_size(page_size);
+
+    // clip Blocks if necessary
+    adjust_blocks(&mut layout, page_size.height);
 
     // indexes into gen_layout for any generated areas that need y adjustment.
     let mut stretch = Vec::with_capacity(layout.widgets.len());
