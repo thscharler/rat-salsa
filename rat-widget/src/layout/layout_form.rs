@@ -715,7 +715,7 @@ where
 }
 
 impl XPositions {
-    fn new(page: &Page, mirror: bool) -> XPositions {
+    fn new(page: &Page, column: u16, mirror: bool) -> XPositions {
         let border = if mirror {
             Padding::new(
                 page.page_border.right,
@@ -731,6 +731,7 @@ impl XPositions {
             .full_width
             .saturating_sub(border.left)
             .saturating_sub(border.right);
+        let column_width = (layout_width / page.columns).saturating_sub(page.column_spacing);
         let right_margin = page.full_width.saturating_sub(border.right);
 
         let offset;
@@ -742,16 +743,23 @@ impl XPositions {
 
         match page.flex {
             Flex::Legacy => {
-                offset = border.left;
+                offset = border.left + (column_width + page.column_spacing) * column;
                 label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
-                widget_right = layout_width.saturating_sub(page.max_right_padding);
+                widget_right = column_width.saturating_sub(page.max_right_padding);
 
                 container_left = 0;
-                container_right = layout_width;
+                container_right = column_width;
             }
             Flex::Start => {
-                offset = border.left;
+                let single_width = page.max_left_padding
+                    + page.max_label
+                    + page.spacing
+                    + page.max_widget
+                    + page.max_right_padding
+                    + page.column_spacing;
+
+                offset = border.left + single_width * column;
                 label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
                 widget_right = widget_left + page.max_widget;
@@ -764,10 +772,11 @@ impl XPositions {
                     + page.max_label
                     + page.spacing
                     + page.max_widget
-                    + page.max_right_padding;
-                let rest = layout_width.saturating_sub(single_width);
+                    + page.max_right_padding
+                    + page.column_spacing;
+                let rest = layout_width.saturating_sub(single_width * page.columns);
 
-                offset = border.left + rest / 2;
+                offset = border.left + rest / 2 + single_width * column;
                 label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
                 widget_right = widget_left + page.max_widget;
@@ -780,9 +789,10 @@ impl XPositions {
                     + page.max_label
                     + page.spacing
                     + page.max_widget
-                    + page.max_right_padding;
+                    + page.max_right_padding
+                    + page.column_spacing;
 
-                offset = right_margin.saturating_sub(single_width);
+                offset = right_margin.saturating_sub(single_width * (page.columns - column));
                 label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
                 widget_right = widget_left + page.max_widget;
@@ -796,10 +806,10 @@ impl XPositions {
                     + page.spacing
                     + page.max_widget
                     + page.max_right_padding;
-                let rest = layout_width.saturating_sub(single_width);
-                let spacing = rest / 2;
+                let rest = layout_width.saturating_sub(single_width * page.columns);
+                let spacing = rest / (page.columns + 1);
 
-                offset = border.left + spacing;
+                offset = border.left + spacing + (single_width + spacing) * column;
                 label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
                 widget_right = widget_left + page.max_widget;
@@ -812,10 +822,10 @@ impl XPositions {
                     + page.max_label
                     + page.max_widget
                     + page.max_right_padding;
-                let rest = layout_width.saturating_sub(single_width);
-                let spacing = rest / 3;
+                let rest = layout_width.saturating_sub(single_width * page.columns);
+                let spacing = rest / (2 * page.columns + 1);
 
-                offset = border.left + spacing;
+                offset = border.left + spacing + (single_width + 2 * spacing) * column;
                 label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + spacing;
                 widget_right = widget_left + page.max_widget;
@@ -847,25 +857,17 @@ impl Page {
             .width
             .saturating_sub(layout.page_border.left)
             .saturating_sub(layout.page_border.right);
-
-        // let column_width = (page_size
-        //     .width
-        //     .saturating_sub(layout.page_border.left)
-        //     .saturating_sub(layout.page_border.right)
-        //     / layout.columns)
-        //     .saturating_sub(layout.column_spacing);
+        let column_width = (layout_width / layout.columns).saturating_sub(layout.column_spacing);
 
         let mut max_label = layout.max_label;
         let mut max_widget = layout.max_widget;
         let mut spacing = layout.spacing;
 
-        if max_label + spacing + max_widget > page_size.width {
-            let mut reduce = layout.max_left_padding
-                + max_label
-                + spacing
-                + max_widget
-                + layout.max_right_padding
-                - layout_width;
+        let nominal =
+            layout.max_left_padding + max_label + spacing + max_widget + layout.max_right_padding;
+
+        if nominal > column_width {
+            let mut reduce = nominal - column_width;
 
             if spacing > reduce {
                 spacing -= reduce;
@@ -943,7 +945,7 @@ impl Page {
             effective_line_spacing: 0,
             x_pos: Default::default(),
         };
-        s.x_pos = XPositions::new(&s, false);
+        s.x_pos = XPositions::new(&s, 0, false);
         s
     }
 }
@@ -1135,10 +1137,15 @@ fn page_break<W>(
 
     // advance
     page.page_no += 1;
+
+    let column = page.page_no % page.columns;
+    let mirror = (page.page_no / page.columns) % 2 == 1;
+
     page.page_start = page.page_no.saturating_mul(page.height);
     page.page_end = page
         .page_start
         .saturating_add(page.height.saturating_sub(page.bottom));
+    page.x_pos = XPositions::new(page, column, mirror);
     page.y = page.page_start.saturating_add(page.top);
 
     page.effective_line_spacing = 0;
