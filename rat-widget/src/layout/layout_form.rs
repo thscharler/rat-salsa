@@ -357,6 +357,8 @@ struct Page {
     top: u16,
     // bottom border
     bottom: u16,
+    // line spacing
+    line_spacing: u16,
 
     // page number
     page_no: u16,
@@ -369,12 +371,10 @@ struct Page {
 
     // current line spacing.
     // set to zero on page-break and restored after the first widget.
-    effective_line_spacing: u16,
-    // line spacing
-    line_spacing: u16,
+    effective_line_spacing: u16, // TODO: extend
 
     // current page x-positions
-    pos: XPositions,
+    x_pos: XPositions,
 
     // x-positions for an even page
     even_pos: XPositions,
@@ -846,61 +846,10 @@ impl Page {
             y: border.top,
             effective_line_spacing: 0,
             line_spacing: layout.line_spacing,
-            pos: even_pos,
+            x_pos: even_pos,
             even_pos,
             odd_pos,
         }
-    }
-
-    // advance to next page
-    fn next_page<'a>(&mut self) {
-        self.page_no += 1;
-        self.page_start = self.page_no.saturating_mul(self.height);
-        self.page_end = self
-            .page_start
-            .saturating_add(self.height.saturating_sub(self.bottom));
-        self.y = self.page_start.saturating_add(self.top);
-        self.effective_line_spacing = 0;
-
-        if self.page_no % 2 == 0 {
-            self.pos = self.even_pos;
-        } else {
-            self.pos = self.odd_pos;
-        }
-    }
-
-    // advance to next widget
-    fn start_next_widget(&mut self) {
-        self.y = self.y.saturating_add(self.effective_line_spacing);
-        self.effective_line_spacing = self.line_spacing;
-    }
-
-    // add next widget's space
-    fn next_widget(&mut self, height: u16) {
-        self.y = self.y.saturating_add(height);
-    }
-
-    // close the given container
-    fn end_container(&mut self, cc: &mut BlockDef) {
-        self.y = self.y.saturating_add(cc.padding.bottom);
-        self.pos.container_left = self.pos.container_left.saturating_sub(cc.padding.left);
-        self.pos.container_right = self.pos.container_right.saturating_add(cc.padding.right);
-
-        cc.area.height = self.y.saturating_sub(cc.area.y);
-    }
-
-    // open the given container
-    fn start_container(&mut self, cc: &mut BlockDef) {
-        cc.area.x = self.pos.container_left;
-        cc.area.width = self
-            .pos
-            .container_right
-            .saturating_sub(self.pos.container_left);
-        cc.area.y = self.y;
-
-        self.y = self.y.saturating_add(cc.padding.top);
-        self.pos.container_left = self.pos.container_left.saturating_add(cc.padding.left);
-        self.pos.container_right = self.pos.container_right.saturating_sub(cc.padding.right);
     }
 }
 
@@ -1004,44 +953,6 @@ where
     gen_layout
 }
 
-// add next widget
-fn next_widget<W>(
-    page: &mut Page,
-    block_def: &mut [BlockDef],
-    widget: &WidgetDef<W>,
-    idx: usize,
-    must_fit: bool,
-    blocks: &mut Vec<BlockOut>,
-) -> (Rect, Rect)
-where
-    W: Eq + Hash + Clone + Debug,
-{
-    // line spacing
-    page.start_next_widget();
-
-    // start container
-    for cc in block_def.iter_mut() {
-        if cc.range.start == idx {
-            page.start_container(cc);
-        }
-    }
-
-    // get areas + advance
-    let (label_area, widget_area, advance) = areas_and_advance(&page, &widget, must_fit, &page.pos);
-
-    page.next_widget(advance);
-
-    // end and push containers
-    for cc in block_def.iter_mut().rev() {
-        if idx + 1 == cc.range.end {
-            page.end_container(cc);
-            blocks.push(cc.as_out());
-        }
-    }
-
-    (label_area, widget_area)
-}
-
 // do a page-break
 fn page_break<W>(
     block_def: &mut [BlockDef],
@@ -1057,7 +968,7 @@ fn page_break<W>(
     // rev() ensures closing from innermost to outermost container.
     for cc in block_def.iter_mut().rev() {
         if idx > cc.range.start && idx < cc.range.end {
-            page.end_container(cc);
+            end_container(page, cc);
             blocks_out.push(cc.as_out());
             // restart on next page
             cc.range.start = idx;
@@ -1072,7 +983,92 @@ fn page_break<W>(
     adjust_y_stretch(&page, stretch, gen_layout);
 
     // advance
-    page.next_page();
+    next_page(page);
+}
+
+// advance to next page
+fn next_page<'a>(page: &mut Page) {
+    page.page_no += 1;
+    page.page_start = page.page_no.saturating_mul(page.height);
+    page.page_end = page
+        .page_start
+        .saturating_add(page.height.saturating_sub(page.bottom));
+    page.y = page.page_start.saturating_add(page.top);
+    page.effective_line_spacing = 0;
+
+    if page.page_no % 2 == 0 {
+        page.x_pos = page.even_pos;
+    } else {
+        page.x_pos = page.odd_pos;
+    }
+}
+
+// advance to next widget
+fn start_next_widget(page: &mut Page) {
+    page.y = page.y.saturating_add(page.effective_line_spacing);
+    page.effective_line_spacing = page.line_spacing;
+}
+
+// add next widget
+fn next_widget<W>(
+    page: &mut Page,
+    block_def: &mut [BlockDef],
+    widget: &WidgetDef<W>,
+    idx: usize,
+    must_fit: bool,
+    blocks: &mut Vec<BlockOut>,
+) -> (Rect, Rect)
+where
+    W: Eq + Hash + Clone + Debug,
+{
+    // line spacing
+    start_next_widget(page);
+
+    // start container
+    for cc in block_def.iter_mut() {
+        if cc.range.start == idx {
+            start_container(page, cc);
+        }
+    }
+
+    // get areas + advance
+    let (label_area, widget_area, advance) =
+        areas_and_advance(&page, &widget, must_fit, &page.x_pos);
+
+    page.y = page.y.saturating_add(advance);
+
+    // end and push containers
+    for cc in block_def.iter_mut().rev() {
+        if idx + 1 == cc.range.end {
+            end_container(page, cc);
+            blocks.push(cc.as_out());
+        }
+    }
+
+    (label_area, widget_area)
+}
+
+// open the given container
+fn start_container(page: &mut Page, cc: &mut BlockDef) {
+    cc.area.x = page.x_pos.container_left;
+    cc.area.width = page
+        .x_pos
+        .container_right
+        .saturating_sub(page.x_pos.container_left);
+    cc.area.y = page.y;
+
+    page.y = page.y.saturating_add(cc.padding.top);
+    page.x_pos.container_left = page.x_pos.container_left.saturating_add(cc.padding.left);
+    page.x_pos.container_right = page.x_pos.container_right.saturating_sub(cc.padding.right);
+}
+
+// close the given container
+fn end_container(page: &mut Page, cc: &mut BlockDef) {
+    page.y = page.y.saturating_add(cc.padding.bottom);
+    page.x_pos.container_left = page.x_pos.container_left.saturating_sub(cc.padding.left);
+    page.x_pos.container_right = page.x_pos.container_right.saturating_add(cc.padding.right);
+
+    cc.area.height = page.y.saturating_sub(cc.area.y);
 }
 
 // calculate widget and label area.
@@ -1111,8 +1107,8 @@ fn areas_and_advance<W: Debug + Clone>(
         FormWidget::WideStretchXY(_, h) => *h,
     };
 
-    let stretch_width = page.pos.container_right.saturating_sub(pos.widget_x);
-    let total_stretch_width = page.pos.container_right.saturating_sub(pos.label_x);
+    let stretch_width = page.x_pos.container_right.saturating_sub(pos.widget_x);
+    let total_stretch_width = page.x_pos.container_right.saturating_sub(pos.label_x);
 
     let max_height = if !must_fit {
         page.height
