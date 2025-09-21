@@ -15,7 +15,7 @@ use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
+use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget};
 use std::array;
 use std::time::SystemTime;
 
@@ -33,6 +33,8 @@ fn main() -> Result<(), anyhow::Error> {
         n_focus: 0.0,
         focus: Default::default(),
         flex: Default::default(),
+        line_spacing: 1,
+        columns: 1,
         pager: Default::default(),
         hundred: array::from_fn(|_| Default::default()),
         menu: Default::default(),
@@ -56,6 +58,8 @@ struct State {
     n_focus: f64,
     focus: Option<Focus>,
     flex: Flex,
+    line_spacing: u16,
+    columns: u8,
     pager: ClipperState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
     menu: MenuLineState,
@@ -103,7 +107,8 @@ fn repaint_input(
         let mut form_layout = LayoutForm::new()
             .spacing(1)
             .flex(state.flex)
-            .line_spacing(1)
+            .line_spacing(state.line_spacing)
+            .columns(state.columns)
             .min_label(10);
 
         // generate the layout ...
@@ -250,36 +255,10 @@ fn handle_input(
     }
 
     try_flow!(match state.pager.handle(event, Regular) {
-        // PagerOutcome::Page(_p) => {
-        //     if let Some(first) = state.pager.first(p) {
-        //         focus.focus_flag(first.clone());
-        //     }
-        //     Outcome::Changed
-        // }
         r => r,
     });
 
     try_flow!(match event {
-        // ct_event!(keycode press F(4)) => {
-        //     if state.pager.prev_page() {
-        //         if let Some(first) = state.pager.first(state.pager.page()) {
-        //             focus.focus_flag(first.clone());
-        //         }
-        //         Outcome::Changed
-        //     } else {
-        //         Outcome::Unchanged
-        //     }
-        // }
-        // ct_event!(keycode press F(5)) => {
-        //     if state.pager.next_page() {
-        //         if let Some(first) = state.pager.first(state.pager.page()) {
-        //             focus.focus_flag(first.clone());
-        //         }
-        //         Outcome::Changed
-        //     } else {
-        //         Outcome::Unchanged
-        //     }
-        // }
         ct_event!(keycode press F(2)) => {
             state.pager.set_layout(Default::default());
             state.flex = match state.flex {
@@ -289,6 +268,27 @@ fn handle_input(
                 Flex::Center => Flex::SpaceBetween,
                 Flex::SpaceBetween => Flex::SpaceAround,
                 Flex::SpaceAround => Flex::Legacy,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(3)) => {
+            state.pager.clear();
+            state.line_spacing = match state.line_spacing {
+                0 => 1,
+                1 => 2,
+                2 => 3,
+                _ => 0,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(6)) => {
+            state.pager.clear();
+            state.columns = match state.columns {
+                1 => 2,
+                2 => 3,
+                3 => 4,
+                4 => 5,
+                _ => 1,
             };
             Outcome::Changed
         }

@@ -32,6 +32,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         flex: Default::default(),
+        columns: 1,
         line_spacing: 1,
         pager: Default::default(),
         hundred: array::from_fn(|_| Default::default()),
@@ -53,6 +54,7 @@ struct Data {}
 
 struct State {
     flex: Flex,
+    columns: u8,
     line_spacing: u16,
     pager: SinglePagerState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
@@ -98,11 +100,13 @@ fn repaint_input(
 
     // maybe rebuild layout
     let layout_size = pager.layout_size(l2[1]);
+    debug!("gogogo {:?}", layout_size);
 
     if !state.pager.valid_layout(layout_size) {
         let mut form = LayoutForm::new()
             .border(Padding::new(2, 2, 0, 0))
             .line_spacing(state.line_spacing)
+            .columns(state.columns)
             .flex(state.flex);
 
         for i in 0..state.hundred.len() {
@@ -251,6 +255,17 @@ fn handle_input(
             } else {
                 Outcome::Unchanged
             }
+        }
+        ct_event!(keycode press F(6)) => {
+            state.pager.clear();
+            state.columns = match state.columns {
+                1 => 2,
+                2 => 3,
+                3 => 4,
+                4 => 5,
+                _ => 1,
+            };
+            Outcome::Changed
         }
         _ => Outcome::Continue,
     });

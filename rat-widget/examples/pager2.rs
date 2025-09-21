@@ -30,6 +30,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State {
         flex: Default::default(),
         line_spacing: 1,
+        columns: 1,
         pager: Default::default(),
         hundred: array::from_fn(|_| Default::default()),
         menu: Default::default(),
@@ -51,6 +52,7 @@ struct Data {}
 struct State {
     flex: Flex,
     line_spacing: u16,
+    columns: u8,
     pager: DualPagerState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
     menu: MenuLineState,
@@ -101,6 +103,7 @@ fn repaint_input(
             .mirror_odd_border()
             .border(Padding::new(4, 2, 0, 0))
             .line_spacing(state.line_spacing)
+            .columns(state.columns)
             .flex(state.flex);
 
         for i in 0..state.hundred.len() {
@@ -243,6 +246,17 @@ fn handle_input(
             } else {
                 Outcome::Unchanged
             }
+        }
+        ct_event!(keycode press F(6)) => {
+            state.pager.clear();
+            state.columns = match state.columns {
+                1 => 2,
+                2 => 3,
+                3 => 4,
+                4 => 5,
+                _ => 1,
+            };
+            Outcome::Changed
         }
         _ => Outcome::Continue,
     });

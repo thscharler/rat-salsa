@@ -37,6 +37,7 @@ fn main() -> Result<(), anyhow::Error> {
         focus: Default::default(),
         flex: Default::default(),
         line_spacing: 1,
+        columns: 1,
         layout: Default::default(),
         page_nav: Default::default(),
         hundred: array::from_fn(|n| TextInputMockState::named(format!("{}", n).as_str())),
@@ -62,6 +63,7 @@ struct State {
     focus: Option<Focus>,
     flex: Flex,
     line_spacing: u16,
+    columns: u8,
     layout: Rc<RefCell<GenericLayout<FocusFlag>>>,
     page_nav: PageNavigationState,
     hundred: [TextInputMockState; HUN],
@@ -112,6 +114,7 @@ fn repaint_input(
             .spacing(1)
             .flex(state.flex)
             .line_spacing(state.line_spacing)
+            .columns(state.columns)
             .min_label(10);
 
         // generate the layout ...
@@ -344,7 +347,17 @@ fn handle_input(
                 Outcome::Unchanged
             }
         }
-
+        ct_event!(keycode press F(6)) => {
+            state.layout = Default::default();
+            state.columns = match state.columns {
+                1 => 2,
+                2 => 3,
+                3 => 4,
+                4 => 5,
+                _ => 1,
+            };
+            Outcome::Changed
+        }
         _ => Outcome::Continue,
     });
 
