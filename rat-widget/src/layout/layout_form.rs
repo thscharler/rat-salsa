@@ -1,7 +1,7 @@
 use crate::layout::generic_layout::GenericLayout;
-use crate::util::block_padding;
+use crate::util::{block_padding, block_padding2};
 use ratatui::layout::{Flex, Rect, Size};
-use ratatui::widgets::{Block, Padding};
+use ratatui::widgets::{Block, Borders, Padding};
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::fmt::{Debug, Formatter};
@@ -659,6 +659,30 @@ where
         }
     }
 
+    // remove top/bottom border when squeezed.
+    fn adjust_blocks(&mut self, page_height: u16) {
+        if page_height < 3 {
+            for block_def in self.blocks.iter_mut() {
+                if let Some(block) = block_def.block.as_mut() {
+                    let padding = block_padding2(block);
+                    let borders = if padding.left > 0 {
+                        Borders::LEFT
+                    } else {
+                        Borders::NONE
+                    } | if padding.right > 0 {
+                        Borders::RIGHT
+                    } else {
+                        Borders::NONE
+                    };
+
+                    *block = mem::take(block).borders(borders);
+                    block_def.padding.top = 0;
+                    block_def.padding.bottom = 0;
+                }
+            }
+        }
+    }
+
     /// Calculate a layout without page-breaks using the given layout-width and padding.
     #[inline(always)]
     #[deprecated(since = "1.2.0", note = "use build_endless")]
@@ -688,6 +712,7 @@ where
     pub fn build_paged(mut self, page: Size) -> GenericLayout<W> {
         self.validate_containers();
         self.adjust_widths(page.width);
+        self.adjust_blocks(page.height);
         build_layout(self, page, false)
     }
 }
