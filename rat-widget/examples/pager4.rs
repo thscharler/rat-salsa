@@ -3,6 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
@@ -69,13 +70,9 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    if istate.status[0] == "Ctrl-Q to quit." {
-        istate.status[0] = "Ctrl-Q to quit. F2 flex. F4/F5 navigate page.".into();
-    }
-
     let l1 = Layout::vertical([
         Constraint::Length(1),
         Constraint::Fill(1),
@@ -182,6 +179,9 @@ fn repaint_input(
 
     let menu1 = MenuLine::new()
         .title("#.#")
+        .item_parsed("_Flex|F2")
+        .item_parsed("_Spacing|F3")
+        .item_parsed("_Columns|F4")
         .item_parsed("_Quit")
         .styles(THEME.menu_style());
     frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
@@ -259,51 +259,64 @@ fn handle_input(
     });
 
     try_flow!(match event {
-        ct_event!(keycode press F(2)) => {
-            state.pager.set_layout(Default::default());
-            state.flex = match state.flex {
-                Flex::Legacy => Flex::Start,
-                Flex::Start => Flex::End,
-                Flex::End => Flex::Center,
-                Flex::Center => Flex::SpaceBetween,
-                Flex::SpaceBetween => Flex::SpaceAround,
-                Flex::SpaceAround => Flex::Legacy,
-            };
-            Outcome::Changed
+        ct_event!(keycode press F(1)) => {
+            debug!("{:#?}", state.pager.layout.borrow());
+            Outcome::Unchanged
         }
-        ct_event!(keycode press F(3)) => {
-            state.pager.clear();
-            state.line_spacing = match state.line_spacing {
-                0 => 1,
-                1 => 2,
-                2 => 3,
-                _ => 0,
-            };
-            Outcome::Changed
-        }
-        ct_event!(keycode press F(6)) => {
-            state.pager.clear();
-            state.columns = match state.columns {
-                1 => 2,
-                2 => 3,
-                3 => 4,
-                4 => 5,
-                _ => 1,
-            };
-            Outcome::Changed
-        }
+        ct_event!(keycode press F(2)) => flip_flex(state),
+        ct_event!(keycode press F(3)) => flip_spacing(state),
+        ct_event!(keycode press F(4)) => flip_columns(state),
         _ => Outcome::Continue,
     });
 
     try_flow!(match state.menu.handle(event, Regular) {
-        MenuOutcome::Activated(0) => {
+        MenuOutcome::Activated(0) => flip_flex(state),
+        MenuOutcome::Activated(1) => flip_spacing(state),
+        MenuOutcome::Activated(2) => flip_columns(state),
+        MenuOutcome::Activated(4) => {
             istate.quit = true;
             Outcome::Changed
         }
-        _ => Outcome::Continue,
+        r => r.into(),
     });
 
     state.focus = Some(focus);
 
     Ok(Outcome::Continue)
+}
+
+fn flip_flex(state: &mut State) -> Outcome {
+    state.pager.clear();
+    state.flex = match state.flex {
+        Flex::Legacy => Flex::Start,
+        Flex::Start => Flex::End,
+        Flex::End => Flex::Center,
+        Flex::Center => Flex::SpaceBetween,
+        Flex::SpaceBetween => Flex::SpaceAround,
+        Flex::SpaceAround => Flex::Legacy,
+    };
+    Outcome::Changed
+}
+
+fn flip_spacing(state: &mut State) -> Outcome {
+    state.pager.clear();
+    state.line_spacing = match state.line_spacing {
+        0 => 1,
+        1 => 2,
+        2 => 3,
+        _ => 0,
+    };
+    Outcome::Changed
+}
+
+fn flip_columns(state: &mut State) -> Outcome {
+    state.pager.clear();
+    state.columns = match state.columns {
+        1 => 2,
+        2 => 3,
+        3 => 4,
+        4 => 5,
+        _ => 1,
+    };
+    Outcome::Changed
 }
