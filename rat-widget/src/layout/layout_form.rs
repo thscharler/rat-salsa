@@ -1,11 +1,10 @@
 use crate::layout::generic_layout::GenericLayout;
 use crate::util::block_padding;
-use log::debug;
 use ratatui::layout::{Flex, Rect, Size};
 use ratatui::widgets::{Block, Padding};
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::mem;
 use std::ops::Range;
@@ -248,16 +247,10 @@ where
     max_left_padding: u16,
     max_right_padding: u16,
 
-    /// container padding, accumulated.
-    /// current active top-padding. valid for 1 widget.
-    c_top: u16,
-    /// current active bottom-padding.
-    /// valid for every contained widget to calculate a page-break.
-    c_bottom: u16,
     /// current left indent.
-    c_left: u16,
+    left_padding: u16,
     /// current right indent.
-    c_right: u16,
+    right_padding: u16,
 }
 
 struct WidgetDef<W>
@@ -305,13 +298,15 @@ struct BlockOut {
 #[derive(Debug, Default, Clone, Copy)]
 struct XPositions {
     // label position
-    label_x: u16,
+    label_left: u16,
     // label width, max.
     label_width: u16,
     // widget position
-    widget_x: u16,
+    widget_left: u16,
     // widget width, max.
     widget_width: u16,
+    // max widget position
+    widget_right: u16,
     // left position for container blocks.
     container_left: u16,
     // right position for container blocks.
@@ -428,10 +423,8 @@ where
             blocks: Default::default(),
             max_left_padding: Default::default(),
             max_right_padding: Default::default(),
-            c_top: Default::default(),
-            c_bottom: Default::default(),
-            c_left: Default::default(),
-            c_right: Default::default(),
+            left_padding: Default::default(),
+            right_padding: Default::default(),
         }
     }
 }
@@ -512,13 +505,11 @@ where
             area: Rect::default(),
         });
 
-        self.c_top += padding.top;
-        self.c_bottom += padding.bottom;
-        self.c_left += padding.left;
-        self.c_right += padding.right;
+        self.left_padding += padding.left;
+        self.right_padding += padding.right;
 
-        self.max_left_padding = max(self.max_left_padding, self.c_left);
-        self.max_right_padding = max(self.max_right_padding, self.c_right);
+        self.max_left_padding = max(self.max_left_padding, self.left_padding);
+        self.max_right_padding = max(self.max_right_padding, self.right_padding);
 
         tag
     }
@@ -537,12 +528,8 @@ where
                 cc.constructing = false;
 
                 // might have been used by a widget.
-                if self.c_top > 0 {
-                    self.c_top -= cc.padding.top;
-                }
-                self.c_bottom -= cc.padding.bottom;
-                self.c_left -= cc.padding.left;
-                self.c_right -= cc.padding.right;
+                self.left_padding -= cc.padding.left;
+                self.right_padding -= cc.padding.right;
 
                 return;
             }
@@ -601,11 +588,6 @@ where
             label_str,
             widget,
         });
-
-        // top padding is only used once.
-        // bottom padding may apply for every contained widget
-        // in case of page-break.
-        self.c_top = 0;
     }
 
     /// Add a manual page break after the last widget.
@@ -724,94 +706,107 @@ impl XPositions {
             mem::swap(&mut border.left, &mut border.right);
         }
 
-        let label_x;
-        let widget_x;
+        let label_left;
+        let widget_left;
         let container_left;
         let container_right;
-        let total_width;
+        let widget_right;
 
         match layout.flex {
             Flex::Legacy => {
-                label_x = border.left + layout.max_left_padding;
-                widget_x = label_x + layout.max_label + layout.spacing;
+                label_left = border.left + layout.max_left_padding;
+                widget_left = label_left + layout.max_label + layout.spacing;
+                widget_right = layout_width
+                    .saturating_sub(border.right)
+                    .saturating_sub(layout.max_right_padding);
 
-                container_left = label_x.saturating_sub(layout.max_left_padding);
+                container_left = label_left.saturating_sub(layout.max_left_padding);
                 container_right = layout_width.saturating_sub(border.right);
-                total_width = layout.max_label + layout.spacing + layout.max_widget;
             }
             Flex::Start => {
-                label_x = border.left + layout.max_left_padding;
-                widget_x = label_x + layout.max_label + layout.spacing;
+                label_left = border.left + layout.max_left_padding;
+                widget_left = label_left + layout.max_label + layout.spacing;
+                widget_right = widget_left + layout.max_widget;
 
-                container_left = label_x.saturating_sub(layout.max_left_padding);
-                container_right = widget_x + layout.max_widget + layout.max_right_padding;
-                total_width = layout.max_label + layout.spacing + layout.max_widget;
+                container_left = label_left.saturating_sub(layout.max_left_padding);
+                container_right = widget_left + layout.max_widget + layout.max_right_padding;
             }
             Flex::Center => {
-                let rest = layout_width.saturating_sub(
-                    border.left
-                        + layout.max_left_padding
-                        + layout.max_label
-                        + layout.spacing
-                        + layout.max_widget
-                        + layout.max_right_padding
-                        + border.right,
-                );
-                label_x = border.left + layout.max_left_padding + rest / 2;
-                widget_x = label_x + layout.max_label + layout.spacing;
+                let rest = layout_width
+                    .saturating_sub(border.left)
+                    .saturating_sub(layout.max_left_padding)
+                    .saturating_sub(layout.max_label)
+                    .saturating_sub(layout.spacing)
+                    .saturating_sub(layout.max_widget)
+                    .saturating_sub(layout.max_right_padding)
+                    .saturating_sub(border.right);
 
-                container_left = label_x.saturating_sub(layout.max_left_padding);
-                container_right = widget_x + layout.max_widget + layout.max_right_padding;
-                total_width = layout.max_label + layout.spacing + layout.max_widget;
+                label_left = border.left + layout.max_left_padding + rest / 2;
+                widget_left = label_left + layout.max_label + layout.spacing;
+                widget_right = widget_left + layout.max_widget;
+
+                container_left = label_left.saturating_sub(layout.max_left_padding);
+                container_right = widget_left + layout.max_widget + layout.max_right_padding;
             }
             Flex::End => {
-                widget_x = layout_width
-                    .saturating_sub(border.right + layout.max_right_padding + layout.max_widget);
-                label_x = widget_x.saturating_sub(layout.spacing + layout.max_label);
+                widget_left = layout_width
+                    .saturating_sub(border.right)
+                    .saturating_sub(layout.max_right_padding)
+                    .saturating_sub(layout.max_widget);
+                label_left = widget_left
+                    .saturating_sub(layout.spacing)
+                    .saturating_sub(layout.max_label);
+                widget_right = layout_width
+                    .saturating_sub(border.right)
+                    .saturating_sub(layout.max_right_padding);
 
-                container_left = label_x.saturating_sub(layout.max_left_padding);
+                container_left = label_left.saturating_sub(layout.max_left_padding);
                 container_right = layout_width.saturating_sub(border.right);
-                total_width = layout.max_label + layout.spacing + layout.max_widget;
             }
             Flex::SpaceAround => {
-                let rest = layout_width.saturating_sub(
-                    border.left
-                        + layout.max_left_padding
-                        + layout.max_label
-                        + layout.max_widget
-                        + layout.max_right_padding
-                        + border.right,
-                );
+                let rest = layout_width
+                    .saturating_sub(border.left)
+                    .saturating_sub(layout.max_left_padding)
+                    .saturating_sub(layout.max_label)
+                    .saturating_sub(layout.max_widget)
+                    .saturating_sub(layout.max_right_padding)
+                    .saturating_sub(border.right);
                 let spacing = rest / 3;
 
-                label_x = border.left + layout.max_left_padding + spacing;
-                widget_x = label_x + layout.max_label + spacing;
+                label_left = border.left + layout.max_left_padding + spacing;
+                widget_left = label_left + layout.max_label + spacing;
+                widget_right = layout_width
+                    .saturating_sub(border.right)
+                    .saturating_sub(layout.max_right_padding)
+                    .saturating_sub(spacing);
 
                 container_left = border.left;
                 container_right = layout_width.saturating_sub(border.right);
-                total_width = layout.max_label + spacing + layout.max_widget;
             }
             Flex::SpaceBetween => {
-                label_x = border.left + layout.max_left_padding;
-                widget_x = layout_width
-                    .saturating_sub(border.right + layout.max_right_padding + layout.max_widget);
+                label_left = border.left + layout.max_left_padding;
+                widget_left = layout_width
+                    .saturating_sub(border.right)
+                    .saturating_sub(layout.max_right_padding)
+                    .saturating_sub(layout.max_widget);
+                widget_right = layout_width
+                    .saturating_sub(border.right)
+                    .saturating_sub(layout.max_right_padding);
 
-                container_left = label_x.saturating_sub(layout.max_left_padding);
+                container_left = label_left.saturating_sub(layout.max_left_padding);
                 container_right = layout_width.saturating_sub(border.right);
-                total_width = layout_width.saturating_sub(
-                    border.left + layout.max_left_padding + border.right + layout.max_right_padding,
-                );
             }
         }
 
         XPositions {
             container_left,
-            label_x,
+            label_left,
             label_width: layout.max_label,
-            widget_x,
+            widget_left,
             widget_width: layout.max_widget,
             container_right,
-            total_width,
+            total_width: widget_right - label_left,
+            widget_right,
         }
     }
 }
@@ -836,12 +831,12 @@ impl Debug for Page {
         writeln!(
             f,
             "    label  {}+{}",
-            self.x_pos.label_x, self.x_pos.label_width
+            self.x_pos.label_left, self.x_pos.label_width
         )?;
         writeln!(
             f,
             "    widget {}+{}",
-            self.x_pos.widget_x, self.x_pos.widget_width
+            self.x_pos.widget_left, self.x_pos.widget_width
         )?;
         writeln!(
             f,
@@ -893,16 +888,16 @@ where
 {
     let mut gen_layout = GenericLayout::with_capacity(
         layout.widgets.len(), //
-        layout.blocks.len(),
+        layout.blocks.len() * 2,
     );
     gen_layout.set_page_size(page);
 
+    // indexes into gen_layout for any generated areas that need y adjustment.
+    let mut stretch = Vec::with_capacity(layout.widgets.len());
+    let mut blocks_out = Vec::with_capacity(layout.blocks.len());
+
     let mut saved_page;
     let mut page = Page::new(&layout, page, layout.page_border);
-
-    // indexes into gen_layout for any generated areas that need y adjustment.
-    let mut stretch = Vec::new();
-    let mut blocks_out = Vec::new();
 
     for (idx, widget) in layout.widgets.iter_mut().enumerate() {
         // safe point
@@ -1127,7 +1122,6 @@ fn areas_and_advance<W: Debug + Clone>(
     page: &Page,
     widget: &WidgetDef<W>,
     must_fit: bool,
-    // pos: &XPositions,
 ) -> (Rect, Rect, u16) {
     // [label]
     // [widget]
@@ -1159,12 +1153,12 @@ fn areas_and_advance<W: Debug + Clone>(
 
     let stretch_width = page
         .x_pos
-        .container_right
-        .saturating_sub(page.x_pos.widget_x);
+        .widget_right
+        .saturating_sub(page.x_pos.widget_left);
     let total_stretch_width = page
         .x_pos
-        .container_right
-        .saturating_sub(page.x_pos.label_x);
+        .widget_right
+        .saturating_sub(page.x_pos.label_left);
 
     let max_height = if !must_fit {
         page.height
@@ -1199,13 +1193,13 @@ fn areas_and_advance<W: Debug + Clone>(
                 unreachable!()
             }
             FormLabel::Width(_) => Rect::new(
-                page.x_pos.label_x,
+                page.x_pos.label_left,
                 page.y,
                 page.x_pos.label_width,
                 label_height,
             ),
             FormLabel::Size(_, _) => Rect::new(
-                page.x_pos.label_x,
+                page.x_pos.label_left,
                 page.y,
                 page.x_pos.label_width,
                 label_height,
@@ -1221,49 +1215,49 @@ fn areas_and_advance<W: Debug + Clone>(
         let widget_area = match &widget.widget {
             FormWidget::None => Rect::default(),
             FormWidget::Width(w) => Rect::new(
-                page.x_pos.widget_x,
+                page.x_pos.widget_left,
                 page.y,
                 min(*w, page.x_pos.widget_width),
                 widget_height,
             ),
             FormWidget::Size(w, _) => Rect::new(
-                page.x_pos.widget_x,
+                page.x_pos.widget_left,
                 page.y,
                 min(*w, page.x_pos.widget_width),
                 widget_height,
             ),
             FormWidget::StretchY(w, _) => Rect::new(
-                page.x_pos.widget_x,
+                page.x_pos.widget_left,
                 page.y,
                 min(*w, page.x_pos.widget_width),
                 widget_height,
             ),
             FormWidget::Wide(_, _) => Rect::new(
-                page.x_pos.label_x,
+                page.x_pos.label_left,
                 page.y + label_height,
                 page.x_pos.total_width,
                 widget_height,
             ),
             FormWidget::StretchX(_, _) => Rect::new(
-                page.x_pos.widget_x, //
+                page.x_pos.widget_left, //
                 page.y,
                 stretch_width,
                 widget_height,
             ),
             FormWidget::WideStretchX(_, _) => Rect::new(
-                page.x_pos.label_x,
+                page.x_pos.label_left,
                 page.y + label_height,
                 total_stretch_width,
                 widget_height,
             ),
             FormWidget::StretchXY(_, _) => Rect::new(
-                page.x_pos.widget_x, //
+                page.x_pos.widget_left, //
                 page.y,
                 stretch_width,
                 widget_height,
             ),
             FormWidget::WideStretchXY(_, _) => Rect::new(
-                page.x_pos.label_x,
+                page.x_pos.label_left,
                 page.y + label_height,
                 total_stretch_width,
                 widget_height,
@@ -1285,13 +1279,13 @@ fn areas_and_advance<W: Debug + Clone>(
                 unreachable!()
             }
             FormLabel::Width(_) => Rect::new(
-                page.x_pos.label_x,
+                page.x_pos.label_left,
                 page.y,
                 page.x_pos.label_width,
                 label_height,
             ),
             FormLabel::Size(_, _) => Rect::new(
-                page.x_pos.label_x,
+                page.x_pos.label_left,
                 page.y,
                 page.x_pos.label_width,
                 label_height,
@@ -1301,19 +1295,19 @@ fn areas_and_advance<W: Debug + Clone>(
         let widget_area = match &widget.widget {
             FormWidget::None => Rect::default(),
             FormWidget::Width(w) => Rect::new(
-                page.x_pos.widget_x,
+                page.x_pos.widget_left,
                 page.y,
                 min(*w, page.x_pos.widget_width),
                 widget_height,
             ),
             FormWidget::Size(w, _) => Rect::new(
-                page.x_pos.widget_x,
+                page.x_pos.widget_left,
                 page.y,
                 min(*w, page.x_pos.widget_width),
                 widget_height,
             ),
             FormWidget::StretchY(w, _) => Rect::new(
-                page.x_pos.widget_x,
+                page.x_pos.widget_left,
                 page.y,
                 min(*w, page.x_pos.widget_width),
                 widget_height,
@@ -1322,13 +1316,13 @@ fn areas_and_advance<W: Debug + Clone>(
                 unreachable!()
             }
             FormWidget::StretchX(_, _) => {
-                Rect::new(page.x_pos.widget_x, page.y, stretch_width, widget_height)
+                Rect::new(page.x_pos.widget_left, page.y, stretch_width, widget_height)
             }
             FormWidget::WideStretchX(_, _) => {
                 unreachable!()
             }
             FormWidget::StretchXY(_, _) => {
-                Rect::new(page.x_pos.widget_x, page.y, stretch_width, widget_height)
+                Rect::new(page.x_pos.widget_left, page.y, stretch_width, widget_height)
             }
             FormWidget::WideStretchXY(_, _) => {
                 unreachable!()

@@ -153,13 +153,13 @@ fn repaint_input(
             if i == 3 || i == 9 || i == 17 {
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
-                    FormLabel::String(format!("{}", i).to_string()),
+                    FormLabel::String(format!("{}\nhidden", i).to_string()),
                     FormWidget::StretchXY(w, h),
                 );
             } else {
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
-                    FormLabel::String(format!("{}", i).to_string()),
+                    FormLabel::String(format!("{}\nhidden", i).to_string()),
                     FormWidget::Size(w, h),
                 );
             }
