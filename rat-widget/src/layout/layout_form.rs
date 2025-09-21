@@ -848,10 +848,6 @@ impl Page {
             .saturating_sub(layout.page_border.left)
             .saturating_sub(layout.page_border.right);
 
-        let column_width = layout_width
-            .saturating_sub(layout.max_left_padding)
-            .saturating_sub(layout.max_right_padding);
-
         // let column_width = (page_size
         //     .width
         //     .saturating_sub(layout.page_border.left)
@@ -864,7 +860,12 @@ impl Page {
         let mut spacing = layout.spacing;
 
         if max_label + spacing + max_widget > page_size.width {
-            let mut reduce = max_label + spacing + max_widget - column_width;
+            let mut reduce = layout.max_left_padding
+                + max_label
+                + spacing
+                + max_widget
+                + layout.max_right_padding
+                - layout_width;
 
             if spacing > reduce {
                 spacing -= reduce;
