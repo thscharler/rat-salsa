@@ -683,60 +683,6 @@ where
         }
     }
 
-    // Adjust widths to the available sapce.
-    fn adjust_widths(&mut self, page_width: u16) {
-        // cut excess
-        let page_width = page_width.saturating_sub(
-            self.page_border.left
-                + self.max_left_padding
-                + self.max_right_padding
-                + self.page_border.right,
-        );
-        if self.max_label + self.spacing + self.max_widget > page_width {
-            let mut reduce = self.max_label + self.spacing + self.max_widget - page_width;
-
-            if self.spacing > reduce {
-                self.spacing -= reduce;
-                reduce = 0;
-            } else {
-                reduce -= self.spacing;
-                self.spacing = 0;
-            }
-            if self.max_label > 5 {
-                if self.max_label - 5 > reduce {
-                    self.max_label -= reduce;
-                    reduce = 0;
-                } else {
-                    reduce -= self.max_label - 5;
-                    self.max_label = 5;
-                }
-            }
-            if self.max_widget > 5 {
-                if self.max_widget - 5 > reduce {
-                    self.max_widget -= reduce;
-                    reduce = 0;
-                } else {
-                    reduce -= self.max_widget - 5;
-                    self.max_widget = 5;
-                }
-            }
-            if self.max_label > reduce {
-                self.max_label -= reduce;
-                reduce = 0;
-            } else {
-                reduce -= self.max_label;
-                self.max_label = 0;
-            }
-            if self.max_widget > reduce {
-                self.max_widget -= reduce;
-                // reduce = 0;
-            } else {
-                // reduce -= max_widget;
-                self.max_widget = 0;
-            }
-        }
-    }
-
     // remove top/bottom border when squeezed.
     fn adjust_blocks(&mut self, page_height: u16) {
         if page_height < 3 {
@@ -781,7 +727,6 @@ where
     #[inline(always)]
     pub fn build_endless(mut self, width: u16) -> GenericLayout<W> {
         self.validate_containers();
-        self.adjust_widths(width);
         build_layout(self, Size::new(width, u16::MAX), true)
     }
 
@@ -789,7 +734,6 @@ where
     #[inline(always)]
     pub fn build_paged(mut self, page: Size) -> GenericLayout<W> {
         self.validate_containers();
-        self.adjust_widths(page.width);
         self.adjust_blocks(page.height);
         build_layout(self, page, false)
     }
@@ -920,21 +864,23 @@ impl Page {
     where
         W: Eq + Hash + Clone + Debug,
     {
+        let (max_label, spacing, max_widget) = Self::adjusted_widths(layout, page_size);
+
         let mut s = Self {
             page_border: layout.page_border,
             full_width: page_size.width,
             flex: layout.flex,
             max_left_padding: layout.max_left_padding,
             max_right_padding: layout.max_right_padding,
-            max_label: layout.max_label,
-            max_widget: layout.max_widget,
+            max_label: max_label,
+            max_widget: max_widget,
             width: page_size.width,
             height: page_size.height,
             top: layout.page_border.top,
             bottom: layout.page_border.bottom,
             columns: layout.columns,
             column_spacing: layout.column_spacing,
-            spacing: layout.spacing,
+            spacing: spacing,
             line_spacing: layout.line_spacing,
             page_no: 0,
             page_start: 0,
@@ -948,6 +894,76 @@ impl Page {
         };
         s.x_pos = XPositions::new(&s, false);
         s
+    }
+
+    fn adjusted_widths<W>(layout: &LayoutForm<W>, page_size: Size) -> (u16, u16, u16)
+    where
+        W: Eq + Hash + Clone + Debug,
+    {
+        // let column_width = (page_size
+        //     .width
+        //     .saturating_sub(layout.page_border.left)
+        //     .saturating_sub(layout.page_border.right)
+        //     / layout.columns)
+        //     .saturating_sub(layout.column_spacing);
+
+        // cut excess
+        let page_width = page_size
+            .width
+            .saturating_sub(layout.page_border.left)
+            .saturating_sub(layout.max_left_padding)
+            .saturating_sub(layout.max_right_padding)
+            .saturating_sub(layout.page_border.right);
+
+        let mut max_label = layout.max_label;
+        let mut max_widget = layout.max_widget;
+        let mut spacing = layout.spacing;
+
+        if max_label + spacing + max_widget > page_size.width {
+            let mut reduce = max_label + spacing + max_widget - page_width;
+
+            if spacing > reduce {
+                spacing -= reduce;
+                reduce = 0;
+            } else {
+                reduce -= spacing;
+                spacing = 0;
+            }
+            if max_label > 5 {
+                if max_label - 5 > reduce {
+                    max_label -= reduce;
+                    reduce = 0;
+                } else {
+                    reduce -= max_label - 5;
+                    max_label = 5;
+                }
+            }
+            if max_widget > 5 {
+                if max_widget - 5 > reduce {
+                    max_widget -= reduce;
+                    reduce = 0;
+                } else {
+                    reduce -= max_widget - 5;
+                    max_widget = 5;
+                }
+            }
+            if max_label > reduce {
+                max_label -= reduce;
+                reduce = 0;
+            } else {
+                reduce -= max_label;
+                max_label = 0;
+            }
+            if max_widget > reduce {
+                max_widget -= reduce;
+                // reduce = 0;
+            } else {
+                // reduce -= max_widget;
+                max_widget = 0;
+            }
+        }
+
+        (max_label, spacing, max_widget)
     }
 }
 
