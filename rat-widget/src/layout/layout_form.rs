@@ -731,6 +731,7 @@ impl XPositions {
             .full_width
             .saturating_sub(border.left)
             .saturating_sub(border.right);
+        let right_margin = page.full_width.saturating_sub(border.right);
 
         let offset;
         let label_left;
@@ -764,12 +765,7 @@ impl XPositions {
                     + page.spacing
                     + page.max_widget
                     + page.max_right_padding;
-
-                let rest = page
-                    .full_width
-                    .saturating_sub(border.left)
-                    .saturating_sub(border.right)
-                    .saturating_sub(single_width);
+                let rest = layout_width.saturating_sub(single_width);
 
                 offset = border.left + rest / 2;
                 label_left = page.max_left_padding;
@@ -786,10 +782,7 @@ impl XPositions {
                     + page.max_widget
                     + page.max_right_padding;
 
-                offset = page
-                    .full_width
-                    .saturating_sub(border.right)
-                    .saturating_sub(single_width);
+                offset = right_margin.saturating_sub(single_width);
                 label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
                 widget_right = widget_left + page.max_widget;
@@ -803,11 +796,7 @@ impl XPositions {
                     + page.spacing
                     + page.max_widget
                     + page.max_right_padding;
-                let rest = page
-                    .full_width
-                    .saturating_sub(border.left)
-                    .saturating_sub(border.right)
-                    .saturating_sub(single_width);
+                let rest = layout_width.saturating_sub(single_width);
                 let spacing = rest / 2;
 
                 offset = border.left + spacing;
@@ -823,11 +812,7 @@ impl XPositions {
                     + page.max_label
                     + page.max_widget
                     + page.max_right_padding;
-                let rest = page
-                    .full_width
-                    .saturating_sub(border.left)
-                    .saturating_sub(border.right)
-                    .saturating_sub(single_width);
+                let rest = layout_width.saturating_sub(single_width);
                 let spacing = rest / 3;
 
                 offset = border.left + spacing;
@@ -858,6 +843,15 @@ impl Page {
     where
         W: Eq + Hash + Clone + Debug,
     {
+        let layout_width = page_size
+            .width
+            .saturating_sub(layout.page_border.left)
+            .saturating_sub(layout.page_border.right);
+
+        let column_width = layout_width
+            .saturating_sub(layout.max_left_padding)
+            .saturating_sub(layout.max_right_padding);
+
         // let column_width = (page_size
         //     .width
         //     .saturating_sub(layout.page_border.left)
@@ -865,20 +859,12 @@ impl Page {
         //     / layout.columns)
         //     .saturating_sub(layout.column_spacing);
 
-        // cut excess
-        let page_width = page_size
-            .width
-            .saturating_sub(layout.page_border.left)
-            .saturating_sub(layout.max_left_padding)
-            .saturating_sub(layout.max_right_padding)
-            .saturating_sub(layout.page_border.right);
-
         let mut max_label = layout.max_label;
         let mut max_widget = layout.max_widget;
         let mut spacing = layout.spacing;
 
         if max_label + spacing + max_widget > page_size.width {
-            let mut reduce = max_label + spacing + max_widget - page_width;
+            let mut reduce = max_label + spacing + max_widget - column_width;
 
             if spacing > reduce {
                 spacing -= reduce;
