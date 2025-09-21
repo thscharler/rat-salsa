@@ -493,8 +493,6 @@ impl Scheme {
                 .fg(self.text_color(self.black[0])),
             navigation: Some(self.container_arrow()),
             label_style: Some(Style::new().fg(THEME.white[3]).bg(THEME.orange[0])),
-            first_page_mark: Some(""),
-            last_page_mark: Some(""),
             ..Default::default()
         }
     }

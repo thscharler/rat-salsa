@@ -2,7 +2,7 @@
 
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area};
 use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -107,6 +107,13 @@ impl RelocatableState for TextInputMockState {
 impl TextInputMockState {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn named(s: &str) -> Self {
+        Self {
+            focus: FocusFlag::named(s),
+            area: Default::default(),
+        }
     }
 
     pub fn clear_areas(&mut self) {

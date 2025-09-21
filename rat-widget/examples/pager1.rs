@@ -3,19 +3,23 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
+use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
 use rat_widget::pager::{SinglePager, SinglePagerState};
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::text::Span;
-use ratatui::widgets::{Padding, Widget};
+use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
+use ratatui::text::{Span, Text};
+use ratatui::widgets::block::{Position, Title};
+use ratatui::widgets::{Block, Padding, Widget};
 use std::array;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 mod mini_salsa;
 
@@ -27,7 +31,9 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        pager: SinglePagerState::default(),
+        flex: Default::default(),
+        line_spacing: 1,
+        pager: Default::default(),
         hundred: array::from_fn(|_| Default::default()),
         menu: Default::default(),
     };
@@ -46,6 +52,8 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
+    flex: Flex,
+    line_spacing: u16,
     pager: SinglePagerState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
     menu: MenuLineState,
@@ -59,7 +67,7 @@ fn repaint_input(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     if istate.status[0] == "Ctrl-Q to quit." {
-        istate.status[0] = "Ctrl-Q to quit. F4/F5 navigate page.".into();
+        istate.status[0] = "Ctrl-Q to quit. F2 line sp. F3 flex. F4/F5 navigate page.".into();
     }
 
     let l1 = Layout::vertical([
@@ -79,17 +87,23 @@ fn repaint_input(
 
     // set up pager
     let pager = SinglePager::new() //
-        .styles(THEME.pager_style());
+        .styles(THEME.pager_style())
+        .block(
+            Block::bordered().title(
+                Title::from(format!("{:?}", state.flex))
+                    .alignment(Alignment::Center)
+                    .position(Position::Top),
+            ),
+        );
 
     // maybe rebuild layout
     let layout_size = pager.layout_size(l2[1]);
 
     if !state.pager.valid_layout(layout_size) {
         let mut form = LayoutForm::new()
-            .border(Padding::new(2, 2, 1, 1))
-            .spacing(1)
-            .line_spacing(1)
-            .flex(Flex::Legacy);
+            .border(Padding::new(2, 2, 0, 0))
+            .line_spacing(state.line_spacing)
+            .flex(state.flex);
 
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
@@ -119,17 +133,18 @@ fn repaint_input(
     // render the input fields.
     for i in 0..state.hundred.len() {
         // render manual label
-        pager.render_label(
-            state.hundred[i].focus.clone(), //
-            |_, a, b| Span::from("<<?>>").render(a, b),
-        );
-
+        pager.render_label(state.hundred[i].focus.clone(), |s, a, b| {
+            Text::from(format!("lbl{}", i))
+                .style(THEME.orange(0))
+                .alignment(Alignment::Right)
+                .render(a, b);
+        });
         // map our widget area.
         pager.render(
             state.hundred[i].focus.clone(),
             || {
                 TextInputMock::default()
-                    .sample(format!("{:?}", i))
+                    .sample(format!("text {:?}", i))
                     .style(THEME.limegreen(0))
                     .focus_style(THEME.limegreen(2))
             },
@@ -191,6 +206,32 @@ fn handle_input(
     });
 
     try_flow!(match event {
+        ct_event!(keycode press F(1)) => {
+            debug!("{:#?}", state.pager.layout.borrow());
+            Outcome::Unchanged
+        }
+        ct_event!(keycode press F(2)) => {
+            state.pager.clear();
+            state.flex = match state.flex {
+                Flex::Legacy => Flex::Start,
+                Flex::Start => Flex::End,
+                Flex::End => Flex::Center,
+                Flex::Center => Flex::SpaceBetween,
+                Flex::SpaceBetween => Flex::SpaceAround,
+                Flex::SpaceAround => Flex::Legacy,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(3)) => {
+            state.pager.clear();
+            state.line_spacing = match state.line_spacing {
+                0 => 1,
+                1 => 2,
+                2 => 3,
+                _ => 0,
+            };
+            Outcome::Changed
+        }
         ct_event!(keycode press F(4)) => {
             if state.pager.prev_page() {
                 if let Some(widget) = state.pager.first(state.pager.page()) {

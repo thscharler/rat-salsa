@@ -13,8 +13,9 @@ use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use rat_widget::pager::{DualPager, DualPagerState};
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::Padding;
+use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
+use ratatui::widgets::block::{Position, Title};
+use ratatui::widgets::{Block, Padding};
 use std::array;
 
 mod mini_salsa;
@@ -27,7 +28,9 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        pager: DualPagerState::default(),
+        flex: Default::default(),
+        line_spacing: 1,
+        pager: Default::default(),
         hundred: array::from_fn(|_| Default::default()),
         menu: Default::default(),
     };
@@ -46,6 +49,8 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
+    flex: Flex,
+    line_spacing: u16,
     pager: DualPagerState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
     menu: MenuLineState,
@@ -79,6 +84,14 @@ fn repaint_input(
 
     // set up pager
     let pager = DualPager::new() //
+        .auto_label(true)
+        .block(
+            Block::bordered().title(
+                Title::from(format!("{:?}", state.flex))
+                    .alignment(Alignment::Center)
+                    .position(Position::Top),
+            ),
+        )
         .styles(THEME.pager_style());
 
     // maybe rebuild layout
@@ -86,8 +99,9 @@ fn repaint_input(
     if !state.pager.valid_layout(layout_size) {
         let mut form = LayoutForm::new()
             .mirror_odd_border()
-            .min_widget(40)
-            .border(Padding::new(2, 1, 1, 0));
+            .border(Padding::new(4, 2, 0, 0))
+            .line_spacing(state.line_spacing)
+            .flex(state.flex);
 
         for i in 0..state.hundred.len() {
             let h = if i == 0 {
@@ -104,7 +118,7 @@ fn repaint_input(
 
             form.widget(
                 state.hundred[i].focus.clone(),
-                FormLabel::String(format!("{}", i).to_string()),
+                FormLabel::String(format!("label {}", i).to_string()),
                 FormWidget::WideStretchX(10, h),
             );
 
@@ -125,6 +139,7 @@ fn repaint_input(
             state.hundred[i].focus.clone(),
             || {
                 TextInputMock::default()
+                    .sample(format!("text {}", i))
                     .style(THEME.limegreen(0))
                     .focus_style(THEME.limegreen(2))
             },
@@ -186,6 +201,28 @@ fn handle_input(
         ct_event!(keycode press F(1)) => {
             debug!("{:#?}", state.pager.layout.borrow());
             Outcome::Unchanged
+        }
+        ct_event!(keycode press F(2)) => {
+            state.pager.clear();
+            state.flex = match state.flex {
+                Flex::Legacy => Flex::Start,
+                Flex::Start => Flex::End,
+                Flex::End => Flex::Center,
+                Flex::Center => Flex::SpaceBetween,
+                Flex::SpaceBetween => Flex::SpaceAround,
+                Flex::SpaceAround => Flex::Legacy,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(3)) => {
+            state.pager.clear();
+            state.line_spacing = match state.line_spacing {
+                0 => 1,
+                1 => 2,
+                2 => 3,
+                _ => 0,
+            };
+            Outcome::Changed
         }
         ct_event!(keycode press F(4)) => {
             if state.pager.prev_page() {

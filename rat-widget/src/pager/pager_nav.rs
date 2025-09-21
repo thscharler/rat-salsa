@@ -3,7 +3,7 @@ use crate::event::PagerOutcome;
 use crate::pager::PagerStyle;
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
@@ -75,8 +75,8 @@ impl Default for PageNavigation<'_> {
             title_style: Default::default(),
             next_page: ">>>",
             prev_page: "<<<",
-            first_page: "[·]",
-            last_page: "[·]",
+            first_page: " [ ",
+            last_page: " ] ",
         }
     }
 }

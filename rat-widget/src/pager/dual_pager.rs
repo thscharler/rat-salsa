@@ -6,7 +6,7 @@ use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
-use ratatui::style::Style;
+use ratatui::style::{Style, Stylize};
 use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, Widget};
 use std::borrow::Cow;
@@ -190,8 +190,10 @@ where
 
         self.page_nav.render(area, buf, &mut state.nav);
 
-        let buf = Rc::new(RefCell::new(buf));
+        buf.set_style(state.nav.widget_areas[0], Style::new().on_blue());
+        buf.set_style(state.nav.widget_areas[1], Style::new().on_dark_gray());
 
+        let buf = Rc::new(RefCell::new(buf));
         DualPagerBuffer {
             pager0: self
                 .pager

@@ -3,6 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
@@ -23,7 +24,7 @@ use std::time::SystemTime;
 
 mod mini_salsa;
 
-const HUN: usize = 48;
+const HUN: usize = 13;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -37,7 +38,7 @@ fn main() -> Result<(), anyhow::Error> {
         flex: Default::default(),
         layout: Default::default(),
         page_nav: Default::default(),
-        hundred: array::from_fn(|_| Default::default()),
+        hundred: array::from_fn(|n| TextInputMockState::named(format!("{}", n).as_str())),
         menu: Default::default(),
     };
     state.menu.focus.set(true);
@@ -171,7 +172,7 @@ fn repaint_input(
         state.layout = Rc::new(RefCell::new(form_layout.build_paged(layout_size)));
         state
             .page_nav
-            .set_page_count((state.layout.borrow().page_count() + 1) / 2);
+            .set_page_count(state.layout.borrow().page_count());
     }
 
     // Render navigation
@@ -295,6 +296,22 @@ fn handle_input(
     });
 
     try_flow!(match event {
+        ct_event!(keycode press F(1)) => {
+            debug!("{:#?}", state.layout.borrow());
+            Outcome::Unchanged
+        }
+        ct_event!(keycode press F(2)) => {
+            state.layout = Default::default();
+            state.flex = match state.flex {
+                Flex::Legacy => Flex::Start,
+                Flex::Start => Flex::End,
+                Flex::End => Flex::Center,
+                Flex::Center => Flex::SpaceBetween,
+                Flex::SpaceBetween => Flex::SpaceAround,
+                Flex::SpaceAround => Flex::Legacy,
+            };
+            Outcome::Changed
+        }
         ct_event!(keycode press F(4)) => {
             if state.page_nav.prev_page() {
                 if let Some(w) = state.layout.borrow().first(state.page_nav.page) {
@@ -315,18 +332,7 @@ fn handle_input(
                 Outcome::Unchanged
             }
         }
-        ct_event!(keycode press F(2)) => {
-            state.layout = Default::default();
-            state.flex = match state.flex {
-                Flex::Legacy => Flex::Start,
-                Flex::Start => Flex::End,
-                Flex::End => Flex::Center,
-                Flex::Center => Flex::SpaceBetween,
-                Flex::SpaceBetween => Flex::SpaceAround,
-                Flex::SpaceAround => Flex::Legacy,
-            };
-            Outcome::Changed
-        }
+
         _ => Outcome::Continue,
     });
 

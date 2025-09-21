@@ -2,6 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::event::PagerOutcome;
 use crate::layout::GenericLayout;
 use crate::pager::{PageNavigation, PageNavigationState, Pager, PagerBuffer, PagerStyle};
+use log::debug;
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
@@ -225,6 +226,7 @@ where
         FN: FnOnce(&Cow<'static, str>, Rect, &mut Buffer),
     {
         let Some(idx) = self.pager.widget_idx(widget) else {
+            debug!("no widget");
             return false;
         };
         self.pager.render_label(idx, render_fn)

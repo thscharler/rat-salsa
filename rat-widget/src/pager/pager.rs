@@ -177,14 +177,13 @@ where
             return false;
         };
         let layout = self.layout.borrow();
-        let label_str = layout.try_label_str(idx);
-        if let Some(label_str) = label_str {
-            let mut buffer = self.buffer.borrow_mut();
+        let mut buffer = self.buffer.borrow_mut();
+        if let Some(label_str) = layout.try_label_str(idx) {
             render_fn(label_str, label_area, *buffer);
-            true
         } else {
-            false
+            render_fn(&Cow::default(), label_area, *buffer);
         }
+        true
     }
 
     /// Render the label with the set style and alignment.
