@@ -24,7 +24,7 @@ use std::time::SystemTime;
 
 mod mini_salsa;
 
-const HUN: usize = 13;
+const HUN: usize = 1213;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;

@@ -4,6 +4,7 @@ use ratatui::layout::{Flex, Rect, Size};
 use ratatui::widgets::{Block, Borders, Padding};
 use std::borrow::Cow;
 use std::cmp::{max, min};
+use std::collections::VecDeque;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::mem;
@@ -235,7 +236,7 @@ where
     /// Areas
     widgets: Vec<WidgetDef<W>>,
     /// Containers/Blocks
-    blocks: Vec<BlockDef>,
+    blocks: VecDeque<BlockDef>,
     /// Page breaks.
     page_breaks: Vec<usize>,
 
@@ -496,7 +497,7 @@ where
         let padding = block_padding(&block);
 
         let tag = BlockTag(self.blocks.len());
-        self.blocks.push(BlockDef {
+        self.blocks.push_back(BlockDef {
             id: tag,
             block,
             padding,
@@ -996,6 +997,8 @@ where
                 &mut gen_layout,
             );
         }
+
+        drop_blocks(&mut layout.blocks, idx);
     }
 
     // modify layout to add y-stretch
@@ -1006,9 +1009,23 @@ where
     gen_layout
 }
 
+// drop no longer used blocks. perf.
+// there may be pathological cases, but otherwise this is fine.
+fn drop_blocks(block_def: &mut VecDeque<BlockDef>, idx: usize) {
+    loop {
+        if let Some(block) = block_def.get(0) {
+            if block.range.end < idx {
+                block_def.pop_front();
+            } else {
+                break;
+            }
+        }
+    }
+}
+
 // do a page-break
 fn page_break<W>(
-    block_def: &mut [BlockDef],
+    block_def: &mut VecDeque<BlockDef>,
     page: &mut Page,
     idx: usize,
     stretch: &mut Vec<usize>,
@@ -1026,6 +1043,9 @@ fn page_break<W>(
 
             // restart on next page
             block.range.start = idx;
+        }
+        if block.range.start > idx {
+            break;
         }
     }
     // pop reverts the ordering for render
@@ -1058,7 +1078,7 @@ fn page_break<W>(
 // add next widget
 fn next_widget<W>(
     page: &mut Page,
-    block_def: &mut [BlockDef],
+    block_def: &mut VecDeque<BlockDef>,
     widget: &WidgetDef<W>,
     idx: usize,
     must_fit: bool,
@@ -1081,6 +1101,9 @@ where
         if block.range.start <= idx {
             widget_padding(page, idx, block);
         }
+        if block.range.start > idx {
+            break;
+        }
     }
 
     // get areas + advance
@@ -1093,6 +1116,9 @@ where
         if idx + 1 == block.range.end {
             end_block(page, block);
             blocks_out.push(block.as_out());
+        }
+        if block.range.start > idx {
+            break;
         }
     }
 
