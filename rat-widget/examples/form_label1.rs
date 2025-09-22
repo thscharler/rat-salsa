@@ -2,7 +2,7 @@
 
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
-use log::warn;
+use log::{debug, warn};
 use rat_event::{HandleEvent, Popup, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation, impl_has_focus};
 use rat_menu::event::MenuOutcome;
@@ -13,7 +13,9 @@ use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::pager::{DualPager, DualPagerState};
+use rat_widget::pager::{
+    DualPager, DualPagerState, Form, FormState, SinglePager, SinglePagerState,
+};
 use rat_widget::paired::{Paired, PairedState, PairedWidget};
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::text::HasScreenCursor;
@@ -49,7 +51,10 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    form: DualPagerState<usize>,
+    flex: Flex,
+    columns: u8,
+    line_spacing: u16,
+    form: SinglePagerState<usize>,
 
     name: TextInputState,
     version: MaskedInputState,
@@ -71,6 +76,9 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         let mut s = Self {
+            flex: Default::default(),
+            columns: 1,
+            line_spacing: 1,
             form: Default::default(),
             name: Default::default(),
             version: Default::default(),
@@ -108,18 +116,17 @@ fn repaint_input(
     let l2 = Layout::horizontal([Constraint::Fill(1)]).split(l1[0]);
 
     // set up form
-    let form = DualPager::new()
-        .styles(THEME.pager_style())
-        .auto_label(true);
+    let form = SinglePager::new() //
+        .styles(THEME.pager_style());
 
     // maybe rebuild layout
     use rat_widget::layout::{FormLabel as L, FormWidget as W, LayoutForm};
     if !state.form.valid_layout(form.layout_size(l2[0])) {
         let mut lf = LayoutForm::new() //
-            .spacing(1)
-            .line_spacing(1)
             .border(Padding::new(2, 2, 1, 1))
-            .flex(Flex::Legacy);
+            .line_spacing(state.line_spacing)
+            .columns(state.columns)
+            .flex(state.flex);
 
         lf.widget(state.name.id(), L::Str("Name"), W::Width(20));
         lf.widget(state.version.id(), L::Str("Version"), W::Width(12));
@@ -259,6 +266,11 @@ fn repaint_input(
 
     let menu1 = MenuLine::new()
         .title("#.#")
+        .item_parsed("_Flex|F2")
+        .item_parsed("_Spacing|F3")
+        .item_parsed("_Columns|F4")
+        .item_parsed("_Next|F8")
+        .item_parsed("_Prev|F9")
         .item_parsed("_Quit")
         .styles(THEME.menu_style());
     frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
@@ -308,12 +320,30 @@ fn handle_input(
 
     istate.focus_outcome = focus.handle(event, Regular);
 
+    try_flow!(match event {
+        ct_event!(keycode press F(1)) => {
+            debug!("{:#?}", state.form.layout.borrow());
+            Outcome::Unchanged
+        }
+        ct_event!(keycode press F(2)) => flip_flex(state),
+        ct_event!(keycode press F(3)) => flip_spacing(state),
+        ct_event!(keycode press F(4)) => flip_columns(state),
+        ct_event!(keycode press F(8)) => prev_page(state, &focus),
+        ct_event!(keycode press F(9)) => next_page(state, &focus),
+        _ => Outcome::Continue,
+    });
+
     try_flow!(match state.menu.handle(event, Regular) {
-        MenuOutcome::Activated(0) => {
+        MenuOutcome::Activated(0) => flip_flex(state),
+        MenuOutcome::Activated(1) => flip_spacing(state),
+        MenuOutcome::Activated(2) => flip_columns(state),
+        MenuOutcome::Activated(3) => next_page(state, &focus),
+        MenuOutcome::Activated(4) => prev_page(state, &focus),
+        MenuOutcome::Activated(5) => {
             istate.quit = true;
             Outcome::Changed
         }
-        _ => Outcome::Continue,
+        r => r.into(),
     });
 
     // page navigation for the form.
@@ -375,6 +405,64 @@ fn handle_input(
     });
 
     Ok(Outcome::Continue)
+}
+
+fn flip_flex(state: &mut State) -> Outcome {
+    state.form.clear();
+    state.flex = match state.flex {
+        Flex::Legacy => Flex::Start,
+        Flex::Start => Flex::End,
+        Flex::End => Flex::Center,
+        Flex::Center => Flex::SpaceBetween,
+        Flex::SpaceBetween => Flex::SpaceAround,
+        Flex::SpaceAround => Flex::Legacy,
+    };
+    Outcome::Changed
+}
+
+fn flip_spacing(state: &mut State) -> Outcome {
+    state.form.clear();
+    state.line_spacing = match state.line_spacing {
+        0 => 1,
+        1 => 2,
+        2 => 3,
+        _ => 0,
+    };
+    Outcome::Changed
+}
+
+fn flip_columns(state: &mut State) -> Outcome {
+    state.form.clear();
+    state.columns = match state.columns {
+        1 => 2,
+        2 => 3,
+        3 => 4,
+        4 => 5,
+        _ => 1,
+    };
+    Outcome::Changed
+}
+
+fn prev_page(state: &mut State, focus: &Focus) -> Outcome {
+    if state.form.prev_page() {
+        if let Some(widget) = state.form.first(state.form.page()) {
+            focus.by_widget_id(widget);
+        }
+        Outcome::Changed
+    } else {
+        Outcome::Unchanged
+    }
+}
+
+fn next_page(state: &mut State, focus: &Focus) -> Outcome {
+    if state.form.next_page() {
+        if let Some(widget) = state.form.first(state.form.page()) {
+            focus.by_widget_id(widget);
+        }
+        Outcome::Changed
+    } else {
+        Outcome::Unchanged
+    }
 }
 
 #[derive(Debug, Default, Clone)]

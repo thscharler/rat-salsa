@@ -10,7 +10,7 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
+use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use rat_widget::pager::{SinglePager, SinglePagerState};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
@@ -18,8 +18,6 @@ use ratatui::text::{Span, Text};
 use ratatui::widgets::block::{Position, Title};
 use ratatui::widgets::{Block, Padding, Widget};
 use std::array;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 mod mini_salsa;
 

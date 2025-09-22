@@ -699,6 +699,7 @@ where
     }
 
     /// Calculate a layout without page-breaks using the given layout-width and padding.
+    /// This function ignores any column settings.
     #[inline(always)]
     #[deprecated(since = "1.2.0", note = "use build_endless")]
     pub fn endless(mut self, width: u16, border: Padding) -> GenericLayout<W> {
@@ -838,11 +839,15 @@ impl XPositions {
                     + page.max_widget
                     + page.max_right_padding;
                 let rest = layout_width.saturating_sub(single_width * page.columns);
-                let spacing = rest / (2 * page.columns + 1);
+                let spacing = if page.columns > 1 {
+                    rest / (page.columns - 1)
+                } else {
+                    0
+                };
 
-                offset = border.left + spacing + (single_width + 2 * spacing) * column;
+                offset = border.left + (single_width + spacing) * column;
                 label_left = page.max_left_padding;
-                widget_left = label_left + page.max_label + spacing;
+                widget_left = label_left + page.max_label + page.spacing;
                 widget_right = widget_left + page.max_widget;
 
                 container_left = 0;
