@@ -634,6 +634,13 @@ where
         }
     }
 
+    /// Add a list of label + widget constraints.
+    pub fn widgets(&mut self, list: impl IntoIterator<Item = (W, FormLabel, FormWidget)>) {
+        for (k, l, w) in list {
+            self.widget(k, l, w);
+        }
+    }
+
     /// Add label + widget constraint.
     /// Key must be a unique identifier.
     pub fn widget(&mut self, key: W, label: FormLabel, widget: FormWidget) {

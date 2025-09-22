@@ -8,11 +8,13 @@ use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation, impl_has_f
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
+use rat_text::impl_screen_cursor;
 use rat_text::text_area::{TextArea, TextAreaState};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{Outcome, PagerOutcome};
+use rat_widget::layout::LayoutForm;
 use rat_widget::pager::{
     DualPager, DualPagerState, Form, FormState, SinglePager, SinglePagerState,
 };
@@ -120,29 +122,35 @@ fn repaint_input(
         .styles(THEME.pager_style());
 
     // maybe rebuild layout
-    use rat_widget::layout::{FormLabel as L, FormWidget as W, LayoutForm};
+
     if !state.form.valid_layout(form.layout_size(l2[0])) {
+        use rat_widget::layout::{FormLabel as L, FormWidget as W};
+
         let mut lf = LayoutForm::new() //
             .border(Padding::new(2, 2, 1, 1))
             .line_spacing(state.line_spacing)
             .columns(state.columns)
             .flex(state.flex);
 
-        lf.widget(state.name.id(), L::Str("Name"), W::Width(20));
-        lf.widget(state.version.id(), L::Str("Version"), W::Width(12));
-        lf.widget(state.edition.id(), L::Str("Edition"), W::Width(20));
-        lf.widget(state.author.id(), L::Str("Author"), W::Width(20));
-        lf.widget(state.descr.id(), L::Str("Describe"), W::StretchXY(20, 4));
-        lf.widget(state.license.id(), L::Str("License"), W::Width(18));
-        lf.widget(state.repository.id(), L::Str("Repository"), W::Width(25));
-        lf.widget(state.readme.id(), L::Str("Readme"), W::Width(20));
-        lf.widget(state.keywords.id(), L::Str("Keywords"), W::Width(25));
+        lf.widgets([
+            (state.name.id(), L::Str("Name"), W::Width(20)),
+            (state.version.id(), L::Str("Version"), W::Width(12)),
+            (state.edition.id(), L::Str("Edition"), W::Width(20)),
+            (state.author.id(), L::Str("Author"), W::Width(20)),
+            (state.descr.id(), L::Str("Describe"), W::StretchXY(20, 4)),
+            (state.license.id(), L::Str("License"), W::Width(18)),
+            (state.repository.id(), L::Str("Repository"), W::Width(25)),
+            (state.readme.id(), L::Str("Readme"), W::Width(20)),
+            (state.keywords.id(), L::Str("Keywords"), W::Width(25)),
+        ]);
         lf.page_break();
-        lf.widget(state.category1.id(), L::Str("Category"), W::Width(25));
-        lf.widget(state.category2.id(), L::None, W::Width(25));
-        lf.widget(state.category3.id(), L::None, W::Width(25));
-        lf.widget(state.category4.id(), L::None, W::Width(25));
-        lf.widget(state.category5.id(), L::None, W::Width(25));
+        lf.widgets([
+            (state.category1.id(), L::Str("Category"), W::Width(25)),
+            (state.category2.id(), L::None, W::Width(25)),
+            (state.category3.id(), L::None, W::Width(25)),
+            (state.category4.id(), L::None, W::Width(25)),
+            (state.category5.id(), L::None, W::Width(25)),
+        ]);
 
         state
             .form
@@ -242,25 +250,9 @@ fn repaint_input(
     );
 
     // popups
-    if let Some(license_popup) = license_popup {
-        form.render(state.license.id(), || license_popup, &mut state.license);
-    }
+    form.render_opt(state.license.id(), || license_popup, &mut state.license);
 
-    if let Some(cursor) = state
-        .name
-        .screen_cursor()
-        .or(state.version.screen_cursor())
-        .or(state.author.screen_cursor())
-        .or(state.descr.screen_cursor())
-        .or(state.repository.screen_cursor())
-        .or(state.readme.screen_cursor())
-        .or(state.keywords.screen_cursor())
-        .or(state.category1.screen_cursor())
-        .or(state.category2.screen_cursor())
-        .or(state.category3.screen_cursor())
-        .or(state.category4.screen_cursor())
-        .or(state.category5.screen_cursor())
-    {
+    if let Some(cursor) = state.screen_cursor() {
         frame.set_cursor_position(cursor);
     }
 
@@ -277,6 +269,9 @@ fn repaint_input(
 
     Ok(())
 }
+
+impl_screen_cursor!(name, version, author, descr, repository, readme,
+    keywords, category1, category2, category3, category4, category5 for State);
 
 impl HasFocus for State {
     fn build(&self, builder: &mut FocusBuilder) {
