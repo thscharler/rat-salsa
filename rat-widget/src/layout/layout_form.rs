@@ -619,6 +619,21 @@ where
         panic!("No open container.");
     }
 
+    /// Closes all open groups/blocks.
+    pub fn end_all(&mut self) {
+        let max = self.widgets.len();
+        for cc in self.blocks.iter_mut().rev() {
+            if cc.constructing {
+                cc.range.end = max;
+                cc.constructing = false;
+
+                // might have been used by a widget.
+                self.left_padding -= cc.padding.left;
+                self.right_padding -= cc.padding.right;
+            }
+        }
+    }
+
     /// Add label + widget constraint.
     /// Key must be a unique identifier.
     pub fn widget(&mut self, key: W, label: FormLabel, widget: FormWidget) {
@@ -1009,40 +1024,26 @@ where
         let mut label_area;
         let mut widget_area;
 
-        (label_area, widget_area) = next_widget(
-            &mut page,
-            &mut layout.blocks,
-            widget,
-            idx,
-            false,
-            &mut blocks_out,
-        );
+        (label_area, widget_area) = next_widget(&mut page, &mut layout.blocks, widget, idx, false);
+        next_blocks(&mut page, &mut layout.blocks, idx, &mut blocks_out);
 
         // page overflow induces page-break
         if !endless && page.y.saturating_add(page.bottom_padding_break) > page.page_end {
-            // reset safe-point
+            // reset to safe-point
             page = saved_page;
-            // any container areas are invalid
-            blocks_out.clear();
+
             // page-break
-            page_break(
-                &mut layout.blocks,
-                &mut page,
-                idx,
-                &mut stretch,
-                &mut blocks_out,
-                &mut gen_layout,
-            );
+            blocks_out.clear();
+            page_break_blocks(&mut page, &mut layout.blocks, idx, &mut blocks_out);
+            push_blocks(&mut blocks_out, &mut gen_layout);
+            adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
+            page_break(&mut page);
+            assert!(stretch.is_empty());
 
             // redo current widget
-            (label_area, widget_area) = next_widget(
-                &mut page,
-                &mut layout.blocks,
-                widget,
-                idx,
-                true,
-                &mut blocks_out,
-            );
+            (label_area, widget_area) =
+                next_widget(&mut page, &mut layout.blocks, widget, idx, true);
+            next_blocks(&mut page, &mut layout.blocks, idx, &mut blocks_out);
         }
 
         // remember stretch widget.
@@ -1058,31 +1059,26 @@ where
             label_area,
         );
 
-        // pop reverts the ordering for render
-        while let Some(cc) = blocks_out.pop() {
-            gen_layout.add_block(cc.area, cc.block);
-        }
+        push_blocks(&mut blocks_out, &mut gen_layout);
 
         // page-break after widget
         if !endless && layout.page_breaks.contains(&idx) {
-            page_break(
-                &mut layout.blocks,
-                &mut page,
-                idx + 1,
-                &mut stretch,
-                &mut blocks_out,
-                &mut gen_layout,
-            );
+            assert!(blocks_out.is_empty());
+            page_break_blocks(&mut page, &mut layout.blocks, idx + 1, &mut blocks_out);
+            push_blocks(&mut blocks_out, &mut gen_layout);
+            adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
+            page_break(&mut page);
+            assert!(stretch.is_empty());
         }
 
         drop_blocks(&mut layout.blocks, idx);
+        assert!(blocks_out.is_empty());
     }
 
     // modify layout to add y-stretch
     adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
 
     gen_layout.set_page_count(((page.page_no + page.columns) / page.columns) as usize);
-
     gen_layout
 }
 
@@ -1102,19 +1098,14 @@ fn drop_blocks(block_def: &mut VecDeque<BlockDef>, idx: usize) {
     // }
 }
 
-// do a page-break
-fn page_break<W>(
-    block_def: &mut VecDeque<BlockDef>,
+fn page_break_blocks(
     page: &mut Page,
+    block_def: &mut VecDeque<BlockDef>,
     idx: usize,
-    stretch: &mut Vec<usize>,
     blocks_out: &mut Vec<BlockOut>,
-    gen_layout: &mut GenericLayout<W>,
-) where
-    W: Eq + Hash + Clone + Debug,
-{
+) {
     // close and push containers
-    // rev() ensures closing from innermost to outermost container.
+    // rev() ensures closing from outermost to innermost container.
     for block in block_def.iter_mut().rev() {
         if idx > block.range.start && idx < block.range.end {
             end_block(page, block);
@@ -1127,14 +1118,10 @@ fn page_break<W>(
         //     break;
         // }
     }
-    // pop reverts the ordering for render
-    while let Some(cc) = blocks_out.pop() {
-        gen_layout.add_block(cc.area, cc.block);
-    }
+}
 
-    // modify layout to add y-stretch
-    adjust_y_stretch(&page, stretch, gen_layout);
-
+// do a page-break
+fn page_break(page: &mut Page) {
     // advance
     page.page_no += 1;
 
@@ -1161,16 +1148,17 @@ fn next_widget<W>(
     widget: &WidgetDef<W>,
     idx: usize,
     must_fit: bool,
-    blocks_out: &mut Vec<BlockOut>,
 ) -> (Rect, Rect)
 where
     W: Eq + Hash + Clone + Debug,
 {
     // line spacing
     page.y = page.y.saturating_add(page.effective_line_spacing);
+
     page.effective_line_spacing = page.line_spacing;
     page.top_padding = 0;
     page.bottom_padding = 0;
+    page.bottom_padding_break = 0;
 
     // start container
     for block in block_def.iter_mut() {
@@ -1189,17 +1177,6 @@ where
     let (label_area, widget_area, advance) = areas_and_advance(&page, &widget, must_fit);
 
     page.y = page.y.saturating_add(advance);
-
-    // end and push containers
-    for block in block_def.iter_mut().rev() {
-        if idx + 1 == block.range.end {
-            end_block(page, block);
-            blocks_out.push(block.as_out());
-        }
-        // if block.range.start > idx {
-        //     break;
-        // }
-    }
 
     (label_area, widget_area)
 }
@@ -1229,6 +1206,34 @@ fn widget_padding(page: &mut Page, idx: usize, block: &mut BlockDef) {
         page.bottom_padding_break += block.padding.bottom;
     } else if block.range.end == idx + 1 {
         page.bottom_padding += block.padding.bottom;
+    }
+}
+
+fn next_blocks(
+    page: &mut Page,
+    block_def: &mut VecDeque<BlockDef>,
+    idx: usize,
+    blocks_out: &mut Vec<BlockOut>,
+) {
+    // close and push containers
+    // rev() ensures closing from outermost to innermost container.
+    for block in block_def.iter_mut().rev() {
+        if idx + 1 == block.range.end {
+            end_block(page, block);
+            blocks_out.push(block.as_out());
+        }
+        // if block.range.start > idx {
+        //     break;
+        // }
+    }
+}
+
+fn push_blocks<W: Eq + Hash + Clone>(
+    blocks_out: &mut Vec<BlockOut>,
+    gen_layout: &mut GenericLayout<W>,
+) {
+    while let Some(cc) = blocks_out.pop() {
+        gen_layout.add_block(cc.area, cc.block);
     }
 }
 
