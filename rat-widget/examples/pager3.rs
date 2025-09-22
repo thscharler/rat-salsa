@@ -24,7 +24,7 @@ use std::time::SystemTime;
 
 mod mini_salsa;
 
-const HUN: usize = 53;
+const HUN: usize = 52;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -114,8 +114,6 @@ fn repaint_input(
             .min_label(10);
 
         // generate the layout ...
-        let mut tag8 = Default::default();
-        let mut tag17 = Default::default();
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
                 2
@@ -132,22 +130,24 @@ fn repaint_input(
                 15
             };
 
-            if i == 17 {
-                tag17 = form_layout.start(Some(
-                    Block::bordered()
-                        .border_type(BorderType::Double)
-                        .style(THEME.bluegreen(0)),
-                ));
-            }
-            if i == 20 {
-                form_layout.end(tag17);
+            if i >= 17 {
+                if i % 17 == 0 {
+                    form_layout.start(Some(
+                        Block::bordered()
+                            .border_type(BorderType::Double)
+                            .style(THEME.bluegreen(0)),
+                    ));
+                }
+                if (i - 8) % 17 == 0 {
+                    form_layout.end_all();
+                }
             }
             if i >= 8 {
                 if i % 8 == 0 {
-                    tag8 = form_layout.start(Some(Block::bordered()));
+                    form_layout.start(Some(Block::bordered()));
                 }
                 if (i - 4) % 8 == 0 {
-                    form_layout.end(tag8);
+                    form_layout.end_all();
                 }
             }
 
@@ -155,7 +155,7 @@ fn repaint_input(
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
                     FormLabel::String(format!("{}", i).to_string()),
-                    FormWidget::StretchXY(w, h),
+                    FormWidget::StretchX(w, h),
                 );
             } else {
                 form_layout.widget(
@@ -169,6 +169,7 @@ fn repaint_input(
                 form_layout.page_break();
             }
         }
+        form_layout.end_all();
 
         state.layout = Rc::new(RefCell::new(form_layout.build_paged(layout_size)));
         state
