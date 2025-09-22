@@ -155,7 +155,7 @@ fn repaint_input(
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
                     FormLabel::String(format!("{}", i).to_string()),
-                    FormWidget::StretchX(w, h),
+                    FormWidget::StretchXY(w, h),
                 );
             } else {
                 form_layout.widget(

@@ -1496,6 +1496,8 @@ fn adjust_y_stretch<W: Eq + Hash + Clone>(
         // stretch
         let mut area = gen_layout.widget(y_idx);
         let test_y = area.bottom();
+        let test_x = page.x_pos.container_left;
+
         area.height += stretch;
         gen_layout.set_widget(y_idx, area);
 
@@ -1517,11 +1519,11 @@ fn adjust_y_stretch<W: Eq + Hash + Clone>(
         // containers may be shifted or stretched.
         for idx in 0..gen_layout.block_len() {
             let mut area = gen_layout.block_area(idx);
-            if area.y >= test_y {
+            if area.x >= test_x && area.y >= test_y {
                 area.y += stretch;
             }
             // may stretch the container
-            if area.y <= test_y && area.bottom() > test_y {
+            if area.x >= test_x && area.y <= test_y && area.bottom() > test_y {
                 area.height += stretch;
             }
             gen_layout.set_block_area(idx, area);
