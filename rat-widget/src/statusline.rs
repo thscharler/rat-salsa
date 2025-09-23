@@ -39,15 +39,27 @@ use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
-use ratatui::text::Span;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
+use std::borrow::Cow;
 use std::fmt::Debug;
 
 /// Statusbar with multiple sections.
 #[derive(Debug, Default, Clone)]
 pub struct StatusLine {
+    sep: Option<Cow<'static, str>>,
     style: Vec<Style>,
     widths: Vec<Constraint>,
+}
+
+/// Combined style.
+#[derive(Debug, Clone)]
+pub struct StatusLineStyle {
+    // separator
+    pub sep: Option<Cow<'static, str>>,
+    // styles
+    pub styles: Vec<Style>,
+    pub non_exhaustive: NonExhaustive,
 }
 
 /// State & event handling.
@@ -67,10 +79,21 @@ pub struct StatusLineState {
     pub non_exhaustive: NonExhaustive,
 }
 
+impl Default for StatusLineStyle {
+    fn default() -> Self {
+        Self {
+            sep: Default::default(),
+            styles: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 impl StatusLine {
     /// New widget.
     pub fn new() -> Self {
         Self {
+            sep: Default::default(),
             style: Default::default(),
             widths: Default::default(),
         }
@@ -92,6 +115,13 @@ impl StatusLine {
     /// Styles for each section.
     pub fn styles(mut self, style: impl IntoIterator<Item = impl Into<Style>>) -> Self {
         self.style = style.into_iter().map(|v| v.into()).collect();
+        self
+    }
+
+    /// Set all styles.
+    pub fn styles_ext(mut self, styles: StatusLineStyle) -> Self {
+        self.sep = styles.sep;
+        self.style = styles.styles;
         self
     }
 }
@@ -158,7 +188,17 @@ fn render_ref(widget: &StatusLine, area: Rect, buf: &mut Buffer, state: &mut Sta
         let style = widget.style.get(i).copied().unwrap_or_default();
         let txt = state.status.get(i).map(|v| v.as_str()).unwrap_or("");
 
-        buf.set_style(*rect, style);
-        Span::from(txt).render(*rect, buf);
+        let sep = if i > 0 {
+            if let Some(sep) = widget.sep.as_ref().map(|v| v.as_ref()) {
+                Span::from(sep)
+            } else {
+                Span::default()
+            }
+        } else {
+            Span::default()
+        };
+        Line::from_iter([sep, Span::from(txt)])
+            .style(style)
+            .render(*rect, buf);
     }
 }
