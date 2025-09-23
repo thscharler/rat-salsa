@@ -191,17 +191,17 @@ impl SalsaTheme for ShellTheme {
 
     /// Container base
     fn container_base(&self) -> Style {
-        self.fg_style(Contrast::Normal)
+        Default::default()
     }
 
     /// Container border
     fn container_border(&self) -> Style {
-        self.container_base().fg(self.p.gray[Palette::BRIGHT_0])
+        Default::default()
     }
 
     /// Container arrows
     fn container_arrow(&self) -> Style {
-        self.container_base().fg(self.p.gray[Palette::BRIGHT_0])
+        Default::default()
     }
 
     /// Background for popups.
@@ -238,7 +238,7 @@ impl SalsaTheme for ShellTheme {
 
     /// Style for the status line.
     fn status_base(&self) -> Style {
-        self.fg_style(Contrast::Normal)
+        Default::default()
     }
 
     /// Base style for buttons.
@@ -256,7 +256,7 @@ impl SalsaTheme for ShellTheme {
     /// Complete MonthStyle.
     fn month_style(&self) -> CalendarStyle {
         CalendarStyle {
-            style: self.fg_style(Contrast::Normal),
+            style: Default::default(),
             title: None,
             weeknum: Some(Style::new().fg(self.p.limegreen[Palette::BRIGHT_0])),
             weekday: Some(Style::new().fg(self.p.limegreen[Palette::BRIGHT_0])),
@@ -279,7 +279,7 @@ impl SalsaTheme for ShellTheme {
     /// Style for LineNumbers.
     fn line_nr_style(&self) -> LineNumberStyle {
         LineNumberStyle {
-            style: self.container_base().fg(self.p.gray[Palette::BRIGHT_1]),
+            style: self.container_base(),
             cursor: Some(self.text_select()),
             ..LineNumberStyle::default()
         }
