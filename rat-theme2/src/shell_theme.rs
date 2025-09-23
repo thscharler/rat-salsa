@@ -1,7 +1,3 @@
-//!
-//! Implements a dark theme.
-//!
-
 use crate::{Contrast, Palette};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -27,55 +23,32 @@ use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
-use ratatui::style::Color;
-use ratatui::style::{Style, Stylize};
+use ratatui::prelude::Style;
+use ratatui::style::{Color, Stylize};
 use ratatui::widgets::{Block, Borders};
 use std::borrow::Cow;
 use std::time::Duration;
 
-/// One sample theme which prefers dark colors from the color-palette
-/// and generates styles for widgets.
-///
-/// The widget set fits for the widgets provided by
-/// [rat-widget](https://www.docs.rs/rat-widget), for other needs
-/// take it as an idea for your own implementation.
-///
+/// A sample theme for shell usage.
 #[derive(Debug, Clone)]
-pub struct DarkTheme {
+pub struct ShellTheme {
     p: Palette,
     name: &'static str,
 }
 
-impl DarkTheme {
-    pub const fn new(name: &'static str, s: Palette) -> Self {
-        Self { p: s, name }
+impl ShellTheme {
+    pub const fn new(name: &'static str, p: Palette) -> Self {
+        Self { p, name }
     }
 }
 
-impl DarkTheme {
-    /// Some display name.
+impl ShellTheme {
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Hint at dark.
-    pub fn dark_theme(&self) -> bool {
-        true
-    }
-
-    /// The underlying palette.
     pub fn palette(&self) -> &Palette {
         &self.p
-    }
-
-    /// Create a style from a background color
-    pub fn style(&self, bg: Color) -> Style {
-        self.p.style(bg, Contrast::Normal)
-    }
-
-    /// Create a style from a background color
-    pub fn high_style(&self, bg: Color) -> Style {
-        self.p.style(bg, Contrast::High)
     }
 
     /// Create a style from the given white shade.
@@ -180,108 +153,115 @@ impl DarkTheme {
         self.p.secondary(n, Contrast::Normal)
     }
 
-    /// Focus style
+    /// Create a style from a background color
+    pub fn bg_style(&self, bg: Color) -> Style {
+        self.p.style(bg, Contrast::Normal)
+    }
+
+    /// Create a style with only a text foreground color
+    pub fn fg_style(&self, contrast: Contrast) -> Style {
+        match contrast {
+            Contrast::High => Style::new().fg(self.p.white[Palette::BRIGHT_3]),
+            Contrast::Normal => Style::new().fg(self.p.white[Palette::BRIGHT_0]),
+        }
+    }
+
+    /// Create a style with only a text foreground color
+    pub fn fg_stylec(&self, color: Color) -> Style {
+        Style::new().fg(color)
+    }
+
     pub fn focus(&self) -> Style {
-        self.high_style(self.p.primary[2])
+        self.p.high_contrast(self.p.primary[Palette::BRIGHT_2])
     }
 
-    /// Selection style
     pub fn select(&self) -> Style {
-        self.high_style(self.p.secondary[1])
+        self.p.high_contrast(self.p.secondary[Palette::BRIGHT_2])
     }
 
-    /// Text field style.
     pub fn text_input(&self) -> Style {
-        self.high_style(self.p.gray[3])
+        self.p.normal_contrast(self.p.gray[Palette::BRIGHT_0])
     }
 
-    /// Focused text field style.
     pub fn text_focus(&self) -> Style {
-        self.high_style(self.p.primary[1])
+        self.p.normal_contrast(self.p.gray[Palette::BRIGHT_3])
     }
 
-    /// Text selection style.
     pub fn text_select(&self) -> Style {
-        self.high_style(self.p.secondary[1])
+        self.p.normal_contrast(self.p.secondary[Palette::BRIGHT_0])
     }
 
     /// Container base
     pub fn container_base(&self) -> Style {
-        self.style(self.p.black[1])
+        self.fg_style(Contrast::Normal)
     }
 
     /// Container border
     pub fn container_border(&self) -> Style {
-        self.container_base().fg(self.p.gray[0])
+        self.container_base().fg(self.p.gray[Palette::BRIGHT_0])
     }
 
     /// Container arrows
     pub fn container_arrow(&self) -> Style {
-        self.container_base().fg(self.p.gray[0])
+        self.container_base().fg(self.p.gray[Palette::BRIGHT_0])
     }
 
     /// Background for popups.
     pub fn popup_base(&self) -> Style {
-        self.style(self.p.white[0])
-    }
-
-    /// Label text inside container.
-    pub fn popup_label(&self) -> Style {
-        self.style(self.p.white[0])
+        self.p
+            .style(self.p.gray[Palette::BRIGHT_0], Contrast::Normal)
     }
 
     /// Dialog arrows
     pub fn popup_border(&self) -> Style {
-        self.popup_base().fg(self.p.gray[0])
+        self.popup_base().fg(self.p.gray[Palette::BRIGHT_0])
     }
 
     /// Dialog arrows
     pub fn popup_arrow(&self) -> Style {
-        self.popup_base().fg(self.p.gray[0])
+        self.popup_base().fg(self.p.gray[Palette::BRIGHT_0])
     }
 
     /// Background for dialogs.
     pub fn dialog_base(&self) -> Style {
-        self.style(self.p.gray[1])
-    }
-
-    /// Label text inside container.
-    pub fn dialog_label(&self) -> Style {
-        self.dialog_base()
+        self.p
+            .style(self.p.gray[Palette::BRIGHT_1], Contrast::Normal)
     }
 
     /// Dialog arrows
     pub fn dialog_border(&self) -> Style {
-        self.dialog_base().fg(self.p.white[0])
+        self.dialog_base().fg(self.p.white[Palette::BRIGHT_0])
     }
 
     /// Dialog arrows
     pub fn dialog_arrow(&self) -> Style {
-        self.dialog_base().fg(self.p.white[0])
+        self.dialog_base().fg(self.p.white[Palette::BRIGHT_0])
     }
 
     /// Style for the status line.
     pub fn status_base(&self) -> Style {
-        self.style(self.p.black[2])
+        self.fg_style(Contrast::Normal)
     }
 
     /// Base style for buttons.
     pub fn button_base(&self) -> Style {
-        self.style(self.p.gray[2])
+        self.p
+            .style(self.p.gray[Palette::BRIGHT_2], Contrast::Normal)
     }
 
     /// Armed style for buttons.
     pub fn button_armed(&self) -> Style {
-        self.style(self.p.secondary[0])
+        self.p
+            .style(self.p.secondary[Palette::BRIGHT_0], Contrast::Normal)
     }
 
     /// Complete MonthStyle.
     pub fn month_style(&self) -> CalendarStyle {
         CalendarStyle {
-            style: self.style(self.p.black[2]),
+            style: self.fg_style(Contrast::Normal),
             title: None,
-            weeknum: Some(Style::new().fg(self.p.limegreen[2])),
-            weekday: Some(Style::new().fg(self.p.limegreen[2])),
+            weeknum: Some(Style::new().fg(self.p.limegreen[Palette::BRIGHT_0])),
+            weekday: Some(Style::new().fg(self.p.limegreen[Palette::BRIGHT_0])),
             day: None,
             select: Some(self.select()),
             focus: Some(self.focus()),
@@ -292,7 +272,7 @@ impl DarkTheme {
     /// Style for shadows.
     pub fn shadow_style(&self) -> ShadowStyle {
         ShadowStyle {
-            style: Style::new().bg(self.p.black[0]),
+            style: Style::new().bg(self.p.black[Palette::DARK_0]),
             dir: ShadowDirection::BottomRight,
             ..ShadowStyle::default()
         }
@@ -301,7 +281,7 @@ impl DarkTheme {
     /// Style for LineNumbers.
     pub fn line_nr_style(&self) -> LineNumberStyle {
         LineNumberStyle {
-            style: self.container_base().fg(self.p.gray[1]),
+            style: self.container_base().fg(self.p.gray[Palette::BRIGHT_1]),
             cursor: Some(self.text_select()),
             ..LineNumberStyle::default()
         }
@@ -310,8 +290,7 @@ impl DarkTheme {
     /// Complete TextAreaStyle
     pub fn textarea_style(&self) -> TextStyle {
         TextStyle {
-            style: self.container_base(),
-            focus: Some(self.focus()),
+            style: self.text_input(),
             select: Some(self.text_select()),
             scroll: Some(self.scroll_style()),
             border_style: Some(self.container_border()),
@@ -325,7 +304,7 @@ impl DarkTheme {
             style: self.text_input(),
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
-            invalid: Some(Style::default().bg(self.p.red[3])),
+            invalid: Some(self.fg_stylec(self.p.red[Palette::BRIGHT_3])),
             ..TextStyle::default()
         }
     }
@@ -344,6 +323,7 @@ impl DarkTheme {
         }
     }
 
+    #[allow(deprecated)]
     pub fn choice_style(&self) -> ChoiceStyle {
         ChoiceStyle {
             style: self.text_input(),
@@ -355,7 +335,7 @@ impl DarkTheme {
                 block: Some(
                     Block::bordered()
                         .borders(Borders::LEFT)
-                        .border_style(self.popup_arrow()),
+                        .border_style(self.popup_border()),
                 ),
                 ..Default::default()
             },
@@ -395,19 +375,14 @@ impl DarkTheme {
 
     /// Complete MenuStyle
     pub fn menu_style(&self) -> MenuStyle {
-        let menu = Style::default().fg(self.p.white[3]).bg(self.p.black[2]);
         MenuStyle {
-            style: menu,
-            title: Some(Style::default().fg(self.p.black[0]).bg(self.p.yellow[2])),
+            style: self.fg_style(Contrast::High),
+            title: Some(self.fg_stylec(self.p.green[Palette::BRIGHT_2])),
             focus: Some(self.focus()),
-            right: Some(Style::default().fg(self.p.bluegreen[0])),
-            disabled: Some(Style::default().fg(self.p.gray[0])),
+            right: Some(self.fg_stylec(self.p.green[Palette::BRIGHT_3])),
+            disabled: Some(self.fg_stylec(self.p.gray[Palette::BRIGHT_2])),
             highlight: Some(Style::default().underlined()),
-            popup: PopupStyle {
-                style: menu,
-                block: Some(Block::bordered()),
-                ..Default::default()
-            },
+            block: Some(Block::bordered().style(self.popup_border())),
             ..Default::default()
         }
     }
@@ -418,7 +393,6 @@ impl DarkTheme {
             style: self.button_base(),
             focus: Some(self.focus()),
             armed: Some(self.select()),
-            hover: Some(self.select()),
             armed_delay: Some(Duration::from_millis(50)),
             ..Default::default()
         }
@@ -438,11 +412,11 @@ impl DarkTheme {
     }
 
     pub fn table_header(&self) -> Style {
-        self.style(self.p.blue[2])
+        self.fg_stylec(self.p.green[Palette::BRIGHT_2])
     }
 
     pub fn table_footer(&self) -> Style {
-        self.style(self.p.blue[2])
+        self.fg_stylec(self.p.green[Palette::BRIGHT_2])
     }
 
     /// Complete ListStyle
@@ -512,26 +486,22 @@ impl DarkTheme {
 
     /// Tabbed style
     pub fn tabbed_style(&self) -> TabbedStyle {
-        let style = self.high_style(self.p.black[1]);
         TabbedStyle {
-            style,
-            tab: Some(self.gray(1)),
-            select: Some(self.style(self.p.primary[4])),
+            style: self.container_base(),
+            tab: Some(self.button_base()),
+            select: Some(self.button_armed()),
             focus: Some(self.focus()),
             ..Default::default()
         }
     }
 
     /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.
-    /// This is what I need for the
-    /// [minimal](https://github.com/thscharler/rat-salsa/blob/master/examples/minimal.rs)
-    /// example, which shows timings for Render/Event/Action.
     pub fn statusline_style(&self) -> Vec<Style> {
         vec![
             self.status_base(),
-            self.p.normal_contrast(self.p.white[0]).bg(self.p.blue[3]),
-            self.p.normal_contrast(self.p.white[0]).bg(self.p.blue[2]),
-            self.p.normal_contrast(self.p.white[0]).bg(self.p.blue[1]),
+            self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
+            self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
+            self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
         ]
     }
 
@@ -541,9 +511,9 @@ impl DarkTheme {
             sep: Some(Cow::Borrowed("|")),
             styles: vec![
                 self.status_base(),
-                self.p.normal_contrast(self.p.white[0]).bg(self.p.blue[3]),
-                self.p.normal_contrast(self.p.white[0]).bg(self.p.blue[2]),
-                self.p.normal_contrast(self.p.white[0]).bg(self.p.blue[1]),
+                self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
+                self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
+                self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
             ],
             ..Default::default()
         }
@@ -580,8 +550,8 @@ impl DarkTheme {
             style: self.container_base(),
             navigation: Some(self.container_arrow()),
             block: Some(
-                Block::bordered()
-                    .borders(Borders::TOP | Borders::BOTTOM)
+                Block::default()
+                    .borders(Borders::TOP)
                     .border_style(self.container_border()),
             ),
             ..Default::default()

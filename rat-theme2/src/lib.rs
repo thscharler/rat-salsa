@@ -6,9 +6,11 @@ use crate::palettes::{
 mod dark_theme;
 mod palette;
 pub mod palettes;
+mod shell_theme;
 
 pub use dark_theme::*;
 pub use palette::*;
+pub use shell_theme::*;
 
 /// All currently existing color palettes.
 pub fn color_palettes() -> Vec<(String, Palette)> {
@@ -31,17 +33,35 @@ pub fn color_palettes() -> Vec<(String, Palette)> {
 /// A list of DarkTheme for all color palettes.
 pub fn dark_themes() -> Vec<DarkTheme> {
     vec![
-        DarkTheme::new("Imperial".to_string(), IMPERIAL),
-        DarkTheme::new("Radium".to_string(), RADIUM),
-        DarkTheme::new("Tundra".to_string(), TUNDRA),
-        DarkTheme::new("Ocean".to_string(), OCEAN),
-        DarkTheme::new("Monochrome".to_string(), MONOCHROME),
-        DarkTheme::new("Black&White".to_string(), BLACKWHITE),
-        DarkTheme::new("Base16".to_string(), BASE16),
-        DarkTheme::new("Base16Relaxed".to_string(), BASE16_RELAXED),
-        DarkTheme::new("Monekai".to_string(), MONEKAI),
-        DarkTheme::new("Solarized".to_string(), SOLARIZED),
-        DarkTheme::new("Oxocarbon".to_string(), OXOCARBON),
-        DarkTheme::new("VSCodeDark".to_string(), VSCODE_DARK),
+        DarkTheme::new("Imperial", IMPERIAL),
+        DarkTheme::new("Radium", RADIUM),
+        DarkTheme::new("Tundra", TUNDRA),
+        DarkTheme::new("Ocean", OCEAN),
+        DarkTheme::new("Monochrome", MONOCHROME),
+        DarkTheme::new("Black&White", BLACKWHITE),
+        DarkTheme::new("Base16", BASE16),
+        DarkTheme::new("Base16Relaxed", BASE16_RELAXED),
+        DarkTheme::new("Monekai", MONEKAI),
+        DarkTheme::new("Solarized", SOLARIZED),
+        DarkTheme::new("Oxocarbon", OXOCARBON),
+        DarkTheme::new("VSCodeDark", VSCODE_DARK),
+    ]
+}
+
+/// A list of ShellTheme for all color palettes.
+pub fn shell_themes() -> Vec<ShellTheme> {
+    vec![
+        ShellTheme::new("Imperial", IMPERIAL),
+        ShellTheme::new("Radium", RADIUM),
+        ShellTheme::new("Tundra", TUNDRA),
+        ShellTheme::new("Ocean", OCEAN),
+        ShellTheme::new("Monochrome", MONOCHROME),
+        ShellTheme::new("Black&White", BLACKWHITE),
+        ShellTheme::new("Base16", BASE16),
+        ShellTheme::new("Base16Relaxed", BASE16_RELAXED),
+        ShellTheme::new("Monekai", MONEKAI),
+        ShellTheme::new("Solarized", SOLARIZED),
+        ShellTheme::new("Oxocarbon", OXOCARBON),
+        ShellTheme::new("VSCodeDark", VSCODE_DARK),
     ]
 }
