@@ -374,8 +374,8 @@ impl SalsaTheme for ShellTheme {
     /// Complete MenuStyle
     fn menu_style(&self) -> MenuStyle {
         MenuStyle {
-            style: self.fg_style(Contrast::High),
-            title: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_2])),
+            style: self.status_base(),
+            title: Some(self.fg_style_c(self.p.yellow[Palette::BRIGHT_2])),
             focus: Some(self.focus()),
             right: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_3])),
             disabled: Some(self.fg_style_c(self.p.gray[Palette::BRIGHT_2])),
@@ -491,9 +491,9 @@ impl SalsaTheme for ShellTheme {
     fn statusline_style(&self) -> Vec<Style> {
         vec![
             self.status_base(),
-            self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
-            self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
-            self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style_c(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style_c(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style_c(self.p.blue[Palette::BRIGHT_2]),
         ]
     }
 
@@ -556,6 +556,16 @@ impl SalsaTheme for ShellTheme {
             style: self.container_base(),
             scroll: Some(self.scroll_style()),
             ..Default::default()
+        }
+    }
+
+    fn textview_style(&self) -> TextStyle {
+        TextStyle {
+            style: self.container_base(),
+            select: Some(self.text_select()),
+            scroll: Some(self.scroll_style()),
+            border_style: Some(self.container_border()),
+            ..TextStyle::default()
         }
     }
 }

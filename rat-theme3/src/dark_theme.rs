@@ -306,7 +306,7 @@ impl SalsaTheme for DarkTheme {
     /// Complete TextAreaStyle
     fn textarea_style(&self) -> TextStyle {
         TextStyle {
-            style: self.container_base(),
+            style: self.text_input(),
             focus: Some(self.focus()),
             select: Some(self.text_select()),
             scroll: Some(self.scroll_style()),
@@ -391,16 +391,15 @@ impl SalsaTheme for DarkTheme {
 
     /// Complete MenuStyle
     fn menu_style(&self) -> MenuStyle {
-        let menu = Style::default().fg(self.p.white[3]).bg(self.p.black[2]);
         MenuStyle {
-            style: menu,
-            title: Some(Style::default().fg(self.p.black[0]).bg(self.p.yellow[2])),
+            style: self.status_base(),
+            title: Some(self.style(self.p.yellow[2])),
             focus: Some(self.focus()),
             right: Some(Style::default().fg(self.p.bluegreen[0])),
             disabled: Some(Style::default().fg(self.p.gray[0])),
             highlight: Some(Style::default().underlined()),
             popup: PopupStyle {
-                style: menu,
+                style: self.status_base(),
                 block: Some(Block::bordered()),
                 ..Default::default()
             },
@@ -525,7 +524,6 @@ impl SalsaTheme for DarkTheme {
     /// StatusLineStyle for a StatusLine with 3 indicator fields.
     fn statusline_style_ext(&self) -> StatusLineStyle {
         StatusLineStyle {
-            sep: Some(Cow::Borrowed("|")),
             styles: vec![
                 self.status_base(),
                 self.p.normal_contrast(self.p.white[0]).bg(self.p.blue[3]),
@@ -581,6 +579,17 @@ impl SalsaTheme for DarkTheme {
             style: self.container_base(),
             scroll: Some(self.scroll_style()),
             ..Default::default()
+        }
+    }
+
+    fn textview_style(&self) -> TextStyle {
+        TextStyle {
+            style: self.container_base(),
+            focus: Some(self.focus()),
+            select: Some(self.text_select()),
+            scroll: Some(self.scroll_style()),
+            border_style: Some(self.container_border()),
+            ..TextStyle::default()
         }
     }
 }

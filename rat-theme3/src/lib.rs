@@ -116,128 +116,122 @@ pub trait SalsaTheme {
     /// Selection style.
     fn select(&self) -> Style;
 
-    /// Text input.
+    /// Text input base style.
     fn text_input(&self) -> Style;
     /// Text input with focus.
     fn text_focus(&self) -> Style;
     /// Text selection.
     fn text_select(&self) -> Style;
 
-    /// Container base
+    /// Scroll style
+    fn scroll_style(&self) -> ScrollStyle;
+
+    /// Container base.
     fn container_base(&self) -> Style;
-
-    /// Container border
+    /// Container border.
     fn container_border(&self) -> Style;
-
-    /// Container arrows
+    /// Container scrollbar arrows.
     fn container_arrow(&self) -> Style;
 
     /// Background for popups.
     fn popup_base(&self) -> Style;
-
-    /// Dialog arrows
+    /// Border for popups.
     fn popup_border(&self) -> Style;
-
-    /// Dialog arrows
+    /// Popup scrollbar arrows.
     fn popup_arrow(&self) -> Style;
+    /// Popup scroll style
+    fn popup_scroll_style(&self) -> ScrollStyle;
 
     /// Background for dialogs.
     fn dialog_base(&self) -> Style;
-
-    /// Dialog arrows
+    /// Border for dialogs.
     fn dialog_border(&self) -> Style;
-
-    /// Dialog arrows
+    /// Dialog scrollbar arrows.
     fn dialog_arrow(&self) -> Style;
+    /// Dialog scroll style
+    fn dialog_scroll_style(&self) -> ScrollStyle;
 
     /// Style for the status line.
     fn status_base(&self) -> Style;
 
     /// Base style for buttons.
     fn button_base(&self) -> Style;
-
     /// Armed style for buttons.
     fn button_armed(&self) -> Style;
 
-    /// Complete MonthStyle.
-    fn month_style(&self) -> CalendarStyle;
-
-    /// Style for shadows.
-    fn shadow_style(&self) -> ShadowStyle;
-
-    /// Style for LineNumbers.
-    fn line_nr_style(&self) -> LineNumberStyle;
-
-    /// Complete TextAreaStyle
-    fn textarea_style(&self) -> TextStyle;
-
-    /// Complete TextInputStyle
-    fn text_style(&self) -> TextStyle;
-
-    /// Text-label style.
+    /// Field label style.
     fn label_style(&self) -> Style;
 
-    /// Paragraph style
-    fn paragraph_style(&self) -> ParagraphStyle;
+    /// Any text fields as input widgets.
+    fn text_style(&self) -> TextStyle;
 
-    /// Choice style.
+    /// TextArea as input widget.
+    fn textarea_style(&self) -> TextStyle;
+
+    /// Choice.
     fn choice_style(&self) -> ChoiceStyle;
 
-    /// Radiobutton style.
+    /// Radiobutton.
     fn radio_style(&self) -> RadioStyle;
 
-    /// Complete CheckboxStyle
+    /// Checkbox.
     fn checkbox_style(&self) -> CheckboxStyle;
 
-    /// Slider Style
+    /// Slider.
     fn slider_style(&self) -> SliderStyle;
 
-    /// Complete MenuStyle
-    fn menu_style(&self) -> MenuStyle;
+    /// Calendar.
+    fn month_style(&self) -> CalendarStyle;
 
-    /// Complete ButtonStyle
+    /// Line numbers.
+    fn line_nr_style(&self) -> LineNumberStyle;
+
+    /// Buttons.
     fn button_style(&self) -> ButtonStyle;
 
-    /// Complete TableStyle
+    /// Table.
     fn table_style(&self) -> TableStyle;
 
-    /// Complete ListStyle
+    /// List.
     fn list_style(&self) -> ListStyle;
 
-    /// Scroll style
-    fn scroll_style(&self) -> ScrollStyle;
+    /// Text style for view-only TextAreas.
+    fn textview_style(&self) -> TextStyle;
 
-    /// Popup scroll style
-    fn popup_scroll_style(&self) -> ScrollStyle;
+    /// Paragraph.
+    fn paragraph_style(&self) -> ParagraphStyle;
 
-    /// Dialog scroll style
-    fn dialog_scroll_style(&self) -> ScrollStyle;
+    /// Shadow.
+    fn shadow_style(&self) -> ShadowStyle;
 
-    /// Split style
+    /// Menus.
+    fn menu_style(&self) -> MenuStyle;
+
+    /// Split.
     fn split_style(&self) -> SplitStyle;
 
-    /// View style
+    /// View.
     fn view_style(&self) -> ViewStyle;
 
-    /// Tabbed style
+    /// Tabbed.
     fn tabbed_style(&self) -> TabbedStyle;
 
     /// Old school statusline styling.
     fn statusline_style(&self) -> Vec<Style>;
 
-    /// StatusLineStyle for a StatusLine with 3 indicator fields.
+    /// Style for a StatusLine with 3 indicator fields.
     fn statusline_style_ext(&self) -> StatusLineStyle;
 
-    /// FileDialog style.
+    /// FileDialog.
     fn file_dialog_style(&self) -> FileDialogStyle;
 
-    /// Complete MsgDialogStyle.
+    /// MsgDialog.
     fn msg_dialog_style(&self) -> MsgDialogStyle;
 
-    /// Pager style.
+    /// Pager.
     fn pager_style(&self) -> PagerStyle;
 
-    /// Clipper style.
+    /// Clipper.
     fn clipper_style(&self) -> ClipperStyle;
 }
 
