@@ -15,6 +15,7 @@ members = [
     "rat-text",
     "rat-theme",
     "rat-theme2",
+    "rat-theme3",
     "rat-widget",
     "rat-dialog",
 ]
