@@ -11,7 +11,7 @@ use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme2::palettes::BASE16;
+use rat_theme3::palettes::BASE16;
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -22,7 +22,6 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
 use std::fs;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
@@ -52,7 +51,7 @@ fn main() -> Result<(), Error> {
 pub struct TurboGlobal {
     ctx: SalsaAppContext<TurboEvent, Error>,
     pub cfg: TurboConfig,
-    pub theme: Rc<TurboTheme>,
+    pub theme: TurboTheme,
 }
 
 impl SalsaContext<TurboEvent, Error> for TurboGlobal {
@@ -71,7 +70,7 @@ impl TurboGlobal {
         Self {
             ctx: Default::default(),
             cfg,
-            theme: Rc::new(theme),
+            theme,
         }
     }
 }
@@ -573,7 +572,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme2::{Contrast, Palette};
+    use rat_theme3::{Contrast, Palette};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::line_number::LineNumberStyle;

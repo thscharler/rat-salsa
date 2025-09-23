@@ -1,12 +1,10 @@
 use crate::main_ui::MainUI;
 use anyhow::Error;
-use dirs::cache_dir;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::DarkTheme;
+use rat_theme3::{create_theme, SalsaTheme};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::layout_middle;
@@ -16,9 +14,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
 use std::fs;
-use std::fs::create_dir_all;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
@@ -27,7 +23,7 @@ fn main() -> Result<(), Error> {
     let rt = tokio::runtime::Runtime::new()?;
 
     let config = Config::default();
-    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+    let theme = create_theme("Imperial Dark").expect("theme");
     let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 
@@ -50,11 +46,10 @@ fn main() -> Result<(), Error> {
 }
 
 /// Globally accessible data/state.
-#[derive(Debug)]
 pub struct Global {
     pub ctx: SalsaAppContext<AppEvent, Error>,
     pub cfg: Config,
-    pub theme: Rc<DarkTheme>,
+    pub theme: Box<dyn SalsaTheme>,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -68,11 +63,11 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(cfg: Config, theme: DarkTheme) -> Self {
+    pub fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
-            theme: Rc::new(theme),
+            theme,
         }
     }
 }

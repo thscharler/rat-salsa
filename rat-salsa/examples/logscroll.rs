@@ -7,7 +7,7 @@ use log::{debug, warn};
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme2::{dark_themes, DarkTheme, Palette};
+use rat_theme3::{create_theme, Palette, SalsaTheme};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -86,12 +86,8 @@ pub struct LogScrollConfig {
     theme: String,
 }
 
-fn config_theme(config: &LogScrollConfig) -> DarkTheme {
-    dark_themes()
-        .iter()
-        .find(|v| v.name() == config.theme)
-        .cloned()
-        .unwrap_or(dark_themes()[0].clone())
+fn config_theme(config: &LogScrollConfig) -> Box<dyn SalsaTheme> {
+    create_theme(&config.theme).unwrap_or(create_theme("Imperial Dark").expect("theme"))
 }
 
 fn load_config() -> Result<LogScrollConfig, Error> {
@@ -139,11 +135,10 @@ fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
     }
 }
 
-#[derive(Debug)]
 pub struct GlobalState {
     pub ctx: SalsaAppContext<LogScrollEvent, Error>,
     pub cfg: LogScrollConfig,
-    pub theme: DarkTheme,
+    pub theme: Box<dyn SalsaTheme>,
     pub file_path: PathBuf,
     pub test: bool,
 }
@@ -160,7 +155,7 @@ impl SalsaContext<LogScrollEvent, Error> for GlobalState {
 }
 
 impl GlobalState {
-    pub fn new(cfg: LogScrollConfig, theme: DarkTheme) -> Self {
+    pub fn new(cfg: LogScrollConfig, theme: Box<dyn SalsaTheme>) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -359,7 +354,7 @@ mod logscroll {
     use rat_salsa::tasks::{Cancel, Liveness};
     use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{Control, SalsaContext};
-    use rat_theme2::{dark_themes, DarkTheme, Palette};
+    use rat_theme3::{create_theme, salsa_themes, Palette, SalsaTheme};
     use rat_widget::event::{
         ct_event, try_flow, HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome,
     };
@@ -453,7 +448,7 @@ mod logscroll {
         TextArea::new()
             .vscroll(Scroll::new())
             .hscroll(Scroll::new())
-            .styles(ctx.theme.textarea_style())
+            .styles(ctx.theme.textview_style())
             .text_style_idx(0, ctx.theme.orange(6))
             .text_style_idx(1, ctx.theme.yellow(6))
             .text_style_idx(2, ctx.theme.green(6))
@@ -488,7 +483,7 @@ mod logscroll {
             .vscroll(Scroll::new())
             .styles(ctx.theme.table_style())
             .data(FindData {
-                theme: &ctx.theme,
+                theme: ctx.theme.as_ref(),
                 text: &state.logtext,
                 start_line: state.start_line,
                 data: &state.find_matches,
@@ -505,7 +500,7 @@ mod logscroll {
     }
 
     struct FindData<'a> {
-        theme: &'a DarkTheme,
+        theme: &'a dyn SalsaTheme,
         text: &'a TextAreaState,
         start_line: upos_type,
         data: &'a [(usize, usize, usize)],
@@ -861,13 +856,13 @@ mod logscroll {
                         Control::Changed
                     }
                     ct_event!(keycode press F(8)) => {
-                        let themes = dark_themes();
+                        let themes = salsa_themes();
                         let pos = themes
                             .iter()
-                            .position(|v| v.name() == ctx.theme.name())
+                            .position(|v| *v == ctx.theme.name())
                             .unwrap_or(0);
                         let pos = (pos + 1) % themes.len();
-                        ctx.theme = themes[pos].clone();
+                        ctx.theme = create_theme(themes[pos]).expect("theme");
                         ctx.queue_event(LogScrollEvent::StoreCfg);
                         ctx.queue_event(LogScrollEvent::Status(0, ctx.theme.name().into()));
                         Control::Changed

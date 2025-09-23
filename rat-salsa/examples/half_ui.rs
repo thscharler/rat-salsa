@@ -9,8 +9,7 @@ use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::terminal::{CrosstermTerminal, SalsaOptions};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::DarkTheme;
+use rat_theme3::{create_theme, SalsaTheme};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, MenuOutcome, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
@@ -30,7 +29,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+    let theme = create_theme("Imperial Dark").expect("theme");
     let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 
@@ -57,12 +56,11 @@ fn main() -> Result<(), Error> {
 }
 
 /// Globally accessible data/state.
-#[derive(Debug)]
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
 
     pub cfg: Config,
-    pub theme: DarkTheme,
+    pub theme: Box<dyn SalsaTheme>,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -77,7 +75,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(cfg: Config, theme: DarkTheme) -> Self {
+    pub fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
         Self {
             ctx: Default::default(),
             cfg,

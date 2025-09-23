@@ -4,8 +4,7 @@ use rat_event::try_flow;
 use rat_focus::impl_has_focus;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme2::palettes::MONOCHROME;
-use rat_theme2::DarkTheme;
+use rat_theme3::{create_theme, SalsaTheme};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::{ct_event, ButtonOutcome, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
@@ -16,7 +15,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
 
 fn main() -> Result<(), Error> {
-    let theme = DarkTheme::new("Monochrome".into(), MONOCHROME);
+    let theme = create_theme("Monochrome Dark").expect("theme");
     let mut global = Global::new(theme);
 
     let mut state = BasicText::default();
@@ -47,10 +46,9 @@ fn main() -> Result<(), Error> {
 
 /// Globally accessible data/state.
 
-#[derive(Debug)]
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
-    pub theme: DarkTheme,
+    pub theme: Box<dyn SalsaTheme>,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -64,7 +62,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(theme: DarkTheme) -> Self {
+    pub fn new(theme: Box<dyn SalsaTheme>) -> Self {
         Self {
             ctx: Default::default(),
             theme,

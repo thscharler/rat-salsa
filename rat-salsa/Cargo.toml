@@ -37,7 +37,7 @@ rust-ini = "0.21"
 unicode-segmentation = "1.11"
 cli-clipboard = "0.4"
 rat-widget = { version = "1.1", path = "../rat-widget", features = ["user_directories"] }
-rat-theme2 = { version = "1.1", path = "../rat-theme2" }
+rat-theme3 = { version = "2.0", path = "../rat-theme3" }
 unicode-width = ">=0.2.0, <=0.2.1"
 
 [[example]]

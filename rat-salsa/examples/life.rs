@@ -13,8 +13,7 @@ use anyhow::Error;
 use rat_salsa::poll::{PollCrossterm, PollEvents};
 use rat_salsa::{run_tui, RunConfig};
 use rat_salsa::{Control, SalsaAppContext, SalsaContext};
-use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::DarkTheme;
+use rat_theme3::{create_theme, SalsaTheme};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -35,12 +34,12 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = LifeConfig::default();
-    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+    let theme = create_theme("Imperial Dark").expect("theme");
     let mut global = GlobalState::new(config, theme);
 
     let mut state = Scenery::new();
     state.set_game(if let Some(f) = args().nth(1) {
-        game::load_life(&PathBuf::from(f), &global.theme)?
+        game::load_life(&PathBuf::from(f), global.theme.as_ref())?
     } else {
         rat_state()
     });
@@ -86,11 +85,10 @@ pub fn rat_state() -> LifeGameState {
     )
 }
 
-#[derive(Debug)]
 pub struct GlobalState {
-    pub ctx: SalsaAppContext<LifeEvent, anyhow::Error>,
+    pub ctx: SalsaAppContext<LifeEvent, Error>,
     pub cfg: LifeConfig,
-    pub theme: Rc<DarkTheme>,
+    pub theme: Box<dyn SalsaTheme>,
 
     pub running: bool,
     pub tick: Rc<RefCell<Duration>>,
@@ -147,11 +145,11 @@ impl SalsaContext<LifeEvent, Error> for GlobalState {
 }
 
 impl GlobalState {
-    pub fn new(cfg: LifeConfig, theme: DarkTheme) -> Self {
+    pub fn new(cfg: LifeConfig, theme: Box<dyn SalsaTheme>) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
-            theme: Rc::new(theme),
+            theme,
             running: true,
             tick: Default::default(),
         }
@@ -461,7 +459,7 @@ pub mod game {
     use anyhow::{anyhow, Error};
     use ini::Ini;
     use rand::random;
-    use rat_theme2::DarkTheme;
+    use rat_theme3::SalsaTheme;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::{Color, Style, Stylize};
@@ -745,7 +743,7 @@ pub mod game {
         }
     }
 
-    fn color(s: &str, theme: &DarkTheme) -> Result<Style, Error> {
+    fn color(s: &str, theme: &dyn SalsaTheme) -> Result<Style, Error> {
         let s = s.trim().to_lowercase();
         let s = s.as_str();
         let r = match s {
@@ -908,7 +906,7 @@ pub mod game {
         (live, birth)
     }
 
-    pub fn load_life(file: &Path, theme: &DarkTheme) -> Result<LifeGameState, Error> {
+    pub fn load_life(file: &Path, theme: &dyn SalsaTheme) -> Result<LifeGameState, Error> {
         let ini = Ini::load_from_file(file)?;
 
         let name = file.file_stem().expect("name").to_string_lossy();

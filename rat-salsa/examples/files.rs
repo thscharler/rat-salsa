@@ -7,8 +7,7 @@ use crossbeam::channel::Sender;
 use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::tasks::Cancel;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::{shell_themes, ShellTheme};
+use rat_theme3::{create_theme, salsa_themes, SalsaTheme};
 use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
     ReadOnly, Regular, TableOutcome,
@@ -43,7 +42,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = FilesConfig::default();
-    let theme = ShellTheme::new("Imperial".into(), IMPERIAL);
+    let theme = create_theme("Imperial Dark").expect("theme");
     let mut global = GlobalState::new(config, theme);
     let mut state = Files::default();
 
@@ -62,11 +61,10 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-#[derive(Debug)]
 pub struct GlobalState {
     ctx: SalsaAppContext<FilesEvent, Error>,
     pub cfg: FilesConfig,
-    pub theme: ShellTheme,
+    pub theme: Box<dyn SalsaTheme>,
 }
 
 impl SalsaContext<FilesEvent, Error> for GlobalState {
@@ -81,7 +79,7 @@ impl SalsaContext<FilesEvent, Error> for GlobalState {
 }
 
 impl GlobalState {
-    fn new(cfg: FilesConfig, theme: ShellTheme) -> Self {
+    fn new(cfg: FilesConfig, theme: Box<dyn SalsaTheme>) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -306,8 +304,8 @@ impl<'a> MenuStructure<'a> for Menu {
                 }
             }
             1 => {
-                for t in shell_themes() {
-                    submenu.item_string(t.name().into());
+                for t in salsa_themes() {
+                    submenu.item_string(t.into());
                 }
             }
             _ => {}
@@ -404,7 +402,7 @@ fn render(
                     .border_set(EMPTY)
                     .title(title),
             )
-            .styles(ctx.theme.textarea_style())
+            .styles(ctx.theme.textview_style())
             .render(split_layout[2], buf, &mut state.w_data);
     }
 
@@ -432,15 +430,15 @@ fn render(
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
     state.status.status(1, format!("R {:.3?}", el).to_string());
 
-    let status = StatusLine::new()
+    StatusLine::new()
         .layout([
             Constraint::Fill(1),
             Constraint::Length(12),
             Constraint::Length(12),
             Constraint::Length(12),
         ])
-        .styles(ctx.theme.statusline_style());
-    status.render(status_area, buf, &mut state.status);
+        .styles_ext(ctx.theme.statusline_style_ext())
+        .render(status_area, buf, &mut state.status);
 
     Ok(())
 }
@@ -549,11 +547,13 @@ fn crossterm(
             Control::Changed
         }
         MenuOutcome::MenuSelected(1, n) => {
-            ctx.theme = shell_themes()[n].clone();
+            let theme = salsa_themes()[n];
+            ctx.theme = create_theme(theme).expect("theme");
             Control::Changed
         }
         MenuOutcome::MenuActivated(1, n) => {
-            ctx.theme = shell_themes()[n].clone();
+            let theme = salsa_themes()[n];
+            ctx.theme = create_theme(theme).expect("theme");
             Control::Changed
         }
         MenuOutcome::Activated(2) => {

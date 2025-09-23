@@ -6,8 +6,7 @@ use rat_focus::{impl_has_focus, FocusBuilder, HasFocus};
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::DarkTheme;
+use rat_theme3::{create_theme, SalsaTheme};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::ButtonOutcome;
 use rat_widget::layout::{layout_grid, simple_grid};
@@ -25,7 +24,7 @@ use ratatui::widgets::{Block, BorderType, ListItem, StatefulWidget, Widget};
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+    let theme = create_theme("Imperial Dark").expect("theme");
     let mut global = Global::new(theme);
     let mut state = Todos::default();
 
@@ -46,21 +45,20 @@ fn main() -> Result<(), Error> {
 
 #[derive(Clone, Debug)]
 pub struct Todo {
-    id: usize,
+    _id: usize,
     text: String,
 }
 
 impl Todo {
     pub fn new(id: usize, text: String) -> Self {
-        Self { id, text }
+        Self { _id: id, text }
     }
 }
 
 /// Globally accessible data/state.
-#[derive(Debug)]
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
-    pub theme: DarkTheme,
+    pub theme: Box<dyn SalsaTheme>,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -74,7 +72,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(theme: DarkTheme) -> Self {
+    pub fn new(theme: Box<dyn SalsaTheme>) -> Self {
         Self {
             ctx: Default::default(),
             theme,
@@ -277,7 +275,7 @@ fn add_todo(state: &mut Todos, _ctx: &mut Global) -> Result<Control<AppEvent>, E
     let text = state.input.text();
     if !text.trim().is_empty() {
         state.todos.push(Todo {
-            id: state.next_id,
+            _id: state.next_id,
             text: text.trim().to_string(),
         });
         state.list.select(Some(state.todos.len().saturating_sub(1)));

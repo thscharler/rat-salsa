@@ -7,8 +7,7 @@ use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::Control;
 use rat_salsa::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::DarkTheme;
+use rat_theme3::{create_theme, SalsaTheme};
 use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -18,14 +17,13 @@ use ratatui::widgets::StatefulWidget;
 use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+    let theme = create_theme("Imperial Dark").expect("theme");
     let mut global = GlobalState::new(config, theme);
     let mut state = Scenery::default();
 
@@ -45,11 +43,10 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-#[derive(Debug)]
 pub struct GlobalState {
     pub ctx: SalsaAppContext<ThemesEvent, Error>,
     pub cfg: Config,
-    pub theme: Rc<DarkTheme>,
+    pub theme: Box<dyn SalsaTheme>,
 }
 
 impl SalsaContext<ThemesEvent, Error> for GlobalState {
@@ -63,11 +60,11 @@ impl SalsaContext<ThemesEvent, Error> for GlobalState {
 }
 
 impl GlobalState {
-    fn new(cfg: Config, theme: DarkTheme) -> Self {
+    fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
-            theme: Rc::new(theme),
+            theme,
         }
     }
 }
@@ -206,7 +203,7 @@ pub mod mask0 {
     use crate::{GlobalState, ThemesEvent};
     use anyhow::Error;
     use rat_salsa::Control;
-    use rat_theme2::dark_themes;
+    use rat_theme3::{create_theme, salsa_themes};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
     use rat_widget::popup::Placement;
@@ -216,7 +213,6 @@ pub mod mask0 {
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::widgets::{Block, StatefulWidget};
     use std::fmt::Debug;
-    use std::rc::Rc;
 
     #[derive(Debug)]
     pub struct Mask0 {
@@ -250,8 +246,8 @@ pub mod mask0 {
         fn submenu(&'a self, n: usize, submenu: &mut MenuBuilder<'a>) {
             match n {
                 0 => {
-                    for t in dark_themes().iter() {
-                        submenu.item_string(t.name().into());
+                    for t in salsa_themes().iter() {
+                        submenu.item_str(*t);
                     }
                 }
                 _ => {}
@@ -312,11 +308,13 @@ pub mod mask0 {
             ThemesEvent::Event(event) => {
                 try_flow!(match state.menu.handle(event, Popup) {
                     MenuOutcome::MenuSelected(0, n) => {
-                        ctx.theme = Rc::new(dark_themes()[n].clone());
+                        let theme = salsa_themes()[n];
+                        ctx.theme = create_theme(theme).expect("theme");
                         Control::Changed
                     }
                     MenuOutcome::MenuActivated(0, n) => {
-                        ctx.theme = Rc::new(dark_themes()[n].clone());
+                        let theme = salsa_themes()[n];
+                        ctx.theme = create_theme(theme).expect("theme");
                         Control::Changed
                     }
                     MenuOutcome::Activated(1) => {
@@ -337,7 +335,7 @@ pub mod mask0 {
 }
 
 pub mod show_scheme {
-    use rat_theme2::{Palette, TextColorRating};
+    use rat_theme3::{Palette, TextColorRating};
     use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::reloc::{relocate_area, RelocatableState};
