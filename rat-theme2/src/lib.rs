@@ -6,11 +6,9 @@ use crate::palettes::{
 mod dark_theme;
 mod palette;
 pub mod palettes;
-mod shell_theme;
 
 pub use dark_theme::*;
 pub use palette::*;
-pub use shell_theme::*;
 
 /// All currently existing color palettes.
 pub fn color_palettes() -> Vec<(String, Palette)> {
@@ -45,23 +43,5 @@ pub fn dark_themes() -> Vec<DarkTheme> {
         DarkTheme::new("Solarized", SOLARIZED),
         DarkTheme::new("Oxocarbon", OXOCARBON),
         DarkTheme::new("VSCodeDark", VSCODE_DARK),
-    ]
-}
-
-/// A list of ShellTheme for all color palettes.
-pub fn shell_themes() -> Vec<ShellTheme> {
-    vec![
-        ShellTheme::new("Imperial", IMPERIAL),
-        ShellTheme::new("Radium", RADIUM),
-        ShellTheme::new("Tundra", TUNDRA),
-        ShellTheme::new("Ocean", OCEAN),
-        ShellTheme::new("Monochrome", MONOCHROME),
-        ShellTheme::new("Black&White", BLACKWHITE),
-        ShellTheme::new("Base16", BASE16),
-        ShellTheme::new("Base16Relaxed", BASE16_RELAXED),
-        ShellTheme::new("Monekai", MONEKAI),
-        ShellTheme::new("Solarized", SOLARIZED),
-        ShellTheme::new("Oxocarbon", OXOCARBON),
-        ShellTheme::new("VSCodeDark", VSCODE_DARK),
     ]
 }
