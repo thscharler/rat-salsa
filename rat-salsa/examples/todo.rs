@@ -162,7 +162,7 @@ pub fn render(
         .render(grid[1][5], buf, &mut state.list);
 
     // show inline remove button
-    state.remove.relocate((0, 0), Rect::default());
+    state.remove.clear_areas(); // clear remnants
     if let Some(row) = state.list.selected() {
         if let Some(area) = state.list.row_area(row) {
             if state.list.is_focused() {

@@ -8,7 +8,7 @@ use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::tasks::Cancel;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme2::palettes::IMPERIAL;
-use rat_theme2::{dark_themes, DarkTheme};
+use rat_theme2::{shell_themes, ShellTheme};
 use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
     ReadOnly, Regular, TableOutcome,
@@ -43,7 +43,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = FilesConfig::default();
-    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+    let theme = ShellTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
     let mut state = Files::default();
 
@@ -66,7 +66,7 @@ fn main() -> Result<(), Error> {
 pub struct GlobalState {
     ctx: SalsaAppContext<FilesEvent, Error>,
     pub cfg: FilesConfig,
-    pub theme: DarkTheme,
+    pub theme: ShellTheme,
 }
 
 impl SalsaContext<FilesEvent, Error> for GlobalState {
@@ -81,7 +81,7 @@ impl SalsaContext<FilesEvent, Error> for GlobalState {
 }
 
 impl GlobalState {
-    fn new(cfg: FilesConfig, theme: DarkTheme) -> Self {
+    fn new(cfg: FilesConfig, theme: ShellTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -306,7 +306,7 @@ impl<'a> MenuStructure<'a> for Menu {
                 }
             }
             1 => {
-                for t in dark_themes() {
+                for t in shell_themes() {
                     submenu.item_string(t.name().into());
                 }
             }
@@ -549,11 +549,11 @@ fn crossterm(
             Control::Changed
         }
         MenuOutcome::MenuSelected(1, n) => {
-            ctx.theme = dark_themes()[n].clone();
+            ctx.theme = shell_themes()[n].clone();
             Control::Changed
         }
         MenuOutcome::MenuActivated(1, n) => {
-            ctx.theme = dark_themes()[n].clone();
+            ctx.theme = shell_themes()[n].clone();
             Control::Changed
         }
         MenuOutcome::Activated(2) => {
