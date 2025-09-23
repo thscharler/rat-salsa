@@ -12,7 +12,7 @@ mod tundra;
 mod vscode_dark;
 
 pub use base16::BASE16;
-pub use base16r::BASE16_RELAXED;
+pub use base16r::BASE16_RELAX;
 pub use blackwhite::BLACKWHITE;
 pub use imperial::IMPERIAL;
 pub use monekai::MONEKAI;

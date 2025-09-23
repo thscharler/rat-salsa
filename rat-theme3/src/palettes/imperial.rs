@@ -6,6 +6,8 @@ use crate::Palette;
 /// Other colors are bright, strong and slightly smudged.
 ///
 pub const IMPERIAL: Palette = Palette {
+    name: "Imperial",
+
     primary: Palette::interpolate(0x300057, 0x8c00fd, 63),
     secondary: Palette::interpolate(0x574b00, 0xffde00, 63),
 

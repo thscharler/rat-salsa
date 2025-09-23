@@ -6,6 +6,8 @@ use crate::Palette;
 /// Other colors are bright, strong and slightly smudged.
 ///
 pub const OXOCARBON: Palette = Palette {
+    name: "OxoCarbon",
+
     primary: Palette::interpolate(0x993560, 0xf7569c, 63),
     secondary: Palette::interpolate(0x464646, 0x5f5f5f, 63),
 

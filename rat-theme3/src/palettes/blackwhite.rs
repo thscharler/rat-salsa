@@ -9,6 +9,8 @@ use ratatui::style::Color;
 /// to make it work like the other color-palettes.
 ///
 pub const BLACKWHITE: Palette = Palette {
+    name: "Black&White",
+
     primary: interpolate(0xffffff, 0xffffff, 0xaaaaaa, 0xaaaaaa),
     secondary: interpolate(0x000000, 0x000000, 0x000000, 0x000000),
 

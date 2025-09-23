@@ -7,6 +7,8 @@ use crate::Palette;
 const DARKNESS: u8 = 48;
 
 pub const MONOCHROME: Palette = Palette {
+    name: "Monochrome",
+
     primary: Palette::interpolate(0xb4b4b4, 0xf0f0f0, DARKNESS),
     secondary: Palette::interpolate(0x424242, 0x777777, DARKNESS),
 

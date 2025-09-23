@@ -8,6 +8,8 @@ use ratatui::style::Color;
 const DARKNESS: u8 = 63;
 
 pub const BASE16: Palette = Palette {
+    name: "Base16",
+
     primary: fillin(0x00aa00, DARKNESS),
     secondary: fillin(0x00aaaa, DARKNESS),
 

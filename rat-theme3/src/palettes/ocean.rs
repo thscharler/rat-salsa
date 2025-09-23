@@ -9,6 +9,8 @@ use crate::Palette;
 /// Overall it's not very dark, more of a sunny day than
 /// a foggy, rainy night.
 pub const OCEAN: Palette = Palette {
+    name: "Ocean",
+
     primary: Palette::interpolate(0xff8d3c, 0xffbf3c, 63),
     secondary: Palette::interpolate(0x2b4779, 0x6688cc, 63),
 

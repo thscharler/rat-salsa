@@ -5,6 +5,8 @@ use crate::Palette;
 /// -- Thanks to original theme for existing <https://github.com/sam4llis/nvim-tundra>
 /// -- this is a modified version of it
 pub const TUNDRA: Palette = Palette {
+    name: "Tundra",
+
     primary: Palette::interpolate(0xe6eaf2, 0xffffff, 63),
     secondary: Palette::interpolate(0xa8bbd4, 0x719bd3, 63),
 

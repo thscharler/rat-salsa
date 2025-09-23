@@ -5,6 +5,8 @@ use crate::Palette;
 /// -- Thanks to original theme for existing <https://github.com/microsoft/vscode/blob/main/extensions/theme-defaults/themes/dark_plus.json>
 /// -- this is a modified version of it
 pub const VSCODE_DARK: Palette = Palette {
+    name: "VSCodeDark",
+
     primary: Palette::interpolate(0xd4d4d4, 0xffffff, 63),
     secondary: Palette::interpolate(0x444444, 0x878787, 63),
 

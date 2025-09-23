@@ -33,17 +33,15 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub struct ShellTheme {
     p: Palette,
-    name: &'static str,
+    name: Box<str>,
 }
 
 impl ShellTheme {
-    pub const fn new(name: &'static str, p: Palette) -> Self {
-        Self { p, name }
-    }
-
-    /// Create a style from a background color
-    fn bg_style(&self, bg: Color) -> Style {
-        self.p.style(bg, Contrast::Normal)
+    pub fn new(name: &str, p: Palette) -> Self {
+        Self {
+            p,
+            name: Box::from(name),
+        }
     }
 
     /// Create a style with only a text foreground color
@@ -407,16 +405,10 @@ impl SalsaTheme for ShellTheme {
             focus_style: Some(self.focus()),
             border_style: Some(self.container_border()),
             scroll: Some(self.scroll_style()),
+            header: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_2])),
+            footer: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_2])),
             ..Default::default()
         }
-    }
-
-    fn table_header(&self) -> Style {
-        self.fg_style_c(self.p.green[Palette::BRIGHT_2])
-    }
-
-    fn table_footer(&self) -> Style {
-        self.fg_style_c(self.p.green[Palette::BRIGHT_2])
     }
 
     /// Complete ListStyle

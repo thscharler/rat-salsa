@@ -1,3 +1,9 @@
+# 2.0.0
+
+* Add 'Shell' theme.
+
+--- from rat-theme2 (original) ---
+
 # 1.2.0
 
 * remove: CaptionStyle

@@ -4,7 +4,9 @@ use crate::Palette;
 ///
 /// A bit relaxed though, providing a gradient for each color.
 ///
-pub const BASE16_RELAXED: Palette = Palette {
+pub const BASE16_RELAX: Palette = Palette {
+    name: "Base16 Relax",
+
     primary: Palette::interpolate(0x00aa00, 0x57ff57, 63),
     secondary: Palette::interpolate(0x00aaaa, 0x57ffff, 63),
 

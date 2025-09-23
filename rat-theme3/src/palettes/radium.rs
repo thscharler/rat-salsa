@@ -4,6 +4,8 @@ use crate::Palette;
 ///
 /// -- credits to original radium theme from <https://github.com/dharmx>
 pub const RADIUM: Palette = Palette {
+    name: "Radium",
+
     primary: Palette::interpolate(0x21b07c, 0x37d99e, 63),
     secondary: Palette::interpolate(0x9759b5, 0xb68acb, 63),
 

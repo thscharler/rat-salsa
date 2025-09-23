@@ -5,6 +5,8 @@ use crate::Palette;
 /// -- Thanks to original theme for existing <https://github.com/sam4llis/nvim-tundra>
 /// -- this is a modified version of it
 pub const SOLARIZED: Palette = Palette {
+    name: "Solarized",
+
     primary: Palette::interpolate(0xcb4b16, 0xb4542d, 63),
     secondary: Palette::interpolate(0x2aa198, 0x3e8e88, 63),
 

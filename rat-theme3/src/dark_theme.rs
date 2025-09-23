@@ -43,12 +43,15 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub struct DarkTheme {
     p: Palette,
-    name: &'static str,
+    name: Box<str>,
 }
 
 impl DarkTheme {
-    pub const fn new(name: &'static str, s: Palette) -> Self {
-        Self { p: s, name }
+    pub fn new(name: &str, s: Palette) -> Self {
+        Self {
+            p: s,
+            name: Box::from(name),
+        }
     }
 
     /// Create a style from a background color
@@ -59,6 +62,14 @@ impl DarkTheme {
     /// Create a style from a background color
     fn high_style(&self, bg: Color) -> Style {
         self.p.style(bg, Contrast::High)
+    }
+
+    fn table_header(&self) -> Style {
+        self.style(self.p.blue[2])
+    }
+
+    fn table_footer(&self) -> Style {
+        self.style(self.p.blue[2])
     }
 }
 
@@ -418,16 +429,10 @@ impl SalsaTheme for DarkTheme {
             focus_style: Some(self.focus()),
             border_style: Some(self.container_border()),
             scroll: Some(self.scroll_style()),
+            header: Some(self.table_header()),
+            footer: Some(self.table_footer()),
             ..Default::default()
         }
-    }
-
-    fn table_header(&self) -> Style {
-        self.style(self.p.blue[2])
-    }
-
-    fn table_footer(&self) -> Style {
-        self.style(self.p.blue[2])
     }
 
     /// Complete ListStyle
@@ -508,9 +513,6 @@ impl SalsaTheme for DarkTheme {
     }
 
     /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.
-    /// This is what I need for the
-    /// [minimal](https://github.com/thscharler/rat-salsa/blob/master/examples/minimal.rs)
-    /// example, which shows timings for Render/Event/Action.
     fn statusline_style(&self) -> Vec<Style> {
         vec![
             self.status_base(),

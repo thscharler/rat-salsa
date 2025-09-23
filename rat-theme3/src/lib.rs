@@ -1,5 +1,5 @@
 use crate::palettes::{
-    BASE16, BASE16_RELAXED, BLACKWHITE, IMPERIAL, MONEKAI, MONOCHROME, OCEAN, OXOCARBON, RADIUM,
+    BASE16, BASE16_RELAX, BLACKWHITE, IMPERIAL, MONEKAI, MONOCHROME, OCEAN, OXOCARBON, RADIUM,
     SOLARIZED, TUNDRA, VSCODE_DARK,
 };
 use rat_widget::button::ButtonStyle;
@@ -37,8 +37,10 @@ pub use shell_theme::*;
 
 /// Trait for a theme.
 pub trait SalsaTheme {
+    /// Theme name.
     fn name(&self) -> &str;
 
+    /// Color palette.
     fn palette(&self) -> &Palette;
 
     /// Create a style from the given white shade.
@@ -220,6 +222,9 @@ pub trait SalsaTheme {
     /// Tabbed style
     fn tabbed_style(&self) -> TabbedStyle;
 
+    /// Old school statusline styling.
+    fn statusline_style(&self) -> Vec<Style>;
+
     /// StatusLineStyle for a StatusLine with 3 indicator fields.
     fn statusline_style_ext(&self) -> StatusLineStyle;
 
@@ -236,83 +241,108 @@ pub trait SalsaTheme {
     fn clipper_style(&self) -> ClipperStyle;
 }
 
-pub fn create_theme(theme: &str, palette: &str) -> Box<dyn SalsaTheme> {
-    match palette {
-        "Imperial"=> IMPERIAL,
-        "Radium"=> RADIUM,
-        "Tundra"=> TUNDRA,
-        "Ocean"=> OCEAN,
-        "Monochrome"=> MONOCHROME,
-        "Black&White"=> BLACKWHITE,
-        "Base16"=> BASE16,
-        "Base16Relaxed"=> BASE16_RELAXED,
-        "Monekai"=> MONEKAI,
-        "Solarized"=> SOLARIZED,
-        "OxoCarbon"=> OXOCARBON,
-        "VSCodeDark"=> VSCODE_DARK,
-    }
+// Create a theme + palette.
+pub fn create_theme(theme: &str) -> Option<Box<dyn SalsaTheme>> {
+    let theme: Box<dyn SalsaTheme> = match theme {
+        "Imperial Dark" => Box::new(DarkTheme::new(theme, IMPERIAL)),
+        "Radium Dark" => Box::new(DarkTheme::new(theme, RADIUM)),
+        "Tundra Dark" => Box::new(DarkTheme::new(theme, TUNDRA)),
+        "Ocean Dark" => Box::new(DarkTheme::new(theme, OCEAN)),
+        "Monochrome Dark" => Box::new(DarkTheme::new(theme, MONOCHROME)),
+        "Black&White Dark" => Box::new(DarkTheme::new(theme, BLACKWHITE)),
+        "Base16 Dark" => Box::new(DarkTheme::new(theme, BASE16)),
+        "Base16 Relax Dark" => Box::new(DarkTheme::new(theme, BASE16_RELAX)),
+        "Monekai Dark" => Box::new(DarkTheme::new(theme, MONEKAI)),
+        "Solarized Dark" => Box::new(DarkTheme::new(theme, SOLARIZED)),
+        "OxoCarbon Dark" => Box::new(DarkTheme::new(theme, OXOCARBON)),
+        "VSCode Dark" => Box::new(DarkTheme::new(theme, VSCODE_DARK)),
+        //
+        "Imperial Shell" => Box::new(ShellTheme::new(theme, IMPERIAL)),
+        "Radium Shell" => Box::new(ShellTheme::new(theme, RADIUM)),
+        "Tundra Shell" => Box::new(ShellTheme::new(theme, TUNDRA)),
+        "Ocean Shell" => Box::new(ShellTheme::new(theme, OCEAN)),
+        "Monochrome Shell" => Box::new(ShellTheme::new(theme, MONOCHROME)),
+        "Black&White Shell" => Box::new(ShellTheme::new(theme, BLACKWHITE)),
+        "Base16 Shell" => Box::new(ShellTheme::new(theme, BASE16)),
+        "Base16 Relax Shell" => Box::new(ShellTheme::new(theme, BASE16_RELAX)),
+        "Monekai Shell" => Box::new(ShellTheme::new(theme, MONEKAI)),
+        "Solarized Shell" => Box::new(ShellTheme::new(theme, SOLARIZED)),
+        "OxoCarbon Shell" => Box::new(ShellTheme::new(theme, OXOCARBON)),
+        "VSCode Shell" => Box::new(ShellTheme::new(theme, VSCODE_DARK)),
 
-    match theme {
-        "Dark" =>
-        "Shell" =>
-    }
+        _ => return None,
+    };
 
+    Some(theme)
 }
 
-pub fn salsa_themes() -> Vec<String> {
-    vec!["Dark".to_string(), "Shell".to_string()]
+/// Get a Palette by name.
+pub fn create_palette(name: &str) -> Option<Palette> {
+    match name {
+        "Imperial" => Some(IMPERIAL),
+        "Radium" => Some(RADIUM),
+        "Tundra" => Some(TUNDRA),
+        "Ocean" => Some(OCEAN),
+        "Monochrome" => Some(MONOCHROME),
+        "Black&White" => Some(BLACKWHITE),
+        "Base16" => Some(BASE16),
+        "Base16Relaxed" => Some(BASE16_RELAX),
+        "Monekai" => Some(MONEKAI),
+        "Solarized" => Some(SOLARIZED),
+        "OxoCarbon" => Some(OXOCARBON),
+        "VSCodeDark" => Some(VSCODE_DARK),
+        _ => return None,
+    }
+}
+
+const PALETTES: &[&str] = &[
+    "Imperial",
+    "Radium",
+    "Tundra",
+    "Ocean",
+    "Monochrome",
+    "Black&White",
+    "Base16",
+    "Base16 Relax",
+    "Monekai",
+    "Solarized",
+    "OxoCarbon",
+    "VSCode",
+];
+
+const THEMES: &[&str] = &[
+    "Imperial Dark",
+    "Radium Dark",
+    "Tundra Dark",
+    "Ocean Dark",
+    "Monochrome Dark",
+    "Black&White Dark",
+    "Base16 Dark",
+    "Base16 Relax Dark",
+    "Monekai Dark",
+    "Solarized Dark",
+    "OxoCarbon Dark",
+    "VSCode Dark",
+    //
+    "Imperial Shell",
+    "Radium Shell",
+    "Tundra Shell",
+    "Ocean Shell",
+    "Monochrome Shell",
+    "Black&White Shell",
+    "Base16 Shell",
+    "Base16 Relax Shell",
+    "Monekai Shell",
+    "Solarized Shell",
+    "OxoCarbon Shell",
+    "VSCode Shell",
+];
+
+pub fn salsa_themes() -> Vec<&'static str> {
+    Vec::from(THEMES)
 }
 
 /// All currently existing color palettes.
-pub fn salsa_palettes() -> Vec<String> {
-    vec![
-        ("Imperial".to_string(),
-        ("Radium".to_string(),
-        ("Tundra".to_string(),
-        ("Ocean".to_string(),
-        ("Monochrome".to_string(),
-        ("Black&White".to_string(),
-        ("Base16".to_string(),
-        ("Base16Relaxed".to_string(),
-        ("Monekai".to_string(),
-        ("Solarized".to_string(),
-        ("OxoCarbon".to_string(),
-        ("VSCodeDark".to_string(),
-    ]
-}
-
-/// A list of DarkTheme for all color palettes.
-pub fn dark_themes() -> Vec<DarkTheme> {
-    vec![
-        DarkTheme::new("Imperial", IMPERIAL),
-        DarkTheme::new("Radium", RADIUM),
-        DarkTheme::new("Tundra", TUNDRA),
-        DarkTheme::new("Ocean", OCEAN),
-        DarkTheme::new("Monochrome", MONOCHROME),
-        DarkTheme::new("Black&White", BLACKWHITE),
-        DarkTheme::new("Base16", BASE16),
-        DarkTheme::new("Base16Relaxed", BASE16_RELAXED),
-        DarkTheme::new("Monekai", MONEKAI),
-        DarkTheme::new("Solarized", SOLARIZED),
-        DarkTheme::new("Oxocarbon", OXOCARBON),
-        DarkTheme::new("VSCodeDark", VSCODE_DARK),
-    ]
-}
-
-/// A list of ShellTheme for all color palettes.
-pub fn shell_themes() -> Vec<ShellTheme> {
-    vec![
-        ShellTheme::new("Imperial", IMPERIAL),
-        ShellTheme::new("Radium", RADIUM),
-        ShellTheme::new("Tundra", TUNDRA),
-        ShellTheme::new("Ocean", OCEAN),
-        ShellTheme::new("Monochrome", MONOCHROME),
-        ShellTheme::new("Black&White", BLACKWHITE),
-        ShellTheme::new("Base16", BASE16),
-        ShellTheme::new("Base16Relaxed", BASE16_RELAXED),
-        ShellTheme::new("Monekai", MONEKAI),
-        ShellTheme::new("Solarized", SOLARIZED),
-        ShellTheme::new("Oxocarbon", OXOCARBON),
-        ShellTheme::new("VSCodeDark", VSCODE_DARK),
-    ]
+pub fn salsa_palettes() -> Vec<&'static str> {
+    Vec::from(PALETTES)
 }

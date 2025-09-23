@@ -5,6 +5,8 @@ use crate::Palette;
 /// -- Credits to original theme <https://monokai.pro/>
 /// -- This is modified version of it
 pub const MONEKAI: Palette = Palette {
+    name: "Monekai",
+
     primary: Palette::interpolate(0x80133a, 0xd12060, 63),
     secondary: Palette::interpolate(0x5e748c, 0x81a1c1, 63),
 

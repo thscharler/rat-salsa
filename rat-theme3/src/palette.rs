@@ -15,6 +15,8 @@ use ratatui::style::{Color, Style};
 ///
 #[derive(Debug, Default, Clone)]
 pub struct Palette {
+    pub name: &'static str,
+
     pub white: [Color; 8],
     pub black: [Color; 8],
     pub gray: [Color; 8],
