@@ -35,6 +35,7 @@
 //! ```
 
 use crate::_private::NonExhaustive;
+use log::debug;
 use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -197,8 +198,13 @@ fn render_ref(widget: &StatusLine, area: Rect, buf: &mut Buffer, state: &mut Sta
         } else {
             Span::default()
         };
-        Line::from_iter([sep, Span::from(txt)])
-            .style(style)
-            .render(*rect, buf);
+
+        Line::from_iter([
+            sep, //
+            Span::from(txt),
+        ])
+        .render(*rect, buf);
+
+        buf.set_style(*rect, style);
     }
 }
