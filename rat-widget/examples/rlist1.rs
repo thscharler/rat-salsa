@@ -1,22 +1,21 @@
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{layout_grid, MiniSalsaState};
-use rat_event::{try_flow, HandleEvent, MouseOnly, Outcome, Popup, Regular};
+use crate::mini_salsa::{MiniSalsaState, THEME, layout_grid};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Popup, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::event::EditOutcome;
+use rat_menu::StaticMenu;
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
-use rat_menu::StaticMenu;
 use rat_popup::Placement;
 use rat_scrolled::Scroll;
-use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::HasScreenCursor;
-use rat_widget::list::edit::{EditList, EditListState};
+use rat_text::text_input::{TextInput, TextInputState};
 use rat_widget::list::List;
+use rat_widget::list::edit::{EditList, EditListState};
+use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, ListItem, StatefulWidget, Widget};
-use ratatui::Frame;
 use std::cmp::min;
 
 mod mini_salsa;
@@ -107,7 +106,7 @@ impl StatefulWidget for EditEntry {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         TextInput::new()
-            .styles(THEME.input_style())
+            .styles(THEME.text_style())
             .render(area, buf, &mut state.text_input);
     }
 }
@@ -158,7 +157,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -168,7 +167,7 @@ fn repaint_input(
         .popup_block(Block::bordered())
         .popup_width(15)
         .popup_placement(Placement::Above)
-        .styles(THEME.menu_style())
+        .styles(istate.theme.menu_style())
         .into_widgets();
     menu.render(l1[1], frame.buffer_mut(), &mut state.menu);
 
@@ -193,7 +192,7 @@ fn repaint_input(
     EditList::new(
         List::default()
             .items(data.data.iter().map(|v| ListItem::from(v.as_str())))
-            .styles(THEME.list_style())
+            .styles(istate.theme.list_style())
             .scroll(Scroll::new()),
         EditEntry,
     )

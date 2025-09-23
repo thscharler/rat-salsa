@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
-use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
@@ -74,7 +73,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -100,7 +99,7 @@ fn repaint_input(
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top(Line::from(format!("{:?}", state.flex)).alignment(Alignment::Center)),
         )
-        .styles(THEME.pager_style());
+        .styles(istate.theme.pager_style());
 
     let layout_size = nav.layout_size(l2[1]);
 
@@ -135,7 +134,7 @@ fn repaint_input(
                     form_layout.start(Some(
                         Block::bordered()
                             .border_type(BorderType::Double)
-                            .style(THEME.bluegreen(0)),
+                            .style(istate.theme.bluegreen(0)),
                     ));
                 }
                 if (i - 8) % 17 == 0 {
@@ -185,8 +184,8 @@ fn repaint_input(
         state.hundred[i].relocate((0, 0), Rect::default());
     }
     // render 2 pages
-    render_page(frame, state.page_nav.page, 0, state)?;
-    render_page(frame, state.page_nav.page + 1, 1, state)?;
+    render_page(frame, state.page_nav.page, 0, istate, state)?;
+    render_page(frame, state.page_nav.page + 1, 1, istate, state)?;
 
     let menu1 = MenuLine::new()
         .title("#.#")
@@ -196,7 +195,7 @@ fn repaint_input(
         .item_parsed("_Next|F8")
         .item_parsed("_Prev|F9")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style());
+        .styles(istate.theme.menu_style());
     frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
 
     for i in 0..state.hundred.len() {
@@ -212,6 +211,7 @@ fn render_page(
     frame: &mut Frame<'_>,
     page: usize,
     area_idx: usize,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     // set up pager
@@ -219,7 +219,7 @@ fn render_page(
         .layout(state.layout.clone())
         .page(page)
         .label_alignment(Alignment::Right)
-        .styles(THEME.pager_style())
+        .styles(istate.theme.pager_style())
         .into_buffer(
             state.page_nav.widget_areas[area_idx],
             Rc::new(RefCell::new(frame.buffer_mut())),
@@ -239,8 +239,8 @@ fn render_page(
                     || {
                         // lazy render
                         TextInputMock::default()
-                            .style(THEME.limegreen(0))
-                            .focus_style(THEME.limegreen(2))
+                            .style(istate.theme.limegreen(0))
+                            .focus_style(istate.theme.limegreen(2))
                     },
                     &mut state.hundred[i],
                 );

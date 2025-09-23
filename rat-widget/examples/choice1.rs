@@ -1,17 +1,16 @@
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
 use log::debug;
-use rat_event::{try_flow, HandleEvent, Popup, Regular};
+use rat_event::{HandleEvent, Popup, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, Outcome};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -50,7 +49,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -73,7 +72,7 @@ fn repaint_input(
     );
 
     let (w, p1) = Choice::new()
-        .styles(THEME.choice_style())
+        .styles(istate.theme.choice_style())
         .auto_item("Carrots 🥕")
         .auto_item("Potatoes 🥔")
         .auto_item("Onions 🧅")
@@ -95,7 +94,7 @@ fn repaint_input(
     w.render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     let (w, p2) = Choice::new()
-        .styles(THEME.choice_style())
+        .styles(istate.theme.choice_style())
         .auto_item("wine")
         .auto_item("beer")
         .auto_item("water")
@@ -104,7 +103,7 @@ fn repaint_input(
     w.render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
     let (w, p3) = Choice::<Option<usize>>::new()
-        .styles(THEME.choice_style())
+        .styles(istate.theme.choice_style())
         .item(None, "red")
         .item(Some(0), "blue")
         .item(Some(1), "green")
@@ -121,7 +120,7 @@ fn repaint_input(
     let menu1 = MenuLine::new()
         .title("a|b|c")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style());
+        .styles(istate.theme.menu_style());
     frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
 
     Ok(())

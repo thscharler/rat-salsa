@@ -2,8 +2,7 @@
 //! Example for [TableData]
 //!
 
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, THEME, run_ui, setup_logging};
 use anyhow::Error;
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
@@ -176,7 +175,7 @@ fn repaint_table(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), Error> {
     let l0 = Layout::horizontal([
@@ -192,7 +191,7 @@ fn repaint_table(
         .flex(Flex::Center)
         .split(area);
 
-    TextInput::new().styles(THEME.input_style()).render(
+    TextInput::new().styles(istate.theme.text_style()).render(
         Rect::new(l0[0].x, l1[0].y, l0[0].width, l1[0].height),
         frame.buffer_mut(),
         &mut state.text1,
@@ -213,17 +212,17 @@ fn repaint_table(
                 .block(
                     Block::bordered()
                         .border_type(block::BorderType::Rounded)
-                        .border_style(THEME.block())
+                        .border_style(istate.theme.container_border())
                         .title("tabledata"),
                 )
-                .vscroll(Scroll::new().style(THEME.block()))
-                .styles(THEME.table_style())
+                .vscroll(Scroll::new().style(istate.theme.container_border()))
+                .styles(istate.theme.table_style())
         },
         SampleEditor,
     )
     .render(l0[1], frame.buffer_mut(), &mut state.table);
 
-    TextInput::new().styles(THEME.input_style()).render(
+    TextInput::new().styles(istate.theme.text_style()).render(
         Rect::new(l0[2].x, l1[0].y, l0[2].width, l1[0].height),
         frame.buffer_mut(),
         &mut state.text2,
@@ -274,16 +273,16 @@ impl TableEditor for SampleEditor {
 
     fn render(&self, _area: Rect, cell_areas: &[Rect], buf: &mut Buffer, state: &mut Self::State) {
         TextInput::new()
-            .styles(THEME.input_style())
+            .styles(THEME.text_style())
             .render(cell_areas[0], buf, &mut state.text);
         NumberInput::new()
-            .styles(THEME.input_style())
+            .styles(THEME.text_style())
             .render(cell_areas[1], buf, &mut state.num1);
         NumberInput::new()
-            .styles(THEME.input_style())
+            .styles(THEME.text_style())
             .render(cell_areas[2], buf, &mut state.num2);
         NumberInput::new()
-            .styles(THEME.input_style())
+            .styles(THEME.text_style())
             .render(cell_areas[3], buf, &mut state.num3);
     }
 }

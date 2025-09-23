@@ -1,12 +1,12 @@
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use chrono::{Local, NaiveTime};
 use crossterm::event::{Event, KeyEvent};
 use format_num_pattern::NumberFormat;
-use rat_event::{try_flow, Outcome};
+use rat_event::{Outcome, try_flow};
+use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::text::Span;
 use ratatui::widgets::Widget;
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -39,7 +39,7 @@ fn repaint_buttons(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     _state: &mut State,
 ) -> Result<(), anyhow::Error> {
     if data.journal.len() > 0 {

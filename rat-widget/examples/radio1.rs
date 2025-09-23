@@ -1,14 +1,13 @@
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, HandleEvent, Regular};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
+use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::event::Outcome;
 use rat_widget::radio::{Radio, RadioLayout, RadioState};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -86,7 +85,7 @@ fn repaint_input(
     );
 
     Radio::new()
-        .styles(THEME.radio_style())
+        .styles(istate.theme.radio_style())
         .direction(state.direction)
         .layout(state.layout)
         .item("C", "🥕Carrots")
@@ -97,7 +96,7 @@ fn repaint_input(
         .render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     Radio::new()
-        .styles(THEME.radio_style())
+        .styles(istate.theme.radio_style())
         .direction(state.direction)
         .layout(state.layout)
         .item(0, "wine")
@@ -106,7 +105,7 @@ fn repaint_input(
         .render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
     Radio::new()
-        .styles(THEME.radio_style())
+        .styles(istate.theme.radio_style())
         .direction(state.direction)
         .layout(state.layout)
         .item(0, "red")
@@ -119,7 +118,7 @@ fn repaint_input(
     let menu1 = MenuLine::new()
         .title(":-0")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style());
+        .styles(istate.theme.menu_style());
     frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
 
     Ok(())

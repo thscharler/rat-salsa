@@ -1,15 +1,14 @@
 #![allow(dead_code)]
 
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
+use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget, Wrap};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -52,7 +51,7 @@ fn repaint_text(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = layout_grid::<3, 4>(
@@ -87,10 +86,10 @@ fn repaint_text(
         .block(
             Block::bordered()
                 .title("Excerpt")
-                .border_style(THEME.block())
-                .title_style(THEME.block_title()),
+                .border_style(istate.theme.container_border())
+                .title_style(istate.theme.container_border()),
         )
-        .styles(THEME.paragraph_style());
+        .styles(istate.theme.paragraph_style());
     if state.wrap {
         para = para.wrap(Wrap::default());
     }

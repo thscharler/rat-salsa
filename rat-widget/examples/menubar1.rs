@@ -1,12 +1,11 @@
-use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::MiniSalsaState;
-use rat_event::{try_flow, Outcome};
+use rat_event::{Outcome, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
-use rat_menu::{menubar, StaticMenu};
+use rat_menu::{StaticMenu, menubar};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -74,13 +73,13 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
     let (menu, menu_popup) = Menubar::new(&MENU)
-        .styles(THEME.menu_style())
+        .styles(istate.theme.menu_style())
         .title("⋱⋰⋱⋰⋱")
         .into_widgets();
     menu.render(l1[1], frame.buffer_mut(), &mut state.menu);

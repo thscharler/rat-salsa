@@ -1,18 +1,16 @@
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
 use map_range_int::MapRange;
-use rat_event::{ct_event, try_flow, HandleEvent, Regular};
+use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::event::Outcome;
 use rat_widget::range_op::RangeOp;
 use rat_widget::slider::{Slider, SliderState};
+use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
-use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -155,7 +153,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -193,7 +191,7 @@ fn repaint_input(
         }
     }
     Slider::new()
-        .styles(THEME.slider_style())
+        .styles(istate.theme.slider_style())
         .lower_bound(a)
         .upper_bound(b)
         .direction(state.direction)
@@ -204,7 +202,7 @@ fn repaint_input(
     slider_area.height = 3;
     let knob = format!("||{:?}||", state.c2.value);
     Slider::new()
-        .styles(THEME.slider_style())
+        .styles(istate.theme.slider_style())
         .track_char("-")
         .horizontal_knob(knob)
         .block(Block::bordered().border_type(BorderType::Rounded))
@@ -216,10 +214,8 @@ fn repaint_input(
 
     let mut slider_area = lg[3][1];
     slider_area.height = 1;
-    let color = Color::Rgb(state.r.value(), state.g.value(), state.b.value());
     Slider::new()
-        .styles(THEME.slider_style())
-        .style(Style::new().bg(color).fg(THEME.text_color(color)))
+        .styles(istate.theme.slider_style())
         .direction(Direction::Horizontal)
         .horizontal_knob("|")
         .long_step(16)
@@ -228,8 +224,7 @@ fn repaint_input(
         .render(slider_area, frame.buffer_mut(), &mut state.r);
     slider_area.y += 1;
     Slider::new()
-        .styles(THEME.slider_style())
-        .style(Style::new().bg(color).fg(THEME.text_color(color)))
+        .styles(istate.theme.slider_style())
         .direction(Direction::Horizontal)
         .horizontal_knob("|")
         .long_step(16)
@@ -238,8 +233,7 @@ fn repaint_input(
         .render(slider_area, frame.buffer_mut(), &mut state.g);
     slider_area.y += 1;
     Slider::new()
-        .styles(THEME.slider_style())
-        .style(Style::new().bg(color).fg(THEME.text_color(color)))
+        .styles(istate.theme.slider_style())
         .direction(Direction::Horizontal)
         .horizontal_knob("|")
         .long_step(16)
@@ -250,7 +244,7 @@ fn repaint_input(
     let menu1 = MenuLine::new()
         .title("~~~ swoosh ~~~")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style());
+        .styles(istate.theme.menu_style());
     frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
 
     Ok(())

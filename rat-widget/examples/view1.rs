@@ -1,15 +1,14 @@
 #![allow(dead_code)]
 
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, HandleEvent, Outcome, Regular};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use rat_event::{HandleEvent, Outcome, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::Scroll;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::view::{View, ViewState};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect, Size};
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Wrap};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -53,7 +52,7 @@ fn repaint_text(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l = Layout::horizontal([
@@ -69,8 +68,8 @@ fn repaint_text(
     let mut view_buf = View::new()
         .layout(Rect::new(10, 10, 44, 47))
         .view_size(Size::new(100, 100))
-        .vscroll(Scroll::new().style(THEME.block()))
-        .hscroll(Scroll::new().style(THEME.block()))
+        .vscroll(Scroll::new().style(istate.theme.container_border()))
+        .hscroll(Scroll::new().style(istate.theme.container_border()))
         .block(Block::bordered().border_type(BorderType::Rounded))
         .into_buffer(l[1], &mut state.view_state);
 
@@ -78,18 +77,18 @@ fn repaint_text(
     view_buf.render_stateful(
         Paragraph::new(data.sample1.clone())
             .wrap(Wrap::default())
-            .style(THEME.limegreen(0))
-            .block(Block::bordered().style(THEME.block()))
-            .scroll(Scroll::new().style(THEME.block())),
+            .style(istate.theme.limegreen(0))
+            .block(Block::bordered().style(istate.theme.container_border()))
+            .scroll(Scroll::new().style(istate.theme.container_border())),
         Rect::new(10, 10, 40, 18),
         &mut state.first,
     );
     view_buf.render_stateful(
         Paragraph::new(data.sample2.clone())
             .wrap(Wrap::default())
-            .style(THEME.bluegreen(0))
-            .block(Block::bordered().style(THEME.block()))
-            .scroll(Scroll::new().style(THEME.block())),
+            .style(istate.theme.bluegreen(0))
+            .block(Block::bordered().style(istate.theme.container_border()))
+            .scroll(Scroll::new().style(istate.theme.container_border())),
         Rect::new(14, 29, 40, 18),
         &mut state.second,
     );

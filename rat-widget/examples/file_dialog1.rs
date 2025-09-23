@@ -1,17 +1,16 @@
-use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::MiniSalsaState;
-use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
+use rat_event::{Dialog, HandleEvent, Outcome, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
-use rat_menu::{menubar, StaticMenu};
+use rat_menu::{StaticMenu, menubar};
 use rat_popup::Placement;
 use rat_text::HasScreenCursor;
 use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileDialog, FileDialogState};
 use rat_widget::layout::layout_middle;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget};
-use ratatui::Frame;
 use std::path::PathBuf;
 
 mod mini_salsa;
@@ -49,7 +48,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut (),
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -58,7 +57,7 @@ fn repaint_input(
         .title("Wha!")
         .popup_block(Block::bordered())
         .popup_placement(Placement::Above)
-        .styles(THEME.menu_style())
+        .styles(istate.theme.menu_style())
         .into_widgets();
     menu.render(l1[1], frame.buffer_mut(), &mut state.menu);
 
@@ -72,7 +71,7 @@ fn repaint_input(
         );
 
         FileDialog::new()
-            .styles(THEME.file_dialog_style()) //
+            .styles(istate.theme.file_dialog_style()) //
             .render(l, frame.buffer_mut(), &mut state.file_open);
 
         if let Some(cursor) = state.file_open.screen_cursor() {

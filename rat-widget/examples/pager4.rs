@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
-use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
@@ -70,7 +69,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -90,13 +89,13 @@ fn repaint_input(
 
     // Prepare navigation.
     let pager = Clipper::new()
-        .vscroll(Scroll::new().styles(THEME.scroll_style()))
+        .vscroll(Scroll::new().styles(istate.theme.scroll_style()))
         .block(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top(Line::from(format!("{:?}", state.flex)).alignment(Alignment::Center)),
         )
-        .styles(THEME.clipper_style());
+        .styles(istate.theme.clipper_style());
 
     let layout_size = pager.layout_size(l2[1], &state.pager);
     // rebuild layout
@@ -131,7 +130,7 @@ fn repaint_input(
                 tag17 = form_layout.start(Some(
                     Block::bordered()
                         .border_type(BorderType::Double)
-                        .style(THEME.bluegreen(0)),
+                        .style(istate.theme.bluegreen(0)),
                 ));
             }
             if i == 20 {
@@ -172,7 +171,7 @@ fn repaint_input(
 
     // Render
     let mut pager = pager.into_buffer(l2[1], &mut state.pager);
-    render_page(&mut pager, state)?;
+    render_page(&mut pager, istate, state)?;
     pager
         .into_widget()
         .render(l2[1], frame.buffer_mut(), &mut state.pager);
@@ -183,7 +182,7 @@ fn repaint_input(
         .item_parsed("_Spacing|F3")
         .item_parsed("_Columns|F4")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style());
+        .styles(istate.theme.menu_style());
     frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
 
     for i in 0..state.hundred.len() {
@@ -197,6 +196,7 @@ fn repaint_input(
 
 fn render_page(
     pager: &mut ClipperBuffer<'_, FocusFlag>,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     // render container areas
@@ -209,8 +209,8 @@ fn render_page(
             || {
                 // lazy construction
                 TextInputMock::default()
-                    .style(THEME.limegreen(0))
-                    .focus_style(THEME.limegreen(2))
+                    .style(istate.theme.limegreen(0))
+                    .focus_style(istate.theme.limegreen(2))
             },
             &mut state.hundred[i],
         );

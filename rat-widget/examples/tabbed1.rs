@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, HandleEvent, Regular};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -13,12 +12,12 @@ use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
 use rat_widget::statusline::StatusLineState;
 use rat_widget::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::symbols::border;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -73,7 +72,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -92,7 +91,7 @@ fn repaint_input(
     .split(l1[1]);
 
     let mut tab = Tabbed::new()
-        .styles(THEME.tabbed_style())
+        .styles(istate.theme.tabbed_style())
         .tab_type(state.style)
         .placement(state.placement);
     if state.close {
@@ -110,8 +109,8 @@ fn repaint_input(
 
     match state.tabbed.selected().expect("tab") {
         0 => List::<RowSelection>::new(LIST)
-            .styles(THEME.list_style())
-            .scroll(Scroll::new().styles(THEME.scroll_style()))
+            .styles(istate.theme.list_style())
+            .scroll(Scroll::new().styles(istate.theme.scroll_style()))
             .render(
                 state.tabbed.widget_area,
                 frame.buffer_mut(),
@@ -119,11 +118,11 @@ fn repaint_input(
             ),
         1 => EndlessScroll::new()
             .max(2024) //
-            .style(THEME.bluegreen(0))
-            .focus_style(THEME.focus())
+            .style(istate.theme.bluegreen(0))
+            .focus_style(istate.theme.focus())
             .v_scroll(
                 Scroll::new() //
-                    .styles(THEME.scroll_style()),
+                    .styles(istate.theme.scroll_style()),
             )
             .render(
                 state.tabbed.widget_area,
@@ -132,11 +131,11 @@ fn repaint_input(
             ),
         2 => EndlessScroll::new()
             .max(2024) //
-            .style(THEME.cyan(0))
-            .focus_style(THEME.focus())
+            .style(istate.theme.cyan(0))
+            .focus_style(istate.theme.focus())
             .v_scroll(
                 Scroll::new() //
-                    .styles(THEME.scroll_style()),
+                    .styles(istate.theme.scroll_style()),
             )
             .render(
                 state.tabbed.widget_area,

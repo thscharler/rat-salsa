@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, HandleEvent, Regular};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use rat_event::{HandleEvent, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -12,9 +11,9 @@ use rat_text::HasScreenCursor;
 use rat_widget::clipper::{Clipper, ClipperState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::GenericLayout;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget};
-use ratatui::Frame;
 use std::array;
 
 mod mini_salsa;
@@ -109,8 +108,8 @@ fn repaint_input(
             || {
                 TextInputMock::default()
                     .sample(format!("{:?}", i))
-                    .style(THEME.limegreen(0))
-                    .focus_style(THEME.limegreen(2))
+                    .style(istate.theme.limegreen(0))
+                    .focus_style(istate.theme.limegreen(2))
             },
             &mut state.hundred[i],
         );
@@ -123,7 +122,7 @@ fn repaint_input(
     let menu1 = MenuLine::new()
         .title("#.#")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style());
+        .styles(istate.theme.menu_style());
     frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
 
     for i in 0..state.hundred.len() {

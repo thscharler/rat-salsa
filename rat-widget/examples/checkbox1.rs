@@ -1,14 +1,13 @@
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, HandleEvent, Regular};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
+use rat_event::{HandleEvent, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::checkbox::{Checkbox, CheckboxState};
 use rat_widget::event::Outcome;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -48,7 +47,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -72,24 +71,24 @@ fn repaint_input(
 
     Checkbox::new()
         .text("Carrots 🥕")
-        .styles(THEME.checkbox_style())
+        .styles(istate.theme.checkbox_style())
         .render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     Checkbox::new()
         .text("Potatoes 🥔\nTomatoes 🍅")
-        .styles(THEME.checkbox_style())
+        .styles(istate.theme.checkbox_style())
         .render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
     Checkbox::new()
         .text("Onions 🧅")
-        .styles(THEME.checkbox_style())
+        .styles(istate.theme.checkbox_style())
         .block(Block::bordered().border_type(BorderType::Rounded))
         .render(lg[1][3], frame.buffer_mut(), &mut state.c3);
 
     let menu1 = MenuLine::new()
         .title("x x x")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style());
+        .styles(istate.theme.menu_style());
     frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
 
     Ok(())

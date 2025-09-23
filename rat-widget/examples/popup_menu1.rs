@@ -2,8 +2,8 @@
 #![allow(unreachable_pub)]
 
 use crate::blue::{Blue, BlueState};
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, HandleEvent, Regular};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuitem::Separator;
@@ -11,10 +11,10 @@ use rat_menu::popup_menu;
 use rat_menu::popup_menu::{PopupConstraint, PopupMenu, PopupMenuState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_grid;
+use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -63,7 +63,7 @@ fn repaint_stuff(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l = layout_grid::<4, 3>(

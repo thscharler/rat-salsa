@@ -1,10 +1,9 @@
 #![allow(dead_code)]
 
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use chrono::{Datelike, Local, Months, NaiveDate};
 use pure_rust_locales::Locale;
-use rat_event::{ct_event, try_flow, HandleEvent, Regular};
+use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -12,11 +11,11 @@ use rat_widget::button::{Button, ButtonState};
 use rat_widget::calendar::selection::RangeSelection;
 use rat_widget::calendar::{Calendar3, CalendarState, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, CalOutcome, Outcome};
+use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
-use ratatui::Frame;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -27,11 +26,10 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State::new();
     state.menu.focus.set(true);
-    rebuild_cal_style(&mut state);
 
     run_ui(
         "calendar3",
-        |_, _, _| {},
+        init,
         handle_input,
         repaint_input,
         &mut (),
@@ -90,11 +88,15 @@ impl State {
     }
 }
 
+fn init(_data: &mut (), istate: &mut MiniSalsaState, state: &mut State) {
+    rebuild_cal_style(state, istate);
+}
+
 fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut (),
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let vertical_areas = Layout::vertical([
@@ -138,27 +140,23 @@ fn repaint_input(
         }
     }
 
-    Button::new("<<<").styles(THEME.button_style()).render(
-        button_areas[1],
-        frame.buffer_mut(),
-        &mut state.prev,
-    );
+    Button::new("<<<")
+        .styles(istate.theme.button_style())
+        .render(button_areas[1], frame.buffer_mut(), &mut state.prev);
 
     Line::from(year_title(state))
         .alignment(Alignment::Center)
-        .style(THEME.limegreen(2))
+        .style(istate.theme.limegreen(2))
         .render(button_areas[2], frame.buffer_mut());
 
-    Button::new(">>>").styles(THEME.button_style()).render(
-        button_areas[3],
-        frame.buffer_mut(),
-        &mut state.next,
-    );
+    Button::new(">>>")
+        .styles(istate.theme.button_style())
+        .render(button_areas[3], frame.buffer_mut(), &mut state.next);
 
     Calendar3::new()
         .direction(state.direction)
         .locale(state.locale)
-        .styles(THEME.month_style())
+        .styles(istate.theme.month_style())
         .title_align(Alignment::Left)
         .day_styles(&state.cal_style)
         .show_weekdays()
@@ -217,7 +215,7 @@ fn handle_input(
 
     try_flow!(match state.calendar.handle(event, Regular) {
         CalOutcome::Selected | CalOutcome::Changed => {
-            rebuild_cal_style(state);
+            rebuild_cal_style(state, istate);
             Outcome::Changed
         }
         r => r.into(),
@@ -234,7 +232,7 @@ fn handle_input(
     try_flow!(match state.prev.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.prev_month();
-            rebuild_cal_style(state);
+            rebuild_cal_style(state, istate);
             Outcome::Changed
         }
         r => r.into(),
@@ -242,7 +240,7 @@ fn handle_input(
     try_flow!(match state.next.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.next_month();
-            rebuild_cal_style(state);
+            rebuild_cal_style(state, istate);
             Outcome::Changed
         }
         r => r.into(),
@@ -263,23 +261,23 @@ fn handle_input(
     Ok(Outcome::Continue)
 }
 
-fn rebuild_cal_style(state: &mut State) {
+fn rebuild_cal_style(state: &mut State, istate: &mut MiniSalsaState) {
     state.cal_style.clear();
 
     let mut date = state.calendar.start_date();
     for _ in 0..3 {
         state
             .cal_style
-            .insert(date.with_day(10).expect("date"), THEME.redpink(0));
+            .insert(date.with_day(10).expect("date"), istate.theme.redpink(0));
         state
             .cal_style
-            .insert(date.with_day(20).expect("date"), THEME.redpink(0));
+            .insert(date.with_day(20).expect("date"), istate.theme.redpink(0));
         if let Some(d30) = date.with_day(30) {
-            state.cal_style.insert(d30, THEME.redpink(0));
+            state.cal_style.insert(d30, istate.theme.redpink(0));
         } else {
             state
                 .cal_style
-                .insert(state.calendar.end_date(), THEME.redpink(0));
+                .insert(state.calendar.end_date(), istate.theme.redpink(0));
         }
 
         date = date + Months::new(1);

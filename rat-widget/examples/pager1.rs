@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
-use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
@@ -63,7 +62,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -83,7 +82,7 @@ fn repaint_input(
 
     // set up pager
     let pager = SinglePager::new() //
-        .styles(THEME.pager_style())
+        .styles(istate.theme.pager_style())
         .block(
             Block::bordered().title(
                 Title::from(format!("{:?}", state.flex))
@@ -132,7 +131,7 @@ fn repaint_input(
         // render manual label
         pager.render_label(state.hundred[i].focus.clone(), |s, a, b| {
             Text::from(format!("lbl{}", i))
-                .style(THEME.orange(0))
+                .style(istate.theme.orange(0))
                 .alignment(Alignment::Right)
                 .render(a, b);
         });
@@ -142,8 +141,8 @@ fn repaint_input(
             || {
                 TextInputMock::default()
                     .sample(format!("text {:?}", i))
-                    .style(THEME.limegreen(0))
-                    .focus_style(THEME.limegreen(2))
+                    .style(istate.theme.limegreen(0))
+                    .focus_style(istate.theme.limegreen(2))
             },
             &mut state.hundred[i],
         );
@@ -157,7 +156,7 @@ fn repaint_input(
         .item_parsed("_Next|F8")
         .item_parsed("_Prev|F9")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style());
+        .styles(istate.theme.menu_style());
     frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
 
     for i in 0..state.hundred.len() {

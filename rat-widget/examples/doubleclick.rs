@@ -1,15 +1,15 @@
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use chrono::{Local, NaiveTime};
 use crossterm::event::{Event, KeyModifiers, MouseEvent, MouseEventKind};
 use format_num_pattern::NumberFormat;
-use rat_event::util::{set_double_click_timeout, Clicks, MouseFlags};
-use rat_event::{ct_event, try_flow, Outcome};
+use rat_event::util::{Clicks, MouseFlags, set_double_click_timeout};
+use rat_event::{Outcome, ct_event, try_flow};
 use rat_widget::layout::layout_grid;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
 use ratatui::widgets::Widget;
-use ratatui::Frame;
 use std::time::{Duration, SystemTime};
 
 mod mini_salsa;
@@ -62,7 +62,7 @@ fn repaint_buttons(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l = layout_grid::<4, 5>(

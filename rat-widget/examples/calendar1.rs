@@ -1,10 +1,9 @@
 #![allow(dead_code)]
 
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use chrono::{Datelike, Local, Months, NaiveDate};
 use pure_rust_locales::Locale;
-use rat_event::{try_flow, HandleEvent, Regular};
+use rat_event::{HandleEvent, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -13,11 +12,11 @@ use rat_widget::calendar::selection::RangeSelection;
 use rat_widget::calendar::{CalendarState, Month, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, Outcome};
 use rat_widget::statusline::StatusLineState;
+use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
-use ratatui::Frame;
 use std::collections::HashMap;
 
 mod mini_salsa;
@@ -83,7 +82,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut (),
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -121,7 +120,7 @@ fn repaint_input(
         NaiveDate::from_ymd_opt(2024, 9, 1).expect("some"),
         Style::default().red(),
     );
-    date_styles.insert(Local::now().date_naive(), THEME.redpink(3));
+    date_styles.insert(Local::now().date_naive(), istate.theme.redpink(3));
 
     let title = if state.calendar.months[0].start_date().year()
         != state.calendar.months[2].start_date().year()
@@ -146,12 +145,12 @@ fn repaint_input(
 
     Line::from(title)
         .alignment(Alignment::Center)
-        .style(THEME.limegreen(2))
+        .style(istate.theme.limegreen(2))
         .render(l4[2], frame.buffer_mut());
 
     Month::new()
         .locale(Locale::de_AT_euro)
-        .styles(THEME.month_style())
+        .styles(istate.theme.month_style())
         .title_align(Alignment::Left)
         .day_styles(&date_styles)
         .show_weekdays()
@@ -160,7 +159,7 @@ fn repaint_input(
 
     Month::new()
         .locale(Locale::de_AT_euro)
-        .styles(THEME.month_style())
+        .styles(istate.theme.month_style())
         .title_align(Alignment::Left)
         .day_styles(&date_styles)
         .show_weekdays()
@@ -169,24 +168,20 @@ fn repaint_input(
 
     Month::new()
         .locale(Locale::de_AT_euro)
-        .styles(THEME.month_style())
+        .styles(istate.theme.month_style())
         .title_align(Alignment::Left)
         .day_styles(&date_styles)
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
         .render(l2[3], frame.buffer_mut(), &mut state.calendar.months[2]);
 
-    Button::new("<<<").styles(THEME.button_style()).render(
-        l4[1],
-        frame.buffer_mut(),
-        &mut state.prev,
-    );
+    Button::new("<<<")
+        .styles(istate.theme.button_style())
+        .render(l4[1], frame.buffer_mut(), &mut state.prev);
 
-    Button::new(">>>").styles(THEME.button_style()).render(
-        l4[3],
-        frame.buffer_mut(),
-        &mut state.next,
-    );
+    Button::new(">>>")
+        .styles(istate.theme.button_style())
+        .render(l4[3], frame.buffer_mut(), &mut state.next);
 
     MenuLine::new()
         .title("|/\\|")

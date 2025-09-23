@@ -1,14 +1,13 @@
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use rat_event::try_flow;
 use rat_text::HasScreenCursor;
 use rat_widget::date_input;
 use rat_widget::date_input::{DateInput, DateInputState};
 use rat_widget::event::Outcome;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{StatefulWidget, Widget};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -41,7 +40,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([
@@ -69,7 +68,7 @@ fn repaint_input(
     .split(l0[1]);
 
     DateInput::new() //
-        .styles(THEME.input_style())
+        .styles(istate.theme.text_style())
         .render(l1[1], frame.buffer_mut(), &mut state.input);
     if let Some((x, y)) = state.input.screen_cursor() {
         frame.set_cursor_position((x, y));

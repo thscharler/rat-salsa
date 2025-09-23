@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use log::{debug, warn};
 use rat_event::{HandleEvent, Popup, Regular, ct_event, try_flow};
@@ -9,7 +8,7 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::impl_screen_cursor;
-use rat_text::text_area::{TextArea, TextAreaState};
+use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::choice::{Choice, ChoiceState};
@@ -38,6 +37,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State::default();
     state.edition.set_value(2024);
+    state.descr.set_text_wrap(TextWrap::Word(4));
     state.menu.focus.set(true);
 
     run_ui(
@@ -119,7 +119,7 @@ fn repaint_input(
 
     // set up form
     let form = SinglePager::new() //
-        .styles(THEME.pager_style());
+        .styles(istate.theme.pager_style());
 
     // maybe rebuild layout
 
@@ -134,11 +134,11 @@ fn repaint_input(
 
         lf.widgets([
             (state.name.id(), L::Str("Name"), W::Width(20)),
-            (state.version.id(), L::Str("Version"), W::Width(12)),
+            (state.version.id(), L::Str("Version"), W::Width(14)),
             (state.edition.id(), L::Str("Edition"), W::Width(20)),
             (state.author.id(), L::Str("Author"), W::Width(20)),
             (state.descr.id(), L::Str("Describe"), W::StretchXY(20, 4)),
-            (state.license.id(), L::Str("License"), W::Width(18)),
+            (state.license.id(), L::Str("License"), W::Width(20)),
             (state.repository.id(), L::Str("Repository"), W::Width(25)),
             (state.readme.id(), L::Str("Readme"), W::Width(20)),
             (state.keywords.id(), L::Str("Keywords"), W::Width(25)),
@@ -162,14 +162,14 @@ fn repaint_input(
     // render the input fields.
     form.render(
         state.name.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.name,
     );
     form.render(
         state.version.id(),
         || {
             MaskedInput::new()
-                .styles(istate.theme.input_style())
+                .styles(istate.theme.text_style())
                 .compact(true)
         },
         &mut state.version,
@@ -190,7 +190,7 @@ fn repaint_input(
     );
     form.render(
         state.author.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.author,
     );
     form.render(
@@ -210,42 +210,42 @@ fn repaint_input(
     );
     form.render(
         state.repository.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.repository,
     );
     form.render(
         state.readme.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.readme,
     );
     form.render(
         state.keywords.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.keywords,
     );
     form.render(
         state.category1.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.category1,
     );
     form.render(
         state.category2.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.category2,
     );
     form.render(
         state.category3.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.category3,
     );
     form.render(
         state.category4.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.category4,
     );
     form.render(
         state.category5.id(),
-        || TextInput::new().styles(istate.theme.input_style()),
+        || TextInput::new().styles(istate.theme.text_style()),
         &mut state.category5,
     );
 
@@ -264,7 +264,7 @@ fn repaint_input(
         .item_parsed("_Next|F8")
         .item_parsed("_Prev|F9")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style());
+        .styles(istate.theme.menu_style());
     frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
 
     Ok(())

@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, HandleEvent, Regular};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -12,11 +11,11 @@ use rat_widget::event::Outcome;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::splitter::{Split, SplitResize, SplitState, SplitType};
 use rat_widget::statusline::StatusLineState;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget, Wrap};
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -74,7 +73,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -94,7 +93,7 @@ fn repaint_input(
 
     // create split widget.
     let mut split = Split::new()
-        .styles(THEME.split_style())
+        .styles(istate.theme.split_style())
         .direction(state.dir)
         .split_type(state.split_type)
         .resize(state.resize)
@@ -109,7 +108,7 @@ fn repaint_input(
             .block(
                 Block::bordered()
                     .border_type(blk) //
-                    .border_style(THEME.block()),
+                    .border_style(istate.theme.container_border()),
             )
             .join_1(blk)
             .join_0(blk);
@@ -119,18 +118,18 @@ fn repaint_input(
     // First split widget. Show some TEXT.
     if !state.split.is_hidden(0) {
         let mut w_left = Paragraph::new(TEXT)
-            .styles(THEME.paragraph_style())
+            .styles(istate.theme.paragraph_style())
             .wrap(Wrap::default());
         if let Some(inner_border) = state.inner_border_type {
             // configurable border
             w_left = w_left.block(
                 Block::bordered()
                     .title("inner block")
-                    .border_style(THEME.magenta(0))
+                    .border_style(istate.theme.magenta(0))
                     .border_type(inner_border),
             );
         }
-        let mut scroll_left = Scroll::new().styles(THEME.scroll_style());
+        let mut scroll_left = Scroll::new().styles(istate.theme.scroll_style());
         if state.dir == Direction::Horizontal {
             // don't start the scrollbar at the top of the area, start it 3 below.
             // leaves some space for the split handles.
@@ -143,23 +142,23 @@ fn repaint_input(
     // some dummy widget
     EndlessScroll::new()
         .max(100000) //
-        .style(THEME.deepblue(0))
-        .focus_style(THEME.focus())
+        .style(istate.theme.deepblue(0))
+        .focus_style(istate.theme.focus())
         .v_scroll(
             Scroll::new()
                 .start_margin(3) //
-                .styles(THEME.scroll_style()),
+                .styles(istate.theme.scroll_style()),
         )
         .render(split_areas[1], frame.buffer_mut(), &mut state.right);
 
     // some dummy widget
     EndlessScroll::new()
         .max(2024) //
-        .style(THEME.bluegreen(0))
-        .focus_style(THEME.focus())
+        .style(istate.theme.bluegreen(0))
+        .focus_style(istate.theme.focus())
         .v_scroll(
             Scroll::new() //
-                .styles(THEME.scroll_style()),
+                .styles(istate.theme.scroll_style()),
         )
         .render(split_areas[2], frame.buffer_mut(), &mut state.right_right);
 
@@ -393,7 +392,7 @@ fn handle_input(
     Ok(Outcome::Continue)
 }
 
-static TEXT: &str="Stanislaus Kostka
+static TEXT: &str = "Stanislaus Kostka
 
 Stanisław Kostka, S.J. (28 October 1550 – 15 August 1568) was a Polish novice in the Society of Jesus.
 

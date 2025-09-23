@@ -1,5 +1,4 @@
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use rat_event::{ct_event, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline;
@@ -8,9 +7,9 @@ use rat_widget::event::Outcome;
 use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
-use ratatui::Frame;
 use std::iter::repeat_with;
 
 mod mini_salsa;
@@ -46,7 +45,7 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -58,7 +57,7 @@ fn repaint_input(
         .item_parsed("Choose _3")
         .item_parsed("_Message|F1")
         .item_parsed("_Quit")
-        .styles(THEME.menu_style())
+        .styles(istate.theme.menu_style())
         .render(l1[1], frame.buffer_mut(), &mut state.menu);
 
     if state.msg.active() {
@@ -70,13 +69,13 @@ fn repaint_input(
             Constraint::Percentage(19),
         );
         MsgDialog::new()
-            .styles(THEME.msg_dialog_style())
-            // .block(Block::bordered().style(THEME.gray(3)))
-            // .style(THEME.gray(3))
+            .styles(istate.theme.msg_dialog_style())
+            // .block(Block::bordered().style(istate.theme.gray(3)))
+            // .style(istate.theme.gray(3))
             // .button_style(ButtonStyle {
-            //     style: THEME.secondary(2),
-            //     focus: Some(THEME.primary(3)),
-            //     armed: Some(THEME.primary(1)),
+            //     style: istate.theme.secondary(2),
+            //     focus: Some(istate.theme.primary(3)),
+            //     armed: Some(istate.theme.primary(1)),
             //     ..Default::default()
             // })
             .render(l_msg, frame.buffer_mut(), &mut state.msg);

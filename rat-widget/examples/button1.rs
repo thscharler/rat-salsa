@@ -1,14 +1,13 @@
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, HandleEvent, Regular};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use rat_event::{HandleEvent, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::{ButtonOutcome, Outcome};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::Widget;
-use ratatui::Frame;
 
 mod mini_salsa;
 
@@ -53,7 +52,7 @@ fn repaint_buttons(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([
@@ -73,15 +72,15 @@ fn repaint_buttons(
     .split(l0[1]);
 
     Button::new("Button")
-        .styles(THEME.button_style()) //
+        .styles(istate.theme.button_style()) //
         .render(l1[1], frame.buffer_mut(), &mut state.button1);
 
     Button::new("Button\nnottuB")
-        .styles(THEME.button_style()) //
+        .styles(istate.theme.button_style()) //
         .render(l1[2], frame.buffer_mut(), &mut state.button2);
 
     Button::new("Button")
-        .styles(THEME.button_style()) //
+        .styles(istate.theme.button_style()) //
         .render(l1[3], frame.buffer_mut(), &mut state.button3);
 
     let l2 = Layout::vertical([
