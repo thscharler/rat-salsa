@@ -40,6 +40,19 @@ impl ShellTheme {
     pub const fn new(name: &'static str, p: Palette) -> Self {
         Self { p, name }
     }
+
+    /// Create a style with only a text foreground color
+    fn fg_style(&self, contrast: Contrast) -> Style {
+        match contrast {
+            Contrast::High => Style::new().fg(self.p.white[Palette::BRIGHT_3]),
+            Contrast::Normal => Style::new().fg(self.p.white[Palette::BRIGHT_0]),
+        }
+    }
+
+    /// Create a style with only a text foreground color
+    fn fg_style_c(&self, color: Color) -> Style {
+        Style::new().fg(color)
+    }
 }
 
 impl ShellTheme {
@@ -153,24 +166,6 @@ impl ShellTheme {
         self.p.secondary(n, Contrast::Normal)
     }
 
-    /// Create a style from a background color
-    pub fn bg_style(&self, bg: Color) -> Style {
-        self.p.style(bg, Contrast::Normal)
-    }
-
-    /// Create a style with only a text foreground color
-    pub fn fg_style(&self, contrast: Contrast) -> Style {
-        match contrast {
-            Contrast::High => Style::new().fg(self.p.white[Palette::BRIGHT_3]),
-            Contrast::Normal => Style::new().fg(self.p.white[Palette::BRIGHT_0]),
-        }
-    }
-
-    /// Create a style with only a text foreground color
-    pub fn fg_stylec(&self, color: Color) -> Style {
-        Style::new().fg(color)
-    }
-
     pub fn focus(&self) -> Style {
         self.p.high_contrast(self.p.primary[Palette::BRIGHT_2])
     }
@@ -193,17 +188,17 @@ impl ShellTheme {
 
     /// Container base
     pub fn container_base(&self) -> Style {
-        self.fg_style(Contrast::Normal)
+        Default::default()
     }
 
     /// Container border
     pub fn container_border(&self) -> Style {
-        self.container_base().fg(self.p.gray[Palette::BRIGHT_0])
+        Default::default()
     }
 
     /// Container arrows
     pub fn container_arrow(&self) -> Style {
-        self.container_base().fg(self.p.gray[Palette::BRIGHT_0])
+        Default::default()
     }
 
     /// Background for popups.
@@ -240,7 +235,7 @@ impl ShellTheme {
 
     /// Style for the status line.
     pub fn status_base(&self) -> Style {
-        self.fg_style(Contrast::Normal)
+        Default::default()
     }
 
     /// Base style for buttons.
@@ -258,7 +253,7 @@ impl ShellTheme {
     /// Complete MonthStyle.
     pub fn month_style(&self) -> CalendarStyle {
         CalendarStyle {
-            style: self.fg_style(Contrast::Normal),
+            style: Default::default(),
             title: None,
             weeknum: Some(Style::new().fg(self.p.limegreen[Palette::BRIGHT_0])),
             weekday: Some(Style::new().fg(self.p.limegreen[Palette::BRIGHT_0])),
@@ -281,7 +276,7 @@ impl ShellTheme {
     /// Style for LineNumbers.
     pub fn line_nr_style(&self) -> LineNumberStyle {
         LineNumberStyle {
-            style: self.container_base().fg(self.p.gray[Palette::BRIGHT_1]),
+            style: self.container_base(),
             cursor: Some(self.text_select()),
             ..LineNumberStyle::default()
         }
@@ -304,7 +299,7 @@ impl ShellTheme {
             style: self.text_input(),
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
-            invalid: Some(self.fg_stylec(self.p.red[Palette::BRIGHT_3])),
+            invalid: Some(self.fg_style_c(self.p.red[Palette::BRIGHT_3])),
             ..TextStyle::default()
         }
     }
@@ -376,11 +371,11 @@ impl ShellTheme {
     /// Complete MenuStyle
     pub fn menu_style(&self) -> MenuStyle {
         MenuStyle {
-            style: self.fg_style(Contrast::High),
-            title: Some(self.fg_stylec(self.p.green[Palette::BRIGHT_2])),
+            style: self.status_base(),
+            title: Some(self.fg_style_c(self.p.yellow[Palette::BRIGHT_2])),
             focus: Some(self.focus()),
-            right: Some(self.fg_stylec(self.p.green[Palette::BRIGHT_3])),
-            disabled: Some(self.fg_stylec(self.p.gray[Palette::BRIGHT_2])),
+            right: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_3])),
+            disabled: Some(self.fg_style_c(self.p.gray[Palette::BRIGHT_2])),
             highlight: Some(Style::default().underlined()),
             block: Some(Block::bordered().style(self.popup_border())),
             ..Default::default()
@@ -407,16 +402,18 @@ impl ShellTheme {
             focus_style: Some(self.focus()),
             border_style: Some(self.container_border()),
             scroll: Some(self.scroll_style()),
+            header: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_2])),
+            footer: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_2])),
             ..Default::default()
         }
     }
 
     pub fn table_header(&self) -> Style {
-        self.fg_stylec(self.p.green[Palette::BRIGHT_2])
+        self.fg_style_c(self.p.green[Palette::BRIGHT_2])
     }
 
     pub fn table_footer(&self) -> Style {
-        self.fg_stylec(self.p.green[Palette::BRIGHT_2])
+        self.fg_style_c(self.p.green[Palette::BRIGHT_2])
     }
 
     /// Complete ListStyle
@@ -499,9 +496,9 @@ impl ShellTheme {
     pub fn statusline_style(&self) -> Vec<Style> {
         vec![
             self.status_base(),
-            self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
-            self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
-            self.status_base().fg(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style_c(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style_c(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style_c(self.p.blue[Palette::BRIGHT_2]),
         ]
     }
 
@@ -564,6 +561,16 @@ impl ShellTheme {
             style: self.container_base(),
             scroll: Some(self.scroll_style()),
             ..Default::default()
+        }
+    }
+
+    fn textview_style(&self) -> TextStyle {
+        TextStyle {
+            style: self.container_base(),
+            select: Some(self.text_select()),
+            scroll: Some(self.scroll_style()),
+            border_style: Some(self.container_border()),
+            ..TextStyle::default()
         }
     }
 }

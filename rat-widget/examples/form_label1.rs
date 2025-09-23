@@ -275,7 +275,7 @@ impl_screen_cursor!(name, version, author, descr, repository, readme,
 
 impl HasFocus for State {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget_navigate(&self.menu, Navigation::Leave);
+        builder.widget_navigate(&self.menu, Navigation::Regular);
         builder.widget(&self.name);
         builder.widget(&self.version);
         builder.widget(&self.edition);
