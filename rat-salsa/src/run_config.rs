@@ -1,8 +1,10 @@
 use crate::poll::PollEvents;
 use crate::terminal::{CrosstermTerminal, Terminal};
 use crossbeam::channel::TryRecvError;
+use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::io;
+use std::rc::Rc;
 
 /// Captures some parameters for [crate::run_tui()].
 pub struct RunConfig<Event, Error>
@@ -16,7 +18,7 @@ where
     /// for rendering the application.
     ///
     /// Defaults to RenderCrossterm.
-    pub(crate) term: Box<dyn Terminal<Error>>,
+    pub(crate) term: Rc<RefCell<dyn Terminal<Error>>>,
     /// List of all event-handlers for the application.
     ///
     /// Defaults to PollTimers, PollCrossterm, PollTasks. Add yours here.
@@ -46,7 +48,7 @@ where
     pub fn default() -> Result<Self, Error> {
         Ok(Self {
             manual: Default::default(),
-            term: Box::new(CrosstermTerminal::new()?),
+            term: Rc::new(RefCell::new(CrosstermTerminal::new()?)),
             poll: Default::default(),
         })
     }
@@ -55,7 +57,7 @@ where
     pub fn new(term: impl Terminal<Error> + 'static) -> Self {
         Self {
             manual: Default::default(),
-            term: Box::new(term),
+            term: Rc::new(RefCell::new(term)),
             poll: Default::default(),
         }
     }

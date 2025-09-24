@@ -29,6 +29,7 @@ pub mod timer;
 #[cfg(feature = "async")]
 mod tokio_tasks;
 
+use crate::terminal::Terminal;
 pub use framework::run_tui;
 pub use run_config::RunConfig;
 
@@ -523,6 +524,12 @@ where
         }
     }
 
+    /// Access the terminal.
+    #[inline]
+    fn terminal(&mut self) -> Rc<RefCell<dyn Terminal<Error>>> {
+        self.salsa_ctx().term.clone().expect("terminal")
+    }
+
     /// Clear the terminal and do a full redraw before the next draw.
     #[inline]
     fn clear_terminal(&mut self) {
@@ -558,6 +565,8 @@ where
     pub(crate) count: Cell<usize>,
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
+    /// Terminal area
+    pub(crate) term: Option<Rc<RefCell<dyn Terminal<Error>>>>,
     /// Clear terminal before next draw.
     pub(crate) clear_terminal: Cell<bool>,
     /// Call insert_before before the next draw.
@@ -626,6 +635,7 @@ where
             focus: Default::default(),
             count: Default::default(),
             cursor: Default::default(),
+            term: Default::default(),
             clear_terminal: Default::default(),
             insert_before: Default::default(),
             timers: Default::default(),

@@ -43,15 +43,15 @@ fn _run_tui<Global, State, Event, Error>(
     ) -> Result<Control<Event>, Error>,
     global: &mut Global,
     state: &mut State,
-    cfg: &mut RunConfig<Event, Error>,
+    cfg: RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
     Global: SalsaContext<Event, Error>,
     Event: 'static,
     Error: 'static + From<io::Error>,
 {
-    let term = cfg.term.as_mut();
-    let poll = cfg.poll.as_mut_slice();
+    let term = cfg.term;
+    let mut poll = cfg.poll;
 
     let timers = poll.iter().find_map(|v| {
         v.as_any()
@@ -80,6 +80,7 @@ where
         focus: Default::default(),
         count: Default::default(),
         cursor: Default::default(),
+        term: Some(term.clone()),
         clear_terminal: Default::default(),
         insert_before: Default::default(),
         timers,
@@ -98,9 +99,9 @@ where
     // initial render
     let ib = global.salsa_ctx().insert_before.take();
     if ib.height > 0 {
-        term.insert_before(ib.height, ib.draw_fn)?;
+        term.borrow_mut().insert_before(ib.height, ib.draw_fn)?;
     }
-    term.render(&mut |frame| {
+    term.borrow_mut().render(&mut |frame| {
         let frame_area = frame.area();
         render(frame_area, frame.buffer_mut(), state, global)?;
         if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
@@ -183,15 +184,15 @@ where
                 Ok(Control::Changed) => {
                     if global.salsa_ctx().clear_terminal.get() {
                         global.salsa_ctx().clear_terminal.set(false);
-                        if let Err(e) = term.clear() {
+                        if let Err(e) = term.borrow_mut().clear() {
                             global.salsa_ctx().queue.push(Err(e.into()));
                         }
                     }
                     let ib = global.salsa_ctx().insert_before.take();
                     if ib.height > 0 {
-                        term.insert_before(ib.height, ib.draw_fn)?;
+                        term.borrow_mut().insert_before(ib.height, ib.draw_fn)?;
                     }
-                    let r = term.render(&mut |frame| {
+                    let r = term.borrow_mut().render(&mut |frame| {
                         let frame_area = frame.area();
                         render(frame_area, frame.buffer_mut(), state, global)?;
                         if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
@@ -367,31 +368,34 @@ pub fn run_tui<Global, State, Event, Error>(
     ) -> Result<Control<Event>, Error>,
     global: &mut Global,
     state: &mut State,
-    mut cfg: RunConfig<Event, Error>,
+    cfg: RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
     Global: SalsaContext<Event, Error>,
     Event: 'static,
     Error: 'static + From<io::Error>,
 {
-    if !cfg.manual {
-        cfg.term.init()?;
+    let manual = cfg.manual;
+    let term = cfg.term.clone();
+
+    if !manual {
+        term.borrow_mut().init()?;
     }
 
     let r = match catch_unwind(AssertUnwindSafe(|| {
-        _run_tui(init, render, event, error, global, state, &mut cfg)
+        _run_tui(init, render, event, error, global, state, cfg)
     })) {
         Ok(v) => v,
         Err(e) => {
-            if !cfg.manual {
-                _ = cfg.term.shutdown();
+            if !manual {
+                _ = term.borrow_mut().shutdown();
             }
             resume_unwind(e);
         }
     };
 
-    if !cfg.manual {
-        cfg.term.shutdown()?;
+    if !manual {
+        term.borrow_mut().shutdown()?;
     }
 
     r
