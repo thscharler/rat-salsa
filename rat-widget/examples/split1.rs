@@ -97,7 +97,7 @@ fn repaint_input(
         .direction(state.dir)
         .split_type(state.split_type)
         .resize(state.resize)
-        .mark_offset(1)
+        //.mark_offset(1)
         .constraints([
             Constraint::Fill(1),
             Constraint::Fill(1),
@@ -131,9 +131,9 @@ fn repaint_input(
         }
         let mut scroll_left = Scroll::new().styles(istate.theme.scroll_style());
         if state.dir == Direction::Horizontal {
-            // don't start the scrollbar at the top of the area, start it 3 below.
+            // don't start the scrollbar at the top of the area, start it 2 below.
             // leaves some space for the split handles.
-            scroll_left = scroll_left.start_margin(3);
+            scroll_left = scroll_left.start_margin(2);
         }
         w_left = w_left.vscroll(scroll_left);
         w_left.render(split_areas[0], frame.buffer_mut(), &mut state.left);
@@ -146,7 +146,7 @@ fn repaint_input(
         .focus_style(istate.theme.focus())
         .v_scroll(
             Scroll::new()
-                .start_margin(3) //
+                .start_margin(2) //
                 .styles(istate.theme.scroll_style()),
         )
         .render(split_areas[1], frame.buffer_mut(), &mut state.right);

@@ -174,6 +174,8 @@ pub fn run_ui<Data, State>(
     r
 }
 
+pub fn mock_init<Data, State>(_data: &mut Data, _istate: &mut MiniSalsaState, _state: &mut State) {}
+
 fn repaint_ui<Data, State>(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     repaint: fn(

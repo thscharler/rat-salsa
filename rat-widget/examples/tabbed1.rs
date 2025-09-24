@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
+use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
-use rat_focus::{Focus, FocusBuilder};
+use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;
@@ -42,7 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "tabbed1",
-        |_, _, _| {},
+        mock_init,
         handle_input,
         repaint_input,
         &mut data,
@@ -163,10 +164,6 @@ fn repaint_input(
         .yellow()
         .render(area, frame.buffer_mut());
     area.y += 1;
-    Line::from("F6: reorder")
-        .yellow()
-        .render(area, frame.buffer_mut());
-    area.y += 1;
     Line::from("F12: key-nav")
         .yellow()
         .render(area, frame.buffer_mut());
@@ -194,7 +191,9 @@ fn focus(state: &State) -> Focus {
         }
     }
     fb.widget(&state.menu);
-    fb.build()
+    let f = fb.build();
+    f.enable_log();
+    f
 }
 
 fn handle_input(
@@ -312,6 +311,10 @@ fn handle_input(
                 }
                 _ => Some((BorderType::Plain, border::PLAIN)),
             };
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(12)) => {
+            focus(state).focus(&state.tabbed);
             Outcome::Changed
         }
         _ => Outcome::Continue,

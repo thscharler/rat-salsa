@@ -167,11 +167,11 @@ impl ShellTheme {
     }
 
     pub fn focus(&self) -> Style {
-        self.p.high_contrast(self.p.primary[Palette::BRIGHT_2])
+        self.p.normal_contrast(self.p.primary[Palette::BRIGHT_1])
     }
 
     pub fn select(&self) -> Style {
-        self.p.high_contrast(self.p.secondary[Palette::BRIGHT_2])
+        self.p.normal_contrast(self.p.secondary[Palette::BRIGHT_2])
     }
 
     pub fn text_input(&self) -> Style {
@@ -374,7 +374,7 @@ impl ShellTheme {
             style: self.status_base(),
             title: Some(self.fg_style_c(self.p.yellow[Palette::BRIGHT_2])),
             focus: Some(self.focus()),
-            right: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_3])),
+            right: Some(self.fg_style_c(self.p.bluegreen[Palette::BRIGHT_2])),
             disabled: Some(self.fg_style_c(self.p.gray[Palette::BRIGHT_2])),
             highlight: Some(Style::default().underlined()),
             block: Some(Block::bordered().style(self.popup_border())),
@@ -564,7 +564,7 @@ impl ShellTheme {
         }
     }
 
-    fn textview_style(&self) -> TextStyle {
+    pub fn textview_style(&self) -> TextStyle {
         TextStyle {
             style: self.container_base(),
             select: Some(self.text_select()),
