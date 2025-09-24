@@ -13,6 +13,7 @@ use rat_dialog::DialogStack;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme2::palettes::BASE16;
+use ratatui::layout::Rect;
 use std::fs;
 use std::path::PathBuf;
 
@@ -45,6 +46,7 @@ pub struct GlobalState {
     pub cfg: TurboConfig,
     pub theme: TurboTheme,
     pub dialogs: DialogStack<TurboEvent, GlobalState, Error>,
+    pub area: Rect,
 }
 
 impl SalsaContext<TurboEvent, Error> for GlobalState {
@@ -64,6 +66,7 @@ impl GlobalState {
             cfg,
             theme,
             dialogs: Default::default(),
+            area: Default::default(),
         }
     }
 }
@@ -79,6 +82,10 @@ pub enum TurboEvent {
     Message(String),
     Status(usize, String),
     NoOp,
+
+    NewDialog,
+    OpenDialog,
+    SaveAsDialog,
 }
 
 impl From<crossterm::event::Event> for TurboEvent {
@@ -100,14 +107,15 @@ impl<'a> TryFrom<&'a TurboEvent> for &'a crossterm::event::Event {
 
 pub mod app {
     use crate::turbo::Turbo;
-    use crate::{GlobalState, TurboEvent, turbo};
+    use crate::{GlobalState, TurboEvent, menu, turbo};
     use anyhow::Error;
-    use rat_dialog::event::DialogControl;
+    use rat_dialog::DialogControl;
     use rat_event::{Dialog, Outcome, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{ConsumedEvent, HandleEvent, ct_event};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
+    use rat_widget::menu::{MenubarState, PopupMenuState};
     use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
     use rat_widget::statusline::{StatusLine, StatusLineState};
     use rat_widget::util::fill_buf_area;
@@ -119,7 +127,15 @@ pub mod app {
     #[derive(Debug, Default)]
     pub struct Scenery {
         pub turbo: Turbo,
+        pub menu: MenubarState,
+        pub menu_environment: PopupMenuState,
         pub status: StatusLineState,
+    }
+
+    fn build_focus(state: &mut Scenery, ctx: &mut GlobalState) {
+        let mut builder = FocusBuilder::new(ctx.take_focus());
+        builder.widget(&state.menu);
+        ctx.set_focus(builder.build());
     }
 
     pub fn render(
@@ -137,12 +153,26 @@ pub mod app {
         ])
         .split(area);
 
+        ctx.area = layout[1];
+
         fill_buf_area(buf, layout[1], " ", ctx.theme.data());
 
+        let menu_popup = menu::render(layout[0], buf, ctx, state);
         turbo::render(area, buf, &mut state.turbo, ctx)?;
-
         ctx.dialogs.clone().render(layout[1], buf, ctx);
+        render_status(t0, layout[2], buf, state, ctx);
+        menu::render_popup(menu_popup, layout[0], buf, ctx, state);
 
+        Ok(())
+    }
+
+    fn render_status(
+        t0: SystemTime,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Scenery,
+        ctx: &mut GlobalState,
+    ) {
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         state.status.status(1, format!("R {:.0?}", el).to_string());
 
@@ -153,26 +183,24 @@ pub mod app {
                 Constraint::Length(8),
             ])
             .styles(ctx.theme.statusline_style());
-        status.render(layout[2], buf, &mut state.status);
-
-        Ok(())
+        status.render(area, buf, &mut state.status);
     }
 
     pub fn init(state: &mut Scenery, ctx: &mut GlobalState) -> Result<(), Error> {
-        ctx.set_focus(FocusBuilder::build_for(&state.turbo));
+        build_focus(state, ctx);
         turbo::init(&mut state.turbo, ctx)?;
         state.status.status(0, "Ctrl-Q to quit.");
         Ok(())
     }
 
     pub fn event(
-        tevent: &TurboEvent,
+        event: &TurboEvent,
         state: &mut Scenery,
         ctx: &mut GlobalState,
     ) -> Result<Control<TurboEvent>, Error> {
         let t0 = SystemTime::now();
 
-        let mut r = match tevent {
+        let mut r = match event {
             TurboEvent::Event(event) => {
                 let mut r = match &event {
                     ct_event!(resized) => Control::Changed,
@@ -182,7 +210,7 @@ pub mod app {
                 };
 
                 r = r.or_else(|| {
-                    ctx.set_focus(FocusBuilder::rebuild_for(&state.turbo, ctx.take_focus()));
+                    build_focus(state, ctx);
                     ctx.handle_focus(event);
                     Control::Continue
                 });
@@ -194,17 +222,17 @@ pub mod app {
                 state.status.status(*n, s);
                 Control::Changed
             }
-            TurboEvent::NoOp => Control::Continue,
+            _ => Control::Continue,
         };
 
+        r = r.or_else_try(|| menu::event(event, state, ctx))?;
         r = r.or_else_try(|| {
             ctx.dialogs
                 .clone()
-                .handle(tevent, ctx)
+                .handle(event, ctx)
                 .map(|v| Control::from(v))
         })?;
-
-        r = r.or_else_try(|| turbo::event(&tevent, &mut state.turbo, ctx))?;
+        r = r.or_else_try(|| turbo::event(event, &mut state.turbo, ctx))?;
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         state.status.status(2, format!("H {:.0?}", el).to_string());
@@ -270,41 +298,153 @@ pub mod app {
     }
 }
 
-pub mod turbo {
+pub mod menu {
+    use crate::app::Scenery;
     use crate::{GlobalState, TurboEvent};
     use anyhow::Error;
-    use rat_dialog::event::DialogControl;
-    use rat_dialog::{Window, WindowState};
-    use rat_event::{Dialog, Outcome};
+    use rat_event::{HandleEvent, Popup, ct_event, try_flow};
     use rat_salsa::{Control, SalsaContext};
-    use rat_widget::event::{FileOutcome, HandleEvent, MenuOutcome, Popup, ct_event, try_flow};
-    use rat_widget::file_dialog::{FileDialog, FileDialogState};
-    use rat_widget::focus::impl_has_focus;
-    use rat_widget::layout::layout_middle;
+    use rat_widget::event::MenuOutcome;
     use rat_widget::menu::{
-        MenuBuilder, MenuStructure, Menubar, MenubarState, PopupConstraint, PopupMenu,
-        PopupMenuState,
+        MenuBuilder, MenuStructure, Menubar, MenubarPopup, PopupConstraint, PopupMenu,
     };
     use rat_widget::popup::Placement;
     use rat_widget::shadow::{Shadow, ShadowDirection};
-    use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+    use ratatui::layout::{Alignment, Rect};
     use ratatui::style::{Style, Stylize};
     use ratatui::widgets::{Block, StatefulWidget};
-    use std::path::PathBuf;
 
     #[derive(Debug)]
-    pub struct Turbo {
-        pub menu: MenubarState,
-        pub menu_environment: PopupMenuState,
+    pub struct Menu;
+
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        ctx: &mut GlobalState,
+        state: &mut Scenery,
+    ) -> MenubarPopup<'static> {
+        let (menubar, popup) = Menubar::new(&Menu)
+            .styles(ctx.theme.menu_style())
+            .title("  ")
+            .popup_placement(Placement::Below)
+            .popup_block(Block::bordered().style(ctx.theme.menu_style().style))
+            .into_widgets();
+        menubar.render(area, buf, &mut state.menu);
+        popup
     }
 
-    #[derive(Debug)]
-    struct Menu;
+    pub fn render_popup(
+        popup: MenubarPopup<'static>,
+        area: Rect,
+        buf: &mut Buffer,
+        ctx: &mut GlobalState,
+        state: &mut Scenery,
+    ) {
+        popup.render(area, buf, &mut state.menu);
+        if state.menu.popup.is_active() {
+            Shadow::new()
+                .direction(ShadowDirection::BottomRight)
+                .style(Style::new().dark_gray().on_black())
+                .render(state.menu.popup.popup.area, buf, &mut ());
+        }
 
-    impl<'a> MenuStructure<'a> for Menu {
-        fn menus(&'a self, menu: &mut MenuBuilder<'a>) {
+        if state.menu_environment.is_active() {
+            let area = state
+                .menu
+                .popup
+                .item_areas
+                .get(6)
+                .copied()
+                .unwrap_or_default();
+
+            PopupMenu::new()
+                .styles(ctx.theme.menu_style())
+                .item_parsed("_Preferences...")
+                .item_parsed("_Editor...")
+                .item_parsed("_Mouse...")
+                .item_parsed("_Startup...")
+                .item_parsed("_Colors...")
+                .constraint(PopupConstraint::Right(Alignment::Left, area))
+                .y_offset(-1)
+                .block(Block::bordered())
+                .render(Rect::default(), buf, &mut state.menu_environment);
+
+            Shadow::new().style(Style::new().on_black()).render(
+                state.menu_environment.popup.area,
+                buf,
+                &mut (),
+            );
+        }
+    }
+
+    pub fn event(
+        event: &TurboEvent,
+        state: &mut Scenery,
+        ctx: &mut GlobalState,
+    ) -> Result<Control<TurboEvent>, Error> {
+        match event {
+            TurboEvent::Event(event) => {
+                if state.menu.selected() == (Some(7), Some(6)) {
+                    try_flow!(match event {
+                        ct_event!(keycode press Right) => {
+                            state.menu_environment.set_active(true);
+                            Control::Changed
+                        }
+                        _ => Control::Continue,
+                    });
+                }
+                if state.menu_environment.is_active() {
+                    try_flow!(match state.menu_environment.handle(event, Popup) {
+                        MenuOutcome::Activated(_) => {
+                            state.menu.popup.set_active(false);
+                            Control::Changed
+                        }
+                        r => r.into(),
+                    });
+                } else {
+                    try_flow!({
+                        let rr = state.menu.handle(event, Popup);
+                        match rr {
+                            MenuOutcome::MenuActivated(0, 0) => {
+                                Control::Event(TurboEvent::NewDialog)
+                            }
+                            MenuOutcome::MenuActivated(0, 1) => {
+                                Control::Event(TurboEvent::OpenDialog)
+                            }
+                            MenuOutcome::MenuActivated(0, 3) => {
+                                Control::Event(TurboEvent::SaveAsDialog)
+                            }
+                            MenuOutcome::MenuActivated(0, 9) => Control::Quit,
+                            MenuOutcome::MenuActivated(7, 6) => {
+                                // reactivate menu
+                                state.menu.popup.set_active(true);
+                                state.menu_environment.set_active(true);
+                                Control::Changed
+                            }
+                            MenuOutcome::MenuActivated(6, 0) => {
+                                for _ in 0..50 {
+                                    ctx.queue(Control::Event(TurboEvent::Message("Hello!".into())));
+                                }
+                                Control::Changed
+                            }
+                            MenuOutcome::Selected(_) => {
+                                state.menu_environment.set_active(false);
+                                Control::Changed
+                            }
+                            v => v.into(),
+                        }
+                    });
+                }
+            }
+            _ => {}
+        }
+
+        Ok(Control::Continue)
+    }
+
+    impl MenuStructure<'static> for Menu {
+        fn menus(&'static self, menu: &mut MenuBuilder<'static>) {
             menu.item_parsed("_File")
                 .item_parsed("_Edit")
                 .item_parsed("_Search")
@@ -318,7 +458,7 @@ pub mod turbo {
                 .disabled(true);
         }
 
-        fn submenu(&'a self, n: usize, submenu: &mut MenuBuilder<'a>) {
+        fn submenu(&'static self, n: usize, submenu: &mut MenuBuilder<'static>) {
             match n {
                 0 => {
                     submenu
@@ -454,83 +594,34 @@ pub mod turbo {
             }
         }
     }
+}
 
-    impl Default for Turbo {
-        fn default() -> Self {
-            Self {
-                menu: Default::default(),
-                menu_environment: Default::default(),
-            }
-        }
-    }
+pub mod turbo {
+    use crate::{GlobalState, TurboEvent};
+    use anyhow::Error;
+    use rat_dialog::DialogControl;
+    use rat_event::{Dialog, Outcome};
+    use rat_salsa::{Control, SalsaContext};
+    use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
+    use rat_widget::file_dialog::{FileDialog, FileDialogState};
+    use rat_widget::layout::layout_middle;
+    use rat_widget::text::HasScreenCursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Rect};
+    use ratatui::widgets::StatefulWidget;
+    use std::path::PathBuf;
+
+    #[derive(Debug, Default)]
+    pub struct Turbo {}
 
     pub fn render(
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Turbo,
-        ctx: &mut GlobalState,
+        _area: Rect,
+        _buf: &mut Buffer,
+        _state: &mut Turbo,
+        _ctx: &mut GlobalState,
     ) -> Result<(), Error> {
-        let theme = ctx.theme.clone();
-        // TODO: repaint_mask
-
-        let r = Layout::new(
-            Direction::Vertical,
-            [
-                Constraint::Length(1),
-                Constraint::Fill(1),
-                Constraint::Length(1),
-            ],
-        )
-        .split(area);
-
-        let (menubar, popup) = Menubar::new(&Menu)
-            .styles(theme.menu_style())
-            .title("  ")
-            .popup_placement(Placement::Below)
-            .popup_block(Block::bordered().style(theme.menu_style().style))
-            .into_widgets();
-        menubar.render(r[0], buf, &mut state.menu);
-        popup.render(r[0], buf, &mut state.menu);
-
-        if state.menu.popup.is_active() {
-            Shadow::new()
-                .direction(ShadowDirection::BottomRight)
-                .style(Style::new().dark_gray().on_black())
-                .render(state.menu.popup.popup.area, buf, &mut ());
-        }
-
-        if state.menu_environment.is_active() {
-            let area = state
-                .menu
-                .popup
-                .item_areas
-                .get(6)
-                .copied()
-                .unwrap_or_default();
-
-            PopupMenu::new()
-                .styles(theme.menu_style())
-                .item_parsed("_Preferences...")
-                .item_parsed("_Editor...")
-                .item_parsed("_Mouse...")
-                .item_parsed("_Startup...")
-                .item_parsed("_Colors...")
-                .constraint(PopupConstraint::Right(Alignment::Left, area))
-                .y_offset(-1)
-                .block(Block::bordered())
-                .render(Rect::default(), buf, &mut state.menu_environment);
-
-            Shadow::new().style(Style::new().on_black()).render(
-                state.menu_environment.popup.area,
-                buf,
-                &mut (),
-            );
-        }
-
         Ok(())
     }
-
-    impl_has_focus!(menu for Turbo);
 
     pub fn init(_state: &mut Turbo, ctx: &mut GlobalState) -> Result<(), Error> {
         ctx.focus().first();
@@ -539,108 +630,52 @@ pub mod turbo {
 
     pub fn event(
         event: &TurboEvent,
-        state: &mut Turbo,
+        _state: &mut Turbo,
         ctx: &mut GlobalState,
     ) -> Result<Control<TurboEvent>, Error> {
-        let r = match event {
-            TurboEvent::Event(event) => {
-                if state.menu.selected() == (Some(7), Some(6)) {
-                    try_flow!(match event {
-                        ct_event!(keycode press Right) => {
-                            state.menu_environment.set_active(true);
-                            Control::Changed
-                        }
-                        _ => Control::Continue,
-                    });
-                }
-                if state.menu_environment.is_active() {
-                    try_flow!(match state.menu_environment.handle(event, Popup) {
-                        MenuOutcome::Activated(_) => {
-                            state.menu.popup.set_active(false);
-                            Control::Changed
-                        }
-                        r => r.into(),
-                    });
-                } else {
-                    try_flow!({
-                        let rr = state.menu.handle(event, Popup);
-                        match rr {
-                            MenuOutcome::MenuActivated(0, 0) => show_new(ctx)?,
-                            MenuOutcome::MenuActivated(0, 1) => show_open(ctx)?,
-                            MenuOutcome::MenuActivated(0, 3) => show_save_as(ctx)?,
-                            MenuOutcome::MenuActivated(0, 9) => Control::Quit,
-                            MenuOutcome::MenuActivated(7, 6) => {
-                                // reactivate menu
-                                state.menu.popup.set_active(true);
-                                state.menu_environment.set_active(true);
-                                Control::Changed
-                            }
-                            MenuOutcome::MenuActivated(6, 0) => {
-                                for _ in 0..50 {
-                                    ctx.queue(Control::Event(TurboEvent::Message("Hello!".into())));
-                                }
-                                Control::Changed
-                            }
-                            MenuOutcome::Selected(_) => {
-                                state.menu_environment.set_active(false);
-                                Control::Changed
-                            }
-                            v => v.into(),
-                        }
-                    });
-                }
+        match event {
+            TurboEvent::NewDialog => try_flow!(show_new(ctx)?),
+            TurboEvent::OpenDialog => try_flow!(show_open(ctx)?),
+            TurboEvent::SaveAsDialog => try_flow!(show_save_as(ctx)?),
+            _ => {}
+        }
 
-                Control::Continue
-            }
-            _ => Control::Continue,
-        };
-
-        Ok(r)
+        Ok(Control::Continue)
     }
 
     fn show_new(ctx: &mut GlobalState) -> Result<Control<TurboEvent>, Error> {
-        let mut state = (WindowState::new(), FileDialogState::new());
+        let mut state = FileDialogState::new();
 
-        state.1.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+        state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
 
         ctx.dialogs.push(
             |area, buf, state, ctx| {
                 let state = state
-                    .downcast_mut::<(WindowState, FileDialogState)>()
+                    .downcast_mut::<FileDialogState>()
                     .expect("dialog-state");
 
-                if state.0.area.is_empty() {
-                    state.0.area = layout_middle(
-                        area,
-                        Constraint::Percentage(19),
-                        Constraint::Percentage(19),
-                        Constraint::Length(2),
-                        Constraint::Length(2),
-                    );
-                }
-
-                Window::new()
-                    .styles(ctx.theme.dialog_window("New"))
-                    .can_close(false)
-                    .render(area, buf, &mut state.0);
+                let area = layout_middle(
+                    area,
+                    Constraint::Percentage(19),
+                    Constraint::Percentage(19),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                );
 
                 FileDialog::new()
                     .styles(ctx.theme.file_dialog_style())
-                    .no_block()
-                    .render(state.0.widget_area, buf, &mut state.1);
+                    .render(area, buf, state);
 
-                ctx.set_screen_cursor(state.1.screen_cursor());
+                ctx.set_screen_cursor(state.screen_cursor());
             },
             |event, state, ctx| {
                 let state = state
-                    .downcast_mut::<(WindowState, FileDialogState)>()
+                    .downcast_mut::<FileDialogState>()
                     .expect("dialog-state");
 
                 match event {
                     TurboEvent::Event(event) => {
-                        try_flow!(state.0.handle(event, Dialog));
-
-                        try_flow!(match state.1.handle(event, Dialog)? {
+                        try_flow!(match state.handle(event, Dialog)? {
                             FileOutcome::Cancel => {
                                 DialogControl::Close(TurboEvent::NoOp) //
                             }
@@ -663,53 +698,44 @@ pub mod turbo {
     }
 
     fn show_open(ctx: &mut GlobalState) -> Result<Control<TurboEvent>, Error> {
-        let mut state = (WindowState::new(), FileDialogState::new());
+        let mut state = FileDialogState::new();
 
-        state.1.open_dialog(PathBuf::from("."))?;
+        state.open_dialog(PathBuf::from("."))?;
 
         ctx.dialogs.push(
             |area, buf, state, ctx| {
                 let state = state
-                    .downcast_mut::<(WindowState, FileDialogState)>()
+                    .downcast_mut::<FileDialogState>()
                     .expect("dialog-state");
 
-                if state.0.area.is_empty() {
-                    state.0.area = layout_middle(
-                        area,
-                        Constraint::Percentage(19),
-                        Constraint::Percentage(19),
-                        Constraint::Length(2),
-                        Constraint::Length(2),
-                    );
-                }
-
-                Window::new()
-                    .styles(ctx.theme.dialog_window("Open"))
-                    .can_close(false)
-                    .render(area, buf, &mut state.0);
+                let area = layout_middle(
+                    area,
+                    Constraint::Percentage(19),
+                    Constraint::Percentage(19),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                );
 
                 FileDialog::new()
                     .styles(ctx.theme.file_dialog_style())
-                    .render(state.0.widget_area, buf, &mut state.1);
+                    .render(area, buf, state);
 
-                ctx.set_screen_cursor(state.1.screen_cursor());
+                ctx.set_screen_cursor(state.screen_cursor());
             },
             |event, state, ctx| {
                 let state = state
-                    .downcast_mut::<(WindowState, FileDialogState)>()
+                    .downcast_mut::<FileDialogState>()
                     .expect("dialog-state");
 
                 match event {
                     TurboEvent::Event(event) => {
-                        try_flow!(state.0.handle(event, Dialog));
-
-                        try_flow!(match state.1.handle(event, Dialog)? {
+                        try_flow!(match state.handle(event, Dialog)? {
                             FileOutcome::Cancel => {
                                 DialogControl::Close(TurboEvent::NoOp) //
                             }
                             FileOutcome::Ok(f) => {
                                 DialogControl::Close(
-                                    TurboEvent::Status(0, format!("Opened file {:?}", f)), //
+                                    TurboEvent::Status(0, format!("Open {:?}", f)), //
                                 )
                             }
                             r => r.into(),
@@ -726,47 +752,38 @@ pub mod turbo {
     }
 
     fn show_save_as(ctx: &mut GlobalState) -> Result<Control<TurboEvent>, Error> {
-        let mut state = (WindowState::new(), FileDialogState::new());
+        let mut state = FileDialogState::new();
 
-        state.1.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+        state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
 
         ctx.dialogs.push(
             |area, buf, state, ctx| {
                 let state = state
-                    .downcast_mut::<(WindowState, FileDialogState)>()
+                    .downcast_mut::<FileDialogState>()
                     .expect("dialog-state");
 
-                if state.0.area.is_empty() {
-                    state.0.area = layout_middle(
-                        area,
-                        Constraint::Percentage(19),
-                        Constraint::Percentage(19),
-                        Constraint::Length(2),
-                        Constraint::Length(2),
-                    );
-                }
-
-                Window::new()
-                    .styles(ctx.theme.dialog_window("Save as"))
-                    .can_close(false)
-                    .render(area, buf, &mut state.0);
+                let area = layout_middle(
+                    area,
+                    Constraint::Percentage(19),
+                    Constraint::Percentage(19),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                );
 
                 FileDialog::new()
                     .styles(ctx.theme.file_dialog_style())
-                    .render(state.0.widget_area, buf, &mut state.1);
+                    .render(area, buf, state);
 
-                ctx.set_screen_cursor(state.1.screen_cursor());
+                ctx.set_screen_cursor(state.screen_cursor());
             },
             |event, state, ctx| {
                 let state = state
-                    .downcast_mut::<(WindowState, FileDialogState)>()
+                    .downcast_mut::<FileDialogState>()
                     .expect("dialog-state");
 
                 match event {
                     TurboEvent::Event(event) => {
-                        try_flow!(state.0.handle(event, Dialog));
-
-                        try_flow!(match state.1.handle(event, Dialog)? {
+                        try_flow!(match state.handle(event, Dialog)? {
                             FileOutcome::Cancel => {
                                 DialogControl::Close(TurboEvent::NoOp) //
                             }
@@ -816,7 +833,6 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_dialog::WindowStyle;
     use rat_theme2::{Contrast, Palette};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
@@ -831,7 +847,6 @@ pub mod theme {
     use rat_widget::table::TableStyle;
     use rat_widget::text::TextStyle;
     use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::{Block, BorderType};
 
     #[derive(Debug, Clone)]
     pub struct TurboTheme {
@@ -921,7 +936,7 @@ pub mod theme {
         /// Complete TextAreaStyle
         pub fn textarea_style(&self) -> TextStyle {
             TextStyle {
-                style: self.data(),
+                style: self.dialog_style(),
                 focus: Some(self.focus()),
                 select: Some(self.text_select()),
                 ..Default::default()
@@ -944,7 +959,6 @@ pub mod theme {
             MenuStyle {
                 style: self.dialog_style(),
                 title: Some(Style::default().fg(self.s.black[0]).bg(self.s.gray[3])),
-                select: Some(self.select()),
                 focus: Some(self.focus()),
                 highlight: Some(Style::default().fg(self.s.red[2])),
                 disabled: Some(Style::default().fg(self.s.black[3])),
@@ -1073,22 +1087,6 @@ pub mod theme {
                 roots: Some(self.list_style()),
                 text: Some(self.input_style()),
                 button: Some(self.button_style()),
-                no_block: Some(true),
-                ..Default::default()
-            }
-        }
-
-        pub fn dialog_window(&self, title: &'static str) -> WindowStyle {
-            WindowStyle {
-                style: self.dialog_style(),
-                block: Block::bordered()
-                    .border_type(BorderType::Rounded)
-                    .title_top(title)
-                    .border_style(self.dialog_style()),
-                hover: Some(self.scheme().green(3, Contrast::Normal)),
-                can_move: None,
-                can_resize: None,
-                can_close: None,
                 ..Default::default()
             }
         }
