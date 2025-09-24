@@ -355,3 +355,8 @@ macro_rules! break_flow {
         }
     }};
 }
+
+mod _private {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct NonExhaustive;
+}

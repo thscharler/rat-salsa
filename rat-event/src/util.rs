@@ -2,6 +2,7 @@
 //! Some utility functions that pop up all the time.
 //!
 
+use crate::_private::NonExhaustive;
 use crate::Outcome;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::{Position, Rect};
@@ -132,7 +133,7 @@ pub enum Clicks {
 ///
 /// This helps with double-click and mouse drag recognition.
 /// Add this to your widget state.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MouseFlags {
     /// Timestamp for double click
     pub time: Cell<Option<SystemTime>>,
@@ -142,6 +143,19 @@ pub struct MouseFlags {
     pub drag: Cell<bool>,
     /// Hover detect.
     pub hover: Cell<bool>,
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for MouseFlags {
+    fn default() -> Self {
+        Self {
+            time: Default::default(),
+            click: Default::default(),
+            drag: Default::default(),
+            hover: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl MouseFlags {
@@ -336,7 +350,6 @@ impl MouseFlags {
                                     break 'f false;
                                 }
                             }
-                            self.click.set(Clicks::Down2(0));
                         }
                         _ => {
                             self.time.set(Some(SystemTime::now()));
@@ -389,7 +402,7 @@ impl MouseFlags {
 ///
 /// This helps with double-click and mouse drag recognition.
 /// Add this to your widget state.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MouseFlagsN {
     /// Timestamp for double click
     pub time: Cell<Option<SystemTime>>,
@@ -399,6 +412,19 @@ pub struct MouseFlagsN {
     pub drag: Cell<Option<usize>>,
     /// Hover detect.
     pub hover: Cell<Option<usize>>,
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for MouseFlagsN {
+    fn default() -> Self {
+        Self {
+            time: Default::default(),
+            click: Default::default(),
+            drag: Default::default(),
+            hover: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl MouseFlagsN {
