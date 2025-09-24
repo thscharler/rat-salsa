@@ -48,7 +48,7 @@ use crate::paragraph::{Paragraph, ParagraphState};
 use crate::util::{block_padding2, reset_buf_area};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rat_event::{ConsumedEvent, Dialog, HandleEvent, Outcome, Regular, ct_event};
-use rat_focus::{Focus, FocusBuilder};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Rect};
@@ -99,6 +99,7 @@ pub struct MsgDialogState {
     /// __read+write__
     pub message: RefCell<String>,
 
+    focus: FocusFlag,
     /// Ok button
     button: RefCell<ButtonState>,
     /// message-text
@@ -171,6 +172,24 @@ impl Default for MsgDialogStyle {
     }
 }
 
+impl HasFocus for MsgDialogState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        if self.active() {
+            builder.widget_with_flags(self.focus(), self.area(), self.area_z(), Navigation::Lock);
+        } else {
+            builder.widget_with_flags(self.focus(), self.area(), self.area_z(), Navigation::None);
+        }
+    }
+
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
+    }
+
+    fn area(&self) -> Rect {
+        Rect::default()
+    }
+}
+
 impl MsgDialogState {
     pub fn new() -> Self {
         Self::default()
@@ -188,7 +207,7 @@ impl MsgDialogState {
     /// Show the dialog.
     pub fn set_active(&self, active: bool) {
         self.active.set(active);
-        self.focus().focus(&*self.paragraph.borrow());
+        self.build_focus().focus(&*self.paragraph.borrow());
         self.paragraph.borrow_mut().set_line_offset(0);
         self.paragraph.borrow_mut().set_col_offset(0);
     }
@@ -227,6 +246,7 @@ impl Default for MsgDialogState {
             area: Default::default(),
             inner: Default::default(),
             message: Default::default(),
+            focus: Default::default(),
             button: Default::default(),
             paragraph: Default::default(),
             message_title: Default::default(),
@@ -237,7 +257,7 @@ impl Default for MsgDialogState {
 }
 
 impl MsgDialogState {
-    fn focus(&self) -> Focus {
+    fn build_focus(&self) -> Focus {
         let mut fb = FocusBuilder::default();
         fb.widget(&*self.paragraph.borrow())
             .widget(&*self.button.borrow());
@@ -328,7 +348,7 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
     fn handle(&mut self, event: &crossterm::event::Event, _: Dialog) -> Outcome {
         if self.active.get() {
-            let mut focus = self.focus();
+            let mut focus = self.build_focus();
             let f = focus.handle(event, Regular);
 
             let mut r = match self

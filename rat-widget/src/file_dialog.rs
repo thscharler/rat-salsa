@@ -15,7 +15,7 @@ use dirs::{document_dir, home_dir};
 use rat_event::{
     ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow, try_flow,
 };
-use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, on_lost};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation, on_lost};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState};
@@ -122,6 +122,8 @@ pub struct FileDialogState {
     new_state: ButtonState,
     cancel_state: ButtonState,
     ok_state: ButtonState,
+
+    focus: FocusFlag,
 }
 
 pub(crate) mod event {
@@ -245,6 +247,7 @@ impl Default for FileDialogState {
             new_state: Default::default(),
             cancel_state: Default::default(),
             ok_state: Default::default(),
+            focus: Default::default(),
         };
         s.dir_state.list.set_scroll_selection(true);
         s.file_state.set_scroll_selection(true);
@@ -742,7 +745,7 @@ impl FileDialogState {
         } else {
             self.set_path(path)?;
         }
-        self.focus().focus(&self.dir_state);
+        self.build_focus().focus(&self.dir_state);
         Ok(())
     }
 
@@ -769,7 +772,7 @@ impl FileDialogState {
         } else {
             self.set_path(path)?;
         }
-        self.focus().focus(&self.file_state);
+        self.build_focus().focus(&self.file_state);
         Ok(())
     }
 
@@ -810,7 +813,7 @@ impl FileDialogState {
         } else {
             self.set_path(path)?;
         }
-        self.focus().focus(&self.save_name_state);
+        self.build_focus().focus(&self.save_name_state);
         Ok(())
     }
 
@@ -967,7 +970,7 @@ impl FileDialogState {
     /// Start creating a directory.
     fn start_edit_dir(&mut self) -> FileOutcome {
         if !self.dir_state.is_editing() {
-            self.focus().focus(&self.dir_state);
+            self.build_focus().focus(&self.dir_state);
 
             self.dirs.push(OsString::from(""));
             self.dir_state.editor.edit_dir.set_text("");
@@ -999,7 +1002,7 @@ impl FileDialogState {
             } else {
                 self.dir_state.commit();
                 if self.mode == Mode::Save {
-                    self.focus().focus_no_lost(&self.save_name_state);
+                    self.build_focus().focus_no_lost(&self.save_name_state);
                 }
                 self.set_path(&path)
             }
@@ -1049,6 +1052,24 @@ impl FileDialogState {
     }
 }
 
+impl HasFocus for FileDialogState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        if self.active {
+            builder.widget_with_flags(self.focus(), self.area(), 1, Navigation::Lock);
+        } else {
+            builder.widget_with_flags(self.focus(), self.area(), 1, Navigation::None);
+        }
+    }
+
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
+    }
+
+    fn area(&self) -> Rect {
+        Rect::default()
+    }
+}
+
 impl HasScreenCursor for FileDialogState {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.active {
@@ -1063,7 +1084,7 @@ impl HasScreenCursor for FileDialogState {
 }
 
 impl FileDialogState {
-    fn focus(&self) -> Focus {
+    fn build_focus(&self) -> Focus {
         let mut fb = FocusBuilder::default();
         fb.widget(&self.dir_state);
         if self.mode == Mode::Save || self.mode == Mode::Open {
@@ -1093,7 +1114,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
             return Ok(FileOutcome::Continue);
         }
 
-        let mut focus = self.focus();
+        let mut focus = self.build_focus();
 
         let mut f: FileOutcome = focus.handle(event, Regular).into();
         let mut r = FileOutcome::Continue;
@@ -1237,7 +1258,7 @@ fn handle_path(
         try_flow!(match event {
             ct_event!(keycode press Enter) => {
                 state.use_path_input()?;
-                state.focus().focus_no_lost(&state.dir_state.list);
+                state.build_focus().focus_no_lost(&state.dir_state.list);
                 FileOutcome::Changed
             }
             _ => FileOutcome::Continue,
