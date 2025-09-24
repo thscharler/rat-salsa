@@ -6,7 +6,7 @@ use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
-use ratatui::style::{Style, Stylize};
+use ratatui::style::Style;
 use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::{Block, Widget};
 use std::borrow::Cow;

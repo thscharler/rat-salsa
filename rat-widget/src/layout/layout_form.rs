@@ -1096,7 +1096,8 @@ where
 
 // drop no longer used blocks. perf.
 // there may be pathological cases, but otherwise this is fine.
-fn drop_blocks(block_def: &mut VecDeque<BlockDef>, idx: usize) {
+fn drop_blocks(_block_def: &mut VecDeque<BlockDef>, _idx: usize) {
+    // TODO: this
     // loop {
     //     if let Some(block) = block_def.get(0) {
     //         if block.range.end < idx {

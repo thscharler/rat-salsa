@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::event::{ButtonOutcome, FileOutcome, TextOutcome};
-use crate::layout::{layout_dialog, layout_grid, DialogItem};
+use crate::layout::{DialogItem, layout_dialog, layout_grid};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
@@ -13,9 +13,9 @@ use crate::util::{block_padding2, reset_buf_area};
 #[cfg(feature = "user_directories")]
 use dirs::{document_dir, home_dir};
 use rat_event::{
-    ct_event, flow, try_flow, ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular,
+    ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow, try_flow,
 };
-use rat_focus::{on_lost, Focus, FocusBuilder, FocusFlag, HasFocus};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, on_lost};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState};
@@ -82,6 +82,8 @@ pub struct FileDialogStyle {
     pub button: Option<ButtonStyle>,
     /// Outer border.
     pub block: Option<Block<'static>>,
+    /// Don't create a border
+    pub no_block: Option<bool>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -211,12 +213,13 @@ impl Default for FileDialogStyle {
     fn default() -> Self {
         FileDialogStyle {
             style: Default::default(),
-            list: None,
-            roots: None,
-            button: None,
-            block: None,
+            list: Default::default(),
+            roots: Default::default(),
+            button: Default::default(),
+            block: Default::default(),
+            no_block: Default::default(),
+            text: Default::default(),
             non_exhaustive: NonExhaustive,
-            text: None,
         }
     }
 }
@@ -341,6 +344,9 @@ impl<'a> FileDialog<'a> {
         }
         if styles.button.is_some() {
             self.button_style = styles.button;
+        }
+        if let Some(no_block) = styles.no_block {
+            self.no_block = no_block;
         }
         if styles.block.is_some() {
             self.block = styles.block;

@@ -35,7 +35,6 @@
 //! ```
 
 use crate::_private::NonExhaustive;
-use log::debug;
 use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
