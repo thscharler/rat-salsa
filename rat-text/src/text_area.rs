@@ -81,6 +81,8 @@ pub struct TextArea<'a> {
     h_overscroll: Option<usize>,
     vscroll: Option<Scroll<'a>>,
 
+    text_wrap: TextWrap,
+
     style: Style,
     focus_style: Option<Style>,
     select_style: Option<Style>,
@@ -178,10 +180,11 @@ impl Clone for TextAreaState {
 }
 
 /// Text breaking.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 #[non_exhaustive]
 pub enum TextWrap {
     /// Don't break, shift text to the left.
+    #[default]
     Shift,
     /// Hard break at the right border.
     Hard,
@@ -307,6 +310,12 @@ impl<'a> TextArea<'a> {
         self
     }
 
+    /// Set the text wrapping.
+    pub fn text_wrap(mut self, wrap: TextWrap) -> Self {
+        self.text_wrap = wrap;
+        self
+    }
+
     /// Maximum offset the horizontal scrollbar.
     ///
     /// This widget doesn't try to find a correct maximum value
@@ -370,6 +379,7 @@ fn render_text_area(
 ) {
     state.area = area;
     state.screen_cursor = None;
+    state.text_wrap = widget.text_wrap;
 
     let style = widget.style;
     let select_style = if let Some(select_style) = widget.select_style {
