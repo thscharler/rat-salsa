@@ -101,7 +101,7 @@ pub mod app {
     use crate::turbo::Turbo;
     use crate::{GlobalState, TurboEvent, turbo};
     use anyhow::Error;
-    use rat_dialog::DialogControl;
+    use rat_dialog::event::DialogControl;
     use rat_event::{Dialog, Outcome};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{ConsumedEvent, HandleEvent, ct_event};
@@ -270,7 +270,7 @@ pub mod app {
 pub mod turbo {
     use crate::{GlobalState, TurboEvent};
     use anyhow::Error;
-    use rat_dialog::DialogControl;
+    use rat_dialog::event::DialogControl;
     use rat_event::{Dialog, Outcome};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{FileOutcome, HandleEvent, MenuOutcome, Popup, ct_event, try_flow};

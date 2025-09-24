@@ -33,7 +33,6 @@ use std::cell::Cell;
 use std::cmp::max;
 use std::fs;
 use std::io::{Stdout, stdout};
-use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -354,7 +353,7 @@ pub mod palette;
 pub mod text_input_mock;
 pub mod theme;
 
-pub static THEME: ShellTheme = ShellTheme::new("Tundra", PALETTE);
+pub static THEME: ShellTheme = ShellTheme::new("Imperial Shell", PALETTE);
 
 /// An adaption of nvchad's tundra theme.
 ///

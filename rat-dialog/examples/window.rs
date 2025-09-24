@@ -1,4 +1,4 @@
-use crate::moving::{Moving, MovingState};
+use crate::moving::MovingState;
 use anyhow::Error;
 use rat_dialog::DialogStack;
 use rat_salsa::event::RenderedEvent;
@@ -121,7 +121,7 @@ pub fn render(
 ) -> Result<(), Error> {
     let t0 = SystemTime::now();
 
-    Moving.render(area, buf, &mut state.nominal, ctx)?;
+    moving::render(area, buf, &mut state.nominal, ctx)?;
 
     let layout = Layout::vertical([
         Constraint::Fill(1), //
@@ -161,7 +161,7 @@ pub fn render(
 
 pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     ctx.set_focus(FocusBuilder::build_for(&state.nominal));
-    state.nominal.init(ctx)?;
+    moving::init(&mut state.nominal, ctx)?;
     Ok(())
 }
 
@@ -215,7 +215,7 @@ pub fn event(
             .map(|v| Control::from(v))
     })?;
 
-    r = r.or_else_try(|| state.nominal.event(event, ctx))?;
+    r = r.or_else_try(|| moving::event(event, &mut state.nominal, ctx))?;
 
     let el = t0.elapsed()?;
     state.status.status(3, format!("E {:.0?}", el).to_string());
@@ -233,10 +233,10 @@ pub fn error(
 }
 
 pub mod moving {
-    use crate::window::{Window, WindowOutcome, WindowState};
     use crate::{AppEvent, Global};
     use anyhow::Error;
-    use rat_dialog::DialogControl;
+    use rat_dialog::event::{DialogControl, WindowOutcome};
+    use rat_dialog::{Window, WindowState};
     use rat_event::{Dialog, Popup};
     use rat_salsa::timer::TimerDef;
     use rat_salsa::{Control, SalsaContext};
@@ -263,158 +263,150 @@ pub mod moving {
         menu: &[("_File", &["_Open"]), ("_Quit", &[])],
     };
 
-    impl Moving {
-        pub fn render(
-            &self,
-            area: Rect,
-            buf: &mut Buffer,
-            state: &mut MovingState,
-            ctx: &mut Global,
-        ) -> Result<(), Error> {
-            // TODO: repaint_mask
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut MovingState,
+        ctx: &mut Global,
+    ) -> Result<(), Error> {
+        // TODO: repaint_mask
 
-            let r = Layout::new(
-                Direction::Vertical,
-                [
-                    Constraint::Fill(1), //
-                    Constraint::Length(1),
-                ],
-            )
-            .split(area);
+        let r = Layout::new(
+            Direction::Vertical,
+            [
+                Constraint::Fill(1), //
+                Constraint::Length(1),
+            ],
+        )
+        .split(area);
 
-            let (menubar, menupopup) = Menubar::new(&MENU)
-                .styles(ctx.theme.menu_style())
-                .title("rata-tui")
-                .into_widgets();
-            menubar.render(r[1], buf, &mut state.menu);
-            menupopup.render(r[1], buf, &mut state.menu);
+        let (menubar, menupopup) = Menubar::new(&MENU)
+            .styles(ctx.theme.menu_style())
+            .title("rata-tui")
+            .into_widgets();
+        menubar.render(r[1], buf, &mut state.menu);
+        menupopup.render(r[1], buf, &mut state.menu);
 
-            Ok(())
-        }
+        Ok(())
     }
 
     impl_has_focus!(menu for MovingState);
 
-    impl MovingState {
-        pub fn init(
-            &mut self, //
-            ctx: &mut Global,
-        ) -> Result<(), Error> {
-            ctx.focus().first();
+    pub fn init(_state: &mut MovingState, ctx: &mut Global) -> Result<(), Error> {
+        ctx.focus().first();
 
-            ctx.add_timer(
-                TimerDef::new()
-                    .repeat_forever()
-                    .timer(Duration::from_millis(1000)),
-            );
+        ctx.add_timer(
+            TimerDef::new()
+                .repeat_forever()
+                .timer(Duration::from_millis(1000)),
+        );
 
-            Ok(())
+        Ok(())
+    }
+
+    #[allow(unused_variables)]
+    pub fn event(
+        event: &AppEvent,
+        state: &mut MovingState,
+        ctx: &mut Global,
+    ) -> Result<Control<AppEvent>, Error> {
+        match event {
+            AppEvent::Event(event) => {
+                try_flow!(match state.menu.handle(event, Popup) {
+                    MenuOutcome::MenuActivated(0, 0) => {
+                        show_open(ctx)?
+                    }
+                    MenuOutcome::Activated(1) => {
+                        Control::Quit
+                    }
+                    v => v.into(),
+                });
+                Ok(Control::Continue)
+            }
+            AppEvent::Timer(t) => Ok(Control::Event(AppEvent::Status(
+                1,
+                format!("up {}s", t.counter),
+            ))),
+            _ => Ok(Control::Continue),
+        }
+    }
+
+    fn show_open(ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
+        struct OpenState {
+            window: WindowState,
+            filedlg: FileDialogState,
         }
 
-        #[allow(unused_variables)]
-        pub fn event(
-            &mut self,
-            event: &AppEvent,
-            ctx: &mut Global,
-        ) -> Result<Control<AppEvent>, Error> {
-            match event {
-                AppEvent::Event(event) => {
-                    try_flow!(match self.menu.handle(event, Popup) {
-                        MenuOutcome::MenuActivated(0, 0) => {
-                            self.show_open(ctx)?
-                        }
-                        MenuOutcome::Activated(1) => {
-                            Control::Quit
-                        }
-                        v => v.into(),
-                    });
-                    Ok(Control::Continue)
+        let mut state = OpenState {
+            window: WindowState::new(),
+            filedlg: FileDialogState::new(),
+        };
+        state.filedlg.open_dialog(PathBuf::from("."))?;
+
+        ctx.dialogs.push(
+            |area, buf, state, ctx| {
+                let state = state.downcast_mut::<OpenState>().expect("dialog-state");
+
+                if state.window.area.is_empty() {
+                    state.window.limit = area;
+                    state.window.area = layout_middle(
+                        area,
+                        Constraint::Percentage(19),
+                        Constraint::Percentage(19),
+                        Constraint::Length(2),
+                        Constraint::Length(2),
+                    );
                 }
-                AppEvent::Timer(t) => Ok(Control::Event(AppEvent::Status(
-                    1,
-                    format!("up {}s", t.counter),
-                ))),
-                _ => Ok(Control::Continue),
-            }
-        }
 
-        fn show_open(&mut self, ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
-            struct OpenState {
-                window: WindowState,
-                filedlg: FileDialogState,
-            }
+                Window::new()
+                    .drag(ctx.theme.dialog_base())
+                    .hover(ctx.theme.limegreen(1))
+                    .style(ctx.theme.dialog_base())
+                    .block(
+                        Block::bordered()
+                            .border_style(ctx.theme.dialog_border())
+                            .title("Open file"),
+                    )
+                    .render(area, buf, &mut state.window);
 
-            let mut state = OpenState {
-                window: WindowState::new(),
-                filedlg: FileDialogState::new(),
-            };
-            state.filedlg.open_dialog(PathBuf::from("."))?;
+                FileDialog::new()
+                    .styles(ctx.theme.file_dialog_style())
+                    .no_block()
+                    .render(state.window.widget_area, buf, &mut state.filedlg);
 
-            ctx.dialogs.push(
-                |area, buf, state, ctx| {
-                    let state = state.downcast_mut::<OpenState>().expect("dialog-state");
+                ctx.set_screen_cursor(state.filedlg.screen_cursor());
+            },
+            |event, state, ctx| {
+                let state = state.downcast_mut::<OpenState>().expect("open-state");
+                match event {
+                    AppEvent::Event(event) => {
+                        try_flow!(match state.window.handle(event, Regular) {
+                            WindowOutcome::ShouldClose => {
+                                DialogControl::Close(None)
+                            }
+                            r => r.into(),
+                        });
 
-                    if state.window.area.is_empty() {
-                        state.window.limit = area;
-                        state.window.area = layout_middle(
-                            area,
-                            Constraint::Percentage(19),
-                            Constraint::Percentage(19),
-                            Constraint::Length(2),
-                            Constraint::Length(2),
-                        );
+                        try_flow!(match state.filedlg.handle(event, Dialog)? {
+                            FileOutcome::Cancel => DialogControl::Close(None),
+                            FileOutcome::Ok(f) => {
+                                DialogControl::Close(Some(AppEvent::Status(
+                                    0,
+                                    format!("Open file {:?}", f),
+                                )))
+                            }
+                            r => r.into(),
+                        });
+
+                        Ok(DialogControl::Continue)
                     }
+                    _ => Ok(DialogControl::Continue),
+                }
+            },
+            state,
+        );
 
-                    Window::new()
-                        .drag(ctx.theme.dialog_base())
-                        .hover(ctx.theme.limegreen(1))
-                        .style(ctx.theme.dialog_base())
-                        .block(
-                            Block::bordered()
-                                .style(ctx.theme.dialog_border())
-                                .title("Open file"),
-                        )
-                        .render(area, buf, &mut state.window);
-
-                    FileDialog::new()
-                        .styles(ctx.theme.file_dialog_style())
-                        .no_block()
-                        .render(state.window.inner_area, buf, &mut state.filedlg);
-
-                    ctx.set_screen_cursor(state.filedlg.screen_cursor());
-                },
-                |event, state, ctx| {
-                    let state = state.downcast_mut::<OpenState>().expect("open-state");
-                    match event {
-                        AppEvent::Event(event) => {
-                            try_flow!(match state.window.handle(event, Regular) {
-                                WindowOutcome::ShouldClose => {
-                                    DialogControl::Close(None)
-                                }
-                                r => r.into(),
-                            });
-
-                            try_flow!(match state.filedlg.handle(event, Dialog)? {
-                                FileOutcome::Cancel => DialogControl::Close(None),
-                                FileOutcome::Ok(f) => {
-                                    DialogControl::Close(Some(AppEvent::Status(
-                                        0,
-                                        format!("Open file {:?}", f),
-                                    )))
-                                }
-                                r => r.into(),
-                            });
-
-                            Ok(DialogControl::Continue)
-                        }
-                        _ => Ok(DialogControl::Continue),
-                    }
-                },
-                state,
-            );
-
-            Ok(Control::Changed)
-        }
+        Ok(Control::Changed)
     }
 }
 
@@ -430,224 +422,4 @@ fn setup_logging() -> Result<(), Error> {
         .chain(fern::log_file(&log_file)?)
         .apply()?;
     Ok(())
-}
-
-mod window {
-    use rat_event::util::MouseFlags;
-    use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular, ct_event};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Position, Rect};
-    use ratatui::style::Style;
-    use ratatui::text::Span;
-    use ratatui::widgets::{Block, StatefulWidget, Widget};
-    use std::cmp::max;
-
-    #[derive(Debug, Default)]
-    pub struct Window<'a> {
-        block: Block<'a>,
-        style: Style,
-        hover: Style,
-        drag: Style,
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-    pub enum WindowOutcome {
-        /// The given event was not handled at all.
-        Continue,
-        /// The event was handled, no repaint necessary.
-        Unchanged,
-        /// The event was handled, repaint necessary.
-        Changed,
-        /// Request close.
-        ShouldClose,
-        /// Moved
-        Moved,
-        /// Resized
-        Resized,
-    }
-
-    impl ConsumedEvent for WindowOutcome {
-        fn is_consumed(&self) -> bool {
-            *self != WindowOutcome::Continue
-        }
-    }
-
-    impl From<WindowOutcome> for Outcome {
-        fn from(value: WindowOutcome) -> Self {
-            match value {
-                WindowOutcome::Continue => Outcome::Continue,
-                WindowOutcome::Unchanged => Outcome::Unchanged,
-                WindowOutcome::Changed => Outcome::Changed,
-                WindowOutcome::Moved => Outcome::Changed,
-                WindowOutcome::Resized => Outcome::Changed,
-                WindowOutcome::ShouldClose => Outcome::Continue,
-            }
-        }
-    }
-
-    impl<'a> Window<'a> {
-        pub fn new() -> Self {
-            Self {
-                block: Default::default(),
-                style: Default::default(),
-                hover: Default::default(),
-                drag: Default::default(),
-            }
-        }
-
-        pub fn block(mut self, block: Block<'a>) -> Self {
-            self.block = block;
-            self
-        }
-
-        pub fn style(mut self, style: Style) -> Self {
-            self.style = style;
-            self
-        }
-
-        pub fn hover(mut self, hover: Style) -> Self {
-            self.hover = hover;
-            self
-        }
-
-        pub fn drag(mut self, drag: Style) -> Self {
-            self.drag = drag;
-            self
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct WindowState {
-        pub limit: Rect,
-        pub area: Rect,
-        pub inner_area: Rect,
-
-        // move area
-        pub move_: Rect,
-        pub resize: Rect,
-        pub close: Rect,
-
-        pub mouse_close: MouseFlags,
-        pub mouse_resize: MouseFlags,
-        pub start_move_area: Rect,
-        pub start_move: Position,
-        pub mouse_move: MouseFlags,
-    }
-
-    impl<'a> StatefulWidget for Window<'a> {
-        type State = WindowState;
-
-        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-            state.limit = area;
-            state.inner_area = self.block.inner(state.area);
-
-            state.resize = Rect::new(
-                state.area.right().saturating_sub(2),
-                state.area.bottom().saturating_sub(1),
-                2,
-                1,
-            );
-            state.close = Rect::new(state.area.right().saturating_sub(4), state.area.top(), 3, 1);
-            state.move_ = Rect::new(
-                state.area.x + 1,
-                state.area.y,
-                state.area.width.saturating_sub(6),
-                1,
-            );
-
-            self.block.render(state.area, buf);
-            Span::from("[x]").style(self.style).render(state.close, buf);
-
-            if state.mouse_close.hover.get() {
-                buf.set_style(state.close, self.hover);
-            }
-            if state.mouse_move.hover.get() {
-                buf.set_style(state.move_, self.hover);
-            }
-            if state.mouse_resize.hover.get() {
-                buf.set_style(state.resize, self.hover);
-            }
-            if state.mouse_move.drag.get() {
-                buf.set_style(state.move_, self.drag);
-            }
-            if state.mouse_resize.drag.get() {
-                buf.set_style(state.resize, self.drag);
-            }
-        }
-    }
-
-    impl WindowState {
-        pub fn new() -> Self {
-            Self::default()
-        }
-
-        pub fn needs_init(&self) -> bool {
-            self.limit.is_empty()
-        }
-    }
-
-    impl HandleEvent<crossterm::event::Event, Regular, WindowOutcome> for WindowState {
-        fn handle(
-            &mut self,
-            event: &crossterm::event::Event,
-            _qualifier: Regular,
-        ) -> WindowOutcome {
-            match event {
-                ct_event!(mouse any for m) if self.mouse_close.hover(self.close, m) => {
-                    WindowOutcome::Changed
-                }
-                ct_event!(mouse any for m) if self.mouse_resize.hover(self.resize, m) => {
-                    WindowOutcome::Changed
-                }
-                ct_event!(mouse any for m) if self.mouse_move.hover(self.move_, m) => {
-                    WindowOutcome::Changed
-                }
-                ct_event!(mouse any for m) if self.mouse_resize.drag(self.resize, m) => {
-                    let mut new_area = self.area;
-
-                    new_area.width = max(10, m.column.saturating_sub(self.area.x));
-                    new_area.height = max(3, m.row.saturating_sub(self.area.y));
-
-                    if new_area.right() <= self.limit.right()
-                        && new_area.bottom() <= self.limit.bottom()
-                    {
-                        self.area = new_area;
-                        WindowOutcome::Resized
-                    } else {
-                        WindowOutcome::Continue
-                    }
-                }
-                ct_event!(mouse any for m) if self.mouse_move.drag(self.move_, m) => {
-                    let delta_x = m.column as i16 - self.start_move.x as i16;
-                    let delta_y = m.row as i16 - self.start_move.y as i16;
-                    let new_area = Rect::new(
-                        self.start_move_area.x.saturating_add_signed(delta_x),
-                        self.start_move_area.y.saturating_add_signed(delta_y),
-                        self.start_move_area.width,
-                        self.start_move_area.height,
-                    );
-
-                    if new_area.left() >= self.limit.left()
-                        && new_area.top() >= self.limit.top()
-                        && new_area.right() <= self.limit.right()
-                        && new_area.bottom() <= self.limit.bottom()
-                    {
-                        self.area = new_area;
-                        WindowOutcome::Moved
-                    } else {
-                        WindowOutcome::Continue
-                    }
-                }
-                ct_event!(mouse down Left for x,y) if self.move_.contains((*x, *y).into()) => {
-                    self.start_move_area = self.area;
-                    self.start_move = Position::new(*x, *y);
-                    WindowOutcome::Changed
-                }
-                ct_event!(mouse down Left for x,y) if self.close.contains((*x, *y).into()) => {
-                    WindowOutcome::ShouldClose
-                }
-                _ => WindowOutcome::Continue,
-            }
-        }
-    }
 }
