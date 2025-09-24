@@ -26,7 +26,7 @@ pub enum DialogControl<Event> {
     /// Return back some application event.
     Event(Event),
     /// Close the dialog
-    Close(Option<Event>),
+    Close(Event),
     /// Move to front
     ToFront,
     /// Quit
@@ -367,9 +367,7 @@ where
                 Ok(r) => match r {
                     DialogControl::Close(event) => {
                         self.remove(n);
-                        if let Some(event) = event {
-                            ctx.queue_event(event);
-                        }
+                        ctx.queue_event(event);
                         rr = max(rr, Control::Changed);
                     }
                     DialogControl::Event(event) => {

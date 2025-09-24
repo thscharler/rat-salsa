@@ -1,9 +1,9 @@
+//!
+//! Widget for a moveable window.
+//!
 use crate::_private::NonExhaustive;
-///
-/// Widget for a moveable window.
-///
 use rat_event::util::MouseFlags;
-use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular, ct_event};
+use rat_event::{ConsumedEvent, Dialog, HandleEvent, Outcome, ct_event};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
@@ -34,6 +34,19 @@ pub struct Window<'a> {
     can_close: Option<bool>,
 }
 
+#[derive(Debug)]
+pub struct WindowStyle {
+    pub style: Style,
+    pub block: Block<'static>,
+    pub hover: Option<Style>,
+    pub drag: Option<Style>,
+    pub can_move: Option<bool>,
+    pub can_resize: Option<bool>,
+    pub can_close: Option<bool>,
+    pub non_exhaustive: NonExhaustive,
+}
+
+/// Window state.
 #[derive(Debug)]
 pub struct WindowState {
     /// Outer limit for the window.
@@ -102,6 +115,21 @@ impl ConsumedEvent for WindowOutcome {
     }
 }
 
+impl Default for WindowStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            block: Block::bordered(),
+            hover: None,
+            drag: None,
+            can_move: None,
+            can_resize: None,
+            can_close: None,
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 impl From<WindowOutcome> for Outcome {
     fn from(value: WindowOutcome) -> Self {
         match value {
@@ -161,6 +189,27 @@ impl<'a> Window<'a> {
         self
     }
 
+    pub fn styles(mut self, styles: WindowStyle) -> Self {
+        self.style = styles.style;
+        self.block = styles.block;
+        if let Some(hover) = styles.hover {
+            self.hover = hover;
+        }
+        if let Some(drag) = styles.drag {
+            self.drag = drag;
+        }
+        if let Some(can_move) = styles.can_move {
+            self.can_move = Some(can_move);
+        }
+        if let Some(can_resize) = styles.can_resize {
+            self.can_resize = Some(can_resize);
+        }
+        if let Some(can_close) = styles.can_close {
+            self.can_move = Some(can_close);
+        }
+        self
+    }
+
     /// Window base style
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
@@ -217,12 +266,21 @@ impl<'a> StatefulWidget for Window<'a> {
             state.close = Default::default();
         }
         if state.can_move {
-            state.move_ = Rect::new(
-                state.area.x + 1,
-                state.area.y,
-                state.area.width.saturating_sub(6),
-                1,
-            );
+            if state.can_close {
+                state.move_ = Rect::new(
+                    state.area.x + 1,
+                    state.area.y,
+                    state.area.width.saturating_sub(6),
+                    1,
+                );
+            } else {
+                state.move_ = Rect::new(
+                    state.area.x + 1,
+                    state.area.y,
+                    state.area.width.saturating_sub(2),
+                    1,
+                );
+            }
         } else {
             state.move_ = Default::default();
         }
@@ -236,17 +294,17 @@ impl<'a> StatefulWidget for Window<'a> {
         if state.mouse_close.hover.get() {
             buf.set_style(state.close, self.hover);
         }
-        if state.mouse_move.hover.get() {
-            buf.set_style(state.move_, self.hover);
-        }
-        if state.mouse_resize.hover.get() {
-            buf.set_style(state.resize, self.hover);
-        }
+
         if state.mouse_move.drag.get() {
             buf.set_style(state.move_, self.drag);
+        } else if state.mouse_move.hover.get() {
+            buf.set_style(state.move_, self.hover);
         }
+
         if state.mouse_resize.drag.get() {
             buf.set_style(state.resize, self.drag);
+        } else if state.mouse_resize.hover.get() {
+            buf.set_style(state.resize, self.hover);
         }
     }
 }
@@ -279,8 +337,8 @@ impl WindowState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, WindowOutcome> for WindowState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> WindowOutcome {
+impl HandleEvent<crossterm::event::Event, Dialog, WindowOutcome> for WindowState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Dialog) -> WindowOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse_close.hover(self.close, m) => {
                 WindowOutcome::Changed

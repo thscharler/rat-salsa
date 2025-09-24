@@ -86,6 +86,7 @@ pub enum AppEvent {
     Rendered,
     Message(String),
     Status(usize, String),
+    NoOp,
 }
 
 impl From<RenderedEvent> for AppEvent {
@@ -240,7 +241,7 @@ pub mod moving {
     use rat_event::{Dialog, Popup};
     use rat_salsa::timer::TimerDef;
     use rat_salsa::{Control, SalsaContext};
-    use rat_widget::event::{FileOutcome, HandleEvent, MenuOutcome, Regular, try_flow};
+    use rat_widget::event::{FileOutcome, HandleEvent, MenuOutcome, try_flow};
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::layout::layout_middle;
@@ -380,20 +381,20 @@ pub mod moving {
                 let state = state.downcast_mut::<OpenState>().expect("open-state");
                 match event {
                     AppEvent::Event(event) => {
-                        try_flow!(match state.window.handle(event, Regular) {
+                        try_flow!(match state.window.handle(event, Dialog) {
                             WindowOutcome::ShouldClose => {
-                                DialogControl::Close(None)
+                                DialogControl::Close(AppEvent::NoOp)
                             }
                             r => r.into(),
                         });
 
                         try_flow!(match state.filedlg.handle(event, Dialog)? {
-                            FileOutcome::Cancel => DialogControl::Close(None),
+                            FileOutcome::Cancel => DialogControl::Close(AppEvent::NoOp),
                             FileOutcome::Ok(f) => {
-                                DialogControl::Close(Some(AppEvent::Status(
+                                DialogControl::Close(AppEvent::Status(
                                     0,
                                     format!("Open file {:?}", f),
-                                )))
+                                ))
                             }
                             r => r.into(),
                         });

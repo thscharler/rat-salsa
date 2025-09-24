@@ -5,7 +5,7 @@ mod dialog_stack;
 mod window;
 
 pub use dialog_stack::DialogStack;
-pub use window::{Window, WindowState};
+pub use window::{Window, WindowState, WindowStyle};
 
 pub mod event {
     pub use crate::dialog_stack::DialogControl;

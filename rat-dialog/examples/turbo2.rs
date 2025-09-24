@@ -78,6 +78,7 @@ pub enum TurboEvent {
     Event(crossterm::event::Event),
     Message(String),
     Status(usize, String),
+    NoOp,
 }
 
 impl From<crossterm::event::Event> for TurboEvent {
@@ -102,7 +103,7 @@ pub mod app {
     use crate::{GlobalState, TurboEvent, turbo};
     use anyhow::Error;
     use rat_dialog::event::DialogControl;
-    use rat_event::{Dialog, Outcome};
+    use rat_event::{Dialog, Outcome, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{ConsumedEvent, HandleEvent, ct_event};
     use rat_widget::focus::FocusBuilder;
@@ -140,7 +141,7 @@ pub mod app {
 
         turbo::render(area, buf, &mut state.turbo, ctx)?;
 
-        ctx.dialogs.clone().render(area, buf, ctx);
+        ctx.dialogs.clone().render(layout[1], buf, ctx);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         state.status.status(1, format!("R {:.0?}", el).to_string());
@@ -193,6 +194,7 @@ pub mod app {
                 state.status.status(*n, s);
                 Control::Changed
             }
+            TurboEvent::NoOp => Control::Continue,
         };
 
         r = r.or_else_try(|| {
@@ -201,6 +203,7 @@ pub mod app {
                 .handle(tevent, ctx)
                 .map(|v| Control::from(v))
         })?;
+
         r = r.or_else_try(|| turbo::event(&tevent, &mut state.turbo, ctx))?;
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -240,29 +243,29 @@ pub mod app {
                         .render(area, buf, state);
                 },
                 |event, state, _| {
-                    let r = if let TurboEvent::Event(event) = event {
+                    if let TurboEvent::Event(event) = event {
                         let state = state
                             .downcast_mut::<MsgDialogState>()
                             .expect("msgdialog-state");
 
-                        match state.handle(event, Dialog) {
+                        try_flow!(match state.handle(event, Dialog) {
                             Outcome::Changed => {
                                 if !state.active() {
-                                    DialogControl::Close(None)
+                                    DialogControl::Close(TurboEvent::NoOp)
                                 } else {
                                     DialogControl::Changed
                                 }
                             }
                             r => r.into(),
-                        }
-                    } else {
-                        DialogControl::Continue
-                    };
-                    Ok(r)
+                        });
+                    }
+
+                    Ok(DialogControl::Continue)
                 },
                 state,
             )
         }
+
         Control::Changed
     }
 }
@@ -271,6 +274,7 @@ pub mod turbo {
     use crate::{GlobalState, TurboEvent};
     use anyhow::Error;
     use rat_dialog::event::DialogControl;
+    use rat_dialog::{Window, WindowState};
     use rat_event::{Dialog, Outcome};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{FileOutcome, HandleEvent, MenuOutcome, Popup, ct_event, try_flow};
@@ -595,40 +599,63 @@ pub mod turbo {
     }
 
     fn show_new(ctx: &mut GlobalState) -> Result<Control<TurboEvent>, Error> {
-        let mut state = FileDialogState::new();
-        state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+        let mut state = (WindowState::new(), FileDialogState::new());
+
+        state.1.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+
         ctx.dialogs.push(
             |area, buf, state, ctx| {
-                let state = state.downcast_mut().expect("dialog-state");
+                let state = state
+                    .downcast_mut::<(WindowState, FileDialogState)>()
+                    .expect("dialog-state");
 
-                let area = layout_middle(
-                    area,
-                    Constraint::Percentage(19),
-                    Constraint::Percentage(19),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                );
+                if state.0.area.is_empty() {
+                    state.0.area = layout_middle(
+                        area,
+                        Constraint::Percentage(19),
+                        Constraint::Percentage(19),
+                        Constraint::Length(2),
+                        Constraint::Length(2),
+                    );
+                }
+
+                Window::new()
+                    .styles(ctx.theme.dialog_window("New"))
+                    .can_close(false)
+                    .render(area, buf, &mut state.0);
 
                 FileDialog::new()
                     .styles(ctx.theme.file_dialog_style())
-                    .render(area, buf, state);
+                    .no_block()
+                    .render(state.0.widget_area, buf, &mut state.1);
 
-                ctx.set_screen_cursor(state.screen_cursor());
+                ctx.set_screen_cursor(state.1.screen_cursor());
             },
             |event, state, ctx| {
                 let state = state
-                    .downcast_mut::<FileDialogState>()
+                    .downcast_mut::<(WindowState, FileDialogState)>()
                     .expect("dialog-state");
+
                 match event {
-                    TurboEvent::Event(event) => match state.handle(event, Dialog)? {
-                        FileOutcome::Cancel => Ok(DialogControl::Close(None)),
-                        FileOutcome::Ok(f) => Ok(DialogControl::Close(Some(TurboEvent::Message(
-                            format!("New file {:?}", f),
-                        )))),
-                        r => Ok(Outcome::from(r).into()),
-                    },
-                    _ => Ok(DialogControl::Continue),
+                    TurboEvent::Event(event) => {
+                        try_flow!(state.0.handle(event, Dialog));
+
+                        try_flow!(match state.1.handle(event, Dialog)? {
+                            FileOutcome::Cancel => {
+                                DialogControl::Close(TurboEvent::NoOp) //
+                            }
+                            FileOutcome::Ok(f) => {
+                                DialogControl::Close(
+                                    TurboEvent::Message(format!("New file {:?}", f)), //
+                                )
+                            }
+                            r => Outcome::from(r).into(),
+                        });
+                    }
+                    _ => {}
                 }
+
+                Ok(DialogControl::Continue)
             },
             state,
         );
@@ -636,42 +663,62 @@ pub mod turbo {
     }
 
     fn show_open(ctx: &mut GlobalState) -> Result<Control<TurboEvent>, Error> {
-        let mut state = FileDialogState::new();
-        state.open_dialog(PathBuf::from("."))?;
+        let mut state = (WindowState::new(), FileDialogState::new());
+
+        state.1.open_dialog(PathBuf::from("."))?;
+
         ctx.dialogs.push(
             |area, buf, state, ctx| {
-                let state = state.downcast_mut().expect("dialog-state");
+                let state = state
+                    .downcast_mut::<(WindowState, FileDialogState)>()
+                    .expect("dialog-state");
 
-                let area = layout_middle(
-                    area,
-                    Constraint::Percentage(19),
-                    Constraint::Percentage(19),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                );
+                if state.0.area.is_empty() {
+                    state.0.area = layout_middle(
+                        area,
+                        Constraint::Percentage(19),
+                        Constraint::Percentage(19),
+                        Constraint::Length(2),
+                        Constraint::Length(2),
+                    );
+                }
+
+                Window::new()
+                    .styles(ctx.theme.dialog_window("Open"))
+                    .can_close(false)
+                    .render(area, buf, &mut state.0);
 
                 FileDialog::new()
                     .styles(ctx.theme.file_dialog_style())
-                    .render(area, buf, state);
+                    .render(state.0.widget_area, buf, &mut state.1);
 
-                ctx.set_screen_cursor(state.screen_cursor());
+                ctx.set_screen_cursor(state.1.screen_cursor());
             },
             |event, state, ctx| {
                 let state = state
-                    .downcast_mut::<FileDialogState>()
+                    .downcast_mut::<(WindowState, FileDialogState)>()
                     .expect("dialog-state");
 
                 match event {
-                    TurboEvent::Event(event) => match state.handle(event, Dialog)? {
-                        FileOutcome::Cancel => Ok(DialogControl::Close(None)),
-                        FileOutcome::Ok(f) => Ok(DialogControl::Close(Some(TurboEvent::Status(
-                            0,
-                            format!("Opened file {:?}", f),
-                        )))),
-                        r => Ok(Outcome::from(r).into()),
-                    },
-                    _ => Ok(DialogControl::Continue),
-                }
+                    TurboEvent::Event(event) => {
+                        try_flow!(state.0.handle(event, Dialog));
+
+                        try_flow!(match state.1.handle(event, Dialog)? {
+                            FileOutcome::Cancel => {
+                                DialogControl::Close(TurboEvent::NoOp) //
+                            }
+                            FileOutcome::Ok(f) => {
+                                DialogControl::Close(
+                                    TurboEvent::Status(0, format!("Opened file {:?}", f)), //
+                                )
+                            }
+                            r => r.into(),
+                        });
+                    }
+                    _ => {}
+                };
+
+                Ok(DialogControl::Continue)
             },
             state,
         );
@@ -679,41 +726,62 @@ pub mod turbo {
     }
 
     fn show_save_as(ctx: &mut GlobalState) -> Result<Control<TurboEvent>, Error> {
-        let mut state = FileDialogState::new();
-        state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+        let mut state = (WindowState::new(), FileDialogState::new());
+
+        state.1.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+
         ctx.dialogs.push(
             |area, buf, state, ctx| {
-                let state = state.downcast_mut().expect("dialog-state");
+                let state = state
+                    .downcast_mut::<(WindowState, FileDialogState)>()
+                    .expect("dialog-state");
 
-                let area = layout_middle(
-                    area,
-                    Constraint::Percentage(19),
-                    Constraint::Percentage(19),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                );
+                if state.0.area.is_empty() {
+                    state.0.area = layout_middle(
+                        area,
+                        Constraint::Percentage(19),
+                        Constraint::Percentage(19),
+                        Constraint::Length(2),
+                        Constraint::Length(2),
+                    );
+                }
+
+                Window::new()
+                    .styles(ctx.theme.dialog_window("Save as"))
+                    .can_close(false)
+                    .render(area, buf, &mut state.0);
 
                 FileDialog::new()
                     .styles(ctx.theme.file_dialog_style())
-                    .render(area, buf, state);
+                    .render(state.0.widget_area, buf, &mut state.1);
 
-                ctx.set_screen_cursor(state.screen_cursor());
+                ctx.set_screen_cursor(state.1.screen_cursor());
             },
             |event, state, ctx| {
                 let state = state
-                    .downcast_mut::<FileDialogState>()
+                    .downcast_mut::<(WindowState, FileDialogState)>()
                     .expect("dialog-state");
+
                 match event {
-                    TurboEvent::Event(event) => match state.handle(event, Dialog)? {
-                        FileOutcome::Cancel => Ok(DialogControl::Close(None)),
-                        FileOutcome::Ok(f) => Ok(DialogControl::Close(Some(TurboEvent::Status(
-                            0,
-                            format!("Save as {:?}", f),
-                        )))),
-                        r => Ok(Outcome::from(r).into()),
-                    },
-                    _ => Ok(DialogControl::Continue),
+                    TurboEvent::Event(event) => {
+                        try_flow!(state.0.handle(event, Dialog));
+
+                        try_flow!(match state.1.handle(event, Dialog)? {
+                            FileOutcome::Cancel => {
+                                DialogControl::Close(TurboEvent::NoOp) //
+                            }
+                            FileOutcome::Ok(f) => {
+                                DialogControl::Close(
+                                    TurboEvent::Status(0, format!("Save as {:?}", f)), //
+                                )
+                            }
+                            r => r.into(),
+                        });
+                    }
+                    _ => {}
                 }
+
+                Ok(DialogControl::Continue)
             },
             state,
         );
@@ -748,6 +816,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
+    use rat_dialog::WindowStyle;
     use rat_theme2::{Contrast, Palette};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
@@ -762,7 +831,7 @@ pub mod theme {
     use rat_widget::table::TableStyle;
     use rat_widget::text::TextStyle;
     use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::Block;
+    use ratatui::widgets::{Block, BorderType};
 
     #[derive(Debug, Clone)]
     pub struct TurboTheme {
@@ -916,7 +985,7 @@ pub mod theme {
                 style: self.s.secondary(0, Contrast::High),
                 focus: Some(self.s.primary(0, Contrast::High)),
                 armed: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[3])),
-                hover: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[3])),
+                hover: Some(Style::default().fg(self.s.black[0]).bg(self.s.primary[0])),
                 ..Default::default()
             }
         }
@@ -1004,7 +1073,22 @@ pub mod theme {
                 roots: Some(self.list_style()),
                 text: Some(self.input_style()),
                 button: Some(self.button_style()),
-                block: Some(Block::bordered()),
+                no_block: Some(true),
+                ..Default::default()
+            }
+        }
+
+        pub fn dialog_window(&self, title: &'static str) -> WindowStyle {
+            WindowStyle {
+                style: self.dialog_style(),
+                block: Block::bordered()
+                    .border_type(BorderType::Rounded)
+                    .title_top(title)
+                    .border_style(self.dialog_style()),
+                hover: Some(self.scheme().green(3, Contrast::Normal)),
+                can_move: None,
+                can_resize: None,
+                can_close: None,
                 ..Default::default()
             }
         }
