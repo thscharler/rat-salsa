@@ -6,9 +6,9 @@ use crate::event::TabbedOutcome;
 use crate::tabbed::attached::AttachedTabs;
 use crate::tabbed::glued::GluedTabs;
 use rat_event::util::MouseFlagsN;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -104,6 +104,7 @@ pub struct TabbedState {
     /// Area for drawing the Block inside the tabs.
     /// __readonly__. renewed for each render.
     pub block_area: Rect,
+    //todo: provide block_area_ext which includes the borders.
     /// Area used to render the content of the tab.
     /// Use this area to render the current tab content.
     /// __readonly__. renewed for each render.
@@ -431,8 +432,10 @@ impl HandleEvent<crossterm::event::Event, Regular, TabbedOutcome> for TabbedStat
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> TabbedOutcome {
         if self.is_focused() {
             flow!(match event {
-                ct_event!(keycode press Right) => self.next_tab().into(),
                 ct_event!(keycode press Left) => self.prev_tab().into(),
+                ct_event!(keycode press Right) => self.next_tab().into(),
+                ct_event!(keycode press Up) => self.prev_tab().into(),
+                ct_event!(keycode press Down) => self.next_tab().into(),
                 _ => TabbedOutcome::Continue,
             });
         }
