@@ -136,6 +136,18 @@ impl Focus {
         focus_debug!(self.core.log, "    -> done");
     }
 
+    /// This widget will have the focus, but it is not
+    /// yet part of the focus cycle. And the focus cycle
+    /// can't be properly rebuilt at this point.
+    #[inline(always)]
+    pub fn future(&self, widget_state: &'_ dyn HasFocus) {
+        focus_debug!(self.core.log, "future focus");
+        self.core.none();
+        widget_state.focus().set(true);
+        widget_state.focus().set_gained(true);
+        focus_debug!(self.core.log, "    -> done");
+    }
+
     /// Change to focus to the widget at the given position.
     ///
     /// This changes the focus and the gained/lost flags.
