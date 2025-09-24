@@ -113,6 +113,7 @@ pub mod app {
     use rat_event::{Dialog, Outcome, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{ConsumedEvent, HandleEvent, ct_event};
+    use rat_widget::file_dialog::FileDialogState;
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
     use rat_widget::menu::{MenubarState, PopupMenuState};
@@ -135,6 +136,16 @@ pub mod app {
     fn build_focus(state: &mut Scenery, ctx: &mut GlobalState) {
         let mut builder = FocusBuilder::new(ctx.take_focus());
         builder.widget(&state.menu);
+
+        for i in 0..ctx.dialogs.len() {
+            if let Some(s) = ctx.dialogs.try_get::<FileDialogState>(i) {
+                builder.widget(&*s);
+            }
+            if let Some(s) = ctx.dialogs.try_get::<MsgDialogState>(i) {
+                builder.widget(&*s);
+            }
+        }
+
         ctx.set_focus(builder.build());
     }
 
@@ -254,6 +265,8 @@ pub mod app {
             v.append(msg);
         } else {
             let state = MsgDialogState::new_active("Information", msg);
+            ctx.focus().future(&state);
+
             ctx.dialogs.push(
                 |area, buf, state, ctx| {
                     let state = state.downcast_mut().expect("msgdialog-state");
@@ -647,6 +660,7 @@ pub mod turbo {
         let mut state = FileDialogState::new();
 
         state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+        ctx.focus().future(&state);
 
         ctx.dialogs.push(
             |area, buf, state, ctx| {
@@ -694,6 +708,7 @@ pub mod turbo {
             },
             state,
         );
+
         Ok(Control::Changed)
     }
 
@@ -701,6 +716,7 @@ pub mod turbo {
         let mut state = FileDialogState::new();
 
         state.open_dialog(PathBuf::from("."))?;
+        ctx.focus().future(&state);
 
         ctx.dialogs.push(
             |area, buf, state, ctx| {
@@ -755,6 +771,7 @@ pub mod turbo {
         let mut state = FileDialogState::new();
 
         state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+        ctx.focus().future(&state);
 
         ctx.dialogs.push(
             |area, buf, state, ctx| {

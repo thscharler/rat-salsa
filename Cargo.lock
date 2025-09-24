@@ -1027,6 +1027,7 @@ dependencies = [
  "fern",
  "log",
  "rat-event",
+ "rat-focus",
  "rat-salsa",
  "rat-theme2",
  "rat-widget",
