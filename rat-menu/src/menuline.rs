@@ -274,11 +274,6 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     state.disabled = widget.menu.items.iter().map(|v| v.disabled).collect();
 
     let style = widget.style;
-    let title_style = if let Some(title_style) = widget.title_style {
-        title_style
-    } else {
-        style.underlined()
-    };
     let right_style = style.patch(widget.right_style.unwrap_or_default());
     let highlight_style = style.patch(widget.highlight_style.unwrap_or(Style::new().underlined()));
     let disabled_style = style.patch(widget.disabled_style.unwrap_or_default());
@@ -288,8 +283,8 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
             let focus_style = widget.focus_style.unwrap_or(revert_style(style));
             (
                 focus_style,
+                focus_style.patch(right_style),
                 focus_style,
-                focus_style.patch(widget.highlight_style.unwrap_or(Style::new().underlined())),
                 focus_style.patch(widget.disabled_style.unwrap_or_default()),
             )
         } else {
@@ -300,6 +295,12 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
                 disabled_style,
             )
         };
+
+    let title_style = if let Some(title_style) = widget.title_style {
+        title_style
+    } else {
+        style.underlined()
+    };
 
     buf.set_style(area, style);
 

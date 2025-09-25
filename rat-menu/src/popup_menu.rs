@@ -426,52 +426,33 @@ fn render_popup_menu(
 }
 
 fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuState) {
+    let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
+
     let style = widget.style;
-    let select_style = if let Some(focus) = widget.focus_style {
-        focus
-    } else {
-        revert_style(style)
-    };
-    let highlight_style = if let Some(highlight_style) = widget.highlight_style {
-        highlight_style
-    } else {
-        Style::new().underlined()
-    };
-    let right_style = if let Some(right_style) = widget.right_style {
-        right_style
-    } else {
-        Style::default().italic()
-    };
-    let disabled_style = if let Some(disabled_style) = widget.disabled_style {
-        disabled_style
-    } else {
-        style
-    };
+    let right_style = style.patch(widget.right_style.unwrap_or_default());
+    let highlight_style = style.patch(widget.highlight_style.unwrap_or(Style::new().underlined()));
+    let disabled_style = style.patch(widget.disabled_style.unwrap_or_default());
+
+    let sel_style = focus_style;
+    let sel_right_style = focus_style.patch(widget.right_style.unwrap_or_default());
+    let sel_highlight_style = focus_style;
+    let sel_disabled_style = focus_style.patch(widget.disabled_style.unwrap_or_default());
 
     for (n, item) in widget.menu.items.iter().enumerate() {
         let mut item_area = state.item_areas[n];
 
         #[allow(clippy::collapsible_else_if)]
-        let (style, right_style) = if state.selected == Some(n) {
+        let (style, right_style, highlight_style) = if state.selected == Some(n) {
             if item.disabled {
-                (
-                    style.patch(disabled_style),
-                    style.patch(disabled_style).patch(right_style),
-                )
+                (sel_disabled_style, sel_right_style, sel_highlight_style)
             } else {
-                (
-                    style.patch(select_style),
-                    style.patch(select_style).patch(right_style),
-                )
+                (sel_style, sel_right_style, sel_highlight_style)
             }
         } else {
             if item.disabled {
-                (
-                    style.patch(disabled_style),
-                    style.patch(disabled_style).patch(right_style),
-                )
+                (disabled_style, right_style, highlight_style)
             } else {
-                (style, style.patch(right_style))
+                (style, right_style, highlight_style)
             }
         };
 
