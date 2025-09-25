@@ -1,5 +1,5 @@
 //! A list of application windows.
-use rat_event::{ConsumedEvent, HandleEvent, Outcome};
+use rat_event::{ConsumedEvent, HandleEvent, Outcome, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_salsa::{Control, SalsaContext};
 use ratatui::buffer::Buffer;
@@ -9,6 +9,9 @@ use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::rc::Rc;
+use try_as::traits::TryAsRef;
+
+pub mod window;
 
 /// Extends rat-salsa::Control with some dialog specific options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -50,6 +53,16 @@ impl<Event, T: Into<Outcome>> From<T> for WindowControl<Event> {
 }
 
 pub trait Window: HasFocus + Any {}
+
+impl dyn Window {
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref::<T>()
+    }
+
+    pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
+        (self as &mut dyn Any).downcast_mut::<T>()
+    }
+}
 
 /// Hold a stack of widgets.
 ///
@@ -393,12 +406,29 @@ impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<Control<Even
     for WindowList<Event, Context, Error>
 where
     Context: SalsaContext<Event, Error>,
-    Event: TryInto<crossterm::event::Event, Error = ()>,
+    Event: TryAsRef<crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
 {
     fn handle(&mut self, event: &Event, ctx: &mut Context) -> Result<Control<Event>, Error> {
         for n in (0..self.core.len.get()).rev() {
+            let to_front = {
+                let state = self.core.state.borrow();
+                let state = state[n].as_ref().expect("fine");
+                if let Some(ctevent) = event.try_as_ref() {
+                    match ctevent {
+                        ct_event!(mouse down Left for x,y)
+                            if state.area().contains((*x, *y).into()) =>
+                        {
+                            true
+                        }
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
+            };
+
             let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
                 panic!("state is gone");
             };
@@ -411,6 +441,10 @@ where
 
             self.core.event.borrow_mut()[n] = event_fn;
             self.core.state.borrow_mut()[n] = Some(state);
+
+            if to_front {
+                self.to_front(n);
+            }
 
             match r {
                 Ok(r) => match r {
@@ -454,7 +488,7 @@ pub fn handle_window_list<Event, Context, Error>(
 ) -> Result<Control<Event>, Error>
 where
     Context: SalsaContext<Event, Error>,
-    Event: TryInto<crossterm::event::Event, Error = ()>,
+    Event: TryAsRef<crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
 {
