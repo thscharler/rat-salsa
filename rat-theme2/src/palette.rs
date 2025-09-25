@@ -37,6 +37,7 @@ pub struct Palette {
 }
 
 /// Contrast rating for the text-color that should be used.
+#[derive(Debug)]
 pub enum TextColorRating {
     /// Use light/white text for the given background.
     Light,
@@ -45,6 +46,7 @@ pub enum TextColorRating {
 }
 
 /// Used to create a high contrast or normal contrast style.
+#[derive(Debug)]
 pub enum Contrast {
     High,
     Normal,
@@ -242,7 +244,11 @@ impl Palette {
             Color::White => Some(TextColorRating::Dark),  //15
             Color::Rgb(r, g, b) => {
                 // The formula used in the GIMP is Y = 0.3R + 0.59G + 0.11B;
-                let grey = r as f32 * 0.3f32 + g as f32 * 0.59f32 + b as f32 * 0.11f32;
+                // That's also Rec.ITU-R BT.601-7
+                // let grey = r as f32 * 0.2989f32 + g as f32 * 0.5870f32 + b as f32 * 0.1140f32;
+
+                // Another standard BT.709. Works better with green.
+                let grey = r as f32 * 0.2126f32 + g as f32 * 0.7152f32 + b as f32 * 0.0722f32;
                 if grey >= 105f32 {
                     Some(TextColorRating::Dark)
                 } else {
