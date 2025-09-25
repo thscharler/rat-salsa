@@ -422,3 +422,21 @@ where
         Ok(Control::Continue)
     }
 }
+
+/// Handle events from top to bottom of the stack.
+///
+/// Panic
+///
+/// This function is not reentrant, it will panic when called from within it's call-stack.
+pub fn handle_dialog_stack<Event, Context, Error>(
+    mut dialog_stack: DialogStack<Event, Context, Error>,
+    event: &Event,
+    ctx: &mut Context,
+) -> Result<Control<Event>, Error>
+where
+    Context: SalsaContext<Event, Error>,
+    Error: 'static,
+    Event: 'static,
+{
+    dialog_stack.handle(event, ctx)
+}

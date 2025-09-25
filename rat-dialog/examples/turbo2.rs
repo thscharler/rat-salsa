@@ -9,20 +9,23 @@
 use crate::app::Scenery;
 use crate::theme::TurboTheme;
 use anyhow::Error;
-use rat_dialog::DialogStack;
+use rat_dialog::{DialogControl, DialogStack};
 use rat_salsa::poll::PollCrossterm;
-use rat_salsa::{RunConfig, SalsaAppContext, SalsaContext, run_tui};
+use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme2::palettes::BASE16;
 use ratatui::layout::Rect;
 use std::fs;
 use std::path::PathBuf;
+
+type TurboResult = Result<Control<TurboEvent>, Error>;
+type TurboDialogResult = Result<DialogControl<TurboEvent>, Error>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = TurboConfig::default();
     let theme = TurboTheme::new("Base16".into(), BASE16);
-    let mut global = GlobalState::new(config, theme);
+    let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 
     run_tui(
@@ -41,15 +44,15 @@ fn main() -> Result<(), Error> {
 
 /// Globally accessible data/state.
 #[derive(Debug)]
-pub struct GlobalState {
+pub struct Global {
     ctx: SalsaAppContext<TurboEvent, Error>,
     pub cfg: TurboConfig,
     pub theme: TurboTheme,
-    pub dialogs: DialogStack<TurboEvent, GlobalState, Error>,
+    pub dialogs: DialogStack<TurboEvent, Global, Error>,
     pub area: Rect,
 }
 
-impl SalsaContext<TurboEvent, Error> for GlobalState {
+impl SalsaContext<TurboEvent, Error> for Global {
     fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<TurboEvent, Error>) {
         self.ctx = app_ctx;
     }
@@ -59,7 +62,7 @@ impl SalsaContext<TurboEvent, Error> for GlobalState {
     }
 }
 
-impl GlobalState {
+impl Global {
     pub fn new(cfg: TurboConfig, theme: TurboTheme) -> Self {
         Self {
             ctx: Default::default(),
@@ -107,12 +110,12 @@ impl<'a> TryFrom<&'a TurboEvent> for &'a crossterm::event::Event {
 
 pub mod app {
     use crate::turbo::Turbo;
-    use crate::{GlobalState, TurboEvent, menu, turbo};
+    use crate::{Global, TurboDialogResult, TurboEvent, TurboResult, menu, turbo};
     use anyhow::Error;
-    use rat_dialog::DialogControl;
-    use rat_event::{Dialog, Outcome, try_flow};
+    use rat_dialog::{DialogControl, handle_dialog_stack};
+    use rat_event::{Dialog, Outcome, break_flow, try_flow};
     use rat_salsa::{Control, SalsaContext};
-    use rat_widget::event::{ConsumedEvent, HandleEvent, ct_event};
+    use rat_widget::event::{HandleEvent, ct_event};
     use rat_widget::file_dialog::FileDialogState;
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
@@ -123,6 +126,7 @@ pub mod app {
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::widgets::StatefulWidget;
+    use std::any::Any;
     use std::time::{Duration, SystemTime};
 
     #[derive(Debug, Default)]
@@ -133,7 +137,22 @@ pub mod app {
         pub status: StatusLineState,
     }
 
-    fn build_focus(state: &mut Scenery, ctx: &mut GlobalState) {
+    pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
+        build_focus(state, ctx);
+        turbo::init(&mut state.turbo, ctx)?;
+        state.status.status(0, "Ctrl-Q to quit.");
+        Ok(())
+    }
+
+    fn handle_focus(event: &TurboEvent, state: &mut Scenery, ctx: &mut Global) -> TurboResult {
+        if let TurboEvent::Event(event) = event {
+            build_focus(state, ctx);
+            ctx.handle_focus(event);
+        }
+        Ok(Control::Continue)
+    }
+
+    fn build_focus(state: &mut Scenery, ctx: &mut Global) {
         let mut builder = FocusBuilder::new(ctx.take_focus());
         builder.widget(&state.menu);
 
@@ -153,7 +172,7 @@ pub mod app {
         area: Rect,
         buf: &mut Buffer,
         state: &mut Scenery,
-        ctx: &mut GlobalState,
+        ctx: &mut Global,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
 
@@ -182,7 +201,7 @@ pub mod app {
         area: Rect,
         buf: &mut Buffer,
         state: &mut Scenery,
-        ctx: &mut GlobalState,
+        ctx: &mut Global,
     ) {
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         state.status.status(1, format!("R {:.0?}", el).to_string());
@@ -197,69 +216,70 @@ pub mod app {
         status.render(area, buf, &mut state.status);
     }
 
-    pub fn init(state: &mut Scenery, ctx: &mut GlobalState) -> Result<(), Error> {
-        build_focus(state, ctx);
-        turbo::init(&mut state.turbo, ctx)?;
-        state.status.status(0, "Ctrl-Q to quit.");
-        Ok(())
-    }
-
+    #[allow(unused_variables)]
     pub fn event(
         event: &TurboEvent,
         state: &mut Scenery,
-        ctx: &mut GlobalState,
+        ctx: &mut Global,
     ) -> Result<Control<TurboEvent>, Error> {
         let t0 = SystemTime::now();
 
-        let mut r = match event {
-            TurboEvent::Event(event) => {
-                let mut r = match &event {
-                    ct_event!(resized) => Control::Changed,
-                    ct_event!(key press CONTROL-'q') => Control::Quit,
-                    ct_event!(key press ALT-'x') => Control::Quit,
-                    _ => Control::Continue,
-                };
-
-                r = r.or_else(|| {
-                    build_focus(state, ctx);
-                    ctx.handle_focus(event);
-                    Control::Continue
-                });
-
-                r
-            }
-            TurboEvent::Message(s) => show_message(s.as_str(), ctx),
-            TurboEvent::Status(n, s) => {
-                state.status.status(*n, s);
-                Control::Changed
-            }
-            _ => Control::Continue,
+        let r = 'b: {
+            break_flow!('b: handle_super_keys(event, state, ctx)?);
+            break_flow!('b: handle_scenery(event, state, ctx)?);
+            break_flow!('b: handle_dialog_stack(ctx.dialogs.clone(), event, ctx)?);
+            break_flow!('b: handle_focus(event, state, ctx)?);
+            break_flow!('b: menu::event(event, state, ctx)?);
+            break_flow!('b: turbo::event(event, &mut state.turbo, ctx)?);
+            Control::Continue
         };
 
-        r = r.or_else_try(|| menu::event(event, state, ctx))?;
-        r = r.or_else_try(|| {
-            ctx.dialogs
-                .clone()
-                .handle(event, ctx)
-                .map(|v| Control::from(v))
-        })?;
-        r = r.or_else_try(|| turbo::event(event, &mut state.turbo, ctx))?;
-
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        state.status.status(2, format!("H {:.0?}", el).to_string());
+        state.status.status(
+            2,
+            format!("H {:.0?}", t0.elapsed().expect("t0")).to_string(),
+        );
 
         Ok(r)
+    }
+
+    fn handle_super_keys(
+        event: &TurboEvent,
+        _state: &mut Scenery,
+        _ctx: &mut Global,
+    ) -> TurboResult {
+        match event {
+            TurboEvent::Event(event) => match &event {
+                ct_event!(resized) => Ok(Control::Changed),
+                ct_event!(key press CONTROL-'q') => Ok(Control::Quit),
+                ct_event!(key press ALT-'x') => Ok(Control::Quit),
+                _ => Ok(Control::Continue),
+            },
+            _ => Ok(Control::Continue),
+        }
+    }
+
+    fn handle_scenery(event: &TurboEvent, state: &mut Scenery, ctx: &mut Global) -> TurboResult {
+        match event {
+            TurboEvent::Message(s) => {
+                show_message(s.as_str(), ctx) //
+            }
+            TurboEvent::Status(n, s) => {
+                state.status.status(*n, s);
+                Ok(Control::Changed)
+            }
+            _ => Ok(Control::Continue),
+        }
     }
 
     pub fn error(
         event: Error,
         _state: &mut Scenery,
-        ctx: &mut GlobalState,
+        ctx: &mut Global,
     ) -> Result<Control<TurboEvent>, Error> {
-        Ok(show_message(format!("{:?}", &*event).as_str(), ctx))
+        show_message(format!("{:?}", &*event).as_str(), ctx)
     }
 
-    fn show_message(msg: &str, ctx: &mut GlobalState) -> Control<TurboEvent> {
+    fn show_message(msg: &str, ctx: &mut Global) -> TurboResult {
         if let Some(n) = ctx.dialogs.first::<MsgDialogState>() {
             let v = ctx.dialogs.get::<MsgDialogState>(n);
             v.append(msg);
@@ -267,53 +287,57 @@ pub mod app {
             let state = MsgDialogState::new_active("Information", msg);
             ctx.focus().future(&state);
 
-            ctx.dialogs.push(
-                |area, buf, state, ctx| {
-                    let state = state.downcast_mut().expect("msgdialog-state");
-
-                    let area = layout_middle(
-                        area,
-                        Constraint::Percentage(19),
-                        Constraint::Percentage(19),
-                        Constraint::Length(2),
-                        Constraint::Length(2),
-                    );
-
-                    MsgDialog::new()
-                        .styles(ctx.theme.msg_dialog_style())
-                        .render(area, buf, state);
-                },
-                |event, state, _| {
-                    if let TurboEvent::Event(event) = event {
-                        let state = state
-                            .downcast_mut::<MsgDialogState>()
-                            .expect("msgdialog-state");
-
-                        try_flow!(match state.handle(event, Dialog) {
-                            Outcome::Changed => {
-                                if !state.active() {
-                                    DialogControl::Close(TurboEvent::NoOp)
-                                } else {
-                                    DialogControl::Changed
-                                }
-                            }
-                            r => r.into(),
-                        });
-                    }
-
-                    Ok(DialogControl::Continue)
-                },
-                state,
-            )
+            ctx.dialogs.push(render_msg_dlg, handle_msg_dlg, state)
         }
 
-        Control::Changed
+        Ok(Control::Changed)
+    }
+
+    fn render_msg_dlg(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
+        let state = state.downcast_mut().expect("msgdialog-state");
+
+        let area = layout_middle(
+            area,
+            Constraint::Percentage(19),
+            Constraint::Percentage(19),
+            Constraint::Length(2),
+            Constraint::Length(2),
+        );
+
+        MsgDialog::new()
+            .styles(ctx.theme.msg_dialog_style())
+            .render(area, buf, state);
+    }
+
+    fn handle_msg_dlg(
+        event: &TurboEvent,
+        state: &mut dyn Any,
+        _ctx: &mut Global,
+    ) -> TurboDialogResult {
+        if let TurboEvent::Event(event) = event {
+            let state = state
+                .downcast_mut::<MsgDialogState>()
+                .expect("msgdialog-state");
+
+            try_flow!(match state.handle(event, Dialog) {
+                Outcome::Changed => {
+                    if !state.active() {
+                        DialogControl::Close(TurboEvent::NoOp)
+                    } else {
+                        DialogControl::Changed
+                    }
+                }
+                r => r.into(),
+            });
+        }
+
+        Ok(DialogControl::Continue)
     }
 }
 
 pub mod menu {
     use crate::app::Scenery;
-    use crate::{GlobalState, TurboEvent};
+    use crate::{Global, TurboEvent};
     use anyhow::Error;
     use rat_event::{HandleEvent, Popup, ct_event, try_flow};
     use rat_salsa::{Control, SalsaContext};
@@ -334,7 +358,7 @@ pub mod menu {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        ctx: &mut GlobalState,
+        ctx: &mut Global,
         state: &mut Scenery,
     ) -> MenubarPopup<'static> {
         let (menubar, popup) = Menubar::new(&Menu)
@@ -344,6 +368,7 @@ pub mod menu {
             .popup_block(Block::bordered().style(ctx.theme.menu_style().style))
             .into_widgets();
         menubar.render(area, buf, &mut state.menu);
+
         popup
     }
 
@@ -351,7 +376,7 @@ pub mod menu {
         popup: MenubarPopup<'static>,
         area: Rect,
         buf: &mut Buffer,
-        ctx: &mut GlobalState,
+        ctx: &mut Global,
         state: &mut Scenery,
     ) {
         popup.render(area, buf, &mut state.menu);
@@ -394,7 +419,7 @@ pub mod menu {
     pub fn event(
         event: &TurboEvent,
         state: &mut Scenery,
-        ctx: &mut GlobalState,
+        ctx: &mut Global,
     ) -> Result<Control<TurboEvent>, Error> {
         match event {
             TurboEvent::Event(event) => {
@@ -610,7 +635,7 @@ pub mod menu {
 }
 
 pub mod turbo {
-    use crate::{GlobalState, TurboEvent};
+    use crate::{Global, TurboDialogResult, TurboEvent};
     use anyhow::Error;
     use rat_dialog::DialogControl;
     use rat_event::{Dialog, Outcome};
@@ -622,6 +647,7 @@ pub mod turbo {
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Rect};
     use ratatui::widgets::StatefulWidget;
+    use std::any::Any;
     use std::path::PathBuf;
 
     #[derive(Debug, Default)]
@@ -631,12 +657,12 @@ pub mod turbo {
         _area: Rect,
         _buf: &mut Buffer,
         _state: &mut Turbo,
-        _ctx: &mut GlobalState,
+        _ctx: &mut Global,
     ) -> Result<(), Error> {
         Ok(())
     }
 
-    pub fn init(_state: &mut Turbo, ctx: &mut GlobalState) -> Result<(), Error> {
+    pub fn init(_state: &mut Turbo, ctx: &mut Global) -> Result<(), Error> {
         ctx.focus().first();
         Ok(())
     }
@@ -644,7 +670,7 @@ pub mod turbo {
     pub fn event(
         event: &TurboEvent,
         _state: &mut Turbo,
-        ctx: &mut GlobalState,
+        ctx: &mut Global,
     ) -> Result<Control<TurboEvent>, Error> {
         match event {
             TurboEvent::NewDialog => try_flow!(show_new(ctx)?),
@@ -656,170 +682,183 @@ pub mod turbo {
         Ok(Control::Continue)
     }
 
-    fn show_new(ctx: &mut GlobalState) -> Result<Control<TurboEvent>, Error> {
+    fn show_new(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
 
         state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
         ctx.focus().future(&state);
 
-        ctx.dialogs.push(
-            |area, buf, state, ctx| {
-                let state = state
-                    .downcast_mut::<FileDialogState>()
-                    .expect("dialog-state");
-
-                let area = layout_middle(
-                    area,
-                    Constraint::Percentage(19),
-                    Constraint::Percentage(19),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                );
-
-                FileDialog::new()
-                    .styles(ctx.theme.file_dialog_style())
-                    .render(area, buf, state);
-
-                ctx.set_screen_cursor(state.screen_cursor());
-            },
-            |event, state, ctx| {
-                let state = state
-                    .downcast_mut::<FileDialogState>()
-                    .expect("dialog-state");
-
-                match event {
-                    TurboEvent::Event(event) => {
-                        try_flow!(match state.handle(event, Dialog)? {
-                            FileOutcome::Cancel => {
-                                DialogControl::Close(TurboEvent::NoOp) //
-                            }
-                            FileOutcome::Ok(f) => {
-                                DialogControl::Close(
-                                    TurboEvent::Message(format!("New file {:?}", f)), //
-                                )
-                            }
-                            r => Outcome::from(r).into(),
-                        });
-                    }
-                    _ => {}
-                }
-
-                Ok(DialogControl::Continue)
-            },
-            state,
-        );
+        ctx.dialogs.push(render_new_dlg, handle_new_dlg, state);
 
         Ok(Control::Changed)
     }
 
-    fn show_open(ctx: &mut GlobalState) -> Result<Control<TurboEvent>, Error> {
+    fn render_new_dlg(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
+        let state = state
+            .downcast_mut::<FileDialogState>()
+            .expect("dialog-state");
+
+        let area = layout_middle(
+            area,
+            Constraint::Percentage(19),
+            Constraint::Percentage(19),
+            Constraint::Length(2),
+            Constraint::Length(2),
+        );
+
+        FileDialog::new()
+            .styles(ctx.theme.file_dialog_style())
+            .render(area, buf, state);
+
+        ctx.set_screen_cursor(state.screen_cursor());
+    }
+
+    fn handle_new_dlg(
+        event: &TurboEvent,
+        state: &mut dyn Any,
+        _ctx: &mut Global,
+    ) -> TurboDialogResult {
+        let state = state
+            .downcast_mut::<FileDialogState>()
+            .expect("dialog-state");
+
+        match event {
+            TurboEvent::Event(event) => {
+                try_flow!(match state.handle(event, Dialog)? {
+                    FileOutcome::Cancel => {
+                        DialogControl::Close(TurboEvent::NoOp) //
+                    }
+                    FileOutcome::Ok(f) => {
+                        DialogControl::Close(
+                            TurboEvent::Message(format!("New file {:?}", f)), //
+                        )
+                    }
+                    r => Outcome::from(r).into(),
+                });
+            }
+            _ => {}
+        }
+
+        Ok(DialogControl::Continue)
+    }
+
+    fn show_open(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
 
         state.open_dialog(PathBuf::from("."))?;
         ctx.focus().future(&state);
 
-        ctx.dialogs.push(
-            |area, buf, state, ctx| {
-                let state = state
-                    .downcast_mut::<FileDialogState>()
-                    .expect("dialog-state");
-
-                let area = layout_middle(
-                    area,
-                    Constraint::Percentage(19),
-                    Constraint::Percentage(19),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                );
-
-                FileDialog::new()
-                    .styles(ctx.theme.file_dialog_style())
-                    .render(area, buf, state);
-
-                ctx.set_screen_cursor(state.screen_cursor());
-            },
-            |event, state, ctx| {
-                let state = state
-                    .downcast_mut::<FileDialogState>()
-                    .expect("dialog-state");
-
-                match event {
-                    TurboEvent::Event(event) => {
-                        try_flow!(match state.handle(event, Dialog)? {
-                            FileOutcome::Cancel => {
-                                DialogControl::Close(TurboEvent::NoOp) //
-                            }
-                            FileOutcome::Ok(f) => {
-                                DialogControl::Close(
-                                    TurboEvent::Status(0, format!("Open {:?}", f)), //
-                                )
-                            }
-                            r => r.into(),
-                        });
-                    }
-                    _ => {}
-                };
-
-                Ok(DialogControl::Continue)
-            },
-            state,
-        );
+        ctx.dialogs.push(render_open_dlg, handle_open_dlg, state);
         Ok(Control::Changed)
     }
 
-    fn show_save_as(ctx: &mut GlobalState) -> Result<Control<TurboEvent>, Error> {
-        let mut state = FileDialogState::new();
+    fn render_open_dlg(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
+        let state = state
+            .downcast_mut::<FileDialogState>()
+            .expect("dialog-state");
 
-        state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
-        ctx.focus().future(&state);
-
-        ctx.dialogs.push(
-            |area, buf, state, ctx| {
-                let state = state
-                    .downcast_mut::<FileDialogState>()
-                    .expect("dialog-state");
-
-                let area = layout_middle(
-                    area,
-                    Constraint::Percentage(19),
-                    Constraint::Percentage(19),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                );
-
-                FileDialog::new()
-                    .styles(ctx.theme.file_dialog_style())
-                    .render(area, buf, state);
-
-                ctx.set_screen_cursor(state.screen_cursor());
-            },
-            |event, state, ctx| {
-                let state = state
-                    .downcast_mut::<FileDialogState>()
-                    .expect("dialog-state");
-
-                match event {
-                    TurboEvent::Event(event) => {
-                        try_flow!(match state.handle(event, Dialog)? {
-                            FileOutcome::Cancel => {
-                                DialogControl::Close(TurboEvent::NoOp) //
-                            }
-                            FileOutcome::Ok(f) => {
-                                DialogControl::Close(
-                                    TurboEvent::Status(0, format!("Save as {:?}", f)), //
-                                )
-                            }
-                            r => r.into(),
-                        });
-                    }
-                    _ => {}
-                }
-
-                Ok(DialogControl::Continue)
-            },
-            state,
+        let area = layout_middle(
+            area,
+            Constraint::Percentage(19),
+            Constraint::Percentage(19),
+            Constraint::Length(2),
+            Constraint::Length(2),
         );
+
+        FileDialog::new()
+            .styles(ctx.theme.file_dialog_style())
+            .render(area, buf, state);
+
+        ctx.set_screen_cursor(state.screen_cursor());
+    }
+
+    fn handle_open_dlg(
+        event: &TurboEvent,
+        state: &mut dyn Any,
+        _ctx: &mut Global,
+    ) -> TurboDialogResult {
+        let state = state
+            .downcast_mut::<FileDialogState>()
+            .expect("dialog-state");
+
+        match event {
+            TurboEvent::Event(event) => {
+                try_flow!(match state.handle(event, Dialog)? {
+                    FileOutcome::Cancel => {
+                        DialogControl::Close(TurboEvent::NoOp) //
+                    }
+                    FileOutcome::Ok(f) => {
+                        DialogControl::Close(
+                            TurboEvent::Status(0, format!("Open {:?}", f)), //
+                        )
+                    }
+                    r => r.into(),
+                });
+            }
+            _ => {}
+        };
+
+        Ok(DialogControl::Continue)
+    }
+
+    fn show_save_as(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
+        let mut state = FileDialogState::new();
+        state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+
+        ctx.focus().future(&state);
+        ctx.dialogs
+            .push(render_save_as_dlg, handle_save_as_dlg, state);
+
         Ok(Control::Changed)
+    }
+
+    fn handle_save_as_dlg(
+        event: &TurboEvent,
+        state: &mut dyn Any,
+        _ctx: &mut Global,
+    ) -> TurboDialogResult {
+        let state = state
+            .downcast_mut::<FileDialogState>()
+            .expect("dialog-state");
+
+        match event {
+            TurboEvent::Event(event) => {
+                try_flow!(match state.handle(event, Dialog)? {
+                    FileOutcome::Cancel => {
+                        DialogControl::Close(TurboEvent::NoOp) //
+                    }
+                    FileOutcome::Ok(f) => {
+                        DialogControl::Close(
+                            TurboEvent::Status(0, format!("Save as {:?}", f)), //
+                        )
+                    }
+                    r => r.into(),
+                });
+            }
+            _ => {}
+        }
+
+        Ok(DialogControl::Continue)
+    }
+
+    fn render_save_as_dlg(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
+        let state = state
+            .downcast_mut::<FileDialogState>()
+            .expect("dialog-state");
+
+        let area = layout_middle(
+            area,
+            Constraint::Percentage(19),
+            Constraint::Percentage(19),
+            Constraint::Length(2),
+            Constraint::Length(2),
+        );
+
+        FileDialog::new()
+            .styles(ctx.theme.file_dialog_style())
+            .render(area, buf, state);
+
+        ctx.set_screen_cursor(state.screen_cursor());
     }
 }
 
