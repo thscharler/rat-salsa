@@ -7,16 +7,15 @@
 //!
 
 use crate::app::Scenery;
+use crate::global::{Global, TurboConfig, TurboEvent};
 use crate::theme::TurboTheme;
 use anyhow::Error;
-use rat_dialog::{DialogControl, DialogStack, WindowList};
+use rat_dialog::{DialogControl, WindowList};
 use rat_salsa::poll::PollCrossterm;
-use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme2::palettes::BASE16;
-use ratatui::layout::Rect;
+use rat_salsa::{Control, RunConfig, SalsaContext, run_tui};
+use rat_theme3::palettes::{BASE16, IMPERIAL, MONEKAI, OCEAN, SOLARIZED, TUNDRA};
 use std::fs;
 use std::path::PathBuf;
-use try_as::traits::TryAsRef;
 
 type TurboResult = Result<Control<TurboEvent>, Error>;
 type TurboDialogResult = Result<DialogControl<TurboEvent>, Error>;
@@ -43,93 +42,107 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-/// Globally accessible data/state.
-#[derive(Debug)]
-pub struct Global {
-    ctx: SalsaAppContext<TurboEvent, Error>,
-    pub cfg: TurboConfig,
-    pub theme: TurboTheme,
-    pub dialogs: DialogStack<TurboEvent, Global, Error>,
-    pub windows: WindowList<TurboEvent, Global, Error>,
-    pub area: Rect,
-}
+mod global {
+    use crate::theme::TurboTheme;
+    use anyhow::Error;
+    use rat_dialog::{DialogStack, WindowList};
+    use rat_salsa::{SalsaAppContext, SalsaContext};
+    use ratatui::layout::Rect;
+    use std::path::PathBuf;
+    use try_as::traits::TryAsRef;
 
-impl SalsaContext<TurboEvent, Error> for Global {
-    fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<TurboEvent, Error>) {
-        self.ctx = app_ctx;
+    /// Globally accessible data/state.
+    #[derive(Debug)]
+    pub struct Global {
+        ctx: SalsaAppContext<TurboEvent, Error>,
+        pub cfg: TurboConfig,
+        pub theme: TurboTheme,
+        pub dialogs: DialogStack<TurboEvent, Global, Error>,
+        pub windows: WindowList<TurboEvent, Global, Error>,
+        pub area: Rect,
     }
 
-    fn salsa_ctx(&self) -> &SalsaAppContext<TurboEvent, Error> {
-        &self.ctx
-    }
-}
+    impl SalsaContext<TurboEvent, Error> for Global {
+        fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<TurboEvent, Error>) {
+            self.ctx = app_ctx;
+        }
 
-impl Global {
-    pub fn new(cfg: TurboConfig, theme: TurboTheme) -> Self {
-        Self {
-            ctx: Default::default(),
-            cfg,
-            theme,
-            dialogs: Default::default(),
-            windows: Default::default(),
-            area: Default::default(),
+        fn salsa_ctx(&self) -> &SalsaAppContext<TurboEvent, Error> {
+            &self.ctx
         }
     }
-}
 
-/// Configuration.
-#[derive(Debug, Default)]
-pub struct TurboConfig {}
-
-/// Application wide messages.
-#[derive(Debug)]
-pub enum TurboEvent {
-    Event(crossterm::event::Event),
-    Message(String),
-    Status(usize, String),
-    NoOp,
-
-    NewDialog,
-    OpenDialog,
-    SaveAsDialog,
-
-    Open(PathBuf),
-}
-
-impl TryAsRef<crossterm::event::Event> for TurboEvent {
-    fn try_as_ref(&self) -> Option<&crossterm::event::Event> {
-        match self {
-            TurboEvent::Event(e) => Some(e),
-            _ => None,
+    impl Global {
+        pub fn new(cfg: TurboConfig, theme: TurboTheme) -> Self {
+            Self {
+                ctx: Default::default(),
+                cfg,
+                theme,
+                dialogs: Default::default(),
+                windows: Default::default(),
+                area: Default::default(),
+            }
         }
     }
-}
 
-impl From<crossterm::event::Event> for TurboEvent {
-    fn from(value: crossterm::event::Event) -> Self {
-        Self::Event(value)
+    /// Configuration.
+    #[derive(Debug, Default)]
+    pub struct TurboConfig {}
+
+    /// Application wide messages.
+    #[derive(Debug)]
+    pub enum TurboEvent {
+        Event(crossterm::event::Event),
+        Message(String),
+        Status(usize, String),
+        NoOp,
+
+        NewDialog,
+        OpenDialog,
+        SaveAsDialog,
+
+        Open(PathBuf),
     }
-}
 
-impl<'a> TryFrom<&'a TurboEvent> for &'a crossterm::event::Event {
-    type Error = ();
+    impl TryAsRef<crossterm::event::Event> for TurboEvent {
+        fn try_as_ref(&self) -> Option<&crossterm::event::Event> {
+            match self {
+                TurboEvent::Event(e) => Some(e),
+                _ => None,
+            }
+        }
+    }
 
-    fn try_from(value: &'a TurboEvent) -> Result<Self, Self::Error> {
-        match value {
-            TurboEvent::Event(event) => Ok(event),
-            _ => Err(()),
+    impl From<crossterm::event::Event> for TurboEvent {
+        fn from(value: crossterm::event::Event) -> Self {
+            Self::Event(value)
+        }
+    }
+
+    impl<'a> TryFrom<&'a TurboEvent> for &'a crossterm::event::Event {
+        type Error = ();
+
+        fn try_from(value: &'a TurboEvent) -> Result<Self, Self::Error> {
+            match value {
+                TurboEvent::Event(event) => Ok(event),
+                _ => Err(()),
+            }
         }
     }
 }
 
 pub mod app {
     use crate::editor::EditorState;
+    use crate::global::{Global, TurboEvent};
+    use crate::theme::TurboTheme;
     use crate::turbo::Turbo;
-    use crate::{Global, TurboDialogResult, TurboEvent, TurboResult, editor, menu, turbo};
+    use crate::{TurboDialogResult, TurboResult, editor, menu, turbo};
     use anyhow::Error;
+    use log::debug;
     use rat_dialog::{DialogControl, handle_dialog_stack, handle_window_list};
     use rat_event::{Dialog, Outcome, break_flow, try_flow};
     use rat_salsa::{Control, SalsaContext};
+    use rat_theme3::{create_palette, salsa_palettes};
     use rat_widget::event::{HandleEvent, ct_event};
     use rat_widget::file_dialog::FileDialogState;
     use rat_widget::focus::FocusBuilder;
@@ -154,7 +167,7 @@ pub mod app {
 
     pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
         build_focus(state, ctx);
-        turbo::init(&mut state.turbo, ctx)?;
+        ctx.focus().first();
         state.status.status(0, "Ctrl-Q to quit.");
         Ok(())
     }
@@ -208,11 +221,14 @@ pub mod app {
         fill_buf_area(buf, layout[1], " ", ctx.theme.data());
 
         let menu_popup = menu::render(layout[0], buf, ctx, state);
-        turbo::render(area, buf, &mut state.turbo, ctx)?;
         ctx.windows.clone().render(layout[1], buf, ctx);
         ctx.dialogs.clone().render(layout[1], buf, ctx);
         render_status(t0, layout[2], buf, state, ctx);
         menu::render_popup(menu_popup, layout[0], buf, ctx, state);
+
+        if let Some(scr) = editor::screen_cursor(&mut state.turbo, ctx) {
+            ctx.set_screen_cursor(Some(scr));
+        }
 
         Ok(())
     }
@@ -250,8 +266,8 @@ pub mod app {
             break_flow!('b: handle_scenery(event, state, ctx)?);
             break_flow!('b: handle_dialog_stack(ctx.dialogs.clone(), event, ctx)?);
             break_flow!('b: handle_focus(event, state, ctx)?);
-            break_flow!('b: handle_window_list(ctx.windows.clone(), event, ctx)?);
             break_flow!('b: menu::event(event, state, ctx)?);
+            break_flow!('b: handle_window_list(ctx.windows.clone(), event, ctx)?);
             break_flow!('b: turbo::event(event, &mut state.turbo, ctx)?);
             break_flow!('b: editor::event(event, &mut state.turbo, ctx)?);
             Control::Continue
@@ -265,16 +281,35 @@ pub mod app {
         Ok(r)
     }
 
-    fn handle_super_keys(
-        event: &TurboEvent,
-        _state: &mut Scenery,
-        _ctx: &mut Global,
-    ) -> TurboResult {
+    fn handle_super_keys(event: &TurboEvent, state: &mut Scenery, ctx: &mut Global) -> TurboResult {
         match event {
             TurboEvent::Event(event) => match &event {
                 ct_event!(resized) => Ok(Control::Changed),
                 ct_event!(key press CONTROL-'q') => Ok(Control::Quit),
                 ct_event!(key press ALT-'x') => Ok(Control::Quit),
+
+                ct_event!(keycode press F(8)) => {
+                    let pal = salsa_palettes();
+
+                    let current = ctx.theme.name();
+                    let idx = pal
+                        .iter()
+                        .enumerate()
+                        .find_map(|(n, v)| if current == *v { Some(n) } else { None });
+                    let idx = idx.unwrap_or(pal.len() - 1);
+                    let idx = (idx + 1) % pal.len();
+
+                    debug!("palette {:?}", pal[idx]);
+
+                    ctx.theme = TurboTheme::new(
+                        pal[idx].to_string(),
+                        create_palette(pal[idx]).expect("palette"),
+                    );
+                    state.status.status(0, pal[idx].to_string());
+
+                    Ok(Control::Changed)
+                }
+
                 _ => Ok(Control::Continue),
             },
             _ => Ok(Control::Continue),
@@ -360,7 +395,7 @@ pub mod app {
 
 pub mod menu {
     use crate::app::Scenery;
-    use crate::{Global, TurboEvent};
+    use crate::global::{Global, TurboEvent};
     use anyhow::Error;
     use rat_event::{HandleEvent, Popup, ct_event, try_flow};
     use rat_salsa::{Control, SalsaContext};
@@ -405,8 +440,7 @@ pub mod menu {
         popup.render(area, buf, &mut state.menu);
         if state.menu.popup.is_active() {
             Shadow::new()
-                .direction(ShadowDirection::BottomRight)
-                .style(Style::new().dark_gray().on_black())
+                .styles(ctx.theme.shadow()) //
                 .render(state.menu.popup.popup.area, buf, &mut ());
         }
 
@@ -431,11 +465,9 @@ pub mod menu {
                 .block(Block::bordered())
                 .render(Rect::default(), buf, &mut state.menu_environment);
 
-            Shadow::new().style(Style::new().on_black()).render(
-                state.menu_environment.popup.area,
-                buf,
-                &mut (),
-            );
+            Shadow::new()
+                .styles(ctx.theme.shadow()) //
+                .render(state.menu_environment.popup.area, buf, &mut ());
         }
     }
 
@@ -493,7 +525,8 @@ pub mod menu {
                                 state.menu_environment.set_active(false);
                                 Control::Changed
                             }
-                            v => v.into(),
+                            // MenuOutcome::Hide => {}
+                            r => r.into(),
                         }
                     });
                 }
@@ -658,7 +691,8 @@ pub mod menu {
 }
 
 pub mod turbo {
-    use crate::{Global, TurboDialogResult, TurboEvent};
+    use crate::TurboDialogResult;
+    use crate::global::{Global, TurboEvent};
     use anyhow::Error;
     use rat_dialog::DialogControl;
     use rat_event::{Dialog, Outcome};
@@ -675,20 +709,6 @@ pub mod turbo {
 
     #[derive(Debug, Default)]
     pub struct Turbo {}
-
-    pub fn render(
-        _area: Rect,
-        _buf: &mut Buffer,
-        _state: &mut Turbo,
-        _ctx: &mut Global,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
-
-    pub fn init(_state: &mut Turbo, ctx: &mut Global) -> Result<(), Error> {
-        ctx.focus().first();
-        Ok(())
-    }
 
     pub fn event(
         event: &TurboEvent,
@@ -886,8 +906,8 @@ pub mod turbo {
 }
 
 pub mod editor {
+    use crate::global::{Global, TurboEvent};
     use crate::turbo::Turbo;
-    use crate::{Global, TurboEvent};
     use anyhow::Error;
     use log::debug;
     use rat_dialog::{Window, WindowControl, WindowFrame, WindowFrameOutcome, WindowFrameState};
@@ -896,9 +916,12 @@ pub mod editor {
     use rat_salsa::Control;
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::scrolled::Scroll;
+    use rat_widget::shadow::{Shadow, ShadowDirection};
+    use rat_widget::text::HasScreenCursor;
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
+    use ratatui::style::{Style, Stylize};
     use ratatui::widgets::StatefulWidget;
     use std::fs::File;
     use std::io::Read;
@@ -982,6 +1005,17 @@ pub mod editor {
         }
     }
 
+    pub fn screen_cursor(_state: &mut Turbo, ctx: &mut Global) -> Option<(u16, u16)> {
+        for i in (0..ctx.windows.len()).rev() {
+            if let Some(editor) = ctx.windows.try_get::<EditorState>(i) {
+                if let Some(cur) = editor.text.screen_cursor() {
+                    return Some(cur);
+                }
+            }
+        }
+        None
+    }
+
     pub fn event(
         event: &TurboEvent,
         _state: &mut Turbo,
@@ -989,11 +1023,9 @@ pub mod editor {
     ) -> Result<Control<TurboEvent>, Error> {
         try_flow!(match event {
             TurboEvent::Open(f) => {
-                debug!("doopen");
                 let mut editor = EditorState::open(f)?;
                 editor.window.area = cascade_window(ctx);
                 ctx.windows.push(dlg_render, dlg_event, editor);
-                debug!("windows {:#?}", ctx.windows);
                 Control::Changed
             }
             _ => {
@@ -1015,6 +1047,10 @@ pub mod editor {
             .styles(ctx.theme.textarea_style())
             .scroll(Scroll::new().styles(ctx.theme.scroll_style()))
             .render(state.window.widget_area, buf, &mut state.text);
+
+        Shadow::new()
+            .styles(ctx.theme.shadow()) //
+            .render(state.window.area, buf, &mut ());
     }
 
     fn dlg_event(
@@ -1069,7 +1105,7 @@ fn setup_logging() -> Result<(), Error> {
 #[allow(dead_code)]
 pub mod theme {
     use rat_dialog::WindowFrameStyle;
-    use rat_theme2::{Contrast, Palette};
+    use rat_theme3::{Contrast, Palette};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::line_number::LineNumberStyle;
@@ -1078,10 +1114,12 @@ pub mod theme {
     use rat_widget::msgdialog::MsgDialogStyle;
     use rat_widget::popup::PopupStyle;
     use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
+    use rat_widget::shadow::{ShadowDirection, ShadowStyle};
     use rat_widget::splitter::SplitStyle;
     use rat_widget::tabbed::TabbedStyle;
     use rat_widget::table::TableStyle;
     use rat_widget::text::TextStyle;
+    use ratatui::layout::Alignment;
     use ratatui::style::{Style, Stylize};
     use ratatui::widgets::{Block, BorderType};
 
@@ -1115,50 +1153,42 @@ pub mod theme {
 
         /// Focus style
         pub fn focus(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.primary[2];
-            Style::default().fg(fg).bg(bg)
+            self.s.style(self.s.primary[1], Contrast::Normal)
         }
 
         /// Selection style
         pub fn select(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.secondary[1];
-            Style::default().fg(fg).bg(bg)
+            self.s.style(self.s.secondary[1], Contrast::Normal)
         }
 
         /// Text field style.
         pub fn text_input(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
+            self.s.style(self.s.gray[3], Contrast::High)
         }
 
         /// Focused text field style.
         pub fn text_focus(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.primary[0];
-            Style::default().fg(fg).bg(bg)
+            self.s.style(self.s.primary[0], Contrast::High)
         }
 
         /// Text selection style.
         pub fn text_select(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.secondary[0];
-            Style::default().fg(fg).bg(bg)
+            self.s.style(self.s.secondary[0], Contrast::High)
         }
 
         /// Data display style. Used for lists, tables, ...
         pub fn data(&self) -> Style {
-            Style::default().fg(self.s.white[3]).bg(self.s.deepblue[0])
+            self.s.style(self.s.deepblue[0], Contrast::Normal)
         }
 
         /// Background for dialogs.
         pub fn dialog_style(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
+            self.s.style(self.s.gray[3], Contrast::Normal)
         }
 
         /// Style for the status line.
         pub fn status_style(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
+            self.s.style(self.s.gray[3], Contrast::Normal)
         }
 
         /// Style for LineNumbers.
@@ -1173,8 +1203,8 @@ pub mod theme {
         /// Complete TextAreaStyle
         pub fn textarea_style(&self) -> TextStyle {
             TextStyle {
-                style: self.dialog_style(),
-                focus: Some(self.focus()),
+                style: self.text_input(),
+                focus: Some(self.text_focus()),
                 select: Some(self.text_select()),
                 ..Default::default()
             }
@@ -1193,15 +1223,17 @@ pub mod theme {
 
         /// Complete MenuStyle
         pub fn menu_style(&self) -> MenuStyle {
+            let highlight = Palette::high_contrast_color(self.s.gray[3], &self.s.red);
+
             MenuStyle {
-                style: self.dialog_style(),
-                title: Some(Style::default().fg(self.s.black[0]).bg(self.s.gray[3])),
+                style: self.status_style(),
+                title: Some(Style::new().bg(self.s.gray[3]).fg(self.s.yellow[3])),
                 focus: Some(self.focus()),
-                highlight: Some(Style::default().fg(self.s.red[2])),
+                highlight: Some(highlight),
                 disabled: Some(Style::default().fg(self.s.black[3])),
                 right: Some(Style::default().italic()),
                 popup: PopupStyle {
-                    style: self.dialog_style(),
+                    style: self.status_style(),
                     border_style: Some(Style::default().fg(self.s.black[3])),
                     ..Default::default()
                 },
@@ -1245,8 +1277,9 @@ pub mod theme {
         pub fn scroll_style(&self) -> ScrollStyle {
             let style = Style::default().fg(self.s.black[3]);
             let arrow_style = Style::default().fg(self.s.black[3]).bg(self.s.secondary[0]);
+            let thumb_style = Style::default().bg(self.s.black[3]).fg(self.s.secondary[0]);
             ScrollStyle {
-                thumb_style: Some(style),
+                thumb_style: Some(thumb_style),
                 track_style: Some(style),
                 min_style: Some(style),
                 begin_style: Some(arrow_style),
@@ -1301,9 +1334,9 @@ pub mod theme {
             let s = &self.s;
             vec![
                 self.status_style(),
-                s.blue(3, Contrast::Normal),
-                s.blue(2, Contrast::Normal),
-                s.blue(1, Contrast::Normal),
+                self.status_style().fg(s.blue[3]),
+                self.status_style().fg(s.blue[3]),
+                self.status_style().fg(s.blue[3]),
             ]
         }
 
@@ -1344,7 +1377,16 @@ pub mod theme {
             Block::bordered()
                 .border_type(BorderType::Rounded)
                 .title_top(title)
+                .title_alignment(Alignment::Center)
                 .border_style(self.dialog_style())
+        }
+
+        pub fn shadow(&self) -> ShadowStyle {
+            ShadowStyle {
+                style: Style::new().bg(self.s.black[7]).fg(self.s.gray[3]),
+                dir: ShadowDirection::BottomRight,
+                ..Default::default()
+            }
         }
     }
 }

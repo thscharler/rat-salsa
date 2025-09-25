@@ -450,7 +450,8 @@ where
                 Ok(r) => match r {
                     WindowControl::Close(event) => {
                         self.remove(n);
-                        return Ok(Control::Event(event));
+                        ctx.queue_event(event);
+                        return Ok(Control::Changed);
                     }
                     WindowControl::Event(event) => {
                         return Ok(Control::Event(event));

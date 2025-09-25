@@ -7,8 +7,8 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::{TimeOut, TimerDef};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme2::DarkTheme;
-use rat_theme2::palettes::IMPERIAL;
+use rat_theme3::palettes::IMPERIAL;
+use rat_theme3::{DarkTheme, SalsaTheme};
 use rat_widget::event::{Dialog, HandleEvent, MenuOutcome, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
@@ -293,6 +293,7 @@ pub mod moving {
     use rat_dialog::DialogControl;
     use rat_event::{Dialog, Regular};
     use rat_salsa::{Control, SalsaContext};
+    use rat_theme3::SalsaTheme;
     use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::layout::layout_middle;

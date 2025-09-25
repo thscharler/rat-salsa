@@ -395,7 +395,8 @@ where
                 Ok(r) => match r {
                     DialogControl::Close(event) => {
                         self.remove(n);
-                        return Ok(Control::Event(event));
+                        ctx.queue_event(event);
+                        return Ok(Control::Changed);
                     }
                     DialogControl::Event(event) => {
                         return Ok(Control::Event(event));
@@ -417,7 +418,11 @@ where
             }
         }
 
-        Ok(Control::Continue)
+        if self.len() > 0 {
+            Ok(Control::Unchanged)
+        } else {
+            Ok(Control::Continue)
+        }
     }
 }
 

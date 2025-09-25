@@ -12,7 +12,7 @@ use anyhow::Error;
 use rat_dialog::{DialogControl, DialogStack};
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme2::palettes::BASE16;
+use rat_theme3::palettes::BASE16;
 use ratatui::layout::Rect;
 use std::fs;
 use std::path::PathBuf;
@@ -889,7 +889,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme2::{Contrast, Palette};
+    use rat_theme3::{Contrast, Palette};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::line_number::LineNumberStyle;
