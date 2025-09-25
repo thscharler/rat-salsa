@@ -9,6 +9,11 @@ const DARKNESS: u8 = 48;
 pub const MONOCHROME: Palette = Palette {
     name: "Monochrome",
 
+    text_light: Palette::color32(0xb4b4b4),
+    text_bright: Palette::color32(0xf0f0f0),
+    text_dark: Palette::color32(0x383838),
+    text_black: Palette::color32(0x1a1a1a),
+
     primary: Palette::interpolate(0xb4b4b4, 0xf0f0f0, DARKNESS),
     secondary: Palette::interpolate(0x424242, 0x777777, DARKNESS),
 

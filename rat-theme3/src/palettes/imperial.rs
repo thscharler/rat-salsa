@@ -1,4 +1,5 @@
 use crate::Palette;
+use ratatui::style::Color;
 
 /// Imperial palette.
 ///
@@ -7,6 +8,11 @@ use crate::Palette;
 ///
 pub const IMPERIAL: Palette = Palette {
     name: "Imperial",
+
+    text_light: Palette::color32(0xdedfe3),
+    text_bright: Palette::color32(0xf6f6f3),
+    text_dark: Palette::color32(0x2a2b37),
+    text_black: Palette::color32(0x0f1014),
 
     primary: Palette::interpolate(0x300057, 0x8c00fd, 63),
     secondary: Palette::interpolate(0x574b00, 0xffde00, 63),

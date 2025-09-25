@@ -7,6 +7,11 @@ use crate::Palette;
 pub const VSCODE_DARK: Palette = Palette {
     name: "VSCodeDark",
 
+    text_light: Palette::color32(0xd4d4d4),
+    text_bright: Palette::color32(0xffffff),
+    text_dark: Palette::color32(0x3a3a3a),
+    text_black: Palette::color32(0x1a1a1a),
+
     primary: Palette::interpolate(0xd4d4d4, 0xffffff, 63),
     secondary: Palette::interpolate(0x444444, 0x878787, 63),
 

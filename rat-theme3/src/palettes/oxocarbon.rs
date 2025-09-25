@@ -8,6 +8,11 @@ use crate::Palette;
 pub const OXOCARBON: Palette = Palette {
     name: "OxoCarbon",
 
+    text_light: Palette::color32(0xdde1e6),
+    text_bright: Palette::color32(0xffffff),
+    text_dark: Palette::color32(0x3c3c3c),
+    text_black: Palette::color32(0x161616),
+
     primary: Palette::interpolate(0x993560, 0xf7569c, 63),
     secondary: Palette::interpolate(0x464646, 0x5f5f5f, 63),
 

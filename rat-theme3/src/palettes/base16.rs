@@ -10,6 +10,11 @@ const DARKNESS: u8 = 63;
 pub const BASE16: Palette = Palette {
     name: "Base16",
 
+    text_light: Palette::color32(0xaaaaaa),
+    text_bright: Palette::color32(0xffffff),
+    text_dark: Palette::color32(0x555555),
+    text_black: Palette::color32(0x000000),
+
     primary: fillin(0x00aa00, DARKNESS),
     secondary: fillin(0x00aaaa, DARKNESS),
 

@@ -6,6 +6,11 @@ use crate::Palette;
 pub const RADIUM: Palette = Palette {
     name: "Radium",
 
+    text_light: Palette::color32(0xc4c4c5),
+    text_bright: Palette::color32(0xd4d4d5),
+    text_dark: Palette::color32(0x292c30),
+    text_black: Palette::color32(0x101317),
+
     primary: Palette::interpolate(0x21b07c, 0x37d99e, 63),
     secondary: Palette::interpolate(0x9759b5, 0xb68acb, 63),
 

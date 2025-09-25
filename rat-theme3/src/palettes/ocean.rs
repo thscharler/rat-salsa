@@ -11,6 +11,11 @@ use crate::Palette;
 pub const OCEAN: Palette = Palette {
     name: "Ocean",
 
+    text_light: Palette::color32(0xe5e5dd),
+    text_bright: Palette::color32(0xf2f2ee),
+    text_dark: Palette::color32(0x0c092c),
+    text_black: Palette::color32(0x030305),
+
     primary: Palette::interpolate(0xff8d3c, 0xffbf3c, 63),
     secondary: Palette::interpolate(0x2b4779, 0x6688cc, 63),
 

@@ -7,6 +7,11 @@ use crate::Palette;
 pub const SOLARIZED: Palette = Palette {
     name: "Solarized",
 
+    text_light: Palette::color32(0xeee8d5),
+    text_bright: Palette::color32(0xfdf6e3),
+    text_dark: Palette::color32(0x073642),
+    text_black: Palette::color32(0x002b36),
+
     primary: Palette::interpolate(0xcb4b16, 0xb4542d, 63),
     secondary: Palette::interpolate(0x2aa198, 0x3e8e88, 63),
 

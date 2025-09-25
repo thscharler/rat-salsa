@@ -1,4 +1,5 @@
 use crate::Palette;
+use ratatui::style::Color;
 
 /// Base 16 colors as a Palette.
 ///
@@ -6,6 +7,11 @@ use crate::Palette;
 ///
 pub const BASE16_RELAX: Palette = Palette {
     name: "Base16 Relax",
+
+    text_light: Palette::color32(0xaaaaaa),
+    text_bright: Palette::color32(0xffffff),
+    text_dark: Palette::color32(0x555555),
+    text_black: Palette::color32(0x000000),
 
     primary: Palette::interpolate(0x00aa00, 0x57ff57, 63),
     secondary: Palette::interpolate(0x00aaaa, 0x57ffff, 63),

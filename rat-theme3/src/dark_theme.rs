@@ -30,7 +30,6 @@ use ratatui::layout::Alignment;
 use ratatui::style::Color;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Borders};
-use std::borrow::Cow;
 use std::time::Duration;
 
 /// One sample theme which prefers dark colors from the color-palette

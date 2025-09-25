@@ -7,6 +7,11 @@ use crate::Palette;
 pub const TUNDRA: Palette = Palette {
     name: "Tundra",
 
+    text_light: Palette::color32(0xe6eaf2),
+    text_bright: Palette::color32(0xffffff),
+    text_dark: Palette::color32(0x1a2130),
+    text_black: Palette::color32(0x0b1221),
+
     primary: Palette::interpolate(0xe6eaf2, 0xffffff, 63),
     secondary: Palette::interpolate(0xa8bbd4, 0x719bd3, 63),
 
