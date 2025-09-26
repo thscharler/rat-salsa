@@ -45,15 +45,7 @@ impl ShellTheme {
     }
 
     /// Create a style with only a text foreground color
-    fn fg_style(&self, contrast: Contrast) -> Style {
-        match contrast {
-            Contrast::High => Style::new().fg(self.p.white[Palette::BRIGHT_3]),
-            Contrast::Normal => Style::new().fg(self.p.white[Palette::BRIGHT_0]),
-        }
-    }
-
-    /// Create a style with only a text foreground color
-    fn fg_style_c(&self, color: Color) -> Style {
+    fn fg_style(&self, color: Color) -> Style {
         Style::new().fg(color)
     }
 }
@@ -302,7 +294,7 @@ impl SalsaTheme for ShellTheme {
             style: self.text_input(),
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
-            invalid: Some(self.fg_style_c(self.p.red[Palette::BRIGHT_3])),
+            invalid: Some(self.fg_style(self.p.red[Palette::BRIGHT_3])),
             ..TextStyle::default()
         }
     }
@@ -375,10 +367,10 @@ impl SalsaTheme for ShellTheme {
     fn menu_style(&self) -> MenuStyle {
         MenuStyle {
             style: self.status_base(),
-            title: Some(self.fg_style_c(self.p.yellow[Palette::BRIGHT_2])),
+            title: Some(self.fg_style(self.p.yellow[Palette::BRIGHT_2])),
             focus: Some(self.focus()),
-            right: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_3])),
-            disabled: Some(self.fg_style_c(self.p.gray[Palette::BRIGHT_2])),
+            right: Some(self.fg_style(self.p.green[Palette::BRIGHT_3])),
+            disabled: Some(self.fg_style(self.p.gray[Palette::BRIGHT_2])),
             highlight: Some(Style::default().underlined()),
             block: Some(Block::bordered().style(self.popup_border())),
             ..Default::default()
@@ -405,8 +397,8 @@ impl SalsaTheme for ShellTheme {
             focus_style: Some(self.focus()),
             border_style: Some(self.container_border()),
             scroll: Some(self.scroll_style()),
-            header: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_2])),
-            footer: Some(self.fg_style_c(self.p.green[Palette::BRIGHT_2])),
+            header: Some(self.fg_style(self.p.green[Palette::BRIGHT_2])),
+            footer: Some(self.fg_style(self.p.green[Palette::BRIGHT_2])),
             ..Default::default()
         }
     }
@@ -491,9 +483,9 @@ impl SalsaTheme for ShellTheme {
     fn statusline_style(&self) -> Vec<Style> {
         vec![
             self.status_base(),
-            self.fg_style_c(self.p.blue[Palette::BRIGHT_2]),
-            self.fg_style_c(self.p.blue[Palette::BRIGHT_2]),
-            self.fg_style_c(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style(self.p.blue[Palette::BRIGHT_2]),
         ]
     }
 

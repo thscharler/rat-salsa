@@ -1,5 +1,4 @@
 use crate::Palette;
-use ratatui::style::Color;
 
 /// Imperial palette.
 ///

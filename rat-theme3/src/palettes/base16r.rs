@@ -1,5 +1,4 @@
 use crate::Palette;
-use ratatui::style::Color;
 
 /// Base 16 colors as a Palette.
 ///

@@ -1,4 +1,3 @@
-use log::debug;
 use ratatui::style::{Color, Style};
 
 /// Color palette.
