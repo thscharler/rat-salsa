@@ -12,7 +12,6 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "textarea.gif"]
 
 [features]
-unstable-widget-ref = []
 user_directories = ["dep:dirs", "dep:sysinfo"]
 
 [dependencies]
