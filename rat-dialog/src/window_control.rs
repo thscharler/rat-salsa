@@ -1,6 +1,7 @@
 //! A list of application windows.
 use crate::WindowControl;
-use rat_event::{HandleEvent, ct_event};
+use rat_event::util::mouse_trap;
+use rat_event::{ConsumedEvent, HandleEvent, ct_event};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{Any, TypeId};
@@ -13,9 +14,6 @@ use try_as::traits::TryAsRef;
 pub mod window_frame;
 
 pub trait Window: Any {
-    /// Is this a dialog or a regular window.
-    fn is_modal(&self) -> bool;
-
     /// Window area.
     fn area(&self) -> Rect;
 }
@@ -30,16 +28,8 @@ impl dyn Window {
     }
 }
 
-/// Hold a stack of widgets.
 ///
-/// Renders the widgets and can handle events.
-///
-/// Hold the dialog-stack in your global state,
-/// call render() at the very end of rendering and
-/// handle() near the start of event-handling.
-///
-/// This will not handle modality, so make sure
-/// to consume all events you don't want to propagate.
+/// A list of [Window]s.
 ///
 pub struct WindowList<Event, Context, Error> {
     core: Rc<WindowListCore<Event, Context, Error>>,
@@ -121,13 +111,10 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         Self::default()
     }
 
-    /// Push a dialog-window on the stack.
-    /// - render is called in reverse stack order, to render bottom to top.
-    /// - event is called in stack-order to handle events.
-    ///   if you don't want events to propagate to dialog-windows in the
-    ///   background, you must consume them by returning StackControl::Unchanged.
-    /// - state as Any
-    pub fn push(
+    /// Show a window.
+    ///
+    /// This shows the window on top of any other.
+    pub fn show(
         &self,
         render: impl Fn(Rect, &mut Buffer, &mut dyn Window, &'_ mut Context) + 'static,
         event: impl Fn(&Event, &mut dyn Window, &'_ mut Context) -> Result<WindowControl<Event>, Error>
@@ -141,30 +128,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.render.borrow_mut().push(Box::new(render));
     }
 
-    /// Pop the top dialog-window from the stack.
-    ///
-    /// It will return None if the stack is empty.
-    ///
-    /// Panic
-    ///
-    /// This function is partially reentrant. When called during rendering/event-handling
-    /// it will panic when trying to pop your current dialog-window.
-    /// Return [WindowControl::Close] instead of calling this function.
-    pub fn pop(&self) -> Option<Box<dyn Window>> {
-        self.core.len.update(|v| v - 1);
-        self.core.type_id.borrow_mut().pop();
-        self.core.event.borrow_mut().pop();
-        self.core.render.borrow_mut().pop();
-        let Some(s) = self.core.state.borrow_mut().pop() else {
-            return None;
-        };
-        if s.is_none() {
-            panic!("state is gone");
-        }
-        s
-    }
-
-    /// Remove some dialog-window.
+    /// Remove the window from the list.
     ///
     /// Panic
     ///
@@ -173,7 +137,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
     /// Return [WindowControl::Close] instead of calling this function.
     ///
     /// Panics when out-of-bounds.
-    pub fn remove(&self, n: usize) -> Box<dyn Window> {
+    pub fn close(&self, n: usize) -> Box<dyn Window> {
         for s in self.core.state.borrow().iter() {
             if s.is_none() {
                 panic!("state is gone");
@@ -192,12 +156,12 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
             .expect("state exists")
     }
 
-    /// Move the given dialog-window to the top of the stack.
+    /// Move the given window to the top.
     ///
     /// Panic
     ///
     /// This function is not reentrant. It will panic when called during
-    /// rendering or event-handling of any dialog-window. Use [WindowControl::ToFront]
+    /// rendering or event-handling of any window. Use [WindowControl::ToFront]
     /// for this.
     ///
     /// Panics when out-of-bounds.
@@ -219,7 +183,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.render.borrow_mut().push(render);
     }
 
-    /// Move the given dialog-window to the bottom of the stack.
+    /// Move the given window to the bottom.
     ///
     /// Panic
     ///
@@ -251,19 +215,19 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.type_id.borrow().is_empty()
     }
 
-    /// Number of dialog-windows.
+    /// Number of windows.
     pub fn len(&self) -> usize {
         self.core.len.get()
     }
 
-    /// Typecheck the state.
+    /// Typecheck the window.
     pub fn state_is<S: 'static>(&self, n: usize) -> bool {
         self.core.type_id.borrow()[n] == TypeId::of::<S>()
     }
 
-    /// Find first state with this type.
+    /// Find top window with this type.
     #[allow(clippy::manual_find)]
-    pub fn first<S: 'static>(&self) -> Option<usize> {
+    pub fn top<S: 'static>(&self) -> Option<usize> {
         for n in (0..self.core.len.get()).rev() {
             if self.core.type_id.borrow()[n] == TypeId::of::<S>() {
                 return Some(n);
@@ -272,7 +236,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         None
     }
 
-    /// Find all states with this type.
+    /// Find all windows with this type.
     pub fn find<S: 'static>(&self) -> Vec<usize> {
         self.core
             .type_id
@@ -290,7 +254,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
             .collect()
     }
 
-    /// Get a reference to the state at index n.
+    /// Get a reference to the window at index n.
     ///
     /// Panic
     ///
@@ -302,7 +266,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.try_get(n).expect("recursion or wrong type")
     }
 
-    /// Get a mutable reference to the state at index n.
+    /// Get a mutable reference to the window at index n.
     ///
     /// Panic
     ///
@@ -314,7 +278,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.try_get_mut(n).expect("recursion or wrong type")
     }
 
-    /// Get a mutable reference to the state at index n.
+    /// Get a mutable reference to the window at index n.
     ///
     /// Panic
     ///
@@ -343,7 +307,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         .ok()
     }
 
-    /// Get a reference to the state at index n.
+    /// Get a reference to the window at index n.
     ///
     /// Panic
     ///
@@ -373,7 +337,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
     }
 }
 
-/// Handle events from top to bottom of the stack.
+/// Handle events from top to bottom.
 ///
 /// Panic
 ///
@@ -386,29 +350,17 @@ where
     Event: 'static,
 {
     fn handle(&mut self, event: &Event, ctx: &mut Context) -> Result<WindowControl<Event>, Error> {
-        let mut modal = false;
-
         for n in (0..self.core.len.get()).rev() {
-            let to_front = {
+            let (to_front, area) = {
                 let state = self.core.state.borrow();
                 let state = state[n].as_ref().expect("state is gone");
-
-                if state.is_modal() {
-                    modal = true;
-                    break;
-                }
-
-                if let Some(ctevent) = event.try_as_ref() {
-                    match ctevent {
-                        ct_event!(mouse down Left for x,y)
-                            if state.area().contains((*x, *y).into()) =>
-                        {
-                            true
-                        }
-                        _ => false,
+                match event.try_as_ref() {
+                    Some(ct_event!(mouse down Left for x,y))
+                        if state.area().contains((*x, *y).into()) =>
+                    {
+                        (true, state.area())
                     }
-                } else {
-                    false
+                    _ => (false, state.area()),
                 }
             };
 
@@ -432,7 +384,7 @@ where
             match r {
                 Ok(r) => match r {
                     WindowControl::Close(_) => {
-                        self.remove(n);
+                        self.close(n);
                         return Ok(r);
                     }
                     WindowControl::Event(_) => {
@@ -444,25 +396,20 @@ where
                     WindowControl::Changed => {
                         return Ok(r);
                     }
-                    WindowControl::Continue => {
-                        // next
-                    }
+                    WindowControl::Continue => match event.try_as_ref() {
+                        Some(event) => {
+                            if mouse_trap(event, area).is_consumed() {
+                                return Ok(WindowControl::Unchanged);
+                            }
+                        }
+                        _ => {}
+                    },
                 },
                 Err(e) => return Err(e),
             }
         }
 
-        if modal {
-            // block all crossterm events.
-            let event: Option<&crossterm::event::Event> = event.try_as_ref();
-            if event.is_some() {
-                Ok(WindowControl::Unchanged)
-            } else {
-                Ok(WindowControl::Continue)
-            }
-        } else {
-            Ok(WindowControl::Continue)
-        }
+        Ok(WindowControl::Continue)
     }
 }
 
@@ -472,7 +419,7 @@ where
 ///
 /// This function is not reentrant, it will panic when called from within it's call-stack.
 pub fn handle_window_list<Event, Context, Error>(
-    mut dialog_stack: WindowList<Event, Context, Error>,
+    mut window_list: WindowList<Event, Context, Error>,
     event: &Event,
     ctx: &mut Context,
 ) -> Result<WindowControl<Event>, Error>
@@ -480,6 +427,8 @@ where
     Event: TryAsRef<crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
+    Error: Debug,
+    Event: Debug,
 {
-    dialog_stack.handle(event, ctx)
+    window_list.handle(event, ctx)
 }

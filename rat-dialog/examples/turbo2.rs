@@ -126,7 +126,6 @@ pub mod app {
     use rat_event::{Dialog, Outcome, break_flow, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{HandleEvent, ct_event};
-    use rat_widget::file_dialog::FileDialogState;
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
     use rat_widget::menu::{MenubarState, PopupMenuState};
@@ -165,16 +164,6 @@ pub mod app {
     fn build_focus(state: &mut Scenery, ctx: &mut Global) {
         let mut builder = FocusBuilder::new(ctx.take_focus());
         builder.widget(&state.menu);
-
-        for i in 0..ctx.dialogs.len() {
-            if let Some(s) = ctx.dialogs.try_get::<FileDialogState>(i) {
-                builder.widget(&*s);
-            }
-            if let Some(s) = ctx.dialogs.try_get::<MsgDialogState>(i) {
-                builder.widget(&*s);
-            }
-        }
-
         ctx.set_focus(builder.build());
     }
 
@@ -301,13 +290,11 @@ pub mod app {
     }
 
     fn show_message(msg: &str, ctx: &mut Global) -> TurboResult {
-        if let Some(n) = ctx.dialogs.first::<MsgDialogState>() {
+        if let Some(n) = ctx.dialogs.top::<MsgDialogState>() {
             let v = ctx.dialogs.get::<MsgDialogState>(n);
             v.append(msg);
         } else {
             let state = MsgDialogState::new_active("Information", msg);
-            ctx.focus().future(&state);
-
             ctx.dialogs.push(render_msg_dlg, handle_msg_dlg, state)
         }
 
@@ -705,10 +692,7 @@ pub mod turbo {
 
     fn show_new(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
-
         state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
-        ctx.focus().future(&state);
-
         ctx.dialogs.push(render_new_dlg, handle_new_dlg, state);
 
         Ok(Control::Changed)
@@ -765,11 +749,9 @@ pub mod turbo {
 
     fn show_open(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
-
         state.open_dialog(PathBuf::from("."))?;
-        ctx.focus().future(&state);
-
         ctx.dialogs.push(render_open_dlg, handle_open_dlg, state);
+
         Ok(Control::Changed)
     }
 
@@ -825,8 +807,6 @@ pub mod turbo {
     fn show_save_as(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
         state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
-
-        ctx.focus().future(&state);
         ctx.dialogs
             .push(render_save_as_dlg, handle_save_as_dlg, state);
 

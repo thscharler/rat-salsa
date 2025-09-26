@@ -2,9 +2,8 @@
 //! Widget for a moveable window.
 //!
 use crate::_private::NonExhaustive;
-use rat_event::util::{MouseFlags, mouse_trap};
+use rat_event::util::MouseFlags;
 use rat_event::{ConsumedEvent, Dialog, HandleEvent, Outcome, ct_event};
-use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
@@ -33,7 +32,6 @@ pub struct WindowFrame<'a> {
     can_move: Option<bool>,
     can_resize: Option<bool>,
     can_close: Option<bool>,
-    modal: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -45,7 +43,6 @@ pub struct WindowFrameStyle {
     pub can_move: Option<bool>,
     pub can_resize: Option<bool>,
     pub can_close: Option<bool>,
-    pub modal: Option<bool>,
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -76,8 +73,6 @@ pub struct WindowFrameState {
     /// Window can be closed.
     /// __read+write__ May be overwritten by the widget.
     pub can_close: bool,
-    /// Modal window.
-    pub modal: bool,
 
     /// move area
     pub move_area: Rect,
@@ -91,14 +86,10 @@ pub struct WindowFrameState {
     /// mouse flags for resize area
     pub mouse_resize: MouseFlags,
 
-    /// window at the start of move
-    pub start_move_area: Rect,
-    /// mouse position at the start of move
-    pub start_move: Position,
+    /// window and mouse position at the start of move
+    pub start_move: (Rect, Position),
     /// mouse flags for move area
     pub mouse_move: MouseFlags,
-
-    pub focus: FocusFlag,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -135,7 +126,6 @@ impl Default for WindowFrameStyle {
             can_move: None,
             can_resize: None,
             can_close: None,
-            modal: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -175,7 +165,6 @@ impl<'a> WindowFrame<'a> {
             can_move: Default::default(),
             can_resize: Default::default(),
             can_close: Default::default(),
-            modal: Default::default(),
         }
     }
 
@@ -205,13 +194,6 @@ impl<'a> WindowFrame<'a> {
         self
     }
 
-    /// Is this a modal window that blocks everything else.
-    /// Aka a Dialog
-    pub fn modal(mut self, v: bool) -> Self {
-        self.modal = Some(v);
-        self
-    }
-
     /// Window block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = block.style(self.style);
@@ -235,9 +217,6 @@ impl<'a> WindowFrame<'a> {
         }
         if let Some(can_close) = styles.can_close {
             self.can_move = Some(can_close);
-        }
-        if let Some(modal) = styles.modal {
-            self.can_move = Some(modal);
         }
         self
     }
@@ -282,9 +261,6 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
         }
         if let Some(v) = self.can_close {
             state.can_close = v;
-        }
-        if let Some(v) = self.modal {
-            state.modal = v;
         }
 
         if state.can_resize {
@@ -367,36 +343,15 @@ impl Default for WindowFrameState {
             can_move: true,
             can_resize: true,
             can_close: true,
-            modal: false,
             move_area: Default::default(),
             resize_area: Default::default(),
             close_area: Default::default(),
             mouse_close: Default::default(),
             mouse_resize: Default::default(),
-            start_move_area: Default::default(),
             start_move: Default::default(),
             mouse_move: Default::default(),
-            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
-    }
-}
-
-impl HasFocus for WindowFrameState {
-    fn build(&self, builder: &mut FocusBuilder) {
-        if self.modal {
-            builder.widget_with_flags(self.focus(), self.area(), self.area_z(), Navigation::Lock)
-        } else {
-            builder.widget_with_flags(self.focus(), self.area(), self.area_z(), Navigation::None)
-        }
-    }
-
-    fn focus(&self) -> FocusFlag {
-        self.focus.clone()
-    }
-
-    fn area(&self) -> Rect {
-        Rect::default()
     }
 }
 
@@ -405,7 +360,8 @@ impl WindowFrameState {
         Self::default()
     }
 
-    pub fn flip_max(&mut self) {
+    /// Switch between maximized and normal size.
+    pub fn flip_maximize(&mut self) {
         if self.area == self.limit && !self.arc_area.is_empty() {
             self.area = self.arc_area;
         } else {
@@ -421,7 +377,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
         event: &crossterm::event::Event,
         _qualifier: Dialog,
     ) -> WindowFrameOutcome {
-        let r = match event {
+        match event {
             ct_event!(mouse any for m) if self.mouse_close.hover(self.close_area, m) => {
                 WindowFrameOutcome::Changed
             }
@@ -452,24 +408,36 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                 WindowFrameOutcome::Changed
             }
             ct_event!(mouse any for m) if self.mouse_move.doubleclick(self.move_area, m) => {
-                self.flip_max();
+                self.flip_maximize();
                 WindowFrameOutcome::Resized
             }
             ct_event!(mouse any for m) if self.mouse_move.drag(self.move_area, m) => {
-                let delta_x = m.column as i16 - self.start_move.x as i16;
-                let delta_y = m.row as i16 - self.start_move.y as i16;
-                let new_area = Rect::new(
-                    self.start_move_area.x.saturating_add_signed(delta_x),
-                    self.start_move_area.y.saturating_add_signed(delta_y),
-                    self.start_move_area.width,
-                    self.start_move_area.height,
+                let delta_x = m.column as i16 - self.start_move.1.x as i16;
+                let delta_y = m.row as i16 - self.start_move.1.y as i16;
+
+                let mut new_area = Rect::new(
+                    self.start_move.0.x.saturating_add_signed(delta_x),
+                    self.start_move.0.y.saturating_add_signed(delta_y),
+                    self.start_move.0.width,
+                    self.start_move.0.height,
                 );
 
-                if new_area.left() >= self.limit.left()
-                    && new_area.top() >= self.limit.top()
-                    && new_area.right() <= self.limit.right()
-                    && new_area.bottom() <= self.limit.bottom()
-                {
+                if new_area.x < self.limit.x {
+                    new_area.x = self.limit.x;
+                }
+                if new_area.y < self.limit.y {
+                    new_area.y = self.limit.y;
+                }
+                if new_area.right() > self.limit.right() {
+                    let delta = new_area.right() - self.limit.right();
+                    new_area.x -= delta;
+                }
+                if new_area.bottom() > self.limit.bottom() {
+                    let delta = new_area.bottom() - self.limit.bottom();
+                    new_area.y -= delta;
+                }
+
+                if new_area != self.area {
                     self.area = new_area;
                     WindowFrameOutcome::Moved
                 } else {
@@ -477,19 +445,10 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                 }
             }
             ct_event!(mouse down Left for x,y) if self.move_area.contains((*x, *y).into()) => {
-                self.start_move_area = self.area;
-                self.start_move = Position::new(*x, *y);
+                self.start_move = (self.area, Position::new(*x, *y));
                 WindowFrameOutcome::Changed
             }
             _ => WindowFrameOutcome::Continue,
-        };
-
-        r.or_else(|| {
-            if self.modal {
-                WindowFrameOutcome::Unchanged
-            } else {
-                mouse_trap(event, self.area).into()
-            }
-        })
+        }
     }
 }

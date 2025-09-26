@@ -172,60 +172,6 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
             .expect("state exists")
     }
 
-    /// Move the given dialog-window to the top of the stack.
-    ///
-    /// Panic
-    ///
-    /// This function is not reentrant. It will panic when called during
-    /// rendering or event-handling of any dialog-window. Use [WindowControl::ToFront]
-    /// for this.
-    ///
-    /// Panics when out-of-bounds.
-    pub fn to_front(&self, n: usize) {
-        for s in self.core.state.borrow().iter() {
-            if s.is_none() {
-                panic!("state is gone");
-            }
-        }
-
-        let type_id = self.core.type_id.borrow_mut().remove(n);
-        let state = self.core.state.borrow_mut().remove(n);
-        let event = self.core.event.borrow_mut().remove(n);
-        let render = self.core.render.borrow_mut().remove(n);
-
-        self.core.type_id.borrow_mut().push(type_id);
-        self.core.state.borrow_mut().push(state);
-        self.core.event.borrow_mut().push(event);
-        self.core.render.borrow_mut().push(render);
-    }
-
-    /// Move the given dialog-window to the bottom of the stack.
-    ///
-    /// Panic
-    ///
-    /// This function is not reentrant. It will panic when called during
-    /// rendering or event-handling of any dialog-window. Use [WindowControl::ToFront]
-    /// for this.
-    ///
-    /// Panics when out-of-bounds.
-    pub fn to_back(&self, n: usize) {
-        for s in self.core.state.borrow().iter() {
-            if s.is_none() {
-                panic!("state is gone");
-            }
-        }
-
-        let type_id = self.core.type_id.borrow_mut().remove(n);
-        let state = self.core.state.borrow_mut().remove(n);
-        let event = self.core.event.borrow_mut().remove(n);
-        let render = self.core.render.borrow_mut().remove(n);
-
-        self.core.type_id.borrow_mut().insert(0, type_id);
-        self.core.state.borrow_mut().insert(0, state);
-        self.core.event.borrow_mut().insert(0, event);
-        self.core.render.borrow_mut().insert(0, render);
-    }
-
     /// No windows.
     pub fn is_empty(&self) -> bool {
         self.core.type_id.borrow().is_empty()
@@ -241,9 +187,9 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
         self.core.type_id.borrow()[n] == TypeId::of::<S>()
     }
 
-    /// Find first state with this type.
+    /// Find top state with this type.
     #[allow(clippy::manual_find)]
-    pub fn first<S: 'static>(&self) -> Option<usize> {
+    pub fn top<S: 'static>(&self) -> Option<usize> {
         for n in (0..self.core.len.get()).rev() {
             if self.core.type_id.borrow()[n] == TypeId::of::<S>() {
                 return Some(n);

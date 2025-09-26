@@ -10,10 +10,10 @@ use crate::app::Scenery;
 use crate::global::{Global, TurboConfig, TurboEvent};
 use crate::theme::TurboTheme;
 use anyhow::Error;
-use rat_dialog::{WindowControl, WindowList};
+use rat_dialog::WindowControl;
 use rat_salsa::poll::PollCrossterm;
-use rat_salsa::{Control, RunConfig, SalsaContext, run_tui};
-use rat_theme3::palettes::{BASE16, IMPERIAL, MONEKAI, OCEAN, SOLARIZED, TUNDRA};
+use rat_salsa::{Control, RunConfig, run_tui};
+use rat_theme3::palettes::BASE16;
 use std::fs;
 use std::path::PathBuf;
 
@@ -144,13 +144,11 @@ pub mod app {
     use crate::turbo::Turbo;
     use crate::{TurboDialogResult, TurboResult, editor, menu, turbo};
     use anyhow::Error;
-    use log::debug;
     use rat_dialog::{WindowControl, handle_dialog_stack, handle_window_list};
     use rat_event::{Dialog, Outcome, break_flow, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_theme3::{create_palette, salsa_palettes};
     use rat_widget::event::{HandleEvent, ct_event};
-    use rat_widget::file_dialog::FileDialogState;
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
     use rat_widget::menu::{MenubarState, PopupMenuState};
@@ -182,6 +180,13 @@ pub mod app {
         if let TurboEvent::Event(event) = event {
             build_focus(state, ctx);
             ctx.handle_focus(event);
+
+            // if let ct_event!(keycode press Esc) => {
+            //     if state.menu.is_focused() {
+            //         ctx.windows.is_modal_blocked()
+            //     }
+            //
+            // }
         }
         Ok(Control::Continue)
     }
@@ -190,14 +195,6 @@ pub mod app {
         let mut builder = FocusBuilder::new(ctx.take_focus());
         builder.widget(&state.menu);
 
-        for i in 0..ctx.dialogs.len() {
-            if let Some(s) = ctx.dialogs.try_get::<FileDialogState>(i) {
-                builder.widget(&*s);
-            }
-            if let Some(s) = ctx.dialogs.try_get::<MsgDialogState>(i) {
-                builder.widget(&*s);
-            }
-        }
         for i in 0..ctx.windows.len() {
             if let Some(editor) = ctx.windows.try_get::<EditorState>(i) {
                 builder.widget(&*editor);
@@ -327,8 +324,6 @@ pub mod app {
                     let idx = idx.unwrap_or(pal.len() - 1);
                     let idx = (idx + 1) % pal.len();
 
-                    debug!("palette {:?}", pal[idx]);
-
                     ctx.theme = TurboTheme::new(
                         pal[idx].to_string(),
                         create_palette(pal[idx]).expect("palette"),
@@ -366,13 +361,11 @@ pub mod app {
     }
 
     fn show_message(msg: &str, ctx: &mut Global) -> TurboResult {
-        if let Some(n) = ctx.dialogs.first::<MsgDialogState>() {
+        if let Some(n) = ctx.dialogs.top::<MsgDialogState>() {
             let v = ctx.dialogs.get::<MsgDialogState>(n);
             v.append(msg);
         } else {
             let state = MsgDialogState::new_active("Information", msg);
-            ctx.focus().future(&state);
-
             ctx.dialogs.push(render_msg_dlg, handle_msg_dlg, state)
         }
 
@@ -792,9 +785,9 @@ pub mod turbo {
             TurboEvent::OpenDialog => try_flow!(show_open(ctx)?),
             TurboEvent::SaveAsDialog => try_flow!(show_save_as(ctx)?),
             TurboEvent::WindowMaximize => {
-                try_flow!(if let Some(idx) = ctx.windows.first::<EditorState>() {
+                try_flow!(if let Some(idx) = ctx.windows.top::<EditorState>() {
                     let mut editor = ctx.windows.get_mut::<EditorState>(idx);
-                    editor.window.flip_max();
+                    editor.window.flip_maximize();
                     Control::Changed
                 } else {
                     Control::Continue
@@ -828,13 +821,23 @@ pub mod turbo {
             }
             TurboEvent::WindowCloseAll => {
                 try_flow!({
-                    while let Some(_editor) = ctx.windows.pop() {}
+                    loop {
+                        let n = ctx.windows.len();
+                        if n > 0 {
+                            ctx.windows.close(n - 1);
+                        } else {
+                            break;
+                        }
+                    }
                     Control::Changed
                 })
             }
             TurboEvent::WindowClose => {
                 try_flow!({
-                    if let Some(_editor) = ctx.windows.pop() {}
+                    let n = ctx.windows.len();
+                    if n > 0 {
+                        ctx.windows.close(n - 1);
+                    }
                     Control::Changed
                 });
             }
@@ -846,12 +849,8 @@ pub mod turbo {
 
     fn show_new(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
-
         state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
-        ctx.focus().future(&state);
-
         ctx.dialogs.push(render_new_dlg, handle_new_dlg, state);
-
         Ok(Control::Changed)
     }
 
@@ -906,10 +905,7 @@ pub mod turbo {
 
     fn show_open(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
-
         state.open_dialog(PathBuf::from("."))?;
-        ctx.focus().future(&state);
-
         ctx.dialogs.push(render_open_dlg, handle_open_dlg, state);
         Ok(Control::Changed)
     }
@@ -966,11 +962,8 @@ pub mod turbo {
     fn show_save_as(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
         state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
-
-        ctx.focus().future(&state);
         ctx.dialogs
             .push(render_save_as_dlg, handle_save_as_dlg, state);
-
         Ok(Control::Changed)
     }
 
@@ -1051,10 +1044,6 @@ pub mod editor {
     }
 
     impl Window for EditorState {
-        fn is_modal(&self) -> bool {
-            self.window.modal
-        }
-
         fn area(&self) -> Rect {
             self.window.area
         }
@@ -1062,17 +1051,15 @@ pub mod editor {
 
     impl HasFocus for EditorState {
         fn build(&self, builder: &mut FocusBuilder) {
-            let tag = builder.start(&self.window);
             builder.widget_navigate(&self.text, Navigation::Mouse);
-            builder.end(tag);
         }
 
         fn focus(&self) -> FocusFlag {
-            self.window.focus()
+            self.text.focus()
         }
 
         fn area(&self) -> Rect {
-            self.window.area
+            self.text.area
         }
     }
 
@@ -1114,7 +1101,7 @@ pub mod editor {
     }
 
     fn cascade_window(ctx: &mut Global) -> Rect {
-        if let Some(idx) = ctx.windows.first::<EditorState>() {
+        if let Some(idx) = ctx.windows.top::<EditorState>() {
             let editor = ctx.windows.get::<EditorState>(idx);
             let area = editor.window.area;
 
@@ -1149,7 +1136,7 @@ pub mod editor {
             TurboEvent::Open(f) => {
                 let mut editor = EditorState::open(f)?;
                 editor.window.area = cascade_window(ctx);
-                ctx.windows.push(dlg_render, dlg_event, editor);
+                ctx.windows.show(dlg_render, dlg_event, editor);
                 Control::Changed
             }
             _ => {
