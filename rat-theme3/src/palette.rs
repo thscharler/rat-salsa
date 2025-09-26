@@ -45,6 +45,7 @@ pub struct Palette {
 }
 
 /// Contrast rating for the text-color that should be used.
+#[derive(Debug)]
 pub enum TextColorRating {
     /// Use light/white text for the given background.
     Light,
@@ -53,6 +54,7 @@ pub enum TextColorRating {
 }
 
 /// Used to create a high contrast or normal contrast style.
+#[derive(Debug)]
 pub enum Contrast {
     High,
     Normal,
@@ -281,7 +283,7 @@ impl Palette {
     // }
 
     /// Gives the luminance according to BT.709.
-    const fn luminance_bt(color: Color) -> f32 {
+    pub(crate) const fn luminance_bt(color: Color) -> f32 {
         let (r, g, b) = Self::color2rgb(color);
         0.2126f32 * ((r as f32) / 255f32)
             + 0.7152f32 * ((g as f32) / 255f32)
@@ -289,7 +291,7 @@ impl Palette {
     }
 
     /// Gives the luminance according to BT.709.
-    fn luminance_bt_srgb(color: Color) -> f32 {
+    pub(crate) fn luminance_bt_srgb(color: Color) -> f32 {
         let (r, g, b) = Self::color2rgb(color);
         0.2126f32 * ((r as f32) / 255f32).powf(2.2f32)
             + 0.7152f32 * ((g as f32) / 255f32).powf(2.2f32)
@@ -297,10 +299,13 @@ impl Palette {
     }
 
     /// Contrast between two colors.
-    fn contrast_bt_srgb(color: Color, color2: Color) -> f32 {
+    pub(crate) fn contrast_bt_srgb(color: Color, color2: Color) -> f32 {
         let lum1 = Self::luminance_bt_srgb(color);
         let lum2 = Self::luminance_bt_srgb(color2);
-        (lum1 + 0.05f32) / (lum2 + 0.05f32)
+        (lum1 - lum2).abs()
+        // Don't use this prescribed method.
+        // The abs diff comes out better.
+        // (lum1 + 0.05f32) / (lum2 + 0.05f32)
     }
 
     /// This gives back a [TextColorRating] for the given background.
