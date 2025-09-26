@@ -60,6 +60,9 @@ pub struct WindowFrameState {
     /// change this area to move the window.
     /// __read+write__
     pub area: Rect,
+    /// archived area. used when switching between
+    /// maximized and normal size.
+    pub arc_area: Rect,
     /// area for window content.
     /// __read only__ renewed with each render.
     pub widget_area: Rect,
@@ -268,7 +271,9 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
         } else {
             state.limit = area;
         }
+        state.area = state.area.intersection(state.limit);
         state.widget_area = self.block.inner(state.area);
+
         if let Some(v) = self.can_move {
             state.can_move = v;
         }
@@ -357,6 +362,7 @@ impl Default for WindowFrameState {
         Self {
             limit: Default::default(),
             area: Default::default(),
+            arc_area: Default::default(),
             widget_area: Default::default(),
             can_move: true,
             can_resize: true,
@@ -398,6 +404,15 @@ impl WindowFrameState {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn flip_max(&mut self) {
+        if self.area == self.limit && !self.arc_area.is_empty() {
+            self.area = self.arc_area;
+        } else {
+            self.arc_area = self.area;
+            self.area = self.limit;
+        }
+    }
 }
 
 impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for WindowFrameState {
@@ -410,10 +425,11 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
             ct_event!(mouse any for m) if self.mouse_close.hover(self.close_area, m) => {
                 WindowFrameOutcome::Changed
             }
-            ct_event!(mouse any for m) if self.mouse_resize.hover(self.resize_area, m) => {
-                WindowFrameOutcome::Changed
+            ct_event!(mouse down Left for x,y) if self.close_area.contains((*x, *y).into()) => {
+                WindowFrameOutcome::ShouldClose
             }
-            ct_event!(mouse any for m) if self.mouse_move.hover(self.move_area, m) => {
+
+            ct_event!(mouse any for m) if self.mouse_resize.hover(self.resize_area, m) => {
                 WindowFrameOutcome::Changed
             }
             ct_event!(mouse any for m) if self.mouse_resize.drag(self.resize_area, m) => {
@@ -430,6 +446,14 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                 } else {
                     WindowFrameOutcome::Continue
                 }
+            }
+
+            ct_event!(mouse any for m) if self.mouse_move.hover(self.move_area, m) => {
+                WindowFrameOutcome::Changed
+            }
+            ct_event!(mouse any for m) if self.mouse_move.doubleclick(self.move_area, m) => {
+                self.flip_max();
+                WindowFrameOutcome::Resized
             }
             ct_event!(mouse any for m) if self.mouse_move.drag(self.move_area, m) => {
                 let delta_x = m.column as i16 - self.start_move.x as i16;
@@ -456,9 +480,6 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                 self.start_move_area = self.area;
                 self.start_move = Position::new(*x, *y);
                 WindowFrameOutcome::Changed
-            }
-            ct_event!(mouse down Left for x,y) if self.close_area.contains((*x, *y).into()) => {
-                WindowFrameOutcome::ShouldClose
             }
             _ => WindowFrameOutcome::Continue,
         };

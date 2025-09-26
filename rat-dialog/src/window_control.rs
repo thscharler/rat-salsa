@@ -1,6 +1,5 @@
 //! A list of application windows.
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, ct_event};
-use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_salsa::{Control, SalsaContext};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -11,7 +10,7 @@ use std::mem;
 use std::rc::Rc;
 use try_as::traits::TryAsRef;
 
-pub mod window;
+pub mod window_frame;
 
 /// Extends rat-salsa::Control with some dialog specific options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -52,7 +51,13 @@ impl<Event, T: Into<Outcome>> From<T> for WindowControl<Event> {
     }
 }
 
-pub trait Window: HasFocus + Any {}
+pub trait Window: Any {
+    /// Is this a dialog or a regular window.
+    fn is_modal(&self) -> bool;
+
+    /// Window area.
+    fn area(&self) -> Rect;
+}
 
 impl dyn Window {
     pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
@@ -92,23 +97,6 @@ struct WindowListCore<Event, Context, Error> {
     >,
     type_id: RefCell<Vec<TypeId>>,
     state: RefCell<Vec<Option<Box<dyn Window>>>>,
-}
-
-impl<Event, Context, Error> HasFocus for WindowList<Event, Context, Error> {
-    fn build(&self, builder: &mut FocusBuilder) {
-        for w in self.core.state.borrow().iter() {
-            let w = w.as_ref().expect("invalid state");
-            builder.widget(w.as_ref());
-        }
-    }
-
-    fn focus(&self) -> FocusFlag {
-        unimplemented!("unused")
-    }
-
-    fn area(&self) -> Rect {
-        unimplemented!("unused")
-    }
 }
 
 impl<Event, Context, Error> Clone for WindowList<Event, Context, Error> {
@@ -270,6 +258,33 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.render.borrow_mut().push(render);
     }
 
+    /// Move the given dialog-window to the bottom of the stack.
+    ///
+    /// Panic
+    ///
+    /// This function is not reentrant. It will panic when called during
+    /// rendering or event-handling of any dialog-window. Use [WindowControl::ToFront]
+    /// for this.
+    ///
+    /// Panics when out-of-bounds.
+    pub fn to_back(&self, n: usize) {
+        for s in self.core.state.borrow().iter() {
+            if s.is_none() {
+                panic!("state is gone");
+            }
+        }
+
+        let type_id = self.core.type_id.borrow_mut().remove(n);
+        let state = self.core.state.borrow_mut().remove(n);
+        let event = self.core.event.borrow_mut().remove(n);
+        let render = self.core.render.borrow_mut().remove(n);
+
+        self.core.type_id.borrow_mut().insert(0, type_id);
+        self.core.state.borrow_mut().insert(0, state);
+        self.core.event.borrow_mut().insert(0, event);
+        self.core.render.borrow_mut().insert(0, render);
+    }
+
     /// No windows.
     pub fn is_empty(&self) -> bool {
         self.core.type_id.borrow().is_empty()
@@ -414,7 +429,12 @@ where
         for n in (0..self.core.len.get()).rev() {
             let to_front = {
                 let state = self.core.state.borrow();
-                let state = state[n].as_ref().expect("fine");
+                let state = state[n].as_ref().expect("state is gone");
+
+                if state.is_modal() {
+                    break;
+                }
+
                 if let Some(ctevent) = event.try_as_ref() {
                     match ctevent {
                         ct_event!(mouse down Left for x,y)

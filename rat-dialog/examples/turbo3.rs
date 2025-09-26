@@ -102,6 +102,12 @@ mod global {
         SaveAsDialog,
 
         Open(PathBuf),
+
+        WindowClose,
+        WindowPrev,
+        WindowNext,
+        WindowMaximize,
+        WindowCloseAll,
     }
 
     impl TryAsRef<crossterm::event::Event> for TurboEvent {
@@ -397,6 +403,7 @@ pub mod menu {
     use crate::app::Scenery;
     use crate::global::{Global, TurboEvent};
     use anyhow::Error;
+    use log::debug;
     use rat_event::{HandleEvent, Popup, ct_event, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::MenuOutcome;
@@ -404,10 +411,9 @@ pub mod menu {
         MenuBuilder, MenuStructure, Menubar, MenubarPopup, PopupConstraint, PopupMenu,
     };
     use rat_widget::popup::Placement;
-    use rat_widget::shadow::{Shadow, ShadowDirection};
+    use rat_widget::shadow::Shadow;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Alignment, Rect};
-    use ratatui::style::{Style, Stylize};
     use ratatui::widgets::{Block, StatefulWidget};
 
     #[derive(Debug)]
@@ -476,62 +482,86 @@ pub mod menu {
         state: &mut Scenery,
         ctx: &mut Global,
     ) -> Result<Control<TurboEvent>, Error> {
-        match event {
-            TurboEvent::Event(event) => {
-                if state.menu.selected() == (Some(7), Some(6)) {
-                    try_flow!(match event {
-                        ct_event!(keycode press Right) => {
-                            state.menu_environment.set_active(true);
-                            Control::Changed
-                        }
-                        _ => Control::Continue,
-                    });
+        if let TurboEvent::Event(event) = event {
+            if state.menu.selected() == (Some(7), Some(6)) {
+                try_flow!(match event {
+                    ct_event!(keycode press Right) => {
+                        state.menu_environment.set_active(true);
+                        Control::Changed
+                    }
+                    _ => Control::Continue,
+                });
+            }
+
+            if state.menu_environment.is_active() {
+                if matches!(event, ct_event!(keycode press Left)) {
+                    debug!("f0");
+                    state.menu_environment.set_active(false);
+                    return Ok(Control::Changed);
                 }
-                if state.menu_environment.is_active() {
-                    try_flow!(match state.menu_environment.handle(event, Popup) {
-                        MenuOutcome::Activated(_) => {
-                            state.menu.popup.set_active(false);
-                            Control::Changed
-                        }
-                        r => r.into(),
-                    });
-                } else {
-                    try_flow!({
-                        let rr = state.menu.handle(event, Popup);
-                        match rr {
-                            MenuOutcome::MenuActivated(0, 0) => {
-                                Control::Event(TurboEvent::NewDialog)
-                            }
-                            MenuOutcome::MenuActivated(0, 1) => {
-                                Control::Event(TurboEvent::OpenDialog)
-                            }
-                            MenuOutcome::MenuActivated(0, 3) => {
-                                Control::Event(TurboEvent::SaveAsDialog)
-                            }
-                            MenuOutcome::MenuActivated(0, 9) => Control::Quit,
-                            MenuOutcome::MenuActivated(7, 6) => {
-                                // reactivate menu
-                                state.menu.popup.set_active(true);
-                                state.menu_environment.set_active(true);
-                                Control::Changed
-                            }
-                            MenuOutcome::MenuActivated(6, 0) => {
-                                for _ in 0..50 {
-                                    ctx.queue(Control::Event(TurboEvent::Message("Hello!".into())));
-                                }
-                                Control::Changed
-                            }
-                            MenuOutcome::Selected(_) => {
-                                state.menu_environment.set_active(false);
-                                Control::Changed
-                            }
-                            // MenuOutcome::Hide => {}
-                            r => r.into(),
-                        }
-                    });
+                match state.menu_environment.handle(event, Popup) {
+                    MenuOutcome::Activated(_) => {
+                        debug!("f1");
+                        state.menu.popup.set_active(false);
+                        return Ok(Control::Changed);
+                    }
+                    MenuOutcome::Hide => {
+                        debug!("f2");
+                        state.menu_environment.set_active(false);
+                        ctx.queue(Control::Changed);
+                    }
+                    r => try_flow!(r),
                 }
             }
-            _ => {}
+
+            let r = state.menu.handle(event, Popup);
+            if let MenuOutcome::MenuActivated(m, s) = r {
+                match m {
+                    0 => match s {
+                        0 => return Ok(Control::Event(TurboEvent::NewDialog)),
+                        1 => return Ok(Control::Event(TurboEvent::OpenDialog)),
+                        3 => return Ok(Control::Event(TurboEvent::SaveAsDialog)),
+                        9 => return Ok(Control::Quit),
+                        _ => {}
+                    },
+                    6 => match s {
+                        0 => {
+                            for _ in 0..50 {
+                                ctx.queue(Control::Event(TurboEvent::Message("Hello!".into())));
+                            }
+                            return Ok(Control::Changed);
+                        }
+                        _ => {}
+                    },
+                    7 => match s {
+                        6 => {
+                            // reactivate menu
+                            state.menu.popup.set_active(true);
+                            state.menu_environment.set_active(true);
+                            return Ok(Control::Changed);
+                        }
+                        _ => {}
+                    },
+                    8 => match s {
+                        2 => return Ok(Control::Event(TurboEvent::WindowCloseAll)),
+                        5 => return Ok(Control::Event(TurboEvent::WindowMaximize)),
+                        6 => return Ok(Control::Event(TurboEvent::WindowNext)),
+                        7 => return Ok(Control::Event(TurboEvent::WindowPrev)),
+                        8 => return Ok(Control::Event(TurboEvent::WindowClose)),
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            } else if matches!(r, MenuOutcome::MenuSelected(_, _)) {
+                ctx.queue(Control::Changed);
+            } else {
+                try_flow!(r);
+            }
+
+            if !matches!(state.menu.selected(), (Some(7), Some(6))) {
+                state.menu_environment.set_active(false);
+                ctx.queue(Control::Changed);
+            }
         }
 
         Ok(Control::Continue)
@@ -692,10 +722,11 @@ pub mod menu {
 
 pub mod turbo {
     use crate::TurboDialogResult;
+    use crate::editor::EditorState;
     use crate::global::{Global, TurboEvent};
     use anyhow::Error;
     use rat_dialog::DialogControl;
-    use rat_event::{Dialog, Outcome};
+    use rat_event::{Dialog, Outcome, ct_event};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
@@ -716,9 +747,73 @@ pub mod turbo {
         ctx: &mut Global,
     ) -> Result<Control<TurboEvent>, Error> {
         match event {
+            TurboEvent::Event(event) => match event {
+                ct_event!(keycode press F(5)) => {
+                    return Ok(Control::Event(TurboEvent::WindowMaximize));
+                }
+                ct_event!(keycode press F(6)) => return Ok(Control::Event(TurboEvent::WindowNext)),
+                ct_event!(keycode press SHIFT-F(6)) => {
+                    return Ok(Control::Event(TurboEvent::WindowPrev));
+                }
+                ct_event!(keycode press ALT-F(3)) => {
+                    return Ok(Control::Event(TurboEvent::WindowClose));
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+
+        match event {
             TurboEvent::NewDialog => try_flow!(show_new(ctx)?),
             TurboEvent::OpenDialog => try_flow!(show_open(ctx)?),
             TurboEvent::SaveAsDialog => try_flow!(show_save_as(ctx)?),
+            TurboEvent::WindowMaximize => {
+                try_flow!(if let Some(idx) = ctx.windows.first::<EditorState>() {
+                    let mut editor = ctx.windows.get_mut::<EditorState>(idx);
+                    editor.window.flip_max();
+                    Control::Changed
+                } else {
+                    Control::Continue
+                });
+            }
+            TurboEvent::WindowNext => {
+                try_flow!({
+                    let len = ctx.windows.len();
+                    if len > 0 {
+                        ctx.windows.to_front(0);
+                        let editor = ctx.windows.get::<EditorState>(len - 1);
+                        ctx.focus().focus(&*editor);
+                        Control::Changed
+                    } else {
+                        Control::Continue
+                    }
+                });
+            }
+            TurboEvent::WindowPrev => {
+                try_flow!({
+                    let len = ctx.windows.len();
+                    if len > 0 {
+                        ctx.windows.to_back(len - 1);
+                        let editor = ctx.windows.get::<EditorState>(len - 1);
+                        ctx.focus().focus(&*editor);
+                        Control::Changed
+                    } else {
+                        Control::Continue
+                    }
+                });
+            }
+            TurboEvent::WindowCloseAll => {
+                try_flow!({
+                    while let Some(_editor) = ctx.windows.pop() {}
+                    Control::Changed
+                })
+            }
+            TurboEvent::WindowClose => {
+                try_flow!({
+                    if let Some(_editor) = ctx.windows.pop() {}
+                    Control::Changed
+                });
+            }
             _ => {}
         }
 
@@ -909,19 +1004,17 @@ pub mod editor {
     use crate::global::{Global, TurboEvent};
     use crate::turbo::Turbo;
     use anyhow::Error;
-    use log::debug;
     use rat_dialog::{Window, WindowControl, WindowFrame, WindowFrameOutcome, WindowFrameState};
-    use rat_event::{Dialog, HandleEvent, Regular, ct_event, try_flow};
+    use rat_event::{Dialog, HandleEvent, Regular, try_flow};
     use rat_focus::Navigation;
     use rat_salsa::Control;
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::scrolled::Scroll;
-    use rat_widget::shadow::{Shadow, ShadowDirection};
+    use rat_widget::shadow::Shadow;
     use rat_widget::text::HasScreenCursor;
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
-    use ratatui::style::{Style, Stylize};
     use ratatui::widgets::StatefulWidget;
     use std::fs::File;
     use std::io::Read;
@@ -934,7 +1027,15 @@ pub mod editor {
         pub text: TextAreaState,
     }
 
-    impl Window for EditorState {}
+    impl Window for EditorState {
+        fn is_modal(&self) -> bool {
+            self.window.modal
+        }
+
+        fn area(&self) -> Rect {
+            self.window.area
+        }
+    }
 
     impl HasFocus for EditorState {
         fn build(&self, builder: &mut FocusBuilder) {
@@ -990,8 +1091,8 @@ pub mod editor {
     }
 
     fn cascade_window(ctx: &mut Global) -> Rect {
-        if let Some(idx) = ctx.dialogs.first::<EditorState>() {
-            let editor = ctx.dialogs.get::<EditorState>(idx);
+        if let Some(idx) = ctx.windows.first::<EditorState>() {
+            let editor = ctx.windows.get::<EditorState>(idx);
             let area = editor.window.area;
 
             Rect::new(area.x + 1, area.y + 1, area.width, area.height)
@@ -1063,7 +1164,7 @@ pub mod editor {
         match event {
             TurboEvent::Event(event) => {
                 try_flow!(state.text.handle(event, Regular));
-                try_flow!(log edit3: match state.window.handle(event, Dialog) {
+                try_flow!(match state.window.handle(event, Dialog) {
                     WindowFrameOutcome::ShouldClose => {
                         WindowControl::Close(TurboEvent::NoOp)
                     }

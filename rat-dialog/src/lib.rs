@@ -5,7 +5,7 @@ mod dialog_control;
 mod window_control;
 
 pub use dialog_control::{DialogControl, DialogStack, handle_dialog_stack};
-pub use window_control::window::{
+pub use window_control::window_frame::{
     WindowFrame, WindowFrameOutcome, WindowFrameState, WindowFrameStyle,
 };
 pub use window_control::{Window, WindowControl, WindowList, handle_window_list};
