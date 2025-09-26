@@ -1,6 +1,6 @@
 use crate::moving::MovingState;
 use anyhow::Error;
-use rat_dialog::{DialogControl, DialogStack, handle_dialog_stack};
+use rat_dialog::{DialogStack, WindowControl, handle_dialog_stack};
 use rat_event::{Outcome, Popup, break_flow, try_flow};
 use rat_focus::impl_has_focus;
 use rat_salsa::event::RenderedEvent;
@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 type AppResult = Result<Control<AppEvent>, Error>;
-type AppDialogResult = Result<DialogControl<AppEvent>, Error>;
+type AppDialogResult = Result<WindowControl<AppEvent>, Error>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -196,7 +196,18 @@ pub fn event(event: &AppEvent, state: &mut Scenery, ctx: &mut Global) -> AppResu
         break_flow!('b: handle_super_keys(event, state, ctx)?);
         break_flow!('b: handle_error_dlg(event, state, ctx)?);
         break_flow!('b: handle_app_events(event, state, ctx)?);
-        break_flow!('b: handle_dialog_stack(ctx.dialogs.clone(), event, ctx)?);
+        break_flow!('b: {
+            match handle_dialog_stack(ctx.dialogs.clone(), event, ctx)? {
+                WindowControl::Continue => Control::Continue,
+                WindowControl::Unchanged => Control::Unchanged,
+                WindowControl::Changed => Control::Changed,
+                WindowControl::Event(e) => Control::Changed,
+                WindowControl::Close(e) => {
+                    ctx.queue_event(e);
+                    Control::Changed
+                }
+            }
+        });
         break_flow!('b: {
             if let AppEvent::Event(event) = event {
                 ctx.handle_focus(event);
@@ -290,7 +301,7 @@ pub mod moving {
     use crate::window::{Window, WindowOutcome, WindowState};
     use crate::{AppDialogResult, AppEvent, AppResult, Global};
     use anyhow::Error;
-    use rat_dialog::DialogControl;
+    use rat_dialog::WindowControl;
     use rat_event::{Dialog, Regular};
     use rat_salsa::{Control, SalsaContext};
     use rat_theme3::SalsaTheme;
@@ -387,20 +398,20 @@ pub mod moving {
             AppEvent::Event(event) => {
                 try_flow!(match state.window.handle(event, Regular) {
                     WindowOutcome::ShouldClose => {
-                        DialogControl::Close(AppEvent::NoOp)
+                        WindowControl::Close(AppEvent::NoOp)
                     }
                     r => r.into(),
                 });
                 try_flow!(match state.filedlg.handle(event, Dialog)? {
-                    FileOutcome::Cancel => DialogControl::Close(AppEvent::NoOp),
+                    FileOutcome::Cancel => WindowControl::Close(AppEvent::NoOp),
                     FileOutcome::Ok(f) => {
-                        DialogControl::Close(AppEvent::Status(0, format!("Open file {:?}", f)))
+                        WindowControl::Close(AppEvent::Status(0, format!("Open file {:?}", f)))
                     }
                     r => r.into(),
                 });
-                Ok(DialogControl::Continue)
+                Ok(WindowControl::Continue)
             }
-            _ => Ok(DialogControl::Continue),
+            _ => Ok(WindowControl::Continue),
         }
     }
 }

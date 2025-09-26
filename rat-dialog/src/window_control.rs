@@ -1,6 +1,6 @@
 //! A list of application windows.
-use rat_event::{ConsumedEvent, HandleEvent, Outcome, ct_event};
-use rat_salsa::{Control, SalsaContext};
+use crate::WindowControl;
+use rat_event::{HandleEvent, ct_event};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{Any, TypeId};
@@ -11,45 +11,6 @@ use std::rc::Rc;
 use try_as::traits::TryAsRef;
 
 pub mod window_frame;
-
-/// Extends rat-salsa::Control with some dialog specific options.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[must_use]
-#[non_exhaustive]
-pub enum WindowControl<Event> {
-    /// Continue with event-handling.
-    /// In the event-loop this waits for the next event.
-    Continue,
-    /// Break event-handling without repaint.
-    /// In the event-loop this waits for the next event.
-    Unchanged,
-    /// Break event-handling and repaints/renders the application.
-    /// In the event-loop this calls `render`.
-    Changed,
-    /// Return back some application event.
-    Event(Event),
-    /// Close the dialog
-    Close(Event),
-    /// Quit
-    Quit,
-}
-
-impl<Event> ConsumedEvent for WindowControl<Event> {
-    fn is_consumed(&self) -> bool {
-        !matches!(self, WindowControl::Continue)
-    }
-}
-
-impl<Event, T: Into<Outcome>> From<T> for WindowControl<Event> {
-    fn from(value: T) -> Self {
-        let r = value.into();
-        match r {
-            Outcome::Continue => WindowControl::Continue,
-            Outcome::Unchanged => WindowControl::Unchanged,
-            Outcome::Changed => WindowControl::Changed,
-        }
-    }
-}
 
 pub trait Window: Any {
     /// Is this a dialog or a regular window.
@@ -417,21 +378,23 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
 /// Panic
 ///
 /// This function is not reentrant, it will panic when called from within it's call-stack.
-impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<Control<Event>, Error>>
+impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<WindowControl<Event>, Error>>
     for WindowList<Event, Context, Error>
 where
-    Context: SalsaContext<Event, Error>,
     Event: TryAsRef<crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
 {
-    fn handle(&mut self, event: &Event, ctx: &mut Context) -> Result<Control<Event>, Error> {
+    fn handle(&mut self, event: &Event, ctx: &mut Context) -> Result<WindowControl<Event>, Error> {
+        let mut modal = false;
+
         for n in (0..self.core.len.get()).rev() {
             let to_front = {
                 let state = self.core.state.borrow();
                 let state = state[n].as_ref().expect("state is gone");
 
                 if state.is_modal() {
+                    modal = true;
                     break;
                 }
 
@@ -468,22 +431,18 @@ where
 
             match r {
                 Ok(r) => match r {
-                    WindowControl::Close(event) => {
+                    WindowControl::Close(_) => {
                         self.remove(n);
-                        ctx.queue_event(event);
-                        return Ok(Control::Changed);
+                        return Ok(r);
                     }
-                    WindowControl::Event(event) => {
-                        return Ok(Control::Event(event));
+                    WindowControl::Event(_) => {
+                        return Ok(r);
                     }
                     WindowControl::Unchanged => {
-                        return Ok(Control::Unchanged);
+                        return Ok(r);
                     }
                     WindowControl::Changed => {
-                        return Ok(Control::Changed);
-                    }
-                    WindowControl::Quit => {
-                        return Ok(Control::Quit);
+                        return Ok(r);
                     }
                     WindowControl::Continue => {
                         // next
@@ -493,7 +452,11 @@ where
             }
         }
 
-        Ok(Control::Continue)
+        if modal {
+            Ok(WindowControl::Unchanged)
+        } else {
+            Ok(WindowControl::Continue)
+        }
     }
 }
 
@@ -506,9 +469,8 @@ pub fn handle_window_list<Event, Context, Error>(
     mut dialog_stack: WindowList<Event, Context, Error>,
     event: &Event,
     ctx: &mut Context,
-) -> Result<Control<Event>, Error>
+) -> Result<WindowControl<Event>, Error>
 where
-    Context: SalsaContext<Event, Error>,
     Event: TryAsRef<crossterm::event::Event>,
     Error: 'static,
     Event: 'static,

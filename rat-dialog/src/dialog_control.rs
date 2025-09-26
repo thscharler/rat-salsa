@@ -1,6 +1,6 @@
 //! A stack of dialog windows.
-use rat_event::{ConsumedEvent, HandleEvent, Outcome};
-use rat_salsa::{Control, SalsaContext};
+use crate::WindowControl;
+use rat_event::HandleEvent;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{Any, TypeId};
@@ -8,45 +8,6 @@ use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::rc::Rc;
-
-/// Extends rat-salsa::Control with some dialog specific options.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[must_use]
-#[non_exhaustive]
-pub enum DialogControl<Event> {
-    /// Continue with event-handling.
-    /// In the event-loop this waits for the next event.
-    Continue,
-    /// Break event-handling without repaint.
-    /// In the event-loop this waits for the next event.
-    Unchanged,
-    /// Break event-handling and repaints/renders the application.
-    /// In the event-loop this calls `render`.
-    Changed,
-    /// Return back some application event.
-    Event(Event),
-    /// Close the dialog
-    Close(Event),
-    /// Quit
-    Quit,
-}
-
-impl<Event> ConsumedEvent for DialogControl<Event> {
-    fn is_consumed(&self) -> bool {
-        !matches!(self, DialogControl::Continue)
-    }
-}
-
-impl<Event, T: Into<Outcome>> From<T> for DialogControl<Event> {
-    fn from(value: T) -> Self {
-        let r = value.into();
-        match r {
-            Outcome::Continue => DialogControl::Continue,
-            Outcome::Unchanged => DialogControl::Unchanged,
-            Outcome::Changed => DialogControl::Changed,
-        }
-    }
-}
 
 /// Hold a stack of widgets.
 ///
@@ -69,7 +30,7 @@ struct DialogStackCore<Event, Context, Error> {
     event: RefCell<
         Vec<
             Box<
-                dyn Fn(&Event, &mut dyn Any, &mut Context) -> Result<DialogControl<Event>, Error>
+                dyn Fn(&Event, &mut dyn Any, &mut Context) -> Result<WindowControl<Event>, Error>
                     + 'static,
             >,
         >,
@@ -148,7 +109,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     pub fn push(
         &self,
         render: impl Fn(Rect, &mut Buffer, &mut dyn Any, &'_ mut Context) + 'static,
-        event: impl Fn(&Event, &mut dyn Any, &'_ mut Context) -> Result<DialogControl<Event>, Error>
+        event: impl Fn(&Event, &mut dyn Any, &'_ mut Context) -> Result<WindowControl<Event>, Error>
         + 'static,
         state: impl Any,
     ) {
@@ -167,7 +128,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     ///
     /// This function is partially reentrant. When called during rendering/event-handling
     /// it will panic when trying to pop your current dialog-window.
-    /// Return [DialogControl::Close] instead of calling this function.
+    /// Return [WindowControl::Close] instead of calling this function.
     pub fn pop(&self) -> Option<Box<dyn Any>> {
         self.core.len.update(|v| v - 1);
         self.core.type_id.borrow_mut().pop();
@@ -188,7 +149,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     ///
     /// This function is not reentrant. It will panic when called during
     /// rendering or event-handling of any dialog-window.
-    /// Return [DialogControl::Close] instead of calling this function.
+    /// Return [WindowControl::Close] instead of calling this function.
     ///
     /// Panics when out-of-bounds.
     pub fn remove(&self, n: usize) -> Box<dyn Any> {
@@ -215,7 +176,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     /// Panic
     ///
     /// This function is not reentrant. It will panic when called during
-    /// rendering or event-handling of any dialog-window. Use [DialogControl::ToFront]
+    /// rendering or event-handling of any dialog-window. Use [WindowControl::ToFront]
     /// for this.
     ///
     /// Panics when out-of-bounds.
@@ -396,21 +357,20 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
 /// Panic
 ///
 /// This function is not reentrant, it will panic when called from within it's call-stack.
-impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<Control<Event>, Error>>
+impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<WindowControl<Event>, Error>>
     for DialogStack<Event, Context, Error>
 where
-    Context: SalsaContext<Event, Error>,
     Error: 'static,
     Event: 'static,
 {
-    fn handle(&mut self, event: &Event, ctx: &mut Context) -> Result<Control<Event>, Error> {
+    fn handle(&mut self, event: &Event, ctx: &mut Context) -> Result<WindowControl<Event>, Error> {
         for n in (0..self.core.len.get()).rev() {
             let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
                 panic!("state is gone");
             };
             let event_fn = mem::replace(
                 &mut self.core.event.borrow_mut()[n],
-                Box::new(|_, _, _| Ok(DialogControl::Continue)),
+                Box::new(|_, _, _| Ok(WindowControl::Continue)),
             );
 
             let r = event_fn(event, state.as_mut(), ctx);
@@ -420,24 +380,20 @@ where
 
             match r {
                 Ok(r) => match r {
-                    DialogControl::Close(event) => {
+                    WindowControl::Close(_) => {
                         self.remove(n);
-                        ctx.queue_event(event);
-                        return Ok(Control::Changed);
+                        return Ok(r);
                     }
-                    DialogControl::Event(event) => {
-                        return Ok(Control::Event(event));
+                    WindowControl::Event(_) => {
+                        return Ok(r);
                     }
-                    DialogControl::Unchanged => {
-                        return Ok(Control::Unchanged);
+                    WindowControl::Unchanged => {
+                        return Ok(r);
                     }
-                    DialogControl::Changed => {
-                        return Ok(Control::Changed);
+                    WindowControl::Changed => {
+                        return Ok(r);
                     }
-                    DialogControl::Quit => {
-                        return Ok(Control::Quit);
-                    }
-                    DialogControl::Continue => {
+                    WindowControl::Continue => {
                         // next
                     }
                 },
@@ -446,9 +402,9 @@ where
         }
 
         if self.len() > 0 {
-            Ok(Control::Unchanged)
+            Ok(WindowControl::Unchanged)
         } else {
-            Ok(Control::Continue)
+            Ok(WindowControl::Continue)
         }
     }
 }
@@ -462,9 +418,8 @@ pub fn handle_dialog_stack<Event, Context, Error>(
     mut dialog_stack: DialogStack<Event, Context, Error>,
     event: &Event,
     ctx: &mut Context,
-) -> Result<Control<Event>, Error>
+) -> Result<WindowControl<Event>, Error>
 where
-    Context: SalsaContext<Event, Error>,
     Error: 'static,
     Event: 'static,
 {

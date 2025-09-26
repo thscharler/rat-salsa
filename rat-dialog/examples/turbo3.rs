@@ -10,7 +10,7 @@ use crate::app::Scenery;
 use crate::global::{Global, TurboConfig, TurboEvent};
 use crate::theme::TurboTheme;
 use anyhow::Error;
-use rat_dialog::{DialogControl, WindowList};
+use rat_dialog::{WindowControl, WindowList};
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{Control, RunConfig, SalsaContext, run_tui};
 use rat_theme3::palettes::{BASE16, IMPERIAL, MONEKAI, OCEAN, SOLARIZED, TUNDRA};
@@ -18,7 +18,7 @@ use std::fs;
 use std::path::PathBuf;
 
 type TurboResult = Result<Control<TurboEvent>, Error>;
-type TurboDialogResult = Result<DialogControl<TurboEvent>, Error>;
+type TurboDialogResult = Result<WindowControl<TurboEvent>, Error>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -145,7 +145,7 @@ pub mod app {
     use crate::{TurboDialogResult, TurboResult, editor, menu, turbo};
     use anyhow::Error;
     use log::debug;
-    use rat_dialog::{DialogControl, handle_dialog_stack, handle_window_list};
+    use rat_dialog::{WindowControl, handle_dialog_stack, handle_window_list};
     use rat_event::{Dialog, Outcome, break_flow, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_theme3::{create_palette, salsa_palettes};
@@ -224,7 +224,7 @@ pub mod app {
 
         ctx.area = layout[1];
 
-        fill_buf_area(buf, layout[1], " ", ctx.theme.data());
+        fill_buf_area(buf, layout[1], " ", ctx.theme.background());
 
         let menu_popup = menu::render(layout[0], buf, ctx, state);
         ctx.windows.clone().render(layout[1], buf, ctx);
@@ -270,10 +270,32 @@ pub mod app {
         let r = 'b: {
             break_flow!('b: handle_super_keys(event, state, ctx)?);
             break_flow!('b: handle_scenery(event, state, ctx)?);
-            break_flow!('b: handle_dialog_stack(ctx.dialogs.clone(), event, ctx)?);
+            break_flow!('b: {
+                match handle_dialog_stack(ctx.dialogs.clone(), event, ctx)? {
+                    WindowControl::Continue => Control::Continue,
+                    WindowControl::Unchanged => Control::Unchanged,
+                    WindowControl::Changed => Control::Changed,
+                    WindowControl::Event(e) => Control::Changed,
+                    WindowControl::Close(e) => {
+                        ctx.queue_event(e);
+                        Control::Changed
+                    }
+                }
+            });
             break_flow!('b: handle_focus(event, state, ctx)?);
             break_flow!('b: menu::event(event, state, ctx)?);
-            break_flow!('b: handle_window_list(ctx.windows.clone(), event, ctx)?);
+            break_flow!('b: {
+                match handle_window_list(ctx.windows.clone(), event, ctx)? {
+                    WindowControl::Continue => Control::Continue,
+                    WindowControl::Unchanged => Control::Unchanged,
+                    WindowControl::Changed => Control::Changed,
+                    WindowControl::Event(e) => Control::Changed,
+                    WindowControl::Close(e) => {
+                        ctx.queue_event(e);
+                        Control::Changed
+                    }
+                }
+            });
             break_flow!('b: turbo::event(event, &mut state.turbo, ctx)?);
             break_flow!('b: editor::event(event, &mut state.turbo, ctx)?);
             Control::Continue
@@ -386,16 +408,16 @@ pub mod app {
             try_flow!(match state.handle(event, Dialog) {
                 Outcome::Changed => {
                     if !state.active() {
-                        DialogControl::Close(TurboEvent::NoOp)
+                        WindowControl::Close(TurboEvent::NoOp)
                     } else {
-                        DialogControl::Changed
+                        WindowControl::Changed
                     }
                 }
                 r => r.into(),
             });
         }
 
-        Ok(DialogControl::Continue)
+        Ok(WindowControl::Continue)
     }
 }
 
@@ -559,8 +581,10 @@ pub mod menu {
             }
 
             if !matches!(state.menu.selected(), (Some(7), Some(6))) {
-                state.menu_environment.set_active(false);
-                ctx.queue(Control::Changed);
+                if state.menu_environment.is_active() {
+                    state.menu_environment.set_active(false);
+                    ctx.queue(Control::Changed);
+                }
             }
         }
 
@@ -725,7 +749,7 @@ pub mod turbo {
     use crate::editor::EditorState;
     use crate::global::{Global, TurboEvent};
     use anyhow::Error;
-    use rat_dialog::DialogControl;
+    use rat_dialog::WindowControl;
     use rat_event::{Dialog, Outcome, ct_event};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
@@ -864,10 +888,10 @@ pub mod turbo {
             TurboEvent::Event(event) => {
                 try_flow!(match state.handle(event, Dialog)? {
                     FileOutcome::Cancel => {
-                        DialogControl::Close(TurboEvent::NoOp) //
+                        WindowControl::Close(TurboEvent::NoOp) //
                     }
                     FileOutcome::Ok(f) => {
-                        DialogControl::Close(
+                        WindowControl::Close(
                             TurboEvent::Message(format!("New file {:?}", f)), //
                         )
                     }
@@ -877,7 +901,7 @@ pub mod turbo {
             _ => {}
         }
 
-        Ok(DialogControl::Continue)
+        Ok(WindowControl::Continue)
     }
 
     fn show_open(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
@@ -923,10 +947,10 @@ pub mod turbo {
             TurboEvent::Event(event) => {
                 try_flow!(match state.handle(event, Dialog)? {
                     FileOutcome::Cancel => {
-                        DialogControl::Close(TurboEvent::NoOp) //
+                        WindowControl::Close(TurboEvent::NoOp) //
                     }
                     FileOutcome::Ok(f) => {
-                        DialogControl::Close(
+                        WindowControl::Close(
                             TurboEvent::Open(f), //
                         )
                     }
@@ -936,7 +960,7 @@ pub mod turbo {
             _ => {}
         };
 
-        Ok(DialogControl::Continue)
+        Ok(WindowControl::Continue)
     }
 
     fn show_save_as(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
@@ -963,10 +987,10 @@ pub mod turbo {
             TurboEvent::Event(event) => {
                 try_flow!(match state.handle(event, Dialog)? {
                     FileOutcome::Cancel => {
-                        DialogControl::Close(TurboEvent::NoOp) //
+                        WindowControl::Close(TurboEvent::NoOp) //
                     }
                     FileOutcome::Ok(f) => {
-                        DialogControl::Close(
+                        WindowControl::Close(
                             TurboEvent::Status(0, format!("Save as {:?}", f)), //
                         )
                     }
@@ -976,7 +1000,7 @@ pub mod turbo {
             _ => {}
         }
 
-        Ok(DialogControl::Continue)
+        Ok(WindowControl::Continue)
     }
 
     fn render_save_as_dlg(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
@@ -1006,9 +1030,8 @@ pub mod editor {
     use anyhow::Error;
     use rat_dialog::{Window, WindowControl, WindowFrame, WindowFrameOutcome, WindowFrameState};
     use rat_event::{Dialog, HandleEvent, Regular, try_flow};
-    use rat_focus::Navigation;
     use rat_salsa::Control;
-    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
     use rat_widget::scrolled::Scroll;
     use rat_widget::shadow::Shadow;
     use rat_widget::text::HasScreenCursor;
@@ -1278,8 +1301,21 @@ pub mod theme {
         }
 
         /// Data display style. Used for lists, tables, ...
+        pub fn background(&self) -> Style {
+            if self.s.name == "Base16" {
+                self.s.style(self.s.deepblue[1], Contrast::Normal)
+            } else {
+                self.s.style(self.s.blue[4], Contrast::Normal)
+            }
+        }
+
+        /// Data display style. Used for lists, tables, ...
         pub fn data(&self) -> Style {
-            self.s.style(self.s.deepblue[0], Contrast::Normal)
+            if self.s.name == "Base16" {
+                self.s.style(self.s.deepblue[1], Contrast::Normal)
+            } else {
+                self.s.style(self.s.deepblue[6], Contrast::Normal)
+            }
         }
 
         /// Background for dialogs.
@@ -1433,12 +1469,8 @@ pub mod theme {
         /// example, which shows timings for Render/Event/Action.
         pub fn statusline_style(&self) -> Vec<Style> {
             let s = &self.s;
-            vec![
-                self.status_style(),
-                self.status_style().fg(s.blue[3]),
-                self.status_style().fg(s.blue[3]),
-                self.status_style().fg(s.blue[3]),
-            ]
+            let flags = Palette::normal_contrast_color(self.s.gray[3], &s.blue);
+            vec![self.status_style(), flags, flags, flags]
         }
 
         /// Complete MsgDialogStyle.

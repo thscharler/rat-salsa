@@ -9,7 +9,7 @@
 use crate::app::Scenery;
 use crate::theme::TurboTheme;
 use anyhow::Error;
-use rat_dialog::{DialogControl, DialogStack};
+use rat_dialog::{DialogStack, WindowControl};
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme3::palettes::BASE16;
@@ -18,7 +18,7 @@ use std::fs;
 use std::path::PathBuf;
 
 type TurboResult = Result<Control<TurboEvent>, Error>;
-type TurboDialogResult = Result<DialogControl<TurboEvent>, Error>;
+type TurboDialogResult = Result<WindowControl<TurboEvent>, Error>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -112,7 +112,7 @@ pub mod app {
     use crate::turbo::Turbo;
     use crate::{Global, TurboDialogResult, TurboEvent, TurboResult, menu, turbo};
     use anyhow::Error;
-    use rat_dialog::{DialogControl, handle_dialog_stack};
+    use rat_dialog::{WindowControl, handle_dialog_stack};
     use rat_event::{Dialog, Outcome, break_flow, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{HandleEvent, ct_event};
@@ -227,7 +227,18 @@ pub mod app {
         let r = 'b: {
             break_flow!('b: handle_super_keys(event, state, ctx)?);
             break_flow!('b: handle_scenery(event, state, ctx)?);
-            break_flow!('b: handle_dialog_stack(ctx.dialogs.clone(), event, ctx)?);
+            break_flow!('b: {
+                match handle_dialog_stack(ctx.dialogs.clone(), event, ctx)? {
+                    WindowControl::Continue => Control::Continue,
+                    WindowControl::Unchanged => Control::Unchanged,
+                    WindowControl::Changed => Control::Changed,
+                    WindowControl::Event(e) => Control::Event(e),
+                    WindowControl::Close(e) => {
+                        ctx.queue_event(e);
+                        Control::Changed
+                    }
+                }
+            });
             break_flow!('b: handle_focus(event, state, ctx)?);
             break_flow!('b: menu::event(event, state, ctx)?);
             break_flow!('b: turbo::event(event, &mut state.turbo, ctx)?);
@@ -322,16 +333,16 @@ pub mod app {
             try_flow!(match state.handle(event, Dialog) {
                 Outcome::Changed => {
                     if !state.active() {
-                        DialogControl::Close(TurboEvent::NoOp)
+                        WindowControl::Close(TurboEvent::NoOp)
                     } else {
-                        DialogControl::Changed
+                        WindowControl::Changed
                     }
                 }
                 r => r.into(),
             });
         }
 
-        Ok(DialogControl::Continue)
+        Ok(WindowControl::Continue)
     }
 }
 
@@ -637,7 +648,7 @@ pub mod menu {
 pub mod turbo {
     use crate::{Global, TurboDialogResult, TurboEvent};
     use anyhow::Error;
-    use rat_dialog::DialogControl;
+    use rat_dialog::WindowControl;
     use rat_event::{Dialog, Outcome};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
@@ -726,10 +737,10 @@ pub mod turbo {
             TurboEvent::Event(event) => {
                 try_flow!(match state.handle(event, Dialog)? {
                     FileOutcome::Cancel => {
-                        DialogControl::Close(TurboEvent::NoOp) //
+                        WindowControl::Close(TurboEvent::NoOp) //
                     }
                     FileOutcome::Ok(f) => {
-                        DialogControl::Close(
+                        WindowControl::Close(
                             TurboEvent::Message(format!("New file {:?}", f)), //
                         )
                     }
@@ -739,7 +750,7 @@ pub mod turbo {
             _ => {}
         }
 
-        Ok(DialogControl::Continue)
+        Ok(WindowControl::Continue)
     }
 
     fn show_open(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
@@ -785,10 +796,10 @@ pub mod turbo {
             TurboEvent::Event(event) => {
                 try_flow!(match state.handle(event, Dialog)? {
                     FileOutcome::Cancel => {
-                        DialogControl::Close(TurboEvent::NoOp) //
+                        WindowControl::Close(TurboEvent::NoOp) //
                     }
                     FileOutcome::Ok(f) => {
-                        DialogControl::Close(
+                        WindowControl::Close(
                             TurboEvent::Status(0, format!("Open {:?}", f)), //
                         )
                     }
@@ -798,7 +809,7 @@ pub mod turbo {
             _ => {}
         };
 
-        Ok(DialogControl::Continue)
+        Ok(WindowControl::Continue)
     }
 
     fn show_save_as(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
@@ -825,10 +836,10 @@ pub mod turbo {
             TurboEvent::Event(event) => {
                 try_flow!(match state.handle(event, Dialog)? {
                     FileOutcome::Cancel => {
-                        DialogControl::Close(TurboEvent::NoOp) //
+                        WindowControl::Close(TurboEvent::NoOp) //
                     }
                     FileOutcome::Ok(f) => {
-                        DialogControl::Close(
+                        WindowControl::Close(
                             TurboEvent::Status(0, format!("Save as {:?}", f)), //
                         )
                     }
@@ -838,7 +849,7 @@ pub mod turbo {
             _ => {}
         }
 
-        Ok(DialogControl::Continue)
+        Ok(WindowControl::Continue)
     }
 
     fn render_save_as_dlg(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
