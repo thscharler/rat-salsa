@@ -16,6 +16,7 @@ use rat_theme3::palettes::BASE16;
 use ratatui::layout::Rect;
 use std::fs;
 use std::path::PathBuf;
+use try_as::traits::TryAsRef;
 
 type TurboResult = Result<Control<TurboEvent>, Error>;
 type TurboDialogResult = Result<WindowControl<TurboEvent>, Error>;
@@ -94,6 +95,15 @@ pub enum TurboEvent {
 impl From<crossterm::event::Event> for TurboEvent {
     fn from(value: crossterm::event::Event) -> Self {
         Self::Event(value)
+    }
+}
+
+impl TryAsRef<crossterm::event::Event> for TurboEvent {
+    fn try_as_ref(&self) -> Option<&crossterm::event::Event> {
+        match self {
+            TurboEvent::Event(e) => Some(e),
+            _ => None,
+        }
     }
 }
 

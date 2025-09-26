@@ -8,6 +8,7 @@ use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::rc::Rc;
+use try_as::traits::TryAsRef;
 
 /// Hold a stack of widgets.
 ///
@@ -360,6 +361,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
 impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<WindowControl<Event>, Error>>
     for DialogStack<Event, Context, Error>
 where
+    Event: TryAsRef<crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
 {
@@ -402,7 +404,13 @@ where
         }
 
         if self.len() > 0 {
-            Ok(WindowControl::Unchanged)
+            // block all crossterm events.
+            let event: Option<&crossterm::event::Event> = event.try_as_ref();
+            if event.is_some() {
+                Ok(WindowControl::Unchanged)
+            } else {
+                Ok(WindowControl::Continue)
+            }
         } else {
             Ok(WindowControl::Continue)
         }
@@ -420,6 +428,7 @@ pub fn handle_dialog_stack<Event, Context, Error>(
     ctx: &mut Context,
 ) -> Result<WindowControl<Event>, Error>
 where
+    Event: TryAsRef<crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
 {

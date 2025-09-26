@@ -20,6 +20,7 @@ use ratatui::widgets::StatefulWidget;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
+use try_as::traits::TryAsRef;
 
 type AppResult = Result<Control<AppEvent>, Error>;
 type AppDialogResult = Result<WindowControl<AppEvent>, Error>;
@@ -97,6 +98,15 @@ impl From<RenderedEvent> for AppEvent {
 impl From<TimeOut> for AppEvent {
     fn from(value: TimeOut) -> Self {
         Self::Timer(value)
+    }
+}
+
+impl TryAsRef<crossterm::event::Event> for AppEvent {
+    fn try_as_ref(&self) -> Option<&crossterm::event::Event> {
+        match self {
+            AppEvent::Event(e) => Some(e),
+            _ => None,
+        }
     }
 }
 

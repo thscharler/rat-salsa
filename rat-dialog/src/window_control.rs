@@ -453,7 +453,13 @@ where
         }
 
         if modal {
-            Ok(WindowControl::Unchanged)
+            // block all crossterm events.
+            let event: Option<&crossterm::event::Event> = event.try_as_ref();
+            if event.is_some() {
+                Ok(WindowControl::Unchanged)
+            } else {
+                Ok(WindowControl::Continue)
+            }
         } else {
             Ok(WindowControl::Continue)
         }
