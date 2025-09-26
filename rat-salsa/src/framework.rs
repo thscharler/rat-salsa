@@ -172,8 +172,19 @@ where
             }
         }
 
+        // filter double render
+        let mut was_change = false;
         // Result of event-handling.
         if let Some(ctrl) = global.salsa_ctx().queue.take() {
+            if matches!(ctrl, Ok(Control::Changed)) {
+                if was_change {
+                    continue;
+                }
+                was_change = true;
+            } else {
+                was_change = false;
+            }
+
             match ctrl {
                 Err(e) => {
                     let r = error(e, state, global);
