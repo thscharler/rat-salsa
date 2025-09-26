@@ -92,6 +92,7 @@ where
 
     let poll_queue = PollQueue::default();
     let mut poll_sleep = Duration::from_micros(SLEEP);
+    let mut was_changed = false;
 
     // init state
     init(state, global)?;
@@ -172,17 +173,15 @@ where
             }
         }
 
-        // filter double render
-        let mut was_change = false;
         // Result of event-handling.
         if let Some(ctrl) = global.salsa_ctx().queue.take() {
             if matches!(ctrl, Ok(Control::Changed)) {
-                if was_change {
+                if was_changed {
                     continue;
                 }
-                was_change = true;
+                was_changed = true;
             } else {
-                was_change = false;
+                was_changed = false;
             }
 
             match ctrl {
