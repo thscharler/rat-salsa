@@ -1,6 +1,6 @@
 use crate::palettes::{
     BASE16, BASE16_RELAX, BLACKWHITE, IMPERIAL, MONEKAI, MONOCHROME, OCEAN, OXOCARBON, RADIUM,
-    SOLARIZED, TUNDRA, VSCODE_DARK,
+    RUST, SOLARIZED, TUNDRA, VSCODE_DARK,
 };
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -249,6 +249,7 @@ pub fn create_theme(theme: &str) -> Option<Box<dyn SalsaTheme>> {
         "Monekai Dark" => Box::new(DarkTheme::new(theme, MONEKAI)),
         "Solarized Dark" => Box::new(DarkTheme::new(theme, SOLARIZED)),
         "OxoCarbon Dark" => Box::new(DarkTheme::new(theme, OXOCARBON)),
+        "Rust Dark" => Box::new(DarkTheme::new(theme, RUST)),
         "VSCode Dark" => Box::new(DarkTheme::new(theme, VSCODE_DARK)),
         //
         "Imperial Shell" => Box::new(ShellTheme::new(theme, IMPERIAL)),
@@ -262,6 +263,7 @@ pub fn create_theme(theme: &str) -> Option<Box<dyn SalsaTheme>> {
         "Monekai Shell" => Box::new(ShellTheme::new(theme, MONEKAI)),
         "Solarized Shell" => Box::new(ShellTheme::new(theme, SOLARIZED)),
         "OxoCarbon Shell" => Box::new(ShellTheme::new(theme, OXOCARBON)),
+        "Rust Shell" => Box::new(ShellTheme::new(theme, RUST)),
         "VSCode Shell" => Box::new(ShellTheme::new(theme, VSCODE_DARK)),
 
         _ => return None,
@@ -284,6 +286,7 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Monekai" => Some(MONEKAI),
         "Solarized" => Some(SOLARIZED),
         "OxoCarbon" => Some(OXOCARBON),
+        "Rust" => Some(RUST),
         "VSCode" => Some(VSCODE_DARK),
         _ => return None,
     }
@@ -301,6 +304,7 @@ const PALETTES: &[&str] = &[
     "Monekai",
     "Solarized",
     "OxoCarbon",
+    "Rust",
     "VSCode",
 ];
 
@@ -316,6 +320,7 @@ const THEMES: &[&str] = &[
     "Monekai Dark",
     "Solarized Dark",
     "OxoCarbon Dark",
+    "Rust Dark",
     "VSCode Dark",
     //
     "Imperial Shell",
@@ -329,6 +334,7 @@ const THEMES: &[&str] = &[
     "Monekai Shell",
     "Solarized Shell",
     "OxoCarbon Shell",
+    "Rust Shell",
     "VSCode Shell",
 ];
 
