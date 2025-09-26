@@ -15,7 +15,7 @@ use dirs::{document_dir, home_dir};
 use rat_event::{
     ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow, try_flow,
 };
-use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation, on_lost};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, on_lost};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState};
@@ -122,8 +122,6 @@ pub struct FileDialogState {
     new_state: ButtonState,
     cancel_state: ButtonState,
     ok_state: ButtonState,
-
-    focus: FocusFlag,
 }
 
 pub(crate) mod event {
@@ -247,7 +245,6 @@ impl Default for FileDialogState {
             new_state: Default::default(),
             cancel_state: Default::default(),
             ok_state: Default::default(),
-            focus: Default::default(),
         };
         s.dir_state.list.set_scroll_selection(true);
         s.file_state.set_scroll_selection(true);
@@ -1049,24 +1046,6 @@ impl FileDialogState {
             }
         }
         FileOutcome::Unchanged
-    }
-}
-
-impl HasFocus for FileDialogState {
-    fn build(&self, builder: &mut FocusBuilder) {
-        if self.active {
-            builder.widget_with_flags(self.focus(), self.area(), 1, Navigation::Lock);
-        } else {
-            builder.widget_with_flags(self.focus(), self.area(), 1, Navigation::None);
-        }
-    }
-
-    fn focus(&self) -> FocusFlag {
-        self.focus.clone()
-    }
-
-    fn area(&self) -> Rect {
-        Rect::default()
     }
 }
 
