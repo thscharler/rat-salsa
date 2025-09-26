@@ -336,7 +336,7 @@ macro_rules! try_flow {
 /// the result of the operation is written to the log.
 #[macro_export]
 macro_rules! break_flow {
-    (log $l:lifetime: $n:ident: $x:expr) => {{
+    (log $n:ident: $l:lifetime: $x:expr) => {{
         use log::debug;
         use $crate::ConsumedEvent;
         let r = $x;
