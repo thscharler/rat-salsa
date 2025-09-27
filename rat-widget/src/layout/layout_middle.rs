@@ -1,6 +1,8 @@
 use ratatui::layout::{Constraint, Layout, Rect};
 
+///
 /// Calculate the middle Rect inside a given area.
+///
 pub fn layout_middle(
     area: Rect,
     left: Constraint,
