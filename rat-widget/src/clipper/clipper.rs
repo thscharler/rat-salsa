@@ -397,6 +397,7 @@ where
     }
 
     /// Render all visible blocks.
+    #[deprecated(since = "1.2", note = "happens automatically")]
     pub fn render_block(&mut self) {
         let layout = self.layout.borrow();
         for (idx, block_area) in layout.block_area_iter().enumerate() {
@@ -501,6 +502,7 @@ where
     }
 
     /// Calculate the necessary shift from layout to screen.
+    #[deprecated(since = "1.2.0", note = "will be made private")]
     pub fn shift(&self) -> (i16, i16) {
         (
             self.widget_area.x as i16 - self.offset.x as i16,
@@ -513,6 +515,7 @@ where
     /// coordinates instead of screen coordinates.
     ///
     /// Call this function to correct this after rendering.
+    #[deprecated(since = "1.2.0", note = "will be made private")]
     pub fn relocate<S>(&self, state: &mut S)
     where
         S: RelocatableState,
@@ -525,6 +528,7 @@ where
     /// in its state.
     ///
     /// This uses the mechanism for [relocate](Self::relocate) to zero them out.
+    #[deprecated(since = "1.2.0", note = "will be made private")]
     pub fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,
@@ -541,7 +545,10 @@ where
     /// Rendering the content is finished.
     ///
     /// Convert to the output widget that can be rendered in the target area.
-    pub fn into_widget(self) -> ClipperWidget<'a, W> {
+    #[allow(deprecated)]
+    pub fn into_widget(mut self) -> ClipperWidget<'a, W> {
+        self.render_block();
+
         ClipperWidget {
             block: self.block,
             hscroll: self.hscroll,
@@ -710,11 +717,11 @@ where
         self.layout.borrow()
     }
 
-    /// Show the area for the given handle.
-    pub fn show(&mut self, widget: W) {
+    /// Scroll to the given widget.
+    pub fn show(&mut self, widget: W) -> bool {
         let layout = self.layout.borrow();
         let Some(idx) = layout.try_index_of(widget) else {
-            return;
+            return false;
         };
         let widget_area = layout.widget(idx);
         let label_area = layout.label(idx);
@@ -734,10 +741,15 @@ where
         };
 
         if let Some(area) = area {
-            self.hscroll
+            let h = self
+                .hscroll
                 .scroll_to_range(area.left() as usize..area.right() as usize);
-            self.vscroll
+            let v = self
+                .vscroll
                 .scroll_to_range(area.top() as usize..area.bottom() as usize);
+            h || v
+        } else {
+            false
         }
     }
 
@@ -806,14 +818,7 @@ where
 
     /// Scroll the widget to visible.
     pub fn scroll_to(&mut self, widget: W) -> bool {
-        let area = self.layout.borrow().widget_for(widget);
-        let r0 = self
-            .vscroll
-            .scroll_to_range(area.top() as usize..area.bottom() as usize);
-        let r1 = self
-            .hscroll
-            .scroll_to_range(area.left() as usize..area.right() as usize);
-        r0 || r1
+        self.show(widget)
     }
 
     pub fn scroll_up(&mut self, delta: usize) -> bool {
