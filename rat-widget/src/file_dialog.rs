@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::event::{ButtonOutcome, FileOutcome, TextOutcome};
-use crate::layout::{DialogItem, layout_dialog, layout_grid};
+use crate::layout::{DialogItem, layout_as_grid, layout_dialog};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
@@ -495,7 +495,7 @@ fn render_open_dir(
     buf: &mut Buffer,
     state: &mut FileDialogState,
 ) {
-    let l_grid = layout_grid::<2, 2>(
+    let l_grid = layout_as_grid(
         area,
         Layout::horizontal([
             Constraint::Percentage(20), //
@@ -539,7 +539,7 @@ fn render_open_dir(
 }
 
 fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
-    let l_grid = layout_grid::<3, 2>(
+    let l_grid = layout_as_grid(
         area,
         Layout::horizontal([
             Constraint::Percentage(20),
@@ -593,7 +593,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
 }
 
 fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
-    let l_grid = layout_grid::<3, 3>(
+    let l_grid = layout_as_grid(
         area,
         Layout::horizontal([
             Constraint::Percentage(20),
