@@ -26,8 +26,9 @@ use std::cmp::max;
 pub struct WindowFrame<'a> {
     block: Block<'a>,
     style: Style,
-    hover: Style,
-    drag: Style,
+    top_style: Option<Style>,
+    hover_style: Style,
+    drag_style: Style,
     limit: Option<Rect>,
     can_move: Option<bool>,
     can_resize: Option<bool>,
@@ -37,6 +38,7 @@ pub struct WindowFrame<'a> {
 #[derive(Debug)]
 pub struct WindowFrameStyle {
     pub style: Style,
+    pub top: Option<Style>,
     pub block: Block<'static>,
     pub hover: Option<Style>,
     pub drag: Option<Style>,
@@ -63,6 +65,9 @@ pub struct WindowFrameState {
     /// area for window content.
     /// __read only__ renewed with each render.
     pub widget_area: Rect,
+    /// is this the top window?
+    /// __read+write__
+    pub top: bool,
 
     /// Window can be moved.
     /// __read+write__ May be overwritten by the widget.
@@ -120,12 +125,13 @@ impl Default for WindowFrameStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
+            top: Default::default(),
             block: Block::bordered(),
-            hover: None,
-            drag: None,
-            can_move: None,
-            can_resize: None,
-            can_close: None,
+            hover: Default::default(),
+            drag: Default::default(),
+            can_move: Default::default(),
+            can_resize: Default::default(),
+            can_close: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -159,8 +165,9 @@ impl<'a> WindowFrame<'a> {
         Self {
             block: Default::default(),
             style: Default::default(),
-            hover: Default::default(),
-            drag: Default::default(),
+            top_style: Default::default(),
+            hover_style: Default::default(),
+            drag_style: Default::default(),
             limit: Default::default(),
             can_move: Default::default(),
             can_resize: Default::default(),
@@ -203,11 +210,14 @@ impl<'a> WindowFrame<'a> {
     pub fn styles(mut self, styles: WindowFrameStyle) -> Self {
         self.style = styles.style;
         self.block = styles.block;
+        if styles.top.is_some() {
+            self.top_style = styles.top;
+        }
         if let Some(hover) = styles.hover {
-            self.hover = hover;
+            self.hover_style = hover;
         }
         if let Some(drag) = styles.drag {
-            self.drag = drag;
+            self.drag_style = drag;
         }
         if let Some(can_move) = styles.can_move {
             self.can_move = Some(can_move);
@@ -228,15 +238,21 @@ impl<'a> WindowFrame<'a> {
         self
     }
 
+    /// Window title style
+    pub fn title_style(mut self, style: Style) -> Self {
+        self.top_style = Some(style);
+        self
+    }
+
     /// Hover style
     pub fn hover(mut self, hover: Style) -> Self {
-        self.hover = hover;
+        self.hover_style = hover;
         self
     }
 
     /// Drag style
     pub fn drag(mut self, drag: Style) -> Self {
-        self.drag = drag;
+        self.drag_style = drag;
         self
     }
 }
@@ -307,7 +323,17 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
             }
         }
 
-        self.block.render(state.area, buf);
+        let block = if state.top {
+            if let Some(top_style) = self.top_style {
+                self.block.title_style(top_style)
+            } else {
+                self.block
+            }
+        } else {
+            self.block
+        };
+
+        block.render(state.area, buf);
 
         if state.can_move {
             Span::from("[x]")
@@ -316,19 +342,19 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
         }
 
         if state.mouse_close.hover.get() {
-            buf.set_style(state.close_area, self.hover);
+            buf.set_style(state.close_area, self.hover_style);
         }
 
         if state.mouse_move.drag.get() {
-            buf.set_style(state.move_area, self.drag);
+            buf.set_style(state.move_area, self.drag_style);
         } else if state.mouse_move.hover.get() {
-            buf.set_style(state.move_area, self.hover);
+            buf.set_style(state.move_area, self.hover_style);
         }
 
         if state.mouse_resize.drag.get() {
-            buf.set_style(state.resize_area, self.drag);
+            buf.set_style(state.resize_area, self.drag_style);
         } else if state.mouse_resize.hover.get() {
-            buf.set_style(state.resize_area, self.hover);
+            buf.set_style(state.resize_area, self.hover_style);
         }
     }
 }
@@ -340,6 +366,7 @@ impl Default for WindowFrameState {
             area: Default::default(),
             arc_area: Default::default(),
             widget_area: Default::default(),
+            top: Default::default(),
             can_move: true,
             can_resize: true,
             can_close: true,

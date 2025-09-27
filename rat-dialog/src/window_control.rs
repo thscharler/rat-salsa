@@ -14,6 +14,8 @@ use try_as::traits::TryAsRef;
 pub mod window_frame;
 
 pub trait Window: Any {
+    /// Set as top window.
+    fn set_top(&mut self, top: bool);
     /// Window area.
     fn area(&self) -> Rect;
 }
@@ -126,6 +128,8 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.state.borrow_mut().push(Some(Box::new(state)));
         self.core.event.borrow_mut().push(Box::new(event));
         self.core.render.borrow_mut().push(Box::new(render));
+
+        self.set_top_window();
     }
 
     /// Remove the window from the list.
@@ -149,11 +153,16 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         _ = self.core.event.borrow_mut().remove(n);
         _ = self.core.render.borrow_mut().remove(n);
 
-        self.core
+        let r = self
+            .core
             .state
             .borrow_mut()
             .remove(n)
-            .expect("state exists")
+            .expect("state exists");
+
+        self.set_top_window();
+
+        r
     }
 
     /// Move the given window to the top.
@@ -181,6 +190,8 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.state.borrow_mut().push(state);
         self.core.event.borrow_mut().push(event);
         self.core.render.borrow_mut().push(render);
+
+        self.set_top_window();
     }
 
     /// Move the given window to the bottom.
@@ -208,6 +219,28 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.state.borrow_mut().insert(0, state);
         self.core.event.borrow_mut().insert(0, event);
         self.core.render.borrow_mut().insert(0, render);
+
+        self.set_top_window();
+    }
+
+    fn set_top_window(&self) {
+        let len = self.len();
+
+        if len > 0 {
+            let mut states = self.core.state.borrow_mut();
+            for i in 0..len - 1 {
+                if let Some(s) = &mut states[i] {
+                    s.set_top(false);
+                } else {
+                    panic!("state is gone");
+                }
+            }
+            if let Some(s) = &mut states[len - 1] {
+                s.set_top(true);
+            } else {
+                panic!("state is gone");
+            }
+        }
     }
 
     /// No windows.

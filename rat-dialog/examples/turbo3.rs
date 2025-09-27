@@ -146,6 +146,7 @@ pub mod app {
     use anyhow::Error;
     use rat_dialog::{WindowControl, handle_dialog_stack, handle_window_list};
     use rat_event::{Dialog, Outcome, break_flow, try_flow};
+    use rat_focus::HasFocus;
     use rat_salsa::{Control, SalsaContext};
     use rat_theme3::{create_palette, salsa_palettes};
     use rat_widget::event::{HandleEvent, ct_event};
@@ -181,13 +182,19 @@ pub mod app {
             build_focus(state, ctx);
             ctx.handle_focus(event);
 
-            // if let ct_event!(keycode press Esc) => {
-            //     if state.menu.is_focused() {
-            //         ctx.windows.is_modal_blocked()
-            //     }
-            //
-            // }
+            if let ct_event!(keycode press Esc) | ct_event!(keycode press F(10)) = event {
+                if state.menu.is_focused() {
+                    if let Some(idx) = ctx.windows.top::<EditorState>() {
+                        let editor = ctx.windows.get::<EditorState>(idx);
+                        ctx.focus().focus(&*editor);
+                    }
+                } else {
+                    ctx.focus().focus(&state.menu);
+                }
+                return Ok(Control::Changed);
+            }
         }
+
         Ok(Control::Continue)
     }
 
@@ -272,7 +279,10 @@ pub mod app {
                     WindowControl::Continue => Control::Continue,
                     WindowControl::Unchanged => Control::Unchanged,
                     WindowControl::Changed => Control::Changed,
-                    WindowControl::Event(e) => Control::Changed,
+                    WindowControl::Event(e) => {
+                        ctx.queue_event(e);
+                        Control::Changed
+                    }
                     WindowControl::Close(e) => {
                         ctx.queue_event(e);
                         Control::Changed
@@ -286,7 +296,10 @@ pub mod app {
                     WindowControl::Continue => Control::Continue,
                     WindowControl::Unchanged => Control::Unchanged,
                     WindowControl::Changed => Control::Changed,
-                    WindowControl::Event(e) => Control::Changed,
+                    WindowControl::Event(e) => {
+                        ctx.queue_event(e);
+                        Control::Changed
+                    }
                     WindowControl::Close(e) => {
                         ctx.queue_event(e);
                         Control::Changed
@@ -1044,6 +1057,10 @@ pub mod editor {
     }
 
     impl Window for EditorState {
+        fn set_top(&mut self, top: bool) {
+            self.window.top = top;
+        }
+
         fn area(&self) -> Rect {
             self.window.area
         }
@@ -1087,7 +1104,7 @@ pub mod editor {
             let mut zelf = Self {
                 window: Default::default(),
                 path: path.into(),
-                display_name: name,
+                display_name: format!(" {} ", name),
                 text: Default::default(),
             };
             zelf.text.set_text(buf);
@@ -1232,7 +1249,7 @@ pub mod theme {
     use rat_widget::text::TextStyle;
     use ratatui::layout::Alignment;
     use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::{Block, BorderType};
+    use ratatui::widgets::{Block, BorderType, Borders};
 
     #[derive(Debug, Clone)]
     pub struct TurboTheme {
@@ -1486,6 +1503,7 @@ pub mod theme {
                 style: self.dialog_style(),
                 block: self.dialog_border(title),
                 hover: Some(self.scheme().gray(4, Contrast::Normal)),
+                top: Some(self.s.primary(0, Contrast::Normal)),
                 can_move: None,
                 can_resize: None,
                 can_close: None,
