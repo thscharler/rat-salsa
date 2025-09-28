@@ -367,8 +367,15 @@ pub const PALETTE: Palette = IMPERIAL;
 /// Other colors are bright, strong and slightly smudged.
 ///
 pub const IMPERIAL: Palette = Palette {
+    name: "Imperial",
+
     primary: Palette::interpolate(0x300057, 0x8c00fd, 63),
     secondary: Palette::interpolate(0x574b00, 0xffde00, 63),
+
+    text_light: Palette::color32(0xdedfe3),
+    text_bright: Palette::color32(0xf6f6f3),
+    text_dark: Palette::color32(0x2a2b37),
+    text_black: Palette::color32(0x0f1014),
 
     white: Palette::interpolate(0xdedfe3, 0xf6f6f3, 63),
     black: Palette::interpolate(0x0f1014, 0x2a2b37, 63),
@@ -389,8 +396,15 @@ pub const IMPERIAL: Palette = Palette {
 };
 
 pub const OCEAN: Palette = Palette {
+    name: "Ocean",
+
     primary: Palette::interpolate(0xff8d3c, 0xffbf3c, 63),
     secondary: Palette::interpolate(0x2b4779, 0x6688cc, 63),
+
+    text_light: Palette::color32(0xe5e5dd),
+    text_bright: Palette::color32(0xf2f2ee),
+    text_dark: Palette::color32(0x0c092c),
+    text_black: Palette::color32(0x030305),
 
     white: Palette::interpolate(0xe5e5dd, 0xf2f2ee, 63),
     black: Palette::interpolate(0x030305, 0x0c092c, 63),
@@ -411,8 +425,15 @@ pub const OCEAN: Palette = Palette {
 };
 
 pub const TUNDRA: Palette = Palette {
+    name: "Tundra",
+
     primary: Palette::interpolate(0xe6eaf2, 0xffffff, 63),
     secondary: Palette::interpolate(0xa8bbd4, 0x719bd3, 63),
+
+    text_light: Palette::color32(0xe6eaf2),
+    text_bright: Palette::color32(0xffffff),
+    text_dark: Palette::color32(0x1a2130),
+    text_black: Palette::color32(0x0b1221),
 
     white: Palette::interpolate(0xe6eaf2, 0xffffff, 63),
     black: Palette::interpolate(0x0b1221, 0x1a2130, 63),

@@ -15,6 +15,13 @@ use ratatui::style::{Color, Style};
 ///
 #[derive(Debug, Default, Clone)]
 pub struct Palette {
+    pub name: &'static str,
+
+    pub text_light: Color,
+    pub text_bright: Color,
+    pub text_dark: Color,
+    pub text_black: Color,
+
     pub white: [Color; 8],
     pub black: [Color; 8],
     pub gray: [Color; 8],
@@ -37,6 +44,7 @@ pub struct Palette {
 }
 
 /// Contrast rating for the text-color that should be used.
+#[derive(Debug)]
 pub enum TextColorRating {
     /// Use light/white text for the given background.
     Light,
@@ -45,6 +53,7 @@ pub enum TextColorRating {
 }
 
 /// Used to create a high contrast or normal contrast style.
+#[derive(Debug)]
 pub enum Contrast {
     High,
     Normal,
@@ -195,8 +204,8 @@ impl Palette {
     pub fn high_contrast(&self, color: Color) -> Style {
         match Self::rate_text_color(color) {
             None => Style::reset(),
-            Some(TextColorRating::Light) => Style::new().bg(color).fg(self.white[3]),
-            Some(TextColorRating::Dark) => Style::new().bg(color).fg(self.black[0]),
+            Some(TextColorRating::Light) => Style::new().bg(color).fg(self.text_bright),
+            Some(TextColorRating::Dark) => Style::new().bg(color).fg(self.text_black),
         }
     }
 
@@ -206,9 +215,96 @@ impl Palette {
     pub fn normal_contrast(&self, color: Color) -> Style {
         match Self::rate_text_color(color) {
             None => Style::reset(),
-            Some(TextColorRating::Light) => Style::new().bg(color).fg(self.white[0]),
-            Some(TextColorRating::Dark) => Style::new().bg(color).fg(self.black[3]),
+            Some(TextColorRating::Light) => Style::new().bg(color).fg(self.text_light),
+            Some(TextColorRating::Dark) => Style::new().bg(color).fg(self.text_dark),
         }
+    }
+
+    /// Pick a color from the choice with a good contrast to the
+    /// given background.
+    pub fn normal_contrast_color(bg: Color, choice: &[Color]) -> Style {
+        let mut color0 = choice[0];
+        let mut color1 = choice[0];
+        let mut contrast1 = Self::contrast_bt_srgb(color1, bg);
+
+        for i in 0..choice.len() {
+            let test = Self::contrast_bt_srgb(choice[i], bg);
+            if test > contrast1 {
+                color0 = color1;
+                color1 = choice[i];
+                contrast1 = test;
+            }
+        }
+
+        Style::new().bg(bg).fg(color0)
+    }
+
+    /// Pick a color from the choice with the best contrast to the
+    /// given background.
+    pub fn high_contrast_color(bg: Color, choice: &[Color]) -> Style {
+        let mut color0 = choice[0];
+        let mut color1 = choice[0];
+        let mut contrast1 = Self::contrast_bt_srgb(color1, bg);
+
+        for i in 0..choice.len() {
+            let test = Self::contrast_bt_srgb(choice[i], bg);
+            if test > contrast1 {
+                color0 = color1;
+                color1 = choice[i];
+                contrast1 = test;
+            }
+        }
+
+        Style::new().bg(bg).fg(color0)
+    }
+
+    // /// Gives the luminance according to Rec.ITU-R BT.601-7.
+    // const fn luminance_itu(color: Color) -> f32 {
+    //     let (r, g, b) = Self::color2rgb(color);
+    //     0.2989f32 * (r as f32) / 255f32
+    //         + 0.5870f32 * (g as f32) / 255f32
+    //         + 0.1140f32 * (b as f32) / 255f32
+    // }
+    //
+    // /// Gives the luminance according to Rec.ITU-R BT.601-7.
+    // fn luminance_itu_srgb(color: Color) -> f32 {
+    //     let (r, g, b) = Self::color2rgb(color);
+    //     0.2989f32 * (r as f32) / 255f32
+    //         + 0.5870f32 * (g as f32) / 255f32
+    //         + 0.1140f32 * (b as f32) / 255f32
+    // }
+    //
+    // /// Contrast between two colors.
+    // fn contrast_itu_srgb(color: Color, color2: Color) -> f32 {
+    //     let lum1 = Self::luminance_itu_srgb(color);
+    //     let lum2 = Self::luminance_itu_srgb(color2);
+    //     (lum1 + 0.05f32) / (lum2 + 0.05f32)
+    // }
+
+    /// Gives the luminance according to BT.709.
+    pub(crate) const fn luminance_bt(color: Color) -> f32 {
+        let (r, g, b) = Self::color2rgb(color);
+        0.2126f32 * ((r as f32) / 255f32)
+            + 0.7152f32 * ((g as f32) / 255f32)
+            + 0.0722f32 * ((b as f32) / 255f32)
+    }
+
+    /// Gives the luminance according to BT.709.
+    pub(crate) fn luminance_bt_srgb(color: Color) -> f32 {
+        let (r, g, b) = Self::color2rgb(color);
+        0.2126f32 * ((r as f32) / 255f32).powf(2.2f32)
+            + 0.7152f32 * ((g as f32) / 255f32).powf(2.2f32)
+            + 0.0722f32 * ((b as f32) / 255f32).powf(2.2f32)
+    }
+
+    /// Contrast between two colors.
+    pub(crate) fn contrast_bt_srgb(color: Color, color2: Color) -> f32 {
+        let lum1 = Self::luminance_bt_srgb(color);
+        let lum2 = Self::luminance_bt_srgb(color2);
+        (lum1 - lum2).abs()
+        // Don't use this prescribed method.
+        // The abs diff comes out better.
+        // (lum1 + 0.05f32) / (lum2 + 0.05f32)
     }
 
     /// This gives back a [TextColorRating] for the given background.
@@ -221,7 +317,7 @@ impl Palette {
     ///
     /// For the named colors it takes the VGA equivalent as a base.
     /// For indexed colors it splits the range in half as an estimate.
-    pub const fn rate_text_color(color: Color) -> Option<TextColorRating> {
+    pub fn rate_text_color(color: Color) -> Option<TextColorRating> {
         match color {
             Color::Reset => None,
             Color::Black => Some(TextColorRating::Light), //0
@@ -240,37 +336,14 @@ impl Palette {
             Color::LightMagenta => Some(TextColorRating::Dark), //13
             Color::LightCyan => Some(TextColorRating::Dark), //14
             Color::White => Some(TextColorRating::Dark),  //15
-            Color::Rgb(r, g, b) => {
-                // The formula used in the GIMP is Y = 0.3R + 0.59G + 0.11B;
-                let grey = r as f32 * 0.3f32 + g as f32 * 0.59f32 + b as f32 * 0.11f32;
-                if grey >= 105f32 {
+            c => {
+                let lum = Self::luminance_bt(c);
+                if lum >= 0.4117f32 {
                     Some(TextColorRating::Dark)
                 } else {
                     Some(TextColorRating::Light)
                 }
             }
-            Color::Indexed(n) => match n {
-                0..=6 => Some(TextColorRating::Light),
-                7 => Some(TextColorRating::Dark),
-                8 => Some(TextColorRating::Light),
-                9..=11 => Some(TextColorRating::Dark),
-                12 => Some(TextColorRating::Light),
-                13..=15 => Some(TextColorRating::Dark),
-                v @ 16..=231 => {
-                    if (v - 16) % 36 < 18 {
-                        Some(TextColorRating::Light)
-                    } else {
-                        Some(TextColorRating::Dark)
-                    }
-                }
-                v @ 232..=255 => {
-                    if (v - 232) % 24 < 12 {
-                        Some(TextColorRating::Light)
-                    } else {
-                        Some(TextColorRating::Dark)
-                    }
-                }
-            },
         }
     }
 
@@ -290,10 +363,17 @@ impl Palette {
 
     /// Converts the given color to an equivalent grayscale.
     pub const fn grayscale(color: Color) -> Color {
-        let (r, g, b) = Self::color2rgb(color);
-        // The formula used in the GIMP is Y = 0.3R + 0.59G + 0.11B;
-        let gray = r as f32 * 0.3f32 + g as f32 * 0.59f32 + b as f32 * 0.11f32;
+        let lum = Self::luminance_bt(color);
+        let gray = lum * 255f32;
         Color::Rgb(gray as u8, gray as u8, gray as u8)
+    }
+
+    /// Color from u32
+    pub const fn color32(c0: u32) -> Color {
+        let r0 = (c0 >> 16) as u8;
+        let g0 = (c0 >> 8) as u8;
+        let b0 = c0 as u8;
+        Color::Rgb(r0, g0, b0)
     }
 
     /// Calculates a linear interpolation for the two colors
