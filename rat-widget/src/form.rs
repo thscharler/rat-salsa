@@ -283,17 +283,44 @@ where
     /// Render the page navigation and create the FormBuffer
     /// that will do the actual rendering.
     pub fn into_buffer(
-        self,
+        mut self,
         area: Rect,
         buf: &'a mut Buffer,
         state: &'a mut FormState<W>,
     ) -> FormBuffer<'a, W> {
         state.area = area;
         state.widget_area = self.layout_area(area);
-        if let Some(layout) = self.layout {
+
+        if let Some(layout) = self.layout.take() {
             state.layout = Rc::new(RefCell::new(layout));
         }
 
+        if !state.layout.borrow().is_endless() {
+            self.render_navigation(area, buf, state);
+        }
+
+        let page_size = state.layout.borrow().page_size();
+        let page_area = Rect::new(
+            0,
+            state.page as u16 * page_size.height,
+            page_size.width,
+            page_size.height,
+        );
+
+        let mut fb = FormBuffer {
+            layout: state.layout.clone(),
+            page_area,
+            widget_area: state.widget_area,
+            buffer: buf,
+            auto_label: true,
+            label_style: self.label_style,
+            label_alignment: self.label_alignment,
+        };
+        fb.render_block();
+        fb
+    }
+
+    fn render_navigation(&mut self, area: Rect, buf: &mut Buffer, state: &mut FormState<W>) {
         let page_count = state.layout.borrow().page_count();
 
         if state.page > 0 {
@@ -313,6 +340,7 @@ where
             let title = format!(" {}/{} ", state.page + 1, page_count);
             let block = self
                 .block
+                .take()
                 .unwrap_or_else(|| Block::new().style(self.style))
                 .title_bottom(title)
                 .title_alignment(Alignment::Right);
@@ -322,7 +350,9 @@ where
                 block
             }
         } else {
-            self.block.unwrap_or_else(|| Block::new().style(self.style))
+            self.block
+                .take()
+                .unwrap_or_else(|| Block::new().style(self.style))
         };
         block.render(area, buf);
 
@@ -348,26 +378,6 @@ where
         } else {
             Span::from(self.last_page).render(state.next_area, buf);
         }
-
-        let page_size = state.layout.borrow().page_size();
-        let page_area = Rect::new(
-            0,
-            state.page as u16 * page_size.height,
-            page_size.width,
-            page_size.height,
-        );
-
-        let mut fb = FormBuffer {
-            layout: state.layout.clone(),
-            page_area,
-            widget_area: state.widget_area,
-            buffer: buf,
-            auto_label: true,
-            label_style: self.label_style,
-            label_alignment: self.label_alignment,
-        };
-        fb.render_block();
-        fb
     }
 }
 
