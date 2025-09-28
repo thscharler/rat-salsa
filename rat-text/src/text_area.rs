@@ -81,7 +81,7 @@ pub struct TextArea<'a> {
     h_overscroll: Option<usize>,
     vscroll: Option<Scroll<'a>>,
 
-    text_wrap: TextWrap,
+    text_wrap: Option<TextWrap>,
 
     style: Style,
     focus_style: Option<Style>,
@@ -312,7 +312,7 @@ impl<'a> TextArea<'a> {
 
     /// Set the text wrapping.
     pub fn text_wrap(mut self, wrap: TextWrap) -> Self {
-        self.text_wrap = wrap;
+        self.text_wrap = Some(wrap);
         self
     }
 
@@ -379,7 +379,9 @@ fn render_text_area(
 ) {
     state.area = area;
     state.screen_cursor = None;
-    state.text_wrap = widget.text_wrap;
+    if let Some(text_wrap) = widget.text_wrap {
+        state.text_wrap = text_wrap;
+    }
 
     let style = widget.style;
     let select_style = if let Some(select_style) = widget.select_style {
