@@ -1,6 +1,6 @@
+use crate::mini_salsa::THEME;
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 /// Popup acts as a container. Has its own focus cycle.
-use crate::mini_salsa::theme::THEME;
 use crate::variants::calc_dxy;
 use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, Outcome, Popup, Regular, ct_event};

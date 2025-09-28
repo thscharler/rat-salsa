@@ -1,8 +1,10 @@
 #![allow(unreachable_pub)]
 #![allow(dead_code)]
 
-use crate::mini_salsa::theme::{Scheme, THEME};
+use crate::mini_salsa::palette::Palette;
+use crate::mini_salsa::theme::ShellTheme;
 use anyhow::anyhow;
+use crossterm::ExecutableCommand;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, KeyCode,
@@ -15,12 +17,11 @@ use crossterm::event::{
 #[cfg(not(windows))]
 use crossterm::terminal::supports_keyboard_enhancement;
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use crossterm::ExecutableCommand;
 use log::error;
-use rat_event::util::set_have_keyboard_enhancement;
 use rat_event::Outcome;
+use rat_event::util::set_have_keyboard_enhancement;
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -31,13 +32,13 @@ use ratatui::{Frame, Terminal};
 use std::cell::Cell;
 use std::cmp::max;
 use std::fs;
-use std::io::{stdout, Stdout};
+use std::io::{Stdout, stdout};
 use std::time::{Duration, SystemTime};
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct MiniSalsaState {
     pub name: String,
-    pub theme: Scheme,
+    pub theme: &'static ShellTheme,
     pub frame: usize,
     pub event_cnt: usize,
     pub timing: bool,
@@ -51,7 +52,7 @@ impl MiniSalsaState {
     fn new(name: &str) -> Self {
         let mut s = Self {
             name: name.to_string(),
-            theme: THEME,
+            theme: &THEME,
             frame: 0,
             event_cnt: 0,
             timing: true,
@@ -67,7 +68,7 @@ impl MiniSalsaState {
 
 pub fn run_ui<Data, State>(
     name: &str,
-    init: fn(&mut MiniSalsaState),
+    init: fn(&mut Data, &mut MiniSalsaState, &mut State),
     handle: fn(
         &crossterm::event::Event,
         data: &mut Data,
@@ -113,7 +114,7 @@ pub fn run_ui<Data, State>(
 
     let mut istate = MiniSalsaState::new(name);
 
-    init(&mut istate);
+    init(data, &mut istate, state);
 
     istate.frame = repaint_ui(&mut terminal, repaint, data, &mut istate, state)?;
 
@@ -171,6 +172,8 @@ pub fn run_ui<Data, State>(
 
     r
 }
+
+pub fn mock_init<Data, State>(_data: &mut Data, _istate: &mut MiniSalsaState, _state: &mut State) {}
 
 fn repaint_ui<Data, State>(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
@@ -238,19 +241,19 @@ fn repaint_tui<Data, State>(
     .split(l1[1]);
 
     Line::from_iter(["[", istate.name.as_str(), "]"])
-        .style(THEME.black(2))
+        .style(istate.theme.status_base())
         .render(l_status[0], frame.buffer_mut());
     Line::from(" ")
-        .style(THEME.black(2))
+        .style(istate.theme.status_base())
         .render(l_status[1], frame.buffer_mut());
     Line::from(istate.status[0].as_str())
-        .style(THEME.black(2))
+        .style(istate.theme.statusline_style()[0])
         .render(l_status[2], frame.buffer_mut());
     Line::from(istate.status[1].as_str())
-        .style(THEME.deepblue(0))
+        .style(istate.theme.statusline_style()[1])
         .render(l_status[3], frame.buffer_mut());
     Line::from(istate.status[2].as_str())
-        .style(THEME.deepblue(1))
+        .style(istate.theme.statusline_style()[2])
         .render(l_status[4], frame.buffer_mut());
 
     Ok(())
@@ -345,5 +348,106 @@ pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Int
     }
 }
 
+pub mod palette;
 pub mod text_input_mock;
 pub mod theme;
+
+pub static THEME: ShellTheme = ShellTheme::new("Imperial Shell", PALETTE);
+
+/// An adaption of nvchad's tundra theme.
+///
+/// -- Thanks to original theme for existing <https://github.com/sam4llis/nvim-tundra>
+/// -- this is a modified version of it
+pub const PALETTE: Palette = IMPERIAL;
+
+/// Imperial palette.
+///
+/// Uses purple and gold for primary/secondary.
+/// Other colors are bright, strong and slightly smudged.
+///
+pub const IMPERIAL: Palette = Palette {
+    name: "Imperial",
+
+    primary: Palette::interpolate(0x300057, 0x8c00fd, 63),
+    secondary: Palette::interpolate(0x574b00, 0xffde00, 63),
+
+    text_light: Palette::color32(0xdedfe3),
+    text_bright: Palette::color32(0xf6f6f3),
+    text_dark: Palette::color32(0x2a2b37),
+    text_black: Palette::color32(0x0f1014),
+
+    white: Palette::interpolate(0xdedfe3, 0xf6f6f3, 63),
+    black: Palette::interpolate(0x0f1014, 0x2a2b37, 63),
+    gray: Palette::interpolate(0x3b3d4e, 0x6e7291, 63),
+
+    red: Palette::interpolate(0x480f0f, 0xd22d2d, 63),
+    orange: Palette::interpolate(0x482c0f, 0xd4812b, 63),
+    yellow: Palette::interpolate(0x756600, 0xffde00, 63),
+    limegreen: Palette::interpolate(0x2c4611, 0x80ce31, 63),
+    green: Palette::interpolate(0x186218, 0x32cd32, 63),
+    bluegreen: Palette::interpolate(0x206a52, 0x3bc49a, 63),
+    cyan: Palette::interpolate(0x0f2c48, 0x2bd4d4, 63),
+    blue: Palette::interpolate(0x162b41, 0x2b81d4, 63),
+    deepblue: Palette::interpolate(0x202083, 0x3232cd, 63),
+    purple: Palette::interpolate(0x4d008b, 0x8c00fd, 63),
+    magenta: Palette::interpolate(0x401640, 0xbd42bd, 63),
+    redpink: Palette::interpolate(0x47101d, 0xc33c5b, 63),
+};
+
+pub const OCEAN: Palette = Palette {
+    name: "Ocean",
+
+    primary: Palette::interpolate(0xff8d3c, 0xffbf3c, 63),
+    secondary: Palette::interpolate(0x2b4779, 0x6688cc, 63),
+
+    text_light: Palette::color32(0xe5e5dd),
+    text_bright: Palette::color32(0xf2f2ee),
+    text_dark: Palette::color32(0x0c092c),
+    text_black: Palette::color32(0x030305),
+
+    white: Palette::interpolate(0xe5e5dd, 0xf2f2ee, 63),
+    black: Palette::interpolate(0x030305, 0x0c092c, 63),
+    gray: Palette::interpolate(0x4f6167, 0xbcc7cc, 63),
+
+    red: Palette::interpolate(0xff5e7f, 0xff9276, 63),
+    orange: Palette::interpolate(0xff9f5b, 0xffdc94, 63),
+    yellow: Palette::interpolate(0xffda5d, 0xfff675, 63),
+    limegreen: Palette::interpolate(0x7d8447, 0xe1e5b9, 63),
+    green: Palette::interpolate(0x658362, 0x99c794, 63),
+    bluegreen: Palette::interpolate(0x3a615c, 0x5b9c90, 63),
+    cyan: Palette::interpolate(0x24adbc, 0xb8dade, 63),
+    blue: Palette::interpolate(0x4f86ca, 0xbfdcff, 63),
+    deepblue: Palette::interpolate(0x2b4779, 0x6688cc, 63),
+    purple: Palette::interpolate(0x5068d7, 0xc7c4ff, 63),
+    magenta: Palette::interpolate(0x7952d6, 0xc9bde4, 63),
+    redpink: Palette::interpolate(0x9752d6, 0xcebde4, 63),
+};
+
+pub const TUNDRA: Palette = Palette {
+    name: "Tundra",
+
+    primary: Palette::interpolate(0xe6eaf2, 0xffffff, 63),
+    secondary: Palette::interpolate(0xa8bbd4, 0x719bd3, 63),
+
+    text_light: Palette::color32(0xe6eaf2),
+    text_bright: Palette::color32(0xffffff),
+    text_dark: Palette::color32(0x1a2130),
+    text_black: Palette::color32(0x0b1221),
+
+    white: Palette::interpolate(0xe6eaf2, 0xffffff, 63),
+    black: Palette::interpolate(0x0b1221, 0x1a2130, 63),
+    gray: Palette::interpolate(0x3e4554, 0x5f6675, 63),
+
+    red: Palette::interpolate(0xfccaca, 0xfca5a5, 63),
+    orange: Palette::interpolate(0xfad9c5, 0xfbc19d, 63),
+    yellow: Palette::interpolate(0xe8d7b7, 0xe8d4b0, 63),
+    limegreen: Palette::interpolate(0xbce8b7, 0xb5e8b0, 63),
+    green: Palette::interpolate(0xbce8b7, 0xb5e8b0, 63),
+    bluegreen: Palette::interpolate(0xa8bbd4, 0x719bd3, 63),
+    cyan: Palette::interpolate(0xc8eafc, 0xbae6fd, 63),
+    blue: Palette::interpolate(0xc7d0fc, 0xa5b4fc, 63),
+    deepblue: Palette::interpolate(0xbfcaf2, 0x9baaf2, 63),
+    purple: Palette::interpolate(0xb7abd9, 0xb3a6da, 63),
+    magenta: Palette::interpolate(0xffc9c9, 0xff8e8e, 63),
+    redpink: Palette::interpolate(0xfffcad, 0xfecdd3, 63),
+};

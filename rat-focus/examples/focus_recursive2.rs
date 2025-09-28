@@ -1,11 +1,11 @@
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use crate::substratum1::{Substratum, SubstratumState};
 use crate::substratum2::{Substratum2, Substratum2State};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Block;
-use ratatui::Frame;
 use std::cmp::max;
 
 mod adapter;
@@ -101,7 +101,7 @@ fn handle_input(
 }
 
 pub mod substratum2 {
-    use crate::mini_salsa::theme::THEME;
+    use crate::mini_salsa::THEME;
     use crate::substratum1::{Substratum, SubstratumState};
     use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
@@ -156,7 +156,7 @@ pub mod substratum2 {
 
             self.block = if state.container_focus.get() {
                 if let Some(block) = self.block {
-                    Some(block.border_style(Style::default().fg(THEME.secondary[2])))
+                    Some(block.border_style(Style::default().fg(THEME.palette().secondary[2])))
                 } else {
                     self.block
                 }
@@ -216,8 +216,8 @@ pub mod substratum2 {
 
 pub mod substratum1 {
     use crate::adapter::textinputf::{TextInputF, TextInputFState};
+    use crate::mini_salsa::THEME;
     use crate::mini_salsa::layout_grid;
-    use crate::mini_salsa::theme::THEME;
     use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use ratatui::buffer::Buffer;
@@ -279,7 +279,7 @@ pub mod substratum1 {
 
             self.block = if state.container_focus.get() {
                 if let Some(block) = self.block {
-                    Some(block.border_style(Style::default().fg(THEME.secondary[3])))
+                    Some(block.border_style(Style::default().fg(THEME.palette().secondary[3])))
                 } else {
                     self.block
                 }

@@ -2,8 +2,8 @@
 //! Example for [TableData]
 //!
 
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::THEME;
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use format_num_pattern::NumberFormat;
 use rat_event::{HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
@@ -12,11 +12,11 @@ use rat_ftable::selection::RowSelection;
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableData, TableState};
 use rat_scrolled::Scroll;
+use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{block, Block, StatefulWidget, Widget};
-use ratatui::Frame;
+use ratatui::widgets::{Block, StatefulWidget, Widget, block};
 
 mod data;
 mod mini_salsa;
@@ -144,8 +144,8 @@ fn repaint_table(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.block())
-                .title_style(THEME.block_title())
+                .border_style(THEME.container_border())
+                .title_style(THEME.container_border())
                 .title("tabledata"),
         )
         .vscroll(Scroll::new())

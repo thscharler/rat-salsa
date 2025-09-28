@@ -4,21 +4,21 @@
 //!
 
 use crate::data::render_tablestate::render_tablestate;
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::THEME;
+use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
 use format_num_pattern::NumberFormat;
 use rat_event::ct_event;
 use rat_event::util::item_at;
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::{rowselection, RowSelection};
+use rat_ftable::selection::{RowSelection, rowselection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableDataIter, TableState};
 use rat_scrolled::Scroll;
+use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{block, Block, StatefulWidget, Widget};
-use ratatui::Frame;
+use ratatui::widgets::{Block, StatefulWidget, Widget, block};
 use std::cmp::max;
 use std::iter::Enumerate;
 use std::slice::Iter;
@@ -148,7 +148,7 @@ fn repaint_table(
 
     let mut nocount = Span::from("no_row_count").style(THEME.deepblue(0));
     if state.no_row_count {
-        nocount = nocount.style(THEME.deepblue(0).fg(THEME.red[3]));
+        nocount = nocount.style(THEME.deepblue(0).fg(THEME.palette().red[3]));
     }
     frame.render_widget(nocount, state.edit[0][7]);
 
@@ -233,10 +233,10 @@ fn repaint_table(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.block())
+                .border_style(THEME.container_border())
                 .title("offsets"),
         )
-        .vscroll(Scroll::new().style(THEME.block()))
+        .vscroll(Scroll::new().style(THEME.container_border()))
         .flex(Flex::End)
         .styles(THEME.table_style())
         .select_row_style(Some(THEME.gray(3)))

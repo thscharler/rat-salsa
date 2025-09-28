@@ -3,17 +3,17 @@
 //! More a test than an actual example.
 //!
 
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::THEME;
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::{noselection, NoSelection};
+use rat_ftable::selection::{NoSelection, noselection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableState};
 use rat_scrolled::Scroll;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
-use ratatui::widgets::{block, Block};
-use ratatui::Frame;
+use ratatui::widgets::{Block, block};
 
 mod mini_salsa;
 
@@ -76,10 +76,10 @@ fn repaint_table(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.block())
+                .border_style(THEME.container_border())
                 .title("empty"),
         )
-        .vscroll(Scroll::new().style(THEME.block()))
+        .vscroll(Scroll::new().style(THEME.container_border()))
         .flex(Flex::End)
         .styles(THEME.table_style())
         .select_row_style(Some(THEME.gray(3)))

@@ -2,21 +2,21 @@
 #![allow(unreachable_pub)]
 
 use crate::adapter::blue::{Blue, BlueState};
-use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, mock_init, run_ui, setup_logging};
 use crate::variants::popup_edit::{PopEditGreen, PopEditGreenState};
 use crate::variants::popup_focus::{PopFocusBlue, PopFocusBlueState};
 use crate::variants::popup_lock_edit::{PopLockMagenta, PopLockMagentaState};
 use crate::variants::popup_nonfocus::{PopNonFocusRed, PopNonFocusRedState};
 use log::debug;
 use rat_cursor::HasScreenCursor;
-use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
+use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
-use rat_popup::event::PopupOutcome;
 use rat_popup::PopupConstraint;
+use rat_popup::event::PopupOutcome;
+use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::StatefulWidget;
-use ratatui::Frame;
 
 mod adapter;
 mod mini_salsa;
@@ -42,14 +42,7 @@ fn main() -> Result<(), anyhow::Error> {
         poplock: PopLockMagentaState::default(),
     };
 
-    run_ui(
-        "popup1",
-        |_| {},
-        handle_stuff,
-        repaint_stuff,
-        &mut data,
-        &mut state,
-    )
+    run_ui("popup1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -69,7 +62,7 @@ struct State {
     not_blue: BlueState,
 }
 
-fn repaint_stuff(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -201,7 +194,7 @@ fn focus(state: &mut State) -> Focus {
     f
 }
 
-fn handle_stuff(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

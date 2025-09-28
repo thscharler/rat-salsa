@@ -1,8 +1,8 @@
 //! Popup acts as a container, and takes part of the focus.
 //! Hides when loosing focus.
 
+use crate::mini_salsa::THEME;
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
-use crate::mini_salsa::theme::THEME;
 use crate::variants::calc_dxy;
 use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, Popup, Regular};

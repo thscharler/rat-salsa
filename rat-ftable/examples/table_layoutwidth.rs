@@ -3,19 +3,19 @@
 //!
 
 use crate::data::render_tablestate::render_tablestate;
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::THEME;
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::{rowselection, RowSelection};
+use rat_ftable::selection::{RowSelection, rowselection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableData, TableState};
 use rat_scrolled::Scroll;
+use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{block, Block, StatefulWidget, Widget};
-use ratatui::Frame;
+use ratatui::widgets::{Block, StatefulWidget, Widget, block};
 
 mod data;
 mod mini_salsa;
@@ -152,11 +152,11 @@ fn repaint_table(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.block())
+                .border_style(THEME.container_border())
                 .title("column-scroll"),
         )
-        .hscroll(Scroll::new().style(THEME.block()))
-        .vscroll(Scroll::new().style(THEME.block()))
+        .hscroll(Scroll::new().style(THEME.container_border()))
+        .vscroll(Scroll::new().style(THEME.container_border()))
         .flex(Flex::SpaceBetween)
         .styles(THEME.table_style())
         .select_row_style(Some(THEME.gray(3)))

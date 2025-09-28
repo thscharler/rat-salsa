@@ -2,21 +2,21 @@
 //! Render rows with row-height 0.
 //!
 
-use crate::data::render_tablestate::render_tablestate_row;
 use crate::data::SMALL_DATA;
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::data::render_tablestate::render_tablestate_row;
+use crate::mini_salsa::THEME;
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::{rowselection, RowSelection};
+use rat_ftable::selection::{RowSelection, rowselection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableDataIter, TableState};
 use rat_scrolled::Scroll;
+use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{block, Block, StatefulWidget, Widget};
-use ratatui::Frame;
+use ratatui::widgets::{Block, StatefulWidget, Widget, block};
 use std::cell::RefCell;
 use std::iter::Enumerate;
 use std::slice::Iter;
@@ -184,10 +184,10 @@ fn repaint_table(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.block())
+                .border_style(THEME.container_border())
                 .title("0-height rows"),
         )
-        .vscroll(Scroll::new().style(THEME.block()))
+        .vscroll(Scroll::new().style(THEME.container_border()))
         .flex(Flex::End)
         .styles(THEME.table_style())
         .select_row_style(Some(THEME.gray(3)))
