@@ -1,7 +1,7 @@
 #![allow(unreachable_pub)]
 #![allow(dead_code)]
 
-use crate::mini_salsa::palette::{Contrast, Palette};
+use crate::mini_salsa::palette::Palette;
 use crate::mini_salsa::theme::ShellTheme;
 use anyhow::anyhow;
 use crossterm::ExecutableCommand;
