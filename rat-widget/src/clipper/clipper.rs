@@ -449,6 +449,7 @@ where
 
     /// Render a stateful widget and its label.
     #[inline(always)]
+    #[allow(deprecated)]
     pub fn render<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
     where
         FN: FnOnce() -> WW,
@@ -516,6 +517,7 @@ where
     ///
     /// Call this function to correct this after rendering.
     #[deprecated(since = "1.2.0", note = "will be made private")]
+    #[allow(deprecated)]
     pub fn relocate<S>(&self, state: &mut S)
     where
         S: RelocatableState,

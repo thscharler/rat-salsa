@@ -13,6 +13,7 @@ use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
+#[allow(deprecated)]
 use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::popup::PopupStyle;
@@ -344,6 +345,7 @@ impl DarkTheme {
         }
     }
 
+    #[allow(deprecated)]
     pub fn choice_style(&self) -> ChoiceStyle {
         ChoiceStyle {
             style: self.text_input(),
@@ -394,6 +396,7 @@ impl DarkTheme {
     }
 
     /// Complete MenuStyle
+    #[allow(deprecated)]
     pub fn menu_style(&self) -> MenuStyle {
         let menu = Style::default().fg(self.p.white[3]).bg(self.p.black[2]);
         MenuStyle {
@@ -575,6 +578,7 @@ impl DarkTheme {
     }
 
     /// Pager style.
+    #[allow(deprecated)]
     pub fn pager_style(&self) -> PagerStyle {
         PagerStyle {
             style: self.container_base(),
