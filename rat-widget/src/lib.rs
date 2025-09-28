@@ -21,6 +21,7 @@ pub mod event {
     pub use crate::checkbox::event::CheckOutcome;
     pub use crate::choice::event::ChoiceOutcome;
     pub use crate::file_dialog::event::FileOutcome;
+    #[allow(deprecated)]
     pub use crate::pager::event::PagerOutcome;
     pub use crate::radio::event::RadioOutcome;
     pub use crate::slider::event::SliderOutcome;
@@ -92,6 +93,7 @@ pub mod date_input {
     };
 }
 pub mod file_dialog;
+pub mod form;
 pub mod hover;
 /// Line numbers widget.
 /// For use with TextArea mostly.
@@ -126,6 +128,7 @@ pub mod number_input {
         NumberInput, NumberInputState, handle_events, handle_mouse_events, handle_readonly_events,
     };
 }
+#[deprecated(since = "1.2.0", note = "merged into form::Form")]
 pub mod pager;
 pub mod paired;
 pub mod paragraph;
