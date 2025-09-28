@@ -9,10 +9,12 @@ use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
 use rat_widget::file_dialog::FileDialogStyle;
+use rat_widget::form::FormStyle;
 use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
+#[allow(deprecated)]
 use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::popup::PopupStyle;
@@ -560,8 +562,22 @@ impl SalsaTheme for DarkTheme {
     }
 
     /// Pager style.
+    #[allow(deprecated)]
     fn pager_style(&self) -> PagerStyle {
         PagerStyle {
+            style: self.container_base(),
+            navigation: Some(self.container_arrow()),
+            block: Some(
+                Block::bordered()
+                    .borders(Borders::TOP | Borders::BOTTOM)
+                    .border_style(self.container_border()),
+            ),
+            ..Default::default()
+        }
+    }
+
+    fn form_style(&self) -> FormStyle {
+        FormStyle {
             style: self.container_base(),
             navigation: Some(self.container_arrow()),
             block: Some(

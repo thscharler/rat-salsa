@@ -33,6 +33,7 @@ mod shell_theme;
 
 pub use dark_theme::*;
 pub use palette::*;
+use rat_widget::form::FormStyle;
 pub use shell_theme::*;
 
 /// Trait for a theme.
@@ -229,7 +230,11 @@ pub trait SalsaTheme {
     fn msg_dialog_style(&self) -> MsgDialogStyle;
 
     /// Pager.
+    #[allow(deprecated)]
     fn pager_style(&self) -> PagerStyle;
+
+    /// Form.
+    fn form_style(&self) -> FormStyle;
 
     /// Clipper.
     fn clipper_style(&self) -> ClipperStyle;
