@@ -70,24 +70,24 @@
 //!
 
 use crate::_private::NonExhaustive;
+#[allow(deprecated)]
+use crate::Glyph;
 use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::glyph2::Glyph2;
 use crate::text_input::TextInputState;
 use crate::text_mask_core::MaskedCore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-#[allow(deprecated)]
-use crate::Glyph;
 use crate::{
-    ipos_type, upos_type, Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained,
-    TextFocusLost, TextStyle,
+    Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle,
+    ipos_type, upos_type,
 };
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area, relocate_dark_offset};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::BlockExt;
@@ -366,9 +366,12 @@ fn render_ref(
         }
     } else {
         if state.invalid {
-            (style.patch(invalid_style), style.patch(invalid_style))
+            (
+                style.patch(invalid_style),
+                style.patch(select_style).patch(invalid_style),
+            )
         } else {
-            (style, style)
+            (style, style.patch(select_style))
         }
     };
 

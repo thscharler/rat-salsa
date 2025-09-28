@@ -14,22 +14,22 @@
 //! the mouse behaviour.
 //!
 use crate::_private::NonExhaustive;
-use crate::clipboard::{global_clipboard, Clipboard};
+#[allow(deprecated)]
+use crate::Glyph;
+use crate::clipboard::{Clipboard, global_clipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::glyph2::{Glyph2, TextWrap2};
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
-#[allow(deprecated)]
-use crate::Glyph;
 use crate::{
-    ipos_type, upos_type, Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained,
-    TextFocusLost, TextPosition, TextRange, TextStyle,
+    Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition,
+    TextRange, TextStyle, ipos_type, upos_type,
 };
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area, relocate_dark_offset};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::BlockExt;
@@ -304,9 +304,12 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         }
     } else {
         if state.invalid {
-            (style.patch(invalid_style), style.patch(invalid_style))
+            (
+                style.patch(invalid_style),
+                style.patch(select_style).patch(invalid_style),
+            )
         } else {
-            (style, style)
+            (style, style.patch(select_style))
         }
     };
 

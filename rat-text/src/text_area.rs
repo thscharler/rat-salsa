@@ -384,15 +384,23 @@ fn render_text_area(
     }
 
     let style = widget.style;
+    let focus_style = if let Some(focus_style) = widget.focus_style {
+        focus_style
+    } else {
+        style
+    };
     let select_style = if let Some(select_style) = widget.select_style {
-        // if the select_style has no fg/bg don't patch
-        if select_style.fg.is_none() && select_style.bg.is_none() {
-            select_style
-        } else {
-            style.patch(select_style)
-        }
+        select_style
     } else {
         Style::default().black().on_yellow()
+    };
+    let (style, select_style) = if state.is_focused() {
+        (
+            style.patch(focus_style),
+            style.patch(focus_style).patch(select_style),
+        )
+    } else {
+        (style, style.patch(select_style))
     };
 
     // sync scroll and cursor
