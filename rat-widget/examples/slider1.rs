@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, mock_init, run_ui, setup_logging};
 use map_range_int::MapRange;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
@@ -32,17 +32,9 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.c1.set_value(0);
     state.c1.set_long_step(10);
-
     state.c2.set_value(EnumSlide::C);
 
-    run_ui(
-        "slider1",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("slider1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -149,7 +141,7 @@ struct State {
     menu: MenuLineState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -263,7 +255,7 @@ fn focus(state: &mut State) -> Focus {
     f
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

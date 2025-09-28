@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, THEME, layout_grid};
+use crate::mini_salsa::{MiniSalsaState, THEME, layout_grid, mock_init};
 use rat_event::{HandleEvent, MouseOnly, Outcome, Popup, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::event::EditOutcome;
@@ -55,14 +55,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::default();
     focus(&state).first();
 
-    mini_salsa::run_ui(
-        "rlist1",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    mini_salsa::run_ui("rlist1", mock_init, event, render, &mut data, &mut state)
 }
 
 #[derive(Default)]
@@ -153,7 +146,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome> for EditEntryS
     }
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
@@ -213,7 +206,7 @@ fn focus(state: &State) -> Focus {
     fb.build()
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     data: &mut Data,
     istate: &mut MiniSalsaState,

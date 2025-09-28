@@ -1,4 +1,4 @@
-use crate::mini_salsa::MiniSalsaState;
+use crate::mini_salsa::{MiniSalsaState, mock_init};
 use rat_event::{Outcome, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
@@ -16,14 +16,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::default();
     state.menu.bar.focus.set(true);
 
-    mini_salsa::run_ui(
-        "menubar1",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    mini_salsa::run_ui("menubar1", mock_init, event, render, &mut data, &mut state)
 }
 
 #[derive(Default)]
@@ -69,7 +62,7 @@ static MENU: StaticMenu = StaticMenu {
     ],
 };
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -91,7 +84,7 @@ fn repaint_input(
     Ok(())
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

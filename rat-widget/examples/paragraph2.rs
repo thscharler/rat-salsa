@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
-use rat_focus::{Focus, FocusBuilder, FocusFlag, Navigation};
+use rat_focus::{Focus, FocusBuilder, Navigation};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::HasScreenCursor;
 use rat_text::line_number::{LineNumberState, LineNumbers};
@@ -33,9 +33,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "paragraph1",
-        |_, _, _| {},
-        handle_text,
-        repaint_text,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -54,7 +54,7 @@ struct State {
     text: TextAreaState,
 }
 
-fn repaint_text(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
@@ -148,7 +148,7 @@ fn focus(state: &State) -> Focus {
     fb.build()
 }
 
-fn handle_text(
+fn event(
     event: &crossterm::event::Event,
     data: &mut Data,
     istate: &mut MiniSalsaState,

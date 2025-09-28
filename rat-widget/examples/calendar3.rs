@@ -27,14 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::new();
     state.menu.focus.set(true);
 
-    run_ui(
-        "calendar3",
-        init,
-        handle_input,
-        repaint_input,
-        &mut (),
-        &mut state,
-    )
+    run_ui("calendar3", init, event, render, &mut (), &mut state)
 }
 
 struct State {
@@ -92,7 +85,7 @@ fn init(_data: &mut (), istate: &mut MiniSalsaState, state: &mut State) {
     rebuild_cal_style(state, istate);
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut (),
@@ -202,7 +195,7 @@ fn focus(state: &State) -> Focus {
     builder.build()
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut (),
     istate: &mut MiniSalsaState,

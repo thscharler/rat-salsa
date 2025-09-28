@@ -1,14 +1,15 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
-use rat_widget::event::{Outcome, PagerOutcome};
+use rat_widget::event::{FormOutcome, Outcome, PagerOutcome};
+use rat_widget::form::{Form, FormState};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use rat_widget::pager::{DualPager, DualPagerState};
 use ratatui::Frame;
@@ -30,20 +31,13 @@ fn main() -> Result<(), anyhow::Error> {
         flex: Default::default(),
         line_spacing: 1,
         columns: 1,
-        pager: Default::default(),
+        form: Default::default(),
         hundred: array::from_fn(|_| Default::default()),
         menu: Default::default(),
     };
     state.menu.focus.set(true);
 
-    run_ui(
-        "pager2",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("pager2", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -52,12 +46,12 @@ struct State {
     flex: Flex,
     line_spacing: u16,
     columns: u8,
-    pager: DualPagerState<FocusFlag>,
+    form: FormState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
     menu: MenuLineState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -80,20 +74,18 @@ fn repaint_input(
     .split(l1[1]);
 
     // set up pager
-    let pager = DualPager::new() //
+    let pager = Form::new() //
         .auto_label(true)
         .block(
-            Block::bordered().title(
-                Title::from(format!("{:?}", state.flex))
-                    .alignment(Alignment::Center)
-                    .position(Position::Top),
-            ),
+            Block::bordered()
+                .title_top(format!("{:?}", state.flex))
+                .title_alignment(Alignment::Center),
         )
-        .styles(istate.theme.pager_style());
+        .styles(istate.theme.form_style());
 
     // maybe rebuild layout
     let layout_size = pager.layout_size(l2[1]);
-    if !state.pager.valid_layout(layout_size) {
+    if !state.form.valid_layout(layout_size) {
         let mut form = LayoutForm::new()
             .mirror_odd_border()
             .border(Padding::new(4, 2, 0, 0))
@@ -124,11 +116,11 @@ fn repaint_input(
                 form.page_break();
             }
         }
-        state.pager.set_layout(form.build_paged(layout_size));
+        state.form.set_layout(form.build_paged(layout_size));
     }
 
     // set current layout and prepare rendering.
-    let mut pager = pager.into_buffer(l2[1], frame.buffer_mut(), &mut state.pager);
+    let mut pager = pager.into_buffer(l2[1], frame.buffer_mut(), &mut state.form);
 
     // render the input fields.
     for i in 0..state.hundred.len() {
@@ -175,7 +167,7 @@ fn focus(state: &State) -> Focus {
     fb.build()
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
@@ -185,16 +177,12 @@ fn handle_input(
 
     istate.focus_outcome = focus.handle(event, Regular);
     if istate.focus_outcome == Outcome::Changed {
-        if let Some(ff) = focus.focused() {
-            state.pager.show(ff);
-        }
+        state.form.show_focused(&focus);
     }
 
-    try_flow!(match state.pager.handle(event, Regular) {
-        PagerOutcome::Page(p) => {
-            if let Some(first) = state.pager.first(p) {
-                focus.focus(&first);
-            }
+    try_flow!(match state.form.handle(event, Regular) {
+        FormOutcome::Page => {
+            state.form.focus_first(&focus);
             Outcome::Changed
         }
         r => r.into(),
@@ -202,7 +190,7 @@ fn handle_input(
 
     try_flow!(match event {
         ct_event!(keycode press F(1)) => {
-            debug!("{:#?}", state.pager.layout.borrow());
+            debug!("{:#?}", state.form.layout);
             Outcome::Unchanged
         }
         ct_event!(keycode press F(2)) => flip_flex(state),
@@ -230,7 +218,7 @@ fn handle_input(
 }
 
 fn flip_flex(state: &mut State) -> Outcome {
-    state.pager.clear();
+    state.form.clear();
     state.flex = match state.flex {
         Flex::Legacy => Flex::Start,
         Flex::Start => Flex::End,
@@ -243,7 +231,7 @@ fn flip_flex(state: &mut State) -> Outcome {
 }
 
 fn flip_spacing(state: &mut State) -> Outcome {
-    state.pager.clear();
+    state.form.clear();
     state.line_spacing = match state.line_spacing {
         0 => 1,
         1 => 2,
@@ -254,7 +242,7 @@ fn flip_spacing(state: &mut State) -> Outcome {
 }
 
 fn flip_columns(state: &mut State) -> Outcome {
-    state.pager.clear();
+    state.form.clear();
     state.columns = match state.columns {
         1 => 2,
         2 => 3,
@@ -266,8 +254,8 @@ fn flip_columns(state: &mut State) -> Outcome {
 }
 
 fn prev_page(state: &mut State, focus: &Focus) -> Outcome {
-    if state.pager.prev_page() {
-        if let Some(widget) = state.pager.first(state.pager.page()) {
+    if state.form.prev_page() {
+        if let Some(widget) = state.form.first(state.form.page()) {
             focus.focus(&widget);
         }
         Outcome::Changed
@@ -277,8 +265,8 @@ fn prev_page(state: &mut State, focus: &Focus) -> Outcome {
 }
 
 fn next_page(state: &mut State, focus: &Focus) -> Outcome {
-    if state.pager.next_page() {
-        if let Some(widget) = state.pager.first(state.pager.page()) {
+    if state.form.next_page() {
+        if let Some(widget) = state.form.first(state.form.page()) {
             focus.focus(&widget);
         }
         Outcome::Changed

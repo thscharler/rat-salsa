@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use chrono::{Datelike, Local, Months, NaiveDate};
 use pure_rust_locales::Locale;
 use rat_event::{HandleEvent, Regular, try_flow};
@@ -27,14 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::new();
     state.menu.focus.set(true);
 
-    run_ui(
-        "calendar1",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
-        &mut (),
-        &mut state,
-    )
+    run_ui("calendar1", mock_init, event, render, &mut (), &mut state)
 }
 
 struct State {
@@ -78,7 +71,7 @@ impl State {
     }
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut (),
@@ -202,7 +195,7 @@ fn focus(state: &State) -> Focus {
     f
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut (),
     istate: &mut MiniSalsaState,

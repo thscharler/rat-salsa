@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::try_flow;
 use rat_text::HasScreenCursor;
 use rat_widget::date_input;
@@ -22,9 +22,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "dateinput1",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -36,7 +36,7 @@ struct State {
     pub(crate) input: DateInputState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -80,7 +80,7 @@ fn repaint_input(
     Ok(())
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,

@@ -1,10 +1,10 @@
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use chrono::{Local, NaiveTime};
 use crossterm::event::{Event, KeyModifiers, MouseEvent, MouseEventKind};
 use format_num_pattern::NumberFormat;
 use rat_event::util::{Clicks, MouseFlags, set_double_click_timeout};
 use rat_event::{Outcome, ct_event, try_flow};
-use rat_widget::layout::layout_grid;
+use rat_widget::layout::layout_as_grid;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -33,9 +33,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "doubleclick",
-        |_, _, _| {},
-        handle_buttons,
-        repaint_buttons,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -58,14 +58,14 @@ struct State {
     drag_pos: Option<(u16, u16)>,
 }
 
-fn repaint_buttons(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
-    istate: &mut MiniSalsaState,
+    _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l = layout_grid::<4, 5>(
+    let l = layout_as_grid(
         area,
         Layout::horizontal([
             Constraint::Length(10),
@@ -183,7 +183,7 @@ fn repaint_buttons(
     Ok(())
 }
 
-fn handle_buttons(
+fn event(
     event: &Event,
     data: &mut Data,
     _istate: &mut MiniSalsaState,

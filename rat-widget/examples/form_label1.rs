@@ -3,7 +3,7 @@
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use log::{debug, warn};
 use rat_event::{HandleEvent, Popup, Regular, ct_event, try_flow};
-use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation, impl_has_focus};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
@@ -12,11 +12,9 @@ use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::choice::{Choice, ChoiceState};
-use rat_widget::event::{Outcome, PagerOutcome};
+use rat_widget::event::{FormOutcome, Outcome};
+use rat_widget::form::{Form, FormState};
 use rat_widget::layout::LayoutForm;
-use rat_widget::pager::{
-    DualPager, DualPagerState, Form, FormState, SinglePager, SinglePagerState,
-};
 use rat_widget::paired::{Paired, PairedState, PairedWidget};
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::text::HasScreenCursor;
@@ -40,14 +38,7 @@ fn main() -> Result<(), anyhow::Error> {
     state.descr.set_text_wrap(TextWrap::Word(4));
     state.menu.focus.set(true);
 
-    run_ui(
-        "label_and_form",
-        init_input,
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("label_and_form", init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -56,7 +47,7 @@ struct State {
     flex: Flex,
     columns: u8,
     line_spacing: u16,
-    form: SinglePagerState<usize>,
+    form: FormState<usize>,
 
     name: TextInputState,
     version: MaskedInputState,
@@ -105,9 +96,9 @@ impl Default for State {
     }
 }
 
-fn init_input(_data: &mut Data, _istate: &mut MiniSalsaState, _state: &mut State) {}
+fn init(_data: &mut Data, _istate: &mut MiniSalsaState, _state: &mut State) {}
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -118,8 +109,8 @@ fn repaint_input(
     let l2 = Layout::horizontal([Constraint::Fill(1)]).split(l1[0]);
 
     // set up form
-    let form = SinglePager::new() //
-        .styles(istate.theme.pager_style());
+    let form = Form::new() //
+        .styles(istate.theme.form_style());
 
     // maybe rebuild layout
 
@@ -195,7 +186,7 @@ fn repaint_input(
     );
     form.render(
         state.descr.id(),
-        || TextArea::new().styles(istate.theme.textarea_style()),
+        || TextArea::new().styles(istate.theme.text_style()),
         &mut state.descr,
     );
     let license_popup = form.render2(
@@ -280,7 +271,7 @@ impl HasFocus for State {
         builder.widget(&self.version);
         builder.widget(&self.edition);
         builder.widget(&self.author);
-        builder.widget(&self.descr);
+        builder.widget_navigate(&self.descr, Navigation::Regular);
         builder.widget(&self.license);
         builder.widget(&self.repository);
         builder.widget(&self.readme);
@@ -305,7 +296,7 @@ fn focus(state: &State) -> Focus {
     FocusBuilder::build_for(state)
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
@@ -314,10 +305,13 @@ fn handle_input(
     let mut focus = focus(state);
 
     istate.focus_outcome = focus.handle(event, Regular);
+    if istate.focus_outcome == Outcome::Changed {
+        state.form.show_focused(&focus);
+    }
 
     try_flow!(match event {
         ct_event!(keycode press F(1)) => {
-            debug!("{:#?}", state.form.layout.borrow());
+            debug!("{:#?}", state.form.layout);
             Outcome::Unchanged
         }
         ct_event!(keycode press F(2)) => flip_flex(state),
@@ -341,47 +335,15 @@ fn handle_input(
         r => r.into(),
     });
 
-    // page navigation for the form.
-    try_flow!(match state.form.handle(event, Regular) {
-        PagerOutcome::Page(n) => {
-            if let Some(first) = state.form.first(n) {
-                focus.by_widget_id(first);
-            } else {
-                unreachable!();
-            }
-            Outcome::Changed
-        }
-        r => {
-            if let Some(focused) = focus.focused() {
-                state.form.show(focused.widget_id());
-            }
-            r.into()
-        }
-    });
-
     // popups first
     try_flow!(state.license.handle(event, Popup));
 
     // regular event-handling
     try_flow!(state.name.handle(event, Regular));
-    try_flow!(match event {
-        ct_event!(keycode press F(5)) => {
-            focus.focus(&state.name);
-            Outcome::Changed
-        }
-        _ => Outcome::Continue,
-    });
     try_flow!(state.version.handle(event, Regular));
     try_flow!(state.edition.handle(event, Regular));
     try_flow!(state.author.handle(event, Regular));
     try_flow!(state.descr.handle(event, Regular));
-    try_flow!(match event {
-        ct_event!(keycode press Esc) if state.descr.is_focused() => {
-            focus.next_force();
-            Outcome::Changed
-        }
-        _ => Outcome::Continue,
-    });
     try_flow!(state.repository.handle(event, Regular));
     try_flow!(state.readme.handle(event, Regular));
     try_flow!(state.keywords.handle(event, Regular));
@@ -391,9 +353,22 @@ fn handle_input(
     try_flow!(state.category4.handle(event, Regular));
     try_flow!(state.category5.handle(event, Regular));
 
+    // page navigation for the form.
+    try_flow!(match state.form.handle(event, Regular) {
+        FormOutcome::Page => {
+            state.form.focus_first(&focus);
+            Outcome::Changed
+        }
+        r => r.into(),
+    });
+
     try_flow!(match event {
         ct_event!(keycode press Esc) => {
-            focus.focus(&state.menu);
+            if state.menu.is_focused() {
+                state.form.focus_first(&focus);
+            } else {
+                focus.focus(&state.menu);
+            }
             Outcome::Changed
         }
         _ => Outcome::Continue,

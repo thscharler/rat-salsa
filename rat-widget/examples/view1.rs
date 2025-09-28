@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, Outcome, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::Scroll;
@@ -26,14 +26,7 @@ fn main() -> Result<(), anyhow::Error> {
         second: Default::default(),
     };
 
-    run_ui(
-        "view1",
-        |_, _, _| {},
-        handle_text,
-        repaint_text,
-        &mut data,
-        &mut state,
-    )
+    run_ui("view1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {
@@ -48,7 +41,7 @@ struct State {
     second: ParagraphState,
 }
 
-fn repaint_text(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
@@ -74,7 +67,7 @@ fn repaint_text(
         .into_buffer(l[1], &mut state.view_state);
 
     // render a widget using View coordinates.
-    view_buf.render_stateful(
+    view_buf.render(
         Paragraph::new(data.sample1.clone())
             .wrap(Wrap::default())
             .style(istate.theme.limegreen(0))
@@ -83,7 +76,7 @@ fn repaint_text(
         Rect::new(10, 10, 40, 18),
         &mut state.first,
     );
-    view_buf.render_stateful(
+    view_buf.render(
         Paragraph::new(data.sample2.clone())
             .wrap(Wrap::default())
             .style(istate.theme.bluegreen(0))
@@ -109,7 +102,7 @@ fn focus(state: &mut State) -> Focus {
     fb.build()
 }
 
-fn handle_text(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

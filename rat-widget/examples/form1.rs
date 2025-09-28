@@ -1,16 +1,16 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
-use rat_widget::event::Outcome;
+use rat_widget::event::{FormOutcome, Outcome};
+use rat_widget::form::{Form, FormState};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use rat_widget::pager::{Form, FormState};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
@@ -36,14 +36,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui(
-        "pager1",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("pager1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -57,7 +50,7 @@ struct State {
     menu: MenuLineState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -81,7 +74,7 @@ fn repaint_input(
 
     // set up pager
     let form = Form::new() //
-        .styles(istate.theme.pager_style());
+        .styles(istate.theme.form_style());
 
     // maybe rebuild layout
     let layout_size = form.layout_size(l2[1]);
@@ -167,7 +160,7 @@ fn focus(state: &State) -> Focus {
     fb.build()
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
@@ -177,9 +170,20 @@ fn handle_input(
 
     istate.focus_outcome = focus.handle(event, Regular);
 
+    try_flow!(match state.form.handle(event, Regular) {
+        FormOutcome::Page => {
+            state.form.focus_first(&focus);
+            Outcome::Changed
+        }
+        r => {
+            state.form.show_focused(&focus);
+            r.into()
+        }
+    });
+
     try_flow!(match event {
         ct_event!(keycode press F(1)) => {
-            debug!("{:#?}", state.form.layout.borrow());
+            debug!("{:#?}", state.form.layout());
             Outcome::Unchanged
         }
         ct_event!(keycode press F(2)) => flip_flex(state),

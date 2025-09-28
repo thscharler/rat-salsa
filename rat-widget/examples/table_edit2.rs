@@ -2,7 +2,7 @@
 //! Example for [TableData]
 //!
 
-use crate::mini_salsa::{MiniSalsaState, THEME, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, THEME, mock_init, run_ui, setup_logging};
 use anyhow::Error;
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
@@ -67,9 +67,9 @@ fn main() -> Result<(), Error> {
 
     run_ui(
         "table_edit2",
-        |_, _, _| {},
-        handle_table,
-        repaint_table,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -171,7 +171,7 @@ impl<'a> TableData<'a> for TableData1<'a> {
     }
 }
 
-fn repaint_table(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -235,7 +235,7 @@ fn repaint_table(
     Ok(())
 }
 
-fn handle_table(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{ct_event, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline;
@@ -26,9 +26,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "menu_status1",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -41,7 +41,7 @@ struct State {
     pub(crate) msg: MsgDialogState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -84,7 +84,7 @@ fn repaint_input(
     Ok(())
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

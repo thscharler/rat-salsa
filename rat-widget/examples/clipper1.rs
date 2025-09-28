@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
@@ -32,14 +32,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui(
-        "clipper1",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("clipper1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -50,7 +43,7 @@ struct State {
     menu: MenuLineState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -146,7 +139,7 @@ fn focus(state: &State) -> Focus {
     fb.build()
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use chrono::{Local, NaiveTime};
 use crossterm::event::{Event, KeyEvent};
 use format_num_pattern::NumberFormat;
@@ -21,9 +21,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "keybinding",
-        |_, _, _| {},
-        handle_buttons,
-        repaint_buttons,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -35,11 +35,11 @@ struct Data {
 
 struct State {}
 
-fn repaint_buttons(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
-    istate: &mut MiniSalsaState,
+    _istate: &mut MiniSalsaState,
     _state: &mut State,
 ) -> Result<(), anyhow::Error> {
     if data.journal.len() > 0 {
@@ -76,7 +76,7 @@ fn repaint_buttons(
     Ok(())
 }
 
-fn handle_buttons(
+fn event(
     event: &Event,
     data: &mut Data,
     _istate: &mut MiniSalsaState,

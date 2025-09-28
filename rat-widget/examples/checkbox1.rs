@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
@@ -24,14 +24,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.c2.set_value(true);
 
-    run_ui(
-        "checkbox1",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("checkbox1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -43,7 +36,7 @@ struct State {
     menu: MenuLineState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -105,7 +98,7 @@ fn focus(state: &mut State) -> Focus {
     f
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

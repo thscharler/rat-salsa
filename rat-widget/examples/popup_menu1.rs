@@ -2,7 +2,7 @@
 #![allow(unreachable_pub)]
 
 use crate::blue::{Blue, BlueState};
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
@@ -10,7 +10,7 @@ use rat_menu::menuitem::Separator;
 use rat_menu::popup_menu;
 use rat_menu::popup_menu::{PopupConstraint, PopupMenu, PopupMenuState};
 use rat_widget::event::Outcome;
-use rat_widget::layout::layout_grid;
+use rat_widget::layout::layout_as_grid;
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -36,9 +36,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "popup_menu1",
-        |_, _, _| {},
-        handle_stuff,
-        repaint_stuff,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -59,14 +59,14 @@ struct State {
     popup: PopupMenuState,
 }
 
-fn repaint_stuff(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l = layout_grid::<4, 3>(
+    let l = layout_as_grid(
         area,
         Layout::horizontal([
             Constraint::Fill(1),
@@ -134,7 +134,7 @@ fn focus(state: &mut State) -> Focus {
     fb.build()
 }
 
-fn handle_stuff(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

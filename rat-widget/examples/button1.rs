@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_widget::button::{Button, ButtonState};
@@ -26,14 +26,7 @@ fn main() -> Result<(), anyhow::Error> {
         button3: Default::default(),
     };
 
-    run_ui(
-        "button1",
-        |_, _, _| {},
-        handle_buttons,
-        repaint_buttons,
-        &mut data,
-        &mut state,
-    )
+    run_ui("button1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {
@@ -48,7 +41,7 @@ struct State {
     button3: ButtonState,
 }
 
-fn repaint_buttons(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
@@ -105,7 +98,7 @@ fn focus(state: &mut State) -> Focus {
     fb.build()
 }
 
-fn handle_buttons(
+fn event(
     event: &crossterm::event::Event,
     data: &mut Data,
     istate: &mut MiniSalsaState,

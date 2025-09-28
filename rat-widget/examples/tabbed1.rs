@@ -2,7 +2,6 @@
 
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
-use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
@@ -41,14 +40,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui(
-        "tabbed1",
-        mock_init,
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("tabbed1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -69,7 +61,7 @@ struct State {
     status: StatusLineState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -196,7 +188,7 @@ fn focus(state: &State) -> Focus {
     f
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

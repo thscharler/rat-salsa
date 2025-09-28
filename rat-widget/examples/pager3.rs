@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
@@ -9,13 +9,13 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
-use rat_widget::event::{Outcome, PagerOutcome};
+use rat_widget::event::{FormOutcome, Outcome};
+use rat_widget::form::{Form, FormState};
 use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
-use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget};
+use ratatui::widgets::{Block, BorderType, Borders};
 use std::array;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -37,21 +37,13 @@ fn main() -> Result<(), anyhow::Error> {
         flex: Default::default(),
         line_spacing: 1,
         columns: 1,
-        layout: Default::default(),
-        page_nav: Default::default(),
+        form: Default::default(),
         hundred: array::from_fn(|n| TextInputMockState::named(format!("{}", n).as_str())),
         menu: Default::default(),
     };
     state.menu.focus.set(true);
 
-    run_ui(
-        "pager3",
-        |_, _, _| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("pager3", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -63,13 +55,12 @@ struct State {
     flex: Flex,
     line_spacing: u16,
     columns: u8,
-    layout: Rc<RefCell<GenericLayout<FocusFlag>>>,
-    page_nav: PageNavigationState,
+    form: FormState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
     menu: MenuLineState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -92,19 +83,18 @@ fn repaint_input(
     .split(l1[1]);
 
     // Prepare navigation.
-    let nav = PageNavigation::new()
-        .pages(2)
+    let form = Form::new()
         .block(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top(Line::from(format!("{:?}", state.flex)).alignment(Alignment::Center)),
         )
-        .styles(istate.theme.pager_style());
+        .styles(istate.theme.form_style());
 
-    let layout_size = nav.layout_size(l2[1]);
+    let layout_size = form.layout_size(l2[1]);
 
     // rebuild layout
-    if state.layout.borrow().size_changed(layout_size) {
+    if state.form.layout().size_changed(layout_size) {
         let mut form_layout = LayoutForm::new()
             .spacing(1)
             .flex(state.flex)
@@ -170,22 +160,24 @@ fn repaint_input(
         }
         form_layout.end_all();
 
-        state.layout = Rc::new(RefCell::new(form_layout.build_paged(layout_size)));
-        state
-            .page_nav
-            .set_page_count(state.layout.borrow().page_count());
+        state.form.set_layout(form_layout.build_paged(layout_size));
     }
 
-    // Render navigation
-    nav.render(l2[1], frame.buffer_mut(), &mut state.page_nav);
+    let mut form = form.into_buffer(l2[1], frame.buffer_mut(), &mut state.form);
 
-    // reset state areas
+    // render the fields.
     for i in 0..state.hundred.len() {
-        state.hundred[i].relocate((0, 0), Rect::default());
+        form.render(
+            state.hundred[i].focus(),
+            || {
+                // lazy render
+                TextInputMock::default()
+                    .style(istate.theme.limegreen(0))
+                    .focus_style(istate.theme.limegreen(2))
+            },
+            &mut state.hundred[i],
+        );
     }
-    // render 2 pages
-    render_page(frame, state.page_nav.page, 0, istate, state)?;
-    render_page(frame, state.page_nav.page + 1, 1, istate, state)?;
 
     let menu1 = MenuLine::new()
         .title("#.#")
@@ -207,57 +199,11 @@ fn repaint_input(
     Ok(())
 }
 
-fn render_page(
-    frame: &mut Frame<'_>,
-    page: usize,
-    area_idx: usize,
-    istate: &mut MiniSalsaState,
-    state: &mut State,
-) -> Result<(), anyhow::Error> {
-    // set up pager
-    let mut pager = Pager::new() //
-        .layout(state.layout.clone())
-        .page(page)
-        .label_alignment(Alignment::Right)
-        .styles(istate.theme.pager_style())
-        .into_buffer(
-            state.page_nav.widget_areas[area_idx],
-            Rc::new(RefCell::new(frame.buffer_mut())),
-        );
-
-    // render container areas
-    pager.render_block();
-
-    // render the fields.
-    for i in 0..state.hundred.len() {
-        let idx = pager.widget_idx(state.hundred[i].focus()).expect("fine");
-        if pager.is_visible(idx) {
-            if let Some(idx) = pager.widget_idx(state.hundred[i].focus.clone()) {
-                pager.render_auto_label(idx);
-                pager.render(
-                    idx,
-                    || {
-                        // lazy render
-                        TextInputMock::default()
-                            .style(istate.theme.limegreen(0))
-                            .focus_style(istate.theme.limegreen(2))
-                    },
-                    &mut state.hundred[i],
-                );
-            }
-        }
-    }
-
-    // pager done.
-
-    Ok(())
-}
-
 fn focus(state: &mut State) -> Focus {
     let mut fb = FocusBuilder::new(state.focus.take());
     fb.widget(&state.menu);
 
-    let tag = fb.start_with_flags(state.page_nav.container.clone(), Rect::default(), 0);
+    let tag = fb.start(&state.form);
     for i in 0..state.hundred.len() {
         // Focus wants __all__ areas.
         fb.widget(&state.hundred[i]);
@@ -267,7 +213,7 @@ fn focus(state: &mut State) -> Focus {
     fb.build()
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
@@ -283,20 +229,12 @@ fn handle_input(
     istate.focus_outcome = focus.handle(event, Regular);
     // set the page from focus.
     if istate.focus_outcome == Outcome::Changed {
-        if let Some(ff) = focus.focused() {
-            if let Some(page) = state.layout.borrow().page_of(ff) {
-                if page != state.page_nav.page {
-                    state.page_nav.set_page((page / 2) * 2);
-                }
-            }
-        }
+        state.form.show_focused(&focus);
     }
 
-    try_flow!(match state.page_nav.handle(event, Regular) {
-        PagerOutcome::Page(p) => {
-            if let Some(w) = state.layout.borrow().first(p) {
-                focus.focus(&w);
-            }
+    try_flow!(match state.form.handle(event, Regular) {
+        FormOutcome::Page => {
+            state.form.focus_first(&focus);
             Outcome::Changed
         }
         r => r.into(),
@@ -304,7 +242,7 @@ fn handle_input(
 
     try_flow!(match event {
         ct_event!(keycode press F(1)) => {
-            debug!("{:#?}", state.layout.borrow());
+            debug!("{:#?}", state.form.layout());
             Outcome::Unchanged
         }
         ct_event!(keycode press F(2)) => flip_flex(state),
@@ -334,7 +272,7 @@ fn handle_input(
 }
 
 fn flip_flex(state: &mut State) -> Outcome {
-    state.layout = Default::default();
+    state.form.clear();
     state.flex = match state.flex {
         Flex::Legacy => Flex::Start,
         Flex::Start => Flex::End,
@@ -347,7 +285,7 @@ fn flip_flex(state: &mut State) -> Outcome {
 }
 
 fn flip_spacing(state: &mut State) -> Outcome {
-    state.layout = Default::default();
+    state.form.clear();
     state.line_spacing = match state.line_spacing {
         0 => 1,
         1 => 2,
@@ -358,7 +296,7 @@ fn flip_spacing(state: &mut State) -> Outcome {
 }
 
 fn flip_columns(state: &mut State) -> Outcome {
-    state.layout = Default::default();
+    state.form.clear();
     state.columns = match state.columns {
         1 => 2,
         2 => 3,
@@ -370,10 +308,8 @@ fn flip_columns(state: &mut State) -> Outcome {
 }
 
 fn prev_page(state: &mut State, focus: &Focus) -> Outcome {
-    if state.page_nav.prev_page() {
-        if let Some(w) = state.layout.borrow().first(state.page_nav.page) {
-            focus.focus(&w);
-        }
+    if state.form.prev_page() {
+        state.form.focus_first(focus);
         Outcome::Changed
     } else {
         Outcome::Unchanged
@@ -381,10 +317,8 @@ fn prev_page(state: &mut State, focus: &Focus) -> Outcome {
 }
 
 fn next_page(state: &mut State, focus: &Focus) -> Outcome {
-    if state.page_nav.next_page() {
-        if let Some(w) = state.layout.borrow().first(state.page_nav.page) {
-            focus.focus(&w);
-        }
+    if state.form.next_page() {
+        state.form.focus_first(focus);
         Outcome::Changed
     } else {
         Outcome::Unchanged
