@@ -48,7 +48,7 @@ pub struct FormBuffer<'a, W>
 where
     W: Eq + Hash + Clone,
 {
-    layout: Rc<RefCell<GenericLayout<W>>>,
+    layout: Rc<GenericLayout<W>>,
 
     page_area: Rect,
     widget_area: Rect,
@@ -83,7 +83,7 @@ where
 {
     /// Page layout
     /// __read+write__ might be overwritten from widget.
-    pub layout: Rc<RefCell<GenericLayout<W>>>,
+    pub layout: Rc<GenericLayout<W>>,
     /// Full area for the widget.
     /// __read only__ renewed for each render.
     pub area: Rect,
@@ -323,14 +323,14 @@ where
         state.widget_area = self.layout_area(area);
 
         if let Some(layout) = self.layout.take() {
-            state.layout = Rc::new(RefCell::new(layout));
+            state.layout = Rc::new(layout);
         }
 
-        if !state.layout.borrow().is_endless() {
+        if !state.layout.is_endless() {
             self.render_navigation(area, buf, state);
         }
 
-        let page_size = state.layout.borrow().page_size();
+        let page_size = state.layout.page_size();
         assert!(page_size.height < u16::MAX || page_size.height == u16::MAX && state.page == 0);
         let page_area = Rect::new(
             0,
@@ -353,7 +353,7 @@ where
     }
 
     fn render_navigation(&mut self, area: Rect, buf: &mut Buffer, state: &mut FormState<W>) {
-        let page_count = state.layout.borrow().page_count();
+        let page_count = state.layout.page_count();
 
         if state.page > 0 {
             state.prev_area = Rect::new(area.x, area.y, unicode_width(self.prev_page) as u16, 1);
@@ -419,9 +419,8 @@ where
 {
     /// Is the given area visible?
     pub fn is_visible(&self, widget: W) -> bool {
-        let layout = self.layout.borrow();
-        if let Some(idx) = layout.try_index_of(widget) {
-            self.locate_area(layout.widget(idx)).is_some()
+        if let Some(idx) = self.layout.try_index_of(widget) {
+            self.locate_area(self.layout.widget(idx)).is_some()
         } else {
             false
         }
@@ -429,10 +428,9 @@ where
 
     /// Render all blocks for the current page.
     fn render_block(&mut self) {
-        let layout = self.layout.borrow();
-        for (idx, block_area) in layout.block_area_iter().enumerate() {
+        for (idx, block_area) in self.layout.block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
-                if let Some(block) = layout.block(idx) {
+                if let Some(block) = self.layout.block(idx) {
                     block.render(block_area, self.buffer);
                 }
             }
@@ -445,14 +443,13 @@ where
     where
         FN: FnOnce(&Cow<'static, str>, Rect, &mut Buffer),
     {
-        let layout = self.layout.borrow();
-        let Some(idx) = layout.try_index_of(widget) else {
+        let Some(idx) = self.layout.try_index_of(widget) else {
             return false;
         };
         let Some(label_area) = self.locate_label(idx) else {
             return false;
         };
-        if let Some(label_str) = layout.try_label_str(idx) {
+        if let Some(label_str) = self.layout.try_label_str(idx) {
             render_fn(label_str, label_area, self.buffer);
         } else {
             render_fn(&Cow::default(), label_area, self.buffer);
@@ -467,7 +464,7 @@ where
         FN: FnOnce() -> WW,
         WW: Widget,
     {
-        let Some(idx) = self.layout.borrow().try_index_of(widget) else {
+        let Some(idx) = self.layout.try_index_of(widget) else {
             return false;
         };
         if self.auto_label {
@@ -488,7 +485,7 @@ where
         WW: StatefulWidget<State = SS>,
         SS: RelocatableState,
     {
-        let Some(idx) = self.layout.borrow().try_index_of(widget) else {
+        let Some(idx) = self.layout.try_index_of(widget) else {
             return false;
         };
         if self.auto_label {
@@ -516,7 +513,7 @@ where
         WW: StatefulWidget<State = SS>,
         SS: RelocatableState,
     {
-        let Some(idx) = self.layout.borrow().try_index_of(widget) else {
+        let Some(idx) = self.layout.try_index_of(widget) else {
             return false;
         };
         if self.auto_label {
@@ -542,7 +539,7 @@ where
         WW: StatefulWidget<State = SS>,
         SS: RelocatableState,
     {
-        let Some(idx) = self.layout.borrow().try_index_of(widget) else {
+        let Some(idx) = self.layout.try_index_of(widget) else {
             return None;
         };
         if self.auto_label {
@@ -569,11 +566,9 @@ where
         let Some(label_area) = self.locate_label(idx) else {
             return false;
         };
-        let layout = self.layout.borrow();
-        let Some(label_str) = layout.try_label_str(idx) else {
+        let Some(label_str) = self.layout.try_label_str(idx) else {
             return false;
         };
-
         let mut label = Line::from(label_str.as_ref());
         if let Some(style) = self.label_style {
             label = label.style(style)
@@ -591,7 +586,7 @@ where
     /// This clips the area to page_area.
     #[inline]
     fn locate_widget(&self, idx: usize) -> Option<Rect> {
-        self.locate_area(self.layout.borrow().widget(idx))
+        self.locate_area(self.layout.widget(idx))
     }
 
     /// Relocate the label area to screen coordinates.
@@ -599,7 +594,7 @@ where
     /// This clips the area to page_area.
     #[inline]
     fn locate_label(&self, idx: usize) -> Option<Rect> {
-        self.locate_area(self.layout.borrow().label(idx))
+        self.locate_area(self.layout.label(idx))
     }
 
     /// This will clip the area to the page_area.
@@ -700,23 +695,22 @@ where
 
     /// Clear the layout data and reset the page/page-count.
     pub fn clear(&mut self) {
-        self.layout.borrow_mut().clear();
+        self.layout = Default::default();
         self.page = 0;
     }
 
     /// Layout needs to change?
     pub fn valid_layout(&self, size: Size) -> bool {
-        let layout = self.layout.borrow();
-        !layout.size_changed(size) && !layout.is_empty()
+        !self.layout.size_changed(size) && !self.layout.is_empty()
     }
 
     /// Set the layout.
     pub fn set_layout(&mut self, layout: GenericLayout<W>) {
-        self.layout = Rc::new(RefCell::new(layout));
+        self.layout = Rc::new(layout);
     }
 
     /// Layout.
-    pub fn layout(&self) -> Rc<RefCell<GenericLayout<W>>> {
+    pub fn layout(&self) -> Rc<GenericLayout<W>> {
         self.layout.clone()
     }
 
@@ -724,7 +718,7 @@ where
     /// If there is no widget for the given identifier, this
     /// will set the page to 0.
     pub fn show(&mut self, widget: W) {
-        let page = if let Some(page) = self.layout.borrow().page_of(widget) {
+        let page = if let Some(page) = self.layout.page_of(widget) {
             page
         } else {
             0
@@ -734,17 +728,17 @@ where
 
     /// Number of form pages.
     pub fn page_count(&self) -> usize {
-        self.layout.borrow().page_count()
+        self.layout.page_count()
     }
 
     /// Returns the first widget for the given page.
     pub fn first(&self, page: usize) -> Option<W> {
-        self.layout.borrow().first(page)
+        self.layout.first(page)
     }
 
     /// Calculates the page of the widget.
     pub fn page_of(&self, widget: W) -> Option<usize> {
-        self.layout.borrow().page_of(widget)
+        self.layout.page_of(widget)
     }
 
     /// Set the visible page.
@@ -808,7 +802,7 @@ impl FormState<usize> {
             return false;
         };
         let focused = focused.widget_id();
-        let page = self.layout.borrow().page_of(focused);
+        let page = self.layout.page_of(focused);
         if let Some(page) = page {
             self.set_page(page);
             true
@@ -835,7 +829,7 @@ impl FormState<FocusFlag> {
         let Some(focused) = focus.focused() else {
             return false;
         };
-        let page = self.layout.borrow().page_of(focused);
+        let page = self.layout.page_of(focused);
         if let Some(page) = page {
             self.set_page(page);
             true
@@ -850,7 +844,7 @@ where
     W: Eq + Hash + Clone,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> FormOutcome {
-        let r = if self.container.is_focused() && !self.layout.borrow().is_endless() {
+        let r = if self.container.is_focused() && !self.layout.is_endless() {
             match event {
                 ct_event!(keycode press ALT-PageUp) => {
                     if self.prev_page() {
@@ -881,7 +875,7 @@ where
     W: Eq + Hash + Clone,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> FormOutcome {
-        if !self.layout.borrow().is_endless() {
+        if !self.layout.is_endless() {
             match event {
                 ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {
                     if self.prev_page() {
