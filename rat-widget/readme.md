@@ -51,8 +51,7 @@ Special mentions:
 
 # Widgets
 
-All the widgets are plain ratatui widgets, and implement
-StatefulWidget and the (experimental) StatefulWidgetRef traits.
+All the widgets are plain ratatui widgets, and implement StatefulWidget.
 
 Event handling uses [rat-event::HandleEvent][refRatEvent].
 Currently, crossterm events are implemented.

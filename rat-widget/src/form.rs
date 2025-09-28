@@ -153,9 +153,6 @@ where
 /// Struct for rendering widgets.
 #[derive(Debug)]
 pub struct FormWidget<'a, W> {
-    page_area: Rect,
-    widget_area: Rect,
-
     style: Style,
     block: Option<Block<'a>>,
     nav_style: Option<Style>,
@@ -633,8 +630,6 @@ where
         self.destruct = true;
 
         FormWidget {
-            page_area: self.page_area,
-            widget_area: self.widget_area,
             style: self.style,
             block: self.block.take(),
             nav_style: self.nav_style,
