@@ -1,8 +1,9 @@
 use crate::_private::NonExhaustive;
 use crate::layout::GenericLayout;
 use crate::util::revert_style;
+use event::FormOutcome;
 use rat_event::util::MouseFlagsN;
-use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular, ct_event};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
@@ -74,24 +75,6 @@ pub struct FormStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl Default for FormStyle {
-    fn default() -> Self {
-        Self {
-            style: Default::default(),
-            label_style: None,
-            label_alignment: None,
-            navigation: None,
-            title: None,
-            block: None,
-            next_page_mark: None,
-            prev_page_mark: None,
-            first_page_mark: None,
-            last_page_mark: None,
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
 /// Widget state.
 #[derive(Debug, Clone)]
 pub struct FormState<W>
@@ -127,6 +110,54 @@ where
     pub non_exhaustive: NonExhaustive,
 }
 
+pub(crate) mod event {
+    use rat_event::{ConsumedEvent, Outcome};
+
+    /// Result of event handling.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum FormOutcome {
+        /// The given event has not been used at all.
+        Continue,
+        /// The event has been recognized, but the result was nil.
+        /// Further processing for this event may stop.
+        Unchanged,
+        /// The event has been recognized and there is some change
+        /// due to it.
+        /// Further processing for this event may stop.
+        /// Rendering the ui is advised.
+        Changed,
+        /// Displayed page changed.
+        Page,
+    }
+
+    impl ConsumedEvent for FormOutcome {
+        fn is_consumed(&self) -> bool {
+            *self != FormOutcome::Continue
+        }
+    }
+
+    impl From<Outcome> for FormOutcome {
+        fn from(value: Outcome) -> Self {
+            match value {
+                Outcome::Continue => FormOutcome::Continue,
+                Outcome::Unchanged => FormOutcome::Unchanged,
+                Outcome::Changed => FormOutcome::Changed,
+            }
+        }
+    }
+
+    impl From<FormOutcome> for Outcome {
+        fn from(value: FormOutcome) -> Self {
+            match value {
+                FormOutcome::Continue => Outcome::Continue,
+                FormOutcome::Unchanged => Outcome::Unchanged,
+                FormOutcome::Changed => Outcome::Changed,
+                FormOutcome::Page => Outcome::Changed,
+            }
+        }
+    }
+}
+
 impl<W> Default for Form<'_, W>
 where
     W: Eq + Hash + Clone,
@@ -138,10 +169,10 @@ where
             block: Default::default(),
             nav_style: Default::default(),
             title_style: Default::default(),
-            next_page: Default::default(),
-            prev_page: Default::default(),
-            first_page: Default::default(),
-            last_page: Default::default(),
+            next_page: ">>>",
+            prev_page: "<<<",
+            first_page: " [ ",
+            last_page: " ] ",
             auto_label: true,
             label_style: Default::default(),
             label_alignment: Default::default(),
@@ -300,9 +331,10 @@ where
         }
 
         let page_size = state.layout.borrow().page_size();
+        assert!(page_size.height < u16::MAX || page_size.height == u16::MAX && state.page == 0);
         let page_area = Rect::new(
             0,
-            state.page as u16 * page_size.height,
+            (state.page as u16).saturating_mul(page_size.height),
             page_size.width,
             page_size.height,
         );
@@ -604,6 +636,24 @@ where
     }
 }
 
+impl Default for FormStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            label_style: None,
+            label_alignment: None,
+            navigation: None,
+            title: None,
+            block: None,
+            next_page_mark: None,
+            prev_page_mark: None,
+            first_page_mark: None,
+            last_page_mark: None,
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 impl<W> Default for FormState<W>
 where
     W: Eq + Hash + Clone,
@@ -738,114 +788,146 @@ where
     }
 }
 
+impl FormState<usize> {
+    /// Focus the first widget on the active page.
+    /// This assumes the usize-key is a widget id.
+    pub fn focus_first(&self, focus: &Focus) -> bool {
+        if let Some(w) = self.first(self.page) {
+            focus.by_widget_id(w);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Show the page with the focused widget.
+    /// This assumes the usize-key is a widget id.
+    /// Does nothing if none of the widgets has the focus.
+    pub fn show_focused(&mut self, focus: &Focus) -> bool {
+        let Some(focused) = focus.focused() else {
+            return false;
+        };
+        let focused = focused.widget_id();
+        let page = self.layout.borrow().page_of(focused);
+        if let Some(page) = page {
+            self.set_page(page);
+            true
+        } else {
+            false
+        }
+    }
+}
+
 impl FormState<FocusFlag> {
     /// Focus the first widget on the active page.
-    pub fn focus_first(&self, focus: &Focus) {
+    pub fn focus_first(&self, focus: &Focus) -> bool {
         if let Some(w) = self.first(self.page) {
             focus.focus(&w);
+            true
+        } else {
+            false
         }
     }
 
     /// Show the page with the focused widget.
     /// Does nothing if none of the widgets has the focus.
-    pub fn show_focused(&mut self) {
-        let p = 'f: {
-            let layout = self.layout.borrow();
-            for i in 0..layout.widget_len() {
-                let key = layout.widget_key(i);
-                if key.is_focused() {
-                    if let Some(p) = layout.page_of(key) {
-                        break 'f Some(p);
-                    }
-                }
-            }
-            None
+    pub fn show_focused(&mut self, focus: &Focus) -> bool {
+        let Some(focused) = focus.focused() else {
+            return false;
         };
-        if let Some(p) = p {
-            self.set_page(p);
+        let page = self.layout.borrow().page_of(focused);
+        if let Some(page) = page {
+            self.set_page(page);
+            true
+        } else {
+            false
         }
     }
 }
 
-impl<W> HandleEvent<crossterm::event::Event, Regular, Outcome> for FormState<W>
+impl<W> HandleEvent<crossterm::event::Event, Regular, FormOutcome> for FormState<W>
 where
     W: Eq + Hash + Clone,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
-        let r = if self.container.is_focused() {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> FormOutcome {
+        let r = if self.container.is_focused() && !self.layout.borrow().is_endless() {
             match event {
                 ct_event!(keycode press ALT-PageUp) => {
                     if self.prev_page() {
-                        Outcome::Changed
+                        FormOutcome::Page
                     } else {
-                        Outcome::Continue
+                        FormOutcome::Continue
                     }
                 }
                 ct_event!(keycode press ALT-PageDown) => {
                     if self.next_page() {
-                        Outcome::Changed
+                        FormOutcome::Page
                     } else {
-                        Outcome::Continue
+                        FormOutcome::Continue
                     }
                 }
-                _ => Outcome::Continue,
+                _ => FormOutcome::Continue,
             }
         } else {
-            Outcome::Continue
+            FormOutcome::Continue
         };
 
         r.or_else(|| self.handle(event, MouseOnly))
     }
 }
 
-impl<W> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FormState<W>
+impl<W> HandleEvent<crossterm::event::Event, MouseOnly, FormOutcome> for FormState<W>
 where
     W: Eq + Hash + Clone,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
-        match event {
-            ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {
-                if self.prev_page() {
-                    Outcome::Changed
-                } else {
-                    Outcome::Unchanged
-                }
-            }
-            ct_event!(mouse down Left for x,y) if self.next_area.contains((*x, *y).into()) => {
-                if self.next_page() {
-                    Outcome::Changed
-                } else {
-                    Outcome::Unchanged
-                }
-            }
-            ct_event!(scroll down for x,y) => {
-                if self.area.contains((*x, *y).into()) {
-                    if self.next_page() {
-                        Outcome::Changed
-                    } else {
-                        Outcome::Continue
-                    }
-                } else {
-                    Outcome::Continue
-                }
-            }
-            ct_event!(scroll up for x,y) => {
-                if self.area.contains((*x, *y).into()) {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> FormOutcome {
+        if !self.layout.borrow().is_endless() {
+            match event {
+                ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {
                     if self.prev_page() {
-                        Outcome::Changed
+                        FormOutcome::Page
                     } else {
-                        Outcome::Continue
+                        FormOutcome::Unchanged
                     }
-                } else {
-                    Outcome::Continue
                 }
+                ct_event!(mouse down Left for x,y) if self.next_area.contains((*x, *y).into()) => {
+                    if self.next_page() {
+                        FormOutcome::Page
+                    } else {
+                        FormOutcome::Unchanged
+                    }
+                }
+                ct_event!(scroll down for x,y) => {
+                    if self.area.contains((*x, *y).into()) {
+                        if self.next_page() {
+                            FormOutcome::Page
+                        } else {
+                            FormOutcome::Continue
+                        }
+                    } else {
+                        FormOutcome::Continue
+                    }
+                }
+                ct_event!(scroll up for x,y) => {
+                    if self.area.contains((*x, *y).into()) {
+                        if self.prev_page() {
+                            FormOutcome::Page
+                        } else {
+                            FormOutcome::Continue
+                        }
+                    } else {
+                        FormOutcome::Continue
+                    }
+                }
+                ct_event!(mouse any for m)
+                    if self.mouse.hover(&[self.prev_area, self.next_area], m) =>
+                {
+                    FormOutcome::Changed
+                }
+                _ => FormOutcome::Continue,
             }
-            ct_event!(mouse any for m)
-                if self.mouse.hover(&[self.prev_area, self.next_area], m) =>
-            {
-                Outcome::Changed
-            }
-            _ => Outcome::Continue,
+        } else {
+            FormOutcome::Continue
         }
     }
 }

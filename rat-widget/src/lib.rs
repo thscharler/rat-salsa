@@ -21,6 +21,7 @@ pub mod event {
     pub use crate::checkbox::event::CheckOutcome;
     pub use crate::choice::event::ChoiceOutcome;
     pub use crate::file_dialog::event::FileOutcome;
+    pub use crate::form::event::FormOutcome;
     #[allow(deprecated)]
     pub use crate::pager::event::PagerOutcome;
     pub use crate::radio::event::RadioOutcome;
