@@ -230,6 +230,11 @@ where
         self.widget_areas.is_empty() && self.block_areas.is_empty()
     }
 
+    /// Is this as layout with height = u16::MAX?
+    pub fn is_endless(&self) -> bool {
+        self.area.height == u16::MAX
+    }
+
     /// Number of widgets/labels.
     #[inline]
     pub fn widget_len(&self) -> usize {
