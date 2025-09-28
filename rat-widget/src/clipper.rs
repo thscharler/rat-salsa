@@ -1,5 +1,5 @@
 //!
-//! An alternative view widget.
+//! An alternative view widget that renders only visible widgets.
 //!
 //! > The extra requirement for this one is that you can create
 //! > a Layout that defines the bounds of all widgets that can
@@ -91,7 +91,7 @@
 use crate::_private::NonExhaustive;
 use crate::layout::GenericLayout;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular, ct_event};
-use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
@@ -106,6 +106,7 @@ use std::cell::{Ref, RefCell};
 use std::cmp::{max, min};
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::mem;
 use std::rc::Rc;
 
 /// This widget allows rendering to a temp-buffer and clips
@@ -147,6 +148,8 @@ where
     vscroll: Option<Scroll<'a>>,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
+
+    destruct: bool,
 }
 
 #[derive(Debug)]
@@ -470,6 +473,18 @@ where
             vscroll: self.vscroll,
             label_style: self.label_style,
             label_alignment: self.label_alignment,
+            destruct: false,
+        }
+    }
+}
+
+impl<'a, W> Drop for ClipperBuffer<'a, W>
+where
+    W: Eq + Hash + Clone,
+{
+    fn drop(&mut self) {
+        if !self.destruct {
+            panic!("ClipperBuffer must be used by into_widget()");
         }
     }
 }
@@ -663,13 +678,14 @@ where
     #[allow(deprecated)]
     pub fn into_widget(mut self) -> ClipperWidget<'a, W> {
         self.render_block();
+        self.destruct = true;
 
         ClipperWidget {
-            block: self.block,
-            hscroll: self.hscroll,
-            vscroll: self.vscroll,
+            block: self.block.take(),
+            hscroll: self.hscroll.take(),
+            vscroll: self.vscroll.take(),
             offset: self.offset,
-            buffer: self.buffer,
+            buffer: mem::take(&mut self.buffer),
             phantom: Default::default(),
             style: self.style,
         }
@@ -950,6 +966,51 @@ where
 
     pub fn scroll_right(&mut self, delta: usize) -> bool {
         self.hscroll.scroll_right(delta)
+    }
+}
+
+impl ClipperState<usize> {
+    /// Focus the first widget on the active page.
+    /// This assumes the usize-key is a widget id.
+    pub fn focus_first(&self, focus: &Focus) -> bool {
+        if let Some(w) = self.first() {
+            focus.by_widget_id(w);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Show the page with the focused widget.
+    /// This assumes the usize-key is a widget id.
+    /// Does nothing if none of the widgets has the focus.
+    pub fn show_focused(&mut self, focus: &Focus) -> bool {
+        let Some(focused) = focus.focused() else {
+            return false;
+        };
+        let focused = focused.widget_id();
+        self.scroll_to(focused)
+    }
+}
+
+impl ClipperState<FocusFlag> {
+    /// Focus the first widget on the active page.
+    pub fn focus_first(&self, focus: &Focus) -> bool {
+        if let Some(w) = self.first() {
+            focus.focus(&w);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Show the page with the focused widget.
+    /// Does nothing if none of the widgets has the focus.
+    pub fn show_focused(&mut self, focus: &Focus) -> bool {
+        let Some(focused) = focus.focused() else {
+            return false;
+        };
+        self.scroll_to(focused)
     }
 }
 

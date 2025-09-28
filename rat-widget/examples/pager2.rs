@@ -15,7 +15,7 @@ use rat_widget::pager::{DualPager, DualPagerState};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::widgets::block::{Position, Title};
-use ratatui::widgets::{Block, Padding};
+use ratatui::widgets::{Block, Padding, StatefulWidget};
 use std::array;
 
 mod mini_salsa;
@@ -74,7 +74,7 @@ fn render(
     .split(l1[1]);
 
     // set up pager
-    let pager = Form::new() //
+    let form = Form::new() //
         .auto_label(true)
         .block(
             Block::bordered()
@@ -84,7 +84,7 @@ fn render(
         .styles(istate.theme.form_style());
 
     // maybe rebuild layout
-    let layout_size = pager.layout_size(l2[1]);
+    let layout_size = form.layout_size(l2[1]);
     if !state.form.valid_layout(layout_size) {
         let mut form = LayoutForm::new()
             .mirror_odd_border()
@@ -120,12 +120,12 @@ fn render(
     }
 
     // set current layout and prepare rendering.
-    let mut pager = pager.into_buffer(l2[1], frame.buffer_mut(), &mut state.form);
+    let mut form = form.into_buffer(l2[1], frame.buffer_mut(), &mut state.form);
 
     // render the input fields.
     for i in 0..state.hundred.len() {
         // map our widget area.
-        pager.render(
+        form.render(
             state.hundred[i].focus.clone(),
             || {
                 TextInputMock::default()
@@ -136,6 +136,9 @@ fn render(
             &mut state.hundred[i],
         );
     }
+
+    form.into_widget()
+        .render(l2[1], frame.buffer_mut(), &mut state.form);
 
     let menu1 = MenuLine::new()
         .title("#.#")

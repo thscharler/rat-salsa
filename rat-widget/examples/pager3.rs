@@ -7,18 +7,15 @@ use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
-use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use rat_widget::event::{FormOutcome, Outcome};
 use rat_widget::form::{Form, FormState};
-use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
+use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders};
+use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget};
 use std::array;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::time::SystemTime;
 
 mod mini_salsa;
@@ -179,6 +176,9 @@ fn render(
         );
     }
 
+    form.into_widget()
+        .render(l2[1], frame.buffer_mut(), &mut state.form);
+
     let menu1 = MenuLine::new()
         .title("#.#")
         .item_parsed("_Flex|F2")
@@ -188,7 +188,7 @@ fn render(
         .item_parsed("_Prev|F9")
         .item_parsed("_Quit")
         .styles(istate.theme.menu_style());
-    frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
+    menu1.render(l1[3], frame.buffer_mut(), &mut state.menu);
 
     for i in 0..state.hundred.len() {
         if let Some(cursor) = state.hundred[i].screen_cursor() {

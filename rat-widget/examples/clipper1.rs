@@ -149,20 +149,10 @@ fn event(
 
     istate.focus_outcome = focus.handle(event, Regular);
     if istate.focus_outcome == Outcome::Changed {
-        if let Some(ff) = focus.focused() {
-            state.clipper.show(ff);
-        }
+        state.clipper.show_focused(&focus);
     }
 
-    try_flow!(match state.clipper.handle(event, Regular) {
-        Outcome::Changed => {
-            // if let Some(ff) = state.clipper.first() {
-            //     focus.focus_flag(ff);
-            // }
-            Outcome::Changed
-        }
-        r => r.into(),
-    });
+    try_flow!(state.clipper.handle(event, Regular));
 
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {

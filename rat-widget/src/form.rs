@@ -1,3 +1,82 @@
+//! Render widgets using a [GenericLayout].
+//!
+//! If the GenericLayout is split into multiple pages, this
+//! also renders the page-navigation and handles scrolling
+//! through the pages.
+//!
+//! ```
+//! # use ratatui::buffer::Buffer;
+//! # use ratatui::layout::{Flex, Rect};
+//! # use ratatui::text::Span;
+//! # use ratatui::widgets::{Padding, Widget, StatefulWidget};
+//! # use rat_focus::{FocusFlag, HasFocus};
+//! # use rat_text::text_input::{TextInput, TextInputState};
+//! # use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
+//! use rat_widget::form::{Form, FormState};
+//! #
+//! # struct State {
+//! #     form: FormState<FocusFlag>,
+//! #     text1: TextInputState,
+//! #     text2: TextInputState,
+//! #     text3: TextInputState,
+//! # }
+//! #
+//! # let mut state = State {form: Default::default(),text1: Default::default(),text2: Default::default(),text3: Default::default()};
+//! # let area = Rect::default();
+//! # let mut buf = Buffer::empty(Rect::default());
+//! # let buf = &mut buf;
+//!
+//! let form = Form::new();
+//! let layout_size = form.layout_size(area);
+//! if !state.form.valid_layout(layout_size) {
+//!     let mut form_layout = LayoutForm::new()
+//!             .spacing(1)
+//!             .flex(Flex::Legacy)
+//!             .line_spacing(1)
+//!             .min_label(10);
+//!
+//!     form_layout.widget(
+//!         state.text1.focus(),
+//!         FormLabel::Str("Text 1"),
+//!         // single row
+//!         FormWidget::Width(22)
+//!     );
+//!     form_layout.widget(
+//!         state.text2.focus(),
+//!         FormLabel::Str("Text 2"),
+//!         // stretch to the form-width, preferred with 15, 1 row high.
+//!         FormWidget::StretchX(15, 1)
+//!     );
+//!     form_layout.widget(
+//!         state.text3.focus(),
+//!         FormLabel::Str("Text 3"),
+//!         // stretch to the form-width and fill vertically.
+//!         // preferred width is 15 3 rows high.
+//!         FormWidget::StretchXY(15, 3)
+//!     );
+//!
+//!     // calculate the layout and set it.
+//!     state.form.set_layout(form_layout.build_paged(area.as_size()));
+//!  }
+//!
+//!  let mut form = form
+//!     .into_buffer(area, buf, &mut state.form);
+//!
+//!  form.render(state.text1.focus(),
+//!     || TextInput::new(),
+//!     &mut state.text1
+//!  );
+//!  form.render(state.text2.focus(),
+//!     || TextInput::new(),
+//!     &mut state.text2
+//!  );
+//!  form.render(state.text3.focus(),
+//!     || TextInput::new(),
+//!     &mut state.text3
+//!  );
+//!
+//! ```
+//!
 use crate::_private::NonExhaustive;
 use crate::layout::GenericLayout;
 use crate::util::revert_style;
@@ -13,9 +92,9 @@ use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::cmp::min;
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::rc::Rc;
 use unicode_display_width::width as unicode_width;
 
@@ -42,9 +121,10 @@ where
     label_alignment: Option<Alignment>,
 }
 
-/// Renders directly to the frame buffer.
+/// Struct for rendering widgets.
 #[derive(Debug)]
-pub struct FormBuffer<'a, W>
+#[must_use]
+pub struct FormBuffer<'a, 'b, W>
 where
     W: Eq + Hash + Clone,
 {
@@ -52,11 +132,40 @@ where
 
     page_area: Rect,
     widget_area: Rect,
-    buffer: &'a mut Buffer,
+    buffer: &'b mut Buffer,
+
+    style: Style,
+    block: Option<Block<'a>>,
+    nav_style: Option<Style>,
+    title_style: Option<Style>,
+    next_page: &'a str,
+    prev_page: &'a str,
+    first_page: &'a str,
+    last_page: &'a str,
 
     auto_label: bool,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
+
+    destruct: bool,
+}
+
+/// Struct for rendering widgets.
+#[derive(Debug)]
+pub struct FormWidget<'a, W> {
+    page_area: Rect,
+    widget_area: Rect,
+
+    style: Style,
+    block: Option<Block<'a>>,
+    nav_style: Option<Style>,
+    title_style: Option<Style>,
+    next_page: &'a str,
+    prev_page: &'a str,
+    first_page: &'a str,
+    last_page: &'a str,
+
+    _phantom: PhantomData<W>,
 }
 
 /// All styles for a pager.
@@ -313,21 +422,17 @@ where
 
     /// Render the page navigation and create the FormBuffer
     /// that will do the actual rendering.
-    pub fn into_buffer(
+    pub fn into_buffer<'b, 's>(
         mut self,
         area: Rect,
-        buf: &'a mut Buffer,
-        state: &'a mut FormState<W>,
-    ) -> FormBuffer<'a, W> {
+        buf: &'b mut Buffer,
+        state: &'s mut FormState<W>,
+    ) -> FormBuffer<'a, 'b, W> {
         state.area = area;
         state.widget_area = self.layout_area(area);
 
         if let Some(layout) = self.layout.take() {
             state.layout = Rc::new(layout);
-        }
-
-        if !state.layout.is_endless() {
-            self.render_navigation(area, buf, state);
         }
 
         let page_size = state.layout.page_size();
@@ -339,81 +444,39 @@ where
             page_size.height,
         );
 
-        let mut fb = FormBuffer {
+        FormBuffer {
             layout: state.layout.clone(),
             page_area,
             widget_area: state.widget_area,
             buffer: buf,
+            style: self.style,
+            block: self.block,
+            nav_style: self.nav_style,
+            title_style: self.title_style,
+            next_page: self.next_page,
+            prev_page: self.prev_page,
+            first_page: self.first_page,
+            last_page: self.last_page,
             auto_label: true,
             label_style: self.label_style,
             label_alignment: self.label_alignment,
-        };
-        fb.render_block();
-        fb
-    }
-
-    fn render_navigation(&mut self, area: Rect, buf: &mut Buffer, state: &mut FormState<W>) {
-        let page_count = state.layout.page_count();
-
-        if state.page > 0 {
-            state.prev_area = Rect::new(area.x, area.y, unicode_width(self.prev_page) as u16, 1);
-        } else {
-            state.prev_area = Rect::new(area.x, area.y, unicode_width(self.first_page) as u16, 1);
-        }
-        if (state.page + 1) < page_count {
-            let p = unicode_width(self.next_page) as u16;
-            state.next_area = Rect::new(area.x + area.width.saturating_sub(p), area.y, p, 1);
-        } else {
-            let p = unicode_width(self.last_page) as u16;
-            state.next_area = Rect::new(area.x + area.width.saturating_sub(p), area.y, p, 1);
-        }
-
-        let block = if page_count > 1 {
-            let title = format!(" {}/{} ", state.page + 1, page_count);
-            let block = self
-                .block
-                .take()
-                .unwrap_or_else(|| Block::new().style(self.style))
-                .title_bottom(title)
-                .title_alignment(Alignment::Right);
-            if let Some(title_style) = self.title_style {
-                block.title_style(title_style)
-            } else {
-                block
-            }
-        } else {
-            self.block
-                .take()
-                .unwrap_or_else(|| Block::new().style(self.style))
-        };
-        block.render(area, buf);
-
-        // active areas
-        let nav_style = self.nav_style.unwrap_or(self.style);
-        if matches!(state.mouse.hover.get(), Some(0)) {
-            buf.set_style(state.prev_area, revert_style(nav_style));
-        } else {
-            buf.set_style(state.prev_area, nav_style);
-        }
-        if state.page > 0 {
-            Span::from(self.prev_page).render(state.prev_area, buf);
-        } else {
-            Span::from(self.first_page).render(state.prev_area, buf);
-        }
-        if matches!(state.mouse.hover.get(), Some(1)) {
-            buf.set_style(state.next_area, revert_style(nav_style));
-        } else {
-            buf.set_style(state.next_area, nav_style);
-        }
-        if (state.page + 1) < page_count {
-            Span::from(self.next_page).render(state.next_area, buf);
-        } else {
-            Span::from(self.last_page).render(state.next_area, buf);
+            destruct: false,
         }
     }
 }
 
-impl<'a, W> FormBuffer<'a, W>
+impl<'a, 'b, W> Drop for FormBuffer<'a, 'b, W>
+where
+    W: Eq + Hash + Clone,
+{
+    fn drop(&mut self) {
+        if !self.destruct {
+            panic!("FormBuffer must be used by into_widget()");
+        }
+    }
+}
+
+impl<'a, 'b, W> FormBuffer<'a, 'b, W>
 where
     W: Eq + Hash + Clone,
 {
@@ -560,6 +623,30 @@ where
         self.buffer
     }
 
+    /// Rendering the content is finished.
+    ///
+    /// Convert to a FormWidget that will render border and navigation.
+    #[allow(deprecated)]
+    pub fn into_widget(mut self) -> FormWidget<'a, W> {
+        self.render_block();
+
+        self.destruct = true;
+
+        FormWidget {
+            page_area: self.page_area,
+            widget_area: self.widget_area,
+            style: self.style,
+            block: self.block.take(),
+            nav_style: self.nav_style,
+            title_style: self.title_style,
+            next_page: self.next_page,
+            prev_page: self.prev_page,
+            first_page: self.first_page,
+            last_page: self.last_page,
+            _phantom: Default::default(),
+        }
+    }
+
     /// Render the label with the set style and alignment.
     #[inline(always)]
     fn render_auto_label(&mut self, idx: usize) -> bool {
@@ -628,6 +715,82 @@ where
         S: RelocatableState,
     {
         state.relocate((0, 0), Rect::default())
+    }
+}
+
+impl<'a, W> StatefulWidget for FormWidget<'a, W>
+where
+    W: Eq + Clone + Hash,
+{
+    type State = FormState<W>;
+
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let page_count = state.layout.page_count();
+
+        if !state.layout.is_endless() {
+            if state.page > 0 {
+                state.prev_area =
+                    Rect::new(area.x, area.y, unicode_width(self.prev_page) as u16, 1);
+            } else {
+                state.prev_area =
+                    Rect::new(area.x, area.y, unicode_width(self.first_page) as u16, 1);
+            }
+            if (state.page + 1) < page_count {
+                let p = unicode_width(self.next_page) as u16;
+                state.next_area = Rect::new(area.x + area.width.saturating_sub(p), area.y, p, 1);
+            } else {
+                let p = unicode_width(self.last_page) as u16;
+                state.next_area = Rect::new(area.x + area.width.saturating_sub(p), area.y, p, 1);
+            }
+        } else {
+            state.prev_area = Default::default();
+            state.next_area = Default::default();
+        }
+
+        let block = if page_count > 1 {
+            let title = format!(" {}/{} ", state.page + 1, page_count);
+            let block = self
+                .block
+                .take()
+                .unwrap_or_else(|| Block::new().style(self.style))
+                .title_bottom(title)
+                .title_alignment(Alignment::Right);
+            if let Some(title_style) = self.title_style {
+                block.title_style(title_style)
+            } else {
+                block
+            }
+        } else {
+            self.block
+                .take()
+                .unwrap_or_else(|| Block::new().style(self.style))
+        };
+        block.render(area, buf);
+
+        if !state.layout.is_endless() {
+            // active areas
+            let nav_style = self.nav_style.unwrap_or(self.style);
+            if matches!(state.mouse.hover.get(), Some(0)) {
+                buf.set_style(state.prev_area, revert_style(nav_style));
+            } else {
+                buf.set_style(state.prev_area, nav_style);
+            }
+            if state.page > 0 {
+                Span::from(self.prev_page).render(state.prev_area, buf);
+            } else {
+                Span::from(self.first_page).render(state.prev_area, buf);
+            }
+            if matches!(state.mouse.hover.get(), Some(1)) {
+                buf.set_style(state.next_area, revert_style(nav_style));
+            } else {
+                buf.set_style(state.next_area, nav_style);
+            }
+            if (state.page + 1) < page_count {
+                Span::from(self.next_page).render(state.next_area, buf);
+            } else {
+                Span::from(self.last_page).render(state.next_area, buf);
+            }
+        }
     }
 }
 

@@ -14,7 +14,7 @@ use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{Padding, Widget};
+use ratatui::widgets::{Padding, StatefulWidget, Widget};
 use std::array;
 
 mod mini_salsa;
@@ -109,18 +109,18 @@ fn render(
     }
 
     // set current layout and prepare rendering.
-    let mut pager = form.into_buffer(l2[1], frame.buffer_mut(), &mut state.form);
+    let mut form = form.into_buffer(l2[1], frame.buffer_mut(), &mut state.form);
 
     // render the input fields.
     for i in 0..state.hundred.len() {
         // render manual label
-        pager.render_label(
+        form.render_label(
             state.hundred[i].focus.clone(), //
             |_, a, b| Span::from("<<?>>").render(a, b),
         );
 
         // map our widget area.
-        pager.render(
+        form.render(
             state.hundred[i].focus.clone(),
             || {
                 TextInputMock::default()
@@ -131,6 +131,9 @@ fn render(
             &mut state.hundred[i],
         );
     }
+
+    form.into_widget()
+        .render(l2[1], frame.buffer_mut(), &mut state.form);
 
     let menu1 = MenuLine::new()
         .title("#.#")
