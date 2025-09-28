@@ -797,7 +797,9 @@ impl XPositions {
                     + page.max_widget
                     + page.max_right_padding
                     + page.column_spacing;
-                let rest = layout_width.saturating_sub(single_width * page.columns);
+                let rest = layout_width
+                    .saturating_sub(single_width * page.columns)
+                    .saturating_add(page.column_spacing);
 
                 offset = border.left + rest / 2 + single_width * column;
                 label_left = page.max_left_padding;
@@ -815,7 +817,9 @@ impl XPositions {
                     + page.max_right_padding
                     + page.column_spacing;
 
-                offset = right_margin.saturating_sub(single_width * (page.columns - column));
+                offset = right_margin
+                    .saturating_sub(single_width * (page.columns - column))
+                    .saturating_add(page.column_spacing);
                 label_left = page.max_left_padding;
                 widget_left = label_left + page.max_label + page.spacing;
                 widget_right = widget_left + page.max_widget;
