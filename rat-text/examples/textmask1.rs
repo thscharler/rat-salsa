@@ -1,17 +1,17 @@
-use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, mock_init, run_ui, setup_logging};
 use log::warn;
-use rat_event::{ct_event, Outcome};
 use rat_event::{ConsumedEvent, HandleEvent, Regular};
+use rat_event::{Outcome, ct_event};
 use rat_focus::{FocusBuilder, HasFocus};
 use rat_reloc::RelocatableState;
+use rat_text::HasScreenCursor;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
-use rat_text::HasScreenCursor;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
-use ratatui::Frame;
 use std::cmp::max;
 use std::fmt;
 
@@ -30,14 +30,7 @@ fn main() -> Result<(), anyhow::Error> {
         mask_idx: 0,
     };
 
-    run_ui(
-        "textmask1",
-        |_| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("textmask1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -50,7 +43,7 @@ struct State {
     pub(crate) mask_idx: usize,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -196,7 +189,7 @@ fn repaint_input(
     Ok(())
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,

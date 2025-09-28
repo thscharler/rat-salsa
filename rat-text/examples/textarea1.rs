@@ -1,16 +1,16 @@
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use crate::text_samples::{
     add_range_styles, sample_emoji, sample_lorem_rustum, sample_scott_0, sample_tabs,
 };
-use rat_event::{ct_event, try_flow, Outcome};
+use rat_event::{Outcome, ct_event, try_flow};
 use rat_reloc::RelocatableState;
 use rat_scrolled::Scroll;
 use rat_text::text_area::{TextArea, TextAreaState};
-use rat_text::{text_area, HasScreenCursor};
+use rat_text::{HasScreenCursor, text_area};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget};
-use ratatui::Frame;
 use std::fmt;
 
 mod mini_salsa;
@@ -27,14 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.textarea.set_auto_indent(false);
 
-    run_ui(
-        "textarea1",
-        |_| {},
-        handle_input,
-        repaint_input,
-        &mut data,
-        &mut state,
-    )
+    run_ui("textarea1", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -44,7 +37,7 @@ struct State {
     pub(crate) textarea: TextAreaState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -170,7 +163,7 @@ fn repaint_input(
     Ok(())
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,

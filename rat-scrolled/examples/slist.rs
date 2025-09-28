@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 
 use crate::adapter::list::{ListS, ListSState};
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, HandleEvent, MouseOnly, Outcome};
+use crate::mini_salsa::{MiniSalsaState, THEME, mock_init, run_ui, setup_logging};
+use rat_event::{HandleEvent, MouseOnly, Outcome, try_flow};
 use rat_scrolled::Scroll;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{ListDirection, StatefulWidget};
-use ratatui::Frame;
 use std::iter::repeat_with;
 
 mod adapter;
@@ -38,14 +37,7 @@ fn main() -> Result<(), anyhow::Error> {
         list4: Default::default(),
     };
 
-    run_ui(
-        "slist",
-        |_| {},
-        handle_lists,
-        repaint_lists,
-        &mut data,
-        &mut state,
-    )
+    run_ui("slist", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {
@@ -60,7 +52,7 @@ struct State {
     pub(crate) list4: ListSState,
 }
 
-fn repaint_lists(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
@@ -102,7 +94,7 @@ fn repaint_lists(
     Ok(())
 }
 
-fn handle_lists(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,

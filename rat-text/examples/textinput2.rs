@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, fill_buf_area, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, fill_buf_area, mock_init, run_ui, setup_logging};
 use log::{debug, warn};
 use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, match_focus};
@@ -33,9 +33,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "textinput2",
-        |_| {},
-        handle_input,
-        repaint_input,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -51,7 +51,7 @@ struct State {
     pub(crate) textinput3: TextInputState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -85,7 +85,7 @@ fn repaint_input(
 
     TextInput::new()
         .block(Block::bordered())
-        .styles(istate.theme.input_style())
+        .styles(istate.theme.text_style())
         .text_style([
             Style::new().red(),
             Style::new().underlined(),
@@ -94,13 +94,13 @@ fn repaint_input(
         ])
         .render(l_txt[1], frame.buffer_mut(), &mut state.textinput1);
 
-    TextInput::new().styles(istate.theme.input_style()).render(
+    TextInput::new().styles(istate.theme.text_style()).render(
         l_txt[3],
         frame.buffer_mut(),
         &mut state.textinput2,
     );
 
-    TextInput::new().styles(istate.theme.input_style()).render(
+    TextInput::new().styles(istate.theme.text_style()).render(
         l_txt[5],
         frame.buffer_mut(),
         &mut state.textinput3,
@@ -119,9 +119,10 @@ fn repaint_input(
         frame.buffer_mut(),
         l1[0],
         " ",
-        Style::new()
-            .bg(istate.theme.orange[0])
-            .fg(istate.theme.text_color(istate.theme.orange[0])),
+        istate
+            .theme
+            .palette()
+            .normal_contrast(istate.theme.palette().orange[0]),
     );
     "F1 toggle help | Ctrl+Q quit".render(l1[0], frame.buffer_mut());
 
@@ -131,9 +132,10 @@ fn repaint_input(
             frame.buffer_mut(),
             help_area,
             " ",
-            Style::new()
-                .bg(istate.theme.bluegreen[1])
-                .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
+            istate
+                .theme
+                .palette()
+                .normal_contrast(istate.theme.palette().bluegreen[1]),
         );
         Paragraph::new(
             r#"
@@ -146,9 +148,10 @@ fn repaint_input(
 "#,
         )
         .style(
-            Style::new()
-                .bg(istate.theme.bluegreen[1])
-                .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
+            istate
+                .theme
+                .palette()
+                .normal_contrast(istate.theme.palette().bluegreen[1]),
         )
         .render(help_area, frame.buffer_mut());
     }
@@ -223,7 +226,7 @@ fn focus(state: &mut State) -> Focus {
     builder.build()
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,

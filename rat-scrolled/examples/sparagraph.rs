@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 
 use crate::adapter::paragraph::{ParagraphS, ParagraphSState};
-use crate::mini_salsa::theme::THEME;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, HandleEvent, MouseOnly, Outcome};
+use crate::mini_salsa::{MiniSalsaState, THEME, mock_init, run_ui, setup_logging};
+use rat_event::{HandleEvent, MouseOnly, Outcome, try_flow};
 use rat_scrolled::Scroll;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget, Wrap};
-use ratatui::Frame;
 
 mod adapter;
 mod mini_salsa;
@@ -27,9 +26,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "sparagraph",
-        |_| {},
-        handle_text,
-        repaint_text,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -45,7 +44,7 @@ struct State {
     pub(crate) text2: ParagraphSState,
 }
 
-fn repaint_text(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
@@ -72,7 +71,7 @@ fn repaint_text(
     Ok(())
 }
 
-fn handle_text(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,

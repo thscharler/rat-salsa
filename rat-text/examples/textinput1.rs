@@ -1,13 +1,13 @@
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ct_event, try_flow, Outcome};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
+use rat_event::{Outcome, ct_event, try_flow};
 use rat_reloc::RelocatableState;
 use rat_text::event::TextOutcome;
 use rat_text::text_input::{TextInput, TextInputState};
-use rat_text::{text_input, HasScreenCursor};
+use rat_text::{HasScreenCursor, text_input};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget};
-use ratatui::Frame;
 use std::fmt;
 
 mod mini_salsa;
@@ -25,9 +25,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "textinput1",
-        |_| {},
-        handle_input,
-        repaint_input,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -40,7 +40,7 @@ struct State {
     pub(crate) textinput: TextInputState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -157,7 +157,7 @@ fn repaint_input(
     Ok(())
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,

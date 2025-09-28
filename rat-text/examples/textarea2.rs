@@ -1,23 +1,23 @@
-use crate::mini_salsa::{fill_buf_area, run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{MiniSalsaState, fill_buf_area, run_ui, setup_logging};
 use crate::text_samples::{
     add_range_styles, sample_bosworth_1, sample_emoji, sample_long, sample_lorem_ipsum,
     sample_medium, sample_scott_1, sample_tabs,
 };
 use log::{debug, warn};
-use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
+use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
-use rat_text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
+use rat_text::HasScreenCursor;
+use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::event::TextOutcome;
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::TextInputState;
-use rat_text::HasScreenCursor;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::symbols::border::EMPTY;
 use ratatui::widgets::{Block, Borders, Paragraph, StatefulWidget, Widget};
-use ratatui::Frame;
 use ropey::Rope;
 use std::cell::RefCell;
 use std::fs::File;
@@ -53,11 +53,11 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "textarea2",
-        |istate| {
+        |_, istate, _| {
             istate.timing = false;
         },
-        handle_input,
-        repaint_input,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -74,7 +74,7 @@ struct State {
     pub help: bool,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -119,9 +119,10 @@ fn repaint_input(
         ])
         .text_style_idx(
             999,
-            Style::new()
-                .bg(istate.theme.bluegreen[0])
-                .fg(istate.theme.text_color(istate.theme.bluegreen[0])),
+            istate
+                .theme
+                .palette()
+                .normal_contrast(istate.theme.palette().bluegreen[0]),
         );
     let t = SystemTime::now();
     textarea.render(l2[2], frame.buffer_mut(), &mut state.textarea);
@@ -151,16 +152,12 @@ fn repaint_input(
         frame.buffer_mut(),
         l1[0],
         " ",
-        Style::new()
-            .bg(istate.theme.orange[0])
-            .fg(istate.theme.text_color(istate.theme.orange[0])),
+        istate
+            .theme
+            .palette()
+            .normal_contrast(istate.theme.palette().orange[0]),
     );
     "F1 toggle help | Ctrl+Q quit | Alt-F(ind) ".render(l1[0], frame.buffer_mut());
-    // TextInput::new().styles(istate.theme.input_style()).render(
-    //     l3[1],
-    //     frame.buffer_mut(),
-    //     &mut state.search,
-    // );
 
     let screen_cursor = if !state.help {
         state
@@ -179,9 +176,10 @@ fn repaint_input(
             frame.buffer_mut(),
             l2[2],
             " ",
-            Style::new()
-                .bg(istate.theme.bluegreen[1])
-                .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
+            istate
+                .theme
+                .palette()
+                .normal_contrast(istate.theme.palette().bluegreen[0]),
         );
         Paragraph::new(
             r#"
@@ -199,9 +197,10 @@ fn repaint_input(
 "#,
         )
         .style(
-            Style::new()
-                .bg(istate.theme.bluegreen[1])
-                .fg(istate.theme.text_color(istate.theme.bluegreen[1])),
+            istate
+                .theme
+                .palette()
+                .normal_contrast(istate.theme.palette().bluegreen[0]),
         )
         .render(l2[2], frame.buffer_mut());
     }
@@ -277,7 +276,7 @@ fn focus(state: &mut State) -> Focus {
     ff.build()
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
