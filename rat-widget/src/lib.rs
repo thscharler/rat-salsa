@@ -86,107 +86,31 @@ pub mod calendar;
 pub mod checkbox;
 pub mod choice;
 pub mod clipper;
-/// Date input with patterns from chrono.
-/// See also [rat-text](https://docs.rs/rat-text/latest/rat_text/)
-pub mod date_input {
-    pub use rat_text::date_input::{
-        DateInput, DateInputState, handle_events, handle_mouse_events, handle_readonly_events,
-    };
-}
+pub mod date_input;
 pub mod file_dialog;
 pub mod form;
 pub mod hover;
-/// Line numbers widget.
-/// For use with TextArea mostly.
-pub mod line_number {
-    pub use rat_text::line_number::{LineNumberState, LineNumberStyle, LineNumbers};
-}
+pub mod line_number;
 pub mod list;
-/// Menu widgets.
-/// See also [rat-menu](https://docs.rs/rat-menu/latest/rat_menu/)
-pub mod menu {
-    pub use rat_menu::menubar::{Menubar, MenubarLine, MenubarPopup, MenubarState};
-    pub use rat_menu::menuitem::{MenuItem, Separator};
-    pub use rat_menu::menuline::{MenuLine, MenuLineState};
-    pub use rat_menu::popup_menu::{PopupConstraint, PopupMenu, PopupMenuState};
-    pub use rat_menu::{MenuBuilder, MenuStructure, MenuStyle, StaticMenu};
-
-    pub mod menubar {
-        pub use rat_menu::menubar::{handle_mouse_events, handle_popup_events};
-    }
-    pub mod menuline {
-        pub use rat_menu::menuline::{handle_events, handle_mouse_events};
-    }
-    pub mod popup_menu {
-        pub use rat_menu::popup_menu::{handle_mouse_events, handle_popup_events};
-    }
-}
+pub mod menu;
 pub mod msgdialog;
-/// Number input with a number pattern.
-/// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
-pub mod number_input {
-    pub use rat_text::number_input::{
-        NumberInput, NumberInputState, handle_events, handle_mouse_events, handle_readonly_events,
-    };
-}
+pub mod number_input;
 #[deprecated(since = "1.2.0", note = "merged into form::Form")]
 pub mod pager;
 pub mod paired;
 pub mod paragraph;
-/// PopupCore helps with managing popup widgets.
-/// See also [rat-popup](https://docs.rs/rat-popup/latest/rat_popup/)
-pub mod popup {
-    pub use rat_popup::{Placement, PopupConstraint, PopupCore, PopupCoreState, PopupStyle};
-}
+pub mod popup;
 pub mod radio;
+pub mod range_op;
 pub mod shadow;
+pub mod slider;
 pub mod splitter;
 pub mod statusline;
-/// Table widget.
-///
-/// Can be used as a drop-in replacement for the ratatui table. But
-/// that's not the point of this widget.
-///
-/// This widget uses the [TableData](crate::table::TableData) trait instead
-/// of rendering all the table-cells and putting them into a Vec.
-/// This way rendering time only depends on the screen-size not on
-/// the size of your data.
-///
-/// There is a second trait [TableDataIter](crate::table::TableDataIter) that
-/// works better if you only have an Iterator over your data.
-///
-/// See [rat-ftable](https://docs.rs/rat-ftable/latest/rat_ftable/)
-pub mod table {
-    pub use rat_ftable::{
-        Table, TableContext, TableData, TableDataIter, TableSelection, TableState, TableStyle,
-        edit, selection, textdata,
-    };
-}
 pub mod tabbed;
-/// Text-Input widget.
-/// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
-pub mod text_input {
-    pub use rat_text::text_input::{
-        TextInput, TextInputState, handle_events, handle_mouse_events, handle_readonly_events,
-    };
-}
-/// Text-Input with pattern/mask.
-/// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
-pub mod text_input_mask {
-    pub use rat_text::text_input_mask::{
-        MaskedInput, MaskedInputState, handle_events, handle_mouse_events, handle_readonly_events,
-    };
-}
-/// Text-Area.
-/// See [rat-text](https://docs.rs/rat-text/latest/rat_text/)
-pub mod textarea {
-    pub use rat_text::text_area::{
-        TextArea, TextAreaState, TextWrap, handle_events, handle_mouse_events,
-        handle_readonly_events,
-    };
-}
-pub mod range_op;
-pub mod slider;
+pub mod table;
+pub mod text_input;
+pub mod text_input_mask;
+pub mod textarea;
 pub mod util;
 pub mod view;
 

@@ -1,7 +1,8 @@
 //!
 //! Calculate the layout for an edit-mask with lots of label/widget pairs.
 //!
-
+//! This is the progenitor of [LayoutForm].
+//!
 use crate::layout::GenericLayout;
 use ratatui::layout::{Flex, Rect, Size};
 use std::borrow::Cow;
