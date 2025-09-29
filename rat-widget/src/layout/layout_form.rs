@@ -19,13 +19,13 @@ pub enum FormLabel {
     #[default]
     None,
     /// Label by example.
-    /// Line breaks in the text don't work.
+    /// Line breaks in the text don't work. TODO.
     ///
     /// Will create a label area with the max width of all labels and a height of 1.
     /// The area will be top aligned with the widget.
     Str(&'static str),
     /// Label by example.
-    /// Line breaks in the text don't work.
+    /// Line breaks in the text don't work. TODO.
     ///
     /// Will create a label area with the max width of all labels and a height of 1.
     /// The area will be top aligned with the widget.
@@ -111,30 +111,46 @@ pub enum FormWidget {
     WideStretchXY(u16, u16),
 }
 
-/// Create a layout with a single column of label+widget.
+/// Create layouts for input widgets.
 ///
-/// There are a number of possible constraints that influence
-/// the exact layout: [FormLabel] and [FormWidget].
+/// This takes the constraints for [FormLabel] and [FormWidget]
+/// and creates a multi-column layout for them.
 ///
-/// * This layout can page break the form, if there is not enough
-///   space on one page. This can be used with [SinglePager](crate::pager::SinglePager)
-///   and friends.
+/// There are two branches of the layout:
 ///
-/// * Or it can generate an endless layout that will be used
-///   with scrolling logic like [Clipper](crate::clipper::Clipper).
+/// - paged: Fill a target area with the widgets and start
+/// a new page when the layout overflows. You can use [Form](crate::form::Form)
+/// to render a multipage and navigate between the pages.
 ///
-/// * There is currently no functionality to shrink-fit the layout
-///   to a given page size.
+/// - endless: Just stack the widgets. You can use [Clipper](crate::clipper::Clipper)
+/// to render such a layout and scroll through it.
 ///
-/// The widgets can be grouped together and a [Block] can be set
-/// to highlight this grouping. Groups can cascade. Groups will
-/// be correctly broken by the page break logic. There is no
-/// special handling for orphans and widows.
+/// ## Both variants
 ///
-/// Other features:
-/// * Spacing/Line spacing.
-/// * Supports Flex.
-/// * Manual page breaks.
+/// Can
+/// - add Blocks for multiple widgets. Can stack them too.
+/// - layout labels above or to the left of the widget.
+/// - add manual column/page breaks.
+/// - align widgets vertically.
+/// - define line/column spacing.
+/// - flex layout columns.
+///
+/// Can __not__
+/// - forcibly shrink-fit the widgets to a layout size.
+///
+/// ## Paged layout
+///
+/// Can
+/// - create n columns of widgets.
+/// - stretch some widgets vertically to fill a column.
+///
+/// ## Endless layout
+///
+/// Can
+/// - create n columns of widgets.
+///     - todo: optimally fill all columns
+///     - add manual breaks for now.
+/// - __not__ usefully stretch the widgets vertically.
 ///
 /// ```rust no_run
 /// # use ratatui::buffer::Buffer;
@@ -143,10 +159,10 @@ pub enum FormWidget {
 /// # use ratatui::widgets::{Padding, Widget, StatefulWidget};
 /// # use rat_focus::{FocusFlag, HasFocus};
 /// # use rat_text::text_input::{TextInput, TextInputState};
-/// # use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
+/// # use rat_widget::layout::{GenericLayout, LayoutForm};
 /// #
 /// # struct State {
-/// #     layout: GenericLayout<FocusFlag>,
+/// #     layout: GenericLayout<usize>,
 /// #     text1: TextInputState,
 /// #     text2: TextInputState,
 /// #     text3: TextInputState,
@@ -158,61 +174,51 @@ pub enum FormWidget {
 /// # let buf = &mut buf;
 ///
 /// if state.layout.area_changed(area) {
-///     let mut form_layout = LayoutForm::new()
+///     let mut ll = LayoutForm::new()
 ///             .spacing(1)
-///             .flex(Flex::Legacy)
 ///             .line_spacing(1)
+///             .column_spacing(1)
+///             .border(Padding::new(2,2,0,0))
+///             .flex(Flex::Start)
 ///             .min_label(10);
 ///
-///     form_layout.widget(
-///         state.text1.focus(),
-///         FormLabel::Str("Text 1"),
-///         // single row
-///         FormWidget::Width(22)
-///     );
-///     form_layout.widget(
-///         state.text2.focus(),
-///         FormLabel::Str("Text 2"),
-///         // stretch to the form-width, preferred with 15, 1 row high.
-///         FormWidget::StretchX(15, 1)
-///     );
-///     form_layout.widget(
-///         state.text3.focus(),
-///         FormLabel::Str("Text 3"),
-///         // stretch to the form-width and fill vertically.
-///         // preferred width is 15 3 rows high.
-///         FormWidget::StretchXY(15, 3)
-///     );
+///     use rat_widget::layout::{FormLabel as L, FormWidget as W};
+///
+///     // single row
+///     ll.widget(state.text1.id(), L::Str("Text 1"), W::Width(22));
+///     // stretch to form width. preferred width 15. 1 row high.
+///     ll.widget(state.text2.id(), L::Str("Text 2"), W::StretchX(15, 1));
+///     // stretch to the form-width and fill vertically.
+///     // preferred width is 15 3 rows high.
+///     ll.widget(state.text3.id(), L::Str("Text 3"), W::StretchXY(15, 3));
 ///
 ///     // calculate the layout and place it.
-///     state.layout = form_layout.paged(area.as_size(), Padding::default())
-///         .place(area.as_position());
+///     state.layout = ll.build_paged(area.as_size());
 ///  }
 ///
-///  let layout = &state.layout;
+///  let ll = &state.layout;
 ///
-///  // this is not really the intended use, but it works.
-///  // in reality, you would use [Clipper], [SinglePager],
-///  // [DualPager] or [Form].
+///  // This is not really the intended use, but it works.
+///  // In reality, you would use Clipper or Form.
 ///
-///  let lbl1= layout.label_for(state.text1.focus());
-///  Span::from(layout.label_str_for(state.text1.focus()))
-///     .render(lbl1, buf);
-///  let txt1 = layout.widget_for(state.text1.focus());
+///  let lbl1 = ll.label_for(state.text1.id());
+///  Span::from(ll.label_str_for(state.text1.id())).render(lbl1, buf);
+///
+///  let txt1 = ll.widget_for(state.text1.id());
 ///  TextInput::new()
 ///     .render(txt1, buf, &mut state.text1);
 ///
-///  let lbl2 = layout.label_for(state.text2.focus());
-///  Span::from(layout.label_str_for(state.text2.focus()))
-///     .render(lbl2, buf);
-///  let txt2 = layout.widget_for(state.text2.focus());
+///  let lbl2 = ll.label_for(state.text2.id());
+///  Span::from(ll.label_str_for(state.text2.id())).render(lbl2, buf);
+///
+///  let txt2 = ll.widget_for(state.text2.id());
 ///  TextInput::new()
 ///     .render(txt2, buf, &mut state.text2);
 ///
-///  let lbl3 = layout.label_for(state.text3.focus());
-///  Span::from(layout.label_str_for(state.text3.focus()))
-///     .render(lbl3, buf);
-///  let txt3 = layout.widget_for(state.text3.focus());
+///  let lbl3 = ll.label_for(state.text3.id());
+///  Span::from(ll.label_str_for(state.text3.id())).render(lbl3, buf);
+///
+///  let txt3 = ll.widget_for(state.text3.id());
 ///  TextInput::new()
 ///     .render(txt3, buf, &mut state.text3);
 ///
@@ -1340,10 +1346,13 @@ fn areas_and_advance<W: Debug + Clone>(
         }
 
         let mut label_area = match &widget.label {
-            FormLabel::None => Rect::default(),
-            FormLabel::Str(_) | FormLabel::String(_) => {
-                unreachable!()
-            }
+            FormLabel::None => Rect::new(
+                page.x_pos.label_left, //
+                page.y,
+                0,
+                0,
+            ),
+            FormLabel::Str(_) | FormLabel::String(_) => unreachable!(),
             FormLabel::Width(_) => Rect::new(
                 page.x_pos.label_left,
                 page.y,
@@ -1365,49 +1374,24 @@ fn areas_and_advance<W: Debug + Clone>(
         }
 
         let widget_area = match &widget.widget {
-            FormWidget::None => Rect::default(),
-            FormWidget::Width(w) => Rect::new(
-                page.x_pos.widget_left,
-                page.y,
-                min(*w, page.x_pos.widget_width),
-                widget_height,
-            ),
-            FormWidget::Size(w, _) => Rect::new(
-                page.x_pos.widget_left,
-                page.y,
-                min(*w, page.x_pos.widget_width),
-                widget_height,
-            ),
-            FormWidget::StretchY(w, _) => Rect::new(
-                page.x_pos.widget_left,
-                page.y,
-                min(*w, page.x_pos.widget_width),
-                widget_height,
-            ),
+            FormWidget::None => unreachable!(),
+            FormWidget::Width(w) => unreachable!(),
+            FormWidget::Size(w, _) => unreachable!(),
+            FormWidget::StretchY(w, _) => unreachable!(),
             FormWidget::Wide(_, _) => Rect::new(
                 page.x_pos.label_left,
                 page.y + label_height,
                 page.x_pos.total_width,
                 widget_height,
             ),
-            FormWidget::StretchX(_, _) => Rect::new(
-                page.x_pos.widget_left, //
-                page.y,
-                stretch_width,
-                widget_height,
-            ),
+            FormWidget::StretchX(_, _) => unreachable!(),
             FormWidget::WideStretchX(_, _) => Rect::new(
                 page.x_pos.label_left,
                 page.y + label_height,
                 total_stretch_width,
                 widget_height,
             ),
-            FormWidget::StretchXY(_, _) => Rect::new(
-                page.x_pos.widget_left, //
-                page.y,
-                stretch_width,
-                widget_height,
-            ),
+            FormWidget::StretchXY(_, _) => unreachable!(),
             FormWidget::WideStretchXY(_, _) => Rect::new(
                 page.x_pos.label_left,
                 page.y + label_height,
@@ -1424,23 +1408,27 @@ fn areas_and_advance<W: Debug + Clone>(
     } else {
         label_height = min(label_height, max_height);
         widget_height = min(widget_height, max_height);
+        let height = max(label_height, widget_height);
 
         let label_area = match &widget.label {
-            FormLabel::None => Rect::default(),
-            FormLabel::Str(_) | FormLabel::String(_) => {
-                unreachable!()
-            }
+            FormLabel::None => Rect::new(
+                page.x_pos.label_left, //
+                page.y,
+                0,
+                0,
+            ),
+            FormLabel::Str(_) | FormLabel::String(_) => unreachable!(),
             FormLabel::Width(_) => Rect::new(
                 page.x_pos.label_left,
                 page.y,
                 page.x_pos.label_width,
-                label_height,
+                height,
             ),
             FormLabel::Size(_, _) => Rect::new(
                 page.x_pos.label_left,
                 page.y,
                 page.x_pos.label_width,
-                label_height,
+                height,
             ),
         };
 
@@ -1450,35 +1438,35 @@ fn areas_and_advance<W: Debug + Clone>(
                 page.x_pos.widget_left,
                 page.y,
                 min(*w, page.x_pos.widget_width),
-                widget_height,
+                height,
             ),
             FormWidget::Size(w, _) => Rect::new(
                 page.x_pos.widget_left,
                 page.y,
                 min(*w, page.x_pos.widget_width),
-                widget_height,
+                height,
             ),
             FormWidget::StretchY(w, _) => Rect::new(
                 page.x_pos.widget_left,
                 page.y,
                 min(*w, page.x_pos.widget_width),
-                widget_height,
+                height,
             ),
-            FormWidget::Wide(_, _) => {
-                unreachable!()
-            }
-            FormWidget::StretchX(_, _) => {
-                Rect::new(page.x_pos.widget_left, page.y, stretch_width, widget_height)
-            }
-            FormWidget::WideStretchX(_, _) => {
-                unreachable!()
-            }
-            FormWidget::StretchXY(_, _) => {
-                Rect::new(page.x_pos.widget_left, page.y, stretch_width, widget_height)
-            }
-            FormWidget::WideStretchXY(_, _) => {
-                unreachable!()
-            }
+            FormWidget::Wide(_, _) => unreachable!(),
+            FormWidget::StretchX(_, _) => Rect::new(
+                page.x_pos.widget_left, //
+                page.y,
+                stretch_width,
+                height,
+            ),
+            FormWidget::WideStretchX(_, _) => unreachable!(),
+            FormWidget::StretchXY(_, _) => Rect::new(
+                page.x_pos.widget_left, //
+                page.y,
+                stretch_width,
+                height,
+            ),
+            FormWidget::WideStretchXY(_, _) => unreachable!(),
         };
 
         (
