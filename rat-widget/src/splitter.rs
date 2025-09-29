@@ -1,7 +1,39 @@
+//! Vertical or horizontal multiple split.
 //!
-//! Vertical and horizontal multiple split.
+//! ```
+//! # use ratatui::buffer::Buffer;
+//! # use ratatui::layout::{Constraint, Rect};
+//! # use ratatui::text::Line;
+//! # use ratatui::widgets::Widget;
+//! use rat_widget::splitter::{Split, SplitState, SplitType};
+//! # struct State { split: SplitState }
+//! # let mut state = State { split: Default::default() };
+//! # let area = Rect::default();
+//! # let mut buf = Buffer::default();
+//! # let buf = &mut buf;
 //!
-
+//! let split = Split::horizontal()
+//!     .constraints([
+//!         Constraint::Length(25),
+//!         Constraint::Length(25),
+//!         Constraint::Fill(1),
+//!     ])
+//!     .split_type(SplitType::Scroll)
+//!     .into_widget(area, &mut state.split);
+//!
+//! Line::from("first")
+//!     .render(state.split.widget_areas[0], buf);
+//!
+//! Line::from("second")
+//!     .render(state.split.widget_areas[1], buf);
+//!
+//! Line::from("third")
+//!     .render(state.split.widget_areas[2], buf);
+//!
+//! // render split decorations
+//! split.render(area, buf);
+//!
+//! ```
 use crate::_private::NonExhaustive;
 use crate::util::{fill_buf_area, revert_style};
 use rat_event::util::MouseFlagsN;
@@ -18,7 +50,7 @@ use std::mem;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Default, Clone)]
-/// Splits the area in multiple parts and renders an UI that
+/// Splits the area in multiple parts and renders a UI that
 /// allows changing the sizes.
 ///
 /// * Can hide/show regions.
@@ -307,8 +339,8 @@ impl<'a> Split<'a> {
     }
 
     /// Draw a join character between the split and the
-    /// border on the left/top side. This sets the border type
-    /// used for the left/top border.
+    /// borders. This sets the border type used for the
+    /// surrounding border.
     pub fn join(mut self, border: BorderType) -> Self {
         self.join_0 = Some(border);
         self.join_1 = Some(border);
@@ -412,6 +444,22 @@ impl<'a> Split<'a> {
         self
     }
 
+    /// Constructs the widget for rendering.
+    ///
+    /// Returns the SplitWidget that actually renders the split decorations.
+    ///
+    /// Use [SplitState::widget_areas] to render your contents, and
+    /// then render the SplitWidget. This allows it to render some
+    /// decorations on top of your widgets.
+    pub fn into_widget(self, area: Rect, state: &mut SplitState) -> SplitWidget<'a> {
+        self.layout_split(area, state);
+
+        SplitWidget {
+            split: self,
+            mode: 1,
+        }
+    }
+
     /// Constructs the widgets for rendering.
     ///
     /// Returns the SplitWidget that actually renders the split.
@@ -420,6 +468,7 @@ impl<'a> Split<'a> {
     /// Render your content first, using the layout information.
     /// And the SplitWidget as last to allow rendering over
     /// the content widgets.
+    #[deprecated(since = "1.2.0", note = "use into_widget() instead")]
     pub fn into_widget_layout(
         self,
         area: Rect,
@@ -437,10 +486,7 @@ impl<'a> Split<'a> {
     }
 
     /// Constructs the widgets for rendering.
-    #[deprecated(
-        since = "1.0.3",
-        note = "use into_widget_layout(). it has a simpler contract."
-    )]
+    #[deprecated(since = "1.0.3", note = "use into_widget_layout()")]
     #[allow(deprecated)]
     pub fn into_widgets(self) -> (SplitWidget<'a>, SplitOverlay<'a>) {
         if self.split_type == SplitType::Scroll {

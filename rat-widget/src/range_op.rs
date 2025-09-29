@@ -2,13 +2,7 @@
 //! Bounded numeric operations.
 //!
 
-/// Bounded numeric operations.
-///
-/// Useful for taking steps within a range.
-///
-/// When used with a reversed range it steps
-/// in the reversed direction.
-///
+/// Bounded numeric add and subtract.
 pub trait RangeOp
 where
     Self: Sized,

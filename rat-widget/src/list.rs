@@ -7,7 +7,7 @@ use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
 use crate::util::{fallback_select_style, revert_style};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -745,13 +745,17 @@ impl ListState<RowSetSelection> {
 }
 
 pub mod selection {
-    use crate::event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
+    //!
+    //! Different selection models.
+    //!
+
+    use crate::event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
     use crate::list::{ListSelection, ListState};
     use crossterm::event::KeyModifiers;
     use rat_focus::HasFocus;
     use rat_ftable::TableSelection;
-    use rat_scrolled::event::ScrollOutcome;
     use rat_scrolled::ScrollAreaState;
+    use rat_scrolled::event::ScrollOutcome;
     use std::mem;
 
     /// No selection
@@ -835,11 +839,7 @@ pub mod selection {
 
     impl ListSelection for RowSelection {
         fn count(&self) -> usize {
-            if self.lead_row.is_some() {
-                1
-            } else {
-                0
-            }
+            if self.lead_row.is_some() { 1 } else { 0 }
         }
 
         #[inline]

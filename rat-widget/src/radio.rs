@@ -1,14 +1,49 @@
-///
-/// Radiobutton widget.
-///
+//!
+//! Radiobutton widget.
+//!
+//! ```
+//! # use ratatui::buffer::Buffer;
+//! # use ratatui::layout::{Direction, Rect};
+//! # use ratatui::widgets::StatefulWidget;
+//! use rat_event::{HandleEvent, Regular};
+//! use rat_widget::event::RadioOutcome;
+//! use rat_widget::radio::{Radio, RadioLayout, RadioState};
+//! # struct State { radio1: RadioState }
+//! # let mut state = State {radio1: Default::default()};
+//! # let mut buf = Buffer::default();
+//! # let buf = &mut buf;
+//! # let area = Rect::default();
+//!
+//! Radio::new()
+//!     .direction(Direction::Horizontal)
+//!     .layout(RadioLayout::Stacked)
+//!     .item("C", "🥕Carrots")
+//!     .item("P", "🥔Potatoes")
+//!     .item("O", "🧅Onions")
+//!     .default_value("C")
+//!     .render(area, buf, &mut state.radio1);
+//!
+//!  // ...
+//!
+//!  # let event = crossterm::event::Event::FocusGained;
+//!  # let event = &event;
+//!  match state.radio1.handle(event, Regular){
+//!      RadioOutcome::Value => {
+//!          // value changed ..
+//!      }
+//!      _ => {}
+//!  }
+//!
+//! ```
+//!
 use crate::_private::NonExhaustive;
 use crate::choice::core::ChoiceCore;
 use crate::event::RadioOutcome;
 use crate::util::{block_size, fill_buf_area, revert_style, union_non_empty};
-use rat_event::util::{item_at, MouseFlags};
-use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
+use rat_event::util::{MouseFlags, item_at};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Direction, Rect, Size};
 use ratatui::prelude::BlockExt;
@@ -19,23 +54,19 @@ use ratatui::widgets::{Block, Widget};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Layout of the items when they are rendered to a bigger
-/// area than needed.
-///
-/// - Stacked stacks one item directly next to another
-///   and leave the remaining space free.
-/// - Spaced fills all the area with the items and
-///   adds space in between.
+/// How will the radio items fill the given area.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum RadioLayout {
-    /// Stacked one item after the other.
+    /// Stacks one item directly next to another
+    /// and leave the remaining space free.
     #[default]
     Stacked,
-    /// Equally spaced items.
+    /// Spaced fills all the area with the items and
+    /// adds space in between.
     Spaced,
 }
 
-/// Horizontally aligned radio buttons.
+/// Render a list of radio buttons.
 #[derive(Debug, Clone)]
 pub struct Radio<'a, T>
 where
@@ -82,7 +113,7 @@ pub struct RadioStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-/// State
+/// Widget state.
 #[derive(Debug)]
 pub struct RadioState<T = usize>
 where

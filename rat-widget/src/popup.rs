@@ -1,4 +1,4 @@
-//! PopupCore helps with managing popup widgets.
+//! PopupCore helps managing popup widgets.
 //!
 //! See also [rat-popup](https://docs.rs/rat-popup/latest/rat_popup/)
 //!

@@ -345,7 +345,7 @@ fn render(
         .style(ctx.theme.black(3).fg(ctx.theme.palette().secondary[2]))
         .render(path_area, buf);
 
-    let (split, split_layout) = Split::horizontal()
+    let split = Split::horizontal()
         .constraints([
             Constraint::Length(25),
             Constraint::Length(25),
@@ -353,7 +353,7 @@ fn render(
         ])
         .split_type(SplitType::Scroll)
         .styles(ctx.theme.split_style())
-        .into_widget_layout(split_area, &mut state.w_split);
+        .into_widget(split_area, &mut state.w_split);
 
     // split content
     {
@@ -370,7 +370,7 @@ fn render(
             )
             .vscroll(Scroll::new().start_margin(2).scroll_by(1))
             .styles(ctx.theme.table_style())
-            .render(split_layout[0], buf, &mut state.w_dirs);
+            .render(state.w_split.widget_areas[0], buf, &mut state.w_dirs);
 
         Table::new()
             .data(FileData {
@@ -387,7 +387,7 @@ fn render(
             )
             .vscroll(Scroll::new().start_margin(2).scroll_by(1))
             .styles(ctx.theme.table_style())
-            .render(split_layout[1], buf, &mut state.w_files);
+            .render(state.w_split.widget_areas[1], buf, &mut state.w_files);
 
         let title = if state.w_data.is_focused() {
             Title::from(Line::from("Content").style(ctx.theme.focus()))
@@ -403,7 +403,7 @@ fn render(
                     .title(title),
             )
             .styles(ctx.theme.textview_style())
-            .render(split_layout[2], buf, &mut state.w_data);
+            .render(state.w_split.widget_areas[2], buf, &mut state.w_data);
     }
 
     // render split overlay parts

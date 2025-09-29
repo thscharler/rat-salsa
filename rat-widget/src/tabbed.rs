@@ -1,5 +1,47 @@
+//! Render tabs.
 //!
-//! Tabs.
+//! This widget doesn't render the content.
+//! Use [TabbedState::widget_area] to render the selected tab.
+//!
+//! ```
+//! use ratatui::buffer::Buffer;
+//! use ratatui::layout::Rect;
+//! use ratatui::text::Text;
+//! use ratatui::widgets::{Block, StatefulWidget, Widget};
+//! use rat_widget::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
+//! # struct State { tabbed: TabbedState }
+//! # let mut state = State { tabbed: Default::default() };
+//! # let mut buf = Buffer::default();
+//! # let buf = &mut buf;
+//! # let area = Rect::default();
+//!
+//! let mut tab = Tabbed::new()
+//!     .tab_type(TabType::Attached)
+//!     .placement(TabPlacement::Top)
+//!     .closeable(true)
+//!     .block(
+//!          Block::bordered()
+//!     )
+//!     .tabs(["Issues", "Numbers", "More numbers"])
+//!     .render(area, buf, &mut state.tabbed);
+//!
+//! match state.tabbed.selected() {
+//!     Some(0) => {
+//!         Text::from("... issues ...")
+//!             .render(state.tabbed.widget_area, buf);
+//!     }
+//!     Some(1) => {
+//!         Text::from("... 1,2,3,4 ...")
+//!             .render(state.tabbed.widget_area, buf);
+//!     }
+//!     Some(1) => {
+//!         Text::from("... 5,6,7,8 ...")
+//!             .render(state.tabbed.widget_area, buf);
+//!     }
+//!     _ => {}
+//! }
+//!
+//! ```
 //!
 use crate::_private::NonExhaustive;
 use crate::event::TabbedOutcome;
