@@ -1,21 +1,26 @@
-//! Render widgets using a [GenericLayout].
+//! Render widgets based on a [GenericLayout].
 //!
-//! If the GenericLayout is split into multiple pages, this
-//! also renders the page-navigation and handles scrolling
+//! This is useful, if you have more than 3 input widgets and
+//! their accompanying labels in a row.
+//! See [LayoutForm](crate::layout::LayoutForm) for details on
+//! the layout.
+//!
+//! If the layout is split into multiple pages this also
+//! renders the page-navigation and handles scrolling
 //! through the pages.
 //!
 //! ```
 //! # use ratatui::buffer::Buffer;
 //! # use ratatui::layout::{Flex, Rect};
 //! # use ratatui::text::Span;
-//! # use ratatui::widgets::{Padding, Widget, StatefulWidget};
+//! # use ratatui::widgets::{Padding, Widget, StatefulWidget, Block};
 //! # use rat_focus::{FocusFlag, HasFocus};
 //! # use rat_text::text_input::{TextInput, TextInputState};
 //! # use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
 //! use rat_widget::form::{Form, FormState};
 //! #
 //! # struct State {
-//! #     form: FormState<FocusFlag>,
+//! #     form: FormState<usize>,
 //! #     text1: TextInputState,
 //! #     text2: TextInputState,
 //! #     text3: TextInputState,
@@ -26,57 +31,57 @@
 //! # let mut buf = Buffer::empty(Rect::default());
 //! # let buf = &mut buf;
 //!
-//! let form = Form::new();
+//! // create + configure the form.
+//! let form = Form::new()
+//!     .block(Block::bordered());
+//!
 //! let layout_size = form.layout_size(area);
 //! if !state.form.valid_layout(layout_size) {
+//!     // define the layout
 //!     let mut form_layout = LayoutForm::new()
 //!             .spacing(1)
 //!             .flex(Flex::Legacy)
 //!             .line_spacing(1)
 //!             .min_label(10);
 //!
-//!     form_layout.widget(
-//!         state.text1.focus(),
-//!         FormLabel::Str("Text 1"),
-//!         // single row
-//!         FormWidget::Width(22)
-//!     );
-//!     form_layout.widget(
-//!         state.text2.focus(),
-//!         FormLabel::Str("Text 2"),
-//!         // stretch to the form-width, preferred with 15, 1 row high.
-//!         FormWidget::StretchX(15, 1)
-//!     );
-//!     form_layout.widget(
-//!         state.text3.focus(),
-//!         FormLabel::Str("Text 3"),
-//!         // stretch to the form-width and fill vertically.
-//!         // preferred width is 15 3 rows high.
-//!         FormWidget::StretchXY(15, 3)
-//!     );
+//!     use rat_widget::layout::{FormLabel as L, FormWidget as W};
+//!
+//!     // single row
+//!     form_layout.widget(state.text1.id(), L::Str("Text 1"), W::Width(22));
+//!     // stretch to the form-width, preferred with 15, 1 row high.
+//!     form_layout.widget(state.text2.id(), L::Str("Text 2"), W::StretchX(15, 1));
+//!     // stretch to the form-width and fill vertically.
+//!     // preferred width is 15 3 rows high.
+//!     form_layout.widget(state.text3.id(), L::Str("Text 3"), W::StretchXY(15, 3));
 //!
 //!     // calculate the layout and set it.
 //!     state.form.set_layout(form_layout.build_paged(area.as_size()));
 //!  }
 //!
+//!  // create a FormBuffer from the parameters that will render
+//!  // the individual widgets.
 //!  let mut form = form
 //!     .into_buffer(area, buf, &mut state.form);
 //!
-//!  form.render(state.text1.focus(),
+//!  form.render(state.text1.id(),
 //!     || TextInput::new(),
 //!     &mut state.text1
 //!  );
-//!  form.render(state.text2.focus(),
+//!  form.render(state.text2.id(),
 //!     || TextInput::new(),
 //!     &mut state.text2
 //!  );
-//!  form.render(state.text3.focus(),
+//!  form.render(state.text3.id(),
 //!     || TextInput::new(),
 //!     &mut state.text3
 //!  );
 //!
-//! ```
+//!  // rendering widgets is finished. build the
+//!  // final FormWidget that will render any navigation.
+//!  form.into_widget()
+//!       .render(area, buf, &mut state.form);
 //!
+//! ```
 use crate::_private::NonExhaustive;
 use crate::layout::GenericLayout;
 use crate::util::revert_style;
@@ -98,8 +103,16 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use unicode_display_width::width as unicode_width;
 
-/// A widget that helps with rendering a Form.
-/// It uses a GenericLayout for its layout information.
+/// Renders other widgets using a [GenericLayout].
+/// It doesn't scroll, instead it uses pages.
+///
+/// `Form` is the first stage and defines the layout and styling.
+/// At the end call [into_buffer](Form::into_buffer) to create the
+/// [FormBuffer] that allows you to render your widgets.
+///
+/// When you are done with that, call [into_widget](FormBuffer::into_widget)
+/// to get the final stage [FormWidget] to render your layout Blocks
+/// and any navigation.
 #[derive(Debug, Clone)]
 pub struct Form<'a, W>
 where
@@ -121,7 +134,10 @@ where
     label_alignment: Option<Alignment>,
 }
 
-/// Struct for rendering widgets.
+/// Second stage of form rendering.
+///
+/// This can render the widgets that make up the form content.
+///
 #[derive(Debug)]
 #[must_use]
 pub struct FormBuffer<'a, 'b, W>
@@ -150,7 +166,9 @@ where
     destruct: bool,
 }
 
-/// Struct for rendering widgets.
+/// Final stage of form rendering.
+///
+/// This renders the Block and some page navigation if necessary.
 #[derive(Debug)]
 pub struct FormWidget<'a, W> {
     style: Style,
@@ -165,7 +183,7 @@ pub struct FormWidget<'a, W> {
     _phantom: PhantomData<W>,
 }
 
-/// All styles for a pager.
+/// All styles for a form.
 #[derive(Debug, Clone)]
 pub struct FormStyle {
     pub style: Style,

@@ -37,12 +37,13 @@ that probably can be used with other focus systems. Or you use
 ## Scrolling
 
 Where it makes sense the widgets implement internal scrolling.
-They use [Scroll][refScroll] from [rat-scrolled][refRatScrolled].
+They use [Scroll][refScroll] from [rat-scrolled][refRatScrolled]
+to render the scroll bars.
 
 ## Speed
 
-Rendering all the widgets tries hard not to need allocations and
-extensive copying during rendering.
+When rendering all the widgets try hard to do so without allocations
+and extensive copying.
 
 Special mentions:
 
@@ -67,13 +68,15 @@ There are some layout calculators beyond ratatui's Layout.
 Widgets like View and Clipper move the widget-image after
 rendering. This breaks any areas stored in the widget-states.
 
-[reloc](reloc/index.html)
+See [rat-reloc][refRatReloc]
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
 [refRatEvent]: https://docs.rs/rat-event
 
 [refRatFocus]: https://docs.rs/rat-focus
+
+[refRatReloc]: https://docs.rs/rat-reloc
 
 [refRatFocusFlag]: https://docs.rs/rat-focus/latest/rat_focus/struct.FocusFlag.html
 

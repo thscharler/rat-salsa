@@ -73,28 +73,32 @@ pub struct ButtonStyle {
 #[derive(Debug)]
 pub struct ButtonState {
     /// Complete area
-    /// __readonly__. renewed for each render.
+    /// __read only__. renewed for each render.
     pub area: Rect,
     /// Area inside the block.
-    /// __readonly__. renewed for each render.
+    /// __read only__. renewed for each render.
     pub inner: Rect,
-
     /// Hover is enabled?
+    /// __read only__. renewed for each render.
+    #[deprecated(since = "1.2.0", note = "not used for anything")]
     pub hover_enabled: bool,
     /// Button has been clicked but not released yet.
-    /// __used for mouse interaction__
+    /// __read only__
     pub armed: bool,
     /// Some terminals repaint too fast to see the click.
     /// This adds some delay when the button state goes from
     /// armed to clicked.
     ///
     /// Default is 50ms.
+    /// __read+write__
     pub armed_delay: Option<Duration>,
 
     /// Current focus state.
     /// __read+write__
     pub focus: FocusFlag,
 
+    /// Mouse interaction.
+    /// __read only__
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,

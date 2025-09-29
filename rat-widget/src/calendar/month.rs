@@ -2,7 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::calendar::event::CalOutcome;
 use crate::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
 use crate::calendar::style::CalendarStyle;
-use crate::calendar::{first_day_of_month, last_day_of_month, CalendarSelection};
+use crate::calendar::{CalendarSelection, first_day_of_month, last_day_of_month};
 use crate::util::{block_size, revert_style};
 use chrono::{Datelike, Days, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
@@ -285,7 +285,7 @@ impl<'a, Selection> Month<'a, Selection> {
     }
 
     /// Inherent height for the widget.
-    /// Can vary with the number of months.
+    /// This is not a fixed value, depends on the month.
     #[inline]
     pub fn height(&self, state: &MonthState<Selection>) -> u16 {
         let start_date = if let Some(start_date) = self.start_date {

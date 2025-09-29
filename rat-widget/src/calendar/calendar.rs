@@ -14,10 +14,10 @@ use std::rc::Rc;
 /// How should `move_to_today()` behave.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TodayPolicy {
-    /// Set the current date at the given index and fill
+    /// Set the current date at the given month index and fill
     /// out the rest accordingly.
     Index(usize),
-    /// Behave like a yearly calendar. Sets the calender to the
+    /// Behave like a yearly calendar. Sets the calendar to the
     /// current year and focuses on the month of the current date.
     Year,
 }
@@ -60,6 +60,7 @@ pub struct CalendarState<const N: usize, Selection> {
     /// Months.
     pub months: [MonthState<Selection>; N],
 
+    /// Selection model.
     pub selection: Rc<RefCell<Selection>>,
 
     /// Calendar focus

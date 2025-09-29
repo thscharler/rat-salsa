@@ -9,7 +9,7 @@ use std::marker::PhantomData;
 use std::mem;
 
 ///
-/// Calendar with 3 month on display.
+/// Calendar with 3 months on display.
 ///
 /// Take this as sample for your own fancy calendar.
 ///

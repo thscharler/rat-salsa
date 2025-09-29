@@ -1,11 +1,14 @@
 //!
-//! An alternative view widget that renders only visible widgets.
+//! Alternative View widget that renders only visible widgets.
 //!
-//! > The extra requirement for this one is that you can create
-//! > a Layout that defines the bounds of all widgets that can
-//! > be rendered.
+//! It uses a [GenericLayout] to find the visible widgets.
+//! It only uses a Buffer big enough to render these.
+//! They may be only partially visible of course.
 //!
-//! It works in 4 phases:
+//! This helps with rendering speed and allows rendering more
+//! than u16::MAX lines.
+//!
+//! It works in several phases:
 //!
 //! ```rust no_run
 //!     # use rat_widget::clipper::{Clipper, ClipperState};
@@ -79,9 +82,16 @@
 //! __StatefulWidget__
 //!
 //! For this to work with StatefulWidgets they must cooperate
-//! by implementing the [RelocatableState](crate::reloc::RelocatableState)
+//! by implementing the [RelocatableState]
 //! trait. With this trait the widget can clip/hide all areas that
 //! it stores in its state.
+//!
+//! __Form__
+//!
+//! There is an alternative to scrolling through long lists of widgets.
+//! With [Form](crate::form::Form) you can split the layout into pages.
+//! This avoids clipped widgets and allows the extra feature to stretch
+//! some widgets to fill the available vertical space.
 //!
 //! __See__
 //!
@@ -109,7 +119,7 @@ use std::marker::PhantomData;
 use std::mem;
 use std::rc::Rc;
 
-/// This widget allows rendering to a temp-buffer and clips
+/// This widget allows rendering to a temporary buffer and clips
 /// it to size for the final rendering.
 #[derive(Debug)]
 pub struct Clipper<'a, W>
@@ -126,7 +136,7 @@ where
     auto_label: bool,
 }
 
-/// Intermediate stage for rendering. Uses a temp-buffer.
+/// Second stage: render widgets to the temporary buffer.
 #[derive(Debug)]
 pub struct ClipperBuffer<'a, W>
 where
@@ -152,6 +162,7 @@ where
     destruct: bool,
 }
 
+/// Last stage: Clip and dump the temporary buffer to the frame buffer.
 #[derive(Debug)]
 pub struct ClipperWidget<'a, W>
 where
@@ -191,6 +202,7 @@ impl Default for ClipperStyle {
     }
 }
 
+/// Widget state.
 #[derive(Debug)]
 pub struct ClipperState<W>
 where
