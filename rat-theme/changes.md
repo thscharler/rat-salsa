@@ -1,3 +1,7 @@
+# 0.28.1
+
+* minor fixes
+
 # 0.28.0
 
 * discontinued. use rat-theme2 instead.

@@ -1203,7 +1203,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme"
-version = "0.28.0"
+version = "0.28.1"
 dependencies = [
  "log",
  "map_range_int",
@@ -1213,7 +1213,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme2"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "log",
  "rat-widget",
