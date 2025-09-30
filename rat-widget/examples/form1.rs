@@ -132,8 +132,6 @@ fn render(
         );
     }
 
-    form.finish(&mut state.form);
-
     let menu1 = MenuLine::new()
         .title("#.#")
         .item_parsed("_Flex|F2")

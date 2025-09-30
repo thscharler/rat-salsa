@@ -243,8 +243,6 @@ fn render(
     // popups
     form.render_opt(state.license.id(), || license_popup, &mut state.license);
 
-    form.finish(&mut state.form);
-
     if let Some(cursor) = state.screen_cursor() {
         frame.set_cursor_position(cursor);
     }
