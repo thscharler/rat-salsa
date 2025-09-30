@@ -1,3 +1,12 @@
+# 2.1.0
+
+* break: add text-colors to the palette. The text-color functions use
+  these instead of black/white.
+
+* feature: Palette::normal_contrast_color() and Palette::high_contrast_color()
+  given a background and a list of possible colors, this chooses the color
+  with the second best/best contrast.
+
 # 2.0.0
 
 * Add 'Shell' theme.

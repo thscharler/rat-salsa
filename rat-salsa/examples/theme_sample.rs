@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 
-use crate::mask0::Mask0;
+use crate::themes::Themes;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
@@ -94,7 +94,7 @@ impl From<TimeOut> for ThemesEvent {
 
 #[derive(Debug, Default)]
 pub struct Scenery {
-    mask0: Mask0,
+    mask0: Themes,
     status: StatusLineState,
     error_dlg: MsgDialogState,
 }
@@ -108,7 +108,7 @@ pub fn render(
     let t0 = SystemTime::now();
 
     // forward
-    mask0::render(area, buf, &mut state.mask0, ctx)?;
+    themes::render(area, buf, &mut state.mask0, ctx)?;
 
     let layout = Layout::new(
         Direction::Vertical,
@@ -181,7 +181,7 @@ pub fn event(
         _ => Control::Continue,
     };
 
-    try_flow!(mask0::event(&event, &mut state.mask0, ctx)?);
+    try_flow!(themes::event(&event, &mut state.mask0, ctx)?);
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
     state.status.status(3, format!("H {:.3?}", el).to_string());
@@ -198,7 +198,7 @@ pub fn error(
     Ok(Control::Changed)
 }
 
-pub mod mask0 {
+pub mod themes {
     use crate::show_scheme::{ShowScheme, ShowSchemeState};
     use crate::{GlobalState, ThemesEvent};
     use anyhow::Error;
@@ -215,14 +215,14 @@ pub mod mask0 {
     use std::fmt::Debug;
 
     #[derive(Debug)]
-    pub struct Mask0 {
+    pub struct Themes {
         pub menu: MenubarState,
         pub scroll: ViewState,
         pub scheme: ShowSchemeState,
         pub theme: usize,
     }
 
-    impl Default for Mask0 {
+    impl Default for Themes {
         fn default() -> Self {
             let s = Self {
                 menu: Default::default(),
@@ -258,7 +258,7 @@ pub mod mask0 {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut Mask0,
+        state: &mut Themes,
         ctx: &mut GlobalState,
     ) -> Result<(), Error> {
         let layout = Layout::new(
@@ -301,7 +301,7 @@ pub mod mask0 {
 
     pub fn event(
         event: &ThemesEvent,
-        state: &mut Mask0,
+        state: &mut Themes,
         ctx: &mut GlobalState,
     ) -> Result<Control<ThemesEvent>, Error> {
         let r = match event {

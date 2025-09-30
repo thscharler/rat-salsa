@@ -1,3 +1,10 @@
+# 2.1.1
+
+* feature: give access to Terminal via the SalsaContext.
+* perf: Filter out double Control::Change. No need to render twice.
+
+* update examples
+
 # 2.1.0
 
 break: extend Terminal trait to mirror ratatui::Terminal.

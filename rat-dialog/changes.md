@@ -1,3 +1,14 @@
+# 0.5.0
+
+* breaks everything.
+
+* simplified api for DialogStack.
+* added WindowList for regular windows.
+* add WindowFrame widget to render a border and handle move/resize.
+
+- removed dependency on rat-salsa.
+- remove all focus related stuff.
+
 # 0.4.0
 
 * break: rename StackControl to DialogControl. rename Pop to Close. add payload to Close.

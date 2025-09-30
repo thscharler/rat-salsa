@@ -1,3 +1,32 @@
+# 1.2.0
+
+* docs: much updated
+
+## major
+
+* LayoutForm revisited.
+    * add multi-column layout.
+    * flex now correctly layout the columns.
+    * add widgets()
+    * add end_all()
+
+* add form::Form
+    * this replaces all the pager widgets with one widget.
+        - DualPager is no longer useful with multicolumn layouts.
+        - SinglePager and Form can merge and include Pager as well.
+        - PageNavigation no longer needs to be a separate widget.
+    * removed all useless api
+
+## minor
+
+* Button: add clear_areas()
+* Tabbed: use Up/Down keys in addition to Left/Right to navigate.
+* add simple_grid() layout function. supersede layout_grid() with layout_as_grid()
+*
+* remove Caption.
+
+* remove unused feature 'unstable-widget-ref'
+
 # 1.1.0
 
 * new: Add widget `Caption` that can be used as a label.

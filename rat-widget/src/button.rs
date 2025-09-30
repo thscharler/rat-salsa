@@ -245,6 +245,7 @@ impl StatefulWidget for Button<'_> {
     }
 }
 
+#[allow(deprecated)]
 fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut ButtonState) {
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
@@ -296,6 +297,7 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
 }
 
 impl Clone for ButtonState {
+    #[allow(deprecated)]
     fn clone(&self) -> Self {
         Self {
             area: self.area,
@@ -311,6 +313,7 @@ impl Clone for ButtonState {
 }
 
 impl Default for ButtonState {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             area: Default::default(),

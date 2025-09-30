@@ -321,16 +321,14 @@ impl SalsaTheme for ShellTheme {
             style: self.text_input(),
             select: Some(self.text_select()),
             focus: Some(self.text_focus()),
-            popup: PopupStyle {
-                style: self.popup_base(),
-                scroll: Some(self.popup_scroll_style()),
-                block: Some(
-                    Block::bordered()
-                        .borders(Borders::LEFT)
-                        .border_style(self.popup_border()),
-                ),
-                ..Default::default()
-            },
+            popup: PopupStyle::default(),
+            popup_style: Some(self.popup_base()),
+            popup_scroll: Some(self.popup_scroll_style()),
+            popup_block: Some(
+                Block::bordered()
+                    .borders(Borders::LEFT)
+                    .border_style(self.popup_arrow()),
+            ),
             ..Default::default()
         }
     }

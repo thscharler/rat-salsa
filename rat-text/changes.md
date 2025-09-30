@@ -1,3 +1,11 @@
+# 1.2.0
+
+* break: remove HandleEvent with FocusTraversal. not useful.
+
+* feature: allow setting TextWrap on the widget.
+* fix: use focus_style for the TextArea too. styling has been
+  synced across all text widgets.
+
 # 1.1.0
 
 * break: change move_col from upos_type to i16.

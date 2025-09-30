@@ -1,6 +1,6 @@
 [package]
 name = "rat-cursor"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2024"
 description = "ratatui trait to communicate the cursor position across widgets"
 license = "MIT/Apache-2.0"

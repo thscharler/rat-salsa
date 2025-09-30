@@ -1375,9 +1375,9 @@ fn areas_and_advance<W: Debug + Clone>(
 
         let widget_area = match &widget.widget {
             FormWidget::None => unreachable!(),
-            FormWidget::Width(w) => unreachable!(),
-            FormWidget::Size(w, _) => unreachable!(),
-            FormWidget::StretchY(w, _) => unreachable!(),
+            FormWidget::Width(_) => unreachable!(),
+            FormWidget::Size(_, _) => unreachable!(),
+            FormWidget::StretchY(_, _) => unreachable!(),
             FormWidget::Wide(_, _) => Rect::new(
                 page.x_pos.label_left,
                 page.y + label_height,

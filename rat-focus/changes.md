@@ -6,6 +6,9 @@
   *navigable* widget instead of just the first.
 * fix: remove FocusTraversal. Not useful enough.
 
+* feature: add Focus::future() to set the focus to a widget
+  not yet in the widget list.
+
 # 1.1.1
 
 * fix: impl_has_focus! should use full path for Rect.

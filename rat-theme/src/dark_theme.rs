@@ -13,6 +13,7 @@ use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
+#[allow(deprecated)]
 use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::popup::PopupStyle;
@@ -349,16 +350,14 @@ impl DarkTheme {
             style: self.text_input(),
             select: Some(self.text_focus()),
             focus: Some(self.text_focus()),
-            popup: PopupStyle {
-                style: self.popup_base(),
-                scroll: Some(self.popup_scroll_style()),
-                block: Some(
-                    Block::bordered()
-                        .borders(Borders::LEFT)
-                        .border_style(self.popup_arrow()),
-                ),
-                ..Default::default()
-            },
+            popup: PopupStyle::default(),
+            popup_style: Some(self.popup_base()),
+            popup_scroll: Some(self.popup_scroll_style()),
+            popup_block: Some(
+                Block::bordered()
+                    .borders(Borders::LEFT)
+                    .border_style(self.popup_arrow()),
+            ),
             ..Default::default()
         }
     }
@@ -387,16 +386,12 @@ impl DarkTheme {
         MenuStyle {
             style: menu,
             title: Some(Style::default().fg(self.s.black[0]).bg(self.s.yellow[2])),
-            select: Some(self.select()),
             focus: Some(self.focus()),
             right: Some(Style::default().fg(self.s.bluegreen[0])),
             disabled: Some(Style::default().fg(self.s.gray[0])),
             highlight: Some(Style::default().underlined()),
-            popup: PopupStyle {
-                style: menu,
-                block: Some(Block::bordered()),
-                ..Default::default()
-            },
+            block: Some(Block::bordered()),
+            popup: PopupStyle::default(),
             ..Default::default()
         }
     }
@@ -554,6 +549,7 @@ impl DarkTheme {
     }
 
     /// Pager style.
+    #[allow(deprecated)]
     pub fn pager_style(&self) -> PagerStyle {
         PagerStyle {
             style: self.container_base(),
