@@ -21,8 +21,8 @@ unicode-segmentation = "1.11"
 unicode-display-width = "0.3"
 
 rat-event = { version = "1.2", path = "../rat-event" }
-rat-focus = { version = "1.1", path = "../rat-focus" }
-rat-popup = { version = "1.1", path = "../rat-popup" }
+rat-focus = { version = "1.2", path = "../rat-focus" }
+rat-popup = { version = "1.2", path = "../rat-popup" }
 log = "0.4.25"
 
 [dev-dependencies]

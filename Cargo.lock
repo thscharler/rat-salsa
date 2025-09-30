@@ -1070,7 +1070,6 @@ dependencies = [
  "fern",
  "fxhash",
  "log",
- "rat-cursor",
  "rat-event",
  "rat-reloc",
  "ratatui",
@@ -1146,7 +1145,6 @@ dependencies = [
 name = "rat-reloc"
 version = "1.2.1"
 dependencies = [
- "log",
  "ratatui",
 ]
 

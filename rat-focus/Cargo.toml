@@ -24,4 +24,3 @@ rat-reloc = { version = "1.2", path = "../rat-reloc" }
 fern = "0.7"
 anyhow = "1.0"
 unicode-segmentation = "1.11"
-rat-cursor = { version = "1.2", path = "../rat-cursor" }
