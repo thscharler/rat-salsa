@@ -195,11 +195,7 @@ impl<'a> MenuItem<'a> {
 
     /// Text-height.
     pub fn height(&self) -> u16 {
-        if self.separator.is_none() {
-            1
-        } else {
-            2
-        }
+        if self.separator.is_none() { 1 } else { 2 }
     }
 }
 
@@ -253,6 +249,7 @@ fn separator_str(s: &str) -> Separator {
 /// Create a Line from the given text.
 /// The first '_' marks the navigation-char.
 /// Pipe '|' separates the item text and the right text.
+#[allow(clippy::collapsible_if)]
 fn item_str(txt: &str) -> MenuItem<'_> {
     let mut idx_underscore = None;
     let mut idx_navchar_start = None;

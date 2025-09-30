@@ -678,6 +678,7 @@ impl PopupMenuState {
 
     /// Select item at position.
     #[inline]
+    #[allow(clippy::collapsible_if)]
     pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
         let old_selected = self.selected;
 

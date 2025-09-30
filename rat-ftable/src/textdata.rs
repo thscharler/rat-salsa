@@ -59,6 +59,7 @@ impl<'a> TableData<'a> for TextTableData<'a> {
         }
     }
 
+    #[allow(clippy::collapsible_if)]
     fn render_cell(&self, _ctx: &TableContext, c: usize, r: usize, area: Rect, buf: &mut Buffer) {
         if let Some(row) = self.rows.get(r) {
             if let Some(cell) = row.cell(c) {

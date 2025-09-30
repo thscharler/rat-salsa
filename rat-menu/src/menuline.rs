@@ -517,6 +517,7 @@ impl MenuLineState {
     /// Only reports a change if the selection actually changed.
     /// Reports no change before the first render and if no item was hit.
     #[inline]
+    #[allow(clippy::collapsible_if)]
     pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
         let old_selected = self.selected;
 
@@ -538,6 +539,7 @@ impl MenuLineState {
     /// Reports a change even if the same menu item has been selected.
     /// Reports no change before the first render and if no item was hit.
     #[inline]
+    #[allow(clippy::collapsible_if)]
     pub fn select_at_always(&mut self, pos: (u16, u16)) -> bool {
         // before first render or no items:
         if self.disabled.is_empty() {

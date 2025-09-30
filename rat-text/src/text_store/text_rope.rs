@@ -102,7 +102,7 @@ impl TextRope {
         } else if row <= text_len {
             Ok(row - 1)
         } else {
-            return Err(TextError::LineIndexOutOfBounds(row, text_len));
+            Err(TextError::LineIndexOutOfBounds(row, text_len))
         }
     }
 

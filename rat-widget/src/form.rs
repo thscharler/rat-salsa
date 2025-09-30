@@ -894,11 +894,7 @@ where
     /// If there is no widget for the given identifier, this
     /// will set the page to 0.
     pub fn show(&mut self, widget: W) {
-        let page = if let Some(page) = self.layout.page_of(widget) {
-            page
-        } else {
-            0
-        };
+        let page = self.layout.page_of(widget).unwrap_or_default();
         self.set_page(page);
     }
 

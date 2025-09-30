@@ -119,11 +119,11 @@ pub enum FormWidget {
 /// There are two branches of the layout:
 ///
 /// - paged: Fill a target area with the widgets and start
-/// a new page when the layout overflows. You can use [Form](crate::form::Form)
-/// to render a multipage and navigate between the pages.
+///   a new page when the layout overflows. You can use [Form](crate::form::Form)
+///   to render a multipage and navigate between the pages.
 ///
 /// - endless: Just stack the widgets. You can use [Clipper](crate::clipper::Clipper)
-/// to render such a layout and scroll through it.
+///   to render such a layout and scroll through it.
 ///
 /// ## Both variants
 ///
@@ -1197,7 +1197,7 @@ where
     }
 
     // get areas + advance
-    let (label_area, widget_area, advance) = areas_and_advance(&page, &widget, must_fit);
+    let (label_area, widget_area, advance) = areas_and_advance(page, widget, must_fit);
 
     page.y = page.y.saturating_add(advance);
 

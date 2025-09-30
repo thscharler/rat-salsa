@@ -1,9 +1,9 @@
 use crate::event::TableOutcome;
 use crate::{TableSelection, TableState};
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
-use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::ScrollAreaState;
+use rat_scrolled::event::ScrollOutcome;
 use std::cmp::{max, min};
 
 /// Allows selecting a single row of the table.
@@ -22,11 +22,7 @@ pub struct RowSelection {
 
 impl TableSelection for RowSelection {
     fn count(&self) -> usize {
-        if self.lead_row.is_some() {
-            1
-        } else {
-            0
-        }
+        if self.lead_row.is_some() { 1 } else { 0 }
     }
 
     fn is_selected_row(&self, row: usize) -> bool {
@@ -86,6 +82,7 @@ impl RowSelection {
     }
 
     /// Update the state to match adding items.
+    #[allow(clippy::collapsible_if)]
     pub fn items_added(&mut self, pos: usize, n: usize) {
         if let Some(lead_row) = self.lead_row {
             if lead_row > pos {

@@ -40,6 +40,7 @@ pub(crate) fn fallback_select_style(style: Style) -> Style {
 /// * h_offset: Left shift of the tmp-buffer.
 /// * view_area: clipped area in the target buffer.
 /// * buf: Target buffer
+#[allow(clippy::collapsible_if)]
 pub(crate) fn transfer_buffer(tmp: &mut Buffer, h_offset: u16, view_area: Rect, buf: &mut Buffer) {
     // copy buffer
     for (cell_offset, cell) in tmp.content.iter_mut().enumerate() {

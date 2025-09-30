@@ -537,7 +537,7 @@ where
     }
 
     /// Render all visible blocks.
-    #[deprecated(since = "1.2", note = "happens automatically")]
+    #[deprecated(since = "1.2.0", note = "happens automatically")]
     pub fn render_block(&mut self) {
         let layout = self.layout.borrow();
         for (idx, block_area) in layout.block_area_iter().enumerate() {

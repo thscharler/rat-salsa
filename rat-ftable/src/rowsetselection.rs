@@ -1,10 +1,10 @@
 use crate::event::TableOutcome;
 use crate::{TableSelection, TableState};
 use crossterm::event::KeyModifiers;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::HasFocus;
-use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::ScrollAreaState;
+use rat_scrolled::event::ScrollOutcome;
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::mem;
@@ -47,6 +47,7 @@ impl TableSelection for RowSetSelection {
     }
 
     #[allow(clippy::collapsible_else_if)]
+    #[allow(clippy::collapsible_if)]
     fn is_selected_row(&self, row: usize) -> bool {
         if let Some(mut anchor) = self.anchor_row {
             if let Some(mut lead) = self.lead_row {
