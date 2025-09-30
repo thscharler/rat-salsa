@@ -4,7 +4,7 @@ use rat_event::{HandleEvent, Popup, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
-use rat_widget::choice::{Choice, ChoiceState};
+use rat_widget::choice::{Choice, ChoiceClose, ChoiceSelect, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, Outcome};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};

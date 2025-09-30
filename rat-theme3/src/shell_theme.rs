@@ -323,11 +323,12 @@ impl SalsaTheme for ShellTheme {
             focus: Some(self.text_focus()),
             popup: PopupStyle::default(),
             popup_style: Some(self.popup_base()),
+            popup_border_style: Some(self.popup_border()),
             popup_scroll: Some(self.popup_scroll_style()),
             popup_block: Some(
                 Block::bordered()
                     .borders(Borders::LEFT)
-                    .border_style(self.popup_arrow()),
+                    .border_style(self.popup_border()),
             ),
             ..Default::default()
         }

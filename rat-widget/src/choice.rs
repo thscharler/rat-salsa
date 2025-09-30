@@ -33,15 +33,15 @@
 use crate::_private::NonExhaustive;
 use crate::choice::core::ChoiceCore;
 use crate::event::ChoiceOutcome;
-use crate::util::{block_size, revert_style};
-use rat_event::util::{item_at, mouse_trap, MouseFlags};
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Popup};
+use crate::util::{block_padding, block_size, revert_style};
+use rat_event::util::{MouseFlags, item_at, mouse_trap};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
-use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle};
-use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
+use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle, fallback_popup_style};
+use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::{Scroll, ScrollAreaState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::BlockExt;
@@ -102,6 +102,9 @@ where
     popup_placement: Placement,
     popup_len: Option<u16>,
     popup: PopupCore<'a>,
+    popup_style: Style,
+    popup_scroll: Option<Scroll<'a>>,
+    popup_block: Option<Block<'a>>,
 
     behave_select: ChoiceSelect,
     behave_close: ChoiceClose,
@@ -145,6 +148,9 @@ where
     popup_placement: Placement,
     popup_len: Option<u16>,
     popup: PopupCore<'a>,
+    popup_style: Style,
+    popup_scroll: Option<Scroll<'a>>,
+    popup_block: Option<Block<'a>>,
 
     _phantom: PhantomData<T>,
 }
@@ -159,6 +165,10 @@ pub struct ChoiceStyle {
     pub block: Option<Block<'static>>,
 
     pub popup: PopupStyle,
+    pub popup_style: Option<Style>,
+    pub popup_border_style: Option<Style>,
+    pub popup_scroll: Option<ScrollStyle>,
+    pub popup_block: Option<Block<'static>>,
     pub popup_len: Option<u16>,
 
     pub behave_select: Option<ChoiceSelect>,
@@ -192,6 +202,8 @@ where
     pub core: ChoiceCore<T>,
     /// Popup state.
     pub popup: PopupCoreState,
+    /// Popup scroll state.
+    pub popup_scroll: ScrollState,
     /// Behaviour for selecting from the choice popup.
     /// __read only__ renewed with each render.
     pub behave_select: ChoiceSelect,
@@ -396,14 +408,18 @@ impl Default for ChoiceStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            button: None,
-            select: None,
-            focus: None,
-            block: None,
+            button: Default::default(),
+            select: Default::default(),
+            focus: Default::default(),
+            block: Default::default(),
             popup: Default::default(),
-            popup_len: None,
-            behave_select: None,
-            behave_close: None,
+            popup_style: Default::default(),
+            popup_border_style: Default::default(),
+            popup_scroll: Default::default(),
+            popup_block: Default::default(),
+            popup_len: Default::default(),
+            behave_select: Default::default(),
+            behave_close: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -427,6 +443,9 @@ where
             popup_alignment: Alignment::Left,
             popup_placement: Placement::BelowOrAbove,
             popup: Default::default(),
+            popup_style: Default::default(),
+            popup_scroll: Default::default(),
+            popup_block: Default::default(),
             behave_select: Default::default(),
             behave_close: Default::default(),
         }
@@ -530,10 +549,25 @@ where
         if let Some(placement) = styles.popup.placement {
             self.popup_placement = placement;
         }
+
+        self.popup_block = self.popup_block.map(|v| v.style(self.popup_style));
+        if let Some(border_style) = styles.popup_border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(popup_style) = styles.popup_style {
+            self.popup_style = popup_style;
+        }
+        if let Some(popup_scroll) = styles.popup_scroll {
+            self.popup_scroll = self.popup_scroll.map(|v| v.styles(popup_scroll));
+        }
+        if styles.popup_block.is_some() {
+            self.popup_block = styles.popup_block;
+        }
         if styles.popup_len.is_some() {
             self.popup_len = styles.popup_len;
         }
         self.popup = self.popup.styles(styles.popup);
+
         self
     }
 
@@ -604,19 +638,19 @@ where
 
     /// Base style for the popup.
     pub fn popup_style(mut self, style: Style) -> Self {
-        self.popup = self.popup.style(style);
+        self.popup_style = style;
         self
     }
 
     /// Block for the popup.
     pub fn popup_block(mut self, block: Block<'a>) -> Self {
-        self.popup = self.popup.block(block);
+        self.popup_block = Some(block);
         self
     }
 
     /// Scroll for the popup.
     pub fn popup_scroll(mut self, scroll: Scroll<'a>) -> Self {
-        self.popup = self.popup.v_scroll(scroll);
+        self.popup_scroll = Some(scroll);
         self
     }
 
@@ -698,6 +732,9 @@ where
                 style: self.style,
                 select_style: self.select_style,
                 popup: self.popup,
+                popup_style: self.popup_style,
+                popup_scroll: self.popup_scroll,
+                popup_block: self.popup_block,
                 popup_alignment: self.popup_alignment,
                 popup_placement: self.popup_placement,
                 popup_len: self.popup_len,
@@ -776,10 +813,10 @@ fn render_choice<T: PartialEq + Clone + Default>(
         let len = widget
             .len
             .unwrap_or_else(|| min(5, widget.items.borrow().len()) as u16);
-        state.popup.v_scroll.max_offset = widget.items.borrow().len().saturating_sub(len as usize);
-        state.popup.v_scroll.page_len = len as usize;
+        state.popup_scroll.max_offset = widget.items.borrow().len().saturating_sub(len as usize);
+        state.popup_scroll.page_len = len as usize;
         if let Some(selected) = state.core.selected() {
-            state.popup.v_scroll.scroll_to_pos(selected);
+            state.popup_scroll.scroll_to_pos(selected);
         }
     }
 
@@ -861,7 +898,8 @@ where
                 self.popup_len.unwrap_or(5),
                 self.items.borrow().len() as u16,
             );
-            let popup_len = len + self.popup.get_block_size().height;
+            let padding = block_padding(&self.popup_block);
+            let popup_len = len + padding.top + padding.bottom;
             let pop_area = Rect::new(0, 0, area.width, popup_len);
 
             self.popup
@@ -905,37 +943,50 @@ fn render_popup<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
 ) {
     if state.popup.is_active() {
-        let len = min(
-            widget.popup_len.unwrap_or(5),
-            widget.items.borrow().len() as u16,
-        );
-        let popup_len = len + widget.popup.get_block_size().height;
-        let pop_area = Rect::new(0, 0, area.width, popup_len);
-
-        let popup_style = widget.popup.style;
+        let popup_style = widget.popup_style;
         let select_style = widget.select_style.unwrap_or(revert_style(widget.style));
 
-        widget
-            .popup
-            .ref_constraint(
-                widget
-                    .popup_placement
-                    .into_constraint(widget.popup_alignment, area),
-            )
-            .render(pop_area, buf, &mut state.popup);
+        {
+            let len = min(
+                widget.popup_len.unwrap_or(5),
+                widget.items.borrow().len() as u16,
+            );
+            let padding = block_padding(&widget.popup_block);
+            let popup_len = len + padding.top + padding.bottom;
+            let pop_area = Rect::new(0, 0, area.width, popup_len);
 
-        let inner = state.popup.widget_area;
+            widget
+                .popup
+                .ref_constraint(
+                    widget
+                        .popup_placement
+                        .into_constraint(widget.popup_alignment, area),
+                )
+                .render(pop_area, buf, &mut state.popup);
+        }
 
-        state.popup.v_scroll.max_offset = widget
+        let sa = ScrollArea::new()
+            .style(fallback_popup_style(widget.popup_style))
+            .block(widget.popup_block.as_ref())
+            .v_scroll(widget.popup_scroll.as_ref());
+
+        let inner = sa.inner(state.popup.area, None, Some(&state.popup_scroll));
+        sa.render(
+            state.popup.area,
+            buf,
+            &mut ScrollAreaState::new().v_scroll(&mut state.popup_scroll),
+        );
+
+        state.popup_scroll.max_offset = widget
             .items
             .borrow()
             .len()
             .saturating_sub(inner.height as usize);
-        state.popup.v_scroll.page_len = inner.height as usize;
+        state.popup_scroll.page_len = inner.height as usize;
 
         state.item_areas.clear();
         let mut row = inner.y;
-        let mut idx = state.popup.v_scroll.offset;
+        let mut idx = state.popup_scroll.offset;
         loop {
             if row >= inner.bottom() {
                 break;
@@ -978,6 +1029,7 @@ where
             item_areas: self.item_areas.clone(),
             core: self.core.clone(),
             popup: self.popup.clone(),
+            popup_scroll: self.popup_scroll.clone(),
             behave_select: self.behave_select,
             behave_close: self.behave_close,
             focus: FocusFlag::named(self.focus.name()),
@@ -1000,6 +1052,7 @@ where
             item_areas: Default::default(),
             core: Default::default(),
             popup: Default::default(),
+            popup_scroll: Default::default(),
             behave_select: Default::default(),
             behave_close: Default::default(),
             focus: Default::default(),
@@ -1146,38 +1199,38 @@ where
 
     /// Scroll offset for the item list.
     pub fn clear_offset(&mut self) {
-        self.popup.v_scroll.set_offset(0);
+        self.popup_scroll.set_offset(0);
     }
 
     /// Scroll offset for the item list.
     pub fn set_offset(&mut self, offset: usize) -> bool {
-        self.popup.v_scroll.set_offset(offset)
+        self.popup_scroll.set_offset(offset)
     }
 
     /// Scroll offset for the item list.
     pub fn offset(&self) -> usize {
-        self.popup.v_scroll.offset()
+        self.popup_scroll.offset()
     }
 
     /// Scroll offset for the item list.
     pub fn max_offset(&self) -> usize {
-        self.popup.v_scroll.max_offset()
+        self.popup_scroll.max_offset()
     }
 
     /// Page length for the item list.
     pub fn page_len(&self) -> usize {
-        self.popup.v_scroll.page_len()
+        self.popup_scroll.page_len()
     }
 
     /// Scroll unit for the item list.
     pub fn scroll_by(&self) -> usize {
-        self.popup.v_scroll.scroll_by()
+        self.popup_scroll.scroll_by()
     }
 
     /// Scroll the item list to the selected value.
     pub fn scroll_to_selected(&mut self) -> bool {
         if let Some(selected) = self.core.selected() {
-            self.popup.v_scroll.scroll_to_pos(selected)
+            self.popup_scroll.scroll_to_pos(selected)
         } else {
             false
         }
@@ -1455,7 +1508,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
         ChoiceSelect::MouseScroll => {
             let mut sas = ScrollAreaState::new()
                 .area(state.popup.area)
-                .v_scroll(&mut state.popup.v_scroll);
+                .v_scroll(&mut state.popup_scroll);
             let mut r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(n) => state.move_up(n),
                 ScrollOutcome::Down(n) => state.move_down(n),
@@ -1465,7 +1518,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
 
             r = r.or_else(|| match event {
                 ct_event!(mouse down Left for x,y)
-                    if state.popup.widget_area.contains((*x, *y).into()) =>
+                    if state.popup.area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
                         state.move_to(state.offset() + n)
@@ -1474,7 +1527,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
                     }
                 }
                 ct_event!(mouse drag Left for x,y)
-                    if state.popup.widget_area.contains((*x, *y).into()) =>
+                    if state.popup.area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
                         state.move_to(state.offset() + n)
@@ -1492,10 +1545,10 @@ fn handle_select<T: PartialEq + Clone + Default>(
                 let rel_sel = selected.saturating_sub(state.offset());
                 let mut sas = ScrollAreaState::new()
                     .area(state.popup.area)
-                    .v_scroll(&mut state.popup.v_scroll);
+                    .v_scroll(&mut state.popup_scroll);
                 match sas.handle(event, MouseOnly) {
                     ScrollOutcome::Up(n) => {
-                        state.popup.v_scroll.scroll_up(n);
+                        state.popup_scroll.scroll_up(n);
                         if state.select(state.offset() + rel_sel) {
                             ChoiceOutcome::Value
                         } else {
@@ -1503,7 +1556,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
                         }
                     }
                     ScrollOutcome::Down(n) => {
-                        state.popup.v_scroll.scroll_down(n);
+                        state.popup_scroll.scroll_down(n);
                         if state.select(state.offset() + rel_sel) {
                             ChoiceOutcome::Value
                         } else {
@@ -1511,7 +1564,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
                         }
                     }
                     ScrollOutcome::VPos(n) => {
-                        if state.popup.v_scroll.set_offset(n) {
+                        if state.popup_scroll.set_offset(n) {
                             ChoiceOutcome::Value
                         } else {
                             ChoiceOutcome::Unchanged
@@ -1524,9 +1577,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
             };
 
             r = r.or_else(|| match event {
-                ct_event!(mouse moved for x,y)
-                    if state.popup.widget_area.contains((*x, *y).into()) =>
-                {
+                ct_event!(mouse moved for x,y) if state.popup.area.contains((*x, *y).into()) => {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
                         state.move_to(state.offset() + n)
                     } else {
@@ -1541,24 +1592,24 @@ fn handle_select<T: PartialEq + Clone + Default>(
             // effect: move the content below the mouse and keep visible selection.
             let mut sas = ScrollAreaState::new()
                 .area(state.popup.area)
-                .v_scroll(&mut state.popup.v_scroll);
+                .v_scroll(&mut state.popup_scroll);
             let mut r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(n) => {
-                    if state.popup.v_scroll.scroll_up(n) {
+                    if state.popup_scroll.scroll_up(n) {
                         ChoiceOutcome::Changed
                     } else {
                         ChoiceOutcome::Unchanged
                     }
                 }
                 ScrollOutcome::Down(n) => {
-                    if state.popup.v_scroll.scroll_down(n) {
+                    if state.popup_scroll.scroll_down(n) {
                         ChoiceOutcome::Changed
                     } else {
                         ChoiceOutcome::Unchanged
                     }
                 }
                 ScrollOutcome::VPos(n) => {
-                    if state.popup.v_scroll.set_offset(n) {
+                    if state.popup_scroll.set_offset(n) {
                         ChoiceOutcome::Changed
                     } else {
                         ChoiceOutcome::Unchanged
@@ -1569,7 +1620,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
 
             r = r.or_else(|| match event {
                 ct_event!(mouse down Left for x,y)
-                    if state.popup.widget_area.contains((*x, *y).into()) =>
+                    if state.popup.area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
                         state.move_to(state.offset() + n)
@@ -1578,7 +1629,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
                     }
                 }
                 ct_event!(mouse drag Left for x,y)
-                    if state.popup.widget_area.contains((*x, *y).into()) =>
+                    if state.popup.area.contains((*x, *y).into()) =>
                 {
                     if let Some(n) = item_at(&state.item_areas, *x, *y) {
                         state.move_to(state.offset() + n)
@@ -1599,9 +1650,7 @@ fn handle_close<T: PartialEq + Clone + Default>(
 ) -> ChoiceOutcome {
     match state.behave_close {
         ChoiceClose::SingleClick => match event {
-            ct_event!(mouse down Left for x,y)
-                if state.popup.widget_area.contains((*x, *y).into()) =>
-            {
+            ct_event!(mouse down Left for x,y) if state.popup.area.contains((*x, *y).into()) => {
                 if let Some(n) = item_at(&state.item_areas, *x, *y) {
                     let r = state.move_to(state.offset() + n);
                     let s = if state.set_popup_active(false) {
@@ -1617,7 +1666,7 @@ fn handle_close<T: PartialEq + Clone + Default>(
             _ => ChoiceOutcome::Continue,
         },
         ChoiceClose::DoubleClick => match event {
-            ct_event!(mouse any for m) if state.mouse.doubleclick(state.popup.widget_area, m) => {
+            ct_event!(mouse any for m) if state.mouse.doubleclick(state.popup.area, m) => {
                 if let Some(n) = item_at(&state.item_areas, m.column, m.row) {
                     let r = state.move_to(state.offset() + n);
                     let s = if state.set_popup_active(false) {
