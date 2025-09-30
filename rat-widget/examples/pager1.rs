@@ -136,7 +136,7 @@ fn render(
         );
     }
 
-    form.finish(&mut state.form);
+    // form.finish(&mut state.form);
 
     let menu1 = MenuLine::new()
         .title("#.#")

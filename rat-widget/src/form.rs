@@ -76,9 +76,6 @@
 //!     &mut state.text3
 //!  );
 //!
-//!  // rendering widgets is finished, render any navigation.
-//!  form.finish(&mut state.form);
-//!
 //! ```
 use crate::_private::NonExhaustive;
 use crate::layout::GenericLayout;
@@ -120,6 +117,7 @@ where
     block: Option<Block<'a>>,
     nav_style: Option<Style>,
     title_style: Option<Style>,
+    navigation: bool,
     next_page: &'a str,
     prev_page: &'a str,
     first_page: &'a str,
@@ -136,46 +134,45 @@ where
 ///
 #[derive(Debug)]
 #[must_use]
-pub struct FormBuffer<'a, 'b, W>
+pub struct FormBuffer<'b, W>
 where
     W: Eq + Hash + Clone,
 {
     layout: Rc<GenericLayout<W>>,
 
-    area: Rect,
     page_area: Rect,
     widget_area: Rect,
     buffer: &'b mut Buffer,
 
-    style: Style,
-    block: Option<Block<'a>>,
-    nav_style: Option<Style>,
-    title_style: Option<Style>,
-    next_page: &'a str,
-    prev_page: &'a str,
-    first_page: &'a str,
-    last_page: &'a str,
-
     auto_label: bool,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
-
-    destruct: bool,
 }
 
 /// All styles for a form.
 #[derive(Debug, Clone)]
 pub struct FormStyle {
+    /// base style
     pub style: Style,
+    /// label style.
     pub label_style: Option<Style>,
+    /// label alignment.
     pub label_alignment: Option<Alignment>,
+    /// navigation style.
     pub navigation: Option<Style>,
+    /// title style.
     pub title: Option<Style>,
+    /// Block.
     pub block: Option<Block<'static>>,
+    /// Navigation mark.
     pub next_page_mark: Option<&'static str>,
+    /// Navigation mark.
     pub prev_page_mark: Option<&'static str>,
+    /// Navigation mark.
     pub first_page_mark: Option<&'static str>,
+    /// Navigation mark.
     pub last_page_mark: Option<&'static str>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -273,6 +270,7 @@ where
             block: Default::default(),
             nav_style: Default::default(),
             title_style: Default::default(),
+            navigation: true,
             next_page: ">>>",
             prev_page: "<<<",
             first_page: " [ ",
@@ -318,6 +316,12 @@ where
     /// Style for navigation.
     pub fn nav_style(mut self, nav_style: Style) -> Self {
         self.nav_style = Some(nav_style);
+        self
+    }
+
+    /// Show navigation?
+    pub fn show_navigation(mut self, show: bool) -> Self {
+        self.navigation = show;
         self
     }
 
@@ -422,7 +426,7 @@ where
         area: Rect,
         buf: &'b mut Buffer,
         state: &'s mut FormState<W>,
-    ) -> FormBuffer<'a, 'b, W> {
+    ) -> FormBuffer<'b, W> {
         state.area = area;
         state.widget_area = self.layout_area(area);
 
@@ -439,40 +443,97 @@ where
             page_size.height,
         );
 
-        FormBuffer {
+        if self.navigation {
+            self.render_navigation(area, buf, state);
+        }
+
+        let mut form_buf = FormBuffer {
             layout: state.layout.clone(),
-            area,
             page_area,
             widget_area: state.widget_area,
             buffer: buf,
-            style: self.style,
-            block: self.block,
-            nav_style: self.nav_style,
-            title_style: self.title_style,
-            next_page: self.next_page,
-            prev_page: self.prev_page,
-            first_page: self.first_page,
-            last_page: self.last_page,
+
             auto_label: true,
             label_style: self.label_style,
             label_alignment: self.label_alignment,
-            destruct: false,
+        };
+        form_buf.render_block();
+        form_buf
+    }
+
+    fn render_navigation(&self, area: Rect, buf: &mut Buffer, state: &mut FormState<W>) {
+        let page_count = state.layout.page_count();
+
+        if !state.layout.is_endless() {
+            if state.page > 0 {
+                state.prev_area =
+                    Rect::new(area.x, area.y, unicode_width(self.prev_page) as u16, 1);
+            } else {
+                state.prev_area =
+                    Rect::new(area.x, area.y, unicode_width(self.first_page) as u16, 1);
+            }
+            if (state.page + 1) < page_count {
+                let p = unicode_width(self.next_page) as u16;
+                state.next_area = Rect::new(area.x + area.width.saturating_sub(p), area.y, p, 1);
+            } else {
+                let p = unicode_width(self.last_page) as u16;
+                state.next_area = Rect::new(area.x + area.width.saturating_sub(p), area.y, p, 1);
+            }
+        } else {
+            state.prev_area = Default::default();
+            state.next_area = Default::default();
+        }
+
+        let block = if page_count > 1 {
+            let title = format!(" {}/{} ", state.page + 1, page_count);
+            let block = self
+                .block
+                .clone()
+                .take()
+                .unwrap_or_else(|| Block::new().style(self.style))
+                .title_bottom(title)
+                .title_alignment(Alignment::Right);
+            if let Some(title_style) = self.title_style {
+                block.title_style(title_style)
+            } else {
+                block
+            }
+        } else {
+            self.block
+                .clone()
+                .take()
+                .unwrap_or_else(|| Block::new().style(self.style))
+        };
+        block.render(area, buf);
+
+        if !state.layout.is_endless() {
+            // active areas
+            let nav_style = self.nav_style.unwrap_or(self.style);
+            if matches!(state.mouse.hover.get(), Some(0)) {
+                buf.set_style(state.prev_area, revert_style(nav_style));
+            } else {
+                buf.set_style(state.prev_area, nav_style);
+            }
+            if state.page > 0 {
+                Span::from(self.prev_page).render(state.prev_area, buf);
+            } else {
+                Span::from(self.first_page).render(state.prev_area, buf);
+            }
+            if matches!(state.mouse.hover.get(), Some(1)) {
+                buf.set_style(state.next_area, revert_style(nav_style));
+            } else {
+                buf.set_style(state.next_area, nav_style);
+            }
+            if (state.page + 1) < page_count {
+                Span::from(self.next_page).render(state.next_area, buf);
+            } else {
+                Span::from(self.last_page).render(state.next_area, buf);
+            }
         }
     }
 }
 
-impl<'a, 'b, W> Drop for FormBuffer<'a, 'b, W>
-where
-    W: Eq + Hash + Clone,
-{
-    fn drop(&mut self) {
-        if !self.destruct {
-            panic!("FormBuffer must be used by into_widget()");
-        }
-    }
-}
-
-impl<'a, 'b, W> FormBuffer<'a, 'b, W>
+impl<'b, W> FormBuffer<'b, W>
 where
     W: Eq + Hash + Clone,
 {
@@ -617,102 +678,6 @@ where
     /// Get access to the buffer during rendering a page.
     pub fn buffer(&mut self) -> &mut Buffer {
         self.buffer
-    }
-
-    /// Rendering the content is finished.
-    ///
-    /// Convert to a FormWidget that will render border and navigation.
-    #[allow(deprecated)]
-    pub fn finish(mut self, state: &mut FormState<W>) {
-        self.render_block();
-        self.destruct = true;
-
-        let page_count = state.layout.page_count();
-
-        if !state.layout.is_endless() {
-            if state.page > 0 {
-                state.prev_area = Rect::new(
-                    self.area.x,
-                    self.area.y,
-                    unicode_width(self.prev_page) as u16,
-                    1,
-                );
-            } else {
-                state.prev_area = Rect::new(
-                    self.area.x,
-                    self.area.y,
-                    unicode_width(self.first_page) as u16,
-                    1,
-                );
-            }
-            if (state.page + 1) < page_count {
-                let p = unicode_width(self.next_page) as u16;
-                state.next_area = Rect::new(
-                    self.area.x + self.area.width.saturating_sub(p),
-                    self.area.y,
-                    p,
-                    1,
-                );
-            } else {
-                let p = unicode_width(self.last_page) as u16;
-                state.next_area = Rect::new(
-                    self.area.x + self.area.width.saturating_sub(p),
-                    self.area.y,
-                    p,
-                    1,
-                );
-            }
-        } else {
-            state.prev_area = Default::default();
-            state.next_area = Default::default();
-        }
-
-        let block = if page_count > 1 {
-            let title = format!(" {}/{} ", state.page + 1, page_count);
-            let block = self
-                .block
-                .take()
-                .unwrap_or_else(|| Block::new().style(self.style))
-                .title_bottom(title)
-                .title_alignment(Alignment::Right);
-            if let Some(title_style) = self.title_style {
-                block.title_style(title_style)
-            } else {
-                block
-            }
-        } else {
-            self.block
-                .take()
-                .unwrap_or_else(|| Block::new().style(self.style))
-        };
-        block.render(self.area, self.buffer);
-
-        if !state.layout.is_endless() {
-            // active areas
-            let nav_style = self.nav_style.unwrap_or(self.style);
-            if matches!(state.mouse.hover.get(), Some(0)) {
-                self.buffer
-                    .set_style(state.prev_area, revert_style(nav_style));
-            } else {
-                self.buffer.set_style(state.prev_area, nav_style);
-            }
-            if state.page > 0 {
-                Span::from(self.prev_page).render(state.prev_area, self.buffer);
-            } else {
-                Span::from(self.first_page).render(state.prev_area, self.buffer);
-            }
-            if matches!(state.mouse.hover.get(), Some(1)) {
-                self.buffer
-                    .set_style(state.next_area, revert_style(nav_style));
-            } else {
-                self.buffer.set_style(state.next_area, nav_style);
-            }
-            if (state.page + 1) < page_count {
-                Span::from(self.next_page).render(state.next_area, self.buffer);
-            } else {
-                Span::from(self.last_page).render(state.next_area, self.buffer);
-            }
-        }
     }
 
     /// Render the label with the set style and alignment.
