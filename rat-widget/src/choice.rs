@@ -166,7 +166,7 @@ pub struct ChoiceStyle {
 
     pub popup: PopupStyle,
     pub popup_style: Option<Style>,
-    pub popup_border_style: Option<Style>,
+    pub popup_border: Option<Style>,
     pub popup_scroll: Option<ScrollStyle>,
     pub popup_block: Option<Block<'static>>,
     pub popup_len: Option<u16>,
@@ -414,7 +414,7 @@ impl Default for ChoiceStyle {
             block: Default::default(),
             popup: Default::default(),
             popup_style: Default::default(),
-            popup_border_style: Default::default(),
+            popup_border: Default::default(),
             popup_scroll: Default::default(),
             popup_block: Default::default(),
             popup_len: Default::default(),
@@ -550,23 +550,37 @@ where
             self.popup_placement = placement;
         }
 
-        self.popup_block = self.popup_block.map(|v| v.style(self.popup_style));
-        if let Some(border_style) = styles.popup_border_style {
-            self.block = self.block.map(|v| v.border_style(border_style));
-        }
+        self.popup = self.popup.styles(styles.popup.clone());
+        #[allow(deprecated)]
         if let Some(popup_style) = styles.popup_style {
             self.popup_style = popup_style;
+        } else {
+            self.popup_style = styles.popup.style;
         }
+        #[allow(deprecated)]
         if let Some(popup_scroll) = styles.popup_scroll {
             self.popup_scroll = self.popup_scroll.map(|v| v.styles(popup_scroll));
+        } else if let Some(popup_scroll) = styles.popup.scroll {
+            self.popup_scroll = self.popup_scroll.map(|v| v.styles(popup_scroll));
         }
+
+        self.popup_block = self.popup_block.map(|v| v.style(self.popup_style));
+        #[allow(deprecated)]
+        if let Some(border_style) = styles.popup_border {
+            self.popup_block = self.popup_block.map(|v| v.border_style(border_style));
+        } else if let Some(border_style) = styles.popup.border_style {
+            self.popup_block = self.popup_block.map(|v| v.border_style(border_style));
+        }
+        #[allow(deprecated)]
         if styles.popup_block.is_some() {
             self.popup_block = styles.popup_block;
+        } else if styles.popup.block.is_some() {
+            self.popup_block = styles.popup.block;
         }
+
         if styles.popup_len.is_some() {
             self.popup_len = styles.popup_len;
         }
-        self.popup = self.popup.styles(styles.popup);
 
         self
     }

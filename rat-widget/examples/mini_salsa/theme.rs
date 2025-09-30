@@ -13,7 +13,6 @@ use rat_widget::msgdialog::MsgDialogStyle;
 #[allow(deprecated)]
 use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
-use rat_widget::popup::PopupStyle;
 use rat_widget::radio::{RadioLayout, RadioStyle};
 use rat_widget::scrolled::ScrollStyle;
 use rat_widget::shadow::{ShadowDirection, ShadowStyle};
@@ -330,9 +329,16 @@ impl ShellTheme {
             style: self.text_input(),
             select: Some(self.text_select()),
             focus: Some(self.text_focus()),
-            popup_style: Some(self.popup_base()),
-            popup_border_style: Some(self.popup_border()),
-            popup_scroll: Some(self.popup_scroll_style()),
+            popup_style: Some(self.text_input()),
+            popup_border: Some(self.text_input()),
+            popup_scroll: Some(ScrollStyle {
+                thumb_style: Some(self.text_input()),
+                track_style: Some(self.text_input()),
+                min_style: Some(self.text_input()),
+                begin_style: Some(self.text_input()),
+                end_style: Some(self.text_input()),
+                ..Default::default()
+            }),
             popup_block: Some(
                 Block::bordered()
                     .borders(Borders::LEFT)

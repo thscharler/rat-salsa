@@ -4,7 +4,7 @@ use rat_event::{HandleEvent, Popup, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
-use rat_widget::choice::{Choice, ChoiceClose, ChoiceSelect, ChoiceState};
+use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, Outcome};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -65,7 +65,6 @@ fn render(
     );
 
     let (w, p1) = Choice::new()
-        .styles(istate.theme.choice_style())
         .auto_item("Carrots 🥕")
         .auto_item("Potatoes 🥔")
         .auto_item("Onions 🧅")
@@ -83,26 +82,27 @@ fn render(
         .auto_item("Äpfel 🍎")
         .auto_item("...")
         .popup_boundary(l1[0])
+        .styles(istate.theme.choice_style())
         .into_widgets();
     w.render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     let (w, p2) = Choice::new()
-        .styles(istate.theme.choice_style())
         .auto_item("wine")
         .auto_item("beer")
         .auto_item("water")
         .popup_boundary(l1[0])
+        .styles(istate.theme.choice_style())
         .into_widgets();
     w.render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
     let (w, p3) = Choice::<Option<usize>>::new()
-        .styles(istate.theme.choice_style())
         .item(None, "red")
         .item(Some(0), "blue")
         .item(Some(1), "green")
         .block(Block::bordered().border_type(BorderType::Rounded))
         .popup_block(Block::bordered().border_type(BorderType::Rounded))
         .popup_boundary(l1[0])
+        .styles(istate.theme.choice_style())
         .into_widgets();
     w.render(lg[1][3], frame.buffer_mut(), &mut state.c3);
 
