@@ -107,9 +107,8 @@ use unicode_display_width::width as unicode_width;
 /// At the end call [into_buffer](Form::into_buffer) to create the
 /// [FormBuffer] that allows you to render your widgets.
 ///
-/// When you are done with that, call [into_widget](FormBuffer::into_widget)
-/// to get the final stage [FormWidget] to render your layout Blocks
-/// and any navigation.
+/// When you are done with that, call [finish](FormBuffer::finish)
+/// render layout Blocks and any navigation.
 #[derive(Debug, Clone)]
 pub struct Form<'a, W>
 where

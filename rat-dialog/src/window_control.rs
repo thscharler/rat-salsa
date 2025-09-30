@@ -170,8 +170,8 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
     /// Panic
     ///
     /// This function is not reentrant. It will panic when called during
-    /// rendering or event-handling of any window. Use [WindowControl::ToFront]
-    /// for this.
+    /// rendering or event-handling of any window. It is not necessary
+    /// to call this during event handling as this happens automatically.
     ///
     /// Panics when out-of-bounds.
     pub fn to_front(&self, n: usize) {
@@ -199,8 +199,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
     /// Panic
     ///
     /// This function is not reentrant. It will panic when called during
-    /// rendering or event-handling of any dialog-window. Use [WindowControl::ToFront]
-    /// for this.
+    /// rendering or event-handling of any dialog-window.
     ///
     /// Panics when out-of-bounds.
     pub fn to_back(&self, n: usize) {
