@@ -4,7 +4,7 @@
 //! # use ratatui::buffer::Buffer;
 //! # use ratatui::layout::{Constraint, Rect};
 //! # use ratatui::text::Line;
-//! # use ratatui::widgets::Widget;
+//! # use ratatui::widgets::{Widget, StatefulWidget};
 //! use rat_widget::splitter::{Split, SplitState, SplitType};
 //! # struct State { split: SplitState }
 //! # let mut state = State { split: Default::default() };
@@ -31,7 +31,7 @@
 //!     .render(state.split.widget_areas[2], buf);
 //!
 //! // render split decorations
-//! split.render(area, buf);
+//! split.render(area, buf, &mut state.split);
 //!
 //! ```
 use crate::_private::NonExhaustive;

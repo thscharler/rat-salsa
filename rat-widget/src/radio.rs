@@ -8,7 +8,7 @@
 //! use rat_event::{HandleEvent, Regular};
 //! use rat_widget::event::RadioOutcome;
 //! use rat_widget::radio::{Radio, RadioLayout, RadioState};
-//! # struct State { radio1: RadioState }
+//! # struct State { radio1: RadioState<&'static str> }
 //! # let mut state = State {radio1: Default::default()};
 //! # let mut buf = Buffer::default();
 //! # let buf = &mut buf;
