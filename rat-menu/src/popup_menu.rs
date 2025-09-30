@@ -258,22 +258,31 @@ impl<'a> PopupMenu<'a> {
     }
 
     /// Set a style-set.
-    #[allow(deprecated)]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
-        self.style = styles.style;
+        self.popup = self.popup.styles(styles.popup.clone());
+
+        #[allow(deprecated)]
+        if let Some(popup_style) = styles.popup_style {
+            self.style = popup_style;
+        } else if styles.popup.style != Style::default() {
+            self.style = styles.popup.style;
+        } else {
+            self.style = styles.style;
+        }
 
         self.block = self.block.map(|v| v.style(self.style));
-        if styles.popup.block.is_some() {
-            self.block = styles.popup.block.clone();
-        }
-        if let Some(border_style) = styles.popup.border_style {
+        #[allow(deprecated)]
+        if let Some(border_style) = styles.popup_border {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        } else if let Some(border_style) = styles.popup.border_style {
             self.block = self.block.map(|v| v.border_style(border_style));
         }
+        #[allow(deprecated)]
         if styles.block.is_some() {
             self.block = styles.block;
+        } else if styles.popup.block.is_some() {
+            self.block = styles.popup.block;
         }
-
-        self.popup = self.popup.styles(styles.popup);
 
         if styles.highlight.is_some() {
             self.highlight_style = styles.highlight;
@@ -291,11 +300,9 @@ impl<'a> PopupMenu<'a> {
     }
 
     /// Base style.
-    #[allow(deprecated)]
     pub fn style(mut self, style: Style) -> Self {
-        self.popup = self.popup.style(style);
-        self.block = self.block.map(|v| v.style(self.style));
         self.style = style;
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 

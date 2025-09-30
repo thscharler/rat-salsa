@@ -120,16 +120,20 @@ pub struct MenuStyle {
     pub select: Option<Style>,
     /// Focus style
     pub focus: Option<Style>,
+
+    /// Styling for the popup menus.
+    pub popup_style: Option<Style>,
     /// Block for the popup menus.
     pub block: Option<Block<'static>>,
-    /// Styling for the popup menus.
+    /// Popup itself
     pub popup: PopupStyle,
+    /// Border style
+    pub popup_border: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
 
 impl Default for MenuStyle {
-    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             style: Default::default(),
@@ -137,10 +141,13 @@ impl Default for MenuStyle {
             highlight: Default::default(),
             disabled: Default::default(),
             right: Default::default(),
+            #[allow(deprecated)]
             select: Default::default(),
             focus: Default::default(),
+            popup_style: Default::default(),
             block: Default::default(),
             popup: Default::default(),
+            popup_border: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
