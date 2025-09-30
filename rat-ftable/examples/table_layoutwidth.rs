@@ -3,8 +3,8 @@
 //!
 
 use crate::data::render_tablestate::render_tablestate;
-use crate::mini_salsa::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{THEME, mock_init};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{RowSelection, rowselection};
@@ -42,9 +42,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "layoutwidth",
-        |_| {},
-        handle_table,
-        repaint_table,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -66,7 +66,7 @@ struct State {
     pub(crate) table: TableState<RowSelection>,
 }
 
-fn repaint_table(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
@@ -167,7 +167,7 @@ fn repaint_table(
     Ok(())
 }
 
-fn handle_table(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,

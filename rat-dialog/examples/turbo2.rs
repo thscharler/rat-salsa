@@ -1020,11 +1020,9 @@ pub mod theme {
                 highlight: Some(Style::default().fg(self.s.red[2])),
                 disabled: Some(Style::default().fg(self.s.black[3])),
                 right: Some(Style::default().italic()),
-                popup: PopupStyle {
-                    style: self.dialog_style(),
-                    border_style: Some(Style::default().fg(self.s.black[3])),
-                    ..Default::default()
-                },
+                popup_style: Some(self.dialog_style()),
+                popup_border: Some(Style::default().fg(self.s.black[3])),
+                popup: PopupStyle::default(),
                 ..Default::default()
             }
         }

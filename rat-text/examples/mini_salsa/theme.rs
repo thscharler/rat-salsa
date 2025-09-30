@@ -2,12 +2,8 @@ use crate::mini_salsa::palette::{Contrast, Palette};
 use rat_scrolled::ScrollStyle;
 use rat_text::TextStyle;
 use rat_text::line_number::LineNumberStyle;
-use ratatui::layout::Alignment;
 use ratatui::prelude::Style;
-use ratatui::style::{Color, Stylize};
-use ratatui::widgets::{Block, Borders};
-use std::borrow::Cow;
-use std::time::Duration;
+use ratatui::style::Color;
 
 /// A sample theme for shell usage.
 #[derive(Debug, Clone)]

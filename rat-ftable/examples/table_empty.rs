@@ -3,8 +3,8 @@
 //! More a test than an actual example.
 //!
 
-use crate::mini_salsa::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{THEME, mock_init};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{NoSelection, noselection};
 use rat_ftable::textdata::{Cell, Row};
@@ -26,14 +26,7 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
     };
 
-    run_ui(
-        "empty",
-        |_| {},
-        handle_table,
-        repaint_table,
-        &mut data,
-        &mut state,
-    )
+    run_ui("empty", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Data {}
@@ -42,7 +35,7 @@ struct State {
     pub(crate) table: TableState<NoSelection>,
 }
 
-fn repaint_table(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -88,7 +81,7 @@ fn repaint_table(
     Ok(())
 }
 
-fn handle_table(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,

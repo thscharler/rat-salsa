@@ -106,7 +106,7 @@ fn render(
             .join_1(blk)
             .join_0(blk);
     }
-    let (split, split_areas) = split.into_widget_layout(l2[1], &mut state.split);
+    let split = split.into_widget(l2[1], &mut state.split);
 
     // First split widget. Show some TEXT.
     if !state.split.is_hidden(0) {
@@ -129,7 +129,11 @@ fn render(
             scroll_left = scroll_left.start_margin(2);
         }
         w_left = w_left.vscroll(scroll_left);
-        w_left.render(split_areas[0], frame.buffer_mut(), &mut state.left);
+        w_left.render(
+            state.split.widget_areas[0],
+            frame.buffer_mut(),
+            &mut state.left,
+        );
     }
 
     // some dummy widget
@@ -142,7 +146,11 @@ fn render(
                 .start_margin(2) //
                 .styles(istate.theme.scroll_style()),
         )
-        .render(split_areas[1], frame.buffer_mut(), &mut state.right);
+        .render(
+            state.split.widget_areas[1],
+            frame.buffer_mut(),
+            &mut state.right,
+        );
 
     // some dummy widget
     EndlessScroll::new()
@@ -153,7 +161,11 @@ fn render(
             Scroll::new() //
                 .styles(istate.theme.scroll_style()),
         )
-        .render(split_areas[2], frame.buffer_mut(), &mut state.right_right);
+        .render(
+            state.split.widget_areas[2],
+            frame.buffer_mut(),
+            &mut state.right_right,
+        );
 
     // Render split after all the content.
     split.render(l2[1], frame.buffer_mut(), &mut state.split);
@@ -198,7 +210,7 @@ fn render(
     area.y += 1;
     Line::from("areas").render(area, frame.buffer_mut());
     area.y += 1;
-    for a in &split_areas {
+    for a in &state.split.widget_areas {
         Line::from(format!("{},{}+{}+{}", a.x, a.y, a.width, a.height))
             .render(area, frame.buffer_mut());
         area.y += 1;

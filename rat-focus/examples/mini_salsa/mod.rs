@@ -348,7 +348,6 @@ pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Int
     }
 }
 
-pub mod endless_scroll;
 pub mod palette;
 pub mod text_input_mock;
 pub mod theme;

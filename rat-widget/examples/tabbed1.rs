@@ -3,7 +3,7 @@
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
-use rat_focus::{Focus, FocusBuilder, HasFocus};
+use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;

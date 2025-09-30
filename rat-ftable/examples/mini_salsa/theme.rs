@@ -1,7 +1,8 @@
 use crate::mini_salsa::palette::{Contrast, Palette};
 use rat_ftable::TableStyle;
+use rat_scrolled::ScrollStyle;
 use ratatui::prelude::Style;
-use ratatui::style::{Color, Stylize};
+use ratatui::style::Color;
 
 /// A sample theme for shell usage.
 #[derive(Debug, Clone)]
@@ -226,6 +227,18 @@ impl ShellTheme {
     pub fn button_armed(&self) -> Style {
         self.p
             .style(self.p.secondary[Palette::BRIGHT_0], Contrast::Normal)
+    }
+
+    /// Scroll style
+    pub fn scroll_style(&self) -> ScrollStyle {
+        ScrollStyle {
+            thumb_style: Some(self.container_border()),
+            track_style: Some(self.container_border()),
+            min_style: Some(self.container_border()),
+            begin_style: Some(self.container_arrow()),
+            end_style: Some(self.container_arrow()),
+            ..Default::default()
+        }
     }
 
     /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.

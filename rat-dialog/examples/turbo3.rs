@@ -1249,7 +1249,7 @@ pub mod theme {
     use rat_widget::text::TextStyle;
     use ratatui::layout::Alignment;
     use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::{Block, BorderType, Borders};
+    use ratatui::widgets::{Block, BorderType};
 
     #[derive(Debug, Clone)]
     pub struct TurboTheme {
@@ -1373,11 +1373,9 @@ pub mod theme {
                 highlight: Some(highlight),
                 disabled: Some(Style::default().fg(self.s.black[3])),
                 right: Some(Style::default().italic()),
-                popup: PopupStyle {
-                    style: self.status_style(),
-                    border_style: Some(Style::default().fg(self.s.black[3])),
-                    ..Default::default()
-                },
+                popup_style: Some(self.dialog_style()),
+                popup_border: Some(Style::default().fg(self.s.black[3])),
+                popup: PopupStyle::default(),
                 ..Default::default()
             }
         }

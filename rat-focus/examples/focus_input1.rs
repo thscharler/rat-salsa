@@ -1,6 +1,6 @@
 use crate::adapter::textinputf::{TextInputF, TextInputFState};
-use crate::mini_salsa::THEME;
 use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
+use crate::mini_salsa::{THEME, mock_init};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use ratatui::Frame;
@@ -26,9 +26,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     run_ui(
         "focus_input1",
-        |_| {},
-        handle_input,
-        repaint_input,
+        mock_init,
+        event,
+        render,
         &mut data,
         &mut state,
     )
@@ -43,7 +43,7 @@ struct State {
     pub(crate) input4: TextInputFState,
 }
 
-fn repaint_input(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
@@ -114,7 +114,7 @@ fn focus_input(state: &mut State) -> Focus {
     fb.build()
 }
 
-fn handle_input(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,

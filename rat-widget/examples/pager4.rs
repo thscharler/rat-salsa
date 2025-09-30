@@ -192,9 +192,6 @@ fn render_page(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    // render container areas
-    pager.render_block();
-
     // render the fields.
     for i in 0..state.hundred.len() {
         pager.render(

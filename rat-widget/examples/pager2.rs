@@ -8,13 +8,11 @@ use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
-use rat_widget::event::{FormOutcome, Outcome, PagerOutcome};
+use rat_widget::event::{FormOutcome, Outcome};
 use rat_widget::form::{Form, FormState};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use rat_widget::pager::{DualPager, DualPagerState};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
-use ratatui::widgets::block::{Position, Title};
 use ratatui::widgets::{Block, Padding, StatefulWidget};
 use std::array;
 

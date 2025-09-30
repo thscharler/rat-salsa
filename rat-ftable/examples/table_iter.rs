@@ -2,8 +2,8 @@
 //! Example for [TableDataIter] used with [StatefulWidget]
 //!
 
-use crate::mini_salsa::THEME;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{THEME, mock_init};
 use format_num_pattern::NumberFormat;
 use rat_event::{HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
@@ -43,14 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
     };
 
-    run_ui(
-        "iter",
-        |_| {},
-        handle_table,
-        repaint_table,
-        &mut data,
-        &mut state,
-    )
+    run_ui("iter", mock_init, event, render, &mut data, &mut state)
 }
 
 struct Sample {
@@ -68,7 +61,7 @@ struct State {
     table: TableState<RowSelection>,
 }
 
-fn repaint_table(
+fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     data: &mut Data,
@@ -169,7 +162,7 @@ fn focus(state: &mut State) -> Focus {
     fb.build()
 }
 
-fn handle_table(
+fn event(
     event: &crossterm::event::Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
