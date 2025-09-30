@@ -352,7 +352,7 @@ impl DarkTheme {
             select: Some(self.text_select()),
             focus: Some(self.text_focus()),
             popup_style: Some(self.popup_base()),
-            popup_border_style: Some(self.popup_border()),
+            popup_border: Some(self.popup_border()),
             popup_scroll: Some(self.popup_scroll_style()),
             popup_block: Some(
                 Block::bordered()
