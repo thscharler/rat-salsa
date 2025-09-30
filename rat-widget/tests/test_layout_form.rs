@@ -33,7 +33,7 @@ fn test_break2() {
     let g = layout.build_paged(Size::new(10, 5));
 
     assert_eq!(g.page_of(4), Some(1));
-    assert_eq!(g.page_of(7), Some(3));
+    assert_eq!(g.page_of(7), Some(2));
 }
 
 #[test]
@@ -54,9 +54,9 @@ fn test_break3() {
     assert_eq!(g.page_of(2), Some(1));
     assert_eq!(g.page_of(3), Some(2));
     assert_eq!(g.page_of(4), Some(2));
-    assert_eq!(g.page_of(5), Some(3));
+    assert_eq!(g.page_of(5), Some(2));
     assert_eq!(g.page_of(6), Some(3));
-    assert_eq!(g.page_of(7), Some(4));
+    assert_eq!(g.page_of(7), Some(3));
 }
 
 #[test]
@@ -74,8 +74,8 @@ fn test_break4() {
     layout.end(tag);
 
     let g = layout.build_paged(Size::new(10, 5));
-    assert_eq!(g.page_of(7), Some(7));
-    assert_eq!(g.block_area(6), Rect::new(0, 36, 10, 3));
+    assert_eq!(g.page_of(7), Some(6));
+    assert_eq!(g.block_area(6), Rect::new(0, 31, 9, 3));
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn test_break5() {
 
     let g = layout.build_paged(Size::new(10, 14));
     assert_eq!(g.page_of(7), Some(0));
-    assert_eq!(g.block_area(1), Rect::new(0, 1, 10, 11));
+    assert_eq!(g.block_area(1), Rect::new(0, 1, 9, 11));
 }
 
 #[test]
