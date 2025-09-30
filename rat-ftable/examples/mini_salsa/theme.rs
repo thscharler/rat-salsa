@@ -228,6 +228,16 @@ impl ShellTheme {
             .style(self.p.secondary[Palette::BRIGHT_0], Contrast::Normal)
     }
 
+    /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.
+    pub fn statusline_style(&self) -> Vec<Style> {
+        vec![
+            self.status_base(),
+            self.fg_style(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style(self.p.blue[Palette::BRIGHT_2]),
+            self.fg_style(self.p.blue[Palette::BRIGHT_2]),
+        ]
+    }
+
     /// Complete TableStyle
     pub fn table_style(&self) -> TableStyle {
         TableStyle {
