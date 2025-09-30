@@ -10,7 +10,7 @@ rat-popup: 1.2.0
 rat-reloc: 1.2.1
 rat-salsa: 2.1.1
 rat-scrolled: 1.1.4
-rat-ftable: 1.1.0
+rat-ftable: 1.1.1
 rat-text: 1.2.0
 rat-theme: 0.28.1
 rat-theme2: 1.2.0

@@ -16,6 +16,7 @@ cargo publish -p rat-widget
 
 cargo publish -p rat-theme
 cargo publish -p rat-theme2
+cargo publish -p rat-theme3
 
 cargo publish -p rat-salsa
 cargo publish -p rat-dialog

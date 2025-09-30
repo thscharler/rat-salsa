@@ -1,3 +1,7 @@
+# 1.1.1
+
+doc fixes
+
 # 1.1.0
 
 * Some breaking changes for TableEditor.
