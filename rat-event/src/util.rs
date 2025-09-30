@@ -330,6 +330,7 @@ impl MouseFlags {
     /// }
     /// ```
     ///
+    #[allow(clippy::collapsible_if)]
     pub fn doubleclick2(&self, area: Rect, event: &MouseEvent, filter: KeyModifiers) -> bool {
         match event {
             MouseEvent {
@@ -591,6 +592,7 @@ impl MouseFlagsN {
     /// }
     /// ```
     ///
+    #[allow(clippy::collapsible_if)]
     pub fn doubleclick2(&self, areas: &[Rect], event: &MouseEvent, filter: KeyModifiers) -> bool {
         match event {
             MouseEvent {
