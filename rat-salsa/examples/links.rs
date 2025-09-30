@@ -1,5 +1,5 @@
 use anyhow::Error;
-use log::{debug, error};
+use log::error;
 use rat_event::try_flow;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
@@ -9,7 +9,6 @@ use rat_widget::scrolled::Scroll;
 use rat_widget::view::{View, ViewState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
-use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fs;
 use std::path::PathBuf;
@@ -111,16 +110,12 @@ pub fn render(
         .expect("cell")
         .set_symbol(link_str);
 
-    Span::from("");
-
     for c in 5..12 {
         vbuf.buffer()
             .cell_mut(Position::new(c, 5))
             .expect("cell")
             .skip = true;
     }
-
-    debug!("{:?}", vbuf.buffer());
 
     vbuf.into_widget().render(layout[1], buf, &mut state.view);
 

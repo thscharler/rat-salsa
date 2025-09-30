@@ -435,13 +435,13 @@ mod logscroll {
         ])
         .split(area);
 
-        let (split, ls) = Split::vertical()
+        let split = Split::vertical()
             .styles(ctx.theme.split_style())
             .constraints([
                 Constraint::Fill(1), //
                 Constraint::Length(ctx.cfg.split_pos),
             ])
-            .into_widget_layout(l0[1], &mut state.split);
+            .into_widget(l0[1], &mut state.split);
 
         // left side
 
@@ -461,7 +461,7 @@ mod logscroll {
             .text_style_idx(9, ctx.theme.redpink(6))
             .text_style_idx(99, ctx.theme.secondary(2))
             .text_style_idx(101, ctx.theme.limegreen(2))
-            .render(ls[0], buf, &mut state.logtext);
+            .render(state.split.widget_areas[0], buf, &mut state.logtext);
 
         // right side
 
@@ -470,7 +470,7 @@ mod logscroll {
             Constraint::Fill(1),
             Constraint::Length(1),
         ])
-        .split(ls[1]);
+        .split(state.split.widget_areas[1]);
 
         Paired::new(
             PairedWidget::new(Span::from("Find")),

@@ -9,10 +9,9 @@ use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme3::{create_theme, SalsaTheme};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::ButtonOutcome;
-use rat_widget::layout::{layout_grid, simple_grid};
+use rat_widget::layout::simple_grid;
 use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
-use rat_widget::reloc::RelocatableState;
 use rat_widget::scrolled::Scroll;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
@@ -210,7 +209,6 @@ pub fn event(
             ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
             Ok(Control::Continue)
         }
-        _ => Ok(Control::Continue),
     }
 }
 

@@ -276,7 +276,7 @@ pub mod themes {
             .layout(Rect::new(0, 0, view_area.width, 38))
             .into_buffer(layout[0], &mut state.scroll);
 
-        v_buf.render_stateful(
+        v_buf.render(
             ShowScheme::new(ctx.theme.name(), ctx.theme.palette()),
             Rect::new(0, 0, view_area.width, 38),
             &mut state.scheme,
