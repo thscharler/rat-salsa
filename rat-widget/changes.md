@@ -22,6 +22,7 @@
 * Button: add clear_areas()
 * Tabbed: use Up/Down keys in addition to Left/Right to navigate.
 * add simple_grid() layout function. supersede layout_grid() with layout_as_grid()
+* Clipper: replace final widget with finish().
 *
 * remove Caption.
 

@@ -13,7 +13,7 @@ use rat_widget::event::Outcome;
 use rat_widget::layout::GenericLayout;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui::widgets::Block;
 use std::array;
 
 mod mini_salsa;
@@ -108,9 +108,7 @@ fn render(
         );
     }
 
-    clip_buf
-        .into_widget()
-        .render(l2[1], frame.buffer_mut(), &mut state.clipper);
+    clip_buf.finish(frame.buffer_mut(), &mut state.clipper);
 
     let menu1 = MenuLine::new()
         .title("#.#")

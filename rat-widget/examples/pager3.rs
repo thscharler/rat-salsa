@@ -176,8 +176,7 @@ fn render(
         );
     }
 
-    form.into_widget()
-        .render(l2[1], frame.buffer_mut(), &mut state.form);
+    form.finish(&mut state.form);
 
     let menu1 = MenuLine::new()
         .title("#.#")

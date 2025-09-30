@@ -15,7 +15,7 @@ use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget};
+use ratatui::widgets::{Block, BorderType, Borders};
 use std::array;
 use std::time::SystemTime;
 
@@ -165,9 +165,7 @@ fn render(
     // Render
     let mut pager = pager.into_buffer(l2[1], &mut state.pager);
     render_page(&mut pager, istate, state)?;
-    pager
-        .into_widget()
-        .render(l2[1], frame.buffer_mut(), &mut state.pager);
+    pager.finish(frame.buffer_mut(), &mut state.pager);
 
     let menu1 = MenuLine::new()
         .title("#.#")

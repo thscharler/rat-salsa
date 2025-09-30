@@ -670,6 +670,7 @@ where
     /// in its state.
     ///
     /// This uses the mechanism for [relocate](Self::relocate) to zero them out.
+    #[allow(deprecated)]
     #[deprecated(since = "1.2.0", note = "will be made private")]
     pub fn hidden<S>(&self, state: &mut S)
     where
@@ -684,10 +685,28 @@ where
         &mut self.buffer
     }
 
+    #[allow(deprecated)]
+    pub fn finish(mut self, buffer: &mut Buffer, state: &mut ClipperState<W>) {
+        self.render_block();
+        self.destruct = true;
+
+        ClipperWidget {
+            block: self.block.take(),
+            hscroll: self.hscroll.take(),
+            vscroll: self.vscroll.take(),
+            offset: self.offset,
+            buffer: mem::take(&mut self.buffer),
+            phantom: Default::default(),
+            style: self.style,
+        }
+        .render(state.area, buffer, state);
+    }
+
     /// Rendering the content is finished.
     ///
     /// Convert to the output widget that can be rendered in the target area.
     #[allow(deprecated)]
+    #[deprecated(since = "1.2.0", note = "use finish() instead")]
     pub fn into_widget(mut self) -> ClipperWidget<'a, W> {
         self.render_block();
         self.destruct = true;

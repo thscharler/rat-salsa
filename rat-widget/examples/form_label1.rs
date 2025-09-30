@@ -21,7 +21,7 @@ use rat_widget::text::HasScreenCursor;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
-use ratatui::widgets::{Padding, StatefulWidget};
+use ratatui::widgets::Padding;
 use std::cell::RefCell;
 
 mod mini_salsa;
@@ -243,8 +243,7 @@ fn render(
     // popups
     form.render_opt(state.license.id(), || license_popup, &mut state.license);
 
-    form.into_widget()
-        .render(l2[0], frame.buffer_mut(), &mut state.form);
+    form.finish(&mut state.form);
 
     if let Some(cursor) = state.screen_cursor() {
         frame.set_cursor_position(cursor);

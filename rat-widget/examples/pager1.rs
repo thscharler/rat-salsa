@@ -14,7 +14,7 @@ use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::{Line, Text};
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui::widgets::{Block, Widget};
 use std::array;
 
 mod mini_salsa;
@@ -136,8 +136,7 @@ fn render(
         );
     }
 
-    form.into_widget()
-        .render(l2[1], frame.buffer_mut(), &mut state.form);
+    form.finish(&mut state.form);
 
     let menu1 = MenuLine::new()
         .title("#.#")

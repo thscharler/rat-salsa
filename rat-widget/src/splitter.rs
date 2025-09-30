@@ -468,7 +468,6 @@ impl<'a> Split<'a> {
     /// Render your content first, using the layout information.
     /// And the SplitWidget as last to allow rendering over
     /// the content widgets.
-    #[deprecated(since = "1.2.0", note = "use into_widget() instead")]
     pub fn into_widget_layout(
         self,
         area: Rect,
