@@ -563,12 +563,12 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                     new_area.x = self.limit.right().saturating_sub(new_area.width);
                     self.set_moved_area(new_area, true)
                 }
-                ct_event!(keycode press ALT-Home) => {
+                ct_event!(keycode press CONTROL-Home) => {
                     let mut new_area = self.area;
                     new_area.y = self.limit.top();
                     self.set_moved_area(new_area, true)
                 }
-                ct_event!(keycode press ALT-End) => {
+                ct_event!(keycode press CONTROL-End) => {
                     let mut new_area = self.area;
                     new_area.y = self.limit.bottom().saturating_sub(new_area.height);
                     self.set_moved_area(new_area, true)

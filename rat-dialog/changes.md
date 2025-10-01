@@ -1,3 +1,7 @@
+# 0.5.1
+
+* keyboard move/resize
+
 # 0.5.0
 
 * breaks everything.
