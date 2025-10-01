@@ -435,7 +435,6 @@ pub mod menu {
     use crate::app::Scenery;
     use crate::global::{Global, TurboEvent};
     use anyhow::Error;
-    use log::debug;
     use rat_event::{HandleEvent, Popup, ct_event, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::event::MenuOutcome;
@@ -527,18 +526,15 @@ pub mod menu {
 
             if state.menu_environment.is_active() {
                 if matches!(event, ct_event!(keycode press Left)) {
-                    debug!("f0");
                     state.menu_environment.set_active(false);
                     return Ok(Control::Changed);
                 }
                 match state.menu_environment.handle(event, Popup) {
                     MenuOutcome::Activated(_) => {
-                        debug!("f1");
                         state.menu.popup.set_active(false);
                         return Ok(Control::Changed);
                     }
                     MenuOutcome::Hide => {
-                        debug!("f2");
                         state.menu_environment.set_active(false);
                         ctx.queue(Control::Changed);
                     }
