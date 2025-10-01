@@ -73,9 +73,7 @@
 //!     /// The last step clips and copies the buffer to the frame buffer.
 //!     ///
 //!
-//!     clip_buf
-//!         .into_widget()
-//!         .render(l2[1], &mut buf, &mut state.clipper);
+//!     clip_buf.finish(&mut buf, &mut state.clipper);
 //!
 //! ```
 //!

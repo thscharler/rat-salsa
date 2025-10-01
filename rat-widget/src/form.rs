@@ -164,13 +164,13 @@ pub struct FormStyle {
     pub title: Option<Style>,
     /// Block.
     pub block: Option<Block<'static>>,
-    /// Navigation mark.
+    /// Navigation icon.
     pub next_page_mark: Option<&'static str>,
-    /// Navigation mark.
+    /// Navigation icon.
     pub prev_page_mark: Option<&'static str>,
-    /// Navigation mark.
+    /// Navigation icon.
     pub first_page_mark: Option<&'static str>,
-    /// Navigation mark.
+    /// Navigation icon.
     pub last_page_mark: Option<&'static str>,
 
     pub non_exhaustive: NonExhaustive,
