@@ -668,6 +668,14 @@ impl FileDialogState {
         self.filter = Some(Box::new(filter));
     }
 
+    /// Set the last path. This will be shown in the roots list.
+    /// And it will be the preferred start directory instead of
+    /// the one given [Self::open_dialog], [Self::directory_dialog]
+    /// and [Self::save_dialog].
+    pub fn set_last_path(&mut self, last: &Path) {
+        self.path = last.into();
+    }
+
     /// Use the default set of roots.
     pub fn use_default_roots(&mut self, roots: bool) {
         self.use_default_roots = roots;
