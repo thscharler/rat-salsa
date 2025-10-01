@@ -55,10 +55,13 @@ mod global {
     #[derive(Debug)]
     pub struct Global {
         ctx: SalsaAppContext<TurboEvent, Error>,
+
         pub cfg: TurboConfig,
         pub theme: TurboTheme,
+        pub last_path: PathBuf,
         pub dialogs: DialogStack<TurboEvent, Global, Error>,
         pub windows: WindowList<TurboEvent, Global, Error>,
+
         pub area: Rect,
     }
 
@@ -78,6 +81,7 @@ mod global {
                 ctx: Default::default(),
                 cfg,
                 theme,
+                last_path: PathBuf::from("."),
                 dialogs: Default::default(),
                 windows: Default::default(),
                 area: Default::default(),
@@ -766,7 +770,6 @@ pub mod turbo {
     use ratatui::layout::{Constraint, Rect};
     use ratatui::widgets::StatefulWidget;
     use std::any::Any;
-    use std::path::PathBuf;
 
     #[derive(Debug, Default)]
     pub struct Turbo {}
@@ -780,6 +783,14 @@ pub mod turbo {
             TurboEvent::Event(event) => match event {
                 ct_event!(keycode press F(5)) => {
                     return Ok(Control::Event(TurboEvent::WindowMaximize));
+                }
+                ct_event!(keycode press CONTROL-F(5)) => {
+                    if let Some(top) = ctx.windows.top::<EditorState>() {
+                        let editor = ctx.windows.get_mut::<EditorState>(top);
+                        ctx.focus().focus(&editor.window);
+                        return Ok(Control::Changed);
+                    }
+                    return Ok(Control::Continue);
                 }
                 ct_event!(keycode press F(6)) => return Ok(Control::Event(TurboEvent::WindowNext)),
                 ct_event!(keycode press SHIFT-F(6)) => {
@@ -862,7 +873,7 @@ pub mod turbo {
 
     fn show_new(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
-        state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+        state.save_dialog_ext(ctx.last_path.clone(), "", "pas")?;
         ctx.dialogs.push(render_new_dlg, handle_new_dlg, state);
         Ok(Control::Changed)
     }
@@ -918,7 +929,7 @@ pub mod turbo {
 
     fn show_open(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
-        state.open_dialog(PathBuf::from("."))?;
+        state.open_dialog(ctx.last_path.clone())?;
         ctx.dialogs.push(render_open_dlg, handle_open_dlg, state);
         Ok(Control::Changed)
     }
@@ -974,7 +985,7 @@ pub mod turbo {
 
     fn show_save_as(ctx: &mut Global) -> Result<Control<TurboEvent>, Error> {
         let mut state = FileDialogState::new();
-        state.save_dialog_ext(PathBuf::from("."), "", "pas")?;
+        state.save_dialog_ext(ctx.last_path.clone(), "", "pas")?;
         ctx.dialogs
             .push(render_save_as_dlg, handle_save_as_dlg, state);
         Ok(Control::Changed)
@@ -1068,6 +1079,7 @@ pub mod editor {
 
     impl HasFocus for EditorState {
         fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.window);
             builder.widget_navigate(&self.text, Navigation::Mouse);
         }
 
@@ -1151,6 +1163,10 @@ pub mod editor {
     ) -> Result<Control<TurboEvent>, Error> {
         try_flow!(match event {
             TurboEvent::Open(f) => {
+                if let Some(path) = f.parent() {
+                    ctx.last_path = path.into();
+                }
+
                 let mut editor = EditorState::open(f)?;
                 editor.window.area = cascade_window(ctx);
                 ctx.windows.show(dlg_render, dlg_event, editor);
@@ -1247,6 +1263,7 @@ pub mod theme {
     use rat_widget::tabbed::TabbedStyle;
     use rat_widget::table::TableStyle;
     use rat_widget::text::TextStyle;
+    use rat_widget::util::revert_style;
     use ratatui::layout::Alignment;
     use ratatui::style::{Style, Stylize};
     use ratatui::widgets::{Block, BorderType};
@@ -1345,7 +1362,7 @@ pub mod theme {
         pub fn textarea_style(&self) -> TextStyle {
             TextStyle {
                 style: self.text_input(),
-                focus: Some(self.text_focus()),
+                focus: Some(self.text_input()),
                 select: Some(self.text_select()),
                 ..Default::default()
             }
@@ -1502,6 +1519,7 @@ pub mod theme {
                 block: self.dialog_border(title),
                 hover: Some(self.scheme().gray(4, Contrast::Normal)),
                 top: Some(self.s.primary(0, Contrast::Normal)),
+                focus: Some(revert_style(self.focus())),
                 can_move: None,
                 can_resize: None,
                 can_close: None,
