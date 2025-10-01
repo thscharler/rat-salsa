@@ -7,6 +7,8 @@
   given a background and a list of possible colors, this chooses the color
   with the second best/best contrast.
 
+* add 'Rust' palette.
+
 # 2.0.0
 
 * Add 'Shell' theme.
