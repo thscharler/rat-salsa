@@ -1,7 +1,7 @@
 //! A list of application windows.
 use crate::WindowControl;
 use rat_event::util::mouse_trap;
-use rat_event::{ConsumedEvent, HandleEvent, ct_event};
+use rat_event::{ConsumedEvent, HandleEvent, Outcome, ct_event};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::{Any, TypeId};
@@ -11,6 +11,7 @@ use std::mem;
 use std::rc::Rc;
 use try_as::traits::TryAsRef;
 
+pub mod mac_frame;
 pub mod window_frame;
 
 pub trait Window: Any {
@@ -27,6 +28,51 @@ impl dyn Window {
 
     pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
         (self as &mut dyn Any).downcast_mut::<T>()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum WindowFrameOutcome {
+    /// The given event was not handled at all.
+    Continue,
+    /// The event was handled, no repaint necessary.
+    Unchanged,
+    /// The event was handled, repaint necessary.
+    Changed,
+    /// Request close.
+    ShouldClose,
+    /// Has moved.
+    Moved,
+    /// Has resized.
+    Resized,
+}
+
+impl ConsumedEvent for WindowFrameOutcome {
+    fn is_consumed(&self) -> bool {
+        *self != WindowFrameOutcome::Continue
+    }
+}
+
+impl From<Outcome> for WindowFrameOutcome {
+    fn from(value: Outcome) -> Self {
+        match value {
+            Outcome::Continue => WindowFrameOutcome::Continue,
+            Outcome::Unchanged => WindowFrameOutcome::Unchanged,
+            Outcome::Changed => WindowFrameOutcome::Changed,
+        }
+    }
+}
+
+impl From<WindowFrameOutcome> for Outcome {
+    fn from(value: WindowFrameOutcome) -> Self {
+        match value {
+            WindowFrameOutcome::Continue => Outcome::Continue,
+            WindowFrameOutcome::Unchanged => Outcome::Unchanged,
+            WindowFrameOutcome::Changed => Outcome::Changed,
+            WindowFrameOutcome::Moved => Outcome::Changed,
+            WindowFrameOutcome::Resized => Outcome::Changed,
+            WindowFrameOutcome::ShouldClose => Outcome::Continue,
+        }
     }
 }
 

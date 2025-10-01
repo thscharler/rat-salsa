@@ -6,9 +6,10 @@ use crate::WindowFrameOutcome;
 use rat_event::util::MouseFlags;
 use rat_event::{ConsumedEvent, Dialog, HandleEvent, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
+use rat_widget::util::revert_style;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
-use ratatui::style::Style;
+use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::max;
@@ -25,27 +26,36 @@ use std::cmp::max;
 ///
 /// It can handle events for move/resize/close.
 #[derive(Debug, Default)]
-pub struct WindowFrame<'a> {
+pub struct MacFrame<'a> {
     block: Block<'a>,
+
     style: Style,
     top_style: Option<Style>,
     focus_style: Option<Style>,
     hover_style: Style,
     drag_style: Style,
+    close_style: Option<Style>,
+    min_style: Option<Style>,
+    max_style: Option<Style>,
+
     limit: Option<Rect>,
+
     can_move: Option<bool>,
     can_resize: Option<bool>,
     can_close: Option<bool>,
 }
 
 #[derive(Debug)]
-pub struct WindowFrameStyle {
+pub struct MacFrameStyle {
     pub style: Style,
     pub top: Option<Style>,
     pub focus: Option<Style>,
     pub block: Block<'static>,
     pub hover: Option<Style>,
     pub drag: Option<Style>,
+    pub close: Option<Style>,
+    pub min: Option<Style>,
+    pub max: Option<Style>,
     pub can_move: Option<bool>,
     pub can_resize: Option<bool>,
     pub can_close: Option<bool>,
@@ -54,7 +64,7 @@ pub struct WindowFrameStyle {
 
 /// Window state.
 #[derive(Debug)]
-pub struct WindowFrameState {
+pub struct MacFrameState {
     /// Outer limit for the window.
     /// This will be set by the widget during render.
     /// __read only__
@@ -89,9 +99,13 @@ pub struct WindowFrameState {
     pub resize_area: Rect,
     /// close area
     pub close_area: Rect,
+    pub min_area: Rect,
+    pub max_area: Rect,
 
     /// mouse flags for close area
     pub mouse_close: MouseFlags,
+    pub mouse_min: MouseFlags,
+    pub mouse_max: MouseFlags,
     /// mouse flags for resize area
     pub mouse_resize: MouseFlags,
 
@@ -106,7 +120,7 @@ pub struct WindowFrameState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl Default for WindowFrameStyle {
+impl Default for MacFrameStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
@@ -115,6 +129,9 @@ impl Default for WindowFrameStyle {
             block: Block::bordered(),
             hover: Default::default(),
             drag: Default::default(),
+            close: Default::default(),
+            min: Default::default(),
+            max: Default::default(),
             can_move: Default::default(),
             can_resize: Default::default(),
             can_close: Default::default(),
@@ -123,7 +140,7 @@ impl Default for WindowFrameStyle {
     }
 }
 
-impl<'a> WindowFrame<'a> {
+impl<'a> MacFrame<'a> {
     pub fn new() -> Self {
         Self {
             block: Default::default(),
@@ -132,6 +149,9 @@ impl<'a> WindowFrame<'a> {
             focus_style: Default::default(),
             hover_style: Default::default(),
             drag_style: Default::default(),
+            close_style: Default::default(),
+            min_style: Default::default(),
+            max_style: Default::default(),
             limit: Default::default(),
             can_move: Default::default(),
             can_resize: Default::default(),
@@ -171,7 +191,7 @@ impl<'a> WindowFrame<'a> {
         self
     }
 
-    pub fn styles(mut self, styles: WindowFrameStyle) -> Self {
+    pub fn styles(mut self, styles: MacFrameStyle) -> Self {
         self.style = styles.style;
         self.block = styles.block;
         if styles.top.is_some() {
@@ -185,6 +205,18 @@ impl<'a> WindowFrame<'a> {
         }
         if let Some(drag) = styles.drag {
             self.drag_style = drag;
+        }
+        if let Some(drag) = styles.drag {
+            self.drag_style = drag;
+        }
+        if let Some(close) = styles.close {
+            self.close_style = Some(close);
+        }
+        if let Some(min) = styles.min {
+            self.min_style = Some(min);
+        }
+        if let Some(max) = styles.max {
+            self.max_style = Some(max);
         }
         if let Some(can_move) = styles.can_move {
             self.can_move = Some(can_move);
@@ -230,8 +262,8 @@ impl<'a> WindowFrame<'a> {
     }
 }
 
-impl<'a> StatefulWidget for WindowFrame<'a> {
-    type State = WindowFrameState;
+impl<'a> StatefulWidget for MacFrame<'a> {
+    type State = MacFrameState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if let Some(limit) = self.limit {
@@ -262,18 +294,30 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
         } else {
             state.resize_area = Default::default();
         }
+        //  25CF
+
         if state.can_close {
-            state.close_area =
-                Rect::new(state.area.right().saturating_sub(4), state.area.top(), 3, 1);
+            state.close_area = Rect::new(state.area.x + 2, state.area.y, 3, 1);
         } else {
             state.close_area = Default::default();
         }
+        if state.can_close {
+            state.min_area = Rect::new(state.area.x + 5, state.area.y, 3, 1);
+        } else {
+            state.min_area = Default::default();
+        }
+        if state.can_close {
+            state.max_area = Rect::new(state.area.x + 8, state.area.y, 3, 1);
+        } else {
+            state.max_area = Default::default();
+        }
+
         if state.can_move {
             if state.can_close {
                 state.move_area = Rect::new(
-                    state.area.x + 1,
+                    state.area.x + 11, //
                     state.area.y,
-                    state.area.width.saturating_sub(6),
+                    state.area.width.saturating_sub(13),
                     1,
                 );
             } else {
@@ -316,14 +360,35 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
 
         block.render(state.area, buf);
 
-        if state.can_move {
-            Span::from("[x]")
-                .style(self.style)
+        if state.can_close {
+            Span::from(" ⬤ ")
+                .style(self.close_style.unwrap_or(self.style.red()))
                 .render(state.close_area, buf);
+            Span::from(" ⬤ ")
+                .style(self.min_style.unwrap_or(self.style.yellow()))
+                .render(state.min_area, buf);
+            Span::from(" ⬤ ")
+                .style(self.max_style.unwrap_or(self.style.green()))
+                .render(state.max_area, buf);
         }
 
         if state.mouse_close.hover.get() {
-            buf.set_style(state.close_area, self.hover_style);
+            buf.set_style(
+                state.close_area,
+                revert_style(self.close_style.unwrap_or(self.style.red())),
+            );
+        }
+        if state.mouse_min.hover.get() {
+            buf.set_style(
+                state.min_area,
+                revert_style(self.min_style.unwrap_or(self.style.yellow())),
+            );
+        }
+        if state.mouse_max.hover.get() {
+            buf.set_style(
+                state.max_area,
+                revert_style(self.max_style.unwrap_or(self.style.green())),
+            );
         }
 
         if state.mouse_move.drag.get() {
@@ -340,7 +405,7 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
     }
 }
 
-impl Default for WindowFrameState {
+impl Default for MacFrameState {
     fn default() -> Self {
         Self {
             limit: Default::default(),
@@ -354,7 +419,11 @@ impl Default for WindowFrameState {
             move_area: Default::default(),
             resize_area: Default::default(),
             close_area: Default::default(),
+            min_area: Default::default(),
+            max_area: Default::default(),
             mouse_close: Default::default(),
+            mouse_min: Default::default(),
+            mouse_max: Default::default(),
             mouse_resize: Default::default(),
             start_move: Default::default(),
             mouse_move: Default::default(),
@@ -364,7 +433,7 @@ impl Default for WindowFrameState {
     }
 }
 
-impl HasFocus for WindowFrameState {
+impl HasFocus for MacFrameState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.leaf_widget(self);
     }
@@ -382,7 +451,7 @@ impl HasFocus for WindowFrameState {
     }
 }
 
-impl WindowFrameState {
+impl MacFrameState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -393,6 +462,15 @@ impl WindowFrameState {
             self.area = self.arc_area;
         } else {
             self.area = self.limit;
+        }
+    }
+
+    /// Switch between minimized and normal state.
+    pub fn flip_minimize(&mut self) {
+        if self.area == Rect::default() && !self.arc_area.is_empty() {
+            self.area = self.arc_area;
+        } else {
+            self.area = Rect::default();
         }
     }
 
@@ -476,7 +554,7 @@ impl WindowFrameState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for WindowFrameState {
+impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for MacFrameState {
     fn handle(
         &mut self,
         event: &crossterm::event::Event,
@@ -633,6 +711,20 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
             }
             ct_event!(mouse down Left for x,y) if self.close_area.contains((*x, *y).into()) => {
                 WindowFrameOutcome::ShouldClose
+            }
+            ct_event!(mouse any for m) if self.mouse_min.hover(self.min_area, m) => {
+                WindowFrameOutcome::Changed
+            }
+            ct_event!(mouse down Left for x,y) if self.min_area.contains((*x, *y).into()) => {
+                self.flip_minimize();
+                WindowFrameOutcome::Changed
+            }
+            ct_event!(mouse any for m) if self.mouse_max.hover(self.max_area, m) => {
+                WindowFrameOutcome::Changed
+            }
+            ct_event!(mouse down Left for x,y) if self.max_area.contains((*x, *y).into()) => {
+                self.flip_maximize();
+                WindowFrameOutcome::Changed
             }
 
             ct_event!(mouse any for m) if self.mouse_resize.hover(self.resize_area, m) => {

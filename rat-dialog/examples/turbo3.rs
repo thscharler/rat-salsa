@@ -1058,6 +1058,7 @@ pub mod editor {
 
     pub struct EditorState {
         pub window: WindowFrameState,
+        // pub window: MacFrameState,
         pub path: PathBuf,
         pub display_name: String,
         pub text: TextAreaState,
@@ -1182,6 +1183,10 @@ pub mod editor {
             .styles(ctx.theme.dialog_window(""))
             .block(ctx.theme.dialog_border(&state.display_name))
             .render(area, buf, &mut state.window);
+        // MacFrame::new()
+        //     .styles(ctx.theme.dialog_window2(""))
+        //     .block(ctx.theme.dialog_border(&state.display_name))
+        //     .render(area, buf, &mut state.window);
 
         TextArea::new()
             .styles(ctx.theme.textarea_style())
@@ -1244,7 +1249,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_dialog::WindowFrameStyle;
+    use rat_dialog::{MacFrameStyle, WindowFrameStyle};
     use rat_theme3::{Contrast, Palette};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
@@ -1516,6 +1521,23 @@ pub mod theme {
                 hover: Some(self.scheme().gray(4, Contrast::Normal)),
                 top: Some(self.s.primary(0, Contrast::Normal)),
                 focus: Some(revert_style(self.focus())),
+                can_move: None,
+                can_resize: None,
+                can_close: None,
+                ..Default::default()
+            }
+        }
+
+        pub fn dialog_window2(&self, title: &'static str) -> MacFrameStyle {
+            MacFrameStyle {
+                style: self.dialog_style(),
+                block: self.dialog_border(title),
+                hover: Some(self.scheme().gray(4, Contrast::Normal)),
+                top: Some(self.s.primary(0, Contrast::Normal)),
+                focus: Some(revert_style(self.focus())),
+                close: Some(Style::new().fg(self.s.red[3]).bg(self.s.gray[3])),
+                min: Some(Style::new().fg(self.s.yellow[3]).bg(self.s.gray[3])),
+                max: Some(Style::new().fg(self.s.green[3]).bg(self.s.gray[3])),
                 can_move: None,
                 can_resize: None,
                 can_close: None,

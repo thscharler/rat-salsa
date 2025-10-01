@@ -9,10 +9,13 @@ mod window_control;
 pub use dialog_control::DialogStack;
 pub use dialog_control::handle_dialog_stack;
 pub use window_control::Window;
+pub use window_control::WindowFrameOutcome;
 pub use window_control::WindowList;
 pub use window_control::handle_window_list;
+pub use window_control::mac_frame::MacFrame;
+pub use window_control::mac_frame::MacFrameState;
+pub use window_control::mac_frame::MacFrameStyle;
 pub use window_control::window_frame::WindowFrame;
-pub use window_control::window_frame::WindowFrameOutcome;
 pub use window_control::window_frame::WindowFrameState;
 pub use window_control::window_frame::WindowFrameStyle;
 
