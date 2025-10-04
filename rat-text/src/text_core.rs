@@ -657,7 +657,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let old_cursor = self.cursor;
         let old_anchor = self.anchor;
 
-        cursor.y = min(cursor.y, self.len_lines());
+        cursor.y = min(cursor.y, self.len_lines().saturating_sub(1));
         cursor.x = min(cursor.x, self.line_width(cursor.y).expect("valid-line"));
 
         self.cursor = cursor;
