@@ -546,11 +546,12 @@ impl TextStore for TextRope {
             } else {
                 TextRange::new(pos, (0, pos.y + 1))
             }
-        } else if ch == '\u{000C}'
-            || ch == '\u{000B}'
-            || ch == '\u{0085}'
-            || ch == '\u{2028}'
-            || ch == '\u{2029}'
+        } else if cfg!(feature = "unicode_lines")
+            && (ch == '\u{000C}'
+                || ch == '\u{000B}'
+                || ch == '\u{0085}'
+                || ch == '\u{2028}'
+                || ch == '\u{2029}')
         {
             TextRange::new(pos, (0, pos.y + 1))
         } else {
@@ -612,15 +613,22 @@ impl TextStore for TextRope {
         let mut line_count = 0;
         let mut last_linebreak_idx = 0;
         for c in StrGraphemes::new(0, txt) {
-            if c == "\r"
-                || c == "\n"
-                || c == "\r\n"
-                || c == "\u{000C}"
-                || c == "\u{000B}"
-                || c == "\u{0085}"
-                || c == "\u{2028}"
-                || c == "\u{2029}"
-            {
+            let test = if cfg!(feature = "cr_lines") {
+                c == "\r" || c == "\n" || c == "\r\n"
+            } else if cfg!(feature = "unicode_lines") {
+                c == "\r"
+                    || c == "\n"
+                    || c == "\r\n"
+                    || c == "\u{000C}"
+                    || c == "\u{000B}"
+                    || c == "\u{0085}"
+                    || c == "\u{2028}"
+                    || c == "\u{2029}"
+            } else {
+                c == "\n" || c == "\r\n"
+            };
+
+            if test {
                 line_count += 1;
                 last_linebreak_idx = c.text_bytes().end;
             }

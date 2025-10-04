@@ -45,15 +45,21 @@ impl<'a> Grapheme<'a> {
     #[inline]
     #[allow(clippy::nonminimal_bool)]
     pub fn is_line_break(&self) -> bool {
-        self.grapheme == "\r"
-            || self.grapheme == "\n"
-            || self.grapheme == "\r\n"
-            || self.grapheme == "\u{000D}"
-            || self.grapheme == "\u{000C}"
-            || self.grapheme == "\u{000B}"
-            || self.grapheme == "\u{0085}"
-            || self.grapheme == "\u{2028}"
-            || self.grapheme == "\u{2029}"
+        if cfg!(feature = "cr_lines") {
+            self.grapheme == "\r" || self.grapheme == "\n" || self.grapheme == "\r\n"
+        } else if cfg!(feature = "unicode_lines") {
+            self.grapheme == "\r"
+                || self.grapheme == "\n"
+                || self.grapheme == "\r\n"
+                || self.grapheme == "\u{000D}"
+                || self.grapheme == "\u{000C}"
+                || self.grapheme == "\u{000B}"
+                || self.grapheme == "\u{0085}"
+                || self.grapheme == "\u{2028}"
+                || self.grapheme == "\u{2029}"
+        } else {
+            self.grapheme == "\n" || self.grapheme == "\r\n"
+        }
     }
 
     /// Get the grapheme.
