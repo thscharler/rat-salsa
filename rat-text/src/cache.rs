@@ -1,5 +1,5 @@
 use crate::glyph2::TextWrap2;
-use crate::{upos_type, TextPosition, TextRange};
+use crate::{TextPosition, TextRange, upos_type};
 #[cfg(not(debug_assertions))]
 use fxhash::FxBuildHasher;
 use std::cell::{Cell, RefCell};
@@ -66,7 +66,7 @@ pub(crate) struct LineOffsetCache {
     pub byte_pos: usize,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct LineBreakCache {
     // start of new line.
     pub start_pos: TextPosition,
