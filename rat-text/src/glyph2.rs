@@ -112,20 +112,18 @@ impl Default for TextWrap2 {
 }
 
 pub(crate) struct GlyphIter2<'a, Graphemes> {
-    init: bool,
-    prepared: bool,
     iter: Graphemes,
-    done: bool,
-
     /// Sometimes one grapheme creates two glyphs.
-    next_glyph: Option<Glyph2<'static>>,
+    emit: Option<Glyph2<'static>>,
+    /// Iteration is done.
+    done: bool,
 
     /// Next glyph position.
     next_pos: TextPosition,
+    /// Next glyph screen position.
     next_screen_pos: (upos_type, upos_type),
-    /// Text position of the previous glyph.
-    last_pos: TextPosition,
-    last_byte: usize,
+    /// Next glyph start byte position.
+    next_byte: usize,
 
     /// Glyph cache
     cache: Cache,
@@ -154,11 +152,10 @@ impl<'a, Graphemes> Debug for GlyphIter2<'a, Graphemes> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GlyphIter2")
             .field("done", &self.done)
-            .field("next_glyph", &self.next_glyph)
+            .field("next_glyph", &self.emit)
             .field("next_pos", &self.next_pos)
             .field("next_screen_pos", &self.next_screen_pos)
-            .field("last_pos", &self.last_pos)
-            .field("last_byte", &self.last_byte)
+            .field("next_byte", &self.next_byte)
             .field("tabs", &self.tabs)
             .field("show_ctrl", &self.show_ctrl)
             .field("wrap_ctrl", &self.wrap_ctrl)
@@ -176,18 +173,18 @@ where
     Graphemes: SkipLine + Iterator<Item = Grapheme<'a>> + Clone,
 {
     /// New iterator.
-    pub(crate) fn new(pos: TextPosition, iter: Graphemes, cache: Cache) -> Self {
+    pub(crate) fn new(pos: TextPosition, byte: usize, iter: Graphemes, cache: Cache) -> Self {
         Self {
-            init: true,
-            prepared: false,
             iter,
             done: Default::default(),
-            next_glyph: Default::default(),
+            emit: Default::default(),
+
             next_pos: pos,
-            next_screen_pos: Default::default(),
-            last_pos: Default::default(),
-            last_byte: Default::default(),
+            next_screen_pos: (0, 0),
+            next_byte: byte,
+
             cache,
+
             tabs: 8,
             show_ctrl: false,
             wrap_ctrl: false,
@@ -249,9 +246,6 @@ where
 
     /// Build cache before running the iterator.
     pub(crate) fn prepare(&mut self) -> Result<(), TextError> {
-        self.init = true;
-        self.prepared = true;
-
         match self.text_wrap {
             TextWrap2::Shift => prepare_shift_clip(self),
             TextWrap2::Hard => prepare_hard_wrap(self),
@@ -267,18 +261,14 @@ where
     type Item = Glyph2<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        assert!(self.prepared);
-
         if self.done {
             return None;
         }
 
-        if let Some(glyph) = self.next_glyph.take() {
-            self.last_pos = glyph.pos;
-            self.last_byte = glyph.text_bytes.end;
-
-            glyph.validate();
-            return Some(glyph);
+        if let Some(emit) = self.emit.take() {
+            self.next_byte = emit.text_bytes.end;
+            emit.validate();
+            return Some(emit);
         }
 
         loop {
@@ -293,7 +283,7 @@ where
                     } else {
                         Cow::Borrowed("")
                     },
-                    text_bytes: self.last_byte..self.last_byte,
+                    text_bytes: self.next_byte..self.next_byte,
                     screen_pos: (
                         self.next_screen_pos.0.saturating_sub(self.left_margin),
                         self.next_screen_pos.1,
@@ -355,8 +345,8 @@ where
 
     // Next glyph position.
     let mut next_pos = glyphs.next_pos;
-    let mut next_screen_x = 0;
-    let mut next_byte = 0;
+    let mut next_screen_x = glyphs.next_screen_pos.0;
+    let mut next_byte = glyphs.next_byte;
     // Last space seen
     let mut space_pos = None;
     let mut space_screen_x = None;
@@ -366,7 +356,7 @@ where
         let Some(grapheme) = iter.next() else {
             // did the last line end with a \n?
             // is this dead on arrival?
-            if next_pos.x != 0 && !glyphs.init {
+            if next_pos.x != 0 {
                 cache.line_break.borrow_mut().insert(
                     next_pos,
                     LineBreakCache {
@@ -381,8 +371,6 @@ where
 
             break;
         };
-
-        glyphs.init = false;
 
         let (grapheme, grapheme_bytes) = grapheme.into_parts();
 
@@ -543,8 +531,7 @@ where
         iter.next_screen_pos.1 += 1;
         iter.next_pos.x = 0;
         iter.next_pos.y += 1;
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
         glyph.validate();
 
@@ -556,10 +543,9 @@ where
         iter.next_screen_pos.1 += 1;
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
-        iter.next_glyph = Some(Glyph2 {
+        iter.emit = Some(Glyph2 {
             glyph: if iter.wrap_ctrl {
                 Cow::Borrowed("\u{21B5}")
             } else {
@@ -588,8 +574,7 @@ where
         // next_screen_pos.1 doesn't change
         iter.next_pos.x += 1;
         // next_pos.1 doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
         glyph.validate();
 
@@ -606,8 +591,8 @@ where
 
     // Next glyph position.
     let mut next_pos = glyphs.next_pos;
-    let mut next_screen_x = 0;
-    let mut next_byte = 0;
+    let mut next_screen_x = glyphs.next_screen_pos.0;
+    let mut next_byte = glyphs.next_byte;
     let mut zero_row = None;
     loop {
         let Some(grapheme) = iter.next() else {
@@ -628,8 +613,6 @@ where
 
             break;
         };
-
-        glyphs.init = false;
 
         let (grapheme, grapheme_bytes) = grapheme.into_parts();
 
@@ -667,7 +650,7 @@ where
             next_screen_x = 0;
             next_pos.x = 0;
             next_pos.y += 1;
-            next_byte = 0;
+            next_byte = 0; //todo
             zero_row = None;
 
             continue;
@@ -733,7 +716,7 @@ where
 
     // Next glyph position.
     let mut next_pos = glyphs.next_pos;
-    let mut last_byte = 0;
+    let mut next_byte = glyphs.next_byte;
 
     // fill in missing line-break data.
     loop {
@@ -747,15 +730,13 @@ where
                     pos,
                     LineBreakCache {
                         start_pos: TextPosition::new(0, next_pos.y + 1),
-                        byte_pos: last_byte,
+                        byte_pos: next_byte,
                     },
                 );
             }
 
             break;
         };
-
-        glyphs.init = false;
 
         let pos = next_pos;
         let line_break = if grapheme == "\n" || grapheme == "\r\n" {
@@ -767,7 +748,7 @@ where
         if !line_break && cache.full_line_break.borrow().contains(&next_pos.y) {
             next_pos.x = 0;
             next_pos.y += 1;
-            last_byte = 0;
+            next_byte = 0;
 
             // skip to next_line
             iter.skip_line().expect("fine");
@@ -778,7 +759,7 @@ where
         if line_break {
             next_pos.x = 0;
             next_pos.y += 1;
-            last_byte = grapheme.text_bytes().end;
+            next_byte = grapheme.text_bytes().end;
 
             cache.full_line_break.borrow_mut().insert(pos.y);
             cache.line_break.borrow_mut().insert(
@@ -791,7 +772,7 @@ where
         } else {
             next_pos.x += 1;
             // iter.next_pos.y doesn't change.
-            last_byte = grapheme.text_bytes().end;
+            next_byte = grapheme.text_bytes().end;
         }
     }
 
@@ -814,8 +795,7 @@ where
         iter.next_screen_pos.1 += 1;
         iter.next_pos.x = 0;
         iter.next_pos.y += 1;
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
         // a line-break just beyond the right margin will end up here.
         // every other line-break will be skipped instead.
@@ -852,8 +832,7 @@ where
         // iter.next_screen_pos.1 doesn't change
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
         glyph.validate();
 
@@ -865,8 +844,7 @@ where
         // iter.next_screen_pos.1 doesn't change
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
         if let Some(cached) = cache.line_start.borrow().get(&glyph.pos.y) {
             iter.iter.skip_to(cached.byte_pos).expect("valid-pos");
@@ -891,8 +869,7 @@ where
         // iter.next_screen_pos.1 doesn't change
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
         glyph.validate();
 
@@ -905,15 +882,14 @@ where
         glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
         glyph.screen_width = if iter.wrap_ctrl { 1 } else { 0 };
         glyph.glyph = Cow::Borrowed(if iter.wrap_ctrl { "\u{2424}" } else { "" });
-        glyph.text_bytes = iter.last_byte..iter.last_byte;
+        glyph.text_bytes = iter.next_byte..iter.next_byte;
 
         // still advance x, next iteration will skip the rest of the line.
         iter.next_screen_pos.0 += 1;
         // iter.next_screen_pos.1 doesn't change
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
         glyph.validate();
 
@@ -929,8 +905,7 @@ where
         iter.next_screen_pos.1 += 1;
         iter.next_pos.x = 0;
         iter.next_pos.y += 1;
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
         Continue(())
     } else {
@@ -951,8 +926,7 @@ where
         // iter.next_screen_pos.1 doesn't change
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.last_pos = glyph.pos;
-        iter.last_byte = glyph.text_bytes.end;
+        iter.next_byte = glyph.text_bytes.end;
 
         glyph.validate();
 
