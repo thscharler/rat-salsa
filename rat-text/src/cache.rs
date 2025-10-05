@@ -5,7 +5,7 @@ use rustc_hash::FxBuildHasher;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 #[cfg(not(debug_assertions))]
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::rc::Rc;

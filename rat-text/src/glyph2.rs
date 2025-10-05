@@ -67,6 +67,7 @@ impl<'a> Glyph2<'a> {
     }
 
     /// Possible soft-break.
+    #[allow(dead_code)]
     pub fn soft_break(&self) -> bool {
         self.soft_break
     }
