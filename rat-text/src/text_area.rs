@@ -2178,7 +2178,6 @@ impl TextAreaState {
     fn scroll_to_cursor(&mut self) {
         let pos = self.cursor();
 
-
         match self.text_wrap {
             TextWrap::Shift => {
                 let (ox, _, oy) = self.clean_offset();
@@ -2191,10 +2190,14 @@ impl TextAreaState {
                     width
                 };
 
-                let noy = if pos.y < oy {
+                let noy = if pos.y < oy.saturating_sub(height) {
+                    pos.y.saturating_sub(height * 4 / 10)
+                } else if pos.y < oy {
                     pos.y
+                } else if pos.y >= oy + 2 * height {
+                    pos.y.saturating_sub(height * 6 / 10)
                 } else if pos.y >= oy + height {
-                    pos.y.saturating_sub(height) + 1
+                    pos.y.saturating_sub(height.saturating_sub(1))
                 } else {
                     oy
                 };
@@ -2224,36 +2227,30 @@ impl TextAreaState {
                         if pos_row < off_row && pos_row >= off_row.saturating_sub(page) {
                             let noff_row = pos_row;
                             let (nsub_row_offset, noy) = self.stc_sub_row_offset(scr, noff_row);
-                            debug!("scroll_to_cursor a -> {:?} {:?}", nsub_row_offset, noy);
                             self.set_offset((0, noy as usize));
                             self.set_sub_row_offset(nsub_row_offset);
                             return;
                         } else if pos_row >= off_row + page && pos_row < off_row + 2 * page {
                             let noff_row = pos_row.saturating_sub(page.saturating_sub(1));
                             let (nsub_row_offset, noy) = self.stc_sub_row_offset(scr, noff_row);
-                            debug!("scroll_to_cursor b -> {:?} {:?}", nsub_row_offset, noy);
                             self.set_offset((0, noy as usize));
                             self.set_sub_row_offset(nsub_row_offset);
                             return;
                         } else if pos_row >= off_row && pos_row < off_row + page {
-                            debug!("scroll_to_cursor -> keep");
                             return;
                         }
                     }
                 }
 
-                debug!("scroll_to_cursor reposition");
                 // long jump. center position.
                 let alt_scr = (0, pos.y.saturating_sub(page), 3 * page);
                 self.stc_fill_screen_cache(alt_scr);
                 if let Some(alt_scr_row) = self.stc_screen_row(alt_scr, pos) {
                     let noff_row = alt_scr_row.saturating_sub(page * 4 / 10);
                     let (nsub_row_offset, noy) = self.stc_sub_row_offset(alt_scr, noff_row);
-                    debug!("scroll_to_cursor c -> {:?} {:?}", nsub_row_offset, noy);
                     self.set_offset((0, noy as usize));
                     self.set_sub_row_offset(nsub_row_offset);
                 } else {
-                    debug!("scroll_to_cursor d -> {:?} {:?}", 0, pos.y);
                     self.set_offset((0, pos.y as usize));
                     self.set_sub_row_offset(0);
                 }
@@ -2287,7 +2284,6 @@ impl TextAreaState {
         let mut scr_row = 0;
         for (_key, cache) in line_breaks.range(range_start..range_end) {
             if pos < cache.start_pos {
-                debug!("stc_screen_row for {:?} -> {:?}", scr, scr_row);
                 return Some(scr_row);
             }
             scr_row += 1;
@@ -2296,11 +2292,9 @@ impl TextAreaState {
 
         // very last position on the very last row without a \n
         if pos == start_pos {
-            debug!("stc_screen_row b for {:?} -> {:?}", scr, screen_row);
             return Some(scr_row);
         }
 
-        debug!("stc_screen_row c for {:?} -> None", scr);
         None
     }
 
@@ -2370,18 +2364,19 @@ impl TextAreaState {
                             break 'f g.screen_pos().0;
                         }
                     }
-                    return None;
+                    // last row
+                    0
                 };
                 assert!(screen_x <= self.rendered.width);
 
-                Some((
+                let scr = Some((
                     screen_x as i16 - self.dark_offset.0 as i16,
                     screen_y as i16 - self.dark_offset.1 as i16,
-                ))
+                ));
+                scr
             }
             TextWrap::Hard | TextWrap::Word(_) => {
                 let (_, sub_row_offset, oy) = self.clean_offset();
-
 
                 if oy > self.len_lines() {
                     return None;
@@ -2423,16 +2418,16 @@ impl TextAreaState {
                             break 'f g.screen_pos().0;
                         }
                     }
-                    debug!("pos2screen col2 {}", 0);
                     // no glyphs on this line
                     0
                 };
                 assert!(screen_x <= self.rendered.width);
 
-                Some((
+                let scr = (
                     screen_x as i16 - self.dark_offset.0 as i16,
                     screen_y as i16 - self.dark_offset.1 as i16,
-                ))
+                );
+                Some(scr)
             }
         }
     }
@@ -2452,19 +2447,16 @@ impl TextAreaState {
                 if oy >= self.len_lines() {
                     return None;
                 }
+
                 if scr_pos.1 < 0 {
                     // before the first visible line. fall back to col 0.
                     return Some(TextPosition::new(
                         0,
                         oy.saturating_add_signed(scr_pos.1 as ipos_type),
                     ));
-                }
-                if (oy + scr_pos.1 as upos_type) >= self.len_lines() {
-                    // after the last visible line. fall back to width.
-                    return Some(TextPosition::new(
-                        self.line_width(self.len_lines().saturating_sub(1)),
-                        self.len_lines().saturating_sub(1),
-                    ));
+                } else if (oy + scr_pos.1 as upos_type) >= self.len_lines() {
+                    // after the last visible line. fall back to col 0.
+                    return Some(TextPosition::new(0, self.len_lines().saturating_sub(1)));
                 }
 
                 let pos_y = oy + scr_pos.1 as upos_type;
@@ -2480,6 +2472,7 @@ impl TextAreaState {
                         pos_y,
                     ));
                 } else {
+                    let mut start_pos = TextPosition::new(0, pos_y);
                     for g in self
                         .glyphs2(ox, 0, pos_y..min(pos_y + 1, self.len_lines()))
                         .expect("valid-position")
@@ -2487,13 +2480,13 @@ impl TextAreaState {
                         if g.contains_screen_x(scr_pos.0 as u16) {
                             return Some(TextPosition::new(g.pos().x, pos_y));
                         }
+                        start_pos = g.pos();
                     }
-                    unreachable!();
+                    None
                 }
             }
             TextWrap::Hard | TextWrap::Word(_) => {
                 let (_, sub_row_offset, oy) = self.clean_offset();
-
 
                 if oy >= self.len_lines() {
                     return None;
@@ -2524,7 +2517,6 @@ impl TextAreaState {
                             }
                             nrows -= 1;
                         }
-                        debug!("screen2pos fallback {:?}", TextPosition::new(0, ry));
                         TextPosition::new(0, ry)
                     };
 
@@ -2545,7 +2537,6 @@ impl TextAreaState {
                     }
 
                     // beyond the last line
-                    debug!("screen2pos c -> {:?}", n_start_pos);
                     return Some(n_start_pos);
                 } else {
                     let scr_pos = (max(0, scr_pos.0) as u16, scr_pos.1 as u16);
@@ -2592,7 +2583,6 @@ impl TextAreaState {
                     }
 
                     // beyond the last line
-                    debug!("screen2pos e -> {:?}", n_start_pos);
                     return Some(n_start_pos);
                 }
             }
