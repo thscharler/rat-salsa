@@ -413,14 +413,21 @@ fn render_text_area(
         .inner(area, Some(&state.hscroll), Some(&state.vscroll));
     state.rendered = state.inner.as_size();
 
-    if let Some(h_max_offset) = widget.h_max_offset {
-        state.hscroll.set_max_offset(h_max_offset);
-    }
-    if let Some(h_overscroll) = widget.h_overscroll {
-        state.hscroll.set_overscroll_by(Some(h_overscroll));
+    if let TextWrap::Hard | TextWrap::Word(_) = state.text_wrap {
+        state.hscroll.set_max_offset(0);
+        state.hscroll.set_overscroll_by(None);
+    } else {
+        if let Some(h_max_offset) = widget.h_max_offset {
+            state.hscroll.set_max_offset(h_max_offset);
+        }
+        if let Some(h_overscroll) = widget.h_overscroll {
+            state.hscroll.set_overscroll_by(Some(h_overscroll));
+        }
     }
     state.hscroll.set_page_len(state.inner.width as usize);
+
     if let TextWrap::Hard | TextWrap::Word(_) = state.text_wrap {
+        // todo: maybe better? somehow?
         state
             .vscroll
             .set_max_offset(state.len_lines().saturating_sub(1) as usize);
