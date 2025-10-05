@@ -275,7 +275,8 @@ where
         }
 
         if let Some(emit) = self.emit.take() {
-            // todo: pos und screen_pos?
+            // self.next_pos already correct at this point.
+            // self.next_screen_pos already correct at this point.
             self.next_byte = emit.text_bytes.end;
             self.was_lf = emit.line_break;
             emit.validate();
@@ -296,27 +297,11 @@ where
                 }
             };
 
-            let (grapheme, grapheme_bytes) = grapheme.into_parts(); // todo: merge to single op
-
-            let mut glyph = Glyph2 {
-                glyph: grapheme,
-                text_bytes: grapheme_bytes,
-                screen_pos: (self.next_screen_pos.0, self.next_screen_pos.1),
-                screen_width: 0,
-                line_break: false,
-                soft_break: false,
-                hidden_break: false,
-                hidden_glyph: Cow::Borrowed(""),
-                pos: self.next_pos,
-            };
-
-            // remap grapheme
-            remap_glyph(
-                &mut glyph,
-                self.lf_breaks,
-                self.show_ctrl,
-                self.wrap_ctrl,
-                self.tabs,
+            let glyph = create_glyph(
+                self, //
+                grapheme,
+                self.next_pos,
+                self.next_screen_pos,
             );
 
             // next glyph positioning
@@ -325,6 +310,7 @@ where
                 TextWrap2::Hard => wrap_next(self, glyph),
                 TextWrap2::Word => wrap_next(self, glyph),
             };
+
             match r {
                 Continue(_) => continue,
                 Break(glyph) => return glyph,
@@ -368,27 +354,11 @@ where
             }
         };
 
-        let (grapheme, grapheme_bytes) = grapheme.into_parts();
-
-        let mut glyph = Glyph2 {
-            glyph: grapheme,
-            text_bytes: grapheme_bytes,
-            screen_pos: (next_screen_x, 0),
-            screen_width: 0,
-            line_break: false,
-            soft_break: false,
-            hidden_break: false,
-            hidden_glyph: Cow::Borrowed(""),
-            pos: next_pos,
-        };
-
-        // remap grapheme
-        remap_glyph(
-            &mut glyph,
-            glyphs.lf_breaks,
-            glyphs.show_ctrl,
-            glyphs.wrap_ctrl,
-            glyphs.tabs,
+        let glyph = create_glyph(
+            glyphs, //
+            grapheme,
+            next_pos,
+            (next_screen_x, 0),
         );
 
         // row-start seen
@@ -558,24 +528,24 @@ where
 }
 
 fn wrap_next<'a, Graphemes>(
-    iter: &mut GlyphIter2<'a, Graphemes>,
+    glyphs: &mut GlyphIter2<'a, Graphemes>,
     mut glyph: Glyph2<'a>,
 ) -> ControlFlow<Option<Glyph2<'a>>>
 where
     Graphemes: Iterator<Item = Grapheme<'a>> + SkipLine + Clone,
 {
-    let cache = &iter.cache;
+    let cache = &glyphs.cache;
 
     if glyph.line_break {
         // new-line
         assert!(cache.line_break.borrow().contains_key(&glyph.pos));
 
-        iter.next_screen_pos.0 = 0;
-        iter.next_screen_pos.1 += 1;
-        iter.next_pos.x = 0;
-        iter.next_pos.y += 1;
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_screen_pos.0 = 0;
+        glyphs.next_screen_pos.1 += 1;
+        glyphs.next_pos.x = 0;
+        glyphs.next_pos.y += 1;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
         glyph.validate();
 
@@ -583,22 +553,22 @@ where
     } else if cache.line_break.borrow().contains_key(&glyph.pos) {
         // found a line-break
 
-        iter.next_screen_pos.0 = 0;
-        iter.next_screen_pos.1 += 1;
-        iter.next_pos.x += 1;
+        glyphs.next_screen_pos.0 = 0;
+        glyphs.next_screen_pos.1 += 1;
+        glyphs.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
-        iter.emit = Some(Glyph2 {
-            glyph: if iter.wrap_ctrl {
+        glyphs.emit = Some(Glyph2 {
+            glyph: if glyphs.wrap_ctrl {
                 Cow::Borrowed("\u{21B5}")
             } else {
                 Cow::Borrowed("")
             },
             text_bytes: glyph.text_bytes.end..glyph.text_bytes.end,
             screen_pos: (glyph.screen_pos.0 + 1, glyph.screen_pos.1),
-            screen_width: if iter.wrap_ctrl { 1 } else { 0 },
+            screen_width: if glyphs.wrap_ctrl { 1 } else { 0 },
             line_break: true,
             soft_break: true,
             hidden_break: false,
@@ -615,12 +585,12 @@ where
 
         Break(Some(glyph))
     } else {
-        iter.next_screen_pos.0 += glyph.screen_width as upos_type;
+        glyphs.next_screen_pos.0 += glyph.screen_width as upos_type;
         // next_screen_pos.1 doesn't change
-        iter.next_pos.x += 1;
+        glyphs.next_pos.x += 1;
         // next_pos.1 doesn't change
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
         glyph.validate();
 
@@ -656,27 +626,11 @@ where
             }
         };
 
-        let (grapheme, grapheme_bytes) = grapheme.into_parts();
-
-        let mut glyph = Glyph2 {
-            glyph: grapheme,
-            text_bytes: grapheme_bytes,
-            screen_pos: (next_screen_x, 0),
-            screen_width: 0,
-            line_break: false,
-            soft_break: false,
-            hidden_break: false,
-            hidden_glyph: Cow::Borrowed(""),
-            pos: next_pos,
-        };
-
-        // remap grapheme
-        remap_glyph(
-            &mut glyph,
-            glyphs.lf_breaks,
-            glyphs.show_ctrl,
-            glyphs.wrap_ctrl,
-            glyphs.tabs,
+        let glyph = create_glyph(
+            glyphs, //
+            grapheme,
+            next_pos,
+            (next_screen_x, 0),
         );
 
         // row-start seen
@@ -785,27 +739,11 @@ where
             }
         };
 
-        let (grapheme, grapheme_bytes) = grapheme.into_parts();
-
-        let mut glyph = Glyph2 {
-            glyph: grapheme,
-            text_bytes: grapheme_bytes,
-            screen_pos: (0, 0),
-            screen_width: 0,
-            line_break: false,
-            soft_break: false,
-            hidden_break: false,
-            hidden_glyph: Cow::Borrowed(""),
-            pos: next_pos,
-        };
-
-        // remap grapheme
-        remap_glyph(
-            &mut glyph,
-            glyphs.lf_breaks,
-            glyphs.show_ctrl,
-            glyphs.wrap_ctrl,
-            glyphs.tabs,
+        let glyph = create_glyph(
+            glyphs, //
+            grapheme,
+            next_pos,
+            (0, 0),
         );
 
         if !glyph.line_break {
@@ -853,28 +791,28 @@ where
 }
 
 fn shift_clip_next<'a, Graphemes>(
-    iter: &mut GlyphIter2<'a, Graphemes>,
+    glyphs: &mut GlyphIter2<'a, Graphemes>,
     mut glyph: Glyph2<'a>,
 ) -> ControlFlow<Option<Glyph2<'a>>>
 where
     Graphemes: SkipLine + Iterator<Item = Grapheme<'a>> + Clone,
 {
-    let cache = &iter.cache;
+    let cache = &glyphs.cache;
 
     // Clip glyphs and correct left offset
 
     if glyph.line_break {
-        iter.next_screen_pos.0 = 0;
-        iter.next_screen_pos.1 += 1;
-        iter.next_pos.x = 0;
-        iter.next_pos.y += 1;
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_screen_pos.0 = 0;
+        glyphs.next_screen_pos.1 += 1;
+        glyphs.next_pos.x = 0;
+        glyphs.next_pos.y += 1;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
         // a line-break just beyond the right margin will end up here.
         // every other line-break will be skipped instead.
-        if glyph.screen_pos.0 <= iter.true_right_margin() + 1 {
-            glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
+        if glyph.screen_pos.0 <= glyphs.true_right_margin() + 1 {
+            glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(glyphs.left_margin);
             glyph.validate();
 
             Break(Some(glyph))
@@ -882,14 +820,14 @@ where
             // shouldn't happen with skip_line?
             unreachable!("line-break should have been skipped");
         }
-    } else if glyph.screen_pos.0 < iter.left_margin
-        && glyph.screen_pos.0 + glyph.screen_width > iter.left_margin
+    } else if glyph.screen_pos.0 < glyphs.left_margin
+        && glyph.screen_pos.0 + glyph.screen_width > glyphs.left_margin
     {
         // glyph crossing the left margin
 
         // show replacement for split glyph
         glyph.glyph = Cow::Borrowed("\u{2426}");
-        glyph.screen_width = iter.next_screen_pos.0 + glyph.screen_width - iter.left_margin;
+        glyph.screen_width = glyphs.next_screen_pos.0 + glyph.screen_width - glyphs.left_margin;
         glyph.screen_pos.0 = 0;
 
         // cache line start position.
@@ -897,121 +835,153 @@ where
             glyph.pos.y,
             LineOffsetCache {
                 pos_x: glyph.pos.x,
-                screen_pos_x: iter.next_screen_pos.0,
+                screen_pos_x: glyphs.next_screen_pos.0,
                 byte_pos: glyph.text_bytes.start,
             },
         );
 
-        iter.next_screen_pos.0 += glyph.screen_width;
+        glyphs.next_screen_pos.0 += glyph.screen_width;
         // iter.next_screen_pos.1 doesn't change
-        iter.next_pos.x += 1;
+        glyphs.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
         glyph.validate();
 
         Break(Some(glyph))
-    } else if glyph.screen_pos.0 < iter.left_margin {
+    } else if glyph.screen_pos.0 < glyphs.left_margin {
         // glyph before the left margin
 
-        iter.next_screen_pos.0 += glyph.screen_width;
+        glyphs.next_screen_pos.0 += glyph.screen_width;
         // iter.next_screen_pos.1 doesn't change
-        iter.next_pos.x += 1;
+        glyphs.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
         if let Some(cached) = cache.line_start.borrow().get(&glyph.pos.y) {
-            iter.iter.skip_to(cached.byte_pos).expect("valid-pos");
-            iter.next_pos.x = cached.pos_x;
-            iter.next_screen_pos.0 = cached.screen_pos_x;
+            glyphs.iter.skip_to(cached.byte_pos).expect("valid-pos");
+            glyphs.next_pos.x = cached.pos_x;
+            glyphs.next_screen_pos.0 = cached.screen_pos_x;
             Continue(())
         } else {
             // not yet cached. go the long way.
             Continue(())
         }
-    } else if iter.next_screen_pos.0 < iter.true_right_margin()
-        && iter.next_screen_pos.0 + glyph.screen_width as upos_type > iter.true_right_margin()
+    } else if glyphs.next_screen_pos.0 < glyphs.true_right_margin()
+        && glyphs.next_screen_pos.0 + glyph.screen_width as upos_type > glyphs.true_right_margin()
     {
         // glyph crosses the right margin
 
         // show replacement for split glyph
         glyph.glyph = Cow::Borrowed("\u{2426}");
-        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
-        glyph.screen_width = iter.next_screen_pos.0 + glyph.screen_width - iter.right_margin;
+        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(glyphs.left_margin);
+        glyph.screen_width = glyphs.next_screen_pos.0 + glyph.screen_width - glyphs.right_margin;
 
-        iter.next_screen_pos.0 += glyph.screen_width as upos_type;
+        glyphs.next_screen_pos.0 += glyph.screen_width as upos_type;
         // iter.next_screen_pos.1 doesn't change
-        iter.next_pos.x += 1;
+        glyphs.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
         glyph.validate();
 
         Break(Some(glyph))
-    } else if glyph.screen_pos.0 == iter.true_right_margin() {
+    } else if glyph.screen_pos.0 == glyphs.true_right_margin() {
         // glyph exactly at right margin
 
         // drop glyph and emit a line-break instead.
         glyph.line_break = true;
-        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
-        glyph.screen_width = if iter.wrap_ctrl { 1 } else { 0 };
-        glyph.glyph = Cow::Borrowed(if iter.wrap_ctrl { "\u{2424}" } else { "" });
-        glyph.text_bytes = iter.next_byte..iter.next_byte;
+        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(glyphs.left_margin);
+        glyph.screen_width = if glyphs.wrap_ctrl { 1 } else { 0 };
+        glyph.glyph = Cow::Borrowed(if glyphs.wrap_ctrl { "\u{2424}" } else { "" });
+        glyph.text_bytes = glyphs.next_byte..glyphs.next_byte;
 
         // still advance x, next iteration will skip the rest of the line.
-        iter.next_screen_pos.0 += 1;
+        glyphs.next_screen_pos.0 += 1;
         // iter.next_screen_pos.1 doesn't change
-        iter.next_pos.x += 1;
+        glyphs.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
         glyph.validate();
 
         Break(Some(glyph))
-    } else if glyph.screen_pos.0 > iter.true_right_margin() {
+    } else if glyph.screen_pos.0 > glyphs.true_right_margin() {
         // glyph after the right margin.
 
         // skip to next_line
-        iter.iter.skip_line().expect("fine");
+        glyphs.iter.skip_line().expect("fine");
 
         // do the line-break here.
-        iter.next_screen_pos.0 = 0;
-        iter.next_screen_pos.1 += 1;
-        iter.next_pos.x = 0;
-        iter.next_pos.y += 1;
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_screen_pos.0 = 0;
+        glyphs.next_screen_pos.1 += 1;
+        glyphs.next_pos.x = 0;
+        glyphs.next_pos.y += 1;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
         Continue(())
     } else {
-        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(iter.left_margin);
+        glyph.screen_pos.0 = glyph.screen_pos.0.saturating_sub(glyphs.left_margin);
 
         if glyph.screen_pos.0 == 0 {
             cache.line_start.borrow_mut().insert(
                 glyph.pos.y,
                 LineOffsetCache {
                     pos_x: glyph.pos.x,
-                    screen_pos_x: iter.next_screen_pos.0,
+                    screen_pos_x: glyphs.next_screen_pos.0,
                     byte_pos: glyph.text_bytes.start,
                 },
             );
         }
 
-        iter.next_screen_pos.0 += glyph.screen_width as upos_type;
+        glyphs.next_screen_pos.0 += glyph.screen_width as upos_type;
         // iter.next_screen_pos.1 doesn't change
-        iter.next_pos.x += 1;
+        glyphs.next_pos.x += 1;
         // next_pos.y doesn't change
-        iter.next_byte = glyph.text_bytes.end;
-        iter.was_lf = glyph.line_break;
+        glyphs.next_byte = glyph.text_bytes.end;
+        glyphs.was_lf = glyph.line_break;
 
         glyph.validate();
 
         Break(Some(glyph))
     }
+}
+
+#[inline(always)]
+fn create_glyph<'a, Graphemes>(
+    glyphs: &GlyphIter2<'a, Graphemes>,
+    grapheme: Grapheme<'a>,
+    pos: TextPosition,
+    screen_pos: (u32, u32),
+) -> Glyph2<'a> {
+    let (grapheme, grapheme_bytes) = grapheme.into_parts();
+
+    let mut glyph = Glyph2 {
+        glyph: grapheme,
+        text_bytes: grapheme_bytes,
+        screen_pos,
+        screen_width: 0,
+        line_break: false,
+        soft_break: false,
+        hidden_break: false,
+        hidden_glyph: Cow::Borrowed(""),
+        pos,
+    };
+
+    remap_glyph(
+        &mut glyph,
+        glyphs.lf_breaks,
+        glyphs.show_ctrl,
+        glyphs.wrap_ctrl,
+        glyphs.tabs,
+    );
+
+    glyph
 }
 
 #[inline(always)]
