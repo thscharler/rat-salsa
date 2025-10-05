@@ -2243,7 +2243,7 @@ impl TextAreaState {
                 }
 
                 debug!("scroll_to_cursor reposition");
-                // try alternate screen starting at the cursor-row.
+                // long jump. center position.
                 let alt_scr = (0, pos.y.saturating_sub(page), 3 * page);
                 self.stc_fill_screen_cache(alt_scr);
                 if let Some(alt_scr_row) = self.stc_screen_row(alt_scr, pos) {
@@ -2284,20 +2284,20 @@ impl TextAreaState {
         let range_end = TextPosition::new(0, min(y2, self.len_lines()));
 
         let mut start_pos = TextPosition::new(scr.0, scr.1);
-        let mut screen_row = 0;
+        let mut scr_row = 0;
         for (_key, cache) in line_breaks.range(range_start..range_end) {
             if pos < cache.start_pos {
-                debug!("stc_screen_row for {:?} -> {:?}", scr, screen_row);
-                return Some(screen_row);
+                debug!("stc_screen_row for {:?} -> {:?}", scr, scr_row);
+                return Some(scr_row);
             }
-            screen_row += 1;
+            scr_row += 1;
             start_pos = cache.start_pos;
         }
 
         // very last position on the very last row without a \n
         if pos == start_pos {
             debug!("stc_screen_row b for {:?} -> {:?}", scr, screen_row);
-            return Some(screen_row);
+            return Some(scr_row);
         }
 
         debug!("stc_screen_row c for {:?} -> None", scr);
@@ -2393,54 +2393,27 @@ impl TextAreaState {
                     return None;
                 }
 
-                self.fill_cache(
-                    0,
-                    sub_row_offset,
-                    oy..min(oy + self.rendered.height as upos_type, self.len_lines()),
-                )
-                .expect("valid-rows");
-
-                let (screen_y, start_pos) = 'f: {
-                    let mut screen_y = 0;
-                    let mut start_pos = TextPosition::new(sub_row_offset, oy);
-
-                    let range_start = TextPosition::new(sub_row_offset, oy);
-                    let range_end = TextPosition::new(
-                        0,
-                        min(oy + self.rendered.height as upos_type, self.len_lines()),
-                    );
-
-                    for (key, cache) in self
-                        .value
-                        .cache()
-                        .line_break
-                        .borrow()
-                        .range(range_start..range_end)
-                    {
-                        if screen_y >= self.rendered.height {
-                            return None;
-                        }
-                        if pos < cache.start_pos {
-                            break 'f (screen_y, start_pos);
-                        }
-                        screen_y += 1;
-                        start_pos = cache.start_pos;
+                let page = self.rendered.height as upos_type;
+                let scr = (sub_row_offset, oy, page);
+                self.stc_fill_screen_cache(scr);
+                let (screen_y, start_pos) = if let Some(pos_row) = self.stc_screen_row(scr, pos) {
+                    if pos_row >= page {
+                        // beyond page
+                        return None;
                     }
-
-                    // very last position on the very last row without a \n
-                    if pos == start_pos {
-                        break 'f (screen_y, start_pos);
-                    }
-
-                    unreachable!("strange position");
+                    let start_pos = self.stc_sub_row_offset(scr, pos_row);
+                    (pos_row, start_pos)
+                } else {
+                    // out of bounds
+                    return None;
                 };
 
                 let screen_x = 'f: {
                     for g in self
                         .glyphs2(
                             0,
-                            start_pos.x,
-                            start_pos.y..min(start_pos.y + 1, self.len_lines()),
+                            start_pos.0,
+                            start_pos.1..min(start_pos.1 + 1, self.len_lines()),
                         )
                         .expect("valid-row")
                     {
