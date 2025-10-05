@@ -1,6 +1,7 @@
 use crate::cache::{Cache, LineBreakCache, LineOffsetCache};
 use crate::text_store::SkipLine;
 use crate::{Grapheme, TextError, TextPosition, upos_type};
+use log::debug;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -8,7 +9,7 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::{ControlFlow, Range};
 
 /// Data for rendering/mapping graphemes to screen coordinates.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Glyph2<'a> {
     /// Display glyph.
     glyph: Cow<'a, str>,
@@ -125,6 +126,9 @@ pub(crate) struct GlyphIter2<'a, Graphemes> {
     /// Next glyph start byte position.
     next_byte: usize,
 
+    /// Last glyph was a line-break.
+    was_lf: bool,
+
     /// Glyph cache
     cache: Cache,
 
@@ -156,6 +160,7 @@ impl<'a, Graphemes> Debug for GlyphIter2<'a, Graphemes> {
             .field("next_pos", &self.next_pos)
             .field("next_screen_pos", &self.next_screen_pos)
             .field("next_byte", &self.next_byte)
+            .field("was_lf", &self.was_lf)
             .field("tabs", &self.tabs)
             .field("show_ctrl", &self.show_ctrl)
             .field("wrap_ctrl", &self.wrap_ctrl)
@@ -182,6 +187,7 @@ where
             next_pos: pos,
             next_screen_pos: (0, 0),
             next_byte: byte,
+            was_lf: true,
 
             cache,
 
@@ -246,11 +252,14 @@ where
 
     /// Build cache before running the iterator.
     pub(crate) fn prepare(&mut self) -> Result<(), TextError> {
-        match self.text_wrap {
+        debug!("glyph2 param {:?}", self);
+        let r = match self.text_wrap {
             TextWrap2::Shift => prepare_shift_clip(self),
             TextWrap2::Hard => prepare_hard_wrap(self),
             TextWrap2::Word => prepare_word_wrap(self),
-        }
+        };
+        debug!("glyph2 cache {:#?}", self.cache);
+        r
     }
 }
 
@@ -266,40 +275,28 @@ where
         }
 
         if let Some(emit) = self.emit.take() {
+            // todo: pos und screen_pos?
             self.next_byte = emit.text_bytes.end;
+            self.was_lf = emit.line_break;
             emit.validate();
             return Some(emit);
         }
 
         loop {
-            let Some(grapheme) = self.iter.next() else {
+            let grapheme = self.iter.next();
+
+            let grapheme = if let Some(grapheme) = grapheme {
+                grapheme
+            } else {
                 self.done = true;
-
-                // emit a synthetic EOT at the very end.
-                // helps if the last line doesn't end in a line-break.
-                let glyph = Glyph2 {
-                    glyph: if self.wrap_ctrl {
-                        Cow::Borrowed("\u{2403}")
-                    } else {
-                        Cow::Borrowed("")
-                    },
-                    text_bytes: self.next_byte..self.next_byte,
-                    screen_pos: (
-                        self.next_screen_pos.0.saturating_sub(self.left_margin),
-                        self.next_screen_pos.1,
-                    ),
-                    screen_width: if self.wrap_ctrl { 1 } else { 0 },
-                    line_break: true,
-                    soft_break: false,
-                    hidden_break: false,
-                    hidden_glyph: Cow::Borrowed(""),
-                    pos: self.next_pos,
-                };
-
-                return Some(glyph);
+                if self.was_lf {
+                    return None;
+                } else {
+                    Grapheme::new(Cow::Borrowed("\n"), self.next_byte..self.next_byte)
+                }
             };
 
-            let (grapheme, grapheme_bytes) = grapheme.into_parts();
+            let (grapheme, grapheme_bytes) = grapheme.into_parts(); // todo: merge to single op
 
             let mut glyph = Glyph2 {
                 glyph: grapheme,
@@ -347,29 +344,28 @@ where
     let mut next_pos = glyphs.next_pos;
     let mut next_screen_x = glyphs.next_screen_pos.0;
     let mut next_byte = glyphs.next_byte;
-    // Last space seen
-    let mut space_pos = None;
+    let mut was_lf = true;
+
+    // Last space seen.
+    let mut space_pos: Option<TextPosition> = None;
     let mut space_screen_x = None;
     let mut space_byte = None;
-    let mut zero_row = None;
-    loop {
-        let Some(grapheme) = iter.next() else {
-            // did the last line end with a \n?
-            // is this dead on arrival?
-            if next_pos.x != 0 {
-                cache.line_break.borrow_mut().insert(
-                    next_pos,
-                    LineBreakCache {
-                        start_pos: TextPosition::new(0, next_pos.y + 1),
-                        byte_pos: next_byte,
-                    },
-                );
-                if Some(next_pos.y) == zero_row {
-                    cache.full_line_break.borrow_mut().insert(next_pos.y);
-                }
-            }
 
-            break;
+    // Col 0 has been seen.
+    let mut see_zero_col = None;
+
+    loop {
+        let grapheme = iter.next();
+        debug!("*glyph2 prepare word {:?}", grapheme);
+        let grapheme = if let Some(grapheme) = grapheme {
+            grapheme
+        } else {
+            if was_lf {
+                break;
+            } else {
+                debug!("glyph2 auto-nl {}", next_byte);
+                Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
+            }
         };
 
         let (grapheme, grapheme_bytes) = grapheme.into_parts();
@@ -397,33 +393,44 @@ where
 
         // row-start seen
         if glyph.pos.x == 0 {
-            zero_row = Some(glyph.pos.y);
+            see_zero_col = Some(glyph.pos.y);
         }
 
         // Is the current row already cached?
         // Guard: Do nothing for empty rows.
-        if !glyph.line_break && cache.full_line_break.borrow().contains(&glyph.pos.y) {
-            iter.skip_line()?;
+        if !glyph.line_break {
+            if let Some(lb) = cache.full_line_break.borrow().get(&glyph.pos.y) {
+                debug!("glyph2 reuse break {:?} {:?}", glyph.pos, lb);
 
-            next_screen_x = 0;
-            next_pos.x = 0;
-            next_pos.y += 1;
-            next_byte = 0;
-            (space_pos, space_screen_x, space_byte) = (None, None, None);
-            zero_row = None;
+                iter.skip_line()?;
 
-            continue;
+                next_screen_x = 0;
+                next_pos.x = 0;
+                next_pos.y += 1;
+                next_byte = lb.byte_pos;
+                was_lf = true;
+                (space_pos, space_screen_x, space_byte) = (None, None, None);
+                see_zero_col = None;
+
+                continue;
+            }
         }
 
-        // do line-break
         if glyph.line_break {
-            // \n found
-
             next_screen_x = 0;
             next_pos.x = 0;
             next_pos.y += 1;
             next_byte = glyph.text_bytes.end;
+            was_lf = true;
 
+            debug!(
+                "insert cache a {:?} {:?}",
+                glyph.pos,
+                LineBreakCache {
+                    start_pos: next_pos,
+                    byte_pos: glyph.text_bytes.end,
+                }
+            );
             // caching
             cache.line_break.borrow_mut().insert(
                 glyph.pos,
@@ -432,8 +439,16 @@ where
                     byte_pos: glyph.text_bytes.end,
                 },
             );
-            if Some(glyph.pos.y) == zero_row {
-                cache.full_line_break.borrow_mut().insert(glyph.pos.y);
+            if Some(glyph.pos.y) == see_zero_col {
+                cache.full_line_break.borrow_mut().insert(
+                    glyph.pos.y,
+                    LineBreakCache {
+                        start_pos: next_pos,
+                        byte_pos: glyph.text_bytes.end,
+                    },
+                );
+            } else {
+                cache.full_line_break.borrow_mut().remove(&glyph.pos.y);
             }
 
             (space_pos, space_screen_x, space_byte) = (None, None, None);
@@ -446,7 +461,16 @@ where
             next_pos.x += 1;
             // next_pos.y doesn't change
             next_byte = glyph.text_bytes.end;
+            was_lf = false;
 
+            debug!(
+                "insert cache b {:?} {:?}",
+                glyph.pos,
+                LineBreakCache {
+                    start_pos: next_pos,
+                    byte_pos: glyph.text_bytes.end,
+                }
+            );
             // caching
             cache.line_break.borrow_mut().insert(
                 glyph.pos,
@@ -467,7 +491,16 @@ where
                 next_pos.x += 1;
                 // next_pos.y doesn't change
                 next_byte = glyph.text_bytes.end;
+                was_lf = false;
 
+                debug!(
+                    "insert cache c {:?} {:?}",
+                    space_pos,
+                    LineBreakCache {
+                        start_pos: TextPosition::new(space_pos.x + 1, space_pos.y),
+                        byte_pos: space_byte,
+                    }
+                );
                 // caching
                 cache.line_break.borrow_mut().insert(
                     space_pos,
@@ -484,7 +517,16 @@ where
                 next_pos.x += 1;
                 // next_pos.y doesn't change
                 next_byte = glyph.text_bytes.end;
+                was_lf = false;
 
+                debug!(
+                    "insert cache d {:?} {:?}",
+                    glyph.pos,
+                    LineBreakCache {
+                        start_pos: next_pos,
+                        byte_pos: glyph.text_bytes.start,
+                    },
+                );
                 // caching
                 cache.line_break.borrow_mut().insert(
                     glyph.pos,
@@ -502,6 +544,7 @@ where
             next_pos.x += 1;
             // next_pos.1 doesn't change
             next_byte = glyph.text_bytes.end;
+            was_lf = false;
 
             if glyph.glyph == " " || glyph.glyph == "-" || glyph.hidden_break {
                 space_pos = Some(glyph.pos);
@@ -532,6 +575,7 @@ where
         iter.next_pos.x = 0;
         iter.next_pos.y += 1;
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         glyph.validate();
 
@@ -544,6 +588,7 @@ where
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         iter.emit = Some(Glyph2 {
             glyph: if iter.wrap_ctrl {
@@ -575,6 +620,7 @@ where
         iter.next_pos.x += 1;
         // next_pos.1 doesn't change
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         glyph.validate();
 
@@ -593,25 +639,21 @@ where
     let mut next_pos = glyphs.next_pos;
     let mut next_screen_x = glyphs.next_screen_pos.0;
     let mut next_byte = glyphs.next_byte;
-    let mut zero_row = None;
-    loop {
-        let Some(grapheme) = iter.next() else {
-            // did the last line end with a \n?
-            if next_pos.x != 0 {
-                // caching
-                cache.line_break.borrow_mut().insert(
-                    next_pos,
-                    LineBreakCache {
-                        start_pos: TextPosition::new(0, next_pos.y + 1),
-                        byte_pos: next_byte,
-                    },
-                );
-                if Some(next_pos.y) == zero_row {
-                    cache.full_line_break.borrow_mut().insert(next_pos.y);
-                }
-            }
+    let mut was_lf = true;
 
-            break;
+    // Col 0 has been seen.
+    let mut see_zero_col = None;
+
+    loop {
+        let grapheme = iter.next();
+        let grapheme = if let Some(grapheme) = grapheme {
+            grapheme
+        } else {
+            if was_lf {
+                break;
+            } else {
+                Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
+            }
         };
 
         let (grapheme, grapheme_bytes) = grapheme.into_parts();
@@ -639,31 +681,32 @@ where
 
         // row-start seen
         if glyph.pos.x == 0 {
-            zero_row = Some(glyph.pos.y);
+            see_zero_col = Some(glyph.pos.y);
         }
 
         // Is the current row already cached?
         // Guard: Do nothing for empty rows.
-        if !glyph.line_break && cache.full_line_break.borrow().contains(&glyph.pos.y) {
-            iter.skip_line()?;
+        if !glyph.line_break {
+            if let Some(lb) = cache.full_line_break.borrow().get(&glyph.pos.y) {
+                iter.skip_line()?;
 
-            next_screen_x = 0;
-            next_pos.x = 0;
-            next_pos.y += 1;
-            next_byte = 0; //todo
-            zero_row = None;
+                next_screen_x = 0;
+                next_pos.x = 0;
+                next_pos.y += 1;
+                next_byte = lb.byte_pos;
+                was_lf = true;
+                see_zero_col = None;
 
-            continue;
+                continue;
+            }
         }
 
-        // do line-break
         if glyph.line_break {
-            // \n found
-
             next_screen_x = 0;
             next_pos.x = 0;
             next_pos.y += 1;
             next_byte = glyph.text_bytes.end;
+            was_lf = true;
 
             // caching
             cache.line_break.borrow_mut().insert(
@@ -673,8 +716,16 @@ where
                     byte_pos: glyph.text_bytes.end,
                 },
             );
-            if Some(glyph.pos.y) == zero_row {
-                cache.full_line_break.borrow_mut().insert(glyph.pos.y);
+            if Some(glyph.pos.y) == see_zero_col {
+                cache.full_line_break.borrow_mut().insert(
+                    glyph.pos.y,
+                    LineBreakCache {
+                        start_pos: next_pos,
+                        byte_pos: glyph.text_bytes.end,
+                    },
+                );
+            } else {
+                cache.full_line_break.borrow_mut().remove(&glyph.pos.y);
             }
         } else if glyph.screen_pos.0 + glyph.screen_width >= glyphs.true_right_margin() {
             // break before glyph
@@ -684,6 +735,7 @@ where
             next_pos.x += 1;
             // next_pos.y doesn't change
             next_byte = glyph.text_bytes.end;
+            was_lf = false;
 
             // caching
             cache.line_break.borrow_mut().insert(
@@ -699,6 +751,7 @@ where
             next_pos.x += 1;
             // next_pos.1 doesn't change
             next_byte = glyph.text_bytes.end;
+            was_lf = false;
         }
     }
 
@@ -717,62 +770,82 @@ where
     // Next glyph position.
     let mut next_pos = glyphs.next_pos;
     let mut next_byte = glyphs.next_byte;
+    let mut was_lf = true;
 
     // fill in missing line-break data.
     loop {
-        let Some(grapheme) = iter.next() else {
-            // Last line can end without \n
-            if next_pos.x != 0 {
-                let pos = next_pos;
-
-                cache.full_line_break.borrow_mut().insert(pos.y);
-                cache.line_break.borrow_mut().insert(
-                    pos,
-                    LineBreakCache {
-                        start_pos: TextPosition::new(0, next_pos.y + 1),
-                        byte_pos: next_byte,
-                    },
-                );
-            }
-
-            break;
-        };
-
-        let pos = next_pos;
-        let line_break = if grapheme == "\n" || grapheme == "\r\n" {
-            glyphs.lf_breaks
+        let grapheme = iter.next();
+        let grapheme = if let Some(grapheme) = grapheme {
+            grapheme
         } else {
-            false
+            if was_lf {
+                break;
+            } else {
+                Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
+            }
         };
 
-        if !line_break && cache.full_line_break.borrow().contains(&next_pos.y) {
-            next_pos.x = 0;
-            next_pos.y += 1;
-            next_byte = 0;
+        let (grapheme, grapheme_bytes) = grapheme.into_parts();
 
-            // skip to next_line
-            iter.skip_line().expect("fine");
+        let mut glyph = Glyph2 {
+            glyph: grapheme,
+            text_bytes: grapheme_bytes,
+            screen_pos: (0, 0),
+            screen_width: 0,
+            line_break: false,
+            soft_break: false,
+            hidden_break: false,
+            hidden_glyph: Cow::Borrowed(""),
+            pos: next_pos,
+        };
 
-            continue;
+        // remap grapheme
+        remap_glyph(
+            &mut glyph,
+            glyphs.lf_breaks,
+            glyphs.show_ctrl,
+            glyphs.wrap_ctrl,
+            glyphs.tabs,
+        );
+
+        if !glyph.line_break {
+            if let Some(lb) = cache.full_line_break.borrow().get(&next_pos.y) {
+                iter.skip_line()?;
+
+                next_pos.x = 0;
+                next_pos.y += 1;
+                next_byte = lb.byte_pos;
+                was_lf = true;
+
+                continue;
+            }
         }
 
-        if line_break {
+        if glyph.line_break {
             next_pos.x = 0;
             next_pos.y += 1;
-            next_byte = grapheme.text_bytes().end;
+            next_byte = glyph.text_bytes.end;
+            was_lf = true;
 
-            cache.full_line_break.borrow_mut().insert(pos.y);
             cache.line_break.borrow_mut().insert(
-                pos,
+                glyph.pos,
                 LineBreakCache {
                     start_pos: next_pos,
-                    byte_pos: grapheme.text_bytes().end,
+                    byte_pos: glyph.text_bytes.end,
+                },
+            );
+            cache.full_line_break.borrow_mut().insert(
+                glyph.pos.y,
+                LineBreakCache {
+                    start_pos: next_pos,
+                    byte_pos: glyph.text_bytes.end,
                 },
             );
         } else {
             next_pos.x += 1;
             // iter.next_pos.y doesn't change.
-            next_byte = grapheme.text_bytes().end;
+            next_byte = glyph.text_bytes.end;
+            was_lf = false;
         }
     }
 
@@ -796,6 +869,7 @@ where
         iter.next_pos.x = 0;
         iter.next_pos.y += 1;
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         // a line-break just beyond the right margin will end up here.
         // every other line-break will be skipped instead.
@@ -833,6 +907,7 @@ where
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         glyph.validate();
 
@@ -845,6 +920,7 @@ where
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         if let Some(cached) = cache.line_start.borrow().get(&glyph.pos.y) {
             iter.iter.skip_to(cached.byte_pos).expect("valid-pos");
@@ -870,6 +946,7 @@ where
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         glyph.validate();
 
@@ -890,6 +967,7 @@ where
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         glyph.validate();
 
@@ -906,6 +984,7 @@ where
         iter.next_pos.x = 0;
         iter.next_pos.y += 1;
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         Continue(())
     } else {
@@ -927,6 +1006,7 @@ where
         iter.next_pos.x += 1;
         // next_pos.y doesn't change
         iter.next_byte = glyph.text_bytes.end;
+        iter.was_lf = glyph.line_break;
 
         glyph.validate();
 
@@ -934,6 +1014,7 @@ where
     }
 }
 
+#[inline(always)]
 fn remap_glyph(
     glyph: &mut Glyph2<'_>,
     lf_breaks: bool,
@@ -941,6 +1022,7 @@ fn remap_glyph(
     wrap_ctrl: bool,
     tabs: upos_type,
 ) {
+    // todo: unicode line breaks
     if glyph.glyph == "\n" || glyph.glyph == "\r\n" {
         if lf_breaks {
             glyph.line_break = true;
@@ -1003,232 +1085,958 @@ fn remap_glyph(
 #[cfg(test)]
 mod test_glyph {
     use crate::TextPosition;
-    use crate::glyph::GlyphIter;
+    use crate::cache::{Cache, LineBreakCache};
+    use crate::glyph2::{Glyph2, GlyphIter2, TextWrap2};
     use crate::grapheme::RopeGraphemes;
     use ropey::Rope;
+    use std::borrow::Cow;
 
     #[test]
-    fn test_glyph1() {
-        let s = Rope::from(
-            r#"0123456789
-abcdefghij
-jklöjklöjk
-uiopü+uiop"#,
-        );
+    fn test_word_0() {
+        let s = Rope::from("");
         let r = RopeGraphemes::new(0, s.byte_slice(..));
-        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
+        let cc = Cache::default();
 
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "0");
-        assert_eq!(n.text_bytes(), 0..1);
-        assert_eq!(n.screen_pos(), (0, 0));
-        assert_eq!(n.pos(), TextPosition::new(0, 0));
-        assert_eq!(n.screen_width(), 1);
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "1");
-        assert_eq!(n.text_bytes(), 1..2);
-        assert_eq!(n.screen_pos(), (1, 0));
-        assert_eq!(n.pos(), TextPosition::new(1, 0));
-        assert_eq!(n.screen_width(), 1);
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "2");
-        assert_eq!(n.text_bytes(), 2..3);
-        assert_eq!(n.screen_pos(), (2, 0));
-        assert_eq!(n.pos(), TextPosition::new(2, 0));
-        assert_eq!(n.screen_width(), 1);
-
-        let n = glyphs.nth(7).unwrap();
-        assert_eq!(n.glyph(), "");
-        assert_eq!(n.text_bytes(), 10..11);
-        assert_eq!(n.screen_pos(), (10, 0));
-        assert_eq!(n.pos(), TextPosition::new(10, 0));
-        assert_eq!(n.screen_width(), 0);
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "a");
-        assert_eq!(n.text_bytes(), 11..12);
-        assert_eq!(n.screen_pos(), (0, 1));
-        assert_eq!(n.pos(), TextPosition::new(0, 1));
-        assert_eq!(n.screen_width(), 1);
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Word);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert!(
+            cc.line_break
+                .borrow()
+                .contains_key(&TextPosition::new(0, 0))
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 0..0,
+                screen_pos: (0, 0),
+                screen_width: 0,
+                pos: TextPosition::new(0, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
     }
 
     #[test]
-    fn test_glyph2() {
-        // screen offset
-        let s = Rope::from(
-            r#"0123456789
-abcdefghij
-jklöjklöjk
-uiopü+uiop"#,
-        );
+    fn test_word_1() {
+        let s = Rope::from("X");
         let r = RopeGraphemes::new(0, s.byte_slice(..));
-        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
-        glyphs.set_screen_offset(2);
-        glyphs.set_screen_width(100);
+        let cc = Cache::default();
 
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "2");
-        assert_eq!(n.text_bytes(), 2..3);
-        assert_eq!(n.screen_pos(), (0, 0));
-        assert_eq!(n.pos(), TextPosition::new(2, 0));
-        assert_eq!(n.screen_width(), 1);
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "3");
-        assert_eq!(n.text_bytes(), 3..4);
-        assert_eq!(n.screen_pos(), (1, 0));
-        assert_eq!(n.pos(), TextPosition::new(3, 0));
-        assert_eq!(n.screen_width(), 1);
-
-        let n = glyphs.nth(6).unwrap();
-        assert_eq!(n.glyph(), "");
-        assert_eq!(n.text_bytes(), 10..11);
-        assert_eq!(n.screen_pos(), (8, 0));
-        assert_eq!(n.pos(), TextPosition::new(10, 0));
-        assert_eq!(n.screen_width(), 0);
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "c");
-        assert_eq!(n.text_bytes(), 13..14);
-        assert_eq!(n.screen_pos(), (0, 1));
-        assert_eq!(n.pos(), TextPosition::new(2, 1));
-        assert_eq!(n.screen_width(), 1);
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Word);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 1
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..1,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
     }
 
     #[test]
-    fn test_glyph3() {
-        // screen offset + width
-        let s = Rope::from(
-            r#"0123456789
-abcdefghij
-jklöjklöjk
-uiopü+uiop"#,
-        );
+    fn test_word_2() {
+        let s = Rope::from("X\n");
         let r = RopeGraphemes::new(0, s.byte_slice(..));
-        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
-        glyphs.set_screen_offset(2);
-        glyphs.set_screen_width(6);
+        let cc = Cache::default();
 
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "2");
-        assert_eq!(n.text_bytes(), 2..3);
-        assert_eq!(n.screen_pos(), (0, 0));
-        assert_eq!(n.pos(), TextPosition::new(2, 0));
-        assert_eq!(n.screen_width(), 1);
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "3");
-        assert_eq!(n.text_bytes(), 3..4);
-        assert_eq!(n.screen_pos(), (1, 0));
-        assert_eq!(n.pos(), TextPosition::new(3, 0));
-        assert_eq!(n.screen_width(), 1);
-
-        let n = glyphs.nth(2).unwrap();
-        assert_eq!(n.glyph(), "6");
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "7");
-        assert_eq!(n.text_bytes(), 7..8);
-        assert_eq!(n.screen_pos(), (5, 0));
-        assert_eq!(n.pos(), TextPosition::new(7, 0));
-        assert_eq!(n.screen_width(), 1);
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "c");
-        assert_eq!(n.text_bytes(), 13..14);
-        assert_eq!(n.screen_pos(), (0, 1));
-        assert_eq!(n.pos(), TextPosition::new(2, 1));
-        assert_eq!(n.screen_width(), 1);
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Word);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 2
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..2,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
     }
 
     #[test]
-    fn test_glyph4() {
-        // tabs
-        let s = Rope::from(
-            "012\t3456789
-abcdefghij
-jklöjklöjk
-uiopü+uiop",
-        );
+    fn test_word_3() {
+        let s = Rope::from("X\nY");
         let r = RopeGraphemes::new(0, s.byte_slice(..));
-        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
-        glyphs.set_screen_offset(2);
-        glyphs.set_screen_width(100);
+        let cc = Cache::default();
 
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "2");
-        assert_eq!(n.text_bytes(), 2..3);
-        assert_eq!(n.screen_pos(), (0, 0));
-        assert_eq!(n.pos(), TextPosition::new(2, 0));
-        assert_eq!(n.screen_width(), 1);
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), " ");
-        assert_eq!(n.text_bytes(), 3..4);
-        assert_eq!(n.screen_pos(), (1, 0));
-        assert_eq!(n.pos(), TextPosition::new(3, 0));
-        assert_eq!(n.screen_width(), 5);
-
-        let n = glyphs.nth(7).unwrap();
-        assert_eq!(n.glyph(), "");
-        assert_eq!(n.text_bytes(), 11..12);
-        assert_eq!(n.screen_pos(), (13, 0));
-        assert_eq!(n.pos(), TextPosition::new(11, 0));
-        assert_eq!(n.screen_width(), 0);
-
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "c");
-        assert_eq!(n.text_bytes(), 14..15);
-        assert_eq!(n.screen_pos(), (0, 1));
-        assert_eq!(n.pos(), TextPosition::new(2, 1));
-        assert_eq!(n.screen_width(), 1);
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Word);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 2
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 1)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 2),
+                byte_pos: 3
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..2,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("Y"),
+                text_bytes: 2..3,
+                screen_pos: (0, 1),
+                screen_width: 1,
+                pos: TextPosition::new(0, 1),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 3..3,
+                screen_pos: (1, 1),
+                screen_width: 0,
+                pos: TextPosition::new(1, 1),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
     }
 
     #[test]
-    fn test_glyph5() {
-        // clipping wide
-        let s = Rope::from(
-            "0\t12345678\t9
-abcdefghij
-jklöjklöjk
-uiopü+uiop",
-        );
+    fn test_word_4() {
+        let s = Rope::from("X\nY\n");
         let r = RopeGraphemes::new(0, s.byte_slice(..));
-        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
-        glyphs.set_screen_offset(2);
-        glyphs.set_screen_width(20);
+        let cc = Cache::default();
 
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "∃");
-        assert_eq!(n.text_bytes(), 1..2);
-        assert_eq!(n.screen_pos(), (0, 0));
-        assert_eq!(n.pos(), TextPosition::new(1, 0));
-        assert_eq!(n.screen_width(), 6);
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Word);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 2
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 1)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 2),
+                byte_pos: 4
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..2,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("Y"),
+                text_bytes: 2..3,
+                screen_pos: (0, 1),
+                screen_width: 1,
+                pos: TextPosition::new(0, 1),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 3..4,
+                screen_pos: (1, 1),
+                screen_width: 0,
+                pos: TextPosition::new(1, 1),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
 
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "1");
-        assert_eq!(n.text_bytes(), 2..3);
-        assert_eq!(n.screen_pos(), (6, 0));
-        assert_eq!(n.pos(), TextPosition::new(2, 0));
-        assert_eq!(n.screen_width(), 1);
+    #[test]
+    fn test_hard_0() {
+        let s = Rope::from("");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
 
-        let n = glyphs.nth(6).unwrap();
-        assert_eq!(n.glyph(), "8");
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Hard);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert!(
+            cc.line_break
+                .borrow()
+                .contains_key(&TextPosition::new(0, 0))
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 0..0,
+                screen_pos: (0, 0),
+                screen_width: 0,
+                pos: TextPosition::new(0, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
 
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "∃");
-        assert_eq!(n.text_bytes(), 10..11);
-        assert_eq!(n.screen_pos(), (14, 0));
-        assert_eq!(n.pos(), TextPosition::new(10, 0));
-        assert_eq!(n.screen_width(), 2);
+    #[test]
+    fn test_hard_1() {
+        let s = Rope::from("X");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
 
-        let n = glyphs.next().unwrap();
-        assert_eq!(n.glyph(), "c");
-        assert_eq!(n.text_bytes(), 15..16);
-        assert_eq!(n.screen_pos(), (0, 1));
-        assert_eq!(n.pos(), TextPosition::new(2, 1));
-        assert_eq!(n.screen_width(), 1);
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Word);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 1
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..1,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
+
+    #[test]
+    fn test_hard_2() {
+        let s = Rope::from("X\n");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
+
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Word);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 2
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..2,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
+
+    #[test]
+    fn test_hard_3() {
+        let s = Rope::from("X\nY");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
+
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Hard);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 2
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 1)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 2),
+                byte_pos: 3
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..2,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("Y"),
+                text_bytes: 2..3,
+                screen_pos: (0, 1),
+                screen_width: 1,
+                pos: TextPosition::new(0, 1),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 3..3,
+                screen_pos: (1, 1),
+                screen_width: 0,
+                pos: TextPosition::new(1, 1),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
+
+    #[test]
+    fn test_hard_4() {
+        let s = Rope::from("X\nY\n");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
+
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Hard);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 2
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 1)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 2),
+                byte_pos: 4
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..2,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("Y"),
+                text_bytes: 2..3,
+                screen_pos: (0, 1),
+                screen_width: 1,
+                pos: TextPosition::new(0, 1),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 3..4,
+                screen_pos: (1, 1),
+                screen_width: 0,
+                pos: TextPosition::new(1, 1),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
+
+    #[test]
+    fn test_shift_0() {
+        let s = Rope::from("");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
+
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Shift);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        dbg!(&cc);
+        assert!(
+            cc.line_break
+                .borrow()
+                .contains_key(&TextPosition::new(0, 0))
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 0..0,
+                screen_pos: (0, 0),
+                screen_width: 0,
+                pos: TextPosition::new(0, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
+
+    #[test]
+    fn test_shift_1() {
+        let s = Rope::from("X");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
+
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Shift);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        dbg!(&cc);
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 1
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..1,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
+
+    #[test]
+    fn test_shift_2() {
+        let s = Rope::from("X\n");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
+
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Shift);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        dbg!(&cc);
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 2
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..2,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
+
+    #[test]
+    fn test_shift_3() {
+        let s = Rope::from("X\nY");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
+
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Shift);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        dbg!(&cc);
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 2
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 1)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 2),
+                byte_pos: 3
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..2,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("Y"),
+                text_bytes: 2..3,
+                screen_pos: (0, 1),
+                screen_width: 1,
+                pos: TextPosition::new(0, 1),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 3..3,
+                screen_pos: (1, 1),
+                screen_width: 0,
+                pos: TextPosition::new(1, 1),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
+    }
+
+    #[test]
+    fn test_shift_4() {
+        let s = Rope::from("X\nY\n");
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let cc = Cache::default();
+
+        let mut glyphs = GlyphIter2::new(TextPosition::new(0, 0), 0, r, cc.clone());
+        glyphs.set_lf_breaks(true);
+        glyphs.set_text_wrap(TextWrap2::Shift);
+        glyphs.set_left_margin(0);
+        glyphs.set_right_margin(70);
+        glyphs.set_word_margin(68);
+        glyphs.prepare().unwrap();
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 0)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 1),
+                byte_pos: 2
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            cc.line_break.borrow().get(&TextPosition::new(1, 1)),
+            Some(LineBreakCache {
+                start_pos: TextPosition::new(0, 2),
+                byte_pos: 4
+            })
+            .as_ref()
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("X"),
+                text_bytes: 0..1,
+                screen_pos: (0, 0),
+                screen_width: 1,
+                pos: TextPosition::new(0, 0),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 1..2,
+                screen_pos: (1, 0),
+                screen_width: 0,
+                pos: TextPosition::new(1, 0),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed("Y"),
+                text_bytes: 2..3,
+                screen_pos: (0, 1),
+                screen_width: 1,
+                pos: TextPosition::new(0, 1),
+                line_break: false,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(
+            glyphs.next(),
+            Some(Glyph2 {
+                glyph: Cow::Borrowed(""),
+                text_bytes: 3..4,
+                screen_pos: (1, 1),
+                screen_width: 0,
+                pos: TextPosition::new(1, 1),
+                line_break: true,
+                soft_break: false,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+            })
+        );
+        assert_eq!(glyphs.next(), None);
     }
 }
