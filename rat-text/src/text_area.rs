@@ -494,12 +494,6 @@ fn render_text_area(
             break;
         }
 
-        // ignore synthetic glyphs used for wrapping.
-        // if g.pos() == state.cursor() && !g.soft_break() {
-        //     debug!("found screen_cursor {:?}", g.screen_pos());
-        //     screen_cursor = Some(g.screen_pos());
-        // }
-
         if g.screen_width() > 0 {
             let mut style = style;
             // text-styles
@@ -2482,7 +2476,7 @@ impl TextAreaState {
                         }
                         start_pos = g.pos();
                     }
-                    None
+                    Some(start_pos)
                 }
             }
             TextWrap::Hard | TextWrap::Word(_) => {

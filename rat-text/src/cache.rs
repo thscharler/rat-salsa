@@ -1,11 +1,9 @@
 use crate::glyph2::TextWrap2;
 use crate::{TextPosition, TextRange, upos_type};
 #[cfg(not(debug_assertions))]
-use fxhash::FxBuildHasher;
+use rustc_hash::FxBuildHasher;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
-#[cfg(debug_assertions)]
-use std::collections::BTreeSet;
 #[cfg(not(debug_assertions))]
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -16,11 +14,6 @@ use std::rc::Rc;
 type Map<K, V> = HashMap<K, V, FxBuildHasher>;
 #[cfg(debug_assertions)]
 type Map<K, V> = BTreeMap<K, V>;
-
-#[cfg(not(debug_assertions))]
-type Set<K> = HashSet<K, FxBuildHasher>;
-#[cfg(debug_assertions)]
-type Set<K> = BTreeSet<K>;
 
 /// Glyph cache.
 #[derive(Debug, Clone, Default)]

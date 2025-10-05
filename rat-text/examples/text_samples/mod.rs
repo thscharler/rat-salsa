@@ -1,6 +1,6 @@
 use lipsum::lipsum;
-use rat_text::text_area::TextAreaState;
 use rat_text::TextRange;
+use rat_text::text_area::TextAreaState;
 use ropey::{Rope, RopeBuilder};
 use std::ops::Range;
 
@@ -50,6 +50,325 @@ pub fn sample_scott_1() -> (Rope, Vec<(TextRange, usize)>) {
 #[allow(unused)]
 pub fn sample_bosworth_1() -> (Rope, Vec<(TextRange, usize)>) {
     (Rope::from_str(BOSWORTH), Vec::new())
+}
+
+#[allow(unused)]
+pub fn sample_irish() -> (Rope, Vec<(TextRange, usize)>) {
+    (
+        Rope::from_str(
+            r#"The January 1908 Irish representative peer election was held to
+fill a vacancy among the 28 Irish representative peers at that
+time elected to the British House of Lords. Conducted by post,
+with ballots sent to the 134 holders of Irish peerages eligible
+to vote, the election was necessitated by the death of __Francis
+Browne__, _4th Baron Kilmaine_. It resulted in the election
+of Lord Curzon, the former viceroy of India. Curzon narrowly
+defeated Frederick Trench, 3rd Baron Ashtown, and Arthur Maxwell,
+11th Baron Farnham. ~CCurzon's eligibility for election was
+questioned, but the House of Lords seated him.~C
+
+Curzon was an Englishman who had been granted an Irish peerage to
+give him a title before beginning his position as viceroy; he had
+never been to Ireland and owned no property there. He contested
+the election as a means of returning to parliament after being
+denied a United Kingdom peerage by the prime minister, Sir Henry
+Campbell-Bannerman. The fact that Curzon was not Irish sparked
+opposition, and his late entry into the race worked against him.
+As he had never asked the House of Lords to affirm his right to
+vote in Irish representative peer elections, something required
+to vote in them, some argued that this made him ineligible to
+be elected.
+
+Curzon headed the poll with two votes more than Ashtown, who had
+two votes more than Farnham, but the official return noted that
+Curzon was not among those eligible to vote and that Ashtown
+had gained the most votes among those eligible to vote. When
+the House of Lords convened, the Lord Chancellor, Lord Loreburn,
+ruled that the requirement did not apply to candidates and
+declared Curzon the winner.
+
+Ashtown and Farnham tied in the next election, in November 1908.
+Ashtown won the election when his name was drawn from a glass
+before the House of Lords, the procedure mandated by the Acts of
+Union 1800, but Farnham was chosen to fill the next vacancy, also
+in 1908.
+
+Background Further information: Peerage of Ireland The Acts
+of Union 1800, by which Great Britain and Ireland merged into
+one kingdom, terminated the old House of Lords of Ireland but
+provided for Irish representation in the House of Lords of the
+United Kingdom.[1] Elected at that time were 28 members of the
+Irish peerage who (at the time of their election to the House of
+Lords) were not also peers of the United Kingdom. These served
+for life as Irish representative peers. As the representative
+peers died, they were replaced by a vote of the entire Irish
+peerage, including those lords who also held a United Kingdom
+title.[2] This was a small constituency—in 1800, there were 239
+Irish peers, a figure which gradually decreased to 182 by 1883.[
+3]
+
+By the early 20th century, the House of Lords of the United
+Kingdom, one house of the Parliament of the United Kingdom,
+consisted mainly of several hundred hereditary peers,[a]
+ along with 28 Irish representative peers and certain others,
+such as some Anglican archbishops and bishops.[5][6] An Irish
+representative peer could not resign once elected, nor would
+promotion to a peerage of the United Kingdom end his tenure as
+a representative peer; only death or disqualification to sit in
+parliament, including bankruptcy, would vacate his place.[7][8]
+ As of December 1909, there were 65 Irish peers with no seat in
+the House of Lords.[9]
+
+The law provided that upon receiving the death certificate for
+an Irish representative peer (signed by two lords temporal of
+the House of Lords), the lord chancellor would instruct the lord
+chancellor of Ireland to have the clerk of the crown and hanaper
+conduct an election. Each of the eligible voters would receive
+a ballot in duplicate by post with a space for the name of the
+peer whom the voter desired to elect. The ballot was to be signed
+with the voter's seal affixed and returned to the Crown Office
+in Dublin[7] within 30 days[b] from the date of the issuance of
+the writ. Before filling out the ballot, the voter had to appear
+before a judge of England or Ireland, a justice of the peace
+for any Irish borough or county, or, if abroad, an ambassador or
+secretary of an embassy, and take the oath of allegiance. This
+made it inconvenient for Irish peers to vote, and some did not.[
+12]
+
+Elections for Irish representative peers lapsed with the Irish
+Free State's establishment in 1922. Although the existing Irish
+representative peers retained their seats for life, there was
+no longer a lord chancellor of Ireland or a hanaper to conduct
+elections. Still, the lord chancellor in London continued to
+receive documents asserting the right to vote in elections for
+Irish representative peer, and, following the death of the last
+surviving Irish representative peer, Lord Kilmorey in 1961,
+Irish peers petitioned the House of Lords for a declaration that
+they still had the right to elect 28 representatives. This was
+denied; one member of the Committee for Privileges declared that
+the right had ended when the Irish Free State left the United
+Kingdom, another stated that the end of the offices of lord
+chancellor for Ireland and hanaper meant no election could take
+place. The provisions regarding Irish representative peers were
+removed from the statute book by the Statute Law (Repeals) Act
+1971.[13]
+
+Candidates and campaign On 9 November 1907, Francis Browne, 4th
+Baron Kilmaine, an Irish representative peer since 1890, died in
+Paris.[14] Writs were subsequently issued in the election for a
+successor as representative peer,[15] returnable 20 January 1908.
+[16] The press mentioned Ivo Bligh, 8th Earl of Darnley (who had
+already been elected an Irish representative peer in 1905 and
+thus had no need to stand) and John Bingham, 5th Baron Clanmorris
+as possible successors.[17][18] 134 ballots were sent to eligible
+peers.[19]
+
+In the newspapers of 30 December 1907, it was announced that
+Lord Curzon, the former viceroy of India, would seek the
+office, and had sent letters to the Irish peers asking for their
+votes.[20] The former MP for Southport,[21] Curzon had been
+granted a peerage because it was thought that the viceroy and
+representative of Queen Victoria, the empress of India, should be
+a peer, and so he had in 1898 accepted the first Irish peerage to
+be created since 1868 (and, as it proved, the last ever created).
+[22][23] This gave the new viceroy a lordly title as he took up
+his position, rather than serving as a commoner. The eldest son
+and heir of Baron Scarsdale,[24] Curzon contemplated a return to
+the House of Commons after his time as viceroy. Curzon had taken
+an Irish peerage at the suggestion of the prime minister, Lord
+Salisbury, who pointed out that Irish peers lacking membership
+of the House of Lords could stand for the House of Commons.[22
+][23] Despite Curzon's having no Irish property or connections,
+in September 1898 Victoria conferred on him the title of Baron
+Curzon of Kedleston,[c] in the peerage of Ireland.[26]
+
+Curzon resigned as viceroy in 1905, an action sparked by his
+conflict with the Commander-in-Chief, India, General Lord
+Kitchener.[27] On Curzon's return to Britain, he felt that his
+health would not permit him to seek a return to the Commons, and
+King Edward VII considered it marred the dignity of the viceregal
+office for a recent viceroy to fight for a seat in the Commons.
+Although Edward wanted Curzon to be given an earldom, the prime
+minister, Arthur Balfour, opposed this,[28][29] or at least
+wanted the matter postponed to January or February 1906, fearing
+that an immediate honour for Curzon would be seen as vindication
+in the dispute with Kitchener, in which Balfour considered Curzon
+in the wrong. But Balfour resigned in December 1905.[30] The new
+prime minister, Sir Henry Campbell-Bannerman, also refused Curzon
+an earldom or another United Kingdom peerage that would permit
+him, like other former viceroys, to sit in the House of Lords.
+[d] The Unionist leader in the House of Lords, Lord Lansdowne
+suggested Curzon seek to become an Irish representative peer in
+place of Lord Kilmaine, and two prominent noblemen of the Irish
+peerage, the Duke of Abercorn and the Marquess of Londonderry,
+were willing to back Curzon for the position although Curzon had
+never been to Ireland.[28][29]
+
+In his letter to the voters, Curzon tried to answer concerns
+that he was unfamiliar with Irish issues such as land tenure,
+and asked that the voters look with favour on his candidacy as
+the only way he could see to re-enter public life.[32] Curzon's
+candidacy was regarded by Unionists in Dublin with considerable
+satisfaction;[33] his backers told the Irish peers his presence
+would boost the Unionist strength in the House of Lords.[34]
+ Despite this support, some opposed Curzon's candidacy, as a
+non-Irishman who had no real interest in Irish affairs.[35]
+ The Manchester Guardian thought it fitting that Curzon had been
+backed by Abercorn and Londonderry, stating that the Duke was
+of a Scottish family and that "Lord Londonderry is no more Irish
+than the German Emperor".[36] Some peers had already cast their
+ballots when he entered the race, and others objected because
+Curzon, as heir to a British title, would retain his status as an
+Irish representative peer on his succession, thereby diminishing
+Irish representation at Westminster[37] for Curzon's lifetime.[
+38]
+
+Within a week of the announcement, the press stated that Curzon
+would be opposed by Frederick Trench, 3rd Baron Ashtown, Arthur
+Maxwell, 11th Baron Farnham, and Yvo Vesey, 5th Viscount de
+Vesci.[39] Lord de Vesci, though, quickly dropped out of the
+race and expressed his support for Curzon.[40] Ashtown, an
+outspoken Unionist, had been born in 1868, and succeeded to the
+title in 1880 upon his grandfather's death. He had a contentious
+relationship with his Irish tenantry, including replacing local
+labourers with Scots, leading to a boycott against him and the
+explosion of a bomb near his home in Waterford in 1904. He blamed
+the bombing on supporters of the boycott but was also accused of
+planting it, though this was never proved.[41] Farnham had been
+born in 1879, had served in the 10th Hussars and had succeeded to
+his title in 1900.[42]
+
+The Earl of Darnley (who was an Irish representative peer),
+the Earl of Norbury, Viscount Chetwynd and Lord Rathdonnell
+all stated their support for Curzon. The Earl of Cavan favoured
+Curzon's candidacy but had already voted by the time he heard
+of it. Viscount Hawarden also had voted, but considered Curzon
+'s candidacy unfair to peers who had been waiting years for the
+honour. Viscount Dillon wrote to three candidates, including
+Curzon, that since his "happy release from that country", he
+had ceased to vote for Irish representative peer.[43] Viscount
+Harberton, also hoped to see Curzon elected, but "for myself,
+I have long since ceased to vote for the Irish Representative
+Peerage, as I am unable to take the thing seriously".[43]
+
+Once it was plain that Curzon would be opposed, Lansdowne
+suggested he withdraw, stating "it would be ridiculous to run
+you against an obscure Irishman".[44] Curzon, though, insisted
+on standing, feeling he had spent long enough in the political
+wilderness.[44] One issue in the campaign was whether Curzon
+was eligible for election; although he had been an Irish peer
+for nine years, he had never voted in Irish representative peer
+elections, nor asked the House of Lords to establish his right to
+vote. Those questioning his eligibility cited Article VIII of the
+Act of Union, which stated, "the temporal peers of Ireland shall
+in the manner hereafter provided choose another peer out of their
+own number to supply the place so vacant", for the proposition
+that the elected person must be one of the peers who had claimed
+his right to vote in such elections.[45] The Kerry News reported
+that the former prime minister, Lord Palmerston, an Irish peer
+who had sat in the House of Commons, had never attempted to
+establish his right to vote in the elections for fear that his
+political adversaries would force him to the House of Lords.[19]
+
+The MP for Liverpool Scotland, T. P. O'Connor, wrote that the
+election was of no concern to the people of Ireland since the
+Irish representative peers represented only themselves, and
+few if any were Irish nationalists which 80 percent of Irish
+constituencies were represented by.[46] The Freeman's Journal
+of Dublin pointed out that on the death of Curzon's elderly
+father, he would enter the House of Lords anyway, "Practically,
+the decision of the Irish peers does not matter a pin's point to
+Ireland. The number of them who exhibit Irish patriotism of any
+kind or degree are an insignificant minority. Very many of them
+have as little connection with Ireland as Lord Curzon himself."[
+47]
+
+Election Curzon is the exception who proves the rule. In spite
+of all the influence which the Conservative Party could bring to
+bear, and circular letters from leading Irish Conservatives like
+the 2nd Duke of Abercorn, the candidature of an outsider was so
+resented by the largely Conservative Irish peerage that Curzon
+got in by a majority of only two after a fierce, three-cornered
+contest the like of which had not been seen since 1825.
+
+—A.P.W. Malcomson, "The Irish Peerage and the Act of Union, 1800–
+1971" (2000)[48] The January 1908 election, like the one later
+that year in November, attracted a high turnout from the voters.
+[49] Given that he had been told by several peers that they had
+already voted or pledged their ballots before his entry into
+the race, Curzon expected to lose.[50] But he headed the poll,
+receiving two more votes than Ashtown, who received two more
+votes than Farnham.[44] The announcement of the election result,
+printed in The Dublin Gazette on 21 January 1908, stated that
+Curzon had received the greatest number of votes, but noted that
+his name did not appear on the roll of peers eligible to vote.
+The return stated that Ashtown had received the second most
+votes, and his name did appear on the roll. This left the matter
+of Curzon's eligibility for the House of Lords to decide.[45] It
+was not clear whether the Lord Chancellor, the presiding officer
+in the House of Lords, would make that decision, or whether it
+would be referred to a committee. The Irish Times was confident
+that Curzon would be seated, and stated that "in any case,
+no future development can diminish the value of the very high
+compliment which has been paid to him by the Irish peers."[8][51]
+
+When parliament assembled on 29 January 1908, the King's Speech
+was first delivered by Edward VII in the House of Lords, after
+which several lords took the oath. Then, the writ and return
+stating that Lord Curzon had gained the greatest number of votes
+in the election, with Lord Ashtown second, were placed before the
+House of Lords. The Lord Chancellor, Lord Loreburn, then ruled
+that the Act of Union, though it required that the peers voting
+in an election for Irish representative peers had claimed a right
+to vote, and had that claim upheld by the House of Lords, did
+not require the same for the person elected. Accordingly, Lord
+Curzon, whose name appeared on the list of Irish peers, could
+be elected. This was concurred in by the former chancellor, Lord
+Halsbury, after which Curzon took the oath.[52] Using a privilege
+of the eldest sons of peers,[53] Curzon had been standing on the
+steps of the throne; once he had taken the oath, he took a seat
+on the front bench of the Opposition (Conservative) side, to
+cheering from that side.[54] The following day, Curzon petitioned
+for the right to vote in elections for Irish representative
+peers, and that petition was granted.[55]
+
+Aftermath In a parliamentary setting, a number of men look on
+as a man takes a small piece of paper from a glass The name of
+Lord Ashtown is drawn to win the November 1908 election. Lawrence
+Parsons, 4th Earl of Rosse, an Irish representative peer, died
+in August 1908.[56] The press named Ashtown and Farnham as the
+likely candidates to replace him.[57] On 2 November 1908, Joseph
+Nugent Lentaigne, the clerk of the crown and hanaper, certified
+that Ashtown and Farnham had received an equal number of votes.
+[58] This was the only time an election for Irish representative
+peer resulted in a tie.[59] Lentaigne travelled to London to
+place the election return before the House of Lords. Under a
+procedure set forth in the Act of Union, papers containing the
+name of each peer were placed in an ordinary wine glass before
+the House of Lords on 4 November 1908. Lord Ashtown's name
+was drawn by the Clerk of the Parliaments, and he was declared
+elected.[58][60]
+
+* By the time of the November election, another Irish
+representative peer, Ponsonby Moore, 9th Earl of Drogheda, had
+died,[60] and Farnham was elected in his place in December 1908.
+[61] Ashtown was deprived of his place in the House of Lords in
+1915 because of his bankruptcy.[62] Curzon was granted a United
+Kingdom peerage in 1911. This did not affect his status as an
+Irish representative peer,[35] and he remained in the House of
+Lords until his death in 1925.[63]
+
+Curzon is the only non-resident of Ireland ever elected an Irish
+representative peer.[64] No Irish representative peers were
+elected after the establishment of the Irish Free State in 1922;
+those already elected were allowed to continue in the House of
+Lords.[13] Farnham lived until 1957, and with his death, only
+three Irish representative peers remained;[65] the last died in
+1961.[13]
+"#,
+        ),
+        Vec::new(),
+    )
 }
 
 #[allow(unused)]

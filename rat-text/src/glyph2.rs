@@ -1,7 +1,6 @@
 use crate::cache::{Cache, LineBreakCache, LineOffsetCache};
 use crate::text_store::SkipLine;
 use crate::{Grapheme, TextError, TextPosition, upos_type};
-use log::debug;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -252,13 +251,11 @@ where
 
     /// Build cache before running the iterator.
     pub(crate) fn prepare(&mut self) -> Result<(), TextError> {
-        // debug!("glyph2 param {:?}", self);
         let r = match self.text_wrap {
             TextWrap2::Shift => prepare_shift_clip(self),
             TextWrap2::Hard => prepare_hard_wrap(self),
             TextWrap2::Word => prepare_word_wrap(self),
         };
-        // debug!("glyph2 cache {:#?}", self.cache);
         r
     }
 }
@@ -293,7 +290,6 @@ where
                 if self.was_lf {
                     return None;
                 } else {
-                    debug!("next auto-nl {}", self.next_byte);
                     Grapheme::new(Cow::Borrowed("\n"), self.next_byte..self.next_byte)
                 }
             };
@@ -343,14 +339,12 @@ where
 
     loop {
         let grapheme = iter.next();
-        // debug!("*glyph2 prepare word {:?}", grapheme);
         let grapheme = if let Some(grapheme) = grapheme {
             grapheme
         } else {
             if was_lf {
                 break;
             } else {
-                debug!("glyph2 auto-nl {}", next_byte);
                 Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
             }
         };
@@ -371,8 +365,6 @@ where
         // Guard: Do nothing for empty rows.
         if !glyph.line_break {
             if let Some(lb) = cache.full_line_break.borrow().get(&glyph.pos.y) {
-                // debug!("glyph2 reuse break {:?} {:?}", glyph.pos, lb);
-
                 iter.skip_line()?;
 
                 next_screen_x = 0;
