@@ -252,13 +252,13 @@ where
 
     /// Build cache before running the iterator.
     pub(crate) fn prepare(&mut self) -> Result<(), TextError> {
-        debug!("glyph2 param {:?}", self);
+        // debug!("glyph2 param {:?}", self);
         let r = match self.text_wrap {
             TextWrap2::Shift => prepare_shift_clip(self),
             TextWrap2::Hard => prepare_hard_wrap(self),
             TextWrap2::Word => prepare_word_wrap(self),
         };
-        debug!("glyph2 cache {:#?}", self.cache);
+        // debug!("glyph2 cache {:#?}", self.cache);
         r
     }
 }
@@ -293,6 +293,7 @@ where
                 if self.was_lf {
                     return None;
                 } else {
+                    debug!("next auto-nl {}", self.next_byte);
                     Grapheme::new(Cow::Borrowed("\n"), self.next_byte..self.next_byte)
                 }
             };
@@ -342,7 +343,7 @@ where
 
     loop {
         let grapheme = iter.next();
-        debug!("*glyph2 prepare word {:?}", grapheme);
+        // debug!("*glyph2 prepare word {:?}", grapheme);
         let grapheme = if let Some(grapheme) = grapheme {
             grapheme
         } else {
@@ -370,7 +371,7 @@ where
         // Guard: Do nothing for empty rows.
         if !glyph.line_break {
             if let Some(lb) = cache.full_line_break.borrow().get(&glyph.pos.y) {
-                debug!("glyph2 reuse break {:?} {:?}", glyph.pos, lb);
+                // debug!("glyph2 reuse break {:?} {:?}", glyph.pos, lb);
 
                 iter.skip_line()?;
 
@@ -394,12 +395,8 @@ where
             was_lf = true;
 
             debug!(
-                "insert cache a {:?} {:?}",
-                glyph.pos,
-                LineBreakCache {
-                    start_pos: next_pos,
-                    byte_pos: glyph.text_bytes.end,
-                }
+                "glyph2 cache a {:?}->{:?} @ {:?}",
+                glyph.pos, next_pos, glyph.text_bytes.end,
             );
             // caching
             cache.line_break.borrow_mut().insert(
@@ -434,12 +431,8 @@ where
             was_lf = false;
 
             debug!(
-                "insert cache b {:?} {:?}",
-                glyph.pos,
-                LineBreakCache {
-                    start_pos: next_pos,
-                    byte_pos: glyph.text_bytes.end,
-                }
+                "glyph2 cache b {:?}->{:?} @ {:?}",
+                glyph.pos, next_pos, glyph.text_bytes.end,
             );
             // caching
             cache.line_break.borrow_mut().insert(
@@ -464,12 +457,10 @@ where
                 was_lf = false;
 
                 debug!(
-                    "insert cache c {:?} {:?}",
+                    "glyph2 cache c {:?}->{:?} @ {:?}",
                     space_pos,
-                    LineBreakCache {
-                        start_pos: TextPosition::new(space_pos.x + 1, space_pos.y),
-                        byte_pos: space_byte,
-                    }
+                    TextPosition::new(space_pos.x + 1, space_pos.y),
+                    space_byte,
                 );
                 // caching
                 cache.line_break.borrow_mut().insert(
@@ -490,12 +481,8 @@ where
                 was_lf = false;
 
                 debug!(
-                    "insert cache d {:?} {:?}",
-                    glyph.pos,
-                    LineBreakCache {
-                        start_pos: next_pos,
-                        byte_pos: glyph.text_bytes.start,
-                    },
+                    "glyph2 cache d {:?}->{:?} @ {:?}",
+                    glyph.pos, next_pos, glyph.text_bytes.start,
                 );
                 // caching
                 cache.line_break.borrow_mut().insert(
