@@ -1,3 +1,16 @@
+# 1.3.0
+
+* fix: several small behaviour bugs with wrapped text.
+* fix: cleaning up the GlyphIter2 code fixed a handful
+  of bugs. not sure if they were ever hit in rl.
+* fix: cleanup of the screen pos/text pos mapping functions.
+
+* feature: when setting the cursor, the scroll_cursor_to_visible()
+  logic differentiates between near and far moves. Near moves
+  change the offset one line at a time. far moves place the
+  cursor a bit off the middle of the rendered area.
+  the limit is one page before/after the visible page.
+
 # 1.2.0
 
 * break: remove HandleEvent with FocusTraversal. not useful.
