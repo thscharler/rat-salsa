@@ -1,12 +1,13 @@
 use crate::nominal::{Nominal, NominalState};
 use anyhow::Error;
+use rat_event::break_flow;
 use rat_focus::impl_has_focus;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme3::{create_theme, SalsaTheme};
-use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
+use rat_widget::event::{ct_event, Dialog, HandleEvent};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -44,7 +45,9 @@ fn main() -> Result<(), Error> {
 
 /// Globally accessible data/state.
 pub struct Global {
+    // the salsa machinery
     ctx: SalsaAppContext<AppEvent, Error>,
+
     pub cfg: Config,
     pub theme: Box<dyn SalsaTheme>,
 }
@@ -168,42 +171,45 @@ pub fn event(
 ) -> Result<Control<AppEvent>, Error> {
     let t0 = SystemTime::now();
 
-    let mut r = match event {
-        AppEvent::Event(event) => {
-            let mut r = match &event {
-                ct_event!(resized) => Control::Changed,
-                ct_event!(key press CONTROL-'q') => Control::Quit,
-                _ => Control::Continue,
-            };
+    let r = 'f: {
+        if let AppEvent::Event(event) = event {
+            break_flow!(
+                 'f: match &event {
+                    ct_event!(resized) => Control::Changed,
+                    ct_event!(key press CONTROL-'q') => Control::Quit,
+                    _ => Control::Continue,
+                }
+            );
 
-            r = r.or_else(|| {
-                if state.error_dlg.active() {
+            break_flow!(
+                 'f: if state.error_dlg.active() {
                     state.error_dlg.handle(event, Dialog).into()
                 } else {
                     Control::Continue
                 }
-            });
+            );
 
             ctx.handle_focus(event);
+        }
 
-            r
+        match event {
+            AppEvent::Rendered => break_flow!('f: {
+                ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
+                Control::Continue
+            }),
+            AppEvent::Message(s) => break_flow!('f: {
+                state.error_dlg.append(s.as_str());
+                Control::Changed
+            }),
+            AppEvent::Status(n, s) => break_flow!('f: {
+                state.status.status(*n, s);
+                Control::Changed
+            }),
+            _ => {}
         }
-        AppEvent::Rendered => {
-            ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
-            Control::Continue
-        }
-        AppEvent::Message(s) => {
-            state.error_dlg.append(s.as_str());
-            Control::Changed
-        }
-        AppEvent::Status(n, s) => {
-            state.status.status(*n, s);
-            Control::Changed
-        }
-        _ => Control::Continue,
+
+        state.nominal.event(event, ctx)?
     };
-
-    r = r.or_else_try(|| state.nominal.event(event, ctx))?;
 
     let el = t0.elapsed()?;
     state.status.status(3, format!("E {:.0?}", el).to_string());
@@ -288,35 +294,32 @@ pub mod nominal {
             event: &AppEvent,
             ctx: &mut Global,
         ) -> Result<Control<AppEvent>, Error> {
-            match event {
-                AppEvent::Event(event) => {
-                    try_flow!(match self.menu.handle(event, Regular) {
-                        MenuOutcome::Activated(0) => {
-                            ctx.spawn(|| {
-                                sleep(Duration::from_secs(5));
-                                Ok(Control::Event(AppEvent::Message(
-                                    "waiting is over".to_string(),
-                                )))
-                            })?;
-                            Control::Changed
-                        }
-                        MenuOutcome::Activated(1) => {
-                            ctx.add_timer(
-                                TimerDef::new().repeat(21).timer(Duration::from_millis(500)),
-                            );
-                            Control::Changed
-                        }
-                        MenuOutcome::Activated(2) => {
-                            Control::Quit //
-                        }
-                        v => v.into(),
-                    });
-                    Ok(Control::Continue)
+            if let AppEvent::Event(event) = event {
+                match self.menu.handle(event, Regular) {
+                    MenuOutcome::Activated(0) => try_flow!({
+                        ctx.spawn(|| {
+                            sleep(Duration::from_secs(5));
+                            Ok(Control::Event(AppEvent::Message(
+                                "waiting is over".to_string(),
+                            )))
+                        })?;
+                        Control::Changed
+                    }),
+                    MenuOutcome::Activated(1) => try_flow!({
+                        ctx.add_timer(TimerDef::new().repeat(21).timer(Duration::from_millis(500)));
+                        Control::Changed
+                    }),
+                    MenuOutcome::Activated(2) => try_flow!({
+                        Control::Quit //
+                    }),
+                    v => try_flow!(v),
                 }
+            }
+
+            match event {
                 AppEvent::Timer(t) => {
                     Ok(Control::Event(
-                        //
-                        AppEvent::Status(1, format!("TICK-{}", t.counter)),
+                        AppEvent::Status(1, format!("TICK-{}", t.counter)), //
                     ))
                 }
                 _ => Ok(Control::Continue),

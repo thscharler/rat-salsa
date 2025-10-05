@@ -43,7 +43,9 @@ fn main() -> Result<(), Error> {
 
 /// Globally accessible data/state.
 pub struct Global {
+    // the salsa machinery
     ctx: SalsaAppContext<AppEvent, Error>,
+
     pub cfg: Config,
     pub theme: Box<dyn SalsaTheme>,
 }
@@ -117,10 +119,16 @@ pub fn render(
     ])
     .split(area);
 
+    let status_layout = Layout::horizontal([
+        Constraint::Fill(61), //
+        Constraint::Fill(39),
+    ])
+    .split(layout[1]);
+
     MenuLine::new()
         .styles(ctx.theme.menu_style())
         .item_parsed("_Quit")
-        .render(layout[1], buf, &mut state.menu);
+        .render(status_layout[0], buf, &mut state.menu);
 
     if state.error_dlg.active() {
         MsgDialog::new()
@@ -130,12 +138,6 @@ pub fn render(
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
     state.status.status(1, format!("R {:.0?}", el).to_string());
-
-    let status_layout = Layout::horizontal([
-        Constraint::Fill(61), //
-        Constraint::Fill(39),
-    ])
-    .split(layout[1]);
 
     StatusLine::new()
         .layout([
@@ -160,31 +162,30 @@ pub fn event(
     state: &mut Minimal,
     ctx: &mut Global,
 ) -> Result<Control<AppEvent>, Error> {
+    if let AppEvent::Event(event) = event {
+        try_flow!(match &event {
+            ct_event!(resized) => Control::Changed,
+            ct_event!(key press CONTROL-'q') => Control::Quit,
+            _ => Control::Continue,
+        });
+
+        try_flow!({
+            if state.error_dlg.active() {
+                state.error_dlg.handle(event, Dialog).into()
+            } else {
+                Control::Continue
+            }
+        });
+
+        ctx.handle_focus(event);
+
+        try_flow!(match state.menu.handle(event, Regular) {
+            MenuOutcome::Activated(0) => Control::Quit,
+            v => v.into(),
+        });
+    }
+
     match event {
-        AppEvent::Event(event) => {
-            try_flow!(match &event {
-                ct_event!(resized) => Control::Changed,
-                ct_event!(key press CONTROL-'q') => Control::Quit,
-                _ => Control::Continue,
-            });
-
-            try_flow!({
-                if state.error_dlg.active() {
-                    state.error_dlg.handle(event, Dialog).into()
-                } else {
-                    Control::Continue
-                }
-            });
-
-            ctx.handle_focus(event);
-
-            try_flow!(match state.menu.handle(event, Regular) {
-                MenuOutcome::Activated(0) => Control::Quit,
-                v => v.into(),
-            });
-
-            Ok(Control::Continue)
-        }
         AppEvent::Rendered => {
             ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
             Ok(Control::Continue)
@@ -197,6 +198,7 @@ pub fn event(
             state.status.status(*n, s);
             Ok(Control::Changed)
         }
+        _ => Ok(Control::Continue),
     }
 }
 
