@@ -2393,7 +2393,7 @@ impl TextAreaState {
                             break 'f g.screen_pos().0;
                         }
                     }
-                    return None;
+                    debug!("pos2screen col2 {}", 0);
                     0
                 };
                 assert!(screen_x <= self.rendered.width);

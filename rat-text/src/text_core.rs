@@ -657,7 +657,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let old_cursor = self.cursor;
         let old_anchor = self.anchor;
 
-        cursor.y = min(cursor.y, self.len_lines().saturating_sub(1));
+        cursor.y = min(cursor.y, self.len_lines());
         cursor.x = min(cursor.x, self.line_width(cursor.y).expect("valid-line"));
 
         self.cursor = cursor;
@@ -890,11 +890,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
         );
 
         let range = TextRange::new((sub_row_offset, rows.start), (0, rows.end));
-        let pos = TextPosition::new(sub_row_offset, rows.start);
 
         let range_bytes;
-        let pos_byte;
-
         let mut range_to_bytes = self.cache.range_to_bytes.borrow_mut();
         if let Some(cache) = range_to_bytes.get(&range) {
             range_bytes = cache.clone();
@@ -904,19 +901,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
             range_bytes = cache;
         }
 
-        let mut pos_to_bytes = self.cache.pos_to_bytes.borrow_mut();
-        if let Some(cache) = pos_to_bytes.get(&pos) {
-            pos_byte = cache.start;
-        } else {
-            let cache = self.text.byte_range_at(pos)?;
-            pos_to_bytes.insert(pos, cache.clone());
-            pos_byte = cache.start;
-        }
-
-        let iter = self.graphemes_byte(range_bytes, pos_byte)?;
+        let iter = self.graphemes_byte(range_bytes.clone(), range_bytes.start)?;
 
         let mut it = GlyphIter2::new(
-            TextPosition::new(sub_row_offset, rows.start),
+            range.start, //
+            range_bytes.start,
             iter,
             self.cache.clone(),
         );
