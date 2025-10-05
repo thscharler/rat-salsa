@@ -1,4 +1,4 @@
-use crate::clipboard::{global_clipboard, Clipboard};
+use crate::clipboard::{Clipboard, global_clipboard};
 use crate::core::{TextCore, TextString};
 #[allow(deprecated)]
 use crate::glyph::{Glyph, GlyphIter};
@@ -7,7 +7,7 @@ use crate::grapheme::StrGraphemes;
 use crate::text_mask_core::mask::{EditDirection, Mask, MaskToken};
 use crate::text_store::SkipLine;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
-use crate::{upos_type, Cursor, Grapheme, TextError, TextPosition, TextRange};
+use crate::{Cursor, Grapheme, TextError, TextPosition, TextRange, upos_type};
 use format_num_pattern::core::{clean_num, map_num};
 use format_num_pattern::{CurrencySym, NumberFormat, NumberSymbols};
 use std::borrow::Cow;
@@ -814,7 +814,7 @@ impl MaskedCore {
             byte_pos: 0,
         };
 
-        let mut it = GlyphIter2::new(TextPosition::new(0, 0), iter, Default::default());
+        let mut it = GlyphIter2::new(TextPosition::new(0, 0), 0, iter, Default::default());
         it.set_tabs(self.masked.tab_width() as upos_type);
         it.set_show_ctrl(self.masked.glyph_ctrl());
         it.set_lf_breaks(self.masked.glyph_line_break());
