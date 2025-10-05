@@ -472,7 +472,7 @@ fn render_text_area(
             (0, page_rows.end),
         ))
         .expect("valid_rows");
-    let mut screen_cursor = None;
+    // let mut screen_cursor = None;
     let selection = state.selection();
     let mut styles = Vec::new();
 
@@ -488,9 +488,10 @@ fn render_text_area(
         }
 
         // ignore synthetic glyphs used for wrapping.
-        if g.pos() == state.cursor() && !g.soft_break() {
-            screen_cursor = Some(g.screen_pos());
-        }
+        // if g.pos() == state.cursor() && !g.soft_break() {
+        //     debug!("found screen_cursor {:?}", g.screen_pos());
+        //     screen_cursor = Some(g.screen_pos());
+        // }
 
         if g.screen_width() > 0 {
             let mut style = style;
@@ -528,7 +529,8 @@ fn render_text_area(
         }
     }
 
-    state.screen_cursor = screen_cursor.map(|v| (state.inner.x + v.0, state.inner.y + v.1));
+    state.screen_cursor = state.pos_to_screen(state.cursor());
+    // state.screen_cursor = screen_cursor.map(|v| (state.inner.x + v.0, state.inner.y + v.1));
 }
 
 impl Default for TextAreaState {
@@ -2242,7 +2244,6 @@ impl TextAreaState {
                     //
                     // find the correct line-start for the cursor.
                     // set the cursor as the new offset.
-                    //
                     nsub_row_offset = 0;
                     for g in self
                         .glyphs2(0, 0, cursor.y..min(cursor.y + 1, self.len_lines()))
@@ -2343,13 +2344,19 @@ impl TextAreaState {
                     let mut screen_y = 0;
                     let mut start_pos = TextPosition::new(sub_row_offset, oy);
 
-                    for (_, cache) in self.value.cache().line_break.borrow().range(
-                        TextPosition::new(sub_row_offset, oy)
-                            ..TextPosition::new(
-                                0,
-                                min(oy + self.rendered.height as upos_type, self.len_lines()),
-                            ),
-                    ) {
+                    let range_start = TextPosition::new(sub_row_offset, oy);
+                    let range_end = TextPosition::new(
+                        0,
+                        min(oy + self.rendered.height as upos_type, self.len_lines()),
+                    );
+
+                    for (key, cache) in self
+                        .value
+                        .cache()
+                        .line_break
+                        .borrow()
+                        .range(range_start..range_end)
+                    {
                         if screen_y >= self.rendered.height {
                             return None;
                         }
@@ -2387,6 +2394,7 @@ impl TextAreaState {
                         }
                     }
                     return None;
+                    0
                 };
                 assert!(screen_x <= self.rendered.width);
 
@@ -2470,7 +2478,6 @@ impl TextAreaState {
                     // estimate start row
                     let ry = oy.saturating_add_signed(scr_pos.1 as ipos_type - 1);
 
-                    // count backwards
                     self.fill_cache(0, 0, ry..oy).expect("valid-rows");
 
                     let n_start_pos = 'f: {
@@ -2488,7 +2495,8 @@ impl TextAreaState {
                             }
                             nrows -= 1;
                         }
-                        TextPosition::new(0, 0)
+                        debug!("screen2pos fallback {:?}", TextPosition::new(0, ry));
+                        TextPosition::new(0, ry)
                     };
 
                     // find the exact col
@@ -2509,7 +2517,9 @@ impl TextAreaState {
                         }
                     }
 
-                    unreachable!("impossible screen-pos");
+                    // beyond the last line
+                    debug!("screen2pos c -> {:?}", n_start_pos);
+                    return Some(n_start_pos);
                 } else {
                     let scr_pos = (max(0, scr_pos.0) as u16, scr_pos.1 as u16);
 
@@ -2518,7 +2528,6 @@ impl TextAreaState {
                         TextPosition::new(sub_row_offset, oy)
                     } else {
                         // start at the offset and find the screen-position.
-                        // count backwards
                         self.fill_cache(
                             0,
                             sub_row_offset,
@@ -2555,7 +2564,10 @@ impl TextAreaState {
                             return Some(g.pos());
                         }
                     }
-                    unreachable!("impossible screen-pos");
+
+                    // beyond the last line
+                    debug!("screen2pos e -> {:?}", n_start_pos);
+                    return Some(n_start_pos);
                 }
             }
         }
