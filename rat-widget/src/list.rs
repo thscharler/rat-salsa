@@ -528,7 +528,10 @@ impl<Selection: ListSelection> ListState<Selection> {
         if row < self.scroll.offset() || row >= self.scroll.offset() + self.scroll.page_len() {
             return None;
         }
-
+        let row = row - self.scroll.offset;
+        if row >= self.row_areas.len() {
+            return None;
+        }
         Some(self.row_areas[row - self.scroll.offset])
     }
 
@@ -603,6 +606,13 @@ impl ListState<RowSelection> {
     #[inline]
     pub fn selected(&self) -> Option<usize> {
         self.selection.lead_selection()
+    }
+
+    /// Returns the lead selection. Ensures the index is
+    /// less than rows.
+    #[inline]
+    pub fn selected_checked(&self) -> Option<usize> {
+        self.selection.lead_selection().filter(|v| *v < self.rows)
     }
 
     #[inline]
