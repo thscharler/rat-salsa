@@ -2513,15 +2513,12 @@ impl TextAreaState {
                     self.fill_cache(0, 0, ry..oy).expect("valid-rows");
 
                     let n_start_pos = 'f: {
+                        let line_break = self.value.cache().line_break.borrow();
+                        let start_range = TextPosition::new(0, ry);
+                        let end_range = TextPosition::new(sub_row_offset, oy);
+
                         let mut nrows = scr_pos.1.unsigned_abs();
-                        for (_break_pos, cache) in self
-                            .value
-                            .cache()
-                            .line_break
-                            .borrow()
-                            .range(TextPosition::new(0, ry)..TextPosition::new(sub_row_offset, oy))
-                            .rev()
-                        {
+                        for (_break_pos, cache) in line_break.range(start_range..end_range).rev() {
                             if nrows == 0 {
                                 break 'f cache.start_pos;
                             }
@@ -2536,12 +2533,10 @@ impl TextAreaState {
                         return Some(n_start_pos);
                     }
 
+                    let min_row = n_start_pos.y;
+                    let max_row = min(n_start_pos.y + 1, self.len_lines());
                     for g in self
-                        .glyphs2(
-                            0,
-                            n_start_pos.x,
-                            n_start_pos.y..min(n_start_pos.y + 1, self.len_lines()),
-                        )
+                        .glyphs2(0, n_start_pos.x, min_row..max_row)
                         .expect("valid-rows")
                     {
                         if g.contains_screen_x(scr_pos.0 as u16) {
@@ -2568,28 +2563,27 @@ impl TextAreaState {
                         .expect("valid-rows");
 
                         'f: {
+                            let text_range = self.value.cache().line_break.borrow();
+                            let start_range = TextPosition::new(sub_row_offset, oy);
+                            let end_range = TextPosition::new(0, self.len_lines());
+
                             let mut nrows = scr_pos.1 - 1;
-                            let mut fallback = TextPosition::new(sub_row_offset, oy);
-                            for (_break_pos, cache) in self.value.cache().line_break.borrow().range(
-                                TextPosition::new(sub_row_offset, oy)
-                                    ..TextPosition::new(0, self.len_lines()),
-                            ) {
+                            let mut start_pos = TextPosition::new(sub_row_offset, oy);
+                            for (_break_pos, cache) in text_range.range(start_range..end_range) {
                                 if nrows == 0 {
                                     break 'f cache.start_pos;
                                 }
-                                fallback = cache.start_pos;
+                                start_pos = cache.start_pos;
                                 nrows -= 1;
                             }
-                            fallback
+                            start_pos
                         }
                     };
 
+                    let min_row = n_start_pos.y;
+                    let max_row = min(n_start_pos.y + 1, self.len_lines());
                     for g in self
-                        .glyphs2(
-                            0,
-                            n_start_pos.x,
-                            n_start_pos.y..min(n_start_pos.y + 1, self.len_lines()),
-                        )
+                        .glyphs2(0, n_start_pos.x, min_row..max_row)
                         .expect("valid-rows")
                     {
                         if g.contains_screen_x(scr_pos.0) {
