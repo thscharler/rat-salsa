@@ -11,6 +11,9 @@
   cursor a bit off the middle of the rendered area.
   the limit is one page before/after the visible page.
 
+* cargo: forward features cr_lines and unicode_lines from ropey.
+  sync rat-text new-line handling with ropey features.
+
 # 1.2.0
 
 * break: remove HandleEvent with FocusTraversal. not useful.

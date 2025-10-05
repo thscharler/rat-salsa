@@ -1,3 +1,8 @@
+# 1.2.2
+
+* fix: render order in form::Form
+* feature: FileDialog allows setting the last_path.
+
 # 1.2.0
 
 * docs: much updated

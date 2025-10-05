@@ -1,3 +1,7 @@
+# 0.5.2
+
+* add MacFrame
+
 # 0.5.1
 
 * keyboard move/resize
