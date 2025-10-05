@@ -1,21 +1,22 @@
 use crate::mini_salsa::{MiniSalsaState, fill_buf_area, run_ui, setup_logging};
 use crate::text_samples::{
-    add_range_styles, sample_bosworth_1, sample_emoji, sample_long, sample_lorem_ipsum,
-    sample_medium, sample_scott_1, sample_tabs,
+    add_range_styles, sample_bosworth_1, sample_emoji, sample_irish, sample_long,
+    sample_lorem_ipsum, sample_medium, sample_scott_1, sample_tabs,
 };
 use log::{debug, warn};
 use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
-use rat_text::HasScreenCursor;
 use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::event::TextOutcome;
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
-use rat_text::text_input::TextInputState;
+use rat_text::text_input::{TextInput, TextInputState};
+use rat_text::{HasScreenCursor, TextPosition, upos_type};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
+use ratatui::symbols::border;
 use ratatui::symbols::border::EMPTY;
 use ratatui::widgets::{Block, Borders, Paragraph, StatefulWidget, Widget};
 use ropey::Rope;
@@ -46,10 +47,10 @@ fn main() -> Result<(), anyhow::Error> {
     state.textarea.set_auto_indent(false);
     state.textarea.set_text_wrap(TextWrap::Word(2));
     state.textarea.clear();
-    let (text, styles) = sample_bosworth_1();
-    state.textarea.set_rope(text);
+    // let (text, styles) = sample_bosworth_1();
+    // state.textarea.set_rope(text);
     // state.textarea.set_styles(styles);
-    add_range_styles(&mut state.textarea, styles);
+    // add_range_styles(&mut state.textarea, styles);
 
     run_ui(
         "textarea2",
@@ -81,6 +82,8 @@ fn render(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
+    const BARE: bool = false;
+
     let l1 = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length(1),
@@ -90,7 +93,8 @@ fn render(
     ])
     .split(area);
 
-    let line_number_width = LineNumbers::width_for(state.textarea.offset().1, 0, (0, 0), 0);
+    // let line_number_width = LineNumbers::width_for(state.textarea.offset().1, 0, (0, 0), 0);
+    let line_number_width = LineNumbers::width_for(1000, 0, (0, 0), 0);
 
     let l2 = Layout::horizontal([
         Constraint::Length(2),
@@ -98,6 +102,7 @@ fn render(
         Constraint::Fill(1),
         Constraint::Length(25),
     ])
+    .spacing(1)
     .split(l1[2]);
 
     let textarea = TextArea::new()
@@ -108,7 +113,7 @@ fn render(
                 // .overscroll_by(50)
                 .policy(ScrollbarPolicy::Always),
         )
-        .hscroll(Scroll::new().policy(ScrollbarPolicy::Always))
+        .hscroll(Scroll::new().policy(ScrollbarPolicy::Collapse))
         .styles(istate.theme.textarea_style())
         .set_horizontal_max_offset(256)
         .text_style([
@@ -128,23 +133,25 @@ fn render(
     textarea.render(l2[2], frame.buffer_mut(), &mut state.textarea);
     let el = t.elapsed().expect("timinig");
 
-    LineNumbers::new()
-        .block(
-            Block::new()
-                .borders(Borders::TOP | Borders::BOTTOM)
-                .border_set(EMPTY),
-        )
-        .styles(istate.theme.line_nr_style())
-        .with_textarea(&state.textarea)
-        .relative(state.relative_line_nr)
-        .render(l2[1], frame.buffer_mut(), &mut state.line_numbers);
+    if !BARE {
+        LineNumbers::new()
+            .block(
+                Block::new()
+                    .borders(Borders::TOP | Borders::BOTTOM)
+                    .border_set(EMPTY),
+            )
+            .styles(istate.theme.line_nr_style())
+            .with_textarea(&state.textarea)
+            .relative(state.relative_line_nr)
+            .render(l2[1], frame.buffer_mut(), &mut state.line_numbers);
+    }
 
     istate.status[1] = format!("R{}|{:.0?}", frame.count(), el,).to_string();
 
-    let _l3 = Layout::horizontal([
+    let l3 = Layout::horizontal([
         Constraint::Length(43),
         Constraint::Fill(1),
-        Constraint::Length(10),
+        Constraint::Percentage(20),
     ])
     .split(l1[0]);
 
@@ -158,6 +165,27 @@ fn render(
             .normal_contrast(istate.theme.palette().orange[0]),
     );
     "F1 toggle help | Ctrl+Q quit | Alt-F(ind) ".render(l1[0], frame.buffer_mut());
+
+    if !BARE {
+        TextInput::new()
+            .block(
+                Block::new()
+                    .borders(Borders::LEFT | Borders::RIGHT)
+                    .border_set(border::Set {
+                        top_left: "",
+                        top_right: "",
+                        bottom_left: "",
+                        bottom_right: "",
+                        vertical_left: "[",
+                        vertical_right: "]",
+                        horizontal_top: "",
+                        horizontal_bottom: "",
+                    })
+                    .style(istate.theme.container_border()),
+            )
+            .styles(istate.theme.text_style())
+            .render(l3[2], frame.buffer_mut(), &mut state.search);
+    }
 
     let screen_cursor = if !state.help {
         state
@@ -209,8 +237,18 @@ fn render(
         use std::fmt::Write;
         let mut stats = String::new();
         _ = writeln!(&mut stats);
-        _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
+        _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor());
         _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
+        _ = writeln!(&mut stats, "offset: {:?}", state.textarea.offset());
+        _ = writeln!(&mut stats, "sub_row: {:?}", state.textarea.sub_row_offset());
+
+        _ = writeln!(
+            &mut stats,
+            "v_max: {:?}",
+            state.textarea.vertical_max_offset()
+        );
+        _ = writeln!(&mut stats, "v_page: {:?}", state.textarea.vertical_page());
+
         _ = writeln!(&mut stats, "movecol: {:?}", state.textarea.move_col());
         if let Some((scx, scy)) = state.textarea.screen_cursor() {
             _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
@@ -324,7 +362,7 @@ fn event(
             Outcome::Changed
         }
         ct_event!(key press ALT-'3') => {
-            let (text, styles) = sample_emoji();
+            let (text, styles) = sample_irish();
             state.textarea.set_rope(text);
             add_range_styles(&mut state.textarea, styles);
             Outcome::Changed
@@ -360,6 +398,19 @@ fn event(
             let (text, styles) = sample_long();
             state.textarea.set_rope(text);
             add_range_styles(&mut state.textarea, styles);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'h') => {
+            let hhh = (state.textarea.rendered.height * 8 / 10) as upos_type;
+            state.textarea.set_cursor(TextPosition::new(0, hhh), false);
+            Outcome::Changed
+        }
+        ct_event!(key press ALT-'j') => {
+            let hhh = (state.textarea.rendered.height * 2 / 10) as upos_type;
+            let len = state.textarea.len_lines();
+            state
+                .textarea
+                .set_cursor(TextPosition::new(0, len - hhh), false);
             Outcome::Changed
         }
         ct_event!(key press ALT-'l') => {
