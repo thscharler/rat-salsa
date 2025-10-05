@@ -869,6 +869,7 @@ mod logscroll {
                             .unwrap_or(0);
                         let pos = (pos + 1) % themes.len();
                         ctx.theme = create_theme(&themes[pos]).expect(&themes[pos]);
+                        ctx.cfg.theme = themes[pos].to_string();
                         ctx.queue_event(LogScrollEvent::StoreCfg);
                         ctx.queue_event(LogScrollEvent::Status(0, ctx.theme.name().into()));
                         Control::Changed
