@@ -394,10 +394,6 @@ where
             next_byte = glyph.text_bytes.end;
             was_lf = true;
 
-            debug!(
-                "glyph2 cache a {:?}->{:?} @ {:?}",
-                glyph.pos, next_pos, glyph.text_bytes.end,
-            );
             // caching
             cache.line_break.borrow_mut().insert(
                 glyph.pos,
@@ -430,10 +426,6 @@ where
             next_byte = glyph.text_bytes.end;
             was_lf = false;
 
-            debug!(
-                "glyph2 cache b {:?}->{:?} @ {:?}",
-                glyph.pos, next_pos, glyph.text_bytes.end,
-            );
             // caching
             cache.line_break.borrow_mut().insert(
                 glyph.pos,
@@ -456,12 +448,6 @@ where
                 next_byte = glyph.text_bytes.end;
                 was_lf = false;
 
-                debug!(
-                    "glyph2 cache c {:?}->{:?} @ {:?}",
-                    space_pos,
-                    TextPosition::new(space_pos.x + 1, space_pos.y),
-                    space_byte,
-                );
                 // caching
                 cache.line_break.borrow_mut().insert(
                     space_pos,
@@ -480,10 +466,6 @@ where
                 next_byte = glyph.text_bytes.end;
                 was_lf = false;
 
-                debug!(
-                    "glyph2 cache d {:?}->{:?} @ {:?}",
-                    glyph.pos, next_pos, glyph.text_bytes.start,
-                );
                 // caching
                 cache.line_break.borrow_mut().insert(
                     glyph.pos,
@@ -547,21 +529,23 @@ where
         glyphs.next_byte = glyph.text_bytes.end;
         glyphs.was_lf = glyph.line_break;
 
-        glyphs.emit = Some(Glyph2 {
-            glyph: if glyphs.wrap_ctrl {
-                Cow::Borrowed("\u{21B5}")
-            } else {
-                Cow::Borrowed("")
-            },
-            text_bytes: glyph.text_bytes.end..glyph.text_bytes.end,
-            screen_pos: (glyph.screen_pos.0 + 1, glyph.screen_pos.1),
-            screen_width: if glyphs.wrap_ctrl { 1 } else { 0 },
-            line_break: true,
-            soft_break: true,
-            hidden_break: false,
-            hidden_glyph: Cow::Borrowed(""),
-            pos: glyph.pos,
-        });
+        if glyphs.wrap_ctrl {
+            // show soft-break
+            glyphs.emit = Some(Glyph2 {
+                glyph: Cow::Borrowed("\u{21B5}"),
+                text_bytes: glyph.text_bytes.end..glyph.text_bytes.end,
+                screen_pos: (glyph.screen_pos.0 + 1, glyph.screen_pos.1),
+                screen_width: 1,
+                line_break: true,
+                soft_break: true,
+                hidden_break: false,
+                hidden_glyph: Cow::Borrowed(""),
+                pos: glyph.pos,
+            });
+        } else {
+            glyph.line_break = true;
+            glyph.soft_break = true;
+        }
 
         if glyph.hidden_break {
             glyph.screen_width = 1;
