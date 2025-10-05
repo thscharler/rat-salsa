@@ -899,6 +899,11 @@ mod logscroll {
                     }
                     r => r.into(),
                 });
+                if state.find.is_focused() {
+                    if let ct_event!(keycode press Down) = event {
+                        ctx.focus().focus(&state.find_table);
+                    }
+                }
                 try_flow!(match state.find_table.handle(event, Regular) {
                     TableOutcome::Selected => {
                         if let Some(selected) = state.find_table.selected() {

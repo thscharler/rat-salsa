@@ -1036,7 +1036,7 @@ version = "1.2.1"
 
 [[package]]
 name = "rat-dialog"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1190,7 +1190,7 @@ dependencies = [
 
 [[package]]
 name = "rat-text"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1199,7 +1199,6 @@ dependencies = [
  "dyn-clone",
  "fern",
  "format_num_pattern",
- "fxhash",
  "iset",
  "lipsum",
  "log",
@@ -1212,6 +1211,7 @@ dependencies = [
  "rat-scrolled",
  "ratatui",
  "ropey",
+ "rustc-hash",
  "unicode-display-width",
  "unicode-segmentation",
 ]
@@ -1237,7 +1237,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme3"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "log",
  "rat-widget",
@@ -1246,7 +1246,7 @@ dependencies = [
 
 [[package]]
 name = "rat-widget"
-version = "1.2.1"
+version = "1.2.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1390,6 +1390,12 @@ name = "rustc-demangle"
 version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56f7d92ca342cea22a06f2121d944b4fd82af56988c270852495420f961d4ace"
+
+[[package]]
+name = "rustc-hash"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 
 [[package]]
 name = "rustix"

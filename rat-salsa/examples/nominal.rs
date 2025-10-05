@@ -1,11 +1,12 @@
 use crate::nominal::{Nominal, NominalState};
 use anyhow::Error;
+use rat_focus::impl_has_focus;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme3::{create_theme, SalsaTheme};
-use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -108,6 +109,8 @@ pub struct Scenery {
     pub error_dlg: MsgDialogState,
 }
 
+impl_has_focus!(nominal for Scenery);
+
 pub fn render(
     area: Rect,
     buf: &mut Buffer,
@@ -153,7 +156,7 @@ pub fn render(
 }
 
 pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
-    ctx.set_focus(FocusBuilder::build_for(&state.nominal));
+    ctx.set_focus(FocusBuilder::build_for(state));
     state.nominal.init(ctx)?;
     Ok(())
 }
@@ -181,13 +184,12 @@ pub fn event(
                 }
             });
 
-            let f = ctx.focus_mut().handle(event, Regular);
-            ctx.queue(f);
+            ctx.handle_focus(event);
 
             r
         }
         AppEvent::Rendered => {
-            ctx.set_focus(FocusBuilder::rebuild_for(&state.nominal, ctx.take_focus()));
+            ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
             Control::Continue
         }
         AppEvent::Message(s) => {
