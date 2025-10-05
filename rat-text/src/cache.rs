@@ -43,12 +43,13 @@ pub struct Cache {
     /// range to bytes, for glyphs2()
     pub(crate) range_to_bytes: Rc<RefCell<Map<TextRange, Range<usize>>>>,
 
-    /// Mark the byte-positions of each line-start.
+    /// Marks the byte-positions of each line-start.
     /// Used when text-wrap is ShiftText.
     pub(crate) line_start: Rc<RefCell<Map<upos_type, LineOffsetCache>>>,
 
-    /// Has the specific line been fully wrapped from column 0 to width.
-    pub(crate) full_line_break: Rc<RefCell<Set<upos_type>>>,
+    /// Has the specific line been fully wrapped from column 0 to width?
+    /// If yes, contains the line-break caused by `\n`.
+    pub(crate) full_line_break: Rc<RefCell<Map<upos_type, LineBreakCache>>>,
 
     /// All known line-breaks for wrapped text.
     /// Has the text-position of the glyph which is marked as 'line-break'.
