@@ -1,3 +1,7 @@
+# 1.3.1
+
+* fix: text-input didn't finish render. ups
+
 # 1.3.0
 
 * fix: several small behaviour bugs with wrapped text.

@@ -599,7 +599,7 @@ impl SalsaTheme for DarkTheme {
     fn textview_style(&self) -> TextStyle {
         TextStyle {
             style: self.container_base(),
-            focus: Some(self.focus()),
+            focus: Some(self.container_base()),
             select: Some(self.text_select()),
             scroll: Some(self.scroll_style()),
             border_style: Some(self.container_border()),

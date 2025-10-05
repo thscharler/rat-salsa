@@ -166,6 +166,7 @@ impl GlobalState {
     }
 }
 
+#[derive(Debug)]
 pub enum LogScrollEvent {
     Event(crossterm::event::Event),
     TimeOut(TimeOut),
@@ -209,18 +210,10 @@ pub fn render(
     let t0 = SystemTime::now();
 
     let layout = Layout::vertical([
-        Constraint::Length(1),
         Constraint::Fill(1), //
         Constraint::Length(1),
     ])
     .split(area);
-
-    Line::from_iter([
-        Span::from("log/scroll "),
-        Span::from(format!("{:?}", ctx.file_path)),
-    ])
-    .style(ctx.theme.red(Palette::DARK_3))
-    .render(layout[0], buf);
 
     logscroll::render(area, buf, &mut state.logscroll, ctx)?;
     ctx.set_screen_cursor(state.logscroll.screen_cursor());
@@ -248,7 +241,7 @@ pub fn render(
             ctx.theme.status_base(),
             ctx.theme.status_base(),
         ]);
-    status.render(layout[2], buf, &mut state.status);
+    status.render(layout[1], buf, &mut state.status);
 
     Ok(())
 }
@@ -361,17 +354,18 @@ mod logscroll {
     use rat_widget::focus::{HasFocus, Navigation};
     use rat_widget::paired::{PairSplit, Paired, PairedState, PairedWidget};
     use rat_widget::scrolled::Scroll;
-    use rat_widget::splitter::{Split, SplitState};
+    use rat_widget::splitter::{Split, SplitState, SplitType};
     use rat_widget::table::selection::RowSelection;
     use rat_widget::table::{Table, TableContext, TableData, TableState};
     use rat_widget::text::{impl_screen_cursor, upos_type, TextPosition};
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
+    use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::style::Style;
     use ratatui::text::{Line, Span};
-    use ratatui::widgets::{StatefulWidget, Widget};
+    use ratatui::widgets::block::Title;
+    use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
     use regex_cursor::engines::dfa::{find_iter, Regex};
     use regex_cursor::{Input, RopeyCursor};
     use ropey::{Rope, RopeBuilder};
@@ -429,7 +423,6 @@ mod logscroll {
         ctx: &mut GlobalState,
     ) -> Result<(), Error> {
         let l0 = Layout::vertical([
-            Constraint::Length(1),
             Constraint::Fill(1), //
             Constraint::Length(1),
         ])
@@ -437,17 +430,27 @@ mod logscroll {
 
         let split = Split::vertical()
             .styles(ctx.theme.split_style())
+            .split_type(SplitType::Scroll)
+            .mark_offset(1)
+            .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Fill(1), //
                 Constraint::Length(ctx.cfg.split_pos),
             ])
-            .into_widget(l0[1], &mut state.split);
-
-        // left side
+            .into_widget(l0[0], &mut state.split);
 
         TextArea::new()
-            .vscroll(Scroll::new())
+            .vscroll(Scroll::new().start_margin(2))
             .hscroll(Scroll::new())
+            .block(
+                Block::bordered().border_type(BorderType::Rounded).title(
+                    Line::from_iter([
+                        Span::from("log/scroll "),
+                        Span::from(format!("{:?}", ctx.file_path)),
+                    ])
+                    .style(ctx.theme.red(Palette::DARK_3)),
+                ),
+            )
             .styles(ctx.theme.textview_style())
             .text_style_idx(0, ctx.theme.orange(6))
             .text_style_idx(1, ctx.theme.yellow(6))
@@ -464,12 +467,15 @@ mod logscroll {
             .render(state.split.widget_areas[0], buf, &mut state.logtext);
 
         // right side
+        buf.set_style(state.split.widget_areas[1], ctx.theme.container_base());
 
         let l2 = Layout::vertical([
+            Constraint::Length(1), //
             Constraint::Length(1), //
             Constraint::Fill(1),
             Constraint::Length(1),
         ])
+        .horizontal_margin(1)
         .split(state.split.widget_areas[1]);
 
         Paired::new(
@@ -477,7 +483,7 @@ mod logscroll {
             TextInput::new().styles(ctx.theme.text_style()),
         )
         .split(PairSplit::Fix1(5))
-        .render(l2[0], buf, &mut PairedState::new(&mut (), &mut state.find));
+        .render(l2[1], buf, &mut PairedState::new(&mut (), &mut state.find));
 
         Table::new()
             .vscroll(Scroll::new())
@@ -488,13 +494,13 @@ mod logscroll {
                 start_line: state.start_line,
                 data: &state.find_matches,
             })
-            .render(l2[1], buf, &mut state.find_table);
+            .render(l2[2], buf, &mut state.find_table);
 
         Line::from(format!("{} matches", state.find_matches.len()))
             .style(ctx.theme.red(Palette::DARK_3))
-            .render(l2[2], buf);
+            .render(l2[3], buf);
 
-        split.render(l0[1], buf, &mut state.split);
+        split.render(l0[0], buf, &mut state.split);
 
         Ok(())
     }
@@ -862,7 +868,7 @@ mod logscroll {
                             .position(|v| *v == ctx.theme.name())
                             .unwrap_or(0);
                         let pos = (pos + 1) % themes.len();
-                        ctx.theme = create_theme(themes[pos]).expect("theme");
+                        ctx.theme = create_theme(&themes[pos]).expect(&themes[pos]);
                         ctx.queue_event(LogScrollEvent::StoreCfg);
                         ctx.queue_event(LogScrollEvent::Status(0, ctx.theme.name().into()));
                         Control::Changed
@@ -906,7 +912,7 @@ mod logscroll {
                 }
                 try_flow!(match state.find_table.handle(event, Regular) {
                     TableOutcome::Selected => {
-                        if let Some(selected) = state.find_table.selected() {
+                        if let Some(selected) = state.find_table.selected_checked() {
                             let range = state.find_matches[selected].clone();
 
                             // change highlight

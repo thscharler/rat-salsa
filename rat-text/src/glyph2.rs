@@ -288,10 +288,14 @@ where
                 grapheme
             } else {
                 self.done = true;
-                if self.was_lf {
-                    return None;
+                if self.lf_breaks {
+                    if self.was_lf {
+                        return None;
+                    } else {
+                        Grapheme::new(Cow::Borrowed("\n"), self.next_byte..self.next_byte)
+                    }
                 } else {
-                    Grapheme::new(Cow::Borrowed("\n"), self.next_byte..self.next_byte)
+                    return None;
                 }
             };
 
@@ -343,10 +347,14 @@ where
         let grapheme = if let Some(grapheme) = grapheme {
             grapheme
         } else {
-            if was_lf {
-                break;
+            if glyphs.lf_breaks {
+                if was_lf {
+                    break;
+                } else {
+                    Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
+                }
             } else {
-                Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
+                break;
             }
         };
 
@@ -583,10 +591,14 @@ where
         let grapheme = if let Some(grapheme) = grapheme {
             grapheme
         } else {
-            if was_lf {
-                break;
+            if glyphs.lf_breaks {
+                if was_lf {
+                    break;
+                } else {
+                    Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
+                }
             } else {
-                Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
+                break;
             }
         };
 
@@ -696,10 +708,14 @@ where
         let grapheme = if let Some(grapheme) = grapheme {
             grapheme
         } else {
-            if was_lf {
-                break;
+            if glyphs.lf_breaks {
+                if was_lf {
+                    break;
+                } else {
+                    Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
+                }
             } else {
-                Grapheme::new(Cow::Borrowed("\n"), next_byte..next_byte)
+                break;
             }
         };
 

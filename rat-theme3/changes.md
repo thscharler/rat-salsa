@@ -1,3 +1,7 @@
+# 2.1.1
+
+* fix: wrong name
+
 # 2.1.0
 
 * break: add text-colors to the palette. The text-color functions use
