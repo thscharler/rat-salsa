@@ -679,17 +679,17 @@ mod core {
         }
 
         /// Shortcut for building the focus for a container
-        /// that implements [HasFocus]().
+        /// that implements [HasFocus].
         ///
         /// This creates a fresh Focus.
         ///
         /// __See__
         ///
-        /// Use [rebuild](FocusBuilder::rebuild_for) if you want to ensure that widgets
-        /// that are no longer in the widget structure have their
-        /// focus flag reset properly. If you don't have
-        /// some logic to conditionally add widgets to the focus,
-        /// this function is probably fine.
+        /// Use [rebuild_for](FocusBuilder::rebuild_for) if you want
+        /// to ensure that widgets that are no longer in the widget
+        /// structure have their focus flag reset properly. If you
+        /// don't have some logic to conditionally add widgets to
+        /// the focus, this function is probably fine.
         pub fn build_for(container: &dyn HasFocus) -> Focus {
             let mut b = FocusBuilder::new(None);
             b.widget(container);
@@ -697,7 +697,7 @@ mod core {
         }
 
         /// Shortcut function for building the focus for a container
-        /// that implements [HasFocus]()
+        /// that implements [HasFocus]
         ///
         /// This takes the old Focus and reuses most of its allocations.
         /// It also ensures that any widgets no longer in the widget structure
