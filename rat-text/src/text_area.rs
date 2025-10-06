@@ -427,7 +427,6 @@ fn render_text_area(
     state.hscroll.set_page_len(state.inner.width as usize);
 
     if let TextWrap::Hard | TextWrap::Word(_) = state.text_wrap {
-        // todo: maybe better? somehow?
         state
             .vscroll
             .set_max_offset(state.len_lines().saturating_sub(1) as usize);
@@ -2292,8 +2291,8 @@ impl TextAreaState {
         None
     }
 
-    // start offset for given screen-row. only if within 2 pages.
-    // requires: cache for 2 pages
+    // start offset for given screen-row. only if within `scr.2` pages.
+    // requires: cache for `scr.2` pages
     fn stc_sub_row_offset(
         &self,
         scr: (upos_type, upos_type, upos_type),
@@ -2768,8 +2767,8 @@ impl TextAreaState {
 impl TextAreaState {
     /// Maximum offset that is accessible with scrolling.
     ///
-    /// This is shorter than the length of the content by whatever fills the last page.
-    /// This is the base for the scrollbar content_length.
+    /// This is set to `len_lines - page_size` for shift-mode,
+    /// and to `len_lines` for any wrapping-mode.
     pub fn vertical_max_offset(&self) -> usize {
         self.vscroll.max_offset()
     }
@@ -2779,7 +2778,7 @@ impl TextAreaState {
         self.vscroll.offset()
     }
 
-    /// Vertical page-size at the current offset.
+    /// Rendered height of the widget.
     pub fn vertical_page(&self) -> usize {
         self.vscroll.page_len()
     }
@@ -2789,9 +2788,14 @@ impl TextAreaState {
         self.vscroll.scroll_by()
     }
 
-    /// Maximum offset that is accessible with scrolling.
+    /// Maximum horizontal offset.
     ///
-    /// This is currently set to usize::MAX.
+    /// This is set to 0 when text-wrapping is active.
+    /// Otherwise, it can be set manually, but is always
+    /// ignored by all scroll-functions. This widget
+    /// doesn't try to find an overall text-width.
+    ///
+    /// It __will__ be used to render the scrollbar though.
     pub fn horizontal_max_offset(&self) -> usize {
         self.hscroll.max_offset()
     }
@@ -2801,22 +2805,22 @@ impl TextAreaState {
         self.hscroll.offset()
     }
 
-    /// Horizontal page-size at the current offset.
+    /// Rendered width of the text-area.
     pub fn horizontal_page(&self) -> usize {
         self.hscroll.page_len()
     }
 
-    /// Suggested scroll per scroll-event.
+    /// Suggested scroll-by per scroll-event.
     pub fn horizontal_scroll(&self) -> usize {
         self.hscroll.scroll_by()
     }
 
     /// Change the vertical offset.
+    /// There is no limit to this offset.
     ///
-    /// Due to overscroll it's possible that this is an invalid offset for the widget.
-    /// The widget must deal with this situation.
+    /// Return
     ///
-    /// The widget returns true if the offset changed at all.
+    /// `true` if the offset changed at all.
     pub fn set_vertical_offset(&mut self, row_offset: usize) -> bool {
         self.scroll_to_cursor = false;
         self.sub_row_offset = 0;
@@ -2825,97 +2829,107 @@ impl TextAreaState {
 
     /// Change the horizontal offset.
     ///
-    /// Due to overscroll it's possible that this is an invalid offset for the widget.
-    /// The widget must deal with this situation.
+    /// There is no limit to this offset. If there is text-wrapping
+    /// this offset will be ignored.
     ///
-    /// This offset is ignored if there is any text-wrapping.
+    /// Return
     ///
-    /// The widget returns true if the offset changed at all.
+    /// `true` if the offset changed at all.
     pub fn set_horizontal_offset(&mut self, col_offset: usize) -> bool {
         self.scroll_to_cursor = false;
         self.hscroll.set_offset(col_offset)
     }
 
-    /// Scroll to position.
+    /// Scrolls to make the given row visible.
+    ///
+    /// Adjusts the offset just enough to make this happen.
+    /// Does nothing if the position is already visible.
+    ///
+    /// Return
+    ///
+    /// `true` if the offset changed.
     pub fn scroll_to_row(&mut self, pos: usize) -> bool {
         self.scroll_to_cursor = false;
-        self.vscroll.set_offset(pos)
+
+        match self.text_wrap {
+            TextWrap::Shift => self.vscroll.scroll_to_pos(pos),
+            TextWrap::Hard | TextWrap::Word(_) => {
+                self.vscroll.set_offset(self.vscroll.limited_offset(pos))
+            }
+        }
     }
 
-    /// Scroll to position.
+    /// Scroll to make the given column visible.
     ///
     /// This scroll-offset is ignored if there is any text-wrapping.
+    ///
+    /// Return
+    ///
+    /// `true` if the offset changed.
     pub fn scroll_to_col(&mut self, pos: usize) -> bool {
         self.scroll_to_cursor = false;
         self.hscroll.set_offset(pos)
     }
 
-    /// Scrolling
+    /// Scroll up by `delta` rows.
+    ///
+    /// Return
+    ///
+    /// `true` if the offset changes.
     pub fn scroll_up(&mut self, delta: usize) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, -(delta as i16))) {
             self.sub_row_offset = pos.x;
             self.vscroll.set_offset(pos.y as usize);
             true
         } else {
-            self.sub_row_offset = 0;
-
-            // this uses a different limit compared to vscroll.scroll_down()
-            // otherwise it doesn't play well with the sub_row_offset.
-            let old = self.vscroll.offset;
-            self.vscroll.offset = min(
-                self.vscroll.offset.saturating_sub(delta),
-                self.vscroll
-                    .max_offset
-                    .saturating_add(self.vscroll.page_len())
-                    .saturating_add(self.vscroll.overscroll_by()),
-            );
-            old != self.vscroll.offset
+            false
         }
     }
 
-    /// Scrolling
+    /// Scroll down by `delta` rows.
+    ///
+    /// Return
+    ///
+    /// `true` if the offset changes.
     pub fn scroll_down(&mut self, delta: usize) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, delta as i16)) {
             self.sub_row_offset = pos.x;
             self.vscroll.set_offset(pos.y as usize);
             true
         } else {
-            self.sub_row_offset = 0;
-
-            // this uses a different limit compared to vscroll.scroll_down()
-            // otherwise it doesn't play well with the sub_row_offset.
-            let old = self.vscroll.offset;
-            self.vscroll.offset = min(
-                self.vscroll.offset.saturating_add(delta),
-                self.vscroll
-                    .max_offset
-                    .saturating_add(self.vscroll.page_len())
-                    .saturating_add(self.vscroll.overscroll_by()),
-            );
-
-            old != self.vscroll.offset
+            false
         }
     }
 
-    /// Scrolling
+    /// Scroll left by `delta` columns.
     ///
-    /// Does nothing if there is any text-wrapping.
+    /// This ignores the max_offset, as that is never correct anyway.
+    ///
+    /// __Return__
+    ///
+    /// `true` if the offset changes.
+    ///
+    /// TODO: Does nothing if there is any text-wrapping.
     pub fn scroll_left(&mut self, delta: usize) -> bool {
-        self.hscroll.scroll_left(delta)
+        self.hscroll
+            .set_offset(self.hscroll.offset.saturating_add(delta))
     }
 
-    /// Scrolling
+    /// Scroll right by `delta` columns.
     ///
-    /// Does nothing if there is any text-wrapping.
+    /// This ignores the max_offset, as that is never correct anyway.
+    ///
+    /// __Return__
+    ///
+    /// `true`if the offset changes.
+    ///
+    /// TODO: Does nothing if there is any text-wrapping.
     pub fn scroll_right(&mut self, delta: usize) -> bool {
-        self.hscroll.scroll_right(delta)
+        self.hscroll
+            .set_offset(self.hscroll.offset.saturating_sub(delta))
     }
 
-    /// If there is some form of text-wrapping active, this
-    /// changes the start-column for rendering the first visible
-    /// line.
-    ///
-    /// The effect looks like scrolling the visible rows.
+    #[deprecated(since = "1.3.0", note = "not useful as is")]
     pub fn scroll_sub_row_offset(&mut self, col: upos_type) -> bool {
         if let Ok(max_col) = self.try_line_width(self.offset().1 as upos_type) {
             self.sub_row_offset = min(col as upos_type, max_col);
@@ -2928,6 +2942,9 @@ impl TextAreaState {
 
 impl TextAreaState {
     /// Scroll that the cursor is visible.
+    ///
+    /// This positioning happens with the next render.
+    ///
     /// All move-fn do this automatically.
     pub fn scroll_cursor_to_visible(&mut self) {
         self.scroll_to_cursor = true;
@@ -3191,8 +3208,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
             ScrollOutcome::Down(v) => self.scroll_down(v),
             ScrollOutcome::Left(v) => self.scroll_left(v),
             ScrollOutcome::Right(v) => self.scroll_right(v),
-            ScrollOutcome::VPos(v) => self.set_vertical_offset(v),
-            ScrollOutcome::HPos(v) => self.set_horizontal_offset(v),
+            ScrollOutcome::VPos(v) => self.scroll_to_row(v),
+            ScrollOutcome::HPos(v) => self.scroll_to_col(v),
             _ => false,
         };
         if r {
