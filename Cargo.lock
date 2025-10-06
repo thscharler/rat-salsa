@@ -1237,11 +1237,33 @@ dependencies = [
 
 [[package]]
 name = "rat-theme3"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "log",
  "rat-widget",
  "ratatui",
+]
+
+[[package]]
+name = "rat-vim"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cli-clipboard",
+ "crossterm",
+ "fern",
+ "lipsum",
+ "log",
+ "lorem-rustum",
+ "rat-cursor",
+ "rat-event",
+ "rat-focus",
+ "rat-reloc",
+ "rat-scrolled",
+ "rat-text",
+ "ratatui",
+ "ropey",
+ "unicode-segmentation",
 ]
 
 [[package]]

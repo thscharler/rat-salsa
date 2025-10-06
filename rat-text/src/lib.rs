@@ -502,9 +502,24 @@ pub trait Cursor: Iterator {
 
     /// Return a cursor with prev/next reversed.
     /// All iterator functions work backwards.
+    #[deprecated(since = "1.3.0", note = "useless")]
     fn rev_cursor(self) -> impl Cursor<Item = Self::Item>
     where
         Self: Sized;
+
+    /// Peek next.
+    fn peek_next(&mut self) -> Option<Self::Item> {
+        let v = self.next();
+        self.prev();
+        v
+    }
+
+    /// Peek prev.
+    fn peek_prev(&mut self) -> Option<Self::Item> {
+        let v = self.prev();
+        self.next();
+        v
+    }
 
     /// Offset of the current cursor position into the underlying text.
     fn text_offset(&self) -> usize;

@@ -41,6 +41,16 @@ impl<'a> Grapheme<'a> {
             .unwrap_or(false)
     }
 
+    /// First (only) char of the grapheme is a whitespace.
+    #[inline]
+    pub fn is_alphanumeric(&self) -> bool {
+        self.grapheme
+            .chars()
+            .next()
+            .map(|v| v.is_alphanumeric())
+            .unwrap_or(false)
+    }
+
     /// Is a linebreak.
     #[inline]
     #[allow(clippy::nonminimal_bool)]

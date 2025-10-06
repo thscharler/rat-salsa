@@ -18,4 +18,5 @@ members = [
     "rat-theme3",
     "rat-widget",
     "rat-dialog",
+    "rat-vim",
 ]
