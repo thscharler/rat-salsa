@@ -33,6 +33,9 @@ fn main() -> Result<(), Error> {
     let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 
+    #[allow(unused_variables)]
+    let term_size = crossterm::terminal::size()?;
+
     run_tui(
         init,
         render,
@@ -44,6 +47,7 @@ fn main() -> Result<(), Error> {
             alternate_screen: false,
             shutdown_clear: true,
             ratatui_options: TerminalOptions {
+                // viewport: Viewport::Fixed(Rect::new(term_size.0 - 30, term_size.1 - 10, 30, 10)),
                 viewport: Viewport::Inline(4),
             },
             ..Default::default()
