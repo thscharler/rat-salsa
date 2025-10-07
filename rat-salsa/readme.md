@@ -29,7 +29,7 @@ returns a [control-flow](Control) which dictates further actions.
 
 ## Book
 
-... coming soon(ish) ...
+[link](https://thscharler.github.io/rat-salsa/)
 
 ## Companion Crates
 
