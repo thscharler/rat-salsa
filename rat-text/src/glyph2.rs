@@ -1054,25 +1054,8 @@ mod test_glyph {
         glyphs.set_right_margin(70);
         glyphs.set_word_margin(68);
         glyphs.prepare().unwrap();
-        assert!(
-            cc.line_break
-                .borrow()
-                .contains_key(&TextPosition::new(0, 0))
-        );
-        assert_eq!(
-            glyphs.next(),
-            Some(Glyph2 {
-                glyph: Cow::Borrowed(""),
-                text_bytes: 0..0,
-                screen_pos: (0, 0),
-                screen_width: 0,
-                pos: TextPosition::new(0, 0),
-                line_break: true,
-                soft_break: false,
-                hidden_break: false,
-                hidden_glyph: Cow::Borrowed(""),
-            })
-        );
+        assert!(cc.line_break.borrow().is_empty());
+        assert_eq!(glyphs.next(), None);
         assert_eq!(glyphs.next(), None);
     }
 
@@ -1369,25 +1352,8 @@ mod test_glyph {
         glyphs.set_right_margin(70);
         glyphs.set_word_margin(68);
         glyphs.prepare().unwrap();
-        assert!(
-            cc.line_break
-                .borrow()
-                .contains_key(&TextPosition::new(0, 0))
-        );
-        assert_eq!(
-            glyphs.next(),
-            Some(Glyph2 {
-                glyph: Cow::Borrowed(""),
-                text_bytes: 0..0,
-                screen_pos: (0, 0),
-                screen_width: 0,
-                pos: TextPosition::new(0, 0),
-                line_break: true,
-                soft_break: false,
-                hidden_break: false,
-                hidden_glyph: Cow::Borrowed(""),
-            })
-        );
+        assert!(cc.line_break.borrow().is_empty());
+        assert_eq!(glyphs.next(), None);
         assert_eq!(glyphs.next(), None);
     }
 
@@ -1684,26 +1650,8 @@ mod test_glyph {
         glyphs.set_right_margin(70);
         glyphs.set_word_margin(68);
         glyphs.prepare().unwrap();
-        dbg!(&cc);
-        assert!(
-            cc.line_break
-                .borrow()
-                .contains_key(&TextPosition::new(0, 0))
-        );
-        assert_eq!(
-            glyphs.next(),
-            Some(Glyph2 {
-                glyph: Cow::Borrowed(""),
-                text_bytes: 0..0,
-                screen_pos: (0, 0),
-                screen_width: 0,
-                pos: TextPosition::new(0, 0),
-                line_break: true,
-                soft_break: false,
-                hidden_break: false,
-                hidden_glyph: Cow::Borrowed(""),
-            })
-        );
+        assert!(cc.line_break.borrow().is_empty());
+        assert_eq!(glyphs.next(), None);
         assert_eq!(glyphs.next(), None);
     }
 
