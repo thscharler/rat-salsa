@@ -547,11 +547,13 @@ fn test_line_width() {
     assert_eq!(s.line_width(1), Ok(0));
     assert_eq!(s.line_width(2), Ok(0));
     assert!(matches!(s.line_width(3), Err(_)));
-    let s = TextRope::new_text("abcd\r");
-    assert_eq!(s.line_width(0), Ok(4));
-    assert_eq!(s.line_width(1), Ok(0));
-    assert_eq!(s.line_width(2), Ok(0));
-    assert!(matches!(s.line_width(3), Err(_)));
+    if cfg!(feature = "cr_lines") {
+        let s = TextRope::new_text("abcd\r");
+        assert_eq!(s.line_width(0), Ok(4));
+        assert_eq!(s.line_width(1), Ok(0));
+        assert_eq!(s.line_width(2), Ok(0));
+        assert!(matches!(s.line_width(3), Err(_)));
+    }
     let s = TextRope::new_text("abcd\r\n");
     assert_eq!(s.line_width(0), Ok(4));
     assert_eq!(s.line_width(1), Ok(0));
@@ -725,15 +727,17 @@ fn test_insert_str_2() {
     let (r, b) = s.clone().insert_str((0, 1).into(), "\n").expect("valid");
     assert_eq!(r, ((4, 0)..(0, 1)).into());
     assert_eq!(b, 4..5);
-    let (r, b) = s.clone().insert_str((0, 0).into(), "\r").expect("valid");
-    assert_eq!(r, ((0, 0)..(0, 1)).into());
-    assert_eq!(b, 0..1);
-    let (r, b) = s.clone().insert_str((4, 0).into(), "\r").expect("valid");
-    assert_eq!(r, ((4, 0)..(0, 1)).into());
-    assert_eq!(b, 4..5);
-    let (r, b) = s.clone().insert_str((0, 1).into(), "\r").expect("valid");
-    assert_eq!(r, ((4, 0)..(0, 1)).into());
-    assert_eq!(b, 4..5);
+    if cfg!(feature = "cr_lines") {
+        let (r, b) = s.clone().insert_str((0, 0).into(), "\r").expect("valid");
+        assert_eq!(r, ((0, 0)..(0, 1)).into());
+        assert_eq!(b, 0..1);
+        let (r, b) = s.clone().insert_str((4, 0).into(), "\r").expect("valid");
+        assert_eq!(r, ((4, 0)..(0, 1)).into());
+        assert_eq!(b, 4..5);
+        let (r, b) = s.clone().insert_str((0, 1).into(), "\r").expect("valid");
+        assert_eq!(r, ((4, 0)..(0, 1)).into());
+        assert_eq!(b, 4..5);
+    }
 
     let s = TextRope::new_text("1234\r");
 
