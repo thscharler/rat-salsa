@@ -1,3 +1,9 @@
+# 1.3.1
+
+* fix: scrolling issue with wrapped text.
+* refactor: remove some useless codepaths.
+* docs: some updates
+
 # 1.3.0
 
 * fix: several small behaviour bugs with wrapped text.
