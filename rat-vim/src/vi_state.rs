@@ -113,9 +113,13 @@ mod motions {
                 debug!("restart g");
                 match tok {
                     'e' => Vim::MovePrevWordEnd,
+                    'E' => Vim::MovePrevWORDEnd,
                     _ => Vim::Invalid,
                 }
             }
+            'W' => Vim::MoveNextWORDStart,
+            'B' => Vim::MovePrevWORDStart,
+            'E' => Vim::MoveNextWORDEnd,
             'i' => Vim::Insert,
             _ => Vim::Invalid,
         }
@@ -203,6 +207,10 @@ mod op {
         MovePrevWordStart,
         MoveNextWordEnd,
         MovePrevWordEnd,
+        MoveNextWORDStart,
+        MovePrevWORDStart,
+        MoveNextWORDEnd,
+        MovePrevWORDEnd,
         Insert,
     }
 
@@ -218,6 +226,10 @@ mod op {
                 Vim::MovePrevWordStart => move_prev_word_start(state).into(),
                 Vim::MoveNextWordEnd => move_next_word_end(state).into(),
                 Vim::MovePrevWordEnd => move_prev_word_end(state).into(),
+                Vim::MoveNextWORDStart => move_next_bigword_start(state).into(),
+                Vim::MovePrevWORDStart => move_prev_bigword_start(state).into(),
+                Vim::MoveNextWORDEnd => move_next_bigword_end(state).into(),
+                Vim::MovePrevWORDEnd => move_prev_bigword_end(state).into(),
                 Vim::Insert => {
                     vi.mode = VIMode::Insert;
                     TextOutcome::Changed
@@ -257,11 +269,102 @@ mod op {
             false
         }
     }
+
+    fn move_next_bigword_start(state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_next_bigword_start(state) {
+            state.set_cursor(word, false)
+        } else {
+            false
+        }
+    }
+
+    fn move_prev_bigword_start(state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_prev_bigword_start(state) {
+            state.set_cursor(word, false)
+        } else {
+            false
+        }
+    }
+
+    fn move_next_bigword_end(state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_next_bigword_end(state) {
+            state.set_cursor(word, false)
+        } else {
+            false
+        }
+    }
+
+    fn move_prev_bigword_end(state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_prev_bigword_end(state) {
+            state.set_cursor(word, false)
+        } else {
+            false
+        }
+    }
 }
 
 mod query {
     use rat_text::text_area::TextAreaState;
     use rat_text::{Cursor, Grapheme, TextPosition};
+
+    pub(super) fn vi_prev_bigword_start(state: &TextAreaState) -> Option<TextPosition> {
+        let mut it = state.text_graphemes(state.cursor());
+
+        let Some(sample) = it.peek_prev() else {
+            return None;
+        };
+        if !sample.is_whitespace() {
+            pskip_nonwhite(&mut it);
+        } else {
+            pskip_white(&mut it);
+            pskip_nonwhite(&mut it);
+        }
+
+        Some(state.byte_pos(it.text_offset()))
+    }
+
+    pub(super) fn vi_next_bigword_start(state: &TextAreaState) -> Option<TextPosition> {
+        let mut it = state.text_graphemes(state.cursor());
+
+        let Some(sample) = it.peek_next() else {
+            return None;
+        };
+        if !sample.is_whitespace() {
+            skip_nonwhite(&mut it);
+        }
+        skip_white(&mut it);
+
+        Some(state.byte_pos(it.text_offset()))
+    }
+
+    pub(super) fn vi_prev_bigword_end(state: &TextAreaState) -> Option<TextPosition> {
+        let mut it = state.text_graphemes(state.cursor());
+
+        let Some(sample) = it.peek_prev() else {
+            return None;
+        };
+        if !sample.is_whitespace() {
+            pskip_nonwhite(&mut it);
+        }
+        pskip_white(&mut it);
+
+        Some(state.byte_pos(it.text_offset()))
+    }
+
+    pub(super) fn vi_next_bigword_end(state: &TextAreaState) -> Option<TextPosition> {
+        let mut it = state.text_graphemes(state.cursor());
+
+        skip_white(&mut it);
+
+        let Some(sample) = it.peek_next() else {
+            return None;
+        };
+        if !sample.is_whitespace() {
+            skip_nonwhite(&mut it);
+        }
+
+        Some(state.byte_pos(it.text_offset()))
+    }
 
     pub(super) fn vi_next_word_end(state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
@@ -321,24 +424,21 @@ mod query {
     pub(super) fn vi_prev_word_start(state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        let Some(sample) = it.peek_next() else {
+        let Some(sample) = it.peek_prev() else {
             return None;
         };
         if sample.is_alphanumeric() {
             pskip_alpha(&mut it);
-            pskip_white(&mut it);
         } else if sample.is_whitespace() {
             pskip_white(&mut it);
-        } else {
-            pskip_sample(&mut it, sample);
-            pskip_white(&mut it);
-        }
-
-        let Some(sample) = it.peek_next() else {
-            return None;
-        };
-        if sample.is_alphanumeric() {
-            pskip_alpha(&mut it);
+            let Some(sample) = it.peek_prev() else {
+                return None;
+            };
+            if sample.is_alphanumeric() {
+                pskip_alpha(&mut it);
+            } else {
+                pskip_sample(&mut it, sample);
+            }
         } else {
             pskip_sample(&mut it, sample);
         }
@@ -382,6 +482,18 @@ mod query {
         }
     }
 
+    fn pskip_nonwhite(it: &mut dyn Cursor<Item = Grapheme>) {
+        loop {
+            let Some(c) = it.prev() else {
+                break;
+            };
+            if c.is_whitespace() {
+                it.next();
+                break;
+            }
+        }
+    }
+
     fn skip_alpha(it: &mut dyn Cursor<Item = Grapheme>) {
         loop {
             let Some(c) = it.next() else {
@@ -412,6 +524,18 @@ mod query {
                 break;
             };
             if !c.is_whitespace() {
+                it.prev();
+                break;
+            }
+        }
+    }
+
+    fn skip_nonwhite(it: &mut dyn Cursor<Item = Grapheme>) {
+        loop {
+            let Some(c) = it.next() else {
+                break;
+            };
+            if c.is_whitespace() {
                 it.prev();
                 break;
             }
