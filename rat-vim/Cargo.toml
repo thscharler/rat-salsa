@@ -25,7 +25,6 @@ ropey = "1.6.1"
 unicode-segmentation = "1.11"
 futures = "0.3"
 futures-util = "0.3"
-async-channel = "2.5"
 
 rat-event = { version = "1.2", path = "../rat-event" }
 rat-reloc = { version = "1.2", path = "../rat-reloc" }
