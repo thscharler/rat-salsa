@@ -4,9 +4,9 @@
 //! ** UNSTABLE **
 //!
 
-use crate::vi_state::motions::{Token, next_motion};
 use crate::vi_state::op::Vim;
-use log::debug;
+use crate::vi_state::token_stream::TokenStream;
+use futures_util::StreamExt;
 use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
@@ -23,81 +23,44 @@ pub enum VIMode {
 
 pub struct VIMotions {
     pub mode: VIMode,
-    pub tok: Token,
+
+    pub tok_seq: String,
+    pub tok: TokenStream,
     pub motion: Pin<Box<dyn Future<Output = Vim>>>,
+
+    pub last_find: Option<Vim>,
 }
 
 impl Default for VIMotions {
     fn default() -> Self {
-        let tok = Token::new();
+        let tok = TokenStream::new();
         Self {
             mode: Default::default(),
+            tok_seq: Default::default(),
             tok: tok.clone(),
-            motion: Box::pin(next_motion(tok.clone())),
+            motion: Box::pin(VIMotions::next_motion(tok.clone())),
+            last_find: None,
         }
     }
 }
 
 impl VIMotions {
     fn motion(&mut self, c: char) -> Poll<Vim> {
-        self.tok.push(c);
+        self.tok_seq.push(c);
+        self.tok.push_next(c);
 
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
         match self.motion.as_mut().poll(&mut cx) {
             Poll::Ready(v) => {
-                self.tok.clear();
-                self.motion = Box::pin(next_motion(self.tok.clone()));
+                self.tok_seq.clear();
+                self.motion = Box::pin(VIMotions::next_motion(self.tok.clone()));
                 Poll::Ready(v)
             }
             Poll::Pending => Poll::Pending,
         }
     }
-}
 
-mod motions {
-    use crate::vi_state::op::*;
-    use futures_util::{Stream, StreamExt};
-    use log::debug;
-    use std::cell::Cell;
-    use std::pin::Pin;
-    use std::rc::Rc;
-    use std::task::{Context, Poll};
-
-    #[derive(Debug, Default, Clone)]
-    pub struct Token {
-        pub display: String,
-        pub token: Rc<Cell<Option<char>>>,
-    }
-
-    impl Token {
-        pub fn new() -> Self {
-            Self::default()
-        }
-
-        pub fn push(&mut self, token: char) {
-            self.display.push(token);
-            self.token.set(Some(token));
-        }
-
-        pub fn clear(&mut self) {
-            self.display.clear();
-            self.token.set(None);
-        }
-    }
-
-    impl Stream for Token {
-        type Item = char;
-
-        fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-            if let Some(token) = self.token.take() {
-                Poll::Ready(Some(token))
-            } else {
-                Poll::Pending
-            }
-        }
-    }
-
-    pub async fn next_motion(mut motion: Token) -> Vim {
+    async fn next_motion(mut motion: TokenStream) -> Vim {
         let tok = motion.next().await.expect("token");
         match tok {
             'h' => Vim::MoveLeft,
@@ -108,9 +71,7 @@ mod motions {
             'b' => Vim::MovePrevWordStart,
             'e' => Vim::MoveNextWordEnd,
             'g' => {
-                debug!("enter g");
                 let tok = motion.next().await.expect("token");
-                debug!("restart g");
                 match tok {
                     'e' => Vim::MovePrevWordEnd,
                     'E' => Vim::MovePrevWORDEnd,
@@ -120,8 +81,63 @@ mod motions {
             'W' => Vim::MoveNextWORDStart,
             'B' => Vim::MovePrevWORDStart,
             'E' => Vim::MoveNextWORDEnd,
+            'f' => {
+                let tok = motion.next().await.expect("token");
+                Vim::FindNext(tok)
+            }
+            'F' => {
+                let tok = motion.next().await.expect("token");
+                Vim::FindPrev(tok)
+            }
+            't' => {
+                let tok = motion.next().await.expect("token");
+                Vim::FindUntilNext(tok)
+            }
+            'T' => {
+                let tok = motion.next().await.expect("token");
+                Vim::FindUntilPrev(tok)
+            }
+            ',' => Vim::FindRepeatBack,
+            ';' => Vim::FindRepeatFwd,
             'i' => Vim::Insert,
             _ => Vim::Invalid,
+        }
+    }
+}
+
+mod token_stream {
+    use futures_util::Stream;
+    use std::cell::Cell;
+    use std::pin::Pin;
+    use std::rc::Rc;
+    use std::task::{Context, Poll};
+
+    // Token stream for the state-machine.
+    #[derive(Debug, Default, Clone)]
+    pub struct TokenStream {
+        pub token: Rc<Cell<Option<char>>>,
+    }
+
+    impl TokenStream {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        /// Push next token.
+        pub fn push_next(&mut self, token: char) {
+            self.token.set(Some(token));
+        }
+    }
+
+    impl Stream for TokenStream {
+        type Item = char;
+
+        fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            if let Some(token) = self.token.take() {
+                Poll::Ready(Some(token))
+            } else {
+                Poll::Pending
+            }
         }
     }
 }
@@ -133,13 +149,10 @@ impl HandleEvent<crossterm::event::Event, &mut VIMotions, TextOutcome> for TextA
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
                 | ct_event!(key press CONTROL_ALT-c) => {
-                    debug!("motion {:?}", *c);
                     if let Poll::Ready(vim) = vi.motion(*c) {
-                        debug!("-> {:?}", vim);
                         vim.apply(self, vi)
                     } else {
-                        debug!("-> ...");
-                        TextOutcome::Unchanged
+                        TextOutcome::Changed
                     }
                 }
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
@@ -156,7 +169,9 @@ impl HandleEvent<crossterm::event::Event, &mut VIMotions, TextOutcome> for TextA
 
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => tc(self.insert_char(*c)),
+                | ct_event!(key press CONTROL_ALT-c) => {
+                    tc(self.insert_char(*c)) //
+                }
                 ct_event!(keycode press Tab) => {
                     // ignore tab from focus
                     if !self.focus.gained() {
@@ -193,6 +208,7 @@ fn tc(r: bool) -> TextOutcome {
 mod op {
     use crate::vi_state::query::*;
     use crate::vi_state::{VIMode, VIMotions};
+    use rat_text::Cursor;
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
 
@@ -211,6 +227,12 @@ mod op {
         MovePrevWORDStart,
         MoveNextWORDEnd,
         MovePrevWORDEnd,
+        FindNext(char),
+        FindPrev(char),
+        FindRepeatBack,
+        FindRepeatFwd,
+        FindUntilNext(char),
+        FindUntilPrev(char),
         Insert,
     }
 
@@ -234,8 +256,129 @@ mod op {
                     vi.mode = VIMode::Insert;
                     TextOutcome::Changed
                 }
+                Vim::FindNext(c) => {
+                    vi.last_find = Some(self);
+                    find_next(c, state).into()
+                }
+                Vim::FindPrev(c) => {
+                    vi.last_find = Some(self);
+                    find_prev(c, state).into()
+                }
+                Vim::FindUntilNext(c) => {
+                    vi.last_find = Some(self);
+                    until_next(c, state).into()
+                }
+                Vim::FindUntilPrev(c) => {
+                    vi.last_find = Some(self);
+                    until_prev(c, state).into()
+                }
+                Vim::FindRepeatBack => match vi.last_find {
+                    Some(Vim::FindNext(c)) => find_prev(c, state).into(),
+                    Some(Vim::FindPrev(c)) => find_next(c, state).into(),
+                    Some(Vim::FindUntilNext(c)) => until_prev(c, state).into(),
+                    Some(Vim::FindUntilPrev(c)) => until_next(c, state).into(),
+                    _ => TextOutcome::Unchanged,
+                },
+                Vim::FindRepeatFwd => match vi.last_find {
+                    Some(Vim::FindNext(c)) => find_next(c, state).into(),
+                    Some(Vim::FindPrev(c)) => find_prev(c, state).into(),
+                    Some(Vim::FindUntilNext(c)) => until_next(c, state).into(),
+                    Some(Vim::FindUntilPrev(c)) => until_prev(c, state).into(),
+                    _ => TextOutcome::Unchanged,
+                },
             }
         }
+    }
+
+    fn until_prev(cc: char, state: &mut TextAreaState) -> bool {
+        let mut it = state.text_graphemes(state.cursor());
+        if let Some(c) = it.peek_prev() {
+            if c == cc {
+                it.prev();
+            }
+        }
+        let found;
+        loop {
+            let Some(c) = it.prev() else { return false };
+
+            if c.is_line_break() {
+                return false;
+            } else if c == cc {
+                found = c.text_bytes().end;
+                break;
+            }
+        }
+        drop(it);
+
+        let cursor = state.byte_pos(found);
+        state.set_cursor(cursor, false)
+    }
+
+    fn until_next(cc: char, state: &mut TextAreaState) -> bool {
+        let mut it = state.text_graphemes(state.cursor());
+        if let Some(c) = it.peek_next() {
+            if c == cc {
+                it.next();
+            }
+        }
+        let found;
+        loop {
+            let Some(c) = it.next() else { return false };
+
+            if c.is_line_break() {
+                return false;
+            } else if c == cc {
+                found = c.text_bytes().start;
+                break;
+            }
+        }
+        drop(it);
+
+        let cursor = state.byte_pos(found);
+        state.set_cursor(cursor, false)
+    }
+
+    fn find_prev(cc: char, state: &mut TextAreaState) -> bool {
+        let mut it = state.text_graphemes(state.cursor());
+        let found;
+        loop {
+            let Some(c) = it.prev() else { return false };
+
+            if c.is_line_break() {
+                return false;
+            } else if c == cc {
+                found = c.text_bytes().start;
+                break;
+            }
+        }
+        drop(it);
+
+        let cursor = state.byte_pos(found);
+        state.set_cursor(cursor, false)
+    }
+
+    fn find_next(cc: char, state: &mut TextAreaState) -> bool {
+        let mut it = state.text_graphemes(state.cursor());
+        if let Some(c) = it.peek_next() {
+            if c == cc {
+                it.next();
+            }
+        }
+        let found;
+        loop {
+            let Some(c) = it.next() else { return false };
+
+            if c.is_line_break() {
+                return false;
+            } else if c == cc {
+                found = c.text_bytes().start;
+                break;
+            }
+        }
+        drop(it);
+
+        let cursor = state.byte_pos(found);
+        state.set_cursor(cursor, false)
     }
 
     fn move_next_word_start(state: &mut TextAreaState) -> bool {

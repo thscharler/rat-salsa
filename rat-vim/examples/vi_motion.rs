@@ -151,7 +151,7 @@ fn render(
                 .high_contrast(istate.theme.palette().limegreen[2]),
         ),
         Span::from(" "),
-        Span::from(&state.textarea_vim.tok.display).style(istate.theme.palette().text_bright),
+        Span::from(&state.textarea_vim.tok_seq).style(istate.theme.palette().text_bright),
     ])
     .render(l23[2], frame.buffer_mut());
 
