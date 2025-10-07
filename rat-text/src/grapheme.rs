@@ -17,9 +17,34 @@ pub struct Grapheme<'a> {
     text_bytes: Range<usize>,
 }
 
-impl<R: AsRef<str>> PartialEq<R> for Grapheme<'_> {
-    fn eq(&self, other: &R) -> bool {
-        self.grapheme.as_ref() == other.as_ref()
+impl PartialEq<&str> for Grapheme<'_> {
+    fn eq(&self, other: &&str) -> bool {
+        self.grapheme.as_ref() == *other
+    }
+}
+
+impl PartialEq<str> for Grapheme<'_> {
+    fn eq(&self, other: &str) -> bool {
+        self.grapheme.as_ref() == other
+    }
+}
+
+impl PartialEq<&String> for Grapheme<'_> {
+    fn eq(&self, other: &&String) -> bool {
+        self.grapheme.as_ref() == *other
+    }
+}
+
+impl PartialEq<String> for Grapheme<'_> {
+    fn eq(&self, other: &String) -> bool {
+        self.grapheme.as_ref() == other
+    }
+}
+
+impl PartialEq<char> for Grapheme<'_> {
+    fn eq(&self, other: &char) -> bool {
+        let mut chars = self.grapheme.chars();
+        chars.next() == Some(*other)
     }
 }
 
