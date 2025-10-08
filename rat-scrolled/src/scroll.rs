@@ -1,9 +1,9 @@
 use crate::_private::NonExhaustive;
-use crate::event::ScrollOutcome;
 use crate::ScrollbarPolicy;
+use crate::event::ScrollOutcome;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, MouseOnly};
-use rat_reloc::{relocate_area, RelocatableState};
+use rat_event::{HandleEvent, MouseOnly, ct_event};
+use rat_reloc::{RelocatableState, relocate_area};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -202,6 +202,16 @@ impl Default for ScrollStyle {
 impl<'a> Scroll<'a> {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Horizontal, bottom scrollbar.
+    pub fn horizontal() -> Self {
+        Self::default().orientation(ScrollbarOrientation::HorizontalBottom)
+    }
+
+    /// Vertical, right scrollbar.
+    pub fn vertical() -> Self {
+        Self::default().orientation(ScrollbarOrientation::VerticalRight)
     }
 
     /// Scrollbar policy.
