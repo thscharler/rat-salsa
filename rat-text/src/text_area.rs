@@ -1203,7 +1203,7 @@ impl TextAreaState {
     ///
     /// Panics for an invalid row.
     #[inline]
-    pub fn line_graphemes(&self, row: upos_type) -> impl Iterator<Item = Grapheme<'_>> {
+    pub fn line_graphemes(&self, row: upos_type) -> impl Cursor<Item = Grapheme<'_>> {
         self.value.line_graphemes(row).expect("valid_row")
     }
 
@@ -1213,7 +1213,7 @@ impl TextAreaState {
     pub fn try_line_graphemes(
         &self,
         row: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         self.value.line_graphemes(row)
     }
 

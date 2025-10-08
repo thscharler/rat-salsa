@@ -303,6 +303,7 @@ impl From<TextPosition> for (upos_type, upos_type) {
     }
 }
 
+// TODO: replace with standard Range.
 /// Exclusive range for text ranges.
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct TextRange {
