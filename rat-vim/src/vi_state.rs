@@ -1,11 +1,5 @@
-//!
-//! VI Motions
-//!
-//! ** UNSTABLE **
-//!
-
 use crate::vi_state::op::{Vim, apply};
-use crate::vi_state::token_stream::TokenStream;
+use crate::{TokenStream, VIMode};
 use futures_util::StreamExt;
 use log::debug;
 use rat_event::{HandleEvent, ct_event};
@@ -13,14 +7,6 @@ use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-
-#[derive(Default, Debug, PartialEq, Eq)]
-pub enum VIMode {
-    #[default]
-    Normal,
-    Insert,
-    Visual,
-}
 
 pub struct VIMotions {
     pub mode: VIMode,
@@ -81,13 +67,19 @@ impl VIMotions {
                 match tok {
                     'e' => Vim::MovePrevWordEnd,
                     'E' => Vim::MovePrevWORDEnd,
-                    '_' => Vim::EndOfText,
+                    '_' => Vim::MoveEndOfText,
                     _ => Vim::Invalid,
                 }
             }
             'W' => Vim::MoveNextWORDStart,
             'B' => Vim::MovePrevWORDStart,
             'E' => Vim::MoveNextWORDEnd,
+            '0' => Vim::MoveStartOfLine,
+            '^' => Vim::MoveStartOfText,
+            '$' => Vim::MoveEndOfLine,
+            '{' => Vim::MovePrevParagraph,
+            '}' => Vim::MoveNextParagraph,
+
             'f' => {
                 let tok = motion.next().await.expect("token");
                 Vim::FindNext(tok)
@@ -106,49 +98,9 @@ impl VIMotions {
             }
             ',' => Vim::FindRepeatBack,
             ';' => Vim::FindRepeatFwd,
-            '0' => Vim::StartOfLine,
-            '^' => Vim::StartOfText,
-            '$' => Vim::EndOfLine,
 
             'i' => Vim::Insert,
             _ => Vim::Invalid,
-        }
-    }
-}
-
-mod token_stream {
-    use futures_util::Stream;
-    use std::cell::Cell;
-    use std::pin::Pin;
-    use std::rc::Rc;
-    use std::task::{Context, Poll};
-
-    // Token stream for the state-machine.
-    #[derive(Debug, Default, Clone)]
-    pub struct TokenStream {
-        pub token: Rc<Cell<Option<char>>>,
-    }
-
-    impl TokenStream {
-        pub fn new() -> Self {
-            Self::default()
-        }
-
-        /// Push next token.
-        pub fn push_next(&mut self, token: char) {
-            self.token.set(Some(token));
-        }
-    }
-
-    impl Stream for TokenStream {
-        type Item = char;
-
-        fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-            if let Some(token) = self.token.take() {
-                Poll::Ready(Some(token))
-            } else {
-                Poll::Pending
-            }
         }
     }
 }
@@ -168,6 +120,12 @@ impl HandleEvent<crossterm::event::Event, &mut VIMotions, TextOutcome> for TextA
                 }
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
                     TextOutcome::Unchanged
+                }
+                ct_event!(key press CONTROL-'d') => self
+                    .move_down(self.vertical_page() as u16 / 2, false)
+                    .into(),
+                ct_event!(key press CONTROL-'u') => {
+                    self.move_up(self.vertical_page() as u16 / 2, false).into()
                 }
                 _ => TextOutcome::Continue,
             }
@@ -239,6 +197,12 @@ mod op {
         MovePrevWORDStart,
         MoveNextWORDEnd,
         MovePrevWORDEnd,
+        MoveStartOfLine,
+        MoveEndOfLine,
+        MoveStartOfText,
+        MoveEndOfText,
+        MovePrevParagraph,
+        MoveNextParagraph,
 
         FindNext(char),
         FindPrev(char),
@@ -246,11 +210,6 @@ mod op {
         FindRepeatFwd,
         FindUntilNext(char),
         FindUntilPrev(char),
-
-        StartOfLine,
-        EndOfLine,
-        StartOfText,
-        EndOfText,
 
         Insert,
     }
@@ -270,10 +229,18 @@ mod op {
             Vim::MovePrevWORDStart => move_prev_bigword_start(state).into(),
             Vim::MoveNextWORDEnd => move_next_bigword_end(state).into(),
             Vim::MovePrevWORDEnd => move_prev_bigword_end(state).into(),
+            Vim::MoveStartOfLine => move_start_of_line(state).into(),
+            Vim::MoveEndOfLine => move_end_of_line(state).into(),
+            Vim::MoveStartOfText => move_start_of_text(state).into(),
+            Vim::MoveEndOfText => move_end_of_text(state).into(),
+            Vim::MovePrevParagraph => move_prev_paragraph(state).into(),
+            Vim::MoveNextParagraph => move_next_paragraph(state).into(),
+
             Vim::Insert => {
                 vi.mode = VIMode::Insert;
                 TextOutcome::Changed
             }
+
             Vim::FindNext(c) => {
                 vi.last_find = Some(vim);
                 find_next(c, state).into()
@@ -304,10 +271,22 @@ mod op {
                 Some(Vim::FindUntilPrev(c)) => until_prev(c, state).into(),
                 _ => TextOutcome::Unchanged,
             },
-            Vim::StartOfLine => move_start_of_line(state).into(),
-            Vim::EndOfLine => move_end_of_line(state).into(),
-            Vim::StartOfText => move_start_of_text(state).into(),
-            Vim::EndOfText => move_end_of_text(state).into(),
+        }
+    }
+
+    fn move_prev_paragraph(state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_prev_paragraph(state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
+        }
+    }
+
+    fn move_next_paragraph(state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_next_paragraph(state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
         }
     }
 
@@ -442,7 +421,85 @@ mod op {
 
 mod query {
     use rat_text::text_area::TextAreaState;
-    use rat_text::{Cursor, Grapheme, TextPosition, TextRange};
+    use rat_text::{Cursor, Grapheme, TextPosition};
+
+    pub(super) fn vi_next_paragraph(state: &mut TextAreaState) -> Option<TextPosition> {
+        let mut it = state.text_graphemes(state.cursor());
+
+        if let Some(c) = it.peek_next()
+            && c.is_whitespace()
+        {
+            loop {
+                let Some(c) = it.next() else {
+                    return None;
+                };
+                if !c.is_whitespace() {
+                    break;
+                }
+            }
+        }
+
+        let found;
+        let mut brk = false;
+        loop {
+            let Some(c) = it.next() else {
+                found = it.text_offset();
+                break;
+            };
+
+            if c.is_line_break() {
+                if !brk {
+                    brk = true;
+                } else {
+                    found = c.text_bytes().start;
+                    break;
+                }
+            } else if !c.is_whitespace() {
+                brk = false;
+            }
+        }
+
+        Some(state.byte_pos(found))
+    }
+
+    pub(super) fn vi_prev_paragraph(state: &mut TextAreaState) -> Option<TextPosition> {
+        let mut it = state.text_graphemes(state.cursor());
+
+        if let Some(c) = it.peek_prev()
+            && c.is_whitespace()
+        {
+            loop {
+                let Some(c) = it.prev() else {
+                    return None;
+                };
+                if !c.is_whitespace() {
+                    break;
+                }
+            }
+        }
+
+        let found;
+        let mut brk = false;
+        loop {
+            let Some(c) = it.prev() else {
+                found = it.text_offset();
+                break;
+            };
+
+            if c.is_line_break() {
+                if !brk {
+                    brk = true;
+                } else {
+                    found = c.text_bytes().end;
+                    break;
+                }
+            } else if !c.is_whitespace() {
+                brk = false;
+            }
+        }
+
+        Some(state.byte_pos(found))
+    }
 
     pub(super) fn vi_end_of_text(state: &mut TextAreaState) -> Option<TextPosition> {
         let y = state.cursor().y;
@@ -491,7 +548,7 @@ mod query {
     }
 
     pub(super) fn vi_until_prev(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
-        let mut it = state.line_graphemes(state.cursor().y);
+        let mut it = state.text_graphemes(state.cursor());
         if let Some(c) = it.peek_prev() {
             if c == cc {
                 it.prev();
@@ -513,7 +570,7 @@ mod query {
     }
 
     pub(super) fn vi_until_next(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
-        let mut it = state.line_graphemes(state.cursor().y);
+        let mut it = state.text_graphemes(state.cursor());
         if let Some(c) = it.peek_next() {
             if c == cc {
                 it.next();
@@ -535,7 +592,7 @@ mod query {
     }
 
     pub(super) fn vi_find_prev(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
-        let mut it = state.line_graphemes(state.cursor().y);
+        let mut it = state.text_graphemes(state.cursor());
         let found;
         loop {
             let Some(c) = it.prev() else { return None };
@@ -552,7 +609,7 @@ mod query {
     }
 
     pub(super) fn vi_find_next(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
-        let mut it = state.line_graphemes(state.cursor().y);
+        let mut it = state.text_graphemes(state.cursor());
         if let Some(c) = it.peek_next() {
             if c == cc {
                 it.next();
