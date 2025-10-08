@@ -4,9 +4,10 @@
 //! ** UNSTABLE **
 //!
 
-use crate::vi_state::op::Vim;
+use crate::vi_state::op::{Vim, apply};
 use crate::vi_state::token_stream::TokenStream;
 use futures_util::StreamExt;
+use log::debug;
 use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
@@ -46,17 +47,22 @@ impl Default for VIMotions {
 
 impl VIMotions {
     fn motion(&mut self, c: char) -> Poll<Vim> {
+        debug!("motion {:?}", c);
         self.tok_seq.push(c);
         self.tok.push_next(c);
 
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
         match self.motion.as_mut().poll(&mut cx) {
             Poll::Ready(v) => {
+                debug!("    -> {:?}", v);
                 self.tok_seq.clear();
                 self.motion = Box::pin(VIMotions::next_motion(self.tok.clone()));
                 Poll::Ready(v)
             }
-            Poll::Pending => Poll::Pending,
+            Poll::Pending => {
+                debug!("    -> ...");
+                Poll::Pending
+            }
         }
     }
 
@@ -75,6 +81,7 @@ impl VIMotions {
                 match tok {
                     'e' => Vim::MovePrevWordEnd,
                     'E' => Vim::MovePrevWORDEnd,
+                    '_' => Vim::EndOfText,
                     _ => Vim::Invalid,
                 }
             }
@@ -99,6 +106,10 @@ impl VIMotions {
             }
             ',' => Vim::FindRepeatBack,
             ';' => Vim::FindRepeatFwd,
+            '0' => Vim::StartOfLine,
+            '^' => Vim::StartOfText,
+            '$' => Vim::EndOfLine,
+
             'i' => Vim::Insert,
             _ => Vim::Invalid,
         }
@@ -150,7 +161,7 @@ impl HandleEvent<crossterm::event::Event, &mut VIMotions, TextOutcome> for TextA
                 | ct_event!(key press SHIFT-c)
                 | ct_event!(key press CONTROL_ALT-c) => {
                     if let Poll::Ready(vim) = vi.motion(*c) {
-                        vim.apply(self, vi)
+                        apply(vim, self, vi)
                     } else {
                         TextOutcome::Changed
                     }
@@ -208,17 +219,18 @@ fn tc(r: bool) -> TextOutcome {
 mod op {
     use crate::vi_state::query::*;
     use crate::vi_state::{VIMode, VIMotions};
-    use rat_text::Cursor;
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Vim {
         Invalid,
+
         MoveLeft,
         MoveRight,
         MoveUp,
         MoveDown,
+
         MoveNextWordStart,
         MovePrevWordStart,
         MoveNextWordEnd,
@@ -227,158 +239,140 @@ mod op {
         MovePrevWORDStart,
         MoveNextWORDEnd,
         MovePrevWORDEnd,
+
         FindNext(char),
         FindPrev(char),
         FindRepeatBack,
         FindRepeatFwd,
         FindUntilNext(char),
         FindUntilPrev(char),
+
+        StartOfLine,
+        EndOfLine,
+        StartOfText,
+        EndOfText,
+
         Insert,
     }
 
-    impl Vim {
-        pub fn apply(self, state: &mut TextAreaState, vi: &mut VIMotions) -> TextOutcome {
-            match self {
-                Vim::Invalid => TextOutcome::Continue,
-                Vim::MoveLeft => state.move_left(1, false).into(),
-                Vim::MoveRight => state.move_right(1, false).into(),
-                Vim::MoveUp => state.move_up(1, false).into(),
-                Vim::MoveDown => state.move_down(1, false).into(),
-                Vim::MoveNextWordStart => move_next_word_start(state).into(),
-                Vim::MovePrevWordStart => move_prev_word_start(state).into(),
-                Vim::MoveNextWordEnd => move_next_word_end(state).into(),
-                Vim::MovePrevWordEnd => move_prev_word_end(state).into(),
-                Vim::MoveNextWORDStart => move_next_bigword_start(state).into(),
-                Vim::MovePrevWORDStart => move_prev_bigword_start(state).into(),
-                Vim::MoveNextWORDEnd => move_next_bigword_end(state).into(),
-                Vim::MovePrevWORDEnd => move_prev_bigword_end(state).into(),
-                Vim::Insert => {
-                    vi.mode = VIMode::Insert;
-                    TextOutcome::Changed
-                }
-                Vim::FindNext(c) => {
-                    vi.last_find = Some(self);
-                    find_next(c, state).into()
-                }
-                Vim::FindPrev(c) => {
-                    vi.last_find = Some(self);
-                    find_prev(c, state).into()
-                }
-                Vim::FindUntilNext(c) => {
-                    vi.last_find = Some(self);
-                    until_next(c, state).into()
-                }
-                Vim::FindUntilPrev(c) => {
-                    vi.last_find = Some(self);
-                    until_prev(c, state).into()
-                }
-                Vim::FindRepeatBack => match vi.last_find {
-                    Some(Vim::FindNext(c)) => find_prev(c, state).into(),
-                    Some(Vim::FindPrev(c)) => find_next(c, state).into(),
-                    Some(Vim::FindUntilNext(c)) => until_prev(c, state).into(),
-                    Some(Vim::FindUntilPrev(c)) => until_next(c, state).into(),
-                    _ => TextOutcome::Unchanged,
-                },
-                Vim::FindRepeatFwd => match vi.last_find {
-                    Some(Vim::FindNext(c)) => find_next(c, state).into(),
-                    Some(Vim::FindPrev(c)) => find_prev(c, state).into(),
-                    Some(Vim::FindUntilNext(c)) => until_next(c, state).into(),
-                    Some(Vim::FindUntilPrev(c)) => until_prev(c, state).into(),
-                    _ => TextOutcome::Unchanged,
-                },
+    pub fn apply(vim: Vim, state: &mut TextAreaState, vi: &mut VIMotions) -> TextOutcome {
+        match vim {
+            Vim::Invalid => TextOutcome::Continue,
+            Vim::MoveLeft => state.move_left(1, false).into(),
+            Vim::MoveRight => state.move_right(1, false).into(),
+            Vim::MoveUp => state.move_up(1, false).into(),
+            Vim::MoveDown => state.move_down(1, false).into(),
+            Vim::MoveNextWordStart => move_next_word_start(state).into(),
+            Vim::MovePrevWordStart => move_prev_word_start(state).into(),
+            Vim::MoveNextWordEnd => move_next_word_end(state).into(),
+            Vim::MovePrevWordEnd => move_prev_word_end(state).into(),
+            Vim::MoveNextWORDStart => move_next_bigword_start(state).into(),
+            Vim::MovePrevWORDStart => move_prev_bigword_start(state).into(),
+            Vim::MoveNextWORDEnd => move_next_bigword_end(state).into(),
+            Vim::MovePrevWORDEnd => move_prev_bigword_end(state).into(),
+            Vim::Insert => {
+                vi.mode = VIMode::Insert;
+                TextOutcome::Changed
             }
+            Vim::FindNext(c) => {
+                vi.last_find = Some(vim);
+                find_next(c, state).into()
+            }
+            Vim::FindPrev(c) => {
+                vi.last_find = Some(vim);
+                find_prev(c, state).into()
+            }
+            Vim::FindUntilNext(c) => {
+                vi.last_find = Some(vim);
+                until_next(c, state).into()
+            }
+            Vim::FindUntilPrev(c) => {
+                vi.last_find = Some(vim);
+                until_prev(c, state).into()
+            }
+            Vim::FindRepeatBack => match vi.last_find {
+                Some(Vim::FindNext(c)) => find_prev(c, state).into(),
+                Some(Vim::FindPrev(c)) => find_next(c, state).into(),
+                Some(Vim::FindUntilNext(c)) => until_prev(c, state).into(),
+                Some(Vim::FindUntilPrev(c)) => until_next(c, state).into(),
+                _ => TextOutcome::Unchanged,
+            },
+            Vim::FindRepeatFwd => match vi.last_find {
+                Some(Vim::FindNext(c)) => find_next(c, state).into(),
+                Some(Vim::FindPrev(c)) => find_prev(c, state).into(),
+                Some(Vim::FindUntilNext(c)) => until_next(c, state).into(),
+                Some(Vim::FindUntilPrev(c)) => until_prev(c, state).into(),
+                _ => TextOutcome::Unchanged,
+            },
+            Vim::StartOfLine => move_start_of_line(state).into(),
+            Vim::EndOfLine => move_end_of_line(state).into(),
+            Vim::StartOfText => move_start_of_text(state).into(),
+            Vim::EndOfText => move_end_of_text(state).into(),
+        }
+    }
+
+    fn move_end_of_text(state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_end_of_text(state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
+        }
+    }
+
+    fn move_start_of_text(state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_start_of_text(state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
+        }
+    }
+
+    fn move_start_of_line(state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_start_of_line(state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
+        }
+    }
+
+    fn move_end_of_line(state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_end_of_line(state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
         }
     }
 
     fn until_prev(cc: char, state: &mut TextAreaState) -> bool {
-        let mut it = state.text_graphemes(state.cursor());
-        if let Some(c) = it.peek_prev() {
-            if c == cc {
-                it.prev();
-            }
+        if let Some(cursor) = vi_until_prev(cc, state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
         }
-        let found;
-        loop {
-            let Some(c) = it.prev() else { return false };
-
-            if c.is_line_break() {
-                return false;
-            } else if c == cc {
-                found = c.text_bytes().end;
-                break;
-            }
-        }
-        drop(it);
-
-        let cursor = state.byte_pos(found);
-        state.set_cursor(cursor, false)
     }
 
     fn until_next(cc: char, state: &mut TextAreaState) -> bool {
-        let mut it = state.text_graphemes(state.cursor());
-        if let Some(c) = it.peek_next() {
-            if c == cc {
-                it.next();
-            }
+        if let Some(cursor) = vi_until_next(cc, state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
         }
-        let found;
-        loop {
-            let Some(c) = it.next() else { return false };
-
-            if c.is_line_break() {
-                return false;
-            } else if c == cc {
-                found = c.text_bytes().start;
-                break;
-            }
-        }
-        drop(it);
-
-        let cursor = state.byte_pos(found);
-        state.set_cursor(cursor, false)
     }
 
     fn find_prev(cc: char, state: &mut TextAreaState) -> bool {
-        let mut it = state.text_graphemes(state.cursor());
-        let found;
-        loop {
-            let Some(c) = it.prev() else { return false };
-
-            if c.is_line_break() {
-                return false;
-            } else if c == cc {
-                found = c.text_bytes().start;
-                break;
-            }
+        if let Some(cursor) = vi_find_prev(cc, state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
         }
-        drop(it);
-
-        let cursor = state.byte_pos(found);
-        state.set_cursor(cursor, false)
     }
 
     fn find_next(cc: char, state: &mut TextAreaState) -> bool {
-        let mut it = state.text_graphemes(state.cursor());
-        if let Some(c) = it.peek_next() {
-            if c == cc {
-                it.next();
-            }
+        if let Some(cursor) = vi_find_next(cc, state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
         }
-        let found;
-        loop {
-            let Some(c) = it.next() else { return false };
-
-            if c.is_line_break() {
-                return false;
-            } else if c == cc {
-                found = c.text_bytes().start;
-                break;
-            }
-        }
-        drop(it);
-
-        let cursor = state.byte_pos(found);
-        state.set_cursor(cursor, false)
     }
 
     fn move_next_word_start(state: &mut TextAreaState) -> bool {
@@ -448,7 +442,136 @@ mod op {
 
 mod query {
     use rat_text::text_area::TextAreaState;
-    use rat_text::{Cursor, Grapheme, TextPosition};
+    use rat_text::{Cursor, Grapheme, TextPosition, TextRange};
+
+    pub(super) fn vi_end_of_text(state: &mut TextAreaState) -> Option<TextPosition> {
+        let y = state.cursor().y;
+        let width = state.line_width(y);
+        let mut it = state.graphemes(
+            (TextPosition::new(0, y)..TextPosition::new(width, y)).into(),
+            TextPosition::new(width, y),
+        );
+        let found;
+        loop {
+            let Some(c) = it.prev() else {
+                return None;
+            };
+            if !c.is_whitespace() {
+                found = c.text_bytes().end;
+                break;
+            }
+        }
+
+        Some(state.byte_pos(found))
+    }
+
+    pub(super) fn vi_start_of_text(state: &mut TextAreaState) -> Option<TextPosition> {
+        let mut it = state.line_graphemes(state.cursor().y);
+        let found;
+        loop {
+            let Some(c) = it.next() else {
+                return None;
+            };
+            if !c.is_whitespace() {
+                found = c.text_bytes().start;
+                break;
+            }
+        }
+
+        Some(state.byte_pos(found))
+    }
+
+    pub(super) fn vi_start_of_line(state: &mut TextAreaState) -> Option<TextPosition> {
+        Some(TextPosition::new(0, state.cursor().y))
+    }
+
+    pub(super) fn vi_end_of_line(state: &mut TextAreaState) -> Option<TextPosition> {
+        let cursor = state.cursor();
+        Some(TextPosition::new(state.line_width(cursor.y), cursor.y))
+    }
+
+    pub(super) fn vi_until_prev(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
+        let mut it = state.line_graphemes(state.cursor().y);
+        if let Some(c) = it.peek_prev() {
+            if c == cc {
+                it.prev();
+            }
+        }
+        let found;
+        loop {
+            let Some(c) = it.prev() else { return None };
+
+            if c.is_line_break() {
+                return None;
+            } else if c == cc {
+                found = c.text_bytes().end;
+                break;
+            }
+        }
+
+        Some(state.byte_pos(found))
+    }
+
+    pub(super) fn vi_until_next(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
+        let mut it = state.line_graphemes(state.cursor().y);
+        if let Some(c) = it.peek_next() {
+            if c == cc {
+                it.next();
+            }
+        }
+        let found;
+        loop {
+            let Some(c) = it.next() else { return None };
+
+            if c.is_line_break() {
+                return None;
+            } else if c == cc {
+                found = c.text_bytes().start;
+                break;
+            }
+        }
+
+        Some(state.byte_pos(found))
+    }
+
+    pub(super) fn vi_find_prev(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
+        let mut it = state.line_graphemes(state.cursor().y);
+        let found;
+        loop {
+            let Some(c) = it.prev() else { return None };
+
+            if c.is_line_break() {
+                return None;
+            } else if c == cc {
+                found = c.text_bytes().start;
+                break;
+            }
+        }
+
+        Some(state.byte_pos(found))
+    }
+
+    pub(super) fn vi_find_next(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
+        let mut it = state.line_graphemes(state.cursor().y);
+        if let Some(c) = it.peek_next() {
+            if c == cc {
+                it.next();
+            }
+        }
+        let found;
+        loop {
+            let Some(c) = it.next() else { return None };
+
+            if c.is_line_break() {
+                return None;
+            } else if c == cc {
+                found = c.text_bytes().start;
+                break;
+            }
+        }
+
+        Some(state.byte_pos(found))
+    }
 
     pub(super) fn vi_prev_bigword_start(state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
