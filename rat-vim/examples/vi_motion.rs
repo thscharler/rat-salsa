@@ -360,7 +360,7 @@ fn event(
     if !state.help {
         try_flow!({
             let t = SystemTime::now();
-            let r = state.textarea.handle(event, &mut state.textarea_vim);
+            let r = state.textarea.handle(event, &mut state.textarea_vim)?;
             let el = t.elapsed().expect("timing");
             istate.status[2] = format!("H{}|{:?}", istate.event_cnt, el).to_string();
             r
