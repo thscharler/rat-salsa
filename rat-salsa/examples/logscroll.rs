@@ -10,6 +10,7 @@ use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme3::{create_theme, Palette, SalsaTheme};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
+use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
@@ -220,7 +221,14 @@ pub fn render(
 
     if state.error_dlg.active() {
         let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
-        err.render(area, buf, &mut state.error_dlg);
+        let err_area = layout_middle(
+            area,
+            Constraint::Length(4),
+            Constraint::Length(4),
+            Constraint::Length(2),
+            Constraint::Length(2),
+        );
+        err.render(err_area, buf, &mut state.error_dlg);
     }
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -428,6 +436,19 @@ mod logscroll {
         ])
         .split(area);
 
+        let h_scroll = Scroll::horizontal()
+            .begin_symbol(Some("◀"))
+            .end_symbol(Some("▶"))
+            .track_symbol(Some("─"))
+            .thumb_symbol("▄")
+            .min_symbol(Some("─"));
+        let v_scroll = Scroll::vertical()
+            .begin_symbol(Some("▲"))
+            .end_symbol(Some("▼"))
+            .track_symbol(Some("│"))
+            .thumb_symbol("█")
+            .min_symbol(Some("│"));
+
         let split = Split::vertical()
             .styles(ctx.theme.split_style())
             .split_type(SplitType::Scroll)
@@ -440,8 +461,8 @@ mod logscroll {
             .into_widget(l0[0], &mut state.split);
 
         TextArea::new()
-            .vscroll(Scroll::new().start_margin(2))
-            .hscroll(Scroll::new())
+            .vscroll(v_scroll.clone().start_margin(2))
+            .hscroll(h_scroll)
             .block(
                 Block::bordered().border_type(BorderType::Rounded).title(
                     Line::from_iter([
@@ -478,15 +499,20 @@ mod logscroll {
         .horizontal_margin(1)
         .split(state.split.widget_areas[1]);
 
+        let find_area = Rect::new(l2[1].x, l2[1].y, l2[1].width.saturating_sub(1), 1);
         Paired::new(
             PairedWidget::new(Span::from("Find")),
             TextInput::new().styles(ctx.theme.text_style()),
         )
         .split(PairSplit::Fix1(5))
-        .render(l2[1], buf, &mut PairedState::new(&mut (), &mut state.find));
+        .render(
+            find_area,
+            buf,
+            &mut PairedState::new(&mut (), &mut state.find),
+        );
 
         Table::new()
-            .vscroll(Scroll::new())
+            .vscroll(v_scroll)
             .styles(ctx.theme.table_style())
             .data(FindData {
                 theme: ctx.theme.as_ref(),
@@ -496,9 +522,10 @@ mod logscroll {
             })
             .render(l2[2], buf, &mut state.find_table);
 
+        let matches_area = Rect::new(l2[3].x, l2[3].y, l2[3].width.saturating_sub(1), 1);
         Line::from(format!("{} matches", state.find_matches.len()))
             .style(ctx.theme.red(Palette::DARK_3))
-            .render(l2[3], buf);
+            .render(matches_area, buf);
 
         split.render(l0[0], buf, &mut state.split);
 
@@ -596,15 +623,16 @@ mod logscroll {
                 .collect::<String>();
 
             let pos_txt = format!("\u{2316} {}:{}", line.x, self.start_line + line.y);
+
             let l0 = Line::from_iter([
                 Span::from(pos_txt), //
-            ])
-            .style(self.theme.deepblue(7));
+            ]);
             let l1 = Line::from_iter([
                 Span::from(line_prefix),
                 Span::from(line_match).style(self.color(data.2)),
                 Span::from(line_suffix),
-            ]);
+            ])
+            .style(Style::reset());
 
             l0.render(Rect::new(area.x, area.y, area.width, 1), buf);
             l1.render(Rect::new(area.x, area.y + 1, area.width, 1), buf);
