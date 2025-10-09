@@ -440,7 +440,7 @@ fn render_text_area(
     state.vscroll.set_page_len(state.inner.height as usize);
 
     if state.scroll_to_cursor {
-        state.scroll_to_cursor();
+        state.scroll_to_pos(state.cursor());
     }
 
     // scroll + background
@@ -2199,89 +2199,6 @@ impl TextAreaState {
         end_pos
     }
 
-    fn scroll_to_cursor(&mut self) {
-        let pos = self.cursor();
-
-        match self.text_wrap {
-            TextWrap::Shift => {
-                let (ox, _, oy) = self.clean_offset();
-
-                let height = self.rendered.height as upos_type;
-                let width = self.rendered.width as upos_type;
-                let width = if self.show_ctrl() || self.wrap_ctrl() {
-                    width.saturating_sub(1)
-                } else {
-                    width
-                };
-
-                let noy = if pos.y < oy.saturating_sub(height) {
-                    pos.y.saturating_sub(height * 4 / 10)
-                } else if pos.y < oy {
-                    pos.y
-                } else if pos.y >= oy + 2 * height {
-                    pos.y.saturating_sub(height * 6 / 10)
-                } else if pos.y >= oy + height {
-                    pos.y.saturating_sub(height.saturating_sub(1))
-                } else {
-                    oy
-                };
-
-                let nox = if pos.x < ox {
-                    pos.x
-                } else if pos.x >= ox + width {
-                    pos.x.saturating_sub(width) + 1
-                } else {
-                    ox
-                };
-
-                self.set_offset((nox as usize, noy as usize));
-                self.set_sub_row_offset(0);
-            }
-            TextWrap::Hard | TextWrap::Word(_) => {
-                let (_ox, sub_row_offset, oy) = self.clean_offset();
-                let page = self.rendered.height as upos_type;
-
-                // on visible or close by
-                let scr = (0, oy.saturating_sub(page), 3 * page);
-                self.stc_fill_screen_cache(scr);
-                if let Some(off_row) =
-                    self.stc_screen_row(scr, TextPosition::new(sub_row_offset, oy))
-                {
-                    if let Some(pos_row) = self.stc_screen_row(scr, pos) {
-                        if pos_row < off_row && pos_row >= off_row.saturating_sub(page) {
-                            let noff_row = pos_row;
-                            let (nsub_row_offset, noy) = self.stc_sub_row_offset(scr, noff_row);
-                            self.set_offset((0, noy as usize));
-                            self.set_sub_row_offset(nsub_row_offset);
-                            return;
-                        } else if pos_row >= off_row + page && pos_row < off_row + 2 * page {
-                            let noff_row = pos_row.saturating_sub(page.saturating_sub(1));
-                            let (nsub_row_offset, noy) = self.stc_sub_row_offset(scr, noff_row);
-                            self.set_offset((0, noy as usize));
-                            self.set_sub_row_offset(nsub_row_offset);
-                            return;
-                        } else if pos_row >= off_row && pos_row < off_row + page {
-                            return;
-                        }
-                    }
-                }
-
-                // long jump. center position.
-                let alt_scr = (0, pos.y.saturating_sub(page), 3 * page);
-                self.stc_fill_screen_cache(alt_scr);
-                if let Some(alt_scr_row) = self.stc_screen_row(alt_scr, pos) {
-                    let noff_row = alt_scr_row.saturating_sub(page * 4 / 10);
-                    let (nsub_row_offset, noy) = self.stc_sub_row_offset(alt_scr, noff_row);
-                    self.set_offset((0, noy as usize));
-                    self.set_sub_row_offset(nsub_row_offset);
-                } else {
-                    self.set_offset((0, pos.y as usize));
-                    self.set_sub_row_offset(0);
-                }
-            }
-        }
-    }
-
     // ensure cache is up to date for n pages.
     fn stc_fill_screen_cache(&self, scr: (upos_type, upos_type, upos_type)) {
         let y2 = scr.1 + scr.2;
@@ -2869,6 +2786,94 @@ impl TextAreaState {
     pub fn set_horizontal_offset(&mut self, col_offset: usize) -> bool {
         self.scroll_to_cursor = false;
         self.hscroll.set_offset(col_offset)
+    }
+
+    /// Scrolls to make the given position visible.
+    pub fn scroll_to_pos(&mut self, pos: TextPosition) -> bool {
+        let old_offset = self.clean_offset();
+
+        'f: {
+            match self.text_wrap {
+                TextWrap::Shift => {
+                    let (ox, _, oy) = old_offset;
+
+                    let height = self.rendered.height as upos_type;
+                    let width = self.rendered.width as upos_type;
+                    let width = if self.show_ctrl() || self.wrap_ctrl() {
+                        width.saturating_sub(1)
+                    } else {
+                        width
+                    };
+
+                    let noy = if pos.y < oy.saturating_sub(height) {
+                        pos.y.saturating_sub(height * 4 / 10)
+                    } else if pos.y < oy {
+                        pos.y
+                    } else if pos.y >= oy + 2 * height {
+                        pos.y.saturating_sub(height * 6 / 10)
+                    } else if pos.y >= oy + height {
+                        pos.y.saturating_sub(height.saturating_sub(1))
+                    } else {
+                        oy
+                    };
+
+                    let nox = if pos.x < ox {
+                        pos.x
+                    } else if pos.x >= ox + width {
+                        pos.x.saturating_sub(width) + 1
+                    } else {
+                        ox
+                    };
+
+                    self.set_offset((nox as usize, noy as usize));
+                    self.set_sub_row_offset(0);
+                }
+                TextWrap::Hard | TextWrap::Word(_) => {
+                    let (_ox, sub_row_offset, oy) = old_offset;
+                    let page = self.rendered.height as upos_type;
+
+                    // on visible or close by
+                    let scr = (0, oy.saturating_sub(page), 3 * page);
+                    self.stc_fill_screen_cache(scr);
+                    if let Some(off_row) =
+                        self.stc_screen_row(scr, TextPosition::new(sub_row_offset, oy))
+                    {
+                        if let Some(pos_row) = self.stc_screen_row(scr, pos) {
+                            if pos_row < off_row && pos_row >= off_row.saturating_sub(page) {
+                                let noff_row = pos_row;
+                                let (nsub_row_offset, noy) = self.stc_sub_row_offset(scr, noff_row);
+                                self.set_offset((0, noy as usize));
+                                self.set_sub_row_offset(nsub_row_offset);
+                                break 'f;
+                            } else if pos_row >= off_row + page && pos_row < off_row + 2 * page {
+                                let noff_row = pos_row.saturating_sub(page.saturating_sub(1));
+                                let (nsub_row_offset, noy) = self.stc_sub_row_offset(scr, noff_row);
+                                self.set_offset((0, noy as usize));
+                                self.set_sub_row_offset(nsub_row_offset);
+                                break 'f;
+                            } else if pos_row >= off_row && pos_row < off_row + page {
+                                break 'f;
+                            }
+                        }
+                    }
+
+                    // long jump. center position.
+                    let alt_scr = (0, pos.y.saturating_sub(page), 3 * page);
+                    self.stc_fill_screen_cache(alt_scr);
+                    if let Some(alt_scr_row) = self.stc_screen_row(alt_scr, pos) {
+                        let noff_row = alt_scr_row.saturating_sub(page * 4 / 10);
+                        let (nsub_row_offset, noy) = self.stc_sub_row_offset(alt_scr, noff_row);
+                        self.set_offset((0, noy as usize));
+                        self.set_sub_row_offset(nsub_row_offset);
+                    } else {
+                        self.set_offset((0, pos.y as usize));
+                        self.set_sub_row_offset(0);
+                    }
+                }
+            }
+        }
+
+        old_offset != self.clean_offset()
     }
 
     /// Scrolls to make the given row visible.
