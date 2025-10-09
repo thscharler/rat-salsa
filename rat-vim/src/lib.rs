@@ -39,3 +39,9 @@ impl From<regex_cursor::regex_automata::MatchError> for SearchError {
         Self
     }
 }
+
+impl From<regex_cursor::regex_automata::hybrid::BuildError> for SearchError {
+    fn from(_value: regex_cursor::regex_automata::hybrid::BuildError) -> Self {
+        Self
+    }
+}

@@ -1,4 +1,4 @@
-use crate::vi_state::op::{Vim, apply};
+use crate::vi_state::op::{Vim, apply, clear_search};
 use crate::{Coroutine, Resume, SearchError, VIMode, YieldPoint};
 use log::debug;
 use rat_event::{HandleEvent, ct_event};
@@ -12,7 +12,10 @@ pub struct VIMotions {
     pub tok_seq: String,
     pub motion: Coroutine<char, Vim>,
 
-    pub last_find: Option<Vim>,
+    pub find: Option<Vim>,
+
+    pub search_buildup: bool,
+    pub search: Option<String>,
 }
 
 impl Default for VIMotions {
@@ -21,16 +24,29 @@ impl Default for VIMotions {
             mode: Default::default(),
             tok_seq: Default::default(),
             motion: Coroutine::new(|c, yp| Box::new(VIMotions::next_motion(c, yp))),
-            last_find: None,
+            find: Default::default(),
+            search_buildup: Default::default(),
+            search: Default::default(),
         }
     }
 }
 
 impl VIMotions {
-    fn motion(&mut self, c: char) -> Poll<Vim> {
-        self.tok_seq.push(c);
+    fn cancel(&mut self) {
+        self.tok_seq.clear();
+        self.motion = Coroutine::new(|c, yp| Box::new(VIMotions::next_motion(c, yp)));
+        self.search = None;
+        self.find = None;
+    }
 
-        debug!("motion {:?}", c);
+    fn motion(&mut self, c: char) -> Poll<Vim> {
+        if c == '\x08' {
+            self.tok_seq.pop();
+        } else if c != '\n' {
+            self.tok_seq.push(c);
+        }
+
+        debug!("motion {:?} >> {:?}", c, self.tok_seq);
         let r = if self.motion.start_pending() {
             self.motion.start(c)
         } else {
@@ -113,7 +129,7 @@ impl VIMotions {
                         buf.push(tok);
                     }
                 }
-                Vim::SearchForward(buf)
+                Vim::SearchFwd(buf)
             }
             '?' => {
                 let mut buf = String::new();
@@ -127,8 +143,11 @@ impl VIMotions {
                         buf.push(tok);
                     }
                 }
-                Vim::SearchBackward(buf)
+                Vim::SearchBack(buf)
             }
+            'n' => Vim::SearchRepeatFwd,
+            'N' => Vim::SearchRepeatBack,
+
             'i' => Vim::Insert,
             _ => Vim::Invalid,
         }
@@ -161,9 +180,21 @@ impl HandleEvent<crossterm::event::Event, &mut VIMotions, Result<TextOutcome, Se
                         TextOutcome::Changed
                     }
                 }
+                ct_event!(keycode press Backspace) => {
+                    if let Poll::Ready(vim) = vi.motion('\x08') {
+                        apply(vim, self, vi)?
+                    } else {
+                        TextOutcome::Changed
+                    }
+                }
 
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
-                    TextOutcome::Unchanged
+                    if vi.search.is_some() {
+                        clear_search(self);
+                    }
+                    self.scroll_cursor_to_visible();
+                    vi.cancel();
+                    TextOutcome::Changed
                 }
                 ct_event!(key press CONTROL-'d') => self
                     .move_down(self.vertical_page() as u16 / 2, false)
@@ -222,6 +253,8 @@ mod op {
     use crate::SearchError;
     use crate::vi_state::query::*;
     use crate::vi_state::{VIMode, VIMotions};
+    use log::debug;
+    use rat_text::TextPosition;
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
 
@@ -258,10 +291,12 @@ mod op {
 
         Insert,
 
-        SearchForward(String),
-        SearchBackward(String),
+        SearchFwd(String),
+        SearchBack(String),
         SearchPartialForward(String),
         SearchPartialBackward(String),
+        SearchRepeatFwd,
+        SearchRepeatBack,
     }
 
     pub fn apply(
@@ -296,29 +331,29 @@ mod op {
             }
 
             Vim::FindNext(c) => {
-                vi.last_find = Some(vim.clone());
+                vi.find = Some(vim.clone());
                 find_next(*c, state).into()
             }
             Vim::FindPrev(c) => {
-                vi.last_find = Some(vim.clone());
+                vi.find = Some(vim.clone());
                 find_prev(*c, state).into()
             }
             Vim::FindUntilNext(c) => {
-                vi.last_find = Some(vim.clone());
+                vi.find = Some(vim.clone());
                 until_next(*c, state).into()
             }
             Vim::FindUntilPrev(c) => {
-                vi.last_find = Some(vim.clone());
+                vi.find = Some(vim.clone());
                 until_prev(*c, state).into()
             }
-            Vim::FindRepeatBack => match &vi.last_find {
+            Vim::FindRepeatBack => match &vi.find {
                 Some(Vim::FindNext(c)) => find_prev(*c, state).into(),
                 Some(Vim::FindPrev(c)) => find_next(*c, state).into(),
                 Some(Vim::FindUntilNext(c)) => until_prev(*c, state).into(),
                 Some(Vim::FindUntilPrev(c)) => until_next(*c, state).into(),
                 _ => TextOutcome::Unchanged,
             },
-            Vim::FindRepeatFwd => match &vi.last_find {
+            Vim::FindRepeatFwd => match &vi.find {
                 Some(Vim::FindNext(c)) => find_next(*c, state).into(),
                 Some(Vim::FindPrev(c)) => find_prev(*c, state).into(),
                 Some(Vim::FindUntilNext(c)) => until_next(*c, state).into(),
@@ -326,29 +361,112 @@ mod op {
                 _ => TextOutcome::Unchanged,
             },
 
-            Vim::SearchPartialForward(_) => TextOutcome::Changed,
-            Vim::SearchForward(s) => search_forward(s.as_str(), state)?.into(),
-            Vim::SearchPartialBackward(_) => TextOutcome::Changed,
-            Vim::SearchBackward(s) => search_backward(s.as_str(), state)?.into(),
+            Vim::SearchPartialForward(s) => search_fwd(s.as_str(), true, state, vi)?.into(),
+            Vim::SearchFwd(s) => search_fwd(s.as_str(), false, state, vi)?.into(),
+            Vim::SearchPartialBackward(s) => search_back(s.as_str(), true, state, vi)?.into(),
+            Vim::SearchBack(s) => search_back(s.as_str(), false, state, vi)?.into(),
+            Vim::SearchRepeatFwd => search_repeat_fwd(state, vi).into(),
+            Vim::SearchRepeatBack => search_repeat_back(state, vi).into(),
         };
-
+        debug!("apply -> {:?}", r);
         Ok(r)
     }
 
-    fn search_forward(s: &str, state: &mut TextAreaState) -> Result<bool, SearchError> {
-        if let Some(cursor) = vi_search_forward(s, state)? {
-            Ok(state.set_cursor(cursor, false))
+    fn search_repeat_back(state: &mut TextAreaState, vi: &mut VIMotions) -> bool {
+        let cursor = state.byte_at(state.cursor());
+        let start = 0;
+        let end = if let Some(find) = state.styles_at_match(cursor.start, 999) {
+            find.start
         } else {
-            Ok(false)
+            cursor.start
+        };
+
+        let mut styles = Vec::new();
+        state.styles_in_match(start..end, 999, &mut styles);
+
+        if let Some((last, _)) = styles.last() {
+            let last = state.byte_pos(last.start);
+            if vi.search_buildup {
+                state.scroll_to_pos(last);
+            } else {
+                state.set_cursor(last, false);
+            }
         }
+
+        true
     }
 
-    fn search_backward(s: &str, state: &mut TextAreaState) -> Result<bool, SearchError> {
-        if let Some(cursor) = vi_search_backward(s, state)? {
-            Ok(state.set_cursor(cursor, false))
+    fn search_back(
+        s: &str,
+        build_up: bool,
+        state: &mut TextAreaState,
+        vi: &mut VIMotions,
+    ) -> Result<bool, SearchError> {
+        search(s, build_up, state, vi)?;
+        search_repeat_back(state, vi);
+        Ok(true)
+    }
+
+    fn search_repeat_fwd(state: &mut TextAreaState, vi: &mut VIMotions) -> bool {
+        let cursor = state.byte_at(state.cursor());
+        let start = if let Some(find) = state.styles_at_match(cursor.start, 999) {
+            find.end
         } else {
-            Ok(false)
+            cursor.start
+        };
+        let end = state.byte_at(TextPosition::new(0, state.len_lines())).end;
+
+        let mut styles = Vec::new();
+        state.styles_in_match(start..end, 999, &mut styles);
+
+        if let Some((first, _)) = styles.first() {
+            let first = state.byte_pos(first.start);
+            if vi.search_buildup {
+                state.scroll_to_pos(first);
+            } else {
+                state.set_cursor(first, false);
+            }
         }
+
+        true
+    }
+
+    fn search_fwd(
+        s: &str,
+        build_up: bool,
+        state: &mut TextAreaState,
+        vi: &mut VIMotions,
+    ) -> Result<bool, SearchError> {
+        search(s, build_up, state, vi)?;
+        search_repeat_fwd(state, vi);
+        Ok(true)
+    }
+
+    pub(crate) fn clear_search(state: &mut TextAreaState) -> bool {
+        state.remove_style_fully(999);
+        true
+    }
+
+    fn search(
+        s: &str,
+        build_up: bool,
+        state: &mut TextAreaState,
+        vi: &mut VIMotions,
+    ) -> Result<bool, SearchError> {
+        if vi.search.as_deref() != Some(s) {
+            vi.search = Some(s.into());
+            vi.search_buildup = build_up;
+
+            clear_search(state);
+            if !s.is_empty() {
+                let found = vi_search(s, state)?;
+                for r in &found {
+                    state.add_style(r.clone(), 999);
+                }
+            }
+        }
+
+        Ok(true)
     }
 
     fn move_prev_paragraph(state: &mut TextAreaState) -> bool {
@@ -500,79 +618,26 @@ mod query {
     use crate::SearchError;
     use rat_text::text_area::TextAreaState;
     use rat_text::{Cursor, Grapheme, TextPosition};
-    use regex_cursor::engines::dfa::{try_search_fwd, try_search_rev};
-    use regex_cursor::regex_automata::dfa::dense::DFA;
-    use regex_cursor::regex_automata::nfa::thompson;
+    use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
+    use std::ops::Range;
 
-    pub(super) fn vi_search_forward(
+    pub(super) fn vi_search(
         search: &str,
         state: &mut TextAreaState,
-    ) -> Result<Option<TextPosition>, SearchError> {
-        let pos = state.byte_at(state.cursor());
-        let cursor = RopeyCursor::new(state.rope().byte_slice(..));
+    ) -> Result<Vec<Range<usize>>, SearchError> {
+        let mut find_matches = Vec::new();
 
-        let mut input = Input::new(cursor);
-        input.set_start(pos.start);
+        if let Ok(re) = Regex::new(&search) {
+            let cursor = RopeyCursor::new(state.rope().byte_slice(..));
+            let input = Input::new(cursor);
 
-        let dfa = DFA::builder()
-            .thompson(thompson::Config::new())
-            .build(search)?;
-
-        let found;
-        match try_search_fwd(&dfa, &mut input)? {
-            None => return Ok(None),
-            Some(hm) => {
-                found = hm.offset();
-
-                if hm.offset() > input.start() {
-                    input.set_start(hm.offset());
-                } else {
-                    // This is only necessary to handle zero-width
-                    // matches, which of course occur in this example.
-                    // Without this, the search would never advance
-                    // backwards beyond the initial match.
-                    input.set_start(input.start() + 1);
-                }
+            for m in find_iter(&re, input) {
+                find_matches.push(m.start()..m.end());
             }
         }
 
-        Ok(Some(state.byte_pos(found)))
-    }
-
-    pub(super) fn vi_search_backward(
-        search: &str,
-        state: &mut TextAreaState,
-    ) -> Result<Option<TextPosition>, SearchError> {
-        let pos = state.byte_at(state.cursor());
-        let cursor = RopeyCursor::new(state.rope().byte_slice(..));
-
-        let mut input = Input::new(cursor);
-        input.set_end(pos.start);
-
-        let dfa = DFA::builder()
-            .thompson(thompson::Config::new().reverse(true))
-            .build(search)?;
-
-        let found;
-        match try_search_rev(&dfa, &mut input)? {
-            None => return Ok(None),
-            Some(hm) => {
-                found = hm.offset();
-
-                if hm.offset() < input.end() {
-                    input.set_end(hm.offset());
-                } else {
-                    // This is only necessary to handle zero-width
-                    // matches, which of course occur in this example.
-                    // Without this, the search would never advance
-                    // backwards beyond the initial match.
-                    input.set_end(input.end() - 1);
-                }
-            }
-        }
-
-        Ok(Some(state.byte_pos(found)))
+        Ok(find_matches)
     }
 
     pub(super) fn vi_next_paragraph(state: &mut TextAreaState) -> Option<TextPosition> {
