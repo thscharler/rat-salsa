@@ -4,28 +4,28 @@ use log::debug;
 use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::task::Poll;
 
 pub struct VIMotions {
     pub mode: VIMode,
 
-    pub tok_seq: String,
+    pub motion_buf: Rc<RefCell<String>>,
     pub motion: Coroutine<char, Vim>,
 
     pub find: Option<Vim>,
-
-    pub search_buildup: bool,
-    pub search: Option<String>,
+    pub search: Option<Vim>,
 }
 
 impl Default for VIMotions {
     fn default() -> Self {
+        let motion_buf = Rc::new(RefCell::new(String::new()));
         Self {
             mode: Default::default(),
-            tok_seq: Default::default(),
-            motion: Coroutine::new(|c, yp| Box::new(VIMotions::next_motion(c, yp))),
+            motion_buf: motion_buf.clone(),
+            motion: Coroutine::new(|c, yp| Box::new(VIMotions::next_motion(c, motion_buf, yp))),
             find: Default::default(),
-            search_buildup: Default::default(),
             search: Default::default(),
         }
     }
@@ -33,35 +33,25 @@ impl Default for VIMotions {
 
 impl VIMotions {
     fn cancel(&mut self) {
-        self.tok_seq.clear();
-        self.motion = Coroutine::new(|c, yp| Box::new(VIMotions::next_motion(c, yp)));
+        self.motion_buf.borrow_mut().clear();
+        let mb = self.motion_buf.clone();
+        self.motion = Coroutine::new(|c, yp| Box::new(VIMotions::next_motion(c, mb, yp)));
         self.search = None;
         self.find = None;
     }
 
     fn motion(&mut self, c: char) -> Poll<Vim> {
-        if c == '\x08' {
-            self.tok_seq.pop();
-        } else if c != '\n' {
-            self.tok_seq.push(c);
-        }
-
-        debug!("motion {:?} >> {:?}", c, self.tok_seq);
-        let r = if self.motion.start_pending() {
-            self.motion.start(c)
-        } else {
-            self.motion.resume(c)
-        };
-
-        match r {
+        debug!("motion {:?} >> {:?}", c, self.motion_buf);
+        match self.motion.resume(c) {
             Resume::Yield(v) => {
                 debug!("    !> {:?}", v);
                 Poll::Ready(v)
             }
             Resume::Done(v) => {
                 debug!("    |> {:?}", v);
-                self.tok_seq.clear();
-                self.motion = Coroutine::new(|c, yp| Box::new(VIMotions::next_motion(c, yp)));
+                self.motion_buf.borrow_mut().clear();
+                let mb = self.motion_buf.clone();
+                self.motion = Coroutine::new(|c, yp| Box::new(VIMotions::next_motion(c, mb, yp)));
                 Poll::Ready(v)
             }
             Resume::Pending => {
@@ -71,7 +61,12 @@ impl VIMotions {
         }
     }
 
-    async fn next_motion(tok: char, yp: YieldPoint<char, Vim>) -> Vim {
+    async fn next_motion(
+        tok: char,
+        motion_buf: Rc<RefCell<String>>,
+        yp: YieldPoint<char, Vim>,
+    ) -> Vim {
+        motion_buf.borrow_mut().push(tok);
         match tok {
             'h' => Vim::MoveLeft,
             'l' => Vim::MoveRight,
@@ -82,6 +77,7 @@ impl VIMotions {
             'e' => Vim::MoveNextWordEnd,
             'g' => {
                 let tok = yp.yield0().await;
+                motion_buf.borrow_mut().push(tok);
                 match tok {
                     'e' => Vim::MovePrevWordEnd,
                     'E' => Vim::MovePrevWORDEnd,
@@ -100,22 +96,26 @@ impl VIMotions {
 
             'f' => {
                 let tok = yp.yield0().await;
-                Vim::FindNext(tok)
+                motion_buf.borrow_mut().push(tok);
+                Vim::FindForward(tok)
             }
             'F' => {
                 let tok = yp.yield0().await;
-                Vim::FindPrev(tok)
+                motion_buf.borrow_mut().push(tok);
+                Vim::FindBack(tok)
             }
             't' => {
                 let tok = yp.yield0().await;
-                Vim::FindUntilNext(tok)
+                motion_buf.borrow_mut().push(tok);
+                Vim::FindUntilForward(tok)
             }
             'T' => {
                 let tok = yp.yield0().await;
-                Vim::FindUntilPrev(tok)
+                motion_buf.borrow_mut().push(tok);
+                Vim::FindUntilBack(tok)
             }
-            ',' => Vim::FindRepeatBack,
-            ';' => Vim::FindRepeatFwd,
+            ',' => Vim::FindRepeatNext,
+            ';' => Vim::FindRepeatPrev,
 
             '/' => {
                 let mut buf = String::new();
@@ -123,30 +123,40 @@ impl VIMotions {
                     let tok = yp.yield1(Vim::SearchPartialForward(buf.clone())).await;
                     if tok == '\n' {
                         break;
-                    } else if tok == '\u{0008}' {
+                    } else if tok == '\x08' {
+                        let mut mb = motion_buf.borrow_mut();
+                        if mb.len() > 1 {
+                            mb.pop();
+                        }
                         _ = buf.pop();
                     } else {
+                        motion_buf.borrow_mut().push(tok);
                         buf.push(tok);
                     }
                 }
-                Vim::SearchFwd(buf)
+                Vim::SearchForward(buf)
             }
             '?' => {
                 let mut buf = String::new();
                 loop {
-                    let tok = yp.yield1(Vim::SearchPartialBackward(buf.clone())).await;
+                    let tok = yp.yield1(Vim::SearchPartialBack(buf.clone())).await;
                     if tok == '\n' {
                         break;
-                    } else if tok == '\u{0008}' {
+                    } else if tok == '\x08' {
+                        let mut mb = motion_buf.borrow_mut();
+                        if mb.len() > 1 {
+                            mb.pop();
+                        }
                         _ = buf.pop();
                     } else {
+                        motion_buf.borrow_mut().push(tok);
                         buf.push(tok);
                     }
                 }
                 Vim::SearchBack(buf)
             }
-            'n' => Vim::SearchRepeatFwd,
-            'N' => Vim::SearchRepeatBack,
+            'n' => Vim::SearchRepeatNext,
+            'N' => Vim::SearchRepeatPrev,
 
             'i' => Vim::Insert,
             _ => Vim::Invalid,
@@ -282,21 +292,33 @@ mod op {
         MovePrevParagraph,
         MoveNextParagraph,
 
-        FindNext(char),
-        FindPrev(char),
-        FindRepeatBack,
-        FindRepeatFwd,
-        FindUntilNext(char),
-        FindUntilPrev(char),
+        FindForward(char),
+        FindBack(char),
+        FindRepeatNext,
+        FindRepeatPrev,
+        FindUntilForward(char),
+        FindUntilBack(char),
 
         Insert,
 
-        SearchFwd(String),
+        SearchForward(String),
         SearchBack(String),
         SearchPartialForward(String),
-        SearchPartialBackward(String),
-        SearchRepeatFwd,
-        SearchRepeatBack,
+        SearchPartialBack(String),
+        SearchRepeatNext,
+        SearchRepeatPrev,
+    }
+
+    impl Vim {
+        pub fn search_str(&self) -> Option<&str> {
+            match self {
+                Vim::SearchForward(s) => Some(s.as_str()),
+                Vim::SearchBack(s) => Some(s.as_str()),
+                Vim::SearchPartialForward(s) => Some(s.as_str()),
+                Vim::SearchPartialBack(s) => Some(s.as_str()),
+                _ => None,
+            }
+        }
     }
 
     pub fn apply(
@@ -330,46 +352,82 @@ mod op {
                 TextOutcome::Changed
             }
 
-            Vim::FindNext(c) => {
+            Vim::FindForward(c) => {
                 vi.find = Some(vim.clone());
                 find_next(*c, state).into()
             }
-            Vim::FindPrev(c) => {
+            Vim::FindBack(c) => {
                 vi.find = Some(vim.clone());
                 find_prev(*c, state).into()
             }
-            Vim::FindUntilNext(c) => {
+            Vim::FindUntilForward(c) => {
                 vi.find = Some(vim.clone());
                 until_next(*c, state).into()
             }
-            Vim::FindUntilPrev(c) => {
+            Vim::FindUntilBack(c) => {
                 vi.find = Some(vim.clone());
                 until_prev(*c, state).into()
             }
-            Vim::FindRepeatBack => match &vi.find {
-                Some(Vim::FindNext(c)) => find_prev(*c, state).into(),
-                Some(Vim::FindPrev(c)) => find_next(*c, state).into(),
-                Some(Vim::FindUntilNext(c)) => until_prev(*c, state).into(),
-                Some(Vim::FindUntilPrev(c)) => until_next(*c, state).into(),
+            Vim::FindRepeatNext => match &vi.find {
+                Some(Vim::FindForward(c)) => find_prev(*c, state).into(),
+                Some(Vim::FindBack(c)) => find_next(*c, state).into(),
+                Some(Vim::FindUntilForward(c)) => until_prev(*c, state).into(),
+                Some(Vim::FindUntilBack(c)) => until_next(*c, state).into(),
                 _ => TextOutcome::Unchanged,
             },
-            Vim::FindRepeatFwd => match &vi.find {
-                Some(Vim::FindNext(c)) => find_next(*c, state).into(),
-                Some(Vim::FindPrev(c)) => find_prev(*c, state).into(),
-                Some(Vim::FindUntilNext(c)) => until_next(*c, state).into(),
-                Some(Vim::FindUntilPrev(c)) => until_prev(*c, state).into(),
+            Vim::FindRepeatPrev => match &vi.find {
+                Some(Vim::FindForward(c)) => find_next(*c, state).into(),
+                Some(Vim::FindBack(c)) => find_prev(*c, state).into(),
+                Some(Vim::FindUntilForward(c)) => until_next(*c, state).into(),
+                Some(Vim::FindUntilBack(c)) => until_prev(*c, state).into(),
                 _ => TextOutcome::Unchanged,
             },
 
-            Vim::SearchPartialForward(s) => search_fwd(s.as_str(), true, state, vi)?.into(),
-            Vim::SearchFwd(s) => search_fwd(s.as_str(), false, state, vi)?.into(),
-            Vim::SearchPartialBackward(s) => search_back(s.as_str(), true, state, vi)?.into(),
-            Vim::SearchBack(s) => search_back(s.as_str(), false, state, vi)?.into(),
-            Vim::SearchRepeatFwd => search_repeat_fwd(state, vi).into(),
-            Vim::SearchRepeatBack => search_repeat_back(state, vi).into(),
+            Vim::SearchPartialForward(_) => search_fwd(vim, state, vi)?.into(),
+            Vim::SearchForward(_) => search_fwd(vim, state, vi)?.into(),
+            Vim::SearchPartialBack(_) => search_back(vim, state, vi)?.into(),
+            Vim::SearchBack(_) => search_back(vim, state, vi)?.into(),
+            Vim::SearchRepeatNext => match &vi.search {
+                Some(Vim::SearchForward(_)) => search_repeat_fwd(state, vi).into(),
+                Some(Vim::SearchBack(_)) => search_repeat_back(state, vi).into(),
+                _ => TextOutcome::Unchanged,
+            },
+            Vim::SearchRepeatPrev => match &vi.search {
+                Some(Vim::SearchForward(_)) => search_repeat_back(state, vi).into(),
+                Some(Vim::SearchBack(_)) => search_repeat_fwd(state, vi).into(),
+                _ => TextOutcome::Unchanged,
+            },
         };
         debug!("apply -> {:?}", r);
         Ok(r)
+    }
+
+    fn search_back(
+        vim: Vim,
+        state: &mut TextAreaState,
+        vi: &mut VIMotions,
+    ) -> Result<bool, SearchError> {
+        let s = vim.search_str().expect("search");
+        if vi.search.is_none() || vi.search.as_ref().expect("search").search_str() != Some(s) {
+            search(s, state)?;
+        }
+        vi.search = Some(vim);
+        search_repeat_back(state, vi);
+        Ok(true)
+    }
+
+    fn search_fwd(
+        vim: Vim,
+        state: &mut TextAreaState,
+        vi: &mut VIMotions,
+    ) -> Result<bool, SearchError> {
+        let s = vim.search_str().expect("search");
+        if vi.search.is_none() || vi.search.as_ref().expect("search").search_str() != Some(s) {
+            search(s, state)?;
+        }
+        vi.search = Some(vim);
+        search_repeat_fwd(state, vi);
+        Ok(true)
     }
 
     fn search_repeat_back(state: &mut TextAreaState, vi: &mut VIMotions) -> bool {
@@ -386,7 +444,10 @@ mod op {
 
         if let Some((last, _)) = styles.last() {
             let last = state.byte_pos(last.start);
-            if vi.search_buildup {
+            if matches!(
+                vi.search,
+                Some(Vim::SearchPartialBack(_) | Vim::SearchPartialForward(_))
+            ) {
                 state.scroll_to_pos(last);
             } else {
                 state.set_cursor(last, false);
@@ -394,17 +455,6 @@ mod op {
         }
 
         true
-    }
-
-    fn search_back(
-        s: &str,
-        build_up: bool,
-        state: &mut TextAreaState,
-        vi: &mut VIMotions,
-    ) -> Result<bool, SearchError> {
-        search(s, build_up, state, vi)?;
-        search_repeat_back(state, vi);
-        Ok(true)
     }
 
     fn search_repeat_fwd(state: &mut TextAreaState, vi: &mut VIMotions) -> bool {
@@ -421,7 +471,10 @@ mod op {
 
         if let Some((first, _)) = styles.first() {
             let first = state.byte_pos(first.start);
-            if vi.search_buildup {
+            if matches!(
+                vi.search,
+                Some(Vim::SearchPartialBack(_) | Vim::SearchPartialForward(_))
+            ) {
                 state.scroll_to_pos(first);
             } else {
                 state.set_cursor(first, false);
@@ -431,45 +484,24 @@ mod op {
         true
     }
 
-    fn search_fwd(
-        s: &str,
-        build_up: bool,
-        state: &mut TextAreaState,
-        vi: &mut VIMotions,
-    ) -> Result<bool, SearchError> {
-        search(s, build_up, state, vi)?;
-        search_repeat_fwd(state, vi);
-        Ok(true)
-    }
-
     pub(crate) fn clear_search(state: &mut TextAreaState) -> bool {
         state.remove_style_fully(999);
         true
     }
 
-    fn search(
-        s: &str,
-        build_up: bool,
-        state: &mut TextAreaState,
-        vi: &mut VIMotions,
-    ) -> Result<bool, SearchError> {
-        if vi.search.as_deref() != Some(s) {
-            vi.search = Some(s.into());
-            vi.search_buildup = build_up;
-
-            clear_search(state);
-            if !s.is_empty() {
-                let found = vi_search(s, state)?;
-                for r in &found {
-                    state.add_style(r.clone(), 999);
-                }
+    pub(crate) fn search(s: &str, state: &mut TextAreaState) -> Result<bool, SearchError> {
+        clear_search(state);
+        if !s.is_empty() {
+            let found = vi_search(s, state)?;
+            for r in &found {
+                state.add_style(r.clone(), 999);
             }
         }
 
         Ok(true)
     }
 
-    fn move_prev_paragraph(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_prev_paragraph(state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_prev_paragraph(state) {
             state.set_cursor(cursor, false)
         } else {
@@ -477,7 +509,7 @@ mod op {
         }
     }
 
-    fn move_next_paragraph(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_next_paragraph(state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_next_paragraph(state) {
             state.set_cursor(cursor, false)
         } else {
@@ -485,7 +517,7 @@ mod op {
         }
     }
 
-    fn move_end_of_text(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_end_of_text(state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_end_of_text(state) {
             state.set_cursor(cursor, false)
         } else {
@@ -493,7 +525,7 @@ mod op {
         }
     }
 
-    fn move_start_of_text(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_start_of_text(state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_start_of_text(state) {
             state.set_cursor(cursor, false)
         } else {
@@ -501,7 +533,7 @@ mod op {
         }
     }
 
-    fn move_start_of_line(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_start_of_line(state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_start_of_line(state) {
             state.set_cursor(cursor, false)
         } else {
@@ -509,7 +541,7 @@ mod op {
         }
     }
 
-    fn move_end_of_line(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_end_of_line(state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_end_of_line(state) {
             state.set_cursor(cursor, false)
         } else {
@@ -517,7 +549,7 @@ mod op {
         }
     }
 
-    fn until_prev(cc: char, state: &mut TextAreaState) -> bool {
+    pub(crate) fn until_prev(cc: char, state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_until_prev(cc, state) {
             state.set_cursor(cursor, false)
         } else {
@@ -525,7 +557,7 @@ mod op {
         }
     }
 
-    fn until_next(cc: char, state: &mut TextAreaState) -> bool {
+    pub(crate) fn until_next(cc: char, state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_until_next(cc, state) {
             state.set_cursor(cursor, false)
         } else {
@@ -533,7 +565,7 @@ mod op {
         }
     }
 
-    fn find_prev(cc: char, state: &mut TextAreaState) -> bool {
+    pub(crate) fn find_prev(cc: char, state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_find_prev(cc, state) {
             state.set_cursor(cursor, false)
         } else {
@@ -541,7 +573,7 @@ mod op {
         }
     }
 
-    fn find_next(cc: char, state: &mut TextAreaState) -> bool {
+    pub(crate) fn find_next(cc: char, state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_find_next(cc, state) {
             state.set_cursor(cursor, false)
         } else {
@@ -549,7 +581,7 @@ mod op {
         }
     }
 
-    fn move_next_word_start(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_next_word_start(state: &mut TextAreaState) -> bool {
         if let Some(word) = vi_next_word_start(state) {
             state.set_cursor(word, false)
         } else {
@@ -557,7 +589,7 @@ mod op {
         }
     }
 
-    fn move_prev_word_start(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_prev_word_start(state: &mut TextAreaState) -> bool {
         if let Some(word) = vi_prev_word_start(state) {
             state.set_cursor(word, false)
         } else {
@@ -565,7 +597,7 @@ mod op {
         }
     }
 
-    fn move_next_word_end(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_next_word_end(state: &mut TextAreaState) -> bool {
         if let Some(word) = vi_next_word_end(state) {
             state.set_cursor(word, false)
         } else {
@@ -573,7 +605,7 @@ mod op {
         }
     }
 
-    fn move_prev_word_end(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_prev_word_end(state: &mut TextAreaState) -> bool {
         if let Some(word) = vi_prev_word_end(state) {
             state.set_cursor(word, false)
         } else {
@@ -581,7 +613,7 @@ mod op {
         }
     }
 
-    fn move_next_bigword_start(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_next_bigword_start(state: &mut TextAreaState) -> bool {
         if let Some(word) = vi_next_bigword_start(state) {
             state.set_cursor(word, false)
         } else {
@@ -589,7 +621,7 @@ mod op {
         }
     }
 
-    fn move_prev_bigword_start(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_prev_bigword_start(state: &mut TextAreaState) -> bool {
         if let Some(word) = vi_prev_bigword_start(state) {
             state.set_cursor(word, false)
         } else {
@@ -597,7 +629,7 @@ mod op {
         }
     }
 
-    fn move_next_bigword_end(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_next_bigword_end(state: &mut TextAreaState) -> bool {
         if let Some(word) = vi_next_bigword_end(state) {
             state.set_cursor(word, false)
         } else {
@@ -605,7 +637,7 @@ mod op {
         }
     }
 
-    fn move_prev_bigword_end(state: &mut TextAreaState) -> bool {
+    pub(crate) fn move_prev_bigword_end(state: &mut TextAreaState) -> bool {
         if let Some(word) = vi_prev_bigword_end(state) {
             state.set_cursor(word, false)
         } else {

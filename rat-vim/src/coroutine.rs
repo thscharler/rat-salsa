@@ -4,59 +4,90 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
 
+/// Result of the coroutine.
 pub enum Resume<T> {
+    /// Yielded without a result.
     Pending,
+    /// Yielded with a result.
     Yield(T),
+    /// Returned with a result.
     Done(T),
 }
 
+/// Implements a coroutine using a future.
+///
+/// This type of coroutine uses the same yield and return type.
+/// It has the specialty that it can yield without producing a
+/// result too.
 pub struct Coroutine<P, T> {
-    value: YieldPoint<P, T>,
+    yp: YieldPoint<P, T>,
     init: Option<Box<dyn FnOnce(P, YieldPoint<P, T>) -> Box<dyn Future<Output = T> + 'static>>>,
     inner: Pin<Box<dyn Future<Output = T>>>,
 }
 
 impl<P: Debug, T: Debug> Coroutine<P, T> {
+    /// Creates a new coroutine.
+    ///
+    /// ```
+    /// use rat_vim::Coroutine;
+    ///
+    /// let mut co = Coroutine::new(|arg, yp| {
+    ///     Box::new(async move {
+    ///         let arg = yp.yield1(42*arg);
+    ///         _ = yp.yield1(84*arg);
+    ///         999
+    ///     })
+    /// });
+    ///
+    /// if co.start_pending() {
+    ///     let v1 = co.start(1);
+    ///     assert_eq!(v1, 42);
+    /// }
+    /// let v2 = co.resume(1);
+    /// assert_eq!(v2, 84);
+    /// let v3 = co.resume(1);
+    /// assert_eq!(v3, 999);
+    ///
+    /// ```
     pub fn new(
         inner: impl FnOnce(P, YieldPoint<P, T>) -> Box<dyn Future<Output = T> + 'static> + 'static,
     ) -> Coroutine<P, T> {
         let yp = YieldPoint::new();
         Coroutine {
-            value: yp.clone(),
+            yp: yp.clone(),
             init: Some(Box::new(inner)),
             inner: Box::pin(async { panic!("coroutine not started") }),
         }
     }
 
-    pub fn start_pending(&self) -> bool {
-        self.init.is_some()
-    }
-
-    pub fn start(&mut self, arg: P) -> Resume<T> {
-        let init = self.init.take().expect("init");
-        let f = init(arg, self.value.clone());
-        self.inner = Box::into_pin(f);
-
-        self.poll()
-    }
-
+    /// Starts or resumes the coroutine.
     pub fn resume(&mut self, arg: P) -> Resume<T> {
-        self.value.resuming(arg);
-        self.poll()
-    }
+        if self.init.is_some() {
+            let init = self.init.take().expect("init");
+            let f = init(arg, self.yp.clone());
+            self.inner = Box::into_pin(f);
+        } else {
+            self.yp.resuming(arg);
+        }
 
-    fn poll(&mut self) -> Resume<T> {
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
         match self.inner.as_mut().poll(&mut cx) {
-            Poll::Ready(v) => Resume::Done(v),
-            Poll::Pending => match self.value.yielded() {
-                Some(v) => Resume::Yield(v),
-                None => Resume::Pending,
+            Poll::Ready(v) => {
+                Resume::Done(v) //
+            }
+            Poll::Pending => match self.yp.yielded() {
+                Some(v) => {
+                    Resume::Yield(v) // 
+                }
+                None => {
+                    Resume::Pending //
+                }
             },
         }
     }
 }
 
+/// Struct that implements the coroutine yield.
 pub struct YieldPoint<P, T> {
     arg: Rc<Cell<Option<P>>>,
     yield_: Rc<Cell<Option<T>>>,
@@ -70,20 +101,26 @@ impl<P: Debug, T: Debug> YieldPoint<P, T> {
         }
     }
 
+    /// Set the resume parameter.
     pub fn resuming(&self, arg: P) {
         self.arg.set(Some(arg));
     }
 
+    /// Yielded value.
     pub fn yielded(&self) -> Option<T> {
         self.yield_.take()
     }
 
+    /// Yield without result.
+    /// Results in a `Resume::Pending`.
     pub async fn yield0(&self) -> P {
         self.yield_.set(None);
         YieldNow(false).await;
         self.arg.take().expect("arg")
     }
 
+    /// Yield with result.
+    /// Results in a `Resume::Yield`
     pub async fn yield1(&self, value: T) -> P {
         self.yield_.set(Some(value));
         YieldNow(false).await;

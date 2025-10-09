@@ -2,11 +2,9 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 mod coroutine;
-mod token_stream;
 mod vi_state;
 
 pub use coroutine::{Coroutine, Resume, YieldPoint};
-pub use token_stream::TokenStream;
 pub use vi_state::VIMotions;
 
 #[derive(Default, Debug, PartialEq, Eq)]
