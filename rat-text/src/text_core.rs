@@ -248,6 +248,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Undo last.
+    #[allow(deprecated)]
     fn _undo(&mut self) -> bool {
         let Some(undo) = self.undo.as_mut() else {
             return false;
@@ -348,6 +349,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self._redo()
     }
 
+    #[allow(deprecated)]
     fn _redo(&mut self) -> bool {
         let Some(undo) = self.undo.as_mut() else {
             return false;
@@ -448,6 +450,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Replay a recording of changes.
+    #[allow(deprecated)]
     pub fn replay_log(&mut self, replay: &[UndoEntry]) {
         for replay_entry in replay {
             match &replay_entry.operation {
@@ -531,24 +534,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Set all styles.
     ///
-    /// The ranges are TextRanges. The usize value is the index of the
-    /// actual style. Those are set with the widget.
-    #[inline]
-    pub fn set_range_styles(
-        &mut self,
-        new_styles: Vec<(TextRange, usize)>,
-    ) -> Result<(), TextError> {
-        let mut mapped = Vec::with_capacity(new_styles.len());
-        for (r, s) in new_styles {
-            let rr = self.bytes_at_range(r)?;
-            mapped.push((rr, s));
-        }
-        self.set_styles(mapped);
-        Ok(())
-    }
-
-    /// Set all styles.
-    ///
     /// The ranges are byte-ranges. The usize value is the index of the
     /// actual style. Those are set with the widget.
     #[inline]
@@ -574,6 +559,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// The usize value is the index of the actual style.
     /// Those are set at the widget.
     #[inline]
+    #[allow(deprecated)]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
         self.init_styles();
 
@@ -591,6 +577,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     ///
     /// Range and style must match to be removed.
     #[inline]
+    #[allow(deprecated)]
     pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
         if let Some(sty) = &mut self.styles {
             sty.remove(range.clone(), style);
@@ -598,6 +585,29 @@ impl<Store: TextStore + Default> TextCore<Store> {
         if let Some(undo) = &mut self.undo {
             if undo.undo_styles_enabled() || undo.has_replay_log() {
                 undo.append(UndoOp::RemoveStyle { range, style });
+            }
+        }
+    }
+
+    /// Remove all ranges for the given style.
+    #[inline]
+    #[allow(deprecated)]
+    pub fn remove_style_fully(&mut self, style: usize) {
+        let Some(sty) = self.styles.as_mut() else {
+            return;
+        };
+        let styles = sty
+            .values()
+            .filter(|(r, s)| *s == style)
+            .collect::<Vec<_>>();
+        for (range, style) in &styles {
+            sty.remove(range.clone(), *style);
+        }
+        if let Some(undo) = &mut self.undo {
+            if undo.undo_styles_enabled() || undo.has_replay_log() {
+                for (range, style) in styles {
+                    undo.append(UndoOp::RemoveStyle { range, style });
+                }
             }
         }
     }
@@ -621,6 +631,19 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
     }
 
+    /// Find all styles that touch the given range.
+    #[inline]
+    pub fn styles_in_match(
+        &self,
+        range: Range<usize>,
+        style: usize,
+        buf: &mut Vec<(Range<usize>, usize)>,
+    ) {
+        if let Some(sty) = &self.styles {
+            sty.values_in_match(range, style, buf);
+        }
+    }
+
     /// Finds all styles for the given position.
     #[inline]
     pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<(Range<usize>, usize)>) {
@@ -629,9 +652,20 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
     }
 
+    /// Finds all styles for the given position.
+    #[inline]
+    pub fn styles_at_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
+        if let Some(sty) = &self.styles {
+            sty.value_match(byte_pos, style)
+        } else {
+            None
+        }
+    }
+
     /// Check if the given style applies at the position and
     /// return the complete range for the style.
     #[inline]
+    #[deprecated(since = "1.3.0", note = "use styles_at_match() instead")]
     pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
         if let Some(sty) = &self.styles {
             sty.value_match(byte_pos, style)

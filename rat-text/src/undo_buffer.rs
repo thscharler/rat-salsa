@@ -1,8 +1,8 @@
 //! Undo functionality.
 
-use crate::range_map::expand_range_by;
-use crate::TextPosition;
 use crate::_private::NonExhaustive;
+use crate::TextPosition;
+use crate::range_map::expand_range_by;
 use dyn_clone::DynClone;
 use std::fmt::Debug;
 use std::mem;
@@ -199,6 +199,7 @@ pub enum UndoOp {
         styles_after: Vec<(Range<usize>, usize)>,
     },
     /// Add one style.
+    #[deprecated(since = "1.3.0", note = "not useful")]
     AddStyle {
         /// style range
         range: Range<usize>,
@@ -206,6 +207,7 @@ pub enum UndoOp {
         style: usize,
     },
     /// Remove one style.
+    #[deprecated(since = "1.3.0", note = "not useful")]
     RemoveStyle {
         /// style range
         range: Range<usize>,
@@ -531,6 +533,7 @@ impl UndoVec {
 }
 
 impl UndoVec {
+    #[allow(deprecated)]
     fn filter(&self, undo: &UndoOp) -> bool {
         // only useful for tracking
         if matches!(undo, UndoOp::Undo | UndoOp::Redo | UndoOp::SetText { .. }) {

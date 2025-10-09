@@ -108,6 +108,21 @@ impl RangeMap {
         }
     }
 
+    /// Find everything that touches the given range.
+    pub(crate) fn values_in_match(
+        &self,
+        range: Range<usize>,
+        style: usize,
+        buf: &mut Vec<(Range<usize>, usize)>,
+    ) {
+        if range.is_empty() {
+            return;
+        }
+        for (r, v) in self.map.iter(range).filter(|(r, v)| **v == style) {
+            buf.push((r, *v));
+        }
+    }
+
     /// Find all values that touch the given position.
     pub(crate) fn values_at(&self, pos: usize, buf: &mut Vec<(Range<usize>, usize)>) {
         for (r, v) in self.map.overlap(pos) {

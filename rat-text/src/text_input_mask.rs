@@ -795,6 +795,15 @@ impl MaskedInputState {
     /// Check if the given style applies at the position and
     /// return the complete range for the style.
     #[inline]
+    pub fn styles_at_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
+        self.value.styles_at_match(byte_pos, style)
+    }
+
+    /// Check if the given style applies at the position and
+    /// return the complete range for the style.
+    #[inline]
+    #[allow(deprecated)]
+    #[deprecated(since = "1.3.0", note = "use styles_at_match() instead")]
     pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
         self.value.style_match(byte_pos, style)
     }

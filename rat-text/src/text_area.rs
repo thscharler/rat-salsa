@@ -876,7 +876,13 @@ impl TextAreaState {
     /// everything after each keystroke.
     #[inline]
     pub fn set_range_styles(&mut self, styles: Vec<(TextRange, usize)>) -> Result<(), TextError> {
-        self.value.set_range_styles(styles)
+        let mut mapped = Vec::with_capacity(styles.len());
+        for (r, s) in styles {
+            let rr = self.value.bytes_at_range(r)?;
+            mapped.push((rr, s));
+        }
+        self.value.set_styles(mapped);
+        Ok(())
     }
 
     /// Add a style for a byte-range.
@@ -904,6 +910,12 @@ impl TextAreaState {
         self.value.remove_style(range, style);
     }
 
+    /// Remove all ranges for the given style.
+    #[inline]
+    pub fn remove_style_fully(&mut self, style: usize) {
+        self.value.remove_style_fully(style);
+    }
+
     /// Remove the exact TextRange and style.
     #[inline]
     pub fn remove_range_style(&mut self, range: TextRange, style: usize) -> Result<(), TextError> {
@@ -917,6 +929,16 @@ impl TextAreaState {
         self.value.styles_in(range, buf)
     }
 
+    /// Find all styles that touch the given range.
+    pub fn styles_in_match(
+        &self,
+        range: Range<usize>,
+        style: usize,
+        buf: &mut Vec<(Range<usize>, usize)>,
+    ) {
+        self.value.styles_in_match(range, style, buf);
+    }
+
     /// All styles active at the given position.
     #[inline]
     pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<(Range<usize>, usize)>) {
@@ -926,6 +948,15 @@ impl TextAreaState {
     /// Check if the given style applies at the position and
     /// return the complete range for the style.
     #[inline]
+    pub fn styles_at_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
+        self.value.styles_at_match(byte_pos, style)
+    }
+
+    /// Check if the given style applies at the position and
+    /// return the complete range for the style.
+    #[inline]
+    #[allow(deprecated)]
+    #[deprecated(since = "1.3.0", note = "use styles_at_match() instead")]
     pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
         self.value.style_match(byte_pos, style)
     }
