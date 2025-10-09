@@ -155,6 +155,8 @@ impl VIMotions {
                 }
                 Vim::SearchBack(buf)
             }
+            '*' => Vim::SearchWordForward,
+            '#' => Vim::SearchWordBackward,
             'n' => Vim::SearchRepeatNext,
             'N' => Vim::SearchRepeatPrev,
 
@@ -301,6 +303,8 @@ mod op {
 
         Insert,
 
+        SearchWordForward,
+        SearchWordBackward,
         SearchForward(String),
         SearchBack(String),
         SearchPartialForward(String),
@@ -387,6 +391,8 @@ mod op {
             Vim::SearchForward(_) => search_fwd(vim, state, vi)?.into(),
             Vim::SearchPartialBack(_) => search_back(vim, state, vi)?.into(),
             Vim::SearchBack(_) => search_back(vim, state, vi)?.into(),
+            Vim::SearchWordForward => search_word_fwd(state, vi)?.into(),
+            Vim::SearchWordBackward => search_word_back(state, vi)?.into(),
             Vim::SearchRepeatNext => match &vi.search {
                 Some(Vim::SearchForward(_)) => search_repeat_fwd(state, vi).into(),
                 Some(Vim::SearchBack(_)) => search_repeat_back(state, vi).into(),
@@ -412,6 +418,39 @@ mod op {
             search(s, state)?;
         }
         vi.search = Some(vim);
+        search_repeat_back(state, vi);
+        Ok(true)
+    }
+
+    fn search_word_fwd(state: &mut TextAreaState, vi: &mut VIMotions) -> Result<bool, SearchError> {
+        let start = vi_word_start(state);
+        let end = vi_word_end(state);
+        let s = state.str_slice(start..end).to_string();
+
+        if vi.search.is_none()
+            || vi.search.as_ref().expect("search").search_str() != Some(s.as_str())
+        {
+            search(s.as_str(), state)?;
+        }
+        vi.search = Some(Vim::SearchForward(s));
+        search_repeat_fwd(state, vi);
+        Ok(true)
+    }
+
+    fn search_word_back(
+        state: &mut TextAreaState,
+        vi: &mut VIMotions,
+    ) -> Result<bool, SearchError> {
+        let start = vi_word_start(state);
+        let end = vi_word_end(state);
+        let s = state.str_slice(start..end).to_string();
+
+        if vi.search.is_none()
+            || vi.search.as_ref().expect("search").search_str() != Some(s.as_str())
+        {
+            search(s.as_str(), state)?;
+        }
+        vi.search = Some(Vim::SearchBack(s));
         search_repeat_back(state, vi);
         Ok(true)
     }
@@ -492,7 +531,7 @@ mod op {
     pub(crate) fn search(s: &str, state: &mut TextAreaState) -> Result<bool, SearchError> {
         clear_search(state);
         if !s.is_empty() {
-            let found = vi_search(s, state)?;
+            let found = vi_search_execute(s, state)?;
             for r in &found {
                 state.add_style(r.clone(), 999);
             }
@@ -654,7 +693,7 @@ mod query {
     use regex_cursor::{Input, RopeyCursor};
     use std::ops::Range;
 
-    pub(super) fn vi_search(
+    pub(super) fn vi_search_execute(
         search: &str,
         state: &mut TextAreaState,
     ) -> Result<Vec<Range<usize>>, SearchError> {
@@ -1016,6 +1055,38 @@ mod query {
         }
 
         Some(state.byte_pos(it.text_offset()))
+    }
+
+    pub(super) fn vi_word_start(state: &TextAreaState) -> TextPosition {
+        let mut it = state.text_graphemes(state.cursor());
+
+        if let Some(sample) = it.peek_prev() {
+            if sample.is_alphanumeric() {
+                pskip_alpha(&mut it);
+            } else if sample.is_whitespace() {
+                // noop
+            } else {
+                pskip_sample(&mut it, sample);
+            }
+        }
+
+        state.byte_pos(it.text_offset())
+    }
+
+    pub(super) fn vi_word_end(state: &TextAreaState) -> TextPosition {
+        let mut it = state.text_graphemes(state.cursor());
+
+        if let Some(sample) = it.peek_next() {
+            if sample.is_alphanumeric() {
+                skip_alpha(&mut it);
+            } else if sample.is_whitespace() {
+                // noop
+            } else {
+                skip_sample(&mut it, sample);
+            }
+        }
+
+        state.byte_pos(it.text_offset())
     }
 
     fn pskip_alpha(it: &mut dyn Cursor<Item = Grapheme>) {
