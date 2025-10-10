@@ -661,12 +661,14 @@ mod op {
 
 mod query {
     use crate::{MoveDirection, SearchError};
+    use log::debug;
     use rat_text::text_area::TextAreaState;
     use rat_text::{Cursor, Grapheme, TextPosition};
     use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
     use std::ops::Range;
 
+    #[derive(Debug)]
     pub(super) struct Matches {
         pub term: String,
         pub dir: MoveDirection,
@@ -707,6 +709,7 @@ mod query {
             if matches.term != term {
                 Ok(vi_search(term, dir, tmp, state)?)
             } else {
+                matches.tmp = tmp;
                 matches.idx = vi_search_idx(&matches, MoveDirection::Forward, state);
                 Ok(matches)
             }
