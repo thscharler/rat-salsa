@@ -13,7 +13,7 @@ use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{HasScreenCursor, TextPosition, upos_type};
-use rat_vim::{VI, VIMode};
+use rat_vim::{Mode, VI};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -147,15 +147,15 @@ fn render(
     Line::from_iter([
         Span::from(format!(" {:?} ", state.textarea_vim.mode)).style(
             match state.textarea_vim.mode {
-                VIMode::Normal => istate
+                Mode::Normal => istate
                     .theme
                     .palette()
                     .high_contrast(istate.theme.palette().limegreen[2]),
-                VIMode::Insert => istate
+                Mode::Insert => istate
                     .theme
                     .palette()
                     .high_contrast(istate.theme.palette().orange[2]),
-                VIMode::Visual => istate
+                Mode::Visual => istate
                     .theme
                     .palette()
                     .high_contrast(istate.theme.palette().yellow[2]),

@@ -5,7 +5,7 @@ mod coroutine;
 mod vi_state;
 
 pub use coroutine::{Coroutine, Resume, YieldPoint};
-pub use vi_state::VI;
+pub use vi_state::{Mode, VI};
 
 #[derive(Debug)]
 pub struct SearchError;

@@ -166,8 +166,8 @@ pub enum Vim {
     MovePrevWORDEnd,
     MoveStartOfLine,
     MoveEndOfLine,
-    MoveStartOfText,
-    MoveEndOfText,
+    MoveStartOfLineText,
+    MoveEndOfLineText,
     MovePrevParagraph,
     MoveNextParagraph,
 
@@ -188,6 +188,9 @@ pub enum Vim {
     SearchRepeatPrev,
 
     Insert,
+    MoveStartOfFile,
+    MoveEndOfFile,
+    MoveToMatching,
 }
 
 impl Vim {
@@ -264,7 +267,8 @@ impl VI {
                 match tok {
                     'e' => Vim::MovePrevWordEnd,
                     'E' => Vim::MovePrevWORDEnd,
-                    '_' => Vim::MoveEndOfText,
+                    '_' => Vim::MoveEndOfLineText,
+                    'g' => Vim::MoveStartOfFile,
                     _ => Vim::Invalid,
                 }
             }
@@ -272,10 +276,12 @@ impl VI {
             'B' => Vim::MovePrevWORDStart,
             'E' => Vim::MoveNextWORDEnd,
             '0' => Vim::MoveStartOfLine,
-            '^' => Vim::MoveStartOfText,
+            '^' => Vim::MoveStartOfLineText,
             '$' => Vim::MoveEndOfLine,
             '{' => Vim::MovePrevParagraph,
             '}' => Vim::MoveNextParagraph,
+            'G' => Vim::MoveEndOfFile,
+            '%' => Vim::MoveToMatching,
 
             'f' => {
                 let tok = yp.yield0().await;
@@ -378,10 +384,13 @@ mod op {
             Vim::MovePrevWORDEnd => move_prev_bigword_end(state).into(),
             Vim::MoveStartOfLine => move_start_of_line(state).into(),
             Vim::MoveEndOfLine => move_end_of_line(state).into(),
-            Vim::MoveStartOfText => move_start_of_text(state).into(),
-            Vim::MoveEndOfText => move_end_of_text(state).into(),
+            Vim::MoveStartOfLineText => move_start_of_text(state).into(),
+            Vim::MoveEndOfLineText => move_end_of_text(state).into(),
             Vim::MovePrevParagraph => move_prev_paragraph(state).into(),
             Vim::MoveNextParagraph => move_next_paragraph(state).into(),
+            Vim::MoveStartOfFile => move_start_of_file(state).into(),
+            Vim::MoveEndOfFile => move_end_of_file(state).into(),
+            Vim::MoveToMatching => move_matching_brace(state).into(),
 
             Vim::FindForward(c) => find_fwd(c, state, vi).into(),
             Vim::FindBack(c) => find_back(c, state, vi).into(),
@@ -508,6 +517,30 @@ mod op {
 
     pub(crate) fn move_next_paragraph(state: &mut TextAreaState) -> bool {
         if let Some(cursor) = vi_next_paragraph(state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn move_start_of_file(state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_start_of_file(state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn move_end_of_file(state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_end_of_file(state) {
+            state.set_cursor(cursor, false)
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn move_matching_brace(state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_matching_brace(state) {
             state.set_cursor(cursor, false)
         } else {
             false
@@ -759,6 +792,101 @@ mod query {
             matches.idx = None;
         }
         Ok(())
+    }
+
+    pub(super) fn vi_start_of_file(_state: &mut TextAreaState) -> Option<TextPosition> {
+        Some(TextPosition::new(0, 0))
+    }
+
+    pub(super) fn vi_end_of_file(state: &mut TextAreaState) -> Option<TextPosition> {
+        let y = state.len_lines().saturating_sub(1);
+        Some(TextPosition::new(state.line_width(y), y))
+    }
+
+    pub(super) fn vi_matching_brace(state: &mut TextAreaState) -> Option<TextPosition> {
+        let mut it = state.text_graphemes(state.cursor());
+
+        let peek_prev = it.peek_prev().map(|v| v.into_parts().0);
+        let peek_prev = peek_prev.as_ref().map(|v| v.as_ref());
+        let peek_next = it.peek_next().map(|v| v.into_parts().0);
+        let peek_next = peek_next.as_ref().map(|v| v.as_ref());
+
+        let (cc, co) = match (peek_prev, peek_next) {
+            (Some(")"), _) => ('(', ')'),
+            (Some("}"), _) => ('{', '}'),
+            (Some("]"), _) => ('[', ']'),
+            (Some(">"), _) => ('<', '>'),
+            (_, Some("(")) => (')', '('),
+            (_, Some("{")) => ('}', '{'),
+            (_, Some("[")) => (']', '['),
+            (_, Some("<")) => ('>', '<'),
+            (Some("("), _) => {
+                it.prev();
+                (')', '(')
+            }
+            (Some("{"), _) => {
+                it.prev();
+                ('}', '{')
+            }
+            (Some("["), _) => {
+                it.prev();
+                (']', '[')
+            }
+            (Some("<"), _) => {
+                it.prev();
+                ('>', '<')
+            }
+            (_, Some(")")) => {
+                it.next();
+                ('(', ')')
+            }
+            (_, Some("}")) => {
+                it.next();
+                ('{', '}')
+            }
+            (_, Some("]")) => {
+                it.next();
+                ('[', ']')
+            }
+            (_, Some(">")) => {
+                it.next();
+                ('<', '>')
+            }
+            (_, _) => return None,
+        };
+
+        if cc == '(' || cc == '{' || cc == '[' || cc == '<' {
+            let mut n = 0;
+            loop {
+                let Some(c) = it.prev() else {
+                    break;
+                };
+                if c == cc {
+                    n -= 1;
+                } else if c == co {
+                    n += 1;
+                }
+                if n == 0 {
+                    break;
+                }
+            }
+        } else {
+            let mut n = 0;
+            loop {
+                let Some(c) = it.next() else {
+                    break;
+                };
+                if c == cc {
+                    n -= 1;
+                } else if c == co {
+                    n += 1;
+                }
+                if n == 0 {
+                    break;
+                }
+            }
+        }
+        Some(state.byte_pos(it.text_offset()))
     }
 
     pub(super) fn vi_next_paragraph(state: &mut TextAreaState) -> Option<TextPosition> {
