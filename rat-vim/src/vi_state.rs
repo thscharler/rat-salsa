@@ -1,5 +1,5 @@
-use crate::vi_state::op::{Vim, apply, display_search};
-use crate::{Coroutine, MoveDirection, Resume, SearchError, VIMode, YieldPoint};
+use crate::vi_state::op::{apply, display_search};
+use crate::{Coroutine, Resume, SearchError, YieldPoint};
 use log::debug;
 use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
@@ -10,8 +10,8 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::task::Poll;
 
-pub struct VICmd {
-    pub mode: VIMode,
+pub struct VI {
+    pub mode: Mode,
 
     pub motion_buf: Rc<RefCell<String>>,
     pub motion: Coroutine<char, Vim>,
@@ -20,11 +20,37 @@ pub struct VICmd {
     pub matches: Matches,
 }
 
+#[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Mode {
+    #[default]
+    Normal,
+    Insert,
+    Visual,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+pub enum Direction {
+    #[default]
+    Forward,
+    Backward,
+}
+
+impl Direction {
+    pub fn mul(self, d: Direction) -> Direction {
+        match (self, d) {
+            (Direction::Forward, Direction::Forward) => Direction::Forward,
+            (Direction::Forward, Direction::Backward) => Direction::Backward,
+            (Direction::Backward, Direction::Forward) => Direction::Backward,
+            (Direction::Backward, Direction::Backward) => Direction::Forward,
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Finds {
     pub term: Option<char>,
     pub row: upos_type,
-    pub dir: MoveDirection,
+    pub dir: Direction,
     pub till: bool,
     pub idx: Option<usize>,
     pub list: Vec<Range<usize>>,
@@ -48,7 +74,7 @@ impl Finds {
 #[derive(Debug, Default)]
 pub struct Matches {
     pub term: Option<String>,
-    pub dir: MoveDirection,
+    pub dir: Direction,
     pub tmp: bool,
     pub idx: Option<usize>,
     pub list: Vec<Range<usize>>,
@@ -68,24 +94,131 @@ impl Matches {
     }
 }
 
-impl Default for VICmd {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Motion {
+    MoveLeft,
+    MoveRight,
+    MoveUp,
+    MoveDown,
+
+    MoveNextWordStart,
+    MovePrevWordStart,
+    MoveNextWordEnd,
+    MovePrevWordEnd,
+    MoveNextWORDStart,
+    MovePrevWORDStart,
+    MoveNextWORDEnd,
+    MovePrevWORDEnd,
+    MoveStartOfLine,
+    MoveEndOfLine,
+    MoveStartOfText,
+    MoveEndOfText,
+    MovePrevParagraph,
+    MoveNextParagraph,
+
+    FindForward(char),
+    FindBack(char),
+    FindTillForward(char),
+    FindTillBack(char),
+    FindRepeatNext,
+    FindRepeatPrev,
+
+    SearchWordForward,
+    SearchWordBackward,
+    SearchForward(String),
+    SearchBack(String),
+    SearchPartialForward(String),
+    SearchPartialBack(String),
+    SearchRepeatNext,
+    SearchRepeatPrev,
+}
+
+impl Motion {
+    pub fn search_str(&self) -> Option<&str> {
+        match self {
+            Motion::SearchForward(s) => Some(s.as_str()),
+            Motion::SearchBack(s) => Some(s.as_str()),
+            Motion::SearchPartialForward(s) => Some(s.as_str()),
+            Motion::SearchPartialBack(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Vim {
+    Invalid,
+
+    Move(u32, Motion),
+
+    MoveLeft,
+    MoveRight,
+    MoveUp,
+    MoveDown,
+
+    MoveNextWordStart,
+    MovePrevWordStart,
+    MoveNextWordEnd,
+    MovePrevWordEnd,
+    MoveNextWORDStart,
+    MovePrevWORDStart,
+    MoveNextWORDEnd,
+    MovePrevWORDEnd,
+    MoveStartOfLine,
+    MoveEndOfLine,
+    MoveStartOfText,
+    MoveEndOfText,
+    MovePrevParagraph,
+    MoveNextParagraph,
+
+    FindForward(char),
+    FindBack(char),
+    FindTillForward(char),
+    FindTillBack(char),
+    FindRepeatNext,
+    FindRepeatPrev,
+
+    SearchWordForward,
+    SearchWordBackward,
+    SearchForward(String),
+    SearchBack(String),
+    SearchPartialForward(String),
+    SearchPartialBack(String),
+    SearchRepeatNext,
+    SearchRepeatPrev,
+
+    Insert,
+}
+
+impl Vim {
+    pub fn search_str(&self) -> Option<&str> {
+        match self {
+            Vim::SearchForward(s) => Some(s.as_str()),
+            Vim::SearchBack(s) => Some(s.as_str()),
+            Vim::SearchPartialForward(s) => Some(s.as_str()),
+            Vim::SearchPartialBack(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+}
+
+impl Default for VI {
     fn default() -> Self {
         let motion_buf = Rc::new(RefCell::new(String::new()));
         Self {
             mode: Default::default(),
             motion_buf: motion_buf.clone(),
-            motion: Coroutine::new(|c, yp| Box::new(VICmd::next_motion(c, motion_buf, yp))),
+            motion: Coroutine::new(|c, yp| Box::new(VI::next_motion(c, motion_buf, yp))),
             finds: Default::default(),
             matches: Default::default(),
         }
     }
 }
-
-impl VICmd {
+impl VI {
     fn cancel(&mut self) {
         self.motion_buf.borrow_mut().clear();
         let mb = self.motion_buf.clone();
-        self.motion = Coroutine::new(|c, yp| Box::new(VICmd::next_motion(c, mb, yp)));
+        self.motion = Coroutine::new(|c, yp| Box::new(VI::next_motion(c, mb, yp)));
         self.matches.clear();
         self.finds.clear();
     }
@@ -101,7 +234,7 @@ impl VICmd {
                 debug!("    |> {:?}", v);
                 self.motion_buf.borrow_mut().clear();
                 let mb = self.motion_buf.clone();
-                self.motion = Coroutine::new(|c, yp| Box::new(VICmd::next_motion(c, mb, yp)));
+                self.motion = Coroutine::new(|c, yp| Box::new(VI::next_motion(c, mb, yp)));
                 Poll::Ready(v)
             }
             Resume::Pending => {
@@ -216,219 +349,18 @@ impl VICmd {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, &mut VICmd, Result<TextOutcome, SearchError>>
-    for TextAreaState
-{
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        vi: &mut VICmd,
-    ) -> Result<TextOutcome, SearchError> {
-        let r = if vi.mode == VIMode::Normal {
-            match event {
-                ct_event!(key press c)
-                | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => {
-                    if let Poll::Ready(vim) = vi.motion(*c) {
-                        apply(vim, self, vi)?
-                    } else {
-                        TextOutcome::Changed
-                    }
-                }
-                ct_event!(keycode press Enter) => {
-                    if let Poll::Ready(vim) = vi.motion('\n') {
-                        apply(vim, self, vi)?
-                    } else {
-                        TextOutcome::Changed
-                    }
-                }
-                ct_event!(keycode press Backspace) => {
-                    if let Poll::Ready(vim) = vi.motion('\x08') {
-                        apply(vim, self, vi)?
-                    } else {
-                        TextOutcome::Changed
-                    }
-                }
-
-                ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
-                    vi.cancel();
-                    self.scroll_cursor_to_visible();
-                    display_search(self, vi);
-                    TextOutcome::Changed
-                }
-                ct_event!(key press CONTROL-'d') => self
-                    .move_down(self.vertical_page() as u16 / 2, false)
-                    .into(),
-                ct_event!(key press CONTROL-'u') => {
-                    self.move_up(self.vertical_page() as u16 / 2, false).into()
-                }
-                _ => TextOutcome::Continue,
-            }
-        } else if vi.mode == VIMode::Insert {
-            match event {
-                ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
-                    vi.mode = VIMode::Normal;
-                    TextOutcome::Changed
-                }
-
-                ct_event!(key press c)
-                | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => {
-                    tc(self.insert_char(*c)) //
-                }
-                ct_event!(keycode press Tab) => {
-                    // ignore tab from focus
-                    if !self.focus.gained() {
-                        tc(self.insert_tab())
-                    } else {
-                        TextOutcome::Unchanged
-                    }
-                }
-                ct_event!(keycode press Enter) => tc(self.insert_newline()),
-                ct_event!(keycode press Backspace) => tc(self.delete_prev_char()),
-                ct_event!(keycode press Delete) => tc(self.delete_next_char()),
-
-                _ => TextOutcome::Continue,
-            }
-        } else if vi.mode == VIMode::Visual {
-            TextOutcome::Continue
-        } else {
-            TextOutcome::Continue
-        };
-
-        Ok(r)
-    }
-}
-
-// small helper ...
-fn tc(r: bool) -> TextOutcome {
-    if r {
-        TextOutcome::TextChanged
-    } else {
-        TextOutcome::Unchanged
-    }
-}
-
 mod op {
+    use crate::SearchError;
     use crate::vi_state::query::*;
-    use crate::vi_state::{VICmd, VIMode};
-    use crate::{MoveDirection, SearchError};
+    use crate::vi_state::{Direction, Mode, VI, Vim};
     use log::debug;
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub enum Motion {
-        MoveLeft,
-        MoveRight,
-        MoveUp,
-        MoveDown,
-
-        MoveNextWordStart,
-        MovePrevWordStart,
-        MoveNextWordEnd,
-        MovePrevWordEnd,
-        MoveNextWORDStart,
-        MovePrevWORDStart,
-        MoveNextWORDEnd,
-        MovePrevWORDEnd,
-        MoveStartOfLine,
-        MoveEndOfLine,
-        MoveStartOfText,
-        MoveEndOfText,
-        MovePrevParagraph,
-        MoveNextParagraph,
-
-        FindForward(char),
-        FindBack(char),
-        FindTillForward(char),
-        FindTillBack(char),
-        FindRepeatNext,
-        FindRepeatPrev,
-
-        SearchWordForward,
-        SearchWordBackward,
-        SearchForward(String),
-        SearchBack(String),
-        SearchPartialForward(String),
-        SearchPartialBack(String),
-        SearchRepeatNext,
-        SearchRepeatPrev,
-    }
-
-    impl Motion {
-        pub fn search_str(&self) -> Option<&str> {
-            match self {
-                Motion::SearchForward(s) => Some(s.as_str()),
-                Motion::SearchBack(s) => Some(s.as_str()),
-                Motion::SearchPartialForward(s) => Some(s.as_str()),
-                Motion::SearchPartialBack(s) => Some(s.as_str()),
-                _ => None,
-            }
-        }
-    }
-
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub enum Vim {
-        Invalid,
-
-        Move(u32, Motion),
-
-        MoveLeft,
-        MoveRight,
-        MoveUp,
-        MoveDown,
-
-        MoveNextWordStart,
-        MovePrevWordStart,
-        MoveNextWordEnd,
-        MovePrevWordEnd,
-        MoveNextWORDStart,
-        MovePrevWORDStart,
-        MoveNextWORDEnd,
-        MovePrevWORDEnd,
-        MoveStartOfLine,
-        MoveEndOfLine,
-        MoveStartOfText,
-        MoveEndOfText,
-        MovePrevParagraph,
-        MoveNextParagraph,
-
-        FindForward(char),
-        FindBack(char),
-        FindTillForward(char),
-        FindTillBack(char),
-        FindRepeatNext,
-        FindRepeatPrev,
-
-        SearchWordForward,
-        SearchWordBackward,
-        SearchForward(String),
-        SearchBack(String),
-        SearchPartialForward(String),
-        SearchPartialBack(String),
-        SearchRepeatNext,
-        SearchRepeatPrev,
-
-        Insert,
-    }
-
-    impl Vim {
-        pub fn search_str(&self) -> Option<&str> {
-            match self {
-                Vim::SearchForward(s) => Some(s.as_str()),
-                Vim::SearchBack(s) => Some(s.as_str()),
-                Vim::SearchPartialForward(s) => Some(s.as_str()),
-                Vim::SearchPartialBack(s) => Some(s.as_str()),
-                _ => None,
-            }
-        }
-    }
-
     pub fn apply(
         vim: Vim,
         state: &mut TextAreaState,
-        vi: &mut VICmd,
+        vi: &mut VI,
     ) -> Result<TextOutcome, SearchError> {
         let r = match vim {
             Vim::Invalid => TextOutcome::Continue,
@@ -468,7 +400,7 @@ mod op {
             Vim::SearchRepeatPrev => search_repeat_back(state, vi).into(),
 
             Vim::Insert => {
-                vi.mode = VIMode::Insert;
+                vi.mode = Mode::Insert;
                 TextOutcome::Changed
             }
             Vim::Move(_, _) => TextOutcome::Unchanged,
@@ -477,48 +409,48 @@ mod op {
         Ok(r)
     }
 
-    pub(crate) fn search_repeat_back(state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+    pub(crate) fn search_repeat_back(state: &mut TextAreaState, vi: &mut VI) -> bool {
         if vi.matches.term.is_none() {
             return false;
         }
-        vi_search_idx(&mut vi.matches, MoveDirection::Backward, state);
+        vi_search_idx(&mut vi.matches, Direction::Backward, state);
         display_search_idx(state, vi);
         true
     }
 
-    pub(crate) fn search_repeat_fwd(state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+    pub(crate) fn search_repeat_fwd(state: &mut TextAreaState, vi: &mut VI) -> bool {
         if vi.matches.term.is_none() {
             return false;
         }
-        vi_search_idx(&mut vi.matches, MoveDirection::Forward, state);
+        vi_search_idx(&mut vi.matches, Direction::Forward, state);
         display_search_idx(state, vi);
         true
     }
 
     pub(crate) fn search_word_back(
         state: &mut TextAreaState,
-        vi: &mut VICmd,
+        vi: &mut VI,
     ) -> Result<bool, SearchError> {
         let start = vi_word_start(state);
         let end = vi_word_end(state);
         let term = state.str_slice(start..end).to_string();
 
-        vi_search(&mut vi.matches, term, MoveDirection::Backward, false, state)?;
-        vi_search_idx(&mut vi.matches, MoveDirection::Forward, state);
+        vi_search(&mut vi.matches, term, Direction::Backward, false, state)?;
+        vi_search_idx(&mut vi.matches, Direction::Forward, state);
         display_search(state, vi);
         Ok(true)
     }
 
     pub(crate) fn search_word_fwd(
         state: &mut TextAreaState,
-        vi: &mut VICmd,
+        vi: &mut VI,
     ) -> Result<bool, SearchError> {
         let start = vi_word_start(state);
         let end = vi_word_end(state);
         let term = state.str_slice(start..end).to_string();
 
-        vi_search(&mut vi.matches, term, MoveDirection::Forward, false, state)?;
-        vi_search_idx(&mut vi.matches, MoveDirection::Forward, state);
+        vi_search(&mut vi.matches, term, Direction::Forward, false, state)?;
+        vi_search_idx(&mut vi.matches, Direction::Forward, state);
         display_search(state, vi);
         Ok(true)
     }
@@ -527,10 +459,10 @@ mod op {
         term: String,
         tmp: bool,
         state: &mut TextAreaState,
-        vi: &mut VICmd,
+        vi: &mut VI,
     ) -> Result<bool, SearchError> {
-        vi_search(&mut vi.matches, term, MoveDirection::Backward, tmp, state)?;
-        vi_search_idx(&mut vi.matches, MoveDirection::Forward, state);
+        vi_search(&mut vi.matches, term, Direction::Backward, tmp, state)?;
+        vi_search_idx(&mut vi.matches, Direction::Forward, state);
         display_search(state, vi);
         Ok(true)
     }
@@ -539,15 +471,15 @@ mod op {
         term: String,
         tmp: bool,
         state: &mut TextAreaState,
-        vi: &mut VICmd,
+        vi: &mut VI,
     ) -> Result<bool, SearchError> {
-        vi_search(&mut vi.matches, term, MoveDirection::Forward, tmp, state)?;
-        vi_search_idx(&mut vi.matches, MoveDirection::Forward, state);
+        vi_search(&mut vi.matches, term, Direction::Forward, tmp, state)?;
+        vi_search_idx(&mut vi.matches, Direction::Forward, state);
         display_search(state, vi);
         Ok(true)
     }
 
-    pub(crate) fn display_search(state: &mut TextAreaState, vi: &mut VICmd) {
+    pub(crate) fn display_search(state: &mut TextAreaState, vi: &mut VI) {
         state.remove_style_fully(999);
         for r in &vi.matches.list {
             state.add_style(r.clone(), 999);
@@ -555,7 +487,7 @@ mod op {
         display_search_idx(state, vi);
     }
 
-    pub(crate) fn display_search_idx(state: &mut TextAreaState, vi: &mut VICmd) {
+    pub(crate) fn display_search_idx(state: &mut TextAreaState, vi: &mut VI) {
         if let Some(idx) = vi.matches.idx {
             let pos = state.byte_pos(vi.matches.list[idx].start);
             if vi.matches.tmp {
@@ -614,7 +546,7 @@ mod op {
         }
     }
 
-    pub(crate) fn find_repeat_back(state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+    pub(crate) fn find_repeat_back(state: &mut TextAreaState, vi: &mut VI) -> bool {
         let Some(last_term) = vi.finds.term else {
             return false;
         };
@@ -622,12 +554,12 @@ mod op {
         let last_till = vi.finds.till;
 
         vi_find(&mut vi.finds, last_term, last_dir, last_till, state);
-        vi_find_idx(&mut vi.finds, MoveDirection::Backward, state);
+        vi_find_idx(&mut vi.finds, Direction::Backward, state);
 
-        let dir = vi.finds.dir.mul(MoveDirection::Backward);
+        let dir = vi.finds.dir.mul(Direction::Backward);
 
         if let Some(idx) = vi.finds.idx {
-            let pos = if vi.finds.till && dir == MoveDirection::Backward {
+            let pos = if vi.finds.till && dir == Direction::Backward {
                 state.byte_pos(vi.finds.list[idx].end)
             } else {
                 state.byte_pos(vi.finds.list[idx].start)
@@ -638,7 +570,7 @@ mod op {
         }
     }
 
-    pub(crate) fn find_repeat_fwd(state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+    pub(crate) fn find_repeat_fwd(state: &mut TextAreaState, vi: &mut VI) -> bool {
         let Some(last_term) = vi.finds.term else {
             return false;
         };
@@ -646,12 +578,12 @@ mod op {
         let last_till = vi.finds.till;
 
         vi_find(&mut vi.finds, last_term, last_dir, last_till, state);
-        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+        vi_find_idx(&mut vi.finds, Direction::Forward, state);
 
-        let dir = vi.finds.dir.mul(MoveDirection::Forward);
+        let dir = vi.finds.dir.mul(Direction::Forward);
 
         if let Some(idx) = vi.finds.idx {
-            let pos = if vi.finds.till && dir == MoveDirection::Backward {
+            let pos = if vi.finds.till && dir == Direction::Backward {
                 state.byte_pos(vi.finds.list[idx].end)
             } else {
                 state.byte_pos(vi.finds.list[idx].start)
@@ -662,9 +594,9 @@ mod op {
         }
     }
 
-    pub(crate) fn till_back(term: char, state: &mut TextAreaState, vi: &mut VICmd) -> bool {
-        vi_find(&mut vi.finds, term, MoveDirection::Backward, true, state);
-        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+    pub(crate) fn till_back(term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        vi_find(&mut vi.finds, term, Direction::Backward, true, state);
+        vi_find_idx(&mut vi.finds, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
             let pos = state.byte_pos(vi.finds.list[i].end);
@@ -674,9 +606,9 @@ mod op {
         }
     }
 
-    pub(crate) fn till_fwd(term: char, state: &mut TextAreaState, vi: &mut VICmd) -> bool {
-        vi_find(&mut vi.finds, term, MoveDirection::Forward, true, state);
-        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+    pub(crate) fn till_fwd(term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        vi_find(&mut vi.finds, term, Direction::Forward, true, state);
+        vi_find_idx(&mut vi.finds, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
             let pos = state.byte_pos(vi.finds.list[i].start);
@@ -686,9 +618,9 @@ mod op {
         }
     }
 
-    pub(crate) fn find_back(term: char, state: &mut TextAreaState, vi: &mut VICmd) -> bool {
-        vi_find(&mut vi.finds, term, MoveDirection::Backward, false, state);
-        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+    pub(crate) fn find_back(term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        vi_find(&mut vi.finds, term, Direction::Backward, false, state);
+        vi_find_idx(&mut vi.finds, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
             let pos = state.byte_pos(vi.finds.list[i].start);
@@ -698,9 +630,9 @@ mod op {
         }
     }
 
-    pub(crate) fn find_fwd(term: char, state: &mut TextAreaState, vi: &mut VICmd) -> bool {
-        vi_find(&mut vi.finds, term, MoveDirection::Forward, false, state);
-        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+    pub(crate) fn find_fwd(term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        vi_find(&mut vi.finds, term, Direction::Forward, false, state);
+        vi_find_idx(&mut vi.finds, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
             let pos = state.byte_pos(vi.finds.list[i].start);
@@ -776,22 +708,18 @@ mod op {
 }
 
 mod query {
-    use crate::vi_state::{Finds, Matches};
-    use crate::{MoveDirection, SearchError};
+    use crate::SearchError;
+    use crate::vi_state::{Direction, Finds, Matches};
     use rat_text::text_area::TextAreaState;
     use rat_text::{Cursor, Grapheme, TextPosition, TextRange};
     use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
 
-    pub(super) fn vi_search_idx(
-        matches: &mut Matches,
-        dir: MoveDirection,
-        state: &mut TextAreaState,
-    ) {
+    pub(super) fn vi_search_idx(matches: &mut Matches, dir: Direction, state: &mut TextAreaState) {
         let c = state.byte_at(state.cursor()).start;
         let dir = matches.dir.mul(dir);
 
-        if dir == MoveDirection::Forward {
+        if dir == Direction::Forward {
             matches.idx = matches.list.iter().position(|v| v.start > c);
         } else {
             matches.idx = matches
@@ -806,7 +734,7 @@ mod query {
     pub(super) fn vi_search(
         matches: &mut Matches,
         term: String,
-        dir: MoveDirection,
+        dir: Direction,
         tmp: bool,
         state: &mut TextAreaState,
     ) -> Result<(), SearchError> {
@@ -957,12 +885,12 @@ mod query {
         Some(TextPosition::new(state.line_width(cursor.y), cursor.y))
     }
 
-    pub(super) fn vi_find_idx(finds: &mut Finds, dir: MoveDirection, state: &mut TextAreaState) {
+    pub(super) fn vi_find_idx(finds: &mut Finds, dir: Direction, state: &mut TextAreaState) {
         let mut c = state.byte_at(state.cursor()).start;
 
         let dir = finds.dir.mul(dir);
 
-        if dir == MoveDirection::Forward {
+        if dir == Direction::Forward {
             finds.idx = finds.list.iter().position(|v| v.start > c);
         } else {
             // Till backwards might need to correct the cursor.
@@ -987,7 +915,7 @@ mod query {
     pub(super) fn vi_find(
         finds: &mut Finds,
         term: char,
-        dir: MoveDirection,
+        dir: Direction,
         till: bool,
         state: &TextAreaState,
     ) {
@@ -1284,5 +1212,98 @@ mod query {
                 break;
             }
         }
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchError>>
+    for TextAreaState
+{
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        vi: &mut VI,
+    ) -> Result<TextOutcome, SearchError> {
+        let r = if vi.mode == Mode::Normal {
+            match event {
+                ct_event!(key press c)
+                | ct_event!(key press SHIFT-c)
+                | ct_event!(key press CONTROL_ALT-c) => {
+                    if let Poll::Ready(vim) = vi.motion(*c) {
+                        apply(vim, self, vi)?
+                    } else {
+                        TextOutcome::Changed
+                    }
+                }
+                ct_event!(keycode press Enter) => {
+                    if let Poll::Ready(vim) = vi.motion('\n') {
+                        apply(vim, self, vi)?
+                    } else {
+                        TextOutcome::Changed
+                    }
+                }
+                ct_event!(keycode press Backspace) => {
+                    if let Poll::Ready(vim) = vi.motion('\x08') {
+                        apply(vim, self, vi)?
+                    } else {
+                        TextOutcome::Changed
+                    }
+                }
+
+                ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
+                    vi.cancel();
+                    self.scroll_cursor_to_visible();
+                    display_search(self, vi);
+                    TextOutcome::Changed
+                }
+                ct_event!(key press CONTROL-'d') => self
+                    .move_down(self.vertical_page() as u16 / 2, false)
+                    .into(),
+                ct_event!(key press CONTROL-'u') => {
+                    self.move_up(self.vertical_page() as u16 / 2, false).into()
+                }
+                _ => TextOutcome::Continue,
+            }
+        } else if vi.mode == Mode::Insert {
+            match event {
+                ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
+                    vi.mode = Mode::Normal;
+                    TextOutcome::Changed
+                }
+
+                ct_event!(key press c)
+                | ct_event!(key press SHIFT-c)
+                | ct_event!(key press CONTROL_ALT-c) => {
+                    tc(self.insert_char(*c)) //
+                }
+                ct_event!(keycode press Tab) => {
+                    // ignore tab from focus
+                    if !self.focus.gained() {
+                        tc(self.insert_tab())
+                    } else {
+                        TextOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press Enter) => tc(self.insert_newline()),
+                ct_event!(keycode press Backspace) => tc(self.delete_prev_char()),
+                ct_event!(keycode press Delete) => tc(self.delete_next_char()),
+
+                _ => TextOutcome::Continue,
+            }
+        } else if vi.mode == Mode::Visual {
+            TextOutcome::Continue
+        } else {
+            TextOutcome::Continue
+        };
+
+        Ok(r)
+    }
+}
+
+// small helper ...
+fn tc(r: bool) -> TextOutcome {
+    if r {
+        TextOutcome::TextChanged
+    } else {
+        TextOutcome::Unchanged
     }
 }

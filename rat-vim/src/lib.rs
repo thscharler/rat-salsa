@@ -5,33 +5,7 @@ mod coroutine;
 mod vi_state;
 
 pub use coroutine::{Coroutine, Resume, YieldPoint};
-pub use vi_state::VICmd;
-
-#[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
-pub enum VIMode {
-    #[default]
-    Normal,
-    Insert,
-    Visual,
-}
-
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
-pub enum MoveDirection {
-    #[default]
-    Forward,
-    Backward,
-}
-
-impl MoveDirection {
-    pub fn mul(self, d: MoveDirection) -> MoveDirection {
-        match (self, d) {
-            (MoveDirection::Forward, MoveDirection::Forward) => MoveDirection::Forward,
-            (MoveDirection::Forward, MoveDirection::Backward) => MoveDirection::Backward,
-            (MoveDirection::Backward, MoveDirection::Forward) => MoveDirection::Backward,
-            (MoveDirection::Backward, MoveDirection::Backward) => MoveDirection::Forward,
-        }
-    }
-}
+pub use vi_state::VI;
 
 #[derive(Debug)]
 pub struct SearchError;
