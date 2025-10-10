@@ -1,11 +1,12 @@
 use crate::vi_state::op::{Vim, apply, display_search};
-use crate::vi_state::query::{Finds, Matches};
-use crate::{Coroutine, Resume, SearchError, VIMode, YieldPoint};
+use crate::{Coroutine, MoveDirection, Resume, SearchError, VIMode, YieldPoint};
 use log::debug;
 use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
+use rat_text::upos_type;
 use std::cell::RefCell;
+use std::ops::Range;
 use std::rc::Rc;
 use std::task::Poll;
 
@@ -17,6 +18,54 @@ pub struct VICmd {
 
     pub finds: Finds,
     pub matches: Matches,
+}
+
+#[derive(Debug, Default)]
+pub struct Finds {
+    pub term: Option<char>,
+    pub row: upos_type,
+    pub dir: MoveDirection,
+    pub till: bool,
+    pub idx: Option<usize>,
+    pub list: Vec<Range<usize>>,
+}
+
+impl Finds {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn clear(&mut self) {
+        self.term = Default::default();
+        self.row = Default::default();
+        self.dir = Default::default();
+        self.till = Default::default();
+        self.idx = Default::default();
+        self.list.clear();
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Matches {
+    pub term: Option<String>,
+    pub dir: MoveDirection,
+    pub tmp: bool,
+    pub idx: Option<usize>,
+    pub list: Vec<Range<usize>>,
+}
+
+impl Matches {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn clear(&mut self) {
+        self.term = Default::default();
+        self.dir = Default::default();
+        self.tmp = Default::default();
+        self.idx = Default::default();
+        self.list.clear();
+    }
 }
 
 impl Default for VICmd {
@@ -727,36 +776,12 @@ mod op {
 }
 
 mod query {
+    use crate::vi_state::{Finds, Matches};
     use crate::{MoveDirection, SearchError};
-    use log::debug;
     use rat_text::text_area::TextAreaState;
-    use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
+    use rat_text::{Cursor, Grapheme, TextPosition, TextRange};
     use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
-    use std::ops::Range;
-
-    #[derive(Debug, Default)]
-    pub(super) struct Matches {
-        pub term: Option<String>,
-        pub dir: MoveDirection,
-        pub tmp: bool,
-        pub idx: Option<usize>,
-        pub list: Vec<Range<usize>>,
-    }
-
-    impl Matches {
-        pub fn new() -> Self {
-            Self::default()
-        }
-
-        pub fn clear(&mut self) {
-            self.term = Default::default();
-            self.dir = Default::default();
-            self.tmp = Default::default();
-            self.idx = Default::default();
-            self.list.clear();
-        }
-    }
 
     pub(super) fn vi_search_idx(
         matches: &mut Matches,
@@ -930,31 +955,6 @@ mod query {
     pub(super) fn vi_end_of_line(state: &mut TextAreaState) -> Option<TextPosition> {
         let cursor = state.cursor();
         Some(TextPosition::new(state.line_width(cursor.y), cursor.y))
-    }
-
-    #[derive(Debug, Default)]
-    pub(super) struct Finds {
-        pub term: Option<char>,
-        pub row: upos_type,
-        pub dir: MoveDirection,
-        pub till: bool,
-        pub idx: Option<usize>,
-        pub list: Vec<Range<usize>>,
-    }
-
-    impl Finds {
-        pub fn new() -> Self {
-            Self::default()
-        }
-
-        pub fn clear(&mut self) {
-            self.term = Default::default();
-            self.row = Default::default();
-            self.dir = Default::default();
-            self.till = Default::default();
-            self.idx = Default::default();
-            self.list.clear();
-        }
     }
 
     pub(super) fn vi_find_idx(finds: &mut Finds, dir: MoveDirection, state: &mut TextAreaState) {
