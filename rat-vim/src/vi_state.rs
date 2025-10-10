@@ -100,6 +100,7 @@ pub enum Motion {
     MoveRight,
     MoveUp,
     MoveDown,
+    MoveToCol,
 
     MoveNextWordStart,
     MovePrevWordStart,
@@ -149,15 +150,8 @@ impl Motion {
 pub enum Vim {
     Invalid,
 
-    Move(u32, Motion),
+    Move(u16, Motion),
 
-    MoveLeft,
-    MoveRight,
-    MoveUp,
-    MoveDown,
-
-    MoveNextWordStart,
-    MovePrevWordStart,
     MoveNextWordEnd,
     MovePrevWordEnd,
     MoveNextWORDStart,
@@ -170,13 +164,6 @@ pub enum Vim {
     MoveEndOfLineText,
     MovePrevParagraph,
     MoveNextParagraph,
-
-    FindForward(char),
-    FindBack(char),
-    FindTillForward(char),
-    FindTillBack(char),
-    FindRepeatNext,
-    FindRepeatPrev,
 
     SearchWordForward,
     SearchWordBackward,
@@ -248,18 +235,36 @@ impl VI {
     }
 
     async fn next_motion(
-        tok: char,
+        mut tok: char,
         motion_buf: Rc<RefCell<String>>,
         yp: YieldPoint<char, Vim>,
     ) -> Vim {
+        if tok == '0' {
+            return Vim::Move(0, Motion::MoveToCol);
+        }
+
+        let mut mul = String::new();
+        while tok.is_ascii_digit() || tok == '\x08' {
+            if tok == '\x08' {
+                mul.pop();
+                motion_buf.borrow_mut().pop();
+            } else {
+                mul.push(tok);
+                motion_buf.borrow_mut().push(tok);
+            }
+            tok = yp.yield0().await;
+        }
+        let mul = mul.parse::<u16>().ok();
+
         motion_buf.borrow_mut().push(tok);
         match tok {
-            'h' => Vim::MoveLeft,
-            'l' => Vim::MoveRight,
-            'k' => Vim::MoveUp,
-            'j' => Vim::MoveDown,
-            'w' => Vim::MoveNextWordStart,
-            'b' => Vim::MovePrevWordStart,
+            'h' => Vim::Move(mul.unwrap_or(1), Motion::MoveLeft),
+            'l' => Vim::Move(mul.unwrap_or(1), Motion::MoveRight),
+            'k' => Vim::Move(mul.unwrap_or(1), Motion::MoveUp),
+            'j' => Vim::Move(mul.unwrap_or(1), Motion::MoveDown),
+            '|' => Vim::Move(mul.unwrap_or(0), Motion::MoveToCol),
+            'w' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordStart),
+            'b' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordStart),
             'e' => Vim::MoveNextWordEnd,
             'g' => {
                 let tok = yp.yield0().await;
@@ -286,25 +291,25 @@ impl VI {
             'f' => {
                 let tok = yp.yield0().await;
                 motion_buf.borrow_mut().push(tok);
-                Vim::FindForward(tok)
+                Vim::Move(mul.unwrap_or(1), Motion::FindForward(tok))
             }
             'F' => {
                 let tok = yp.yield0().await;
                 motion_buf.borrow_mut().push(tok);
-                Vim::FindBack(tok)
+                Vim::Move(mul.unwrap_or(1), Motion::FindBack(tok))
             }
             't' => {
                 let tok = yp.yield0().await;
                 motion_buf.borrow_mut().push(tok);
-                Vim::FindTillForward(tok)
+                Vim::Move(mul.unwrap_or(1), Motion::FindTillForward(tok))
             }
             'T' => {
                 let tok = yp.yield0().await;
                 motion_buf.borrow_mut().push(tok);
-                Vim::FindTillBack(tok)
+                Vim::Move(mul.unwrap_or(1), Motion::FindTillBack(tok))
             }
-            ';' => Vim::FindRepeatNext,
-            ',' => Vim::FindRepeatPrev,
+            ';' => Vim::Move(mul.unwrap_or(1), Motion::FindRepeatNext),
+            ',' => Vim::Move(mul.unwrap_or(1), Motion::FindRepeatPrev),
 
             '/' => {
                 let mut buf = String::new();
@@ -358,7 +363,7 @@ impl VI {
 mod op {
     use crate::SearchError;
     use crate::vi_state::query::*;
-    use crate::vi_state::{Direction, Mode, VI, Vim};
+    use crate::vi_state::{Direction, Mode, Motion, VI, Vim};
     use log::debug;
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
@@ -370,12 +375,13 @@ mod op {
     ) -> Result<TextOutcome, SearchError> {
         let r = match vim {
             Vim::Invalid => TextOutcome::Continue,
-            Vim::MoveLeft => state.move_left(1, false).into(),
-            Vim::MoveRight => state.move_right(1, false).into(),
-            Vim::MoveUp => state.move_up(1, false).into(),
-            Vim::MoveDown => state.move_down(1, false).into(),
-            Vim::MoveNextWordStart => move_next_word_start(state).into(),
-            Vim::MovePrevWordStart => move_prev_word_start(state).into(),
+            Vim::Move(mul, Motion::MoveLeft) => state.move_left(mul, false).into(),
+            Vim::Move(mul, Motion::MoveRight) => state.move_right(mul, false).into(),
+            Vim::Move(mul, Motion::MoveUp) => state.move_up(mul, false).into(),
+            Vim::Move(mul, Motion::MoveDown) => state.move_down(mul, false).into(),
+            Vim::Move(mul, Motion::MoveToCol) => move_to_col(mul, state).into(),
+            Vim::Move(mul, Motion::MoveNextWordStart) => move_next_word_start(mul, state).into(),
+            Vim::Move(mul, Motion::MovePrevWordStart) => move_prev_word_start(mul, state).into(),
             Vim::MoveNextWordEnd => move_next_word_end(state).into(),
             Vim::MovePrevWordEnd => move_prev_word_end(state).into(),
             Vim::MoveNextWORDStart => move_next_bigword_start(state).into(),
@@ -392,12 +398,12 @@ mod op {
             Vim::MoveEndOfFile => move_end_of_file(state).into(),
             Vim::MoveToMatching => move_matching_brace(state).into(),
 
-            Vim::FindForward(c) => find_fwd(c, state, vi).into(),
-            Vim::FindBack(c) => find_back(c, state, vi).into(),
-            Vim::FindTillForward(c) => till_fwd(c, state, vi).into(),
-            Vim::FindTillBack(c) => till_back(c, state, vi).into(),
-            Vim::FindRepeatNext => find_repeat_fwd(state, vi).into(),
-            Vim::FindRepeatPrev => find_repeat_back(state, vi).into(),
+            Vim::Move(mul, Motion::FindForward(c)) => find_fwd(mul, c, state, vi).into(),
+            Vim::Move(mul, Motion::FindBack(c)) => find_back(mul, c, state, vi).into(),
+            Vim::Move(mul, Motion::FindTillForward(c)) => till_fwd(mul, c, state, vi).into(),
+            Vim::Move(mul, Motion::FindTillBack(c)) => till_back(mul, c, state, vi).into(),
+            Vim::Move(mul, Motion::FindRepeatNext) => find_repeat_fwd(mul, state, vi).into(),
+            Vim::Move(mul, Motion::FindRepeatPrev) => find_repeat_back(mul, state, vi).into(),
 
             Vim::SearchPartialForward(s) => search_fwd(s, true, state, vi)?.into(),
             Vim::SearchForward(s) => search_fwd(s, false, state, vi)?.into(),
@@ -415,7 +421,7 @@ mod op {
             Vim::Move(_, _) => TextOutcome::Unchanged,
         };
         debug!("apply -> {:?}", r);
-        Ok(r)
+        Ok(TextOutcome::Changed)
     }
 
     pub(crate) fn search_repeat_back(state: &mut TextAreaState, vi: &mut VI) -> bool {
@@ -579,7 +585,7 @@ mod op {
         }
     }
 
-    pub(crate) fn find_repeat_back(state: &mut TextAreaState, vi: &mut VI) -> bool {
+    pub(crate) fn find_repeat_back(mul: u16, state: &mut TextAreaState, vi: &mut VI) -> bool {
         let Some(last_term) = vi.finds.term else {
             return false;
         };
@@ -587,7 +593,7 @@ mod op {
         let last_till = vi.finds.till;
 
         vi_find(&mut vi.finds, last_term, last_dir, last_till, state);
-        vi_find_idx(&mut vi.finds, Direction::Backward, state);
+        vi_find_idx(&mut vi.finds, mul, Direction::Backward, state);
 
         let dir = vi.finds.dir.mul(Direction::Backward);
 
@@ -603,7 +609,7 @@ mod op {
         }
     }
 
-    pub(crate) fn find_repeat_fwd(state: &mut TextAreaState, vi: &mut VI) -> bool {
+    pub(crate) fn find_repeat_fwd(mul: u16, state: &mut TextAreaState, vi: &mut VI) -> bool {
         let Some(last_term) = vi.finds.term else {
             return false;
         };
@@ -611,7 +617,7 @@ mod op {
         let last_till = vi.finds.till;
 
         vi_find(&mut vi.finds, last_term, last_dir, last_till, state);
-        vi_find_idx(&mut vi.finds, Direction::Forward, state);
+        vi_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         let dir = vi.finds.dir.mul(Direction::Forward);
 
@@ -627,9 +633,9 @@ mod op {
         }
     }
 
-    pub(crate) fn till_back(term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+    pub(crate) fn till_back(mul: u16, term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
         vi_find(&mut vi.finds, term, Direction::Backward, true, state);
-        vi_find_idx(&mut vi.finds, Direction::Forward, state);
+        vi_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
             let pos = state.byte_pos(vi.finds.list[i].end);
@@ -639,9 +645,9 @@ mod op {
         }
     }
 
-    pub(crate) fn till_fwd(term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+    pub(crate) fn till_fwd(mul: u16, term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
         vi_find(&mut vi.finds, term, Direction::Forward, true, state);
-        vi_find_idx(&mut vi.finds, Direction::Forward, state);
+        vi_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
             let pos = state.byte_pos(vi.finds.list[i].start);
@@ -651,9 +657,9 @@ mod op {
         }
     }
 
-    pub(crate) fn find_back(term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+    pub(crate) fn find_back(mul: u16, term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
         vi_find(&mut vi.finds, term, Direction::Backward, false, state);
-        vi_find_idx(&mut vi.finds, Direction::Forward, state);
+        vi_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
             let pos = state.byte_pos(vi.finds.list[i].start);
@@ -663,9 +669,9 @@ mod op {
         }
     }
 
-    pub(crate) fn find_fwd(term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+    pub(crate) fn find_fwd(mul: u16, term: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
         vi_find(&mut vi.finds, term, Direction::Forward, false, state);
-        vi_find_idx(&mut vi.finds, Direction::Forward, state);
+        vi_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
             let pos = state.byte_pos(vi.finds.list[i].start);
@@ -675,16 +681,24 @@ mod op {
         }
     }
 
-    pub(crate) fn move_next_word_start(state: &mut TextAreaState) -> bool {
-        if let Some(word) = vi_next_word_start(state) {
+    pub(crate) fn move_to_col(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(pos) = vi_col(mul, state) {
+            state.set_cursor(pos, false)
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn move_next_word_start(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_next_word_start(mul, state) {
             state.set_cursor(word, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn move_prev_word_start(state: &mut TextAreaState) -> bool {
-        if let Some(word) = vi_prev_word_start(state) {
+    pub(crate) fn move_prev_word_start(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_prev_word_start(mul, state) {
             state.set_cursor(word, false)
         } else {
             false
@@ -744,7 +758,7 @@ mod query {
     use crate::SearchError;
     use crate::vi_state::{Direction, Finds, Matches};
     use rat_text::text_area::TextAreaState;
-    use rat_text::{Cursor, Grapheme, TextPosition, TextRange};
+    use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
     use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
 
@@ -1013,13 +1027,29 @@ mod query {
         Some(TextPosition::new(state.line_width(cursor.y), cursor.y))
     }
 
-    pub(super) fn vi_find_idx(finds: &mut Finds, dir: Direction, state: &mut TextAreaState) {
+    pub(super) fn vi_find_idx(
+        finds: &mut Finds,
+        mul: u16,
+        dir: Direction,
+        state: &mut TextAreaState,
+    ) {
         let mut c = state.byte_at(state.cursor()).start;
 
         let dir = finds.dir.mul(dir);
+        let mul = (mul as usize).saturating_sub(1);
 
         if dir == Direction::Forward {
             finds.idx = finds.list.iter().position(|v| v.start > c);
+
+            finds.idx = if let Some(idx) = finds.idx {
+                if idx + mul < finds.list.len() {
+                    Some(idx + mul)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
         } else {
             // Till backwards might need to correct the cursor.
             if finds.till {
@@ -1036,7 +1066,13 @@ mod query {
                 .iter()
                 .enumerate()
                 .filter_map(|(i, v)| if v.end < c { Some(i) } else { None })
-                .last()
+                .last();
+
+            finds.idx = if let Some(idx) = finds.idx {
+                if idx >= mul { Some(idx - mul) } else { None }
+            } else {
+                None
+            }
         }
     }
 
@@ -1170,45 +1206,68 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub(super) fn vi_next_word_start(state: &TextAreaState) -> Option<TextPosition> {
+    pub(super) fn vi_col(mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+        let c = state.cursor();
+        if mul as upos_type <= state.line_width(c.y) {
+            Some(TextPosition::new(mul as upos_type, c.y))
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn vi_next_word_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        let Some(sample) = it.peek_next() else {
-            return None;
-        };
-        if sample.is_alphanumeric() {
-            skip_alpha(&mut it);
-        } else if sample.is_whitespace() {
-            // noop
-        } else {
-            skip_sample(&mut it, sample);
-        }
+        loop {
+            let Some(sample) = it.peek_next() else {
+                return None;
+            };
+            if sample.is_alphanumeric() {
+                skip_alpha(&mut it);
+            } else if sample.is_whitespace() {
+                // noop
+            } else {
+                skip_sample(&mut it, sample);
+            }
 
-        skip_white(&mut it);
+            skip_white(&mut it);
+
+            mul -= 1;
+            if mul == 0 {
+                break;
+            }
+        }
 
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub(super) fn vi_prev_word_start(state: &TextAreaState) -> Option<TextPosition> {
+    pub(super) fn vi_prev_word_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        let Some(sample) = it.peek_prev() else {
-            return None;
-        };
-        if sample.is_alphanumeric() {
-            pskip_alpha(&mut it);
-        } else if sample.is_whitespace() {
-            pskip_white(&mut it);
+        loop {
             let Some(sample) = it.peek_prev() else {
                 return None;
             };
             if sample.is_alphanumeric() {
                 pskip_alpha(&mut it);
+            } else if sample.is_whitespace() {
+                pskip_white(&mut it);
+                let Some(sample) = it.peek_prev() else {
+                    return None;
+                };
+                if sample.is_alphanumeric() {
+                    pskip_alpha(&mut it);
+                } else {
+                    pskip_sample(&mut it, sample);
+                }
             } else {
                 pskip_sample(&mut it, sample);
             }
-        } else {
-            pskip_sample(&mut it, sample);
+
+            mul -= 1;
+            if mul == 0 {
+                break;
+            }
         }
 
         Some(state.byte_pos(it.text_offset()))
