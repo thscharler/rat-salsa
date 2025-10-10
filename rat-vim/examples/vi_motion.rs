@@ -13,7 +13,7 @@ use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{HasScreenCursor, TextPosition, upos_type};
-use rat_vim::{VIMode, VIMotions};
+use rat_vim::{VICmd, VIMode};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -69,7 +69,7 @@ struct State {
     pub info: bool,
     pub relative_line_nr: bool,
     pub search: TextInputState,
-    pub textarea_vim: VIMotions,
+    pub textarea_vim: VICmd,
     pub textarea: TextAreaState,
     pub line_numbers: LineNumberState,
     pub help: bool,
