@@ -15,8 +15,9 @@ pub enum VIMode {
     Visual,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub enum MoveDirection {
+    #[default]
     Forward,
     Backward,
 }

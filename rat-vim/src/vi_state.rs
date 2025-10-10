@@ -1,5 +1,5 @@
 use crate::vi_state::op::{Vim, apply, display_search};
-use crate::vi_state::query::Matches;
+use crate::vi_state::query::{Finds, Matches};
 use crate::{Coroutine, Resume, SearchError, VIMode, YieldPoint};
 use log::debug;
 use rat_event::{HandleEvent, ct_event};
@@ -15,8 +15,8 @@ pub struct VICmd {
     pub motion_buf: Rc<RefCell<String>>,
     pub motion: Coroutine<char, Vim>,
 
-    pub find: Option<Vim>,
-    pub smatches: Option<Matches>,
+    pub finds: Finds,
+    pub matches: Option<Matches>,
 }
 
 impl Default for VICmd {
@@ -26,8 +26,8 @@ impl Default for VICmd {
             mode: Default::default(),
             motion_buf: motion_buf.clone(),
             motion: Coroutine::new(|c, yp| Box::new(VICmd::next_motion(c, motion_buf, yp))),
-            find: Default::default(),
-            smatches: Default::default(),
+            finds: Default::default(),
+            matches: Default::default(),
         }
     }
 }
@@ -37,8 +37,8 @@ impl VICmd {
         self.motion_buf.borrow_mut().clear();
         let mb = self.motion_buf.clone();
         self.motion = Coroutine::new(|c, yp| Box::new(VICmd::next_motion(c, mb, yp)));
-        self.smatches = None;
-        self.find = None;
+        self.matches = None;
+        self.finds.clear();
     }
 
     fn motion(&mut self, c: char) -> Poll<Vim> {
@@ -108,15 +108,15 @@ impl VICmd {
             't' => {
                 let tok = yp.yield0().await;
                 motion_buf.borrow_mut().push(tok);
-                Vim::FindUntilForward(tok)
+                Vim::FindTillForward(tok)
             }
             'T' => {
                 let tok = yp.yield0().await;
                 motion_buf.borrow_mut().push(tok);
-                Vim::FindUntilBack(tok)
+                Vim::FindTillBack(tok)
             }
-            ',' => Vim::FindRepeatNext,
-            ';' => Vim::FindRepeatPrev,
+            ';' => Vim::FindRepeatNext,
+            ',' => Vim::FindRepeatPrev,
 
             '/' => {
                 let mut buf = String::new();
@@ -270,12 +270,60 @@ mod op {
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum Motion {
-        Invalid,
+        MoveLeft,
+        MoveRight,
+        MoveUp,
+        MoveDown,
+
+        MoveNextWordStart,
+        MovePrevWordStart,
+        MoveNextWordEnd,
+        MovePrevWordEnd,
+        MoveNextWORDStart,
+        MovePrevWORDStart,
+        MoveNextWORDEnd,
+        MovePrevWORDEnd,
+        MoveStartOfLine,
+        MoveEndOfLine,
+        MoveStartOfText,
+        MoveEndOfText,
+        MovePrevParagraph,
+        MoveNextParagraph,
+
+        FindForward(char),
+        FindBack(char),
+        FindTillForward(char),
+        FindTillBack(char),
+        FindRepeatNext,
+        FindRepeatPrev,
+
+        SearchWordForward,
+        SearchWordBackward,
+        SearchForward(String),
+        SearchBack(String),
+        SearchPartialForward(String),
+        SearchPartialBack(String),
+        SearchRepeatNext,
+        SearchRepeatPrev,
+    }
+
+    impl Motion {
+        pub fn search_str(&self) -> Option<&str> {
+            match self {
+                Motion::SearchForward(s) => Some(s.as_str()),
+                Motion::SearchBack(s) => Some(s.as_str()),
+                Motion::SearchPartialForward(s) => Some(s.as_str()),
+                Motion::SearchPartialBack(s) => Some(s.as_str()),
+                _ => None,
+            }
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum Vim {
         Invalid,
+
+        Move(u32, Motion),
 
         MoveLeft,
         MoveRight,
@@ -299,10 +347,10 @@ mod op {
 
         FindForward(char),
         FindBack(char),
+        FindTillForward(char),
+        FindTillBack(char),
         FindRepeatNext,
         FindRepeatPrev,
-        FindUntilForward(char),
-        FindUntilBack(char),
 
         SearchWordForward,
         SearchWordBackward,
@@ -354,36 +402,12 @@ mod op {
             Vim::MovePrevParagraph => move_prev_paragraph(state).into(),
             Vim::MoveNextParagraph => move_next_paragraph(state).into(),
 
-            Vim::FindForward(c) => {
-                vi.find = Some(vim.clone());
-                find_next(c, state).into()
-            }
-            Vim::FindBack(c) => {
-                vi.find = Some(vim.clone());
-                find_prev(c, state).into()
-            }
-            Vim::FindUntilForward(c) => {
-                vi.find = Some(vim.clone());
-                until_next(c, state).into()
-            }
-            Vim::FindUntilBack(c) => {
-                vi.find = Some(vim.clone());
-                until_prev(c, state).into()
-            }
-            Vim::FindRepeatNext => match &vi.find {
-                Some(Vim::FindForward(c)) => find_prev(*c, state).into(),
-                Some(Vim::FindBack(c)) => find_next(*c, state).into(),
-                Some(Vim::FindUntilForward(c)) => until_prev(*c, state).into(),
-                Some(Vim::FindUntilBack(c)) => until_next(*c, state).into(),
-                _ => TextOutcome::Unchanged,
-            },
-            Vim::FindRepeatPrev => match &vi.find {
-                Some(Vim::FindForward(c)) => find_next(*c, state).into(),
-                Some(Vim::FindBack(c)) => find_prev(*c, state).into(),
-                Some(Vim::FindUntilForward(c)) => until_next(*c, state).into(),
-                Some(Vim::FindUntilBack(c)) => until_prev(*c, state).into(),
-                _ => TextOutcome::Unchanged,
-            },
+            Vim::FindForward(c) => find_fwd(c, state, vi).into(),
+            Vim::FindBack(c) => find_back(c, state, vi).into(),
+            Vim::FindTillForward(c) => till_fwd(c, state, vi).into(),
+            Vim::FindTillBack(c) => till_back(c, state, vi).into(),
+            Vim::FindRepeatNext => find_repeat_fwd(state, vi).into(),
+            Vim::FindRepeatPrev => find_repeat_back(state, vi).into(),
 
             Vim::SearchPartialForward(s) => search_fwd(s, true, state, vi)?.into(),
             Vim::SearchForward(s) => search_fwd(s, false, state, vi)?.into(),
@@ -398,13 +422,14 @@ mod op {
                 vi.mode = VIMode::Insert;
                 TextOutcome::Changed
             }
+            Vim::Move(_, _) => TextOutcome::Unchanged,
         };
         debug!("apply -> {:?}", r);
         Ok(r)
     }
 
     pub(crate) fn search_repeat_back(state: &mut TextAreaState, vi: &mut VICmd) -> bool {
-        if let Some(matches) = &mut vi.smatches {
+        if let Some(matches) = &mut vi.matches {
             matches.idx = vi_search_idx(&matches, MoveDirection::Backward, state);
             display_search_idx(state, vi);
         }
@@ -412,7 +437,7 @@ mod op {
     }
 
     pub(crate) fn search_repeat_fwd(state: &mut TextAreaState, vi: &mut VICmd) -> bool {
-        if let Some(matches) = &mut vi.smatches {
+        if let Some(matches) = &mut vi.matches {
             matches.idx = vi_search_idx(&matches, MoveDirection::Forward, state);
             display_search_idx(state, vi);
         }
@@ -427,8 +452,8 @@ mod op {
         let end = vi_word_end(state);
         let term = state.str_slice(start..end).to_string();
 
-        vi.smatches = Some(vi_search_update(
-            vi.smatches.take(),
+        vi.matches = Some(vi_search_update(
+            vi.matches.take(),
             term,
             MoveDirection::Backward,
             false,
@@ -446,8 +471,8 @@ mod op {
         let end = vi_word_end(state);
         let term = state.str_slice(start..end).to_string();
 
-        vi.smatches = Some(vi_search_update(
-            vi.smatches.take(),
+        vi.matches = Some(vi_search_update(
+            vi.matches.take(),
             term,
             MoveDirection::Forward,
             false,
@@ -463,8 +488,8 @@ mod op {
         state: &mut TextAreaState,
         vi: &mut VICmd,
     ) -> Result<bool, SearchError> {
-        vi.smatches = Some(vi_search_update(
-            vi.smatches.take(),
+        vi.matches = Some(vi_search_update(
+            vi.matches.take(),
             term,
             MoveDirection::Backward,
             tmp,
@@ -480,8 +505,8 @@ mod op {
         state: &mut TextAreaState,
         vi: &mut VICmd,
     ) -> Result<bool, SearchError> {
-        vi.smatches = Some(vi_search_update(
-            vi.smatches.take(),
+        vi.matches = Some(vi_search_update(
+            vi.matches.take(),
             term,
             MoveDirection::Forward,
             tmp,
@@ -493,7 +518,7 @@ mod op {
 
     pub(crate) fn display_search(state: &mut TextAreaState, vi: &mut VICmd) {
         state.remove_style_fully(999);
-        if let Some(matches) = vi.smatches.as_ref() {
+        if let Some(matches) = vi.matches.as_ref() {
             for r in &matches.list {
                 state.add_style(r.clone(), 999);
             }
@@ -502,7 +527,7 @@ mod op {
     }
 
     pub(crate) fn display_search_idx(state: &mut TextAreaState, vi: &mut VICmd) {
-        if let Some(matches) = vi.smatches.as_ref() {
+        if let Some(matches) = vi.matches.as_ref() {
             if let Some(idx) = matches.idx {
                 let pos = state.byte_pos(matches.list[idx].start);
                 if matches.tmp {
@@ -562,33 +587,101 @@ mod op {
         }
     }
 
-    pub(crate) fn until_prev(cc: char, state: &mut TextAreaState) -> bool {
-        if let Some(cursor) = vi_until_prev(cc, state) {
-            state.set_cursor(cursor, false)
+    pub(crate) fn find_repeat_back(state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+        debug!("find_repeat_back");
+        let Some(last_term) = vi.finds.term else {
+            return false;
+        };
+        let last_dir = vi.finds.dir;
+        let last_till = vi.finds.till;
+
+        vi_find(&mut vi.finds, last_term, last_dir, last_till, state);
+        vi_find_idx(&mut vi.finds, MoveDirection::Backward, state);
+
+        let dir = vi.finds.dir.mul(MoveDirection::Backward);
+
+        if let Some(idx) = vi.finds.idx {
+            let pos = if vi.finds.till && dir == MoveDirection::Backward {
+                debug!("backx");
+                state.byte_pos(vi.finds.list[idx].end)
+            } else {
+                state.byte_pos(vi.finds.list[idx].start)
+            };
+            state.set_cursor(pos, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn until_next(cc: char, state: &mut TextAreaState) -> bool {
-        if let Some(cursor) = vi_until_next(cc, state) {
-            state.set_cursor(cursor, false)
+    pub(crate) fn find_repeat_fwd(state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+        debug!("find_repeat_fwd");
+        let Some(last_term) = vi.finds.term else {
+            return false;
+        };
+        let last_dir = vi.finds.dir;
+        let last_till = vi.finds.till;
+
+        vi_find(&mut vi.finds, last_term, last_dir, last_till, state);
+        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+
+        let dir = vi.finds.dir.mul(MoveDirection::Forward);
+
+        if let Some(idx) = vi.finds.idx {
+            let pos = if vi.finds.till && dir == MoveDirection::Backward {
+                debug!("backx");
+                state.byte_pos(vi.finds.list[idx].end)
+            } else {
+                state.byte_pos(vi.finds.list[idx].start)
+            };
+            state.set_cursor(pos, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn find_prev(cc: char, state: &mut TextAreaState) -> bool {
-        if let Some(cursor) = vi_find_prev(cc, state) {
-            state.set_cursor(cursor, false)
+    pub(crate) fn till_back(cc: char, state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+        vi_find(&mut vi.finds, cc, MoveDirection::Backward, true, state);
+        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+
+        if let Some(i) = vi.finds.idx {
+            let pos = state.byte_pos(vi.finds.list[i].end);
+            state.set_cursor(pos, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn find_next(cc: char, state: &mut TextAreaState) -> bool {
-        if let Some(cursor) = vi_find_next(cc, state) {
-            state.set_cursor(cursor, false)
+    pub(crate) fn till_fwd(cc: char, state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+        vi_find(&mut vi.finds, cc, MoveDirection::Forward, true, state);
+        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+
+        if let Some(i) = vi.finds.idx {
+            let pos = state.byte_pos(vi.finds.list[i].start);
+            state.set_cursor(pos, false)
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn find_back(cc: char, state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+        vi_find(&mut vi.finds, cc, MoveDirection::Backward, false, state);
+        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+
+        if let Some(i) = vi.finds.idx {
+            let pos = state.byte_pos(vi.finds.list[i].start);
+            state.set_cursor(pos, false)
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn find_fwd(cc: char, state: &mut TextAreaState, vi: &mut VICmd) -> bool {
+        vi_find(&mut vi.finds, cc, MoveDirection::Forward, false, state);
+        vi_find_idx(&mut vi.finds, MoveDirection::Forward, state);
+
+        if let Some(i) = vi.finds.idx {
+            let pos = state.byte_pos(vi.finds.list[i].start);
+            state.set_cursor(pos, false)
         } else {
             false
         }
@@ -663,7 +756,7 @@ mod query {
     use crate::{MoveDirection, SearchError};
     use log::debug;
     use rat_text::text_area::TextAreaState;
-    use rat_text::{Cursor, Grapheme, TextPosition};
+    use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
     use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
     use std::ops::Range;
@@ -739,6 +832,7 @@ mod query {
                 matches.list.push(m.start()..m.end());
             }
 
+            // mark
             matches.idx = vi_search_idx(&matches, MoveDirection::Forward, state);
         }
 
@@ -869,87 +963,97 @@ mod query {
         Some(TextPosition::new(state.line_width(cursor.y), cursor.y))
     }
 
-    pub(super) fn vi_until_prev(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
-        let mut it = state.text_graphemes(state.cursor());
-        if let Some(c) = it.peek_prev() {
-            if c == cc {
-                it.prev();
-            }
-        }
-        let found;
-        loop {
-            let Some(c) = it.prev() else { return None };
-
-            if c.is_line_break() {
-                return None;
-            } else if c == cc {
-                found = c.text_bytes().end;
-                break;
-            }
-        }
-
-        Some(state.byte_pos(found))
+    #[derive(Debug, Default)]
+    pub(super) struct Finds {
+        pub term: Option<char>,
+        pub row: upos_type,
+        pub dir: MoveDirection,
+        pub till: bool,
+        pub idx: Option<usize>,
+        pub list: Vec<Range<usize>>,
     }
 
-    pub(super) fn vi_until_next(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
-        let mut it = state.text_graphemes(state.cursor());
-        if let Some(c) = it.peek_next() {
-            if c == cc {
-                it.next();
-            }
-        }
-        let found;
-        loop {
-            let Some(c) = it.next() else { return None };
-
-            if c.is_line_break() {
-                return None;
-            } else if c == cc {
-                found = c.text_bytes().start;
-                break;
-            }
+    impl Finds {
+        pub fn new() -> Self {
+            Self::default()
         }
 
-        Some(state.byte_pos(found))
+        pub fn clear(&mut self) {
+            self.term = Default::default();
+            self.row = Default::default();
+            self.dir = Default::default();
+            self.till = Default::default();
+            self.idx = Default::default();
+            self.list.clear();
+        }
     }
 
-    pub(super) fn vi_find_prev(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
-        let mut it = state.text_graphemes(state.cursor());
-        let found;
-        loop {
-            let Some(c) = it.prev() else { return None };
+    pub(super) fn vi_find_idx(finds: &mut Finds, dir: MoveDirection, state: &mut TextAreaState) {
+        let mut c = state.byte_at(state.cursor()).start;
 
-            if c.is_line_break() {
-                return None;
-            } else if c == cc {
-                found = c.text_bytes().start;
-                break;
+        debug!(
+            "find_idx {:?} * {:?} -> {:?}",
+            finds.dir,
+            dir,
+            finds.dir.mul(dir)
+        );
+
+        let dir = finds.dir.mul(dir);
+
+        if dir == MoveDirection::Forward {
+            finds.idx = finds.list.iter().position(|v| v.start > c);
+        } else {
+            // Till backwards might need to correct the cursor.
+            if finds.till {
+                if let Some(i) = finds.idx {
+                    let r = finds.list[i].clone();
+                    if c == r.end {
+                        c = r.start;
+                    }
+                }
             }
-        }
 
-        Some(state.byte_pos(found))
+            finds.idx = finds
+                .list
+                .iter()
+                .enumerate()
+                .filter_map(|(i, v)| if v.end < c { Some(i) } else { None })
+                .last()
+        }
     }
 
-    pub(super) fn vi_find_next(cc: char, state: &mut TextAreaState) -> Option<TextPosition> {
-        let mut it = state.text_graphemes(state.cursor());
-        if let Some(c) = it.peek_next() {
-            if c == cc {
-                it.next();
-            }
-        }
-        let found;
-        loop {
-            let Some(c) = it.next() else { return None };
+    pub(super) fn vi_find(
+        finds: &mut Finds,
+        term: char,
+        dir: MoveDirection,
+        till: bool,
+        state: &TextAreaState,
+    ) {
+        if finds.term != Some(term) || finds.row != state.cursor().y {
+            finds.term = Some(term);
+            finds.row = state.cursor().y;
+            finds.dir = dir;
+            finds.till = till;
+            finds.idx = None;
+            finds.list.clear();
 
-            if c.is_line_break() {
-                return None;
-            } else if c == cc {
-                found = c.text_bytes().start;
-                break;
+            let cursor = state.cursor();
+            let start = TextPosition::new(0, cursor.y);
+            let end = TextPosition::new(state.line_width(cursor.y), cursor.y);
+            let mut it = state.graphemes(TextRange::new(start, end), start);
+            loop {
+                let Some(c) = it.next() else {
+                    break;
+                };
+                if c == term {
+                    finds.list.push(c.text_bytes());
+                }
             }
+        } else {
+            finds.row = state.cursor().y;
+            finds.dir = dir;
+            finds.till = till;
         }
-
-        Some(state.byte_pos(found))
     }
 
     pub(super) fn vi_prev_bigword_start(state: &TextAreaState) -> Option<TextPosition> {
