@@ -178,12 +178,34 @@ pub enum Vim {
     Scroll(u32, Motion),
     Mark(char),
 
-    Insert(u32),
-    Append(u32),
-    DeleteChar(u32),
-    JoinLines(u32),
     Undo(u32),
     Redo(u32),
+
+    DeleteChar(u32),
+    JoinLines(u32),
+    Insert(u32),
+    Append(u32),
+    AppendLine(u32),
+    PrependLine(u32),
+}
+
+fn is_memo(vim: &Vim) -> bool {
+    match vim {
+        Vim::Invalid => false,
+        Vim::Repeat(_) => false,
+        Vim::Partial(_, _) => false,
+        Vim::Move(_, _) => false,
+        Vim::Scroll(_, _) => false,
+        Vim::Mark(_) => false,
+        Vim::Undo(_) => false,
+        Vim::Redo(_) => false,
+        Vim::DeleteChar(_) => true,
+        Vim::JoinLines(_) => true,
+        Vim::Insert(_) => true,
+        Vim::Append(_) => true,
+        Vim::AppendLine(_) => true,
+        Vim::PrependLine(_) => true,
+    }
 }
 
 impl Default for VI {
@@ -469,6 +491,8 @@ impl VI {
 
             'i' => Vim::Insert(mul.unwrap_or(1)),
             'a' => Vim::Append(mul.unwrap_or(1)),
+            'o' => Vim::AppendLine(mul.unwrap_or(1)),
+            'O' => Vim::PrependLine(mul.unwrap_or(1)),
             'x' => Vim::DeleteChar(mul.unwrap_or(1)),
             'J' => Vim::JoinLines(mul.unwrap_or(1)),
             'u' => Vim::Undo(mul.unwrap_or(1)),
@@ -518,13 +542,12 @@ fn eval_motion(
             let tt = SystemTime::now();
             let r = match execute_vim(&vim, false, state, vi) {
                 Ok(v) => {
-                    vi.command = vim;
+                    if is_memo(&vim) {
+                        vi.command = vim;
+                    }
                     Ok(v)
                 }
-                Err(e) => {
-                    vi.command = vim;
-                    Err(e)
-                }
+                Err(e) => Err(e),
             };
             debug!("TT {:?}", tt.elapsed());
             r
@@ -627,6 +650,15 @@ fn execute_vim(
 
         Vim::Mark(mark) => set_mark(*mark, state, vi),
 
+        Vim::Undo(mul) => return Ok(undo(*mul, state)),
+        Vim::Redo(mul) => return Ok(redo(*mul, state)),
+
+        Vim::DeleteChar(mul) => {
+            return Ok(delete_char(*mul, state));
+        }
+        Vim::JoinLines(mul) => {
+            return Ok(join_line(*mul, state));
+        }
         Vim::Insert(mul) => {
             if repeat {
                 return Ok(insert_str(*mul, &vi.text, state));
@@ -641,14 +673,20 @@ fn execute_vim(
                 begin_append(state, vi);
             }
         }
-        Vim::DeleteChar(mul) => {
-            return Ok(delete_char(*mul, state));
+        Vim::AppendLine(mul) => {
+            if repeat {
+                return Ok(append_line_str(*mul, &vi.text, state));
+            } else {
+                begin_append_line(state, vi);
+            }
         }
-        Vim::JoinLines(mul) => {
-            return Ok(join_line(*mul, state));
+        Vim::PrependLine(mul) => {
+            if repeat {
+                return Ok(prepend_line_str(*mul, &vi.text, state));
+            } else {
+                begin_prepend_line(state, vi);
+            }
         }
-        Vim::Undo(mul) => return Ok(undo(*mul, state)),
-        Vim::Redo(mul) => return Ok(redo(*mul, state)),
     }
 
     Ok(TextOutcome::Changed)
@@ -1078,7 +1116,8 @@ mod move_op {
 mod change_op {
     use crate::vi_state::Vim;
     use crate::vi_state::query::{
-        q_append_str, q_insert, q_insert_str, q_line_break_and_leading_space,
+        q_append_line_str, q_append_str, q_insert, q_insert_str, q_line_break_and_leading_space,
+        q_prepend_line_str,
     };
     use crate::{Mode, VI};
     use rat_text::event::TextOutcome;
@@ -1099,6 +1138,42 @@ mod change_op {
             }
             _ => TextOutcome::Changed,
         }
+    }
+
+    pub fn begin_prepend_line(state: &mut TextAreaState, vi: &mut VI) {
+        vi.mode = Mode::Insert;
+        vi.text.clear();
+
+        let c = state.cursor();
+        state.set_cursor(TextPosition::new(0, c.y), false);
+        state.insert_newline();
+        state.set_cursor(TextPosition::new(0, c.y), false);
+    }
+
+    pub fn prepend_line_str(mut mul: u32, text: &str, state: &mut TextAreaState) -> TextOutcome {
+        while mul > 0 {
+            q_prepend_line_str(&text, state);
+            mul -= 1;
+        }
+        TextOutcome::TextChanged
+    }
+
+    pub fn begin_append_line(state: &mut TextAreaState, vi: &mut VI) {
+        vi.mode = Mode::Insert;
+        vi.text.clear();
+
+        let c = state.cursor();
+        let width = state.line_width(c.y);
+        state.set_cursor(TextPosition::new(width, c.y), false);
+        state.insert_newline();
+    }
+
+    pub fn append_line_str(mut mul: u32, text: &str, state: &mut TextAreaState) -> TextOutcome {
+        while mul > 0 {
+            q_append_line_str(&text, state);
+            mul -= 1;
+        }
+        TextOutcome::TextChanged
     }
 
     pub fn begin_append(state: &mut TextAreaState, vi: &mut VI) {
@@ -1956,17 +2031,45 @@ mod query {
         }
     }
 
+    pub fn q_prepend_line_str(v: &str, state: &mut TextAreaState) {
+        let c = state.cursor();
+        state.begin_undo_seq();
+        state.set_cursor(TextPosition::new(0, c.y), false);
+        state.insert_newline();
+        state.set_cursor(TextPosition::new(0, c.y), false);
+        for c in v.chars() {
+            q_insert(c, state);
+        }
+        state.end_undo_seq();
+    }
+
+    pub fn q_append_line_str(v: &str, state: &mut TextAreaState) {
+        let c = state.cursor();
+        let width = state.line_width(c.y);
+        state.begin_undo_seq();
+        state.set_cursor(TextPosition::new(width, c.y), false);
+        state.insert_newline();
+        for c in v.chars() {
+            q_insert(c, state);
+        }
+        state.end_undo_seq();
+    }
+
     pub fn q_append_str(v: &str, state: &mut TextAreaState) {
+        state.begin_undo_seq();
         state.move_right(1, false);
         for c in v.chars() {
             q_insert(c, state);
         }
+        state.end_undo_seq();
     }
 
     pub fn q_insert_str(v: &str, state: &mut TextAreaState) {
+        state.begin_undo_seq();
         for c in v.chars() {
             q_insert(c, state);
         }
+        state.end_undo_seq();
     }
 
     pub fn q_insert(cc: char, state: &mut TextAreaState) {
