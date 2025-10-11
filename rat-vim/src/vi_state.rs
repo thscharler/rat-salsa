@@ -18,6 +18,8 @@ pub struct VI {
 
     pub finds: Finds,
     pub matches: Matches,
+
+    pub page: (u16, u16),
 }
 
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
@@ -123,6 +125,8 @@ pub enum Motion {
     MoveEndOfLineText,
     MovePrevParagraph,
     MoveNextParagraph,
+    MovePageUp,
+    MovePageDown,
 
     FindForward(char),
     FindBack(char),
@@ -157,6 +161,7 @@ impl Motion {
 pub enum Vim {
     Invalid,
     Move(u16, Motion),
+    Scroll(u16, Motion),
     Insert,
 }
 
@@ -169,10 +174,12 @@ impl Default for VI {
             motion: Coroutine::new(|c, yp| Box::new(VI::next_motion(c, motion_buf, yp))),
             finds: Default::default(),
             matches: Default::default(),
+            page: Default::default(),
         }
     }
 }
 
+#[allow(dead_code)]
 impl VI {
     fn cancel(&mut self) {
         self.motion_buf.borrow_mut().clear();
@@ -203,6 +210,66 @@ impl VI {
         }
     }
 
+    fn ctrl(c: char) -> char {
+        match c {
+            'a' | 'A' => VI::CTRL_A,
+            'b' | 'B' => VI::CTRL_B,
+            'c' | 'C' => VI::CTRL_C,
+            'd' | 'D' => VI::CTRL_D,
+            'e' | 'E' => VI::CTRL_E,
+            'f' | 'F' => VI::CTRL_F,
+            'g' | 'G' => VI::CTRL_G,
+            'h' | 'H' => VI::CTRL_H,
+            'i' | 'I' => VI::CTRL_I,
+            'j' | 'J' => VI::CTRL_J,
+            'k' | 'K' => VI::CTRL_K,
+            'l' | 'L' => VI::CTRL_L,
+            'm' | 'M' => VI::CTRL_M,
+            'n' | 'N' => VI::CTRL_N,
+            'o' | 'O' => VI::CTRL_O,
+            'p' | 'P' => VI::CTRL_P,
+            'q' | 'Q' => VI::CTRL_Q,
+            'r' | 'R' => VI::CTRL_R,
+            's' | 'S' => VI::CTRL_S,
+            't' | 'T' => VI::CTRL_T,
+            'u' | 'U' => VI::CTRL_U,
+            'v' | 'V' => VI::CTRL_V,
+            'w' | 'W' => VI::CTRL_W,
+            'x' | 'X' => VI::CTRL_X,
+            'y' | 'Y' => VI::CTRL_Y,
+            'z' | 'Z' => VI::CTRL_Z,
+            _ => unimplemented!(),
+        }
+    }
+
+    const CTRL_A: char = '\x01';
+    const CTRL_B: char = '\x02';
+    const CTRL_C: char = '\x03';
+    const CTRL_D: char = '\x04';
+    const CTRL_E: char = '\x05';
+    const CTRL_F: char = '\x06';
+    const CTRL_G: char = '\x07';
+    const CTRL_H: char = '\x08';
+    const BS: char = '\x08';
+    const CTRL_I: char = '\x09';
+    const CTRL_J: char = '\x0A';
+    const CTRL_K: char = '\x0B';
+    const CTRL_L: char = '\x0C';
+    const CTRL_M: char = '\x0D';
+    const CTRL_N: char = '\x0E';
+    const CTRL_O: char = '\x0F';
+    const CTRL_P: char = '\x10';
+    const CTRL_Q: char = '\x11';
+    const CTRL_R: char = '\x12';
+    const CTRL_S: char = '\x13';
+    const CTRL_T: char = '\x14';
+    const CTRL_U: char = '\x15';
+    const CTRL_V: char = '\x16';
+    const CTRL_W: char = '\x17';
+    const CTRL_X: char = '\x18';
+    const CTRL_Y: char = '\x19';
+    const CTRL_Z: char = '\x1A';
+
     async fn next_motion(
         mut tok: char,
         motion_buf: Rc<RefCell<String>>,
@@ -213,8 +280,8 @@ impl VI {
         }
 
         let mut mul = String::new();
-        while tok.is_ascii_digit() || tok == '\x08' {
-            if tok == '\x08' {
+        while tok.is_ascii_digit() || tok == VI::BS {
+            if tok == VI::BS {
                 mul.pop();
                 motion_buf.borrow_mut().pop();
             } else {
@@ -273,6 +340,12 @@ impl VI {
                     Vim::Move(0, Motion::MoveToMatching)
                 }
             }
+            VI::CTRL_U => Vim::Move(mul.unwrap_or(0), Motion::MovePageUp),
+            VI::CTRL_D => Vim::Move(mul.unwrap_or(0), Motion::MovePageDown),
+            VI::CTRL_Y => Vim::Scroll(mul.unwrap_or(1), Motion::MoveUp),
+            VI::CTRL_E => Vim::Scroll(mul.unwrap_or(1), Motion::MoveDown),
+            VI::CTRL_B => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageUp),
+            VI::CTRL_F => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageDown),
 
             'f' => {
                 let tok = yp.yield0().await;
@@ -308,7 +381,7 @@ impl VI {
                         .await;
                     if tok == '\n' {
                         break;
-                    } else if tok == '\x08' {
+                    } else if tok == VI::BS {
                         let mut mb = motion_buf.borrow_mut();
                         if mb.len() > 1 {
                             mb.pop();
@@ -384,6 +457,8 @@ fn run_vim(vim: Vim, state: &mut TextAreaState, vi: &mut VI) -> Result<TextOutco
         Vim::Move(_, Motion::MoveStartOfFile) => move_start_of_file(state).into(),
         Vim::Move(_, Motion::MoveEndOfFile) => move_end_of_file(state).into(),
         Vim::Move(_, Motion::MoveToMatching) => move_matching_brace(state).into(),
+        Vim::Move(mul, Motion::MovePageUp) => move_page_up(mul, state, vi).into(),
+        Vim::Move(mul, Motion::MovePageDown) => move_page_down(mul, state, vi).into(),
 
         Vim::Move(mul, Motion::FindForward(c)) => find_fwd(mul, c, state, vi).into(),
         Vim::Move(mul, Motion::FindBack(c)) => find_back(mul, c, state, vi).into(),
@@ -404,6 +479,12 @@ fn run_vim(vim: Vim, state: &mut TextAreaState, vi: &mut VI) -> Result<TextOutco
         Vim::Move(mul, Motion::SearchWordBackward) => search_word_back(mul, state, vi)?.into(),
         Vim::Move(mul, Motion::SearchRepeatNext) => search_repeat_fwd(mul, state, vi).into(),
         Vim::Move(mul, Motion::SearchRepeatPrev) => search_repeat_back(mul, state, vi).into(),
+
+        Vim::Scroll(mul, Motion::MovePageUp) => scroll_page_up(mul, state, vi).into(),
+        Vim::Scroll(mul, Motion::MovePageDown) => scroll_page_down(mul, state, vi).into(),
+        Vim::Scroll(mul, Motion::MoveUp) => scroll_up(mul, state).into(),
+        Vim::Scroll(mul, Motion::MoveDown) => scroll_down(mul, state).into(),
+        Vim::Scroll(_, _) => TextOutcome::Unchanged,
 
         Vim::Insert => {
             vi.mode = Mode::Insert;
@@ -543,6 +624,64 @@ mod op {
         } else {
             false
         }
+    }
+
+    pub fn scroll_up(mul: u16, state: &mut TextAreaState) -> bool {
+        state.scroll_up(mul as usize)
+    }
+
+    pub fn scroll_down(mul: u16, state: &mut TextAreaState) -> bool {
+        state.scroll_down(mul as usize)
+    }
+
+    pub fn scroll_page_up(mul: u16, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        if vi.page.0 != state.vertical_page() as u16 {
+            vi.page = (
+                state.vertical_page() as u16,
+                (state.vertical_page() / 2) as u16,
+            );
+        }
+
+        state.scroll_up((vi.page.0 * mul).saturating_sub(2) as usize)
+    }
+
+    pub fn scroll_page_down(mul: u16, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        if vi.page.0 != state.vertical_page() as u16 {
+            vi.page = (
+                state.vertical_page() as u16,
+                (state.vertical_page() / 2) as u16,
+            );
+        }
+
+        state.scroll_down((vi.page.0 * mul).saturating_sub(2) as usize)
+    }
+
+    pub fn move_page_up(mul: u16, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        if vi.page.0 != state.vertical_page() as u16 {
+            vi.page = (
+                state.vertical_page() as u16,
+                (state.vertical_page() / 2) as u16,
+            );
+        }
+        if mul != 0 {
+            vi.page.1 = mul;
+        }
+
+        state.move_up(vi.page.1, false)
+    }
+
+    pub fn move_page_down(mul: u16, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        if vi.page.0 != state.vertical_page() as u16 {
+            vi.page = (
+                state.vertical_page() as u16,
+                (state.vertical_page() / 2) as u16,
+            );
+        }
+        if mul != 0 {
+            vi.page.1 = mul;
+        }
+
+        state.move_down(vi.page.1, false)
     }
 
     pub fn move_matching_brace(state: &mut TextAreaState) -> bool {
@@ -1534,6 +1673,13 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
     ) -> Result<TextOutcome, SearchError> {
         let r = if vi.mode == Mode::Normal {
             match event {
+                ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
+                    vi.cancel();
+                    self.scroll_cursor_to_visible();
+                    display_search(self, vi);
+                    TextOutcome::Changed
+                }
+
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
                 | ct_event!(key press CONTROL_ALT-c) => {
@@ -1551,25 +1697,20 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
                     }
                 }
                 ct_event!(keycode press Backspace) => {
-                    if let Poll::Ready(vim) = vi.motion('\x08') {
+                    if let Poll::Ready(vim) = vi.motion(VI::BS) {
+                        run_vim(vim, self, vi)?
+                    } else {
+                        TextOutcome::Changed
+                    }
+                }
+                ct_event!(key press CONTROL-cc) => {
+                    if let Poll::Ready(vim) = vi.motion(VI::ctrl(*cc)) {
                         run_vim(vim, self, vi)?
                     } else {
                         TextOutcome::Changed
                     }
                 }
 
-                ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
-                    vi.cancel();
-                    self.scroll_cursor_to_visible();
-                    display_search(self, vi);
-                    TextOutcome::Changed
-                }
-                ct_event!(key press CONTROL-'d') => self
-                    .move_down(self.vertical_page() as u16 / 2, false)
-                    .into(),
-                ct_event!(key press CONTROL-'u') => {
-                    self.move_up(self.vertical_page() as u16 / 2, false).into()
-                }
                 _ => TextOutcome::Continue,
             }
         } else if vi.mode == Mode::Insert {
