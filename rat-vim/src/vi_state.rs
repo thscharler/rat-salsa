@@ -4,7 +4,7 @@ use log::debug;
 use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
-use rat_text::upos_type;
+use rat_text::{TextPosition, upos_type};
 use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
@@ -19,6 +19,7 @@ pub struct VI {
     pub finds: Finds,
     pub matches: Matches,
 
+    pub marks: [Option<TextPosition>; 26],
     pub page: (u16, u16),
 }
 
@@ -110,6 +111,7 @@ pub enum Motion {
     MoveTopOfScreen,
     MoveBottomOfScreen,
     MoveToMatching,
+    MoveToMark(char),
 
     MoveStartOfFile,
     MoveEndOfFile,
@@ -165,6 +167,7 @@ pub enum Vim {
     Invalid,
     Move(u16, Motion),
     Scroll(u16, Motion),
+    Mark(char),
     Insert,
 }
 
@@ -177,6 +180,7 @@ impl Default for VI {
             motion: Coroutine::new(|c, yp| Box::new(VI::next_motion(c, motion_buf, yp))),
             finds: Default::default(),
             matches: Default::default(),
+            marks: Default::default(),
             page: Default::default(),
         }
     }
@@ -343,12 +347,6 @@ impl VI {
                     Vim::Move(0, Motion::MoveToMatching)
                 }
             }
-            VI::CTRL_U => Vim::Move(mul.unwrap_or(0), Motion::MovePageUp),
-            VI::CTRL_D => Vim::Move(mul.unwrap_or(0), Motion::MovePageDown),
-            VI::CTRL_Y => Vim::Scroll(mul.unwrap_or(1), Motion::MoveUp),
-            VI::CTRL_E => Vim::Scroll(mul.unwrap_or(1), Motion::MoveDown),
-            VI::CTRL_B => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageUp),
-            VI::CTRL_F => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageDown),
             'z' => {
                 let tok = yp.yield0().await;
                 motion_buf.borrow_mut().push(tok);
@@ -359,6 +357,12 @@ impl VI {
                     _ => Vim::Invalid,
                 }
             }
+            VI::CTRL_U => Vim::Move(mul.unwrap_or(0), Motion::MovePageUp),
+            VI::CTRL_D => Vim::Move(mul.unwrap_or(0), Motion::MovePageDown),
+            VI::CTRL_Y => Vim::Scroll(mul.unwrap_or(1), Motion::MoveUp),
+            VI::CTRL_E => Vim::Scroll(mul.unwrap_or(1), Motion::MoveDown),
+            VI::CTRL_B => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageUp),
+            VI::CTRL_F => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageDown),
 
             'f' => {
                 let tok = yp.yield0().await;
@@ -436,6 +440,17 @@ impl VI {
             'n' => Vim::Move(mul.unwrap_or(1), Motion::SearchRepeatNext),
             'N' => Vim::Move(mul.unwrap_or(1), Motion::SearchRepeatPrev),
 
+            'm' => {
+                let tok = yp.yield0().await;
+                motion_buf.borrow_mut().push(tok);
+                Vim::Mark(tok)
+            }
+            '\'' => {
+                let tok = yp.yield0().await;
+                motion_buf.borrow_mut().push(tok);
+                Vim::Move(0, Motion::MoveToMark(tok))
+            }
+
             'i' => Vim::Insert,
 
             _ => Vim::Invalid,
@@ -453,6 +468,7 @@ fn run_vim(vim: Vim, state: &mut TextAreaState, vi: &mut VI) -> Result<TextOutco
         Vim::Move(mul, Motion::MoveToCol) => move_to_col(mul, state).into(),
         Vim::Move(mul, Motion::MoveToLine) => move_to_line(mul, state).into(),
         Vim::Move(mul, Motion::MoveToLinePercent) => move_to_line_percent(mul, state).into(),
+        Vim::Move(_, Motion::MoveToMark(m)) => move_to_mark(m, state, vi).into(),
         Vim::Move(mul, Motion::MoveNextWordStart) => move_next_word_start(mul, state).into(),
         Vim::Move(mul, Motion::MovePrevWordStart) => move_prev_word_start(mul, state).into(),
         Vim::Move(mul, Motion::MoveNextWordEnd) => move_next_word_end(mul, state).into(),
@@ -507,6 +523,8 @@ fn run_vim(vim: Vim, state: &mut TextAreaState, vi: &mut VI) -> Result<TextOutco
             vi.mode = Mode::Insert;
             TextOutcome::Changed
         }
+
+        Vim::Mark(m) => set_mark(m, state, vi).into(),
     };
     debug!("run_vim -> {:?}", r);
     Ok(TextOutcome::Changed)
@@ -516,9 +534,24 @@ mod op {
     use crate::SearchError;
     use crate::vi_state::query::*;
     use crate::vi_state::{Direction, VI};
-    use log::debug;
     use rat_text::text_area::TextAreaState;
-    use std::cmp::max;
+
+    pub fn move_to_mark(mark: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        if let Some(mark) = q_mark_pos(mark, &vi.marks) {
+            state.set_cursor(mark, false)
+        } else {
+            false
+        }
+    }
+
+    pub fn set_mark(mark: char, state: &mut TextAreaState, vi: &mut VI) -> bool {
+        if let Some(mark) = q_mark_idx(mark) {
+            vi.marks[mark] = Some(state.cursor());
+            true
+        } else {
+            false
+        }
+    }
 
     pub fn search_repeat_back(mul: u16, state: &mut TextAreaState, vi: &mut VI) -> bool {
         if vi.matches.term.is_none() {
@@ -982,13 +1015,30 @@ mod op {
 }
 
 mod query {
-    use crate::SearchError;
     use crate::vi_state::{Direction, Finds, Matches};
+    use crate::{SearchError, VI};
     use rat_text::text_area::TextAreaState;
     use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
     use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
     use std::cmp::min;
+
+    pub fn q_mark_pos(mark: char, marks: &[Option<TextPosition>; 26]) -> Option<TextPosition> {
+        if let Some(mark) = q_mark_idx(mark) {
+            marks[mark]
+        } else {
+            None
+        }
+    }
+
+    pub fn q_mark_idx(mark: char) -> Option<usize> {
+        let mark = mark.to_ascii_lowercase();
+        if mark >= 'a' && mark <= 'z' {
+            Some(mark as usize - 'a' as usize)
+        } else {
+            None
+        }
+    }
 
     pub fn q_search_idx(
         matches: &mut Matches,
