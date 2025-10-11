@@ -1,7 +1,6 @@
-use crate::vi_state::change_op::{begin_insert, end_insert, insert_char, insert_str};
+use crate::vi_state::change_op::*;
 use crate::vi_state::display::*;
 use crate::vi_state::move_op::*;
-use crate::vi_state::query::{q_insert, q_insert_str};
 use crate::vi_state::scroll_op::*;
 use crate::{Coroutine, Resume, SearchError, YieldPoint};
 use log::debug;
@@ -177,6 +176,7 @@ pub enum Vim {
     Scroll(u16, Motion),
     Mark(char),
     Insert(u16),
+    DeleteChar(u16),
 }
 
 impl Default for VI {
@@ -461,6 +461,7 @@ impl VI {
             }
 
             'i' => Vim::Insert(mul.unwrap_or(1)),
+            'x' => Vim::DeleteChar(mul.unwrap_or(1)),
 
             '.' => Vim::Repeat(mul.unwrap_or(1)),
 
@@ -618,6 +619,9 @@ fn execute_vim(
             } else {
                 begin_insert(vi);
             }
+        }
+        Vim::DeleteChar(mul) => {
+            delete_char(*mul, state);
         }
 
         Vim::Repeat(_) => {
@@ -1055,6 +1059,8 @@ mod change_op {
     use crate::{Mode, VI};
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
+    use rat_text::{TextPosition, upos_type};
+    use std::cmp::min;
 
     pub fn begin_insert(vi: &mut VI) {
         vi.mode = Mode::Insert;
@@ -1086,6 +1092,19 @@ mod change_op {
     pub fn insert_char(cc: char, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
         vi.text.push(cc);
         q_insert(cc, state);
+        TextOutcome::TextChanged
+    }
+
+    pub fn delete_char(mul: u16, state: &mut TextAreaState) -> TextOutcome {
+        let c = state.cursor();
+
+        let width = state.line_width(c.y);
+        if c.x == width {
+            state.delete_prev_char();
+        } else {
+            let end = TextPosition::new(min(width, c.x + mul as upos_type), c.y);
+            state.delete_range(c..end);
+        }
         TextOutcome::TextChanged
     }
 }
