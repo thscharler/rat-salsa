@@ -20,9 +20,10 @@ pub enum Resume<T> {
 /// It has the specialty that it can yield without producing a
 /// result too.
 pub struct Coroutine<P, T> {
-    yp: YieldPoint<P, T>,
     init: Option<Box<dyn FnOnce(P, YieldPoint<P, T>) -> Box<dyn Future<Output = T> + 'static>>>,
-    inner: Pin<Box<dyn Future<Output = T>>>,
+
+    yield_point: YieldPoint<P, T>,
+    coroutine: Pin<Box<dyn Future<Output = T>>>,
 }
 
 impl<P: Debug, T: Debug> Coroutine<P, T> {
@@ -49,33 +50,32 @@ impl<P: Debug, T: Debug> Coroutine<P, T> {
     /// assert_eq!(v3, 999);
     ///
     /// ```
-    pub fn new(
-        inner: impl FnOnce(P, YieldPoint<P, T>) -> Box<dyn Future<Output = T> + 'static> + 'static,
-    ) -> Coroutine<P, T> {
+    pub fn new<C>(construct: C) -> Coroutine<P, T>
+    where
+        C: FnOnce(P, YieldPoint<P, T>) -> Box<dyn Future<Output = T> + 'static> + 'static,
+    {
         let yp = YieldPoint::new();
         Coroutine {
-            yp: yp.clone(),
-            init: Some(Box::new(inner)),
-            inner: Box::pin(async { panic!("coroutine not started") }),
+            yield_point: yp.clone(),
+            init: Some(Box::new(construct)),
+            coroutine: Box::pin(async { panic!("coroutine not started") }),
         }
     }
 
     /// Starts or resumes the coroutine.
     pub fn resume(&mut self, arg: P) -> Resume<T> {
-        if self.init.is_some() {
-            let init = self.init.take().expect("init");
-            let f = init(arg, self.yp.clone());
-            self.inner = Box::into_pin(f);
+        if let Some(construct) = self.init.take() {
+            self.coroutine = Box::into_pin(construct(arg, self.yield_point.clone()));
         } else {
-            self.yp.resuming(arg);
+            self.yield_point.resuming(arg);
         }
 
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
-        match self.inner.as_mut().poll(&mut cx) {
+        match self.coroutine.as_mut().poll(&mut cx) {
             Poll::Ready(v) => {
                 Resume::Done(v) //
             }
-            Poll::Pending => match self.yp.yielded() {
+            Poll::Pending => match self.yield_point.yielded() {
                 Some(v) => {
                     Resume::Yield(v) // 
                 }
