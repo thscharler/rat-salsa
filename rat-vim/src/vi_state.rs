@@ -112,10 +112,13 @@ pub enum Motion {
     MovePrevWORDEnd,
     MoveStartOfLine,
     MoveEndOfLine,
-    MoveStartOfText,
-    MoveEndOfText,
+    MoveStartOfLineText,
+    MoveEndOfLineText,
     MovePrevParagraph,
     MoveNextParagraph,
+    MoveStartOfFile,
+    MoveEndOfFile,
+    MoveToMatching,
 
     FindForward(char),
     FindBack(char),
@@ -152,19 +155,6 @@ pub enum Vim {
 
     Move(u16, Motion),
 
-    MoveNextWordEnd,
-    MovePrevWordEnd,
-    MoveNextWORDStart,
-    MovePrevWORDStart,
-    MoveNextWORDEnd,
-    MovePrevWORDEnd,
-    MoveStartOfLine,
-    MoveEndOfLine,
-    MoveStartOfLineText,
-    MoveEndOfLineText,
-    MovePrevParagraph,
-    MoveNextParagraph,
-
     SearchWordForward,
     SearchWordBackward,
     SearchForward(String),
@@ -175,9 +165,6 @@ pub enum Vim {
     SearchRepeatPrev,
 
     Insert,
-    MoveStartOfFile,
-    MoveEndOfFile,
-    MoveToMatching,
 }
 
 impl Vim {
@@ -265,28 +252,27 @@ impl VI {
             '|' => Vim::Move(mul.unwrap_or(0), Motion::MoveToCol),
             'w' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordStart),
             'b' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordStart),
-            'e' => Vim::MoveNextWordEnd,
+            'e' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordEnd),
             'g' => {
                 let tok = yp.yield0().await;
                 motion_buf.borrow_mut().push(tok);
                 match tok {
-                    'e' => Vim::MovePrevWordEnd,
-                    'E' => Vim::MovePrevWORDEnd,
-                    '_' => Vim::MoveEndOfLineText,
-                    'g' => Vim::MoveStartOfFile,
+                    'e' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordEnd),
+                    'E' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevWORDEnd),
+                    '_' => Vim::Move(0, Motion::MoveEndOfLineText),
+                    'g' => Vim::Move(0, Motion::MoveStartOfFile),
                     _ => Vim::Invalid,
                 }
             }
-            'W' => Vim::MoveNextWORDStart,
-            'B' => Vim::MovePrevWORDStart,
-            'E' => Vim::MoveNextWORDEnd,
-            '0' => Vim::MoveStartOfLine,
-            '^' => Vim::MoveStartOfLineText,
-            '$' => Vim::MoveEndOfLine,
-            '{' => Vim::MovePrevParagraph,
-            '}' => Vim::MoveNextParagraph,
-            'G' => Vim::MoveEndOfFile,
-            '%' => Vim::MoveToMatching,
+            'W' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextWORDStart),
+            'B' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevWORDStart),
+            'E' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextWORDEnd),
+            '{' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevParagraph),
+            '}' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextParagraph),
+            'G' => Vim::Move(0, Motion::MoveEndOfFile),
+            '^' => Vim::Move(0, Motion::MoveStartOfLineText),
+            '$' => Vim::Move(0, Motion::MoveEndOfLine),
+            '%' => Vim::Move(0, Motion::MoveToMatching),
 
             'f' => {
                 let tok = yp.yield0().await;
@@ -355,6 +341,7 @@ impl VI {
             'N' => Vim::SearchRepeatPrev,
 
             'i' => Vim::Insert,
+
             _ => Vim::Invalid,
         }
     }
@@ -382,21 +369,21 @@ mod op {
             Vim::Move(mul, Motion::MoveToCol) => move_to_col(mul, state).into(),
             Vim::Move(mul, Motion::MoveNextWordStart) => move_next_word_start(mul, state).into(),
             Vim::Move(mul, Motion::MovePrevWordStart) => move_prev_word_start(mul, state).into(),
-            Vim::MoveNextWordEnd => move_next_word_end(state).into(),
-            Vim::MovePrevWordEnd => move_prev_word_end(state).into(),
-            Vim::MoveNextWORDStart => move_next_bigword_start(state).into(),
-            Vim::MovePrevWORDStart => move_prev_bigword_start(state).into(),
-            Vim::MoveNextWORDEnd => move_next_bigword_end(state).into(),
-            Vim::MovePrevWORDEnd => move_prev_bigword_end(state).into(),
-            Vim::MoveStartOfLine => move_start_of_line(state).into(),
-            Vim::MoveEndOfLine => move_end_of_line(state).into(),
-            Vim::MoveStartOfLineText => move_start_of_text(state).into(),
-            Vim::MoveEndOfLineText => move_end_of_text(state).into(),
-            Vim::MovePrevParagraph => move_prev_paragraph(state).into(),
-            Vim::MoveNextParagraph => move_next_paragraph(state).into(),
-            Vim::MoveStartOfFile => move_start_of_file(state).into(),
-            Vim::MoveEndOfFile => move_end_of_file(state).into(),
-            Vim::MoveToMatching => move_matching_brace(state).into(),
+            Vim::Move(mul, Motion::MoveNextWordEnd) => move_next_word_end(mul, state).into(),
+            Vim::Move(mul, Motion::MovePrevWordEnd) => move_prev_word_end(mul, state).into(),
+            Vim::Move(mul, Motion::MoveNextWORDStart) => move_next_bigword_start(mul, state).into(),
+            Vim::Move(mul, Motion::MovePrevWORDStart) => move_prev_bigword_start(mul, state).into(),
+            Vim::Move(mul, Motion::MoveNextWORDEnd) => move_next_bigword_end(mul, state).into(),
+            Vim::Move(mul, Motion::MovePrevWORDEnd) => move_prev_bigword_end(mul, state).into(),
+            Vim::Move(_, Motion::MoveStartOfLine) => move_start_of_line(state).into(),
+            Vim::Move(_, Motion::MoveEndOfLine) => move_end_of_line(state).into(),
+            Vim::Move(_, Motion::MoveStartOfLineText) => move_start_of_text(state).into(),
+            Vim::Move(_, Motion::MoveEndOfLineText) => move_end_of_text(state).into(),
+            Vim::Move(mul, Motion::MovePrevParagraph) => move_prev_paragraph(mul, state).into(),
+            Vim::Move(mul, Motion::MoveNextParagraph) => move_next_paragraph(mul, state).into(),
+            Vim::Move(_, Motion::MoveStartOfFile) => move_start_of_file(state).into(),
+            Vim::Move(_, Motion::MoveEndOfFile) => move_end_of_file(state).into(),
+            Vim::Move(_, Motion::MoveToMatching) => move_matching_brace(state).into(),
 
             Vim::Move(mul, Motion::FindForward(c)) => find_fwd(mul, c, state, vi).into(),
             Vim::Move(mul, Motion::FindBack(c)) => find_back(mul, c, state, vi).into(),
@@ -513,16 +500,16 @@ mod op {
         }
     }
 
-    pub(crate) fn move_prev_paragraph(state: &mut TextAreaState) -> bool {
-        if let Some(cursor) = vi_prev_paragraph(state) {
+    pub(crate) fn move_prev_paragraph(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_prev_paragraph(mul, state) {
             state.set_cursor(cursor, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn move_next_paragraph(state: &mut TextAreaState) -> bool {
-        if let Some(cursor) = vi_next_paragraph(state) {
+    pub(crate) fn move_next_paragraph(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(cursor) = vi_next_paragraph(mul, state) {
             state.set_cursor(cursor, false)
         } else {
             false
@@ -705,48 +692,48 @@ mod op {
         }
     }
 
-    pub(crate) fn move_next_word_end(state: &mut TextAreaState) -> bool {
-        if let Some(word) = vi_next_word_end(state) {
+    pub(crate) fn move_next_word_end(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_next_word_end(mul, state) {
             state.set_cursor(word, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn move_prev_word_end(state: &mut TextAreaState) -> bool {
-        if let Some(word) = vi_prev_word_end(state) {
+    pub(crate) fn move_prev_word_end(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_prev_word_end(mul, state) {
             state.set_cursor(word, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn move_next_bigword_start(state: &mut TextAreaState) -> bool {
-        if let Some(word) = vi_next_bigword_start(state) {
+    pub(crate) fn move_next_bigword_start(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_next_bigword_start(mul, state) {
             state.set_cursor(word, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn move_prev_bigword_start(state: &mut TextAreaState) -> bool {
-        if let Some(word) = vi_prev_bigword_start(state) {
+    pub(crate) fn move_prev_bigword_start(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_prev_bigword_start(mul, state) {
             state.set_cursor(word, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn move_next_bigword_end(state: &mut TextAreaState) -> bool {
-        if let Some(word) = vi_next_bigword_end(state) {
+    pub(crate) fn move_next_bigword_end(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_next_bigword_end(mul, state) {
             state.set_cursor(word, false)
         } else {
             false
         }
     }
 
-    pub(crate) fn move_prev_bigword_end(state: &mut TextAreaState) -> bool {
-        if let Some(word) = vi_prev_bigword_end(state) {
+    pub(crate) fn move_prev_bigword_end(mul: u16, state: &mut TextAreaState) -> bool {
+        if let Some(word) = vi_prev_bigword_end(mul, state) {
             state.set_cursor(word, false)
         } else {
             false
@@ -903,78 +890,108 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub(super) fn vi_next_paragraph(state: &mut TextAreaState) -> Option<TextPosition> {
+    pub(super) fn vi_next_paragraph(
+        mut mul: u16,
+        state: &mut TextAreaState,
+    ) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        if let Some(c) = it.peek_next()
-            && c.is_whitespace()
-        {
-            loop {
-                let Some(c) = it.next() else {
-                    return None;
-                };
-                if !c.is_whitespace() {
-                    break;
+        let found;
+        'f: loop {
+            if let Some(c) = it.peek_next()
+                && c.is_whitespace()
+            {
+                loop {
+                    let Some(c) = it.next() else {
+                        return None;
+                    };
+                    if !c.is_whitespace() {
+                        break;
+                    }
                 }
             }
-        }
 
-        let found;
-        let mut brk = false;
-        loop {
-            let Some(c) = it.next() else {
-                found = it.text_offset();
-                break;
-            };
+            let mut brk = false;
+            loop {
+                let Some(c) = it.next() else {
+                    if mul == 1 {
+                        found = it.text_offset();
+                        break 'f;
+                    } else {
+                        return None;
+                    }
+                };
 
-            if c.is_line_break() {
-                if !brk {
-                    brk = true;
-                } else {
-                    found = c.text_bytes().start;
-                    break;
+                if c.is_line_break() {
+                    if !brk {
+                        brk = true;
+                    } else {
+                        break;
+                    }
+                } else if !c.is_whitespace() {
+                    brk = false;
                 }
-            } else if !c.is_whitespace() {
-                brk = false;
+            }
+
+            mul -= 1;
+            if mul == 0 {
+                it.prev();
+                found = it.text_offset();
+                break 'f;
             }
         }
 
         Some(state.byte_pos(found))
     }
 
-    pub(super) fn vi_prev_paragraph(state: &mut TextAreaState) -> Option<TextPosition> {
+    pub(super) fn vi_prev_paragraph(
+        mut mul: u16,
+        state: &mut TextAreaState,
+    ) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        if let Some(c) = it.peek_prev()
-            && c.is_whitespace()
-        {
-            loop {
-                let Some(c) = it.prev() else {
-                    return None;
-                };
-                if !c.is_whitespace() {
-                    break;
+        let found;
+        'f: loop {
+            if let Some(c) = it.peek_prev()
+                && c.is_whitespace()
+            {
+                loop {
+                    let Some(c) = it.prev() else {
+                        return None;
+                    };
+                    if !c.is_whitespace() {
+                        break;
+                    }
                 }
             }
-        }
 
-        let found;
-        let mut brk = false;
-        loop {
-            let Some(c) = it.prev() else {
-                found = it.text_offset();
-                break;
-            };
+            let mut brk = false;
+            loop {
+                let Some(c) = it.prev() else {
+                    if mul == 1 {
+                        found = it.text_offset();
+                        break 'f;
+                    } else {
+                        return None;
+                    }
+                };
 
-            if c.is_line_break() {
-                if !brk {
-                    brk = true;
-                } else {
-                    found = c.text_bytes().end;
-                    break;
+                if c.is_line_break() {
+                    if !brk {
+                        brk = true;
+                    } else {
+                        break;
+                    }
+                } else if !c.is_whitespace() {
+                    brk = false;
                 }
-            } else if !c.is_whitespace() {
-                brk = false;
+            }
+
+            mul -= 1;
+            if mul == 0 {
+                it.next();
+                found = it.text_offset();
+                break 'f;
             }
         }
 
@@ -1111,97 +1128,145 @@ mod query {
         }
     }
 
-    pub(super) fn vi_prev_bigword_start(state: &TextAreaState) -> Option<TextPosition> {
+    pub(super) fn vi_prev_bigword_start(
+        mut mul: u16,
+        state: &TextAreaState,
+    ) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        let Some(sample) = it.peek_prev() else {
-            return None;
-        };
-        if !sample.is_whitespace() {
-            pskip_nonwhite(&mut it);
-        } else {
+        loop {
+            let Some(sample) = it.peek_prev() else {
+                return None;
+            };
+            if !sample.is_whitespace() {
+                pskip_nonwhite(&mut it);
+            } else {
+                pskip_white(&mut it);
+                pskip_nonwhite(&mut it);
+            }
+
+            mul -= 1;
+            if mul == 0 {
+                break;
+            }
+        }
+
+        Some(state.byte_pos(it.text_offset()))
+    }
+
+    pub(super) fn vi_next_bigword_start(
+        mut mul: u16,
+        state: &TextAreaState,
+    ) -> Option<TextPosition> {
+        let mut it = state.text_graphemes(state.cursor());
+
+        loop {
+            let Some(sample) = it.peek_next() else {
+                return None;
+            };
+            if !sample.is_whitespace() {
+                skip_nonwhite(&mut it);
+            }
+            skip_white(&mut it);
+
+            mul -= 1;
+            if mul == 0 {
+                break;
+            }
+        }
+
+        Some(state.byte_pos(it.text_offset()))
+    }
+
+    pub(super) fn vi_prev_bigword_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+        let mut it = state.text_graphemes(state.cursor());
+
+        loop {
+            let Some(sample) = it.peek_prev() else {
+                return None;
+            };
+            if !sample.is_whitespace() {
+                pskip_nonwhite(&mut it);
+            }
             pskip_white(&mut it);
-            pskip_nonwhite(&mut it);
+
+            mul -= 1;
+            if mul == 0 {
+                break;
+            }
         }
 
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub(super) fn vi_next_bigword_start(state: &TextAreaState) -> Option<TextPosition> {
+    pub(super) fn vi_next_bigword_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        let Some(sample) = it.peek_next() else {
-            return None;
-        };
-        if !sample.is_whitespace() {
-            skip_nonwhite(&mut it);
-        }
-        skip_white(&mut it);
+        loop {
+            skip_white(&mut it);
 
-        Some(state.byte_pos(it.text_offset()))
-    }
+            let Some(sample) = it.peek_next() else {
+                return None;
+            };
+            if !sample.is_whitespace() {
+                skip_nonwhite(&mut it);
+            }
 
-    pub(super) fn vi_prev_bigword_end(state: &TextAreaState) -> Option<TextPosition> {
-        let mut it = state.text_graphemes(state.cursor());
-
-        let Some(sample) = it.peek_prev() else {
-            return None;
-        };
-        if !sample.is_whitespace() {
-            pskip_nonwhite(&mut it);
-        }
-        pskip_white(&mut it);
-
-        Some(state.byte_pos(it.text_offset()))
-    }
-
-    pub(super) fn vi_next_bigword_end(state: &TextAreaState) -> Option<TextPosition> {
-        let mut it = state.text_graphemes(state.cursor());
-
-        skip_white(&mut it);
-
-        let Some(sample) = it.peek_next() else {
-            return None;
-        };
-        if !sample.is_whitespace() {
-            skip_nonwhite(&mut it);
+            mul -= 1;
+            if mul == 0 {
+                break;
+            }
         }
 
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub(super) fn vi_next_word_end(state: &TextAreaState) -> Option<TextPosition> {
+    pub(super) fn vi_next_word_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        skip_white(&mut it);
+        loop {
+            skip_white(&mut it);
 
-        let Some(sample) = it.peek_next() else {
-            return None;
-        };
-        if sample.is_alphanumeric() {
-            skip_alpha(&mut it);
-        } else {
-            skip_sample(&mut it, sample);
+            let Some(sample) = it.peek_next() else {
+                return None;
+            };
+            if sample.is_alphanumeric() {
+                skip_alpha(&mut it);
+            } else {
+                skip_sample(&mut it, sample);
+            }
+
+            mul -= 1;
+            if mul == 0 {
+                break;
+            }
         }
 
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub(super) fn vi_prev_word_end(state: &TextAreaState) -> Option<TextPosition> {
+    pub(super) fn vi_prev_word_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        let Some(sample) = it.peek_prev() else {
-            return None;
-        };
-        if sample.is_alphanumeric() {
-            pskip_alpha(&mut it);
-        } else if sample.is_whitespace() {
-            // noop
-        } else {
-            pskip_sample(&mut it, sample);
-        }
+        loop {
+            let Some(sample) = it.peek_prev() else {
+                return None;
+            };
+            if sample.is_alphanumeric() {
+                pskip_alpha(&mut it);
+            } else if sample.is_whitespace() {
+                // noop
+            } else {
+                pskip_sample(&mut it, sample);
+            }
 
-        pskip_white(&mut it);
+            pskip_white(&mut it);
+
+            mul -= 1;
+            if mul == 0 {
+                break;
+            }
+        }
 
         Some(state.byte_pos(it.text_offset()))
     }
