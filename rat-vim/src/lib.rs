@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 mod coroutine;
+mod ctrl;
 mod vi_state;
 
 pub use coroutine::{Coroutine, Resume, YieldPoint};

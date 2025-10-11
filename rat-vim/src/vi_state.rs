@@ -2,7 +2,7 @@ use crate::vi_state::change_op::*;
 use crate::vi_state::display::*;
 use crate::vi_state::move_op::*;
 use crate::vi_state::scroll_op::*;
-use crate::{Coroutine, Resume, SearchError, YieldPoint};
+use crate::{Coroutine, Resume, SearchError, YieldPoint, ctrl};
 use log::debug;
 use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
@@ -115,9 +115,6 @@ pub enum Motion {
     MoveToCol,
     MoveToLine,
     MoveToLinePercent,
-    MoveMiddleOfScreen,
-    MoveTopOfScreen,
-    MoveBottomOfScreen,
     MoveToMatching,
     MoveToMark(char),
 
@@ -138,8 +135,6 @@ pub enum Motion {
     MoveEndOfLineText,
     MovePrevParagraph,
     MoveNextParagraph,
-    MovePageUp,
-    MovePageDown,
 
     FindForward(char),
     FindBack(char),
@@ -156,14 +151,17 @@ pub enum Motion {
     SearchRepeatPrev,
 }
 
-impl Motion {
-    pub fn search_str(&self) -> Option<&str> {
-        match self {
-            Motion::SearchForward(s) => Some(s.as_str()),
-            Motion::SearchBack(s) => Some(s.as_str()),
-            _ => None,
-        }
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Scrolling {
+    Up,
+    Down,
+    HalfPageUp,
+    HalfPageDown,
+    PageUp,
+    PageDown,
+    MiddleOfScreen,
+    TopOfScreen,
+    BottomOfScreen,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -175,7 +173,7 @@ pub enum Vim {
 
     Partial(u32, Motion),
     Move(u32, Motion),
-    Scroll(u32, Motion),
+    Scroll(u32, Scrolling),
     Mark(char),
 
     Undo(u32),
@@ -214,7 +212,7 @@ impl Default for VI {
         Self {
             mode: Default::default(),
             motion_display: motion_buf.clone(),
-            motion: Coroutine::new(|c, yp| Box::new(VI::next_motion(c, motion_buf, yp))),
+            motion: Coroutine::new(|c, yp| Box::new(next_motion(c, motion_buf, yp))),
             command: Default::default(),
             text: Default::default(),
             finds: Default::default(),
@@ -225,283 +223,269 @@ impl Default for VI {
     }
 }
 
-#[allow(dead_code)]
-impl VI {
-    fn reset_motion(&mut self) {
-        self.motion_display.borrow_mut().clear();
-        let mb = self.motion_display.clone();
-        self.motion = Coroutine::new(|c, yp| Box::new(VI::next_motion(c, mb, yp)));
-    }
+fn reset_motion(vi: &mut VI) {
+    vi.motion_display.borrow_mut().clear();
+    let mb = vi.motion_display.clone();
+    vi.motion = Coroutine::new(|c, yp| Box::new(next_motion(c, mb, yp)));
+}
 
-    fn motion(&mut self, c: char) -> Poll<Vim> {
-        debug!("motion {:?} >> {:?}", c, self.motion_display);
-        match self.motion.resume(c) {
-            Resume::Yield(v) => {
-                debug!("    !> {:?}", v);
-                Poll::Ready(v)
-            }
-            Resume::Done(v) => {
-                debug!("    |> {:?}", v);
-                self.motion_display.borrow_mut().clear();
-                let mb = self.motion_display.clone();
-                self.motion = Coroutine::new(|c, yp| Box::new(VI::next_motion(c, mb, yp)));
-                Poll::Ready(v)
-            }
-            Resume::Pending => {
-                debug!("    ...");
-                Poll::Pending
-            }
+fn motion(vi: &mut VI, c: char) -> Poll<Vim> {
+    debug!("motion {:?} >> {:?}", c, vi.motion_display);
+    match vi.motion.resume(c) {
+        Resume::Yield(v) => {
+            debug!("    !> {:?}", v);
+            Poll::Ready(v)
+        }
+        Resume::Done(v) => {
+            debug!("    |> {:?}", v);
+            vi.motion_display.borrow_mut().clear();
+            let mb = vi.motion_display.clone();
+            vi.motion = Coroutine::new(|c, yp| Box::new(next_motion(c, mb, yp)));
+            Poll::Ready(v)
+        }
+        Resume::Pending => {
+            debug!("    ...");
+            Poll::Pending
         }
     }
+}
 
-    fn ctrl(c: char) -> char {
-        match c {
-            'a' | 'A' => VI::CTRL_A,
-            'b' | 'B' => VI::CTRL_B,
-            'c' | 'C' => VI::CTRL_C,
-            'd' | 'D' => VI::CTRL_D,
-            'e' | 'E' => VI::CTRL_E,
-            'f' | 'F' => VI::CTRL_F,
-            'g' | 'G' => VI::CTRL_G,
-            'h' | 'H' => VI::CTRL_H,
-            'i' | 'I' => VI::CTRL_I,
-            'j' | 'J' => VI::CTRL_J,
-            'k' | 'K' => VI::CTRL_K,
-            'l' | 'L' => VI::CTRL_L,
-            'm' | 'M' => VI::CTRL_M,
-            'n' | 'N' => VI::CTRL_N,
-            'o' | 'O' => VI::CTRL_O,
-            'p' | 'P' => VI::CTRL_P,
-            'q' | 'Q' => VI::CTRL_Q,
-            'r' | 'R' => VI::CTRL_R,
-            's' | 'S' => VI::CTRL_S,
-            't' | 'T' => VI::CTRL_T,
-            'u' | 'U' => VI::CTRL_U,
-            'v' | 'V' => VI::CTRL_V,
-            'w' | 'W' => VI::CTRL_W,
-            'x' | 'X' => VI::CTRL_X,
-            'y' | 'Y' => VI::CTRL_Y,
-            'z' | 'Z' => VI::CTRL_Z,
-            _ => unimplemented!(),
+async fn multiplier(
+    mut tok: char,
+    motion_buf: &RefCell<String>,
+    yp: &YieldPoint<char, Vim>,
+) -> (Option<u32>, char) {
+    let mut mul = String::new();
+    while tok.is_ascii_digit() || tok == ctrl::BS {
+        if tok == ctrl::BS {
+            mul.pop();
+            motion_buf.borrow_mut().pop();
+        } else {
+            mul.push(tok);
+            motion_buf.borrow_mut().push(tok);
         }
+        tok = yp.yield0().await;
     }
+    let mul = mul.parse::<u32>().ok();
 
-    const CTRL_A: char = '\x01';
-    const CTRL_B: char = '\x02';
-    const CTRL_C: char = '\x03';
-    const CTRL_D: char = '\x04';
-    const CTRL_E: char = '\x05';
-    const CTRL_F: char = '\x06';
-    const CTRL_G: char = '\x07';
-    const CTRL_H: char = '\x08';
-    const BS: char = '\x08';
-    const CTRL_I: char = '\x09';
-    const CTRL_J: char = '\x0A';
-    const CTRL_K: char = '\x0B';
-    const CTRL_L: char = '\x0C';
-    const CTRL_M: char = '\x0D';
-    const CTRL_N: char = '\x0E';
-    const CTRL_O: char = '\x0F';
-    const CTRL_P: char = '\x10';
-    const CTRL_Q: char = '\x11';
-    const CTRL_R: char = '\x12';
-    const CTRL_S: char = '\x13';
-    const CTRL_T: char = '\x14';
-    const CTRL_U: char = '\x15';
-    const CTRL_V: char = '\x16';
-    const CTRL_W: char = '\x17';
-    const CTRL_X: char = '\x18';
-    const CTRL_Y: char = '\x19';
-    const CTRL_Z: char = '\x1A';
-    const DEL: char = '\x7F';
+    (mul, tok)
+}
 
-    async fn next_motion(
-        mut tok: char,
-        motion_buf: Rc<RefCell<String>>,
-        yp: YieldPoint<char, Vim>,
-    ) -> Vim {
-        if tok == '0' {
-            return Vim::Move(0, Motion::MoveStartOfLine);
+async fn bare_motion(
+    tok: char,
+    mul: Option<u32>,
+    motion_buf: &RefCell<String>,
+    yp: &YieldPoint<char, Vim>,
+) -> Result<Vim, char> {
+    match tok {
+        'h' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveLeft)),
+        'l' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveRight)),
+        'k' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveUp)),
+        'j' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveDown)),
+        '|' => Ok(Vim::Move(mul.unwrap_or(0), Motion::MoveToCol)),
+        'w' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordStart)),
+        'b' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordStart)),
+        'e' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordEnd)),
+        'g' => {
+            let tok = yp.yield0().await;
+            motion_buf.borrow_mut().push(tok);
+            match tok {
+                'e' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordEnd)),
+                'E' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWORDEnd)),
+                '_' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveEndOfLineText)),
+                'g' => {
+                    if let Some(mul) = mul {
+                        Ok(Vim::Move(mul, Motion::MoveToLine))
+                    } else {
+                        Ok(Vim::Move(0, Motion::MoveStartOfFile))
+                    }
+                }
+                _ => Ok(Vim::Invalid),
+            }
         }
-
-        let mut mul = String::new();
-        while tok.is_ascii_digit() || tok == VI::BS {
-            if tok == VI::BS {
-                mul.pop();
-                motion_buf.borrow_mut().pop();
+        'W' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextWORDStart)),
+        'B' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWORDStart)),
+        'E' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextWORDEnd)),
+        '{' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevParagraph)),
+        '}' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextParagraph)),
+        'G' => {
+            if let Some(mul) = mul {
+                Ok(Vim::Move(mul, Motion::MoveToLine))
             } else {
-                mul.push(tok);
-                motion_buf.borrow_mut().push(tok);
+                Ok(Vim::Move(0, Motion::MoveEndOfFile))
             }
-            tok = yp.yield0().await;
         }
-        let mul = mul.parse::<u32>().ok();
-
-        motion_buf.borrow_mut().push(tok);
-        match tok {
-            'h' => Vim::Move(mul.unwrap_or(1), Motion::MoveLeft),
-            'l' => Vim::Move(mul.unwrap_or(1), Motion::MoveRight),
-            'k' => Vim::Move(mul.unwrap_or(1), Motion::MoveUp),
-            'j' => Vim::Move(mul.unwrap_or(1), Motion::MoveDown),
-            '|' => Vim::Move(mul.unwrap_or(0), Motion::MoveToCol),
-            'w' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordStart),
-            'b' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordStart),
-            'e' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordEnd),
-            'g' => {
-                let tok = yp.yield0().await;
-                motion_buf.borrow_mut().push(tok);
-                match tok {
-                    'e' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordEnd),
-                    'E' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevWORDEnd),
-                    '_' => Vim::Move(mul.unwrap_or(1), Motion::MoveEndOfLineText),
-                    'g' => {
-                        if let Some(mul) = mul {
-                            Vim::Move(mul, Motion::MoveToLine)
-                        } else {
-                            Vim::Move(0, Motion::MoveStartOfFile)
-                        }
-                    }
-                    _ => Vim::Invalid,
-                }
+        '^' => Ok(Vim::Move(0, Motion::MoveStartOfLineText)),
+        '$' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveEndOfLine)),
+        '%' => {
+            if let Some(mul) = mul {
+                Ok(Vim::Move(mul, Motion::MoveToLinePercent))
+            } else {
+                Ok(Vim::Move(0, Motion::MoveToMatching))
             }
-            'W' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextWORDStart),
-            'B' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevWORDStart),
-            'E' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextWORDEnd),
-            '{' => Vim::Move(mul.unwrap_or(1), Motion::MovePrevParagraph),
-            '}' => Vim::Move(mul.unwrap_or(1), Motion::MoveNextParagraph),
-            'G' => {
-                if let Some(mul) = mul {
-                    Vim::Move(mul, Motion::MoveToLine)
-                } else {
-                    Vim::Move(0, Motion::MoveEndOfFile)
-                }
-            }
-            '^' => Vim::Move(0, Motion::MoveStartOfLineText),
-            '$' => Vim::Move(mul.unwrap_or(1), Motion::MoveEndOfLine),
-            '%' => {
-                if let Some(mul) = mul {
-                    Vim::Move(mul, Motion::MoveToLinePercent)
-                } else {
-                    Vim::Move(0, Motion::MoveToMatching)
-                }
-            }
-            'z' => {
-                let tok = yp.yield0().await;
-                motion_buf.borrow_mut().push(tok);
-                match tok {
-                    'z' => Vim::Scroll(0, Motion::MoveMiddleOfScreen),
-                    't' => Vim::Scroll(0, Motion::MoveTopOfScreen),
-                    'b' => Vim::Scroll(0, Motion::MoveBottomOfScreen),
-                    _ => Vim::Invalid,
-                }
-            }
-            VI::CTRL_U => Vim::Move(mul.unwrap_or(0), Motion::MovePageUp),
-            VI::CTRL_D => Vim::Move(mul.unwrap_or(0), Motion::MovePageDown),
-            VI::CTRL_Y => Vim::Scroll(mul.unwrap_or(1), Motion::MoveUp),
-            VI::CTRL_E => Vim::Scroll(mul.unwrap_or(1), Motion::MoveDown),
-            VI::CTRL_B => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageUp),
-            VI::CTRL_F => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageDown),
-
-            'f' => {
-                let tok = yp.yield0().await;
-                motion_buf.borrow_mut().push(tok);
-                Vim::Move(mul.unwrap_or(1), Motion::FindForward(tok))
-            }
-            'F' => {
-                let tok = yp.yield0().await;
-                motion_buf.borrow_mut().push(tok);
-                Vim::Move(mul.unwrap_or(1), Motion::FindBack(tok))
-            }
-            't' => {
-                let tok = yp.yield0().await;
-                motion_buf.borrow_mut().push(tok);
-                Vim::Move(mul.unwrap_or(1), Motion::FindTillForward(tok))
-            }
-            'T' => {
-                let tok = yp.yield0().await;
-                motion_buf.borrow_mut().push(tok);
-                Vim::Move(mul.unwrap_or(1), Motion::FindTillBack(tok))
-            }
-            ';' => Vim::Move(mul.unwrap_or(1), Motion::FindRepeatNext),
-            ',' => Vim::Move(mul.unwrap_or(1), Motion::FindRepeatPrev),
-
-            '/' => {
-                let mut buf = String::new();
-                loop {
-                    let tok = yp
-                        .yield1(Vim::Partial(
-                            mul.unwrap_or(1),
-                            Motion::SearchForward(buf.clone()),
-                        ))
-                        .await;
-                    if tok == '\n' {
-                        break;
-                    } else if tok == VI::BS {
-                        let mut mb = motion_buf.borrow_mut();
-                        if mb.len() > 1 {
-                            mb.pop();
-                        }
-                        _ = buf.pop();
-                    } else {
-                        motion_buf.borrow_mut().push(tok);
-                        buf.push(tok);
-                    }
-                }
-                Vim::Move(mul.unwrap_or(1), Motion::SearchForward(buf))
-            }
-            '?' => {
-                let mut buf = String::new();
-                loop {
-                    let tok = yp
-                        .yield1(Vim::Partial(
-                            mul.unwrap_or(1),
-                            Motion::SearchBack(buf.clone()),
-                        ))
-                        .await;
-                    if tok == '\n' {
-                        break;
-                    } else if tok == '\x08' {
-                        let mut mb = motion_buf.borrow_mut();
-                        if mb.len() > 1 {
-                            mb.pop();
-                        }
-                        _ = buf.pop();
-                    } else {
-                        motion_buf.borrow_mut().push(tok);
-                        buf.push(tok);
-                    }
-                }
-                Vim::Move(mul.unwrap_or(1), Motion::SearchBack(buf))
-            }
-            '*' => Vim::Move(mul.unwrap_or(1), Motion::SearchWordForward),
-            '#' => Vim::Move(mul.unwrap_or(1), Motion::SearchWordBackward),
-            'n' => Vim::Move(mul.unwrap_or(1), Motion::SearchRepeatNext),
-            'N' => Vim::Move(mul.unwrap_or(1), Motion::SearchRepeatPrev),
-
-            'm' => {
-                let tok = yp.yield0().await;
-                motion_buf.borrow_mut().push(tok);
-                Vim::Mark(tok)
-            }
-            '\'' => {
-                let tok = yp.yield0().await;
-                motion_buf.borrow_mut().push(tok);
-                Vim::Move(0, Motion::MoveToMark(tok))
-            }
-
-            'i' => Vim::Insert(mul.unwrap_or(1)),
-            'a' => Vim::Append(mul.unwrap_or(1)),
-            'o' => Vim::AppendLine(mul.unwrap_or(1)),
-            'O' => Vim::PrependLine(mul.unwrap_or(1)),
-            'x' => Vim::DeleteChar(mul.unwrap_or(1)),
-            'J' => Vim::JoinLines(mul.unwrap_or(1)),
-            'u' => Vim::Undo(mul.unwrap_or(1)),
-            VI::CTRL_R => Vim::Redo(mul.unwrap_or(1)),
-
-            '.' => Vim::Repeat(mul.unwrap_or(1)),
-
-            _ => Vim::Invalid,
         }
+
+        'f' => {
+            let tok = yp.yield0().await;
+            motion_buf.borrow_mut().push(tok);
+            Ok(Vim::Move(mul.unwrap_or(1), Motion::FindForward(tok)))
+        }
+        'F' => {
+            let tok = yp.yield0().await;
+            motion_buf.borrow_mut().push(tok);
+            Ok(Vim::Move(mul.unwrap_or(1), Motion::FindBack(tok)))
+        }
+        't' => {
+            let tok = yp.yield0().await;
+            motion_buf.borrow_mut().push(tok);
+            Ok(Vim::Move(mul.unwrap_or(1), Motion::FindTillForward(tok)))
+        }
+        'T' => {
+            let tok = yp.yield0().await;
+            motion_buf.borrow_mut().push(tok);
+            Ok(Vim::Move(mul.unwrap_or(1), Motion::FindTillBack(tok)))
+        }
+        ';' => Ok(Vim::Move(mul.unwrap_or(1), Motion::FindRepeatNext)),
+        ',' => Ok(Vim::Move(mul.unwrap_or(1), Motion::FindRepeatPrev)),
+
+        '/' => {
+            let mut buf = String::new();
+            loop {
+                let tok = yp
+                    .yield1(Vim::Partial(
+                        mul.unwrap_or(1),
+                        Motion::SearchForward(buf.clone()),
+                    ))
+                    .await;
+                if tok == '\n' {
+                    break;
+                } else if tok == ctrl::BS {
+                    let mut mb = motion_buf.borrow_mut();
+                    if mb.len() > 1 {
+                        mb.pop();
+                    }
+                    _ = buf.pop();
+                } else {
+                    motion_buf.borrow_mut().push(tok);
+                    buf.push(tok);
+                }
+            }
+            Ok(Vim::Move(mul.unwrap_or(1), Motion::SearchForward(buf)))
+        }
+        '?' => {
+            let mut buf = String::new();
+            loop {
+                let tok = yp
+                    .yield1(Vim::Partial(
+                        mul.unwrap_or(1),
+                        Motion::SearchBack(buf.clone()),
+                    ))
+                    .await;
+                if tok == '\n' {
+                    break;
+                } else if tok == '\x08' {
+                    let mut mb = motion_buf.borrow_mut();
+                    if mb.len() > 1 {
+                        mb.pop();
+                    }
+                    _ = buf.pop();
+                } else {
+                    motion_buf.borrow_mut().push(tok);
+                    buf.push(tok);
+                }
+            }
+            Ok(Vim::Move(mul.unwrap_or(1), Motion::SearchBack(buf)))
+        }
+        '*' => Ok(Vim::Move(mul.unwrap_or(1), Motion::SearchWordForward)),
+        '#' => Ok(Vim::Move(mul.unwrap_or(1), Motion::SearchWordBackward)),
+        'n' => Ok(Vim::Move(mul.unwrap_or(1), Motion::SearchRepeatNext)),
+        'N' => Ok(Vim::Move(mul.unwrap_or(1), Motion::SearchRepeatPrev)),
+
+        '\'' => {
+            let tok = yp.yield0().await;
+            motion_buf.borrow_mut().push(tok);
+            Ok(Vim::Move(0, Motion::MoveToMark(tok)))
+        }
+
+        _ => Err(tok),
+    }
+}
+
+async fn bare_scroll(
+    tok: char,
+    mul: Option<u32>,
+    motion_buf: &RefCell<String>,
+    yp: &YieldPoint<char, Vim>,
+) -> Result<Vim, char> {
+    match tok {
+        ctrl::CTRL_U => Ok(Vim::Scroll(mul.unwrap_or(0), Scrolling::HalfPageUp)),
+        ctrl::CTRL_D => Ok(Vim::Scroll(mul.unwrap_or(0), Scrolling::HalfPageDown)),
+        'z' => {
+            let tok = yp.yield0().await;
+            motion_buf.borrow_mut().push(tok);
+            match tok {
+                'z' => Ok(Vim::Scroll(0, Scrolling::MiddleOfScreen)),
+                't' => Ok(Vim::Scroll(0, Scrolling::TopOfScreen)),
+                'b' => Ok(Vim::Scroll(0, Scrolling::BottomOfScreen)),
+                _ => Ok(Vim::Invalid),
+            }
+        }
+        ctrl::CTRL_Y => Ok(Vim::Scroll(mul.unwrap_or(1), Scrolling::Up)),
+        ctrl::CTRL_E => Ok(Vim::Scroll(mul.unwrap_or(1), Scrolling::Down)),
+        ctrl::CTRL_B => Ok(Vim::Scroll(mul.unwrap_or(1), Scrolling::PageUp)),
+        ctrl::CTRL_F => Ok(Vim::Scroll(mul.unwrap_or(1), Scrolling::PageDown)),
+        _ => Err(tok),
+    }
+}
+
+async fn next_motion(
+    mut tok: char,
+    motion_buf: Rc<RefCell<String>>,
+    yp: YieldPoint<char, Vim>,
+) -> Vim {
+    if tok == '0' {
+        return Vim::Move(0, Motion::MoveStartOfLine);
+    }
+
+    let mul;
+    (mul, tok) = multiplier(tok, &motion_buf, &yp).await;
+
+    motion_buf.borrow_mut().push(tok);
+    tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
+        Ok(v @ Vim::Move(_, _)) => {
+            return v;
+        }
+        Err(tok) => tok,
+        Ok(Vim::Invalid) => return Vim::Invalid,
+        _ => unreachable!("no"),
+    };
+    tok = match bare_scroll(tok, mul, &motion_buf, &yp).await {
+        Ok(v @ Vim::Scroll(_, _)) => return v,
+        Err(tok) => tok,
+        Ok(Vim::Invalid) => return Vim::Invalid,
+        _ => unreachable!("no"),
+    };
+
+    match tok {
+        'm' => {
+            let tok = yp.yield0().await;
+            motion_buf.borrow_mut().push(tok);
+            Vim::Mark(tok)
+        }
+
+        //   'd' => xxx,
+        'i' => Vim::Insert(mul.unwrap_or(1)),
+        'a' => Vim::Append(mul.unwrap_or(1)),
+        'o' => Vim::AppendLine(mul.unwrap_or(1)),
+        'O' => Vim::PrependLine(mul.unwrap_or(1)),
+        'x' => Vim::DeleteChar(mul.unwrap_or(1)),
+        'J' => Vim::JoinLines(mul.unwrap_or(1)),
+        'u' => Vim::Undo(mul.unwrap_or(1)),
+        ctrl::CTRL_R => Vim::Redo(mul.unwrap_or(1)),
+
+        '.' => Vim::Repeat(mul.unwrap_or(1)),
+
+        _ => Vim::Invalid,
     }
 }
 
@@ -510,7 +494,7 @@ fn eval_motion(
     state: &mut TextAreaState,
     vi: &mut VI,
 ) -> Result<TextOutcome, SearchError> {
-    match vi.motion(cc) {
+    match motion(vi, cc) {
         Poll::Ready(Vim::Repeat(mut mul)) => {
             assert!(mul > 0);
             debug!(
@@ -593,8 +577,6 @@ fn execute_vim(
         Vim::Move(_, Motion::MoveStartOfFile) => move_start_of_file(state),
         Vim::Move(_, Motion::MoveEndOfFile) => move_end_of_file(state),
         Vim::Move(_, Motion::MoveToMatching) => move_matching_brace(state),
-        Vim::Move(mul, Motion::MovePageUp) => move_page_up(*mul, state, vi),
-        Vim::Move(mul, Motion::MovePageDown) => move_page_down(*mul, state, vi),
 
         Vim::Move(mul, Motion::FindForward(c)) => find_fwd(*mul, *c, state, vi),
         Vim::Move(mul, Motion::FindBack(c)) => find_back(*mul, *c, state, vi),
@@ -627,7 +609,6 @@ fn execute_vim(
             search_repeat_back(*mul, state, vi);
             display_search_idx(state, vi);
         }
-        Vim::Move(_, _) => {}
 
         Vim::Partial(mul, Motion::SearchForward(s)) => {
             search_fwd(*mul, s, true, state, vi)?;
@@ -639,14 +620,15 @@ fn execute_vim(
         }
         Vim::Partial(_, _) => return Ok(TextOutcome::Unchanged),
 
-        Vim::Scroll(mul, Motion::MovePageUp) => scroll_page_up(*mul, state, vi),
-        Vim::Scroll(mul, Motion::MovePageDown) => scroll_page_down(*mul, state, vi),
-        Vim::Scroll(mul, Motion::MoveUp) => scroll_up(*mul, state),
-        Vim::Scroll(mul, Motion::MoveDown) => scroll_down(*mul, state),
-        Vim::Scroll(_, Motion::MoveMiddleOfScreen) => scroll_cursor_to_middle(state),
-        Vim::Scroll(_, Motion::MoveTopOfScreen) => scroll_cursor_to_top(state),
-        Vim::Scroll(_, Motion::MoveBottomOfScreen) => scroll_cursor_to_bottom(state),
-        Vim::Scroll(_, _) => return Ok(TextOutcome::Unchanged),
+        Vim::Scroll(mul, Scrolling::HalfPageUp) => scroll_half_page_up(*mul, state, vi),
+        Vim::Scroll(mul, Scrolling::HalfPageDown) => scroll_half_page_down(*mul, state, vi),
+        Vim::Scroll(mul, Scrolling::PageUp) => scroll_page_up(*mul, state, vi),
+        Vim::Scroll(mul, Scrolling::PageDown) => scroll_page_down(*mul, state, vi),
+        Vim::Scroll(mul, Scrolling::Up) => scroll_up(*mul, state),
+        Vim::Scroll(mul, Scrolling::Down) => scroll_down(*mul, state),
+        Vim::Scroll(_, Scrolling::MiddleOfScreen) => scroll_cursor_to_middle(state),
+        Vim::Scroll(_, Scrolling::TopOfScreen) => scroll_cursor_to_top(state),
+        Vim::Scroll(_, Scrolling::BottomOfScreen) => scroll_cursor_to_bottom(state),
 
         Vim::Mark(mark) => set_mark(*mark, state, vi),
 
@@ -904,7 +886,7 @@ mod move_op {
         }
     }
 
-    pub fn move_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn scroll_half_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if vi.page.0 != state.vertical_page() as u16 {
             vi.page = (
                 state.vertical_page() as u16,
@@ -918,7 +900,7 @@ mod move_op {
         state.move_up(vi.page.1, false);
     }
 
-    pub fn move_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn scroll_half_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if vi.page.0 != state.vertical_page() as u16 {
             vi.page = (
                 state.vertical_page() as u16,
@@ -1261,7 +1243,7 @@ mod change_op {
 
 mod query {
     use crate::vi_state::{Direction, Finds, Matches};
-    use crate::{SearchError, VI};
+    use crate::{SearchError, VI, ctrl};
     use rat_text::text_area::TextAreaState;
     use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
     use regex_cursor::engines::dfa::{Regex, find_iter};
@@ -2076,8 +2058,8 @@ mod query {
         _ = match cc {
             '\n' => state.insert_newline(),
             '\t' => state.insert_tab(),
-            VI::BS => state.delete_prev_char(),
-            VI::DEL => state.delete_next_char(),
+            ctrl::BS => state.delete_prev_char(),
+            ctrl::DEL => state.delete_next_char(),
             _ => state.insert_char(cc),
         };
     }
@@ -2094,7 +2076,7 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
         let r = if vi.mode == Mode::Normal {
             match event {
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
-                    vi.reset_motion();
+                    reset_motion(vi);
                     self.scroll_cursor_to_visible();
                     display_search(self, vi);
                     TextOutcome::Changed
@@ -2104,8 +2086,8 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
                 | ct_event!(key press SHIFT-c)
                 | ct_event!(key press CONTROL_ALT-c) => eval_motion(*c, self, vi)?,
                 ct_event!(keycode press Enter) => eval_motion('\n', self, vi)?,
-                ct_event!(keycode press Backspace) => eval_motion(VI::BS, self, vi)?,
-                ct_event!(key press CONTROL-cc) => eval_motion(VI::ctrl(*cc), self, vi)?,
+                ct_event!(keycode press Backspace) => eval_motion(ctrl::BS, self, vi)?,
+                ct_event!(key press CONTROL-cc) => eval_motion(ctrl::ctrl(*cc), self, vi)?,
 
                 _ => TextOutcome::Continue,
             }
@@ -2126,8 +2108,8 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
                     }
                 }
                 ct_event!(keycode press Enter) => insert_char('\n', self, vi),
-                ct_event!(keycode press Backspace) => insert_char(VI::BS, self, vi),
-                ct_event!(keycode press Delete) => insert_char(VI::DEL, self, vi),
+                ct_event!(keycode press Backspace) => insert_char(ctrl::BS, self, vi),
+                ct_event!(keycode press Delete) => insert_char(ctrl::DEL, self, vi),
 
                 _ => TextOutcome::Continue,
             }
