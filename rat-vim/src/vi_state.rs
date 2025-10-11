@@ -170,14 +170,20 @@ impl Motion {
 pub enum Vim {
     #[default]
     Invalid,
-    Repeat(u16),
-    Partial(u16, Motion),
-    Move(u16, Motion),
-    Scroll(u16, Motion),
+
+    Repeat(u32),
+
+    Partial(u32, Motion),
+    Move(u32, Motion),
+    Scroll(u32, Motion),
     Mark(char),
-    Insert(u16),
-    DeleteChar(u16),
-    JoinLines(u16),
+
+    Insert(u32),
+    Append(u32),
+    DeleteChar(u32),
+    JoinLines(u32),
+    Undo(u32),
+    Redo(u32),
 }
 
 impl Default for VI {
@@ -307,7 +313,7 @@ impl VI {
             }
             tok = yp.yield0().await;
         }
-        let mul = mul.parse::<u16>().ok();
+        let mul = mul.parse::<u32>().ok();
 
         motion_buf.borrow_mut().push(tok);
         match tok {
@@ -462,8 +468,11 @@ impl VI {
             }
 
             'i' => Vim::Insert(mul.unwrap_or(1)),
+            'a' => Vim::Append(mul.unwrap_or(1)),
             'x' => Vim::DeleteChar(mul.unwrap_or(1)),
             'J' => Vim::JoinLines(mul.unwrap_or(1)),
+            'u' => Vim::Undo(mul.unwrap_or(1)),
+            VI::CTRL_R => Vim::Redo(mul.unwrap_or(1)),
 
             '.' => Vim::Repeat(mul.unwrap_or(1)),
 
@@ -532,11 +541,14 @@ fn execute_vim(
 ) -> Result<TextOutcome, SearchError> {
     match vim {
         Vim::Invalid => return Ok(TextOutcome::Unchanged),
+        Vim::Repeat(_) => {
+            unreachable!("repeat should not end here")
+        }
 
-        Vim::Move(mul, Motion::MoveLeft) => _ = state.move_left(*mul, false),
-        Vim::Move(mul, Motion::MoveRight) => _ = state.move_right(*mul, false),
-        Vim::Move(mul, Motion::MoveUp) => _ = state.move_up(*mul, false),
-        Vim::Move(mul, Motion::MoveDown) => _ = state.move_down(*mul, false),
+        Vim::Move(mul, Motion::MoveLeft) => _ = state.move_left(*mul as u16, false),
+        Vim::Move(mul, Motion::MoveRight) => _ = state.move_right(*mul as u16, false),
+        Vim::Move(mul, Motion::MoveUp) => _ = state.move_up(*mul as u16, false),
+        Vim::Move(mul, Motion::MoveDown) => _ = state.move_down(*mul as u16, false),
         Vim::Move(mul, Motion::MoveToCol) => move_to_col(*mul, state),
         Vim::Move(mul, Motion::MoveToLine) => move_to_line(*mul, state),
         Vim::Move(mul, Motion::MoveToLinePercent) => move_to_line_percent(*mul, state),
@@ -617,22 +629,26 @@ fn execute_vim(
 
         Vim::Insert(mul) => {
             if repeat {
-                insert_str(*mul, &vi.text, state);
-                return Ok(TextOutcome::TextChanged);
+                return Ok(insert_str(*mul, &vi.text, state));
             } else {
                 begin_insert(vi);
             }
         }
+        Vim::Append(mul) => {
+            if repeat {
+                return Ok(append_str(*mul, &vi.text, state));
+            } else {
+                begin_append(state, vi);
+            }
+        }
         Vim::DeleteChar(mul) => {
-            delete_char(*mul, state);
+            return Ok(delete_char(*mul, state));
         }
         Vim::JoinLines(mul) => {
-            join_line(*mul, state);
+            return Ok(join_line(*mul, state));
         }
-
-        Vim::Repeat(_) => {
-            unreachable!("repeat should not end here")
-        }
+        Vim::Undo(mul) => return Ok(undo(*mul, state)),
+        Vim::Redo(mul) => return Ok(redo(*mul, state)),
     }
 
     Ok(TextOutcome::Changed)
@@ -710,15 +726,15 @@ mod scroll_op {
         }
     }
 
-    pub fn scroll_up(mul: u16, state: &mut TextAreaState) {
+    pub fn scroll_up(mul: u32, state: &mut TextAreaState) {
         state.scroll_up(mul as usize);
     }
 
-    pub fn scroll_down(mul: u16, state: &mut TextAreaState) {
+    pub fn scroll_down(mul: u32, state: &mut TextAreaState) {
         state.scroll_down(mul as usize);
     }
 
-    pub fn scroll_page_up(mul: u16, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn scroll_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if vi.page.0 != state.vertical_page() as u16 {
             vi.page = (
                 state.vertical_page() as u16,
@@ -726,10 +742,10 @@ mod scroll_op {
             );
         }
 
-        state.scroll_up((vi.page.0 * mul).saturating_sub(2) as usize);
+        state.scroll_up((vi.page.0 as u32 * mul).saturating_sub(2) as usize);
     }
 
-    pub fn scroll_page_down(mul: u16, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn scroll_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if vi.page.0 != state.vertical_page() as u16 {
             vi.page = (
                 state.vertical_page() as u16,
@@ -737,7 +753,7 @@ mod scroll_op {
             );
         }
 
-        state.scroll_down((vi.page.0 * mul).saturating_sub(2) as usize);
+        state.scroll_down((vi.page.0 as u32 * mul).saturating_sub(2) as usize);
     }
 }
 
@@ -760,14 +776,14 @@ mod move_op {
         }
     }
 
-    pub fn search_repeat_back(mul: u16, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn search_repeat_back(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if vi.matches.term.is_none() {
             return;
         }
         q_search_idx(&mut vi.matches, mul, Direction::Backward, state);
     }
 
-    pub fn search_repeat_fwd(mul: u16, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn search_repeat_fwd(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if vi.matches.term.is_none() {
             return;
         }
@@ -775,7 +791,7 @@ mod move_op {
     }
 
     pub fn search_word_back(
-        mul: u16,
+        mul: u32,
         state: &mut TextAreaState,
         vi: &mut VI,
     ) -> Result<(), SearchError> {
@@ -789,7 +805,7 @@ mod move_op {
     }
 
     pub fn search_word_fwd(
-        mul: u16,
+        mul: u32,
         state: &mut TextAreaState,
         vi: &mut VI,
     ) -> Result<(), SearchError> {
@@ -803,7 +819,7 @@ mod move_op {
     }
 
     pub fn search_back(
-        mul: u16,
+        mul: u32,
         term: &str,
         tmp: bool,
         state: &mut TextAreaState,
@@ -815,7 +831,7 @@ mod move_op {
     }
 
     pub fn search_fwd(
-        mul: u16,
+        mul: u32,
         term: &str,
         tmp: bool,
         state: &mut TextAreaState,
@@ -826,13 +842,13 @@ mod move_op {
         Ok(())
     }
 
-    pub fn move_prev_paragraph(mul: u16, state: &mut TextAreaState) {
+    pub fn move_prev_paragraph(mul: u32, state: &mut TextAreaState) {
         if let Some(cursor) = q_prev_paragraph(mul, state) {
             state.set_cursor(cursor, false);
         }
     }
 
-    pub fn move_next_paragraph(mul: u16, state: &mut TextAreaState) {
+    pub fn move_next_paragraph(mul: u32, state: &mut TextAreaState) {
         if let Some(cursor) = q_next_paragraph(mul, state) {
             state.set_cursor(cursor, false);
         }
@@ -850,7 +866,7 @@ mod move_op {
         }
     }
 
-    pub fn move_page_up(mul: u16, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn move_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if vi.page.0 != state.vertical_page() as u16 {
             vi.page = (
                 state.vertical_page() as u16,
@@ -858,13 +874,13 @@ mod move_op {
             );
         }
         if mul != 0 {
-            vi.page.1 = mul;
+            vi.page.1 = mul as u16;
         }
 
         state.move_up(vi.page.1, false);
     }
 
-    pub fn move_page_down(mul: u16, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn move_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if vi.page.0 != state.vertical_page() as u16 {
             vi.page = (
                 state.vertical_page() as u16,
@@ -872,7 +888,7 @@ mod move_op {
             );
         }
         if mul != 0 {
-            vi.page.1 = mul;
+            vi.page.1 = mul as u16;
         }
 
         state.move_down(vi.page.1, false);
@@ -884,7 +900,7 @@ mod move_op {
         }
     }
 
-    pub fn move_end_of_text(mul: u16, state: &mut TextAreaState) {
+    pub fn move_end_of_text(mul: u32, state: &mut TextAreaState) {
         if let Some(cursor) = q_end_of_text(mul, state) {
             state.set_cursor(cursor, false);
         }
@@ -902,13 +918,13 @@ mod move_op {
         }
     }
 
-    pub fn move_end_of_line(mul: u16, state: &mut TextAreaState) {
+    pub fn move_end_of_line(mul: u32, state: &mut TextAreaState) {
         if let Some(cursor) = q_end_of_line(mul, state) {
             state.set_cursor(cursor, false);
         }
     }
 
-    pub fn find_repeat_back(mul: u16, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn find_repeat_back(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         let Some(last_term) = vi.finds.term else {
             return;
         };
@@ -930,7 +946,7 @@ mod move_op {
         }
     }
 
-    pub fn find_repeat_fwd(mul: u16, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn find_repeat_fwd(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         let Some(last_term) = vi.finds.term else {
             return;
         };
@@ -952,7 +968,7 @@ mod move_op {
         }
     }
 
-    pub fn till_back(mul: u16, term: char, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn till_back(mul: u32, term: char, state: &mut TextAreaState, vi: &mut VI) {
         q_find(&mut vi.finds, term, Direction::Backward, true, state);
         q_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
@@ -962,7 +978,7 @@ mod move_op {
         }
     }
 
-    pub fn till_fwd(mul: u16, term: char, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn till_fwd(mul: u32, term: char, state: &mut TextAreaState, vi: &mut VI) {
         q_find(&mut vi.finds, term, Direction::Forward, true, state);
         q_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
@@ -972,7 +988,7 @@ mod move_op {
         }
     }
 
-    pub fn find_back(mul: u16, term: char, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn find_back(mul: u32, term: char, state: &mut TextAreaState, vi: &mut VI) {
         q_find(&mut vi.finds, term, Direction::Backward, false, state);
         q_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
@@ -982,7 +998,7 @@ mod move_op {
         }
     }
 
-    pub fn find_fwd(mul: u16, term: char, state: &mut TextAreaState, vi: &mut VI) {
+    pub fn find_fwd(mul: u32, term: char, state: &mut TextAreaState, vi: &mut VI) {
         q_find(&mut vi.finds, term, Direction::Forward, false, state);
         q_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
@@ -992,67 +1008,67 @@ mod move_op {
         }
     }
 
-    pub fn move_to_line_percent(mul: u16, state: &mut TextAreaState) {
+    pub fn move_to_line_percent(mul: u32, state: &mut TextAreaState) {
         if let Some(pos) = q_line_percent(mul, state) {
             state.set_cursor(pos, false);
         }
     }
 
-    pub fn move_to_line(mul: u16, state: &mut TextAreaState) {
+    pub fn move_to_line(mul: u32, state: &mut TextAreaState) {
         if let Some(pos) = q_line(mul, state) {
             state.set_cursor(pos, false);
         }
     }
 
-    pub fn move_to_col(mul: u16, state: &mut TextAreaState) {
+    pub fn move_to_col(mul: u32, state: &mut TextAreaState) {
         if let Some(pos) = q_col(mul, state) {
             state.set_cursor(pos, false);
         }
     }
 
-    pub fn move_next_word_start(mul: u16, state: &mut TextAreaState) {
+    pub fn move_next_word_start(mul: u32, state: &mut TextAreaState) {
         if let Some(word) = q_next_word_start(mul, state) {
             state.set_cursor(word, false);
         }
     }
 
-    pub fn move_prev_word_start(mul: u16, state: &mut TextAreaState) {
+    pub fn move_prev_word_start(mul: u32, state: &mut TextAreaState) {
         if let Some(word) = q_prev_word_start(mul, state) {
             state.set_cursor(word, false);
         }
     }
 
-    pub fn move_next_word_end(mul: u16, state: &mut TextAreaState) {
+    pub fn move_next_word_end(mul: u32, state: &mut TextAreaState) {
         if let Some(word) = q_next_word_end(mul, state) {
             state.set_cursor(word, false);
         }
     }
 
-    pub fn move_prev_word_end(mul: u16, state: &mut TextAreaState) {
+    pub fn move_prev_word_end(mul: u32, state: &mut TextAreaState) {
         if let Some(word) = q_prev_word_end(mul, state) {
             state.set_cursor(word, false);
         }
     }
 
-    pub fn move_next_bigword_start(mul: u16, state: &mut TextAreaState) {
+    pub fn move_next_bigword_start(mul: u32, state: &mut TextAreaState) {
         if let Some(word) = q_next_bigword_start(mul, state) {
             state.set_cursor(word, false);
         }
     }
 
-    pub fn move_prev_bigword_start(mul: u16, state: &mut TextAreaState) {
+    pub fn move_prev_bigword_start(mul: u32, state: &mut TextAreaState) {
         if let Some(word) = q_prev_bigword_start(mul, state) {
             state.set_cursor(word, false);
         }
     }
 
-    pub fn move_next_bigword_end(mul: u16, state: &mut TextAreaState) {
+    pub fn move_next_bigword_end(mul: u32, state: &mut TextAreaState) {
         if let Some(word) = q_next_bigword_end(mul, state) {
             state.set_cursor(word, false);
         }
     }
 
-    pub fn move_prev_bigword_end(mul: u16, state: &mut TextAreaState) {
+    pub fn move_prev_bigword_end(mul: u32, state: &mut TextAreaState) {
         if let Some(word) = q_prev_bigword_end(mul, state) {
             state.set_cursor(word, false);
         }
@@ -1061,30 +1077,51 @@ mod move_op {
 
 mod change_op {
     use crate::vi_state::Vim;
-    use crate::vi_state::query::{q_insert, q_insert_str, q_line_break_and_leading_space};
+    use crate::vi_state::query::{
+        q_append_str, q_insert, q_insert_str, q_line_break_and_leading_space,
+    };
     use crate::{Mode, VI};
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
     use rat_text::{TextPosition, upos_type};
     use std::cmp::min;
 
-    pub fn begin_insert(vi: &mut VI) {
-        vi.mode = Mode::Insert;
-        vi.text.clear();
-    }
-
-    pub fn end_insert(state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn end_insert_mode(state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
         vi.mode = Mode::Normal;
         match &vi.command {
             Vim::Insert(mul) => {
                 insert_str(mul.saturating_sub(1), &vi.text, state);
                 TextOutcome::TextChanged
             }
+            Vim::Append(mul) => {
+                append_str(mul.saturating_sub(1), &vi.text, state);
+                TextOutcome::TextChanged
+            }
             _ => TextOutcome::Changed,
         }
     }
 
-    pub fn insert_str(mut mul: u16, text: &str, state: &mut TextAreaState) -> TextOutcome {
+    pub fn begin_append(state: &mut TextAreaState, vi: &mut VI) {
+        vi.mode = Mode::Insert;
+        vi.text.clear();
+
+        state.move_right(1, false);
+    }
+
+    pub fn append_str(mut mul: u32, text: &str, state: &mut TextAreaState) -> TextOutcome {
+        while mul > 0 {
+            q_append_str(&text, state);
+            mul -= 1;
+        }
+        TextOutcome::TextChanged
+    }
+
+    pub fn begin_insert(vi: &mut VI) {
+        vi.mode = Mode::Insert;
+        vi.text.clear();
+    }
+
+    pub fn insert_str(mut mul: u32, text: &str, state: &mut TextAreaState) -> TextOutcome {
         while mul > 0 {
             q_insert_str(&text, state);
             mul -= 1;
@@ -1098,7 +1135,7 @@ mod change_op {
         TextOutcome::TextChanged
     }
 
-    pub fn delete_char(mul: u16, state: &mut TextAreaState) -> TextOutcome {
+    pub fn delete_char(mul: u32, state: &mut TextAreaState) -> TextOutcome {
         let c = state.cursor();
 
         let width = state.line_width(c.y);
@@ -1111,12 +1148,34 @@ mod change_op {
         TextOutcome::TextChanged
     }
 
-    pub fn join_line(mut mul: u16, state: &mut TextAreaState) -> TextOutcome {
+    pub fn join_line(mut mul: u32, state: &mut TextAreaState) -> TextOutcome {
         while mul > 0 {
             let range = q_line_break_and_leading_space(state);
             if !range.is_empty() {
                 state.set_selection(range.start, range.end);
                 state.insert_char(' ');
+            }
+
+            mul -= 1;
+        }
+        TextOutcome::TextChanged
+    }
+
+    pub fn undo(mut mul: u32, state: &mut TextAreaState) -> TextOutcome {
+        while mul > 0 {
+            if !state.undo() {
+                break;
+            }
+
+            mul -= 1;
+        }
+        TextOutcome::TextChanged
+    }
+
+    pub fn redo(mut mul: u32, state: &mut TextAreaState) -> TextOutcome {
+        while mul > 0 {
+            if !state.redo() {
+                break;
             }
 
             mul -= 1;
@@ -1166,7 +1225,7 @@ mod query {
 
     pub fn q_search_idx(
         matches: &mut Matches,
-        mul: u16,
+        mul: u32,
         dir: Direction,
         state: &mut TextAreaState,
     ) {
@@ -1332,7 +1391,7 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub fn q_next_paragraph(mut mul: u16, state: &mut TextAreaState) -> Option<TextPosition> {
+    pub fn q_next_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         let found;
@@ -1383,7 +1442,7 @@ mod query {
         Some(state.byte_pos(found))
     }
 
-    pub fn q_prev_paragraph(mut mul: u16, state: &mut TextAreaState) -> Option<TextPosition> {
+    pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         let found;
@@ -1434,7 +1493,7 @@ mod query {
         Some(state.byte_pos(found))
     }
 
-    pub fn q_end_of_text(mul: u16, state: &mut TextAreaState) -> Option<TextPosition> {
+    pub fn q_end_of_text(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
         let y = min(
             state.cursor().y + mul.saturating_sub(1) as upos_type,
             state.len_lines().saturating_sub(1),
@@ -1479,7 +1538,7 @@ mod query {
         Some(TextPosition::new(0, state.cursor().y))
     }
 
-    pub fn q_end_of_line(mul: u16, state: &mut TextAreaState) -> Option<TextPosition> {
+    pub fn q_end_of_line(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
         let y = min(
             state.cursor().y + mul.saturating_sub(1) as upos_type,
             state.len_lines().saturating_sub(1),
@@ -1487,7 +1546,7 @@ mod query {
         Some(TextPosition::new(state.line_width(y), y))
     }
 
-    pub fn q_find_idx(finds: &mut Finds, mul: u16, dir: Direction, state: &mut TextAreaState) {
+    pub fn q_find_idx(finds: &mut Finds, mul: u32, dir: Direction, state: &mut TextAreaState) {
         let mut c = state.byte_at(state.cursor()).start;
 
         let dir = finds.dir.mul(dir);
@@ -1566,7 +1625,7 @@ mod query {
         }
     }
 
-    pub fn q_prev_bigword_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_prev_bigword_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         while mul > 0 {
@@ -1586,7 +1645,7 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub fn q_next_bigword_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_next_bigword_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         while mul > 0 {
@@ -1604,7 +1663,7 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub fn q_prev_bigword_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_prev_bigword_end(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         while mul > 0 {
@@ -1622,7 +1681,7 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub fn q_next_bigword_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_next_bigword_end(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         while mul > 0 {
@@ -1641,7 +1700,7 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub fn q_next_word_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_next_word_end(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         while mul > 0 {
@@ -1662,7 +1721,7 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub fn q_prev_word_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_prev_word_end(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         while mul > 0 {
@@ -1685,14 +1744,14 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub fn q_line_percent(mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_line_percent(mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let len = state.len_lines() as u64;
         let pc = min(mul.saturating_sub(1), 100) as u64;
         let line = ((len * pc) / 100) as u32;
         Some(TextPosition::new(0, line))
     }
 
-    pub fn q_line(mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_line(mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let line = min(
             mul.saturating_sub(1) as upos_type,
             state.len_lines().saturating_sub(1),
@@ -1700,7 +1759,7 @@ mod query {
         Some(TextPosition::new(0, line))
     }
 
-    pub fn q_col(mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_col(mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let c = state.cursor();
         if mul as upos_type <= state.line_width(c.y) {
             Some(TextPosition::new(mul as upos_type, c.y))
@@ -1709,7 +1768,7 @@ mod query {
         }
     }
 
-    pub fn q_next_word_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_next_word_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         while mul > 0 {
@@ -1732,7 +1791,7 @@ mod query {
         Some(state.byte_pos(it.text_offset()))
     }
 
-    pub fn q_prev_word_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
+    pub fn q_prev_word_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
         while mul > 0 {
@@ -1897,6 +1956,13 @@ mod query {
         }
     }
 
+    pub fn q_append_str(v: &str, state: &mut TextAreaState) {
+        state.move_right(1, false);
+        for c in v.chars() {
+            q_insert(c, state);
+        }
+    }
+
     pub fn q_insert_str(v: &str, state: &mut TextAreaState) {
         for c in v.chars() {
             q_insert(c, state);
@@ -1943,7 +2009,7 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
         } else if vi.mode == Mode::Insert {
             match event {
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
-                    end_insert(self, vi)
+                    end_insert_mode(self, vi)
                 }
 
                 ct_event!(key press c)
