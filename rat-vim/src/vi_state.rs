@@ -177,6 +177,7 @@ pub enum Vim {
     Mark(char),
     Insert(u16),
     DeleteChar(u16),
+    JoinLines(u16),
 }
 
 impl Default for VI {
@@ -462,6 +463,7 @@ impl VI {
 
             'i' => Vim::Insert(mul.unwrap_or(1)),
             'x' => Vim::DeleteChar(mul.unwrap_or(1)),
+            'J' => Vim::JoinLines(mul.unwrap_or(1)),
 
             '.' => Vim::Repeat(mul.unwrap_or(1)),
 
@@ -477,6 +479,7 @@ fn eval_motion(
 ) -> Result<TextOutcome, SearchError> {
     match vi.motion(cc) {
         Poll::Ready(Vim::Repeat(mut mul)) => {
+            assert!(mul > 0);
             debug!(
                 "repeat {:?} {:?} {:?}",
                 vi.motion_display, vi.command, vi.text
@@ -622,6 +625,9 @@ fn execute_vim(
         }
         Vim::DeleteChar(mul) => {
             delete_char(*mul, state);
+        }
+        Vim::JoinLines(mul) => {
+            join_line(*mul, state);
         }
 
         Vim::Repeat(_) => {
@@ -1055,7 +1061,7 @@ mod move_op {
 
 mod change_op {
     use crate::vi_state::Vim;
-    use crate::vi_state::query::{q_insert, q_insert_str};
+    use crate::vi_state::query::{q_insert, q_insert_str, q_line_break_and_leading_space};
     use crate::{Mode, VI};
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
@@ -1079,10 +1085,7 @@ mod change_op {
     }
 
     pub fn insert_str(mut mul: u16, text: &str, state: &mut TextAreaState) -> TextOutcome {
-        loop {
-            if mul == 0 {
-                break;
-            }
+        while mul > 0 {
             q_insert_str(&text, state);
             mul -= 1;
         }
@@ -1107,6 +1110,19 @@ mod change_op {
         }
         TextOutcome::TextChanged
     }
+
+    pub fn join_line(mut mul: u16, state: &mut TextAreaState) -> TextOutcome {
+        while mul > 0 {
+            let range = q_line_break_and_leading_space(state);
+            if !range.is_empty() {
+                state.set_selection(range.start, range.end);
+                state.insert_char(' ');
+            }
+
+            mul -= 1;
+        }
+        TextOutcome::TextChanged
+    }
 }
 
 mod query {
@@ -1117,6 +1133,19 @@ mod query {
     use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
     use std::cmp::min;
+
+    pub fn q_line_break_and_leading_space(state: &mut TextAreaState) -> TextRange {
+        let c = state.cursor();
+        let width = state.line_width(c.y);
+
+        let start = TextPosition::new(width, c.y);
+
+        let mut it = state.text_graphemes(start);
+        skip_white(&mut it);
+        let end = state.byte_pos(it.text_offset());
+
+        TextRange::new(start, end)
+    }
 
     pub fn q_mark_pos(mark: char, marks: &[Option<TextPosition>; 26]) -> Option<TextPosition> {
         if let Some(mark) = q_mark_idx(mark) {
@@ -1540,7 +1569,7 @@ mod query {
     pub fn q_prev_bigword_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        loop {
+        while mul > 0 {
             let Some(sample) = it.peek_prev() else {
                 return None;
             };
@@ -1552,9 +1581,6 @@ mod query {
             }
 
             mul -= 1;
-            if mul == 0 {
-                break;
-            }
         }
 
         Some(state.byte_pos(it.text_offset()))
@@ -1563,7 +1589,7 @@ mod query {
     pub fn q_next_bigword_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        loop {
+        while mul > 0 {
             let Some(sample) = it.peek_next() else {
                 return None;
             };
@@ -1573,9 +1599,6 @@ mod query {
             skip_white(&mut it);
 
             mul -= 1;
-            if mul == 0 {
-                break;
-            }
         }
 
         Some(state.byte_pos(it.text_offset()))
@@ -1584,7 +1607,7 @@ mod query {
     pub fn q_prev_bigword_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        loop {
+        while mul > 0 {
             let Some(sample) = it.peek_prev() else {
                 return None;
             };
@@ -1594,9 +1617,6 @@ mod query {
             pskip_white(&mut it);
 
             mul -= 1;
-            if mul == 0 {
-                break;
-            }
         }
 
         Some(state.byte_pos(it.text_offset()))
@@ -1605,7 +1625,7 @@ mod query {
     pub fn q_next_bigword_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        loop {
+        while mul > 0 {
             skip_white(&mut it);
 
             let Some(sample) = it.peek_next() else {
@@ -1616,9 +1636,6 @@ mod query {
             }
 
             mul -= 1;
-            if mul == 0 {
-                break;
-            }
         }
 
         Some(state.byte_pos(it.text_offset()))
@@ -1627,7 +1644,7 @@ mod query {
     pub fn q_next_word_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        loop {
+        while mul > 0 {
             skip_white(&mut it);
 
             let Some(sample) = it.peek_next() else {
@@ -1640,9 +1657,6 @@ mod query {
             }
 
             mul -= 1;
-            if mul == 0 {
-                break;
-            }
         }
 
         Some(state.byte_pos(it.text_offset()))
@@ -1651,7 +1665,7 @@ mod query {
     pub fn q_prev_word_end(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        loop {
+        while mul > 0 {
             let Some(sample) = it.peek_prev() else {
                 return None;
             };
@@ -1666,9 +1680,6 @@ mod query {
             pskip_white(&mut it);
 
             mul -= 1;
-            if mul == 0 {
-                break;
-            }
         }
 
         Some(state.byte_pos(it.text_offset()))
@@ -1701,7 +1712,7 @@ mod query {
     pub fn q_next_word_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        loop {
+        while mul > 0 {
             let Some(sample) = it.peek_next() else {
                 return None;
             };
@@ -1716,9 +1727,6 @@ mod query {
             skip_white(&mut it);
 
             mul -= 1;
-            if mul == 0 {
-                break;
-            }
         }
 
         Some(state.byte_pos(it.text_offset()))
@@ -1727,7 +1735,7 @@ mod query {
     pub fn q_prev_word_start(mut mul: u16, state: &TextAreaState) -> Option<TextPosition> {
         let mut it = state.text_graphemes(state.cursor());
 
-        loop {
+        while mul > 0 {
             let Some(sample) = it.peek_prev() else {
                 return None;
             };
@@ -1748,9 +1756,6 @@ mod query {
             }
 
             mul -= 1;
-            if mul == 0 {
-                break;
-            }
         }
 
         Some(state.byte_pos(it.text_offset()))
@@ -1788,7 +1793,8 @@ mod query {
         state.byte_pos(it.text_offset())
     }
 
-    fn pskip_alpha(it: &mut dyn Cursor<Item = Grapheme>) {
+    #[inline]
+    fn pskip_alpha<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         loop {
             let Some(c) = it.prev() else {
                 break;
@@ -1800,7 +1806,8 @@ mod query {
         }
     }
 
-    fn pskip_sample(it: &mut dyn Cursor<Item = Grapheme>, sample: Grapheme) {
+    #[inline]
+    fn pskip_sample<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, sample: Grapheme) {
         loop {
             let Some(c) = it.prev() else {
                 break;
@@ -1812,7 +1819,8 @@ mod query {
         }
     }
 
-    fn pskip_white(it: &mut dyn Cursor<Item = Grapheme>) {
+    #[inline]
+    fn pskip_white<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         loop {
             let Some(c) = it.prev() else {
                 break;
@@ -1824,7 +1832,8 @@ mod query {
         }
     }
 
-    fn pskip_nonwhite(it: &mut dyn Cursor<Item = Grapheme>) {
+    #[inline]
+    fn pskip_nonwhite<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         loop {
             let Some(c) = it.prev() else {
                 break;
@@ -1836,7 +1845,8 @@ mod query {
         }
     }
 
-    fn skip_alpha(it: &mut dyn Cursor<Item = Grapheme>) {
+    #[inline]
+    fn skip_alpha<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         loop {
             let Some(c) = it.next() else {
                 break;
@@ -1848,7 +1858,8 @@ mod query {
         }
     }
 
-    fn skip_sample(it: &mut dyn Cursor<Item = Grapheme>, sample: Grapheme) {
+    #[inline]
+    fn skip_sample<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, sample: Grapheme) {
         loop {
             let Some(c) = it.next() else {
                 break;
@@ -1860,7 +1871,8 @@ mod query {
         }
     }
 
-    fn skip_white(it: &mut dyn Cursor<Item = Grapheme>) {
+    #[inline]
+    fn skip_white<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         loop {
             let Some(c) = it.next() else {
                 break;
@@ -1872,7 +1884,8 @@ mod query {
         }
     }
 
-    fn skip_nonwhite(it: &mut dyn Cursor<Item = Grapheme>) {
+    #[inline]
+    fn skip_nonwhite<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         loop {
             let Some(c) = it.next() else {
                 break;
