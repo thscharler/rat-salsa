@@ -2861,7 +2861,7 @@ impl TextAreaState {
                     let alt_scr = (0, pos.y.saturating_sub(page), 3 * page);
                     self.stc_fill_screen_cache(alt_scr);
                     if let Some(alt_scr_row) = self.stc_screen_row(alt_scr, pos) {
-                        let noff_row = alt_scr_row.saturating_sub(page * 4 / 10);
+                        let noff_row = alt_scr_row.saturating_sub(page * 5 / 10);
                         let (nsub_row_offset, noy) = self.stc_sub_row_offset(alt_scr, noff_row);
                         self.set_offset((0, noy as usize));
                         self.set_sub_row_offset(nsub_row_offset);
