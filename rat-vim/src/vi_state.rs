@@ -1,5 +1,7 @@
+use crate::vi_state::change_op::{begin_insert, end_insert, insert_char, insert_str};
 use crate::vi_state::display::*;
 use crate::vi_state::move_op::*;
+use crate::vi_state::query::{q_insert, q_insert_str};
 use crate::vi_state::scroll_op::*;
 use crate::{Coroutine, Resume, SearchError, YieldPoint};
 use log::debug;
@@ -8,6 +10,7 @@ use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
 use rat_text::{TextPosition, upos_type};
 use std::cell::RefCell;
+use std::cmp::max;
 use std::ops::Range;
 use std::rc::Rc;
 use std::task::Poll;
@@ -15,8 +18,11 @@ use std::task::Poll;
 pub struct VI {
     pub mode: Mode,
 
-    pub motion_buf: Rc<RefCell<String>>,
+    pub motion_display: Rc<RefCell<String>>,
     pub motion: Coroutine<char, Vim>,
+
+    pub command: Vim,
+    pub text: String,
 
     pub finds: Finds,
     pub matches: Matches,
@@ -146,8 +152,6 @@ pub enum Motion {
     SearchWordBackward,
     SearchForward(String),
     SearchBack(String),
-    SearchPartialForward(String),
-    SearchPartialBack(String),
     SearchRepeatNext,
     SearchRepeatPrev,
 }
@@ -157,20 +161,21 @@ impl Motion {
         match self {
             Motion::SearchForward(s) => Some(s.as_str()),
             Motion::SearchBack(s) => Some(s.as_str()),
-            Motion::SearchPartialForward(s) => Some(s.as_str()),
-            Motion::SearchPartialBack(s) => Some(s.as_str()),
             _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum Vim {
+    #[default]
     Invalid,
+    Repeat(u16),
+    Partial(u16, Motion),
     Move(u16, Motion),
     Scroll(u16, Motion),
     Mark(char),
-    Insert,
+    Insert(u16),
 }
 
 impl Default for VI {
@@ -178,8 +183,10 @@ impl Default for VI {
         let motion_buf = Rc::new(RefCell::new(String::new()));
         Self {
             mode: Default::default(),
-            motion_buf: motion_buf.clone(),
+            motion_display: motion_buf.clone(),
             motion: Coroutine::new(|c, yp| Box::new(VI::next_motion(c, motion_buf, yp))),
+            command: Default::default(),
+            text: Default::default(),
             finds: Default::default(),
             matches: Default::default(),
             marks: Default::default(),
@@ -190,16 +197,14 @@ impl Default for VI {
 
 #[allow(dead_code)]
 impl VI {
-    fn cancel(&mut self) {
-        self.motion_buf.borrow_mut().clear();
-        let mb = self.motion_buf.clone();
+    fn reset_motion(&mut self) {
+        self.motion_display.borrow_mut().clear();
+        let mb = self.motion_display.clone();
         self.motion = Coroutine::new(|c, yp| Box::new(VI::next_motion(c, mb, yp)));
-        self.matches.clear();
-        self.finds.clear();
     }
 
     fn motion(&mut self, c: char) -> Poll<Vim> {
-        debug!("motion {:?} >> {:?}", c, self.motion_buf);
+        debug!("motion {:?} >> {:?}", c, self.motion_display);
         match self.motion.resume(c) {
             Resume::Yield(v) => {
                 debug!("    !> {:?}", v);
@@ -207,8 +212,8 @@ impl VI {
             }
             Resume::Done(v) => {
                 debug!("    |> {:?}", v);
-                self.motion_buf.borrow_mut().clear();
-                let mb = self.motion_buf.clone();
+                self.motion_display.borrow_mut().clear();
+                let mb = self.motion_display.clone();
                 self.motion = Coroutine::new(|c, yp| Box::new(VI::next_motion(c, mb, yp)));
                 Poll::Ready(v)
             }
@@ -278,6 +283,7 @@ impl VI {
     const CTRL_X: char = '\x18';
     const CTRL_Y: char = '\x19';
     const CTRL_Z: char = '\x1A';
+    const DEL: char = '\x7F';
 
     async fn next_motion(
         mut tok: char,
@@ -393,9 +399,9 @@ impl VI {
                 let mut buf = String::new();
                 loop {
                     let tok = yp
-                        .yield1(Vim::Move(
+                        .yield1(Vim::Partial(
                             mul.unwrap_or(1),
-                            Motion::SearchPartialForward(buf.clone()),
+                            Motion::SearchForward(buf.clone()),
                         ))
                         .await;
                     if tok == '\n' {
@@ -417,9 +423,9 @@ impl VI {
                 let mut buf = String::new();
                 loop {
                     let tok = yp
-                        .yield1(Vim::Move(
+                        .yield1(Vim::Partial(
                             mul.unwrap_or(1),
-                            Motion::SearchPartialBack(buf.clone()),
+                            Motion::SearchBack(buf.clone()),
                         ))
                         .await;
                     if tok == '\n' {
@@ -453,16 +459,57 @@ impl VI {
                 Vim::Move(0, Motion::MoveToMark(tok))
             }
 
-            'i' => Vim::Insert,
+            'i' => Vim::Insert(mul.unwrap_or(1)),
 
             _ => Vim::Invalid,
         }
     }
 }
 
-fn run_vim(vim: Vim, state: &mut TextAreaState, vi: &mut VI) -> Result<TextOutcome, SearchError> {
+fn eval_motion(
+    cc: char,
+    state: &mut TextAreaState,
+    vi: &mut VI,
+) -> Result<TextOutcome, SearchError> {
+    match vi.motion(cc) {
+        Poll::Ready(Vim::Repeat(mul)) => {
+            //
+            repeat_vim(mul, vi.command.clone(), state, vi)
+        }
+        Poll::Ready(vim) => {
+            vi.command = vim.clone();
+            execute_vim(vim, false, state, vi)
+        }
+        Poll::Pending => Ok(TextOutcome::Changed),
+    }
+}
+
+fn repeat_vim(
+    mut mul: u16,
+    vim: Vim,
+    state: &mut TextAreaState,
+    vi: &mut VI,
+) -> Result<TextOutcome, SearchError> {
+    let mut r = TextOutcome::Continue;
+    loop {
+        r = max(r, execute_vim(vim.clone(), true, state, vi)?);
+
+        mul -= 1;
+        if mul == 0 {
+            break;
+        }
+    }
+    Ok(r)
+}
+
+fn execute_vim(
+    vim: Vim,
+    repeat: bool,
+    state: &mut TextAreaState,
+    vi: &mut VI,
+) -> Result<TextOutcome, SearchError> {
     match vim {
-        Vim::Invalid => {}
+        Vim::Invalid => return Ok(TextOutcome::Unchanged),
 
         Vim::Move(mul, Motion::MoveLeft) => _ = state.move_left(mul, false),
         Vim::Move(mul, Motion::MoveRight) => _ = state.move_right(mul, false),
@@ -499,14 +546,6 @@ fn run_vim(vim: Vim, state: &mut TextAreaState, vi: &mut VI) -> Result<TextOutco
         Vim::Move(mul, Motion::FindRepeatNext) => find_repeat_fwd(mul, state, vi),
         Vim::Move(mul, Motion::FindRepeatPrev) => find_repeat_back(mul, state, vi),
 
-        Vim::Move(mul, Motion::SearchPartialForward(s)) => {
-            search_fwd(mul, s, true, state, vi)?;
-            display_search(state, vi);
-        }
-        Vim::Move(mul, Motion::SearchPartialBack(s)) => {
-            search_back(mul, s, true, state, vi)?;
-            display_search(state, vi);
-        }
         Vim::Move(mul, Motion::SearchForward(s)) => {
             search_fwd(mul, s, false, state, vi)?;
             display_search(state, vi);
@@ -533,6 +572,16 @@ fn run_vim(vim: Vim, state: &mut TextAreaState, vi: &mut VI) -> Result<TextOutco
         }
         Vim::Move(_, _) => {}
 
+        Vim::Partial(mul, Motion::SearchForward(s)) => {
+            search_fwd(mul, s, true, state, vi)?;
+            display_search(state, vi);
+        }
+        Vim::Partial(mul, Motion::SearchBack(s)) => {
+            search_back(mul, s, true, state, vi)?;
+            display_search(state, vi);
+        }
+        Vim::Partial(_, _) => return Ok(TextOutcome::Unchanged),
+
         Vim::Scroll(mul, Motion::MovePageUp) => scroll_page_up(mul, state, vi),
         Vim::Scroll(mul, Motion::MovePageDown) => scroll_page_down(mul, state, vi),
         Vim::Scroll(mul, Motion::MoveUp) => scroll_up(mul, state),
@@ -540,14 +589,23 @@ fn run_vim(vim: Vim, state: &mut TextAreaState, vi: &mut VI) -> Result<TextOutco
         Vim::Scroll(_, Motion::MoveMiddleOfScreen) => scroll_cursor_to_middle(state),
         Vim::Scroll(_, Motion::MoveTopOfScreen) => scroll_cursor_to_top(state),
         Vim::Scroll(_, Motion::MoveBottomOfScreen) => scroll_cursor_to_bottom(state),
-        Vim::Scroll(_, _) => {}
-
-        Vim::Insert => {
-            vi.mode = Mode::Insert;
-        }
+        Vim::Scroll(_, _) => return Ok(TextOutcome::Unchanged),
 
         Vim::Mark(m) => set_mark(m, state, vi),
-    };
+
+        Vim::Insert(mul) => {
+            if repeat {
+                insert_str(mul, &vi.text, state);
+                return Ok(TextOutcome::TextChanged);
+            } else {
+                begin_insert(vi);
+            }
+        }
+
+        Vim::Repeat(_) => {
+            unreachable!("repeat should not end here")
+        }
+    }
 
     Ok(TextOutcome::Changed)
 }
@@ -973,9 +1031,50 @@ mod move_op {
     }
 }
 
+mod change_op {
+    use crate::vi_state::Vim;
+    use crate::vi_state::query::{q_insert, q_insert_str};
+    use crate::{Mode, VI};
+    use rat_text::event::TextOutcome;
+    use rat_text::text_area::TextAreaState;
+
+    pub fn begin_insert(vi: &mut VI) {
+        vi.mode = Mode::Insert;
+        vi.text.clear();
+    }
+
+    pub fn end_insert(state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        vi.mode = Mode::Normal;
+        match &vi.command {
+            Vim::Insert(mul) => {
+                insert_str(*mul, &vi.text, state);
+                TextOutcome::TextChanged
+            }
+            _ => TextOutcome::Changed,
+        }
+    }
+
+    pub fn insert_str(mut mul: u16, text: &str, state: &mut TextAreaState) -> TextOutcome {
+        loop {
+            mul -= 1;
+            if mul == 0 {
+                break;
+            }
+            q_insert_str(&text, state);
+        }
+        TextOutcome::TextChanged
+    }
+
+    pub fn insert_char(cc: char, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        vi.text.push(cc);
+        q_insert(cc, state);
+        TextOutcome::TextChanged
+    }
+}
+
 mod query {
-    use crate::SearchError;
     use crate::vi_state::{Direction, Finds, Matches};
+    use crate::{SearchError, VI};
     use rat_text::text_area::TextAreaState;
     use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
     use regex_cursor::engines::dfa::{Regex, find_iter};
@@ -1742,6 +1841,22 @@ mod query {
             }
         }
     }
+
+    pub fn q_insert_str(v: &str, state: &mut TextAreaState) {
+        for c in v.chars() {
+            q_insert(c, state);
+        }
+    }
+
+    pub fn q_insert(cc: char, state: &mut TextAreaState) {
+        _ = match cc {
+            '\n' => state.insert_newline(),
+            '\t' => state.insert_tab(),
+            VI::BS => state.delete_prev_char(),
+            VI::DEL => state.delete_next_char(),
+            _ => state.insert_char(cc),
+        };
+    }
 }
 
 impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchError>>
@@ -1755,7 +1870,7 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
         let r = if vi.mode == Mode::Normal {
             match event {
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
-                    vi.cancel();
+                    vi.reset_motion();
                     self.scroll_cursor_to_visible();
                     display_search(self, vi);
                     TextOutcome::Changed
@@ -1763,60 +1878,32 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
 
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => {
-                    if let Poll::Ready(vim) = vi.motion(*c) {
-                        run_vim(vim, self, vi)?
-                    } else {
-                        TextOutcome::Changed
-                    }
-                }
-                ct_event!(keycode press Enter) => {
-                    if let Poll::Ready(vim) = vi.motion('\n') {
-                        run_vim(vim, self, vi)?
-                    } else {
-                        TextOutcome::Changed
-                    }
-                }
-                ct_event!(keycode press Backspace) => {
-                    if let Poll::Ready(vim) = vi.motion(VI::BS) {
-                        run_vim(vim, self, vi)?
-                    } else {
-                        TextOutcome::Changed
-                    }
-                }
-                ct_event!(key press CONTROL-cc) => {
-                    if let Poll::Ready(vim) = vi.motion(VI::ctrl(*cc)) {
-                        run_vim(vim, self, vi)?
-                    } else {
-                        TextOutcome::Changed
-                    }
-                }
+                | ct_event!(key press CONTROL_ALT-c) => eval_motion(*c, self, vi)?,
+                ct_event!(keycode press Enter) => eval_motion('\n', self, vi)?,
+                ct_event!(keycode press Backspace) => eval_motion(VI::BS, self, vi)?,
+                ct_event!(key press CONTROL-cc) => eval_motion(VI::ctrl(*cc), self, vi)?,
 
                 _ => TextOutcome::Continue,
             }
         } else if vi.mode == Mode::Insert {
             match event {
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
-                    vi.mode = Mode::Normal;
-                    TextOutcome::Changed
+                    end_insert(self, vi)
                 }
 
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => {
-                    tc(self.insert_char(*c)) //
-                }
+                | ct_event!(key press CONTROL_ALT-c) => insert_char(*c, self, vi),
                 ct_event!(keycode press Tab) => {
-                    // ignore tab from focus
                     if !self.focus.gained() {
-                        tc(self.insert_tab())
+                        insert_char('\t', self, vi)
                     } else {
                         TextOutcome::Unchanged
                     }
                 }
-                ct_event!(keycode press Enter) => tc(self.insert_newline()),
-                ct_event!(keycode press Backspace) => tc(self.delete_prev_char()),
-                ct_event!(keycode press Delete) => tc(self.delete_next_char()),
+                ct_event!(keycode press Enter) => insert_char('\n', self, vi),
+                ct_event!(keycode press Backspace) => insert_char(VI::BS, self, vi),
+                ct_event!(keycode press Delete) => insert_char(VI::DEL, self, vi),
 
                 _ => TextOutcome::Continue,
             }
@@ -1827,14 +1914,5 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
         };
 
         Ok(r)
-    }
-}
-
-// small helper ...
-fn tc(r: bool) -> TextOutcome {
-    if r {
-        TextOutcome::TextChanged
-    } else {
-        TextOutcome::Unchanged
     }
 }

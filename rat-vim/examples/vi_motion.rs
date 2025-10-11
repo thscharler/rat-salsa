@@ -143,7 +143,7 @@ fn render(
     textarea.render(l2[2], frame.buffer_mut(), &mut state.textarea);
     let el = t.elapsed().expect("timinig");
 
-    let mb = state.textarea_vim.motion_buf.borrow();
+    let mb = state.textarea_vim.motion_display.borrow();
     Line::from_iter([
         Span::from(format!(" {:?} ", state.textarea_vim.mode)).style(
             match state.textarea_vim.mode {
