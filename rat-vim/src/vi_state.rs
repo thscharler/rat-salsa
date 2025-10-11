@@ -10,10 +10,11 @@ use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
 use rat_text::{TextPosition, upos_type};
 use std::cell::RefCell;
-use std::cmp::max;
+use std::mem;
 use std::ops::Range;
 use std::rc::Rc;
 use std::task::Poll;
+use std::time::SystemTime;
 
 pub struct VI {
     pub mode: Mode,
@@ -461,6 +462,8 @@ impl VI {
 
             'i' => Vim::Insert(mul.unwrap_or(1)),
 
+            '.' => Vim::Repeat(mul.unwrap_or(1)),
+
             _ => Vim::Invalid,
         }
     }
@@ -472,38 +475,53 @@ fn eval_motion(
     vi: &mut VI,
 ) -> Result<TextOutcome, SearchError> {
     match vi.motion(cc) {
-        Poll::Ready(Vim::Repeat(mul)) => {
-            //
-            repeat_vim(mul, vi.command.clone(), state, vi)
+        Poll::Ready(Vim::Repeat(mut mul)) => {
+            debug!(
+                "repeat {:?} {:?} {:?}",
+                vi.motion_display, vi.command, vi.text
+            );
+            let tt = SystemTime::now();
+            let vim = mem::take(&mut vi.command);
+            let r = loop {
+                let rr = match execute_vim(&vim, true, state, vi) {
+                    Ok(v) => Ok(v),
+                    Err(e) => {
+                        vi.command = vim;
+                        break Err(e);
+                    }
+                };
+
+                mul -= 1;
+                if mul == 0 {
+                    vi.command = vim;
+                    break rr;
+                }
+            };
+            debug!("TT {:?}", tt.elapsed());
+            r
         }
         Poll::Ready(vim) => {
-            vi.command = vim.clone();
-            execute_vim(vim, false, state, vi)
+            debug!("execute {:?} {:?}", vi.motion_display, vim);
+            let tt = SystemTime::now();
+            let r = match execute_vim(&vim, false, state, vi) {
+                Ok(v) => {
+                    vi.command = vim;
+                    Ok(v)
+                }
+                Err(e) => {
+                    vi.command = vim;
+                    Err(e)
+                }
+            };
+            debug!("TT {:?}", tt.elapsed());
+            r
         }
         Poll::Pending => Ok(TextOutcome::Changed),
     }
 }
 
-fn repeat_vim(
-    mut mul: u16,
-    vim: Vim,
-    state: &mut TextAreaState,
-    vi: &mut VI,
-) -> Result<TextOutcome, SearchError> {
-    let mut r = TextOutcome::Continue;
-    loop {
-        r = max(r, execute_vim(vim.clone(), true, state, vi)?);
-
-        mul -= 1;
-        if mul == 0 {
-            break;
-        }
-    }
-    Ok(r)
-}
-
 fn execute_vim(
-    vim: Vim,
+    vim: &Vim,
     repeat: bool,
     state: &mut TextAreaState,
     vi: &mut VI,
@@ -511,91 +529,91 @@ fn execute_vim(
     match vim {
         Vim::Invalid => return Ok(TextOutcome::Unchanged),
 
-        Vim::Move(mul, Motion::MoveLeft) => _ = state.move_left(mul, false),
-        Vim::Move(mul, Motion::MoveRight) => _ = state.move_right(mul, false),
-        Vim::Move(mul, Motion::MoveUp) => _ = state.move_up(mul, false),
-        Vim::Move(mul, Motion::MoveDown) => _ = state.move_down(mul, false),
-        Vim::Move(mul, Motion::MoveToCol) => move_to_col(mul, state),
-        Vim::Move(mul, Motion::MoveToLine) => move_to_line(mul, state),
-        Vim::Move(mul, Motion::MoveToLinePercent) => move_to_line_percent(mul, state),
-        Vim::Move(_, Motion::MoveToMark(m)) => move_to_mark(m, state, vi),
-        Vim::Move(mul, Motion::MoveNextWordStart) => move_next_word_start(mul, state),
-        Vim::Move(mul, Motion::MovePrevWordStart) => move_prev_word_start(mul, state),
-        Vim::Move(mul, Motion::MoveNextWordEnd) => move_next_word_end(mul, state),
-        Vim::Move(mul, Motion::MovePrevWordEnd) => move_prev_word_end(mul, state),
-        Vim::Move(mul, Motion::MoveNextWORDStart) => move_next_bigword_start(mul, state),
-        Vim::Move(mul, Motion::MovePrevWORDStart) => move_prev_bigword_start(mul, state),
-        Vim::Move(mul, Motion::MoveNextWORDEnd) => move_next_bigword_end(mul, state),
-        Vim::Move(mul, Motion::MovePrevWORDEnd) => move_prev_bigword_end(mul, state),
+        Vim::Move(mul, Motion::MoveLeft) => _ = state.move_left(*mul, false),
+        Vim::Move(mul, Motion::MoveRight) => _ = state.move_right(*mul, false),
+        Vim::Move(mul, Motion::MoveUp) => _ = state.move_up(*mul, false),
+        Vim::Move(mul, Motion::MoveDown) => _ = state.move_down(*mul, false),
+        Vim::Move(mul, Motion::MoveToCol) => move_to_col(*mul, state),
+        Vim::Move(mul, Motion::MoveToLine) => move_to_line(*mul, state),
+        Vim::Move(mul, Motion::MoveToLinePercent) => move_to_line_percent(*mul, state),
+        Vim::Move(_, Motion::MoveToMark(mark)) => move_to_mark(*mark, state, vi),
+        Vim::Move(mul, Motion::MoveNextWordStart) => move_next_word_start(*mul, state),
+        Vim::Move(mul, Motion::MovePrevWordStart) => move_prev_word_start(*mul, state),
+        Vim::Move(mul, Motion::MoveNextWordEnd) => move_next_word_end(*mul, state),
+        Vim::Move(mul, Motion::MovePrevWordEnd) => move_prev_word_end(*mul, state),
+        Vim::Move(mul, Motion::MoveNextWORDStart) => move_next_bigword_start(*mul, state),
+        Vim::Move(mul, Motion::MovePrevWORDStart) => move_prev_bigword_start(*mul, state),
+        Vim::Move(mul, Motion::MoveNextWORDEnd) => move_next_bigword_end(*mul, state),
+        Vim::Move(mul, Motion::MovePrevWORDEnd) => move_prev_bigword_end(*mul, state),
         Vim::Move(_, Motion::MoveStartOfLine) => move_start_of_line(state),
-        Vim::Move(mul, Motion::MoveEndOfLine) => move_end_of_line(mul, state),
+        Vim::Move(mul, Motion::MoveEndOfLine) => move_end_of_line(*mul, state),
         Vim::Move(_, Motion::MoveStartOfLineText) => move_start_of_text(state),
-        Vim::Move(mul, Motion::MoveEndOfLineText) => move_end_of_text(mul, state),
-        Vim::Move(mul, Motion::MovePrevParagraph) => move_prev_paragraph(mul, state),
-        Vim::Move(mul, Motion::MoveNextParagraph) => move_next_paragraph(mul, state),
+        Vim::Move(mul, Motion::MoveEndOfLineText) => move_end_of_text(*mul, state),
+        Vim::Move(mul, Motion::MovePrevParagraph) => move_prev_paragraph(*mul, state),
+        Vim::Move(mul, Motion::MoveNextParagraph) => move_next_paragraph(*mul, state),
         Vim::Move(_, Motion::MoveStartOfFile) => move_start_of_file(state),
         Vim::Move(_, Motion::MoveEndOfFile) => move_end_of_file(state),
         Vim::Move(_, Motion::MoveToMatching) => move_matching_brace(state),
-        Vim::Move(mul, Motion::MovePageUp) => move_page_up(mul, state, vi),
-        Vim::Move(mul, Motion::MovePageDown) => move_page_down(mul, state, vi),
+        Vim::Move(mul, Motion::MovePageUp) => move_page_up(*mul, state, vi),
+        Vim::Move(mul, Motion::MovePageDown) => move_page_down(*mul, state, vi),
 
-        Vim::Move(mul, Motion::FindForward(c)) => find_fwd(mul, c, state, vi),
-        Vim::Move(mul, Motion::FindBack(c)) => find_back(mul, c, state, vi),
-        Vim::Move(mul, Motion::FindTillForward(c)) => till_fwd(mul, c, state, vi),
-        Vim::Move(mul, Motion::FindTillBack(c)) => till_back(mul, c, state, vi),
-        Vim::Move(mul, Motion::FindRepeatNext) => find_repeat_fwd(mul, state, vi),
-        Vim::Move(mul, Motion::FindRepeatPrev) => find_repeat_back(mul, state, vi),
+        Vim::Move(mul, Motion::FindForward(c)) => find_fwd(*mul, *c, state, vi),
+        Vim::Move(mul, Motion::FindBack(c)) => find_back(*mul, *c, state, vi),
+        Vim::Move(mul, Motion::FindTillForward(c)) => till_fwd(*mul, *c, state, vi),
+        Vim::Move(mul, Motion::FindTillBack(c)) => till_back(*mul, *c, state, vi),
+        Vim::Move(mul, Motion::FindRepeatNext) => find_repeat_fwd(*mul, state, vi),
+        Vim::Move(mul, Motion::FindRepeatPrev) => find_repeat_back(*mul, state, vi),
 
         Vim::Move(mul, Motion::SearchForward(s)) => {
-            search_fwd(mul, s, false, state, vi)?;
+            search_fwd(*mul, s, false, state, vi)?;
             display_search(state, vi);
         }
         Vim::Move(mul, Motion::SearchBack(s)) => {
-            search_back(mul, s, false, state, vi)?;
+            search_back(*mul, s, false, state, vi)?;
             display_search(state, vi);
         }
         Vim::Move(mul, Motion::SearchWordForward) => {
-            search_word_fwd(mul, state, vi)?;
+            search_word_fwd(*mul, state, vi)?;
             display_search(state, vi);
         }
         Vim::Move(mul, Motion::SearchWordBackward) => {
-            search_word_back(mul, state, vi)?;
+            search_word_back(*mul, state, vi)?;
             display_search(state, vi);
         }
         Vim::Move(mul, Motion::SearchRepeatNext) => {
-            search_repeat_fwd(mul, state, vi);
+            search_repeat_fwd(*mul, state, vi);
             display_search_idx(state, vi);
         }
         Vim::Move(mul, Motion::SearchRepeatPrev) => {
-            search_repeat_back(mul, state, vi);
+            search_repeat_back(*mul, state, vi);
             display_search_idx(state, vi);
         }
         Vim::Move(_, _) => {}
 
         Vim::Partial(mul, Motion::SearchForward(s)) => {
-            search_fwd(mul, s, true, state, vi)?;
+            search_fwd(*mul, s, true, state, vi)?;
             display_search(state, vi);
         }
         Vim::Partial(mul, Motion::SearchBack(s)) => {
-            search_back(mul, s, true, state, vi)?;
+            search_back(*mul, s, true, state, vi)?;
             display_search(state, vi);
         }
         Vim::Partial(_, _) => return Ok(TextOutcome::Unchanged),
 
-        Vim::Scroll(mul, Motion::MovePageUp) => scroll_page_up(mul, state, vi),
-        Vim::Scroll(mul, Motion::MovePageDown) => scroll_page_down(mul, state, vi),
-        Vim::Scroll(mul, Motion::MoveUp) => scroll_up(mul, state),
-        Vim::Scroll(mul, Motion::MoveDown) => scroll_down(mul, state),
+        Vim::Scroll(mul, Motion::MovePageUp) => scroll_page_up(*mul, state, vi),
+        Vim::Scroll(mul, Motion::MovePageDown) => scroll_page_down(*mul, state, vi),
+        Vim::Scroll(mul, Motion::MoveUp) => scroll_up(*mul, state),
+        Vim::Scroll(mul, Motion::MoveDown) => scroll_down(*mul, state),
         Vim::Scroll(_, Motion::MoveMiddleOfScreen) => scroll_cursor_to_middle(state),
         Vim::Scroll(_, Motion::MoveTopOfScreen) => scroll_cursor_to_top(state),
         Vim::Scroll(_, Motion::MoveBottomOfScreen) => scroll_cursor_to_bottom(state),
         Vim::Scroll(_, _) => return Ok(TextOutcome::Unchanged),
 
-        Vim::Mark(m) => set_mark(m, state, vi),
+        Vim::Mark(mark) => set_mark(*mark, state, vi),
 
         Vim::Insert(mul) => {
             if repeat {
-                insert_str(mul, &vi.text, state);
+                insert_str(*mul, &vi.text, state);
                 return Ok(TextOutcome::TextChanged);
             } else {
                 begin_insert(vi);
@@ -755,7 +773,7 @@ mod move_op {
         let end = q_word_end(state);
         let term = state.str_slice(TextRange::from(start..end)).to_string();
 
-        q_search(&mut vi.matches, term, Direction::Backward, false, state)?;
+        q_search(&mut vi.matches, &term, Direction::Backward, false, state)?;
         q_search_idx(&mut vi.matches, mul, Direction::Forward, state);
         Ok(())
     }
@@ -769,14 +787,14 @@ mod move_op {
         let end = q_word_end(state);
         let term = state.str_slice(TextRange::from(start..end)).to_string();
 
-        q_search(&mut vi.matches, term, Direction::Forward, false, state)?;
+        q_search(&mut vi.matches, &term, Direction::Forward, false, state)?;
         q_search_idx(&mut vi.matches, mul, Direction::Forward, state);
         Ok(())
     }
 
     pub fn search_back(
         mul: u16,
-        term: String,
+        term: &str,
         tmp: bool,
         state: &mut TextAreaState,
         vi: &mut VI,
@@ -788,7 +806,7 @@ mod move_op {
 
     pub fn search_fwd(
         mul: u16,
-        term: String,
+        term: &str,
         tmp: bool,
         state: &mut TextAreaState,
         vi: &mut VI,
@@ -1047,7 +1065,7 @@ mod change_op {
         vi.mode = Mode::Normal;
         match &vi.command {
             Vim::Insert(mul) => {
-                insert_str(*mul, &vi.text, state);
+                insert_str(mul.saturating_sub(1), &vi.text, state);
                 TextOutcome::TextChanged
             }
             _ => TextOutcome::Changed,
@@ -1056,11 +1074,11 @@ mod change_op {
 
     pub fn insert_str(mut mul: u16, text: &str, state: &mut TextAreaState) -> TextOutcome {
         loop {
-            mul -= 1;
             if mul == 0 {
                 break;
             }
             q_insert_str(&text, state);
+            mul -= 1;
         }
         TextOutcome::TextChanged
     }
@@ -1138,13 +1156,18 @@ mod query {
 
     pub fn q_search(
         matches: &mut Matches,
-        term: String,
+        term: &str,
         dir: Direction,
         tmp: bool,
         state: &mut TextAreaState,
     ) -> Result<(), SearchError> {
-        if matches.term.as_ref() != Some(&term) {
-            matches.term = Some(term);
+        if matches
+            .term
+            .as_ref()
+            .map(|v| v.as_str() != term)
+            .unwrap_or(true)
+        {
+            matches.term = Some(term.to_string());
             matches.dir = dir;
             matches.tmp = tmp;
             matches.idx = None;
