@@ -106,6 +106,9 @@ pub enum Motion {
     MoveToCol,
     MoveToLine,
     MoveToLinePercent,
+    MoveMiddleOfScreen,
+    MoveTopOfScreen,
+    MoveBottomOfScreen,
     MoveToMatching,
 
     MoveStartOfFile,
@@ -346,6 +349,16 @@ impl VI {
             VI::CTRL_E => Vim::Scroll(mul.unwrap_or(1), Motion::MoveDown),
             VI::CTRL_B => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageUp),
             VI::CTRL_F => Vim::Scroll(mul.unwrap_or(1), Motion::MovePageDown),
+            'z' => {
+                let tok = yp.yield0().await;
+                motion_buf.borrow_mut().push(tok);
+                match tok {
+                    'z' => Vim::Scroll(0, Motion::MoveMiddleOfScreen),
+                    't' => Vim::Scroll(0, Motion::MoveTopOfScreen),
+                    'b' => Vim::Scroll(0, Motion::MoveBottomOfScreen),
+                    _ => Vim::Invalid,
+                }
+            }
 
             'f' => {
                 let tok = yp.yield0().await;
@@ -479,11 +492,15 @@ fn run_vim(vim: Vim, state: &mut TextAreaState, vi: &mut VI) -> Result<TextOutco
         Vim::Move(mul, Motion::SearchWordBackward) => search_word_back(mul, state, vi)?.into(),
         Vim::Move(mul, Motion::SearchRepeatNext) => search_repeat_fwd(mul, state, vi).into(),
         Vim::Move(mul, Motion::SearchRepeatPrev) => search_repeat_back(mul, state, vi).into(),
+        Vim::Move(_, _) => TextOutcome::Unchanged,
 
         Vim::Scroll(mul, Motion::MovePageUp) => scroll_page_up(mul, state, vi).into(),
         Vim::Scroll(mul, Motion::MovePageDown) => scroll_page_down(mul, state, vi).into(),
         Vim::Scroll(mul, Motion::MoveUp) => scroll_up(mul, state).into(),
         Vim::Scroll(mul, Motion::MoveDown) => scroll_down(mul, state).into(),
+        Vim::Scroll(_, Motion::MoveMiddleOfScreen) => scroll_cursor_to_middle(state).into(),
+        Vim::Scroll(_, Motion::MoveTopOfScreen) => scroll_cursor_to_top(state).into(),
+        Vim::Scroll(_, Motion::MoveBottomOfScreen) => scroll_cursor_to_bottom(state).into(),
         Vim::Scroll(_, _) => TextOutcome::Unchanged,
 
         Vim::Insert => {
@@ -499,7 +516,9 @@ mod op {
     use crate::SearchError;
     use crate::vi_state::query::*;
     use crate::vi_state::{Direction, VI};
+    use log::debug;
     use rat_text::text_area::TextAreaState;
+    use std::cmp::max;
 
     pub fn search_repeat_back(mul: u16, state: &mut TextAreaState, vi: &mut VI) -> bool {
         if vi.matches.term.is_none() {
@@ -623,6 +642,59 @@ mod op {
             state.set_cursor(cursor, false)
         } else {
             false
+        }
+    }
+
+    pub fn scroll_cursor_to_middle(state: &mut TextAreaState) -> bool {
+        let c = state.cursor();
+        if let Some((_rx, ry)) = state.pos_to_relative_screen(c) {
+            let noy = ry - (state.rendered.height as i16) / 2;
+            if let Some(no) = state.relative_screen_to_pos((0, noy)) {
+                state.set_sub_row_offset(no.x);
+                state.set_offset((0, no.y as usize));
+                true
+            } else {
+                // ???
+                false
+            }
+        } else {
+            state.scroll_cursor_to_visible();
+            true
+        }
+    }
+
+    pub fn scroll_cursor_to_bottom(state: &mut TextAreaState) -> bool {
+        let c = state.cursor();
+        if let Some((_rx, ry)) = state.pos_to_relative_screen(c) {
+            let noy = ry - state.rendered.height.saturating_sub(1) as i16;
+            if let Some(no) = state.relative_screen_to_pos((0, noy)) {
+                state.set_sub_row_offset(no.x);
+                state.set_offset((0, no.y as usize));
+                true
+            } else {
+                // ???
+                false
+            }
+        } else {
+            state.scroll_cursor_to_visible();
+            true
+        }
+    }
+
+    pub fn scroll_cursor_to_top(state: &mut TextAreaState) -> bool {
+        let c = state.cursor();
+        if let Some((_rx, ry)) = state.pos_to_relative_screen(c) {
+            if let Some(no) = state.relative_screen_to_pos((0, ry)) {
+                state.set_sub_row_offset(no.x);
+                state.set_offset((0, no.y as usize));
+                true
+            } else {
+                // ???
+                false
+            }
+        } else {
+            state.scroll_cursor_to_visible();
+            true
         }
     }
 
