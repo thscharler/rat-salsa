@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, fill_buf_area, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, STATUS, fill_buf_area, run_ui, setup_logging};
 use crate::text_samples::{
     add_range_styles, sample_bosworth_1, sample_irish, sample_long, sample_lorem_ipsum,
     sample_medium, sample_scott_1, sample_tabs,
@@ -11,7 +11,7 @@ use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::{HasScreenCursor, TextPosition, upos_type};
-use rat_vim::{Mode, VI};
+use rat_vim::{Mode, VI, VIStatusLine};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -22,7 +22,8 @@ use ropey::Rope;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::BufReader;
-use std::time::SystemTime;
+use std::sync::atomic::Ordering;
+use std::time::{Duration, SystemTime};
 
 mod mini_salsa;
 mod text_samples;
@@ -40,12 +41,16 @@ fn main() -> Result<(), anyhow::Error> {
         textarea_vim: Default::default(),
         textarea: Default::default(),
         line_numbers: Default::default(),
+        render_dur: Default::default(),
+        event_dur: Default::default(),
         help: false,
     };
     state.textarea.focus.set(true);
     state.textarea.set_auto_indent(false);
     state.textarea.set_text_wrap(TextWrap::Word(2));
     state.textarea.clear();
+
+    STATUS.store(false, Ordering::Release);
 
     run_ui(
         "vi core",
@@ -67,6 +72,10 @@ struct State {
     pub textarea_vim: VI,
     pub textarea: TextAreaState,
     pub line_numbers: LineNumberState,
+
+    pub render_dur: Duration,
+    pub event_dur: Duration,
+
     pub help: bool,
 }
 
@@ -82,39 +91,49 @@ fn render(
 
     let l1 = Layout::vertical([
         Constraint::Length(1),
-        Constraint::Length(1),
         Constraint::Fill(1),
-        Constraint::Length(1),
-        Constraint::Length(1),
         Constraint::Length(1),
     ])
     .split(area);
 
-    let line_number_width = LineNumbers::width_for(1000, 0, (0, 0), 0);
+    let line_number_width = if state.line_nr {
+        LineNumbers::width_for(state.textarea.vertical_offset(), 0, (0, 1), 0)
+    } else {
+        1
+    };
 
-    let l2 = Layout::horizontal([
-        Constraint::Length(2),
+    let l22 = Layout::horizontal([
+        Constraint::Length(0),
         Constraint::Length(line_number_width),
         Constraint::Fill(1),
-        Constraint::Length(25),
+        Constraint::Length(0),
     ])
-    .spacing(1)
-    .split(l1[2]);
+    .split(l1[1]);
 
     let l23 = Layout::horizontal([
-        Constraint::Length(2),
-        Constraint::Length(line_number_width),
+        Constraint::Length(0),
         Constraint::Fill(1),
-        Constraint::Length(25),
+        Constraint::Length(0),
     ])
-    .spacing(1)
-    .split(l1[3]);
+    .split(l1[2]);
+
+    let h_scroll = Scroll::horizontal()
+        .begin_symbol(Some("◀"))
+        .end_symbol(Some("▶"))
+        .track_symbol(Some("─"))
+        .thumb_symbol("▄")
+        .min_symbol(Some("─"));
+    let v_scroll = Scroll::vertical()
+        .begin_symbol(Some("▲"))
+        .end_symbol(Some("▼"))
+        .track_symbol(Some("│"))
+        .thumb_symbol("█")
+        .min_symbol(Some("│"));
 
     let textarea = TextArea::new()
-        .block(Block::bordered())
-        .vscroll(Scroll::new().scroll_by(1).policy(ScrollbarPolicy::Always))
-        .hscroll(Scroll::new().policy(ScrollbarPolicy::Collapse))
-        .styles(istate.theme.textarea_style())
+        .vscroll(v_scroll.scroll_by(1).policy(ScrollbarPolicy::Always))
+        .hscroll(h_scroll.policy(ScrollbarPolicy::Collapse))
+        .styles(istate.theme.textview_style())
         .set_horizontal_max_offset(256)
         .text_style([
             Style::new().red(),
@@ -137,46 +156,70 @@ fn render(
                 .normal_contrast(istate.theme.palette().cyan[0]),
         );
     let t = SystemTime::now();
-    textarea.render(l2[2], frame.buffer_mut(), &mut state.textarea);
-    let el = t.elapsed().expect("timinig");
+    textarea.render(l22[2], frame.buffer_mut(), &mut state.textarea);
+    state.render_dur = t.elapsed().expect("timinig");
 
-    let mb = state.textarea_vim.motion_display.borrow();
-    Line::from_iter([
-        Span::from(format!(" {:?} ", state.textarea_vim.mode)).style(
-            match state.textarea_vim.mode {
-                Mode::Normal => istate
-                    .theme
-                    .palette()
-                    .high_contrast(istate.theme.palette().limegreen[2]),
-                Mode::Insert => istate
-                    .theme
-                    .palette()
-                    .high_contrast(istate.theme.palette().orange[2]),
-                Mode::Visual => istate
-                    .theme
-                    .palette()
-                    .high_contrast(istate.theme.palette().yellow[2]),
-            },
-        ),
-        Span::from(" "),
-        Span::from(mb.as_str()).style(istate.theme.palette().text_bright),
-    ])
-    .render(l23[2], frame.buffer_mut());
+    VIStatusLine::new()
+        .style(istate.theme.status_base())
+        .name("≡vi-core≡")
+        .name_style(
+            istate
+                .theme
+                .palette()
+                .high_contrast(istate.theme.palette().blue[1]),
+            istate
+                .theme
+                .palette()
+                .high_contrast(istate.theme.palette().blue[4]),
+        )
+        .normal_style(
+            istate
+                .theme
+                .palette()
+                .high_contrast(istate.theme.palette().limegreen[2]),
+        )
+        .insert_style(
+            istate
+                .theme
+                .palette()
+                .high_contrast(istate.theme.palette().orange[2]),
+        )
+        .visual_style(
+            istate
+                .theme
+                .palette()
+                .high_contrast(istate.theme.palette().yellow[2]),
+        )
+        .pos_style(
+            istate
+                .theme
+                .palette()
+                .high_contrast(istate.theme.palette().gray[0]),
+            istate
+                .theme
+                .palette()
+                .high_contrast(istate.theme.palette().gray[2]),
+        )
+        .render(
+            l23[1],
+            frame.buffer_mut(),
+            &mut (&mut state.textarea, &mut state.textarea_vim),
+        );
 
-    if !BARE {
+    if state.line_nr {
+        let mut l_line = l22[1];
+        // no autocorrection for hidden scrollbar.
+        if state.textarea.hscroll.max_offset > 0 {
+            l_line.height -= 1;
+        }
         LineNumbers::new()
-            .block(
-                Block::new()
-                    .borders(Borders::TOP | Borders::BOTTOM)
-                    .border_set(EMPTY),
-            )
+            .margin((0, 1))
             .styles(istate.theme.line_nr_style())
+            .style(istate.theme.gray(5))
             .with_textarea(&state.textarea)
             .relative(state.relative_line_nr)
-            .render(l2[1], frame.buffer_mut(), &mut state.line_numbers);
+            .render(l_line, frame.buffer_mut(), &mut state.line_numbers);
     }
-
-    istate.status[1] = format!("R{}|{:.0?}", frame.count(), el,).to_string();
 
     fill_buf_area(
         frame.buffer_mut(),
@@ -185,9 +228,16 @@ fn render(
         istate
             .theme
             .palette()
-            .normal_contrast(istate.theme.palette().orange[0]),
+            .normal_contrast(istate.theme.palette().blue[7]),
     );
-    "F1 toggle help | Ctrl+Q quit | Alt-F(ind) ".render(l1[0], frame.buffer_mut());
+    format!(
+        "F1 toggle help | Ctrl+Q quit | R{} | {:.0?} | {:.0?}",
+        frame.count(),
+        state.render_dur,
+        state.event_dur
+    )
+    .to_string()
+    .render(l1[0], frame.buffer_mut());
 
     let screen_cursor = if !state.help {
         state.textarea.screen_cursor()
@@ -201,7 +251,7 @@ fn render(
     if state.help {
         fill_buf_area(
             frame.buffer_mut(),
-            l2[2],
+            l22[2],
             " ",
             istate
                 .theme
@@ -230,18 +280,10 @@ fn render(
                 .palette()
                 .normal_contrast(istate.theme.palette().bluegreen[0]),
         )
-        .render(l2[2], frame.buffer_mut());
+        .render(l22[2], frame.buffer_mut());
     }
 
-    let ccursor = state.textarea.selection();
-    istate.status[0] = format!(
-        "{}:{} - {}:{} | wrap {:?}",
-        ccursor.start.y,
-        ccursor.start.x,
-        ccursor.end.y,
-        ccursor.end.x,
-        state.textarea.text_wrap()
-    );
+    istate.status[0] = format!("wrap {:?}", state.textarea.text_wrap());
 
     Ok(())
 }
@@ -267,8 +309,7 @@ fn event(
         try_flow!({
             let t = SystemTime::now();
             let r = state.textarea.handle(event, &mut state.textarea_vim)?;
-            let el = t.elapsed().expect("timing");
-            istate.status[2] = format!("H{}|{:?}", istate.event_cnt, el).to_string();
+            state.event_dur = t.elapsed().expect("timing");
             r
         });
     }
