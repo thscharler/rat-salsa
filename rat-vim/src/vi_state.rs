@@ -3,6 +3,7 @@ use crate::vi_state::display::*;
 use crate::vi_state::mark_op::set_mark;
 use crate::vi_state::move_op::*;
 use crate::vi_state::partial_op::*;
+use crate::vi_state::query::q_find_idx;
 use crate::vi_state::scroll_op::*;
 use crate::{Coroutine, Resume, SearchError, YieldPoint, ctrl};
 use log::debug;
@@ -182,12 +183,13 @@ pub enum Vim {
     Undo(u32),
     Redo(u32),
 
-    DeleteChar(u32),
     JoinLines(u32),
     Insert(u32),
     Append(u32),
     AppendLine(u32),
     PrependLine(u32),
+    DeleteChar(u32),
+    Delete(u32, Motion),
 }
 
 fn is_memo(vim: &Vim) -> bool {
@@ -206,6 +208,7 @@ fn is_memo(vim: &Vim) -> bool {
         Vim::Append(_) => true,
         Vim::AppendLine(_) => true,
         Vim::PrependLine(_) => true,
+        Vim::Delete(_, _) => true,
     }
 }
 
@@ -471,12 +474,27 @@ async fn next_motion(
 
     match tok {
         'm' => {
-            let tok = yp.yield0().await;
+            tok = yp.yield0().await;
             motion_buf.borrow_mut().push(tok);
             Vim::Mark(tok)
         }
 
-        //   'd' => xxx,
+        'd' => {
+            tok = yp.yield0().await;
+
+            let mul2;
+            (mul2, tok) = multiplier(tok, &motion_buf, &yp).await;
+
+            motion_buf.borrow_mut().push(tok);
+            match bare_motion(tok, mul2, &motion_buf, &yp).await {
+                Ok(Vim::Move(mul2, motion)) => {
+                    let mul = mul.unwrap_or(1);
+                    Vim::Delete(mul * mul2, motion)
+                }
+                Err(_) | Ok(Vim::Invalid) => Vim::Invalid,
+                _ => unreachable!("no"),
+            }
+        }
         'i' => Vim::Insert(mul.unwrap_or(1)),
         'a' => Vim::Append(mul.unwrap_or(1)),
         'o' => Vim::AppendLine(mul.unwrap_or(1)),
@@ -619,6 +637,7 @@ fn execute_vim(
                 begin_prepend_line(state, vi);
             }
         }
+        Vim::Delete(mul, m) => delete_text(*mul, m, state, vi)?,
     }
 
     Ok(TextOutcome::Changed)
@@ -758,15 +777,16 @@ mod move_op {
     use crate::vi_state::display::display_search;
     use crate::vi_state::query::*;
     use crate::vi_state::{Motion, VI};
+    use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
 
-    pub fn move_cursor(
+    pub fn move_position(
         mul: u32,
         motion: &Motion,
         state: &mut TextAreaState,
         vi: &mut VI,
-    ) -> Result<(), SearchError> {
-        let npos = match motion {
+    ) -> Result<Option<TextPosition>, SearchError> {
+        Ok(match motion {
             Motion::MoveLeft => q_move_left(mul, state),
             Motion::MoveRight => q_move_right(mul, state),
             Motion::MoveUp => q_move_up(mul, state),
@@ -804,8 +824,16 @@ mod move_op {
             Motion::SearchBack(term) => q_search_back(mul, &term, false, state, vi)?,
             Motion::SearchRepeatNext => q_search_repeat_fwd(mul, state, vi),
             Motion::SearchRepeatPrev => q_search_repeat_back(mul, state, vi),
-        };
-        if let Some(npos) = npos {
+        })
+    }
+
+    pub fn move_cursor(
+        mul: u32,
+        motion: &Motion,
+        state: &mut TextAreaState,
+        vi: &mut VI,
+    ) -> Result<(), SearchError> {
+        if let Some(npos) = move_position(mul, motion, state, vi)? {
             state.set_cursor(npos, false);
         }
         display_search(state, vi);
@@ -857,13 +885,16 @@ mod mark_op {
 }
 
 mod change_op {
-    use crate::vi_state::Vim;
+    use crate::vi_state::move_op::move_position;
     use crate::vi_state::query::*;
-    use crate::{Mode, VI};
+    use crate::vi_state::{Motion, Vim};
+    use crate::{Mode, SearchError, VI};
+    use log::debug;
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
-    use rat_text::{TextPosition, upos_type};
+    use rat_text::{TextPosition, TextRange, upos_type};
     use std::cmp::min;
+    use std::mem;
 
     pub fn end_insert_mode(state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
         vi.mode = Mode::Normal;
@@ -961,6 +992,25 @@ mod change_op {
             state.delete_range(c..end);
         }
         TextOutcome::TextChanged
+    }
+
+    pub fn delete_text(
+        mul: u32,
+        motion: &Motion,
+        state: &mut TextAreaState,
+        vi: &mut VI,
+    ) -> Result<(), SearchError> {
+        debug!("delete_text {:?} {:?}", mul, motion);
+        if let Some(mut end) = move_position(mul, motion, state, vi)? {
+            let mut start = state.cursor();
+            if start > end {
+                mem::swap(&mut start, &mut end);
+            }
+
+            let r = state.bytes_at_range(TextRange::new(start, end));
+            state.delete_range(start..end);
+        }
+        Ok(())
     }
 
     pub fn join_line(mut mul: u32, state: &mut TextAreaState) -> TextOutcome {
@@ -1536,7 +1586,7 @@ mod query {
         q_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
-            let pos = state.byte_pos(vi.finds.list[i].start);
+            let pos = state.byte_pos(vi.finds.list[i].end);
             Some(pos)
         } else {
             None
@@ -1612,10 +1662,18 @@ mod query {
         let dir = vi.finds.dir.mul(Direction::Forward);
 
         if let Some(idx) = vi.finds.idx {
-            let pos = if vi.finds.till && dir == Direction::Backward {
-                state.byte_pos(vi.finds.list[idx].end)
+            let pos = if vi.finds.till {
+                if dir == Direction::Backward {
+                    state.byte_pos(vi.finds.list[idx].end)
+                } else {
+                    state.byte_pos(vi.finds.list[idx].start)
+                }
             } else {
-                state.byte_pos(vi.finds.list[idx].start)
+                if dir == Direction::Backward {
+                    state.byte_pos(vi.finds.list[idx].start)
+                } else {
+                    state.byte_pos(vi.finds.list[idx].end)
+                }
             };
             Some(pos)
         } else {
@@ -1641,10 +1699,18 @@ mod query {
         let dir = vi.finds.dir.mul(Direction::Backward);
 
         if let Some(idx) = vi.finds.idx {
-            let pos = if vi.finds.till && dir == Direction::Backward {
-                state.byte_pos(vi.finds.list[idx].end)
+            let pos = if vi.finds.till {
+                if dir == Direction::Backward {
+                    state.byte_pos(vi.finds.list[idx].end)
+                } else {
+                    state.byte_pos(vi.finds.list[idx].start)
+                }
             } else {
-                state.byte_pos(vi.finds.list[idx].start)
+                if dir == Direction::Backward {
+                    state.byte_pos(vi.finds.list[idx].start)
+                } else {
+                    state.byte_pos(vi.finds.list[idx].end)
+                }
             };
             Some(pos)
         } else {
@@ -1921,8 +1987,6 @@ mod query {
             None
         }
     }
-
-    // split mark
 
     pub fn q_line_break_and_leading_space(state: &mut TextAreaState) -> TextRange {
         let c = state.cursor();
