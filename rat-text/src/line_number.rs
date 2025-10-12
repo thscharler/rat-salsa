@@ -231,7 +231,7 @@ impl<'a> LineNumbers<'a> {
     }
 
     /// Required width for the line-numbers.
-    pub fn width_for(start_nr: usize, flag_width: u16, margin: (u16, u16), block: u16) -> u16 {
+    pub fn width_for(start_nr: upos_type, flag_width: u16, margin: (u16, u16), block: u16) -> u16 {
         let nr_width = (start_nr + 50).ilog10() as u16 + 1;
         nr_width + flag_width + margin.0 + margin.1 + block
     }

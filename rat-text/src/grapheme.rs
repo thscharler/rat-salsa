@@ -688,6 +688,7 @@ mod test_str {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_str_graphemes5() {
         // offsets and partial slices
         let s = String::from("qwertz");
@@ -856,6 +857,7 @@ mod test_rope {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_rope_graphemes5() {
         // offsets and partial slices
         let s = Rope::from("qwertz");

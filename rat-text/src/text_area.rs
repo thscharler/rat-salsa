@@ -77,8 +77,8 @@ use std::ops::Range;
 pub struct TextArea<'a> {
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
-    h_max_offset: Option<usize>,
-    h_overscroll: Option<usize>,
+    h_max_offset: Option<upos_type>,
+    h_overscroll: Option<upos_type>,
     vscroll: Option<Scroll<'a>>,
 
     text_wrap: Option<TextWrap>,
@@ -332,7 +332,7 @@ impl<'a> TextArea<'a> {
     /// See [self.set_horizontal_overscroll]
     ///
     /// Default is 255.
-    pub fn set_horizontal_max_offset(mut self, offset: usize) -> Self {
+    pub fn set_horizontal_max_offset(mut self, offset: u32) -> Self {
         self.h_max_offset = Some(offset);
         self
     }
@@ -343,7 +343,7 @@ impl<'a> TextArea<'a> {
     /// See [self.set_horizontal_max_offset]
     ///
     /// Default is 16384.
-    pub fn set_horizontal_overscroll(mut self, overscroll: usize) -> Self {
+    pub fn set_horizontal_overscroll(mut self, overscroll: u32) -> Self {
         self.h_overscroll = Some(overscroll);
         self
     }
@@ -418,10 +418,10 @@ fn render_text_area(
         state.hscroll.set_overscroll_by(None);
     } else {
         if let Some(h_max_offset) = widget.h_max_offset {
-            state.hscroll.set_max_offset(h_max_offset);
+            state.hscroll.set_max_offset(h_max_offset as usize);
         }
         if let Some(h_overscroll) = widget.h_overscroll {
-            state.hscroll.set_overscroll_by(Some(h_overscroll));
+            state.hscroll.set_overscroll_by(Some(h_overscroll as usize));
         }
     }
     state.hscroll.set_page_len(state.inner.width as usize);
@@ -979,8 +979,11 @@ impl TextAreaState {
 impl TextAreaState {
     /// Current offset for scrolling.
     #[inline]
-    pub fn offset(&self) -> (usize, usize) {
-        (self.hscroll.offset(), self.vscroll.offset())
+    pub fn offset(&self) -> (upos_type, upos_type) {
+        (
+            self.hscroll.offset() as upos_type,
+            self.vscroll.offset() as upos_type,
+        )
     }
 
     /// Set the offset for scrolling.
@@ -988,10 +991,10 @@ impl TextAreaState {
     /// The offset uses usize, but it shouldn't exceed (u32::MAX, u32::MAX).
     /// This is due to the internal ScrollState that only knows usize.
     #[inline]
-    pub fn set_offset(&mut self, offset: (usize, usize)) -> bool {
+    pub fn set_offset(&mut self, offset: (upos_type, upos_type)) -> bool {
         self.scroll_to_cursor = false;
-        let c = self.hscroll.set_offset(offset.0);
-        let r = self.vscroll.set_offset(offset.1);
+        let c = self.hscroll.set_offset(offset.0 as usize);
+        let r = self.vscroll.set_offset(offset.1 as usize);
         r || c
     }
 
@@ -1870,7 +1873,7 @@ impl TextAreaState {
 
     /// Move the cursor left. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
-    pub fn move_left(&mut self, n: u16, extend_selection: bool) -> bool {
+    pub fn move_left(&mut self, n: upos_type, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
         if cursor.x == 0 {
             if cursor.y > 0 {
@@ -1890,7 +1893,7 @@ impl TextAreaState {
 
     /// Move the cursor right. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
-    pub fn move_right(&mut self, n: u16, extend_selection: bool) -> bool {
+    pub fn move_right(&mut self, n: upos_type, extend_selection: bool) -> bool {
         let mut cursor = self.cursor();
         let c_line_width = self.line_width(cursor.y);
         if cursor.x == c_line_width {
@@ -1910,13 +1913,17 @@ impl TextAreaState {
 
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
-    pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
+    ///
+    /// Panic
+    ///
+    /// Panics if n exceeds i16::MAX
+    pub fn move_up(&mut self, n: upos_type, extend_selection: bool) -> bool {
         let cursor = self.cursor();
         if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
-            scr_cursor.1 -= n as i16;
+            scr_cursor.1 -= i16::try_from(n).expect("in i16 bounds");
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
                 self.set_cursor(new_cursor, extend_selection)
@@ -1931,14 +1938,19 @@ impl TextAreaState {
     }
 
     /// Move the cursor down. Scrolls the cursor to visible.
+    ///
     /// Returns true if there was any real change.
-    pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
+    ///
+    /// Panic
+    ///
+    /// Panics if n exceeds i16::MAX
+    pub fn move_down(&mut self, n: upos_type, extend_selection: bool) -> bool {
         let cursor = self.cursor();
         if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
             if let Some(move_col) = self.move_col() {
                 scr_cursor.0 = move_col;
             }
-            scr_cursor.1 += n as i16;
+            scr_cursor.1 += i16::try_from(n).expect("in i16 bounds");
 
             if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
                 self.set_cursor(new_cursor, extend_selection)
@@ -2758,23 +2770,23 @@ impl TextAreaState {
     ///
     /// This is set to `len_lines - page_size` for shift-mode,
     /// and to `len_lines` for any wrapping-mode.
-    pub fn vertical_max_offset(&self) -> usize {
-        self.vscroll.max_offset()
+    pub fn vertical_max_offset(&self) -> upos_type {
+        self.vscroll.max_offset() as upos_type
     }
 
     /// Current vertical offset.
-    pub fn vertical_offset(&self) -> usize {
-        self.vscroll.offset()
+    pub fn vertical_offset(&self) -> upos_type {
+        self.vscroll.offset() as upos_type
     }
 
     /// Rendered height of the widget.
-    pub fn vertical_page(&self) -> usize {
-        self.vscroll.page_len()
+    pub fn vertical_page(&self) -> upos_type {
+        self.vscroll.page_len() as upos_type
     }
 
     /// Suggested scroll per scroll-event.
-    pub fn vertical_scroll(&self) -> usize {
-        self.vscroll.scroll_by()
+    pub fn vertical_scroll(&self) -> upos_type {
+        self.vscroll.scroll_by() as upos_type
     }
 
     /// Maximum horizontal offset.
@@ -2785,23 +2797,23 @@ impl TextAreaState {
     /// doesn't try to find an overall text-width.
     ///
     /// It __will__ be used to render the scrollbar though.
-    pub fn horizontal_max_offset(&self) -> usize {
-        self.hscroll.max_offset()
+    pub fn horizontal_max_offset(&self) -> upos_type {
+        self.hscroll.max_offset() as upos_type
     }
 
     /// Current horizontal offset.
-    pub fn horizontal_offset(&self) -> usize {
-        self.hscroll.offset()
+    pub fn horizontal_offset(&self) -> upos_type {
+        self.hscroll.offset() as upos_type
     }
 
     /// Rendered width of the text-area.
-    pub fn horizontal_page(&self) -> usize {
-        self.hscroll.page_len()
+    pub fn horizontal_page(&self) -> upos_type {
+        self.hscroll.page_len() as upos_type
     }
 
     /// Suggested scroll-by per scroll-event.
-    pub fn horizontal_scroll(&self) -> usize {
-        self.hscroll.scroll_by()
+    pub fn horizontal_scroll(&self) -> upos_type {
+        self.hscroll.scroll_by() as upos_type
     }
 
     /// Change the vertical offset.
@@ -2810,10 +2822,10 @@ impl TextAreaState {
     /// Return
     ///
     /// `true` if the offset changed at all.
-    pub fn set_vertical_offset(&mut self, row_offset: usize) -> bool {
+    pub fn set_vertical_offset(&mut self, row_offset: upos_type) -> bool {
         self.scroll_to_cursor = false;
         self.sub_row_offset = 0;
-        self.vscroll.set_offset(row_offset)
+        self.vscroll.set_offset(row_offset as usize)
     }
 
     /// Change the horizontal offset.
@@ -2824,9 +2836,9 @@ impl TextAreaState {
     /// Return
     ///
     /// `true` if the offset changed at all.
-    pub fn set_horizontal_offset(&mut self, col_offset: usize) -> bool {
+    pub fn set_horizontal_offset(&mut self, col_offset: upos_type) -> bool {
         self.scroll_to_cursor = false;
-        self.hscroll.set_offset(col_offset)
+        self.hscroll.set_offset(col_offset as usize)
     }
 
     /// Scrolls to make the given position visible.
@@ -2868,7 +2880,7 @@ impl TextAreaState {
                         ox
                     };
 
-                    self.set_offset((nox as usize, noy as usize));
+                    self.set_offset((nox, noy));
                     self.set_sub_row_offset(0);
                 }
                 TextWrap::Hard | TextWrap::Word(_) => {
@@ -2885,13 +2897,13 @@ impl TextAreaState {
                             if pos_row < off_row && pos_row >= off_row.saturating_sub(page) {
                                 let noff_row = pos_row;
                                 let (nsub_row_offset, noy) = self.stc_sub_row_offset(scr, noff_row);
-                                self.set_offset((0, noy as usize));
+                                self.set_offset((0, noy));
                                 self.set_sub_row_offset(nsub_row_offset);
                                 break 'f;
                             } else if pos_row >= off_row + page && pos_row < off_row + 2 * page {
                                 let noff_row = pos_row.saturating_sub(page.saturating_sub(1));
                                 let (nsub_row_offset, noy) = self.stc_sub_row_offset(scr, noff_row);
-                                self.set_offset((0, noy as usize));
+                                self.set_offset((0, noy));
                                 self.set_sub_row_offset(nsub_row_offset);
                                 break 'f;
                             } else if pos_row >= off_row && pos_row < off_row + page {
@@ -2906,10 +2918,10 @@ impl TextAreaState {
                     if let Some(alt_scr_row) = self.stc_screen_row(alt_scr, pos) {
                         let noff_row = alt_scr_row.saturating_sub(page * 5 / 10);
                         let (nsub_row_offset, noy) = self.stc_sub_row_offset(alt_scr, noff_row);
-                        self.set_offset((0, noy as usize));
+                        self.set_offset((0, noy));
                         self.set_sub_row_offset(nsub_row_offset);
                     } else {
-                        self.set_offset((0, pos.y as usize));
+                        self.set_offset((0, pos.y));
                         self.set_sub_row_offset(0);
                     }
                 }
@@ -2927,14 +2939,14 @@ impl TextAreaState {
     /// Return
     ///
     /// `true` if the offset changed.
-    pub fn scroll_to_row(&mut self, pos: usize) -> bool {
+    pub fn scroll_to_row(&mut self, pos: upos_type) -> bool {
         self.scroll_to_cursor = false;
 
         match self.text_wrap {
-            TextWrap::Shift => self.vscroll.scroll_to_pos(pos),
-            TextWrap::Hard | TextWrap::Word(_) => {
-                self.vscroll.set_offset(self.vscroll.limited_offset(pos))
-            }
+            TextWrap::Shift => self.vscroll.scroll_to_pos(pos as usize),
+            TextWrap::Hard | TextWrap::Word(_) => self
+                .vscroll
+                .set_offset(self.vscroll.limited_offset(pos as usize)),
         }
     }
 
@@ -2945,9 +2957,9 @@ impl TextAreaState {
     /// Return
     ///
     /// `true` if the offset changed.
-    pub fn scroll_to_col(&mut self, pos: usize) -> bool {
+    pub fn scroll_to_col(&mut self, pos: upos_type) -> bool {
         self.scroll_to_cursor = false;
-        self.hscroll.set_offset(pos)
+        self.hscroll.set_offset(pos as usize)
     }
 
     /// Scroll up by `delta` rows.
@@ -2955,7 +2967,7 @@ impl TextAreaState {
     /// Return
     ///
     /// `true` if the offset changes.
-    pub fn scroll_up(&mut self, delta: usize) -> bool {
+    pub fn scroll_up(&mut self, delta: upos_type) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, -(delta as i16))) {
             self.sub_row_offset = pos.x;
             self.vscroll.set_offset(pos.y as usize);
@@ -2970,7 +2982,7 @@ impl TextAreaState {
     /// Return
     ///
     /// `true` if the offset changes.
-    pub fn scroll_down(&mut self, delta: usize) -> bool {
+    pub fn scroll_down(&mut self, delta: upos_type) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, delta as i16)) {
             self.sub_row_offset = pos.x;
             self.vscroll.set_offset(pos.y as usize);
@@ -2989,9 +3001,9 @@ impl TextAreaState {
     /// `true` if the offset changes.
     ///
     /// TODO: Does nothing if there is any text-wrapping.
-    pub fn scroll_left(&mut self, delta: usize) -> bool {
+    pub fn scroll_left(&mut self, delta: upos_type) -> bool {
         self.hscroll
-            .set_offset(self.hscroll.offset.saturating_add(delta))
+            .set_offset(self.hscroll.offset.saturating_add(delta as usize))
     }
 
     /// Scroll right by `delta` columns.
@@ -3003,9 +3015,9 @@ impl TextAreaState {
     /// `true`if the offset changes.
     ///
     /// TODO: Does nothing if there is any text-wrapping.
-    pub fn scroll_right(&mut self, delta: usize) -> bool {
+    pub fn scroll_right(&mut self, delta: upos_type) -> bool {
         self.hscroll
-            .set_offset(self.hscroll.offset.saturating_sub(delta))
+            .set_offset(self.hscroll.offset.saturating_sub(delta as usize))
     }
 
     #[deprecated(since = "1.3.0", note = "not useful as is")]
@@ -3113,11 +3125,9 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 ct_event!(keycode press Right) => self.move_right(1, false).into(),
                 ct_event!(keycode press Up) => self.move_up(1, false).into(),
                 ct_event!(keycode press Down) => self.move_down(1, false).into(),
-                ct_event!(keycode press PageUp) => {
-                    self.move_up(self.vertical_page() as u16, false).into()
-                }
+                ct_event!(keycode press PageUp) => self.move_up(self.vertical_page(), false).into(),
                 ct_event!(keycode press PageDown) => {
-                    self.move_down(self.vertical_page() as u16, false).into()
+                    self.move_down(self.vertical_page(), false).into()
                 }
                 ct_event!(keycode press Home) => self.move_to_line_start(false).into(),
                 ct_event!(keycode press End) => self.move_to_line_end(false).into(),
@@ -3152,10 +3162,10 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 ct_event!(keycode press SHIFT-Up) => self.move_up(1, true).into(),
                 ct_event!(keycode press SHIFT-Down) => self.move_down(1, true).into(),
                 ct_event!(keycode press SHIFT-PageUp) => {
-                    self.move_up(self.vertical_page() as u16, true).into()
+                    self.move_up(self.vertical_page(), true).into()
                 }
                 ct_event!(keycode press SHIFT-PageDown) => {
-                    self.move_down(self.vertical_page() as u16, true).into()
+                    self.move_down(self.vertical_page(), true).into()
                 }
                 ct_event!(keycode press SHIFT-Home) => self.move_to_line_start(true).into(),
                 ct_event!(keycode press SHIFT-End) => self.move_to_line_end(true).into(),
@@ -3283,12 +3293,12 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
             .h_scroll(&mut self.hscroll)
             .v_scroll(&mut self.vscroll);
         let r = match sas.handle(event, MouseOnly) {
-            ScrollOutcome::Up(v) => self.scroll_up(v),
-            ScrollOutcome::Down(v) => self.scroll_down(v),
-            ScrollOutcome::Left(v) => self.scroll_left(v),
-            ScrollOutcome::Right(v) => self.scroll_right(v),
-            ScrollOutcome::VPos(v) => self.scroll_to_row(v),
-            ScrollOutcome::HPos(v) => self.scroll_to_col(v),
+            ScrollOutcome::Up(v) => self.scroll_up(v as upos_type),
+            ScrollOutcome::Down(v) => self.scroll_down(v as upos_type),
+            ScrollOutcome::Left(v) => self.scroll_left(v as upos_type),
+            ScrollOutcome::Right(v) => self.scroll_right(v as upos_type),
+            ScrollOutcome::VPos(v) => self.scroll_to_row(v as upos_type),
+            ScrollOutcome::HPos(v) => self.scroll_to_col(v as upos_type),
             _ => false,
         };
         if r {
