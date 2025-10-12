@@ -898,8 +898,12 @@ impl TextAreaState {
     /// of the styles set with the widget.
     /// Missing styles are just ignored.
     #[inline]
-    pub fn add_range_style(&mut self, range: TextRange, style: usize) -> Result<(), TextError> {
-        let r = self.value.bytes_at_range(range)?;
+    pub fn add_range_style(
+        &mut self,
+        range: impl Into<TextRange>,
+        style: usize,
+    ) -> Result<(), TextError> {
+        let r = self.value.bytes_at_range(range.into())?;
         self.value.add_style(r, style);
         Ok(())
     }
@@ -918,8 +922,12 @@ impl TextAreaState {
 
     /// Remove the exact TextRange and style.
     #[inline]
-    pub fn remove_range_style(&mut self, range: TextRange, style: usize) -> Result<(), TextError> {
-        let r = self.value.bytes_at_range(range)?;
+    pub fn remove_range_style(
+        &mut self,
+        range: impl Into<TextRange>,
+        style: usize,
+    ) -> Result<(), TextError> {
+        let r = self.value.bytes_at_range(range.into())?;
         self.value.remove_style(r, style);
         Ok(())
     }
@@ -1277,20 +1285,20 @@ impl TextAreaState {
     #[inline]
     pub fn graphemes(
         &self,
-        range: TextRange,
+        range: impl Into<TextRange>,
         pos: TextPosition,
     ) -> impl Cursor<Item = Grapheme<'_>> {
-        self.value.graphemes(range, pos).expect("valid_args")
+        self.value.graphemes(range.into(), pos).expect("valid_args")
     }
 
     /// Get a cursor over the text-range the current position set at pos.
     #[inline]
     pub fn try_graphemes(
         &self,
-        range: TextRange,
+        range: impl Into<TextRange>,
         pos: TextPosition,
     ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
-        self.value.graphemes(range, pos)
+        self.value.graphemes(range.into(), pos)
     }
 
     /// Grapheme position to byte position.
@@ -1313,14 +1321,19 @@ impl TextAreaState {
     ///
     /// Panics for an invalid range.
     #[inline]
-    pub fn bytes_at_range(&self, range: TextRange) -> Range<usize> {
-        self.value.bytes_at_range(range).expect("valid_range")
+    pub fn bytes_at_range(&self, range: impl Into<TextRange>) -> Range<usize> {
+        self.value
+            .bytes_at_range(range.into())
+            .expect("valid_range")
     }
 
     /// Grapheme range to byte range.
     #[inline]
-    pub fn try_bytes_at_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
-        self.value.bytes_at_range(range)
+    pub fn try_bytes_at_range(
+        &self,
+        range: impl Into<TextRange>,
+    ) -> Result<Range<usize>, TextError> {
+        self.value.bytes_at_range(range.into())
     }
 
     /// Byte position to grapheme position.
