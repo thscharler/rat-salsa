@@ -118,7 +118,7 @@ impl RangeMap {
         if range.is_empty() {
             return;
         }
-        for (r, v) in self.map.iter(range).filter(|(r, v)| **v == style) {
+        for (r, v) in self.map.iter(range).filter(|(_, v)| **v == style) {
             buf.push((r, *v));
         }
     }

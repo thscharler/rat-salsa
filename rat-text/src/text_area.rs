@@ -1826,9 +1826,21 @@ impl TextAreaState {
 
             // delete to beginning of line?
             let till_line_start = if cursor.x != 0 {
-                self.graphemes(TextRange::new((0, cursor.y), cursor), cursor)
-                    .rev_cursor()
-                    .all(|v| v.is_whitespace())
+                let line_start = TextPosition::new(0, cursor.y);
+                let mut it = self.graphemes(line_start..cursor, cursor);
+
+                let mut is_whitespace = true;
+                loop {
+                    let Some(prev) = it.prev() else {
+                        break;
+                    };
+                    if !prev.is_whitespace() {
+                        is_whitespace = false;
+                        break;
+                    }
+                }
+
+                is_whitespace
             } else {
                 false
             };
