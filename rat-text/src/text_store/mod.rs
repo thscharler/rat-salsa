@@ -1,5 +1,5 @@
 use crate::grapheme::Grapheme;
-use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
+use crate::{Cursor, TextError, TextPosition, TextRange, upos_type};
 use std::borrow::Cow;
 use std::ops::Range;
 
@@ -49,6 +49,9 @@ pub trait TextStore {
     /// `"a\na"` -> 3
     /// `"a\na\n"` -> 3
     fn len_lines(&self) -> upos_type;
+
+    /// Length in bytes
+    fn len_bytes(&self) -> usize;
 
     /// Minimum byte position that has been changed
     /// since the last call of min_changed().

@@ -873,6 +873,12 @@ impl TextInputState {
         self.value.line_width(0).expect("valid_row")
     }
 
+    /// Length in bytes.
+    #[inline]
+    pub fn len_bytes(&self) -> usize {
+        self.value.len_bytes()
+    }
+
     /// Length as grapheme count.
     #[inline]
     pub fn line_width(&self) -> upos_type {

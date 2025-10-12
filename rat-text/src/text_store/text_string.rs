@@ -1,6 +1,6 @@
 use crate::grapheme::StrGraphemes;
 use crate::text_store::TextStore;
-use crate::{upos_type, TextError, TextPosition, TextRange};
+use crate::{TextError, TextPosition, TextRange, upos_type};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::cmp::min;
@@ -116,6 +116,12 @@ impl TextStore for TextString {
     #[inline]
     fn len_lines(&self) -> upos_type {
         1
+    }
+
+    /// Length in bytes.
+    #[inline]
+    fn len_bytes(&self) -> usize {
+        self.text.len()
     }
 
     #[inline]

@@ -800,7 +800,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len_lines() == 1 && self.line_width(0).expect("line") == 0
+        self.len_bytes() == 0
     }
 
     /// Grapheme position to byte position.
@@ -1055,6 +1055,12 @@ impl<Store: TextStore + Default> TextCore<Store> {
     #[inline]
     pub fn len_lines(&self) -> upos_type {
         self.text.len_lines()
+    }
+
+    /// Length in bytes.
+    #[inline]
+    pub fn len_bytes(&self) -> usize {
+        self.text.len_bytes()
     }
 }
 

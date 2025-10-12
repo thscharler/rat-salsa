@@ -867,6 +867,11 @@ impl MaskedCore {
     pub fn line_width(&self) -> upos_type {
         self.masked.line_width(0).expect("valid_row")
     }
+
+    #[inline]
+    pub fn len_bytes(&self) -> usize {
+        self.masked.len_bytes()
+    }
 }
 
 #[derive(Debug, Clone)]

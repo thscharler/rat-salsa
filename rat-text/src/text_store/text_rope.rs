@@ -494,6 +494,11 @@ impl TextStore for TextRope {
     }
 
     #[inline]
+    fn len_bytes(&self) -> usize {
+        self.text.len_bytes()
+    }
+
+    #[inline]
     fn len_lines(&self) -> upos_type {
         match self.text.len_bytes() {
             0 => 1,

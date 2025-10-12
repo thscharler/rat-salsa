@@ -1152,6 +1152,12 @@ impl TextAreaState {
         self.value.len_lines()
     }
 
+    /// Length in bytes.
+    #[inline]
+    pub fn len_bytes(&self) -> usize {
+        self.value.len_bytes()
+    }
+
     /// Line width as grapheme count.
     ///
     /// Panics for an invalid row.

@@ -944,6 +944,12 @@ impl MaskedInputState {
         self.value.line_width()
     }
 
+    /// Length in bytes.
+    #[inline]
+    pub fn len_bytes(&self) -> usize {
+        self.value.len_bytes()
+    }
+
     /// Length as grapheme count.
     #[inline]
     pub fn line_width(&self) -> upos_type {
