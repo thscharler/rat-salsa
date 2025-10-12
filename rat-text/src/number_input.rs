@@ -7,7 +7,7 @@ use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{upos_type, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle};
+use crate::{HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle, upos_type};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -403,7 +403,7 @@ impl NumberInputState {
     /// return the complete range for the style.
     #[inline]
     pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.widget.style_match(byte_pos, style)
+        self.widget.styles_at_match(byte_pos, style)
     }
 
     /// List of all styles.

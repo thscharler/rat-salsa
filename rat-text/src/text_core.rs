@@ -598,7 +598,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         };
         let styles = sty
             .values()
-            .filter(|(r, s)| *s == style)
+            .filter(|(_, s)| *s == style)
             .collect::<Vec<_>>();
         for (range, style) in &styles {
             sty.remove(range.clone(), *style);
