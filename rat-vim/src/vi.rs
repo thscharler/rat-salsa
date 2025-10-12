@@ -25,7 +25,7 @@ pub struct VI {
     pub mode: Mode,
 
     pub command_display: Rc<RefCell<String>>,
-    pub normal: Coroutine<char, Vim>,
+    pub normal: Coroutine<'static, char, Vim, Vim>,
 
     pub command: Vim,
     pub text: String,
@@ -1061,14 +1061,14 @@ pub mod modes_op {
 
 pub mod state_machine {
     use crate::vi::{Motion, Scrolling, Vim};
-    use crate::{YieldPoint, ctrl, yield_};
+    use crate::{Yield, ctrl, yield_};
     use std::cell::RefCell;
     use std::rc::Rc;
 
     async fn bare_multiplier(
         mut tok: char,
         motion_buf: &RefCell<String>,
-        yp: &YieldPoint<char, Vim>,
+        yp: &Yield<char, Vim>,
     ) -> (Option<u32>, char) {
         let mut mul = String::new();
         while tok.is_ascii_digit() || tok == ctrl::BS {
@@ -1090,7 +1090,7 @@ pub mod state_machine {
         tok: char,
         mul: Option<u32>,
         motion_buf: &RefCell<String>,
-        yp: &YieldPoint<char, Vim>,
+        yp: &Yield<char, Vim>,
     ) -> Result<Vim, char> {
         match tok {
             'h' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Left)),
@@ -1226,7 +1226,7 @@ pub mod state_machine {
         tok: char,
         mul: Option<u32>,
         motion_buf: &RefCell<String>,
-        yp: &YieldPoint<char, Vim>,
+        yp: &Yield<char, Vim>,
     ) -> Result<Vim, char> {
         match tok {
             ctrl::CTRL_U => Ok(Vim::Scroll(mul.unwrap_or(0), Scrolling::HalfPageUp)),
@@ -1252,7 +1252,7 @@ pub mod state_machine {
     pub async fn next_normal(
         mut tok: char,
         motion_buf: Rc<RefCell<String>>,
-        yp: YieldPoint<char, Vim>,
+        yp: Yield<char, Vim>,
     ) -> Vim {
         if tok == '0' {
             return Vim::Move(1, Motion::StartOfLine);
@@ -1354,7 +1354,7 @@ pub mod state_machine {
     pub async fn next_visual(
         mut tok: char,
         motion_buf: Rc<RefCell<String>>,
-        yp: YieldPoint<char, Vim>,
+        yp: Yield<char, Vim>,
     ) -> Vim {
         if tok == '0' {
             return Vim::Move(1, Motion::StartOfLine);
