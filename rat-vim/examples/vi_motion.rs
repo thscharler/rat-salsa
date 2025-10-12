@@ -5,19 +5,16 @@ use crate::text_samples::{
 };
 use log::{debug, warn};
 use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
-use rat_focus::{Focus, FocusBuilder, HasFocus};
+use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
-use rat_text::event::TextOutcome;
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
-use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{HasScreenCursor, TextPosition, upos_type};
 use rat_vim::{Mode, VI};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::symbols::border;
 use ratatui::symbols::border::EMPTY;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, StatefulWidget, Widget};
@@ -38,9 +35,8 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        info: true,
+        line_nr: true,
         relative_line_nr: false,
-        search: Default::default(),
         textarea_vim: Default::default(),
         textarea: Default::default(),
         line_numbers: Default::default(),
@@ -52,7 +48,7 @@ fn main() -> Result<(), anyhow::Error> {
     state.textarea.clear();
 
     run_ui(
-        "vi motion",
+        "vi core",
         |_, istate, _| {
             istate.timing = false;
         },
@@ -66,15 +62,15 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    pub info: bool,
+    pub line_nr: bool,
     pub relative_line_nr: bool,
-    pub search: TextInputState,
     pub textarea_vim: VI,
     pub textarea: TextAreaState,
     pub line_numbers: LineNumberState,
     pub help: bool,
 }
 
+#[allow(dead_code)]
 fn render(
     frame: &mut Frame<'_>,
     area: Rect,
@@ -94,7 +90,6 @@ fn render(
     ])
     .split(area);
 
-    // let line_number_width = LineNumbers::width_for(state.textarea.offset().1, 0, (0, 0), 0);
     let line_number_width = LineNumbers::width_for(1000, 0, (0, 0), 0);
 
     let l2 = Layout::horizontal([
@@ -117,12 +112,7 @@ fn render(
 
     let textarea = TextArea::new()
         .block(Block::bordered())
-        .vscroll(
-            Scroll::new()
-                .scroll_by(1)
-                // .overscroll_by(50)
-                .policy(ScrollbarPolicy::Always),
-        )
+        .vscroll(Scroll::new().scroll_by(1).policy(ScrollbarPolicy::Always))
         .hscroll(Scroll::new().policy(ScrollbarPolicy::Collapse))
         .styles(istate.theme.textarea_style())
         .set_horizontal_max_offset(256)
@@ -138,6 +128,13 @@ fn render(
                 .theme
                 .palette()
                 .normal_contrast(istate.theme.palette().bluegreen[0]),
+        )
+        .text_style_idx(
+            998,
+            istate
+                .theme
+                .palette()
+                .normal_contrast(istate.theme.palette().cyan[0]),
         );
     let t = SystemTime::now();
     textarea.render(l2[2], frame.buffer_mut(), &mut state.textarea);
@@ -181,13 +178,6 @@ fn render(
 
     istate.status[1] = format!("R{}|{:.0?}", frame.count(), el,).to_string();
 
-    let l3 = Layout::horizontal([
-        Constraint::Length(43),
-        Constraint::Fill(1),
-        Constraint::Percentage(20),
-    ])
-    .split(l1[0]);
-
     fill_buf_area(
         frame.buffer_mut(),
         l1[0],
@@ -199,32 +189,8 @@ fn render(
     );
     "F1 toggle help | Ctrl+Q quit | Alt-F(ind) ".render(l1[0], frame.buffer_mut());
 
-    if !BARE {
-        TextInput::new()
-            .block(
-                Block::new()
-                    .borders(Borders::LEFT | Borders::RIGHT)
-                    .border_set(border::Set {
-                        top_left: "",
-                        top_right: "",
-                        bottom_left: "",
-                        bottom_right: "",
-                        vertical_left: "[",
-                        vertical_right: "]",
-                        horizontal_top: "",
-                        horizontal_bottom: "",
-                    })
-                    .style(istate.theme.container_border()),
-            )
-            .styles(istate.theme.text_style())
-            .render(l3[2], frame.buffer_mut(), &mut state.search);
-    }
-
     let screen_cursor = if !state.help {
-        state
-            .textarea
-            .screen_cursor()
-            .or(state.search.screen_cursor())
+        state.textarea.screen_cursor()
     } else {
         None
     };
@@ -254,7 +220,8 @@ fn render(
     ALT-c    show ctrl
     ALT-x    show breaks
     ALT-d    dump cache (to log)
-    Alt-n    toggle absolute/relative line nr
+    Alt-n    toggle line nr
+    Alt-m    toggle absolute/relative line nr
 "#,
         )
         .style(
@@ -264,67 +231,6 @@ fn render(
                 .normal_contrast(istate.theme.palette().bluegreen[0]),
         )
         .render(l2[2], frame.buffer_mut());
-    }
-
-    if state.info {
-        use std::fmt::Write;
-        let mut stats = String::new();
-        _ = writeln!(&mut stats);
-        _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor());
-        _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
-        _ = writeln!(&mut stats, "offset: {:?}", state.textarea.offset());
-        _ = writeln!(&mut stats, "sub_row: {:?}", state.textarea.sub_row_offset());
-
-        _ = writeln!(
-            &mut stats,
-            "v_max: {:?}",
-            state.textarea.vertical_max_offset()
-        );
-        _ = writeln!(&mut stats, "v_page: {:?}", state.textarea.vertical_page());
-
-        _ = writeln!(&mut stats, "movecol: {:?}", state.textarea.move_col());
-        if let Some((scx, scy)) = state.textarea.screen_cursor() {
-            _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
-        } else {
-            _ = writeln!(&mut stats, "screen: None",);
-        }
-        _ = writeln!(
-            &mut stats,
-            "width: {:?} ",
-            state.textarea.line_width(state.textarea.cursor().y)
-        );
-        _ = writeln!(
-            &mut stats,
-            "next word: {:?} {:?}",
-            state.textarea.next_word_start(state.textarea.cursor()),
-            state.textarea.next_word_end(state.textarea.cursor())
-        );
-        _ = writeln!(
-            &mut stats,
-            "prev word: {:?} {:?}",
-            state.textarea.prev_word_start(state.textarea.cursor()),
-            state.textarea.prev_word_end(state.textarea.cursor())
-        );
-
-        _ = write!(&mut stats, "cursor-styles: ",);
-        let mut styles = Vec::new();
-        let cursor_byte = state.textarea.byte_at(state.textarea.cursor());
-        state.textarea.styles_at(cursor_byte.start, &mut styles);
-        for (_, s) in styles {
-            _ = write!(&mut stats, "{}, ", s);
-        }
-        _ = writeln!(&mut stats);
-
-        if let Some(st) = state.textarea.value.styles() {
-            _ = writeln!(&mut stats, "text-styles: {}", st.count());
-        }
-        if let Some(st) = state.textarea.value.styles() {
-            for r in st.take(20) {
-                _ = writeln!(&mut stats, "    {:?}", r);
-            }
-        }
-        let dbg = Paragraph::new(stats);
-        frame.render_widget(dbg, l2[3]);
     }
 
     let ccursor = state.textarea.selection();
@@ -343,7 +249,6 @@ fn render(
 fn focus(state: &mut State) -> Focus {
     let mut ff = FocusBuilder::new(None);
     ff.widget(&state.textarea);
-    ff.widget(&state.search);
     ff.build()
 }
 
@@ -366,24 +271,9 @@ fn event(
             istate.status[2] = format!("H{}|{:?}", istate.event_cnt, el).to_string();
             r
         });
-
-        try_flow!({
-            let r = state.search.handle(event, Regular);
-            match r {
-                TextOutcome::TextChanged => {
-                    run_search(state);
-                    TextOutcome::Changed
-                }
-                r => r,
-            }
-        });
     }
 
     try_flow!(match event {
-        ct_event!(key press ALT-'0') => {
-            state.info = !state.info;
-            Outcome::Changed
-        }
         ct_event!(key press ALT-'1') => {
             state.textarea.clear();
             Outcome::Changed
@@ -454,16 +344,12 @@ fn event(
             Outcome::Changed
         }
 
-        ct_event!(key press ALT-'f') => {
-            if state.search.is_focused() {
-                focus.focus(&state.textarea);
-            } else {
-                focus.focus(&state.search);
-            }
+        ct_event!(key press ALT-'n') => {
+            state.line_nr = !state.line_nr;
             Outcome::Changed
         }
-
-        ct_event!(key press ALT-'n') => {
+        ct_event!(key press ALT-'m') => {
+            state.line_nr = true;
             state.relative_line_nr = !state.relative_line_nr;
             Outcome::Changed
         }
@@ -500,31 +386,6 @@ fn event(
     });
 
     Ok(Outcome::Continue)
-}
-
-fn run_search(state: &mut State) {
-    let search_text = state.search.text();
-
-    // TODO: will kill any sample styling ...
-    state.textarea.set_styles(Vec::default());
-
-    if search_text.len() < 1 {
-        return;
-    }
-
-    // TODO: this is not fast
-    let text = state.textarea.text();
-
-    let mut start = 0;
-    loop {
-        let Some(pos) = text[start..].find(search_text) else {
-            break;
-        };
-        state
-            .textarea
-            .add_style(start + pos..start + pos + search_text.len(), 999);
-        start = start + pos + search_text.len();
-    }
 }
 
 #[derive(Debug, Default, Clone)]

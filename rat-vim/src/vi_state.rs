@@ -3,9 +3,8 @@ use crate::vi_state::display::*;
 use crate::vi_state::mark_op::set_mark;
 use crate::vi_state::move_op::*;
 use crate::vi_state::partial_op::*;
-use crate::vi_state::query::q_find_idx;
 use crate::vi_state::scroll_op::*;
-use crate::{Coroutine, Resume, SearchError, YieldPoint, ctrl};
+use crate::{Coroutine, Resume, SearchError, YieldPoint, ctrl, yield_};
 use log::debug;
 use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
@@ -60,6 +59,14 @@ impl Direction {
     }
 }
 
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+pub enum SyncRanges {
+    #[default]
+    None,
+    ToTextArea,
+    FromTextArea,
+}
+
 #[derive(Debug, Default)]
 pub struct Finds {
     pub term: Option<char>,
@@ -67,7 +74,8 @@ pub struct Finds {
     pub dir: Direction,
     pub till: bool,
     pub idx: Option<usize>,
-    pub list: Vec<Range<usize>>,
+    pub list: Vec<(Range<usize>, usize)>,
+    pub sync: SyncRanges,
 }
 
 impl Finds {
@@ -91,8 +99,8 @@ pub struct Matches {
     pub dir: Direction,
     pub tmp: bool,
     pub idx: Option<usize>,
-    pub list: Vec<Range<usize>>,
-    pub refresh: bool,
+    pub list: Vec<(Range<usize>, usize)>,
+    pub sync: SyncRanges,
 }
 
 impl Matches {
@@ -139,6 +147,8 @@ pub enum Motion {
     MoveEndOfLineText,
     MovePrevParagraph,
     MoveNextParagraph,
+
+    FullLine,
 
     FindForward(char),
     FindBack(char),
@@ -188,7 +198,6 @@ pub enum Vim {
     Append(u32),
     AppendLine(u32),
     PrependLine(u32),
-    DeleteChar(u32),
     Delete(u32, Motion),
 }
 
@@ -202,7 +211,6 @@ fn is_memo(vim: &Vim) -> bool {
         Vim::Mark(_) => false,
         Vim::Undo(_) => false,
         Vim::Redo(_) => false,
-        Vim::DeleteChar(_) => true,
         Vim::JoinLines(_) => true,
         Vim::Insert(_) => true,
         Vim::Append(_) => true,
@@ -236,27 +244,30 @@ fn reset_motion(vi: &mut VI) {
 }
 
 fn motion(vi: &mut VI, c: char) -> Poll<Vim> {
-    debug!("motion {:?} >> {:?}", c, vi.motion_display);
     match vi.motion.resume(c) {
         Resume::Yield(v) => {
-            debug!("    !> {:?}", v);
+            debug!("VIM !> {:?}", v);
             Poll::Ready(v)
         }
         Resume::Done(v) => {
-            debug!("    |> {:?}", v);
+            if matches!(v, Vim::Repeat(_)) {
+                debug!("VIM |> {:?} {:?} {:?}", v, vi.command, vi.text);
+            } else {
+                debug!("VIM |> {:?}", v);
+            }
             vi.motion_display.borrow_mut().clear();
             let mb = vi.motion_display.clone();
             vi.motion = Coroutine::new(|c, yp| Box::new(next_motion(c, mb, yp)));
             Poll::Ready(v)
         }
         Resume::Pending => {
-            debug!("    ...");
+            debug!("VIM ... {:?}", vi.motion_display.borrow());
             Poll::Pending
         }
     }
 }
 
-async fn multiplier(
+async fn bare_multiplier(
     mut tok: char,
     motion_buf: &RefCell<String>,
     yp: &YieldPoint<char, Vim>,
@@ -270,7 +281,7 @@ async fn multiplier(
             mul.push(tok);
             motion_buf.borrow_mut().push(tok);
         }
-        tok = yp.yield0().await;
+        tok = yield_!(yp);
     }
     let mul = mul.parse::<u32>().ok();
 
@@ -293,7 +304,7 @@ async fn bare_motion(
         'b' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordStart)),
         'e' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordEnd)),
         'g' => {
-            let tok = yp.yield0().await;
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             match tok {
                 'e' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordEnd)),
@@ -332,22 +343,22 @@ async fn bare_motion(
         }
 
         'f' => {
-            let tok = yp.yield0().await;
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             Ok(Vim::Move(mul.unwrap_or(1), Motion::FindForward(tok)))
         }
         'F' => {
-            let tok = yp.yield0().await;
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             Ok(Vim::Move(mul.unwrap_or(1), Motion::FindBack(tok)))
         }
         't' => {
-            let tok = yp.yield0().await;
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             Ok(Vim::Move(mul.unwrap_or(1), Motion::FindTillForward(tok)))
         }
         'T' => {
-            let tok = yp.yield0().await;
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             Ok(Vim::Move(mul.unwrap_or(1), Motion::FindTillBack(tok)))
         }
@@ -357,12 +368,10 @@ async fn bare_motion(
         '/' => {
             let mut buf = String::new();
             loop {
-                let tok = yp
-                    .yield1(Vim::Partial(
-                        mul.unwrap_or(1),
-                        Motion::SearchForward(buf.clone()),
-                    ))
-                    .await;
+                let tok = yield_!(
+                    Vim::Partial(mul.unwrap_or(1), Motion::SearchForward(buf.clone()),),
+                    yp
+                );
                 if tok == '\n' {
                     break;
                 } else if tok == ctrl::BS {
@@ -381,12 +390,10 @@ async fn bare_motion(
         '?' => {
             let mut buf = String::new();
             loop {
-                let tok = yp
-                    .yield1(Vim::Partial(
-                        mul.unwrap_or(1),
-                        Motion::SearchBack(buf.clone()),
-                    ))
-                    .await;
+                let tok = yield_!(
+                    Vim::Partial(mul.unwrap_or(1), Motion::SearchBack(buf.clone()),),
+                    yp
+                );
                 if tok == '\n' {
                     break;
                 } else if tok == '\x08' {
@@ -408,7 +415,7 @@ async fn bare_motion(
         'N' => Ok(Vim::Move(mul.unwrap_or(1), Motion::SearchRepeatPrev)),
 
         '\'' => {
-            let tok = yp.yield0().await;
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             Ok(Vim::Move(0, Motion::MoveToMark(tok)))
         }
@@ -427,7 +434,7 @@ async fn bare_scroll(
         ctrl::CTRL_U => Ok(Vim::Scroll(mul.unwrap_or(0), Scrolling::HalfPageUp)),
         ctrl::CTRL_D => Ok(Vim::Scroll(mul.unwrap_or(0), Scrolling::HalfPageDown)),
         'z' => {
-            let tok = yp.yield0().await;
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             match tok {
                 'z' => Ok(Vim::Scroll(0, Scrolling::MiddleOfScreen)),
@@ -454,52 +461,58 @@ async fn next_motion(
     }
 
     let mul;
-    (mul, tok) = multiplier(tok, &motion_buf, &yp).await;
+    (mul, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
     motion_buf.borrow_mut().push(tok);
     tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
         Ok(v @ Vim::Move(_, _)) => {
             return v;
         }
-        Err(tok) => tok,
         Ok(Vim::Invalid) => return Vim::Invalid,
+        Err(tok) => tok,
         _ => unreachable!("no"),
     };
     tok = match bare_scroll(tok, mul, &motion_buf, &yp).await {
         Ok(v @ Vim::Scroll(_, _)) => return v,
-        Err(tok) => tok,
         Ok(Vim::Invalid) => return Vim::Invalid,
+        Err(tok) => tok,
         _ => unreachable!("no"),
     };
 
     match tok {
         'm' => {
-            tok = yp.yield0().await;
+            tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             Vim::Mark(tok)
         }
 
         'd' => {
-            tok = yp.yield0().await;
+            tok = yield_!(yp);
 
             let mul2;
-            (mul2, tok) = multiplier(tok, &motion_buf, &yp).await;
+            (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
             motion_buf.borrow_mut().push(tok);
-            match bare_motion(tok, mul2, &motion_buf, &yp).await {
+            tok = match bare_motion(tok, mul2, &motion_buf, &yp).await {
                 Ok(Vim::Move(mul2, motion)) => {
                     let mul = mul.unwrap_or(1);
-                    Vim::Delete(mul * mul2, motion)
+                    return Vim::Delete(mul * mul2, motion);
                 }
-                Err(_) | Ok(Vim::Invalid) => Vim::Invalid,
+                Ok(Vim::Invalid) => return Vim::Invalid,
+                Err(tok) => tok,
                 _ => unreachable!("no"),
+            };
+            match tok {
+                'd' => Vim::Delete(mul.unwrap_or(1), Motion::FullLine),
+                _ => Vim::Invalid,
             }
         }
         'i' => Vim::Insert(mul.unwrap_or(1)),
         'a' => Vim::Append(mul.unwrap_or(1)),
         'o' => Vim::AppendLine(mul.unwrap_or(1)),
         'O' => Vim::PrependLine(mul.unwrap_or(1)),
-        'x' => Vim::DeleteChar(mul.unwrap_or(1)),
+        'x' => Vim::Delete(mul.unwrap_or(1), Motion::MoveRight),
+        'X' => Vim::Delete(mul.unwrap_or(1), Motion::MoveLeft),
         'J' => Vim::JoinLines(mul.unwrap_or(1)),
         'u' => Vim::Undo(mul.unwrap_or(1)),
         ctrl::CTRL_R => Vim::Redo(mul.unwrap_or(1)),
@@ -510,7 +523,14 @@ async fn next_motion(
     }
 }
 
-fn eval_motion(
+fn eval_insert(cc: char, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    let r = insert_char(cc, state, vi);
+    display_matches(state, vi);
+    display_finds(state, vi);
+    r
+}
+
+fn eval_normal(
     cc: char,
     state: &mut TextAreaState,
     vi: &mut VI,
@@ -518,10 +538,6 @@ fn eval_motion(
     match motion(vi, cc) {
         Poll::Ready(Vim::Repeat(mut mul)) => {
             assert!(mul > 0);
-            debug!(
-                "repeat {:?} {:?} {:?}",
-                vi.motion_display, vi.command, vi.text
-            );
             let tt = SystemTime::now();
             let vim = mem::take(&mut vi.command);
             let r = loop {
@@ -543,7 +559,6 @@ fn eval_motion(
             r
         }
         Poll::Ready(vim) => {
-            debug!("execute {:?} {:?}", vi.motion_display, vim);
             let tt = SystemTime::now();
             let r = match execute_vim(&vim, false, state, vi) {
                 Ok(v) => {
@@ -569,21 +584,18 @@ fn execute_vim(
 ) -> Result<TextOutcome, SearchError> {
     match vim {
         Vim::Invalid => return Ok(TextOutcome::Unchanged),
+        Vim::Repeat(_) => unreachable!("wrong spot for repeat"),
 
-        Vim::Repeat(_) => {
-            unreachable!("repeat should not end here")
+        Vim::Move(mul, m) => {
+            move_cursor(*mul, m, state, vi)?;
         }
-
-        Vim::Move(mul, m) => _ = move_cursor(*mul, m, state, vi)?,
 
         Vim::Partial(mul, Motion::SearchForward(s)) => {
             search_fwd(*mul, s, true, state, vi)?;
-            display_search(state, vi);
             scroll_to_search_idx(state, vi);
         }
         Vim::Partial(mul, Motion::SearchBack(s)) => {
             search_back(*mul, s, true, state, vi)?;
-            display_search(state, vi);
             scroll_to_search_idx(state, vi);
         }
         Vim::Partial(_, _) => unreachable!("unknown partial"),
@@ -600,59 +612,98 @@ fn execute_vim(
 
         Vim::Mark(mark) => set_mark(*mark, state, vi),
 
-        Vim::Undo(mul) => return Ok(undo(*mul, state)),
-        Vim::Redo(mul) => return Ok(redo(*mul, state)),
-
-        Vim::DeleteChar(mul) => {
-            return Ok(delete_char(*mul, state));
+        Vim::Undo(mul) => {
+            return Ok(undo(*mul, state, vi));
+        }
+        Vim::Redo(mul) => {
+            return Ok(redo(*mul, state, vi));
         }
         Vim::JoinLines(mul) => {
-            return Ok(join_line(*mul, state));
+            return Ok(join_line(*mul, state, vi));
         }
         Vim::Insert(mul) => {
             if repeat {
-                return Ok(insert_str(*mul, &vi.text, state));
+                return Ok(insert_str(*mul, state, vi));
             } else {
                 begin_insert(vi);
             }
         }
         Vim::Append(mul) => {
             if repeat {
-                return Ok(append_str(*mul, &vi.text, state));
+                return Ok(append_str(*mul, state, vi));
             } else {
                 begin_append(state, vi);
             }
         }
         Vim::AppendLine(mul) => {
             if repeat {
-                return Ok(append_line_str(*mul, &vi.text, state));
+                return Ok(append_line_str(*mul, state, vi));
             } else {
                 begin_append_line(state, vi);
             }
         }
         Vim::PrependLine(mul) => {
             if repeat {
-                return Ok(prepend_line_str(*mul, &vi.text, state));
+                return Ok(prepend_line_str(*mul, state, vi));
             } else {
                 begin_prepend_line(state, vi);
             }
         }
-        Vim::Delete(mul, m) => delete_text(*mul, m, state, vi)?,
+        Vim::Delete(mul, m) => {
+            delete_text(*mul, m, state, vi)?;
+        }
     }
+
+    display_matches(state, vi);
+    display_finds(state, vi);
 
     Ok(TextOutcome::Changed)
 }
 
 mod display {
-    use crate::vi_state::VI;
+    use crate::vi_state::query::{q_find_idx, q_search_idx};
+    use crate::vi_state::{Direction, SyncRanges, VI};
+    use log::debug;
     use rat_text::text_area::TextAreaState;
 
-    pub fn display_search(state: &mut TextAreaState, vi: &mut VI) {
-        if vi.matches.refresh {
-            vi.matches.refresh = false;
-            state.remove_style_fully(999);
-            for r in &vi.matches.list {
-                state.add_style(r.clone(), 999);
+    pub fn display_matches(state: &mut TextAreaState, vi: &mut VI) {
+        match vi.matches.sync {
+            SyncRanges::None => {}
+            SyncRanges::ToTextArea => {
+                debug!("sync matches ->");
+                vi.matches.sync = SyncRanges::None;
+                state.remove_style_fully(999);
+                for r in &vi.matches.list {
+                    state.add_style(r.0.clone(), 999)
+                }
+            }
+            SyncRanges::FromTextArea => {
+                debug!("sync matches <-");
+                vi.matches.sync = SyncRanges::None;
+                vi.matches.list.clear();
+                state.styles_in_match(0..state.len_bytes(), 999, &mut vi.matches.list);
+                q_search_idx(&mut vi.matches, 1, Direction::Forward, state);
+            }
+        }
+    }
+
+    pub fn display_finds(state: &mut TextAreaState, vi: &mut VI) {
+        match vi.finds.sync {
+            SyncRanges::None => {}
+            SyncRanges::ToTextArea => {
+                debug!("sync finds ->");
+                vi.finds.sync = SyncRanges::None;
+                state.remove_style_fully(998);
+                for r in &vi.finds.list {
+                    state.add_style(r.0.clone(), 998)
+                }
+            }
+            SyncRanges::FromTextArea => {
+                debug!("sync finds <-");
+                vi.finds.sync = SyncRanges::None;
+                vi.finds.list.clear();
+                state.styles_in_match(0..state.len_bytes(), 998, &mut vi.finds.list);
+                q_find_idx(&mut vi.finds, 1, Direction::Forward, state);
             }
         }
     }
@@ -664,7 +715,7 @@ mod scroll_op {
 
     pub fn scroll_to_search_idx(state: &mut TextAreaState, vi: &mut VI) {
         if let Some(idx) = vi.matches.idx {
-            let pos = state.byte_pos(vi.matches.list[idx].start);
+            let pos = state.byte_pos(vi.matches.list[idx].0.start);
             state.scroll_to_pos(pos);
         }
     }
@@ -774,7 +825,6 @@ mod scroll_op {
 
 mod move_op {
     use crate::SearchError;
-    use crate::vi_state::display::display_search;
     use crate::vi_state::query::*;
     use crate::vi_state::{Motion, VI};
     use rat_text::TextPosition;
@@ -824,6 +874,7 @@ mod move_op {
             Motion::SearchBack(term) => q_search_back(mul, &term, false, state, vi)?,
             Motion::SearchRepeatNext => q_search_repeat_fwd(mul, state, vi),
             Motion::SearchRepeatPrev => q_search_repeat_back(mul, state, vi),
+            Motion::FullLine => q_start_of_next_line(mul, state),
         })
     }
 
@@ -836,7 +887,6 @@ mod move_op {
         if let Some(npos) = move_position(mul, motion, state, vi)? {
             state.set_cursor(npos, false);
         }
-        display_search(state, vi);
         Ok(())
     }
 }
@@ -885,34 +935,39 @@ mod mark_op {
 }
 
 mod change_op {
-    use crate::vi_state::move_op::move_position;
     use crate::vi_state::query::*;
-    use crate::vi_state::{Motion, Vim};
+    use crate::vi_state::{Motion, SyncRanges, Vim};
     use crate::{Mode, SearchError, VI};
-    use log::debug;
+    use rat_text::TextPosition;
     use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
-    use rat_text::{TextPosition, TextRange, upos_type};
-    use std::cmp::min;
     use std::mem;
+    use std::ops::Range;
 
     pub fn end_insert_mode(state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
         vi.mode = Mode::Normal;
-        match &vi.command {
+
+        let command = mem::take(&mut vi.command);
+        let r = match &command {
             Vim::Insert(mul) => {
-                insert_str(mul.saturating_sub(1), &vi.text, state);
+                insert_str(mul.saturating_sub(1), state, vi);
                 TextOutcome::TextChanged
             }
             Vim::Append(mul) => {
-                append_str(mul.saturating_sub(1), &vi.text, state);
+                append_str(mul.saturating_sub(1), state, vi);
                 TextOutcome::TextChanged
             }
             _ => TextOutcome::Changed,
-        }
+        };
+        vi.command = command;
+
+        r
     }
 
     pub fn begin_prepend_line(state: &mut TextAreaState, vi: &mut VI) {
         vi.mode = Mode::Insert;
+        vi.finds.sync = SyncRanges::FromTextArea;
+        vi.matches.sync = SyncRanges::FromTextArea;
         vi.text.clear();
 
         let c = state.cursor();
@@ -921,9 +976,13 @@ mod change_op {
         state.set_cursor(TextPosition::new(0, c.y), false);
     }
 
-    pub fn prepend_line_str(mut mul: u32, text: &str, state: &mut TextAreaState) -> TextOutcome {
+    pub fn prepend_line_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        if mul > 0 {
+            vi.finds.sync = SyncRanges::FromTextArea;
+            vi.matches.sync = SyncRanges::FromTextArea;
+        }
         while mul > 0 {
-            q_prepend_line_str(&text, state);
+            q_prepend_line_str(&vi.text, state);
             mul -= 1;
         }
         TextOutcome::TextChanged
@@ -931,6 +990,8 @@ mod change_op {
 
     pub fn begin_append_line(state: &mut TextAreaState, vi: &mut VI) {
         vi.mode = Mode::Insert;
+        vi.finds.sync = SyncRanges::FromTextArea;
+        vi.matches.sync = SyncRanges::FromTextArea;
         vi.text.clear();
 
         let c = state.cursor();
@@ -939,9 +1000,13 @@ mod change_op {
         state.insert_newline();
     }
 
-    pub fn append_line_str(mut mul: u32, text: &str, state: &mut TextAreaState) -> TextOutcome {
+    pub fn append_line_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        if mul > 0 {
+            vi.finds.sync = SyncRanges::FromTextArea;
+            vi.matches.sync = SyncRanges::FromTextArea;
+        }
         while mul > 0 {
-            q_append_line_str(&text, state);
+            q_append_line_str(&vi.text, state);
             mul -= 1;
         }
         TextOutcome::TextChanged
@@ -954,9 +1019,13 @@ mod change_op {
         state.move_right(1, false);
     }
 
-    pub fn append_str(mut mul: u32, text: &str, state: &mut TextAreaState) -> TextOutcome {
+    pub fn append_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        if mul > 0 {
+            vi.finds.sync = SyncRanges::FromTextArea;
+            vi.matches.sync = SyncRanges::FromTextArea;
+        }
         while mul > 0 {
-            q_append_str(&text, state);
+            q_append_str(&vi.text, state);
             mul -= 1;
         }
         TextOutcome::TextChanged
@@ -967,31 +1036,85 @@ mod change_op {
         vi.text.clear();
     }
 
-    pub fn insert_str(mut mul: u32, text: &str, state: &mut TextAreaState) -> TextOutcome {
+    pub fn insert_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        if mul > 0 {
+            vi.finds.sync = SyncRanges::FromTextArea;
+            vi.matches.sync = SyncRanges::FromTextArea;
+        }
         while mul > 0 {
-            q_insert_str(&text, state);
+            q_insert_str(&vi.text, state);
             mul -= 1;
         }
         TextOutcome::TextChanged
     }
 
     pub fn insert_char(cc: char, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        vi.finds.sync = SyncRanges::FromTextArea;
+        vi.matches.sync = SyncRanges::FromTextArea;
         vi.text.push(cc);
         q_insert(cc, state);
         TextOutcome::TextChanged
     }
 
-    pub fn delete_char(mul: u32, state: &mut TextAreaState) -> TextOutcome {
-        let c = state.cursor();
-
-        let width = state.line_width(c.y);
-        if c.x == width {
-            state.delete_prev_char();
+    pub fn change_range(
+        mul: u32,
+        motion: &Motion,
+        state: &mut TextAreaState,
+        vi: &mut VI,
+    ) -> Result<Option<Range<TextPosition>>, SearchError> {
+        let start = match motion {
+            Motion::FullLine => q_start_of_line(state).expect("start_of_line"),
+            _ => state.cursor(),
+        };
+        let end = match motion {
+            Motion::MoveLeft => q_move_left(mul, state),
+            Motion::MoveRight => q_move_right(mul, state),
+            Motion::MoveUp => q_move_up(mul, state),
+            Motion::MoveDown => q_move_down(mul, state),
+            Motion::MoveToCol => q_col(mul, state),
+            Motion::MoveToLine => q_line(mul, state),
+            Motion::MoveToLinePercent => q_line_percent(mul, state),
+            Motion::MoveToMatching => q_matching_brace(state),
+            Motion::MoveToMark(mark) => q_mark_pos(*mark, &vi.marks),
+            Motion::MoveStartOfFile => q_start_of_file(),
+            Motion::MoveEndOfFile => q_end_of_file(state),
+            Motion::MoveNextWordStart => q_next_word_start(mul, state),
+            Motion::MovePrevWordStart => q_prev_word_start(mul, state),
+            Motion::MoveNextWordEnd => q_next_word_end(mul, state),
+            Motion::MovePrevWordEnd => q_prev_word_end(mul, state),
+            Motion::MoveNextWORDStart => q_next_bigword_start(mul, state),
+            Motion::MovePrevWORDStart => q_prev_bigword_start(mul, state),
+            Motion::MoveNextWORDEnd => q_next_bigword_end(mul, state),
+            Motion::MovePrevWORDEnd => q_prev_bigword_end(mul, state),
+            Motion::MoveStartOfLine => q_start_of_line(state),
+            Motion::MoveEndOfLine => q_end_of_line(mul, state),
+            Motion::MoveStartOfLineText => q_start_of_text(state),
+            Motion::MoveEndOfLineText => q_end_of_text(mul, state),
+            Motion::MovePrevParagraph => q_prev_paragraph(mul, state),
+            Motion::MoveNextParagraph => q_next_paragraph(mul, state),
+            Motion::FindForward(f) => q_find_fwd(mul, *f, state, vi),
+            Motion::FindBack(f) => q_find_back(mul, *f, state, vi),
+            Motion::FindTillForward(f) => q_till_fwd(mul, *f, state, vi),
+            Motion::FindTillBack(f) => q_till_back(mul, *f, state, vi),
+            Motion::FindRepeatNext => q_find_repeat_fwd(mul, state, vi),
+            Motion::FindRepeatPrev => q_find_repeat_back(mul, state, vi),
+            Motion::SearchWordForward => q_search_word_fwd(mul, state, vi)?,
+            Motion::SearchWordBackward => q_search_word_back(mul, state, vi)?,
+            Motion::SearchForward(term) => q_search_fwd(mul, &term, false, state, vi)?,
+            Motion::SearchBack(term) => q_search_back(mul, &term, false, state, vi)?,
+            Motion::SearchRepeatNext => q_search_repeat_fwd(mul, state, vi),
+            Motion::SearchRepeatPrev => q_search_repeat_back(mul, state, vi),
+            Motion::FullLine => q_start_of_next_line(mul, state),
+        };
+        if let Some(end) = end {
+            if start > end {
+                Ok(Some(end..start))
+            } else {
+                Ok(Some(start..end))
+            }
         } else {
-            let end = TextPosition::new(min(width, c.x + mul as upos_type), c.y);
-            state.delete_range(c..end);
+            Ok(None)
         }
-        TextOutcome::TextChanged
     }
 
     pub fn delete_text(
@@ -1000,20 +1123,18 @@ mod change_op {
         state: &mut TextAreaState,
         vi: &mut VI,
     ) -> Result<(), SearchError> {
-        debug!("delete_text {:?} {:?}", mul, motion);
-        if let Some(mut end) = move_position(mul, motion, state, vi)? {
-            let mut start = state.cursor();
-            if start > end {
-                mem::swap(&mut start, &mut end);
-            }
-
-            let r = state.bytes_at_range(TextRange::new(start, end));
-            state.delete_range(start..end);
+        if let Some(range) = change_range(mul, motion, state, vi)? {
+            vi.finds.sync = SyncRanges::FromTextArea;
+            vi.matches.sync = SyncRanges::FromTextArea;
+            state.delete_range(range);
         }
         Ok(())
     }
 
-    pub fn join_line(mut mul: u32, state: &mut TextAreaState) -> TextOutcome {
+    pub fn join_line(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        vi.finds.sync = SyncRanges::FromTextArea;
+        vi.matches.sync = SyncRanges::FromTextArea;
+
         while mul > 0 {
             let range = q_line_break_and_leading_space(state);
             if !range.is_empty() {
@@ -1026,7 +1147,10 @@ mod change_op {
         TextOutcome::TextChanged
     }
 
-    pub fn undo(mut mul: u32, state: &mut TextAreaState) -> TextOutcome {
+    pub fn undo(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        vi.finds.sync = SyncRanges::FromTextArea;
+        vi.matches.sync = SyncRanges::FromTextArea;
+
         while mul > 0 {
             if !state.undo() {
                 break;
@@ -1037,7 +1161,10 @@ mod change_op {
         TextOutcome::TextChanged
     }
 
-    pub fn redo(mut mul: u32, state: &mut TextAreaState) -> TextOutcome {
+    pub fn redo(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+        vi.finds.sync = SyncRanges::FromTextArea;
+        vi.matches.sync = SyncRanges::FromTextArea;
+
         while mul > 0 {
             if !state.redo() {
                 break;
@@ -1050,7 +1177,7 @@ mod change_op {
 }
 
 mod query {
-    use crate::vi_state::{Direction, Finds, Matches};
+    use crate::vi_state::{Direction, Finds, Matches, SyncRanges};
     use crate::{SearchError, VI, ctrl};
     use rat_text::text_area::TextAreaState;
     use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
@@ -1425,6 +1552,11 @@ mod query {
         Some(TextPosition::new(0, state.cursor().y))
     }
 
+    pub fn q_start_of_next_line(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+        let y = min(state.cursor().y + mul as upos_type, state.len_lines());
+        Some(TextPosition::new(0, y))
+    }
+
     pub fn q_end_of_line(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
         let y = min(
             state.cursor().y + mul.saturating_sub(1) as upos_type,
@@ -1586,7 +1718,7 @@ mod query {
         q_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
-            let pos = state.byte_pos(vi.finds.list[i].end);
+            let pos = state.byte_pos(vi.finds.list[i].0.end);
             Some(pos)
         } else {
             None
@@ -1603,7 +1735,7 @@ mod query {
         q_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
-            let pos = state.byte_pos(vi.finds.list[i].start);
+            let pos = state.byte_pos(vi.finds.list[i].0.start);
             Some(pos)
         } else {
             None
@@ -1620,7 +1752,7 @@ mod query {
         q_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
-            let pos = state.byte_pos(vi.finds.list[i].start);
+            let pos = state.byte_pos(vi.finds.list[i].0.start);
             Some(pos)
         } else {
             None
@@ -1637,7 +1769,7 @@ mod query {
         q_find_idx(&mut vi.finds, mul, Direction::Forward, state);
 
         if let Some(i) = vi.finds.idx {
-            let pos = state.byte_pos(vi.finds.list[i].end);
+            let pos = state.byte_pos(vi.finds.list[i].0.end);
             Some(pos)
         } else {
             None
@@ -1664,15 +1796,15 @@ mod query {
         if let Some(idx) = vi.finds.idx {
             let pos = if vi.finds.till {
                 if dir == Direction::Backward {
-                    state.byte_pos(vi.finds.list[idx].end)
+                    state.byte_pos(vi.finds.list[idx].0.end)
                 } else {
-                    state.byte_pos(vi.finds.list[idx].start)
+                    state.byte_pos(vi.finds.list[idx].0.start)
                 }
             } else {
                 if dir == Direction::Backward {
-                    state.byte_pos(vi.finds.list[idx].start)
+                    state.byte_pos(vi.finds.list[idx].0.start)
                 } else {
-                    state.byte_pos(vi.finds.list[idx].end)
+                    state.byte_pos(vi.finds.list[idx].0.end)
                 }
             };
             Some(pos)
@@ -1701,15 +1833,15 @@ mod query {
         if let Some(idx) = vi.finds.idx {
             let pos = if vi.finds.till {
                 if dir == Direction::Backward {
-                    state.byte_pos(vi.finds.list[idx].end)
+                    state.byte_pos(vi.finds.list[idx].0.end)
                 } else {
-                    state.byte_pos(vi.finds.list[idx].start)
+                    state.byte_pos(vi.finds.list[idx].0.start)
                 }
             } else {
                 if dir == Direction::Backward {
-                    state.byte_pos(vi.finds.list[idx].start)
+                    state.byte_pos(vi.finds.list[idx].0.start)
                 } else {
-                    state.byte_pos(vi.finds.list[idx].end)
+                    state.byte_pos(vi.finds.list[idx].0.end)
                 }
             };
             Some(pos)
@@ -1725,7 +1857,7 @@ mod query {
         let mul = (mul as usize).saturating_sub(1);
 
         if dir == Direction::Forward {
-            finds.idx = finds.list.iter().position(|v| v.start > c);
+            finds.idx = finds.list.iter().position(|(v, _)| v.start > c);
 
             finds.idx = if let Some(idx) = finds.idx {
                 if idx + mul < finds.list.len() {
@@ -1740,7 +1872,7 @@ mod query {
             // Till backwards might need to correct the cursor.
             if finds.till {
                 if let Some(i) = finds.idx {
-                    let r = finds.list[i].clone();
+                    let r = finds.list[i].0.clone();
                     if c == r.end {
                         c = r.start;
                     }
@@ -1751,7 +1883,7 @@ mod query {
                 .list
                 .iter()
                 .enumerate()
-                .filter_map(|(i, v)| if v.end < c { Some(i) } else { None })
+                .filter_map(|(i, (v, _))| if v.end < c { Some(i) } else { None })
                 .last();
 
             finds.idx = if let Some(idx) = finds.idx {
@@ -1776,6 +1908,7 @@ mod query {
             finds.till = till;
             finds.idx = None;
             finds.list.clear();
+            finds.sync = SyncRanges::ToTextArea;
 
             let cursor = state.cursor();
             let start = TextPosition::new(0, cursor.y);
@@ -1786,7 +1919,7 @@ mod query {
                     break;
                 };
                 if c == term {
-                    finds.list.push(c.text_bytes());
+                    finds.list.push((c.text_bytes(), 998));
                 }
             }
         } else {
@@ -1923,14 +2056,14 @@ mod query {
             matches.tmp = tmp;
             matches.idx = None;
             matches.list.clear();
-            matches.refresh = true;
+            matches.sync = SyncRanges::ToTextArea;
 
             if let Ok(re) = Regex::new(matches.term.as_ref().expect("term")) {
                 let cursor = RopeyCursor::new(state.rope().byte_slice(..));
                 let input = Input::new(cursor);
 
                 for m in find_iter(&re, input) {
-                    matches.list.push(m.start()..m.end());
+                    matches.list.push((m.start()..m.end(), 999));
                 }
             }
         } else {
@@ -1952,7 +2085,7 @@ mod query {
         let mul = (mul as usize).saturating_sub(1);
 
         if dir == Direction::Forward {
-            matches.idx = matches.list.iter().position(|v| v.start > c);
+            matches.idx = matches.list.iter().position(|(v, _)| v.start > c);
 
             matches.idx = if let Some(idx) = matches.idx {
                 if idx + mul < matches.list.len() {
@@ -1968,7 +2101,7 @@ mod query {
                 .list
                 .iter()
                 .enumerate()
-                .filter_map(|(i, v)| if v.end < c { Some(i) } else { None })
+                .filter_map(|(i, (v, _))| if v.end < c { Some(i) } else { None })
                 .last();
 
             matches.idx = if let Some(idx) = matches.idx {
@@ -1981,7 +2114,7 @@ mod query {
 
     pub fn q_current_search_idx(state: &mut TextAreaState, vi: &mut VI) -> Option<TextPosition> {
         if let Some(idx) = vi.matches.idx {
-            let pos = state.byte_pos(vi.matches.list[idx].start);
+            let pos = state.byte_pos(vi.matches.list[idx].0.start);
             Some(pos)
         } else {
             None
@@ -2165,6 +2298,10 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
         event: &crossterm::event::Event,
         vi: &mut VI,
     ) -> Result<TextOutcome, SearchError> {
+        if self.focus.gained() && matches!(event, ct_event!(keycode press Tab)) {
+            return Ok(TextOutcome::Unchanged);
+        }
+
         let r = if vi.mode == Mode::Normal {
             match event {
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
@@ -2175,10 +2312,10 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
 
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => eval_motion(*c, self, vi)?,
-                ct_event!(keycode press Enter) => eval_motion('\n', self, vi)?,
-                ct_event!(keycode press Backspace) => eval_motion(ctrl::BS, self, vi)?,
-                ct_event!(key press CONTROL-cc) => eval_motion(ctrl::ctrl(*cc), self, vi)?,
+                | ct_event!(key press CONTROL_ALT-c) => eval_normal(*c, self, vi)?,
+                ct_event!(keycode press Enter) => eval_normal('\n', self, vi)?,
+                ct_event!(keycode press Backspace) => eval_normal(ctrl::BS, self, vi)?,
+                ct_event!(key press CONTROL-cc) => eval_normal(ctrl::ctrl(*cc), self, vi)?,
 
                 _ => TextOutcome::Continue,
             }
@@ -2190,17 +2327,11 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
 
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => insert_char(*c, self, vi),
-                ct_event!(keycode press Tab) => {
-                    if !self.focus.gained() {
-                        insert_char('\t', self, vi)
-                    } else {
-                        TextOutcome::Unchanged
-                    }
-                }
-                ct_event!(keycode press Enter) => insert_char('\n', self, vi),
-                ct_event!(keycode press Backspace) => insert_char(ctrl::BS, self, vi),
-                ct_event!(keycode press Delete) => insert_char(ctrl::DEL, self, vi),
+                | ct_event!(key press CONTROL_ALT-c) => eval_insert(*c, self, vi),
+                ct_event!(keycode press Tab) => eval_insert('\t', self, vi),
+                ct_event!(keycode press Enter) => eval_insert('\n', self, vi),
+                ct_event!(keycode press Backspace) => eval_insert(ctrl::BS, self, vi),
+                ct_event!(keycode press Delete) => eval_insert(ctrl::DEL, self, vi),
 
                 _ => TextOutcome::Continue,
             }

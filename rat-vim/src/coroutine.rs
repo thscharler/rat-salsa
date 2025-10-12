@@ -34,8 +34,8 @@ impl<P: Debug, T: Debug> Coroutine<P, T> {
     ///
     /// let mut co = Coroutine::new(|arg, yp| {
     ///     Box::new(async move {
-    ///         let arg = yp.yield1(42*arg);
-    ///         _ = yp.yield1(84*arg);
+    ///         let arg = yp.yield_(42*arg);
+    ///         _ = yp.yield_(84*arg);
     ///         999
     ///     })
     /// });
@@ -87,6 +87,16 @@ impl<P: Debug, T: Debug> Coroutine<P, T> {
     }
 }
 
+#[macro_export]
+macro_rules! yield_ {
+    ($yp:expr) => {
+        $yp.yield_pending().await
+    };
+    ($v:expr, $yp:expr) => {
+        $yp.yield_($v).await
+    };
+}
+
 /// Struct that implements the coroutine yield.
 pub struct YieldPoint<P, T> {
     arg: Rc<Cell<Option<P>>>,
@@ -113,7 +123,7 @@ impl<P: Debug, T: Debug> YieldPoint<P, T> {
 
     /// Yield without result.
     /// Results in a `Resume::Pending`.
-    pub async fn yield0(&self) -> P {
+    pub async fn yield_pending(&self) -> P {
         self.yield_.set(None);
         YieldNow(false).await;
         self.arg.take().expect("arg")
@@ -121,7 +131,7 @@ impl<P: Debug, T: Debug> YieldPoint<P, T> {
 
     /// Yield with result.
     /// Results in a `Resume::Yield`
-    pub async fn yield1(&self, value: T) -> P {
+    pub async fn yield_(&self, value: T) -> P {
         self.yield_.set(Some(value));
         YieldNow(false).await;
         self.arg.take().expect("arg")
