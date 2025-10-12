@@ -81,7 +81,7 @@ pub struct ListStyle {
 }
 
 /// State & event handling.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct ListState<Selection> {
     /// Total area
     /// __readonly__. renewed for each render.
