@@ -33,6 +33,7 @@ use std::cell::Cell;
 use std::cmp::max;
 use std::fs;
 use std::io::{Stdout, stdout};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -217,11 +218,20 @@ fn repaint_tui<Data, State>(
 ) -> Result<(), anyhow::Error> {
     let area = frame.area();
 
-    let l1 = Layout::vertical([
-        Constraint::Fill(1), //
-        Constraint::Length(1),
-    ])
-    .split(area);
+    let have_status = STATUS.load(Ordering::Acquire);
+
+    let l1 = if have_status {
+        Layout::vertical([
+            Constraint::Fill(1), //
+            Constraint::Length(1),
+        ])
+        .split(area)
+    } else {
+        Layout::vertical([
+            Constraint::Fill(1), //
+        ])
+        .split(area)
+    };
 
     let t0 = SystemTime::now();
     repaint(frame, l1[0], data, istate, state)?;
@@ -231,30 +241,32 @@ fn repaint_tui<Data, State>(
         istate.status[1] = format!("Render #{} | {:.0?}", frame.count(), el).to_string();
     }
 
-    let l_status = Layout::horizontal([
-        Constraint::Length(2 + istate.name.graphemes(true).count() as u16),
-        Constraint::Length(1),
-        Constraint::Fill(1),
-        Constraint::Length(18),
-        Constraint::Length(18),
-    ])
-    .split(l1[1]);
+    if have_status {
+        let l_status = Layout::horizontal([
+            Constraint::Length(2 + istate.name.graphemes(true).count() as u16),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+            Constraint::Length(18),
+            Constraint::Length(18),
+        ])
+        .split(l1[1]);
 
-    Line::from_iter(["[", istate.name.as_str(), "]"])
-        .style(istate.theme.status_base())
-        .render(l_status[0], frame.buffer_mut());
-    Line::from(" ")
-        .style(istate.theme.status_base())
-        .render(l_status[1], frame.buffer_mut());
-    Line::from(istate.status[0].as_str())
-        .style(istate.theme.statusline_style()[0])
-        .render(l_status[2], frame.buffer_mut());
-    Line::from(istate.status[1].as_str())
-        .style(istate.theme.statusline_style()[1])
-        .render(l_status[3], frame.buffer_mut());
-    Line::from(istate.status[2].as_str())
-        .style(istate.theme.statusline_style()[2])
-        .render(l_status[4], frame.buffer_mut());
+        Line::from_iter(["[", istate.name.as_str(), "]"])
+            .style(istate.theme.status_base())
+            .render(l_status[0], frame.buffer_mut());
+        Line::from(" ")
+            .style(istate.theme.status_base())
+            .render(l_status[1], frame.buffer_mut());
+        Line::from(istate.status[0].as_str())
+            .style(istate.theme.statusline_style()[0])
+            .render(l_status[2], frame.buffer_mut());
+        Line::from(istate.status[1].as_str())
+            .style(istate.theme.statusline_style()[1])
+            .render(l_status[3], frame.buffer_mut());
+        Line::from(istate.status[2].as_str())
+            .style(istate.theme.statusline_style()[2])
+            .render(l_status[4], frame.buffer_mut());
+    }
 
     Ok(())
 }
@@ -352,7 +364,9 @@ pub mod palette;
 pub mod text_input_mock;
 pub mod theme;
 
-pub static THEME: ShellTheme = ShellTheme::new("Imperial Shell", PALETTE);
+pub static STATUS: AtomicBool = AtomicBool::new(true);
+
+pub static THEME: ShellTheme = ShellTheme::new(PALETTE.name, PALETTE);
 
 /// An adaption of nvchad's tundra theme.
 ///
