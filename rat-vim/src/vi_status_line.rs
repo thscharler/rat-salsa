@@ -100,7 +100,7 @@ impl<'a> StatefulWidget for VIStatusLine<'a> {
         let inner = self.block.inner_if_some(area);
 
         let name_len = self.name.graphemes(true).count();
-        let motion_len = state.1.motion_display.borrow().graphemes(true).count();
+        let motion_len = state.1.command_display.borrow().graphemes(true).count();
 
         let ll = Layout::horizontal([
             Constraint::Length(name_len as u16 + 2),
@@ -158,7 +158,7 @@ impl<'a> StatefulWidget for VIStatusLine<'a> {
         })
         .render(ll[1], buf);
 
-        let md = state.1.motion_display.borrow();
+        let md = state.1.command_display.borrow();
         Line::from(md.as_str()) //
             .style(self.style)
             .render(ll[2], buf);
