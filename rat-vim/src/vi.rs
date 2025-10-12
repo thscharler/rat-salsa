@@ -708,7 +708,7 @@ fn execute_vim(
             return Ok(TextOutcome::TextChanged);
         }
         Vim::Replace(mul, c) => {
-            replace_text(*mul, *c, state, vi);
+            replace_text(*mul, *c, state, vi)?;
             return Ok(TextOutcome::TextChanged);
         }
     }
@@ -1725,7 +1725,7 @@ mod query {
 
         let width = state.line_width(y);
         let mut it = state.graphemes(
-            (TextPosition::new(0, y)..TextPosition::new(width, y)).into(),
+            TextPosition::new(0, y)..TextPosition::new(width, y),
             TextPosition::new(width, y),
         );
         let found;
