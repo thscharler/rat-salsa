@@ -209,14 +209,14 @@ macro_rules! yield_ {
 /// Struct that implements the coroutine yield.
 pub struct Yield<P, T> {
     arg: Rc<Cell<Option<P>>>,
-    yield_: Rc<Cell<Option<T>>>,
+    yielded: Rc<Cell<Option<T>>>,
 }
 
 impl<P, T> Yield<P, T> {
     pub fn new() -> Self {
         Self {
             arg: Default::default(),
-            yield_: Default::default(),
+            yielded: Default::default(),
         }
     }
 
@@ -227,22 +227,22 @@ impl<P, T> Yield<P, T> {
 
     /// Yielded value.
     pub fn yielded(&self) -> Option<T> {
-        self.yield_.take()
+        self.yielded.take()
     }
 
     /// Yield without result.
     /// Results in a `Resume::Pending`.
     pub async fn yield_pending(&self) -> P {
-        self.yield_.set(None);
-        yield_from_future().await;
+        self.yielded.set(None);
+        yield_tech().await;
         self.arg.take().expect("arg")
     }
 
     /// Yield with result.
     /// Results in a `Resume::Yield`
     pub async fn yield_(&self, value: T) -> P {
-        self.yield_.set(Some(value));
-        yield_from_future().await;
+        self.yielded.set(Some(value));
+        yield_tech().await;
         self.arg.take().expect("arg")
     }
 }
@@ -251,12 +251,12 @@ impl<P, T> Clone for Yield<P, T> {
     fn clone(&self) -> Self {
         Self {
             arg: Rc::clone(&self.arg),
-            yield_: Rc::clone(&self.yield_),
+            yielded: Rc::clone(&self.yielded),
         }
     }
 }
 
-fn yield_from_future() -> impl Future<Output = ()> {
+fn yield_tech() -> impl Future<Output = ()> {
     struct YieldNow(bool);
 
     impl Future for YieldNow {
