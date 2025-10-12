@@ -200,6 +200,7 @@ pub enum Vim {
     PrependLine(u32),
     Delete(u32, Motion),
     Change(u32, Motion),
+    Replace(u32, char),
 }
 
 fn is_memo(vim: &Vim) -> bool {
@@ -219,6 +220,7 @@ fn is_memo(vim: &Vim) -> bool {
         Vim::PrependLine(_) => true,
         Vim::Delete(_, _) => true,
         Vim::Change(_, _) => true,
+        Vim::Replace(_, _) => true,
     }
 }
 
@@ -488,6 +490,11 @@ async fn next_motion(
             Vim::Mark(tok)
         }
 
+        'r' => {
+            tok = yield_!(yp);
+            motion_buf.borrow_mut().push(tok);
+            Vim::Replace(mul.unwrap_or(1), tok)
+        }
         'd' => {
             tok = yield_!(yp);
 
@@ -551,10 +558,10 @@ async fn next_motion(
 }
 
 fn eval_insert(cc: char, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
-    let r = insert_char(cc, state, vi);
+    insert_char(cc, state, vi);
     display_matches(state, vi);
     display_finds(state, vi);
-    r
+    TextOutcome::TextChanged
 }
 
 fn eval_normal(
@@ -640,53 +647,69 @@ fn execute_vim(
         Vim::Mark(mark) => set_mark(*mark, state, vi),
 
         Vim::Undo(mul) => {
-            return Ok(undo(*mul, state, vi));
+            undo(*mul, state, vi);
+            return Ok(TextOutcome::TextChanged);
         }
         Vim::Redo(mul) => {
-            return Ok(redo(*mul, state, vi));
+            redo(*mul, state, vi);
+            return Ok(TextOutcome::TextChanged);
         }
         Vim::JoinLines(mul) => {
-            return Ok(join_line(*mul, state, vi));
+            join_line(*mul, state, vi);
+            return Ok(TextOutcome::TextChanged);
         }
         Vim::Insert(mul) => {
             if repeat {
-                return Ok(insert_str(*mul, state, vi));
+                insert_str(*mul, state, vi);
+                return Ok(TextOutcome::TextChanged);
             } else {
                 begin_insert(vi);
             }
         }
         Vim::Append(mul) => {
             if repeat {
-                return Ok(append_str(*mul, state, vi));
+                append_str(*mul, state, vi);
+                return Ok(TextOutcome::TextChanged);
             } else {
                 begin_append(state, vi);
             }
         }
         Vim::AppendLine(mul) => {
             if repeat {
-                return Ok(append_line_str(*mul, state, vi));
+                append_line_str(*mul, state, vi);
+                return Ok(TextOutcome::TextChanged);
             } else {
                 begin_append_line(state, vi);
+                return Ok(TextOutcome::TextChanged);
+            }
+        }
+        Vim::PrependLine(mul) => {
+            if repeat {
+                prepend_line_str(*mul, state, vi);
+                return Ok(TextOutcome::TextChanged);
+            } else {
+                begin_prepend_line(state, vi);
+                return Ok(TextOutcome::TextChanged);
             }
         }
         Vim::Change(mul, m) => {
             if repeat {
                 change_text(*mul, m, state, vi)?;
-                return Ok(insert_str(1, state, vi));
+                insert_str(1, state, vi);
+                return Ok(TextOutcome::TextChanged);
             } else {
                 change_text(*mul, m, state, vi)?;
                 begin_insert(vi);
-            }
-        }
-        Vim::PrependLine(mul) => {
-            if repeat {
-                return Ok(prepend_line_str(*mul, state, vi));
-            } else {
-                begin_prepend_line(state, vi);
+                return Ok(TextOutcome::TextChanged);
             }
         }
         Vim::Delete(mul, m) => {
             delete_text(*mul, m, state, vi)?;
+            return Ok(TextOutcome::TextChanged);
+        }
+        Vim::Replace(mul, c) => {
+            replace_text(*mul, *c, state, vi);
+            return Ok(TextOutcome::TextChanged);
         }
     }
 
@@ -970,29 +993,24 @@ mod change_op {
     use crate::vi::{Motion, SyncRanges, Vim};
     use crate::{Mode, SearchError, VI};
     use rat_text::TextPosition;
-    use rat_text::event::TextOutcome;
     use rat_text::text_area::TextAreaState;
     use std::mem;
     use std::ops::Range;
 
-    pub fn end_insert_mode(state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn end_insert_mode(state: &mut TextAreaState, vi: &mut VI) {
         vi.mode = Mode::Normal;
 
         let command = mem::take(&mut vi.command);
-        let r = match &command {
+        match &command {
             Vim::Insert(mul) => {
                 insert_str(mul.saturating_sub(1), state, vi);
-                TextOutcome::TextChanged
             }
             Vim::Append(mul) => {
                 append_str(mul.saturating_sub(1), state, vi);
-                TextOutcome::TextChanged
             }
-            _ => TextOutcome::Changed,
+            _ => {}
         };
         vi.command = command;
-
-        r
     }
 
     pub fn begin_prepend_line(state: &mut TextAreaState, vi: &mut VI) {
@@ -1007,7 +1025,7 @@ mod change_op {
         state.set_cursor(TextPosition::new(0, c.y), false);
     }
 
-    pub fn prepend_line_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn prepend_line_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if mul > 0 {
             vi.finds.sync = SyncRanges::FromTextArea;
             vi.matches.sync = SyncRanges::FromTextArea;
@@ -1016,7 +1034,6 @@ mod change_op {
             q_prepend_line_str(&vi.text, state);
             mul -= 1;
         }
-        TextOutcome::TextChanged
     }
 
     pub fn begin_append_line(state: &mut TextAreaState, vi: &mut VI) {
@@ -1031,7 +1048,7 @@ mod change_op {
         state.insert_newline();
     }
 
-    pub fn append_line_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn append_line_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if mul > 0 {
             vi.finds.sync = SyncRanges::FromTextArea;
             vi.matches.sync = SyncRanges::FromTextArea;
@@ -1040,7 +1057,6 @@ mod change_op {
             q_append_line_str(&vi.text, state);
             mul -= 1;
         }
-        TextOutcome::TextChanged
     }
 
     pub fn begin_append(state: &mut TextAreaState, vi: &mut VI) {
@@ -1050,7 +1066,7 @@ mod change_op {
         state.move_right(1, false);
     }
 
-    pub fn append_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn append_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if mul > 0 {
             vi.finds.sync = SyncRanges::FromTextArea;
             vi.matches.sync = SyncRanges::FromTextArea;
@@ -1059,7 +1075,6 @@ mod change_op {
             q_append_str(&vi.text, state);
             mul -= 1;
         }
-        TextOutcome::TextChanged
     }
 
     pub fn begin_insert(vi: &mut VI) {
@@ -1067,7 +1082,7 @@ mod change_op {
         vi.text.clear();
     }
 
-    pub fn insert_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn insert_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         if mul > 0 {
             vi.finds.sync = SyncRanges::FromTextArea;
             vi.matches.sync = SyncRanges::FromTextArea;
@@ -1076,15 +1091,33 @@ mod change_op {
             q_insert_str(&vi.text, state);
             mul -= 1;
         }
-        TextOutcome::TextChanged
     }
 
-    pub fn insert_char(cc: char, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn insert_char(cc: char, state: &mut TextAreaState, vi: &mut VI) {
         vi.finds.sync = SyncRanges::FromTextArea;
         vi.matches.sync = SyncRanges::FromTextArea;
         vi.text.push(cc);
         q_insert(cc, state);
-        TextOutcome::TextChanged
+    }
+
+    pub fn replace_text(
+        mut mul: u32,
+        cc: char,
+        state: &mut TextAreaState,
+        vi: &mut VI,
+    ) -> Result<(), SearchError> {
+        if let Some(range) = change_range(mul, &Motion::Right, state, vi)? {
+            vi.finds.sync = SyncRanges::FromTextArea;
+            vi.matches.sync = SyncRanges::FromTextArea;
+            state.begin_undo_seq();
+            state.delete_range(range);
+            while mul > 0 {
+                state.insert_char(cc);
+                mul -= 1;
+            }
+            state.end_undo_seq();
+        }
+        Ok(())
     }
 
     pub fn change_range(
@@ -1237,7 +1270,7 @@ mod change_op {
         Ok(())
     }
 
-    pub fn join_line(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn join_line(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         vi.finds.sync = SyncRanges::FromTextArea;
         vi.matches.sync = SyncRanges::FromTextArea;
 
@@ -1250,10 +1283,9 @@ mod change_op {
 
             mul -= 1;
         }
-        TextOutcome::TextChanged
     }
 
-    pub fn undo(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn undo(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         vi.finds.sync = SyncRanges::FromTextArea;
         vi.matches.sync = SyncRanges::FromTextArea;
 
@@ -1264,10 +1296,9 @@ mod change_op {
 
             mul -= 1;
         }
-        TextOutcome::TextChanged
     }
 
-    pub fn redo(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextOutcome {
+    pub fn redo(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         vi.finds.sync = SyncRanges::FromTextArea;
         vi.matches.sync = SyncRanges::FromTextArea;
 
@@ -1278,7 +1309,6 @@ mod change_op {
 
             mul -= 1;
         }
-        TextOutcome::TextChanged
     }
 }
 
@@ -2428,7 +2458,8 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
         } else if vi.mode == Mode::Insert {
             match event {
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
-                    end_insert_mode(self, vi)
+                    end_insert_mode(self, vi);
+                    TextOutcome::TextChanged
                 }
 
                 ct_event!(key press c)
