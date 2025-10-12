@@ -7,7 +7,7 @@ use log::{debug, warn};
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, Palette, SalsaTheme};
+use rat_theme3::{create_theme, SalsaTheme};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::layout_middle;
@@ -17,8 +17,7 @@ use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardErro
 use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui::widgets::StatefulWidget;
 use ropey::Rope;
 use std::cell::RefCell;
 use std::env::args;
@@ -372,7 +371,6 @@ mod logscroll {
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::style::Style;
     use ratatui::text::{Line, Span};
-    use ratatui::widgets::block::Title;
     use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
     use regex_cursor::engines::dfa::{find_iter, Regex};
     use regex_cursor::{Input, RopeyCursor};
