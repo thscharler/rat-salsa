@@ -3,10 +3,12 @@ use std::fmt::{Display, Formatter};
 
 mod coroutine;
 mod ctrl;
-mod vi_state;
+mod vi;
+mod vi_status_line;
 
 pub use coroutine::{Coroutine, Resume, YieldPoint};
-pub use vi_state::{Mode, VI};
+pub use vi::{Mode, VI};
+pub use vi_status_line::VIStatusLine;
 
 #[derive(Debug)]
 pub struct SearchError;

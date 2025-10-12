@@ -1,9 +1,9 @@
-use crate::vi_state::change_op::*;
-use crate::vi_state::display::*;
-use crate::vi_state::mark_op::set_mark;
-use crate::vi_state::move_op::*;
-use crate::vi_state::partial_op::*;
-use crate::vi_state::scroll_op::*;
+use crate::vi::change_op::*;
+use crate::vi::display::*;
+use crate::vi::mark_op::set_mark;
+use crate::vi::move_op::*;
+use crate::vi::partial_op::*;
+use crate::vi::scroll_op::*;
 use crate::{Coroutine, Resume, SearchError, YieldPoint, ctrl, yield_};
 use log::debug;
 use rat_event::{HandleEvent, ct_event};
@@ -661,8 +661,8 @@ fn execute_vim(
 }
 
 mod display {
-    use crate::vi_state::query::{q_find_idx, q_search_idx};
-    use crate::vi_state::{Direction, SyncRanges, VI};
+    use crate::vi::query::{q_find_idx, q_search_idx};
+    use crate::vi::{Direction, SyncRanges, VI};
     use log::debug;
     use rat_text::text_area::TextAreaState;
 
@@ -710,7 +710,7 @@ mod display {
 }
 
 mod scroll_op {
-    use crate::vi_state::VI;
+    use crate::vi::VI;
     use rat_text::text_area::TextAreaState;
 
     pub fn scroll_to_search_idx(state: &mut TextAreaState, vi: &mut VI) {
@@ -825,8 +825,8 @@ mod scroll_op {
 
 mod move_op {
     use crate::SearchError;
-    use crate::vi_state::query::*;
-    use crate::vi_state::{Motion, VI};
+    use crate::vi::query::*;
+    use crate::vi::{Motion, VI};
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
 
@@ -893,8 +893,8 @@ mod move_op {
 
 mod partial_op {
     use crate::SearchError;
-    use crate::vi_state::query::*;
-    use crate::vi_state::{Direction, VI};
+    use crate::vi::query::*;
+    use crate::vi::{Direction, VI};
     use rat_text::text_area::TextAreaState;
 
     pub fn search_back(
@@ -924,7 +924,7 @@ mod partial_op {
 
 mod mark_op {
     use crate::VI;
-    use crate::vi_state::query::*;
+    use crate::vi::query::*;
     use rat_text::text_area::TextAreaState;
 
     pub fn set_mark(mark: char, state: &mut TextAreaState, vi: &mut VI) {
@@ -935,8 +935,8 @@ mod mark_op {
 }
 
 mod change_op {
-    use crate::vi_state::query::*;
-    use crate::vi_state::{Motion, SyncRanges, Vim};
+    use crate::vi::query::*;
+    use crate::vi::{Motion, SyncRanges, Vim};
     use crate::{Mode, SearchError, VI};
     use rat_text::TextPosition;
     use rat_text::event::TextOutcome;
@@ -1177,7 +1177,7 @@ mod change_op {
 }
 
 mod query {
-    use crate::vi_state::{Direction, Finds, Matches, SyncRanges};
+    use crate::vi::{Direction, Finds, Matches, SyncRanges};
     use crate::{SearchError, VI, ctrl};
     use rat_text::text_area::TextAreaState;
     use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
