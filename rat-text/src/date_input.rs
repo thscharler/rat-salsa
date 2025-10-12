@@ -490,7 +490,7 @@ impl DateInputState {
     /// return the complete range for the style.
     #[inline]
     pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.widget.style_match(byte_pos, style)
+        self.widget.styles_at_match(byte_pos, style)
     }
 
     /// List of all styles.
