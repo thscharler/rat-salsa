@@ -231,7 +231,7 @@ fn render(
             .normal_contrast(istate.theme.palette().blue[7]),
     );
     format!(
-        "F1 toggle help | Ctrl+Q quit | R{} | {:.0?} | {:.0?}",
+        "F1 toggle help | Ctrl+Q quit | R{} | R{:.0?} | E{:.0?}",
         frame.count(),
         state.render_dur,
         state.event_dur

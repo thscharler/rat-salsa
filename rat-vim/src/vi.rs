@@ -119,34 +119,34 @@ impl Matches {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Motion {
-    MoveLeft,
-    MoveRight,
-    MoveUp,
-    MoveDown,
+    Left,
+    Right,
+    Up,
+    Down,
 
-    MoveToCol,
-    MoveToLine,
-    MoveToLinePercent,
-    MoveToMatching,
-    MoveToMark(char),
+    ToCol,
+    ToLine,
+    ToLinePercent,
+    ToMatchingBrace,
+    ToMark(char),
 
-    MoveStartOfFile,
-    MoveEndOfFile,
+    StartOfFile,
+    EndOfFile,
 
-    MoveNextWordStart,
-    MovePrevWordStart,
-    MoveNextWordEnd,
-    MovePrevWordEnd,
-    MoveNextWORDStart,
-    MovePrevWORDStart,
-    MoveNextWORDEnd,
-    MovePrevWORDEnd,
-    MoveStartOfLine,
-    MoveEndOfLine,
-    MoveStartOfLineText,
-    MoveEndOfLineText,
-    MovePrevParagraph,
-    MoveNextParagraph,
+    NextWordStart,
+    PrevWordStart,
+    NextWordEnd,
+    PrevWordEnd,
+    NextWORDStart,
+    PrevWORDStart,
+    NextWORDEnd,
+    PrevWORDEnd,
+    StartOfLine,
+    EndOfLine,
+    StartOfLineText,
+    EndOfLineText,
+    PrevParagraph,
+    NextParagraph,
 
     FullLine,
 
@@ -199,6 +199,7 @@ pub enum Vim {
     AppendLine(u32),
     PrependLine(u32),
     Delete(u32, Motion),
+    Change(u32, Motion),
 }
 
 fn is_memo(vim: &Vim) -> bool {
@@ -217,6 +218,7 @@ fn is_memo(vim: &Vim) -> bool {
         Vim::AppendLine(_) => true,
         Vim::PrependLine(_) => true,
         Vim::Delete(_, _) => true,
+        Vim::Change(_, _) => true,
     }
 }
 
@@ -295,50 +297,50 @@ async fn bare_motion(
     yp: &YieldPoint<char, Vim>,
 ) -> Result<Vim, char> {
     match tok {
-        'h' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveLeft)),
-        'l' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveRight)),
-        'k' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveUp)),
-        'j' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveDown)),
-        '|' => Ok(Vim::Move(mul.unwrap_or(0), Motion::MoveToCol)),
-        'w' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordStart)),
-        'b' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordStart)),
-        'e' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextWordEnd)),
+        'h' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Left)),
+        'l' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Right)),
+        'k' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Up)),
+        'j' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Down)),
+        '|' => Ok(Vim::Move(mul.unwrap_or(0), Motion::ToCol)),
+        'w' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextWordStart)),
+        'b' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWordStart)),
+        'e' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextWordEnd)),
         'g' => {
             let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             match tok {
-                'e' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWordEnd)),
-                'E' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWORDEnd)),
-                '_' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveEndOfLineText)),
+                'e' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWordEnd)),
+                'E' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWORDEnd)),
+                '_' => Ok(Vim::Move(mul.unwrap_or(1), Motion::EndOfLineText)),
                 'g' => {
                     if let Some(mul) = mul {
-                        Ok(Vim::Move(mul, Motion::MoveToLine))
+                        Ok(Vim::Move(mul, Motion::ToLine))
                     } else {
-                        Ok(Vim::Move(0, Motion::MoveStartOfFile))
+                        Ok(Vim::Move(1, Motion::StartOfFile))
                     }
                 }
                 _ => Ok(Vim::Invalid),
             }
         }
-        'W' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextWORDStart)),
-        'B' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevWORDStart)),
-        'E' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextWORDEnd)),
-        '{' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MovePrevParagraph)),
-        '}' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveNextParagraph)),
+        'W' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextWORDStart)),
+        'B' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWORDStart)),
+        'E' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextWORDEnd)),
+        '{' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevParagraph)),
+        '}' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextParagraph)),
         'G' => {
             if let Some(mul) = mul {
-                Ok(Vim::Move(mul, Motion::MoveToLine))
+                Ok(Vim::Move(mul, Motion::ToLine))
             } else {
-                Ok(Vim::Move(0, Motion::MoveEndOfFile))
+                Ok(Vim::Move(1, Motion::EndOfFile))
             }
         }
-        '^' => Ok(Vim::Move(0, Motion::MoveStartOfLineText)),
-        '$' => Ok(Vim::Move(mul.unwrap_or(1), Motion::MoveEndOfLine)),
+        '^' => Ok(Vim::Move(1, Motion::StartOfLineText)),
+        '$' => Ok(Vim::Move(mul.unwrap_or(1), Motion::EndOfLine)),
         '%' => {
             if let Some(mul) = mul {
-                Ok(Vim::Move(mul, Motion::MoveToLinePercent))
+                Ok(Vim::Move(mul, Motion::ToLinePercent))
             } else {
-                Ok(Vim::Move(0, Motion::MoveToMatching))
+                Ok(Vim::Move(1, Motion::ToMatchingBrace))
             }
         }
 
@@ -417,7 +419,7 @@ async fn bare_motion(
         '\'' => {
             let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
-            Ok(Vim::Move(0, Motion::MoveToMark(tok)))
+            Ok(Vim::Move(1, Motion::ToMark(tok)))
         }
 
         _ => Err(tok),
@@ -437,9 +439,9 @@ async fn bare_scroll(
             let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             match tok {
-                'z' => Ok(Vim::Scroll(0, Scrolling::MiddleOfScreen)),
-                't' => Ok(Vim::Scroll(0, Scrolling::TopOfScreen)),
-                'b' => Ok(Vim::Scroll(0, Scrolling::BottomOfScreen)),
+                'z' => Ok(Vim::Scroll(1, Scrolling::MiddleOfScreen)),
+                't' => Ok(Vim::Scroll(1, Scrolling::TopOfScreen)),
+                'b' => Ok(Vim::Scroll(1, Scrolling::BottomOfScreen)),
                 _ => Ok(Vim::Invalid),
             }
         }
@@ -457,7 +459,7 @@ async fn next_motion(
     yp: YieldPoint<char, Vim>,
 ) -> Vim {
     if tok == '0' {
-        return Vim::Move(0, Motion::MoveStartOfLine);
+        return Vim::Move(1, Motion::StartOfLine);
     }
 
     let mul;
@@ -507,12 +509,37 @@ async fn next_motion(
                 _ => Vim::Invalid,
             }
         }
+        'D' => Vim::Delete(mul.unwrap_or(1), Motion::EndOfLine),
+        'c' => {
+            tok = yield_!(yp);
+
+            let mul2;
+            (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
+
+            motion_buf.borrow_mut().push(tok);
+            tok = match bare_motion(tok, mul2, &motion_buf, &yp).await {
+                Ok(Vim::Move(mul2, motion)) => {
+                    let mul = mul.unwrap_or(1);
+                    return Vim::Change(mul * mul2, motion);
+                }
+                Ok(Vim::Invalid) => return Vim::Invalid,
+                Err(tok) => tok,
+                _ => unreachable!("no"),
+            };
+            match tok {
+                'c' => Vim::Change(mul.unwrap_or(1), Motion::FullLine),
+                _ => Vim::Invalid,
+            }
+        }
+        'C' => Vim::Change(mul.unwrap_or(1), Motion::EndOfLine),
+        's' => Vim::Change(mul.unwrap_or(1), Motion::Right),
+        'S' => Vim::Change(mul.unwrap_or(1), Motion::EndOfLine),
         'i' => Vim::Insert(mul.unwrap_or(1)),
         'a' => Vim::Append(mul.unwrap_or(1)),
         'o' => Vim::AppendLine(mul.unwrap_or(1)),
         'O' => Vim::PrependLine(mul.unwrap_or(1)),
-        'x' => Vim::Delete(mul.unwrap_or(1), Motion::MoveRight),
-        'X' => Vim::Delete(mul.unwrap_or(1), Motion::MoveLeft),
+        'x' => Vim::Delete(mul.unwrap_or(1), Motion::Right),
+        'X' => Vim::Delete(mul.unwrap_or(1), Motion::Left),
         'J' => Vim::JoinLines(mul.unwrap_or(1)),
         'u' => Vim::Undo(mul.unwrap_or(1)),
         ctrl::CTRL_R => Vim::Redo(mul.unwrap_or(1)),
@@ -640,6 +667,15 @@ fn execute_vim(
                 return Ok(append_line_str(*mul, state, vi));
             } else {
                 begin_append_line(state, vi);
+            }
+        }
+        Vim::Change(mul, m) => {
+            if repeat {
+                change_text(*mul, m, state, vi)?;
+                return Ok(insert_str(1, state, vi));
+            } else {
+                change_text(*mul, m, state, vi)?;
+                begin_insert(vi);
             }
         }
         Vim::PrependLine(mul) => {
@@ -832,31 +868,31 @@ mod move_op {
         vi: &mut VI,
     ) -> Result<Option<TextPosition>, SearchError> {
         Ok(match motion {
-            Motion::MoveLeft => q_move_left(mul, state),
-            Motion::MoveRight => q_move_right(mul, state),
-            Motion::MoveUp => q_move_up(mul, state),
-            Motion::MoveDown => q_move_down(mul, state),
-            Motion::MoveToCol => q_col(mul, state),
-            Motion::MoveToLine => q_line(mul, state),
-            Motion::MoveToLinePercent => q_line_percent(mul, state),
-            Motion::MoveToMatching => q_matching_brace(state),
-            Motion::MoveToMark(mark) => q_mark_pos(*mark, &vi.marks),
-            Motion::MoveStartOfFile => q_start_of_file(),
-            Motion::MoveEndOfFile => q_end_of_file(state),
-            Motion::MoveNextWordStart => q_next_word_start(mul, state),
-            Motion::MovePrevWordStart => q_prev_word_start(mul, state),
-            Motion::MoveNextWordEnd => q_next_word_end(mul, state),
-            Motion::MovePrevWordEnd => q_prev_word_end(mul, state),
-            Motion::MoveNextWORDStart => q_next_bigword_start(mul, state),
-            Motion::MovePrevWORDStart => q_prev_bigword_start(mul, state),
-            Motion::MoveNextWORDEnd => q_next_bigword_end(mul, state),
-            Motion::MovePrevWORDEnd => q_prev_bigword_end(mul, state),
-            Motion::MoveStartOfLine => q_start_of_line(state),
-            Motion::MoveEndOfLine => q_end_of_line(mul, state),
-            Motion::MoveStartOfLineText => q_start_of_text(state),
-            Motion::MoveEndOfLineText => q_end_of_text(mul, state),
-            Motion::MovePrevParagraph => q_prev_paragraph(mul, state),
-            Motion::MoveNextParagraph => q_next_paragraph(mul, state),
+            Motion::Left => q_move_left(mul, state),
+            Motion::Right => q_move_right(mul, state),
+            Motion::Up => q_move_up(mul, state),
+            Motion::Down => q_move_down(mul, state),
+            Motion::ToCol => q_col(mul, state),
+            Motion::ToLine => q_line(mul, state),
+            Motion::ToLinePercent => q_line_percent(mul, state),
+            Motion::ToMatchingBrace => q_matching_brace(state),
+            Motion::ToMark(mark) => q_mark_pos(*mark, &vi.marks),
+            Motion::StartOfFile => q_start_of_file(),
+            Motion::EndOfFile => q_end_of_file(state),
+            Motion::NextWordStart => q_next_word_start(mul, state),
+            Motion::PrevWordStart => q_prev_word_start(mul, state),
+            Motion::NextWordEnd => q_next_word_end(mul, state),
+            Motion::PrevWordEnd => q_prev_word_end(mul, state),
+            Motion::NextWORDStart => q_next_bigword_start(mul, state),
+            Motion::PrevWORDStart => q_prev_bigword_start(mul, state),
+            Motion::NextWORDEnd => q_next_bigword_end(mul, state),
+            Motion::PrevWORDEnd => q_prev_bigword_end(mul, state),
+            Motion::StartOfLine => q_start_of_line(state),
+            Motion::EndOfLine => q_end_of_line(mul, state),
+            Motion::StartOfLineText => q_start_of_text(state),
+            Motion::EndOfLineText => q_end_of_text(mul, state),
+            Motion::PrevParagraph => q_prev_paragraph(mul, state),
+            Motion::NextParagraph => q_next_paragraph(mul, state),
             Motion::FindForward(f) => q_find_fwd(mul, *f, state, vi),
             Motion::FindBack(f) => q_find_back(mul, *f, state, vi),
             Motion::FindTillForward(f) => q_till_fwd(mul, *f, state, vi),
@@ -1062,31 +1098,106 @@ mod change_op {
             _ => state.cursor(),
         };
         let end = match motion {
-            Motion::MoveLeft => q_move_left(mul, state),
-            Motion::MoveRight => q_move_right(mul, state),
-            Motion::MoveUp => q_move_up(mul, state),
-            Motion::MoveDown => q_move_down(mul, state),
-            Motion::MoveToCol => q_col(mul, state),
-            Motion::MoveToLine => q_line(mul, state),
-            Motion::MoveToLinePercent => q_line_percent(mul, state),
-            Motion::MoveToMatching => q_matching_brace(state),
-            Motion::MoveToMark(mark) => q_mark_pos(*mark, &vi.marks),
-            Motion::MoveStartOfFile => q_start_of_file(),
-            Motion::MoveEndOfFile => q_end_of_file(state),
-            Motion::MoveNextWordStart => q_next_word_start(mul, state),
-            Motion::MovePrevWordStart => q_prev_word_start(mul, state),
-            Motion::MoveNextWordEnd => q_next_word_end(mul, state),
-            Motion::MovePrevWordEnd => q_prev_word_end(mul, state),
-            Motion::MoveNextWORDStart => q_next_bigword_start(mul, state),
-            Motion::MovePrevWORDStart => q_prev_bigword_start(mul, state),
-            Motion::MoveNextWORDEnd => q_next_bigword_end(mul, state),
-            Motion::MovePrevWORDEnd => q_prev_bigword_end(mul, state),
-            Motion::MoveStartOfLine => q_start_of_line(state),
-            Motion::MoveEndOfLine => q_end_of_line(mul, state),
-            Motion::MoveStartOfLineText => q_start_of_text(state),
-            Motion::MoveEndOfLineText => q_end_of_text(mul, state),
-            Motion::MovePrevParagraph => q_prev_paragraph(mul, state),
-            Motion::MoveNextParagraph => q_next_paragraph(mul, state),
+            Motion::Left => q_move_left(mul, state),
+            Motion::Right => q_move_right(mul, state),
+            Motion::Up => q_move_up(mul, state),
+            Motion::Down => q_move_down(mul, state),
+            Motion::ToCol => q_col(mul, state),
+            Motion::ToLine => q_line(mul, state),
+            Motion::ToLinePercent => q_line_percent(mul, state),
+            Motion::ToMatchingBrace => q_matching_brace(state),
+            Motion::ToMark(mark) => q_mark_pos(*mark, &vi.marks),
+            Motion::StartOfFile => q_start_of_file(),
+            Motion::EndOfFile => q_end_of_file(state),
+            Motion::NextWordStart => q_next_word_end(mul, state), // DIFF
+            Motion::PrevWordStart => q_prev_word_start(mul, state),
+            Motion::NextWordEnd => q_next_word_end(mul, state),
+            Motion::PrevWordEnd => q_prev_word_end(mul, state),
+            Motion::NextWORDStart => q_next_bigword_start(mul, state),
+            Motion::PrevWORDStart => q_prev_bigword_start(mul, state),
+            Motion::NextWORDEnd => q_next_bigword_end(mul, state),
+            Motion::PrevWORDEnd => q_prev_bigword_end(mul, state),
+            Motion::StartOfLine => q_start_of_line(state),
+            Motion::EndOfLine => q_end_of_line(mul, state),
+            Motion::StartOfLineText => q_start_of_text(state),
+            Motion::EndOfLineText => q_end_of_text(mul, state),
+            Motion::PrevParagraph => q_prev_paragraph(mul, state),
+            Motion::NextParagraph => q_next_paragraph(mul, state),
+            Motion::FindForward(f) => q_find_fwd(mul, *f, state, vi),
+            Motion::FindBack(f) => q_find_back(mul, *f, state, vi),
+            Motion::FindTillForward(f) => q_till_fwd(mul, *f, state, vi),
+            Motion::FindTillBack(f) => q_till_back(mul, *f, state, vi),
+            Motion::FindRepeatNext => q_find_repeat_fwd(mul, state, vi),
+            Motion::FindRepeatPrev => q_find_repeat_back(mul, state, vi),
+            Motion::SearchWordForward => q_search_word_fwd(mul, state, vi)?,
+            Motion::SearchWordBackward => q_search_word_back(mul, state, vi)?,
+            Motion::SearchForward(term) => q_search_fwd(mul, &term, false, state, vi)?,
+            Motion::SearchBack(term) => q_search_back(mul, &term, false, state, vi)?,
+            Motion::SearchRepeatNext => q_search_repeat_fwd(mul, state, vi),
+            Motion::SearchRepeatPrev => q_search_repeat_back(mul, state, vi),
+            Motion::FullLine => q_end_of_line(mul, state), // DIFF
+        };
+        if let Some(end) = end {
+            if start > end {
+                Ok(Some(end..start))
+            } else {
+                Ok(Some(start..end))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn change_text(
+        mul: u32,
+        motion: &Motion,
+        state: &mut TextAreaState,
+        vi: &mut VI,
+    ) -> Result<(), SearchError> {
+        if let Some(range) = change_range(mul, motion, state, vi)? {
+            vi.finds.sync = SyncRanges::FromTextArea;
+            vi.matches.sync = SyncRanges::FromTextArea;
+            state.delete_range(range);
+        }
+        Ok(())
+    }
+
+    pub fn delete_range(
+        mul: u32,
+        motion: &Motion,
+        state: &mut TextAreaState,
+        vi: &mut VI,
+    ) -> Result<Option<Range<TextPosition>>, SearchError> {
+        let start = match motion {
+            Motion::FullLine => q_start_of_line(state).expect("start_of_line"),
+            _ => state.cursor(),
+        };
+        let end = match motion {
+            Motion::Left => q_move_left(mul, state),
+            Motion::Right => q_move_right(mul, state),
+            Motion::Up => q_move_up(mul, state),
+            Motion::Down => q_move_down(mul, state),
+            Motion::ToCol => q_col(mul, state),
+            Motion::ToLine => q_line(mul, state),
+            Motion::ToLinePercent => q_line_percent(mul, state),
+            Motion::ToMatchingBrace => q_matching_brace(state),
+            Motion::ToMark(mark) => q_mark_pos(*mark, &vi.marks),
+            Motion::StartOfFile => q_start_of_file(),
+            Motion::EndOfFile => q_end_of_file(state),
+            Motion::NextWordStart => q_next_word_end(mul, state), // DIFF
+            Motion::PrevWordStart => q_prev_word_start(mul, state),
+            Motion::NextWordEnd => q_next_word_end(mul, state),
+            Motion::PrevWordEnd => q_prev_word_end(mul, state),
+            Motion::NextWORDStart => q_next_bigword_start(mul, state),
+            Motion::PrevWORDStart => q_prev_bigword_start(mul, state),
+            Motion::NextWORDEnd => q_next_bigword_end(mul, state),
+            Motion::PrevWORDEnd => q_prev_bigword_end(mul, state),
+            Motion::StartOfLine => q_start_of_line(state),
+            Motion::EndOfLine => q_end_of_line(mul, state),
+            Motion::StartOfLineText => q_start_of_text(state),
+            Motion::EndOfLineText => q_end_of_text(mul, state),
+            Motion::PrevParagraph => q_prev_paragraph(mul, state),
+            Motion::NextParagraph => q_next_paragraph(mul, state),
             Motion::FindForward(f) => q_find_fwd(mul, *f, state, vi),
             Motion::FindBack(f) => q_find_back(mul, *f, state, vi),
             Motion::FindTillForward(f) => q_till_fwd(mul, *f, state, vi),
@@ -1118,7 +1229,7 @@ mod change_op {
         state: &mut TextAreaState,
         vi: &mut VI,
     ) -> Result<(), SearchError> {
-        if let Some(range) = change_range(mul, motion, state, vi)? {
+        if let Some(range) = delete_range(mul, motion, state, vi)? {
             vi.finds.sync = SyncRanges::FromTextArea;
             vi.matches.sync = SyncRanges::FromTextArea;
             state.delete_range(range);
