@@ -663,14 +663,12 @@ fn execute_vim(
 mod display {
     use crate::vi::query::{q_find_idx, q_search_idx};
     use crate::vi::{Direction, SyncRanges, VI};
-    use log::debug;
     use rat_text::text_area::TextAreaState;
 
     pub fn display_matches(state: &mut TextAreaState, vi: &mut VI) {
         match vi.matches.sync {
             SyncRanges::None => {}
             SyncRanges::ToTextArea => {
-                debug!("sync matches ->");
                 vi.matches.sync = SyncRanges::None;
                 state.remove_style_fully(999);
                 for r in &vi.matches.list {
@@ -678,7 +676,6 @@ mod display {
                 }
             }
             SyncRanges::FromTextArea => {
-                debug!("sync matches <-");
                 vi.matches.sync = SyncRanges::None;
                 vi.matches.list.clear();
                 state.styles_in_match(0..state.len_bytes(), 999, &mut vi.matches.list);
@@ -691,7 +688,6 @@ mod display {
         match vi.finds.sync {
             SyncRanges::None => {}
             SyncRanges::ToTextArea => {
-                debug!("sync finds ->");
                 vi.finds.sync = SyncRanges::None;
                 state.remove_style_fully(998);
                 for r in &vi.finds.list {
@@ -699,7 +695,6 @@ mod display {
                 }
             }
             SyncRanges::FromTextArea => {
-                debug!("sync finds <-");
                 vi.finds.sync = SyncRanges::None;
                 vi.finds.list.clear();
                 state.styles_in_match(0..state.len_bytes(), 998, &mut vi.finds.list);
