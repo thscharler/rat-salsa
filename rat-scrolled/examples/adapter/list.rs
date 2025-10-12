@@ -1,6 +1,6 @@
 use crate::adapter::_private::NonExhaustive;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
@@ -210,7 +210,7 @@ impl<'a> StatefulWidget for ListS<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ListSState {
     pub widget: ListState,
 

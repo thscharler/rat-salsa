@@ -19,14 +19,17 @@ use std::ops::Range;
 /// analogous to Block. A widget that supports scrolling accepts
 /// one or two of these Scroll indicators.
 #[derive(Debug, Default, Clone)]
-pub struct Scroll<'a> {
+pub struct Scroll<'a, T = usize>
+where
+    T: Default + Clone + Copy + Into<usize> + From<usize>,
+{
     policy: ScrollbarPolicy,
     orientation: ScrollbarOrientation,
 
     start_margin: u16,
     end_margin: u16,
-    overscroll_by: Option<usize>,
-    scroll_by: Option<usize>,
+    overscroll_by: Option<T>,
+    scroll_by: Option<T>,
 
     scrollbar: Scrollbar<'a>,
     min_style: Option<Style>,
@@ -55,8 +58,11 @@ pub struct Scroll<'a> {
 /// - offset is position,
 /// - page_len is viewport_content_length and
 /// - max_offset is content_length.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScrollState {
+#[derive(Debug, Clone)]
+pub struct ScrollState<T = usize>
+where
+    T: Default + Clone + Copy + Into<usize> + From<usize>,
+{
     /// Area of the Scrollbar.
     /// __readonly__. renewed for each render.
     pub area: Rect,
@@ -66,29 +72,29 @@ pub struct ScrollState {
 
     /// Current offset.
     /// __read+write__
-    pub offset: usize,
+    pub offset: T,
     /// Length of the current displayed page. This value can be
     /// used for page-up/page-down handling.
     /// __read+write__
-    pub page_len: usize,
+    pub page_len: T,
     /// Maximum offset that is accessible with scrolling.
     ///
     /// This offset is calculated as `item_count - last_page_items`. Both
     /// are abstract values and can denote items or columns/rows as
     /// the widget sees fit.
     /// __read+write__
-    pub max_offset: usize,
+    pub max_offset: T,
 
     /// How many items are scrolled per scroll event.
     /// When not set it defaults to 1/10 of the page_len, which gives a
     /// decent median between scroll speed and disorientation.
     /// __read+write__
-    pub scroll_by: Option<usize>,
+    pub scroll_by: Option<T>,
     /// By how much can the max_offset be exceeded.
     /// This allows displaying some empty space at the end of the
     /// content, which can be more intuitive for some widgets.
     /// __read+write__
-    pub overscroll_by: Option<usize>,
+    pub overscroll_by: Option<T>,
 
     /// Mouse support.
     /// __read+write__
@@ -199,7 +205,10 @@ impl Default for ScrollStyle {
     }
 }
 
-impl<'a> Scroll<'a> {
+impl<'a, T> Scroll<'a, T>
+where
+    T: Default + Clone + Copy + Into<usize> + From<usize>,
+{
     pub fn new() -> Self {
         Self::default()
     }
@@ -319,13 +328,13 @@ impl<'a> Scroll<'a> {
     }
 
     /// Set overscrolling to this value.
-    pub fn overscroll_by(mut self, overscroll: usize) -> Self {
+    pub fn overscroll_by(mut self, overscroll: T) -> Self {
         self.overscroll_by = Some(overscroll);
         self
     }
 
     /// Set scroll increment.
-    pub fn scroll_by(mut self, scroll: usize) -> Self {
+    pub fn scroll_by(mut self, scroll: T) -> Self {
         self.scroll_by = Some(scroll);
         self
     }
@@ -458,30 +467,38 @@ impl<'a> Scroll<'a> {
     }
 }
 
-impl<'a> Scroll<'a> {
+impl<'a, T> Scroll<'a, T>
+where
+    T: Default + Clone + Copy + Into<usize> + From<usize>,
+{
     // create the correct scrollbar widget.
     fn scrollbar(&self) -> Scrollbar<'a> {
         self.scrollbar.clone()
     }
 }
 
-impl StatefulWidget for &Scroll<'_> {
-    type State = ScrollState;
+impl<T: Clone + Copy + Default + Into<usize> + From<usize>> StatefulWidget for &Scroll<'_, T> {
+    type State = ScrollState<T>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_scroll(self, area, buf, state);
     }
 }
 
-impl StatefulWidget for Scroll<'_> {
-    type State = ScrollState;
+impl<T: Clone + Copy + Default + Into<usize> + From<usize>> StatefulWidget for Scroll<'_, T> {
+    type State = ScrollState<T>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_scroll(&self, area, buf, state);
     }
 }
 
-fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut ScrollState) {
+fn render_scroll<T: Clone + Default + Copy + Into<usize> + From<usize>>(
+    scroll: &Scroll<'_, T>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut ScrollState<T>,
+) {
     state.set_orientation(scroll.orientation.clone());
     if scroll.overscroll_by.is_some() {
         state.set_overscroll_by(scroll.overscroll_by);
@@ -495,15 +512,15 @@ fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         return;
     }
 
-    if state.max_offset() == 0 {
+    if state.max_offset().into() == 0 {
         match scroll.policy {
             ScrollbarPolicy::Always => {
                 scroll.scrollbar().render(
                     area,
                     buf,
                     &mut ScrollbarState::new(1)
-                        .position(state.offset())
-                        .viewport_content_length(state.page_len()),
+                        .position(state.offset().into())
+                        .viewport_content_length(state.page_len().into()),
                 );
             }
             ScrollbarPolicy::Minimize => {
@@ -517,9 +534,9 @@ fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         scroll.scrollbar().render(
             area,
             buf,
-            &mut ScrollbarState::new(state.max_offset())
-                .position(state.offset())
-                .viewport_content_length(state.page_len()),
+            &mut ScrollbarState::new(state.max_offset().into())
+                .position(state.offset().into())
+                .viewport_content_length(state.page_len().into()),
         );
     }
 }
@@ -563,14 +580,14 @@ fn fill(sym: Option<&'_ str>, style: Option<Style>, area: Rect, buf: &mut Buffer
     }
 }
 
-impl Default for ScrollState {
+impl<T: Default + Clone + Copy + Into<usize> + From<usize>> Default for ScrollState<T> {
     fn default() -> Self {
         Self {
             area: Default::default(),
             orientation: Default::default(),
-            offset: 0,
-            max_offset: 0,
-            page_len: 0,
+            offset: Default::default(),
+            max_offset: Default::default(),
+            page_len: Default::default(),
             scroll_by: None,
             overscroll_by: None,
             mouse: Default::default(),
@@ -579,13 +596,13 @@ impl Default for ScrollState {
     }
 }
 
-impl RelocatableState for ScrollState {
+impl<T: Default + Clone + Copy + Into<usize> + From<usize>> RelocatableState for ScrollState<T> {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
     }
 }
 
-impl ScrollState {
+impl<T: Default + Clone + Copy + Into<usize> + From<usize>> ScrollState<T> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -609,12 +626,12 @@ impl ScrollState {
 
     /// Resets the offset to 0.
     pub fn clear(&mut self) {
-        self.offset = 0;
+        self.offset = Default::default();
     }
 
     /// Current vertical offset.
     #[inline]
-    pub fn offset(&self) -> usize {
+    pub fn offset(&self) -> T {
         self.offset
     }
 
@@ -623,83 +640,101 @@ impl ScrollState {
     /// invalid offset for the widget. The widget must deal
     /// with this situation.
     #[inline]
-    pub fn set_offset(&mut self, offset: usize) -> bool {
-        let old = self.offset;
-        self.offset = offset;
-        old != self.offset
+    pub fn set_offset(&mut self, new_offset: T) -> bool {
+        let offset = self.offset.into();
+        self.offset = new_offset;
+        offset != self.offset.into()
     }
 
     /// Scroll to make the given pos visible. Adjusts the
     /// offset just enough to make this happen. Does nothing if
     /// the position is already visible.
     #[inline]
-    pub fn scroll_to_pos(&mut self, pos: usize) -> bool {
-        let old = self.offset;
-        if pos >= self.offset + self.page_len {
-            self.offset = pos - self.page_len + 1;
-        } else if pos < self.offset {
-            self.offset = pos;
+    pub fn scroll_to_pos(&mut self, pos: T) -> bool {
+        let offset = self.offset.into();
+        let pos = pos.into();
+        let page_len = self.page_len.into();
+
+        if pos >= offset + page_len {
+            self.offset = (pos - page_len + 1).into();
+        } else if pos < offset {
+            self.offset = pos.into();
         }
-        old != self.offset
+        offset != self.offset.into()
     }
 
     /// Scroll to make the given range visible.Adjusts the
     /// offset just enough to make this happen. Does nothing if
     /// the range is already visible.
     #[inline]
-    pub fn scroll_to_range(&mut self, range: Range<usize>) -> bool {
-        let old = self.offset;
+    pub fn scroll_to_range(&mut self, range: Range<T>) -> bool {
+        let offset = self.offset.into();
+
+        let range = range.start.into()..range.end.into();
+        let page_len = self.page_len.into();
+
         // start of range first
-        if range.start >= self.offset + self.page_len {
-            if range.end - range.start < self.page_len {
-                self.offset = range.end - self.page_len + 1;
+        if range.start >= offset + page_len {
+            if range.end - range.start < page_len {
+                self.offset = (range.end - page_len + 1).into();
             } else {
-                self.offset = range.start;
+                self.offset = range.start.into();
             }
-        } else if range.start < self.offset {
-            self.offset = range.start;
-        } else if range.end >= self.offset + self.page_len {
-            if range.end - range.start < self.page_len {
-                self.offset = range.end - self.page_len + 1;
+        } else if range.start < offset {
+            self.offset = range.start.into();
+        } else if range.end >= offset + page_len {
+            if range.end - range.start < page_len {
+                self.offset = (range.end - page_len + 1).into();
             } else {
-                self.offset = range.start;
+                self.offset = range.start.into();
             }
         }
-        old != self.offset
+
+        offset != self.offset.into()
     }
 
     /// Scroll up by n.
     #[inline]
-    pub fn scroll_up(&mut self, n: usize) -> bool {
-        let old = self.offset;
-        self.offset = self.limited_offset(self.offset.saturating_sub(n));
-        old != self.offset
+    pub fn scroll_up(&mut self, n: T) -> bool {
+        let n = n.into();
+        let offset = self.offset.into();
+
+        self.offset = self.limited_offset(offset.saturating_sub(n).into());
+
+        offset != self.offset.into()
     }
 
     /// Scroll down by n.
     #[inline]
-    pub fn scroll_down(&mut self, n: usize) -> bool {
-        let old = self.offset;
-        self.offset = self.limited_offset(self.offset.saturating_add(n));
-        old != self.offset
+    pub fn scroll_down(&mut self, n: T) -> bool {
+        let n = n.into();
+        let offset = self.offset.into();
+
+        self.offset = self.limited_offset(offset.saturating_add(n).into());
+
+        offset != self.offset.into()
     }
 
     /// Scroll left by n.
     #[inline]
-    pub fn scroll_left(&mut self, n: usize) -> bool {
+    pub fn scroll_left(&mut self, n: T) -> bool {
         self.scroll_up(n)
     }
 
     /// Scroll right by n.
     #[inline]
-    pub fn scroll_right(&mut self, n: usize) -> bool {
+    pub fn scroll_right(&mut self, n: T) -> bool {
         self.scroll_down(n)
     }
 
     /// Calculate the offset limited to max_offset+overscroll_by.
     #[inline]
-    pub fn limited_offset(&self, offset: usize) -> usize {
-        min(offset, self.max_offset.saturating_add(self.overscroll_by()))
+    pub fn limited_offset(&self, offset: T) -> T {
+        let offset = offset.into();
+        let max_offset = self.max_offset.into();
+        let overscroll_by = self.overscroll_by().into();
+
+        min(offset, max_offset.saturating_add(overscroll_by)).into()
     }
 
     /// Maximum offset that is accessible with scrolling.
@@ -707,7 +742,7 @@ impl ScrollState {
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
     #[inline]
-    pub fn max_offset(&self) -> usize {
+    pub fn max_offset(&self) -> T {
         self.max_offset
     }
 
@@ -716,91 +751,111 @@ impl ScrollState {
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
     #[inline]
-    pub fn set_max_offset(&mut self, max: usize) {
+    pub fn set_max_offset(&mut self, max: T) {
         self.max_offset = max;
     }
 
     /// Page-size at the current offset.
     #[inline]
-    pub fn page_len(&self) -> usize {
+    pub fn page_len(&self) -> T {
         self.page_len
     }
 
     /// Page-size at the current offset.
     #[inline]
-    pub fn set_page_len(&mut self, page: usize) {
+    pub fn set_page_len(&mut self, page: T) {
         self.page_len = page;
     }
 
     /// Suggested scroll per scroll-event.
     /// Defaults to 1/10 of the page
     #[inline]
-    pub fn scroll_by(&self) -> usize {
-        if let Some(scroll) = self.scroll_by {
-            max(scroll, 1)
+    pub fn scroll_by(&self) -> T {
+        if let Some(scroll_by) = self.scroll_by {
+            let scroll_by = scroll_by.into();
+            max(scroll_by, 1).into()
         } else {
-            max(self.page_len / 10, 1)
+            let page_len = self.page_len.into();
+            max(page_len / 10, 1).into()
         }
     }
 
     /// Suggested scroll per scroll-event.
     /// Defaults to 1/10 of the page
     #[inline]
-    pub fn set_scroll_by(&mut self, scroll: Option<usize>) {
+    pub fn set_scroll_by(&mut self, scroll: Option<T>) {
         self.scroll_by = scroll;
     }
 
     /// Allowed overscroll
     #[inline]
-    pub fn overscroll_by(&self) -> usize {
+    pub fn overscroll_by(&self) -> T {
         self.overscroll_by.unwrap_or_default()
     }
 
     /// Allowed overscroll
     #[inline]
-    pub fn set_overscroll_by(&mut self, overscroll_by: Option<usize>) {
+    pub fn set_overscroll_by(&mut self, overscroll_by: Option<T>) {
         self.overscroll_by = overscroll_by;
     }
 
     /// Update the state to match adding items.
     #[inline]
-    pub fn items_added(&mut self, pos: usize, n: usize) {
-        if self.offset >= pos {
-            self.offset += n;
+    pub fn items_added(&mut self, pos: T, n: T) {
+        let pos = pos.into();
+        let n = n.into();
+        let offset = self.offset.into();
+        let max_offset = self.max_offset.into();
+
+        if offset >= pos {
+            self.offset = (offset + n).into();
         }
-        self.max_offset += n;
+        self.max_offset = (max_offset + n).into();
     }
 
     /// Update the state to match removing items.
     #[inline]
-    pub fn items_removed(&mut self, pos: usize, n: usize) {
-        if self.offset >= pos && self.offset >= n {
-            self.offset -= n;
+    pub fn items_removed(&mut self, pos: T, n: T) {
+        let pos = pos.into();
+        let n = n.into();
+        let offset = self.offset.into();
+        let max_offset = self.max_offset.into();
+
+        if offset >= pos && offset >= n {
+            self.offset = (offset - n).into();
         }
-        self.max_offset = self.max_offset.saturating_sub(n);
+        self.max_offset = max_offset.saturating_sub(n).into();
     }
 }
 
-impl ScrollState {
+impl<T: Default + Clone + Copy + Into<usize> + From<usize>> ScrollState<T> {
     /// Maps a screen-position to an offset.
     /// pos - row/column clicked
     /// base - x/y of the range
     /// length - width/height of the range.
-    pub fn map_position_index(&self, pos: u16, base: u16, length: u16) -> usize {
+    pub fn map_position_index(&self, pos: u16, base: u16, length: u16) -> T {
         // correct for the arrows.
         let pos = pos.saturating_sub(base).saturating_sub(1) as usize;
         let span = length.saturating_sub(2) as usize;
+        let max_offset = self.max_offset.into();
 
         if span > 0 {
-            (self.max_offset.saturating_mul(pos)) / span
+            (max_offset.saturating_mul(pos)) / span
         } else {
             0
         }
+        .into()
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ScrollOutcome {
+impl<T: Default + Clone + Copy + Into<usize> + From<usize>>
+    HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome<T>> for ScrollState<T>
+{
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        _qualifier: MouseOnly,
+    ) -> ScrollOutcome<T> {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
                 if self.is_vertical() {

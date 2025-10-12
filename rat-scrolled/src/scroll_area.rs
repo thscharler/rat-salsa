@@ -10,11 +10,14 @@ use std::cmp::max;
 /// Utility widget for rendering a combination of a Block and
 /// one or two Scroll(bars). Any of these can be None.
 #[derive(Debug, Default, Clone)]
-pub struct ScrollArea<'a> {
+pub struct ScrollArea<'a, T>
+where
+    T: Default + Clone + Copy + Into<usize> + From<usize>,
+{
     style: Style,
     block: Option<&'a Block<'a>>,
-    h_scroll: Option<&'a Scroll<'a>>,
-    v_scroll: Option<&'a Scroll<'a>>,
+    h_scroll: Option<&'a Scroll<'a, T>>,
+    v_scroll: Option<&'a Scroll<'a, T>>,
 }
 
 /// Temporary state for ScrollArea.
@@ -22,17 +25,23 @@ pub struct ScrollArea<'a> {
 /// This state is not meant to keep, it just repackages the
 /// widget state for use by ScrollArea.
 #[derive(Debug, Default)]
-pub struct ScrollAreaState<'a> {
+pub struct ScrollAreaState<'a, T>
+where
+    T: Default + Clone + Copy + Into<usize> + From<usize>,
+{
     /// This area is only used for event-handling.
     /// Populate before calling the event-handler.
     area: Rect,
     /// Horizontal scroll state.
-    h_scroll: Option<&'a mut ScrollState>,
+    h_scroll: Option<&'a mut ScrollState<T>>,
     /// Vertical scroll state.
-    v_scroll: Option<&'a mut ScrollState>,
+    v_scroll: Option<&'a mut ScrollState<T>>,
 }
 
-impl<'a> ScrollArea<'a> {
+impl<'a, T> ScrollArea<'a, T>
+where
+    T: Default + Clone + Copy + Into<usize> + From<usize>,
+{
     pub fn new() -> Self {
         Self::default()
     }
@@ -50,13 +59,13 @@ impl<'a> ScrollArea<'a> {
     }
 
     /// Sets the horizontal scroll.
-    pub fn h_scroll(mut self, scroll: Option<&'a Scroll<'a>>) -> Self {
+    pub fn h_scroll(mut self, scroll: Option<&'a Scroll<'a, T>>) -> Self {
         self.h_scroll = scroll;
         self
     }
 
     /// Sets the vertical scroll.
-    pub fn v_scroll(mut self, scroll: Option<&'a Scroll<'a>>) -> Self {
+    pub fn v_scroll(mut self, scroll: Option<&'a Scroll<'a, T>>) -> Self {
         self.v_scroll = scroll;
         self
     }
@@ -81,8 +90,8 @@ impl<'a> ScrollArea<'a> {
     pub fn inner(
         &self,
         area: Rect,
-        hscroll_state: Option<&ScrollState>,
-        vscroll_state: Option<&ScrollState>,
+        hscroll_state: Option<&ScrollState<T>>,
+        vscroll_state: Option<&ScrollState<T>>,
     ) -> Rect {
         layout(
             self.block,
@@ -112,27 +121,31 @@ fn block_padding(block: &Option<&Block<'_>>) -> Padding {
     }
 }
 
-impl<'a> StatefulWidget for ScrollArea<'a> {
-    type State = ScrollAreaState<'a>;
+impl<'a, T: Default + Clone + Copy + Into<usize> + From<usize>> StatefulWidget
+    for ScrollArea<'a, T>
+{
+    type State = ScrollAreaState<'a, T>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_scroll_area(&self, area, buf, state);
     }
 }
 
-impl<'a> StatefulWidget for &ScrollArea<'a> {
-    type State = ScrollAreaState<'a>;
+impl<'a, T: Default + Clone + Copy + Into<usize> + From<usize>> StatefulWidget
+    for &ScrollArea<'a, T>
+{
+    type State = ScrollAreaState<'a, T>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_scroll_area(self, area, buf, state);
     }
 }
 
-fn render_scroll_area(
-    widget: &ScrollArea<'_>,
+fn render_scroll_area<T: Default + Clone + Copy + Into<usize> + From<usize>>(
+    widget: &ScrollArea<'_, T>,
     area: Rect,
     buf: &mut Buffer,
-    state: &mut ScrollAreaState<'_>,
+    state: &mut ScrollAreaState<'_, T>,
 ) {
     let (_, hscroll_area, vscroll_area) = layout(
         widget.block,
@@ -179,13 +192,13 @@ fn render_scroll_area(
 /// __Panic__
 ///
 /// if the state doesn't contain the necessary scroll-states.
-fn layout<'a>(
+fn layout<'a, T: Default + Clone + Copy + Into<usize> + From<usize>>(
     block: Option<&Block<'a>>,
-    hscroll: Option<&Scroll<'a>>,
-    vscroll: Option<&Scroll<'a>>,
+    hscroll: Option<&Scroll<'a, T>>,
+    vscroll: Option<&Scroll<'a, T>>,
     area: Rect,
-    hscroll_state: Option<&ScrollState>,
-    vscroll_state: Option<&ScrollState>,
+    hscroll_state: Option<&ScrollState<T>>,
+    vscroll_state: Option<&ScrollState<T>>,
 ) -> (Rect, Rect, Rect) {
     let mut inner = area;
 
@@ -198,7 +211,7 @@ fn layout<'a>(
             let show = match hscroll.get_policy() {
                 ScrollbarPolicy::Always => true,
                 ScrollbarPolicy::Minimize => true,
-                ScrollbarPolicy::Collapse => hscroll_state.max_offset > 0,
+                ScrollbarPolicy::Collapse => hscroll_state.max_offset.into() > 0,
             };
             if show {
                 match hscroll.get_orientation() {
@@ -235,7 +248,7 @@ fn layout<'a>(
             let show = match vscroll.get_policy() {
                 ScrollbarPolicy::Always => true,
                 ScrollbarPolicy::Minimize => true,
-                ScrollbarPolicy::Collapse => vscroll_state.max_offset > 0,
+                ScrollbarPolicy::Collapse => vscroll_state.max_offset.into() > 0,
             };
             if show {
                 match vscroll.get_orientation() {
@@ -273,7 +286,7 @@ fn layout<'a>(
             let show = match hscroll.get_policy() {
                 ScrollbarPolicy::Always => true,
                 ScrollbarPolicy::Minimize => true,
-                ScrollbarPolicy::Collapse => hscroll_state.max_offset > 0,
+                ScrollbarPolicy::Collapse => hscroll_state.max_offset.into() > 0,
             };
             if show {
                 match hscroll.get_orientation() {
@@ -311,7 +324,7 @@ fn layout<'a>(
             let show = match vscroll.get_policy() {
                 ScrollbarPolicy::Always => true,
                 ScrollbarPolicy::Minimize => true,
-                ScrollbarPolicy::Collapse => vscroll_state.max_offset > 0,
+                ScrollbarPolicy::Collapse => vscroll_state.max_offset.into() > 0,
             };
             if show {
                 match vscroll.get_orientation() {
@@ -346,7 +359,7 @@ fn layout<'a>(
     (inner, h_area, v_area)
 }
 
-impl<'a> ScrollAreaState<'a> {
+impl<'a, T: Default + Clone + Copy + Into<usize> + From<usize>> ScrollAreaState<'a, T> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -356,22 +369,22 @@ impl<'a> ScrollAreaState<'a> {
         self
     }
 
-    pub fn v_scroll(mut self, v_scroll: &'a mut ScrollState) -> Self {
+    pub fn v_scroll(mut self, v_scroll: &'a mut ScrollState<T>) -> Self {
         self.v_scroll = Some(v_scroll);
         self
     }
 
-    pub fn v_scroll_opt(mut self, v_scroll: Option<&'a mut ScrollState>) -> Self {
+    pub fn v_scroll_opt(mut self, v_scroll: Option<&'a mut ScrollState<T>>) -> Self {
         self.v_scroll = v_scroll;
         self
     }
 
-    pub fn h_scroll(mut self, h_scroll: &'a mut ScrollState) -> Self {
+    pub fn h_scroll(mut self, h_scroll: &'a mut ScrollState<T>) -> Self {
         self.h_scroll = Some(h_scroll);
         self
     }
 
-    pub fn h_scroll_opt(mut self, h_scroll: Option<&'a mut ScrollState>) -> Self {
+    pub fn h_scroll_opt(mut self, h_scroll: Option<&'a mut ScrollState<T>>) -> Self {
         self.h_scroll = h_scroll;
         self
     }
@@ -380,8 +393,14 @@ impl<'a> ScrollAreaState<'a> {
 ///
 /// Handle scrolling for the whole area spanned by the two scroll-states.
 ///
-impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollAreaState<'_> {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ScrollOutcome {
+impl<T: Default + Clone + Copy + Into<usize> + From<usize>>
+    HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome<T>> for ScrollAreaState<'_, T>
+{
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        _qualifier: MouseOnly,
+    ) -> ScrollOutcome<T> {
         if let Some(h_scroll) = &mut self.h_scroll {
             flow!(match event {
                 // right scroll with ALT down. shift doesn't work?

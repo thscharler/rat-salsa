@@ -6,8 +6,8 @@ mod scroll;
 mod scroll_area;
 
 pub use scroll::{
-    Scroll, ScrollState, ScrollStyle, ScrollSymbols, SCROLLBAR_DOUBLE_HORIZONTAL,
-    SCROLLBAR_DOUBLE_VERTICAL, SCROLLBAR_HORIZONTAL, SCROLLBAR_VERTICAL,
+    SCROLLBAR_DOUBLE_HORIZONTAL, SCROLLBAR_DOUBLE_VERTICAL, SCROLLBAR_HORIZONTAL,
+    SCROLLBAR_VERTICAL, Scroll, ScrollState, ScrollStyle, ScrollSymbols,
 };
 pub use scroll_area::{ScrollArea, ScrollAreaState};
 
@@ -18,7 +18,7 @@ pub mod event {
     ///
     /// All values are in terms of offset.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-    pub enum ScrollOutcome {
+    pub enum ScrollOutcome<T> {
         /// The given event has not been used at all.
         Continue,
         /// The event has been recognized, but the result was nil.
@@ -30,27 +30,27 @@ pub mod event {
         /// Rendering the ui is advised.
         Changed,
         /// Scroll delta.
-        Up(usize),
+        Up(T),
         /// Scroll delta.
-        Down(usize),
+        Down(T),
         /// Scroll delta.
-        Left(usize),
+        Left(T),
         /// Scroll delta.
-        Right(usize),
+        Right(T),
         /// Absolute position.
-        VPos(usize),
+        VPos(T),
         /// Absolute position.
-        HPos(usize),
+        HPos(T),
     }
 
-    impl ConsumedEvent for ScrollOutcome {
+    impl<T> ConsumedEvent for ScrollOutcome<T> {
         fn is_consumed(&self) -> bool {
             !matches!(self, ScrollOutcome::Continue)
         }
     }
 
-    impl From<ScrollOutcome> for Outcome {
-        fn from(value: ScrollOutcome) -> Self {
+    impl<T> From<ScrollOutcome<T>> for Outcome {
+        fn from(value: ScrollOutcome<T>) -> Self {
             match value {
                 ScrollOutcome::Continue => Outcome::Continue,
                 ScrollOutcome::Unchanged => Outcome::Unchanged,
