@@ -268,7 +268,7 @@ fn is_md_table(state: &TextAreaState) -> bool {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
     state
-        .style_match(cursor_byte, MDStyle::Table as usize)
+        .styles_at_match(cursor_byte, MDStyle::Table as usize)
         .is_some()
 }
 
@@ -301,7 +301,7 @@ fn is_md_item(state: &TextAreaState) -> bool {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
     state
-        .style_match(cursor_byte, MDStyle::Item as usize)
+        .styles_at_match(cursor_byte, MDStyle::Item as usize)
         .is_some()
 }
 
@@ -331,7 +331,7 @@ fn md_paragraph(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
 
-    let para_byte = state.style_match(cursor_byte, MDStyle::Paragraph as usize);
+    let para_byte = state.styles_at_match(cursor_byte, MDStyle::Paragraph as usize);
 
     if let Some(para_byte) = para_byte {
         Some((para_byte.clone(), state.byte_range(para_byte)))
@@ -379,7 +379,7 @@ fn md_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
 
-    let item_byte = state.style_match(cursor_byte, MDStyle::Item as usize);
+    let item_byte = state.styles_at_match(cursor_byte, MDStyle::Item as usize);
 
     if let Some(item_byte) = item_byte {
         Some((item_byte.clone(), state.byte_range(item_byte)))
@@ -393,8 +393,8 @@ fn md_prev_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
 
-    let item_byte = state.style_match(cursor_byte, MDStyle::Item as usize);
-    let list_byte = state.style_match(cursor_byte, MDStyle::List as usize);
+    let item_byte = state.styles_at_match(cursor_byte, MDStyle::Item as usize);
+    let list_byte = state.styles_at_match(cursor_byte, MDStyle::List as usize);
 
     if let Some(list_byte) = list_byte {
         if let Some(item_byte) = item_byte {
@@ -425,8 +425,8 @@ fn md_next_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
 
-    let item_byte = state.style_match(cursor_byte, MDStyle::Item as usize);
-    let list_byte = state.style_match(cursor_byte, MDStyle::List as usize);
+    let item_byte = state.styles_at_match(cursor_byte, MDStyle::Item as usize);
+    let list_byte = state.styles_at_match(cursor_byte, MDStyle::List as usize);
 
     if let Some(list_byte) = list_byte {
         if let Some(item_byte) = item_byte {
