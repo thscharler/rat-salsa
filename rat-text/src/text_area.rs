@@ -9,6 +9,7 @@ use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
 use crate::glyph2::{GlyphIter2, TextWrap2};
+use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::TextStore;
 use crate::text_store::text_rope::TextRope;
@@ -897,8 +898,12 @@ impl TextAreaState {
     /// of the styles set with the widget.
     /// Missing styles are just ignored.
     #[inline]
-    pub fn add_range_style(&mut self, range: TextRange, style: usize) -> Result<(), TextError> {
-        let r = self.value.bytes_at_range(range)?;
+    pub fn add_range_style(
+        &mut self,
+        range: impl Into<TextRange>,
+        style: usize,
+    ) -> Result<(), TextError> {
+        let r = self.value.bytes_at_range(range.into())?;
         self.value.add_style(r, style);
         Ok(())
     }
@@ -917,8 +922,12 @@ impl TextAreaState {
 
     /// Remove the exact TextRange and style.
     #[inline]
-    pub fn remove_range_style(&mut self, range: TextRange, style: usize) -> Result<(), TextError> {
-        let r = self.value.bytes_at_range(range)?;
+    pub fn remove_range_style(
+        &mut self,
+        range: impl Into<TextRange>,
+        style: usize,
+    ) -> Result<(), TextError> {
+        let r = self.value.bytes_at_range(range.into())?;
         self.value.remove_style(r, style);
         Ok(())
     }
@@ -2155,7 +2164,6 @@ impl TextAreaState {
     }
 
     /// Find the text-position for an absolute screen-position.
-    #[inline]
     pub fn screen_to_pos(&self, scr_pos: (u16, u16)) -> Option<TextPosition> {
         let scr_pos = (
             scr_pos.0 as i16 - self.inner.x as i16,
