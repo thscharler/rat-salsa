@@ -281,6 +281,7 @@ pub enum Vim {
     VisualDelete,
     VisualChange,
     VisualYank,
+    VisualCopyClipboard,
 
     Undo(u32),
     Redo(u32),
@@ -293,7 +294,9 @@ pub enum Vim {
     Delete(u32, Motion),
     Change(u32, Motion),
     Yank(u32, Motion),
+    CopyClipboard(u32, Motion),
     Paste(u32, bool),
+    PasteClipboard(u32, bool),
     Replace(u32, char),
 }
 
@@ -318,6 +321,7 @@ fn is_normal_memo(vim: &Vim) -> bool {
         Vim::VisualDelete => false,
         Vim::VisualChange => false,
         Vim::VisualYank => false,
+        Vim::VisualCopyClipboard => false,
         Vim::Undo(_) => false,
         Vim::Redo(_) => false,
         Vim::JoinLines(_) => true,
@@ -329,7 +333,9 @@ fn is_normal_memo(vim: &Vim) -> bool {
         Vim::Change(_, _) => true,
         Vim::Replace(_, _) => true,
         Vim::Yank(_, _) => false,
+        Vim::CopyClipboard(_, _) => false,
         Vim::Paste(_, _) => true,
+        Vim::PasteClipboard(_, _) => true,
     }
 }
 
@@ -471,9 +477,7 @@ fn execute_visual(
         Vim::Invalid => r = TextOutcome::Unchanged,
         Vim::Repeat(_) => unreachable!("wrong spot for repeat"),
 
-        Vim::Move(mul, m) => {
-            visual_move(*mul, m, state, vi)?;
-        }
+        Vim::Move(mul, m) => visual_move(*mul, m, state, vi)?,
 
         Vim::Partial(mul, Motion::SearchForward(s)) => {
             search_fwd(*mul, s, true, state, vi)?;
@@ -489,21 +493,12 @@ fn execute_visual(
         Vim::Mark(_) => {}
 
         Vim::VisualSelect(_) => unreachable!("unknown"),
-        Vim::VisualSwapDiagonal => {
-            visual_swap_diagonal(state, vi);
-        }
-        Vim::VisualSwapLead => {
-            visual_swap_lead(state, vi);
-        }
-        Vim::VisualDelete => {
-            visual_delete(state, vi);
-        }
-        Vim::VisualChange => {
-            visual_change(state, vi);
-        }
-        Vim::VisualYank => {
-            visual_yank(state, vi);
-        }
+        Vim::VisualSwapDiagonal => visual_swap_diagonal(state, vi),
+        Vim::VisualSwapLead => visual_swap_lead(state, vi),
+        Vim::VisualDelete => visual_delete(state, vi),
+        Vim::VisualChange => visual_change(state, vi),
+        Vim::VisualYank => visual_yank(state, vi),
+        Vim::VisualCopyClipboard => visual_copy_clipboard(state, vi),
         Vim::Undo(_) => unreachable!("unknown"),
         Vim::Redo(_) => unreachable!("unknown"),
         Vim::JoinLines(_) => unreachable!("unknown"),
@@ -514,7 +509,9 @@ fn execute_visual(
         Vim::Delete(_, _) => unreachable!("unknown"),
         Vim::Change(_, _) => unreachable!("unknown"),
         Vim::Yank(_, _) => unreachable!("unknown"),
+        Vim::CopyClipboard(_, _) => unreachable!("unknown"),
         Vim::Paste(_, _) => unreachable!("unknown"),
+        Vim::PasteClipboard(_, _) => unreachable!("unknown"),
         Vim::Replace(_, _) => unreachable!("unknown"),
     }
 
@@ -537,9 +534,7 @@ fn execute_normal(
         Vim::Invalid => r = TextOutcome::Unchanged,
         Vim::Repeat(_) => unreachable!("unkown repeat"),
 
-        Vim::Move(mul, m) => {
-            move_cursor(*mul, m, state, vi)?;
-        }
+        Vim::Move(mul, m) => move_cursor(*mul, m, state, vi)?,
 
         Vim::Partial(mul, Motion::SearchForward(s)) => {
             search_fwd(*mul, s, true, state, vi)?;
@@ -569,6 +564,7 @@ fn execute_normal(
         Vim::VisualDelete => unreachable!("unknown"),
         Vim::VisualChange => unreachable!("unknown"),
         Vim::VisualYank => unreachable!("unknown"),
+        Vim::VisualCopyClipboard => unreachable!("unknown"),
 
         Vim::Undo(mul) => {
             undo(*mul, state, vi);
@@ -627,12 +623,10 @@ fn execute_normal(
                 r = TextOutcome::TextChanged;
             }
         }
-        Vim::Yank(mul, m) => {
-            yank_text(*mul, m, state, vi)?;
-        }
-        Vim::Paste(mul, before) => {
-            paste_text(*mul, *before, state, vi);
-        }
+        Vim::Yank(mul, m) => yank_text(*mul, m, state, vi)?,
+        Vim::CopyClipboard(mul, m) => copy_clipboard_text(*mul, m, state, vi)?,
+        Vim::Paste(mul, before) => paste_text(*mul, *before, state, vi),
+        Vim::PasteClipboard(mul, before) => paste_clipboard_text(*mul, *before, state),
         Vim::Delete(mul, m) => {
             delete_text(*mul, m, state, vi)?;
             r = TextOutcome::TextChanged;
@@ -848,7 +842,6 @@ pub mod visual_op {
     use crate::vi::motion_op::motion_end_position;
     use crate::vi::query::*;
     use crate::vi::{Mode, Motion, VI};
-    use log::debug;
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
 
@@ -973,6 +966,28 @@ pub mod visual_op {
         vi.mode = Mode::Normal;
         vi.visual.clear();
     }
+
+    pub fn visual_copy_clipboard(state: &mut TextAreaState, vi: &mut VI) {
+        if state.clipboard().is_none() {
+            return;
+        };
+
+        // undo would restore these.
+        state.remove_style_fully(997);
+
+        let mut buf = String::new();
+        for (r, _) in &vi.visual.list {
+            let r = state.byte_range(r.clone());
+            buf.push_str(state.str_slice(r).as_ref());
+            buf.push('\n');
+        }
+
+        let clip = state.clipboard().expect("clip");
+        _ = clip.set_string(buf.as_str());
+
+        vi.mode = Mode::Normal;
+        vi.visual.clear();
+    }
 }
 
 pub mod partial_op {
@@ -1023,7 +1038,6 @@ pub mod change_op {
     use crate::vi::query::*;
     use crate::vi::{Motion, SyncRanges};
     use crate::{SearchError, VI};
-    use log::debug;
     use rat_text::text_area::TextAreaState;
     use rat_text::{TextPosition, upos_type};
     use std::cmp::min;
@@ -1183,12 +1197,25 @@ pub mod change_op {
             vi.yank.list.clear();
             vi.yank.list.push(state.str_slice(range).into_owned());
         }
-        debug!("yank {:?}", vi.yank);
         Ok(())
     }
 
-    pub fn paste_text(mul: u32, before: bool, state: &mut TextAreaState, vi: &mut VI) {
-        if vi.yank.list.len() > 1 {
+    pub fn copy_clipboard_text(
+        mul: u32,
+        motion: &Motion,
+        state: &mut TextAreaState,
+        vi: &mut VI,
+    ) -> Result<(), SearchError> {
+        if let Some(range) = yank_range(mul, motion, state, vi)? {
+            if let Some(clip) = state.clipboard() {
+                _ = clip.set_string(state.str_slice(range).as_ref());
+            }
+        }
+        Ok(())
+    }
+
+    fn paste(text: &[String], mul: u32, before: bool, state: &mut TextAreaState) {
+        if text.len() > 1 {
             let cursor = state.cursor();
             let len_lines = state.len_lines();
 
@@ -1201,19 +1228,19 @@ pub mod change_op {
 
             state.begin_undo_seq();
             state.set_cursor(start, false);
-            for i in 0..vi.yank.list.len() {
+            for i in 0..text.len() {
                 let y = start.y + i as upos_type;
                 if y < len_lines {
                     state.set_cursor((start.x, y), false);
                     for _ in 0..mul {
-                        state.insert_str(&vi.yank.list[i]);
+                        state.insert_str(&text[i]);
                     }
                 }
             }
             state.set_cursor(cursor, false);
             state.end_undo_seq();
-        } else if vi.yank.list[0].contains('\n') {
-            let nl = !vi.yank.list[0].ends_with('\n');
+        } else if text[0].contains('\n') {
+            let nl = text[0].ends_with('\n');
 
             let start = if before {
                 q_start_of_line(state)
@@ -1224,7 +1251,7 @@ pub mod change_op {
             state.begin_undo_seq();
             state.set_cursor(start, false);
             for _ in 0..mul {
-                state.insert_str(&vi.yank.list[0]);
+                state.insert_str(&text[0]);
                 if nl {
                     state.insert_newline();
                 }
@@ -1233,9 +1260,22 @@ pub mod change_op {
             state.end_undo_seq();
         } else {
             for _ in 0..mul {
-                state.insert_str(&vi.yank.list[0]);
+                state.insert_str(&text[0]);
             }
         }
+    }
+
+    pub fn paste_text(mul: u32, before: bool, state: &mut TextAreaState, vi: &mut VI) {
+        paste(&vi.yank.list, mul, before, state);
+    }
+
+    pub fn paste_clipboard_text(mul: u32, before: bool, state: &mut TextAreaState) {
+        let Some(clip) = state.clipboard() else {
+            return;
+        };
+        let mut text = [String::default(); 1];
+        text[0] = clip.get_string().unwrap_or(String::default());
+        paste(&text, mul, before, state);
     }
 
     pub fn join_line(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
@@ -1689,6 +1729,7 @@ pub mod state_machine {
                 motion_buf.borrow_mut().push(tok);
                 Vim::Mark(tok)
             }
+
             'v' => Vim::VisualSelect(false),
             ctrl::CTRL_V => Vim::VisualSelect(true),
 
@@ -1760,6 +1801,44 @@ pub mod state_machine {
                     _ => Vim::Invalid,
                 }
             }
+            '"' => {
+                tok = yield_!(yp);
+                motion_buf.borrow_mut().push(tok);
+                match tok {
+                    '*' => {
+                        tok = yield_!(yp);
+                        motion_buf.borrow_mut().push(tok);
+
+                        match tok {
+                            'y' => {
+                                tok = yield_!(yp);
+
+                                let mul2;
+                                (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
+
+                                motion_buf.borrow_mut().push(tok);
+                                tok = match bare_motion(tok, mul2, &motion_buf, &yp).await {
+                                    Ok(Vim::Move(mul2, motion)) => {
+                                        let mul = mul.unwrap_or(1);
+                                        return Vim::CopyClipboard(mul * mul2, motion);
+                                    }
+                                    Ok(Vim::Invalid) => return Vim::Invalid,
+                                    Err(tok) => tok,
+                                    _ => unreachable!("no"),
+                                };
+                                match tok {
+                                    'y' => Vim::CopyClipboard(mul.unwrap_or(1), Motion::FullLine),
+                                    _ => Vim::Invalid,
+                                }
+                            }
+                            'p' => Vim::PasteClipboard(mul.unwrap_or(1), false),
+                            'P' => Vim::PasteClipboard(mul.unwrap_or(1), true),
+                            _ => Vim::Invalid,
+                        }
+                    }
+                    _ => Vim::Invalid,
+                }
+            }
             'p' => Vim::Paste(mul.unwrap_or(1), false),
             'P' => Vim::Paste(mul.unwrap_or(1), true),
             'D' => Vim::Delete(mul.unwrap_or(1), Motion::EndOfLine),
@@ -1810,6 +1889,21 @@ pub mod state_machine {
             'd' => Vim::VisualDelete,
             'c' => Vim::VisualChange,
             'y' => Vim::VisualYank,
+            '"' => {
+                tok = yield_!(yp);
+                motion_buf.borrow_mut().push(tok);
+                match tok {
+                    '*' => {
+                        tok = yield_!(yp);
+                        motion_buf.borrow_mut().push(tok);
+                        match tok {
+                            'y' => Vim::VisualCopyClipboard,
+                            _ => Vim::Invalid,
+                        }
+                    }
+                    _ => Vim::Invalid,
+                }
+            }
             _ => Vim::Invalid,
         }
     }
