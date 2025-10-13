@@ -370,21 +370,21 @@ pub fn q_prev_bigword_end(mut mul: u32, state: &TextAreaState) -> Option<TextPos
     Some(state.byte_pos(it.text_offset()))
 }
 
-pub fn q_start_of_line(state: &mut TextAreaState) -> Option<TextPosition> {
-    Some(TextPosition::new(0, state.cursor().y))
+pub fn q_start_of_line(state: &mut TextAreaState) -> TextPosition {
+    TextPosition::new(0, state.cursor().y)
 }
 
-pub fn q_start_of_next_line(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_start_of_next_line(mul: u32, state: &mut TextAreaState) -> TextPosition {
     let y = min(state.cursor().y + mul as upos_type, state.len_lines());
-    Some(TextPosition::new(0, y))
+    TextPosition::new(0, y)
 }
 
-pub fn q_end_of_line(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_end_of_line(mul: u32, state: &mut TextAreaState) -> TextPosition {
     let y = min(
         state.cursor().y + mul.saturating_sub(1) as upos_type,
         state.len_lines().saturating_sub(1),
     );
-    Some(TextPosition::new(state.line_width(y), y))
+    TextPosition::new(state.line_width(y), y)
 }
 
 pub fn q_start_of_text(state: &mut TextAreaState) -> Option<TextPosition> {
