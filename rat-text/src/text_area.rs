@@ -963,8 +963,8 @@ impl TextAreaState {
 
     /// List of all styles.
     #[inline]
-    pub fn styles(&self) -> impl Iterator<Item = (Range<usize>, usize)> + '_ {
-        self.value.styles().expect("styles")
+    pub fn styles(&self) -> Option<impl Iterator<Item = (Range<usize>, usize)> + '_> {
+        self.value.styles()
     }
 }
 
@@ -1258,17 +1258,17 @@ impl TextAreaState {
     ///
     /// Panics for an invalid pos.
     #[inline]
-    pub fn text_graphemes(&self, pos: TextPosition) -> impl Cursor<Item = Grapheme<'_>> {
-        self.value.text_graphemes(pos).expect("valid_pos")
+    pub fn text_graphemes(&self, pos: impl Into<TextPosition>) -> impl Cursor<Item = Grapheme<'_>> {
+        self.value.text_graphemes(pos.into()).expect("valid_pos")
     }
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
     pub fn try_text_graphemes(
         &self,
-        pos: TextPosition,
+        pos: impl Into<TextPosition>,
     ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
-        self.value.text_graphemes(pos)
+        self.value.text_graphemes(pos.into())
     }
 
     /// Get a cursor over the text-range the current position set at pos.
@@ -1277,20 +1277,22 @@ impl TextAreaState {
     #[inline]
     pub fn graphemes(
         &self,
-        range: TextRange,
-        pos: TextPosition,
+        range: impl Into<TextRange>,
+        pos: impl Into<TextPosition>,
     ) -> impl Cursor<Item = Grapheme<'_>> {
-        self.value.graphemes(range, pos).expect("valid_args")
+        self.value
+            .graphemes(range.into(), pos.into())
+            .expect("valid_args")
     }
 
     /// Get a cursor over the text-range the current position set at pos.
     #[inline]
     pub fn try_graphemes(
         &self,
-        range: TextRange,
-        pos: TextPosition,
+        range: impl Into<TextRange>,
+        pos: impl Into<TextPosition>,
     ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
-        self.value.graphemes(range, pos)
+        self.value.graphemes(range.into(), pos.into())
     }
 
     /// Grapheme position to byte position.
@@ -1298,29 +1300,34 @@ impl TextAreaState {
     ///
     /// Panics for an invalid pos.
     #[inline]
-    pub fn byte_at(&self, pos: TextPosition) -> Range<usize> {
-        self.value.byte_at(pos).expect("valid_pos")
+    pub fn byte_at(&self, pos: impl Into<TextPosition>) -> Range<usize> {
+        self.value.byte_at(pos.into()).expect("valid_pos")
     }
 
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
     #[inline]
-    pub fn try_byte_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
-        self.value.byte_at(pos)
+    pub fn try_byte_at(&self, pos: impl Into<TextPosition>) -> Result<Range<usize>, TextError> {
+        self.value.byte_at(pos.into())
     }
 
     /// Grapheme range to byte range.
     ///
     /// Panics for an invalid range.
     #[inline]
-    pub fn bytes_at_range(&self, range: TextRange) -> Range<usize> {
-        self.value.bytes_at_range(range).expect("valid_range")
+    pub fn bytes_at_range(&self, range: impl Into<TextRange>) -> Range<usize> {
+        self.value
+            .bytes_at_range(range.into())
+            .expect("valid_range")
     }
 
     /// Grapheme range to byte range.
     #[inline]
-    pub fn try_bytes_at_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
-        self.value.bytes_at_range(range)
+    pub fn try_bytes_at_range(
+        &self,
+        range: impl Into<TextRange>,
+    ) -> Result<Range<usize>, TextError> {
+        self.value.bytes_at_range(range.into())
     }
 
     /// Byte position to grapheme position.
@@ -2134,6 +2141,7 @@ impl TextAreaState {
     }
 
     /// Find the text-position for an absolute screen-position.
+    #[inline]
     pub fn screen_to_pos(&self, scr_pos: (u16, u16)) -> Option<TextPosition> {
         let scr_pos = (
             scr_pos.0 as i16 - self.inner.x as i16,
@@ -2143,8 +2151,9 @@ impl TextAreaState {
     }
 
     /// Find the absolute screen-position for a text-position
-    pub fn pos_to_screen(&self, pos: TextPosition) -> Option<(u16, u16)> {
-        let scr_pos = self.pos_to_relative_screen(pos)?;
+    #[inline]
+    pub fn pos_to_screen(&self, pos: impl Into<TextPosition>) -> Option<(u16, u16)> {
+        let scr_pos = self.pos_to_relative_screen(pos.into())?;
         if scr_pos.0 + self.inner.x as i16 > 0 && scr_pos.1 + self.inner.y as i16 > 0 {
             Some((
                 (scr_pos.0 + self.inner.x as i16) as u16,
@@ -2156,7 +2165,8 @@ impl TextAreaState {
     }
 
     /// Return the starting position for the visible line containing the given position.
-    pub fn pos_to_line_start(&self, pos: TextPosition) -> TextPosition {
+    pub fn pos_to_line_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        let pos = pos.into();
         match self.text_wrap {
             TextWrap::Shift => {
                 //
@@ -2183,7 +2193,9 @@ impl TextAreaState {
     }
 
     /// Return the end position for the visible line containing the given position.
-    pub fn pos_to_line_end(&self, pos: TextPosition) -> TextPosition {
+    pub fn pos_to_line_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        let pos = pos.into();
+
         self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
             .expect("valid-row");
 
@@ -2280,7 +2292,8 @@ impl TextAreaState {
     /// If the text-position is outside the rendered area,
     /// this will return None.
     #[allow(clippy::explicit_counter_loop)]
-    pub fn pos_to_relative_screen(&self, pos: TextPosition) -> Option<(i16, i16)> {
+    pub fn pos_to_relative_screen(&self, pos: impl Into<TextPosition>) -> Option<(i16, i16)> {
+        let pos = pos.into();
         match self.text_wrap {
             TextWrap::Shift => {
                 let (ox, _, oy) = self.clean_offset();
@@ -2795,8 +2808,10 @@ impl TextAreaState {
     }
 
     /// Scrolls to make the given position visible.
-    pub fn scroll_to_pos(&mut self, pos: TextPosition) -> bool {
+    pub fn scroll_to_pos(&mut self, pos: impl Into<TextPosition>) -> bool {
         let old_offset = self.clean_offset();
+
+        let pos = pos.into();
 
         'f: {
             match self.text_wrap {
