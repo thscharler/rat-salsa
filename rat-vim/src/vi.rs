@@ -84,6 +84,20 @@ pub struct Visual {
     pub sync: SyncRanges,
 }
 
+impl Visual {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn clear(&mut self) {
+        self.sync = SyncRanges::ToTextArea;
+        self.block = Default::default();
+        self.anchor = Default::default();
+        self.lead = Default::default();
+        self.list.clear();
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Finds {
     pub term: Option<char>,
@@ -101,6 +115,7 @@ impl Finds {
     }
 
     pub fn clear(&mut self) {
+        self.sync = SyncRanges::ToTextArea;
         self.term = Default::default();
         self.row = Default::default();
         self.dir = Default::default();
@@ -126,6 +141,7 @@ impl Matches {
     }
 
     pub fn clear(&mut self) {
+        self.sync = SyncRanges::ToTextArea;
         self.term = Default::default();
         self.dir = Default::default();
         self.tmp = Default::default();
@@ -195,15 +211,6 @@ pub enum Scrolling {
     BottomOfScreen,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Visuals {
-    Select,
-    SelectBlock,
-
-    SwapLead,
-    SwapDiagonal,
-}
-
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum Vim {
     #[default]
@@ -215,7 +222,13 @@ pub enum Vim {
     Move(u32, Motion),
     Scroll(u32, Scrolling),
     Mark(char),
-    Visual(Visuals),
+
+    VisualSelect(bool),
+    VisualSwapLead,
+    VisualSwapDiagonal,
+    VisualDelete,
+    VisualChange,
+    VisualYank,
 
     Undo(u32),
     Redo(u32),
@@ -227,10 +240,19 @@ pub enum Vim {
     PrependLine(u32),
     Delete(u32, Motion),
     Change(u32, Motion),
+    Yank(u32, Motion),
+    Paste(u32),
     Replace(u32, char),
 }
 
-fn is_memo(vim: &Vim) -> bool {
+fn is_visual_memo(vim: &Vim) -> bool {
+    match vim {
+        Vim::VisualChange => true,
+        _ => false,
+    }
+}
+
+fn is_normal_memo(vim: &Vim) -> bool {
     match vim {
         Vim::Invalid => false,
         Vim::Repeat(_) => false,
@@ -238,7 +260,12 @@ fn is_memo(vim: &Vim) -> bool {
         Vim::Move(_, _) => false,
         Vim::Scroll(_, _) => false,
         Vim::Mark(_) => false,
-        Vim::Visual(_) => false,
+        Vim::VisualSelect(_) => false,
+        Vim::VisualSwapLead => false,
+        Vim::VisualSwapDiagonal => false,
+        Vim::VisualDelete => false,
+        Vim::VisualChange => false,
+        Vim::VisualYank => false,
         Vim::Undo(_) => false,
         Vim::Redo(_) => false,
         Vim::JoinLines(_) => true,
@@ -249,6 +276,8 @@ fn is_memo(vim: &Vim) -> bool {
         Vim::Delete(_, _) => true,
         Vim::Change(_, _) => true,
         Vim::Replace(_, _) => true,
+        Vim::Yank(_, _) => false,
+        Vim::Paste(_) => true,
     }
 }
 
@@ -306,7 +335,16 @@ fn eval_visual(
     } else {
         debug!("VIM |> {:?}", vim);
         let tt = SystemTime::now();
-        let r = execute_visual(&vim, state, vi);
+        let r = match execute_visual(&vim, state, vi) {
+            Ok(v) => {
+                if is_visual_memo(&vim) {
+                    debug!("visual memo {:?}", vim);
+                    vi.command = vim;
+                }
+                Ok(v)
+            }
+            Err(e) => Err(e),
+        };
         debug!("TT {:?}", tt.elapsed());
         r
     }
@@ -357,7 +395,7 @@ fn eval_normal(
         let tt = SystemTime::now();
         let r = match execute_normal(&vim, false, state, vi) {
             Ok(v) => {
-                if is_memo(&vim) {
+                if is_normal_memo(&vim) {
                     vi.command = vim;
                 }
                 Ok(v)
@@ -397,24 +435,32 @@ fn execute_visual(
         Vim::Scroll(_, _) => {}
         Vim::Mark(_) => {}
 
-        Vim::Visual(Visuals::SwapDiagonal) => {
+        Vim::VisualSelect(_) => unreachable!("unknown"),
+        Vim::VisualSwapDiagonal => {
             visual_swap_diagonal(state, vi);
         }
-        Vim::Visual(Visuals::SwapLead) => {
+        Vim::VisualSwapLead => {
             visual_swap_lead(state, vi);
         }
-        Vim::Visual(_) => unreachable!("unknown visual"),
-
-        Vim::Undo(_) => {}
-        Vim::Redo(_) => {}
-        Vim::JoinLines(_) => {}
-        Vim::Insert(_) => {}
-        Vim::Append(_) => {}
-        Vim::AppendLine(_) => {}
-        Vim::PrependLine(_) => {}
-        Vim::Delete(_, _) => {}
-        Vim::Change(_, _) => {}
-        Vim::Replace(_, _) => {}
+        Vim::VisualDelete => {
+            visual_delete(state, vi);
+        }
+        Vim::VisualChange => {
+            visual_change(state, vi);
+        }
+        Vim::VisualYank => { /*mark*/ }
+        Vim::Undo(_) => unreachable!("unknown"),
+        Vim::Redo(_) => unreachable!("unknown"),
+        Vim::JoinLines(_) => unreachable!("unknown"),
+        Vim::Insert(_) => unreachable!("unknown"),
+        Vim::Append(_) => unreachable!("unknown"),
+        Vim::AppendLine(_) => unreachable!("unknown"),
+        Vim::PrependLine(_) => unreachable!("unknown"),
+        Vim::Delete(_, _) => unreachable!("unknown"),
+        Vim::Change(_, _) => unreachable!("unknown"),
+        Vim::Yank(_, _) => unreachable!("unknown"),
+        Vim::Paste(_) => unreachable!("unknown"),
+        Vim::Replace(_, _) => unreachable!("unknown"),
     }
 
     display_matches(state, vi);
@@ -462,9 +508,12 @@ fn execute_normal(
 
         Vim::Mark(mark) => set_mark(*mark, state, vi),
 
-        Vim::Visual(Visuals::Select) => begin_visual(false, state, vi),
-        Vim::Visual(Visuals::SelectBlock) => begin_visual(true, state, vi),
-        Vim::Visual(_) => unreachable!("unknown visual"),
+        Vim::VisualSelect(block) => begin_visual(*block, state, vi),
+        Vim::VisualSwapLead => unreachable!("unknown"),
+        Vim::VisualSwapDiagonal => unreachable!("unknown"),
+        Vim::VisualDelete => unreachable!("unknown"),
+        Vim::VisualChange => unreachable!("unknown"),
+        Vim::VisualYank => unreachable!("unknown"),
 
         Vim::Undo(mul) => {
             undo(*mul, state, vi);
@@ -531,6 +580,8 @@ fn execute_normal(
             replace_text(*mul, *c, state, vi)?;
             r = TextOutcome::TextChanged;
         }
+        Vim::Yank(_, _) => {}
+        Vim::Paste(_) => {}
     }
 
     display_matches(state, vi);
@@ -556,7 +607,7 @@ pub mod display {
                 }
             }
             SyncRanges::FromTextArea => {
-                // noop
+                unreachable!("no sync");
             }
         }
     }
@@ -783,9 +834,9 @@ pub mod move_op {
 }
 
 pub mod visual_op {
-    use crate::SearchError;
     use crate::vi::query::*;
     use crate::vi::{Motion, VI};
+    use crate::{Mode, SearchError};
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
 
@@ -869,6 +920,70 @@ pub mod visual_op {
         vi.visual.lead = anchor;
         q_visual_select(state, vi);
         state.set_cursor(vi.visual.lead, false);
+    }
+
+    pub fn visual_delete(state: &mut TextAreaState, vi: &mut VI) {
+        // undo would restore these.
+        state.remove_style_fully(997);
+
+        state.begin_undo_seq();
+        loop {
+            let Some((r, _)) = vi.visual.list.pop() else {
+                break;
+            };
+            let r = state.byte_range(r);
+            state.delete_range(r);
+        }
+        state.end_undo_seq();
+
+        vi.mode = Mode::Normal;
+        vi.visual.clear();
+    }
+
+    pub fn visual_change(state: &mut TextAreaState, vi: &mut VI) {
+        let Some((r, _)) = vi.visual.list.get(0) else {
+            vi.mode = Mode::Normal;
+            vi.visual.clear();
+            return;
+        };
+        state.remove_style(r.clone(), 997);
+        let r = state.byte_range(r.clone());
+        state.begin_undo_seq(); // ends with visual_multi_change()
+        state.delete_range(r);
+        state.set_cursor(r.start, false);
+
+        vi.mode = Mode::Insert;
+        vi.text.clear();
+    }
+
+    pub fn visual_multi_change(state: &mut TextAreaState, vi: &mut VI) {
+        let Some((r, _)) = vi.visual.list.get(0) else {
+            unreachable!("invalid change");
+        };
+        let new_cursor = state.byte_pos(r.start);
+
+        // sync back visual selection
+        vi.visual.list.clear();
+        state.styles_in_match(0..state.len_bytes(), 997, &mut vi.visual.list);
+
+        // undo would restore these.
+        state.remove_style_fully(997);
+
+        loop {
+            let Some((r, _)) = vi.visual.list.pop() else {
+                break;
+            };
+            let r = state.byte_range(r);
+            state.delete_range(r);
+            state.set_cursor(r.start, false);
+            q_insert_str(&vi.text, state);
+        }
+        state.end_undo_seq(); // starts with visual_change()
+
+        state.set_cursor(new_cursor, false);
+
+        vi.mode = Mode::Normal;
+        vi.visual.clear();
     }
 }
 
@@ -1190,9 +1305,9 @@ pub mod modes_op {
     use crate::coroutine::Coroutine;
     use crate::vi::change_op::*;
     use crate::vi::state_machine::*;
+    use crate::vi::visual_op::visual_multi_change;
     use crate::vi::{SyncRanges, Vim};
     use crate::{Mode, VI};
-    use log::debug;
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
     use std::mem;
@@ -1211,35 +1326,19 @@ pub mod modes_op {
 
     pub fn reset_normal_mode(vi: &mut VI) {
         vi.mode = Mode::Normal;
-
-        vi.matches.sync = SyncRanges::ToTextArea;
-        vi.matches.term = None;
-        vi.matches.idx = None;
-        vi.matches.list.clear();
-        vi.matches.tmp = Default::default();
-        vi.matches.dir = Default::default();
-
-        vi.finds.sync = SyncRanges::ToTextArea;
-        vi.finds.term = None;
-        vi.finds.idx = None;
-        vi.finds.list.clear();
-        vi.finds.row = Default::default();
-        vi.finds.till = Default::default();
-        vi.finds.dir = Default::default();
+        vi.matches.clear();
+        vi.finds.clear();
     }
 
     pub fn reset_visual_mode(vi: &mut VI) {
         vi.mode = Mode::Normal;
-
-        vi.visual.sync = SyncRanges::ToTextArea;
-        vi.visual.block = Default::default();
-        vi.visual.anchor = Default::default();
-        vi.visual.lead = Default::default();
-        vi.visual.list.clear();
+        vi.visual.clear();
     }
 
     pub fn reset_insert_mode(vi: &mut VI) {
         vi.mode = Mode::Normal;
+        vi.matches.sync = SyncRanges::FromTextArea;
+        vi.finds.sync = SyncRanges::FromTextArea;
     }
 
     pub fn begin_visual(block: bool, state: &mut TextAreaState, vi: &mut VI) {
@@ -1252,8 +1351,6 @@ pub mod modes_op {
 
     pub fn begin_prepend_line(state: &mut TextAreaState, vi: &mut VI) {
         vi.mode = Mode::Insert;
-        vi.finds.sync = SyncRanges::FromTextArea;
-        vi.matches.sync = SyncRanges::FromTextArea;
         vi.text.clear();
 
         let c = state.cursor();
@@ -1264,8 +1361,6 @@ pub mod modes_op {
 
     pub fn begin_append_line(state: &mut TextAreaState, vi: &mut VI) {
         vi.mode = Mode::Insert;
-        vi.finds.sync = SyncRanges::FromTextArea;
-        vi.matches.sync = SyncRanges::FromTextArea;
         vi.text.clear();
 
         let c = state.cursor();
@@ -1287,7 +1382,7 @@ pub mod modes_op {
     }
 
     pub fn end_insert(state: &mut TextAreaState, vi: &mut VI) {
-        let command = mem::take(&mut vi.command);
+        let mut command = mem::take(&mut vi.command);
         match &command {
             Vim::Insert(mul) => {
                 insert_str(mul.saturating_sub(1), state, vi);
@@ -1301,15 +1396,20 @@ pub mod modes_op {
             Vim::PrependLine(mul) => {
                 prepend_line_str(mul.saturating_sub(1), state, vi);
             }
+            Vim::VisualChange => {
+                visual_multi_change(state, vi);
+                command = Vim::Invalid;
+            }
             _ => {}
         };
+
         vi.command = command;
     }
 }
 
 pub mod state_machine {
     use crate::coroutine::Yield;
-    use crate::vi::{Motion, Scrolling, Vim, Visuals};
+    use crate::vi::{Motion, Scrolling, Vim};
     use crate::{ctrl, yield_};
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -1532,8 +1632,8 @@ pub mod state_machine {
                 motion_buf.borrow_mut().push(tok);
                 Vim::Mark(tok)
             }
-            'v' => Vim::Visual(Visuals::Select),
-            ctrl::CTRL_V => Vim::Visual(Visuals::SelectBlock),
+            'v' => Vim::VisualSelect(false),
+            ctrl::CTRL_V => Vim::VisualSelect(true),
 
             'r' => {
                 tok = yield_!(yp);
@@ -1625,9 +1725,11 @@ pub mod state_machine {
         };
 
         match tok {
-            'o' => Vim::Visual(Visuals::SwapLead),
-            'O' => Vim::Visual(Visuals::SwapDiagonal),
-
+            'o' => Vim::VisualSwapLead,
+            'O' => Vim::VisualSwapDiagonal,
+            'd' => Vim::VisualDelete,
+            'c' => Vim::VisualChange,
+            'y' => Vim::VisualYank,
             _ => Vim::Invalid,
         }
     }
@@ -1672,6 +1774,7 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
                     reset_insert_mode(vi);
                     display_matches(self, vi);
                     display_finds(self, vi);
+                    display_visual(self, vi);
                     self.scroll_cursor_to_visible();
                     TextOutcome::TextChanged
                 }
@@ -1691,9 +1794,11 @@ impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchErr
                 ct_event!(keycode press Esc) | ct_event!(key press CONTROL-'c') => {
                     reset_visual_mode(vi);
                     reset_co_visual(vi);
+
                     display_matches(self, vi);
                     display_finds(self, vi);
                     display_visual(self, vi);
+
                     self.scroll_cursor_to_visible();
                     TextOutcome::Changed
                 }
