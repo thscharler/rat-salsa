@@ -890,15 +890,20 @@ pub mod visual_op {
         // undo would restore these.
         state.remove_style_fully(997);
 
+        vi.yank.list.clear();
+
         state.begin_undo_seq();
         loop {
             let Some((r, _)) = vi.visual.list.pop() else {
                 break;
             };
             let r = state.byte_range(r);
+            vi.yank.list.push(state.str_slice(r).into_owned());
             state.delete_range(r);
         }
         state.end_undo_seq();
+
+        vi.yank.list.reverse();
 
         vi.mode = Mode::Normal;
         vi.visual.clear();
@@ -1147,6 +1152,11 @@ pub mod change_op {
         if let Some(range) = delete_range(mul, motion, state, vi)? {
             vi.finds.sync = SyncRanges::FromTextArea;
             vi.matches.sync = SyncRanges::FromTextArea;
+
+            vi.yank.list.clear();
+            vi.yank
+                .list
+                .push(state.str_slice(range.clone()).into_owned());
             state.delete_range(range);
         }
         Ok(())
