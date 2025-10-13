@@ -1,12 +1,11 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-mod coroutine;
+pub mod coroutine;
 mod ctrl;
 mod vi;
 mod vi_status_line;
 
-pub use coroutine::{Coroutine, Resume, Yield};
 pub use vi::{Mode, VI};
 pub use vi_status_line::VIStatusLine;
 

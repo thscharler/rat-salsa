@@ -50,7 +50,7 @@ impl<'a, A: Debug, Y: Debug, R: Debug> Coroutine<'a, A, Y, R> {
     ///
     /// Run in sync code.
     /// ```
-    /// use rat_vim::Coroutine;
+    /// use rat_vim::coroutine::Coroutine;
     ///
     /// let mut co = Coroutine::new(|arg, yp| {
     ///     Box::new(async move {
@@ -72,7 +72,7 @@ impl<'a, A: Debug, Y: Debug, R: Debug> Coroutine<'a, A, Y, R> {
     /// Or in async code
     ///
     /// ```
-    /// use rat_vim::Coroutine;
+    /// use rat_vim::coroutine::Coroutine;
     ///
     /// let mut co = Coroutine::new(|arg, yp| {
     ///     Box::new(async move {
@@ -91,15 +91,15 @@ impl<'a, A: Debug, Y: Debug, R: Debug> Coroutine<'a, A, Y, R> {
     ///     assert_eq!(v3, 44);
     /// });
     ///
-    /// use std::pin::pin;
-    /// use std::task::{Context, Poll};
-    /// let mut cx = Context::from_waker(futures::task::noop_waker_ref());
-    /// loop {
-    ///     match sample1.as_mut().poll(&mut cx) {
-    ///         Poll::Ready(_) => break,
-    ///         Poll::Pending => {}
-    ///     };
-    /// }
+    /// # use std::pin::pin;
+    /// # use std::task::{Context, Poll};
+    /// # let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+    /// # loop {
+    /// #     match sample1.as_mut().poll(&mut cx) {
+    /// #         Poll::Ready(_) => break,
+    /// #         Poll::Pending => {}
+    /// #     };
+    /// # }
     /// ```
     ///
     pub fn new<C>(construct: C) -> Coroutine<'a, A, Y, R>
@@ -231,7 +231,7 @@ impl<P, T> Yield<P, T> {
     }
 
     /// Yield without result.
-    /// Results in a `Resume::Pending`.
+    /// Results in a [Resume::Pending] or suspends the async call.
     pub async fn yield_pending(&self) -> P {
         self.yielded.set(None);
         yield_tech().await;
@@ -239,7 +239,7 @@ impl<P, T> Yield<P, T> {
     }
 
     /// Yield with result.
-    /// Results in a `Resume::Yield`
+    /// Results in a [Resume::Yield] or a [CoResult::Yield]
     pub async fn yield_(&self, value: T) -> P {
         self.yielded.set(Some(value));
         yield_tech().await;
@@ -277,8 +277,7 @@ fn yield_tech() -> impl Future<Output = ()> {
 
 #[cfg(test)]
 mod test {
-    use crate::coroutine::CoResult;
-    use crate::{Coroutine, Resume, Yield};
+    use crate::coroutine::{CoResult, Coroutine, Resume, Yield};
     use std::pin::pin;
     use std::task::{Context, Poll};
 

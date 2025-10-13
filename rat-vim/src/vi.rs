@@ -1,3 +1,5 @@
+use crate::SearchError;
+use crate::coroutine::{Coroutine, Resume};
 use crate::ctrl;
 use crate::vi::change_op::*;
 use crate::vi::display::*;
@@ -7,7 +9,6 @@ use crate::vi::move_op::*;
 use crate::vi::partial_op::*;
 use crate::vi::scroll_op::*;
 use crate::vi::state_machine::*;
-use crate::{Coroutine, Resume, SearchError};
 use log::debug;
 use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
@@ -978,10 +979,11 @@ pub mod change_op {
 }
 
 pub mod modes_op {
+    use crate::coroutine::Coroutine;
     use crate::vi::change_op::*;
     use crate::vi::state_machine::*;
     use crate::vi::{SyncRanges, Vim};
-    use crate::{Coroutine, Mode, VI};
+    use crate::{Mode, VI};
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
     use std::mem;
@@ -1060,8 +1062,9 @@ pub mod modes_op {
 }
 
 pub mod state_machine {
+    use crate::coroutine::Yield;
     use crate::vi::{Motion, Scrolling, Vim};
-    use crate::{Yield, ctrl, yield_};
+    use crate::{ctrl, yield_};
     use std::cell::RefCell;
     use std::rc::Rc;
 
