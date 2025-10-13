@@ -23,24 +23,37 @@ use std::time::SystemTime;
 
 pub mod query;
 
+/// State for VI editing.
 pub struct VI {
+    /// vi mode
     pub mode: Mode,
 
+    /// normal commands
     pub co_normal: Coroutine<'static, char, Vim, Vim>,
+    /// visual commands
     pub co_visual: Coroutine<'static, char, Vim, Vim>,
 
+    /// summary text for the command
     pub command_display: Rc<RefCell<String>>,
 
+    /// Last repeatable command.
     pub command: Vim,
+    /// Text for the last command.
     pub text: String,
 
+    /// f and t matches
     pub finds: Finds,
+    /// / matches
     pub matches: Matches,
+    /// visual selection
     pub visual: Visual,
+    /// text marks
     pub marks: [Option<TextPosition>; 26],
+    /// pagelen for ctrl-d/u
     pub page: (u16, u16),
 }
 
+/// VI mode.
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Mode {
     #[default]
@@ -49,6 +62,7 @@ pub enum Mode {
     Visual,
 }
 
+/// Search direction.
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
     #[default]
@@ -57,6 +71,7 @@ pub enum Direction {
 }
 
 impl Direction {
+    /// Multiplies two directions.
     pub fn mul(self, d: Direction) -> Direction {
         match (self, d) {
             (Direction::Forward, Direction::Forward) => Direction::Forward,
@@ -67,6 +82,7 @@ impl Direction {
     }
 }
 
+/// Flag to sync any ranges with TextArea styles.
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub enum SyncRanges {
     #[default]
@@ -75,12 +91,18 @@ pub enum SyncRanges {
     FromTextArea,
 }
 
+/// Visual selection
 #[derive(Debug, Default)]
 pub struct Visual {
+    /// regular or block selection
     pub block: bool,
+    /// start position
     pub anchor: TextPosition,
+    /// end position
     pub lead: TextPosition,
+    /// list of affected ranges
     pub list: Vec<(Range<usize>, usize)>,
+    /// sync
     pub sync: SyncRanges,
 }
 
@@ -98,14 +120,22 @@ impl Visual {
     }
 }
 
+/// Results of f or t
 #[derive(Debug, Default)]
 pub struct Finds {
+    /// Search term.
     pub term: Option<char>,
+    /// Valid for this row.
     pub row: upos_type,
+    /// Search direction.
     pub dir: Direction,
+    /// t instead of f
     pub till: bool,
+    /// Last selected idx.
     pub idx: Option<usize>,
+    /// List of matching char-ranges
     pub list: Vec<(Range<usize>, usize)>,
+    /// Sync
     pub sync: SyncRanges,
 }
 
@@ -125,13 +155,21 @@ impl Finds {
     }
 }
 
+/// Search matches
 #[derive(Debug, Default)]
 pub struct Matches {
+    /// Search term
     pub term: Option<String>,
+    /// Direction
     pub dir: Direction,
+    /// Temporary search. Search occurs with each character input.
+    /// Unless confirmed with Enter it is temporary.
     pub tmp: bool,
+    /// Last selected idx.
     pub idx: Option<usize>,
+    /// List of matching text ranges.
     pub list: Vec<(Range<usize>, usize)>,
+    /// Sync
     pub sync: SyncRanges,
 }
 
@@ -150,6 +188,7 @@ impl Matches {
     }
 }
 
+/// Vi motions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Motion {
     Left,
@@ -198,6 +237,7 @@ pub enum Motion {
     SearchRepeatPrev,
 }
 
+/// Vi scrolling commands.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Scrolling {
     Up,
@@ -211,6 +251,7 @@ pub enum Scrolling {
     BottomOfScreen,
 }
 
+/// Vi command.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum Vim {
     #[default]
@@ -218,6 +259,7 @@ pub enum Vim {
 
     Repeat(u32),
 
+    /// Partial movement. Only used for '/' search.
     Partial(u32, Motion),
     Move(u32, Motion),
     Scroll(u32, Scrolling),
@@ -419,7 +461,7 @@ fn execute_visual(
         Vim::Repeat(_) => unreachable!("wrong spot for repeat"),
 
         Vim::Move(mul, m) => {
-            visual_cursor(*mul, m, state, vi)?;
+            visual_move(*mul, m, state, vi)?;
         }
 
         Vim::Partial(mul, Motion::SearchForward(s)) => {
@@ -834,9 +876,9 @@ pub mod move_op {
 }
 
 pub mod visual_op {
+    use crate::SearchError;
     use crate::vi::query::*;
-    use crate::vi::{Motion, VI};
-    use crate::{Mode, SearchError};
+    use crate::vi::{Mode, Motion, VI};
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
 
@@ -888,7 +930,7 @@ pub mod visual_op {
         })
     }
 
-    pub fn visual_cursor(
+    pub fn visual_move(
         mul: u32,
         motion: &Motion,
         state: &mut TextAreaState,
@@ -940,6 +982,10 @@ pub mod visual_op {
         vi.visual.clear();
     }
 
+    /// Begin visual change.
+    ///
+    /// [end_insert](crate::vi::modes_op::end_insert) does the rest.
+    /// Most importantly calling [end_visual_change].
     pub fn visual_change(state: &mut TextAreaState, vi: &mut VI) {
         let Some((r, _)) = vi.visual.list.get(0) else {
             vi.mode = Mode::Normal;
@@ -956,7 +1002,8 @@ pub mod visual_op {
         vi.text.clear();
     }
 
-    pub fn visual_multi_change(state: &mut TextAreaState, vi: &mut VI) {
+    /// Ends a visual change and applies it to the multi selection.
+    pub fn end_visual_change(state: &mut TextAreaState, vi: &mut VI) {
         let Some((r, _)) = vi.visual.list.get(0) else {
             unreachable!("invalid change");
         };
@@ -1305,9 +1352,8 @@ pub mod modes_op {
     use crate::coroutine::Coroutine;
     use crate::vi::change_op::*;
     use crate::vi::state_machine::*;
-    use crate::vi::visual_op::visual_multi_change;
-    use crate::vi::{SyncRanges, Vim};
-    use crate::{Mode, VI};
+    use crate::vi::visual_op::end_visual_change;
+    use crate::vi::{Mode, SyncRanges, VI, Vim};
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
     use std::mem;
@@ -1397,7 +1443,7 @@ pub mod modes_op {
                 prepend_line_str(mul.saturating_sub(1), state, vi);
             }
             Vim::VisualChange => {
-                visual_multi_change(state, vi);
+                end_visual_change(state, vi);
                 command = Vim::Invalid;
             }
             _ => {}

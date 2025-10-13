@@ -3,10 +3,10 @@ use std::fmt::{Display, Formatter};
 
 pub mod coroutine;
 mod ctrl;
-mod vi;
+pub mod vi;
 mod vi_status_line;
 
-pub use vi::{Mode, VI};
+pub use vi::VI;
 pub use vi_status_line::VIStatusLine;
 
 #[derive(Debug)]

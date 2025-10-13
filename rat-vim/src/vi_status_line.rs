@@ -1,4 +1,4 @@
-use crate::{Mode, VI};
+use crate::vi::{Mode, VI};
 use rat_text::text_area::TextAreaState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout};
