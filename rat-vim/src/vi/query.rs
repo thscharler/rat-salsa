@@ -1,5 +1,6 @@
 use crate::vi::{Direction, Finds, Matches, SyncRanges};
 use crate::{SearchError, VI, ctrl};
+use log::debug;
 use rat_text::text_area::TextAreaState;
 use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
 use regex_cursor::engines::dfa::{Regex, find_iter};
@@ -410,7 +411,7 @@ pub fn q_end_of_text(mul: u32, state: &mut TextAreaState) -> Option<TextPosition
 
     let width = state.line_width(y);
     let mut it = state.graphemes(
-        (TextPosition::new(0, y)..TextPosition::new(width, y)).into(),
+        TextPosition::new(0, y)..TextPosition::new(width, y),
         TextPosition::new(width, y),
     );
     let found;
@@ -1093,4 +1094,39 @@ pub fn q_insert(cc: char, state: &mut TextAreaState) {
         ctrl::DEL => state.delete_next_char(),
         _ => state.insert_char(cc),
     };
+}
+
+pub fn q_visual_select(state: &mut TextAreaState, vi: &mut VI) {
+    vi.visual.sync = SyncRanges::ToTextArea;
+    vi.visual.list.clear();
+    if vi.visual.block {
+        let (x0, x1) = if vi.visual.anchor.x > vi.visual.lead.x {
+            (vi.visual.lead.x, vi.visual.anchor.x)
+        } else {
+            (vi.visual.anchor.x, vi.visual.lead.x)
+        };
+        let (y0, y1) = if vi.visual.anchor.y > vi.visual.lead.y {
+            (vi.visual.lead.y, vi.visual.anchor.y)
+        } else {
+            (vi.visual.anchor.y, vi.visual.lead.y)
+        };
+
+        for y in y0..=y1 {
+            let width = state.line_width(y);
+            let xx0 = min(x0, width);
+            let xx1 = min(x1, width);
+            let r = state.bytes_at_range((xx0, y)..(xx1, y));
+            vi.visual.list.push((r, 997));
+        }
+    } else {
+        let (begin, end) = if vi.visual.anchor > vi.visual.lead {
+            (vi.visual.lead, vi.visual.anchor)
+        } else {
+            (vi.visual.anchor, vi.visual.lead)
+        };
+
+        let begin = state.byte_at(begin);
+        let end = state.byte_at(end);
+        vi.visual.list.push((begin.start..end.start, 997));
+    }
 }

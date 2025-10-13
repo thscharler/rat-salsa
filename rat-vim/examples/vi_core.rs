@@ -144,14 +144,21 @@ fn render(
             istate
                 .theme
                 .palette()
-                .normal_contrast(istate.theme.palette().bluegreen[0]),
+                .normal_contrast(istate.theme.palette().bluegreen[1]),
         )
         .text_style_idx(
             998,
             istate
                 .theme
                 .palette()
-                .normal_contrast(istate.theme.palette().cyan[0]),
+                .normal_contrast(istate.theme.palette().green[1]),
+        )
+        .text_style_idx(
+            997,
+            istate
+                .theme
+                .palette()
+                .normal_contrast(istate.theme.palette().limegreen[1]),
         );
     let t = SystemTime::now();
     textarea.render(l22[2], frame.buffer_mut(), &mut state.textarea);
