@@ -1,3 +1,73 @@
+//!
+//! A sync+async stackless coroutine implementation.
+//!
+//! It uses a future to drive the inner workings of the coroutine.
+//!
+//! __Sync__
+//!
+//! [Coroutine::resume] is built like [Future::poll].
+//! It uses [Resume] instead of [Poll] for its result.
+//!
+//! Run in sync code.
+//! ```
+//! use rat_vim::coroutine::Coroutine;
+//! use rat_vim::yield_;
+//!
+//! let mut co = Coroutine::new(|arg, yy| {
+//!     Box::new(async move {
+//!         let arg = yield_!(42, yy);
+//!         let arg = yield_!(43, yy);
+//!         44
+//!     })
+//! });
+//!
+//! let v1 = co.resume(1).yielded();
+//! assert_eq!(v1, 42);
+//! let v2 = co.resume(1).yielded();
+//! assert_eq!(v2, 43);
+//! let v3 = co.resume(1).returned();
+//! assert_eq!(v3, 44);
+//!
+//! ```
+//!
+//! __Async__
+//!
+//! [Coroutine::resume_with] sets the argument for the next resume.
+//! It returns a future that will actually resume the coroutine
+//! when awaited.
+//!
+//! ```
+//! use rat_vim::coroutine::Coroutine;
+//! use rat_vim::yield_;
+//!
+//! let mut co = Coroutine::new(|arg, yy| {
+//!     Box::new(async move {
+//!         let arg = yield_!(42, yy);
+//!         let arg = yield_!(43, yy);
+//!         44
+//!     })
+//! });
+//!
+//! let mut sample1 = pin!(async {
+//!     let v1 = co.resume_with(1).await.yielded();
+//!     assert_eq!(v1, 42);
+//!     let v2 = co.resume_with(2).await.yielded();
+//!     assert_eq!(v2, 43);
+//!     let v3 = co.resume_with(3).await.returned();
+//!     assert_eq!(v3, 44);
+//! });
+//!
+//! # use std::pin::pin;
+//! # use std::task::{Context, Poll};
+//! # let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+//! # loop {
+//! #     match sample1.as_mut().poll(&mut cx) {
+//! #         Poll::Ready(_) => break,
+//! #         Poll::Pending => {}
+//! #     };
+//! # }
+//! ```
+
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::pin::Pin;
@@ -16,6 +86,16 @@ pub enum Resume<Y, R> {
 }
 
 impl<Y, R> Resume<Y, R> {
+    /// Is the resume a [Resume::Pending]
+    pub fn pending(self) -> bool {
+        matches!(self, Resume::Pending)
+    }
+
+    /// Returned value.
+    ///
+    /// Panic
+    ///
+    /// Panics if this is not a [Resume::Return].
     pub fn returned(self) -> R {
         if let Resume::Return(v) = self {
             v
@@ -24,6 +104,20 @@ impl<Y, R> Resume<Y, R> {
         }
     }
 
+    /// Returned value.
+    pub fn try_returned(self) -> Option<R> {
+        if let Resume::Return(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    /// Yielded value.
+    ///
+    /// Panic
+    ///
+    /// Panics if this is not a [Resume::Yield].
     pub fn yielded(self) -> Y {
         if let Resume::Yield(v) = self {
             v
@@ -31,77 +125,36 @@ impl<Y, R> Resume<Y, R> {
             panic!("not_yield")
         }
     }
+
+    /// Yielded value.
+    pub fn try_yielded(self) -> Option<Y> {
+        if let Resume::Yield(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 /// Implements a coroutine using a future.
 ///
-/// This type of coroutine uses the same yield and return type.
-/// It has the specialty that it can yield without producing a
-/// result too.
+/// It has the specialty that it can yield without producing a result.
 pub struct Coroutine<'a, A, Y, R> {
     init: Option<Box<dyn FnOnce(A, Yield<A, Y>) -> Box<dyn Future<Output = R> + 'a> + 'a>>,
 
-    yield_point: Yield<A, Y>,
+    yield_: Yield<A, Y>,
     coroutine: Pin<Box<dyn Future<Output = R> + 'a>>,
 }
 
 impl<'a, A: Debug, Y: Debug, R: Debug> Coroutine<'a, A, Y, R> {
     /// Creates a new coroutine.
     ///
-    /// Run in sync code.
-    /// ```
-    /// use rat_vim::coroutine::Coroutine;
+    /// This doesn't start the coroutine, instead it takes a
+    /// closure that will be called by the first [resume].
     ///
-    /// let mut co = Coroutine::new(|arg, yp| {
-    ///     Box::new(async move {
-    ///         let arg = yp.yield_(42).await;
-    ///         let arg = yp.yield_(43).await;
-    ///         44
-    ///     })
-    /// });
-    ///
-    /// let v1 = co.resume(1).yielded();
-    /// assert_eq!(v1, 42);
-    /// let v2 = co.resume(1).yielded();
-    /// assert_eq!(v2, 43);
-    /// let v3 = co.resume(1).returned();
-    /// assert_eq!(v3, 44);
-    ///
-    /// ```
-    ///
-    /// Or in async code
-    ///
-    /// ```
-    /// use rat_vim::coroutine::Coroutine;
-    ///
-    /// let mut co = Coroutine::new(|arg, yp| {
-    ///     Box::new(async move {
-    ///         let _ = yp.yield_(42).await;
-    ///         let _ = yp.yield_(43).await;
-    ///         44
-    ///     })
-    /// });
-    ///
-    /// let mut sample1 = pin!(async {
-    ///     let v1 = co.resume_with(1).await.yielded();
-    ///     assert_eq!(v1, 42);
-    ///     let v2 = co.resume_with(2).await.yielded();
-    ///     assert_eq!(v2, 43);
-    ///     let v3 = co.resume_with(3).await.returned();
-    ///     assert_eq!(v3, 44);
-    /// });
-    ///
-    /// # use std::pin::pin;
-    /// # use std::task::{Context, Poll};
-    /// # let mut cx = Context::from_waker(futures::task::noop_waker_ref());
-    /// # loop {
-    /// #     match sample1.as_mut().poll(&mut cx) {
-    /// #         Poll::Ready(_) => break,
-    /// #         Poll::Pending => {}
-    /// #     };
-    /// # }
-    /// ```
-    ///
+    /// The first resume calls the closure with the first argument
+    /// and [Yield] support. The closure returns the boxed future
+    /// that runs the coroutine.
     pub fn new<C>(construct: C) -> Coroutine<'a, A, Y, R>
     where
         C: FnOnce(A, Yield<A, Y>) -> Box<dyn Future<Output = R> + 'a> + 'a,
@@ -109,7 +162,7 @@ impl<'a, A: Debug, Y: Debug, R: Debug> Coroutine<'a, A, Y, R> {
         let yp = Yield::new();
         Coroutine {
             init: Some(Box::new(construct)),
-            yield_point: yp.clone(),
+            yield_: yp.clone(),
             coroutine: Box::pin(async { panic!("coroutine not started") }),
         }
     }
@@ -119,9 +172,9 @@ impl<'a, A: Debug, Y: Debug, R: Debug> Coroutine<'a, A, Y, R> {
     /// Call this in synchronous code.
     pub fn resume(&mut self, arg: A) -> Resume<Y, R> {
         if let Some(construct) = self.init.take() {
-            self.coroutine = Box::into_pin(construct(arg, self.yield_point.clone()));
+            self.coroutine = Box::into_pin(construct(arg, self.yield_.clone()));
         } else {
-            self.yield_point.resume_with(arg);
+            self.yield_.resume_with(arg);
         }
 
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
@@ -129,7 +182,7 @@ impl<'a, A: Debug, Y: Debug, R: Debug> Coroutine<'a, A, Y, R> {
             Poll::Ready(v) => {
                 Resume::Return(v) //
             }
-            Poll::Pending => match self.yield_point.yielded() {
+            Poll::Pending => match self.yield_.yielded() {
                 Some(v) => {
                     Resume::Yield(v) //
                 }
@@ -151,6 +204,11 @@ pub enum CoResult<Y, R> {
 }
 
 impl<Y, R> CoResult<Y, R> {
+    /// Returned result.
+    ///
+    /// Panic
+    ///
+    /// Panics if this is not a [CoResult::Return]
     pub fn returned(self) -> R {
         if let CoResult::Return(v) = self {
             v
@@ -159,6 +217,20 @@ impl<Y, R> CoResult<Y, R> {
         }
     }
 
+    /// Returned result.
+    pub fn try_returned(self) -> Option<R> {
+        if let CoResult::Return(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    /// Yielded result.
+    ///
+    /// Panic
+    ///
+    /// Panics if this is not a [CoResult::Yield]
     pub fn yielded(self) -> Y {
         if let CoResult::Yield(v) = self {
             v
@@ -166,29 +238,44 @@ impl<Y, R> CoResult<Y, R> {
             panic!("not_yield")
         }
     }
+
+    /// Yielded result.
+    pub fn try_yielded(self) -> Option<Y> {
+        if let CoResult::Yield(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a, A, Y, R> Coroutine<'a, A, Y, R> {
     /// Set the resume parameter in an async context.
     /// Then call await on the result.
-    pub fn resume_with(&mut self, arg: A) -> &mut Self {
-        self.yield_point.resume_with(arg);
-        self
+    pub fn resume_with<'b>(&'b mut self, arg: A) -> CoroutineArg<'a, 'b, A, Y, R> {
+        self.yield_.resume_with(arg);
+        CoroutineArg { co: self }
     }
 }
 
-impl<'a, A, Y, R> Future for Coroutine<'a, A, Y, R> {
+/// Result type for [Coroutine::resume_with].
+/// This can be awaited.
+pub struct CoroutineArg<'a, 'b, A, Y, R> {
+    co: &'b mut Coroutine<'a, A, Y, R>,
+}
+
+impl<'a, 'b, A, Y, R> Future for CoroutineArg<'a, 'b, A, Y, R> {
     type Output = CoResult<Y, R>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if let Some(construct) = self.init.take() {
-            let arg = self.yield_point.arg.take().expect("arg");
-            self.coroutine = Box::into_pin(construct(arg, self.yield_point.clone()));
+        if let Some(construct) = self.co.init.take() {
+            let arg = self.co.yield_.arg.take().expect("arg");
+            self.co.coroutine = Box::into_pin(construct(arg, self.co.yield_.clone()));
         }
 
-        match self.coroutine.as_mut().poll(cx) {
+        match self.co.coroutine.as_mut().poll(cx) {
             Poll::Ready(v) => Poll::Ready(CoResult::Return(v)),
-            Poll::Pending => match self.yield_point.yielded() {
+            Poll::Pending => match self.co.yield_.yielded() {
                 Some(v) => Poll::Ready(CoResult::Yield(v)),
                 None => Poll::Pending,
             },
