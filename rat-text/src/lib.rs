@@ -19,7 +19,6 @@ mod glyph2;
 mod grapheme;
 mod range_map;
 mod text_core;
-mod text_mask_core;
 mod text_store;
 
 #[allow(deprecated)]
@@ -174,7 +173,6 @@ pub mod core {
     //!
 
     pub use crate::text_core::TextCore;
-    pub use crate::text_mask_core::MaskedCore;
     pub use crate::text_store::SkipLine;
     pub use crate::text_store::TextStore;
     pub use crate::text_store::text_rope::TextRope;

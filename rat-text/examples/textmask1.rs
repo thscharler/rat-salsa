@@ -138,17 +138,17 @@ fn render(
         _ = writeln!(
             &mut stats,
             "curr-sec: {:?}",
-            state.masked.value.section_range(state.masked.cursor())
+            state.masked.section_range(state.masked.cursor())
         );
         _ = writeln!(
             &mut stats,
             "prev-sec: {:?}",
-            state.masked.value.prev_section_range(sel.start)
+            state.masked.prev_section_range(sel.start)
         );
         _ = writeln!(
             &mut stats,
             "next-sec: {:?}",
-            state.masked.value.next_section_range(sel.end)
+            state.masked.next_section_range(sel.end)
         );
 
         if let Some((scx, scy)) = state.masked.screen_cursor() {

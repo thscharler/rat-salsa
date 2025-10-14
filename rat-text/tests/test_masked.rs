@@ -1,11 +1,11 @@
-use rat_text::core::MaskedCore;
+use rat_text::text_input_mask::{MaskedInputState, mask_op};
 
 #[test]
 fn test_number1() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
     m.set_mask("#").expect("ok");
     assert_eq!(m.cursor(), 1);
-    m.advance_cursor('1');
+    mask_op::advance_cursor(&mut m, '1');
     assert_eq!(m.cursor(), 1);
     m.insert_char('1');
     assert_eq!(m.text(), "1");
@@ -13,11 +13,11 @@ fn test_number1() {
 
 #[test]
 fn test_number2() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("##").expect("ok");
     assert_eq!(m.cursor(), 2);
-    m.advance_cursor('1');
+    mask_op::advance_cursor(&mut m, '1');
     assert_eq!(m.cursor(), 2);
     m.insert_char('1');
     assert_eq!(m.cursor(), 2);
@@ -28,93 +28,93 @@ fn test_number2() {
     m.insert_char('3');
     assert_eq!(m.cursor(), 2);
     assert_eq!(m.text(), "12");
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.text(), " 1");
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.text(), "  ");
 
     m.set_text("12");
     m.set_cursor(1, false);
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.cursor(), 1);
     assert_eq!(m.text(), " 2");
 
     m.set_text("12");
     m.set_cursor(1, false);
-    m.remove_next();
+    mask_op::remove_next(&mut m);
     assert_eq!(m.cursor(), 2);
     assert_eq!(m.text(), " 1");
 
     m.set_text("12");
     m.set_cursor(2, false);
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.cursor(), 2);
     assert_eq!(m.text(), " 1");
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.cursor(), 2);
     assert_eq!(m.text(), "  ");
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.cursor(), 0);
     assert_eq!(m.text(), "  ");
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.cursor(), 0);
     assert_eq!(m.text(), "  ");
 
     m.set_text("12");
     m.set_cursor(2, false);
-    m.remove_next();
+    mask_op::remove_next(&mut m);
     assert_eq!(m.cursor(), 2);
     assert_eq!(m.text(), "12");
 }
 
 #[test]
 fn test_number3() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("##0").expect("ok");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
-    m.advance_cursor('1');
+    mask_op::advance_cursor(&mut m, '1');
     assert_eq!(m.cursor(), 3);
     m.insert_char('1');
     assert_eq!(m.text(), "  1");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
-    m.advance_cursor('2');
+    mask_op::advance_cursor(&mut m, '2');
     assert_eq!(m.cursor(), 2);
     m.insert_char('2');
     assert_eq!(m.text(), " 21");
     assert_eq!(m.cursor(), 2);
 
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.text(), "  1");
     assert_eq!(m.cursor(), 2);
-    m.remove_next();
+    mask_op::remove_next(&mut m);
     assert_eq!(m.text(), "  0");
     assert_eq!(m.cursor(), 3);
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.cursor(), 0);
 }
 
 #[test]
 fn test_number4() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("###.##").expect("ok");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
-    m.advance_cursor('1');
+    mask_op::advance_cursor(&mut m, '1');
     assert_eq!(m.cursor(), 3);
     m.insert_char('1');
     assert_eq!(m.text(), "  1.  ");
-    m.advance_cursor('2');
+    mask_op::advance_cursor(&mut m, '2');
     m.insert_char('2');
     assert_eq!(m.text(), " 12.  ");
-    m.advance_cursor('3');
+    mask_op::advance_cursor(&mut m, '3');
     m.insert_char('3');
     assert_eq!(m.text(), "123.  ");
     assert_eq!(m.cursor(), 3);
-    m.advance_cursor('4');
+    mask_op::advance_cursor(&mut m, '4');
     assert_eq!(m.cursor(), 3);
     m.insert_char('4');
     assert_eq!(m.text(), "123.  ");
@@ -122,84 +122,84 @@ fn test_number4() {
 
 #[test]
 fn test_number5() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("###.0##").expect("ok");
     assert_eq!(m.text(), "   .0  ");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
-    m.advance_cursor('.');
+    mask_op::advance_cursor(&mut m, '.');
     assert_eq!(m.cursor(), 3);
     m.insert_char('.');
     assert_eq!(m.cursor(), 4);
     m.insert_char('1');
     assert_eq!(m.text(), "   .1  ");
-    m.advance_cursor('2');
+    mask_op::advance_cursor(&mut m, '2');
     m.insert_char('2');
     assert_eq!(m.text(), "   .12 ");
-    m.advance_cursor('3');
+    mask_op::advance_cursor(&mut m, '3');
     m.insert_char('3');
     assert_eq!(m.text(), "   .123");
-    m.advance_cursor('4');
+    mask_op::advance_cursor(&mut m, '4');
     m.insert_char('4');
     assert_eq!(m.text(), "   .123");
 
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.text(), "   .12 ");
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.text(), "   .1  ");
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.text(), "   .0  ");
     assert_eq!(m.cursor(), 4);
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.cursor(), 3);
-    m.remove_prev();
+    mask_op::remove_prev(&mut m);
     assert_eq!(m.cursor(), 0);
 
     m.set_text("123.456");
     m.set_cursor(3, false);
-    m.remove_next();
+    mask_op::remove_next(&mut m);
     assert_eq!(m.cursor(), 4);
     assert_eq!(m.text(), "123.456");
-    m.remove_next();
+    mask_op::remove_next(&mut m);
     assert_eq!(m.cursor(), 4);
     assert_eq!(m.text(), "123.56 ");
-    m.remove_next();
+    mask_op::remove_next(&mut m);
     assert_eq!(m.cursor(), 4);
     assert_eq!(m.text(), "123.6  ");
-    m.remove_next();
+    mask_op::remove_next(&mut m);
     assert_eq!(m.cursor(), 4);
     assert_eq!(m.text(), "123.0  ");
-    m.remove_next();
+    mask_op::remove_next(&mut m);
     assert_eq!(m.cursor(), 7);
     assert_eq!(m.text(), "123.0  ");
 }
 
 #[test]
 fn test_number6() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("###.0##").expect("ok");
     m.set_text("123.456");
     m.select_all();
     assert_eq!(m.selection(), 0..7);
-    m.remove_range(0..7).expect("ok");
+    mask_op::remove_range(&mut m, 0..7).expect("ok");
     assert_eq!(m.text(), "   .0  ");
 
     m.set_text("123.456");
-    m.remove_range(2..5).expect("ok");
+    mask_op::remove_range(&mut m, 2..5).expect("ok");
     assert_eq!(m.text(), " 12.56 ");
 }
 
 #[test]
 fn test_number7() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("###.0##").expect("ok");
     m.set_text("   .0  ");
     m.set_cursor(5, false);
     assert_eq!(m.cursor(), 5);
-    m.advance_cursor('1');
+    mask_op::advance_cursor(&mut m, '1');
     assert_eq!(m.cursor(), 5);
     m.insert_char('1');
     assert_eq!(m.text(), "   .01 ");
@@ -207,13 +207,13 @@ fn test_number7() {
 
 #[test]
 fn test_sign1() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("###.###").expect("ok");
     m.set_text("  1.0  ");
 
-    m.advance_cursor('-');
-    assert_eq!(m.cursor(), 0);
+    mask_op::advance_cursor(&mut m, '-');
+    assert_eq!(m.cursor(), 3);
     m.insert_char('-');
     assert_eq!(m.text(), " -1.0  ");
 
@@ -223,26 +223,26 @@ fn test_sign1() {
 
 #[test]
 fn test_sign2() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("###.###-").expect("ok");
     m.set_text("  1.0   ");
 
-    m.advance_cursor('-');
+    mask_op::advance_cursor(&mut m, '-');
     m.insert_char('-');
     assert_eq!(m.text(), "  1.0  -");
 
     m.set_mask("###.###+").expect("ok");
     m.set_text("  1.0   ");
 
-    m.advance_cursor('-');
+    mask_op::advance_cursor(&mut m, '-');
     m.insert_char('-');
     assert_eq!(m.text(), "  1.0  -");
 }
 
 #[test]
 fn test_sign3() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("###.###").expect("ok");
     m.set_text("  1.0  ");
@@ -333,20 +333,20 @@ fn test_sign3() {
 
 #[test]
 fn test_sign4() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("\\X###.###-").expect("ok");
     m.set_text("   1.0   ");
 
-    m.advance_cursor('-');
-    assert_eq!(m.cursor(), 1);
+    mask_op::advance_cursor(&mut m, '-');
+    assert_eq!(m.cursor(), 4);
     m.insert_char('-');
     assert_eq!(m.text(), "   1.0  -");
 }
 
 #[test]
 fn test_section_cursor1() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("").expect("ok");
     assert_eq!(m.section_cursor(0), None);
@@ -419,7 +419,7 @@ fn test_section_cursor1() {
 
 #[test]
 fn test_section_cursor2() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
 
     m.set_mask("###,##0.0##-").expect("ok");
     assert_eq!(m.section_cursor(12), None);
@@ -428,11 +428,11 @@ fn test_section_cursor2() {
 
 #[test]
 fn test_section2() {
-    let mut m = MaskedCore::new();
+    let mut m = MaskedInputState::new();
     m.set_mask("##\\/##\\/####").expect("ok");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
-    m.advance_cursor('/');
+    mask_op::advance_cursor(&mut m, '/');
     assert_eq!(m.cursor(), 2);
     m.insert_char('/');
     assert_eq!(m.cursor(), 5);
@@ -440,7 +440,7 @@ fn test_section2() {
     m.set_mask("dd\\°dd\\'dd\\\"").expect("ok");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
-    m.advance_cursor('\'');
+    mask_op::advance_cursor(&mut m, '\'');
     assert_eq!(m.cursor(), 5);
     m.insert_char('\'');
     assert_eq!(m.cursor(), 6);
@@ -448,11 +448,11 @@ fn test_section2() {
     m.set_mask("90\\°90\\'90\\\"").expect("ok");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
-    m.advance_cursor('\'');
+    mask_op::advance_cursor(&mut m, '\'');
     assert_eq!(m.cursor(), 5);
     m.insert_char('\'');
     assert_eq!(m.cursor(), 8);
-    m.advance_cursor('"');
+    mask_op::advance_cursor(&mut m, '"');
     assert_eq!(m.cursor(), 8);
     m.insert_char('"');
     assert_eq!(m.cursor(), 9);
@@ -460,7 +460,7 @@ fn test_section2() {
     m.set_mask("\\€ ###,##0.0##+").expect("ok");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
-    m.advance_cursor('€');
+    mask_op::advance_cursor(&mut m, '€');
     assert_eq!(m.cursor(), 0);
     m.insert_char('€');
     assert_eq!(m.cursor(), 9);

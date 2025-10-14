@@ -69,18 +69,25 @@
 //! the mouse behaviour.
 //!
 
+pub mod mask_op;
+pub(crate) mod mask_token;
+pub(crate) mod masked_graphemes;
+
 use crate::_private::NonExhaustive;
 #[allow(deprecated)]
 use crate::Glyph;
-use crate::clipboard::Clipboard;
+use crate::clipboard::{Clipboard, global_clipboard};
+use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
-use crate::glyph2::Glyph2;
+use crate::glyph::GlyphIter;
+use crate::glyph2::{Glyph2, GlyphIter2, TextWrap2};
 use crate::text_input::TextInputState;
-use crate::text_mask_core::MaskedCore;
-use crate::undo_buffer::{UndoBuffer, UndoEntry};
+use crate::text_input_mask::mask_token::{EditDirection, Mask, MaskToken};
+use crate::text_input_mask::masked_graphemes::MaskedGraphemes;
+use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
-    Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle,
-    ipos_type, upos_type,
+    Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition,
+    TextRange, TextStyle, ipos_type, upos_type,
 };
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
@@ -96,7 +103,9 @@ use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
 use std::cmp::min;
 use std::fmt;
+use std::iter::once;
 use std::ops::Range;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Text input widget with input mask.
 ///
@@ -142,7 +151,12 @@ pub struct MaskedInputState {
     pub scroll_to_cursor: bool,
 
     /// Editing core
-    pub value: MaskedCore,
+    pub value: TextCore<TextString>,
+    /// Editing core
+    pub sym: Option<NumberSymbols>,
+    /// Editing core
+    pub mask: Vec<MaskToken>,
+
     /// Display as invalid.
     /// __read+write__
     pub invalid: bool,
@@ -449,6 +463,8 @@ impl Clone for MaskedInputState {
             dark_offset: self.dark_offset,
             scroll_to_cursor: self.scroll_to_cursor,
             value: self.value.clone(),
+            sym: self.sym.clone(),
+            mask: self.mask.clone(),
             invalid: self.invalid,
             overwrite: Default::default(),
             on_focus_gained: Default::default(),
@@ -462,6 +478,12 @@ impl Clone for MaskedInputState {
 
 impl Default for MaskedInputState {
     fn default() -> Self {
+        let mut core = TextCore::new(
+            Some(Box::new(UndoVec::new(99))),
+            Some(Box::new(global_clipboard())),
+        );
+        core.set_glyph_line_break(false);
+
         Self {
             area: Default::default(),
             inner: Default::default(),
@@ -470,7 +492,9 @@ impl Default for MaskedInputState {
             offset: Default::default(),
             dark_offset: Default::default(),
             scroll_to_cursor: Default::default(),
-            value: Default::default(),
+            value: core,
+            sym: None,
+            mask: Default::default(),
             invalid: Default::default(),
             overwrite: Default::default(),
             on_focus_gained: Default::default(),
@@ -499,12 +523,10 @@ impl HasFocus for MaskedInputState {
         let sel = self.selection();
 
         let has_next = self
-            .value
             .next_section_range(sel.end)
             .map(|v| !v.is_empty())
             .is_some();
         let has_prev = self
-            .value
             .prev_section_range(sel.start.saturating_sub(1))
             .map(|v| !v.is_empty())
             .is_some();
@@ -546,7 +568,7 @@ impl MaskedInputState {
 
     /// With input mask.
     pub fn with_mask<S: AsRef<str>>(mut self, mask: S) -> Result<Self, fmt::Error> {
-        self.value.set_mask(mask.as_ref())?;
+        self.set_mask(mask.as_ref())?;
         Ok(self)
     }
 
@@ -556,7 +578,42 @@ impl MaskedInputState {
     /// The value itself uses ".", "," and "-".
     #[inline]
     pub fn set_num_symbols(&mut self, sym: NumberSymbols) {
-        self.value.set_num_symbols(sym);
+        self.sym = Some(sym);
+    }
+
+    fn dec_sep(&self) -> char {
+        if let Some(sym) = &self.sym {
+            sym.decimal_sep
+        } else {
+            '.'
+        }
+    }
+
+    fn grp_sep(&self) -> char {
+        if let Some(sym) = &self.sym {
+            // fallback for empty grp-char.
+            // it would be really ugly, if we couldn't keep
+            //   mask-idx == grapheme-idx
+            sym.decimal_grp.unwrap_or(' ')
+        } else {
+            ','
+        }
+    }
+
+    fn neg_sym(&self) -> char {
+        if let Some(sym) = &self.sym {
+            sym.negative_sym
+        } else {
+            '-'
+        }
+    }
+
+    fn pos_sym(&self) -> char {
+        if let Some(sym) = &self.sym {
+            sym.positive_sym
+        } else {
+            ' '
+        }
     }
 
     /// Set the input mask. This overwrites the display mask and the value
@@ -590,15 +647,142 @@ impl MaskedInputState {
     ///
     /// Inspired by <https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da>
     #[inline]
-    // TODO: make available with the widget.
     pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
-        self.value.set_mask(s)
+        self.mask = Self::parse_mask(s.as_ref())?;
+        self.clear();
+        Ok(())
+    }
+
+    #[allow(clippy::needless_range_loop)]
+    fn parse_mask(mask_str: &str) -> Result<Vec<MaskToken>, fmt::Error> {
+        let mut out = Vec::<MaskToken>::new();
+
+        let mut start_sub = 0;
+        let mut start_sec = 0;
+        let mut sec_id = 0;
+        let mut last_mask = Mask::None;
+        let mut dec_dir = EditDirection::Rtol;
+        let mut esc = false;
+        let mut idx = 0;
+        for m in mask_str.graphemes(true).chain(once("")) {
+            let mask = if esc {
+                esc = false;
+                Mask::Separator(Box::from(m))
+            } else {
+                match m {
+                    "0" => Mask::Digit0(dec_dir),
+                    "9" => Mask::Digit(dec_dir),
+                    "#" => Mask::Numeric(dec_dir),
+                    "." => Mask::DecimalSep,
+                    "," => Mask::GroupingSep,
+                    "-" => Mask::Sign,
+                    "+" => Mask::Plus,
+                    "h" => Mask::Hex,
+                    "H" => Mask::Hex0,
+                    "o" => Mask::Oct,
+                    "O" => Mask::Oct0,
+                    "d" => Mask::Dec,
+                    "D" => Mask::Dec0,
+                    "l" => Mask::Letter,
+                    "a" => Mask::LetterOrDigit,
+                    "c" => Mask::LetterDigitSpace,
+                    "_" => Mask::AnyChar,
+                    "" => Mask::None,
+                    " " => Mask::Separator(Box::from(m)),
+                    "\\" => {
+                        esc = true;
+                        continue;
+                    }
+                    _ => return Err(fmt::Error),
+                }
+            };
+
+            match mask {
+                Mask::Digit0(_)
+                | Mask::Digit(_)
+                | Mask::Numeric(_)
+                | Mask::GroupingSep
+                | Mask::Sign
+                | Mask::Plus => {
+                    // no change
+                }
+                Mask::DecimalSep => {
+                    dec_dir = EditDirection::Ltor;
+                }
+                Mask::Hex0
+                | Mask::Hex
+                | Mask::Oct0
+                | Mask::Oct
+                | Mask::Dec0
+                | Mask::Dec
+                | Mask::Letter
+                | Mask::LetterOrDigit
+                | Mask::LetterDigitSpace
+                | Mask::AnyChar
+                | Mask::Separator(_) => {
+                    // reset to default number input direction
+                    dec_dir = EditDirection::Rtol
+                }
+                Mask::None => {
+                    // no change, doesn't matter
+                }
+            }
+
+            if matches!(mask, Mask::Separator(_)) || mask.section() != last_mask.section() {
+                for j in start_sec..idx {
+                    out[j].sec_id = sec_id;
+                    out[j].sec_start = start_sec as upos_type;
+                    out[j].sec_end = idx as upos_type;
+                }
+                sec_id += 1;
+                start_sec = idx;
+            }
+            if matches!(mask, Mask::Separator(_)) || mask.sub_section() != last_mask.sub_section() {
+                for j in start_sub..idx {
+                    out[j].sub_start = start_sub as upos_type;
+                    out[j].sub_end = idx as upos_type;
+                }
+                start_sub = idx;
+            }
+
+            let tok = MaskToken {
+                sec_id: 0,
+                sec_start: 0,
+                sec_end: 0,
+                sub_start: 0,
+                sub_end: 0,
+                peek_left: last_mask,
+                right: mask.clone(),
+                edit: mask.edit_value().into(),
+            };
+            out.push(tok);
+
+            idx += 1;
+            last_mask = mask;
+        }
+        for j in start_sec..out.len() {
+            out[j].sec_id = sec_id;
+            out[j].sec_start = start_sec as upos_type;
+            out[j].sec_end = mask_str.graphemes(true).count() as upos_type;
+        }
+        for j in start_sub..out.len() {
+            out[j].sub_start = start_sub as upos_type;
+            out[j].sub_end = mask_str.graphemes(true).count() as upos_type;
+        }
+
+        Ok(out)
     }
 
     /// Display mask.
     #[inline]
     pub fn mask(&self) -> String {
-        self.value.mask()
+        use std::fmt::Write;
+
+        let mut buf = String::new();
+        for t in self.mask.iter() {
+            _ = write!(buf, "{}", t.right);
+        }
+        buf
     }
 
     /// Renders the widget in invalid style.
@@ -633,10 +817,10 @@ impl MaskedInputState {
     /// Default is to use the global_clipboard().
     #[inline]
     pub fn set_clipboard(&mut self, clip: Option<impl Clipboard + 'static>) {
-        match clip {
-            None => self.value.set_clipboard(None),
-            Some(v) => self.value.set_clipboard(Some(Box::new(v))),
-        }
+        self.value.set_clipboard(clip.map(|v| {
+            let r: Box<dyn Clipboard> = Box::new(v);
+            r
+        }));
     }
 
     /// Clipboard used.
@@ -693,10 +877,10 @@ impl MaskedInputState {
     /// Set undo buffer.
     #[inline]
     pub fn set_undo_buffer(&mut self, undo: Option<impl UndoBuffer + 'static>) {
-        match undo {
-            None => self.value.set_undo_buffer(None),
-            Some(v) => self.value.set_undo_buffer(Some(Box::new(v))),
-        }
+        self.value.set_undo_buffer(undo.map(|v| {
+            let r: Box<dyn UndoBuffer> = Box::new(v);
+            r
+        }));
     }
 
     /// Undo
@@ -721,6 +905,18 @@ impl MaskedInputState {
     #[inline]
     pub fn replay_log(&mut self, replay: &[UndoEntry]) {
         self.value.replay_log(replay)
+    }
+
+    /// Begin a sequence of changes that should be undone in one go.
+    #[inline]
+    pub fn begin_undo_seq(&mut self) {
+        self.value.begin_undo_seq();
+    }
+
+    /// End a sequence of changes that should be undone in one go.
+    #[inline]
+    pub fn end_undo_seq(&mut self) {
+        self.value.end_undo_seq();
     }
 
     /// Undo operation
@@ -758,7 +954,9 @@ impl MaskedInputState {
         range: Range<upos_type>,
         style: usize,
     ) -> Result<(), TextError> {
-        let r = self.value.bytes_at_range(range)?;
+        let r = self
+            .value
+            .bytes_at_range(TextRange::from((range.start, 0)..(range.end, 0)))?;
         self.value.add_style(r, style);
         Ok(())
     }
@@ -776,7 +974,9 @@ impl MaskedInputState {
         range: Range<upos_type>,
         style: usize,
     ) -> Result<(), TextError> {
-        let r = self.value.bytes_at_range(range)?;
+        let r = self
+            .value
+            .bytes_at_range(TextRange::from((range.start, 0)..(range.end, 0)))?;
         self.value.remove_style(r, style);
         Ok(())
     }
@@ -832,7 +1032,7 @@ impl MaskedInputState {
     /// Cursor position.
     #[inline]
     pub fn cursor(&self) -> upos_type {
-        self.value.cursor()
+        self.value.cursor().x
     }
 
     /// Set the cursor position.
@@ -840,7 +1040,188 @@ impl MaskedInputState {
     #[inline]
     pub fn set_cursor(&mut self, cursor: upos_type, extend_selection: bool) -> bool {
         self.scroll_cursor_to_visible();
-        self.value.set_cursor(cursor, extend_selection)
+        self.value
+            .set_cursor(TextPosition::new(cursor, 0), extend_selection)
+    }
+
+    // find default cursor position for a number range
+    fn number_cursor(&self, range: Range<upos_type>) -> upos_type {
+        for (i, t) in self.mask[range.start as usize..range.end as usize]
+            .iter()
+            .enumerate()
+            .rev()
+        {
+            match t.right {
+                Mask::Digit(EditDirection::Rtol)
+                | Mask::Digit0(EditDirection::Rtol)
+                | Mask::Numeric(EditDirection::Rtol) => {
+                    return range.start + i as upos_type + 1;
+                }
+                _ => {}
+            }
+        }
+        range.start
+    }
+
+    /// Get the default cursor for the section at the given cursor position,
+    /// if it is an editable section.
+    pub fn section_cursor(&self, cursor: upos_type) -> Option<upos_type> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
+        let mask = &self.mask[cursor as usize];
+
+        if mask.right.is_number() {
+            Some(self.number_cursor(mask.sec_start..mask.sec_end))
+        } else if mask.right.is_separator() {
+            None
+        } else if mask.right.is_none() {
+            None
+        } else {
+            Some(mask.sec_start)
+        }
+    }
+
+    /// Get the default cursor position for the next editable section.
+    pub fn next_section_cursor(&self, cursor: upos_type) -> Option<upos_type> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
+        let mut mask = &self.mask[cursor as usize];
+        let mut next;
+        loop {
+            if mask.right.is_none() {
+                return None;
+            }
+
+            next = mask.sec_end;
+            mask = &self.mask[next as usize];
+
+            if mask.right.is_number() {
+                return Some(self.number_cursor(mask.sec_start..mask.sec_end));
+            } else if mask.right.is_separator() {
+                continue;
+            } else if mask.right.is_none() {
+                return None;
+            } else {
+                return Some(mask.sec_start);
+            }
+        }
+    }
+
+    /// Get the default cursor position for the next editable section.
+    pub fn prev_section_cursor(&self, cursor: upos_type) -> Option<upos_type> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
+        let mut prev = self.mask[cursor as usize].sec_start;
+        let mut mask = &self.mask[prev as usize];
+
+        loop {
+            if mask.peek_left.is_none() {
+                return None;
+            }
+
+            prev = self.mask[mask.sec_start as usize - 1].sec_start;
+            mask = &self.mask[prev as usize];
+
+            if mask.right.is_number() {
+                return Some(self.number_cursor(mask.sec_start..mask.sec_end));
+            } else if mask.right.is_separator() {
+                continue;
+            } else {
+                return Some(mask.sec_start);
+            }
+        }
+    }
+
+    /// Is the position at a word boundary?
+    pub fn is_section_boundary(&self, pos: upos_type) -> bool {
+        if pos == 0 {
+            return false;
+        }
+        if pos as usize >= self.mask.len() {
+            return false;
+        }
+        let prev = &self.mask[pos as usize - 1];
+        let mask = &self.mask[pos as usize];
+        prev.sec_id != mask.sec_id
+    }
+
+    /// Get the range for the section at the given cursor position,
+    /// if it is an editable section.
+    pub fn section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
+        let mask = &self.mask[cursor as usize];
+        if mask.right.is_number() {
+            Some(mask.sec_start..mask.sec_end)
+        } else if mask.right.is_separator() {
+            None
+        } else if mask.right.is_none() {
+            None
+        } else {
+            Some(mask.sec_start..mask.sec_end)
+        }
+    }
+
+    /// Get the default cursor position for the next editable section.
+    pub fn next_section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
+        let mut mask = &self.mask[cursor as usize];
+        let mut next;
+        loop {
+            if mask.right.is_none() {
+                return None;
+            }
+
+            next = mask.sec_end;
+            mask = &self.mask[next as usize];
+
+            if mask.right.is_number() {
+                return Some(mask.sec_start..mask.sec_end);
+            } else if mask.right.is_separator() {
+                continue;
+            } else if mask.right.is_none() {
+                return None;
+            } else {
+                return Some(mask.sec_start..mask.sec_end);
+            }
+        }
+    }
+
+    /// Get the default cursor position for the next editable section.
+    pub fn prev_section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
+        let mut prev = self.mask[cursor as usize].sec_start;
+        let mut mask = &self.mask[prev as usize];
+        loop {
+            if mask.peek_left.is_none() {
+                return None;
+            }
+
+            prev = self.mask[mask.sec_start as usize - 1].sec_start;
+            mask = &self.mask[prev as usize];
+
+            if mask.right.is_number() {
+                return Some(mask.sec_start..mask.sec_end);
+            } else if mask.right.is_separator() {
+                continue;
+            } else {
+                return Some(mask.sec_start..mask.sec_end);
+            }
+        }
     }
 
     /// Place cursor at the decimal separator, if any.
@@ -849,13 +1230,19 @@ impl MaskedInputState {
     #[inline]
     pub fn set_default_cursor(&mut self) {
         self.scroll_cursor_to_visible();
-        self.value.set_default_cursor();
+        if let Some(pos) = self.section_cursor(0) {
+            self.value.set_cursor(TextPosition::new(pos, 0), false);
+        } else if let Some(pos) = self.next_section_cursor(0) {
+            self.value.set_cursor(TextPosition::new(pos, 0), false);
+        } else {
+            self.value.set_cursor(TextPosition::new(0, 0), false);
+        }
     }
 
     /// Selection anchor.
     #[inline]
     pub fn anchor(&self) -> upos_type {
-        self.value.anchor()
+        self.value.anchor().x
     }
 
     /// Selection.
@@ -867,7 +1254,14 @@ impl MaskedInputState {
     /// Selection.
     #[inline]
     pub fn selection(&self) -> Range<upos_type> {
-        self.value.selection()
+        let mut v = self.value.selection();
+        if v.start == TextPosition::new(0, 1) {
+            v.start = TextPosition::new(self.line_width(), 0);
+        }
+        if v.end == TextPosition::new(0, 1) {
+            v.end = TextPosition::new(self.line_width(), 0);
+        }
+        v.start.x..v.end.x
     }
 
     /// Selection.
@@ -875,7 +1269,8 @@ impl MaskedInputState {
     #[inline]
     pub fn set_selection(&mut self, anchor: upos_type, cursor: upos_type) -> bool {
         self.scroll_cursor_to_visible();
-        self.value.set_selection(anchor, cursor)
+        self.value
+            .set_selection(TextPosition::new(anchor, 0), TextPosition::new(cursor, 0))
     }
 
     /// Selection.
@@ -883,11 +1278,14 @@ impl MaskedInputState {
     #[inline]
     pub fn select_all(&mut self) -> bool {
         self.scroll_cursor_to_visible();
-        if let Some(section) = self.value.section_range(self.cursor()) {
+        if let Some(section) = self.section_range(self.cursor()) {
             if self.selection() == section {
                 self.value.select_all()
             } else {
-                self.value.set_selection(section.start, section.end)
+                self.value.set_selection(
+                    TextPosition::new(section.start, 0),
+                    TextPosition::new(section.end, 0),
+                )
             }
         } else {
             self.value.select_all()
@@ -897,7 +1295,16 @@ impl MaskedInputState {
     /// Selection.
     #[inline]
     pub fn selected_text(&self) -> &str {
-        self.value.selected_text()
+        match self
+            .value
+            .str_slice(self.value.selection())
+            .expect("valid_range")
+        {
+            Cow::Borrowed(v) => v,
+            Cow::Owned(_) => {
+                unreachable!()
+            }
+        }
     }
 }
 
@@ -905,13 +1312,13 @@ impl MaskedInputState {
     /// Empty
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.value.is_empty()
+        self.value.text().as_str() == self.default_value()
     }
 
     /// Value with all punctuation and default values according to the mask type.
     #[inline]
     pub fn text(&self) -> &str {
-        self.value.text()
+        self.value.text().as_str()
     }
 
     /// Text slice as `Cow<str>`. Uses a byte range.
@@ -929,19 +1336,22 @@ impl MaskedInputState {
     /// Text slice as `Cow<str>`
     #[inline]
     pub fn str_slice(&self, range: Range<upos_type>) -> Cow<'_, str> {
-        self.value.str_slice(range).expect("valid_range")
+        self.value
+            .str_slice(TextRange::new((range.start, 0), (range.end, 0)))
+            .expect("valid_range")
     }
 
     /// Text slice as `Cow<str>`
     #[inline]
     pub fn try_str_slice(&self, range: Range<upos_type>) -> Result<Cow<'_, str>, TextError> {
-        self.value.str_slice(range)
+        self.value
+            .str_slice(TextRange::new((range.start, 0), (range.end, 0)))
     }
 
     /// Length as grapheme count.
     #[inline]
     pub fn len(&self) -> upos_type {
-        self.value.line_width()
+        self.value.line_width(0).expect("valid_row")
     }
 
     /// Length in bytes.
@@ -953,7 +1363,7 @@ impl MaskedInputState {
     /// Length as grapheme count.
     #[inline]
     pub fn line_width(&self) -> upos_type {
-        self.value.line_width()
+        self.value.line_width(0).expect("valid_row")
     }
 
     /// Iterator for the glyphs of the lines in range.
@@ -962,9 +1372,37 @@ impl MaskedInputState {
     #[allow(deprecated)]
     #[deprecated(since = "1.1.0", note = "discontinued api")]
     pub fn glyphs(&self, screen_offset: u16, screen_width: u16) -> impl Iterator<Item = Glyph<'_>> {
-        self.value
-            .glyphs(0..1, screen_offset, screen_width)
-            .expect("valid_row")
+        let grapheme_iter = self
+            .value
+            .graphemes(TextRange::new((0, 0), (0, 1)), TextPosition::new(0, 0))
+            .expect("valid_row");
+
+        let mask_iter = self.mask.iter();
+
+        let sym_neg = || self.neg_sym().to_string();
+        let sym_dec = || self.dec_sep().to_string();
+        let sym_grp = || self.grp_sep().to_string();
+        let sym_pos = || self.pos_sym().to_string();
+
+        let iter = grapheme_iter
+            .zip(mask_iter)
+            .map(move |(g, t)| match (&t.right, g.grapheme()) {
+                (Mask::Numeric(_), "-") => Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()),
+                (Mask::DecimalSep, ".") => Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()),
+                (Mask::GroupingSep, ",") => Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()),
+                (Mask::GroupingSep, "-") => Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()),
+                (Mask::Sign, "-") => Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()),
+                (Mask::Sign, _) => Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes()),
+                (_, _) => g,
+            });
+
+        let mut it = GlyphIter::new(TextPosition::new(0, 0), iter);
+        it.set_screen_offset(screen_offset);
+        it.set_screen_width(screen_width);
+        it.set_tabs(self.value.tab_width());
+        it.set_show_ctrl(self.value.glyph_ctrl());
+        it.set_line_break(self.value.glyph_line_break());
+        it
     }
 
     /// Iterator for the glyphs of the lines in range.
@@ -977,15 +1415,73 @@ impl MaskedInputState {
         screen_offset: u16,
         screen_width: u16,
     ) -> impl Iterator<Item = Glyph<'_>> {
-        self.value
-            .condensed_glyphs(0..1, screen_offset, screen_width)
-            .expect("valid_row")
+        let grapheme_iter = self
+            .value
+            .graphemes(TextRange::new((0, 0), (0, 1)), TextPosition::new(0, 0))
+            .expect("valid_row");
+
+        let mask_iter = self.mask.iter();
+
+        let sym_neg = || self.neg_sym().to_string();
+        let sym_dec = || self.dec_sep().to_string();
+        let sym_grp = || self.grp_sep().to_string();
+        let sym_pos = || self.pos_sym().to_string();
+
+        let iter =
+            grapheme_iter
+                .zip(mask_iter)
+                .filter_map(move |(g, t)| match (&t.right, g.grapheme()) {
+                    (Mask::Numeric(_), "-") => {
+                        Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
+                    }
+                    (Mask::DecimalSep, ".") => {
+                        Some(Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()))
+                    }
+                    (Mask::GroupingSep, ",") => {
+                        Some(Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()))
+                    }
+                    (Mask::GroupingSep, "-") => {
+                        Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
+                    }
+                    (Mask::Sign, "-") => Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes())),
+
+                    (Mask::Numeric(_), " ") => None,
+                    (Mask::Digit(_), " ") => None,
+                    (Mask::DecimalSep, " ") => None,
+                    (Mask::GroupingSep, " ") => None,
+                    (Mask::Sign, _) => {
+                        if self.pos_sym() != ' ' {
+                            Some(Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes()))
+                        } else {
+                            None
+                        }
+                    }
+                    (Mask::Hex, " ") => None,
+                    (Mask::Oct, " ") => None,
+                    (Mask::Dec, " ") => None,
+
+                    (_, _) => Some(g),
+                });
+
+        let mut it = GlyphIter::new(TextPosition::new(0, 0), iter);
+        it.set_screen_offset(screen_offset);
+        it.set_screen_width(screen_width);
+        it.set_tabs(self.value.tab_width());
+        it.set_show_ctrl(self.value.glyph_ctrl());
+        it.set_line_break(self.value.glyph_line_break());
+        it
+    }
+
+    /// Get the grapheme at the given position.
+    #[inline]
+    pub fn grapheme_at(&self, pos: upos_type) -> Result<Option<Grapheme<'_>>, TextError> {
+        self.value.grapheme_at(TextPosition::new(pos, 0))
     }
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
     pub fn text_graphemes(&self, pos: upos_type) -> impl Cursor<Item = Grapheme<'_>> {
-        self.value.text_graphemes(pos).expect("valid_pos")
+        self.try_text_graphemes(pos).expect("valid_pos")
     }
 
     /// Get a cursor over all the text with the current position set at pos.
@@ -994,7 +1490,7 @@ impl MaskedInputState {
         &self,
         pos: upos_type,
     ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
-        self.value.text_graphemes(pos)
+        self.value.text_graphemes(TextPosition::new(pos, 0))
     }
 
     /// Get a cursor over the text-range the current position set at pos.
@@ -1004,7 +1500,7 @@ impl MaskedInputState {
         range: Range<upos_type>,
         pos: upos_type,
     ) -> impl Cursor<Item = Grapheme<'_>> {
-        self.value.graphemes(range, pos).expect("valid_args")
+        self.try_graphemes(range, pos).expect("valid_args")
     }
 
     /// Get a cursor over the text-range the current position set at pos.
@@ -1014,63 +1510,74 @@ impl MaskedInputState {
         range: Range<upos_type>,
         pos: upos_type,
     ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
-        self.value.graphemes(range, pos)
+        self.value.graphemes(
+            TextRange::new((range.start, 0), (range.end, 0)),
+            TextPosition::new(pos, 0),
+        )
     }
 
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
     #[inline]
     pub fn byte_at(&self, pos: upos_type) -> Range<usize> {
-        self.value.byte_at(pos).expect("valid_pos")
+        self.try_byte_at(pos).expect("valid_pos")
     }
 
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
     #[inline]
     pub fn try_byte_at(&self, pos: upos_type) -> Result<Range<usize>, TextError> {
-        self.value.byte_at(pos)
+        self.value.byte_at(TextPosition::new(pos, 0))
     }
 
     /// Grapheme range to byte range.
     #[inline]
     pub fn bytes_at_range(&self, range: Range<upos_type>) -> Range<usize> {
-        self.value.bytes_at_range(range).expect("valid_range")
+        self.try_bytes_at_range(range).expect("valid_range")
     }
 
     /// Grapheme range to byte range.
     #[inline]
     pub fn try_bytes_at_range(&self, range: Range<upos_type>) -> Result<Range<usize>, TextError> {
-        self.value.bytes_at_range(range)
+        self.value
+            .bytes_at_range(TextRange::new((range.start, 0), (range.end, 0)))
     }
 
     /// Byte position to grapheme position.
     /// Returns the position that contains the given byte index.
     #[inline]
     pub fn byte_pos(&self, byte: usize) -> upos_type {
-        self.value.byte_pos(byte).expect("valid_pos")
+        self.try_byte_pos(byte).expect("valid_pos")
     }
 
     /// Byte position to grapheme position.
     /// Returns the position that contains the given byte index.
     #[inline]
     pub fn try_byte_pos(&self, byte: usize) -> Result<upos_type, TextError> {
-        self.value.byte_pos(byte)
+        Ok(self.value.byte_pos(byte)?.x)
     }
 
     /// Byte range to grapheme range.
     #[inline]
     pub fn byte_range(&self, bytes: Range<usize>) -> Range<upos_type> {
-        self.value.byte_range(bytes).expect("valid_range")
+        self.try_byte_range(bytes).expect("valid_range")
     }
 
     /// Byte range to grapheme range.
     #[inline]
     pub fn try_byte_range(&self, bytes: Range<usize>) -> Result<Range<upos_type>, TextError> {
-        self.value.byte_range(bytes)
+        let r = self.value.byte_range(bytes)?;
+        Ok(r.start.x..r.end.x)
     }
 }
 
 impl MaskedInputState {
+    /// Create a default value according to the mask.
+    #[inline]
+    fn default_value(&self) -> String {
+        MaskToken::empty_section(&self.mask)
+    }
+
     /// Reset to empty.
     #[inline]
     pub fn clear(&mut self) -> bool {
@@ -1078,7 +1585,9 @@ impl MaskedInputState {
             false
         } else {
             self.offset = 0;
-            self.value.clear();
+            self.value
+                .set_text(TextString::new_string(self.default_value()));
+            self.set_default_cursor();
             true
         }
     }
@@ -1091,24 +1600,33 @@ impl MaskedInputState {
     #[inline]
     pub fn set_text<S: Into<String>>(&mut self, s: S) {
         self.offset = 0;
-        self.value.set_text(s);
-        self.value.set_default_cursor();
+        let mut text = s.into();
+        while text.graphemes(true).count() > self.mask.len().saturating_sub(1) {
+            text.pop();
+        }
+        while text.graphemes(true).count() < self.mask.len().saturating_sub(1) {
+            text.push(' ');
+        }
+        let len = text.graphemes(true).count();
+
+        assert_eq!(len, self.mask.len().saturating_sub(1));
+
+        self.value.set_text(TextString::new_string(text));
+        self.set_default_cursor();
     }
 
     /// Insert a char at the current position.
     #[inline]
     pub fn insert_char(&mut self, c: char) -> bool {
-        self.value.begin_undo_seq();
-        if self.value.has_selection() {
-            let sel = self.value.selection();
-            self.value
-                .remove_range(sel.clone())
-                .expect("valid_selection");
-            self.value.set_cursor(sel.start, false);
+        self.begin_undo_seq();
+        if self.has_selection() {
+            let sel = self.selection();
+            mask_op::remove_range(self, sel.clone()).expect("valid_selection");
+            self.set_cursor(sel.start, false);
         }
-        let c0 = self.value.advance_cursor(c);
-        let c1 = self.value.insert_char(c);
-        self.value.end_undo_seq();
+        let c0 = mask_op::advance_cursor(self, c);
+        let c1 = mask_op::insert_char(self, c);
+        self.end_undo_seq();
 
         self.scroll_cursor_to_visible();
         c0 || c1
@@ -1126,9 +1644,9 @@ impl MaskedInputState {
     #[inline]
     pub fn try_delete_range(&mut self, range: Range<upos_type>) -> Result<bool, TextError> {
         self.value.begin_undo_seq();
-        let r = self.value.remove_range(range.clone())?;
-        if let Some(pos) = self.value.section_cursor(range.start) {
-            self.value.set_cursor(pos, false);
+        let r = mask_op::remove_range(self, range.clone())?;
+        if let Some(pos) = self.section_cursor(range.start) {
+            self.set_cursor(pos, false);
         }
         self.value.end_undo_seq();
 
@@ -1146,7 +1664,7 @@ impl MaskedInputState {
         } else if self.cursor() == self.len() {
             false
         } else {
-            self.value.remove_next();
+            mask_op::remove_next(self);
             self.scroll_cursor_to_visible();
             true
         }
@@ -1160,7 +1678,7 @@ impl MaskedInputState {
         } else if self.cursor() == 0 {
             false
         } else {
-            self.value.remove_prev();
+            mask_op::remove_prev(self);
             self.scroll_cursor_to_visible();
             true
         }
@@ -1172,7 +1690,7 @@ impl MaskedInputState {
         if self.has_selection() {
             self.delete_range(self.selection())
         } else {
-            if let Some(range) = self.value.prev_section_range(self.cursor()) {
+            if let Some(range) = self.prev_section_range(self.cursor()) {
                 self.delete_range(range)
             } else {
                 false
@@ -1186,7 +1704,7 @@ impl MaskedInputState {
         if self.has_selection() {
             self.delete_range(self.selection())
         } else {
-            if let Some(range) = self.value.next_section_range(self.cursor()) {
+            if let Some(range) = self.next_section_range(self.cursor()) {
                 self.delete_range(range)
             } else {
                 false
@@ -1211,7 +1729,7 @@ impl MaskedInputState {
     /// Start of line
     #[inline]
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        if let Some(c) = self.value.section_cursor(self.cursor()) {
+        if let Some(c) = self.section_cursor(self.cursor()) {
             if c != self.cursor() {
                 self.set_cursor(c, extend_selection)
             } else {
@@ -1231,13 +1749,13 @@ impl MaskedInputState {
     /// Move to start of previous section.
     #[inline]
     pub fn move_to_prev_section(&mut self, extend_selection: bool) -> bool {
-        if let Some(curr) = self.value.section_range(self.cursor()) {
-            if self.value.cursor() != curr.start {
-                return self.value.set_cursor(curr.start, extend_selection);
+        if let Some(curr) = self.section_range(self.cursor()) {
+            if self.cursor() != curr.start {
+                return self.set_cursor(curr.start, extend_selection);
             }
         }
-        if let Some(range) = self.value.prev_section_range(self.cursor()) {
-            self.value.set_cursor(range.start, extend_selection)
+        if let Some(range) = self.prev_section_range(self.cursor()) {
+            self.set_cursor(range.start, extend_selection)
         } else {
             false
         }
@@ -1246,13 +1764,13 @@ impl MaskedInputState {
     /// Move to end of previous section.
     #[inline]
     pub fn move_to_next_section(&mut self, extend_selection: bool) -> bool {
-        if let Some(curr) = self.value.section_range(self.cursor()) {
-            if self.value.cursor() != curr.end {
-                return self.value.set_cursor(curr.end, extend_selection);
+        if let Some(curr) = self.section_range(self.cursor()) {
+            if self.cursor() != curr.end {
+                return self.set_cursor(curr.end, extend_selection);
             }
         }
-        if let Some(range) = self.value.next_section_range(self.cursor()) {
-            self.value.set_cursor(range.end, extend_selection)
+        if let Some(range) = self.next_section_range(self.cursor()) {
+            self.set_cursor(range.end, extend_selection)
         } else {
             false
         }
@@ -1263,7 +1781,7 @@ impl MaskedInputState {
     pub fn select_current_section(&mut self) -> bool {
         let selection = self.selection();
 
-        if let Some(next) = self.value.section_range(selection.start.saturating_sub(1)) {
+        if let Some(next) = self.section_range(selection.start.saturating_sub(1)) {
             if !next.is_empty() {
                 self.set_selection(next.start, next.end)
             } else {
@@ -1279,7 +1797,7 @@ impl MaskedInputState {
     pub fn select_next_section(&mut self) -> bool {
         let selection = self.selection();
 
-        if let Some(next) = self.value.next_section_range(selection.start) {
+        if let Some(next) = self.next_section_range(selection.start) {
             if !next.is_empty() {
                 self.set_selection(next.start, next.end)
             } else {
@@ -1295,10 +1813,7 @@ impl MaskedInputState {
     pub fn select_prev_section(&mut self) -> bool {
         let selection = self.selection();
 
-        if let Some(next) = self
-            .value
-            .prev_section_range(selection.start.saturating_sub(1))
-        {
+        if let Some(next) = self.prev_section_range(selection.start.saturating_sub(1)) {
             if !next.is_empty() {
                 self.set_selection(next.start, next.end)
             } else {
@@ -1347,13 +1862,38 @@ impl RelocatableState for MaskedInputState {
 
 impl MaskedInputState {
     fn glyphs2(&self) -> impl Iterator<Item = Glyph2<'_>> {
-        self.value
-            .glyphs2(
-                self.offset(),
-                self.offset() + self.rendered.width as upos_type,
-                self.compact && !self.is_focused(),
-            )
-            .expect("valid-rows")
+        let left_margin = self.offset();
+        let right_margin = self.offset() + self.rendered.width as upos_type;
+        let compact = self.compact && !self.is_focused();
+
+        let grapheme_iter = self
+            .value
+            .graphemes(TextRange::new((0, 0), (0, 1)), TextPosition::new(0, 0))
+            .expect("valid-rows");
+        let mask_iter = self.mask.iter();
+
+        let iter = MaskedGraphemes {
+            iter_str: grapheme_iter,
+            iter_mask: mask_iter,
+            compact,
+            sym_neg: self.neg_sym().to_string(),
+            sym_dec: self.dec_sep().to_string(),
+            sym_grp: self.grp_sep().to_string(),
+            sym_pos: self.pos_sym().to_string(),
+            byte_pos: 0,
+        };
+
+        let mut it = GlyphIter2::new(TextPosition::new(0, 0), 0, iter, Default::default());
+        it.set_tabs(self.value.tab_width() as upos_type);
+        it.set_show_ctrl(self.value.glyph_ctrl());
+        it.set_lf_breaks(self.value.glyph_line_break());
+        it.set_text_wrap(TextWrap2::Shift);
+        it.set_left_margin(left_margin);
+        it.set_right_margin(right_margin);
+        it.set_word_margin(right_margin);
+        it.prepare().expect("valid-rows");
+
+        Box::new(it)
     }
 
     /// Converts from a widget relative screen coordinate to a grapheme index.
@@ -1434,7 +1974,7 @@ impl MaskedInputState {
         let anchor = self.anchor();
         let cursor = self.screen_to_col(screen_cursor);
 
-        let Some(range) = self.value.section_range(cursor) else {
+        let Some(range) = self.section_range(cursor) else {
             return false;
         };
 
@@ -1445,8 +1985,8 @@ impl MaskedInputState {
         };
 
         // extend anchor
-        if !self.value.is_section_boundary(anchor) {
-            if let Some(range) = self.value.section_range(anchor) {
+        if !self.is_section_boundary(anchor) {
+            if let Some(range) = self.section_range(anchor) {
                 if cursor < anchor {
                     self.set_cursor(range.end, false);
                 } else {
@@ -1724,7 +2264,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
                 let tx = self.screen_to_col(m.column as i16 - self.inner.x as i16);
                 clear_overwrite(self);
-                if let Some(range) = self.value.section_range(tx) {
+                if let Some(range) = self.section_range(tx) {
                     self.set_selection(range.start, range.end).into()
                 } else {
                     TextOutcome::Unchanged
