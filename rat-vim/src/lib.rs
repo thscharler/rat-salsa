@@ -1,13 +1,14 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-pub mod coroutine;
 mod ctrl;
+
+pub mod coroutine;
+pub mod status_stacked;
 pub mod vi;
-mod vi_status_line;
+pub mod vi_status_line;
 
 pub use vi::VI;
-pub use vi_status_line::VIStatusLine;
 
 #[derive(Debug)]
 pub struct SearchError;
