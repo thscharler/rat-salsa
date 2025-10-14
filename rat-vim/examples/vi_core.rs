@@ -11,7 +11,8 @@ use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::{HasScreenCursor, TextPosition, upos_type};
-use rat_vim::{VI, VIStatusLine};
+use rat_vim::VI;
+use rat_vim::vi_status_line::VIStatusLine;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -115,6 +116,8 @@ fn render(
     ])
     .split(l1[2]);
 
+    let pal = istate.theme.palette();
+
     let h_scroll = Scroll::horizontal()
         .begin_symbol(Some("◀"))
         .end_symbol(Some("▶"))
@@ -139,27 +142,9 @@ fn render(
             Style::new().green(),
             Style::new().on_yellow(),
         ])
-        .text_style_idx(
-            999,
-            istate
-                .theme
-                .palette()
-                .normal_contrast(istate.theme.palette().bluegreen[1]),
-        )
-        .text_style_idx(
-            998,
-            istate
-                .theme
-                .palette()
-                .normal_contrast(istate.theme.palette().green[1]),
-        )
-        .text_style_idx(
-            997,
-            istate
-                .theme
-                .palette()
-                .normal_contrast(istate.theme.palette().limegreen[1]),
-        );
+        .text_style_idx(999, pal.normal_contrast(pal.bluegreen[1]))
+        .text_style_idx(998, pal.normal_contrast(pal.green[1]))
+        .text_style_idx(997, pal.normal_contrast(pal.limegreen[1]));
     let t = SystemTime::now();
     textarea.render(l22[2], frame.buffer_mut(), &mut state.textarea);
     state.render_dur = t.elapsed().expect("timinig");
@@ -167,44 +152,11 @@ fn render(
     VIStatusLine::new()
         .style(istate.theme.status_base())
         .name("≡vi-core≡")
-        .name_style(
-            istate
-                .theme
-                .palette()
-                .high_contrast(istate.theme.palette().blue[1]),
-            istate
-                .theme
-                .palette()
-                .high_contrast(istate.theme.palette().blue[4]),
-        )
-        .normal_style(
-            istate
-                .theme
-                .palette()
-                .high_contrast(istate.theme.palette().limegreen[2]),
-        )
-        .insert_style(
-            istate
-                .theme
-                .palette()
-                .high_contrast(istate.theme.palette().orange[2]),
-        )
-        .visual_style(
-            istate
-                .theme
-                .palette()
-                .high_contrast(istate.theme.palette().yellow[2]),
-        )
-        .pos_style(
-            istate
-                .theme
-                .palette()
-                .high_contrast(istate.theme.palette().gray[0]),
-            istate
-                .theme
-                .palette()
-                .high_contrast(istate.theme.palette().gray[2]),
-        )
+        .name_style(pal.high_contrast(pal.blue[1]))
+        .normal_style(pal.high_contrast(pal.limegreen[2]))
+        .insert_style(pal.high_contrast(pal.orange[2]))
+        .visual_style(pal.high_contrast(pal.yellow[2]))
+        .pos_style(pal.high_contrast(pal.gray[0]))
         .render(
             l23[1],
             frame.buffer_mut(),
@@ -230,10 +182,7 @@ fn render(
         frame.buffer_mut(),
         l1[0],
         " ",
-        istate
-            .theme
-            .palette()
-            .normal_contrast(istate.theme.palette().blue[7]),
+        pal.normal_contrast(pal.blue[7]),
     );
     format!(
         "F1 toggle help | Ctrl+Q quit | R{} | R{:.0?} | E{:.0?}",
@@ -258,10 +207,7 @@ fn render(
             frame.buffer_mut(),
             l22[2],
             " ",
-            istate
-                .theme
-                .palette()
-                .normal_contrast(istate.theme.palette().bluegreen[0]),
+            pal.normal_contrast(pal.bluegreen[0]),
         );
         Paragraph::new(
             r#"
@@ -279,12 +225,7 @@ fn render(
     Alt-m    toggle absolute/relative line nr
 "#,
         )
-        .style(
-            istate
-                .theme
-                .palette()
-                .normal_contrast(istate.theme.palette().bluegreen[0]),
-        )
+        .style(pal.normal_contrast(pal.bluegreen[0]))
         .render(l22[2], frame.buffer_mut());
     }
 
