@@ -98,7 +98,7 @@ impl<'a> StatefulWidget for VIStatusLine<'a> {
         match state.1.mode {
             Mode::Normal => {
                 status = status.start(
-                    Span::from("Normal").style(self.normal_style),
+                    Span::from(" Normal ").style(self.normal_style),
                     Some((
                         SLANT_TL_BR,
                         Style::new()
@@ -109,7 +109,7 @@ impl<'a> StatefulWidget for VIStatusLine<'a> {
             }
             Mode::Insert => {
                 status = status.start(
-                    Span::from("Insert").style(self.insert_style),
+                    Span::from(" Insert ").style(self.insert_style),
                     Some((
                         SLANT_TL_BR,
                         Style::new()
@@ -120,7 +120,7 @@ impl<'a> StatefulWidget for VIStatusLine<'a> {
             }
             Mode::Visual => {
                 status = status.start(
-                    Span::from("Visual").style(self.visual_style),
+                    Span::from(" Visual ").style(self.visual_style),
                     Some((
                         SLANT_TL_BR,
                         Style::new()

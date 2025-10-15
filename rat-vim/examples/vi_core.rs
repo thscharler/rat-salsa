@@ -151,7 +151,7 @@ fn render(
 
     VIStatusLine::new()
         .style(istate.theme.status_base())
-        .name("≡vi-core≡")
+        .name(" ≡vi-core≡ ")
         .name_style(pal.high_contrast(pal.blue[1]))
         .normal_style(pal.high_contrast(pal.limegreen[2]))
         .insert_style(pal.high_contrast(pal.orange[2]))

@@ -25,6 +25,7 @@ impl<'a> StatusStack<'a> {
         Self::default()
     }
 
+    /// Baseline style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
@@ -53,8 +54,6 @@ impl<'a> StatusStack<'a> {
 
 impl<'a> Widget for StatusStack<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        debug!("RENDER");
-
         let mut x_end = area.right();
         for (v, g) in self.right.iter() {
             let width = v.width() as u16;
