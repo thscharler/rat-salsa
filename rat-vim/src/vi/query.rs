@@ -1,6 +1,5 @@
 use crate::vi::{Direction, Finds, Matches, SyncRanges};
 use crate::{SearchError, VI, ctrl};
-use log::debug;
 use rat_text::text_area::TextAreaState;
 use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
 use regex_cursor::engines::dfa::{Regex, find_iter};
@@ -206,9 +205,9 @@ pub fn q_next_word_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosi
         let Some(sample) = it.peek_next() else {
             return None;
         };
-        if sample.is_alphanumeric() {
+        if is_alphanumeric(&sample) {
             skip_alpha(&mut it);
-        } else if sample.is_whitespace() {
+        } else if is_whitespace(&sample) {
             // noop
         } else {
             skip_sample(&mut it, sample);
@@ -229,14 +228,14 @@ pub fn q_prev_word_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosi
         let Some(sample) = it.peek_prev() else {
             return None;
         };
-        if sample.is_alphanumeric() {
+        if is_alphanumeric(&sample) {
             pskip_alpha(&mut it);
-        } else if sample.is_whitespace() {
+        } else if is_whitespace(&sample) {
             pskip_white(&mut it);
             let Some(sample) = it.peek_prev() else {
                 return None;
             };
-            if sample.is_alphanumeric() {
+            if is_alphanumeric(&sample) {
                 pskip_alpha(&mut it);
             } else {
                 pskip_sample(&mut it, sample);
@@ -260,7 +259,7 @@ pub fn q_next_word_end(mut mul: u32, state: &TextAreaState) -> Option<TextPositi
         let Some(sample) = it.peek_next() else {
             return None;
         };
-        if sample.is_alphanumeric() {
+        if is_alphanumeric(&sample) {
             skip_alpha(&mut it);
         } else {
             skip_sample(&mut it, sample);
@@ -279,9 +278,9 @@ pub fn q_prev_word_end(mut mul: u32, state: &TextAreaState) -> Option<TextPositi
         let Some(sample) = it.peek_prev() else {
             return None;
         };
-        if sample.is_alphanumeric() {
+        if is_alphanumeric(&sample) {
             pskip_alpha(&mut it);
-        } else if sample.is_whitespace() {
+        } else if is_whitespace(&sample) {
             // noop
         } else {
             pskip_sample(&mut it, sample);
@@ -302,7 +301,7 @@ pub fn q_next_bigword_start(mut mul: u32, state: &TextAreaState) -> Option<TextP
         let Some(sample) = it.peek_next() else {
             return None;
         };
-        if !sample.is_whitespace() {
+        if !is_whitespace(&sample) {
             skip_nonwhite(&mut it);
         }
         skip_white(&mut it);
@@ -320,7 +319,7 @@ pub fn q_prev_bigword_start(mut mul: u32, state: &TextAreaState) -> Option<TextP
         let Some(sample) = it.peek_prev() else {
             return None;
         };
-        if !sample.is_whitespace() {
+        if !is_whitespace(&sample) {
             pskip_nonwhite(&mut it);
         } else {
             pskip_white(&mut it);
@@ -342,7 +341,7 @@ pub fn q_next_bigword_end(mut mul: u32, state: &TextAreaState) -> Option<TextPos
         let Some(sample) = it.peek_next() else {
             return None;
         };
-        if !sample.is_whitespace() {
+        if !is_whitespace(&sample) {
             skip_nonwhite(&mut it);
         }
 
@@ -359,7 +358,7 @@ pub fn q_prev_bigword_end(mut mul: u32, state: &TextAreaState) -> Option<TextPos
         let Some(sample) = it.peek_prev() else {
             return None;
         };
-        if !sample.is_whitespace() {
+        if !is_whitespace(&sample) {
             pskip_nonwhite(&mut it);
         }
         pskip_white(&mut it);
@@ -394,7 +393,7 @@ pub fn q_start_of_text(state: &mut TextAreaState) -> Option<TextPosition> {
         let Some(c) = it.next() else {
             return None;
         };
-        if !c.is_whitespace() {
+        if !is_whitespace(&c) {
             found = c.text_bytes().start;
             break;
         }
@@ -419,7 +418,7 @@ pub fn q_end_of_text(mul: u32, state: &mut TextAreaState) -> Option<TextPosition
         let Some(c) = it.prev() else {
             return None;
         };
-        if !c.is_whitespace() {
+        if !is_whitespace(&c) {
             found = c.text_bytes().end;
             break;
         }
@@ -434,13 +433,13 @@ pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
     let found;
     'f: loop {
         if let Some(c) = it.peek_prev()
-            && c.is_whitespace()
+            && is_whitespace(&c)
         {
             loop {
                 let Some(c) = it.prev() else {
                     return None;
                 };
-                if !c.is_whitespace() {
+                if !is_whitespace(&c) {
                     break;
                 }
             }
@@ -463,7 +462,7 @@ pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
                 } else {
                     break;
                 }
-            } else if !c.is_whitespace() {
+            } else if !is_whitespace(&c) {
                 brk = false;
             }
         }
@@ -485,13 +484,13 @@ pub fn q_next_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
     let found;
     'f: loop {
         if let Some(c) = it.peek_next()
-            && c.is_whitespace()
+            && is_whitespace(&c)
         {
             loop {
                 let Some(c) = it.next() else {
                     return None;
                 };
-                if !c.is_whitespace() {
+                if !is_whitespace(&c) {
                     break;
                 }
             }
@@ -514,7 +513,7 @@ pub fn q_next_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
                 } else {
                     break;
                 }
-            } else if !c.is_whitespace() {
+            } else if !is_whitespace(&c) {
                 brk = false;
             }
         }
@@ -774,9 +773,9 @@ fn qq_word_start(state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     if let Some(sample) = it.peek_prev() {
-        if sample.is_alphanumeric() {
+        if is_alphanumeric(&sample) {
             pskip_alpha(&mut it);
-        } else if sample.is_whitespace() {
+        } else if is_whitespace(&sample) {
             // noop
         } else {
             pskip_sample(&mut it, sample);
@@ -790,9 +789,9 @@ fn qq_word_end(state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     if let Some(sample) = it.peek_next() {
-        if sample.is_alphanumeric() {
+        if is_alphanumeric(&sample) {
             skip_alpha(&mut it);
-        } else if sample.is_whitespace() {
+        } else if is_whitespace(&sample) {
             // noop
         } else {
             skip_sample(&mut it, sample);
@@ -947,7 +946,7 @@ fn pskip_alpha<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         let Some(c) = it.prev() else {
             break;
         };
-        if !c.is_alphanumeric() {
+        if !is_alphanumeric(&c) {
             it.next();
             break;
         }
@@ -973,7 +972,7 @@ fn pskip_white<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         let Some(c) = it.prev() else {
             break;
         };
-        if !c.is_whitespace() {
+        if !is_whitespace(&c) {
             it.next();
             break;
         }
@@ -986,7 +985,7 @@ fn pskip_nonwhite<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         let Some(c) = it.prev() else {
             break;
         };
-        if c.is_whitespace() {
+        if is_whitespace(&c) {
             it.next();
             break;
         }
@@ -999,7 +998,7 @@ fn skip_alpha<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         let Some(c) = it.next() else {
             break;
         };
-        if !c.is_alphanumeric() {
+        if !is_alphanumeric(&c) {
             it.prev();
             break;
         }
@@ -1025,7 +1024,7 @@ fn skip_white<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         let Some(c) = it.next() else {
             break;
         };
-        if !c.is_whitespace() {
+        if !is_whitespace(&c) {
             it.prev();
             break;
         }
@@ -1038,11 +1037,30 @@ fn skip_nonwhite<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         let Some(c) = it.next() else {
             break;
         };
-        if c.is_whitespace() {
+        if is_whitespace(&c) {
             it.prev();
             break;
         }
     }
+}
+
+pub fn is_alphanumeric(g: &Grapheme<'_>) -> bool {
+    g.grapheme()
+        .chars()
+        .next()
+        .map(|v| v.is_alphanumeric() || v == '_')
+        .unwrap_or(false)
+}
+
+pub fn is_whitespace(g: &Grapheme<'_>) -> bool {
+    g.grapheme()
+        .chars()
+        .next()
+        .map(|v| match v {
+            '\x0a' | '\x0b' | '\x0c' | '\x0d' => false,
+            c => c.is_whitespace(),
+        })
+        .unwrap_or(false)
 }
 
 pub fn q_prepend_line_str(v: &str, state: &mut TextAreaState) {
