@@ -199,6 +199,54 @@ pub fn q_end_of_file(state: &mut TextAreaState) -> Option<TextPosition> {
     Some(TextPosition::new(state.line_width(y), y))
 }
 
+pub fn q_start_of_paragraph(to: TxtObj, state: &TextAreaState) -> TextPosition {
+    let mut it = state.text_graphemes(state.cursor());
+
+    if is_paragraph_whitespace(&mut it) {
+        pskip_paragraph_whitespace(&mut it);
+    } else {
+        let mut paragraph = false;
+        loop {
+            let Some(c) = it.prev() else {
+                break;
+            };
+            if track_paragraph_back(&c, &mut paragraph, &mut it) {
+                break;
+            }
+        }
+    }
+    state.byte_pos(it.text_offset())
+}
+
+pub fn q_end_of_paragraph(mut mul: u32, to: TxtObj, state: &TextAreaState) -> TextPosition {
+    let mut it = state.text_graphemes(state.cursor());
+
+    loop {
+        if mul == 0 {
+            break;
+        }
+
+        if is_paragraph_whitespace(&mut it) {
+            skip_paragraph_whitespace(&mut it);
+        } else {
+            let mut paragraph = false;
+            loop {
+                let Some(c) = it.next() else {
+                    break;
+                };
+                if track_paragraph_fwd(&c, &mut paragraph, &mut it) {
+                    if to == TxtObj::A {
+                        skip_paragraph_whitespace(&mut it);
+                    }
+                    break;
+                }
+            }
+        }
+        mul -= 1;
+    }
+    state.byte_pos(it.text_offset())
+}
+
 pub fn q_start_of_sentence(to: TxtObj, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
