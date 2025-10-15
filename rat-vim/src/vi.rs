@@ -199,7 +199,7 @@ impl Matches {
 }
 
 /// Text object modifier
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TxtObj {
     A,
     I,
@@ -1364,16 +1364,16 @@ pub mod motion_op {
     pub fn motion_start_position(motion: &Motion, state: &mut TextAreaState) -> TextPosition {
         match motion {
             Motion::FullLine => q_start_of_line(state),
-            Motion::Word(v) => unreachable!(),
-            Motion::WORD(v) => unreachable!(),
-            Motion::Sentence(_) => unreachable!(),
-            Motion::Paragraph(_) => unreachable!(),
-            Motion::Bracket(_) => unreachable!(),
-            Motion::Parenthesis(_) => unreachable!(),
-            Motion::Angled(_) => unreachable!(),
-            Motion::Tagged(_) => unreachable!(),
-            Motion::Brace(_) => unreachable!(),
-            Motion::Quoted(_, _) => unreachable!(),
+            Motion::Word(v) => q_start_of_word(*v, state),
+            Motion::WORD(v) => q_start_of_bigword(*v, state),
+            Motion::Sentence(v) => q_start_of_sentence(*v, state),
+            Motion::Paragraph(v) => unreachable!(),
+            Motion::Bracket(v) => unreachable!(),
+            Motion::Parenthesis(v) => unreachable!(),
+            Motion::Angled(v) => unreachable!(),
+            Motion::Tagged(v) => unreachable!(),
+            Motion::Brace(v) => unreachable!(),
+            Motion::Quoted(c, v) => unreachable!(),
             _ => state.cursor(),
         }
     }
@@ -1423,16 +1423,16 @@ pub mod motion_op {
             Motion::SearchRepeatNext => q_search_repeat_fwd(mul, state, vi),
             Motion::SearchRepeatPrev => q_search_repeat_back(mul, state, vi),
             Motion::FullLine => Some(q_start_of_next_line(mul, state)),
-            Motion::Word(_) => unreachable!(),
-            Motion::WORD(_) => unreachable!(),
-            Motion::Sentence(_) => unreachable!(),
-            Motion::Paragraph(_) => unreachable!(),
-            Motion::Bracket(_) => unreachable!(),
-            Motion::Parenthesis(_) => unreachable!(),
-            Motion::Angled(_) => unreachable!(),
-            Motion::Tagged(_) => unreachable!(),
-            Motion::Brace(_) => unreachable!(),
-            Motion::Quoted(_, _) => unreachable!(),
+            Motion::Word(v) => Some(q_end_of_word(mul, *v, state)),
+            Motion::WORD(v) => Some(q_end_of_bigword(mul, *v, state)),
+            Motion::Sentence(v) => Some(q_end_of_sentence(mul, *v, state)),
+            Motion::Paragraph(v) => unreachable!(),
+            Motion::Bracket(v) => unreachable!(),
+            Motion::Parenthesis(v) => unreachable!(),
+            Motion::Angled(v) => unreachable!(),
+            Motion::Tagged(v) => unreachable!(),
+            Motion::Brace(v) => unreachable!(),
+            Motion::Quoted(c, v) => unreachable!(),
         })
     }
 }
@@ -1584,6 +1584,23 @@ pub mod state_machine {
             '>' | '<' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Angled(txo))),
             _ => Err(tok),
         }
+    }
+
+    async fn ext_motion(
+        mut tok: char,
+        mul: Option<u32>,
+        motion_buf: &RefCell<String>,
+        yp: &Yield<char, Vim>,
+    ) -> Result<Vim, char> {
+        tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
+            Ok(v) => return Ok(v),
+            Err(tok) => tok,
+        };
+        tok = match bare_object(tok, mul, &motion_buf, &yp).await {
+            Ok(v) => return Ok(v),
+            Err(tok) => tok,
+        };
+        Err(tok)
     }
 
     async fn bare_object(
@@ -1784,18 +1801,12 @@ pub mod state_machine {
 
         motion_buf.borrow_mut().push(tok);
         tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
-            Ok(v @ Vim::Move(_, _)) => {
-                return v;
-            }
-            Ok(Vim::Invalid) => return Vim::Invalid,
+            Ok(v) => return v,
             Err(tok) => tok,
-            _ => unreachable!("no"),
         };
         tok = match bare_scroll(tok, mul, &motion_buf, &yp).await {
-            Ok(v @ Vim::Scroll(_, _)) => return v,
-            Ok(Vim::Invalid) => return Vim::Invalid,
+            Ok(v) => return v,
             Err(tok) => tok,
-            _ => unreachable!("no"),
         };
 
         match tok {
@@ -1820,7 +1831,7 @@ pub mod state_machine {
                 (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
                 motion_buf.borrow_mut().push(tok);
-                tok = match bare_motion(tok, mul2, &motion_buf, &yp).await {
+                tok = match ext_motion(tok, mul2, &motion_buf, &yp).await {
                     Ok(Vim::Move(mul2, motion)) => {
                         let mul = mul.unwrap_or(1);
                         return Vim::Delete(mul * mul2, motion);
@@ -1841,7 +1852,7 @@ pub mod state_machine {
                 (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
                 motion_buf.borrow_mut().push(tok);
-                tok = match bare_motion(tok, mul2, &motion_buf, &yp).await {
+                tok = match ext_motion(tok, mul2, &motion_buf, &yp).await {
                     Ok(Vim::Move(mul2, motion)) => {
                         let mul = mul.unwrap_or(1);
                         return Vim::Change(mul * mul2, motion);
@@ -1862,7 +1873,7 @@ pub mod state_machine {
                 (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
                 motion_buf.borrow_mut().push(tok);
-                tok = match bare_motion(tok, mul2, &motion_buf, &yp).await {
+                tok = match ext_motion(tok, mul2, &motion_buf, &yp).await {
                     Ok(Vim::Move(mul2, motion)) => {
                         let mul = mul.unwrap_or(1);
                         return Vim::Yank(mul * mul2, motion);
@@ -1892,7 +1903,7 @@ pub mod state_machine {
                                 (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
                                 motion_buf.borrow_mut().push(tok);
-                                tok = match bare_motion(tok, mul2, &motion_buf, &yp).await {
+                                tok = match ext_motion(tok, mul2, &motion_buf, &yp).await {
                                     Ok(Vim::Move(mul2, motion)) => {
                                         let mul = mul.unwrap_or(1);
                                         return Vim::CopyClipboard(mul * mul2, motion);
@@ -1949,7 +1960,7 @@ pub mod state_machine {
         (mul, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
         motion_buf.borrow_mut().push(tok);
-        tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
+        tok = match ext_motion(tok, mul, &motion_buf, &yp).await {
             Ok(v @ Vim::Move(_, _)) => {
                 return v;
             }

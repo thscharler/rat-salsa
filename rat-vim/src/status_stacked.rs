@@ -80,14 +80,12 @@ impl<'a> Widget for StatusStack<'a> {
         let mut x_start = area.x;
         for (v, g) in self.left.iter() {
             let width = v.width() as u16;
-            debug!("left {:?} {}", v, width);
 
             v.render(Rect::new(x_start, area.y, width, 1), buf);
             x_start += width;
             if let Some((gc, gs)) = g {
                 let gc = gc.to_string();
                 let gc_width = unicode_display_width::width(&gc) as u16;
-                debug!("gc {:?} {:?}", gc, gc_width);
 
                 if let Some(cell) = buf.cell_mut(Position::new(x_start, area.y)) {
                     cell.set_style(*gs);

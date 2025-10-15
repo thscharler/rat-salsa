@@ -1,5 +1,6 @@
-use crate::vi::{Direction, Finds, Matches, SyncRanges};
+use crate::vi::{Direction, Finds, Matches, SyncRanges, TxtObj};
 use crate::{SearchError, VI, ctrl};
+use log::debug;
 use rat_text::text_area::TextAreaState;
 use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
 use regex_cursor::engines::dfa::{Regex, find_iter};
@@ -198,6 +199,152 @@ pub fn q_end_of_file(state: &mut TextAreaState) -> Option<TextPosition> {
     Some(TextPosition::new(state.line_width(y), y))
 }
 
+pub fn q_start_of_sentence(to: TxtObj, state: &TextAreaState) -> TextPosition {
+    let mut it = state.text_graphemes(state.cursor());
+
+    if is_paragraph_whitespace(&mut it) {
+        pskip_paragraph_whitespace(&mut it);
+    } else {
+        let rewind;
+        let mut paragraph = false;
+        loop {
+            let Some(c) = it.prev() else {
+                rewind = false;
+                break;
+            };
+
+            if matches!(c.grapheme(), "." | "!" | "?") {
+                rewind = true;
+                break;
+            }
+            if track_paragraph_back(&c, &mut paragraph, &mut it) {
+                rewind = false;
+                break;
+            }
+        }
+        if rewind {
+            skip_nonwhite(&mut it);
+            if to == TxtObj::A {
+                skip_white(&mut it);
+            }
+        }
+    }
+    state.byte_pos(it.text_offset())
+}
+
+pub fn q_end_of_sentence(mut mul: u32, to: TxtObj, state: &TextAreaState) -> TextPosition {
+    let mut it = state.text_graphemes(state.cursor());
+
+    loop {
+        if mul == 0 {
+            break;
+        }
+
+        if is_paragraph_whitespace(&mut it) {
+            skip_paragraph_whitespace(&mut it);
+        } else {
+            let forward;
+            let mut paragraph = false;
+            loop {
+                let Some(c) = it.next() else {
+                    forward = false;
+                    break;
+                };
+                if matches!(c.grapheme(), "." | "!" | "?") {
+                    forward = true;
+                    break;
+                }
+                if track_paragraph_fwd(&c, &mut paragraph, &mut it) {
+                    forward = false;
+                    break;
+                }
+            }
+            if forward {
+                skip_nonwhite(&mut it);
+                if to == TxtObj::A {
+                    skip_white(&mut it);
+                }
+            }
+        }
+        mul -= 1;
+    }
+    state.byte_pos(it.text_offset())
+}
+
+pub fn q_start_of_word(to: TxtObj, state: &TextAreaState) -> TextPosition {
+    let mut it = state.text_graphemes(state.cursor());
+
+    let leading_whitespace;
+    if to == TxtObj::A {
+        loop {
+            let Some(c) = it.next() else {
+                leading_whitespace = true;
+                break;
+            };
+            if is_whitespace(&c) {
+                leading_whitespace = false;
+                break;
+            }
+            if is_linebreak(&c) {
+                leading_whitespace = true;
+                break;
+            }
+        }
+    } else {
+        leading_whitespace = false;
+    }
+
+    let mut it = state.text_graphemes(state.cursor());
+
+    let Some(sample) = it.peek_next() else {
+        return state.byte_pos(it.text_offset());
+    };
+    if is_alphanumeric(&sample) {
+        pskip_alpha(&mut it);
+        if leading_whitespace {
+            pskip_white(&mut it);
+        }
+    } else if is_whitespace(&sample) {
+        pskip_white(&mut it);
+    } else {
+        pskip_sample(&mut it, sample);
+        if leading_whitespace {
+            pskip_white(&mut it);
+        }
+    }
+
+    state.byte_pos(it.text_offset())
+}
+
+pub fn q_end_of_word(mut mul: u32, to: TxtObj, state: &TextAreaState) -> TextPosition {
+    let mut it = state.text_graphemes(state.cursor());
+
+    loop {
+        if mul == 0 {
+            break;
+        }
+        let Some(sample) = it.peek_next() else {
+            return state.byte_pos(it.text_offset());
+        };
+        if is_alphanumeric(&sample) {
+            skip_alpha(&mut it);
+            if to == TxtObj::A {
+                skip_white(&mut it);
+            }
+        } else if is_whitespace(&sample) {
+            skip_white(&mut it);
+        } else {
+            skip_sample(&mut it, sample);
+            if to == TxtObj::A {
+                skip_white(&mut it);
+            }
+        }
+        mul -= 1;
+    }
+
+    state.byte_pos(it.text_offset())
+}
+
 pub fn q_next_word_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
     let mut it = state.text_graphemes(state.cursor());
 
@@ -292,6 +439,70 @@ pub fn q_prev_word_end(mut mul: u32, state: &TextAreaState) -> Option<TextPositi
     }
 
     Some(state.byte_pos(it.text_offset()))
+}
+
+pub fn q_start_of_bigword(to: TxtObj, state: &TextAreaState) -> TextPosition {
+    let mut it = state.text_graphemes(state.cursor());
+
+    let leading_whitespace;
+    if to == TxtObj::A {
+        loop {
+            let Some(c) = it.next() else {
+                leading_whitespace = true;
+                break;
+            };
+            if is_whitespace(&c) {
+                leading_whitespace = false;
+                break;
+            }
+            if is_linebreak(&c) {
+                leading_whitespace = true;
+                break;
+            }
+        }
+    } else {
+        leading_whitespace = false;
+    }
+
+    let mut it = state.text_graphemes(state.cursor());
+
+    let Some(sample) = it.peek_next() else {
+        return state.byte_pos(it.text_offset());
+    };
+    if !is_whitespace(&sample) {
+        pskip_nonwhite(&mut it);
+        if leading_whitespace {
+            pskip_white(&mut it);
+        }
+    } else {
+        pskip_white(&mut it);
+    }
+
+    state.byte_pos(it.text_offset())
+}
+
+pub fn q_end_of_bigword(mut mul: u32, to: TxtObj, state: &TextAreaState) -> TextPosition {
+    let mut it = state.text_graphemes(state.cursor());
+
+    loop {
+        if mul == 0 {
+            break;
+        }
+        let Some(sample) = it.peek_next() else {
+            return state.byte_pos(it.text_offset());
+        };
+        if !is_whitespace(&sample) {
+            skip_nonwhite(&mut it);
+            if to == TxtObj::A {
+                skip_white(&mut it);
+            }
+        } else {
+            skip_white(&mut it);
+        }
+        mul -= 1;
+    }
+
+    state.byte_pos(it.text_offset())
 }
 
 pub fn q_next_bigword_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
@@ -432,6 +643,7 @@ pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
 
     let found;
     'f: loop {
+        // TODO: pskip_paragraph_whitespace
         if let Some(c) = it.peek_prev()
             && is_whitespace(&c)
         {
@@ -439,13 +651,13 @@ pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
                 let Some(c) = it.prev() else {
                     return None;
                 };
-                if !is_whitespace(&c) {
+                if !is_whitespace(&c) && !is_linebreak(&c) {
                     break;
                 }
             }
         }
 
-        let mut brk = false;
+        let mut paragraph = false;
         loop {
             let Some(c) = it.prev() else {
                 if mul == 1 {
@@ -456,14 +668,14 @@ pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
                 }
             };
 
-            if c.is_line_break() {
-                if !brk {
-                    brk = true;
+            if is_linebreak(&c) {
+                if !paragraph {
+                    paragraph = true;
                 } else {
                     break;
                 }
             } else if !is_whitespace(&c) {
-                brk = false;
+                paragraph = false;
             }
         }
 
@@ -496,7 +708,7 @@ pub fn q_next_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
             }
         }
 
-        let mut brk = false;
+        let mut paragraph = false;
         loop {
             let Some(c) = it.next() else {
                 if mul == 1 {
@@ -507,14 +719,14 @@ pub fn q_next_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
                 }
             };
 
-            if c.is_line_break() {
-                if !brk {
-                    brk = true;
+            if is_linebreak(&c) {
+                if !paragraph {
+                    paragraph = true;
                 } else {
                     break;
                 }
             } else if !is_whitespace(&c) {
-                brk = false;
+                paragraph = false;
             }
         }
 
@@ -940,6 +1152,129 @@ pub fn q_line_break_and_leading_space(state: &mut TextAreaState) -> TextRange {
     TextRange::new(start, end)
 }
 
+fn pskip_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
+    loop {
+        let Some(c) = it.prev() else {
+            break;
+        };
+        if !is_whitespace(&c) && !is_linebreak(&c) {
+            it.next();
+            break;
+        }
+    }
+}
+
+fn skip_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
+    loop {
+        let Some(c) = it.next() else {
+            break;
+        };
+        if !is_whitespace(&c) && !is_linebreak(&c) {
+            it.prev();
+            break;
+        }
+    }
+}
+
+fn is_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>> + Clone>(it: &mut C) -> bool {
+    let mut jt = it.clone();
+    let before;
+    loop {
+        let Some(c) = jt.prev() else {
+            before = true;
+            break;
+        };
+        if is_linebreak(&c) {
+            before = true;
+            break;
+        }
+        if !is_whitespace(&c) {
+            before = false;
+            break;
+        }
+    }
+
+    let mut jt = it.clone();
+    let after;
+    loop {
+        let Some(c) = jt.next() else {
+            after = true;
+            break;
+        };
+        if is_linebreak(&c) {
+            after = true;
+            break;
+        }
+        if !is_whitespace(&c) {
+            after = false;
+            break;
+        }
+    }
+
+    before && after
+}
+
+fn track_paragraph_fwd<'a, C: Cursor<Item = Grapheme<'a>>>(
+    c: &Grapheme,
+    track: &mut bool,
+    it: &mut C,
+) -> bool {
+    if is_linebreak(&c) {
+        if !*track {
+            *track = true;
+            false
+        } else {
+            it.prev();
+            loop {
+                let Some(d) = it.prev() else {
+                    break;
+                };
+                if is_linebreak(&d) {
+                    break;
+                }
+            }
+            true
+        }
+    } else if !is_whitespace(&c) {
+        *track = false;
+        false
+    } else {
+        // keep state
+        false
+    }
+}
+
+fn track_paragraph_back<'a, C: Cursor<Item = Grapheme<'a>>>(
+    c: &Grapheme,
+    track: &mut bool,
+    it: &mut C,
+) -> bool {
+    if is_linebreak(&c) {
+        if !*track {
+            *track = true;
+            false
+        } else {
+            it.next();
+            loop {
+                let Some(d) = it.next() else {
+                    break;
+                };
+                if is_linebreak(&d) {
+                    // it.prev(); don't include linebreak.
+                    break;
+                }
+            }
+            true
+        }
+    } else if !is_whitespace(&c) {
+        *track = false;
+        false
+    } else {
+        // keep state
+        false
+    }
+}
+
 #[inline]
 fn pskip_alpha<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
     loop {
@@ -985,7 +1320,7 @@ fn pskip_nonwhite<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         let Some(c) = it.prev() else {
             break;
         };
-        if is_whitespace(&c) {
+        if is_whitespace(&c) || is_linebreak(&c) {
             it.next();
             break;
         }
@@ -1037,7 +1372,7 @@ fn skip_nonwhite<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         let Some(c) = it.next() else {
             break;
         };
-        if is_whitespace(&c) {
+        if is_whitespace(&c) || is_linebreak(&c) {
             it.prev();
             break;
         }
@@ -1059,6 +1394,17 @@ pub fn is_whitespace(g: &Grapheme<'_>) -> bool {
         .map(|v| match v {
             '\x0a' | '\x0b' | '\x0c' | '\x0d' => false,
             c => c.is_whitespace(),
+        })
+        .unwrap_or(false)
+}
+
+pub fn is_linebreak(g: &Grapheme<'_>) -> bool {
+    g.grapheme()
+        .chars()
+        .next()
+        .map(|v| match v {
+            '\x0a' | '\x0d' => true,
+            _ => false,
         })
         .unwrap_or(false)
 }
