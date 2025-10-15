@@ -198,6 +198,13 @@ impl Matches {
     }
 }
 
+/// Text object modifier
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TxtObj {
+    A,
+    I,
+}
+
 /// Vi motions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Motion {
@@ -245,6 +252,17 @@ pub enum Motion {
     SearchBack(String),
     SearchRepeatNext,
     SearchRepeatPrev,
+
+    Word(TxtObj),
+    WORD(TxtObj),
+    Sentence(TxtObj),
+    Paragraph(TxtObj),
+    Bracket(TxtObj),
+    Parenthesis(TxtObj),
+    Angled(TxtObj),
+    Tagged(TxtObj),
+    Brace(TxtObj),
+    Quoted(char, TxtObj),
 }
 
 /// Vi scrolling commands.
@@ -1346,6 +1364,16 @@ pub mod motion_op {
     pub fn motion_start_position(motion: &Motion, state: &mut TextAreaState) -> TextPosition {
         match motion {
             Motion::FullLine => q_start_of_line(state),
+            Motion::Word(v) => unreachable!(),
+            Motion::WORD(v) => unreachable!(),
+            Motion::Sentence(_) => unreachable!(),
+            Motion::Paragraph(_) => unreachable!(),
+            Motion::Bracket(_) => unreachable!(),
+            Motion::Parenthesis(_) => unreachable!(),
+            Motion::Angled(_) => unreachable!(),
+            Motion::Tagged(_) => unreachable!(),
+            Motion::Brace(_) => unreachable!(),
+            Motion::Quoted(_, _) => unreachable!(),
             _ => state.cursor(),
         }
     }
@@ -1395,6 +1423,16 @@ pub mod motion_op {
             Motion::SearchRepeatNext => q_search_repeat_fwd(mul, state, vi),
             Motion::SearchRepeatPrev => q_search_repeat_back(mul, state, vi),
             Motion::FullLine => Some(q_start_of_next_line(mul, state)),
+            Motion::Word(_) => unreachable!(),
+            Motion::WORD(_) => unreachable!(),
+            Motion::Sentence(_) => unreachable!(),
+            Motion::Paragraph(_) => unreachable!(),
+            Motion::Bracket(_) => unreachable!(),
+            Motion::Parenthesis(_) => unreachable!(),
+            Motion::Angled(_) => unreachable!(),
+            Motion::Tagged(_) => unreachable!(),
+            Motion::Brace(_) => unreachable!(),
+            Motion::Quoted(_, _) => unreachable!(),
         })
     }
 }
@@ -1506,7 +1544,7 @@ pub mod modes_op {
 
 pub mod state_machine {
     use crate::coroutine::Yield;
-    use crate::vi::{Motion, Scrolling, Vim};
+    use crate::vi::{Motion, Scrolling, TxtObj, Vim};
     use crate::{ctrl, yield_};
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -1530,6 +1568,43 @@ pub mod state_machine {
         let mul = mul.parse::<u32>().ok();
 
         (mul, tok)
+    }
+
+    async fn bare_bare_object(tok: char, mul: Option<u32>, txo: TxtObj) -> Result<Vim, char> {
+        match tok {
+            'w' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Word(txo))),
+            'W' => Ok(Vim::Move(mul.unwrap_or(1), Motion::WORD(txo))),
+            's' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Sentence(txo))),
+            'p' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Paragraph(txo))),
+            't' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Tagged(txo))),
+            ']' | '[' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Bracket(txo))),
+            ')' | '(' | 'b' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Parenthesis(txo))),
+            '}' | '{' | 'B' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Brace(txo))),
+            '\'' | '"' | '`' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Quoted(tok, txo))),
+            '>' | '<' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Angled(txo))),
+            _ => Err(tok),
+        }
+    }
+
+    async fn bare_object(
+        tok: char,
+        mul: Option<u32>,
+        motion_buf: &RefCell<String>,
+        yp: &Yield<char, Vim>,
+    ) -> Result<Vim, char> {
+        match tok {
+            'a' => {
+                let tok = yield_!(yp);
+                motion_buf.borrow_mut().push(tok);
+                bare_bare_object(tok, mul, TxtObj::A).await
+            }
+            'i' => {
+                let tok = yield_!(yp);
+                motion_buf.borrow_mut().push(tok);
+                bare_bare_object(tok, mul, TxtObj::I).await
+            }
+            _ => Err(tok),
+        }
     }
 
     async fn bare_motion(

@@ -1361,6 +1361,7 @@ dependencies = [
  "ratatui",
  "regex-cursor",
  "ropey",
+ "unicode-display-width",
  "unicode-segmentation",
 ]
 
