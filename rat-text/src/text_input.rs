@@ -20,10 +20,11 @@ use crate::clipboard::{Clipboard, global_clipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::glyph2::{Glyph2, TextWrap2};
+use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
-    Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition,
-    TextRange, TextStyle, ipos_type, upos_type,
+    HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition, TextRange, TextStyle,
+    ipos_type, upos_type,
 };
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
@@ -898,7 +899,7 @@ impl TextInputState {
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
-    pub fn text_graphemes(&self, pos: upos_type) -> impl Cursor<Item = Grapheme<'_>> {
+    pub fn text_graphemes(&self, pos: upos_type) -> <TextString as TextStore>::GraphemeIter<'_> {
         self.value
             .text_graphemes(TextPosition::new(pos, 0))
             .expect("valid_pos")
@@ -909,7 +910,7 @@ impl TextInputState {
     pub fn try_text_graphemes(
         &self,
         pos: upos_type,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<<TextString as TextStore>::GraphemeIter<'_>, TextError> {
         self.value.text_graphemes(TextPosition::new(pos, 0))
     }
 
@@ -919,7 +920,7 @@ impl TextInputState {
         &self,
         range: Range<upos_type>,
         pos: upos_type,
-    ) -> impl Cursor<Item = Grapheme<'_>> {
+    ) -> <TextString as TextStore>::GraphemeIter<'_> {
         self.value
             .graphemes(
                 TextRange::new((range.start, 0), (range.end, 0)),
@@ -934,7 +935,7 @@ impl TextInputState {
         &self,
         range: Range<upos_type>,
         pos: upos_type,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<<TextString as TextStore>::GraphemeIter<'_>, TextError> {
         self.value.graphemes(
             TextRange::new((range.start, 0), (range.end, 0)),
             TextPosition::new(pos, 0),

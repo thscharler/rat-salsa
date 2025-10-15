@@ -968,10 +968,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
-    pub fn text_graphemes(
-        &self,
-        pos: TextPosition,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    pub fn text_graphemes(&self, pos: TextPosition) -> Result<Store::GraphemeIter<'_>, TextError> {
         let rows = self.len_lines() - 1;
         let cols = self.line_width(rows).expect("valid_row");
 

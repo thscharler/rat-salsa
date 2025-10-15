@@ -9,7 +9,6 @@ use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
 use crate::glyph2::{GlyphIter2, TextWrap2};
-use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::TextStore;
 use crate::text_store::text_rope::TextRope;
@@ -1240,7 +1239,7 @@ impl TextAreaState {
     ///
     /// Panics for an invalid row.
     #[inline]
-    pub fn line_graphemes(&self, row: upos_type) -> impl Cursor<Item = Grapheme<'_>> {
+    pub fn line_graphemes(&self, row: upos_type) -> <TextRope as TextStore>::GraphemeIter<'_> {
         self.value.line_graphemes(row).expect("valid_row")
     }
 
@@ -1250,7 +1249,7 @@ impl TextAreaState {
     pub fn try_line_graphemes(
         &self,
         row: upos_type,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<<TextRope as TextStore>::GraphemeIter<'_>, TextError> {
         self.value.line_graphemes(row)
     }
 
@@ -1258,7 +1257,10 @@ impl TextAreaState {
     ///
     /// Panics for an invalid pos.
     #[inline]
-    pub fn text_graphemes(&self, pos: impl Into<TextPosition>) -> impl Cursor<Item = Grapheme<'_>> {
+    pub fn text_graphemes(
+        &self,
+        pos: impl Into<TextPosition>,
+    ) -> <TextRope as TextStore>::GraphemeIter<'_> {
         self.value.text_graphemes(pos.into()).expect("valid_pos")
     }
 
@@ -1267,7 +1269,7 @@ impl TextAreaState {
     pub fn try_text_graphemes(
         &self,
         pos: impl Into<TextPosition>,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<<TextRope as TextStore>::GraphemeIter<'_>, TextError> {
         self.value.text_graphemes(pos.into())
     }
 
@@ -1279,7 +1281,7 @@ impl TextAreaState {
         &self,
         range: impl Into<TextRange>,
         pos: impl Into<TextPosition>,
-    ) -> impl Cursor<Item = Grapheme<'_>> {
+    ) -> <TextRope as TextStore>::GraphemeIter<'_> {
         self.value
             .graphemes(range.into(), pos.into())
             .expect("valid_args")
@@ -1291,7 +1293,7 @@ impl TextAreaState {
         &self,
         range: impl Into<TextRange>,
         pos: impl Into<TextPosition>,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<<TextRope as TextStore>::GraphemeIter<'_>, TextError> {
         self.value.graphemes(range.into(), pos.into())
     }
 

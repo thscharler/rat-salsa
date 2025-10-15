@@ -84,6 +84,7 @@ use crate::glyph2::{Glyph2, GlyphIter2, TextWrap2};
 use crate::text_input::TextInputState;
 use crate::text_input_mask::mask_token::{EditDirection, Mask, MaskToken};
 use crate::text_input_mask::masked_graphemes::MaskedGraphemes;
+use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
     Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition,
@@ -1480,7 +1481,7 @@ impl MaskedInputState {
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
-    pub fn text_graphemes(&self, pos: upos_type) -> impl Cursor<Item = Grapheme<'_>> {
+    pub fn text_graphemes(&self, pos: upos_type) -> <TextString as TextStore>::GraphemeIter<'_> {
         self.try_text_graphemes(pos).expect("valid_pos")
     }
 
@@ -1489,7 +1490,7 @@ impl MaskedInputState {
     pub fn try_text_graphemes(
         &self,
         pos: upos_type,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<<TextString as TextStore>::GraphemeIter<'_>, TextError> {
         self.value.text_graphemes(TextPosition::new(pos, 0))
     }
 
@@ -1499,7 +1500,7 @@ impl MaskedInputState {
         &self,
         range: Range<upos_type>,
         pos: upos_type,
-    ) -> impl Cursor<Item = Grapheme<'_>> {
+    ) -> <TextString as TextStore>::GraphemeIter<'_> {
         self.try_graphemes(range, pos).expect("valid_args")
     }
 
@@ -1509,7 +1510,7 @@ impl MaskedInputState {
         &self,
         range: Range<upos_type>,
         pos: upos_type,
-    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<<TextString as TextStore>::GraphemeIter<'_>, TextError> {
         self.value.graphemes(
             TextRange::new((range.start, 0), (range.end, 0)),
             TextPosition::new(pos, 0),
