@@ -50,7 +50,7 @@ pub struct VI {
     /// yank data
     pub yank: Yank,
     /// text marks
-    pub marks: [Option<TextPosition>; 26],
+    pub marks: Marks,
     /// pagelen for ctrl-d/u
     pub page: (u16, u16),
 }
@@ -91,6 +91,41 @@ pub enum SyncRanges {
     None,
     ToTextArea,
     FromTextArea,
+}
+
+/// Marks
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Mark {
+    Char(char),
+    Insert,
+    VisualAnchor,
+    VisualLead,
+    ChangeStart,
+    ChangeEnd,
+    Jump,
+}
+
+/// Mark data
+#[derive(Debug, Default)]
+pub struct Marks {
+    /// a-z marks
+    pub list: [Option<TextPosition>; 26],
+
+    /// last insert position
+    pub insert: Option<TextPosition>,
+    /// last visual selection
+    pub visual_anchor: Option<TextPosition>,
+    /// last visual selection
+    pub visual_lead: Option<TextPosition>,
+    /// last change
+    pub change_start: Option<TextPosition>,
+    /// last change
+    pub change_end: Option<TextPosition>,
+    /// last jump
+    pub jump: Option<TextPosition>,
+
+    /// sync
+    pub sync: SyncRanges,
 }
 
 /// Yank data
@@ -217,7 +252,7 @@ pub enum Motion {
     ToLine,
     ToLinePercent,
     ToMatchingBrace,
-    ToMark(char),
+    ToMark(Mark, bool),
 
     StartOfFile,
     EndOfFile,
@@ -234,6 +269,8 @@ pub enum Motion {
     EndOfLine,
     StartOfLineText,
     EndOfLineText,
+    PrevSentence,
+    NextSentence,
     PrevParagraph,
     NextParagraph,
 
@@ -291,7 +328,7 @@ pub enum Vim {
     Partial(u32, Motion),
     Move(u32, Motion),
     Scroll(u32, Scrolling),
-    Mark(char),
+    Mark(Mark),
 
     VisualSelect(bool),
     VisualSwapLead,
@@ -601,7 +638,7 @@ fn execute_normal(
                 insert_str(*mul, state, vi);
                 r = TextOutcome::TextChanged;
             } else {
-                begin_insert(vi);
+                begin_insert(state, vi);
             }
         }
         Vim::Append(mul) => {
@@ -637,14 +674,14 @@ fn execute_normal(
                 r = TextOutcome::TextChanged;
             } else {
                 change_text(*mul, m, state, vi)?;
-                begin_insert(vi);
+                begin_insert(state, vi);
                 r = TextOutcome::TextChanged;
             }
         }
         Vim::Yank(mul, m) => yank_text(*mul, m, state, vi)?,
         Vim::CopyClipboard(mul, m) => copy_clipboard_text(*mul, m, state, vi)?,
         Vim::Paste(mul, before) => paste_text(*mul, *before, state, vi),
-        Vim::PasteClipboard(mul, before) => paste_clipboard_text(*mul, *before, state),
+        Vim::PasteClipboard(mul, before) => paste_clipboard_text(*mul, *before, state, vi),
         Vim::Delete(mul, m) => {
             delete_text(*mul, m, state, vi)?;
             r = TextOutcome::TextChanged;
@@ -839,7 +876,8 @@ pub mod scroll_op {
 pub mod move_op {
     use crate::SearchError;
     use crate::vi::motion_op::motion_end_position;
-    use crate::vi::{Motion, VI};
+    use crate::vi::query::q_set_mark;
+    use crate::vi::{Mark, Motion, VI};
     use rat_text::text_area::TextAreaState;
 
     pub fn move_cursor(
@@ -849,6 +887,7 @@ pub mod move_op {
         vi: &mut VI,
     ) -> Result<(), SearchError> {
         if let Some(npos) = motion_end_position(mul, motion, state, vi)? {
+            q_set_mark(Mark::Jump, state.cursor(), vi);
             state.set_cursor(npos, false);
         }
         Ok(())
@@ -859,7 +898,7 @@ pub mod visual_op {
     use crate::SearchError;
     use crate::vi::motion_op::motion_end_position;
     use crate::vi::query::*;
-    use crate::vi::{Mode, Motion, VI};
+    use crate::vi::{Mark, Mode, Motion, VI};
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
 
@@ -901,6 +940,17 @@ pub mod visual_op {
         // undo would restore these.
         state.remove_style_fully(997);
 
+        if let Some((vpos, _)) = vi.visual.list.first() {
+            let vpos = state.byte_pos(vpos.start);
+            q_set_mark(Mark::VisualAnchor, vpos, vi);
+            q_set_mark(Mark::ChangeStart, state.cursor(), vi);
+            q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
+        }
+        if let Some((vpos, _)) = vi.visual.list.last() {
+            let vpos = state.byte_pos(vpos.start);
+            q_set_mark(Mark::VisualAnchor, vpos, vi);
+        }
+
         vi.yank.list.clear();
 
         state.begin_undo_seq();
@@ -935,6 +985,8 @@ pub mod visual_op {
         state.begin_undo_seq(); // ends with visual_multi_change()
         state.delete_range(r);
         state.set_cursor(r.start, false);
+
+        q_set_mark(Mark::ChangeStart, state.cursor(), vi);
 
         vi.mode = Mode::Insert;
         vi.text.clear();
@@ -1041,24 +1093,23 @@ pub mod partial_op {
 
 pub mod mark_op {
     use crate::VI;
-    use crate::vi::query::*;
+    use crate::vi::Mark;
+    use crate::vi::query::q_set_mark;
     use rat_text::text_area::TextAreaState;
 
-    pub fn set_mark(mark: char, state: &mut TextAreaState, vi: &mut VI) {
-        if let Some(mark) = q_mark_idx(mark) {
-            vi.marks[mark] = Some(state.cursor());
-        }
+    pub fn set_mark(mark: Mark, state: &mut TextAreaState, vi: &mut VI) {
+        q_set_mark(mark, state.cursor(), vi);
     }
 }
 
 pub mod change_op {
     use crate::vi::motion_op::{motion_end_position, motion_start_position, start_end_to_range};
     use crate::vi::query::*;
-    use crate::vi::{Motion, SyncRanges};
+    use crate::vi::{Mark, Motion, SyncRanges};
     use crate::{SearchError, VI};
     use rat_text::text_area::TextAreaState;
     use rat_text::{TextPosition, upos_type};
-    use std::cmp::min;
+    use std::mem;
     use std::ops::Range;
 
     pub fn prepend_line_str(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
@@ -1118,6 +1169,9 @@ pub mod change_op {
         state: &mut TextAreaState,
         vi: &mut VI,
     ) -> Result<(), SearchError> {
+        q_set_mark(Mark::ChangeStart, state.cursor(), vi);
+        q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
+
         if let Some(range) = change_range(mul, &Motion::Right, state, vi)? {
             vi.finds.sync = SyncRanges::FromTextArea;
             vi.matches.sync = SyncRanges::FromTextArea;
@@ -1181,6 +1235,9 @@ pub mod change_op {
         state: &mut TextAreaState,
         vi: &mut VI,
     ) -> Result<(), SearchError> {
+        q_set_mark(Mark::ChangeStart, state.cursor(), vi);
+        q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
+
         if let Some(range) = delete_range(mul, motion, state, vi)? {
             vi.finds.sync = SyncRanges::FromTextArea;
             vi.matches.sync = SyncRanges::FromTextArea;
@@ -1212,6 +1269,9 @@ pub mod change_op {
         vi: &mut VI,
     ) -> Result<(), SearchError> {
         if let Some(range) = yank_range(mul, motion, state, vi)? {
+            q_set_mark(Mark::ChangeStart, state.cursor(), vi);
+            q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
+
             vi.yank.list.clear();
             vi.yank.list.push(state.str_slice(range).into_owned());
         }
@@ -1232,7 +1292,7 @@ pub mod change_op {
         Ok(())
     }
 
-    fn paste(text: &[String], mul: u32, before: bool, state: &mut TextAreaState) {
+    fn paste(text: &[String], mul: u32, before: bool, state: &mut TextAreaState, vi: &mut VI) {
         if text.len() > 1 {
             let cursor = state.cursor();
             let len_lines = state.len_lines();
@@ -1240,9 +1300,13 @@ pub mod change_op {
             let start = if before {
                 cursor
             } else {
-                let x = min(cursor.x + 1, state.line_width(cursor.y));
-                TextPosition::new(x, cursor.y)
+                // TODO: mode for caret/block cursor??
+                // let x = min(cursor.x + 1, state.line_width(cursor.y));
+                // TextPosition::new(x, cursor.y)
+                cursor
             };
+
+            q_set_mark(Mark::ChangeStart, state.cursor(), vi);
 
             state.begin_undo_seq();
             state.set_cursor(start, false);
@@ -1257,6 +1321,8 @@ pub mod change_op {
             }
             state.set_cursor(cursor, false);
             state.end_undo_seq();
+
+            q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
         } else if text[0].contains('\n') {
             let nl = text[0].ends_with('\n');
 
@@ -1265,6 +1331,8 @@ pub mod change_op {
             } else {
                 q_start_of_next_line(1, state)
             };
+
+            q_set_mark(Mark::ChangeStart, state.cursor(), vi);
 
             state.begin_undo_seq();
             state.set_cursor(start, false);
@@ -1276,29 +1344,40 @@ pub mod change_op {
             }
             state.set_cursor(start, false);
             state.end_undo_seq();
+
+            q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
         } else {
+            q_set_mark(Mark::ChangeStart, state.cursor(), vi);
+
             for _ in 0..mul {
                 state.insert_str(&text[0]);
             }
+
+            q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
         }
     }
 
     pub fn paste_text(mul: u32, before: bool, state: &mut TextAreaState, vi: &mut VI) {
-        paste(&vi.yank.list, mul, before, state);
+        let yanked = mem::take(&mut vi.yank.list);
+        paste(&yanked, mul, before, state, vi);
+        vi.yank.list = yanked;
     }
 
-    pub fn paste_clipboard_text(mul: u32, before: bool, state: &mut TextAreaState) {
+    pub fn paste_clipboard_text(mul: u32, before: bool, state: &mut TextAreaState, vi: &mut VI) {
         let Some(clip) = state.clipboard() else {
             return;
         };
         let mut text = [String::default(); 1];
         text[0] = clip.get_string().unwrap_or(String::default());
-        paste(&text, mul, before, state);
+        paste(&text, mul, before, state, vi);
     }
 
     pub fn join_line(mut mul: u32, state: &mut TextAreaState, vi: &mut VI) {
         vi.finds.sync = SyncRanges::FromTextArea;
         vi.matches.sync = SyncRanges::FromTextArea;
+
+        q_set_mark(Mark::ChangeStart, state.cursor(), vi);
+        q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
 
         while mul > 0 {
             let range = q_line_break_and_leading_space(state);
@@ -1339,8 +1418,8 @@ pub mod change_op {
 }
 
 pub mod motion_op {
-    use crate::vi::Motion;
     use crate::vi::query::*;
+    use crate::vi::{Motion, TxtObj};
     use crate::{SearchError, VI};
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
@@ -1366,8 +1445,8 @@ pub mod motion_op {
             Motion::FullLine => q_start_of_line(state),
             Motion::Word(to) => q_start_of_word(*to, state),
             Motion::WORD(to) => q_start_of_bigword(*to, state),
-            Motion::Sentence(to) => q_start_of_sentence(*to, state),
-            Motion::Paragraph(to) => q_start_of_paragraph(*to, state),
+            Motion::Sentence(to) => q_prev_sentence(1, *to, state).expect("todo"),
+            Motion::Paragraph(_) => q_prev_paragraph(1, state).expect("todo"),
             Motion::Bracket(to) => unreachable!(),
             Motion::Parenthesis(to) => unreachable!(),
             Motion::Angled(to) => unreachable!(),
@@ -1393,7 +1472,7 @@ pub mod motion_op {
             Motion::ToLine => q_line(mul, state),
             Motion::ToLinePercent => q_line_percent(mul, state),
             Motion::ToMatchingBrace => q_matching_brace(state),
-            Motion::ToMark(mark) => q_mark_pos(*mark, &vi.marks),
+            Motion::ToMark(mark, line) => q_mark(*mark, *line, state, vi),
             Motion::StartOfFile => q_start_of_file(),
             Motion::EndOfFile => q_end_of_file(state),
             Motion::NextWordStart => q_next_word_start(mul, state),
@@ -1409,7 +1488,9 @@ pub mod motion_op {
             Motion::StartOfLineText => q_start_of_text(state),
             Motion::EndOfLineText => q_end_of_text(mul, state),
             Motion::PrevParagraph => q_prev_paragraph(mul, state),
-            Motion::NextParagraph => q_next_paragraph(mul, state),
+            Motion::NextParagraph => q_next_paragraph(mul, TxtObj::A, state),
+            Motion::PrevSentence => q_prev_sentence(mul, TxtObj::A, state),
+            Motion::NextSentence => q_next_sentence(mul, TxtObj::I, state),
             Motion::FindForward(f) => q_find_fwd(mul, *f, state, vi),
             Motion::FindBack(f) => q_find_back(mul, *f, state, vi),
             Motion::FindTillForward(f) => q_till_fwd(mul, *f, state, vi),
@@ -1425,8 +1506,8 @@ pub mod motion_op {
             Motion::FullLine => Some(q_start_of_next_line(mul, state)),
             Motion::Word(to) => Some(q_end_of_word(mul, *to, state)),
             Motion::WORD(to) => Some(q_end_of_bigword(mul, *to, state)),
-            Motion::Sentence(to) => Some(q_end_of_sentence(mul, *to, state)),
-            Motion::Paragraph(to) => Some(q_end_of_paragraph(mul, *to, state)),
+            Motion::Sentence(to) => q_next_sentence(mul, *to, state),
+            Motion::Paragraph(to) => q_next_paragraph(mul, *to, state),
             Motion::Bracket(to) => unreachable!(),
             Motion::Parenthesis(to) => unreachable!(),
             Motion::Angled(to) => unreachable!(),
@@ -1440,9 +1521,10 @@ pub mod motion_op {
 pub mod modes_op {
     use crate::coroutine::Coroutine;
     use crate::vi::change_op::*;
+    use crate::vi::query::q_set_mark;
     use crate::vi::state_machine::*;
     use crate::vi::visual_op::end_visual_change;
-    use crate::vi::{Mode, SyncRanges, VI, Vim};
+    use crate::vi::{Mark, Mode, SyncRanges, VI, Vim};
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
     use std::mem;
@@ -1488,6 +1570,8 @@ pub mod modes_op {
         vi.mode = Mode::Insert;
         vi.text.clear();
 
+        q_set_mark(Mark::ChangeStart, state.cursor(), vi);
+
         let c = state.cursor();
         state.set_cursor(TextPosition::new(0, c.y), false);
         state.insert_newline();
@@ -1497,6 +1581,8 @@ pub mod modes_op {
     pub fn begin_append_line(state: &mut TextAreaState, vi: &mut VI) {
         vi.mode = Mode::Insert;
         vi.text.clear();
+
+        q_set_mark(Mark::ChangeStart, state.cursor(), vi);
 
         let c = state.cursor();
         let width = state.line_width(c.y);
@@ -1508,12 +1594,16 @@ pub mod modes_op {
         vi.mode = Mode::Insert;
         vi.text.clear();
 
+        q_set_mark(Mark::ChangeStart, state.cursor(), vi);
+
         state.move_right(1, false);
     }
 
-    pub fn begin_insert(vi: &mut VI) {
+    pub fn begin_insert(state: &mut TextAreaState, vi: &mut VI) {
         vi.mode = Mode::Insert;
         vi.text.clear();
+
+        q_set_mark(Mark::ChangeStart, state.cursor(), vi);
     }
 
     pub fn end_insert(state: &mut TextAreaState, vi: &mut VI) {
@@ -1537,6 +1627,8 @@ pub mod modes_op {
             }
             _ => {}
         };
+        q_set_mark(Mark::Insert, state.cursor(), vi);
+        q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
 
         vi.command = command;
     }
@@ -1544,7 +1636,7 @@ pub mod modes_op {
 
 pub mod state_machine {
     use crate::coroutine::Yield;
-    use crate::vi::{Motion, Scrolling, TxtObj, Vim};
+    use crate::vi::{Mark, Motion, Scrolling, TxtObj, Vim};
     use crate::{ctrl, yield_};
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -1633,8 +1725,9 @@ pub mod state_machine {
         match tok {
             'h' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Left)),
             'l' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Right)),
-            'k' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Up)),
-            'j' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Down)),
+            '-' | 'k' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Up)),
+            '+' | 'j' | '\n' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Down)),
+            '_' => Ok(Vim::Move(mul.unwrap_or(1).saturating_sub(1), Motion::Down)),
             '|' => Ok(Vim::Move(mul.unwrap_or(0), Motion::ToCol)),
             'w' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextWordStart)),
             'b' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWordStart)),
@@ -1659,6 +1752,8 @@ pub mod state_machine {
             'W' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextWORDStart)),
             'B' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWORDStart)),
             'E' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextWORDEnd)),
+            '(' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevSentence)),
+            ')' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextSentence)),
             '{' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevParagraph)),
             '}' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextParagraph)),
             'G' => {
@@ -1753,7 +1848,30 @@ pub mod state_machine {
             '\'' => {
                 let tok = yield_!(yp);
                 motion_buf.borrow_mut().push(tok);
-                Ok(Vim::Move(1, Motion::ToMark(tok)))
+                match tok {
+                    'a'..'z' => Ok(Vim::Move(1, Motion::ToMark(Mark::Char(tok), true))),
+                    '\'' | '`' => Ok(Vim::Move(1, Motion::ToMark(Mark::Jump, true))),
+                    '[' => Ok(Vim::Move(1, Motion::ToMark(Mark::ChangeStart, true))),
+                    ']' => Ok(Vim::Move(1, Motion::ToMark(Mark::ChangeEnd, true))),
+                    '<' => Ok(Vim::Move(1, Motion::ToMark(Mark::VisualAnchor, true))),
+                    '>' => Ok(Vim::Move(1, Motion::ToMark(Mark::VisualLead, true))),
+                    '^' => Ok(Vim::Move(1, Motion::ToMark(Mark::Insert, true))),
+                    _ => Ok(Vim::Invalid),
+                }
+            }
+            '`' => {
+                let tok = yield_!(yp);
+                motion_buf.borrow_mut().push(tok);
+                match tok {
+                    'a'..'z' => Ok(Vim::Move(1, Motion::ToMark(Mark::Char(tok), false))),
+                    '\'' | '`' => Ok(Vim::Move(1, Motion::ToMark(Mark::Jump, false))),
+                    '[' => Ok(Vim::Move(1, Motion::ToMark(Mark::ChangeStart, false))),
+                    ']' => Ok(Vim::Move(1, Motion::ToMark(Mark::ChangeEnd, false))),
+                    '<' => Ok(Vim::Move(1, Motion::ToMark(Mark::VisualAnchor, false))),
+                    '>' => Ok(Vim::Move(1, Motion::ToMark(Mark::VisualLead, false))),
+                    '^' => Ok(Vim::Move(1, Motion::ToMark(Mark::Insert, false))),
+                    _ => Ok(Vim::Invalid),
+                }
             }
 
             _ => Err(tok),
@@ -1813,7 +1931,16 @@ pub mod state_machine {
             'm' => {
                 tok = yield_!(yp);
                 motion_buf.borrow_mut().push(tok);
-                Vim::Mark(tok)
+                match tok {
+                    'a'..'z' => Vim::Mark(Mark::Char(tok)),
+                    '\'' | '`' => Vim::Mark(Mark::Jump),
+                    '[' => Vim::Mark(Mark::ChangeStart),
+                    ']' => Vim::Mark(Mark::ChangeEnd),
+                    '<' => Vim::Mark(Mark::VisualAnchor),
+                    '>' => Vim::Mark(Mark::VisualLead),
+                    '^' => Vim::Mark(Mark::Insert),
+                    _ => Vim::Invalid,
+                }
             }
 
             'v' => Vim::VisualSelect(false),

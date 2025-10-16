@@ -1,7 +1,7 @@
 use crate::mini_salsa::{MiniSalsaState, STATUS, fill_buf_area, run_ui, setup_logging};
 use crate::text_samples::{
     add_range_styles, sample_bosworth_1, sample_irish, sample_long, sample_lorem_ipsum,
-    sample_medium, sample_scott_1, sample_tabs,
+    sample_medium, sample_rust, sample_scott_1, sample_tabs,
 };
 use log::{debug, warn};
 use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
@@ -278,7 +278,7 @@ fn event(
             Outcome::Changed
         }
         ct_event!(key press ALT-'4') => {
-            let (text, styles) = sample_tabs();
+            let (text, styles) = sample_rust();
             state.textarea.set_rope(text);
             add_range_styles(&mut state.textarea, styles);
             Outcome::Changed
@@ -287,9 +287,6 @@ fn event(
             let (text, styles) = sample_lorem_ipsum();
             state.textarea.set_rope(text);
             add_range_styles(&mut state.textarea, styles);
-            // let (text, styles) = sample_lorem_rustum();
-            // state.textarea.set_rope(text);
-            // state.textarea.set_styles(styles);
             Outcome::Changed
         }
         ct_event!(key press ALT-'6') => {

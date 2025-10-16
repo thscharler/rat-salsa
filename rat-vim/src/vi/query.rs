@@ -1,4 +1,4 @@
-use crate::vi::{Direction, Finds, Matches, SyncRanges, TxtObj};
+use crate::vi::{Direction, Finds, Mark, Matches, SyncRanges, TxtObj};
 use crate::{SearchError, VI, ctrl};
 use log::debug;
 use rat_text::text_area::TextAreaState;
@@ -173,20 +173,87 @@ pub fn q_matching_brace(state: &mut TextAreaState) -> Option<TextPosition> {
     Some(state.byte_pos(it.text_offset()))
 }
 
-pub fn q_mark_pos(mark: char, marks: &[Option<TextPosition>; 26]) -> Option<TextPosition> {
-    if let Some(mark) = q_mark_idx(mark) {
-        marks[mark]
-    } else {
-        None
-    }
+pub fn q_set_mark(mark: Mark, pos: TextPosition, vi: &mut VI) {
+    match mark {
+        Mark::Char(c) => {
+            if c >= 'a' && c <= 'z' {
+                vi.marks.list[c as usize - 'a' as usize] = Some(pos);
+            }
+        }
+        Mark::Insert => {
+            vi.marks.insert = Some(pos);
+        }
+        Mark::VisualAnchor => {
+            vi.marks.visual_anchor = Some(pos);
+        }
+        Mark::VisualLead => {
+            vi.marks.visual_lead = Some(pos);
+        }
+        Mark::ChangeStart => {
+            vi.marks.change_start = Some(pos);
+        }
+        Mark::ChangeEnd => {
+            vi.marks.change_end = Some(pos);
+        }
+        Mark::Jump => {
+            vi.marks.jump = Some(pos);
+        }
+    };
+    vi.marks.sync = SyncRanges::ToTextArea;
 }
 
-pub fn q_mark_idx(mark: char) -> Option<usize> {
-    let mark = mark.to_ascii_lowercase();
-    if mark >= 'a' && mark <= 'z' {
-        Some(mark as usize - 'a' as usize)
+pub fn q_mark(mark: Mark, mut line: bool, state: &TextAreaState, vi: &VI) -> Option<TextPosition> {
+    let mark_pos = match mark {
+        Mark::Char(c) => {
+            if c >= 'a' && c <= 'z' {
+                vi.marks.list[c as usize - 'a' as usize]
+            } else {
+                None
+            }
+        }
+        Mark::Insert => {
+            line = false;
+            vi.marks.insert
+        }
+        Mark::VisualAnchor => {
+            line = false;
+            vi.marks.visual_anchor
+        }
+        Mark::VisualLead => {
+            line = false;
+            vi.marks.visual_lead
+        }
+        Mark::ChangeStart => {
+            line = false;
+            vi.marks.change_start
+        }
+        Mark::ChangeEnd => {
+            line = false;
+            vi.marks.change_end
+        }
+        Mark::Jump => {
+            line = false;
+            vi.marks.jump
+        }
+    };
+
+    let Some(mark_pos) = mark_pos else {
+        return None;
+    };
+    if line {
+        let mut it = state.line_graphemes(mark_pos.y);
+        loop {
+            let Some(c) = it.next() else {
+                break;
+            };
+            if !is_whitespace(&c) {
+                it.prev();
+                break;
+            }
+        }
+        Some(state.byte_pos(it.text_offset()))
     } else {
-        None
+        Some(mark_pos)
     }
 }
 
@@ -197,126 +264,6 @@ pub fn q_start_of_file() -> Option<TextPosition> {
 pub fn q_end_of_file(state: &mut TextAreaState) -> Option<TextPosition> {
     let y = state.len_lines().saturating_sub(1);
     Some(TextPosition::new(state.line_width(y), y))
-}
-
-pub fn q_start_of_paragraph(to: TxtObj, state: &TextAreaState) -> TextPosition {
-    let mut it = state.text_graphemes(state.cursor());
-
-    if is_paragraph_whitespace(&mut it) {
-        pskip_paragraph_whitespace(&mut it);
-    } else {
-        let mut paragraph = false;
-        loop {
-            let Some(c) = it.prev() else {
-                break;
-            };
-            if track_paragraph_back(&c, &mut paragraph, &mut it) {
-                break;
-            }
-        }
-    }
-    state.byte_pos(it.text_offset())
-}
-
-pub fn q_end_of_paragraph(mut mul: u32, to: TxtObj, state: &TextAreaState) -> TextPosition {
-    let mut it = state.text_graphemes(state.cursor());
-
-    loop {
-        if mul == 0 {
-            break;
-        }
-
-        if is_paragraph_whitespace(&mut it) {
-            skip_paragraph_whitespace(&mut it);
-        } else {
-            let mut paragraph = false;
-            loop {
-                let Some(c) = it.next() else {
-                    break;
-                };
-                if track_paragraph_fwd(&c, &mut paragraph, &mut it) {
-                    if to == TxtObj::A {
-                        skip_paragraph_whitespace(&mut it);
-                    }
-                    break;
-                }
-            }
-        }
-        mul -= 1;
-    }
-    state.byte_pos(it.text_offset())
-}
-
-pub fn q_start_of_sentence(to: TxtObj, state: &TextAreaState) -> TextPosition {
-    let mut it = state.text_graphemes(state.cursor());
-
-    if is_paragraph_whitespace(&mut it) {
-        pskip_paragraph_whitespace(&mut it);
-    } else {
-        let rewind;
-        let mut paragraph = false;
-        loop {
-            let Some(c) = it.prev() else {
-                rewind = false;
-                break;
-            };
-
-            if matches!(c.grapheme(), "." | "!" | "?") {
-                rewind = true;
-                break;
-            }
-            if track_paragraph_back(&c, &mut paragraph, &mut it) {
-                rewind = false;
-                break;
-            }
-        }
-        if rewind {
-            skip_nonwhite(&mut it);
-            if to == TxtObj::A {
-                skip_white(&mut it);
-            }
-        }
-    }
-    state.byte_pos(it.text_offset())
-}
-
-pub fn q_end_of_sentence(mut mul: u32, to: TxtObj, state: &TextAreaState) -> TextPosition {
-    let mut it = state.text_graphemes(state.cursor());
-
-    loop {
-        if mul == 0 {
-            break;
-        }
-
-        if is_paragraph_whitespace(&mut it) {
-            skip_paragraph_whitespace(&mut it);
-        } else {
-            let forward;
-            let mut paragraph = false;
-            loop {
-                let Some(c) = it.next() else {
-                    forward = false;
-                    break;
-                };
-                if matches!(c.grapheme(), "." | "!" | "?") {
-                    forward = true;
-                    break;
-                }
-                if track_paragraph_fwd(&c, &mut paragraph, &mut it) {
-                    forward = false;
-                    break;
-                }
-            }
-            if forward {
-                skip_nonwhite(&mut it);
-                if to == TxtObj::A {
-                    skip_white(&mut it);
-                }
-            }
-        }
-        mul -= 1;
-    }
-    state.byte_pos(it.text_offset())
 }
 
 pub fn q_start_of_word(to: TxtObj, state: &TextAreaState) -> TextPosition {
@@ -686,107 +633,162 @@ pub fn q_end_of_text(mul: u32, state: &mut TextAreaState) -> Option<TextPosition
     Some(state.byte_pos(found))
 }
 
-pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_prev_sentence(
+    mut mul: u32,
+    to: TxtObj,
+    state: &mut TextAreaState,
+) -> Option<TextPosition> {
     let mut it = state.text_graphemes(state.cursor());
 
-    let found;
-    'f: loop {
-        // TODO: pskip_paragraph_whitespace
-        if let Some(c) = it.peek_prev()
-            && is_whitespace(&c)
+    loop {
+        if mul == 0 {
+            break;
+        }
+
+        pskip_sentence_extra(&mut it);
+        if let Some(peek) = it.peek_prev()
+            && peek.grapheme() == "."
         {
+            it.prev();
+        }
+
+        let skipped = pskip_paragraph_whitespace(&mut it);
+
+        if !skipped {
+            let rewind;
+            let mut paragraph = false;
             loop {
                 let Some(c) = it.prev() else {
-                    return None;
+                    rewind = false;
+                    break;
                 };
-                if !is_whitespace(&c) && !is_linebreak(&c) {
+
+                if matches!(c.grapheme(), "." | "!" | "?") {
+                    it.next();
+                    rewind = true;
+                    break;
+                }
+                if track_paragraph_back(&c, &mut paragraph, &mut it) {
+                    rewind = false;
                     break;
                 }
             }
+            if rewind {
+                skip_sentence_extra(&mut it);
+                if to == TxtObj::A {
+                    skip_white(&mut it);
+                }
+            }
         }
+
+        mul -= 1;
+    }
+
+    Some(state.byte_pos(it.text_offset()))
+}
+
+pub fn q_next_sentence(
+    mut mul: u32,
+    to: TxtObj,
+    state: &mut TextAreaState,
+) -> Option<TextPosition> {
+    let mut it = state.text_graphemes(state.cursor());
+
+    loop {
+        if mul == 0 {
+            break;
+        }
+
+        let skipped = skip_paragraph_whitespace(&mut it);
+
+        if !skipped {
+            let forward;
+            let mut paragraph = false;
+            loop {
+                let Some(c) = it.next() else {
+                    forward = false;
+                    break;
+                };
+                if matches!(c.grapheme(), "." | "!" | "?") {
+                    forward = true;
+                    break;
+                }
+                if track_paragraph_fwd(&c, &mut paragraph, &mut it) {
+                    forward = false;
+                    break;
+                }
+            }
+            if forward {
+                skip_sentence_extra(&mut it);
+                if to == TxtObj::A {
+                    skip_white(&mut it);
+                }
+            }
+        }
+
+        mul -= 1;
+    }
+
+    Some(state.byte_pos(it.text_offset()))
+}
+
+pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+    let mut it = state.text_graphemes(state.cursor());
+
+    'l: loop {
+        if mul == 0 {
+            break;
+        }
+
+        pskip_paragraph_whitespace(&mut it);
 
         let mut paragraph = false;
         loop {
             let Some(c) = it.prev() else {
-                if mul == 1 {
-                    found = it.text_offset();
-                    break 'f;
-                } else {
-                    return None;
-                }
+                break 'l;
             };
-
-            if is_linebreak(&c) {
-                if !paragraph {
-                    paragraph = true;
-                } else {
-                    break;
-                }
-            } else if !is_whitespace(&c) {
-                paragraph = false;
+            if track_paragraph_back(&c, &mut paragraph, &mut it) {
+                break;
             }
         }
 
         mul -= 1;
-        if mul == 0 {
-            it.next();
-            found = it.text_offset();
-            break 'f;
-        }
     }
 
-    Some(state.byte_pos(found))
+    Some(state.byte_pos(it.text_offset()))
 }
 
-pub fn q_next_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_next_paragraph(
+    mut mul: u32,
+    to: TxtObj,
+    state: &mut TextAreaState,
+) -> Option<TextPosition> {
     let mut it = state.text_graphemes(state.cursor());
 
-    let found;
-    'f: loop {
-        if let Some(c) = it.peek_next()
-            && is_whitespace(&c)
-        {
-            loop {
-                let Some(c) = it.next() else {
-                    return None;
-                };
-                if !is_whitespace(&c) {
-                    break;
-                }
-            }
+    'l: loop {
+        if mul == 0 {
+            break;
         }
+
+        skip_paragraph_whitespace(&mut it);
 
         let mut paragraph = false;
         loop {
             let Some(c) = it.next() else {
-                if mul == 1 {
-                    found = it.text_offset();
-                    break 'f;
-                } else {
-                    return None;
-                }
+                break 'l;
             };
-
-            if is_linebreak(&c) {
-                if !paragraph {
-                    paragraph = true;
-                } else {
-                    break;
+            if track_paragraph_fwd(&c, &mut paragraph, &mut it) {
+                if to == TxtObj::A {
+                    skip_paragraph_whitespace(&mut it);
                 }
-            } else if !is_whitespace(&c) {
-                paragraph = false;
+                break;
             }
         }
 
         mul -= 1;
-        if mul == 0 {
-            it.prev();
-            found = it.text_offset();
-            break 'f;
-        }
     }
 
-    Some(state.byte_pos(found))
+    Some(state.byte_pos(it.text_offset()))
 }
 
 pub fn q_find_fwd(
@@ -1200,7 +1202,8 @@ pub fn q_line_break_and_leading_space(state: &mut TextAreaState) -> TextRange {
     TextRange::new(start, end)
 }
 
-fn pskip_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
+fn pskip_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) -> bool {
+    let mut skipped = false;
     loop {
         let Some(c) = it.prev() else {
             break;
@@ -1209,10 +1212,13 @@ fn pskip_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
             it.next();
             break;
         }
+        skipped = true;
     }
+    skipped
 }
 
-fn skip_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
+fn skip_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) -> bool {
+    let mut skipped = false;
     loop {
         let Some(c) = it.next() else {
             break;
@@ -1221,7 +1227,10 @@ fn skip_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
             it.prev();
             break;
         }
+        skipped = true;
     }
+
+    skipped
 }
 
 fn is_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>> + Clone>(it: &mut C) -> bool {
@@ -1337,45 +1346,6 @@ fn pskip_alpha<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
 }
 
 #[inline]
-fn pskip_sample<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, sample: Grapheme) {
-    loop {
-        let Some(c) = it.prev() else {
-            break;
-        };
-        if c != sample {
-            it.next();
-            break;
-        }
-    }
-}
-
-#[inline]
-fn pskip_white<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
-    loop {
-        let Some(c) = it.prev() else {
-            break;
-        };
-        if !is_whitespace(&c) {
-            it.next();
-            break;
-        }
-    }
-}
-
-#[inline]
-fn pskip_nonwhite<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
-    loop {
-        let Some(c) = it.prev() else {
-            break;
-        };
-        if is_whitespace(&c) || is_linebreak(&c) {
-            it.next();
-            break;
-        }
-    }
-}
-
-#[inline]
 fn skip_alpha<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
     loop {
         let Some(c) = it.next() else {
@@ -1383,6 +1353,19 @@ fn skip_alpha<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
         };
         if !is_alphanumeric(&c) {
             it.prev();
+            break;
+        }
+    }
+}
+
+#[inline]
+fn pskip_sample<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, sample: Grapheme) {
+    loop {
+        let Some(c) = it.prev() else {
+            break;
+        };
+        if c != sample {
+            it.next();
             break;
         }
     }
@@ -1402,6 +1385,19 @@ fn skip_sample<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, sample: Grapheme)
 }
 
 #[inline]
+fn pskip_white<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
+    loop {
+        let Some(c) = it.prev() else {
+            break;
+        };
+        if !is_whitespace(&c) {
+            it.next();
+            break;
+        }
+    }
+}
+
+#[inline]
 fn skip_white<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
     loop {
         let Some(c) = it.next() else {
@@ -1415,12 +1411,53 @@ fn skip_white<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
 }
 
 #[inline]
+fn pskip_nonwhite<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
+    loop {
+        let Some(c) = it.prev() else {
+            break;
+        };
+        if is_whitespace(&c) || is_linebreak(&c) {
+            it.next();
+            break;
+        }
+    }
+}
+
+#[inline]
 fn skip_nonwhite<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
     loop {
         let Some(c) = it.next() else {
             break;
         };
         if is_whitespace(&c) || is_linebreak(&c) {
+            it.prev();
+            break;
+        }
+    }
+}
+
+#[inline]
+fn pskip_sentence_extra<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
+    loop {
+        let Some(c) = it.prev() else {
+            break;
+        };
+        if c.grapheme() != ")" && c.grapheme() != "]" && c.grapheme() != "\"" && c.grapheme() != "'"
+        {
+            it.next();
+            break;
+        }
+    }
+}
+
+#[inline]
+fn skip_sentence_extra<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
+    loop {
+        let Some(c) = it.next() else {
+            break;
+        };
+        if c.grapheme() != ")" && c.grapheme() != "]" && c.grapheme() != "\"" && c.grapheme() != "'"
+        {
             it.prev();
             break;
         }
