@@ -302,6 +302,14 @@ pub enum Motion {
     Quoted(char, TxtObj),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum History {
+    PrevJump,
+    NextJump,
+    PrevChange,
+    NextChange,
+}
+
 /// Vi scrolling commands.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Scrolling {
@@ -327,6 +335,7 @@ pub enum Vim {
     /// Partial movement. Only used for '/' search.
     Partial(u32, Motion),
     Move(u32, Motion),
+    History(u32, History),
     Scroll(u32, Scrolling),
     Mark(Mark),
 
@@ -353,6 +362,8 @@ pub enum Vim {
     Paste(u32, bool),
     PasteClipboard(u32, bool),
     Replace(u32, char),
+    Dedent,
+    Indent,
 }
 
 fn is_visual_memo(vim: &Vim) -> bool {
@@ -370,6 +381,7 @@ fn is_normal_memo(vim: &Vim) -> bool {
         Vim::Move(_, _) => false,
         Vim::Scroll(_, _) => false,
         Vim::Mark(_) => false,
+        Vim::History(_, _) => false,
         Vim::VisualSelect(_) => false,
         Vim::VisualSwapLead => false,
         Vim::VisualSwapDiagonal => false,
@@ -391,6 +403,9 @@ fn is_normal_memo(vim: &Vim) -> bool {
         Vim::CopyClipboard(_, _) => false,
         Vim::Paste(_, _) => true,
         Vim::PasteClipboard(_, _) => true,
+
+        Vim::Dedent => true,
+        Vim::Indent => true,
     }
 }
 
@@ -544,6 +559,7 @@ fn execute_visual(
         }
         Vim::Partial(_, _) => unreachable!("unknown partial"),
 
+        Vim::History(_, _) => {}
         Vim::Scroll(_, _) => {}
         Vim::Mark(_) => {}
 
@@ -568,6 +584,8 @@ fn execute_visual(
         Vim::Paste(_, _) => unreachable!("unknown"),
         Vim::PasteClipboard(_, _) => unreachable!("unknown"),
         Vim::Replace(_, _) => unreachable!("unknown"),
+        Vim::Dedent => unreachable!("unknown"),
+        Vim::Indent => unreachable!("unknown"),
     }
 
     display_matches(state, vi);
@@ -612,6 +630,9 @@ fn execute_normal(
         Vim::Scroll(_, Scrolling::BottomOfScreen) => scroll_cursor_to_bottom(state),
 
         Vim::Mark(mark) => set_mark(*mark, state, vi),
+        Vim::History(_, _) => {
+            todo!()
+        }
 
         Vim::VisualSelect(block) => begin_visual(*block, state, vi),
         Vim::VisualSwapLead => unreachable!("unknown"),
@@ -689,6 +710,12 @@ fn execute_normal(
         Vim::Replace(mul, c) => {
             replace_text(*mul, *c, state, vi)?;
             r = TextOutcome::TextChanged;
+        }
+        Vim::Dedent => {
+            todo!()
+        }
+        Vim::Indent => {
+            todo!()
         }
     }
 
@@ -1447,12 +1474,12 @@ pub mod motion_op {
             Motion::WORD(to) => q_start_of_bigword(*to, state),
             Motion::Sentence(to) => q_prev_sentence(1, *to, state).expect("todo"),
             Motion::Paragraph(_) => q_prev_paragraph(1, state).expect("todo"),
-            Motion::Bracket(to) => unreachable!(),
-            Motion::Parenthesis(to) => unreachable!(),
-            Motion::Angled(to) => unreachable!(),
-            Motion::Tagged(to) => unreachable!(),
-            Motion::Brace(to) => unreachable!(),
-            Motion::Quoted(c, to) => unreachable!(),
+            Motion::Bracket(to) => todo!(),
+            Motion::Parenthesis(to) => todo!(),
+            Motion::Angled(to) => todo!(),
+            Motion::Tagged(to) => todo!(),
+            Motion::Brace(to) => todo!(),
+            Motion::Quoted(c, to) => todo!(),
             _ => state.cursor(),
         }
     }
@@ -1508,12 +1535,12 @@ pub mod motion_op {
             Motion::WORD(to) => Some(q_end_of_bigword(mul, *to, state)),
             Motion::Sentence(to) => q_next_sentence(mul, *to, state),
             Motion::Paragraph(to) => q_next_paragraph(mul, *to, state),
-            Motion::Bracket(to) => unreachable!(),
-            Motion::Parenthesis(to) => unreachable!(),
-            Motion::Angled(to) => unreachable!(),
-            Motion::Tagged(to) => unreachable!(),
-            Motion::Brace(to) => unreachable!(),
-            Motion::Quoted(c, to) => unreachable!(),
+            Motion::Bracket(to) => todo!(),
+            Motion::Parenthesis(to) => todo!(),
+            Motion::Angled(to) => todo!(),
+            Motion::Tagged(to) => todo!(),
+            Motion::Brace(to) => todo!(),
+            Motion::Quoted(c, to) => todo!(),
         })
     }
 }
@@ -1636,7 +1663,7 @@ pub mod modes_op {
 
 pub mod state_machine {
     use crate::coroutine::Yield;
-    use crate::vi::{Mark, Motion, Scrolling, TxtObj, Vim};
+    use crate::vi::{History, Mark, Motion, Scrolling, TxtObj, Vim};
     use crate::{ctrl, yield_};
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -1676,23 +1703,6 @@ pub mod state_machine {
             '>' | '<' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Angled(txo))),
             _ => Err(tok),
         }
-    }
-
-    async fn ext_motion(
-        mut tok: char,
-        mul: Option<u32>,
-        motion_buf: &RefCell<String>,
-        yp: &Yield<char, Vim>,
-    ) -> Result<Vim, char> {
-        tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
-            Ok(v) => return Ok(v),
-            Err(tok) => tok,
-        };
-        tok = match bare_object(tok, mul, &motion_buf, &yp).await {
-            Ok(v) => return Ok(v),
-            Err(tok) => tok,
-        };
-        Err(tok)
     }
 
     async fn bare_object(
@@ -1739,6 +1749,8 @@ pub mod state_machine {
                     'e' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWordEnd)),
                     'E' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWORDEnd)),
                     '_' => Ok(Vim::Move(mul.unwrap_or(1), Motion::EndOfLineText)),
+                    ',' => Ok(Vim::History(mul.unwrap_or(1), History::NextChange)),
+                    ';' => Ok(Vim::History(mul.unwrap_or(1), History::PrevChange)),
                     'g' => {
                         if let Some(mul) = mul {
                             Ok(Vim::Move(mul, Motion::ToLine))
@@ -1873,9 +1885,28 @@ pub mod state_machine {
                     _ => Ok(Vim::Invalid),
                 }
             }
+            ctrl::CTRL_O => Ok(Vim::History(mul.unwrap_or(1), History::PrevJump)),
+            ctrl::CTRL_I => Ok(Vim::History(mul.unwrap_or(1), History::NextJump)),
 
             _ => Err(tok),
         }
+    }
+
+    async fn motion_or_textobject(
+        mut tok: char,
+        mul: Option<u32>,
+        motion_buf: &RefCell<String>,
+        yp: &Yield<char, Vim>,
+    ) -> Result<Vim, char> {
+        tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
+            Ok(v) => return Ok(v),
+            Err(tok) => tok,
+        };
+        tok = match bare_object(tok, mul, &motion_buf, &yp).await {
+            Ok(v) => return Ok(v),
+            Err(tok) => tok,
+        };
+        Err(tok)
     }
 
     async fn bare_scroll(
@@ -1958,14 +1989,13 @@ pub mod state_machine {
                 (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
                 motion_buf.borrow_mut().push(tok);
-                tok = match ext_motion(tok, mul2, &motion_buf, &yp).await {
+                tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
                     Ok(Vim::Move(mul2, motion)) => {
                         let mul = mul.unwrap_or(1);
                         return Vim::Delete(mul * mul2, motion);
                     }
-                    Ok(Vim::Invalid) => return Vim::Invalid,
+                    Ok(_) => return Vim::Invalid,
                     Err(tok) => tok,
-                    _ => unreachable!("no"),
                 };
                 match tok {
                     'd' => Vim::Delete(mul.unwrap_or(1), Motion::FullLine),
@@ -1979,14 +2009,13 @@ pub mod state_machine {
                 (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
                 motion_buf.borrow_mut().push(tok);
-                tok = match ext_motion(tok, mul2, &motion_buf, &yp).await {
+                tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
                     Ok(Vim::Move(mul2, motion)) => {
                         let mul = mul.unwrap_or(1);
                         return Vim::Change(mul * mul2, motion);
                     }
-                    Ok(Vim::Invalid) => return Vim::Invalid,
+                    Ok(_) => return Vim::Invalid,
                     Err(tok) => tok,
-                    _ => unreachable!("no"),
                 };
                 match tok {
                     'c' => Vim::Change(mul.unwrap_or(1), Motion::FullLine),
@@ -2000,14 +2029,13 @@ pub mod state_machine {
                 (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
                 motion_buf.borrow_mut().push(tok);
-                tok = match ext_motion(tok, mul2, &motion_buf, &yp).await {
+                tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
                     Ok(Vim::Move(mul2, motion)) => {
                         let mul = mul.unwrap_or(1);
                         return Vim::Yank(mul * mul2, motion);
                     }
-                    Ok(Vim::Invalid) => return Vim::Invalid,
+                    Ok(_) => return Vim::Invalid,
                     Err(tok) => tok,
-                    _ => unreachable!("no"),
                 };
                 match tok {
                     'y' => Vim::Yank(mul.unwrap_or(1), Motion::FullLine),
@@ -2030,14 +2058,14 @@ pub mod state_machine {
                                 (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
                                 motion_buf.borrow_mut().push(tok);
-                                tok = match ext_motion(tok, mul2, &motion_buf, &yp).await {
+                                tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await
+                                {
                                     Ok(Vim::Move(mul2, motion)) => {
                                         let mul = mul.unwrap_or(1);
                                         return Vim::CopyClipboard(mul * mul2, motion);
                                     }
-                                    Ok(Vim::Invalid) => return Vim::Invalid,
+                                    Ok(_) => return Vim::Invalid,
                                     Err(tok) => tok,
-                                    _ => unreachable!("no"),
                                 };
                                 match tok {
                                     'y' => Vim::CopyClipboard(mul.unwrap_or(1), Motion::FullLine),
@@ -2049,6 +2077,7 @@ pub mod state_machine {
                             _ => Vim::Invalid,
                         }
                     }
+                    // TODO other registers
                     _ => Vim::Invalid,
                 }
             }
@@ -2067,6 +2096,8 @@ pub mod state_machine {
             'J' => Vim::JoinLines(mul.unwrap_or(1)),
             'u' => Vim::Undo(mul.unwrap_or(1)),
             ctrl::CTRL_R => Vim::Redo(mul.unwrap_or(1)),
+            '<' => Vim::Dedent,
+            '>' => Vim::Indent,
 
             '.' => Vim::Repeat(mul.unwrap_or(1)),
 
@@ -2087,13 +2118,12 @@ pub mod state_machine {
         (mul, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
         motion_buf.borrow_mut().push(tok);
-        tok = match ext_motion(tok, mul, &motion_buf, &yp).await {
+        tok = match motion_or_textobject(tok, mul, &motion_buf, &yp).await {
             Ok(v @ Vim::Move(_, _)) => {
                 return v;
             }
-            Ok(Vim::Invalid) => return Vim::Invalid,
+            Ok(_) => return Vim::Invalid,
             Err(tok) => tok,
-            _ => unreachable!("no"),
         };
 
         match tok {
