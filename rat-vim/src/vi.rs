@@ -105,7 +105,7 @@ pub enum Mark {
     Jump,
 }
 
-/// Mark data
+/// Mark_ data
 #[derive(Debug, Default)]
 pub struct Marks {
     /// a-z marks
@@ -545,6 +545,7 @@ fn execute_visual(
         Vim::Visual(_) => unreachable!("unknown"),
 
         Vim::Move(mul, m) => visual_move(*mul, m, state, vi)?,
+        Vim::Mark(mark) => unreachable!("unknown"),
 
         Vim::Partial(mul, Motion::SearchForward(s)) => {
             search_fwd(*mul, s, true, state, vi)?;
@@ -555,10 +556,6 @@ fn execute_visual(
             scroll_to_search_idx(state, vi);
         }
         Vim::Partial(_, _) => unreachable!("unknown"),
-
-        Vim::Mark(mark) => {
-            todo!()
-        }
 
         Vim::VisualSwapDiagonal => visual_swap_diagonal(state, vi),
         Vim::VisualSwapLead => visual_swap_lead(state, vi),
@@ -1435,6 +1432,7 @@ pub mod motion_op {
 
     pub fn motion_start_position(motion: &Motion, state: &mut TextAreaState) -> TextPosition {
         match motion {
+            Motion::Visual => unreachable!(),
             Motion::FullLine => q_start_of_line(state),
             Motion::Word(to) => q_start_of_word(*to, state),
             Motion::WORD(to) => q_start_of_bigword(*to, state),
@@ -1457,7 +1455,7 @@ pub mod motion_op {
         vi: &mut VI,
     ) -> Result<Option<TextPosition>, SearchError> {
         Ok(match motion {
-            Motion::Visual => unimplemented!(),
+            Motion::Visual => unreachable!(),
             Motion::Left => q_move_left(mul, state),
             Motion::Right => q_move_right(mul, state),
             Motion::Up => q_move_up(mul, state),
@@ -1643,7 +1641,7 @@ pub mod modes_op {
                 prepend_line_str(mul.saturating_sub(1), state, vi);
             }
             _ => {
-                unimplemented!()
+                unreachable!()
             }
         };
         q_set_mark(Mark::Insert, state.cursor(), vi);
