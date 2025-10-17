@@ -275,31 +275,26 @@ async fn bare_scroll(
     }
 }
 
-pub async fn next_normal(
-    mut tok: char,
-    motion_buf: Rc<RefCell<String>>,
-    yp: Yield<char, Vim>,
-) -> Vim {
+pub async fn next_normal(tok: char, motion_buf: Rc<RefCell<String>>, yp: Yield<char, Vim>) -> Vim {
     if tok == '0' {
         return Vim::Move(1, Motion::StartOfLine);
     }
 
-    let mul;
-    (mul, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
+    let (mul, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
     motion_buf.borrow_mut().push(tok);
-    tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
+    let tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
         Ok(v) => return v,
         Err(tok) => tok,
     };
-    tok = match bare_scroll(tok, mul, &motion_buf, &yp).await {
+    let tok = match bare_scroll(tok, mul, &motion_buf, &yp).await {
         Ok(v) => return v,
         Err(tok) => tok,
     };
 
     match tok {
         'm' => {
-            tok = yield_!(yp);
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             match tok {
                 'a'..'z' => Vim::Mark(Mark::Char(tok)),
@@ -317,18 +312,17 @@ pub async fn next_normal(
         ctrl::CTRL_V => Vim::Visual(true),
 
         'r' => {
-            tok = yield_!(yp);
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             Vim::Replace(mul.unwrap_or(1), tok)
         }
         'd' => {
-            tok = yield_!(yp);
+            let tok = yield_!(yp);
 
-            let mul2;
-            (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
+            let (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
             motion_buf.borrow_mut().push(tok);
-            tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
+            let tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
                 Ok(Vim::Move(mul2, motion)) => {
                     let mul = mul.unwrap_or(1);
                     return Vim::Delete(mul * mul2, motion);
@@ -342,13 +336,12 @@ pub async fn next_normal(
             }
         }
         'c' => {
-            tok = yield_!(yp);
+            let tok = yield_!(yp);
 
-            let mul2;
-            (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
+            let (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
             motion_buf.borrow_mut().push(tok);
-            tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
+            let tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
                 Ok(Vim::Move(mul2, motion)) => {
                     let mul = mul.unwrap_or(1);
                     return Vim::Change(mul * mul2, motion);
@@ -362,13 +355,12 @@ pub async fn next_normal(
             }
         }
         'y' => {
-            tok = yield_!(yp);
+            let tok = yield_!(yp);
 
-            let mul2;
-            (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
+            let (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
             motion_buf.borrow_mut().push(tok);
-            tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
+            let tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
                 Ok(Vim::Move(mul2, motion)) => {
                     let mul = mul.unwrap_or(1);
                     return Vim::Yank(mul * mul2, motion);
@@ -382,22 +374,22 @@ pub async fn next_normal(
             }
         }
         '"' => {
-            tok = yield_!(yp);
+            let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             match tok {
                 '*' => {
-                    tok = yield_!(yp);
+                    let tok = yield_!(yp);
                     motion_buf.borrow_mut().push(tok);
 
                     match tok {
                         'y' => {
-                            tok = yield_!(yp);
+                            let tok = yield_!(yp);
 
-                            let mul2;
-                            (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
+                            let (mul2, tok) = bare_multiplier(tok, &motion_buf, &yp).await;
 
                             motion_buf.borrow_mut().push(tok);
-                            tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await {
+                            let tok = match motion_or_textobject(tok, mul2, &motion_buf, &yp).await
+                            {
                                 Ok(Vim::Move(mul2, motion)) => {
                                     let mul = mul.unwrap_or(1);
                                     return Vim::CopyClipboard(mul * mul2, motion);

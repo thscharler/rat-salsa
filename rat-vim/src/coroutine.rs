@@ -136,6 +136,34 @@ impl<Y, R> Resume<Y, R> {
     }
 }
 
+impl<Y> Resume<Y, Y> {
+    /// Yielded/Returned value.
+    ///
+    /// Panic
+    ///
+    /// Panics if this is a [Resume::Pending].
+    pub fn value(self) -> Y {
+        if let Resume::Yield(v) = self {
+            v
+        } else if let Resume::Return(v) = self {
+            v
+        } else {
+            panic!("not_yield")
+        }
+    }
+
+    /// Yielded value.
+    pub fn try_value(self) -> Option<Y> {
+        if let Resume::Yield(v) = self {
+            Some(v)
+        } else if let Resume::Return(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
 /// Implements a coroutine using a future.
 ///
 /// It has the specialty that it can yield without producing a result.
@@ -245,6 +273,16 @@ impl<Y, R> CoResult<Y, R> {
             Some(v)
         } else {
             None
+        }
+    }
+}
+
+impl<Y> CoResult<Y, Y> {
+    /// Yielded/Returned result.
+    pub fn value(self) -> Y {
+        match self {
+            CoResult::Yield(v) => v,
+            CoResult::Return(v) => v,
         }
     }
 }
