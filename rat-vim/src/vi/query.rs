@@ -320,6 +320,8 @@ pub fn q_start_of_word(to: TxtObj, state: &TextAreaState) -> TextPosition {
 
     let leading_whitespace;
     if to == TxtObj::A {
+        // leading instead of trailing whitespace
+        // if this is at the end of the line.
         loop {
             let Some(c) = it.next() else {
                 leading_whitespace = true;
@@ -339,21 +341,19 @@ pub fn q_start_of_word(to: TxtObj, state: &TextAreaState) -> TextPosition {
     }
 
     let mut it = state.text_graphemes(state.cursor());
-
-    let Some(sample) = it.peek_next() else {
-        return state.byte_pos(it.text_offset());
-    };
-    if is_alphanumeric(&sample) {
-        pskip_alpha(&mut it);
-        if leading_whitespace {
+    if let Some(c) = it.next() {
+        if is_alphanumeric(&c) {
+            pskip_alpha(&mut it);
+            if leading_whitespace {
+                pskip_white(&mut it);
+            }
+        } else if is_whitespace(&c) {
             pskip_white(&mut it);
-        }
-    } else if is_whitespace(&sample) {
-        pskip_white(&mut it);
-    } else {
-        pskip_sample(&mut it, sample);
-        if leading_whitespace {
-            pskip_white(&mut it);
+        } else {
+            pskip_char(&mut it, c);
+            if leading_whitespace {
+                pskip_white(&mut it);
+            }
         }
     }
 
@@ -367,18 +367,18 @@ pub fn q_end_of_word(mut mul: u32, to: TxtObj, state: &TextAreaState) -> TextPos
         if mul == 0 {
             break;
         }
-        let Some(sample) = it.peek_next() else {
-            return state.byte_pos(it.text_offset());
+        let Some(c) = it.next() else {
+            break;
         };
-        if is_alphanumeric(&sample) {
+        if is_alphanumeric(&c) {
             skip_alpha(&mut it);
             if to == TxtObj::A {
                 skip_white(&mut it);
             }
-        } else if is_whitespace(&sample) {
+        } else if is_whitespace(&c) {
             skip_white(&mut it);
         } else {
-            skip_sample(&mut it, sample);
+            skip_char(&mut it, c);
             if to == TxtObj::A {
                 skip_white(&mut it);
             }
@@ -393,15 +393,15 @@ pub fn q_next_word_start(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
-        let Some(sample) = it.peek_next() else {
+        let Some(c) = it.next() else {
             break;
         };
-        if is_alphanumeric(&sample) {
+        if is_alphanumeric(&c) {
             skip_alpha(&mut it);
-        } else if is_whitespace(&sample) {
+        } else if is_whitespace(&c) {
             // noop
         } else {
-            skip_sample(&mut it, sample);
+            skip_char(&mut it, c);
         }
 
         skip_white(&mut it);
@@ -416,23 +416,23 @@ pub fn q_prev_word_start(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     'l: while mul > 0 {
-        let Some(sample) = it.peek_prev() else {
+        let Some(c) = it.prev() else {
             break;
         };
-        if is_alphanumeric(&sample) {
+        if is_alphanumeric(&c) {
             pskip_alpha(&mut it);
-        } else if is_whitespace(&sample) {
+        } else if is_whitespace(&c) {
             pskip_white(&mut it);
-            let Some(sample) = it.peek_prev() else {
+            let Some(d) = it.prev() else {
                 break 'l;
             };
-            if is_alphanumeric(&sample) {
+            if is_alphanumeric(&d) {
                 pskip_alpha(&mut it);
             } else {
-                pskip_sample(&mut it, sample);
+                pskip_char(&mut it, d);
             }
         } else {
-            pskip_sample(&mut it, sample);
+            pskip_char(&mut it, c);
         }
 
         mul -= 1;
@@ -447,13 +447,13 @@ pub fn q_next_word_end(mut mul: u32, state: &TextAreaState) -> TextPosition {
     while mul > 0 {
         skip_white(&mut it);
 
-        let Some(sample) = it.peek_next() else {
+        let Some(c) = it.next() else {
             break;
         };
-        if is_alphanumeric(&sample) {
+        if is_alphanumeric(&c) {
             skip_alpha(&mut it);
         } else {
-            skip_sample(&mut it, sample);
+            skip_char(&mut it, c);
         }
 
         mul -= 1;
@@ -466,15 +466,15 @@ pub fn q_prev_word_end(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
-        let Some(sample) = it.peek_prev() else {
+        let Some(c) = it.prev() else {
             break;
         };
-        if is_alphanumeric(&sample) {
+        if is_alphanumeric(&c) {
             pskip_alpha(&mut it);
-        } else if is_whitespace(&sample) {
+        } else if is_whitespace(&c) {
             // noop
         } else {
-            pskip_sample(&mut it, sample);
+            pskip_char(&mut it, c);
         }
 
         pskip_white(&mut it);
@@ -509,17 +509,15 @@ pub fn q_start_of_bigword(to: TxtObj, state: &TextAreaState) -> TextPosition {
     }
 
     let mut it = state.text_graphemes(state.cursor());
-
-    let Some(sample) = it.peek_next() else {
-        return state.byte_pos(it.text_offset());
-    };
-    if !is_whitespace(&sample) {
-        pskip_nonwhite(&mut it);
-        if leading_whitespace {
+    if let Some(c) = it.peek_next() {
+        if !is_whitespace(&c) {
+            pskip_nonwhite(&mut it);
+            if leading_whitespace {
+                pskip_white(&mut it);
+            }
+        } else {
             pskip_white(&mut it);
         }
-    } else {
-        pskip_white(&mut it);
     }
 
     state.byte_pos(it.text_offset())
@@ -532,10 +530,10 @@ pub fn q_end_of_bigword(mut mul: u32, to: TxtObj, state: &TextAreaState) -> Text
         if mul == 0 {
             break;
         }
-        let Some(sample) = it.peek_next() else {
-            return state.byte_pos(it.text_offset());
+        let Some(c) = it.next() else {
+            break;
         };
-        if !is_whitespace(&sample) {
+        if !is_whitespace(&c) {
             skip_nonwhite(&mut it);
             if to == TxtObj::A {
                 skip_white(&mut it);
@@ -553,10 +551,10 @@ pub fn q_next_bigword_start(mut mul: u32, state: &TextAreaState) -> TextPosition
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
-        let Some(sample) = it.peek_next() else {
+        let Some(c) = it.next() else {
             break;
         };
-        if !is_whitespace(&sample) {
+        if !is_whitespace(&c) {
             skip_nonwhite(&mut it);
         }
         skip_white(&mut it);
@@ -571,10 +569,10 @@ pub fn q_prev_bigword_start(mut mul: u32, state: &TextAreaState) -> TextPosition
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
-        let Some(sample) = it.peek_prev() else {
+        let Some(c) = it.prev() else {
             break;
         };
-        if !is_whitespace(&sample) {
+        if !is_whitespace(&c) {
             pskip_nonwhite(&mut it);
         } else {
             pskip_white(&mut it);
@@ -593,11 +591,13 @@ pub fn q_next_bigword_end(mut mul: u32, state: &TextAreaState) -> TextPosition {
     while mul > 0 {
         skip_white(&mut it);
 
-        let Some(sample) = it.peek_next() else {
+        let Some(c) = it.next() else {
             break;
         };
-        if !is_whitespace(&sample) {
+        if !is_whitespace(&c) {
             skip_nonwhite(&mut it);
+        } else {
+            it.prev();
         }
 
         mul -= 1;
@@ -610,11 +610,13 @@ pub fn q_prev_bigword_end(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
-        let Some(sample) = it.peek_prev() else {
+        let Some(c) = it.prev() else {
             break;
         };
-        if !is_whitespace(&sample) {
+        if !is_whitespace(&c) {
             pskip_nonwhite(&mut it);
+        } else {
+            // skip anyway
         }
         pskip_white(&mut it);
 
@@ -1066,13 +1068,14 @@ pub fn q_search_word_back(
 fn qq_word_start(state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
-    if let Some(sample) = it.peek_prev() {
-        if is_alphanumeric(&sample) {
+    if let Some(c) = it.prev() {
+        if is_alphanumeric(&c) {
             pskip_alpha(&mut it);
-        } else if is_whitespace(&sample) {
+        } else if is_whitespace(&c) {
+            it.next();
             // noop
         } else {
-            pskip_sample(&mut it, sample);
+            pskip_char(&mut it, c);
         }
     }
 
@@ -1082,13 +1085,14 @@ fn qq_word_start(state: &TextAreaState) -> TextPosition {
 fn qq_word_end(state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
-    if let Some(sample) = it.peek_next() {
-        if is_alphanumeric(&sample) {
+    if let Some(c) = it.next() {
+        if is_alphanumeric(&c) {
             skip_alpha(&mut it);
-        } else if is_whitespace(&sample) {
+        } else if is_whitespace(&c) {
+            it.prev();
             // noop
         } else {
-            skip_sample(&mut it, sample);
+            skip_char(&mut it, c);
         }
     }
 
@@ -1353,12 +1357,12 @@ fn skip_alpha<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) {
 }
 
 #[inline]
-fn pskip_sample<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, sample: Grapheme) {
+fn pskip_char<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, cc: Grapheme) {
     loop {
         let Some(c) = it.prev() else {
             break;
         };
-        if c != sample {
+        if c != cc {
             it.next();
             break;
         }
@@ -1366,12 +1370,12 @@ fn pskip_sample<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, sample: Grapheme
 }
 
 #[inline]
-fn skip_sample<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, sample: Grapheme) {
+fn skip_char<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C, cc: Grapheme) {
     loop {
         let Some(c) = it.next() else {
             break;
         };
-        if c != sample {
+        if c != cc {
             it.prev();
             break;
         }
