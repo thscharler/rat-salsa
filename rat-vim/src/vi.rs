@@ -243,6 +243,8 @@ pub enum TxtObj {
 /// Vi motions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Motion {
+    Visual,
+
     Left,
     Right,
     Up,
@@ -340,13 +342,9 @@ pub enum Vim {
     Scroll(u32, Scrolling),
     Mark(Mark),
 
-    VisualSelect(bool),
+    Visual(bool),
     VisualSwapLead,
     VisualSwapDiagonal,
-    VisualDelete,
-    VisualChange,
-    VisualYank,
-    VisualCopyClipboard,
 
     Undo(u32),
     Redo(u32),
@@ -369,7 +367,7 @@ pub enum Vim {
 
 fn is_visual_memo(vim: &Vim) -> bool {
     match vim {
-        Vim::VisualChange => true,
+        Vim::Change(_, Motion::Visual) => true,
         _ => false,
     }
 }
@@ -383,13 +381,9 @@ fn is_normal_memo(vim: &Vim) -> bool {
         Vim::Scroll(_, _) => false,
         Vim::Mark(_) => false,
         Vim::History(_, _) => false,
-        Vim::VisualSelect(_) => false,
+        Vim::Visual(_) => false,
         Vim::VisualSwapLead => false,
         Vim::VisualSwapDiagonal => false,
-        Vim::VisualDelete => false,
-        Vim::VisualChange => false,
-        Vim::VisualYank => false,
-        Vim::VisualCopyClipboard => false,
         Vim::Undo(_) => false,
         Vim::Redo(_) => false,
         Vim::JoinLines(_) => true,
@@ -399,14 +393,13 @@ fn is_normal_memo(vim: &Vim) -> bool {
         Vim::PrependLine(_) => true,
         Vim::Delete(_, _) => true,
         Vim::Change(_, _) => true,
+        Vim::Dedent => true,
+        Vim::Indent => true,
         Vim::Replace(_, _) => true,
         Vim::Yank(_, _) => false,
         Vim::CopyClipboard(_, _) => false,
         Vim::Paste(_, _) => true,
         Vim::PasteClipboard(_, _) => true,
-
-        Vim::Dedent => true,
-        Vim::Indent => true,
     }
 }
 
@@ -547,6 +540,9 @@ fn execute_visual(
     match vim {
         Vim::Invalid => r = TextOutcome::Unchanged,
         Vim::Repeat(_) => unreachable!("wrong spot for repeat"),
+        Vim::History(_, _) => unreachable!("unknown"),
+        Vim::Scroll(_, _) => unreachable!("unknown"),
+        Vim::Visual(_) => unreachable!("unknown"),
 
         Vim::Move(mul, m) => visual_move(*mul, m, state, vi)?,
 
@@ -558,21 +554,18 @@ fn execute_visual(
             search_back(*mul, s, true, state, vi)?;
             scroll_to_search_idx(state, vi);
         }
-        Vim::Partial(_, _) => unreachable!("unknown partial"),
+        Vim::Partial(_, _) => unreachable!("unknown"),
 
-        Vim::History(_, _) => {}
-        Vim::Scroll(_, _) => {}
         Vim::Mark(mark) => {
             todo!()
         }
 
-        Vim::VisualSelect(_) => unreachable!("unknown"),
         Vim::VisualSwapDiagonal => visual_swap_diagonal(state, vi),
         Vim::VisualSwapLead => visual_swap_lead(state, vi),
-        Vim::VisualDelete => visual_delete(state, vi),
-        Vim::VisualChange => visual_change(state, vi),
-        Vim::VisualYank => visual_yank(state, vi),
-        Vim::VisualCopyClipboard => visual_copy_clipboard(state, vi),
+        Vim::Delete(_, _) => visual_delete(state, vi),
+        Vim::Change(_, _) => visual_change(state, vi),
+        Vim::Yank(_, _) => visual_yank(state, vi),
+        Vim::CopyClipboard(_, _) => visual_copy_clipboard(state, vi),
         Vim::Undo(_) => unreachable!("unknown"),
         Vim::Redo(_) => unreachable!("unknown"),
         Vim::JoinLines(_) => unreachable!("unknown"),
@@ -580,15 +573,11 @@ fn execute_visual(
         Vim::Append(_) => unreachable!("unknown"),
         Vim::AppendLine(_) => unreachable!("unknown"),
         Vim::PrependLine(_) => unreachable!("unknown"),
-        Vim::Delete(_, _) => unreachable!("unknown"),
-        Vim::Change(_, _) => unreachable!("unknown"),
-        Vim::Yank(_, _) => unreachable!("unknown"),
-        Vim::CopyClipboard(_, _) => unreachable!("unknown"),
+        Vim::Dedent => unreachable!("unknown"),
+        Vim::Indent => unreachable!("unknown"),
         Vim::Paste(_, _) => unreachable!("unknown"),
         Vim::PasteClipboard(_, _) => unreachable!("unknown"),
         Vim::Replace(_, _) => unreachable!("unknown"),
-        Vim::Dedent => unreachable!("unknown"),
-        Vim::Indent => unreachable!("unknown"),
     }
 
     display_matches(state, vi);
@@ -644,13 +633,9 @@ fn execute_normal(
             todo!()
         }
 
-        Vim::VisualSelect(block) => begin_visual(*block, state, vi),
+        Vim::Visual(block) => begin_visual(*block, state, vi),
         Vim::VisualSwapLead => unreachable!("unknown"),
         Vim::VisualSwapDiagonal => unreachable!("unknown"),
-        Vim::VisualDelete => unreachable!("unknown"),
-        Vim::VisualChange => unreachable!("unknown"),
-        Vim::VisualYank => unreachable!("unknown"),
-        Vim::VisualCopyClipboard => unreachable!("unknown"),
 
         Vim::Undo(mul) => {
             undo(*mul, state, vi);
@@ -700,12 +685,11 @@ fn execute_normal(
         }
         Vim::Change(mul, m) => {
             if repeat {
-                change_text(*mul, m, state, vi)?;
+                change_text_str(*mul, m, state, vi)?;
                 insert_str(1, state, vi);
                 r = TextOutcome::TextChanged;
             } else {
-                change_text(*mul, m, state, vi)?;
-                begin_insert(state, vi);
+                begin_change_text(*mul, m, state, vi)?;
                 r = TextOutcome::TextChanged;
             }
         }
@@ -1210,7 +1194,7 @@ pub mod change_op {
         Ok(start_end_to_range(start, end))
     }
 
-    pub fn change_text(
+    pub fn change_text_str(
         mul: u32,
         motion: &Motion,
         state: &mut TextAreaState,
@@ -1473,6 +1457,7 @@ pub mod motion_op {
         vi: &mut VI,
     ) -> Result<Option<TextPosition>, SearchError> {
         Ok(match motion {
+            Motion::Visual => unimplemented!(),
             Motion::Left => q_move_left(mul, state),
             Motion::Right => q_move_right(mul, state),
             Motion::Up => q_move_up(mul, state),
@@ -1530,12 +1515,13 @@ pub mod motion_op {
 }
 
 pub mod modes_op {
+    use crate::SearchError;
     use crate::coroutine::Coroutine;
     use crate::vi::change_op::*;
     use crate::vi::query::q_set_mark;
     use crate::vi::state_machine::*;
     use crate::vi::visual_op::end_visual_change;
-    use crate::vi::{Mark, Mode, SyncRanges, VI, Vim};
+    use crate::vi::{Mark, Mode, Motion, SyncRanges, VI, Vim};
     use rat_text::TextPosition;
     use rat_text::text_area::TextAreaState;
     use std::mem;
@@ -1610,6 +1596,22 @@ pub mod modes_op {
         state.move_right(1, false);
     }
 
+    pub fn begin_change_text(
+        mul: u32,
+        motion: &Motion,
+        state: &mut TextAreaState,
+        vi: &mut VI,
+    ) -> Result<(), SearchError> {
+        vi.mode = Mode::Insert;
+        vi.text.clear();
+
+        q_set_mark(Mark::ChangeStart, state.cursor(), vi);
+
+        change_text_str(mul, motion, state, vi)?;
+
+        Ok(())
+    }
+
     pub fn begin_insert(state: &mut TextAreaState, vi: &mut VI) {
         vi.mode = Mode::Insert;
         vi.text.clear();
@@ -1623,6 +1625,14 @@ pub mod modes_op {
             Vim::Insert(mul) => {
                 insert_str(mul.saturating_sub(1), state, vi);
             }
+            Vim::Change(_, Motion::Visual) => {
+                end_visual_change(state, vi);
+                // don't allow repeat
+                command = Vim::Invalid;
+            }
+            Vim::Change(_, _) => {
+                // noop
+            }
             Vim::Append(mul) => {
                 append_str(mul.saturating_sub(1), state, vi);
             }
@@ -1632,11 +1642,9 @@ pub mod modes_op {
             Vim::PrependLine(mul) => {
                 prepend_line_str(mul.saturating_sub(1), state, vi);
             }
-            Vim::VisualChange => {
-                end_visual_change(state, vi);
-                command = Vim::Invalid;
+            _ => {
+                unimplemented!()
             }
-            _ => {}
         };
         q_set_mark(Mark::Insert, state.cursor(), vi);
         q_set_mark(Mark::ChangeEnd, state.cursor(), vi);
@@ -1958,8 +1966,8 @@ pub mod state_machine {
                 }
             }
 
-            'v' => Vim::VisualSelect(false),
-            ctrl::CTRL_V => Vim::VisualSelect(true),
+            'v' => Vim::Visual(false),
+            ctrl::CTRL_V => Vim::Visual(true),
 
             'r' => {
                 tok = yield_!(yp);
@@ -2113,9 +2121,9 @@ pub mod state_machine {
         match tok {
             'o' => Vim::VisualSwapLead,
             'O' => Vim::VisualSwapDiagonal,
-            'd' => Vim::VisualDelete,
-            'c' => Vim::VisualChange,
-            'y' => Vim::VisualYank,
+            'd' => Vim::Delete(1, Motion::Visual),
+            'c' => Vim::Change(1, Motion::Visual),
+            'y' => Vim::Yank(1, Motion::Visual),
             '"' => {
                 tok = yield_!(yp);
                 motion_buf.borrow_mut().push(tok);
@@ -2124,7 +2132,7 @@ pub mod state_machine {
                         tok = yield_!(yp);
                         motion_buf.borrow_mut().push(tok);
                         match tok {
-                            'y' => Vim::VisualCopyClipboard,
+                            'y' => Vim::CopyClipboard(1, Motion::Visual),
                             _ => Vim::Invalid,
                         }
                     }
