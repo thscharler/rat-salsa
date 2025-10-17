@@ -87,77 +87,72 @@ impl<'a> StatefulWidget for VIStatusLine<'a> {
 
         let mut status = StatusLineStacked::new().start(
             Span::from(self.name).style(self.name_style),
-            Some((
-                SLANT_TL_BR,
+            Span::from(SLANT_TL_BR).style(
                 Style::new()
                     .fg(self.name_style.bg.unwrap_or(Color::Reset))
                     .bg(mode_style.bg.unwrap_or(Color::Reset)),
-            )),
+            ),
         );
 
         match state.1.mode {
             Mode::Normal => {
                 status = status.start(
                     Span::from(" Normal ").style(self.normal_style),
-                    Some((
-                        SLANT_TL_BR,
+                    Span::from(SLANT_TL_BR).style(
                         Style::new()
                             .fg(self.normal_style.bg.unwrap_or(Color::Reset))
                             .bg(self.style.bg.unwrap_or(Color::Reset)),
-                    )),
+                    ),
                 );
             }
             Mode::Insert => {
                 status = status.start(
                     Span::from(" Insert ").style(self.insert_style),
-                    Some((
-                        SLANT_TL_BR,
+                    Span::from(SLANT_TL_BR).style(
                         Style::new()
                             .fg(self.insert_style.bg.unwrap_or(Color::Reset))
                             .bg(self.style.bg.unwrap_or(Color::Reset)),
-                    )),
+                    ),
                 );
             }
             Mode::Visual => {
                 status = status.start(
                     Span::from(" Visual ").style(self.visual_style),
-                    Some((
-                        SLANT_TL_BR,
+                    Span::from(SLANT_TL_BR).style(
                         Style::new()
                             .fg(self.visual_style.bg.unwrap_or(Color::Reset))
                             .bg(self.style.bg.unwrap_or(Color::Reset)),
-                    )),
+                    ),
                 );
             }
         }
 
         let md = state.1.command_display.borrow();
-        status = status.start(Span::from(md.as_str()).style(self.style), None);
+        status = status.start(Span::from(md.as_str()).style(self.style), "");
 
         status = status.center(Line::from(self.msg).style(self.style));
 
         status = status.end(
             Span::from(format!(" {}:{} ", state.0.cursor().x, state.0.cursor().y))
                 .style(self.pos_style),
-            Some((
-                SLANT_BL_TR,
+            Span::from(SLANT_BL_TR).style(
                 Style::new()
                     .fg(self.pos_style.bg.unwrap_or(Color::Black))
                     .bg(self.style.bg.unwrap_or(Color::Black)),
-            )),
+            ),
         );
         if !state.1.matches.list.is_empty() {
             let idx = state.1.matches.idx.unwrap_or(0) + 1;
             status = status.end(
                 Span::from(format!("{}/{}", idx, state.1.matches.list.len())).style(self.style),
-                Some(('|', self.style)),
+                Span::from("|").style(self.style),
             );
         }
         if !state.1.finds.list.is_empty() {
             let idx = state.1.finds.idx.unwrap_or(0) + 1;
             status = status.end(
                 Span::from(format!("🖛 {}/{}", idx, state.1.finds.list.len())).style(self.style),
-                Some(('|', self.style)),
+                Span::from("|").style(self.style),
             );
         }
 
