@@ -217,10 +217,18 @@ pub fn q_set_mark(mark: Mark, pos: TextPosition, vi: &mut VI) {
             vi.marks.visual_lead = Some(pos);
         }
         Mark::ChangeStart => {
-            vi.marks.change_start = Some(pos);
+            if vi.marks.change_idx != vi.marks.change.len() {
+                while vi.marks.change_idx + 1 < vi.marks.change.len() {
+                    vi.marks.change.pop();
+                }
+            }
+            vi.marks.change.push((pos, pos));
+            vi.marks.change_idx = vi.marks.change.len();
         }
         Mark::ChangeEnd => {
-            vi.marks.change_end = Some(pos);
+            if let Some(last) = vi.marks.change.last_mut() {
+                last.1 = pos;
+            }
         }
         Mark::Jump => {
             if vi.marks.jump_idx != vi.marks.jump.len() {
@@ -263,11 +271,13 @@ pub fn q_mark(
         }
         Mark::ChangeStart => {
             line = false;
-            vi.marks.change_start
+            vi.marks.change_idx = vi.marks.change.len();
+            vi.marks.change.last().cloned().map(|(v, _)| v)
         }
         Mark::ChangeEnd => {
             line = false;
-            vi.marks.change_end
+            vi.marks.change_idx = vi.marks.change.len();
+            vi.marks.change.last().cloned().map(|(_, v)| v)
         }
         Mark::Jump => {
             line = false;
