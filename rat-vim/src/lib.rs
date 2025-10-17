@@ -4,7 +4,6 @@ use std::fmt::{Display, Formatter};
 mod ctrl;
 
 pub mod coroutine;
-pub mod status_stacked;
 pub mod vi;
 pub mod vi_status_line;
 

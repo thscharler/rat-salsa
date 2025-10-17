@@ -1,4 +1,3 @@
-use crate::status_stacked::{SLANT_BL_TR, SLANT_TL_BR, StatusStack};
 use crate::vi::{Mode, VI};
 use rat_text::text_area::TextAreaState;
 use ratatui::buffer::Buffer;
@@ -7,6 +6,7 @@ use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::mem;
+use rat_widget::statusline_stacked::{StatusLineStacked, SLANT_BL_TR, SLANT_TL_BR};
 
 #[derive(Debug)]
 pub struct VIStatusLine<'a> {
@@ -85,7 +85,7 @@ impl<'a> StatefulWidget for VIStatusLine<'a> {
             Mode::Visual => self.visual_style,
         };
 
-        let mut status = StatusStack::new().start(
+        let mut status = StatusLineStacked::new().start(
             Span::from(self.name).style(self.name_style),
             Some((
                 SLANT_TL_BR,

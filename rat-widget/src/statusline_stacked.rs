@@ -1,4 +1,10 @@
-use log::debug;
+///
+/// A status-line widget that can stack up indicators
+/// on the left and right end.
+///
+/// If you use the constants SLANT_TL_BR and SLANT_BL_TR as
+/// separator you can do neo-vim a neovim style statusline.
+///
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
@@ -11,8 +17,9 @@ pub const SLANT_TL_BR: char = '\u{e0b8}';
 /// Block cut at the diagonal.
 pub const SLANT_BL_TR: char = '\u{e0ba}';
 
+/// Statusline with indicators on the left and right side.
 #[derive(Debug, Default, Clone)]
-pub struct StatusStack<'a> {
+pub struct StatusLineStacked<'a> {
     style: Style,
     left: Vec<(Span<'a>, Option<(char, Style)>)>,
     center: Line<'a>,
@@ -20,7 +27,7 @@ pub struct StatusStack<'a> {
     phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> StatusStack<'a> {
+impl<'a> StatusLineStacked<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -52,7 +59,7 @@ impl<'a> StatusStack<'a> {
     }
 }
 
-impl<'a> Widget for StatusStack<'a> {
+impl<'a> Widget for StatusLineStacked<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let mut x_end = area.right();
         for (v, g) in self.right.iter() {

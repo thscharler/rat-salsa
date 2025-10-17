@@ -1358,6 +1358,7 @@ dependencies = [
  "rat-reloc",
  "rat-scrolled",
  "rat-text",
+ "rat-widget",
  "ratatui",
  "regex-cursor",
  "ropey",

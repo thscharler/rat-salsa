@@ -106,6 +106,7 @@ pub mod shadow;
 pub mod slider;
 pub mod splitter;
 pub mod statusline;
+pub mod statusline_stacked;
 pub mod tabbed;
 pub mod table;
 pub mod text_input;
