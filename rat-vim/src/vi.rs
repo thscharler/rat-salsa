@@ -122,7 +122,8 @@ pub struct Marks {
     /// last change
     pub change_end: Option<TextPosition>,
     /// last jump
-    pub jump: Option<TextPosition>,
+    pub jump: Vec<TextPosition>,
+    pub jump_idx: usize,
 
     /// sync
     pub sync: SyncRanges,
@@ -252,6 +253,10 @@ pub enum Motion {
 
     HalfPageUp,
     HalfPageDown,
+
+    ToTopOfScreen,
+    ToMiddleOfScreen,
+    ToBottomOfScreen,
 
     ToCol,
     ToLine,
@@ -545,7 +550,7 @@ fn execute_visual(
         Vim::Visual(_) => unreachable!("unknown"),
 
         Vim::Move(mul, m) => visual_move(*mul, m, state, vi)?,
-        Vim::Mark(mark) => unreachable!("unknown"),
+        Vim::Mark(_) => unreachable!("unknown"),
 
         Vim::Partial(mul, Motion::SearchForward(s)) => {
             search_fwd(*mul, s, true, state, vi)?;
@@ -617,12 +622,8 @@ fn execute_normal(
         Vim::Scroll(_, Scrolling::BottomOfScreen) => scroll_cursor_to_bottom(state),
 
         Vim::Mark(mark) => set_mark(*mark, state, vi),
-        Vim::History(mul, History::NextJump) => {
-            todo!()
-        }
-        Vim::History(mul, History::PrevJump) => {
-            todo!()
-        }
+        Vim::History(mul, History::NextJump) => jump_history(*mul as i32, state, vi),
+        Vim::History(mul, History::PrevJump) => jump_history(-(*mul as i32), state, vi),
         Vim::History(mul, History::NextChange) => {
             todo!()
         }
@@ -848,7 +849,7 @@ pub mod scroll_op {
             );
         }
 
-        state.scroll_up((vi.page.0 as u32 * mul).saturating_sub(2) as usize);
+        state.scroll_up((vi.page.0 * mul).saturating_sub(2) as usize);
     }
 
     pub fn scroll_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
@@ -859,13 +860,13 @@ pub mod scroll_op {
             );
         }
 
-        state.scroll_down((vi.page.0 as u32 * mul).saturating_sub(2) as usize);
+        state.scroll_down((vi.page.0 * mul).saturating_sub(2) as usize);
     }
 }
 
 pub mod move_op {
     use crate::SearchError;
-    use crate::vi::motion_op::motion_end_position;
+    use crate::vi::motion_op::{is_motion_a_jump, motion_end_position};
     use crate::vi::query::q_set_mark;
     use crate::vi::{Mark, Motion, VI};
     use rat_text::text_area::TextAreaState;
@@ -877,10 +878,23 @@ pub mod move_op {
         vi: &mut VI,
     ) -> Result<(), SearchError> {
         if let Some(npos) = motion_end_position(mul, motion, state, vi)? {
-            q_set_mark(Mark::Jump, state.cursor(), vi);
+            if is_motion_a_jump(motion) {
+                q_set_mark(Mark::Jump, state.cursor(), vi);
+            }
             state.set_cursor(npos, false);
         }
         Ok(())
+    }
+
+    pub fn jump_history(mul: i32, state: &mut TextAreaState, vi: &mut VI) {
+        vi.marks.jump_idx = vi.marks.jump_idx.saturating_add_signed(mul as isize);
+        if vi.marks.jump_idx > vi.marks.jump.len() {
+            vi.marks.jump_idx = vi.marks.jump.len();
+        }
+
+        if vi.marks.jump_idx < vi.marks.jump.len() {
+            state.set_cursor(vi.marks.jump[vi.marks.jump_idx], false);
+        }
     }
 }
 
@@ -1448,13 +1462,74 @@ pub mod motion_op {
         }
     }
 
+    pub fn is_motion_a_jump(motion: &Motion) -> bool {
+        match motion {
+            Motion::Visual => unreachable!(),
+            Motion::Left => false,
+            Motion::Right => false,
+            Motion::Up => false,
+            Motion::Down => false,
+            Motion::HalfPageUp => false,
+            Motion::HalfPageDown => false,
+            Motion::ToTopOfScreen => true,
+            Motion::ToMiddleOfScreen => true,
+            Motion::ToBottomOfScreen => true,
+            Motion::ToCol => false,
+            Motion::ToLine => true,
+            Motion::ToLinePercent => true,
+            Motion::ToMatchingBrace => true,
+            Motion::ToMark(_, _) => true,
+            Motion::StartOfFile => false,
+            Motion::EndOfFile => true,
+            Motion::NextWordStart => false,
+            Motion::PrevWordStart => false,
+            Motion::NextWordEnd => false,
+            Motion::PrevWordEnd => false,
+            Motion::NextWORDStart => false,
+            Motion::PrevWORDStart => false,
+            Motion::NextWORDEnd => false,
+            Motion::PrevWORDEnd => false,
+            Motion::StartOfLine => false,
+            Motion::EndOfLine => false,
+            Motion::StartOfLineText => false,
+            Motion::EndOfLineText => false,
+            Motion::PrevParagraph => true,
+            Motion::NextParagraph => true,
+            Motion::PrevSentence => true,
+            Motion::NextSentence => true,
+            Motion::FindForward(_) => false,
+            Motion::FindBack(_) => false,
+            Motion::FindTillForward(_) => false,
+            Motion::FindTillBack(_) => false,
+            Motion::FindRepeatNext => false,
+            Motion::FindRepeatPrev => false,
+            Motion::SearchWordForward => true,
+            Motion::SearchWordBackward => true,
+            Motion::SearchForward(_) => true,
+            Motion::SearchBack(_) => true,
+            Motion::SearchRepeatNext => true,
+            Motion::SearchRepeatPrev => true,
+            Motion::FullLine => false,
+            Motion::Word(_) => false,
+            Motion::WORD(_) => false,
+            Motion::Sentence(_) => false,
+            Motion::Paragraph(_) => false,
+            Motion::Bracket(_) => false,
+            Motion::Parenthesis(_) => false,
+            Motion::Angled(_) => false,
+            Motion::Tagged(_) => false,
+            Motion::Brace(_) => false,
+            Motion::Quoted(_, _) => false,
+        }
+    }
+
     pub fn motion_end_position(
         mul: u32,
         motion: &Motion,
         state: &mut TextAreaState,
         vi: &mut VI,
     ) -> Result<Option<TextPosition>, SearchError> {
-        Ok(match motion {
+        let r = match motion {
             Motion::Visual => unreachable!(),
             Motion::Left => q_move_left(mul, state),
             Motion::Right => q_move_right(mul, state),
@@ -1462,6 +1537,9 @@ pub mod motion_op {
             Motion::Down => q_move_down(mul, state),
             Motion::HalfPageUp => q_half_page_up(mul, state, vi),
             Motion::HalfPageDown => q_half_page_down(mul, state, vi),
+            Motion::ToTopOfScreen => todo!(),
+            Motion::ToMiddleOfScreen => todo!(),
+            Motion::ToBottomOfScreen => todo!(),
             Motion::ToCol => q_col(mul, state),
             Motion::ToLine => q_line(mul, state),
             Motion::ToLinePercent => q_line_percent(mul, state),
@@ -1508,7 +1586,9 @@ pub mod motion_op {
             Motion::Tagged(to) => todo!(),
             Motion::Brace(to) => todo!(),
             Motion::Quoted(c, to) => todo!(),
-        })
+        };
+
+        Ok(r)
     }
 }
 
@@ -1730,6 +1810,9 @@ pub mod state_machine {
             '_' => Ok(Vim::Move(mul.unwrap_or(1).saturating_sub(1), Motion::Down)),
             ctrl::CTRL_U => Ok(Vim::Move(mul.unwrap_or(0), Motion::HalfPageUp)),
             ctrl::CTRL_D => Ok(Vim::Move(mul.unwrap_or(0), Motion::HalfPageDown)),
+            'H' => Ok(Vim::Move(mul.unwrap_or(0), Motion::ToTopOfScreen)),
+            'M' => Ok(Vim::Move(mul.unwrap_or(0), Motion::ToMiddleOfScreen)),
+            'L' => Ok(Vim::Move(mul.unwrap_or(0), Motion::ToBottomOfScreen)),
             '|' => Ok(Vim::Move(mul.unwrap_or(0), Motion::ToCol)),
             'w' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextWordStart)),
             'b' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWordStart)),

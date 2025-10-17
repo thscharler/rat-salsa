@@ -1,6 +1,5 @@
 use crate::vi::{Direction, Finds, Mark, Matches, SyncRanges, TxtObj};
 use crate::{SearchError, VI, ctrl};
-use log::debug;
 use rat_text::text_area::TextAreaState;
 use rat_text::{Cursor, Grapheme, TextPosition, TextRange, upos_type};
 use regex_cursor::engines::dfa::{Regex, find_iter};
@@ -128,10 +127,6 @@ pub fn q_matching_brace(state: &mut TextAreaState) -> Option<TextPosition> {
         (Some("}"), _) => ('{', '}'),
         (Some("]"), _) => ('[', ']'),
         (Some(">"), _) => ('<', '>'),
-        (_, Some("(")) => (')', '('),
-        (_, Some("{")) => ('}', '{'),
-        (_, Some("[")) => (']', '['),
-        (_, Some("<")) => ('>', '<'),
         (Some("("), _) => {
             it.prev();
             (')', '(')
@@ -148,6 +143,10 @@ pub fn q_matching_brace(state: &mut TextAreaState) -> Option<TextPosition> {
             it.prev();
             ('>', '<')
         }
+        (_, Some("(")) => (')', '('),
+        (_, Some("{")) => ('}', '{'),
+        (_, Some("[")) => (']', '['),
+        (_, Some("<")) => ('>', '<'),
         (_, Some(")")) => {
             it.next();
             ('(', ')')
@@ -224,13 +223,24 @@ pub fn q_set_mark(mark: Mark, pos: TextPosition, vi: &mut VI) {
             vi.marks.change_end = Some(pos);
         }
         Mark::Jump => {
-            vi.marks.jump = Some(pos);
+            if vi.marks.jump_idx != vi.marks.jump.len() {
+                while vi.marks.jump_idx + 1 < vi.marks.jump.len() {
+                    vi.marks.jump.pop();
+                }
+            }
+            vi.marks.jump.push(pos);
+            vi.marks.jump_idx = vi.marks.jump.len();
         }
     };
     vi.marks.sync = SyncRanges::ToTextArea;
 }
 
-pub fn q_mark(mark: Mark, mut line: bool, state: &TextAreaState, vi: &VI) -> Option<TextPosition> {
+pub fn q_mark(
+    mark: Mark,
+    mut line: bool,
+    state: &TextAreaState,
+    vi: &mut VI,
+) -> Option<TextPosition> {
     let mark_pos = match mark {
         Mark::Char(c) => {
             if c >= 'a' && c <= 'z' {
@@ -261,7 +271,8 @@ pub fn q_mark(mark: Mark, mut line: bool, state: &TextAreaState, vi: &VI) -> Opt
         }
         Mark::Jump => {
             line = false;
-            vi.marks.jump
+            vi.marks.jump_idx = vi.marks.jump.len();
+            vi.marks.jump.last().cloned()
         }
     };
 
@@ -1259,44 +1270,6 @@ fn skip_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>>>(it: &mut C) -> 
     }
 
     skipped
-}
-
-fn is_paragraph_whitespace<'a, C: Cursor<Item = Grapheme<'a>> + Clone>(it: &mut C) -> bool {
-    let mut jt = it.clone();
-    let before;
-    loop {
-        let Some(c) = jt.prev() else {
-            before = true;
-            break;
-        };
-        if is_linebreak(&c) {
-            before = true;
-            break;
-        }
-        if !is_whitespace(&c) {
-            before = false;
-            break;
-        }
-    }
-
-    let mut jt = it.clone();
-    let after;
-    loop {
-        let Some(c) = jt.next() else {
-            after = true;
-            break;
-        };
-        if is_linebreak(&c) {
-            after = true;
-            break;
-        }
-        if !is_whitespace(&c) {
-            after = false;
-            break;
-        }
-    }
-
-    before && after
 }
 
 fn track_paragraph_fwd<'a, C: Cursor<Item = Grapheme<'a>>>(
