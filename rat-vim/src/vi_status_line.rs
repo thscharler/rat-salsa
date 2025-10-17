@@ -1,12 +1,12 @@
 use crate::vi::{Mode, VI};
 use rat_text::text_area::TextAreaState;
+use rat_widget::statusline_stacked::{SLANT_BL_TR, SLANT_TL_BR, StatusLineStacked};
 use ratatui::buffer::Buffer;
 use ratatui::prelude::Rect;
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::mem;
-use rat_widget::statusline_stacked::{StatusLineStacked, SLANT_BL_TR, SLANT_TL_BR};
 
 #[derive(Debug)]
 pub struct VIStatusLine<'a> {
