@@ -553,7 +553,7 @@ fn execute_visual(
 
     match vim {
         Vim::Invalid => r = TextOutcome::Unchanged,
-        Vim::Repeat(_) => unreachable!("wrong spot for repeat"),
+        Vim::Repeat(_) => unreachable!("unknown"),
         Vim::History(_, _) => unreachable!("unknown"),
         Vim::Scroll(_, _) => unreachable!("unknown"),
         Vim::Visual(_) => unreachable!("unknown"),
@@ -633,12 +633,8 @@ fn execute_normal(
         Vim::Mark(mark) => set_mark(*mark, state, vi),
         Vim::History(mul, History::NextJump) => jump_history(*mul as i32, state, vi),
         Vim::History(mul, History::PrevJump) => jump_history(-(*mul as i32), state, vi),
-        Vim::History(mul, History::NextChange) => {
-            todo!()
-        }
-        Vim::History(mul, History::PrevChange) => {
-            todo!()
-        }
+        Vim::History(mul, History::NextChange) => jump_change(*mul as i32, state, vi),
+        Vim::History(mul, History::PrevChange) => jump_change(-(*mul as i32), state, vi),
 
         Vim::Visual(block) => begin_visual(*block, state, vi),
         Vim::VisualSwapLead => unreachable!("unknown"),

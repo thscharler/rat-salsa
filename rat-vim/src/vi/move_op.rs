@@ -29,3 +29,14 @@ pub fn jump_history(mul: i32, state: &mut TextAreaState, vi: &mut VI) {
         state.set_cursor(vi.marks.jump[vi.marks.jump_idx], false);
     }
 }
+
+pub fn jump_change(mul: i32, state: &mut TextAreaState, vi: &mut VI) {
+    vi.marks.change_idx = vi.marks.change_idx.saturating_add_signed(mul as isize);
+    if vi.marks.change_idx > vi.marks.change.len() {
+        vi.marks.change_idx = vi.marks.change.len();
+    }
+
+    if vi.marks.change_idx < vi.marks.change.len() {
+        state.set_cursor(vi.marks.change[vi.marks.change_idx].0, false);
+    }
+}

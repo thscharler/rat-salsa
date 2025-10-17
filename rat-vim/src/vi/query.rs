@@ -6,7 +6,7 @@ use regex_cursor::engines::dfa::{Regex, find_iter};
 use regex_cursor::{Input, RopeyCursor};
 use std::cmp::min;
 
-pub fn q_move_left(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_move_left(mul: u32, state: &mut TextAreaState) -> TextPosition {
     let mut pos = state.cursor();
     if pos.x == 0 {
         if pos.y > 0 {
@@ -16,10 +16,10 @@ pub fn q_move_left(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> 
     } else {
         pos.x = pos.x.saturating_sub(mul as upos_type);
     }
-    Some(pos)
+    pos
 }
 
-pub fn q_move_right(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_move_right(mul: u32, state: &mut TextAreaState) -> TextPosition {
     let mut pos = state.cursor();
     let c_line_width = state.line_width(pos.y);
     if pos.x == c_line_width {
@@ -30,39 +30,39 @@ pub fn q_move_right(mul: u32, state: &mut TextAreaState) -> Option<TextPosition>
     } else {
         pos.x = min(pos.x + mul as upos_type, c_line_width)
     }
-    Some(pos)
+    pos
 }
 
-pub fn q_move_up(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_move_up(mul: u32, state: &mut TextAreaState) -> TextPosition {
     let pos = state.cursor();
     if let Some(mut scr_cursor) = state.pos_to_relative_screen(pos) {
         scr_cursor.1 -= mul as i16;
         if let Some(npos) = state.relative_screen_to_pos(scr_cursor) {
-            Some(npos)
+            npos
         } else {
-            None
+            pos // TODO: fine?
         }
     } else {
-        None
+        pos // TODO: fine?
     }
 }
 
-pub fn q_move_down(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_move_down(mul: u32, state: &mut TextAreaState) -> TextPosition {
     let pos = state.cursor();
     if let Some(mut scr_cursor) = state.pos_to_relative_screen(pos) {
         scr_cursor.1 += mul as i16;
 
         if let Some(npos) = state.relative_screen_to_pos(scr_cursor) {
-            Some(npos)
+            npos
         } else {
-            None
+            pos
         }
     } else {
-        None
+        pos
     }
 }
 
-pub fn q_half_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> Option<TextPosition> {
+pub fn q_half_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextPosition {
     if vi.page.0 != state.vertical_page() as u32 {
         vi.page = (
             state.vertical_page() as u32,
@@ -76,7 +76,7 @@ pub fn q_half_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> Optio
     q_move_up(vi.page.1, state)
 }
 
-pub fn q_half_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> Option<TextPosition> {
+pub fn q_half_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextPosition {
     if vi.page.0 != state.vertical_page() as u32 {
         vi.page = (
             state.vertical_page() as u32,
@@ -90,28 +90,28 @@ pub fn q_half_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> Opt
     q_move_down(vi.page.1, state)
 }
 
-pub fn q_col(mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_col(mul: u32, state: &TextAreaState) -> TextPosition {
     let c = state.cursor();
     if mul as upos_type <= state.line_width(c.y) {
-        Some(TextPosition::new(mul as upos_type, c.y))
+        TextPosition::new(mul as upos_type, c.y)
     } else {
-        None
+        TextPosition::new(state.line_width(c.y), c.y)
     }
 }
 
-pub fn q_line(mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_line(mul: u32, state: &TextAreaState) -> TextPosition {
     let line = min(
         mul.saturating_sub(1) as upos_type,
         state.len_lines().saturating_sub(1),
     );
-    Some(TextPosition::new(0, line))
+    TextPosition::new(0, line)
 }
 
-pub fn q_line_percent(mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_line_percent(mul: u32, state: &TextAreaState) -> TextPosition {
     let len = state.len_lines() as u64;
     let pc = min(mul.saturating_sub(1), 100) as u64;
     let line = ((len * pc) / 100) as u32;
-    Some(TextPosition::new(0, line))
+    TextPosition::new(0, line)
 }
 
 pub fn q_matching_brace(state: &mut TextAreaState) -> Option<TextPosition> {
@@ -306,13 +306,13 @@ pub fn q_mark(
     }
 }
 
-pub fn q_start_of_file() -> Option<TextPosition> {
-    Some(TextPosition::new(0, 0))
+pub fn q_start_of_file() -> TextPosition {
+    TextPosition::new(0, 0)
 }
 
-pub fn q_end_of_file(state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_end_of_file(state: &mut TextAreaState) -> TextPosition {
     let y = state.len_lines().saturating_sub(1);
-    Some(TextPosition::new(state.line_width(y), y))
+    TextPosition::new(state.line_width(y), y)
 }
 
 pub fn q_start_of_word(to: TxtObj, state: &TextAreaState) -> TextPosition {
@@ -389,12 +389,12 @@ pub fn q_end_of_word(mut mul: u32, to: TxtObj, state: &TextAreaState) -> TextPos
     state.byte_pos(it.text_offset())
 }
 
-pub fn q_next_word_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_next_word_start(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
         let Some(sample) = it.peek_next() else {
-            return None;
+            break;
         };
         if is_alphanumeric(&sample) {
             skip_alpha(&mut it);
@@ -409,22 +409,22 @@ pub fn q_next_word_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosi
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_prev_word_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_prev_word_start(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
-    while mul > 0 {
+    'l: while mul > 0 {
         let Some(sample) = it.peek_prev() else {
-            return None;
+            break;
         };
         if is_alphanumeric(&sample) {
             pskip_alpha(&mut it);
         } else if is_whitespace(&sample) {
             pskip_white(&mut it);
             let Some(sample) = it.peek_prev() else {
-                return None;
+                break 'l;
             };
             if is_alphanumeric(&sample) {
                 pskip_alpha(&mut it);
@@ -438,17 +438,17 @@ pub fn q_prev_word_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosi
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_next_word_end(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_next_word_end(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
         skip_white(&mut it);
 
         let Some(sample) = it.peek_next() else {
-            return None;
+            break;
         };
         if is_alphanumeric(&sample) {
             skip_alpha(&mut it);
@@ -459,15 +459,15 @@ pub fn q_next_word_end(mut mul: u32, state: &TextAreaState) -> Option<TextPositi
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_prev_word_end(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_prev_word_end(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
         let Some(sample) = it.peek_prev() else {
-            return None;
+            break;
         };
         if is_alphanumeric(&sample) {
             pskip_alpha(&mut it);
@@ -482,7 +482,7 @@ pub fn q_prev_word_end(mut mul: u32, state: &TextAreaState) -> Option<TextPositi
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
 pub fn q_start_of_bigword(to: TxtObj, state: &TextAreaState) -> TextPosition {
@@ -549,12 +549,12 @@ pub fn q_end_of_bigword(mut mul: u32, to: TxtObj, state: &TextAreaState) -> Text
     state.byte_pos(it.text_offset())
 }
 
-pub fn q_next_bigword_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_next_bigword_start(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
         let Some(sample) = it.peek_next() else {
-            return None;
+            break;
         };
         if !is_whitespace(&sample) {
             skip_nonwhite(&mut it);
@@ -564,15 +564,15 @@ pub fn q_next_bigword_start(mut mul: u32, state: &TextAreaState) -> Option<TextP
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_prev_bigword_start(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_prev_bigword_start(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
         let Some(sample) = it.peek_prev() else {
-            return None;
+            break;
         };
         if !is_whitespace(&sample) {
             pskip_nonwhite(&mut it);
@@ -584,17 +584,17 @@ pub fn q_prev_bigword_start(mut mul: u32, state: &TextAreaState) -> Option<TextP
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_next_bigword_end(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_next_bigword_end(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
         skip_white(&mut it);
 
         let Some(sample) = it.peek_next() else {
-            return None;
+            break;
         };
         if !is_whitespace(&sample) {
             skip_nonwhite(&mut it);
@@ -603,15 +603,15 @@ pub fn q_next_bigword_end(mut mul: u32, state: &TextAreaState) -> Option<TextPos
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_prev_bigword_end(mut mul: u32, state: &TextAreaState) -> Option<TextPosition> {
+pub fn q_prev_bigword_end(mut mul: u32, state: &TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     while mul > 0 {
         let Some(sample) = it.peek_prev() else {
-            return None;
+            break;
         };
         if !is_whitespace(&sample) {
             pskip_nonwhite(&mut it);
@@ -621,7 +621,7 @@ pub fn q_prev_bigword_end(mut mul: u32, state: &TextAreaState) -> Option<TextPos
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
 pub fn q_start_of_line(state: &mut TextAreaState) -> TextPosition {
@@ -641,23 +641,20 @@ pub fn q_end_of_line(mul: u32, state: &mut TextAreaState) -> TextPosition {
     TextPosition::new(state.line_width(y), y)
 }
 
-pub fn q_start_of_text(state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_start_of_text(state: &mut TextAreaState) -> TextPosition {
     let mut it = state.line_graphemes(state.cursor().y);
-    let found;
     loop {
         let Some(c) = it.next() else {
-            return None;
+            break;
         };
         if !is_whitespace(&c) {
-            found = c.text_bytes().start;
             break;
         }
     }
-
-    Some(state.byte_pos(found))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_end_of_text(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_end_of_text(mul: u32, state: &mut TextAreaState) -> TextPosition {
     let y = min(
         state.cursor().y + mul.saturating_sub(1) as upos_type,
         state.len_lines().saturating_sub(1),
@@ -668,25 +665,19 @@ pub fn q_end_of_text(mul: u32, state: &mut TextAreaState) -> Option<TextPosition
         TextPosition::new(0, y)..TextPosition::new(width, y),
         TextPosition::new(width, y),
     );
-    let found;
     loop {
         let Some(c) = it.prev() else {
-            return None;
+            break;
         };
         if !is_whitespace(&c) {
-            found = c.text_bytes().end;
             break;
         }
     }
 
-    Some(state.byte_pos(found))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_prev_sentence(
-    mut mul: u32,
-    to: TxtObj,
-    state: &mut TextAreaState,
-) -> Option<TextPosition> {
+pub fn q_prev_sentence(mut mul: u32, to: TxtObj, state: &mut TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     loop {
@@ -733,14 +724,10 @@ pub fn q_prev_sentence(
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_next_sentence(
-    mut mul: u32,
-    to: TxtObj,
-    state: &mut TextAreaState,
-) -> Option<TextPosition> {
+pub fn q_next_sentence(mut mul: u32, to: TxtObj, state: &mut TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     loop {
@@ -778,10 +765,10 @@ pub fn q_next_sentence(
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextPosition> {
+pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     'l: loop {
@@ -804,14 +791,10 @@ pub fn q_prev_paragraph(mut mul: u32, state: &mut TextAreaState) -> Option<TextP
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
-pub fn q_next_paragraph(
-    mut mul: u32,
-    to: TxtObj,
-    state: &mut TextAreaState,
-) -> Option<TextPosition> {
+pub fn q_next_paragraph(mut mul: u32, to: TxtObj, state: &mut TextAreaState) -> TextPosition {
     let mut it = state.text_graphemes(state.cursor());
 
     'l: loop {
@@ -837,7 +820,7 @@ pub fn q_next_paragraph(
         mul -= 1;
     }
 
-    Some(state.byte_pos(it.text_offset()))
+    state.byte_pos(it.text_offset())
 }
 
 pub fn q_find_fwd(
@@ -991,7 +974,7 @@ pub fn q_find_idx(finds: &mut Finds, mul: u32, dir: Direction, state: &mut TextA
             if idx + mul < finds.list.len() {
                 Some(idx + mul)
             } else {
-                None
+                Some(finds.list.len() - 1)
             }
         } else {
             None
@@ -1015,7 +998,7 @@ pub fn q_find_idx(finds: &mut Finds, mul: u32, dir: Direction, state: &mut TextA
             .last();
 
         finds.idx = if let Some(idx) = finds.idx {
-            if idx >= mul { Some(idx - mul) } else { None }
+            Some(idx.saturating_sub(mul))
         } else {
             None
         }
@@ -1208,7 +1191,7 @@ pub fn q_search_idx(matches: &mut Matches, mul: u32, dir: Direction, state: &mut
             if idx + mul < matches.list.len() {
                 Some(idx + mul)
             } else {
-                None
+                Some(matches.list.len() - 1)
             }
         } else {
             None
@@ -1222,7 +1205,7 @@ pub fn q_search_idx(matches: &mut Matches, mul: u32, dir: Direction, state: &mut
             .last();
 
         matches.idx = if let Some(idx) = matches.idx {
-            if idx >= mul { Some(idx - mul) } else { None }
+            Some(idx.saturating_sub(mul))
         } else {
             None
         }

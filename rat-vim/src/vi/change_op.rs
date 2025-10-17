@@ -89,7 +89,7 @@ fn change_range(
 ) -> Result<Option<Range<TextPosition>>, SearchError> {
     let start = motion_start_position(motion, state);
     let end = match motion {
-        Motion::NextWordStart => q_next_word_end(mul, state),
+        Motion::NextWordStart => Some(q_next_word_end(mul, state)),
         Motion::FullLine => Some(q_end_of_line(mul, state)),
         _ => motion_end_position(mul, motion, state, vi)?,
     };
@@ -118,7 +118,7 @@ fn delete_range(
 ) -> Result<Option<Range<TextPosition>>, SearchError> {
     let start = motion_start_position(motion, state);
     let end = match motion {
-        Motion::NextWordStart => q_next_word_end(mul, state),
+        Motion::NextWordStart => Some(q_next_word_end(mul, state)),
         _ => motion_end_position(mul, motion, state, vi)?,
     };
     Ok(start_end_to_range(start, end))
