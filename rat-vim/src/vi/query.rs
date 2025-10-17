@@ -63,6 +63,34 @@ pub fn q_move_down(mul: u32, state: &mut TextAreaState) -> Option<TextPosition> 
     }
 }
 
+pub fn q_half_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> Option<TextPosition> {
+    if vi.page.0 != state.vertical_page() as u32 {
+        vi.page = (
+            state.vertical_page() as u32,
+            (state.vertical_page() / 2) as u32,
+        );
+    }
+    if mul != 0 {
+        vi.page.1 = mul;
+    }
+
+    q_move_up(vi.page.1, state)
+}
+
+pub fn q_half_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> Option<TextPosition> {
+    if vi.page.0 != state.vertical_page() as u32 {
+        vi.page = (
+            state.vertical_page() as u32,
+            (state.vertical_page() / 2) as u32,
+        );
+    }
+    if mul != 0 {
+        vi.page.1 = mul;
+    }
+
+    q_move_down(vi.page.1, state)
+}
+
 pub fn q_col(mul: u32, state: &TextAreaState) -> Option<TextPosition> {
     let c = state.cursor();
     if mul as upos_type <= state.line_width(c.y) {

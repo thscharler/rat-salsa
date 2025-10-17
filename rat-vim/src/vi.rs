@@ -52,7 +52,7 @@ pub struct VI {
     /// text marks
     pub marks: Marks,
     /// pagelen for ctrl-d/u
-    pub page: (u16, u16),
+    pub page: (u32, u32),
 }
 
 /// VI mode.
@@ -248,6 +248,9 @@ pub enum Motion {
     Up,
     Down,
 
+    HalfPageUp,
+    HalfPageDown,
+
     ToCol,
     ToLine,
     ToLinePercent,
@@ -315,8 +318,6 @@ pub enum History {
 pub enum Scrolling {
     Up,
     Down,
-    HalfPageUp,
-    HalfPageDown,
     PageUp,
     PageDown,
     MiddleOfScreen,
@@ -561,7 +562,9 @@ fn execute_visual(
 
         Vim::History(_, _) => {}
         Vim::Scroll(_, _) => {}
-        Vim::Mark(_) => {}
+        Vim::Mark(mark) => {
+            todo!()
+        }
 
         Vim::VisualSelect(_) => unreachable!("unknown"),
         Vim::VisualSwapDiagonal => visual_swap_diagonal(state, vi),
@@ -619,8 +622,6 @@ fn execute_normal(
         }
         Vim::Partial(_, _) => unreachable!("unknown partial"),
 
-        Vim::Scroll(mul, Scrolling::HalfPageUp) => scroll_half_page_up(*mul, state, vi),
-        Vim::Scroll(mul, Scrolling::HalfPageDown) => scroll_half_page_down(*mul, state, vi),
         Vim::Scroll(mul, Scrolling::PageUp) => scroll_page_up(*mul, state, vi),
         Vim::Scroll(mul, Scrolling::PageDown) => scroll_page_down(*mul, state, vi),
         Vim::Scroll(mul, Scrolling::Up) => scroll_up(*mul, state),
@@ -630,7 +631,16 @@ fn execute_normal(
         Vim::Scroll(_, Scrolling::BottomOfScreen) => scroll_cursor_to_bottom(state),
 
         Vim::Mark(mark) => set_mark(*mark, state, vi),
-        Vim::History(_, _) => {
+        Vim::History(mul, History::NextJump) => {
+            todo!()
+        }
+        Vim::History(mul, History::PrevJump) => {
+            todo!()
+        }
+        Vim::History(mul, History::NextChange) => {
+            todo!()
+        }
+        Vim::History(mul, History::PrevChange) => {
             todo!()
         }
 
@@ -850,10 +860,10 @@ pub mod scroll_op {
     }
 
     pub fn scroll_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
-        if vi.page.0 != state.vertical_page() as u16 {
+        if vi.page.0 != state.vertical_page() as u32 {
             vi.page = (
-                state.vertical_page() as u16,
-                (state.vertical_page() / 2) as u16,
+                state.vertical_page() as u32,
+                (state.vertical_page() / 2) as u32,
             );
         }
 
@@ -861,42 +871,14 @@ pub mod scroll_op {
     }
 
     pub fn scroll_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
-        if vi.page.0 != state.vertical_page() as u16 {
+        if vi.page.0 != state.vertical_page() as u32 {
             vi.page = (
-                state.vertical_page() as u16,
-                (state.vertical_page() / 2) as u16,
+                state.vertical_page() as u32,
+                (state.vertical_page() / 2) as u32,
             );
         }
 
         state.scroll_down((vi.page.0 as u32 * mul).saturating_sub(2) as usize);
-    }
-
-    pub fn scroll_half_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
-        if vi.page.0 != state.vertical_page() as u16 {
-            vi.page = (
-                state.vertical_page() as u16,
-                (state.vertical_page() / 2) as u16,
-            );
-        }
-        if mul != 0 {
-            vi.page.1 = mul as u16;
-        }
-
-        state.move_up(vi.page.1, false);
-    }
-
-    pub fn scroll_half_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
-        if vi.page.0 != state.vertical_page() as u16 {
-            vi.page = (
-                state.vertical_page() as u16,
-                (state.vertical_page() / 2) as u16,
-            );
-        }
-        if mul != 0 {
-            vi.page.1 = mul as u16;
-        }
-
-        state.move_down(vi.page.1, false);
     }
 }
 
@@ -1495,6 +1477,8 @@ pub mod motion_op {
             Motion::Right => q_move_right(mul, state),
             Motion::Up => q_move_up(mul, state),
             Motion::Down => q_move_down(mul, state),
+            Motion::HalfPageUp => q_half_page_up(mul, state, vi),
+            Motion::HalfPageDown => q_half_page_down(mul, state, vi),
             Motion::ToCol => q_col(mul, state),
             Motion::ToLine => q_line(mul, state),
             Motion::ToLinePercent => q_line_percent(mul, state),
@@ -1738,6 +1722,8 @@ pub mod state_machine {
             '-' | 'k' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Up)),
             '+' | 'j' | '\n' => Ok(Vim::Move(mul.unwrap_or(1), Motion::Down)),
             '_' => Ok(Vim::Move(mul.unwrap_or(1).saturating_sub(1), Motion::Down)),
+            ctrl::CTRL_U => Ok(Vim::Move(mul.unwrap_or(0), Motion::HalfPageUp)),
+            ctrl::CTRL_D => Ok(Vim::Move(mul.unwrap_or(0), Motion::HalfPageDown)),
             '|' => Ok(Vim::Move(mul.unwrap_or(0), Motion::ToCol)),
             'w' => Ok(Vim::Move(mul.unwrap_or(1), Motion::NextWordStart)),
             'b' => Ok(Vim::Move(mul.unwrap_or(1), Motion::PrevWordStart)),
@@ -1916,8 +1902,6 @@ pub mod state_machine {
         yp: &Yield<char, Vim>,
     ) -> Result<Vim, char> {
         match tok {
-            ctrl::CTRL_U => Ok(Vim::Scroll(mul.unwrap_or(0), Scrolling::HalfPageUp)),
-            ctrl::CTRL_D => Ok(Vim::Scroll(mul.unwrap_or(0), Scrolling::HalfPageDown)),
             'z' => {
                 let tok = yield_!(yp);
                 motion_buf.borrow_mut().push(tok);
