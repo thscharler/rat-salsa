@@ -33,9 +33,8 @@ pub trait TextStore {
     /// Can store multi-line content?
     fn is_multi_line(&self) -> bool;
 
-    /// Is this the special EOT position, and does the line
-    /// before NOT end with a newline?
-    fn should_insert_newline(&self, pos: TextPosition) -> bool;
+    /// Is there a line-break at the end of the text?
+    fn has_final_newline(&self) -> bool;
 
     /// Number of lines.
     ///

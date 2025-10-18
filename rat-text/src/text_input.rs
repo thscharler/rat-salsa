@@ -20,6 +20,7 @@ use crate::clipboard::{Clipboard, global_clipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::glyph2::{Glyph2, TextWrap2};
+use crate::text_core::core_op::*;
 use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
@@ -441,8 +442,7 @@ impl Clone for TextInputState {
 
 impl Default for TextInputState {
     fn default() -> Self {
-        let mut value = TextCore::new(Some(Box::new(UndoVec::new(99))), Some(global_clipboard()));
-        value.set_glyph_line_break(false);
+        let value = TextCore::new(Some(Box::new(UndoVec::new(99))), Some(global_clipboard()));
 
         Self {
             area: Default::default(),
@@ -893,7 +893,7 @@ impl TextInputState {
     #[deprecated(since = "1.1.0", note = "discontinued api")]
     pub fn glyphs(&self, screen_offset: u16, screen_width: u16) -> impl Iterator<Item = Glyph<'_>> {
         self.value
-            .glyphs(0..1, screen_offset, screen_width)
+            .glyphs(0..1, screen_offset, screen_width, 0 /* no tabs*/)
             .expect("valid_rows")
     }
 
@@ -1044,30 +1044,11 @@ impl TextInputState {
         }
         if c == '\n' {
             return false;
-        } else if c == '\t' {
-            self.value
-                .insert_tab(self.value.cursor())
-                .expect("valid_cursor");
         } else {
             self.value
                 .insert_char(self.value.cursor(), c)
                 .expect("valid_cursor");
         }
-        self.scroll_cursor_to_visible();
-        true
-    }
-
-    /// Insert a tab character at the cursor position.
-    /// Removes the selection and inserts the tab.
-    pub fn insert_tab(&mut self) -> bool {
-        if self.has_selection() {
-            self.value
-                .remove_str_range(self.value.selection())
-                .expect("valid_selection");
-        }
-        self.value
-            .insert_tab(self.value.cursor())
-            .expect("valid_cursor");
         self.scroll_cursor_to_visible();
         true
     }
@@ -1115,10 +1096,8 @@ impl TextInputState {
         if self.has_selection() {
             self.delete_range(self.selection())
         } else {
-            let r = self
-                .value
-                .remove_next_char(self.value.cursor())
-                .expect("valid_cursor");
+            let pos = self.value.cursor();
+            let r = remove_next_char(&mut self.value, pos).expect("valid_cursor");
             self.scroll_cursor_to_visible();
             r
         }
@@ -1130,10 +1109,8 @@ impl TextInputState {
         if self.value.has_selection() {
             self.delete_range(self.selection())
         } else {
-            let r = self
-                .value
-                .remove_prev_char(self.value.cursor())
-                .expect("valid_cursor");
+            let pos = self.value.cursor();
+            let r = remove_prev_char(&mut self.value, pos).expect("valid_cursor");
             self.scroll_cursor_to_visible();
             r
         }
@@ -1146,9 +1123,7 @@ impl TextInputState {
 
     /// Find the start of the next word. Word is everything that is not whitespace.
     pub fn try_next_word_start(&self, pos: upos_type) -> Result<upos_type, TextError> {
-        self.value
-            .next_word_start(TextPosition::new(pos, 0))
-            .map(|v| v.x)
+        next_word_start(&self.value, TextPosition::new(pos, 0)).map(|v| v.x)
     }
 
     /// Find the end of the next word.  Skips whitespace first, then goes on
@@ -1160,9 +1135,7 @@ impl TextInputState {
     /// Find the end of the next word.  Skips whitespace first, then goes on
     /// until it finds the next whitespace.
     pub fn try_next_word_end(&self, pos: upos_type) -> Result<upos_type, TextError> {
-        self.value
-            .next_word_end(TextPosition::new(pos, 0))
-            .map(|v| v.x)
+        next_word_end(&self.value, TextPosition::new(pos, 0)).map(|v| v.x)
     }
 
     /// Find prev word. Skips whitespace first.
@@ -1176,9 +1149,7 @@ impl TextInputState {
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
     pub fn try_prev_word_start(&self, pos: upos_type) -> Result<upos_type, TextError> {
-        self.value
-            .prev_word_start(TextPosition::new(pos, 0))
-            .map(|v| v.x)
+        prev_word_start(&self.value, TextPosition::new(pos, 0)).map(|v| v.x)
     }
 
     /// Find the end of the previous word. Word is everything that is not whitespace.
@@ -1192,9 +1163,7 @@ impl TextInputState {
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
     pub fn try_prev_word_end(&self, pos: upos_type) -> Result<upos_type, TextError> {
-        self.value
-            .prev_word_end(TextPosition::new(pos, 0))
-            .map(|v| v.x)
+        prev_word_end(&self.value, TextPosition::new(pos, 0)).map(|v| v.x)
     }
 
     /// Is the position at a word boundary?
@@ -1204,7 +1173,7 @@ impl TextInputState {
 
     /// Is the position at a word boundary?
     pub fn try_is_word_boundary(&self, pos: upos_type) -> Result<bool, TextError> {
-        self.value.is_word_boundary(TextPosition::new(pos, 0))
+        is_word_boundary(&self.value, TextPosition::new(pos, 0))
     }
 
     /// Find the start of the word at pos.
@@ -1214,9 +1183,7 @@ impl TextInputState {
 
     /// Find the start of the word at pos.
     pub fn try_word_start(&self, pos: upos_type) -> Result<upos_type, TextError> {
-        self.value
-            .word_start(TextPosition::new(pos, 0))
-            .map(|v| v.x)
+        word_start(&self.value, TextPosition::new(pos, 0)).map(|v| v.x)
     }
 
     /// Find the end of the word at pos.
@@ -1226,7 +1193,7 @@ impl TextInputState {
 
     /// Find the end of the word at pos.
     pub fn try_word_end(&self, pos: upos_type) -> Result<upos_type, TextError> {
-        self.value.word_end(TextPosition::new(pos, 0)).map(|v| v.x)
+        word_end(&self.value, TextPosition::new(pos, 0)).map(|v| v.x)
     }
 
     /// Deletes the next word.
@@ -1354,6 +1321,7 @@ impl TextInputState {
                 self.rendered,
                 0,
                 0..1,
+                0, /* no tabs */
                 text_wrap,
                 false,
                 left_margin,
@@ -1525,15 +1493,6 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputSta
                 | ct_event!(key press CONTROL_ALT-c) => {
                     overwrite(self);
                     tc(self.insert_char(*c))
-                }
-                ct_event!(keycode press Tab) => {
-                    // ignore tab from focus
-                    tc(if !self.focus.gained() {
-                        clear_overwrite(self);
-                        self.insert_tab()
-                    } else {
-                        false
-                    })
                 }
                 ct_event!(keycode press Backspace) => {
                     clear_overwrite(self);

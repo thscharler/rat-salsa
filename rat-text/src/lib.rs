@@ -173,6 +173,7 @@ pub mod core {
     //!
 
     pub use crate::text_core::TextCore;
+    pub use crate::text_core::core_op;
     pub use crate::text_store::SkipLine;
     pub use crate::text_store::TextStore;
     pub use crate::text_store::text_rope::TextRope;

@@ -984,7 +984,11 @@ fn remap_glyph(
         }
     } else if glyph.glyph == "\t" {
         glyph.line_break = false;
-        glyph.screen_width = tabs - (glyph.screen_pos.0 % tabs);
+        if tabs > 0 {
+            glyph.screen_width = tabs - (glyph.screen_pos.0 % tabs);
+        } else {
+            glyph.screen_width = 1;
+        }
         glyph.glyph = Cow::Borrowed(if show_ctrl { "\u{2409}" } else { " " });
     } else if glyph.glyph == "\u{00AD}" {
         glyph.line_break = false;

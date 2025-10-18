@@ -10,6 +10,7 @@ use crate::event::{ReadOnly, TextOutcome};
 use crate::glyph::Glyph;
 use crate::glyph2::{GlyphIter2, TextWrap2};
 use crate::text_core::TextCore;
+use crate::text_core::core_op::*;
 use crate::text_store::TextStore;
 use crate::text_store::text_rope::TextRope;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
@@ -143,6 +144,12 @@ pub struct TextAreaState {
     pub auto_quote: bool,
     /// text breaking
     pub text_wrap: TextWrap,
+    /// new-line bytes
+    pub newline: String,
+    /// tab-width
+    pub tab_width: u32,
+    /// expand tabs
+    pub expand_tabs: bool,
 
     /// Current focus state.
     pub focus: FocusFlag,
@@ -171,6 +178,9 @@ impl Clone for TextAreaState {
             auto_indent: self.auto_indent,
             auto_quote: self.auto_quote,
             text_wrap: self.text_wrap,
+            newline: self.newline.clone(),
+            tab_width: self.tab_width,
+            expand_tabs: self.expand_tabs,
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -534,6 +544,12 @@ fn render_text_area(
 
 impl Default for TextAreaState {
     fn default() -> Self {
+        #[cfg(windows)]
+        const LINE_ENDING: &str = "\r\n";
+
+        #[cfg(not(windows))]
+        const LINE_ENDING: &str = "\n";
+
         let mut s = Self {
             area: Default::default(),
             inner: Default::default(),
@@ -549,6 +565,9 @@ impl Default for TextAreaState {
             auto_indent: true,
             auto_quote: true,
             text_wrap: TextWrap::Shift,
+            newline: LINE_ENDING.to_string(),
+            tab_width: 8,
+            expand_tabs: true,
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -600,13 +619,13 @@ impl TextAreaState {
     /// will get a value with mixed line endings.
     #[inline]
     pub fn set_newline(&mut self, br: impl Into<String>) {
-        self.value.set_newline(br.into());
+        self.newline = br.into();
     }
 
     /// Line ending used for insert.
     #[inline]
     pub fn newline(&self) -> &str {
-        self.value.newline()
+        &self.newline
     }
 
     /// Sets auto-indent on new-line.
@@ -623,26 +642,26 @@ impl TextAreaState {
 
     /// Set tab-width.
     #[inline]
-    pub fn set_tab_width(&mut self, tabs: u16) {
-        self.value.set_tab_width(tabs);
+    pub fn set_tab_width(&mut self, tabs: u32) {
+        self.tab_width = tabs;
     }
 
     /// Tab-width
     #[inline]
-    pub fn tab_width(&self) -> u16 {
-        self.value.tab_width()
+    pub fn tab_width(&self) -> u32 {
+        self.tab_width
     }
 
     /// Expand tabs to spaces. Only for new inputs.
     #[inline]
     pub fn set_expand_tabs(&mut self, expand: bool) {
-        self.value.set_expand_tabs(expand);
+        self.expand_tabs = expand;
     }
 
     /// Expand tabs to spaces. Only for new inputs.
     #[inline]
     pub fn expand_tabs(&self) -> bool {
-        self.value.expand_tabs()
+        self.expand_tabs
     }
 
     /// Show glyphs for control characters.
@@ -1224,7 +1243,7 @@ impl TextAreaState {
         screen_width: u16,
     ) -> impl Iterator<Item = Glyph<'_>> {
         self.value
-            .glyphs(rows, screen_offset, screen_width)
+            .glyphs(rows, screen_offset, screen_width, self.tab_width as u16)
             .expect("valid_rows")
     }
 
@@ -1239,7 +1258,8 @@ impl TextAreaState {
         screen_offset: u16,
         screen_width: u16,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        self.value.glyphs(rows, screen_offset, screen_width)
+        self.value
+            .glyphs(rows, screen_offset, screen_width, self.tab_width as u16)
     }
 
     /// Grapheme iterator for a given line.
@@ -1421,7 +1441,6 @@ impl TextAreaState {
     /// not do an auto-indent.
     /// Use insert_new_line() for this.
     pub fn insert_char(&mut self, c: char) -> bool {
-        let mut insert = true;
         if self.has_selection() {
             if self.auto_quote
                 && (c == '\''
@@ -1432,29 +1451,42 @@ impl TextAreaState {
                     || c == '('
                     || c == '{')
             {
-                self.value
-                    .insert_quotes(self.selection(), c)
-                    .expect("valid_selection");
-                insert = false;
-            } else {
-                self.value
-                    .remove_str_range(self.selection())
-                    .expect("valid_selection");
+                let sel = self.selection();
+                insert_quotes(&mut self.value, sel, c).expect("valid_selection");
+                self.scroll_cursor_to_visible();
+                return true;
             }
         }
 
-        if insert {
-            if c == '\n' {
-                self.value
-                    .insert_newline(self.cursor())
-                    .expect("valid_cursor");
-            } else if c == '\t' {
-                self.value.insert_tab(self.cursor()).expect("valid_cursor");
-            } else {
-                self.value
-                    .insert_char(self.cursor(), c)
-                    .expect("valid_cursor");
-            }
+        self.value
+            .remove_str_range(self.selection())
+            .expect("valid_selection");
+
+        let pos = self.cursor();
+
+        // insert missing newline
+        if pos.x == 0
+            && pos.y != 0
+            && (pos.y == self.len_lines() || pos.y == self.len_lines().saturating_sub(1))
+            && !self.value.text().has_final_newline()
+        {
+            let anchor = self.value.anchor();
+            let cursor = self.value.cursor();
+            self.value
+                .insert_str(pos, &self.newline)
+                .expect("valid_cursor");
+            self.value.set_selection(anchor, cursor);
+        }
+
+        if c == '\n' {
+            self.value
+                .insert_str(pos, &self.newline)
+                .expect("valid_cursor");
+        } else if c == '\t' {
+            insert_tab(&mut self.value, pos, self.expand_tabs, self.tab_width)
+                .expect("valid_cursor");
+        } else {
+            self.value.insert_char(pos, c).expect("valid_cursor");
         }
 
         self.scroll_cursor_to_visible();
@@ -1486,7 +1518,9 @@ impl TextAreaState {
                 false
             }
         } else {
-            self.value.insert_tab(self.cursor()).expect("valid_cursor");
+            let pos = self.cursor();
+            insert_tab(&mut self.value, pos, self.expand_tabs, self.tab_width)
+                .expect("valid_cursor");
             self.scroll_cursor_to_visible();
 
             true
@@ -1554,8 +1588,9 @@ impl TextAreaState {
                 .remove_str_range(self.selection())
                 .expect("valid_selection");
         }
+
         self.value
-            .insert_newline(self.cursor())
+            .insert_str(self.cursor(), &self.newline)
             .expect("valid_cursor");
 
         // insert leading spaces
@@ -1648,10 +1683,8 @@ impl TextAreaState {
         if self.has_selection() {
             self.delete_range(self.selection())
         } else {
-            let r = self
-                .value
-                .remove_next_char(self.cursor())
-                .expect("valid_cursor");
+            let pos = self.value.cursor();
+            let r = remove_next_char(&mut self.value, pos).expect("valid_cursor");
             self.scroll_cursor_to_visible();
             r
         }
@@ -1663,10 +1696,8 @@ impl TextAreaState {
         if self.has_selection() {
             self.delete_range(self.selection())
         } else {
-            let r = self
-                .value
-                .remove_prev_char(self.cursor())
-                .expect("valid_cursor");
+            let pos = self.value.cursor();
+            let r = remove_prev_char(&mut self.value, pos).expect("valid_cursor");
             self.scroll_cursor_to_visible();
             r
         }
@@ -1678,7 +1709,7 @@ impl TextAreaState {
     /// Panics for an invalid pos.
     #[inline]
     pub fn next_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        self.value.next_word_start(pos.into()).expect("valid_pos")
+        next_word_start(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the start of the next word. If the position is at the start
@@ -1688,7 +1719,7 @@ impl TextAreaState {
         &self,
         pos: impl Into<TextPosition>,
     ) -> Result<TextPosition, TextError> {
-        self.value.next_word_start(pos.into())
+        next_word_start(&self.value, pos.into())
     }
 
     /// Find the end of the next word. Skips whitespace first, then goes on
@@ -1697,7 +1728,7 @@ impl TextAreaState {
     /// Panics for an invalid pos.
     #[inline]
     pub fn next_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        self.value.next_word_end(pos.into()).expect("valid_pos")
+        next_word_end(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the end of the next word. Skips whitespace first, then goes on
@@ -1707,7 +1738,7 @@ impl TextAreaState {
         &self,
         pos: impl Into<TextPosition>,
     ) -> Result<TextPosition, TextError> {
-        self.value.next_word_end(pos.into())
+        next_word_end(&self.value, pos.into())
     }
 
     /// Find the start of the prev word. Skips whitespace first, then goes on
@@ -1719,7 +1750,7 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn prev_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        self.value.prev_word_start(pos.into()).expect("valid_pos")
+        prev_word_start(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the start of the prev word. Skips whitespace first, then goes on
@@ -1732,7 +1763,7 @@ impl TextAreaState {
         &self,
         pos: impl Into<TextPosition>,
     ) -> Result<TextPosition, TextError> {
-        self.value.prev_word_start(pos.into())
+        prev_word_start(&self.value, pos.into())
     }
 
     /// Find the end of the previous word. Word is everything that is not whitespace.
@@ -1742,7 +1773,7 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn prev_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        self.value.prev_word_end(pos.into()).expect("valid_pos")
+        prev_word_end(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the end of the previous word. Word is everything that is not whitespace.
@@ -1753,7 +1784,7 @@ impl TextAreaState {
         &self,
         pos: impl Into<TextPosition>,
     ) -> Result<TextPosition, TextError> {
-        self.value.prev_word_end(pos.into())
+        prev_word_end(&self.value, pos.into())
     }
 
     /// Is the position at a word boundary?
@@ -1761,13 +1792,13 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn is_word_boundary(&self, pos: impl Into<TextPosition>) -> bool {
-        self.value.is_word_boundary(pos.into()).expect("valid_pos")
+        is_word_boundary(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Is the position at a word boundary?
     #[inline]
     pub fn try_is_word_boundary(&self, pos: impl Into<TextPosition>) -> Result<bool, TextError> {
-        self.value.is_word_boundary(pos.into())
+        is_word_boundary(&self.value, pos.into())
     }
 
     /// Find the start of the word at pos.
@@ -1776,14 +1807,14 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        self.value.word_start(pos.into()).expect("valid_pos")
+        word_start(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the start of the word at pos.
     /// Returns pos if the position is not inside a word.
     #[inline]
     pub fn try_word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        self.value.word_start(pos.into())
+        word_start(&self.value, pos.into())
     }
 
     /// Find the end of the word at pos.
@@ -1792,14 +1823,14 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        self.value.word_end(pos.into()).expect("valid_pos")
+        word_end(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the end of the word at pos.
     /// Returns pos if the position is not inside a word.
     #[inline]
     pub fn try_word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        self.value.word_end(pos.into())
+        word_end(&self.value, pos.into())
     }
 
     /// Delete the next word. This alternates deleting the whitespace between words and
@@ -2135,6 +2166,7 @@ impl TextAreaState {
             self.rendered,
             sub_row_offset,
             rows,
+            self.tab_width as u32,
             text_wrap,
             self.wrap_ctrl() | self.show_ctrl(),
             left_margin,
@@ -2154,6 +2186,7 @@ impl TextAreaState {
             self.rendered,
             sub_row_offset,
             rows,
+            self.tab_width as u32,
             text_wrap,
             self.wrap_ctrl() | self.show_ctrl(),
             left_margin,

@@ -7,13 +7,14 @@ use crate::grapheme::Grapheme;
 use crate::range_map::{RangeMap, expand_range_by, ranges_intersect, shrink_range_by};
 use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
-use crate::{Cursor, TextError, TextPosition, TextRange, upos_type};
+use crate::{TextError, TextPosition, TextRange, upos_type};
 use dyn_clone::clone_box;
 use ratatui::layout::Size;
 use std::borrow::Cow;
 use std::cmp::min;
-use std::mem;
 use std::ops::Range;
+
+pub mod core_op;
 
 /// Core for text editing.
 #[derive(Debug)]
@@ -35,18 +36,10 @@ pub struct TextCore<Store> {
     /// cache
     cache: Cache,
 
-    /// line-break
-    newline: String,
-    /// tab-width
-    tabs: u16,
-    /// expand tabs
-    expand_tabs: bool,
     /// show ctrl chars in glyphs
     glyph_ctrl: bool,
     /// show text-wrap glyphs
     wrap_ctrl: bool,
-    /// use line-breaks in glyphs
-    glyph_line_break: bool,
 }
 
 impl<Store: Clone> Clone for TextCore<Store> {
@@ -59,24 +52,14 @@ impl<Store: Clone> Clone for TextCore<Store> {
             undo: self.undo.as_ref().map(|v| clone_box(v.as_ref())),
             clip: self.clip.as_ref().map(|v| clone_box(v.as_ref())),
             cache: Default::default(),
-            newline: self.newline.clone(),
-            tabs: self.tabs,
-            expand_tabs: self.expand_tabs,
             glyph_ctrl: self.glyph_ctrl,
             wrap_ctrl: self.wrap_ctrl,
-            glyph_line_break: self.glyph_line_break,
         }
     }
 }
 
 impl<Store: TextStore + Default> TextCore<Store> {
     pub fn new(undo: Option<Box<dyn UndoBuffer>>, clip: Option<Box<dyn Clipboard>>) -> Self {
-        #[cfg(windows)]
-        const LINE_ENDING: &str = "\r\n";
-
-        #[cfg(not(windows))]
-        const LINE_ENDING: &str = "\n";
-
         Self {
             text: Store::default(),
             cursor: Default::default(),
@@ -85,56 +68,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
             undo,
             clip,
             cache: Default::default(),
-            newline: LINE_ENDING.to_string(),
-            tabs: 8,
-            expand_tabs: true,
             glyph_ctrl: false,
             wrap_ctrl: false,
-            glyph_line_break: true,
         }
-    }
-
-    /// Sets the line ending to be used for insert.
-    /// There is no auto-detection or conversion done for set_value().
-    ///
-    /// Caution: If this doesn't match the line ending used in the value, you
-    /// will get a value with mixed line endings.
-    ///
-    /// Defaults to the system line-ending.
-    #[inline]
-    pub fn set_newline(&mut self, br: String) {
-        self.newline = br;
-    }
-
-    /// Line ending used for insert.
-    #[inline]
-    pub fn newline(&self) -> &str {
-        &self.newline
-    }
-
-    /// Set the tab-width.
-    /// Default is 8.
-    #[inline]
-    pub fn set_tab_width(&mut self, tabs: u16) {
-        self.tabs = tabs;
-    }
-
-    /// Tab-width
-    #[inline]
-    pub fn tab_width(&self) -> u16 {
-        self.tabs
-    }
-
-    /// Expand tabs to spaces. Only for new inputs.
-    #[inline]
-    pub fn set_expand_tabs(&mut self, expand: bool) {
-        self.expand_tabs = expand;
-    }
-
-    /// Expand tabs to spaces. Only for new inputs.
-    #[inline]
-    pub fn expand_tabs(&self) -> bool {
-        self.expand_tabs
     }
 
     /// Show control characters when iterating glyphs.
@@ -157,18 +93,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Show control characters when iterating glyphs.
     pub fn wrap_ctrl(&self) -> bool {
         self.wrap_ctrl
-    }
-
-    /// Handle line-breaks when iterating glyphs.
-    /// If false everything is treated as one line.
-    #[inline]
-    pub fn set_glyph_line_break(&mut self, line_break: bool) {
-        self.glyph_line_break = line_break;
-    }
-
-    /// Handle line-breaks. If false everything is treated as one line.
-    pub fn glyph_line_break(&self) -> bool {
-        self.glyph_line_break
     }
 }
 
@@ -851,6 +775,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         rows: Range<upos_type>,
         screen_offset: u16,
         screen_width: u16,
+        tab_width: u16,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
         let iter = self.graphemes(
             TextRange::new((0, rows.start), (0, rows.end)),
@@ -860,9 +785,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let mut it = GlyphIter::new(TextPosition::new(0, rows.start), iter);
         it.set_screen_offset(screen_offset);
         it.set_screen_width(screen_width);
-        it.set_tabs(self.tabs);
+        it.set_tabs(tab_width);
         it.set_show_ctrl(self.glyph_ctrl);
-        it.set_line_break(self.glyph_line_break);
+        it.set_line_break(self.text().is_multi_line());
         Ok(it)
     }
 
@@ -880,6 +805,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         rendered: Size,
         sub_row_offset: upos_type,
         rows: Range<upos_type>,
+        tab_width: u32,
         text_wrap: TextWrap2,
         ctrl_char: bool,
         left_margin: upos_type,
@@ -890,6 +816,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             rendered,
             sub_row_offset,
             rows,
+            tab_width,
             text_wrap,
             ctrl_char,
             left_margin,
@@ -908,6 +835,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         rendered: Size,
         sub_row_offset: upos_type,
         rows: Range<upos_type>,
+        tab_width: u32,
         text_wrap: TextWrap2,
         ctrl_char: bool,
         left_margin: upos_type,
@@ -943,10 +871,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
             iter,
             self.cache.clone(),
         );
-        it.set_tabs(self.tabs as upos_type);
+        it.set_tabs(tab_width);
         it.set_show_ctrl(self.glyph_ctrl);
         it.set_wrap_ctrl(self.wrap_ctrl);
-        it.set_lf_breaks(self.glyph_line_break);
+        it.set_lf_breaks(self.text().is_multi_line());
         it.set_text_wrap(text_wrap);
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);
@@ -1081,14 +1009,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
     }
 
-    /// Copy of the text-value.
+    /// Returns the TextStore.
     pub fn text(&self) -> &Store {
         &self.text
     }
 
-    /// Set the text as a TextStore
-    /// Clears the styles.
-    /// Caps cursor and anchor.
+    /// Set the text as a TextStore.
+    /// Clears the styles, cursor and anchor.
     pub fn set_text(&mut self, t: Store) -> bool {
         self.text = t;
         if let Some(sty) = &mut self.styles {
@@ -1114,112 +1041,12 @@ impl<Store: TextStore + Default> TextCore<Store> {
         true
     }
 
-    /// Auto-quote the selected text.
-    #[allow(clippy::needless_bool)]
-    pub fn insert_quotes(&mut self, mut sel: TextRange, c: char) -> Result<bool, TextError> {
-        self.begin_undo_seq();
-
-        // remove matching quotes/brackets
-        if sel.end.x > 0 {
-            let first = TextRange::new(sel.start, (sel.start.x + 1, sel.start.y));
-            let last = TextRange::new((sel.end.x - 1, sel.end.y), sel.end);
-            let c0 = self.str_slice(first).expect("valid_slice");
-            let c1 = self.str_slice(last).expect("valid_slice");
-            let remove_quote = if c == '\'' || c == '`' || c == '"' {
-                if c0 == "'" && c1 == "'" {
-                    true
-                } else if c0 == "\"" && c1 == "\"" {
-                    true
-                } else if c0 == "`" && c1 == "`" {
-                    true
-                } else {
-                    false
-                }
-            } else {
-                if c0 == "<" && c1 == ">" {
-                    true
-                } else if c0 == "(" && c1 == ")" {
-                    true
-                } else if c0 == "[" && c1 == "]" {
-                    true
-                } else if c0 == "{" && c1 == "}" {
-                    true
-                } else {
-                    false
-                }
-            };
-            if remove_quote {
-                self.remove_char_range(last)?;
-                self.remove_char_range(first)?;
-                if sel.start.y == sel.end.y {
-                    sel = TextRange::new(sel.start, TextPosition::new(sel.end.x - 2, sel.end.y));
-                } else {
-                    sel = TextRange::new(sel.start, TextPosition::new(sel.end.x - 1, sel.end.y));
-                }
-            }
-        }
-
-        let cc = match c {
-            '\'' => '\'',
-            '`' => '`',
-            '"' => '"',
-            '<' => '>',
-            '(' => ')',
-            '[' => ']',
-            '{' => '}',
-            _ => unreachable!("invalid quotes"),
-        };
-        self.insert_char(sel.end, cc)?;
-        self.insert_char(sel.start, c)?;
-        if sel.start.y == sel.end.y {
-            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x + 2, sel.end.y));
-        } else {
-            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x + 1, sel.end.y));
-        }
-        self.set_selection(sel.start, sel.end);
-        self.end_undo_seq();
-        Ok(true)
-    }
-
-    /// Insert a tab, either expanded or literally.
-    pub fn insert_tab(&mut self, mut pos: TextPosition) -> Result<bool, TextError> {
-        if self.expand_tabs {
-            let n = self.tabs as upos_type - (pos.x % self.tabs as upos_type);
-            for _ in 0..n {
-                self.insert_char(pos, ' ')?;
-                pos.x += 1;
-            }
-        } else {
-            self.insert_char(pos, '\t')?;
-        }
-        Ok(true)
-    }
-
-    /// Insert a line break.
-    pub fn insert_newline(&mut self, pos: TextPosition) -> Result<bool, TextError> {
-        if self.text.is_multi_line() {
-            let newline = mem::take(&mut self.newline);
-            let r = self.insert_str(pos, &newline);
-            self.newline = newline;
-            r?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
     /// Insert a character.
+    ///
+    /// Has no special handling for '\n' and '\t' and just adds them
+    /// as they are. '\n' *is* treated as line-break, but it might not be
+    /// the correct byte-sequence for your platform.
     pub fn insert_char(&mut self, pos: TextPosition, c: char) -> Result<bool, TextError> {
-        // if the very last line doesn't end with a newline,
-        // if the insert-position is at (0,len_lines).
-        if self.text.should_insert_newline(pos) {
-            let save_anchor = self.anchor;
-            let save_cursor = self.cursor;
-            self.insert_newline(pos)?;
-            self.anchor = save_anchor;
-            self.cursor = save_cursor;
-        }
-
         let (inserted_range, inserted_bytes) = self.text.insert_char(pos, c)?;
 
         let old_cursor = self.cursor;
@@ -1280,46 +1107,17 @@ impl<Store: TextStore + Default> TextCore<Store> {
         Ok(true)
     }
 
-    /// Remove the previous character
-    pub fn remove_prev_char(&mut self, pos: TextPosition) -> Result<bool, TextError> {
-        let (sx, sy) = if pos.y == 0 && pos.x == 0 {
-            (0, 0)
-        } else if pos.y > 0 && pos.x == 0 {
-            let prev_line_width = self.line_width(pos.y - 1).expect("line_width"); // TODO
-            (prev_line_width, pos.y - 1)
-        } else {
-            (pos.x - 1, pos.y)
-        };
-        let range = TextRange::new((sx, sy), (pos.x, pos.y));
-
-        self.remove_char_range(range)
-    }
-
-    /// Remove the next characters.
-    pub fn remove_next_char(&mut self, pos: TextPosition) -> Result<bool, TextError> {
-        let c_line_width = self.line_width(pos.y)?;
-        let c_last_line = self.len_lines() - 1;
-
-        let (ex, ey) = if pos.y == c_last_line && pos.x == c_line_width {
-            (pos.x, pos.y)
-        } else if pos.y != c_last_line && pos.x == c_line_width {
-            (0, pos.y + 1)
-        } else {
-            (pos.x + 1, pos.y)
-        };
-        let range = TextRange::new((pos.x, pos.y), (ex, ey));
-
-        self.remove_char_range(range)
-    }
-
     /// Remove a range.
-    /// Put it into undo as 'char-removed'.
+    ///
+    /// Put it into undo as 'char-removed'. This can merge with other 'char-removed'
+    /// undoes if they are next to each other.
     pub fn remove_char_range(&mut self, range: TextRange) -> Result<bool, TextError> {
         self._remove_range(range, true)
     }
 
     /// Remove a range
-    /// Put it into undo as 'str-removed'.
+    ///
+    /// Put it into undo as 'str-removed'. This will not be merged with other undoes.
     pub fn remove_str_range(&mut self, range: TextRange) -> Result<bool, TextError> {
         self._remove_range(range, false)
     }
@@ -1391,151 +1189,5 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
 
         Ok(true)
-    }
-}
-
-impl<Store: TextStore + Default> TextCore<Store> {
-    /// Find the start of the next word. If the position is at the start
-    /// or inside a word, the same position is returned.
-    pub fn next_word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut it = self.text_graphemes(pos)?;
-        let mut last_pos = it.text_offset();
-        loop {
-            let Some(c) = it.next() else {
-                break;
-            };
-            last_pos = c.text_bytes().start;
-            if !c.is_whitespace() {
-                break;
-            }
-        }
-
-        Ok(self.byte_pos(last_pos).expect("valid_pos"))
-    }
-
-    /// Find the end of the next word. Skips whitespace first, then goes on
-    /// until it finds the next whitespace.
-    pub fn next_word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut it = self.text_graphemes(pos)?;
-        let mut last_pos = it.text_offset();
-        let mut init = true;
-        loop {
-            let Some(c) = it.next() else {
-                break;
-            };
-            last_pos = c.text_bytes().start;
-            if init {
-                if !c.is_whitespace() {
-                    init = false;
-                }
-            } else {
-                if c.is_whitespace() {
-                    break;
-                }
-            }
-            last_pos = c.text_bytes().end;
-        }
-
-        Ok(self.byte_pos(last_pos).expect("valid_pos"))
-    }
-
-    /// Find the start of the prev word. Skips whitespace first, then goes on
-    /// until it finds the next whitespace.
-    ///
-    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
-    /// both return start<=end!
-    pub fn prev_word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut it = self.text_graphemes(pos)?;
-        let mut last_pos = it.text_offset();
-        let mut init = true;
-        loop {
-            let Some(c) = it.prev() else {
-                break;
-            };
-            if init {
-                if !c.is_whitespace() {
-                    init = false;
-                }
-            } else {
-                if c.is_whitespace() {
-                    break;
-                }
-            }
-            last_pos = c.text_bytes().start;
-        }
-
-        Ok(self.byte_pos(last_pos).expect("valid_pos"))
-    }
-
-    /// Find the end of the previous word. Word is everything that is not whitespace.
-    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
-    /// both return start<=end!
-    pub fn prev_word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut it = self.text_graphemes(pos)?;
-        let mut last_pos = it.text_offset();
-        loop {
-            let Some(c) = it.prev() else {
-                break;
-            };
-            if !c.is_whitespace() {
-                break;
-            }
-            last_pos = c.text_bytes().start;
-        }
-
-        Ok(self.byte_pos(last_pos).expect("valid_pos"))
-    }
-
-    /// Is the position at a word boundary?
-    pub fn is_word_boundary(&self, pos: TextPosition) -> Result<bool, TextError> {
-        let mut it = self.text_graphemes(pos)?;
-        if let Some(c0) = it.prev() {
-            it.next();
-            if let Some(c1) = it.next() {
-                Ok(c0.is_whitespace() && !c1.is_whitespace()
-                    || !c0.is_whitespace() && c1.is_whitespace())
-            } else {
-                Ok(false)
-            }
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Find the start of the word at pos.
-    /// Returns pos if the position is not inside a word.
-    pub fn word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut it = self.text_graphemes(pos)?;
-        let mut last_pos = it.text_offset();
-        loop {
-            let Some(c) = it.prev() else {
-                break;
-            };
-            if c.is_whitespace() {
-                break;
-            }
-            last_pos = c.text_bytes().start;
-        }
-
-        Ok(self.byte_pos(last_pos).expect("valid_pos"))
-    }
-
-    /// Find the end of the word at pos.
-    /// Returns pos if the position is not inside a word.
-    pub fn word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let mut it = self.text_graphemes(pos)?;
-        let mut last_pos = it.text_offset();
-        loop {
-            let Some(c) = it.next() else {
-                break;
-            };
-            last_pos = c.text_bytes().start;
-            if c.is_whitespace() {
-                break;
-            }
-            last_pos = c.text_bytes().end;
-        }
-
-        Ok(self.byte_pos(last_pos).expect("valid_pos"))
     }
 }

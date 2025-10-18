@@ -577,35 +577,17 @@ fn test_line_width() {
 #[test]
 fn test_final_newline() {
     let s = TextRope::new_text("");
-    assert!(!s.should_insert_newline((0, 0).into()));
-    assert!(s.should_insert_newline((0, 1).into()));
+    assert!(!s.has_final_newline());
 
     let s = TextRope::new_text("abcd");
-    assert!(!s.should_insert_newline((0, 0).into()));
-    assert!(!s.should_insert_newline((1, 0).into()));
-    assert!(!s.should_insert_newline((2, 0).into()));
-    assert!(!s.should_insert_newline((3, 0).into()));
-    assert!(!s.should_insert_newline((4, 0).into()));
-    assert!(s.should_insert_newline((0, 1).into()));
+    assert!(!s.has_final_newline());
 
     let s = TextRope::new_text("abcd\n");
-    assert!(!s.should_insert_newline((0, 0).into()));
-    assert!(!s.should_insert_newline((4, 0).into()));
-    assert!(!s.should_insert_newline((5, 0).into()));
-    assert!(!s.should_insert_newline((0, 1).into()));
-    assert!(!s.should_insert_newline((0, 2).into()));
+    assert!(s.has_final_newline());
     let s = TextRope::new_text("abcd\r");
-    assert!(!s.should_insert_newline((0, 0).into()));
-    assert!(!s.should_insert_newline((4, 0).into()));
-    assert!(!s.should_insert_newline((5, 0).into()));
-    assert!(!s.should_insert_newline((0, 1).into()));
-    assert!(!s.should_insert_newline((0, 2).into()));
+    assert!(!s.has_final_newline());
     let s = TextRope::new_text("abcd\r\n");
-    assert!(!s.should_insert_newline((0, 0).into()));
-    assert!(!s.should_insert_newline((4, 0).into()));
-    assert!(!s.should_insert_newline((5, 0).into()));
-    assert!(!s.should_insert_newline((0, 1).into()));
-    assert!(!s.should_insert_newline((0, 2).into()));
+    assert!(s.has_final_newline());
 }
 
 // TODO: ---

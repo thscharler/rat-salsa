@@ -69,7 +69,7 @@
 //! the mouse behaviour.
 //!
 
-pub(crate) mod mask_op;
+pub mod mask_op;
 pub(crate) mod mask_token;
 pub(crate) mod masked_graphemes;
 
@@ -479,11 +479,10 @@ impl Clone for MaskedInputState {
 
 impl Default for MaskedInputState {
     fn default() -> Self {
-        let mut core = TextCore::new(
+        let core = TextCore::new(
             Some(Box::new(UndoVec::new(99))),
             Some(Box::new(global_clipboard())),
         );
-        core.set_glyph_line_break(false);
 
         Self {
             area: Default::default(),
@@ -1400,9 +1399,9 @@ impl MaskedInputState {
         let mut it = GlyphIter::new(TextPosition::new(0, 0), iter);
         it.set_screen_offset(screen_offset);
         it.set_screen_width(screen_width);
-        it.set_tabs(self.value.tab_width());
+        it.set_tabs(0 /* no tabs */);
         it.set_show_ctrl(self.value.glyph_ctrl());
-        it.set_line_break(self.value.glyph_line_break());
+        it.set_line_break(false);
         it
     }
 
@@ -1467,9 +1466,9 @@ impl MaskedInputState {
         let mut it = GlyphIter::new(TextPosition::new(0, 0), iter);
         it.set_screen_offset(screen_offset);
         it.set_screen_width(screen_width);
-        it.set_tabs(self.value.tab_width());
+        it.set_tabs(0 /* no tabs */);
         it.set_show_ctrl(self.value.glyph_ctrl());
-        it.set_line_break(self.value.glyph_line_break());
+        it.set_line_break(false);
         it
     }
 
@@ -1885,9 +1884,9 @@ impl MaskedInputState {
         };
 
         let mut it = GlyphIter2::new(TextPosition::new(0, 0), 0, iter, Default::default());
-        it.set_tabs(self.value.tab_width() as upos_type);
+        it.set_tabs(0 /* no tabs */);
         it.set_show_ctrl(self.value.glyph_ctrl());
-        it.set_lf_breaks(self.value.glyph_line_break());
+        it.set_lf_breaks(false);
         it.set_text_wrap(TextWrap2::Shift);
         it.set_left_margin(left_margin);
         it.set_right_margin(right_margin);

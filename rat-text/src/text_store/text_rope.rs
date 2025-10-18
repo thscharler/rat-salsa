@@ -64,35 +64,6 @@ impl TextRope {
         });
     }
 
-    #[inline]
-    #[allow(clippy::match_like_matches_macro)]
-    fn has_final_newline(&self) -> bool {
-        let len = self.text.len_bytes();
-        if len > 3 {
-            match (
-                self.text.get_byte(len - 3).expect("valid_pos"),
-                self.text.get_byte(len - 2).expect("valid_pos"),
-                self.text.get_byte(len - 1).expect("valid_pos"),
-            ) {
-                (_, _, b'\n')
-                | (_, _, b'\r')
-                | (_, _, 0x0c)
-                | (_, _, 0x0b)
-                | (_, _, 0x85)
-                | (0xE2, 0x80, 0xA8)
-                | (0xE2, 0x80, 0xA9) => true,
-                _ => false,
-            }
-        } else if len > 0 {
-            match self.text.get_byte(len - 1).expect("valid_pos") {
-                b'\n' | b'\r' | 0x0c | 0x0b | 0x85 => true,
-                _ => false,
-            }
-        } else {
-            false
-        }
-    }
-
     fn normalize_row(&self, row: upos_type) -> Result<upos_type, TextError> {
         let text_len = self.len_lines() as upos_type;
         let rope_len = self.text.len_lines() as upos_type;
@@ -480,14 +451,29 @@ impl TextStore for TextRope {
     }
 
     #[inline]
-    #[allow(clippy::needless_bool)]
-    fn should_insert_newline(&self, pos: TextPosition) -> bool {
-        if pos.x == 0 && pos.y == 0 {
-            false
-        } else if pos.x == 0 && pos.y == self.len_lines() && !self.has_final_newline() {
-            true
-        } else if pos.x == 0 && pos.y == self.len_lines() - 1 && !self.has_final_newline() {
-            true
+    #[allow(clippy::match_like_matches_macro)]
+    fn has_final_newline(&self) -> bool {
+        let len = self.text.len_bytes();
+        if len > 3 {
+            match (
+                self.text.get_byte(len - 3).expect("valid_pos"),
+                self.text.get_byte(len - 2).expect("valid_pos"),
+                self.text.get_byte(len - 1).expect("valid_pos"),
+            ) {
+                (_, _, b'\n')
+                | (_, _, b'\r')
+                | (_, _, 0x0c)
+                | (_, _, 0x0b)
+                | (_, _, 0x85)
+                | (0xE2, 0x80, 0xA8)
+                | (0xE2, 0x80, 0xA9) => true,
+                _ => false,
+            }
+        } else if len > 0 {
+            match self.text.get_byte(len - 1).expect("valid_pos") {
+                b'\n' | b'\r' | 0x0c | 0x0b | 0x85 => true,
+                _ => false,
+            }
         } else {
             false
         }

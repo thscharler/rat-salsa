@@ -73,29 +73,6 @@ impl TextString {
             Some(w) => Some(min(byte_pos, w)),
         });
     }
-
-    // fn normalize_row(&self, row: upos_type) -> Result<upos_type, TextError> {
-    //     if row > 1 {
-    //         Err(TextError::LineIndexOutOfBounds(row, 1))
-    //     } else if row == 1 {
-    //         Ok(0)
-    //     } else {
-    //         Ok(row)
-    //     }
-    // }
-    //
-    // #[inline]
-    // fn normalize(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-    //     if pos.y > 1 {
-    //         Err(TextError::LineIndexOutOfBounds(pos.y, 1))
-    //     } else if pos.x > 0 && pos.y == 1 {
-    //         Err(TextError::ColumnIndexOutOfBounds(pos.x, 0))
-    //     } else if pos.x == 0 && pos.y == 1 {
-    //         Ok(TextPosition::new(self.len, 0))
-    //     } else {
-    //         Ok(pos)
-    //     }
-    // }
 }
 
 impl TextStore for TextString {
@@ -107,9 +84,8 @@ impl TextStore for TextString {
         false
     }
 
-    #[inline]
-    fn should_insert_newline(&self, _: TextPosition) -> bool {
-        false
+    fn has_final_newline(&self) -> bool {
+        true
     }
 
     /// Number of lines.
