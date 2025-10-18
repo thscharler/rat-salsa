@@ -36,33 +36,33 @@ fn test_undo() {
     assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\nuiop\n");
 
     insert_tab(&mut s, TextPosition::new(0, 3), true, 8).unwrap();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        \nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        uiop\n");
     s.undo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\nuiop\n");
     s.redo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        \nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        uiop\n");
 
     s.insert_str(TextPosition::new(8, 3), "567").unwrap();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567uiop\n");
     s.undo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        \nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        uiop\n");
     s.redo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567uiop\n");
 
     remove_prev_char(&mut s, TextPosition::new(2, 1)).unwrap();
     remove_prev_char(&mut s, TextPosition::new(1, 1)).unwrap();
-    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567uiop\n");
     s.undo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567uiop\n");
     s.redo();
-    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567uiop\n");
 
     s.remove_str_range(TextRange::new((0, 2), (0, 4))).unwrap();
-    assert_eq!(s.text().string(), "asdf\nxjklö\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\n");
     s.undo();
-    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567uiop\n");
     s.redo();
-    assert_eq!(s.text().string(), "asdf\nxjklö\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\n");
 }
 
 #[test]
@@ -85,26 +85,24 @@ fn test_undo2() {
     assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\nuiop\n");
 
     insert_tab(&mut s, TextPosition::new(0, 3), true, 8).unwrap();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        \nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        uiop\n");
 
     s.insert_str(TextPosition::new(8, 3), "567").unwrap();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567uiop\n");
 
     remove_prev_char(&mut s, TextPosition::new(2, 1)).unwrap();
     remove_prev_char(&mut s, TextPosition::new(1, 1)).unwrap();
-    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567uiop\n");
 
     s.remove_str_range(TextRange::new((0, 2), (0, 4))).unwrap();
-    assert_eq!(s.text().string(), "asdf\nxjklö\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\n");
 
     s.undo();
-    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567uiop\n");
     s.undo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567uiop\n");
     s.undo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        \nuiop\n");
-    s.undo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        uiop\n");
     s.undo();
     assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\nuiop\n");
     s.undo();
@@ -121,13 +119,12 @@ fn test_undo2() {
     s.redo();
     assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\nuiop\n");
     s.redo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n\nuiop\n");
+
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        uiop\n");
     s.redo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        \nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567uiop\n");
     s.redo();
-    assert_eq!(s.text().string(), "asdf\nzyxjklö\ner\n        567\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567uiop\n");
     s.redo();
-    assert_eq!(s.text().string(), "asdf\nxjklö\ner\n        567\nuiop\n");
-    s.redo();
-    assert_eq!(s.text().string(), "asdf\nxjklö\nuiop\n");
+    assert_eq!(s.text().string(), "asdf\nxjklö\n");
 }

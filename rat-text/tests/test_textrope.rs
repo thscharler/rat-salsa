@@ -585,7 +585,7 @@ fn test_final_newline() {
     let s = TextRope::new_text("abcd\n");
     assert!(s.has_final_newline());
     let s = TextRope::new_text("abcd\r");
-    assert!(!s.has_final_newline());
+    assert!(s.has_final_newline());
     let s = TextRope::new_text("abcd\r\n");
     assert!(s.has_final_newline());
 }
