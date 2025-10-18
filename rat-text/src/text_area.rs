@@ -15,9 +15,7 @@ use crate::text_core::core_op::*;
 use crate::text_store::TextStore;
 use crate::text_store::text_rope::TextRope;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
-use crate::{
-    Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle, ipos_type, upos_type,
-};
+use crate::{HasScreenCursor, TextError, TextPosition, TextRange, TextStyle, ipos_type, upos_type};
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
