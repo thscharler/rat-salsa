@@ -200,6 +200,7 @@ pub fn q_matching_brace(state: &mut TextAreaState) -> Option<TextPosition> {
     Some(state.byte_pos(it.text_offset()))
 }
 
+#[allow(clippy::manual_range_contains)]
 pub fn q_set_mark(mark: Mark, pos: TextPosition, vi: &mut VI) {
     match mark {
         Mark::Char(c) => {
@@ -243,6 +244,8 @@ pub fn q_set_mark(mark: Mark, pos: TextPosition, vi: &mut VI) {
     vi.marks.sync = SyncRanges::ToTextArea;
 }
 
+#[allow(clippy::question_mark)]
+#[allow(clippy::manual_range_contains)]
 pub fn q_mark(
     mark: Mark,
     mut line: bool,
@@ -876,6 +879,7 @@ pub fn q_till_fwd(
     }
 }
 
+#[allow(clippy::question_mark)]
 pub fn q_till_back(
     mul: u32,
     term: char,
@@ -893,6 +897,7 @@ pub fn q_till_back(
     }
 }
 
+#[allow(clippy::question_mark)]
 pub fn q_find_repeat_fwd(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> Option<TextPosition> {
     let Some(last_term) = vi.finds.term else {
         return None;
@@ -926,6 +931,7 @@ pub fn q_find_repeat_fwd(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> Op
     }
 }
 
+#[allow(clippy::question_mark)]
 pub fn q_find_repeat_back(
     mul: u32,
     state: &mut TextAreaState,
@@ -963,6 +969,8 @@ pub fn q_find_repeat_back(
     }
 }
 
+#[allow(clippy::manual_map)]
+#[allow(clippy::double_ended_iterator_last)]
 pub fn q_find_idx(finds: &mut Finds, mul: u32, dir: Direction, state: &mut TextAreaState) {
     let mut c = state.byte_at(state.cursor()).start;
 
@@ -1123,6 +1131,7 @@ pub fn q_search_fwd(
     Ok(q_current_search_idx(state, vi))
 }
 
+#[allow(clippy::question_mark)]
 pub fn q_search_repeat_back(
     mul: u32,
     state: &mut TextAreaState,
@@ -1135,6 +1144,7 @@ pub fn q_search_repeat_back(
     q_current_search_idx(state, vi)
 }
 
+#[allow(clippy::question_mark)]
 pub fn q_search_repeat_fwd(
     mul: u32,
     state: &mut TextAreaState,
@@ -1183,6 +1193,8 @@ pub fn q_search(
     Ok(())
 }
 
+#[allow(clippy::manual_map)]
+#[allow(clippy::double_ended_iterator_last)]
 pub fn q_search_idx(matches: &mut Matches, mul: u32, dir: Direction, state: &mut TextAreaState) {
     let c = state.byte_at(state.cursor()).start;
     let dir = matches.dir.mul(dir);
@@ -1274,7 +1286,7 @@ fn track_paragraph_fwd<'a, C: Cursor<Item = Grapheme<'a>>>(
     track: &mut bool,
     it: &mut C,
 ) -> bool {
-    if is_linebreak(&c) {
+    if is_linebreak(c) {
         if !*track {
             *track = true;
             false
@@ -1290,7 +1302,7 @@ fn track_paragraph_fwd<'a, C: Cursor<Item = Grapheme<'a>>>(
             }
             true
         }
-    } else if !is_whitespace(&c) {
+    } else if !is_whitespace(c) {
         *track = false;
         false
     } else {
@@ -1304,7 +1316,7 @@ fn track_paragraph_back<'a, C: Cursor<Item = Grapheme<'a>>>(
     track: &mut bool,
     it: &mut C,
 ) -> bool {
-    if is_linebreak(&c) {
+    if is_linebreak(c) {
         if !*track {
             *track = true;
             false
@@ -1321,7 +1333,7 @@ fn track_paragraph_back<'a, C: Cursor<Item = Grapheme<'a>>>(
             }
             true
         }
-    } else if !is_whitespace(&c) {
+    } else if !is_whitespace(c) {
         *track = false;
         false
     } else {
@@ -1481,6 +1493,7 @@ pub fn is_whitespace(g: &Grapheme<'_>) -> bool {
         .unwrap_or(false)
 }
 
+#[allow(clippy::match_like_matches_macro)]
 pub fn is_linebreak(g: &Grapheme<'_>) -> bool {
     g.grapheme()
         .chars()

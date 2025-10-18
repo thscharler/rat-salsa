@@ -187,6 +187,7 @@ pub fn copy_clipboard_text(
     Ok(())
 }
 
+#[allow(clippy::needless_range_loop)]
 fn paste(text: &[String], mul: u32, before: bool, state: &mut TextAreaState, vi: &mut VI) {
     if text.len() > 1 {
         let cursor = state.cursor();

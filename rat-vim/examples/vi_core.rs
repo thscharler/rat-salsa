@@ -1,7 +1,7 @@
 use crate::mini_salsa::{MiniSalsaState, STATUS, fill_buf_area, run_ui, setup_logging};
 use crate::text_samples::{
     add_range_styles, sample_bosworth_1, sample_irish, sample_long, sample_lorem_ipsum,
-    sample_medium, sample_rust, sample_scott_1, sample_tabs,
+    sample_medium, sample_rust, sample_scott_1,
 };
 use log::{debug, warn};
 use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};

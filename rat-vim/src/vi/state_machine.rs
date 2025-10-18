@@ -202,7 +202,7 @@ async fn bare_motion(
             let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             match tok {
-                'a'..'z' => Ok(Vim::Move(1, Motion::ToMark(Mark::Char(tok), true))),
+                'a'..='z' => Ok(Vim::Move(1, Motion::ToMark(Mark::Char(tok), true))),
                 '\'' | '`' => Ok(Vim::Move(1, Motion::ToMark(Mark::Jump, true))),
                 '[' => Ok(Vim::Move(1, Motion::ToMark(Mark::ChangeStart, true))),
                 ']' => Ok(Vim::Move(1, Motion::ToMark(Mark::ChangeEnd, true))),
@@ -216,7 +216,7 @@ async fn bare_motion(
             let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             match tok {
-                'a'..'z' => Ok(Vim::Move(1, Motion::ToMark(Mark::Char(tok), false))),
+                'a'..='z' => Ok(Vim::Move(1, Motion::ToMark(Mark::Char(tok), false))),
                 '\'' | '`' => Ok(Vim::Move(1, Motion::ToMark(Mark::Jump, false))),
                 '[' => Ok(Vim::Move(1, Motion::ToMark(Mark::ChangeStart, false))),
                 ']' => Ok(Vim::Move(1, Motion::ToMark(Mark::ChangeEnd, false))),
@@ -239,11 +239,11 @@ async fn motion_or_textobject(
     motion_buf: &RefCell<String>,
     yp: &Yield<char, Vim>,
 ) -> Result<Vim, char> {
-    tok = match bare_motion(tok, mul, &motion_buf, &yp).await {
+    tok = match bare_motion(tok, mul, motion_buf, yp).await {
         Ok(v) => return Ok(v),
         Err(tok) => tok,
     };
-    tok = match bare_object(tok, mul, &motion_buf, &yp).await {
+    tok = match bare_object(tok, mul, motion_buf, yp).await {
         Ok(v) => return Ok(v),
         Err(tok) => tok,
     };
@@ -297,7 +297,7 @@ pub async fn next_normal(tok: char, motion_buf: Rc<RefCell<String>>, yp: Yield<c
             let tok = yield_!(yp);
             motion_buf.borrow_mut().push(tok);
             match tok {
-                'a'..'z' => Vim::Mark(Mark::Char(tok)),
+                'a'..='z' => Vim::Mark(Mark::Char(tok)),
                 '\'' | '`' => Vim::Mark(Mark::Jump),
                 '[' => Vim::Mark(Mark::ChangeStart),
                 ']' => Vim::Mark(Mark::ChangeEnd),

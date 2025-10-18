@@ -84,6 +84,7 @@ pub enum Direction {
 
 impl Direction {
     /// Multiplies two directions.
+    #[allow(clippy::should_implement_trait)]
     pub fn mul(self, d: Direction) -> Direction {
         match (self, d) {
             (Direction::Forward, Direction::Forward) => Direction::Forward,
@@ -379,6 +380,7 @@ pub enum Vim {
     Indent,
 }
 
+#[allow(clippy::match_like_matches_macro)]
 fn is_visual_memo(vim: &Vim) -> bool {
     match vim {
         Vim::Change(_, Motion::Visual) => true,

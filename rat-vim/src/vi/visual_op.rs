@@ -78,7 +78,7 @@ pub fn visual_delete(state: &mut TextAreaState, vi: &mut VI) {
 /// [end_insert](crate::vi::modes_op::end_insert) does the rest.
 /// Most importantly calling [end_visual_change].
 pub fn visual_change(state: &mut TextAreaState, vi: &mut VI) {
-    let Some((r, _)) = vi.visual.list.get(0) else {
+    let Some((r, _)) = vi.visual.list.first() else {
         vi.mode = Mode::Normal;
         vi.visual.clear();
         return;
@@ -97,7 +97,7 @@ pub fn visual_change(state: &mut TextAreaState, vi: &mut VI) {
 
 /// Ends a visual change and applies it to the multi selection.
 pub fn end_visual_change(state: &mut TextAreaState, vi: &mut VI) {
-    let Some((r, _)) = vi.visual.list.get(0) else {
+    let Some((r, _)) = vi.visual.list.first() else {
         unreachable!("invalid change");
     };
     let new_cursor = state.byte_pos(r.start);

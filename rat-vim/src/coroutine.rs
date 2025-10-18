@@ -167,6 +167,7 @@ impl<Y> Resume<Y, Y> {
 /// Implements a coroutine using a future.
 ///
 /// It has the specialty that it can yield without producing a result.
+#[allow(clippy::type_complexity)]
 pub struct Coroutine<'a, A, Y, R> {
     init: Option<Box<dyn FnOnce(A, Yield<A, Y>) -> Box<dyn Future<Output = R> + 'a> + 'a>>,
 
@@ -337,12 +338,18 @@ pub struct Yield<P, T> {
     yielded: Rc<Cell<Option<T>>>,
 }
 
-impl<P, T> Yield<P, T> {
-    pub fn new() -> Self {
+impl<P, T> Default for Yield<P, T> {
+    fn default() -> Self {
         Self {
             arg: Default::default(),
             yielded: Default::default(),
         }
+    }
+}
+
+impl<P, T> Yield<P, T> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Set the resume parameter.
@@ -426,12 +433,12 @@ mod test {
                 dbg!(v);
                 assert_eq!(v, 'A');
             }
-            CoResult::Return(v) => {
+            CoResult::Return(_v) => {
                 unreachable!()
             }
         };
         match co.resume_with('a').await {
-            CoResult::Yield(v) => {
+            CoResult::Yield(_v) => {
                 unreachable!()
             }
             CoResult::Return(v) => {
@@ -455,13 +462,13 @@ mod test {
                 dbg!(v);
                 assert_eq!(v, 'A');
             }
-            Resume::Return(v) => {
+            Resume::Return(_v) => {
                 unreachable!()
             }
         }
         match co.resume('a') {
             Resume::Pending => {}
-            Resume::Yield(v) => {
+            Resume::Yield(_v) => {
                 unreachable!()
             }
             Resume::Return(v) => {

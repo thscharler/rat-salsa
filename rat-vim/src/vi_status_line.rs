@@ -21,6 +21,7 @@ pub struct VIStatusLine<'a> {
 }
 
 impl<'a> VIStatusLine<'a> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             style: Default::default(),
