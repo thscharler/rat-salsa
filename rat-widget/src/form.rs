@@ -421,6 +421,7 @@ where
 
     /// Render the page navigation and create the FormBuffer
     /// that will do the actual rendering.
+    #[allow(clippy::needless_lifetimes)]
     pub fn into_buffer<'b, 's>(
         mut self,
         area: Rect,
@@ -489,7 +490,6 @@ where
             let block = self
                 .block
                 .clone()
-                .take()
                 .unwrap_or_else(|| Block::new().style(self.style))
                 .title_bottom(title)
                 .title_alignment(Alignment::Right);
@@ -501,7 +501,6 @@ where
         } else {
             self.block
                 .clone()
-                .take()
                 .unwrap_or_else(|| Block::new().style(self.style))
         };
         block.render(area, buf);

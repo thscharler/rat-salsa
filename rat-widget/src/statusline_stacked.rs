@@ -35,9 +35,9 @@ use ratatui::widgets::Widget;
 use std::marker::PhantomData;
 
 /// Block cut at the diagonal.
-pub const SLANT_TL_BR: &'static str = "\u{e0b8}";
+pub const SLANT_TL_BR: &str = "\u{e0b8}";
 /// Block cut at the diagonal.
-pub const SLANT_BL_TR: &'static str = "\u{e0ba}";
+pub const SLANT_BL_TR: &str = "\u{e0ba}";
 
 /// Statusline with indicators on the left and right side.
 #[derive(Debug, Default, Clone)]
