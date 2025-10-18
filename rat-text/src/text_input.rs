@@ -17,10 +17,10 @@ use crate::_private::NonExhaustive;
 #[allow(deprecated)]
 use crate::Glyph;
 use crate::clipboard::{Clipboard, global_clipboard};
+use crate::core::core_op::*;
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::glyph2::{Glyph2, TextWrap2};
-use crate::text_core::core_op::*;
 use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{

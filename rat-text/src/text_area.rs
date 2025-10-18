@@ -9,6 +9,7 @@ use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
 use crate::glyph2::{GlyphIter2, TextWrap2};
+use crate::text_area::text_area_op::*;
 use crate::text_core::TextCore;
 use crate::text_core::core_op::*;
 use crate::text_store::TextStore;
@@ -33,6 +34,8 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::ops::Range;
+
+pub mod text_area_op;
 
 /// Text area widget.
 ///
@@ -1502,17 +1505,7 @@ impl TextAreaState {
     pub fn insert_tab(&mut self) -> bool {
         if self.has_selection() {
             if self.auto_indent {
-                let sel = self.selection();
-                let indent = " ".repeat(self.tab_width() as usize);
-
-                self.value.begin_undo_seq();
-                for r in sel.start.y..=sel.end.y {
-                    self.value
-                        .insert_str(TextPosition::new(0, r), &indent)
-                        .expect("valid_row");
-                }
-                self.value.end_undo_seq();
-
+                indent(self, self.tab_width);
                 true
             } else {
                 false
@@ -1533,29 +1526,7 @@ impl TextAreaState {
     /// This can be deactivated with auto_indent=false.
     pub fn insert_backtab(&mut self) -> bool {
         if self.has_selection() {
-            let sel = self.selection();
-
-            self.value.begin_undo_seq();
-            for r in sel.start.y..=sel.end.y {
-                let mut idx = 0;
-                let g_it = self
-                    .value
-                    .graphemes(TextRange::new((0, r), (0, r + 1)), TextPosition::new(0, r))
-                    .expect("valid_range")
-                    .take(self.tab_width() as usize);
-                for g in g_it {
-                    if g != " " && g != "\t" {
-                        break;
-                    }
-                    idx += 1;
-                }
-
-                self.value
-                    .remove_str_range(TextRange::new((0, r), (idx, r)))
-                    .expect("valid_range");
-            }
-            self.value.end_undo_seq();
-
+            dedent(self, self.tab_width);
             true
         } else {
             false
@@ -1595,22 +1566,7 @@ impl TextAreaState {
 
         // insert leading spaces
         if self.auto_indent {
-            let cursor = self.cursor();
-            if cursor.y > 0 {
-                let mut blanks = String::new();
-                for g in self.line_graphemes(cursor.y - 1) {
-                    if g == " " || g == "\t" {
-                        blanks.push_str(g.grapheme());
-                    } else {
-                        break;
-                    }
-                }
-                if !blanks.is_empty() {
-                    self.value
-                        .insert_str(cursor, &blanks)
-                        .expect("valid_cursor");
-                }
-            }
+            auto_indent(self);
         }
 
         self.scroll_cursor_to_visible();
@@ -1642,65 +1598,32 @@ impl TextAreaState {
 impl TextAreaState {
     /// Duplicates the selection or the current line.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn duplicate_text(&mut self) -> bool {
-        if self.has_selection() {
-            let sel_range = self.selection();
-            if !sel_range.is_empty() {
-                let v = self.str_slice(sel_range).to_string();
-                self.value
-                    .insert_str(sel_range.end, &v)
-                    .expect("valid_selection");
-                true
-            } else {
-                false
-            }
-        } else {
-            let pos = self.cursor();
-            let row_range = TextRange::new((0, pos.y), (0, pos.y + 1));
-            let v = self.str_slice(row_range).to_string();
-            self.value
-                .insert_str(row_range.start, &v)
-                .expect("valid_cursor");
-            true
-        }
+        duplicate_text(self)
     }
 
     /// Deletes the current line.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn delete_line(&mut self) -> bool {
-        let pos = self.cursor();
-        if pos.y + 1 < self.len_lines() {
-            self.delete_range(TextRange::new((0, pos.y), (0, pos.y + 1)))
-        } else {
-            let width = self.line_width(pos.y);
-            self.delete_range(TextRange::new((0, pos.y), (width, pos.y)))
-        }
+        delete_line(self)
     }
 
     /// Deletes the next char or the current selection.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn delete_next_char(&mut self) -> bool {
-        if self.has_selection() {
-            self.delete_range(self.selection())
-        } else {
-            let pos = self.value.cursor();
-            let r = remove_next_char(&mut self.value, pos).expect("valid_cursor");
-            self.scroll_cursor_to_visible();
-            r
-        }
+        self.scroll_cursor_to_visible();
+        delete_next_char(self)
     }
 
     /// Deletes the previous char or the selection.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn delete_prev_char(&mut self) -> bool {
-        if self.has_selection() {
-            self.delete_range(self.selection())
-        } else {
-            let pos = self.value.cursor();
-            let r = remove_prev_char(&mut self.value, pos).expect("valid_cursor");
-            self.scroll_cursor_to_visible();
-            r
-        }
+        self.scroll_cursor_to_visible();
+        delete_prev_char(self)
     }
 
     /// Find the start of the next word. If the position is at the start
@@ -1837,256 +1760,98 @@ impl TextAreaState {
     /// the words themselves.
     ///
     /// If there is a selection, removes only the selected text.
+    #[inline]
     pub fn delete_next_word(&mut self) -> bool {
-        if self.has_selection() {
-            self.delete_range(self.selection())
-        } else {
-            let cursor = self.cursor();
-
-            let start = self.next_word_start(cursor);
-            if start != cursor {
-                self.delete_range(cursor..start)
-            } else {
-                let end = self.next_word_end(cursor);
-                self.delete_range(cursor..end)
-            }
-        }
+        delete_next_word(self)
     }
 
     /// Deletes the previous word. This alternates deleting the whitespace
     /// between words and the words themselves.
     ///
     /// If there is a selection, removes only the selected text.
+    #[inline]
     pub fn delete_prev_word(&mut self) -> bool {
-        if self.has_selection() {
-            self.delete_range(self.selection())
-        } else {
-            let cursor = self.cursor();
-
-            // delete to beginning of line?
-            let till_line_start = if cursor.x != 0 {
-                let line_start = TextPosition::new(0, cursor.y);
-                let mut it = self.graphemes(line_start..cursor, cursor);
-
-                let mut is_whitespace = true;
-                loop {
-                    let Some(prev) = it.prev() else {
-                        break;
-                    };
-                    if !prev.is_whitespace() {
-                        is_whitespace = false;
-                        break;
-                    }
-                }
-
-                is_whitespace
-            } else {
-                false
-            };
-
-            if till_line_start {
-                self.delete_range(TextRange::new((0, cursor.y), cursor))
-            } else {
-                let end = self.prev_word_end(cursor);
-                if end != cursor {
-                    self.delete_range(end..cursor)
-                } else {
-                    let start = self.prev_word_start(cursor);
-                    self.delete_range(start..cursor)
-                }
-            }
-        }
+        delete_prev_word(self)
     }
 
     /// Move the cursor left. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn move_left(&mut self, n: u16, extend_selection: bool) -> bool {
-        let mut cursor = self.cursor();
-        if cursor.x == 0 {
-            if cursor.y > 0 {
-                cursor.y = cursor.y.saturating_sub(1);
-                cursor.x = self.line_width(cursor.y);
-            }
-        } else {
-            cursor.x = cursor.x.saturating_sub(n as upos_type);
-        }
-
-        if let Some(scr_cursor) = self.pos_to_relative_screen(cursor) {
-            self.set_move_col(Some(scr_cursor.0));
-        }
-
-        self.set_cursor(cursor, extend_selection)
+        move_left(self, n, extend_selection)
     }
 
     /// Move the cursor right. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn move_right(&mut self, n: u16, extend_selection: bool) -> bool {
-        let mut cursor = self.cursor();
-        let c_line_width = self.line_width(cursor.y);
-        if cursor.x == c_line_width {
-            if cursor.y + 1 < self.len_lines() {
-                cursor.y += 1;
-                cursor.x = 0;
-            }
-        } else {
-            cursor.x = min(cursor.x + n as upos_type, c_line_width)
-        }
-
-        if let Some(scr_cursor) = self.pos_to_relative_screen(cursor) {
-            self.set_move_col(Some(scr_cursor.0));
-        }
-        self.set_cursor(cursor, extend_selection)
+        move_right(self, n, extend_selection)
     }
 
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
-        let cursor = self.cursor();
-        if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
-            if let Some(move_col) = self.move_col() {
-                scr_cursor.0 = move_col;
-            }
-            scr_cursor.1 -= n as i16;
-
-            if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
-                self.set_cursor(new_cursor, extend_selection)
-            } else {
-                self.scroll_cursor_to_visible();
-                true
-            }
-        } else {
-            self.scroll_cursor_to_visible();
-            true
-        }
+        move_up(self, n, extend_selection)
     }
 
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
-        let cursor = self.cursor();
-        if let Some(mut scr_cursor) = self.pos_to_relative_screen(cursor) {
-            if let Some(move_col) = self.move_col() {
-                scr_cursor.0 = move_col;
-            }
-            scr_cursor.1 += n as i16;
-
-            if let Some(new_cursor) = self.relative_screen_to_pos(scr_cursor) {
-                self.set_cursor(new_cursor, extend_selection)
-            } else {
-                self.scroll_cursor_to_visible();
-                true
-            }
-        } else {
-            self.scroll_cursor_to_visible();
-            true
-        }
+        move_down(self, n, extend_selection)
     }
 
     /// Move the cursor to the start of the line.
     /// Scrolls the cursor to visible.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let cursor = self.cursor();
-
-        let mut line_start = self.pos_to_line_start(cursor);
-        for g in self
-            .glyphs2(
-                0,
-                line_start.x,
-                line_start.y..min(line_start.y + 1, self.len_lines()),
-            )
-            .expect("valid-pos")
-        {
-            if g.glyph() != " " && g.glyph() != "\t" {
-                if g.pos().x != cursor.x {
-                    line_start.x = g.pos().x;
-                }
-                break;
-            }
-        }
-
-        if let Some(scr_pos) = self.pos_to_relative_screen(line_start) {
-            self.set_move_col(Some(scr_pos.0));
-        }
-        self.set_cursor(line_start, extend_selection)
+        move_to_line_start(self, extend_selection)
     }
 
     /// Move the cursor to the end of the line. Scrolls to visible, if
     /// necessary.
     /// Returns true if there was any real change.
+    #[inline]
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
-        let cursor = self.cursor();
-        let line_end = self.pos_to_line_end(cursor);
-        if let Some(scr_pos) = self.pos_to_relative_screen(line_end) {
-            self.set_move_col(Some(scr_pos.0));
-        }
-        self.set_cursor(line_end, extend_selection)
+        move_to_line_end(self, extend_selection)
     }
 
     /// Move the cursor to the document start.
+    #[inline]
     pub fn move_to_start(&mut self, extend_selection: bool) -> bool {
-        let cursor = TextPosition::new(0, 0);
-
-        self.set_move_col(Some(0));
-        self.set_cursor(cursor, extend_selection)
+        move_to_start(self, extend_selection)
     }
 
     /// Move the cursor to the document end.
+    #[inline]
     pub fn move_to_end(&mut self, extend_selection: bool) -> bool {
-        let cursor = TextPosition::new(
-            self.line_width(self.len_lines().saturating_sub(1)),
-            self.len_lines().saturating_sub(1),
-        );
-
-        let line_start = self.pos_to_line_start(cursor);
-        self.set_move_col(Some(0));
-        self.set_cursor(line_start, extend_selection)
+        move_to_end(self, extend_selection)
     }
 
     /// Move the cursor to the start of the visible area.
+    #[inline]
     pub fn move_to_screen_start(&mut self, extend_selection: bool) -> bool {
-        let (ox, oy) = self.offset();
-
-        let cursor = TextPosition::new(ox as upos_type, oy as upos_type);
-
-        self.set_move_col(Some(0));
-        self.set_cursor(cursor, extend_selection)
+        move_to_screen_start(self, extend_selection)
     }
 
     /// Move the cursor to the end of the visible area.
+    #[inline]
     pub fn move_to_screen_end(&mut self, extend_selection: bool) -> bool {
-        let scr_end = (0, (self.inner.height as i16).saturating_sub(1));
-        if let Some(pos) = self.relative_screen_to_pos(scr_end) {
-            self.set_move_col(Some(0));
-            self.set_cursor(pos, extend_selection)
-        } else {
-            self.scroll_cursor_to_visible();
-            true
-        }
+        move_to_screen_end(self, extend_selection)
     }
 
     /// Move the cursor to the next word.
+    #[inline]
     pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
-        let cursor = self.cursor();
-
-        let word = self.next_word_end(cursor);
-
-        if let Some(scr_pos) = self.pos_to_relative_screen(word) {
-            self.set_move_col(Some(scr_pos.0));
-        }
-        self.set_cursor(word, extend_selection)
+        move_to_next_word(self, extend_selection)
     }
 
     /// Move the cursor to the previous word.
+    #[inline]
     pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
-        let cursor = self.cursor();
-
-        let word = self.prev_word_start(cursor);
-
-        if let Some(scr_pos) = self.pos_to_relative_screen(word) {
-            self.set_move_col(Some(scr_pos.0));
-        }
-        self.set_cursor(word, extend_selection)
+        move_to_prev_word(self, extend_selection)
     }
 }
 
