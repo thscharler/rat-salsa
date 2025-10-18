@@ -10,7 +10,7 @@ use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::event::TextOutcome;
 use rat_text::line_number::{LineNumberState, LineNumbers};
-use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
+use rat_text::text_area::{MATCH_STYLE, TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{HasScreenCursor, TextPosition, upos_type};
 use ratatui::Frame;
@@ -123,7 +123,7 @@ fn render(
             Style::new().on_yellow(),
         ])
         .text_style_idx(
-            999,
+            MATCH_STYLE,
             istate
                 .theme
                 .palette()
@@ -338,7 +338,7 @@ fn event(
             let r = state.search.handle(event, Regular);
             match r {
                 TextOutcome::TextChanged => {
-                    run_search(state);
+                    _ = state.textarea.search(state.search.text());
                     TextOutcome::Changed
                 }
                 r => r,
@@ -467,31 +467,6 @@ fn event(
     });
 
     Ok(Outcome::Continue)
-}
-
-fn run_search(state: &mut State) {
-    let search_text = state.search.text();
-
-    // TODO: will kill any sample styling ...
-    state.textarea.set_styles(Vec::default());
-
-    if search_text.len() < 1 {
-        return;
-    }
-
-    // TODO: this is not fast
-    let text = state.textarea.text();
-
-    let mut start = 0;
-    loop {
-        let Some(pos) = text[start..].find(search_text) else {
-            break;
-        };
-        state
-            .textarea
-            .add_style(start + pos..start + pos + search_text.len(), 999);
-        start = start + pos + search_text.len();
-    }
 }
 
 #[derive(Debug, Default, Clone)]

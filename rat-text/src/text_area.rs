@@ -1772,6 +1772,38 @@ impl TextAreaState {
         delete_prev_word(self)
     }
 
+    /// Search for a regex.
+    ///
+    /// Uses match_style for highlighting the matches.
+    /// This doesn't change the cursor/selection, use [move_to_next_match] or
+    /// [move_to_prev_match] for this.
+    ///
+    /// Return
+    ///
+    /// Returns true if the search found anything.
+    ///
+    pub fn search(&mut self, re: &str) -> Result<bool, TextError> {
+        match search(self, re, MATCH_STYLE) {
+            Ok(r) => Ok(r),
+            Err(_) => Err(TextError::InvalidSearch),
+        }
+    }
+
+    /// Move to the next match.
+    pub fn move_to_next_match(&mut self) -> bool {
+        move_to_next_match(self, MATCH_STYLE)
+    }
+
+    /// Move to the next match.
+    pub fn move_to_prev_match(&mut self) -> bool {
+        move_to_prev_match(self, MATCH_STYLE)
+    }
+
+    /// Clear the search.
+    pub fn clear_search(&mut self) {
+        clear_search(self, MATCH_STYLE)
+    }
+
     /// Move the cursor left. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     #[inline]
@@ -2899,6 +2931,9 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
     }
 }
 
+/// Style-id for search matches.
+pub const MATCH_STYLE: usize = 100_001;
+
 impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         let mut r = if self.is_focused() {
@@ -2959,6 +2994,9 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 ct_event!(keycode press CONTROL_SHIFT-End) => self.move_to_end(true).into(),
                 ct_event!(key press CONTROL-'a') => self.select_all().into(),
                 ct_event!(key press CONTROL-'c') => self.copy_to_clip().into(),
+
+                ct_event!(keycode press F(3)) => self.move_to_next_match().into(),
+                ct_event!(keycode press SHIFT-F(3)) => self.move_to_prev_match().into(),
 
                 ct_event!(keycode release Left)
                 | ct_event!(keycode release Right)

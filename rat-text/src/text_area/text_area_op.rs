@@ -1,6 +1,9 @@
 use crate::core::core_op::*;
 use crate::text_area::TextAreaState;
 use crate::{Cursor, TextPosition, TextRange, upos_type};
+use regex_cursor::engines::dfa::{Regex, find_iter};
+use regex_cursor::regex_automata::dfa::dense::BuildError;
+use regex_cursor::{Input, RopeyCursor};
 use std::cmp::min;
 
 /// Indent the selection by shift-width.
@@ -411,4 +414,104 @@ pub fn move_to_prev_word(state: &mut TextAreaState, extend_selection: bool) -> b
         state.set_move_col(Some(scr_pos.0));
     }
     state.set_cursor(word, extend_selection)
+}
+
+/// Clear the search.
+pub fn clear_search(state: &mut TextAreaState, match_style: usize) {
+    state.remove_style_fully(match_style);
+}
+
+/// Search the term and highlight the finds as style `style`.
+pub fn search(
+    state: &mut TextAreaState,
+    search: &str,
+    match_style: usize,
+) -> Result<bool, BuildError> {
+    clear_search(state, match_style);
+
+    if search.is_empty() {
+        return Ok(false);
+    }
+
+    let re = Regex::new(search)?;
+
+    let cursor = RopeyCursor::new(state.rope().byte_slice(..));
+    let input = Input::new(cursor);
+    let mut matches = Vec::new();
+    for m in find_iter(&re, input) {
+        matches.push(m.start()..m.end());
+    }
+    let found = !matches.is_empty();
+
+    for r in matches {
+        state.add_style(r, match_style);
+    }
+
+    Ok(found)
+}
+
+pub fn move_to_next_match(state: &mut TextAreaState, match_style: usize) -> bool {
+    let pos = state.cursor();
+    let pos = state.byte_at(pos);
+
+    let find = if let Some(styles) = state.styles() {
+        let find = styles
+            .filter(|(range, style)| {
+                if *style == match_style {
+                    if range.start > pos.start { true } else { false }
+                } else {
+                    false
+                }
+            })
+            .next();
+
+        if let Some((find_range, _)) = find {
+            Some(state.byte_range(find_range))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some(find) = find {
+        state.set_cursor(find.end, false);
+        state.set_cursor(find.start, true);
+        true
+    } else {
+        false
+    }
+}
+
+pub fn move_to_prev_match(state: &mut TextAreaState, match_style: usize) -> bool {
+    let pos = state.cursor();
+    let pos = state.byte_at(pos);
+
+    let find = if let Some(styles) = state.styles() {
+        let find = styles
+            .filter(|(range, style)| {
+                if *style == match_style {
+                    if range.start < pos.start { true } else { false }
+                } else {
+                    false
+                }
+            })
+            .last();
+
+        if let Some((find_range, _)) = find {
+            Some(state.byte_range(find_range))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some(find) = find {
+        state.set_cursor(find.end, false);
+        state.set_cursor(find.start, true);
+        true
+    } else {
+        false
+    }
 }

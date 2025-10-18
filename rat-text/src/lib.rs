@@ -250,6 +250,8 @@ pub enum TextError {
         usize, // Start.
         usize, // End.
     ),
+    /// Invalid regex for search.
+    InvalidSearch,
 }
 
 impl Display for TextError {

@@ -1305,6 +1305,7 @@ dependencies = [
  "rat-reloc",
  "rat-scrolled",
  "ratatui",
+ "regex-cursor",
  "ropey",
  "rustc-hash",
  "unicode-display-width",
