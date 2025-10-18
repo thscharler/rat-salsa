@@ -69,7 +69,7 @@
 //! the mouse behaviour.
 //!
 
-pub mod mask_op;
+pub(crate) mod mask_op;
 pub(crate) mod mask_token;
 pub(crate) mod masked_graphemes;
 
@@ -87,8 +87,8 @@ use crate::text_input_mask::masked_graphemes::MaskedGraphemes;
 use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
-    Cursor, Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition,
-    TextRange, TextStyle, ipos_type, upos_type,
+    Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition, TextRange,
+    TextStyle, ipos_type, upos_type,
 };
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
@@ -464,7 +464,7 @@ impl Clone for MaskedInputState {
             dark_offset: self.dark_offset,
             scroll_to_cursor: self.scroll_to_cursor,
             value: self.value.clone(),
-            sym: self.sym.clone(),
+            sym: self.sym,
             mask: self.mask.clone(),
             invalid: self.invalid,
             overwrite: Default::default(),

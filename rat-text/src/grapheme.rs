@@ -687,6 +687,7 @@ mod test_str {
         assert_eq!(s0.text_offset(), 1);
     }
 
+    #[allow(deprecated)]
     #[test]
     fn test_str_graphemes5() {
         // offsets and partial slices
@@ -855,6 +856,7 @@ mod test_rope {
         assert_eq!(s0.text_offset(), 1);
     }
 
+    #[allow(deprecated)]
     #[test]
     fn test_rope_graphemes5() {
         // offsets and partial slices

@@ -9,7 +9,6 @@ use crate::event::{ReadOnly, TextOutcome};
 #[allow(deprecated)]
 use crate::glyph::Glyph;
 use crate::glyph2::{GlyphIter2, TextWrap2};
-use crate::grapheme::Grapheme;
 use crate::text_core::TextCore;
 use crate::text_store::TextStore;
 use crate::text_store::text_rope::TextRope;
@@ -2351,11 +2350,10 @@ impl TextAreaState {
                 };
                 assert!(screen_x <= self.rendered.width);
 
-                let scr = Some((
+                Some((
                     screen_x as i16 - self.dark_offset.0 as i16,
                     screen_y as i16 - self.dark_offset.1 as i16,
-                ));
-                scr
+                ))
             }
             TextWrap::Hard | TextWrap::Word(_) => {
                 let (_, sub_row_offset, oy) = self.clean_offset();

@@ -252,12 +252,11 @@ where
 
     /// Build cache before running the iterator.
     pub(crate) fn prepare(&mut self) -> Result<(), TextError> {
-        let r = match self.text_wrap {
+        match self.text_wrap {
             TextWrap2::Shift => prepare_shift_clip(self),
             TextWrap2::Hard => prepare_hard_wrap(self),
             TextWrap2::Word => prepare_word_wrap(self),
-        };
-        r
+        }
     }
 }
 

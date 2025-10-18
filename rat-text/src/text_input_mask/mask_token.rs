@@ -5,7 +5,7 @@ use std::fmt::{Debug, Display, Formatter};
 /// Edit direction for part of a mask.
 /// Numeric values can switch between right-to-left (integer part) and left-to-right (fraction).
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum EditDirection {
+pub enum EditDirection {
     Ltor,
     Rtol,
 }
@@ -14,7 +14,7 @@ pub(crate) enum EditDirection {
 #[allow(variant_size_differences)]
 #[derive(Clone, PartialEq, Eq, Default)]
 #[non_exhaustive]
-pub(crate) enum Mask {
+pub enum Mask {
     // 0-9, display 0
     Digit0(EditDirection),
     // 0-9, display space
@@ -51,7 +51,7 @@ pub(crate) enum Mask {
 ///
 /// Default-values for editing and display.
 #[derive(Clone, PartialEq, Eq)]
-pub(crate) struct MaskToken {
+pub struct MaskToken {
     pub sec_id: u16,
     // section/number
     pub sec_start: upos_type,
