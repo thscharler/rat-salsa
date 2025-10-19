@@ -43,3 +43,13 @@ unicode-width = ">=0.2.0, <=0.2.1"
 [[example]]
 name = "async1"
 required-features = ["async", "scrolling-regions"]
+
+[[example]]
+name = "minimal"
+path = "templates/minimal.rs"
+doc = true
+
+[[example]]
+name = "nominal"
+path = "templates/nominal.rs"
+doc = true

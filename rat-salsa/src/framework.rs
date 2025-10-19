@@ -10,7 +10,7 @@ use ratatui::layout::Rect;
 use std::any::TypeId;
 use std::cmp::min;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use std::{io, thread};
 
 pub(crate) mod control_queue;
@@ -83,6 +83,8 @@ where
         term: Some(term.clone()),
         clear_terminal: Default::default(),
         insert_before: Default::default(),
+        last_render: Default::default(),
+        last_event: Default::default(),
         timers,
         tasks,
         #[cfg(feature = "async")]
@@ -98,13 +100,19 @@ where
     init(state, global)?;
 
     // initial render
+
     let ib = global.salsa_ctx().insert_before.take();
     if ib.height > 0 {
         term.borrow_mut().insert_before(ib.height, ib.draw_fn)?;
     }
     term.borrow_mut().render(&mut |frame| {
         let frame_area = frame.area();
+        let ttt = SystemTime::now();
         render(frame_area, frame.buffer_mut(), state, global)?;
+        global
+            .salsa_ctx()
+            .last_render
+            .set(ttt.elapsed().unwrap_or_default());
         if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
             frame.set_cursor_position((cursor_x, cursor_y));
         }
@@ -175,6 +183,8 @@ where
 
         // Result of event-handling.
         if let Some(ctrl) = global.salsa_ctx().queue.take() {
+            // filter out double Changed events.
+            // no need to render twice in a row.
             if matches!(ctrl, Ok(Control::Changed)) {
                 if was_changed {
                     continue;
@@ -204,7 +214,12 @@ where
                     }
                     let r = term.borrow_mut().render(&mut |frame| {
                         let frame_area = frame.area();
+                        let ttt = SystemTime::now();
                         render(frame_area, frame.buffer_mut(), state, global)?;
+                        global
+                            .salsa_ctx()
+                            .last_render
+                            .set(ttt.elapsed().unwrap_or_default());
                         if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
                             frame.set_cursor_position((cursor_x, cursor_y));
                         }
@@ -212,6 +227,7 @@ where
                         global.salsa_ctx().cursor.set(None);
                         Ok(())
                     });
+
                     match r {
                         Ok(_) => {
                             if let Some(h) = rendered_event {
@@ -222,7 +238,12 @@ where
                     }
                 }
                 Ok(Control::Event(a)) => {
+                    let ttt = SystemTime::now();
                     let r = event(&a, state, global);
+                    global
+                        .salsa_ctx()
+                        .last_event
+                        .set(ttt.elapsed().unwrap_or_default());
                     global.salsa_ctx().queue.push(r);
                 }
                 Ok(Control::Quit) => {

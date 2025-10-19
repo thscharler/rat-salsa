@@ -1,6 +1,6 @@
 use crate::nominal::{Nominal, NominalState};
 use anyhow::Error;
-use rat_event::break_flow;
+use rat_event::try_flow;
 use rat_focus::impl_has_focus;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
@@ -10,13 +10,14 @@ use rat_theme3::{create_theme, SalsaTheme};
 use rat_widget::event::{ct_event, Dialog, HandleEvent};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-use rat_widget::statusline::{StatusLine, StatusLineState};
+use rat_widget::statusline::StatusLineState;
+use rat_widget::statusline_stacked::StatusLineStacked;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -50,6 +51,7 @@ pub struct Global {
 
     pub cfg: Config,
     pub theme: Box<dyn SalsaTheme>,
+    pub status: String,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -69,6 +71,7 @@ impl Global {
             ctx: Default::default(),
             cfg,
             theme,
+            status: Default::default(),
         }
     }
 }
@@ -84,7 +87,6 @@ pub enum AppEvent {
     Event(crossterm::event::Event),
     Rendered,
     Message(String),
-    Status(usize, String),
 }
 
 impl From<RenderedEvent> for AppEvent {
@@ -120,8 +122,6 @@ pub fn render(
     state: &mut Scenery,
     ctx: &mut Global,
 ) -> Result<(), Error> {
-    let t0 = SystemTime::now();
-
     Nominal.render(area, buf, &mut state.nominal, ctx)?;
 
     let layout = Layout::vertical([
@@ -130,30 +130,44 @@ pub fn render(
     ])
     .split(area);
 
+    // Error
     if state.error_dlg.active() {
         MsgDialog::new()
             .styles(ctx.theme.msg_dialog_style())
             .render(layout[0], buf, &mut state.error_dlg);
     }
 
-    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    state.status.status(2, format!("R {:.0?}", el).to_string());
-
+    // Status
     let status_layout = Layout::horizontal([
         Constraint::Fill(61), //
         Constraint::Fill(39),
     ])
     .split(layout[1]);
 
-    StatusLine::new()
-        .layout([
-            Constraint::Fill(1),
-            Constraint::Length(8),
-            Constraint::Length(8),
-            Constraint::Length(8),
-        ])
-        .styles(ctx.theme.statusline_style())
-        .render(status_layout[1], buf, &mut state.status);
+    let palette = ctx.theme.palette();
+    let status_color_1 = palette
+        .normal_contrast(palette.white[0])
+        .bg(palette.blue[3]);
+    let status_color_2 = palette
+        .normal_contrast(palette.white[0])
+        .bg(palette.blue[2]);
+    let last_render = format!(
+        " R({:03}){:>5} ",
+        ctx.count(),
+        format!("{:.0?}", ctx.last_render())
+    )
+    .to_string();
+    let last_event = format!(" E{:>5} ", format!("{:.0?}", ctx.last_event())).to_string();
+
+    StatusLineStacked::new()
+        .center_margin(1)
+        .center(Line::from(ctx.status.as_str()))
+        .end(
+            Span::from(last_render).style(status_color_1),
+            Span::from(" "),
+        )
+        .end_bare(Span::from(last_event).style(status_color_2))
+        .render(status_layout[1], buf);
 
     Ok(())
 }
@@ -169,52 +183,35 @@ pub fn event(
     state: &mut Scenery,
     ctx: &mut Global,
 ) -> Result<Control<AppEvent>, Error> {
-    let t0 = SystemTime::now();
+    if let AppEvent::Event(event) = event {
+        try_flow!(match &event {
+            ct_event!(resized) => Control::Changed,
+            ct_event!(key press CONTROL-'q') => Control::Quit,
+            _ => Control::Continue,
+        });
 
-    let r = 'f: {
-        if let AppEvent::Event(event) = event {
-            break_flow!(
-                 'f: match &event {
-                    ct_event!(resized) => Control::Changed,
-                    ct_event!(key press CONTROL-'q') => Control::Quit,
-                    _ => Control::Continue,
-                }
-            );
+        try_flow!(if state.error_dlg.active() {
+            state.error_dlg.handle(event, Dialog).into()
+        } else {
+            Control::Continue
+        });
 
-            break_flow!(
-                 'f: if state.error_dlg.active() {
-                    state.error_dlg.handle(event, Dialog).into()
-                } else {
-                    Control::Continue
-                }
-            );
+        ctx.handle_focus(event);
+    }
 
-            ctx.handle_focus(event);
-        }
+    match event {
+        AppEvent::Rendered => try_flow!({
+            ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
+            Control::Continue
+        }),
+        AppEvent::Message(s) => try_flow!({
+            state.error_dlg.append(s.as_str());
+            Control::Changed
+        }),
+        _ => {}
+    }
 
-        match event {
-            AppEvent::Rendered => break_flow!('f: {
-                ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
-                Control::Continue
-            }),
-            AppEvent::Message(s) => break_flow!('f: {
-                state.error_dlg.append(s.as_str());
-                Control::Changed
-            }),
-            AppEvent::Status(n, s) => break_flow!('f: {
-                state.status.status(*n, s);
-                Control::Changed
-            }),
-            _ => {}
-        }
-
-        state.nominal.event(event, ctx)?
-    };
-
-    let el = t0.elapsed()?;
-    state.status.status(3, format!("E {:.0?}", el).to_string());
-
-    Ok(r)
+    state.nominal.event(event, ctx)
 }
 
 pub fn error(
@@ -268,6 +265,7 @@ pub mod nominal {
 
             MenuLine::new()
                 .styles(ctx.theme.menu_style())
+                .title("-?-")
                 .item_parsed("_Thread")
                 .item_parsed("_Timer")
                 .item_parsed("_Quit")
@@ -318,9 +316,8 @@ pub mod nominal {
 
             match event {
                 AppEvent::Timer(t) => {
-                    Ok(Control::Event(
-                        AppEvent::Status(1, format!("TICK-{}", t.counter)), //
-                    ))
+                    ctx.status = format!("TICK-{}", t.counter);
+                    Ok(Control::Changed)
                 }
                 _ => Ok(Control::Continue),
             }

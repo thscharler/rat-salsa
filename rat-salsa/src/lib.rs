@@ -17,6 +17,7 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::mem;
 use std::rc::Rc;
+use std::time::Duration;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 
@@ -261,6 +262,16 @@ where
     /// Get the current frame/render-count.
     fn count(&self) -> usize {
         self.salsa_ctx().count.get()
+    }
+
+    /// Get the last render timing.
+    fn last_render(&self) -> Duration {
+        self.salsa_ctx().last_render.get()
+    }
+
+    /// Get the last event-handling timing.
+    fn last_event(&self) -> Duration {
+        self.salsa_ctx().last_event.get()
     }
 
     /// Set the cursor, if the given value is something,
@@ -571,6 +582,10 @@ where
     pub(crate) clear_terminal: Cell<bool>,
     /// Call insert_before before the next draw.
     pub(crate) insert_before: Cell<InsertBefore>,
+    /// Last render time.
+    pub(crate) last_render: Cell<Duration>,
+    /// Last event time.
+    pub(crate) last_event: Cell<Duration>,
 
     /// Application timers.
     pub(crate) timers: Option<Rc<Timers>>,
@@ -638,6 +653,8 @@ where
             term: Default::default(),
             clear_terminal: Default::default(),
             insert_before: Default::default(),
+            last_render: Default::default(),
+            last_event: Default::default(),
             timers: Default::default(),
             tasks: Default::default(),
             #[cfg(feature = "async")]

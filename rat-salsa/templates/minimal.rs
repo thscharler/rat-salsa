@@ -11,9 +11,11 @@ use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
+use rat_widget::statusline_stacked::StatusLineStacked;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -22,7 +24,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_theme("Imperial Dark").expect("theme");
+    let theme = create_theme("Imperial Shell").expect("theme");
     let mut global = Global::new(config, theme);
     let mut state = Minimal::default();
 
@@ -48,6 +50,7 @@ pub struct Global {
 
     pub cfg: Config,
     pub theme: Box<dyn SalsaTheme>,
+    pub status: String,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -67,6 +70,7 @@ impl Global {
             ctx: Default::default(),
             cfg,
             theme,
+            status: Default::default(),
         }
     }
 }
@@ -81,7 +85,6 @@ pub enum AppEvent {
     Event(crossterm::event::Event),
     Rendered,
     Message(String),
-    Status(usize, String),
 }
 
 impl From<RenderedEvent> for AppEvent {
@@ -99,7 +102,7 @@ impl From<crossterm::event::Event> for AppEvent {
 #[derive(Debug, Default)]
 pub struct Minimal {
     pub menu: MenuLineState,
-    pub status: StatusLineState,
+
     pub error_dlg: MsgDialogState,
 }
 
@@ -111,8 +114,6 @@ pub fn render(
     state: &mut Minimal,
     ctx: &mut Global,
 ) -> Result<(), Error> {
-    let t0 = SystemTime::now();
-
     let layout = Layout::vertical([
         Constraint::Fill(1), //
         Constraint::Length(1),
@@ -127,6 +128,7 @@ pub fn render(
 
     MenuLine::new()
         .styles(ctx.theme.menu_style())
+        .title("-!-")
         .item_parsed("_Quit")
         .render(status_layout[0], buf, &mut state.menu);
 
@@ -136,17 +138,31 @@ pub fn render(
             .render(layout[0], buf, &mut state.error_dlg);
     }
 
-    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    state.status.status(1, format!("R {:.0?}", el).to_string());
+    // Status
+    let palette = ctx.theme.palette();
+    let status_color_1 = palette
+        .normal_contrast(palette.white[0])
+        .bg(palette.blue[3]);
+    let status_color_2 = palette
+        .normal_contrast(palette.white[0])
+        .bg(palette.blue[2]);
+    let last_render = format!(
+        " R({:03}){:05} ",
+        ctx.count(),
+        format!("{:.0?}", ctx.last_render())
+    )
+    .to_string();
+    let last_event = format!(" E{:05} ", format!("{:.0?}", ctx.last_event())).to_string();
 
-    StatusLine::new()
-        .layout([
-            Constraint::Fill(1),
-            Constraint::Length(8),
-            Constraint::Length(8),
-        ])
-        .styles(ctx.theme.statusline_style())
-        .render(status_layout[1], buf, &mut state.status);
+    StatusLineStacked::new()
+        .center_margin(1)
+        .center(Line::from(ctx.status.as_str()))
+        .end(
+            Span::from(last_render).style(status_color_1),
+            Span::from(" "),
+        )
+        .end_bare(Span::from(last_event).style(status_color_2))
+        .render(status_layout[1], buf);
 
     Ok(())
 }
@@ -194,10 +210,6 @@ pub fn event(
             state.error_dlg.append(s.as_str());
             Ok(Control::Changed)
         }
-        AppEvent::Status(n, s) => {
-            state.status.status(*n, s);
-            Ok(Control::Changed)
-        }
         _ => Ok(Control::Continue),
     }
 }
@@ -213,7 +225,7 @@ pub fn error(
 }
 
 fn setup_logging() -> Result<(), Error> {
-    let log_path = PathBuf::from(".");
+    let log_path = PathBuf::from("../..");
     let log_file = log_path.join("log.log");
     _ = fs::remove_file(&log_file);
     fern::Dispatch::new()
