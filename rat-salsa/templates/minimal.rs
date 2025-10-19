@@ -10,7 +10,6 @@ use rat_widget::event::{ct_event, Dialog, HandleEvent, MenuOutcome, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -18,7 +17,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
 
 fn main() -> Result<(), Error> {
     setup_logging()?;

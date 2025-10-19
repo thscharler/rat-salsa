@@ -47,9 +47,7 @@ required-features = ["async", "scrolling-regions"]
 [[example]]
 name = "minimal"
 path = "templates/minimal.rs"
-doc = true
 
 [[example]]
 name = "nominal"
 path = "templates/nominal.rs"
-doc = true

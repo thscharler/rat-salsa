@@ -1,3 +1,10 @@
+# 2.2.0
+
+* move render/event timing into the framework.
+  accessible as SalsaContext::last_event() and SalsaContext::last_render().
+* move main templates to "/templates"
+*
+
 # 2.1.2
 
 * upgrade rat-text to 2.0. only for examples.

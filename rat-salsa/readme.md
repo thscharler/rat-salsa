@@ -81,14 +81,21 @@ The examples directory contains some examples
 - [mdedit.rs][refMDEdit]: Minimal markdown editor.
 - [life.rs][refLife]: Game of Life.
 - [async1.rs][refAsync1]: Async tasks.
+- [half_ui.rs][refHalfUI]: Inline/Fixed UI.
+- [inline.rs][refInline]: Inline UI.
+- [links.rs][refLinks]: Terminal hyperlinks.
+- [async1.rs][refAsync1]: Async tasks.
 - [logscroll.rs][refLogscroll]: Logfile view and find.
-- [theme_samples.rs][refThemeSamples]: Theme show-room.
+- [textinput.rs][refTextInput]: Example for text input.
+- [themes.rs][refThemeSamples]: Theme show-room.
+- [todo.rs][refTodo]: Simple todo app.
 - [turbo.rs][refTurbo]: Reboot Turbo Pascal.
+- [ultra.rs][refUltra]: Rat-salsa in less than 100loc.
 
-There are some starters too
+There are some templates too
 
 - [minimal.rs][refMinimal]: Minimal application with a menubar and statusbar.
-- [ultra.rs][refUltra]: Absolute minimum setup.
+- [nominal.rs][refNominal]: Minimal application, but using subcomponents.
 
 ![image][refFilesGif]
 
@@ -111,9 +118,21 @@ There are some starters too
 
 [refFiles]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/files.rs
 
-[refMinimal]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/minimal.rs
+[refMinimal]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/minimal.rs
 
-[refUltra]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/ultra.rs
+[refNominal]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/nominal.rs
+
+[refHalfUI]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/half_ui.rs
+
+[refInline]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/inline.rs
+
+[refLinks]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/links.rs
+
+[refTextInput]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/textinput.rs
+
+[refTodo]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/todo.rs
+
+[refUltra]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/ultra.rs
 
 [refRSBook]: https://thscharler.github.io/rat-salsa/
 
