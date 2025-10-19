@@ -119,8 +119,7 @@ pub fn delete_next_char(state: &mut TextAreaState) -> bool {
             .expect("valid_selection")
     } else {
         let pos = state.cursor();
-        let r = remove_next_char(&mut state.value, pos).expect("valid_cursor");
-        r
+        remove_next_char(&mut state.value, pos).expect("valid_cursor")
     }
 }
 
@@ -134,8 +133,7 @@ pub fn delete_prev_char(state: &mut TextAreaState) -> bool {
             .expect("valid_selection")
     } else {
         let pos = state.cursor();
-        let r = remove_prev_char(&mut state.value, pos).expect("valid_cursor");
-        r
+        remove_prev_char(&mut state.value, pos).expect("valid_cursor")
     }
 }
 
@@ -152,14 +150,14 @@ pub fn delete_next_word(state: &mut TextAreaState) -> bool {
     } else {
         let cursor = state.cursor();
 
-        let start = next_word_start(&mut state.value, cursor).expect("valid_cursor");
+        let start = next_word_start(&state.value, cursor).expect("valid_cursor");
         if start != cursor {
             state
                 .value
                 .remove_str_range(TextRange::from(cursor..start))
                 .expect("valid_range")
         } else {
-            let end = next_word_end(&mut state.value, cursor).expect("valid_cursor");
+            let end = next_word_end(&state.value, cursor).expect("valid_cursor");
             state
                 .value
                 .remove_str_range(TextRange::from(cursor..end))
@@ -208,14 +206,14 @@ pub fn delete_prev_word(state: &mut TextAreaState) -> bool {
                 .remove_str_range(TextRange::new((0, cursor.y), cursor))
                 .expect("valid_range")
         } else {
-            let end = prev_word_end(&mut state.value, cursor).expect("valid_cursor");
+            let end = prev_word_end(&state.value, cursor).expect("valid_cursor");
             if end != cursor {
                 state
                     .value
                     .remove_str_range(TextRange::from(end..cursor))
                     .expect("valid_range")
             } else {
-                let start = prev_word_start(&mut state.value, cursor).expect("valid_cursor");
+                let start = prev_word_start(&state.value, cursor).expect("valid_cursor");
                 state
                     .value
                     .remove_str_range(TextRange::from(start..cursor))
@@ -422,6 +420,7 @@ pub fn clear_search(state: &mut TextAreaState, match_style: usize) {
 }
 
 /// Search the term and highlight the finds as style `style`.
+#[allow(clippy::result_large_err)]
 pub fn search(
     state: &mut TextAreaState,
     search: &str,
@@ -454,16 +453,14 @@ pub fn move_to_next_match(state: &mut TextAreaState, match_style: usize) -> bool
     let pos = state.cursor();
     let pos = state.byte_at(pos);
 
-    let find = if let Some(styles) = state.styles() {
-        let find = styles
-            .filter(|(range, style)| {
-                if *style == match_style {
-                    if range.start > pos.start { true } else { false }
-                } else {
-                    false
-                }
-            })
-            .next();
+    let find = if let Some(mut styles) = state.styles() {
+        let find = styles.find(|(range, style)| {
+            if *style == match_style {
+                range.start > pos.start
+            } else {
+                false
+            }
+        });
 
         if let Some((find_range, _)) = find {
             Some(state.byte_range(find_range))
@@ -491,7 +488,7 @@ pub fn move_to_prev_match(state: &mut TextAreaState, match_style: usize) -> bool
         let find = styles
             .filter(|(range, style)| {
                 if *style == match_style {
-                    if range.start < pos.start { true } else { false }
+                    range.start < pos.start
                 } else {
                     false
                 }
