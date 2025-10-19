@@ -1,3 +1,7 @@
+# 2.2.0
+
+* upgrade rat-text to 2.0.0
+
 # 2.1.1
 
 * fix: wrong name

@@ -1,3 +1,7 @@
+# 0.29.0
+
+* upgrade rat-text to 2.0.0
+
 # 0.28.1
 
 * minor fixes

@@ -124,7 +124,7 @@ pub fn run_ui<Data, State>(
 
     let mut istate = MiniSalsaState::new(name);
 
-    init(data, &mut istate, state);
+    init(data, &mut istate, state)?;
 
     istate.frame = repaint_ui(&mut terminal, repaint, data, &mut istate, state)?;
 

@@ -11,7 +11,7 @@ use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline_stacked::{SLANT_BL_TR, SLANT_TL_BR, StatusLineStacked};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
+use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::iter::repeat_with;

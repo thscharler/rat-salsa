@@ -1,6 +1,6 @@
 [package]
 name = "rat-salsa"
-version = "2.1.1"
+version = "2.1.2"
 authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2021"
 description = "ratatui widgets and a crossterm event-loop"
@@ -36,7 +36,7 @@ regex-cursor = "0.1.5"
 rust-ini = "0.21"
 unicode-segmentation = "1.11"
 cli-clipboard = "0.4"
-rat-widget = { version = "1.2", path = "../rat-widget", features = ["user_directories"] }
+rat-widget = { version = "2.0", path = "../rat-widget", features = ["user_directories"] }
 rat-theme3 = { version = "2.0", path = "../rat-theme3" }
 unicode-width = ">=0.2.0, <=0.2.1"
 

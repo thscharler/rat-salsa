@@ -1,3 +1,7 @@
+# 0.6.0
+
+* upgrade rat-text to 2.0.0
+
 # 0.5.2
 
 * add MacFrame

@@ -1,3 +1,7 @@
+# 2.1.2
+
+* upgrade rat-text to 2.0. only for examples.
+
 # 2.1.1
 
 * feature: give access to Terminal via the SalsaContext.

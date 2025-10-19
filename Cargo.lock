@@ -1131,7 +1131,7 @@ version = "1.2.1"
 
 [[package]]
 name = "rat-dialog"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1192,7 +1192,7 @@ dependencies = [
 
 [[package]]
 name = "rat-markdown"
-version = "0.5.3"
+version = "0.6.0"
 dependencies = [
  "crossterm",
  "log",
@@ -1207,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "rat-menu"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "crossterm",
  "log",
@@ -1245,7 +1245,7 @@ dependencies = [
 
 [[package]]
 name = "rat-salsa"
-version = "2.1.1"
+version = "2.1.2"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1271,7 +1271,7 @@ dependencies = [
 
 [[package]]
 name = "rat-scrolled"
-version = "1.1.4"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1285,7 +1285,7 @@ dependencies = [
 
 [[package]]
 name = "rat-text"
-version = "1.3.1"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1314,7 +1314,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme"
-version = "0.28.1"
+version = "0.29.0"
 dependencies = [
  "log",
  "map_range_int",
@@ -1324,7 +1324,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme2"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "log",
  "rat-widget",
@@ -1333,7 +1333,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme3"
-version = "2.1.1"
+version = "2.2.0"
 dependencies = [
  "log",
  "rat-widget",
@@ -1369,7 +1369,7 @@ dependencies = [
 
 [[package]]
 name = "rat-widget"
-version = "1.2.2"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "chrono",
