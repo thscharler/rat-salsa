@@ -535,8 +535,7 @@ where
     }
 
     /// Render all visible blocks.
-    #[deprecated(since = "1.2.0", note = "happens automatically")]
-    pub fn render_block(&mut self) {
+    fn render_block(&mut self) {
         let layout = self.layout.borrow();
         for (idx, block_area) in layout.block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
@@ -587,7 +586,6 @@ where
 
     /// Render a stateful widget and its label.
     #[inline(always)]
-    #[allow(deprecated)]
     pub fn render<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
     where
         FN: FnOnce() -> WW,
@@ -641,8 +639,7 @@ where
     }
 
     /// Calculate the necessary shift from layout to screen.
-    #[deprecated(since = "1.2.0", note = "will be made private")]
-    pub fn shift(&self) -> (i16, i16) {
+    fn shift(&self) -> (i16, i16) {
         (
             self.widget_area.x as i16 - self.offset.x as i16,
             self.widget_area.y as i16 - self.offset.y as i16,
@@ -654,9 +651,7 @@ where
     /// coordinates instead of screen coordinates.
     ///
     /// Call this function to correct this after rendering.
-    #[deprecated(since = "1.2.0", note = "will be made private")]
-    #[allow(deprecated)]
-    pub fn relocate<S>(&self, state: &mut S)
+    fn relocate<S>(&self, state: &mut S)
     where
         S: RelocatableState,
     {
@@ -668,9 +663,7 @@ where
     /// in its state.
     ///
     /// This uses the mechanism for [relocate](Self::relocate) to zero them out.
-    #[allow(deprecated)]
-    #[deprecated(since = "1.2.0", note = "will be made private")]
-    pub fn hidden<S>(&self, state: &mut S)
+    fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,
     {
@@ -683,7 +676,6 @@ where
         &mut self.buffer
     }
 
-    #[allow(deprecated)]
     pub fn finish(mut self, buffer: &mut Buffer, state: &mut ClipperState<W>) {
         self.render_block();
         self.destruct = true;
@@ -698,26 +690,6 @@ where
             style: self.style,
         }
         .render(state.area, buffer, state);
-    }
-
-    /// Rendering the content is finished.
-    ///
-    /// Convert to the output widget that can be rendered in the target area.
-    #[allow(deprecated)]
-    #[deprecated(since = "1.2.0", note = "use finish() instead")]
-    pub fn into_widget(mut self) -> ClipperWidget<'a, W> {
-        self.render_block();
-        self.destruct = true;
-
-        ClipperWidget {
-            block: self.block.take(),
-            hscroll: self.hscroll.take(),
-            vscroll: self.vscroll.take(),
-            offset: self.offset,
-            buffer: mem::take(&mut self.buffer),
-            phantom: Default::default(),
-            style: self.style,
-        }
     }
 }
 

@@ -110,13 +110,6 @@ pub struct SplitWidget<'a> {
     mode: u8,
 }
 
-/// Secondary struct for rendering the overlay parts of the Split.
-#[derive(Debug, Clone)]
-#[deprecated(since = "1.0.2", note = "no longer needed")]
-pub struct SplitOverlay<'a> {
-    split: Option<Split<'a>>,
-}
-
 ///
 /// Combined styles for the Split.
 ///
@@ -482,29 +475,6 @@ impl<'a> Split<'a> {
             },
             state.widget_areas.clone(),
         )
-    }
-
-    /// Constructs the widgets for rendering.
-    #[deprecated(since = "1.0.3", note = "use into_widget_layout()")]
-    #[allow(deprecated)]
-    pub fn into_widgets(self) -> (SplitWidget<'a>, SplitOverlay<'a>) {
-        if self.split_type == SplitType::Scroll {
-            (
-                SplitWidget {
-                    split: self.clone(),
-                    mode: 0,
-                },
-                SplitOverlay { split: Some(self) },
-            )
-        } else {
-            (
-                SplitWidget {
-                    split: self,
-                    mode: 0,
-                },
-                SplitOverlay { split: None },
-            )
-        }
     }
 }
 
@@ -1021,34 +991,6 @@ impl StatefulWidget for SplitWidget<'_> {
             render_split(&self.split, buf, state);
         } else {
             unreachable!()
-        }
-    }
-}
-
-#[allow(deprecated)]
-impl<'a> StatefulWidget for &SplitOverlay<'a> {
-    type State = SplitState;
-
-    fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        // rely on layout already happened.
-        if let Some(split) = &self.split {
-            if matches!(split.split_type, SplitType::Scroll) {
-                render_split(split, buf, state);
-            }
-        }
-    }
-}
-
-#[allow(deprecated)]
-impl StatefulWidget for SplitOverlay<'_> {
-    type State = SplitState;
-
-    fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        // rely on layout already happened.
-        if let Some(split) = &self.split {
-            if matches!(split.split_type, SplitType::Scroll) {
-                render_split(split, buf, state);
-            }
         }
     }
 }

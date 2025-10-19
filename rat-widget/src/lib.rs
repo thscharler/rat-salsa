@@ -22,8 +22,6 @@ pub mod event {
     pub use crate::choice::event::ChoiceOutcome;
     pub use crate::file_dialog::event::FileOutcome;
     pub use crate::form::event::FormOutcome;
-    #[allow(deprecated)]
-    pub use crate::pager::event::PagerOutcome;
     pub use crate::radio::event::RadioOutcome;
     pub use crate::slider::event::SliderOutcome;
     pub use crate::tabbed::event::TabbedOutcome;
@@ -67,8 +65,6 @@ pub mod scrolled {
 
 /// Text editing core functionality and utilities.
 pub mod text {
-    #[allow(deprecated)]
-    pub use rat_text::Glyph;
     pub use rat_text::clipboard;
     pub use rat_text::core;
     pub use rat_text::undo_buffer;
@@ -95,8 +91,6 @@ pub mod list;
 pub mod menu;
 pub mod msgdialog;
 pub mod number_input;
-#[deprecated(since = "1.2.0", note = "merged into form::Form")]
-pub mod pager;
 pub mod paired;
 pub mod paragraph;
 pub mod popup;

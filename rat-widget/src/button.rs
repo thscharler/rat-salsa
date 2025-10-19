@@ -78,10 +78,6 @@ pub struct ButtonState {
     /// Area inside the block.
     /// __read only__. renewed for each render.
     pub inner: Rect,
-    /// Hover is enabled?
-    /// __read only__. renewed for each render.
-    #[deprecated(since = "1.2.0", note = "not used for anything")]
-    pub hover_enabled: bool,
     /// Button has been clicked but not released yet.
     /// __read only__
     pub armed: bool,
@@ -245,12 +241,10 @@ impl StatefulWidget for Button<'_> {
     }
 }
 
-#[allow(deprecated)]
 fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut ButtonState) {
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
     state.armed_delay = widget.armed_delay;
-    state.hover_enabled = widget.hover_style.is_some();
 
     let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
@@ -297,12 +291,10 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
 }
 
 impl Clone for ButtonState {
-    #[allow(deprecated)]
     fn clone(&self) -> Self {
         Self {
             area: self.area,
             inner: self.inner,
-            hover_enabled: false,
             armed: self.armed,
             armed_delay: self.armed_delay,
             focus: FocusFlag::named(self.focus.name()),
@@ -313,12 +305,10 @@ impl Clone for ButtonState {
 }
 
 impl Default for ButtonState {
-    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             area: Default::default(),
             inner: Default::default(),
-            hover_enabled: false,
             armed: false,
             armed_delay: None,
             focus: Default::default(),

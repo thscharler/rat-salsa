@@ -712,23 +712,6 @@ where
     }
 
     /// Calculate a layout without page-breaks using the given layout-width and padding.
-    /// This function ignores any column settings.
-    #[inline(always)]
-    #[deprecated(since = "1.2.0", note = "use build_endless")]
-    pub fn endless(mut self, width: u16, border: Padding) -> GenericLayout<W> {
-        self.page_border = border;
-        self.build_endless(width)
-    }
-
-    /// Calculate the layout for the given page size and padding.
-    #[inline(always)]
-    #[deprecated(since = "1.2.0", note = "use build_paged")]
-    pub fn paged(mut self, page: Size, border: Padding) -> GenericLayout<W> {
-        self.page_border = border;
-        self.build_paged(page)
-    }
-
-    /// Calculate a layout without page-breaks using the given layout-width and padding.
     #[inline(always)]
     pub fn build_endless(self, width: u16) -> GenericLayout<W> {
         self.validate_containers();
