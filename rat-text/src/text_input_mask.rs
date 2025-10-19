@@ -74,12 +74,9 @@ pub(crate) mod mask_token;
 pub(crate) mod masked_graphemes;
 
 use crate::_private::NonExhaustive;
-#[allow(deprecated)]
-use crate::Glyph;
 use crate::clipboard::{Clipboard, global_clipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
-use crate::glyph::GlyphIter;
 use crate::glyph2::{Glyph2, GlyphIter2, TextWrap2};
 use crate::text_input::TextInputState;
 use crate::text_input_mask::mask_token::{EditDirection, Mask, MaskToken};
@@ -999,15 +996,6 @@ impl MaskedInputState {
         self.value.styles_at_match(byte_pos, style)
     }
 
-    /// Check if the given style applies at the position and
-    /// return the complete range for the style.
-    #[inline]
-    #[allow(deprecated)]
-    #[deprecated(since = "1.3.0", note = "use styles_at_match() instead")]
-    pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.value.style_match(byte_pos, style)
-    }
-
     /// List of all styles.
     #[inline]
     pub fn styles(&self) -> Option<impl Iterator<Item = (Range<usize>, usize)> + '_> {
@@ -1364,112 +1352,6 @@ impl MaskedInputState {
     #[inline]
     pub fn line_width(&self) -> upos_type {
         self.value.line_width(0).expect("valid_row")
-    }
-
-    /// Iterator for the glyphs of the lines in range.
-    /// Glyphs here a grapheme + display length.
-    #[inline]
-    #[allow(deprecated)]
-    #[deprecated(since = "1.1.0", note = "discontinued api")]
-    pub fn glyphs(&self, screen_offset: u16, screen_width: u16) -> impl Iterator<Item = Glyph<'_>> {
-        let grapheme_iter = self
-            .value
-            .graphemes(TextRange::new((0, 0), (0, 1)), TextPosition::new(0, 0))
-            .expect("valid_row");
-
-        let mask_iter = self.mask.iter();
-
-        let sym_neg = || self.neg_sym().to_string();
-        let sym_dec = || self.dec_sep().to_string();
-        let sym_grp = || self.grp_sep().to_string();
-        let sym_pos = || self.pos_sym().to_string();
-
-        let iter = grapheme_iter
-            .zip(mask_iter)
-            .map(move |(g, t)| match (&t.right, g.grapheme()) {
-                (Mask::Numeric(_), "-") => Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()),
-                (Mask::DecimalSep, ".") => Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()),
-                (Mask::GroupingSep, ",") => Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()),
-                (Mask::GroupingSep, "-") => Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()),
-                (Mask::Sign, "-") => Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()),
-                (Mask::Sign, _) => Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes()),
-                (_, _) => g,
-            });
-
-        let mut it = GlyphIter::new(TextPosition::new(0, 0), iter);
-        it.set_screen_offset(screen_offset);
-        it.set_screen_width(screen_width);
-        it.set_tabs(0 /* no tabs */);
-        it.set_show_ctrl(self.value.glyph_ctrl());
-        it.set_line_break(false);
-        it
-    }
-
-    /// Iterator for the glyphs of the lines in range.
-    /// Glyphs here a grapheme + display length.
-    #[inline]
-    #[allow(deprecated)]
-    #[deprecated(since = "1.1.0", note = "discontinued api")]
-    pub fn condensed_glyphs(
-        &self,
-        screen_offset: u16,
-        screen_width: u16,
-    ) -> impl Iterator<Item = Glyph<'_>> {
-        let grapheme_iter = self
-            .value
-            .graphemes(TextRange::new((0, 0), (0, 1)), TextPosition::new(0, 0))
-            .expect("valid_row");
-
-        let mask_iter = self.mask.iter();
-
-        let sym_neg = || self.neg_sym().to_string();
-        let sym_dec = || self.dec_sep().to_string();
-        let sym_grp = || self.grp_sep().to_string();
-        let sym_pos = || self.pos_sym().to_string();
-
-        let iter =
-            grapheme_iter
-                .zip(mask_iter)
-                .filter_map(move |(g, t)| match (&t.right, g.grapheme()) {
-                    (Mask::Numeric(_), "-") => {
-                        Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                    }
-                    (Mask::DecimalSep, ".") => {
-                        Some(Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()))
-                    }
-                    (Mask::GroupingSep, ",") => {
-                        Some(Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()))
-                    }
-                    (Mask::GroupingSep, "-") => {
-                        Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                    }
-                    (Mask::Sign, "-") => Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes())),
-
-                    (Mask::Numeric(_), " ") => None,
-                    (Mask::Digit(_), " ") => None,
-                    (Mask::DecimalSep, " ") => None,
-                    (Mask::GroupingSep, " ") => None,
-                    (Mask::Sign, _) => {
-                        if self.pos_sym() != ' ' {
-                            Some(Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes()))
-                        } else {
-                            None
-                        }
-                    }
-                    (Mask::Hex, " ") => None,
-                    (Mask::Oct, " ") => None,
-                    (Mask::Dec, " ") => None,
-
-                    (_, _) => Some(g),
-                });
-
-        let mut it = GlyphIter::new(TextPosition::new(0, 0), iter);
-        it.set_screen_offset(screen_offset);
-        it.set_screen_width(screen_width);
-        it.set_tabs(0 /* no tabs */);
-        it.set_show_ctrl(self.value.glyph_ctrl());
-        it.set_line_break(false);
-        it
     }
 
     /// Get the grapheme at the given position.

@@ -199,37 +199,6 @@ impl<'a> LineNumbers<'a> {
         self
     }
 
-    /// Calculates the necessary width for the configuration.
-    #[deprecated(since = "1.1.0", note = "use width_for()")]
-    pub fn width(&self) -> u16 {
-        let nr_width = if let Some(text_area) = self.text_area {
-            (text_area.vscroll.offset() + 50).ilog10() as u16 + 1
-        } else if let Some(end) = self.end {
-            end.ilog10() as u16 + 1
-        } else if let Some(start) = self.start {
-            (start + 50).ilog10() as u16 + 1
-        } else {
-            3
-        };
-
-        let flag_width = if let Some(flag_width) = self.flag_width {
-            flag_width
-        } else {
-            self.flags
-                .iter()
-                .map(|v| v.width() as u16)
-                .max()
-                .unwrap_or_default()
-        };
-
-        let block_width = {
-            let area = self.block.inner_if_some(Rect::new(0, 0, 2, 2));
-            2 - area.width
-        };
-
-        nr_width + flag_width + self.margin.0 + self.margin.1 + block_width
-    }
-
     /// Required width for the line-numbers.
     pub fn width_for(start_nr: upos_type, flag_width: u16, margin: (u16, u16), block: u16) -> u16 {
         let nr_width = (start_nr + 50).ilog10() as u16 + 1;

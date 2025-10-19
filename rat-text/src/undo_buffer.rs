@@ -198,22 +198,6 @@ pub enum UndoOp {
         /// new styles
         styles_after: Vec<(Range<usize>, usize)>,
     },
-    /// Add one style.
-    #[deprecated(since = "1.3.0", note = "not useful")]
-    AddStyle {
-        /// style range
-        range: Range<usize>,
-        /// style
-        style: usize,
-    },
-    /// Remove one style.
-    #[deprecated(since = "1.3.0", note = "not useful")]
-    RemoveStyle {
-        /// style range
-        range: Range<usize>,
-        /// style
-        style: usize,
-    },
 
     /// For replay only. Complete content was replaced.
     SetText {
@@ -533,7 +517,6 @@ impl UndoVec {
 }
 
 impl UndoVec {
-    #[allow(deprecated)]
     fn filter(&self, undo: &UndoOp) -> bool {
         // only useful for tracking
         if matches!(undo, UndoOp::Undo | UndoOp::Redo | UndoOp::SetText { .. }) {
@@ -543,7 +526,7 @@ impl UndoVec {
         // style changes may/may not be undone
         if !self.undo_styles {
             match &undo {
-                UndoOp::SetStyles { .. } | UndoOp::AddStyle { .. } | UndoOp::RemoveStyle { .. } => {
+                UndoOp::SetStyles { .. } => {
                     return true;
                 }
                 _ => {}

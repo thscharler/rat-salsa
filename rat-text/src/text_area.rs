@@ -6,8 +6,6 @@
 use crate::_private::NonExhaustive;
 use crate::clipboard::{Clipboard, global_clipboard};
 use crate::event::{ReadOnly, TextOutcome};
-#[allow(deprecated)]
-use crate::glyph::Glyph;
 use crate::glyph2::{GlyphIter2, TextWrap2};
 use crate::text_area::text_area_op::*;
 use crate::text_core::TextCore;
@@ -979,15 +977,6 @@ impl TextAreaState {
         self.value.styles_at_match(byte_pos, style)
     }
 
-    /// Check if the given style applies at the position and
-    /// return the complete range for the style.
-    #[inline]
-    #[allow(deprecated)]
-    #[deprecated(since = "1.3.0", note = "use styles_at_match() instead")]
-    pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.value.style_match(byte_pos, style)
-    }
-
     /// List of all styles.
     #[inline]
     pub fn styles(&self) -> Option<impl Iterator<Item = (Range<usize>, usize)> + '_> {
@@ -1233,37 +1222,6 @@ impl TextAreaState {
         row: upos_type,
     ) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
         self.value.lines_at(row)
-    }
-
-    /// Iterator for the glyphs of the lines in range.
-    /// Glyphs here a grapheme + display length.
-    #[inline]
-    #[allow(deprecated)]
-    #[deprecated(since = "1.1.0", note = "discontinued api")]
-    pub fn glyphs(
-        &self,
-        rows: Range<upos_type>,
-        screen_offset: u16,
-        screen_width: u16,
-    ) -> impl Iterator<Item = Glyph<'_>> {
-        self.value
-            .glyphs(rows, screen_offset, screen_width, self.tab_width as u16)
-            .expect("valid_rows")
-    }
-
-    /// Iterator for the glyphs of the lines in range.
-    /// Glyphs here a grapheme + display length.
-    #[inline]
-    #[allow(deprecated)]
-    #[deprecated(since = "1.1.0", note = "discontinued api")]
-    pub fn try_glyphs(
-        &self,
-        rows: Range<upos_type>,
-        screen_offset: u16,
-        screen_width: u16,
-    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        self.value
-            .glyphs(rows, screen_offset, screen_width, self.tab_width as u16)
     }
 
     /// Grapheme iterator for a given line.
@@ -2402,140 +2360,6 @@ impl TextAreaState {
 }
 
 impl TextAreaState {
-    /// Converts from a widget relative screen coordinate to a line.
-    /// It limits its result to a valid row.
-    #[deprecated(since = "1.1.0", note = "replaced by relative_screen_to_pos()")]
-    pub fn screen_to_row(&self, scy: i16) -> upos_type {
-        let (_, oy) = self.offset();
-        let oy = oy as upos_type + self.dark_offset.1 as upos_type;
-
-        if scy < 0 {
-            oy.saturating_sub((scy as ipos_type).unsigned_abs())
-        } else if scy as u16 >= (self.inner.height + self.dark_offset.1) {
-            min(oy + scy as upos_type, self.len_lines().saturating_sub(1))
-        } else {
-            let scy = oy + scy as upos_type;
-            let len = self.len_lines();
-            if scy < len {
-                scy
-            } else {
-                len.saturating_sub(1)
-            }
-        }
-    }
-
-    /// Converts from a widget relative screen coordinate to a grapheme index.
-    /// It limits its result to a valid column.
-    ///
-    /// * row is a row-index into the value, not a screen-row. It can be calculated
-    ///   with screen_to_row().
-    /// * x is the relative screen position.
-    #[allow(deprecated)]
-    #[deprecated(since = "1.1.0", note = "replaced by relative_screen_to_pos()")]
-    pub fn screen_to_col(&self, row: upos_type, scx: i16) -> upos_type {
-        self.try_screen_to_col(row, scx).expect("valid_row")
-    }
-
-    /// Converts from a widget relative screen coordinate to a grapheme index.
-    /// It limits its result to a valid column.
-    ///
-    /// * row is a row-index into the value, not a screen-row. It can be calculated
-    ///   with screen_to_row().
-    /// * x is the relative screen position.
-    #[allow(deprecated)]
-    #[deprecated(since = "1.1.0", note = "replaced by relative_screen_to_pos()")]
-    pub fn try_screen_to_col(&self, row: upos_type, scx: i16) -> Result<upos_type, TextError> {
-        let (ox, _) = self.offset();
-
-        let ox = ox as upos_type + self.dark_offset.0 as upos_type;
-
-        if scx < 0 {
-            Ok(ox.saturating_sub((scx as ipos_type).unsigned_abs()))
-        } else if scx as u16 >= (self.inner.width + self.dark_offset.0) {
-            Ok(min(ox + scx as upos_type, self.line_width(row)))
-        } else {
-            let scx = scx as u16;
-
-            let line = self.try_glyphs(
-                row..row + 1,
-                ox as u16,
-                self.inner.width + self.dark_offset.0,
-            )?;
-
-            let mut col = ox;
-            for g in line {
-                if scx < g.screen_pos().0 + g.screen_width() {
-                    break;
-                }
-                col = g.pos().x + 1;
-            }
-            Ok(col)
-        }
-    }
-
-    /// Converts the row of the position to a screen position
-    /// relative to the widget area.
-    #[deprecated(since = "1.1.0", note = "replaced by pos_to_relative_screen()")]
-    pub fn row_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
-        let pos = pos.into();
-        let (_, oy) = self.offset();
-
-        if pos.y < oy as upos_type {
-            return None;
-        }
-
-        let screen_y = pos.y - oy as upos_type;
-
-        if screen_y >= self.dark_offset.1 as upos_type {
-            Some(screen_y as u16 - self.dark_offset.1)
-        } else {
-            None
-        }
-    }
-
-    /// Converts a grapheme based position to a screen position
-    /// relative to the widget area.
-    #[allow(deprecated)]
-    #[deprecated(since = "1.1.0", note = "replaced by pos_to_relative_screen()")]
-    pub fn col_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
-        self.try_col_to_screen(pos).expect("valid_pos")
-    }
-
-    /// Converts a grapheme based position to a screen position
-    /// relative to the widget area.
-    #[allow(deprecated)]
-    #[deprecated(since = "1.1.0", note = "replaced by pos_to_relative_screen()")]
-    pub fn try_col_to_screen(
-        &self,
-        pos: impl Into<TextPosition>,
-    ) -> Result<Option<u16>, TextError> {
-        let pos = pos.into();
-        let (ox, _) = self.offset();
-
-        if pos.x < ox as upos_type {
-            return Ok(None);
-        }
-
-        let line = self.try_glyphs(
-            pos.y..pos.y + 1,
-            ox as u16,
-            self.inner.width + self.dark_offset.0,
-        )?;
-        let mut screen_x = 0;
-        for g in line {
-            if g.pos().x == pos.x {
-                break;
-            }
-            screen_x = g.screen_pos().0 + g.screen_width();
-        }
-
-        if screen_x >= self.dark_offset.0 {
-            Ok(Some(screen_x - self.dark_offset.0))
-        } else {
-            Ok(None)
-        }
-    }
-
     /// Set the cursor position from screen coordinates.
     ///
     /// The cursor positions are relative to the inner rect.
@@ -2835,16 +2659,6 @@ impl TextAreaState {
     pub fn scroll_right(&mut self, delta: upos_type) -> bool {
         self.hscroll
             .set_offset(self.hscroll.offset.saturating_sub(delta as usize))
-    }
-
-    #[deprecated(since = "1.3.0", note = "not useful as is")]
-    pub fn scroll_sub_row_offset(&mut self, col: upos_type) -> bool {
-        if let Ok(max_col) = self.try_line_width(self.offset().1 as upos_type) {
-            self.sub_row_offset = min(col as upos_type, max_col);
-        } else {
-            self.sub_row_offset = 0;
-        }
-        true
     }
 }
 

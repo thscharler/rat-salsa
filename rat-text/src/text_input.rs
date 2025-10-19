@@ -14,8 +14,6 @@
 //! the mouse behaviour.
 //!
 use crate::_private::NonExhaustive;
-#[allow(deprecated)]
-use crate::Glyph;
 use crate::clipboard::{Clipboard, global_clipboard};
 use crate::core::core_op::*;
 use crate::core::{TextCore, TextString};
@@ -498,13 +496,6 @@ impl TextInputState {
 
     /// Renders the widget in invalid style.
     #[inline]
-    #[deprecated(since = "1.0.5", note = "wrong convention")]
-    pub fn get_invalid(&self) -> bool {
-        self.invalid
-    }
-
-    /// Renders the widget in invalid style.
-    #[inline]
     pub fn invalid(&self) -> bool {
         self.invalid
     }
@@ -723,15 +714,6 @@ impl TextInputState {
         self.value.styles_at_match(byte_pos, style)
     }
 
-    /// Check if the given style applies at the position and
-    /// return the complete range for the style.
-    #[inline]
-    #[allow(deprecated)]
-    #[deprecated(since = "1.3.0", note = "use styles_at_match() instead")]
-    pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.value.style_match(byte_pos, style)
-    }
-
     /// List of all styles.
     #[inline]
     pub fn styles(&self) -> Option<impl Iterator<Item = (Range<usize>, usize)> + '_> {
@@ -884,17 +866,6 @@ impl TextInputState {
     #[inline]
     pub fn line_width(&self) -> upos_type {
         self.value.line_width(0).expect("valid_row")
-    }
-
-    /// Iterator for the glyphs of the lines in range.
-    /// Glyphs here a grapheme + display length.
-    #[inline]
-    #[allow(deprecated)]
-    #[deprecated(since = "1.1.0", note = "discontinued api")]
-    pub fn glyphs(&self, screen_offset: u16, screen_width: u16) -> impl Iterator<Item = Glyph<'_>> {
-        self.value
-            .glyphs(0..1, screen_offset, screen_width, 0 /* no tabs*/)
-            .expect("valid_rows")
     }
 
     /// Get a cursor over all the text with the current position set at pos.

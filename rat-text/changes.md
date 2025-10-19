@@ -8,6 +8,7 @@
 * break: TextStore::should_insert_newline() replaced with has_final_newline()
 * break: move newline, tab_width and expand_tabs from TextCore to TextAreaState. Is a misfit inside core.
 * break: TextInput and MaskedInput don't support Tab any longer.
+* break: remove deprecated.
 
 * refactor: move implementations of some functions to core_ops and text_area_ops.
 

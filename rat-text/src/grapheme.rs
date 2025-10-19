@@ -163,10 +163,6 @@ impl Cursor for StrGraphemes<'_> {
         })
     }
 
-    fn rev_cursor(self) -> impl Cursor<Item = Self::Item> {
-        RevStrGraphemes { it: self }
-    }
-
     fn text_offset(&self) -> usize {
         self.text_offset + self.cursor.cur_cursor()
     }
@@ -203,46 +199,6 @@ impl<'a> Iterator for StrGraphemes<'a> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let slen = self.text.len() - self.cursor.cur_cursor();
         (cmp::min(slen, 1), Some(slen))
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct RevStrGraphemes<'a> {
-    it: StrGraphemes<'a>,
-}
-
-impl<'a> Iterator for RevStrGraphemes<'a> {
-    type Item = Grapheme<'a>;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.it.prev()
-    }
-}
-
-impl Cursor for RevStrGraphemes<'_> {
-    #[inline]
-    fn prev(&mut self) -> Option<Self::Item> {
-        self.it.next()
-    }
-
-    #[inline]
-    fn rev_cursor(self) -> impl Cursor<Item = Self::Item> {
-        self.it
-    }
-
-    fn text_offset(&self) -> usize {
-        self.it.text_offset()
-    }
-}
-
-impl SkipLine for RevStrGraphemes<'_> {
-    fn skip_line(&mut self) -> Result<(), TextError> {
-        unimplemented!("no skip_line()");
-    }
-
-    fn skip_to(&mut self, _byte_pos: usize) -> Result<(), TextError> {
-        unimplemented!("no skip_to()");
     }
 }
 
@@ -374,10 +330,6 @@ impl<'a> Cursor for RopeGraphemes<'a> {
         }
     }
 
-    fn rev_cursor(self) -> impl Cursor<Item = Self::Item> {
-        RevRopeGraphemes { it: self }
-    }
-
     fn text_offset(&self) -> usize {
         self.text_offset + self.cursor.cur_cursor()
     }
@@ -495,46 +447,6 @@ impl<'a> Iterator for RopeGraphemes<'a> {
                 text_bytes: self.text_offset + a..self.text_offset + b,
             })
         }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct RevRopeGraphemes<'a> {
-    it: RopeGraphemes<'a>,
-}
-
-impl<'a> Iterator for RevRopeGraphemes<'a> {
-    type Item = Grapheme<'a>;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.it.prev()
-    }
-}
-
-impl Cursor for RevRopeGraphemes<'_> {
-    #[inline]
-    fn prev(&mut self) -> Option<Self::Item> {
-        self.it.next()
-    }
-
-    #[inline]
-    fn rev_cursor(self) -> impl Cursor<Item = Self::Item> {
-        self.it
-    }
-
-    fn text_offset(&self) -> usize {
-        self.it.text_offset()
-    }
-}
-
-impl SkipLine for RevRopeGraphemes<'_> {
-    fn skip_line(&mut self) -> Result<(), TextError> {
-        unimplemented!("no skip_line()")
-    }
-
-    fn skip_to(&mut self, _byte_pos: usize) -> Result<(), TextError> {
-        unimplemented!("no skip_to()")
     }
 }
 
@@ -686,32 +598,6 @@ mod test_str {
         s0.prev();
         assert_eq!(s0.text_offset(), 1);
     }
-
-    #[allow(deprecated)]
-    #[test]
-    #[allow(deprecated)]
-    fn test_str_graphemes5() {
-        // offsets and partial slices
-        let s = String::from("qwertz");
-        let mut s0 = StrGraphemes::new_offset(1, &s[1..5], 2).rev_cursor();
-        assert_eq!(s0.next().unwrap(), "e");
-        assert_eq!(s0.text_offset(), 2);
-
-        assert_eq!(s0.next().unwrap(), "w");
-        assert_eq!(s0.text_offset(), 1);
-
-        assert_eq!(s0.prev().unwrap(), "w");
-        assert_eq!(s0.text_offset(), 2);
-
-        assert_eq!(s0.prev().unwrap(), "e");
-        assert_eq!(s0.text_offset(), 3);
-
-        assert_eq!(s0.prev().unwrap(), "r");
-        assert_eq!(s0.text_offset(), 4);
-
-        assert_eq!(s0.prev().unwrap(), "t");
-        assert_eq!(s0.text_offset(), 5);
-    }
 }
 
 #[cfg(test)]
@@ -855,34 +741,6 @@ mod test_rope {
         assert_eq!(s0.text_offset(), 1);
         s0.prev();
         assert_eq!(s0.text_offset(), 1);
-    }
-
-    #[allow(deprecated)]
-    #[test]
-    #[allow(deprecated)]
-    fn test_rope_graphemes5() {
-        // offsets and partial slices
-        let s = Rope::from("qwertz");
-        let mut s0 = RopeGraphemes::new_offset(1, s.byte_slice(1..5), 2)
-            .expect("fine")
-            .rev_cursor();
-        assert_eq!(s0.next().unwrap(), "e");
-        assert_eq!(s0.text_offset(), 2);
-
-        assert_eq!(s0.next().unwrap(), "w");
-        assert_eq!(s0.text_offset(), 1);
-
-        assert_eq!(s0.prev().unwrap(), "w");
-        assert_eq!(s0.text_offset(), 2);
-
-        assert_eq!(s0.prev().unwrap(), "e");
-        assert_eq!(s0.text_offset(), 3);
-
-        assert_eq!(s0.prev().unwrap(), "r");
-        assert_eq!(s0.text_offset(), 4);
-
-        assert_eq!(s0.prev().unwrap(), "t");
-        assert_eq!(s0.text_offset(), 5);
     }
 
     #[test]

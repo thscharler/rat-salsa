@@ -296,24 +296,6 @@ impl TextStore for TextString {
         Ok(Cow::Borrowed(&self.text[range.start..range.end]))
     }
 
-    /// Return a cursor over the graphemes of the range, start at the given position.
-    ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
-    /// * pos must be inside of range.
-    fn graphemes(
-        &self,
-        range: TextRange,
-        pos: TextPosition,
-    ) -> Result<Self::GraphemeIter<'_>, TextError> {
-        let range_byte = self.byte_range(range)?;
-        let pos_byte = self.byte_range_at(pos)?;
-        Ok(StrGraphemes::new_offset(
-            range_byte.start,
-            &self.text[range_byte.clone()],
-            pos_byte.start - range_byte.start,
-        ))
-    }
-
     fn graphemes_byte(
         &self,
         range: Range<usize>,

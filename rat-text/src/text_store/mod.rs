@@ -97,17 +97,6 @@ pub trait TextStore {
 
     /// Return a cursor over the graphemes of the range, start at the given position.
     ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
-    /// * pos must be inside of range.
-    #[deprecated(since = "1.1.0", note = "replaced by grapheme_bytes")]
-    fn graphemes(
-        &self,
-        range: TextRange,
-        pos: TextPosition,
-    ) -> Result<Self::GraphemeIter<'_>, TextError>;
-
-    /// Return a cursor over the graphemes of the range, start at the given position.
-    ///
     /// * range must be a valid byte-range.
     /// * pos must be inside of range.
     fn graphemes_byte(

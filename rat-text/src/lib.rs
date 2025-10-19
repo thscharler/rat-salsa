@@ -14,15 +14,12 @@ pub mod text_input_mask;
 pub mod undo_buffer;
 
 mod cache;
-mod glyph;
 mod glyph2;
 mod grapheme;
 mod range_map;
 mod text_core;
 mod text_store;
 
-#[allow(deprecated)]
-pub use glyph::Glyph;
 pub use grapheme::Grapheme;
 
 use crate::_private::NonExhaustive;
@@ -501,13 +498,6 @@ impl TextRange {
 pub trait Cursor: Iterator {
     /// Return the previous item.
     fn prev(&mut self) -> Option<Self::Item>;
-
-    /// Return a cursor with prev/next reversed.
-    /// All iterator functions work backwards.
-    #[deprecated(since = "1.3.0", note = "useless")]
-    fn rev_cursor(self) -> impl Cursor<Item = Self::Item>
-    where
-        Self: Sized;
 
     /// Peek next.
     fn peek_next(&mut self) -> Option<Self::Item> {

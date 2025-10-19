@@ -1,7 +1,5 @@
 use crate::cache::{Cache, LineWidthCache};
 use crate::clipboard::Clipboard;
-#[allow(deprecated)]
-use crate::glyph::{Glyph, GlyphIter};
 use crate::glyph2::{GlyphIter2, TextWrap2};
 use crate::grapheme::Grapheme;
 use crate::range_map::{RangeMap, expand_range_by, ranges_intersect, shrink_range_by};
@@ -172,7 +170,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Undo last.
-    #[allow(deprecated)]
     fn _undo(&mut self) -> bool {
         let Some(undo) = self.undo.as_mut() else {
             return false;
@@ -244,16 +241,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
                         sty.set(styles_before.iter().cloned());
                     }
                 }
-                UndoOp::AddStyle { range, style } => {
-                    if let Some(sty) = &mut self.styles {
-                        sty.remove(range.clone(), *style);
-                    }
-                }
-                UndoOp::RemoveStyle { range, style } => {
-                    if let Some(sty) = &mut self.styles {
-                        sty.add(range.clone(), *style);
-                    }
-                }
                 UndoOp::SetText { .. } | UndoOp::Undo | UndoOp::Redo => {
                     unreachable!()
                 }
@@ -273,7 +260,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self._redo()
     }
 
-    #[allow(deprecated)]
     fn _redo(&mut self) -> bool {
         let Some(undo) = self.undo.as_mut() else {
             return false;
@@ -346,16 +332,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
                         sty.set(styles_after.iter().cloned());
                     }
                 }
-                UndoOp::AddStyle { range, style } => {
-                    if let Some(sty) = &mut self.styles {
-                        sty.add(range.clone(), *style);
-                    }
-                }
-                UndoOp::RemoveStyle { range, style } => {
-                    if let Some(sty) = &mut self.styles {
-                        sty.remove(range.clone(), *style);
-                    }
-                }
                 UndoOp::SetText { .. } | UndoOp::Undo | UndoOp::Redo => {
                     unreachable!()
                 }
@@ -374,7 +350,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Replay a recording of changes.
-    #[allow(deprecated)]
     pub fn replay_log(&mut self, replay: &[UndoEntry]) {
         for replay_entry in replay {
             match &replay_entry.operation {
@@ -420,18 +395,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     self.init_styles();
                     if let Some(sty) = &mut self.styles {
                         sty.set(styles_after.iter().cloned());
-                    }
-                }
-                UndoOp::AddStyle { range, style } => {
-                    self.init_styles();
-                    if let Some(sty) = &mut self.styles {
-                        sty.add(range.clone(), *style);
-                    }
-                }
-                UndoOp::RemoveStyle { range, style } => {
-                    self.init_styles();
-                    if let Some(sty) = &mut self.styles {
-                        sty.remove(range.clone(), *style);
                     }
                 }
                 UndoOp::Undo => {
@@ -483,17 +446,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// The usize value is the index of the actual style.
     /// Those are set at the widget.
     #[inline]
-    #[allow(deprecated)]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
         self.init_styles();
 
         if let Some(sty) = &mut self.styles {
             sty.add(range.clone(), style);
-        }
-        if let Some(undo) = &mut self.undo {
-            if undo.undo_styles_enabled() || undo.has_replay_log() {
-                undo.append(UndoOp::AddStyle { range, style });
-            }
         }
     }
 
@@ -501,21 +458,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
     ///
     /// Range and style must match to be removed.
     #[inline]
-    #[allow(deprecated)]
     pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
         if let Some(sty) = &mut self.styles {
             sty.remove(range.clone(), style);
-        }
-        if let Some(undo) = &mut self.undo {
-            if undo.undo_styles_enabled() || undo.has_replay_log() {
-                undo.append(UndoOp::RemoveStyle { range, style });
-            }
         }
     }
 
     /// Remove all ranges for the given style.
     #[inline]
-    #[allow(deprecated)]
     pub fn remove_style_fully(&mut self, style: usize) {
         let Some(sty) = self.styles.as_mut() else {
             return;
@@ -526,13 +476,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
             .collect::<Vec<_>>();
         for (range, style) in &styles {
             sty.remove(range.clone(), *style);
-        }
-        if let Some(undo) = &mut self.undo {
-            if undo.undo_styles_enabled() || undo.has_replay_log() {
-                for (range, style) in styles {
-                    undo.append(UndoOp::RemoveStyle { range, style });
-                }
-            }
         }
     }
 
@@ -579,18 +522,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Finds all styles for the given position.
     #[inline]
     pub fn styles_at_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        if let Some(sty) = &self.styles {
-            sty.value_match(byte_pos, style)
-        } else {
-            None
-        }
-    }
-
-    /// Check if the given style applies at the position and
-    /// return the complete range for the style.
-    #[inline]
-    #[deprecated(since = "1.3.0", note = "use styles_at_match() instead")]
-    pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
         if let Some(sty) = &self.styles {
             sty.value_match(byte_pos, style)
         } else {
@@ -763,32 +694,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     #[inline]
     pub fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
         self.text.str_slice_byte(range)
-    }
-
-    /// Iterator for the glyphs of the lines in range.
-    /// Glyphs here a grapheme + display length.
-    #[inline]
-    #[deprecated(since = "1.1.0", note = "discontinued api")]
-    #[allow(deprecated)]
-    pub fn glyphs(
-        &self,
-        rows: Range<upos_type>,
-        screen_offset: u16,
-        screen_width: u16,
-        tab_width: u16,
-    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        let iter = self.graphemes(
-            TextRange::new((0, rows.start), (0, rows.end)),
-            TextPosition::new(0, rows.start),
-        )?;
-
-        let mut it = GlyphIter::new(TextPosition::new(0, rows.start), iter);
-        it.set_screen_offset(screen_offset);
-        it.set_screen_width(screen_width);
-        it.set_tabs(tab_width);
-        it.set_show_ctrl(self.glyph_ctrl);
-        it.set_line_break(self.text().is_multi_line());
-        Ok(it)
     }
 
     /// Limited access to the cache.

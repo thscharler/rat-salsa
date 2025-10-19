@@ -46,14 +46,6 @@ impl TextRope {
     pub fn rope(&self) -> &Rope {
         &self.text
     }
-
-    /// A range of the text as RopeSlice.
-    #[inline]
-    #[deprecated]
-    pub fn rope_slice(&self, range: TextRange) -> Result<RopeSlice<'_>, TextError> {
-        let s = self.byte_range(range)?;
-        Ok(self.text.get_byte_slice(s).expect("valid_range"))
-    }
 }
 
 impl TextRope {
@@ -328,33 +320,6 @@ impl TextStore for TextRope {
             Some(v) => Ok(Cow::Borrowed(v)),
             None => Ok(Cow::Owned(v.to_string())),
         }
-    }
-
-    /// Return a cursor over the graphemes of the range, start at the given position.
-    ///
-    /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
-    /// * pos must be inside of range.
-    fn graphemes(
-        &self,
-        range: TextRange,
-        pos: TextPosition,
-    ) -> Result<Self::GraphemeIter<'_>, TextError> {
-        if !range.contains_pos(pos) && range.end != pos {
-            return Err(TextError::TextPositionOutOfBounds(pos));
-        }
-
-        let range_bytes = self.byte_range(range)?;
-        let pos_byte = self.byte_range_at(pos)?.start;
-
-        let s = self
-            .text
-            .get_byte_slice(range_bytes.clone())
-            .expect("valid_range");
-
-        let r = RopeGraphemes::new_offset(range_bytes.start, s, pos_byte - range_bytes.start)
-            .expect("valid_bytes");
-
-        Ok(r)
     }
 
     /// Return a cursor over the graphemes of the range, start at the given position.
