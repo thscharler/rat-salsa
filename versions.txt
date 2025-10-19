@@ -6,8 +6,8 @@ rat-event: 1.2.5
 rat-focus: 1.2.0
 rat-ftable: 1.1.1
 rat-markdown: 0.6.0
-rat-menu: 1.1.1
-rat-popup: 1.2.0
+rat-menu: 2.0.0
+rat-popup: 2.0.0
 rat-reloc: 1.2.1
 rat-salsa: 2.1.2
 rat-scrolled: 1.2.0

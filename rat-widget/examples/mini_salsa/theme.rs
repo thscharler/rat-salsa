@@ -329,7 +329,6 @@ impl ShellTheme {
         }
     }
 
-    #[allow(deprecated)]
     pub fn choice_style(&self) -> ChoiceStyle {
         ChoiceStyle {
             style: self.text_input(),

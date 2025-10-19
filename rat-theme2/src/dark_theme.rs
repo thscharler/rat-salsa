@@ -342,7 +342,6 @@ impl DarkTheme {
         }
     }
 
-    #[allow(deprecated)]
     pub fn choice_style(&self) -> ChoiceStyle {
         ChoiceStyle {
             style: self.text_input(),
@@ -391,7 +390,6 @@ impl DarkTheme {
     }
 
     /// Complete MenuStyle
-    #[allow(deprecated)]
     pub fn menu_style(&self) -> MenuStyle {
         let menu = Style::default().fg(self.p.white[3]).bg(self.p.black[2]);
         MenuStyle {

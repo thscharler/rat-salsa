@@ -386,7 +386,6 @@ impl SalsaTheme for DarkTheme {
     }
 
     /// Complete MenuStyle
-    #[allow(deprecated)]
     fn menu_style(&self) -> MenuStyle {
         MenuStyle {
             style: self.status_base(),

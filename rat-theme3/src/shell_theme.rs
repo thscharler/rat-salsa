@@ -313,7 +313,6 @@ impl SalsaTheme for ShellTheme {
         }
     }
 
-    #[allow(deprecated)]
     fn choice_style(&self) -> ChoiceStyle {
         ChoiceStyle {
             style: self.text_input(),
