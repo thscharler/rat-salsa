@@ -41,10 +41,17 @@ pub struct MiniSalsaState {
     pub theme: &'static ShellTheme,
     pub frame: usize,
     pub event_cnt: usize,
-    pub timing: bool,
+
+    pub hide_timing: bool,
+    pub last_render: Duration,
+    pub last_event: Duration,
+
+    pub hide_status: bool,
     pub status: [String; 3],
+
     pub focus_outcome: Outcome,
     pub focus_outcome_cell: Cell<Outcome>,
+
     pub quit: bool,
 }
 
@@ -53,13 +60,16 @@ impl MiniSalsaState {
         let mut s = Self {
             name: name.to_string(),
             theme: &THEME,
-            frame: 0,
-            event_cnt: 0,
-            timing: true,
+            frame: Default::default(),
+            event_cnt: Default::default(),
+            hide_timing: Default::default(),
+            last_render: Default::default(),
+            last_event: Default::default(),
+            hide_status: Default::default(),
             status: Default::default(),
             focus_outcome: Default::default(),
             focus_outcome_cell: Default::default(),
-            quit: false,
+            quit: Default::default(),
         };
         s.status[0] = "Ctrl-Q to quit.".into();
         s
@@ -68,7 +78,7 @@ impl MiniSalsaState {
 
 pub fn run_ui<Data, State>(
     name: &str,
-    init: fn(&mut Data, &mut MiniSalsaState, &mut State),
+    init: fn(&mut Data, &mut MiniSalsaState, &mut State) -> Result<(), anyhow::Error>,
     handle: fn(
         &crossterm::event::Event,
         data: &mut Data,
@@ -173,7 +183,13 @@ pub fn run_ui<Data, State>(
     r
 }
 
-pub fn mock_init<Data, State>(_data: &mut Data, _istate: &mut MiniSalsaState, _state: &mut State) {}
+pub fn mock_init<Data, State>(
+    _data: &mut Data,
+    _istate: &mut MiniSalsaState,
+    _state: &mut State,
+) -> Result<(), anyhow::Error> {
+    Ok(())
+}
 
 fn repaint_ui<Data, State>(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
@@ -217,44 +233,55 @@ fn repaint_tui<Data, State>(
 ) -> Result<(), anyhow::Error> {
     let area = frame.area();
 
-    let l1 = Layout::vertical([
-        Constraint::Fill(1), //
-        Constraint::Length(1),
-    ])
-    .split(area);
+    let l1 = if !istate.hide_status {
+        Layout::vertical([
+            Constraint::Fill(1), //
+            Constraint::Length(1),
+        ])
+        .split(area)
+    } else {
+        Layout::vertical([
+            Constraint::Fill(1), //
+        ])
+        .split(area)
+    };
 
     let t0 = SystemTime::now();
-    repaint(frame, l1[0], data, istate, state)?;
-    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
 
-    if istate.timing {
-        istate.status[1] = format!("Render #{} | {:.0?}", frame.count(), el).to_string();
+    repaint(frame, l1[0], data, istate, state)?;
+
+    istate.last_render = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    if !istate.hide_timing {
+        istate.status[1] =
+            format!("Render #{} | {:.0?}", frame.count(), istate.last_render).to_string();
     }
 
-    let l_status = Layout::horizontal([
-        Constraint::Length(2 + istate.name.graphemes(true).count() as u16),
-        Constraint::Length(1),
-        Constraint::Fill(1),
-        Constraint::Length(18),
-        Constraint::Length(18),
-    ])
-    .split(l1[1]);
+    if !istate.hide_status {
+        let l_status = Layout::horizontal([
+            Constraint::Length(2 + istate.name.graphemes(true).count() as u16),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+            Constraint::Length(18),
+            Constraint::Length(18),
+        ])
+        .split(l1[1]);
 
-    Line::from_iter(["[", istate.name.as_str(), "]"])
-        .style(istate.theme.status_base())
-        .render(l_status[0], frame.buffer_mut());
-    Line::from(" ")
-        .style(istate.theme.status_base())
-        .render(l_status[1], frame.buffer_mut());
-    Line::from(istate.status[0].as_str())
-        .style(istate.theme.statusline_style()[0])
-        .render(l_status[2], frame.buffer_mut());
-    Line::from(istate.status[1].as_str())
-        .style(istate.theme.statusline_style()[1])
-        .render(l_status[3], frame.buffer_mut());
-    Line::from(istate.status[2].as_str())
-        .style(istate.theme.statusline_style()[2])
-        .render(l_status[4], frame.buffer_mut());
+        Line::from_iter(["[", istate.name.as_str(), "]"])
+            .style(istate.theme.status_base())
+            .render(l_status[0], frame.buffer_mut());
+        Line::from(" ")
+            .style(istate.theme.status_base())
+            .render(l_status[1], frame.buffer_mut());
+        Line::from(istate.status[0].as_str())
+            .style(istate.theme.statusline_style()[0])
+            .render(l_status[2], frame.buffer_mut());
+        Line::from(istate.status[1].as_str())
+            .style(istate.theme.statusline_style()[1])
+            .render(l_status[3], frame.buffer_mut());
+        Line::from(istate.status[2].as_str())
+            .style(istate.theme.statusline_style()[2])
+            .render(l_status[4], frame.buffer_mut());
+    }
 
     Ok(())
 }
@@ -274,6 +301,7 @@ fn handle_event<Data, State>(
     istate.event_cnt += 1;
 
     let t0 = SystemTime::now();
+
     let r = {
         use crossterm::event::Event;
         match event {
@@ -292,10 +320,10 @@ fn handle_event<Data, State>(
 
         handle(&event, data, istate, state)?
     };
-    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
 
-    if istate.timing {
-        istate.status[2] = format!(" Handle {:.0?}", el).to_string();
+    istate.last_event = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    if !istate.hide_timing {
+        istate.status[2] = format!(" Handle {:.0?}", istate.last_event).to_string();
     }
 
     Ok(r)
@@ -353,7 +381,7 @@ pub mod palette;
 pub mod text_input_mock;
 pub mod theme;
 
-pub static THEME: ShellTheme = ShellTheme::new("Imperial Shell", PALETTE);
+pub static THEME: ShellTheme = ShellTheme::new(PALETTE.name, PALETTE);
 
 /// An adaption of nvchad's tundra theme.
 ///
@@ -451,4 +479,33 @@ pub const TUNDRA: Palette = Palette {
     purple: Palette::interpolate(0xb7abd9, 0xb3a6da, 63),
     magenta: Palette::interpolate(0xffc9c9, 0xff8e8e, 63),
     redpink: Palette::interpolate(0xfffcad, 0xfecdd3, 63),
+};
+
+pub const RADIUM: Palette = Palette {
+    name: "Radium",
+
+    text_light: Palette::color32(0xc4c4c5),
+    text_bright: Palette::color32(0xd4d4d5),
+    text_dark: Palette::color32(0x292c30),
+    text_black: Palette::color32(0x101317),
+
+    primary: Palette::interpolate(0x21b07c, 0x37d99e, 63),
+    secondary: Palette::interpolate(0x9759b5, 0xb68acb, 63),
+
+    white: Palette::interpolate(0xc4c4c5, 0xd4d4d5, 63),
+    black: Palette::interpolate(0x101317, 0x292c30, 63),
+    gray: Palette::interpolate(0x3e4145, 0x525559, 63),
+
+    red: Palette::interpolate(0xf64b4b, 0xf87070, 63),
+    orange: Palette::interpolate(0xe6723d, 0xf0a988, 63),
+    yellow: Palette::interpolate(0xffc424, 0xffe59e, 63),
+    limegreen: Palette::interpolate(0x42cc88, 0x92e2ba, 63),
+    green: Palette::interpolate(0x21b07c, 0x37d99e, 63),
+    bluegreen: Palette::interpolate(0x41cd86, 0x79dcaa, 63),
+    cyan: Palette::interpolate(0x2ca3aa, 0x50cad2, 63),
+    blue: Palette::interpolate(0x2b72b1, 0x7ab0df, 63),
+    deepblue: Palette::interpolate(0x4297e1, 0x87bdec, 63),
+    purple: Palette::interpolate(0x9759b5, 0xb68acb, 63),
+    magenta: Palette::interpolate(0xff5c5c, 0xff8e8e, 63),
+    redpink: Palette::interpolate(0xff7575, 0xffa7a7, 63),
 };

@@ -255,6 +255,14 @@ impl ShellTheme {
             .style(self.p.secondary[Palette::BRIGHT_0], Contrast::Normal)
     }
 
+    pub fn block(&self) -> Style {
+        Style::default().fg(self.p.gray[1]).bg(self.p.black[1])
+    }
+
+    pub fn block_title(&self) -> Style {
+        Style::default().fg(self.p.secondary[1])
+    }
+
     /// Complete MonthStyle.
     pub fn month_style(&self) -> CalendarStyle {
         CalendarStyle {

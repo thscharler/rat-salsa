@@ -81,8 +81,13 @@ impl State {
     }
 }
 
-fn init(_data: &mut (), istate: &mut MiniSalsaState, state: &mut State) {
+fn init(
+    _data: &mut (),
+    istate: &mut MiniSalsaState,
+    state: &mut State,
+) -> Result<(), anyhow::Error> {
     rebuild_cal_style(state, istate);
+    Ok(())
 }
 
 fn render(

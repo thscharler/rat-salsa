@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use log::{debug, warn};
 use rat_event::{HandleEvent, Popup, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -38,7 +38,14 @@ fn main() -> Result<(), anyhow::Error> {
     state.descr.set_text_wrap(TextWrap::Word(4));
     state.menu.focus.set(true);
 
-    run_ui("label_and_form", init, event, render, &mut data, &mut state)
+    run_ui(
+        "label_and_form",
+        mock_init,
+        event,
+        render,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
@@ -95,8 +102,6 @@ impl Default for State {
         s
     }
 }
-
-fn init(_data: &mut Data, _istate: &mut MiniSalsaState, _state: &mut State) {}
 
 fn render(
     frame: &mut Frame<'_>,
