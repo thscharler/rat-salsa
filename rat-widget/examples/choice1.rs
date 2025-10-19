@@ -8,7 +8,7 @@ use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, Outcome};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::{Style, Stylize};
+use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
 

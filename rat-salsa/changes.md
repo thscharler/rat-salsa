@@ -3,7 +3,7 @@
 * move render/event timing into the framework.
   accessible as SalsaContext::last_event() and SalsaContext::last_render().
 * move main templates to "/templates"
-*
+* use StatusLineStacked as standard status-line.
 
 # 2.1.2
 
