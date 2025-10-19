@@ -12,8 +12,6 @@ use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
-#[allow(deprecated)]
-use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::radio::RadioStyle;
 use rat_widget::scrolled::ScrollStyle;
@@ -229,10 +227,6 @@ pub trait SalsaTheme {
 
     /// MsgDialog.
     fn msg_dialog_style(&self) -> MsgDialogStyle;
-
-    /// Pager.
-    #[allow(deprecated)]
-    fn pager_style(&self) -> PagerStyle;
 
     /// Form.
     fn form_style(&self) -> FormStyle;

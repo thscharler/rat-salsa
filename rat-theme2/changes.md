@@ -1,6 +1,7 @@
 # 1.3.0
 
 * upgrade rat-text to 2.0.0
+* break: remove PagerStyle
 
 # 1.2.0
 

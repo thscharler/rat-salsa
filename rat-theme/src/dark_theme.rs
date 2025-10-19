@@ -13,8 +13,6 @@ use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
-#[allow(deprecated)]
-use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::popup::PopupStyle;
 use rat_widget::radio::{RadioLayout, RadioStyle};
@@ -544,21 +542,6 @@ impl DarkTheme {
         MsgDialogStyle {
             style: self.dialog_base(),
             button: Some(self.button_style()),
-            ..Default::default()
-        }
-    }
-
-    /// Pager style.
-    #[allow(deprecated)]
-    pub fn pager_style(&self) -> PagerStyle {
-        PagerStyle {
-            style: self.container_base(),
-            navigation: Some(self.container_arrow()),
-            block: Some(
-                Block::bordered()
-                    .borders(Borders::TOP | Borders::BOTTOM)
-                    .border_style(self.container_border()),
-            ),
             ..Default::default()
         }
     }
