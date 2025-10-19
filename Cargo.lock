@@ -1207,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "rat-menu"
-version = "1.1.1"
+version = "2.0.0"
 dependencies = [
  "crossterm",
  "log",
@@ -1221,7 +1221,7 @@ dependencies = [
 
 [[package]]
 name = "rat-popup"
-version = "1.2.0"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1231,7 +1231,6 @@ dependencies = [
  "rat-event",
  "rat-focus",
  "rat-reloc",
- "rat-scrolled",
  "ratatui",
  "unicode-segmentation",
 ]
