@@ -1,3 +1,13 @@
+# 2.0.0
+
+* breaking changes in rat-text
+
+# 1.3.0
+
+* feature: add ListState::selected_checked()
+* feature: add StatusLineStacked widget
+* fix: ListState::row_area()
+
 # 1.2.2
 
 * fix: render order in form::Form

@@ -1,3 +1,24 @@
+# 2.0.0
+
+* break?: change various functions to return the concrete type TextStore::GraphemeIter
+  instead of just impl Iterator or impl Cursor.
+* break: change parameters from TextPosition/TextRange to Into<TextPosition> and
+  Into<TextRange>. Might be breaking.
+* break: TextStore::should_insert_newline() replaced with has_final_newline()
+* break: move newline, tab_width and expand_tabs from TextCore to TextAreaState. Is a misfit inside core.
+* break: TextInput and MaskedInput don't support Tab any longer.
+
+* refactor: move implementations of some functions to core_ops and text_area_ops.
+
+* feature: add regex search
+* feature: add remove_style_fully()
+* feature: add scroll_to_pos()
+* feature: add len_bytes()
+* fix: style_match to styles_at_match. deprecate the former for now.
+* fix: LineNumbers where too wide.
+  fix: GlyphIterator with tab-width 0 failed.
+*
+
 # 1.3.1
 
 * fix: scrolling issue with wrapped text.

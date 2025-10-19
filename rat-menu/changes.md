@@ -1,3 +1,7 @@
+# 1.1.1
+
+* fix: display of 2 wide glyphs.
+
 # 1.1.0
 
 * fix: remove pub use of rat-event.

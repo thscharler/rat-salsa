@@ -1,3 +1,7 @@
+# 1.2.0
+
+* feature: add Scroll::horizontal() and Scroll::vertical()
+
 # 1.1.4
 
 * docs
