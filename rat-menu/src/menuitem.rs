@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use std::borrow::Cow;
 use std::ops::Range;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_display_width::width;
 
 /// Separator style
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -185,12 +185,12 @@ impl<'a> MenuItem<'a> {
 
     /// Text-width in graphemes for item.
     pub fn item_width(&self) -> u16 {
-        self.item.graphemes(true).count() as u16 - if self.navchar.is_some() { 1 } else { 0 }
+        width(self.item.as_ref()) as u16 - if self.navchar.is_some() { 1 } else { 0 }
     }
 
     /// Text-width in graphemes for right.
     pub fn right_width(&self) -> u16 {
-        self.right.graphemes(true).count() as u16
+        width(self.right.as_ref()) as u16
     }
 
     /// Text-height.
