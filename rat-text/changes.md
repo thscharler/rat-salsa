@@ -1,5 +1,6 @@
 # 2.0.0
 
+* break: change offset/scroll type from usize to upos_type.
 * break?: change various functions to return the concrete type TextStore::GraphemeIter
   instead of just impl Iterator or impl Cursor.
 * break: change parameters from TextPosition/TextRange to Into<TextPosition> and
@@ -17,7 +18,6 @@
 * fix: style_match to styles_at_match. deprecate the former for now.
 * fix: LineNumbers where too wide.
   fix: GlyphIterator with tab-width 0 failed.
-*
 
 # 1.3.1
 

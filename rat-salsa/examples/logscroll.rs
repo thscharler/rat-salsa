@@ -749,7 +749,10 @@ mod logscroll {
                 .value
                 .set_cursor(TextPosition::new(0, state.logtext.len_lines()), false);
             state.logtext.set_vertical_offset(
-                (state.logtext.len_lines() as usize).saturating_sub(state.logtext.vertical_page()),
+                state
+                    .logtext
+                    .len_lines()
+                    .saturating_sub(state.logtext.vertical_page()),
             );
         }
 

@@ -14,7 +14,7 @@ pub fn scroll_cursor_to_middle(state: &mut TextAreaState) {
         let noy = ry - (state.rendered.height as i16) / 2;
         if let Some(no) = state.relative_screen_to_pos((0, noy)) {
             state.set_sub_row_offset(no.x);
-            state.set_offset((0, no.y as usize));
+            state.set_offset((0, no.y));
         } else {
             // ???
         }
@@ -29,7 +29,7 @@ pub fn scroll_cursor_to_bottom(state: &mut TextAreaState) {
         let noy = ry - state.rendered.height.saturating_sub(1) as i16;
         if let Some(no) = state.relative_screen_to_pos((0, noy)) {
             state.set_sub_row_offset(no.x);
-            state.set_offset((0, no.y as usize));
+            state.set_offset((0, no.y));
         } else {
             // ???
         }
@@ -43,7 +43,7 @@ pub fn scroll_cursor_to_top(state: &mut TextAreaState) {
     if let Some((_rx, ry)) = state.pos_to_relative_screen(c) {
         if let Some(no) = state.relative_screen_to_pos((0, ry)) {
             state.set_sub_row_offset(no.x);
-            state.set_offset((0, no.y as usize));
+            state.set_offset((0, no.y));
         } else {
             // ???
         }
@@ -53,31 +53,25 @@ pub fn scroll_cursor_to_top(state: &mut TextAreaState) {
 }
 
 pub fn scroll_up(mul: u32, state: &mut TextAreaState) {
-    state.scroll_up(mul as usize);
+    state.scroll_up(mul);
 }
 
 pub fn scroll_down(mul: u32, state: &mut TextAreaState) {
-    state.scroll_down(mul as usize);
+    state.scroll_down(mul);
 }
 
 pub fn scroll_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
     if vi.page.0 != state.vertical_page() as u32 {
-        vi.page = (
-            state.vertical_page() as u32,
-            (state.vertical_page() / 2) as u32,
-        );
+        vi.page = (state.vertical_page() as u32, (state.vertical_page() / 2));
     }
 
-    state.scroll_up((vi.page.0 * mul).saturating_sub(2) as usize);
+    state.scroll_up((vi.page.0 * mul).saturating_sub(2));
 }
 
 pub fn scroll_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
     if vi.page.0 != state.vertical_page() as u32 {
-        vi.page = (
-            state.vertical_page() as u32,
-            (state.vertical_page() / 2) as u32,
-        );
+        vi.page = (state.vertical_page() as u32, (state.vertical_page() / 2));
     }
 
-    state.scroll_down((vi.page.0 * mul).saturating_sub(2) as usize);
+    state.scroll_down((vi.page.0 * mul).saturating_sub(2));
 }
