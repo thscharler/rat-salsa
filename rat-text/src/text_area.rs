@@ -7,9 +7,8 @@ use crate::_private::NonExhaustive;
 use crate::clipboard::{Clipboard, global_clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::glyph2::{GlyphIter2, TextWrap2};
-use crate::text_area::text_area_op::*;
 use crate::text_core::TextCore;
-use crate::text_core::core_op::*;
+use crate::text_core::core_op;
 use crate::text_store::TextStore;
 use crate::text_store::text_rope::TextRope;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
@@ -538,7 +537,6 @@ fn render_text_area(
     }
 
     state.screen_cursor = state.pos_to_screen(state.cursor());
-    // state.screen_cursor = screen_cursor.map(|v| (state.inner.x + v.0, state.inner.y + v.1));
 }
 
 impl Default for TextAreaState {
@@ -1119,10 +1117,48 @@ impl TextAreaState {
 }
 
 impl TextAreaState {
-    /// Empty.
+    /// Clear everything.
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.value.is_empty()
+    pub fn clear(&mut self) -> bool {
+        if !self.is_empty() {
+            self.value.clear();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Set the text value.
+    ///
+    /// Resets all internal state.
+    #[inline]
+    pub fn set_text<S: AsRef<str>>(&mut self, s: S) {
+        self.scroll_to_cursor = false;
+        self.vscroll.set_offset(0);
+        self.hscroll.set_offset(0);
+        self.set_sub_row_offset(0);
+        self.set_move_col(None);
+
+        self.value.set_text(TextRope::new_text(s.as_ref()));
+    }
+
+    /// Copy of the text-value.
+    #[inline]
+    pub fn text(&self) -> String {
+        self.value.text().string()
+    }
+
+    /// Set the text value as a Rope.
+    /// Resets all internal state.
+    #[inline]
+    pub fn set_rope(&mut self, r: Rope) {
+        self.scroll_to_cursor = false;
+        self.vscroll.set_offset(0);
+        self.hscroll.set_offset(0);
+        self.set_sub_row_offset(0);
+        self.set_move_col(None);
+
+        self.value.set_text(TextRope::new_rope(r));
     }
 
     /// Access the underlying rope.
@@ -1131,10 +1167,10 @@ impl TextAreaState {
         self.value.text().rope()
     }
 
-    /// Copy of the text-value.
+    /// Empty.
     #[inline]
-    pub fn text(&self) -> String {
-        self.value.text().string()
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
     }
 
     /// Text slice as `Cow<str>`. Uses a byte range.
@@ -1354,106 +1390,18 @@ impl TextAreaState {
 }
 
 impl TextAreaState {
-    /// Clear everything.
-    #[inline]
-    pub fn clear(&mut self) -> bool {
-        if !self.is_empty() {
-            self.value.clear();
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Set the text value.
-    ///
-    /// Resets all internal state.
-    #[inline]
-    pub fn set_text<S: AsRef<str>>(&mut self, s: S) {
-        self.scroll_to_cursor = false;
-        self.vscroll.set_offset(0);
-        self.hscroll.set_offset(0);
-        self.set_sub_row_offset(0);
-        self.set_move_col(None);
-
-        self.value.set_text(TextRope::new_text(s.as_ref()));
-    }
-
-    /// Set the text value as a Rope.
-    /// Resets all internal state.
-    #[inline]
-    pub fn set_rope(&mut self, r: Rope) {
-        self.scroll_to_cursor = false;
-        self.vscroll.set_offset(0);
-        self.hscroll.set_offset(0);
-        self.set_sub_row_offset(0);
-        self.set_move_col(None);
-
-        self.value.set_text(TextRope::new_rope(r));
-    }
-
     /// Insert a character at the cursor position.
     /// Removes the selection and inserts the char.
     ///
-    /// You can insert a tab with this. But it will not
-    /// indent the current selection. It will expand
-    /// the tab though. Use insert_tab() for this.
-    ///
-    /// You can insert a new-line with this. But it will
-    /// not do an auto-indent.
-    /// Use insert_new_line() for this.
+    /// This function can handle '\t' and '\n' well.
+    /// They call insert_tab() and insert_newline() respectively.
+    #[inline]
     pub fn insert_char(&mut self, c: char) -> bool {
-        if self.has_selection() {
-            if self.auto_quote
-                && (c == '\''
-                    || c == '"'
-                    || c == '`'
-                    || c == '<'
-                    || c == '['
-                    || c == '('
-                    || c == '{')
-            {
-                let sel = self.selection();
-                insert_quotes(&mut self.value, sel, c).expect("valid_selection");
-                self.scroll_cursor_to_visible();
-                return true;
-            }
+        match c {
+            '\n' => text_area_op::insert_newline(self),
+            '\t' => text_area_op::insert_tab(self),
+            c => text_area_op::insert_char(self, c),
         }
-
-        self.value
-            .remove_str_range(self.selection())
-            .expect("valid_selection");
-
-        let pos = self.cursor();
-
-        // insert missing newline
-        if pos.x == 0
-            && pos.y != 0
-            && (pos.y == self.len_lines() || pos.y == self.len_lines().saturating_sub(1))
-            && !self.value.text().has_final_newline()
-        {
-            let anchor = self.value.anchor();
-            let cursor = self.value.cursor();
-            self.value
-                .insert_str(pos, &self.newline)
-                .expect("valid_cursor");
-            self.value.set_selection(anchor, cursor);
-        }
-
-        if c == '\n' {
-            self.value
-                .insert_str(pos, &self.newline)
-                .expect("valid_cursor");
-        } else if c == '\t' {
-            insert_tab(&mut self.value, pos, self.expand_tabs, self.tab_width)
-                .expect("valid_cursor");
-        } else {
-            self.value.insert_char(pos, c).expect("valid_cursor");
-        }
-
-        self.scroll_cursor_to_visible();
-
-        true
     }
 
     /// Inserts tab at the current position. This respects the
@@ -1461,75 +1409,34 @@ impl TextAreaState {
     ///
     /// If there is a text-selection the text-rows will be indented instead.
     /// This can be deactivated with auto_indent=false.
+    #[inline]
     pub fn insert_tab(&mut self) -> bool {
-        if self.has_selection() {
-            if self.auto_indent {
-                indent(self, self.tab_width);
-                true
-            } else {
-                false
-            }
-        } else {
-            let pos = self.cursor();
-            insert_tab(&mut self.value, pos, self.expand_tabs, self.tab_width)
-                .expect("valid_cursor");
-            self.scroll_cursor_to_visible();
-
-            true
-        }
+        text_area_op::insert_tab(self)
     }
 
     /// Dedent the selected text by tab-width. If there is no
     /// selection this does nothing.
     ///
     /// This can be deactivated with auto_indent=false.
+    #[inline]
     pub fn insert_backtab(&mut self) -> bool {
-        if self.has_selection() {
-            dedent(self, self.tab_width);
-            true
-        } else {
-            false
-        }
+        text_area_op::insert_backtab(self)
     }
 
     /// Insert text at the cursor position.
     /// Removes the selection and inserts the text.
+    #[inline]
     pub fn insert_str(&mut self, t: impl AsRef<str>) -> bool {
-        let t = t.as_ref();
-        if self.has_selection() {
-            self.value
-                .remove_str_range(self.selection())
-                .expect("valid_selection");
-        }
-        self.value
-            .insert_str(self.cursor(), t)
-            .expect("valid_cursor");
-        self.scroll_cursor_to_visible();
-        true
+        text_area_op::insert_str(self, t.as_ref())
     }
 
     /// Insert a line break at the cursor position.
     ///
     /// If auto_indent is set the new line starts with the same
     /// indent as the current.
+    #[inline]
     pub fn insert_newline(&mut self) -> bool {
-        if self.has_selection() {
-            self.value
-                .remove_str_range(self.selection())
-                .expect("valid_selection");
-        }
-
-        self.value
-            .insert_str(self.cursor(), &self.newline)
-            .expect("valid_cursor");
-
-        // insert leading spaces
-        if self.auto_indent {
-            auto_indent(self);
-        }
-
-        self.scroll_cursor_to_visible();
-        true
+        text_area_op::insert_newline(self)
     }
 
     /// Deletes the given range.
@@ -1537,52 +1444,41 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn delete_range(&mut self, range: impl Into<TextRange>) -> bool {
-        self.try_delete_range(range).expect("valid_range")
+        text_area_op::delete_range(self, range.into()).expect("valid_range")
     }
 
     /// Deletes the given range.
     #[inline]
     pub fn try_delete_range(&mut self, range: impl Into<TextRange>) -> Result<bool, TextError> {
-        let range = range.into();
-        if !range.is_empty() {
-            self.value.remove_str_range(range)?;
-            self.scroll_cursor_to_visible();
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        text_area_op::delete_range(self, range.into())
     }
-}
 
-impl TextAreaState {
     /// Duplicates the selection or the current line.
     /// Returns true if there was any real change.
     #[inline]
     pub fn duplicate_text(&mut self) -> bool {
-        duplicate_text(self)
+        text_area_op::duplicate_text(self)
     }
 
     /// Deletes the current line.
     /// Returns true if there was any real change.
     #[inline]
     pub fn delete_line(&mut self) -> bool {
-        delete_line(self)
+        text_area_op::delete_line(self)
     }
 
     /// Deletes the next char or the current selection.
     /// Returns true if there was any real change.
     #[inline]
     pub fn delete_next_char(&mut self) -> bool {
-        self.scroll_cursor_to_visible();
-        delete_next_char(self)
+        text_area_op::delete_next_char(self)
     }
 
     /// Deletes the previous char or the selection.
     /// Returns true if there was any real change.
     #[inline]
     pub fn delete_prev_char(&mut self) -> bool {
-        self.scroll_cursor_to_visible();
-        delete_prev_char(self)
+        text_area_op::delete_prev_char(self)
     }
 
     /// Find the start of the next word. If the position is at the start
@@ -1591,7 +1487,7 @@ impl TextAreaState {
     /// Panics for an invalid pos.
     #[inline]
     pub fn next_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        next_word_start(&self.value, pos.into()).expect("valid_pos")
+        core_op::next_word_start(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the start of the next word. If the position is at the start
@@ -1601,7 +1497,7 @@ impl TextAreaState {
         &self,
         pos: impl Into<TextPosition>,
     ) -> Result<TextPosition, TextError> {
-        next_word_start(&self.value, pos.into())
+        core_op::next_word_start(&self.value, pos.into())
     }
 
     /// Find the end of the next word. Skips whitespace first, then goes on
@@ -1610,7 +1506,7 @@ impl TextAreaState {
     /// Panics for an invalid pos.
     #[inline]
     pub fn next_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        next_word_end(&self.value, pos.into()).expect("valid_pos")
+        core_op::next_word_end(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the end of the next word. Skips whitespace first, then goes on
@@ -1620,7 +1516,7 @@ impl TextAreaState {
         &self,
         pos: impl Into<TextPosition>,
     ) -> Result<TextPosition, TextError> {
-        next_word_end(&self.value, pos.into())
+        core_op::next_word_end(&self.value, pos.into())
     }
 
     /// Find the start of the prev word. Skips whitespace first, then goes on
@@ -1632,7 +1528,7 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn prev_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        prev_word_start(&self.value, pos.into()).expect("valid_pos")
+        core_op::prev_word_start(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the start of the prev word. Skips whitespace first, then goes on
@@ -1645,7 +1541,7 @@ impl TextAreaState {
         &self,
         pos: impl Into<TextPosition>,
     ) -> Result<TextPosition, TextError> {
-        prev_word_start(&self.value, pos.into())
+        core_op::prev_word_start(&self.value, pos.into())
     }
 
     /// Find the end of the previous word. Word is everything that is not whitespace.
@@ -1655,7 +1551,7 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn prev_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        prev_word_end(&self.value, pos.into()).expect("valid_pos")
+        core_op::prev_word_end(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the end of the previous word. Word is everything that is not whitespace.
@@ -1666,7 +1562,7 @@ impl TextAreaState {
         &self,
         pos: impl Into<TextPosition>,
     ) -> Result<TextPosition, TextError> {
-        prev_word_end(&self.value, pos.into())
+        core_op::prev_word_end(&self.value, pos.into())
     }
 
     /// Is the position at a word boundary?
@@ -1674,13 +1570,13 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn is_word_boundary(&self, pos: impl Into<TextPosition>) -> bool {
-        is_word_boundary(&self.value, pos.into()).expect("valid_pos")
+        core_op::is_word_boundary(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Is the position at a word boundary?
     #[inline]
     pub fn try_is_word_boundary(&self, pos: impl Into<TextPosition>) -> Result<bool, TextError> {
-        is_word_boundary(&self.value, pos.into())
+        core_op::is_word_boundary(&self.value, pos.into())
     }
 
     /// Find the start of the word at pos.
@@ -1689,14 +1585,14 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        word_start(&self.value, pos.into()).expect("valid_pos")
+        core_op::word_start(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the start of the word at pos.
     /// Returns pos if the position is not inside a word.
     #[inline]
     pub fn try_word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        word_start(&self.value, pos.into())
+        core_op::word_start(&self.value, pos.into())
     }
 
     /// Find the end of the word at pos.
@@ -1705,14 +1601,14 @@ impl TextAreaState {
     /// Panics for an invalid range.
     #[inline]
     pub fn word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        word_end(&self.value, pos.into()).expect("valid_pos")
+        core_op::word_end(&self.value, pos.into()).expect("valid_pos")
     }
 
     /// Find the end of the word at pos.
     /// Returns pos if the position is not inside a word.
     #[inline]
     pub fn try_word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        word_end(&self.value, pos.into())
+        core_op::word_end(&self.value, pos.into())
     }
 
     /// Delete the next word. This alternates deleting the whitespace between words and
@@ -1721,7 +1617,7 @@ impl TextAreaState {
     /// If there is a selection, removes only the selected text.
     #[inline]
     pub fn delete_next_word(&mut self) -> bool {
-        delete_next_word(self)
+        text_area_op::delete_next_word(self)
     }
 
     /// Deletes the previous word. This alternates deleting the whitespace
@@ -1730,7 +1626,7 @@ impl TextAreaState {
     /// If there is a selection, removes only the selected text.
     #[inline]
     pub fn delete_prev_word(&mut self) -> bool {
-        delete_prev_word(self)
+        text_area_op::delete_prev_word(self)
     }
 
     /// Search for a regex.
@@ -1744,7 +1640,7 @@ impl TextAreaState {
     /// Returns true if the search found anything.
     ///
     pub fn search(&mut self, re: &str) -> Result<bool, TextError> {
-        match search(self, re, MATCH_STYLE) {
+        match text_area_op::search(self, re, MATCH_STYLE) {
             Ok(r) => Ok(r),
             Err(_) => Err(TextError::InvalidSearch),
         }
@@ -1752,45 +1648,45 @@ impl TextAreaState {
 
     /// Move to the next match.
     pub fn move_to_next_match(&mut self) -> bool {
-        move_to_next_match(self, MATCH_STYLE)
+        text_area_op::move_to_next_match(self, MATCH_STYLE)
     }
 
     /// Move to the next match.
     pub fn move_to_prev_match(&mut self) -> bool {
-        move_to_prev_match(self, MATCH_STYLE)
+        text_area_op::move_to_prev_match(self, MATCH_STYLE)
     }
 
     /// Clear the search.
     pub fn clear_search(&mut self) {
-        clear_search(self, MATCH_STYLE)
+        text_area_op::clear_search(self, MATCH_STYLE)
     }
 
     /// Move the cursor left. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     #[inline]
     pub fn move_left(&mut self, n: u16, extend_selection: bool) -> bool {
-        move_left(self, n, extend_selection)
+        text_area_op::move_left(self, n, extend_selection)
     }
 
     /// Move the cursor right. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     #[inline]
     pub fn move_right(&mut self, n: u16, extend_selection: bool) -> bool {
-        move_right(self, n, extend_selection)
+        text_area_op::move_right(self, n, extend_selection)
     }
 
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     #[inline]
     pub fn move_up(&mut self, n: u16, extend_selection: bool) -> bool {
-        move_up(self, n, extend_selection)
+        text_area_op::move_up(self, n, extend_selection)
     }
 
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     #[inline]
     pub fn move_down(&mut self, n: u16, extend_selection: bool) -> bool {
-        move_down(self, n, extend_selection)
+        text_area_op::move_down(self, n, extend_selection)
     }
 
     /// Move the cursor to the start of the line.
@@ -1798,7 +1694,7 @@ impl TextAreaState {
     /// Returns true if there was any real change.
     #[inline]
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        move_to_line_start(self, extend_selection)
+        text_area_op::move_to_line_start(self, extend_selection)
     }
 
     /// Move the cursor to the end of the line. Scrolls to visible, if
@@ -1806,43 +1702,43 @@ impl TextAreaState {
     /// Returns true if there was any real change.
     #[inline]
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
-        move_to_line_end(self, extend_selection)
+        text_area_op::move_to_line_end(self, extend_selection)
     }
 
     /// Move the cursor to the document start.
     #[inline]
     pub fn move_to_start(&mut self, extend_selection: bool) -> bool {
-        move_to_start(self, extend_selection)
+        text_area_op::move_to_start(self, extend_selection)
     }
 
     /// Move the cursor to the document end.
     #[inline]
     pub fn move_to_end(&mut self, extend_selection: bool) -> bool {
-        move_to_end(self, extend_selection)
+        text_area_op::move_to_end(self, extend_selection)
     }
 
     /// Move the cursor to the start of the visible area.
     #[inline]
     pub fn move_to_screen_start(&mut self, extend_selection: bool) -> bool {
-        move_to_screen_start(self, extend_selection)
+        text_area_op::move_to_screen_start(self, extend_selection)
     }
 
     /// Move the cursor to the end of the visible area.
     #[inline]
     pub fn move_to_screen_end(&mut self, extend_selection: bool) -> bool {
-        move_to_screen_end(self, extend_selection)
+        text_area_op::move_to_screen_end(self, extend_selection)
     }
 
     /// Move the cursor to the next word.
     #[inline]
     pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
-        move_to_next_word(self, extend_selection)
+        text_area_op::move_to_next_word(self, extend_selection)
     }
 
     /// Move the cursor to the previous word.
     #[inline]
     pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
-        move_to_prev_word(self, extend_selection)
+        text_area_op::move_to_prev_word(self, extend_selection)
     }
 }
 
@@ -1886,6 +1782,7 @@ impl RelocatableState for TextAreaState {
 }
 
 impl TextAreaState {
+    // validated text-wrap parameters.
     fn text_wrap_2(&self, shift_left: upos_type) -> (TextWrap2, upos_type, upos_type, upos_type) {
         match self.text_wrap {
             TextWrap::Shift => (
@@ -1909,8 +1806,8 @@ impl TextAreaState {
         }
     }
 
-    /// Fill the cache for the given rows.
-    /// Build up the complete information for the given rows.
+    // Fill the cache for the given rows.
+    // Build up the complete information for the given rows.
     fn fill_cache(
         &self,
         shift_left: upos_type,
@@ -1931,6 +1828,7 @@ impl TextAreaState {
         )
     }
 
+    // glyph iterator
     fn glyphs2(
         &self,
         shift_left: upos_type,
@@ -1951,90 +1849,21 @@ impl TextAreaState {
         )
     }
 
-    /// Find the text-position for an absolute screen-position.
-    pub fn screen_to_pos(&self, scr_pos: (u16, u16)) -> Option<TextPosition> {
-        let scr_pos = (
-            scr_pos.0 as i16 - self.inner.x as i16,
-            scr_pos.1 as i16 - self.inner.y as i16,
-        );
-        self.relative_screen_to_pos(scr_pos)
-    }
-
-    /// Find the absolute screen-position for a text-position
-    #[inline]
-    pub fn pos_to_screen(&self, pos: impl Into<TextPosition>) -> Option<(u16, u16)> {
-        let scr_pos = self.pos_to_relative_screen(pos.into())?;
-        if scr_pos.0 + self.inner.x as i16 > 0 && scr_pos.1 + self.inner.y as i16 > 0 {
-            Some((
-                (scr_pos.0 + self.inner.x as i16) as u16,
-                (scr_pos.1 + self.inner.y as i16) as u16,
-            ))
-        } else {
-            None
-        }
-    }
-
-    /// Return the starting position for the visible line containing the given position.
-    pub fn pos_to_line_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        let pos = pos.into();
-        match self.text_wrap {
-            TextWrap::Shift => {
-                //
-                TextPosition::new(0, pos.y)
-            }
-            TextWrap::Hard | TextWrap::Word(_) => {
-                self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
-                    .expect("valid-row");
-
-                let mut start_pos = TextPosition::new(0, pos.y);
-                for (break_pos, _) in self.value.cache().line_break.borrow().range(
-                    TextPosition::new(0, pos.y)
-                        ..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
-                ) {
-                    if pos >= start_pos && &pos <= break_pos {
-                        break;
-                    }
-                    start_pos = TextPosition::new(break_pos.x + 1, break_pos.y);
-                }
-
-                start_pos
-            }
-        }
-    }
-
-    /// Return the end position for the visible line containing the given position.
-    pub fn pos_to_line_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
-        let pos = pos.into();
-
-        self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
-            .expect("valid-row");
-
-        let mut end_pos = TextPosition::new(0, pos.y);
-        for (break_pos, _) in self
-            .value
-            .cache()
-            .line_break
-            .borrow()
-            .range(TextPosition::new(0, pos.y)..TextPosition::new(0, pos.y + 1))
-        {
-            if pos >= end_pos && &pos <= break_pos {
-                end_pos = *break_pos;
-                break;
-            }
-            end_pos = TextPosition::new(break_pos.x + 1, break_pos.y);
-        }
-
-        end_pos
-    }
-
     // ensure cache is up to date for n pages.
+    //
+    // * scr: (sub_row_offset, offset_row, page_len)
     fn stc_fill_screen_cache(&self, scr: (upos_type, upos_type, upos_type)) {
         let y2 = scr.1 + scr.2;
         self.fill_cache(0, scr.0, scr.1..min(y2, self.len_lines()))
             .expect("valid-rows");
     }
 
-    // requires: cache for ... pages
+    // screen row for the given position.
+    // only if within `scr.2` lines.
+    //
+    // requires: stc_fill_screen_cache for this `scr` value.
+    //
+    // * scr: (sub_row_offset, offset_row, page_len)
     fn stc_screen_row(
         &self,
         scr: (upos_type, upos_type, upos_type),
@@ -2067,8 +1896,12 @@ impl TextAreaState {
         None
     }
 
-    // start offset for given screen-row. only if within `scr.2` pages.
-    // requires: cache for `scr.2` pages
+    // start offset for given screen-row.
+    // only if within `scr.2` lines.
+    //
+    // requires: stc_fill_screen_cache for this `scr` value.
+    //
+    // * scr: (sub_row_offset, offset_row, page_len)
     fn stc_sub_row_offset(
         &self,
         scr: (upos_type, upos_type, upos_type),
@@ -2091,116 +1924,9 @@ impl TextAreaState {
         // actual data is shorter than expected.
         start_pos
     }
+}
 
-    /// Return the screen_position for the given text position
-    /// relative to the origin of the widget.
-    ///
-    /// This may be outside the visible area, if the text-area
-    /// has been relocated. It may even be outside the screen,
-    /// so this returns an (i16, i16) as an absolute screen position.
-    ///
-    /// If the text-position is outside the rendered area,
-    /// this will return None.
-    #[allow(clippy::explicit_counter_loop)]
-    pub fn pos_to_relative_screen(&self, pos: impl Into<TextPosition>) -> Option<(i16, i16)> {
-        let pos = pos.into();
-        match self.text_wrap {
-            TextWrap::Shift => {
-                let (ox, _, oy) = self.clean_offset();
-
-                if oy > self.len_lines() {
-                    return None;
-                }
-                if pos.y < oy {
-                    return None;
-                }
-                if pos.y > self.len_lines() {
-                    return None;
-                }
-                if pos.y - oy >= self.rendered.height as u32 {
-                    return None;
-                }
-
-                let screen_y = (pos.y - oy) as u16;
-
-                let screen_x = 'f: {
-                    for g in self
-                        .glyphs2(ox, 0, pos.y..min(pos.y + 1, self.len_lines()))
-                        .expect("valid-row")
-                    {
-                        if g.pos().x == pos.x {
-                            break 'f g.screen_pos().0;
-                        } else if g.line_break() {
-                            break 'f g.screen_pos().0;
-                        }
-                    }
-                    // last row
-                    0
-                };
-                assert!(screen_x <= self.rendered.width);
-
-                Some((
-                    screen_x as i16 - self.dark_offset.0 as i16,
-                    screen_y as i16 - self.dark_offset.1 as i16,
-                ))
-            }
-            TextWrap::Hard | TextWrap::Word(_) => {
-                let (_, sub_row_offset, oy) = self.clean_offset();
-
-                if oy > self.len_lines() {
-                    return None;
-                }
-                if pos.y < oy {
-                    return None;
-                }
-                if pos.y > self.len_lines() {
-                    return None;
-                }
-
-                let page = self.rendered.height as upos_type;
-                let scr = (sub_row_offset, oy, page);
-                self.stc_fill_screen_cache(scr);
-                let (screen_y, start_pos) = if let Some(pos_row) = self.stc_screen_row(scr, pos) {
-                    if pos_row >= page {
-                        // beyond page
-                        return None;
-                    }
-                    let start_pos = self.stc_sub_row_offset(scr, pos_row);
-                    (pos_row, start_pos)
-                } else {
-                    // out of bounds
-                    return None;
-                };
-
-                let screen_x = 'f: {
-                    for g in self
-                        .glyphs2(
-                            0,
-                            start_pos.0,
-                            start_pos.1..min(start_pos.1 + 1, self.len_lines()),
-                        )
-                        .expect("valid-row")
-                    {
-                        if g.pos().x == pos.x {
-                            break 'f g.screen_pos().0;
-                        } else if g.line_break() {
-                            break 'f g.screen_pos().0;
-                        }
-                    }
-                    // no glyphs on this line
-                    0
-                };
-                assert!(screen_x <= self.rendered.width);
-
-                let scr = (
-                    screen_x as i16 - self.dark_offset.0 as i16,
-                    screen_y as i16 - self.dark_offset.1 as i16,
-                );
-                Some(scr)
-            }
-        }
-    }
-
+impl TextAreaState {
     /// Find the text-position for the widget-relative screen-position.
     #[allow(clippy::needless_return)]
     pub fn relative_screen_to_pos(&self, scr_pos: (i16, i16)) -> Option<TextPosition> {
@@ -2357,9 +2083,193 @@ impl TextAreaState {
             }
         }
     }
-}
 
-impl TextAreaState {
+    /// Find the text-position for an absolute screen-position.
+    pub fn screen_to_pos(&self, scr_pos: (u16, u16)) -> Option<TextPosition> {
+        let scr_pos = (
+            scr_pos.0 as i16 - self.inner.x as i16,
+            scr_pos.1 as i16 - self.inner.y as i16,
+        );
+        self.relative_screen_to_pos(scr_pos)
+    }
+
+    /// Return the screen_position for the given text position
+    /// relative to the origin of the widget.
+    ///
+    /// This may be outside the visible area, if the text-area
+    /// has been relocated. It may even be outside the screen,
+    /// so this returns an (i16, i16).
+    ///
+    /// If the text-position is outside the rendered area,
+    /// this will return None.
+    #[allow(clippy::explicit_counter_loop)]
+    pub fn pos_to_relative_screen(&self, pos: impl Into<TextPosition>) -> Option<(i16, i16)> {
+        let pos = pos.into();
+        match self.text_wrap {
+            TextWrap::Shift => {
+                let (ox, _, oy) = self.clean_offset();
+
+                if oy > self.len_lines() {
+                    return None;
+                }
+                if pos.y < oy {
+                    return None;
+                }
+                if pos.y > self.len_lines() {
+                    return None;
+                }
+                if pos.y - oy >= self.rendered.height as u32 {
+                    return None;
+                }
+
+                let screen_y = (pos.y - oy) as u16;
+
+                let screen_x = 'f: {
+                    for g in self
+                        .glyphs2(ox, 0, pos.y..min(pos.y + 1, self.len_lines()))
+                        .expect("valid-row")
+                    {
+                        if g.pos().x == pos.x {
+                            break 'f g.screen_pos().0;
+                        } else if g.line_break() {
+                            break 'f g.screen_pos().0;
+                        }
+                    }
+                    // last row
+                    0
+                };
+                assert!(screen_x <= self.rendered.width);
+
+                Some((
+                    screen_x as i16 - self.dark_offset.0 as i16,
+                    screen_y as i16 - self.dark_offset.1 as i16,
+                ))
+            }
+            TextWrap::Hard | TextWrap::Word(_) => {
+                let (_, sub_row_offset, oy) = self.clean_offset();
+
+                if oy > self.len_lines() {
+                    return None;
+                }
+                if pos.y < oy {
+                    return None;
+                }
+                if pos.y > self.len_lines() {
+                    return None;
+                }
+
+                let page = self.rendered.height as upos_type;
+                let scr = (sub_row_offset, oy, page);
+                self.stc_fill_screen_cache(scr);
+                let (screen_y, start_pos) = if let Some(pos_row) = self.stc_screen_row(scr, pos) {
+                    if pos_row >= page {
+                        // beyond page
+                        return None;
+                    }
+                    let start_pos = self.stc_sub_row_offset(scr, pos_row);
+                    (pos_row, start_pos)
+                } else {
+                    // out of bounds
+                    return None;
+                };
+
+                let screen_x = 'f: {
+                    for g in self
+                        .glyphs2(
+                            0,
+                            start_pos.0,
+                            start_pos.1..min(start_pos.1 + 1, self.len_lines()),
+                        )
+                        .expect("valid-row")
+                    {
+                        if g.pos().x == pos.x {
+                            break 'f g.screen_pos().0;
+                        } else if g.line_break() {
+                            break 'f g.screen_pos().0;
+                        }
+                    }
+                    // no glyphs on this line
+                    0
+                };
+                assert!(screen_x <= self.rendered.width);
+
+                let scr = (
+                    screen_x as i16 - self.dark_offset.0 as i16,
+                    screen_y as i16 - self.dark_offset.1 as i16,
+                );
+                Some(scr)
+            }
+        }
+    }
+
+    /// Find the absolute screen-position for a text-position.
+    ///
+    #[inline]
+    pub fn pos_to_screen(&self, pos: impl Into<TextPosition>) -> Option<(u16, u16)> {
+        let scr_pos = self.pos_to_relative_screen(pos.into())?;
+        if scr_pos.0 + self.inner.x as i16 > 0 && scr_pos.1 + self.inner.y as i16 > 0 {
+            Some((
+                (scr_pos.0 + self.inner.x as i16) as u16,
+                (scr_pos.1 + self.inner.y as i16) as u16,
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// Return the starting position for the visible line containing the given position.
+    pub fn pos_to_line_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        let pos = pos.into();
+        match self.text_wrap {
+            TextWrap::Shift => {
+                //
+                TextPosition::new(0, pos.y)
+            }
+            TextWrap::Hard | TextWrap::Word(_) => {
+                self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
+                    .expect("valid-row");
+
+                let mut start_pos = TextPosition::new(0, pos.y);
+                for (break_pos, _) in self.value.cache().line_break.borrow().range(
+                    TextPosition::new(0, pos.y)
+                        ..TextPosition::new(0, min(pos.y + 1, self.len_lines())),
+                ) {
+                    if pos >= start_pos && &pos <= break_pos {
+                        break;
+                    }
+                    start_pos = TextPosition::new(break_pos.x + 1, break_pos.y);
+                }
+
+                start_pos
+            }
+        }
+    }
+
+    /// Return the end position for the visible line containing the given position.
+    pub fn pos_to_line_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        let pos = pos.into();
+
+        self.fill_cache(0, 0, pos.y..min(pos.y + 1, self.len_lines()))
+            .expect("valid-row");
+
+        let mut end_pos = TextPosition::new(0, pos.y);
+        for (break_pos, _) in self
+            .value
+            .cache()
+            .line_break
+            .borrow()
+            .range(TextPosition::new(0, pos.y)..TextPosition::new(0, pos.y + 1))
+        {
+            if pos >= end_pos && &pos <= break_pos {
+                end_pos = *break_pos;
+                break;
+            }
+            end_pos = TextPosition::new(break_pos.x + 1, break_pos.y);
+        }
+
+        end_pos
+    }
+
     /// Set the cursor position from screen coordinates.
     ///
     /// The cursor positions are relative to the inner rect.
@@ -2482,7 +2392,20 @@ impl TextAreaState {
         self.hscroll.set_offset(col_offset as usize)
     }
 
+    /// Scroll that the cursor is visible.
+    ///
+    /// This positioning happens with the next render.
+    ///
+    /// All move-fn do this automatically.
+    pub fn scroll_cursor_to_visible(&mut self) {
+        self.scroll_to_cursor = true;
+    }
+
     /// Scrolls to make the given position visible.
+    ///
+    /// Caveat
+    ///
+    /// This function works correctly after the first render.
     pub fn scroll_to_pos(&mut self, pos: impl Into<TextPosition>) -> bool {
         let old_offset = self.clean_offset();
 
@@ -2641,7 +2564,9 @@ impl TextAreaState {
     ///
     /// `true` if the offset changes.
     ///
-    /// TODO: Does nothing if there is any text-wrapping.
+    /// __Caveat__
+    ///
+    /// Does nothing if text-wrapping is active.
     pub fn scroll_left(&mut self, delta: upos_type) -> bool {
         self.hscroll
             .set_offset(self.hscroll.offset.saturating_add(delta as usize))
@@ -2655,21 +2580,12 @@ impl TextAreaState {
     ///
     /// `true`if the offset changes.
     ///
-    /// TODO: Does nothing if there is any text-wrapping.
+    /// __Caveat__
+    ///
+    /// Does nothing if text-wrapping is active.
     pub fn scroll_right(&mut self, delta: upos_type) -> bool {
         self.hscroll
             .set_offset(self.hscroll.offset.saturating_sub(delta as usize))
-    }
-}
-
-impl TextAreaState {
-    /// Scroll that the cursor is visible.
-    ///
-    /// This positioning happens with the next render.
-    ///
-    /// All move-fn do this automatically.
-    pub fn scroll_cursor_to_visible(&mut self) {
-        self.scroll_to_cursor = true;
     }
 }
 

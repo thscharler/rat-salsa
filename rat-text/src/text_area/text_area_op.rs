@@ -1,10 +1,143 @@
 use crate::core::core_op::*;
+use crate::core::{TextStore, core_op};
 use crate::text_area::TextAreaState;
-use crate::{Cursor, TextPosition, TextRange, upos_type};
+use crate::{Cursor, TextError, TextPosition, TextRange, upos_type};
 use regex_cursor::engines::dfa::{Regex, find_iter};
 use regex_cursor::regex_automata::dfa::dense::BuildError;
 use regex_cursor::{Input, RopeyCursor};
 use std::cmp::min;
+
+/// Insert a character at the cursor position.
+/// Removes the selection and inserts the char.
+/// This function has no special handling for '\n' or '\t'.
+pub fn insert_char(state: &mut TextAreaState, c: char) -> bool {
+    if state.has_selection()
+        && state.auto_quote
+        && (c == '\'' || c == '"' || c == '`' || c == '<' || c == '[' || c == '(' || c == '{')
+    {
+        let sel = state.selection();
+        insert_quotes(&mut state.value, sel, c).expect("valid_selection");
+        state.scroll_cursor_to_visible();
+        return true;
+    }
+
+    state
+        .value
+        .remove_str_range(state.selection())
+        .expect("valid_selection");
+
+    let pos = state.cursor();
+
+    // insert missing newline
+    if pos.x == 0
+        && pos.y != 0
+        && (pos.y == state.len_lines() || pos.y == state.len_lines().saturating_sub(1))
+        && !state.value.text().has_final_newline()
+    {
+        let anchor = state.value.anchor();
+        let cursor = state.value.cursor();
+        state
+            .value
+            .insert_str(pos, &state.newline)
+            .expect("valid_cursor");
+        state.value.set_selection(anchor, cursor);
+    }
+
+    state.value.insert_char(pos, c).expect("valid_cursor");
+    state.scroll_cursor_to_visible();
+
+    true
+}
+
+/// Inserts tab at the current position. This respects the
+/// tab-width set.
+///
+/// If there is a text-selection the text-rows will be indented instead.
+/// This can be deactivated with auto_indent=false.
+pub fn insert_tab(state: &mut TextAreaState) -> bool {
+    if state.has_selection() {
+        if state.auto_indent {
+            indent(state, state.tab_width);
+            true
+        } else {
+            false
+        }
+    } else {
+        let pos = state.cursor();
+        core_op::insert_tab(&mut state.value, pos, state.expand_tabs, state.tab_width)
+            .expect("valid_cursor");
+        state.scroll_cursor_to_visible();
+
+        true
+    }
+}
+
+/// Dedent the selected text by tab-width. If there is no
+/// selection this does nothing.
+///
+/// This can be deactivated with auto_indent=false.
+pub fn insert_backtab(state: &mut TextAreaState) -> bool {
+    if state.has_selection() {
+        dedent(state, state.tab_width);
+        true
+    } else {
+        false
+    }
+}
+
+/// Insert text at the cursor position.
+/// Removes the selection and inserts the text.
+pub fn insert_str(state: &mut TextAreaState, t: &str) -> bool {
+    if state.has_selection() {
+        state
+            .value
+            .remove_str_range(state.selection())
+            .expect("valid_selection");
+    }
+    state
+        .value
+        .insert_str(state.cursor(), t)
+        .expect("valid_cursor");
+    state.scroll_cursor_to_visible();
+
+    true
+}
+
+/// Insert a line break at the cursor position.
+///
+/// If auto_indent is set the new line starts with the same
+/// indent as the current.
+pub fn insert_newline(state: &mut TextAreaState) -> bool {
+    if state.has_selection() {
+        state
+            .value
+            .remove_str_range(state.selection())
+            .expect("valid_selection");
+    }
+
+    state
+        .value
+        .insert_str(state.cursor(), &state.newline)
+        .expect("valid_cursor");
+    // insert leading spaces
+    if state.auto_indent {
+        auto_indent(state);
+    }
+    state.scroll_cursor_to_visible();
+
+    true
+}
+
+/// Deletes the given range.
+pub fn delete_range(state: &mut TextAreaState, range: TextRange) -> Result<bool, TextError> {
+    if !range.is_empty() {
+        state.value.remove_str_range(range)?;
+        state.scroll_cursor_to_visible();
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
 
 /// Indent the selection by shift-width.
 pub fn indent(state: &mut TextAreaState, shift_width: u32) {
@@ -112,6 +245,8 @@ pub fn delete_line(state: &mut TextAreaState) -> bool {
 /// Deletes the next char or the current selection.
 /// Returns true if there was any real change.
 pub fn delete_next_char(state: &mut TextAreaState) -> bool {
+    state.scroll_cursor_to_visible();
+
     if state.has_selection() {
         state
             .value
@@ -126,6 +261,8 @@ pub fn delete_next_char(state: &mut TextAreaState) -> bool {
 /// Deletes the previous char or the selection.
 /// Returns true if there was any real change.
 pub fn delete_prev_char(state: &mut TextAreaState) -> bool {
+    state.scroll_cursor_to_visible();
+
     if state.has_selection() {
         state
             .value
