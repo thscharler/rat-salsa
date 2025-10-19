@@ -207,7 +207,7 @@ impl ShellTheme {
     /// Background for popups.
     pub fn popup_base(&self) -> Style {
         self.p
-            .style(self.p.gray[Palette::BRIGHT_0], Contrast::Normal)
+            .style(self.p.gray[Palette::BRIGHT_2], Contrast::Normal)
     }
 
     /// Dialog arrows
@@ -335,7 +335,7 @@ impl ShellTheme {
             style: self.text_input(),
             select: Some(self.text_select()),
             focus: Some(self.text_focus()),
-            popup_style: Some(self.text_input()),
+            popup_style: Some(self.popup_base()),
             popup_border: Some(self.text_input()),
             popup_scroll: Some(ScrollStyle {
                 thumb_style: Some(self.text_input()),

@@ -32,7 +32,7 @@
 //! ///
 //! /// Render the widgets to the view buffer.
 //! ///
-//! view_buf.render_stateful(
+//! view_buf.render(
 //!     Paragraph::new("Paragraph\nParagraph\n..."),
 //!     Rect::new(0, 0, 40, 15),
 //!     &mut state.first,

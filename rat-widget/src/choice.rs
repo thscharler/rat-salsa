@@ -101,7 +101,7 @@ where
     popup_alignment: Alignment,
     popup_placement: Placement,
     popup_len: Option<u16>,
-    popup: PopupCore<'a>,
+    popup: PopupCore,
     popup_style: Style,
     popup_scroll: Option<Scroll<'a>>,
     popup_block: Option<Block<'a>>,
@@ -147,7 +147,7 @@ where
     popup_alignment: Alignment,
     popup_placement: Placement,
     popup_len: Option<u16>,
-    popup: PopupCore<'a>,
+    popup: PopupCore,
     popup_style: Style,
     popup_scroll: Option<Scroll<'a>>,
     popup_block: Option<Block<'a>>,
@@ -973,6 +973,7 @@ fn render_popup<T: PartialEq + Clone + Default>(
             .v_scroll(widget.popup_scroll.as_ref());
 
         let inner = sa.inner(state.popup.area, None, Some(&state.popup_scroll));
+
         sa.render(
             state.popup.area,
             buf,

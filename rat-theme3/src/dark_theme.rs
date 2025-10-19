@@ -15,7 +15,6 @@ use rat_widget::list::ListStyle;
 use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::paragraph::ParagraphStyle;
-use rat_widget::popup::PopupStyle;
 use rat_widget::radio::{RadioLayout, RadioStyle};
 use rat_widget::scrolled::ScrollStyle;
 use rat_widget::shadow::{ShadowDirection, ShadowStyle};
@@ -396,11 +395,9 @@ impl SalsaTheme for DarkTheme {
             right: Some(Style::default().fg(self.p.bluegreen[0])),
             disabled: Some(Style::default().fg(self.p.gray[0])),
             highlight: Some(Style::default().underlined()),
-            popup: PopupStyle {
-                style: self.status_base(),
-                block: Some(Block::bordered()),
-                ..Default::default()
-            },
+            popup_style: Some(self.status_base()),
+            block: Some(Block::bordered()),
+            popup: Default::default(),
             ..Default::default()
         }
     }

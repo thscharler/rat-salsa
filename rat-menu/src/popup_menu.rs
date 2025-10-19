@@ -58,7 +58,7 @@ pub struct PopupMenu<'a> {
     pub(crate) menu: MenuBuilder<'a>,
 
     width: Option<u16>,
-    popup: PopupCore<'a>,
+    popup: PopupCore,
     block: Option<Block<'a>>,
     style: Style,
     highlight_style: Option<Style>,
@@ -261,27 +261,18 @@ impl<'a> PopupMenu<'a> {
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.popup = self.popup.styles(styles.popup.clone());
 
-        #[allow(deprecated)]
         if let Some(popup_style) = styles.popup_style {
             self.style = popup_style;
-        } else if styles.popup.style != Style::default() {
-            self.style = styles.popup.style;
         } else {
             self.style = styles.style;
         }
 
         self.block = self.block.map(|v| v.style(self.style));
-        #[allow(deprecated)]
         if let Some(border_style) = styles.popup_border {
             self.block = self.block.map(|v| v.border_style(border_style));
-        } else if let Some(border_style) = styles.popup.border_style {
-            self.block = self.block.map(|v| v.border_style(border_style));
         }
-        #[allow(deprecated)]
         if styles.block.is_some() {
             self.block = styles.block;
-        } else if styles.popup.block.is_some() {
-            self.block = styles.popup.block;
         }
 
         if styles.highlight.is_some() {
@@ -510,15 +501,6 @@ impl PopupMenuState {
     #[inline]
     pub fn new() -> Self {
         Default::default()
-    }
-
-    /// New state with a focus name.
-    #[deprecated(since = "1.1.0", note = "no longer useful")]
-    pub fn named(_: &'static str) -> Self {
-        Self {
-            popup: PopupCoreState::new(),
-            ..Default::default()
-        }
     }
 
     /// Set the z-index for the popup-menu.

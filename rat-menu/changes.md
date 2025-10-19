@@ -1,3 +1,8 @@
+# 2.0.0
+
+* breaking changes in rat-popup
+* break: remove deprecated
+
 # 1.1.1
 
 * fix: display of 2 wide glyphs.

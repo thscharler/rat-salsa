@@ -30,9 +30,9 @@ rat-reloc = { version = "1.2", path = "../rat-reloc" }
 rat-focus = { version = "1.2", path = "../rat-focus" }
 rat-ftable = { version = "1.1", path = "../rat-ftable" }
 rat-text = { version = "2.0", path = "../rat-text" }
-rat-menu = { version = "1.1", path = "../rat-menu" }
+rat-menu = { version = "2.0", path = "../rat-menu" }
 rat-scrolled = { version = "1.1", path = "../rat-scrolled" }
-rat-popup = { version = "1.2", path = "../rat-popup" }
+rat-popup = { version = "2.0", path = "../rat-popup" }
 
 [dev-dependencies]
 fern = "0.7"

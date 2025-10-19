@@ -1,6 +1,8 @@
 # 2.0.0
 
 * breaking changes in rat-text
+* breaking changes in rat-popup
+* breaking changes in rat-menu
 
 # 1.3.0
 

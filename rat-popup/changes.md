@@ -1,3 +1,7 @@
+# 2.0.0
+
+* remove deprecated
+
 # 1.2.0
 
 * deprecate all but the basic rendering. everything else should be

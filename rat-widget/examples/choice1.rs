@@ -8,7 +8,7 @@ use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, Outcome};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Stylize;
+use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
 
@@ -100,9 +100,9 @@ fn render(
         .item(Some(0), "blue")
         .item(Some(1), "green")
         .block(Block::bordered().border_type(BorderType::Rounded))
-        .popup_block(Block::bordered().border_type(BorderType::Rounded))
         .popup_boundary(l1[0])
         .styles(istate.theme.choice_style())
+        .popup_block(Block::bordered().border_type(BorderType::Rounded))
         .into_widgets();
     w.render(lg[1][3], frame.buffer_mut(), &mut state.c3);
 

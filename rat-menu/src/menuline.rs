@@ -210,20 +210,6 @@ impl<'a> MenuLine<'a> {
         self
     }
 
-    /// Selection
-    #[inline]
-    #[deprecated(since = "1.1.0", note = "merged with focus style")]
-    pub fn select_style(self, _style: Style) -> Self {
-        self
-    }
-
-    /// Selection
-    #[inline]
-    #[deprecated(since = "1.1.0", note = "merged with focus style")]
-    pub fn select_style_opt(self, _style: Option<Style>) -> Self {
-        self
-    }
-
     /// Selection + Focus
     #[inline]
     pub fn focus_style(mut self, style: Style) -> Self {

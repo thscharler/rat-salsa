@@ -115,9 +115,6 @@ pub struct MenuStyle {
     pub disabled: Option<Style>,
     /// Style for the hotkey
     pub right: Option<Style>,
-    /// Select style.
-    #[deprecated(since = "1.1.0", note = "merged with focus style")]
-    pub select: Option<Style>,
     /// Focus style
     pub focus: Option<Style>,
 
@@ -141,8 +138,6 @@ impl Default for MenuStyle {
             highlight: Default::default(),
             disabled: Default::default(),
             right: Default::default(),
-            #[allow(deprecated)]
-            select: Default::default(),
             focus: Default::default(),
             popup_style: Default::default(),
             block: Default::default(),
