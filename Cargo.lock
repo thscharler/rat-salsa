@@ -1292,7 +1292,7 @@ dependencies = [
 
 [[package]]
 name = "rat-salsa"
-version = "2.1.2"
+version = "2.2.0"
 dependencies = [
  "anyhow",
  "cli-clipboard",
