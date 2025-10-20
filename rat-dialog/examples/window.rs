@@ -127,7 +127,10 @@ pub struct Scenery {
 impl_has_focus!(menu for Scenery);
 
 static MENU: StaticMenu = StaticMenu {
-    menu: &[("_File", &["_Open"]), ("_Quit", &[])],
+    menu: &[
+        ("_File", &["_Open (moveable)", "O_pen (fixed)"]),
+        ("_Quit", &[]),
+    ],
 };
 
 pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
@@ -240,7 +243,10 @@ fn handle_menu(event: &AppEvent, state: &mut Scenery, ctx: &mut Global) -> AppRe
         AppEvent::Event(event) => {
             try_flow!(match state.menu.handle(event, Popup) {
                 MenuOutcome::MenuActivated(0, 0) => {
-                    moving::show_open(ctx)?
+                    moving::show_moveable_filedlg(ctx)?
+                }
+                MenuOutcome::MenuActivated(0, 1) => {
+                    moving::show_fixed_filedlg(ctx)?
                 }
                 MenuOutcome::Activated(1) => {
                     Control::Quit
@@ -308,21 +314,14 @@ pub fn error(
 }
 
 pub mod moving {
-    use crate::window::{Window, WindowOutcome, WindowState};
-    use crate::{AppDialogResult, AppEvent, AppResult, Global};
+    use crate::file_dlg_moveable::FileDlgState;
+    use crate::{AppEvent, AppResult, Global, file_dlg_fixed, file_dlg_moveable};
     use anyhow::Error;
-    use rat_dialog::WindowControl;
-    use rat_event::{Dialog, Regular};
-    use rat_salsa::{Control, SalsaContext};
-    use rat_theme3::SalsaTheme;
-    use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
-    use rat_widget::file_dialog::{FileDialog, FileDialogState};
-    use rat_widget::layout::layout_middle;
-    use rat_widget::text::HasScreenCursor;
+    use rat_dialog::WindowFrameState;
+    use rat_salsa::Control;
+    use rat_widget::file_dialog::FileDialogState;
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Rect};
-    use ratatui::widgets::{Block, StatefulWidget};
-    use std::any::Any;
+    use ratatui::layout::Rect;
     use std::path::PathBuf;
 
     pub struct Moving;
@@ -347,25 +346,115 @@ pub mod moving {
         Ok(Control::Continue)
     }
 
-    pub fn show_open(ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
-        let mut state = OpenState {
-            window: WindowState::new(),
+    pub fn show_moveable_filedlg(ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
+        let mut state = FileDlgState {
+            window: WindowFrameState::new(),
             filedlg: FileDialogState::new(),
         };
         state.filedlg.open_dialog(PathBuf::from("."))?;
-
-        ctx.dialogs.push(render_open_dlg, handle_open_dlg, state);
+        ctx.dialogs.push(
+            file_dlg_moveable::file_dialog_render,
+            file_dlg_moveable::file_dialog_event,
+            state,
+        );
 
         Ok(Control::Changed)
     }
 
-    struct OpenState {
-        window: WindowState,
-        filedlg: FileDialogState,
+    pub fn show_fixed_filedlg(ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
+        let mut state = FileDialogState::new();
+        state.open_dialog(PathBuf::from("."))?;
+        ctx.dialogs.push(
+            file_dlg_fixed::file_dialog_render,
+            file_dlg_fixed::file_dialog_event,
+            state,
+        );
+
+        Ok(Control::Changed)
+    }
+}
+
+pub mod file_dlg_fixed {
+    use crate::{AppDialogResult, AppEvent, Global};
+    use rat_dialog::WindowControl;
+    use rat_event::Dialog;
+    use rat_salsa::SalsaContext;
+    use rat_theme3::SalsaTheme;
+    use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
+    use rat_widget::file_dialog::{FileDialog, FileDialogState};
+    use rat_widget::layout::layout_middle;
+    use rat_widget::text::HasScreenCursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Rect};
+    use ratatui::widgets::StatefulWidget;
+    use std::any::Any;
+
+    pub fn file_dialog_render(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
+        let state = state
+            .downcast_mut::<FileDialogState>()
+            .expect("dialog-state");
+
+        let area = layout_middle(
+            area,
+            Constraint::Percentage(19),
+            Constraint::Percentage(19),
+            Constraint::Length(2),
+            Constraint::Length(2),
+        );
+
+        FileDialog::new()
+            .styles(ctx.theme.file_dialog_style())
+            .render(area, buf, state);
+
+        ctx.set_screen_cursor(state.screen_cursor());
     }
 
-    fn render_open_dlg(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
-        let state = state.downcast_mut::<OpenState>().expect("dialog-state");
+    pub fn file_dialog_event(
+        event: &AppEvent,
+        state: &mut dyn Any,
+        _ctx: &mut Global,
+    ) -> AppDialogResult {
+        let state = state.downcast_mut::<FileDialogState>().expect("open-state");
+
+        if let AppEvent::Event(event) = event {
+            try_flow!(match state.handle(event, Dialog)? {
+                FileOutcome::Cancel => {
+                    WindowControl::Close(AppEvent::NoOp) //
+                }
+                FileOutcome::Ok(f) => {
+                    WindowControl::Close(AppEvent::Status(0, format!("Open file {:?}", f)))
+                }
+                r => r.into(),
+            });
+            Ok(WindowControl::Continue)
+        } else {
+            Ok(WindowControl::Continue)
+        }
+    }
+}
+
+pub mod file_dlg_moveable {
+    use crate::{AppDialogResult, AppEvent, Global};
+    use rat_dialog::{WindowControl, WindowFrame, WindowFrameOutcome, WindowFrameState};
+    use rat_event::Dialog;
+    use rat_salsa::SalsaContext;
+    use rat_theme3::SalsaTheme;
+    use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
+    use rat_widget::file_dialog::{FileDialog, FileDialogState};
+    use rat_widget::layout::layout_middle;
+    use rat_widget::text::HasScreenCursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Rect};
+    use ratatui::widgets::StatefulWidget;
+    use std::any::Any;
+
+    pub struct FileDlgState {
+        pub window: WindowFrameState,
+        pub filedlg: FileDialogState,
+    }
+
+    pub fn file_dialog_render(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
+        let state = state.downcast_mut::<FileDlgState>().expect("dialog-state");
 
         if state.window.area.is_empty() {
             state.window.limit = area;
@@ -378,50 +467,45 @@ pub mod moving {
             );
         }
 
-        Window::new()
-            .drag(ctx.theme.dialog_base())
-            .hover(ctx.theme.limegreen(1))
+        WindowFrame::new()
             .style(ctx.theme.dialog_base())
-            .block(
-                Block::bordered()
-                    .border_style(ctx.theme.dialog_border())
-                    .title("Open file"),
-            )
+            .drag_style(ctx.theme.dialog_base())
+            .hover_style(ctx.theme.limegreen(1))
             .render(area, buf, &mut state.window);
 
         FileDialog::new()
             .styles(ctx.theme.file_dialog_style())
-            .no_block()
-            .render(state.window.inner_area, buf, &mut state.filedlg);
+            .render(state.window.widget_area, buf, &mut state.filedlg);
 
         ctx.set_screen_cursor(state.filedlg.screen_cursor());
     }
 
-    fn handle_open_dlg(
+    pub fn file_dialog_event(
         event: &AppEvent,
         state: &mut dyn Any,
         _ctx: &mut Global,
     ) -> AppDialogResult {
-        let state = state.downcast_mut::<OpenState>().expect("open-state");
+        let state = state.downcast_mut::<FileDlgState>().expect("open-state");
 
-        match event {
-            AppEvent::Event(event) => {
-                try_flow!(match state.window.handle(event, Regular) {
-                    WindowOutcome::ShouldClose => {
-                        WindowControl::Close(AppEvent::NoOp)
-                    }
-                    r => r.into(),
-                });
-                try_flow!(match state.filedlg.handle(event, Dialog)? {
-                    FileOutcome::Cancel => WindowControl::Close(AppEvent::NoOp),
-                    FileOutcome::Ok(f) => {
-                        WindowControl::Close(AppEvent::Status(0, format!("Open file {:?}", f)))
-                    }
-                    r => r.into(),
-                });
-                Ok(WindowControl::Continue)
-            }
-            _ => Ok(WindowControl::Continue),
+        if let AppEvent::Event(event) = event {
+            try_flow!(match state.window.handle(event, Dialog) {
+                WindowFrameOutcome::ShouldClose => {
+                    WindowControl::Close(AppEvent::NoOp)
+                }
+                r => r.into(),
+            });
+            try_flow!(match state.filedlg.handle(event, Dialog)? {
+                FileOutcome::Cancel => {
+                    WindowControl::Close(AppEvent::NoOp) //
+                }
+                FileOutcome::Ok(f) => {
+                    WindowControl::Close(AppEvent::Status(0, format!("Open file {:?}", f)))
+                }
+                r => r.into(),
+            });
+            Ok(WindowControl::Continue)
+        } else {
+            Ok(WindowControl::Continue)
         }
     }
 }
@@ -438,220 +522,4 @@ fn setup_logging() -> Result<(), Error> {
         .chain(fern::log_file(&log_file)?)
         .apply()?;
     Ok(())
-}
-
-mod window {
-    use rat_event::util::MouseFlags;
-    use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular, ct_event};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Position, Rect};
-    use ratatui::style::Style;
-    use ratatui::text::Span;
-    use ratatui::widgets::{Block, StatefulWidget, Widget};
-    use std::cmp::max;
-
-    #[derive(Debug, Default)]
-    pub struct Window<'a> {
-        block: Block<'a>,
-        style: Style,
-        hover: Style,
-        drag: Style,
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-    pub enum WindowOutcome {
-        /// The given event was not handled at all.
-        Continue,
-        /// The event was handled, no repaint necessary.
-        Unchanged,
-        /// The event was handled, repaint necessary.
-        Changed,
-        /// Request close.
-        ShouldClose,
-        /// Moved
-        Moved,
-        /// Resized
-        Resized,
-    }
-
-    impl ConsumedEvent for WindowOutcome {
-        fn is_consumed(&self) -> bool {
-            *self != WindowOutcome::Continue
-        }
-    }
-
-    impl From<WindowOutcome> for Outcome {
-        fn from(value: WindowOutcome) -> Self {
-            match value {
-                WindowOutcome::Continue => Outcome::Continue,
-                WindowOutcome::Unchanged => Outcome::Unchanged,
-                WindowOutcome::Changed => Outcome::Changed,
-                WindowOutcome::Moved => Outcome::Changed,
-                WindowOutcome::Resized => Outcome::Changed,
-                WindowOutcome::ShouldClose => Outcome::Continue,
-            }
-        }
-    }
-
-    impl<'a> Window<'a> {
-        pub fn new() -> Self {
-            Self {
-                block: Default::default(),
-                style: Default::default(),
-                hover: Default::default(),
-                drag: Default::default(),
-            }
-        }
-
-        pub fn block(mut self, block: Block<'a>) -> Self {
-            self.block = block;
-            self
-        }
-
-        pub fn style(mut self, style: Style) -> Self {
-            self.style = style;
-            self
-        }
-
-        pub fn hover(mut self, hover: Style) -> Self {
-            self.hover = hover;
-            self
-        }
-
-        pub fn drag(mut self, drag: Style) -> Self {
-            self.drag = drag;
-            self
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct WindowState {
-        pub limit: Rect,
-        pub area: Rect,
-        pub inner_area: Rect,
-
-        // move area
-        pub move_: Rect,
-        pub resize: Rect,
-        pub close: Rect,
-
-        pub mouse_close: MouseFlags,
-        pub mouse_resize: MouseFlags,
-        pub start_move_area: Rect,
-        pub start_move: Position,
-        pub mouse_move: MouseFlags,
-    }
-
-    impl<'a> StatefulWidget for Window<'a> {
-        type State = WindowState;
-
-        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-            state.limit = area;
-            state.inner_area = self.block.inner(state.area);
-
-            state.resize = Rect::new(
-                state.area.right().saturating_sub(2),
-                state.area.bottom().saturating_sub(1),
-                2,
-                1,
-            );
-            state.close = Rect::new(state.area.right().saturating_sub(4), state.area.top(), 3, 1);
-            state.move_ = Rect::new(
-                state.area.x + 1,
-                state.area.y,
-                state.area.width.saturating_sub(6),
-                1,
-            );
-
-            self.block.render(state.area, buf);
-            Span::from("[x]").style(self.style).render(state.close, buf);
-
-            if state.mouse_close.hover.get() {
-                buf.set_style(state.close, self.hover);
-            }
-            if state.mouse_move.hover.get() {
-                buf.set_style(state.move_, self.hover);
-            }
-            if state.mouse_resize.hover.get() {
-                buf.set_style(state.resize, self.hover);
-            }
-            if state.mouse_move.drag.get() {
-                buf.set_style(state.move_, self.drag);
-            }
-            if state.mouse_resize.drag.get() {
-                buf.set_style(state.resize, self.drag);
-            }
-        }
-    }
-
-    impl WindowState {
-        pub fn new() -> Self {
-            Self::default()
-        }
-    }
-
-    impl HandleEvent<crossterm::event::Event, Regular, WindowOutcome> for WindowState {
-        fn handle(
-            &mut self,
-            event: &crossterm::event::Event,
-            _qualifier: Regular,
-        ) -> WindowOutcome {
-            match event {
-                ct_event!(mouse any for m) if self.mouse_close.hover(self.close, m) => {
-                    WindowOutcome::Changed
-                }
-                ct_event!(mouse any for m) if self.mouse_resize.hover(self.resize, m) => {
-                    WindowOutcome::Changed
-                }
-                ct_event!(mouse any for m) if self.mouse_move.hover(self.move_, m) => {
-                    WindowOutcome::Changed
-                }
-                ct_event!(mouse any for m) if self.mouse_resize.drag(self.resize, m) => {
-                    let mut new_area = self.area;
-
-                    new_area.width = max(10, m.column.saturating_sub(self.area.x));
-                    new_area.height = max(3, m.row.saturating_sub(self.area.y));
-
-                    if new_area.right() <= self.limit.right()
-                        && new_area.bottom() <= self.limit.bottom()
-                    {
-                        self.area = new_area;
-                        WindowOutcome::Resized
-                    } else {
-                        WindowOutcome::Continue
-                    }
-                }
-                ct_event!(mouse any for m) if self.mouse_move.drag(self.move_, m) => {
-                    let delta_x = m.column as i16 - self.start_move.x as i16;
-                    let delta_y = m.row as i16 - self.start_move.y as i16;
-                    let new_area = Rect::new(
-                        self.start_move_area.x.saturating_add_signed(delta_x),
-                        self.start_move_area.y.saturating_add_signed(delta_y),
-                        self.start_move_area.width,
-                        self.start_move_area.height,
-                    );
-
-                    if new_area.left() >= self.limit.left()
-                        && new_area.top() >= self.limit.top()
-                        && new_area.right() <= self.limit.right()
-                        && new_area.bottom() <= self.limit.bottom()
-                    {
-                        self.area = new_area;
-                        WindowOutcome::Moved
-                    } else {
-                        WindowOutcome::Continue
-                    }
-                }
-                ct_event!(mouse down Left for x,y) if self.move_.contains((*x, *y).into()) => {
-                    self.start_move_area = self.area;
-                    self.start_move = Position::new(*x, *y);
-                    WindowOutcome::Changed
-                }
-                ct_event!(mouse down Left for x,y) if self.close.contains((*x, *y).into()) => {
-                    WindowOutcome::ShouldClose
-                }
-                _ => WindowOutcome::Continue,
-            }
-        }
-    }
 }

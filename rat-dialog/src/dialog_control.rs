@@ -1,4 +1,6 @@
+//!
 //! A stack of dialog windows.
+//!
 use crate::WindowControl;
 use rat_event::HandleEvent;
 use ratatui::buffer::Buffer;

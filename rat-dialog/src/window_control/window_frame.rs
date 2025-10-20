@@ -8,6 +8,7 @@ use rat_event::{ConsumedEvent, Dialog, HandleEvent, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
+use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
@@ -26,13 +27,16 @@ use std::cmp::max;
 /// It can handle events for move/resize/close.
 #[derive(Debug, Default)]
 pub struct WindowFrame<'a> {
-    block: Block<'a>,
+    block: Option<Block<'a>>,
+
     style: Style,
     top_style: Option<Style>,
     focus_style: Option<Style>,
     hover_style: Style,
     drag_style: Style,
+
     limit: Option<Rect>,
+
     can_move: Option<bool>,
     can_resize: Option<bool>,
     can_close: Option<bool>,
@@ -43,7 +47,7 @@ pub struct WindowFrameStyle {
     pub style: Style,
     pub top: Option<Style>,
     pub focus: Option<Style>,
-    pub block: Block<'static>,
+    pub block: Option<Block<'static>>,
     pub hover: Option<Style>,
     pub drag: Option<Style>,
     pub can_move: Option<bool>,
@@ -112,7 +116,7 @@ impl Default for WindowFrameStyle {
             style: Default::default(),
             top: Default::default(),
             focus: Default::default(),
-            block: Block::bordered(),
+            block: Default::default(),
             hover: Default::default(),
             drag: Default::default(),
             can_move: Default::default(),
@@ -167,7 +171,7 @@ impl<'a> WindowFrame<'a> {
 
     /// Window block
     pub fn block(mut self, block: Block<'a>) -> Self {
-        self.block = block.style(self.style);
+        self.block = Some(block.style(self.style));
         self
     }
 
@@ -201,7 +205,7 @@ impl<'a> WindowFrame<'a> {
     /// Window base style
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
-        self.block = self.block.style(style);
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 
@@ -240,7 +244,7 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
             state.limit = area;
         }
         state.area = state.area.intersection(state.limit);
-        state.widget_area = self.block.inner(state.area);
+        state.widget_area = self.block.inner_if_some(state.area);
 
         if let Some(v) = self.can_move {
             state.can_move = v;
@@ -299,13 +303,13 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
         let block = if state.top {
             if state.is_focused() {
                 if let Some(top_style) = self.focus_style.or(self.top_style) {
-                    self.block.title_style(top_style)
+                    self.block.map(|v| v.title_style(top_style))
                 } else {
                     self.block
                 }
             } else {
                 if let Some(top_style) = self.top_style {
-                    self.block.title_style(top_style)
+                    self.block.map(|v| v.title_style(top_style))
                 } else {
                     self.block
                 }
