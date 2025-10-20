@@ -467,15 +467,16 @@ pub mod file_dlg_moveable {
             );
         }
 
+        FileDialog::new()
+            .styles(ctx.theme.file_dialog_style())
+            .render(state.window.area, buf, &mut state.filedlg);
+
         WindowFrame::new()
+            .no_fill()
             .style(ctx.theme.dialog_base())
             .drag_style(ctx.theme.dialog_base())
             .hover_style(ctx.theme.limegreen(1))
             .render(area, buf, &mut state.window);
-
-        FileDialog::new()
-            .styles(ctx.theme.file_dialog_style())
-            .render(state.window.widget_area, buf, &mut state.filedlg);
 
         ctx.set_screen_cursor(state.filedlg.screen_cursor());
     }

@@ -1517,7 +1517,7 @@ pub mod theme {
         pub fn dialog_window(&self, title: &'static str) -> WindowFrameStyle {
             WindowFrameStyle {
                 style: self.dialog_style(),
-                block: self.dialog_border(title),
+                block: Some(self.dialog_border(title)),
                 hover: Some(self.scheme().gray(4, Contrast::Normal)),
                 top: Some(self.s.primary(0, Contrast::Normal)),
                 focus: Some(revert_style(self.focus())),

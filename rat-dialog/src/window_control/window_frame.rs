@@ -27,6 +27,7 @@ use std::cmp::max;
 /// It can handle events for move/resize/close.
 #[derive(Debug, Default)]
 pub struct WindowFrame<'a> {
+    no_fill: bool,
     block: Option<Block<'a>>,
 
     style: Style,
@@ -130,6 +131,7 @@ impl Default for WindowFrameStyle {
 impl<'a> WindowFrame<'a> {
     pub fn new() -> Self {
         Self {
+            no_fill: Default::default(),
             block: Default::default(),
             style: Default::default(),
             top_style: Default::default(),
@@ -141,6 +143,12 @@ impl<'a> WindowFrame<'a> {
             can_resize: Default::default(),
             can_close: Default::default(),
         }
+    }
+
+    /// Don't fill the area.
+    pub fn no_fill(mut self) -> Self {
+        self.no_fill = true;
+        self
     }
 
     /// Limits for the window.
@@ -292,10 +300,12 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
             state.move_area = Default::default();
         }
 
-        for y in state.area.top()..state.area.bottom() {
-            for x in state.area.left()..state.area.right() {
-                if let Some(cell) = buf.cell_mut((x, y)) {
-                    cell.reset();
+        if !self.no_fill {
+            for y in state.area.top()..state.area.bottom() {
+                for x in state.area.left()..state.area.right() {
+                    if let Some(cell) = buf.cell_mut((x, y)) {
+                        cell.reset();
+                    }
                 }
             }
         }
@@ -316,6 +326,11 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
             }
         } else {
             self.block
+        };
+        let block = if self.no_fill {
+            block.map(|v| v.style(Style::new()))
+        } else {
+            block
         };
 
         block.render(state.area, buf);
