@@ -178,7 +178,7 @@ pub enum FormWidget {
 ///             .spacing(1)
 ///             .line_spacing(1)
 ///             .column_spacing(1)
-///             .border(Padding::new(2,2,0,0))
+///             .padding(Padding::new(2,2,0,0))
 ///             .flex(Flex::Start)
 ///             .min_label(10);
 ///
