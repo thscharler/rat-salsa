@@ -529,6 +529,13 @@ where
     }
 
     /// Page border.
+    pub fn padding(mut self, border: Padding) -> Self {
+        self.page_border = border;
+        self
+    }
+
+    /// Page border.
+    #[deprecated(since = "2.0.0", note = "use padding. is clearer.")]
     pub fn border(mut self, border: Padding) -> Self {
         self.page_border = border;
         self

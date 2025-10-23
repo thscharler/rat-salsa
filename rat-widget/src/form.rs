@@ -157,6 +157,8 @@ pub struct FormStyle {
     pub label_alignment: Option<Alignment>,
     /// navigation style.
     pub navigation: Option<Style>,
+    /// show navigation
+    pub show_navigation: Option<bool>,
     /// title style.
     pub title: Option<Style>,
     /// Block.
@@ -371,6 +373,9 @@ where
         self.style = styles.style;
         if let Some(nav) = styles.navigation {
             self.nav_style = Some(nav);
+        }
+        if let Some(navigation) = styles.show_navigation {
+            self.navigation = navigation;
         }
         if let Some(title) = styles.title {
             self.title_style = Some(title);
@@ -754,6 +759,7 @@ impl Default for FormStyle {
             label_style: None,
             label_alignment: None,
             navigation: None,
+            show_navigation: None,
             title: None,
             block: None,
             next_page_mark: None,
