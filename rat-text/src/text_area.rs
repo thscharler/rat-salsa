@@ -1167,6 +1167,20 @@ impl TextAreaState {
         self.value.text().rope()
     }
 
+    /// Set the text value.
+    ///
+    /// Resets all internal state.
+    #[inline]
+    pub fn set_value<S: AsRef<str>>(&mut self, s: S) {
+        self.set_text(s);
+    }
+
+    /// Copy of the text-value.
+    #[inline]
+    pub fn value(&self) -> String {
+        self.text()
+    }
+
     /// Empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
