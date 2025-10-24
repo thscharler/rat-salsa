@@ -55,6 +55,16 @@ use std::rc::Rc;
 
 /// Enum controling the behaviour of the Choice.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ChoiceFocus {
+    /// Opening the choice popup is a separate action.
+    #[default]
+    SeparateOpen,
+    /// Open the choice popup on focus gained.
+    OpenOnFocusGained,
+}
+
+/// Enum controling the behaviour of the Choice.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ChoiceSelect {
     /// Change the selection with the mouse-wheel.
     #[default]
@@ -106,6 +116,7 @@ where
     popup_scroll: Option<Scroll<'a>>,
     popup_block: Option<Block<'a>>,
 
+    behave_focus: ChoiceFocus,
     behave_select: ChoiceSelect,
     behave_close: ChoiceClose,
 }
@@ -126,6 +137,7 @@ where
     block: Option<Block<'a>>,
     len: Option<u16>,
 
+    behave_focus: ChoiceFocus,
     behave_select: ChoiceSelect,
     behave_close: ChoiceClose,
 
@@ -171,6 +183,7 @@ pub struct ChoiceStyle {
     pub popup_block: Option<Block<'static>>,
     pub popup_len: Option<u16>,
 
+    pub behave_focus: Option<ChoiceFocus>,
     pub behave_select: Option<ChoiceSelect>,
     pub behave_close: Option<ChoiceClose>,
 
@@ -204,6 +217,8 @@ where
     pub popup: PopupCoreState,
     /// Popup scroll state.
     pub popup_scroll: ScrollState,
+    /// Behaviour for opening the choice popup.
+    pub behave_focus: ChoiceFocus,
     /// Behaviour for selecting from the choice popup.
     /// __read only__ renewed with each render.
     pub behave_select: ChoiceSelect,
@@ -418,6 +433,7 @@ impl Default for ChoiceStyle {
             popup_scroll: Default::default(),
             popup_block: Default::default(),
             popup_len: Default::default(),
+            behave_focus: Default::default(),
             behave_select: Default::default(),
             behave_close: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -446,6 +462,7 @@ where
             popup_style: Default::default(),
             popup_scroll: Default::default(),
             popup_block: Default::default(),
+            behave_focus: Default::default(),
             behave_select: Default::default(),
             behave_close: Default::default(),
         }
@@ -535,6 +552,9 @@ where
         }
         if styles.block.is_some() {
             self.block = styles.block;
+        }
+        if let Some(select) = styles.behave_focus {
+            self.behave_focus = select;
         }
         if let Some(select) = styles.behave_select {
             self.behave_select = select;
@@ -682,6 +702,12 @@ where
     }
 
     /// Sets the behaviour for selecting from the list.
+    pub fn behave_focus(mut self, focus: ChoiceFocus) -> Self {
+        self.behave_focus = focus;
+        self
+    }
+
+    /// Sets the behaviour for selecting from the list.
     pub fn behave_select(mut self, select: ChoiceSelect) -> Self {
         self.behave_select = select;
         self
@@ -725,6 +751,7 @@ where
                 focus_style: self.focus_style,
                 block: self.block,
                 len: self.popup_len,
+                behave_focus: self.behave_focus,
                 behave_select: self.behave_select,
                 behave_close: self.behave_close,
                 _phantom: Default::default(),
@@ -808,6 +835,7 @@ fn render_choice<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
 ) {
     state.area = area;
+    state.behave_focus = widget.behave_focus;
     state.behave_select = widget.behave_select;
     state.behave_close = widget.behave_close;
 
@@ -1033,6 +1061,7 @@ where
             core: self.core.clone(),
             popup: self.popup.clone(),
             popup_scroll: self.popup_scroll.clone(),
+            behave_focus: self.behave_focus,
             behave_select: self.behave_select,
             behave_close: self.behave_close,
             focus: FocusFlag::named(self.focus.name()),
@@ -1056,6 +1085,7 @@ where
             core: Default::default(),
             popup: Default::default(),
             popup_scroll: Default::default(),
+            behave_focus: Default::default(),
             behave_select: Default::default(),
             behave_close: Default::default(),
             focus: Default::default(),
@@ -1395,6 +1425,11 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
             self.popup.set_active(false);
             // focus change triggers the repaint.
         }
+        if self.gained_focus() && !self.popup.is_active() {
+            if self.behave_focus == ChoiceFocus::OpenOnFocusGained {
+                self.popup.set_active(true);
+            }
+        }
 
         let r = if self.is_focused() {
             match event {
@@ -1494,7 +1529,7 @@ fn handle_mouse<T: PartialEq + Clone + Default>(
             match state.popup.handle(event, Popup) {
                 PopupOutcome::Hide => {
                     state.set_popup_active(false);
-                    ChoiceOutcome::Changed
+                    ChoiceOutcome::Changed // todo: not a close??
                 }
                 r => r.into(),
             }
