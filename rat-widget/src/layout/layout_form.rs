@@ -252,8 +252,8 @@ where
     page_breaks: Vec<usize>,
 
     /// maximum width
-    max_label: u16,
-    max_widget: u16,
+    min_label: u16,
+    min_widget: u16,
 
     /// maximum padding due to containers.
     max_left_padding: u16,
@@ -495,8 +495,8 @@ where
             flex: Default::default(),
             widgets: Default::default(),
             page_breaks: Default::default(),
-            max_label: Default::default(),
-            max_widget: Default::default(),
+            min_label: Default::default(),
+            min_widget: Default::default(),
             blocks: Default::default(),
             max_left_padding: Default::default(),
             max_right_padding: Default::default(),
@@ -572,13 +572,13 @@ where
 
     /// Set a reference label width
     pub fn min_label(mut self, width: u16) -> Self {
-        self.max_label = width;
+        self.min_label = width;
         self
     }
 
     /// Set a reference widget width
     pub fn min_widget(mut self, width: u16) -> Self {
-        self.max_widget = width;
+        self.min_widget = width;
         self
     }
 
@@ -687,7 +687,7 @@ where
             FormLabel::Width(w) => *w,
             FormLabel::Size(w, _) => *w,
         };
-        self.max_label = max(self.max_label, w);
+        self.min_label = max(self.min_label, w);
 
         let w = match &widget {
             FormWidget::None => 0,
@@ -700,7 +700,7 @@ where
             FormWidget::StretchXY(w, _) => *w,
             FormWidget::WideStretchXY(w, _) => *w,
         };
-        self.max_widget = max(self.max_widget, w);
+        self.min_widget = max(self.min_widget, w);
 
         self.widgets.push(WidgetDef {
             id: key,
@@ -717,6 +717,14 @@ where
         self.page_breaks.push(self.widgets.len() - 1);
     }
 
+    /// Add a manual column break after the last widget.
+    /// This is a synonym for [page_break].
+    ///
+    /// This will panic if the widget list is empty.
+    pub fn column_break(&mut self) {
+        self.page_breaks.push(self.widgets.len() - 1);
+    }
+
     fn validate_containers(&self) {
         for cc in self.blocks.iter() {
             if cc.constructing {
@@ -729,14 +737,14 @@ where
     #[inline(always)]
     pub fn build_endless(self, width: u16) -> GenericLayout<W> {
         self.validate_containers();
-        build_layout(self, Size::new(width, u16::MAX), true)
+        build_layout::<W, true>(self, Size::new(width, u16::MAX))
     }
 
     /// Calculate the layout for the given page size and padding.
     #[inline(always)]
     pub fn build_paged(self, page: Size) -> GenericLayout<W> {
         self.validate_containers();
-        build_layout(self, page, false)
+        build_layout::<W, false>(self, page)
     }
 }
 
@@ -895,8 +903,8 @@ impl Page {
             .saturating_sub(layout.page_border.right);
         let column_width = (layout_width / layout.columns).saturating_sub(layout.column_spacing);
 
-        let mut max_label = layout.max_label;
-        let mut max_widget = layout.max_widget;
+        let mut max_label = layout.min_label;
+        let mut max_widget = layout.min_widget;
         let mut spacing = layout.spacing;
 
         let nominal =
@@ -1021,7 +1029,10 @@ where
 }
 
 /// Calculate the layout for the given page size and padding.
-fn build_layout<W>(mut layout: LayoutForm<W>, page_size: Size, endless: bool) -> GenericLayout<W>
+fn build_layout<W, const ENDLESS: bool>(
+    mut layout: LayoutForm<W>,
+    page_size: Size,
+) -> GenericLayout<W>
 where
     W: Eq + Hash + Clone + Debug,
 {
@@ -1052,7 +1063,7 @@ where
         next_blocks(&mut page, &mut layout.blocks, idx, &mut blocks_out);
 
         // page overflow induces page-break
-        if !endless && page.y.saturating_add(page.bottom_padding_break) > page.page_end {
+        if !ENDLESS && page.y.saturating_add(page.bottom_padding_break) > page.page_end {
             // reset to safe-point
             page = saved_page;
 
@@ -1061,7 +1072,7 @@ where
             page_break_blocks(&mut page, &mut layout.blocks, idx, &mut blocks_out);
             push_blocks(&mut blocks_out, &mut gen_layout);
             adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
-            page_break(&mut page);
+            page_break::<ENDLESS>(&mut page);
             assert!(stretch.is_empty());
 
             // redo current widget
@@ -1071,7 +1082,7 @@ where
         }
 
         // remember stretch widget.
-        if !endless && widget.widget.is_stretch_y() {
+        if !ENDLESS && widget.widget.is_stretch_y() {
             stretch.push(gen_layout.widget_len());
         }
 
@@ -1086,12 +1097,14 @@ where
         push_blocks(&mut blocks_out, &mut gen_layout);
 
         // page-break after widget
-        if !endless && layout.page_breaks.contains(&idx) {
+        if layout.page_breaks.contains(&idx) {
             assert!(blocks_out.is_empty());
             page_break_blocks(&mut page, &mut layout.blocks, idx + 1, &mut blocks_out);
             push_blocks(&mut blocks_out, &mut gen_layout);
-            adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
-            page_break(&mut page);
+            if !ENDLESS {
+                adjust_y_stretch(&page, &mut stretch, &mut gen_layout);
+            }
+            page_break::<ENDLESS>(&mut page);
             assert!(stretch.is_empty());
         }
 
@@ -1146,17 +1159,20 @@ fn page_break_blocks(
 }
 
 // do a page-break
-fn page_break(page: &mut Page) {
+fn page_break<const ENDLESS: bool>(page: &mut Page) {
     // advance
     page.page_no += 1;
 
     let column = page.page_no % page.def.columns;
     let mirror = (page.page_no / page.def.columns) % 2 == 1;
 
-    page.page_start = (page.page_no / page.def.columns).saturating_mul(page.def.height);
-    page.page_end = page
-        .page_start
-        .saturating_add(page.def.height.saturating_sub(page.def.bottom));
+    if !ENDLESS {
+        page.page_start = (page.page_no / page.def.columns).saturating_mul(page.def.height);
+        page.page_end = page
+            .page_start
+            .saturating_add(page.def.height.saturating_sub(page.def.bottom));
+    }
+
     page.x_pos = XPositions::new(page, column, mirror);
     page.y = page.page_start.saturating_add(page.def.top);
 
