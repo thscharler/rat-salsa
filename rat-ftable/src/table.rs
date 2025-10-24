@@ -38,7 +38,7 @@ use std::rc::Rc;
 ///
 /// See [Table::data] and [Table::iter] for an example.
 #[derive(Debug)]
-pub struct Table<'a, Selection> {
+pub struct Table<'a, Selection = RowSelection> {
     data: DataRepr<'a>,
     no_row_count: bool,
 
