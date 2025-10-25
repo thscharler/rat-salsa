@@ -99,10 +99,12 @@ use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::cmp::min;
 use std::fmt;
 use std::iter::once;
 use std::ops::Range;
+use std::rc::Rc;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Text input widget with input mask.
@@ -142,31 +144,34 @@ pub struct MaskedInputState {
     /// Display offset
     /// __read+write__
     pub offset: upos_type,
-    /// Dark offset due to clipping.
-    /// __read only__ secondary offset due to clipping.
+    /// Dark offset due to clipping. Always set during rendering.
+    /// __read only__ ignore this value.
     pub dark_offset: (u16, u16),
-    /// __read+write__ use scroll_cursor_to_visible().
-    pub scroll_to_cursor: bool,
+    /// __read only__ use [scroll_cursor_to_visible](MaskedInputState::scroll_cursor_to_visible)
+    pub scroll_to_cursor: Rc<Cell<bool>>,
 
     /// Editing core
     pub value: TextCore<TextString>,
     /// Editing core
+    /// __read only__
     pub sym: Option<NumberSymbols>,
     /// Editing core
+    /// __read only__
     pub mask: Vec<MaskToken>,
 
     /// Display as invalid.
-    /// __read+write__
+    /// __read only__ use [set_invalid](MaskedInputState::set_invalid)
     pub invalid: bool,
-    /// Any edit will clear the value first.
-    /// This flag will be reset by any edit and navigation.
-    pub overwrite: bool,
+    /// The next user edit clears the text for doing any edit.
+    /// It will reset this flag. Other interactions may reset this flag too.
+    /// __read only__ use [set_overwrite](MaskedInputState::set_overwrite)
+    pub overwrite: Rc<Cell<bool>>,
     /// Focus behaviour.
-    /// __read only__
-    pub on_focus_gained: TextFocusGained,
+    /// __read only__ use [on_focus_gained](MaskedInput::on_focus_gained)
+    pub on_focus_gained: Rc<Cell<TextFocusGained>>,
     /// Focus behaviour.
-    /// __read only__
-    pub on_focus_lost: TextFocusLost,
+    /// __read only__ use [on_focus_lost](MaskedInput::on_focus_lost)
+    pub on_focus_lost: Rc<Cell<TextFocusLost>>,
 
     /// Current focus state.
     /// __read+write__
@@ -323,10 +328,10 @@ fn render_ref(
     state.inner = widget.block.inner_if_some(area);
     state.rendered = state.inner.as_size();
     state.compact = widget.compact;
-    state.on_focus_gained = widget.on_focus_gained;
-    state.on_focus_lost = widget.on_focus_lost;
+    state.on_focus_gained.set(widget.on_focus_gained);
+    state.on_focus_lost.set(widget.on_focus_lost);
 
-    if state.scroll_to_cursor {
+    if state.scroll_to_cursor.get() {
         let c = state.cursor();
         let o = state.offset();
         let mut no = if c < o {
@@ -459,15 +464,15 @@ impl Clone for MaskedInputState {
             compact: self.compact,
             offset: self.offset,
             dark_offset: self.dark_offset,
-            scroll_to_cursor: self.scroll_to_cursor,
+            scroll_to_cursor: Rc::new(Cell::new(self.scroll_to_cursor.get())),
             value: self.value.clone(),
             sym: self.sym,
             mask: self.mask.clone(),
             invalid: self.invalid,
-            overwrite: Default::default(),
-            on_focus_gained: Default::default(),
-            on_focus_lost: Default::default(),
-            focus: FocusFlag::named(self.focus.name()),
+            overwrite: Rc::new(Cell::new(self.overwrite.get())),
+            on_focus_gained: Rc::new(Cell::new(self.on_focus_gained.get())),
+            on_focus_lost: Rc::new(Cell::new(self.on_focus_lost.get())),
+            focus: self.focus_cb(FocusFlag::named(self.focus.name())),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -481,7 +486,7 @@ impl Default for MaskedInputState {
             Some(Box::new(global_clipboard())),
         );
 
-        Self {
+        let mut z = Self {
             area: Default::default(),
             inner: Default::default(),
             rendered: Default::default(),
@@ -499,7 +504,46 @@ impl Default for MaskedInputState {
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
-        }
+        };
+        z.focus = z.focus_cb(FocusFlag::default());
+        z
+    }
+}
+
+impl MaskedInputState {
+    fn focus_cb(&self, flag: FocusFlag) -> FocusFlag {
+        let on_focus_lost = self.on_focus_lost.clone();
+        let cursor = self.value.shared_cursor();
+        let scroll_cursor_to_visible = self.scroll_to_cursor.clone();
+        flag.on_lost(move || match on_focus_lost.get() {
+            TextFocusLost::None => {}
+            TextFocusLost::Position0 => {
+                scroll_cursor_to_visible.set(true);
+                let mut new_cursor = cursor.get();
+                new_cursor.cursor.x = 0;
+                new_cursor.anchor.x = 0;
+                cursor.set(new_cursor);
+            }
+        });
+        let on_focus_gained = self.on_focus_gained.clone();
+        let overwrite = self.overwrite.clone();
+        let cursor = self.value.shared_cursor();
+        let scroll_cursor_to_visible = self.scroll_to_cursor.clone();
+        flag.on_gained(move || match on_focus_gained.get() {
+            TextFocusGained::None => {}
+            TextFocusGained::Overwrite => {
+                overwrite.set(true);
+            }
+            TextFocusGained::SelectAll => {
+                scroll_cursor_to_visible.set(true);
+                let mut new_cursor = cursor.get();
+                new_cursor.anchor = TextPosition::new(0, 0);
+                new_cursor.cursor = TextPosition::new(0, 1);
+                cursor.set(new_cursor);
+            }
+        });
+
+        flag
     }
 }
 
@@ -550,10 +594,9 @@ impl MaskedInputState {
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..MaskedInputState::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus_cb(FocusFlag::named(name));
+        z
     }
 
     /// With localized symbols for number formatting.
@@ -799,13 +842,13 @@ impl MaskedInputState {
     /// this overwrite.
     #[inline]
     pub fn set_overwrite(&mut self, overwrite: bool) {
-        self.overwrite = overwrite;
+        self.overwrite.set(overwrite);
     }
 
     /// Will the next edit operation overwrite the content?
     #[inline]
     pub fn overwrite(&self) -> bool {
-        self.overwrite
+        self.overwrite.get()
     }
 }
 
@@ -1004,16 +1047,16 @@ impl MaskedInputState {
 }
 
 impl MaskedInputState {
-    /// Offset shown.
+    /// Text-offset.
     #[inline]
     pub fn offset(&self) -> upos_type {
         self.offset
     }
 
-    /// Offset shown. This is corrected if the cursor wouldn't be visible.
+    /// Set the text-offset.
     #[inline]
     pub fn set_offset(&mut self, offset: upos_type) {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
         self.offset = offset;
     }
 
@@ -1894,7 +1937,7 @@ impl MaskedInputState {
 
     /// Change the offset in a way that the cursor is visible.
     pub fn scroll_cursor_to_visible(&mut self) {
-        self.scroll_to_cursor = true;
+        self.scroll_to_cursor.set(true);
     }
 }
 
@@ -1909,38 +1952,38 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
             }
         }
         fn overwrite(state: &mut MaskedInputState) {
-            if state.overwrite {
-                state.overwrite = false;
+            if state.overwrite.get() {
+                state.overwrite.set(false);
                 state.clear();
             }
         }
         fn clear_overwrite(state: &mut MaskedInputState) {
-            state.overwrite = false;
+            state.overwrite.set(false);
         }
 
-        // focus behaviour
-        if self.lost_focus() {
-            match self.on_focus_lost {
-                TextFocusLost::None => {}
-                TextFocusLost::Position0 => {
-                    self.set_default_cursor();
-                    self.scroll_cursor_to_visible();
-                    // repaint is triggered by focus-change
-                }
-            }
-        }
-        if self.gained_focus() {
-            match self.on_focus_gained {
-                TextFocusGained::None => {}
-                TextFocusGained::Overwrite => {
-                    self.overwrite = true;
-                }
-                TextFocusGained::SelectAll => {
-                    self.select_all();
-                    // repaint is triggered by focus-change
-                }
-            }
-        }
+        // // focus behaviour
+        // if self.lost_focus() {
+        //     match self.on_focus_lost {
+        //         TextFocusLost::None => {}
+        //         TextFocusLost::Position0 => {
+        //             self.set_default_cursor();
+        //             self.scroll_cursor_to_visible();
+        //             // repaint is triggered by focus-change
+        //         }
+        //     }
+        // }
+        // if self.gained_focus() {
+        //     match self.on_focus_gained {
+        //         TextFocusGained::None => {}
+        //         TextFocusGained::Overwrite => {
+        //             self.overwrite = true;
+        //         }
+        //         TextFocusGained::SelectAll => {
+        //             self.select_all();
+        //             // repaint is triggered by focus-change
+        //         }
+        //     }
+        // }
 
         let mut r = if self.is_focused() {
             match event {
@@ -2018,7 +2061,7 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
 impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         fn clear_overwrite(state: &mut MaskedInputState) {
-            state.overwrite = false;
+            state.overwrite.set(false);
         }
 
         let mut r = if self.is_focused() {
@@ -2129,7 +2172,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
 impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         fn clear_overwrite(state: &mut MaskedInputState) {
-            state.overwrite = false;
+            state.overwrite.set(false);
         }
 
         match event {

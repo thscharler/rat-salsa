@@ -9,10 +9,24 @@ use crate::{TextError, TextPosition, TextRange, upos_type};
 use dyn_clone::clone_box;
 use ratatui::layout::Size;
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::cmp::min;
 use std::ops::Range;
+use std::rc::Rc;
 
 pub mod core_op;
+
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash)]
+pub(crate) struct TextCursor {
+    pub(crate) anchor: TextPosition,
+    pub(crate) cursor: TextPosition,
+}
+
+impl TextCursor {
+    pub fn new(anchor: TextPosition, cursor: TextPosition) -> Self {
+        Self { anchor, cursor }
+    }
+}
 
 /// Core for text editing.
 #[derive(Debug)]
@@ -20,10 +34,7 @@ pub struct TextCore<Store> {
     /// Text store.
     text: Store,
 
-    /// Cursor
-    cursor: TextPosition,
-    /// Anchor
-    anchor: TextPosition,
+    cursor: Rc<Cell<TextCursor>>,
 
     /// styles
     styles: Option<Box<RangeMap>>,
@@ -44,8 +55,7 @@ impl<Store: Clone> Clone for TextCore<Store> {
     fn clone(&self) -> Self {
         Self {
             text: self.text.clone(),
-            cursor: self.cursor,
-            anchor: self.anchor,
+            cursor: self.cursor.clone(),
             styles: self.styles.clone(),
             undo: self.undo.as_ref().map(|v| clone_box(v.as_ref())),
             clip: self.clip.as_ref().map(|v| clone_box(v.as_ref())),
@@ -61,7 +71,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
         Self {
             text: Store::default(),
             cursor: Default::default(),
-            anchor: Default::default(),
             styles: Default::default(),
             undo,
             clip,
@@ -195,8 +204,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     if let Some(sty) = &mut self.styles {
                         sty.remap(|r, _| Some(shrink_range_by(bytes.clone(), r)));
                     }
-                    self.anchor = anchor.before;
-                    self.cursor = cursor.before;
+                    self.cursor
+                        .set(TextCursor::new(anchor.before, cursor.before));
                 }
                 UndoOp::RemoveStr {
                     bytes,
@@ -229,12 +238,12 @@ impl<Store: TextStore + Default> TextCore<Store> {
                             }
                         });
                     }
-                    self.anchor = anchor.before;
-                    self.cursor = cursor.before;
+                    self.cursor
+                        .set(TextCursor::new(anchor.before, cursor.before));
                 }
                 UndoOp::Cursor { cursor, anchor } => {
-                    self.anchor = anchor.before;
-                    self.cursor = cursor.before;
+                    self.cursor
+                        .set(TextCursor::new(anchor.before, cursor.before));
                 }
                 UndoOp::SetStyles { styles_before, .. } => {
                     if let Some(sty) = &mut self.styles {
@@ -284,8 +293,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     if let Some(sty) = &mut self.styles {
                         sty.remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
                     }
-                    self.anchor = anchor.after;
-                    self.cursor = cursor.after;
+                    self.cursor.set(TextCursor::new(anchor.after, cursor.after));
                 }
                 UndoOp::RemoveChar {
                     bytes,
@@ -318,13 +326,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
                             sty.add(s.after.clone(), s.style);
                         }
                     }
-
-                    self.anchor = anchor.after;
-                    self.cursor = cursor.after;
+                    self.cursor.set(TextCursor::new(anchor.after, cursor.after));
                 }
                 UndoOp::Cursor { cursor, anchor } => {
-                    self.anchor = anchor.after;
-                    self.cursor = cursor.after;
+                    self.cursor.set(TextCursor::new(anchor.after, cursor.after));
                 }
 
                 UndoOp::SetStyles { styles_after, .. } => {
@@ -537,55 +542,66 @@ impl<Store: TextStore + Default> TextCore<Store> {
 }
 
 impl<Store: TextStore + Default> TextCore<Store> {
+    /// Shared cursor.
+    pub(crate) fn shared_cursor(&self) -> Rc<Cell<TextCursor>> {
+        self.cursor.clone()
+    }
+
     /// Set the cursor position.
     /// The value is capped to the number of text lines and
     /// the line-width for the given line.
     ///
     /// Returns true, if the cursor actually changed.
-    pub fn set_cursor(&mut self, mut cursor: TextPosition, extend_selection: bool) -> bool {
-        let old_cursor = self.cursor;
-        let old_anchor = self.anchor;
+    pub fn set_cursor(&mut self, cursor: TextPosition, extend_selection: bool) -> bool {
+        let old_cursor = self.cursor.get();
 
-        cursor.y = min(cursor.y, self.len_lines());
-        cursor.x = min(cursor.x, self.line_width(cursor.y).expect("valid-line"));
-
-        self.cursor = cursor;
-        if !extend_selection {
-            self.anchor = cursor;
-        }
+        let cursor_pos = TextPosition::new(
+            min(cursor.x, self.line_width(cursor.y).expect("valid-line")),
+            min(cursor.y, self.len_lines()),
+        );
+        let new_cursor = TextCursor {
+            cursor: cursor_pos,
+            anchor: if !extend_selection {
+                cursor_pos
+            } else {
+                old_cursor.anchor
+            },
+        };
+        self.cursor.set(new_cursor);
 
         if let Some(undo) = self.undo.as_mut() {
             undo.append(UndoOp::Cursor {
                 cursor: TextPositionChange {
-                    before: old_cursor,
-                    after: self.cursor,
+                    before: old_cursor.cursor,
+                    after: new_cursor.cursor,
                 },
                 anchor: TextPositionChange {
-                    before: old_anchor,
-                    after: self.anchor,
+                    before: old_cursor.anchor,
+                    after: new_cursor.anchor,
                 },
             });
         }
 
-        old_cursor != self.cursor || old_anchor != self.anchor
+        old_cursor != self.cursor.get()
     }
 
     /// Cursor position as grapheme-idx.
     #[inline]
     pub fn cursor(&self) -> TextPosition {
-        self.cursor
+        self.cursor.get().cursor
     }
 
     /// Selection anchor
     #[inline]
     pub fn anchor(&self) -> TextPosition {
-        self.anchor
+        self.cursor.get().anchor
     }
 
     /// Any text selection.
     #[inline]
     pub fn has_selection(&self) -> bool {
-        self.anchor != self.cursor
+        let cursor = self.cursor.get();
+        cursor.anchor != cursor.cursor
     }
 
     /// Select text.
@@ -614,27 +630,28 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Returns the selection as TextRange.
     #[inline]
     pub fn selection(&self) -> TextRange {
+        let cursor = self.cursor.get();
         #[allow(clippy::comparison_chain)]
-        if self.cursor.y < self.anchor.y {
+        if cursor.cursor.y < cursor.anchor.y {
             TextRange {
-                start: self.cursor,
-                end: self.anchor,
+                start: cursor.cursor,
+                end: cursor.anchor,
             }
-        } else if self.cursor.y > self.anchor.y {
+        } else if cursor.cursor.y > cursor.anchor.y {
             TextRange {
-                start: self.anchor,
-                end: self.cursor,
+                start: cursor.anchor,
+                end: cursor.cursor,
             }
         } else {
-            if self.cursor.x < self.anchor.x {
+            if cursor.cursor.x < cursor.anchor.x {
                 TextRange {
-                    start: self.cursor,
-                    end: self.anchor,
+                    start: cursor.cursor,
+                    end: cursor.anchor,
                 }
             } else {
                 TextRange {
-                    start: self.anchor,
-                    end: self.cursor,
+                    start: cursor.anchor,
+                    end: cursor.cursor,
                 }
             }
         }
@@ -897,9 +914,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
 impl<Store: TextStore + Default> TextCore<Store> {
     /// Clear the internal state.
     pub fn clear(&mut self) {
-        self.text.set_string("");
-        self.cursor = TextPosition::default();
-        self.anchor = TextPosition::default();
+        self.text.set_string(Default::default());
+        self.cursor.set(Default::default());
         if let Some(sty) = &mut self.styles {
             sty.clear();
         }
@@ -927,11 +943,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             sty.clear();
         }
         self.cache.clear();
-
-        self.cursor.y = 0;
-        self.cursor.x = 0;
-        self.anchor.y = 0;
-        self.anchor.x = 0;
+        self.cursor.set(Default::default());
 
         if let Some(undo) = &mut self.undo {
             undo.clear();
@@ -954,25 +966,28 @@ impl<Store: TextStore + Default> TextCore<Store> {
     pub fn insert_char(&mut self, pos: TextPosition, c: char) -> Result<bool, TextError> {
         let (inserted_range, inserted_bytes) = self.text.insert_char(pos, c)?;
 
-        let old_cursor = self.cursor;
-        let old_anchor = self.anchor;
+        let old_cursor = self.cursor.get();
 
         if let Some(sty) = &mut self.styles {
             sty.remap(|r, _| Some(expand_range_by(inserted_bytes.clone(), r)));
         }
-        self.cursor = inserted_range.expand_pos(self.cursor);
-        self.anchor = inserted_range.expand_pos(self.anchor);
+
+        let new_cursor = TextCursor {
+            anchor: inserted_range.expand_pos(old_cursor.cursor),
+            cursor: inserted_range.expand_pos(old_cursor.anchor),
+        };
+        self.cursor.set(new_cursor);
 
         if let Some(undo) = self.undo.as_mut() {
             undo.append(UndoOp::InsertChar {
                 bytes: inserted_bytes.clone(),
                 cursor: TextPositionChange {
-                    before: old_cursor,
-                    after: self.cursor,
+                    before: old_cursor.cursor,
+                    after: new_cursor.cursor,
                 },
                 anchor: TextPositionChange {
-                    before: old_anchor,
-                    after: self.anchor,
+                    before: old_cursor.anchor,
+                    after: new_cursor.anchor,
                 },
                 txt: c.to_string(),
             });
@@ -983,27 +998,29 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Insert a string at position.
     pub fn insert_str(&mut self, pos: TextPosition, t: &str) -> Result<bool, TextError> {
-        let old_cursor = self.cursor;
-        let old_anchor = self.anchor;
+        let old_cursor = self.cursor.get();
 
         let (inserted_range, inserted_bytes) = self.text.insert_str(pos, t)?;
 
         if let Some(sty) = &mut self.styles {
             sty.remap(|r, _| Some(expand_range_by(inserted_bytes.clone(), r)));
         }
-        self.anchor = inserted_range.expand_pos(self.anchor);
-        self.cursor = inserted_range.expand_pos(self.cursor);
+        let new_cursor = TextCursor {
+            anchor: inserted_range.expand_pos(old_cursor.anchor),
+            cursor: inserted_range.expand_pos(old_cursor.cursor),
+        };
+        self.cursor.set(new_cursor);
 
         if let Some(undo) = self.undo.as_mut() {
             undo.append(UndoOp::InsertStr {
                 bytes: inserted_bytes.clone(),
                 cursor: TextPositionChange {
-                    before: old_cursor,
-                    after: self.cursor,
+                    before: old_cursor.cursor,
+                    after: new_cursor.cursor,
                 },
                 anchor: TextPositionChange {
-                    before: old_anchor,
-                    after: self.anchor,
+                    before: old_cursor.anchor,
+                    after: new_cursor.anchor,
                 },
                 txt: t.to_string(),
             });
@@ -1028,8 +1045,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     fn _remove_range(&mut self, range: TextRange, char_range: bool) -> Result<bool, TextError> {
-        let old_cursor = self.cursor;
-        let old_anchor = self.anchor;
+        let old_cursor = self.cursor.get();
 
         if range.is_empty() {
             return Ok(false);
@@ -1058,20 +1074,23 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 }
             });
         }
-        self.anchor = range.shrink_pos(self.anchor);
-        self.cursor = range.shrink_pos(self.cursor);
+        let new_cursor = TextCursor {
+            anchor: range.shrink_pos(old_cursor.anchor),
+            cursor: range.shrink_pos(old_cursor.cursor),
+        };
+        self.cursor.set(new_cursor);
 
         if let Some(undo) = &mut self.undo {
             if char_range {
                 undo.append(UndoOp::RemoveChar {
                     bytes: removed_bytes.clone(),
                     cursor: TextPositionChange {
-                        before: old_cursor,
-                        after: self.cursor,
+                        before: old_cursor.cursor,
+                        after: new_cursor.cursor,
                     },
                     anchor: TextPositionChange {
-                        before: old_anchor,
-                        after: self.anchor,
+                        before: old_cursor.anchor,
+                        after: new_cursor.anchor,
                     },
                     txt: old_text,
                     styles: changed_style,
@@ -1080,12 +1099,12 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 undo.append(UndoOp::RemoveStr {
                     bytes: removed_bytes.clone(),
                     cursor: TextPositionChange {
-                        before: old_cursor,
-                        after: self.cursor,
+                        before: old_cursor.cursor,
+                        after: new_cursor.cursor,
                     },
                     anchor: TextPositionChange {
-                        before: old_anchor,
-                        after: self.anchor,
+                        before: old_cursor.anchor,
+                        after: new_cursor.anchor,
                     },
                     txt: old_text,
                     styles: changed_style,

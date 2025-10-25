@@ -26,9 +26,11 @@ use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
 use ropey::Rope;
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::ops::Range;
+use std::rc::Rc;
 
 pub mod text_area_op;
 
@@ -115,15 +117,15 @@ pub struct TextAreaState {
     /// actually starts.
     /// __read+write__ but it's not advised.
     pub sub_row_offset: upos_type,
-    /// Dark offset due to clipping.
-    /// __read only__ secondary offset due to clipping.
+    /// Dark offset due to clipping. Set during render.
+    /// __read only__ ignore this value.
     pub dark_offset: (u16, u16),
     /// The scroll offset will be adjusted to display
     /// the cursor. This will be the minimal adjustment,
     /// the cursor will stay at the same screen position if
     /// it's already visible or appear at the start/end if it's not.
-    /// __read+write__ use scroll_cursor_to_visible().
-    pub scroll_to_cursor: bool,
+    /// __read only__ use [scroll_cursor_to_visible](TextAreaState::scroll_cursor_to_visible).
+    pub scroll_to_cursor: Rc<Cell<bool>>,
 
     /// Text edit core
     pub value: TextCore<TextRope>,
@@ -135,21 +137,29 @@ pub struct TextAreaState {
     ///
     /// This is kept as a relative screen-position. It may be less
     /// than 0, if the widget has been relocated.
+    /// __read only__
     pub move_col: Option<i16>,
     /// auto indent active
+    /// __read only__
     pub auto_indent: bool,
     /// quote selection active
+    /// __read only__
     pub auto_quote: bool,
     /// text breaking
+    /// __read only__
     pub text_wrap: TextWrap,
     /// new-line bytes
+    /// __read only__
     pub newline: String,
     /// tab-width
+    /// __read only__
     pub tab_width: u32,
     /// expand tabs
+    /// __read only__
     pub expand_tabs: bool,
 
     /// Current focus state.
+    /// __read + write__ But don't write it.
     pub focus: FocusFlag,
 
     /// Mouse selection in progress.
@@ -170,7 +180,7 @@ impl Clone for TextAreaState {
             vscroll: self.vscroll.clone(),
             sub_row_offset: self.sub_row_offset,
             dark_offset: self.dark_offset,
-            scroll_to_cursor: self.scroll_to_cursor,
+            scroll_to_cursor: Rc::new(Cell::new(self.scroll_to_cursor.get())),
             value: self.value.clone(),
             move_col: None,
             auto_indent: self.auto_indent,
@@ -446,7 +456,7 @@ fn render_text_area(
     }
     state.vscroll.set_page_len(state.inner.height as usize);
 
-    if state.scroll_to_cursor {
+    if state.scroll_to_cursor.get() {
         state.scroll_to_pos(state.cursor());
     }
 
@@ -998,7 +1008,7 @@ impl TextAreaState {
     /// This is due to the internal ScrollState that only knows usize.
     #[inline]
     pub fn set_offset(&mut self, offset: (upos_type, upos_type)) -> bool {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
         let c = self.hscroll.set_offset(offset.0 as usize);
         let r = self.vscroll.set_offset(offset.1 as usize);
         r || c
@@ -1016,7 +1026,7 @@ impl TextAreaState {
     /// TextPosition is a valid value for this function.
     ///
     pub fn set_sub_row_offset(&mut self, sub_row_offset: upos_type) -> bool {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
         let old = self.sub_row_offset;
         self.sub_row_offset = sub_row_offset;
         sub_row_offset != old
@@ -1133,7 +1143,7 @@ impl TextAreaState {
     /// Resets all internal state.
     #[inline]
     pub fn set_text<S: AsRef<str>>(&mut self, s: S) {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
@@ -1152,7 +1162,7 @@ impl TextAreaState {
     /// Resets all internal state.
     #[inline]
     pub fn set_rope(&mut self, r: Rope) {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
         self.set_sub_row_offset(0);
@@ -2388,7 +2398,7 @@ impl TextAreaState {
     ///
     /// `true` if the offset changed at all.
     pub fn set_vertical_offset(&mut self, row_offset: upos_type) -> bool {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
         self.sub_row_offset = 0;
         self.vscroll.set_offset(row_offset as usize)
     }
@@ -2402,7 +2412,7 @@ impl TextAreaState {
     ///
     /// `true` if the offset changed at all.
     pub fn set_horizontal_offset(&mut self, col_offset: upos_type) -> bool {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
         self.hscroll.set_offset(col_offset as usize)
     }
 
@@ -2412,7 +2422,7 @@ impl TextAreaState {
     ///
     /// All move-fn do this automatically.
     pub fn scroll_cursor_to_visible(&mut self) {
-        self.scroll_to_cursor = true;
+        self.scroll_to_cursor.set(true);
     }
 
     /// Scrolls to make the given position visible.
@@ -2518,7 +2528,7 @@ impl TextAreaState {
     ///
     /// `true` if the offset changed.
     pub fn scroll_to_row(&mut self, pos: upos_type) -> bool {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
 
         match self.text_wrap {
             TextWrap::Shift => self.vscroll.scroll_to_pos(pos as usize),
@@ -2536,7 +2546,7 @@ impl TextAreaState {
     ///
     /// `true` if the offset changed.
     pub fn scroll_to_col(&mut self, pos: upos_type) -> bool {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
         self.hscroll.set_offset(pos as usize)
     }
 

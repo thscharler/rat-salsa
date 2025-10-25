@@ -36,8 +36,10 @@ use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::cmp::min;
 use std::ops::Range;
+use std::rc::Rc;
 
 /// Text input widget.
 ///
@@ -71,35 +73,36 @@ pub struct TextInputState {
     /// __read only__ renewed with each render.
     pub rendered: Size,
 
-    /// Display offset
+    /// Display offset.
     /// __read+write__
     pub offset: upos_type,
-    /// Dark offset due to clipping.
-    /// __read only__ secondary offset due to clipping.
+    /// Dark offset due to clipping. Always set during rendering.
+    /// __read only__ ignore this value.
     pub dark_offset: (u16, u16),
-    /// __read+write__ use scroll_cursor_to_visible().
-    pub scroll_to_cursor: bool,
+    /// __read only__ use [scroll_cursor_to_visible](TextInputState::scroll_cursor_to_visible)
+    pub scroll_to_cursor: Rc<Cell<bool>>,
 
     /// Editing core
     pub value: TextCore<TextString>,
     /// Display as invalid.
-    /// __read+write__
+    /// __read only__ use [set_invalid](TextInputState::set_invalid)
     pub invalid: bool,
     /// Display as password.
-    /// __read only__
+    /// __read only__ use [passwd](TextInput::passwd)
     pub passwd: bool,
     /// The next user edit clears the text for doing any edit.
     /// It will reset this flag. Other interactions may reset this flag too.
-    pub overwrite: bool,
+    /// __read only__ use [set_overwrite](TextInputState::set_overwrite)
+    pub overwrite: Rc<Cell<bool>>,
     /// Focus behaviour.
-    /// __read only__
-    pub on_focus_gained: TextFocusGained,
+    /// __read only__ use [on_focus_gained](TextInput::on_focus_gained)
+    pub on_focus_gained: Rc<Cell<TextFocusGained>>,
     /// Focus behaviour.
-    /// __read only__
-    pub on_focus_lost: TextFocusLost,
+    /// __read only__ use [on_focus_lost](TextInput::on_focus_lost)
+    pub on_focus_lost: Rc<Cell<TextFocusLost>>,
 
     /// Current focus state.
-    /// __read+write__
+    /// __read + write__ But don't write it.
     pub focus: FocusFlag,
 
     /// Mouse selection in progress.
@@ -244,10 +247,10 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     state.inner = widget.block.inner_if_some(area);
     state.rendered = state.inner.as_size();
     state.passwd = widget.passwd;
-    state.on_focus_gained = widget.on_focus_gained;
-    state.on_focus_lost = widget.on_focus_lost;
+    state.on_focus_gained.set(widget.on_focus_gained);
+    state.on_focus_lost.set(widget.on_focus_lost);
 
-    if state.scroll_to_cursor {
+    if state.scroll_to_cursor.get() {
         let c = state.cursor();
         let o = state.offset();
 
@@ -424,14 +427,14 @@ impl Clone for TextInputState {
             rendered: self.rendered,
             offset: self.offset,
             dark_offset: self.dark_offset,
-            scroll_to_cursor: self.scroll_to_cursor,
+            scroll_to_cursor: Rc::new(Cell::new(self.scroll_to_cursor.get())),
             value: self.value.clone(),
             invalid: self.invalid,
-            passwd: Default::default(),
-            overwrite: Default::default(),
-            on_focus_gained: Default::default(),
-            on_focus_lost: Default::default(),
-            focus: FocusFlag::named(self.focus.name()),
+            passwd: self.passwd,
+            overwrite: Rc::new(Cell::new(self.overwrite.get())),
+            on_focus_gained: Rc::new(Cell::new(self.on_focus_gained.get())),
+            on_focus_lost: Rc::new(Cell::new(self.on_focus_lost.get())),
+            focus: self.focus_cb(FocusFlag::named(self.focus.name())),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -442,7 +445,7 @@ impl Default for TextInputState {
     fn default() -> Self {
         let value = TextCore::new(Some(Box::new(UndoVec::new(99))), Some(global_clipboard()));
 
-        Self {
+        let mut z = Self {
             area: Default::default(),
             inner: Default::default(),
             rendered: Default::default(),
@@ -458,7 +461,46 @@ impl Default for TextInputState {
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
-        }
+        };
+        z.focus = z.focus_cb(FocusFlag::default());
+        z
+    }
+}
+
+impl TextInputState {
+    fn focus_cb(&self, flag: FocusFlag) -> FocusFlag {
+        let on_focus_lost = self.on_focus_lost.clone();
+        let cursor = self.value.shared_cursor();
+        let scroll_cursor_to_visible = self.scroll_to_cursor.clone();
+        flag.on_lost(move || match on_focus_lost.get() {
+            TextFocusLost::None => {}
+            TextFocusLost::Position0 => {
+                scroll_cursor_to_visible.set(true);
+                let mut new_cursor = cursor.get();
+                new_cursor.cursor.x = 0;
+                new_cursor.anchor.x = 0;
+                cursor.set(new_cursor);
+            }
+        });
+        let on_focus_gained = self.on_focus_gained.clone();
+        let overwrite = self.overwrite.clone();
+        let cursor = self.value.shared_cursor();
+        let scroll_cursor_to_visible = self.scroll_to_cursor.clone();
+        flag.on_gained(move || match on_focus_gained.get() {
+            TextFocusGained::None => {}
+            TextFocusGained::Overwrite => {
+                overwrite.set(true);
+            }
+            TextFocusGained::SelectAll => {
+                scroll_cursor_to_visible.set(true);
+                let mut new_cursor = cursor.get();
+                new_cursor.anchor = TextPosition::new(0, 0);
+                new_cursor.cursor = TextPosition::new(0, 1);
+                cursor.set(new_cursor);
+            }
+        });
+
+        flag
     }
 }
 
@@ -482,10 +524,9 @@ impl TextInputState {
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..TextInputState::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus_cb(FocusFlag::named(name));
+        z
     }
 
     /// Renders the widget in invalid style.
@@ -505,13 +546,13 @@ impl TextInputState {
     /// this overwrite.
     #[inline]
     pub fn set_overwrite(&mut self, overwrite: bool) {
-        self.overwrite = overwrite;
+        self.overwrite.set(overwrite);
     }
 
     /// Will the next edit operation overwrite the content?
     #[inline]
     pub fn overwrite(&self) -> bool {
-        self.overwrite
+        self.overwrite.get()
     }
 
     /// Show glyphs for control characters.
@@ -722,16 +763,16 @@ impl TextInputState {
 }
 
 impl TextInputState {
-    /// Offset shown.
+    /// Text-offset.
     #[inline]
     pub fn offset(&self) -> upos_type {
         self.offset
     }
 
-    /// Offset shown. This is corrected if the cursor wouldn't be visible.
+    /// Set the text-offset.
     #[inline]
     pub fn set_offset(&mut self, offset: upos_type) {
-        self.scroll_to_cursor = false;
+        self.scroll_to_cursor.set(false);
         self.offset = offset;
     }
 
@@ -1410,7 +1451,7 @@ impl TextInputState {
 
     /// Change the offset in a way that the cursor is visible.
     pub fn scroll_cursor_to_visible(&mut self) {
-        self.scroll_to_cursor = true;
+        self.scroll_to_cursor.set(true);
     }
 }
 
@@ -1425,37 +1466,37 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputSta
             }
         }
         fn overwrite(state: &mut TextInputState) {
-            if state.overwrite {
-                state.overwrite = false;
+            if state.overwrite.get() {
+                state.overwrite.set(false);
                 state.clear();
             }
         }
         fn clear_overwrite(state: &mut TextInputState) {
-            state.overwrite = false;
+            state.overwrite.set(false);
         }
 
-        // focus behaviour
-        if self.lost_focus() {
-            match self.on_focus_lost {
-                TextFocusLost::None => {}
-                TextFocusLost::Position0 => {
-                    self.move_to_line_start(false);
-                    // repaint is triggered by focus-change
-                }
-            }
-        }
-        if self.gained_focus() {
-            match self.on_focus_gained {
-                TextFocusGained::None => {}
-                TextFocusGained::Overwrite => {
-                    self.overwrite = true;
-                }
-                TextFocusGained::SelectAll => {
-                    self.select_all();
-                    // repaint is triggered by focus-change
-                }
-            }
-        }
+        // // focus behaviour
+        // if self.lost_focus() {
+        //     match self.on_focus_lost {
+        //         TextFocusLost::None => {}
+        //         TextFocusLost::Position0 => {
+        //             self.move_to_line_start(false);
+        //             // repaint is triggered by focus-change
+        //         }
+        //     }
+        // }
+        // if self.gained_focus() {
+        //     match self.on_focus_gained {
+        //         TextFocusGained::None => {}
+        //         TextFocusGained::Overwrite => {
+        //             self.overwrite = true;
+        //         }
+        //         TextFocusGained::SelectAll => {
+        //             self.select_all();
+        //             // repaint is triggered by focus-change
+        //         }
+        //     }
+        // }
 
         let mut r = if self.is_focused() {
             match event {
@@ -1534,7 +1575,7 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputSta
 impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         fn clear_overwrite(state: &mut TextInputState) {
-            state.overwrite = false;
+            state.overwrite.set(false);
         }
 
         let mut r = if self.is_focused() {
@@ -1635,7 +1676,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputSt
 impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         fn clear_overwrite(state: &mut TextInputState) {
-            state.overwrite = false;
+            state.overwrite.set(false);
         }
 
         match event {

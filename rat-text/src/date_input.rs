@@ -347,13 +347,13 @@ impl DateInputState {
     /// this overwrite.
     #[inline]
     pub fn set_overwrite(&mut self, overwrite: bool) {
-        self.widget.overwrite = overwrite;
+        self.widget.set_overwrite(overwrite);
     }
 
     /// Will the next edit operation overwrite the content?
     #[inline]
     pub fn overwrite(&self) -> bool {
-        self.widget.overwrite
+        self.widget.overwrite()
     }
 }
 
