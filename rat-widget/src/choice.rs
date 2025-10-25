@@ -835,7 +835,7 @@ fn render_choice<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
 ) {
     state.area = area;
-    state.behave_focus = Rc::new(Cell::new(widget.behave_focus));
+    state.behave_focus.set(widget.behave_focus);
     state.behave_select = widget.behave_select;
     state.behave_close = widget.behave_close;
 
@@ -1110,6 +1110,7 @@ where
         });
         let active = self.popup.active.clone();
         let behave = self.behave_focus.clone();
+
         flag.on_gained(move || {
             if !active.get() {
                 if behave.get() == ChoiceFocus::OpenOnFocusGained {
@@ -1121,15 +1122,6 @@ where
         flag
     }
 }
-// if !self.is_focused() && self.popup.is_active() {
-//     self.popup.set_active(false);
-//     // focus change triggers the repaint.
-// }
-// if self.gained_focus() && !self.popup.is_active() {
-//     if self.behave_focus == ChoiceFocus::OpenOnFocusGained {
-//         self.popup.set_active(true);
-//     }
-// }
 
 impl<T> HasFocus for ChoiceState<T>
 where
