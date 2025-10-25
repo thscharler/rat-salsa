@@ -1718,6 +1718,23 @@ impl<Selection> TableState<Selection> {
         self.rows
     }
 
+    /// Update the number of rows.
+    /// This corrects the number of rows *during* event-handling.
+    /// A number of functions depend on the number of rows,
+    /// but this value is only updated during render.
+    ///
+    /// If you encounter such a case, manually changing the number of rows
+    /// will fix it.
+    ///
+    /// This will *not* change any selection. If you know which items
+    /// have changed you can use [items_added](TableState::items_added) or
+    /// [items_removed](TableState::items_removed).
+    pub fn rows_changed(&mut self, rows: usize) {
+        self.rows = rows;
+        self.vscroll
+            .set_max_offset(self.rows.saturating_sub(self.table_area.height as usize))
+    }
+
     /// Number of columns.
     #[inline]
     pub fn columns(&self) -> usize {
@@ -1887,6 +1904,7 @@ impl<Selection: TableSelection> TableState<Selection> {
 
     /// Ensures that the selected item is visible.
     /// Caveat: This doesn't work nicely if you have varying row-heights.
+    /// Caveat:
     pub fn scroll_to_selected(&mut self) -> bool {
         if let Some(selected) = self.selection.lead_selection() {
             let c = self.scroll_to_col(selected.0);
