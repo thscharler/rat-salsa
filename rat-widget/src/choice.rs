@@ -48,7 +48,7 @@ use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::cmp::{max, min};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -218,7 +218,7 @@ where
     /// Popup scroll state.
     pub popup_scroll: ScrollState,
     /// Behaviour for opening the choice popup.
-    pub behave_focus: ChoiceFocus,
+    pub behave_focus: Rc<Cell<ChoiceFocus>>,
     /// Behaviour for selecting from the choice popup.
     /// __read only__ renewed with each render.
     pub behave_select: ChoiceSelect,
@@ -835,7 +835,7 @@ fn render_choice<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
 ) {
     state.area = area;
-    state.behave_focus = widget.behave_focus;
+    state.behave_focus = Rc::new(Cell::new(widget.behave_focus));
     state.behave_select = widget.behave_select;
     state.behave_close = widget.behave_close;
 
@@ -1061,10 +1061,10 @@ where
             core: self.core.clone(),
             popup: self.popup.clone(),
             popup_scroll: self.popup_scroll.clone(),
-            behave_focus: self.behave_focus,
+            behave_focus: Rc::new(Cell::new(self.behave_focus.get())),
             behave_select: self.behave_select,
             behave_close: self.behave_close,
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus_cb(FocusFlag::named(self.focus.name())),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -1076,7 +1076,7 @@ where
     T: PartialEq + Clone + Default,
 {
     fn default() -> Self {
-        Self {
+        let mut z = Self {
             area: Default::default(),
             nav_char: Default::default(),
             item_area: Default::default(),
@@ -1091,9 +1091,45 @@ where
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
-        }
+        };
+        z.focus = z.focus_cb(FocusFlag::default());
+        z
     }
 }
+
+impl<T> ChoiceState<T>
+where
+    T: PartialEq + Clone + Default,
+{
+    fn focus_cb(&self, flag: FocusFlag) -> FocusFlag {
+        let active = self.popup.active.clone();
+        flag.on_lost(move || {
+            if active.get() {
+                active.set(false);
+            }
+        });
+        let active = self.popup.active.clone();
+        let behave = self.behave_focus.clone();
+        flag.on_gained(move || {
+            if !active.get() {
+                if behave.get() == ChoiceFocus::OpenOnFocusGained {
+                    active.set(true);
+                }
+            }
+        });
+
+        flag
+    }
+}
+// if !self.is_focused() && self.popup.is_active() {
+//     self.popup.set_active(false);
+//     // focus change triggers the repaint.
+// }
+// if self.gained_focus() && !self.popup.is_active() {
+//     if self.behave_focus == ChoiceFocus::OpenOnFocusGained {
+//         self.popup.set_active(true);
+//     }
+// }
 
 impl<T> HasFocus for ChoiceState<T>
 where
@@ -1135,10 +1171,9 @@ where
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus_cb(FocusFlag::named(name));
+        z
     }
 
     /// Popup is active?
@@ -1421,15 +1456,15 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
     for ChoiceState<T>
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> ChoiceOutcome {
-        if !self.is_focused() && self.popup.is_active() {
-            self.popup.set_active(false);
-            // focus change triggers the repaint.
-        }
-        if self.gained_focus() && !self.popup.is_active() {
-            if self.behave_focus == ChoiceFocus::OpenOnFocusGained {
-                self.popup.set_active(true);
-            }
-        }
+        // if !self.is_focused() && self.popup.is_active() {
+        //     self.popup.set_active(false);
+        //     // focus change triggers the repaint.
+        // }
+        // if self.gained_focus() && !self.popup.is_active() {
+        //     if self.behave_focus == ChoiceFocus::OpenOnFocusGained {
+        //         self.popup.set_active(true);
+        //     }
+        // }
 
         let r = if self.is_focused() {
             match event {
