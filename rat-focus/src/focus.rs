@@ -1197,6 +1197,9 @@ mod core {
                 }
                 if set_lost {
                     f.set_lost(f.get());
+                    if f.get() {
+                        f.notify_on_lost();
+                    }
                 } else {
                     f.set_lost(false);
                 }
@@ -1220,6 +1223,7 @@ mod core {
                         false
                     } else {
                         f.set_gained(true);
+                        f.notify_on_gained();
                         true
                     }
                 } else {
@@ -1245,7 +1249,13 @@ mod core {
 
                 f.container_flag.set(any_focused);
                 f.container_flag.set_lost(any_lost && !any_gained);
+                if any_lost && !any_gained {
+                    f.container_flag.notify_on_lost();
+                }
                 f.container_flag.set_gained(any_gained && !any_lost);
+                if any_gained && !any_lost {
+                    f.container_flag.notify_on_gained();
+                }
             }
         }
 

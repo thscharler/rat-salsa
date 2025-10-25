@@ -4,7 +4,7 @@ mod focus;
 
 pub use crate::focus::{Focus, FocusBuilder, handle_focus};
 use ratatui::layout::Rect;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ptr;
@@ -88,12 +88,16 @@ struct FocusFlagCore {
     ///
     /// See [on_gained!](crate::on_gained!)
     gained: Cell<bool>,
+    /// Callback for set of gained.
+    on_gained: RefCell<Option<Box<dyn Fn()>>>,
     /// This widget just lost the focus. This flag is set by [Focus::handle]
     /// if there is a focus transfer, and will be reset by the next
     /// call to [Focus::handle].
     ///
     /// See [on_lost!](crate::on_lost!)
     lost: Cell<bool>,
+    /// Callback for set of lost.
+    on_lost: RefCell<Option<Box<dyn Fn()>>>,
 }
 
 /// Focus navigation for widgets.
@@ -352,9 +356,24 @@ impl FocusFlag {
         self.0.lost.get()
     }
 
+    /// Set the lost-flag and call any on_lost() function.
+    ///
+    /// on_lost() is only called if the change is from false to true.
     #[inline]
     pub fn set_lost(&self, lost: bool) {
         self.0.lost.set(lost);
+    }
+
+    #[inline]
+    pub(crate) fn notify_on_lost(&self) {
+        if let Some(on_lost) = self.0.on_lost.borrow().as_ref() {
+            on_lost();
+        }
+    }
+
+    #[inline]
+    pub fn on_lost(&self, on_lost: impl Fn() + 'static) {
+        *(self.0.on_lost.borrow_mut()) = Some(Box::new(on_lost));
     }
 
     /// Just gained the focus.
@@ -363,9 +382,24 @@ impl FocusFlag {
         self.0.gained.get()
     }
 
+    /// Set the gained-flag and call any on_gained() function.
+    ///
+    /// on_gained() is only called if the change is from false to true.
     #[inline]
     pub fn set_gained(&self, gained: bool) {
         self.0.gained.set(gained);
+    }
+
+    #[inline]
+    pub(crate) fn notify_on_gained(&self) {
+        if let Some(on_gained) = self.0.on_gained.borrow().as_ref() {
+            on_gained();
+        }
+    }
+
+    #[inline]
+    pub fn on_gained(&self, on_gained: impl Fn() + 'static) {
+        *(self.0.on_gained.borrow_mut()) = Some(Box::new(on_gained));
     }
 
     /// Reset all flags to false.
@@ -383,7 +417,9 @@ impl FocusFlagCore {
             name: name.into(),
             focus: Cell::new(false),
             gained: Cell::new(false),
+            on_gained: RefCell::new(None),
             lost: Cell::new(false),
+            on_lost: RefCell::new(None),
         }
     }
 }
