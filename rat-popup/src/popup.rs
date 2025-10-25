@@ -10,6 +10,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::widgets::StatefulWidget;
 use std::cell::Cell;
 use std::cmp::max;
+use std::rc::Rc;
 
 /// Provides the core for popup widgets.
 ///
@@ -73,7 +74,7 @@ pub struct PopupCoreState {
     /// Active flag for the popup.
     ///
     /// __read+write__
-    pub active: bool,
+    pub active: Rc<Cell<bool>>,
 
     /// Mouse flags.
     /// __read+write__
@@ -181,7 +182,7 @@ impl StatefulWidget for PopupCore {
 }
 
 fn render_popup(widget: &PopupCore, area: Rect, buf: &mut Buffer, state: &mut PopupCoreState) {
-    if !state.active {
+    if !state.active.get() {
         state.clear_areas();
         return;
     }
@@ -509,7 +510,7 @@ impl PopupCoreState {
 
     /// Is the popup active/visible.
     pub fn is_active(&self) -> bool {
-        self.active
+        self.active.get()
     }
 
     /// Flip visibility of the popup.
@@ -522,7 +523,7 @@ impl PopupCoreState {
     /// If the popup is hidden this will clear all flags.
     pub fn set_active(&mut self, active: bool) -> bool {
         let old_value = self.is_active();
-        self.active = active;
+        self.active.set(active);
         old_value != self.is_active()
     }
 
