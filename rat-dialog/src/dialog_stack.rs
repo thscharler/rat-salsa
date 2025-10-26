@@ -1,10 +1,11 @@
 //!
-//! A stack of dialog windows.
+//! A stack of modal dialog windows.
 //!
 use crate::WindowControl;
 use rat_event::HandleEvent;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::widgets::StatefulWidget;
 use std::any::{Any, TypeId};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
@@ -20,8 +21,9 @@ use try_as::traits::TryAsRef;
 /// call render() at the very end of rendering and
 /// handle() near the start of event-handling.
 ///
-/// This will not handle modality, so make sure
-/// to consume all events you don't want to propagate.
+/// The event-handler will consume all crossterm events
+/// and block any widget interaction later in event-handling.
+/// It will pass through any application level events.
 ///
 pub struct DialogStack<Event, Context, Error> {
     core: Rc<DialogStackCore<Event, Context, Error>>,
@@ -78,9 +80,10 @@ impl<Event, Context, Error> Debug for DialogStack<Event, Context, Error> {
     }
 }
 
-impl<Event, Context, Error> DialogStack<Event, Context, Error> {
-    /// Render all dialog-windows in stack-order.
-    pub fn render(self, area: Rect, buf: &mut Buffer, ctx: &mut Context) {
+impl<Event, Context, Error> StatefulWidget for DialogStack<Event, Context, Error> {
+    type State = Context;
+
+    fn render(self, area: Rect, buf: &mut Buffer, ctx: &mut Self::State) {
         for n in 0..self.core.len.get() {
             let Some(mut state) = self.core.state.borrow_mut()[n].take() else {
                 panic!("state is gone");
@@ -303,6 +306,10 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
 
 /// Handle events from top to bottom of the stack.
 ///
+/// crossterm events will only be passed on to the first
+/// dialog window. Other application events will go through
+/// all the windows on the stack until they are consumed.
+///
 /// Panic
 ///
 /// This function is not reentrant, it will panic when called from within it's call-stack.
@@ -349,19 +356,15 @@ where
                 },
                 Err(e) => return Err(e),
             }
-        }
 
-        if self.len() > 0 {
-            // block all crossterm events.
+            // Block all crossterm events.
             let event: Option<&crossterm::event::Event> = event.try_as_ref();
             if event.is_some() {
-                Ok(WindowControl::Unchanged)
-            } else {
-                Ok(WindowControl::Continue)
+                return Ok(WindowControl::Unchanged);
             }
-        } else {
-            Ok(WindowControl::Continue)
         }
+
+        Ok(WindowControl::Continue)
     }
 }
 
