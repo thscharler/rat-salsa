@@ -1,25 +1,41 @@
+//!
+//! rat-dialog contains two structs that manage terminal windows.
+//!
+//! * [DialogStack]
+//!
+//! A pure stack of modal windows.
+//!
+//! * [WindowList]
+//!
+//! A list of modeless windows.
+//!
+//! There are also some window-decoration widgets that can handle
+//! the moving/resizing part. See [decorations](crate::decorations)
+//!
+
 #![allow(clippy::question_mark)]
 #![allow(clippy::type_complexity)]
 
 use rat_event::{ConsumedEvent, Outcome};
 
-mod dialog_control;
-mod window_control;
+mod decorations;
+mod dialog_stack;
+mod window_list;
 
-pub use dialog_control::DialogStack;
-pub use dialog_control::handle_dialog_stack;
-pub use window_control::Window;
-pub use window_control::WindowFrameOutcome;
-pub use window_control::WindowList;
-pub use window_control::handle_window_list;
-pub use window_control::mac_frame::MacFrame;
-pub use window_control::mac_frame::MacFrameState;
-pub use window_control::mac_frame::MacFrameStyle;
-pub use window_control::window_frame::WindowFrame;
-pub use window_control::window_frame::WindowFrameState;
-pub use window_control::window_frame::WindowFrameStyle;
+pub use decorations::mac_frame::MacFrame;
+pub use decorations::mac_frame::MacFrameState;
+pub use decorations::mac_frame::MacFrameStyle;
+pub use decorations::window_frame::WindowFrame;
+pub use decorations::window_frame::WindowFrameState;
+pub use decorations::window_frame::WindowFrameStyle;
+pub use dialog_stack::DialogStack;
+pub use dialog_stack::handle_dialog_stack;
+pub use window_list::Window;
+pub use window_list::WindowFrameOutcome;
+pub use window_list::WindowList;
+pub use window_list::handle_window_list;
 
-/// Extends rat-salsa::Control with some dialog specific options.
+/// Result of event-handling for [DialogStack] and [WindowList].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[must_use]
 pub enum WindowControl<Event> {

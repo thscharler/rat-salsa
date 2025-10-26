@@ -1,3 +1,7 @@
+# 0.7.0
+
+* feature: WindowFrame without border.
+
 # 0.6.0
 
 * upgrade rat-text to 2.0.0

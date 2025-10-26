@@ -1,4 +1,6 @@
-//! A list of application windows.
+//!
+//! A list of modeless application windows.
+//!
 use crate::WindowControl;
 use rat_event::util::mouse_trap;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, ct_event};
@@ -11,9 +13,9 @@ use std::mem;
 use std::rc::Rc;
 use try_as::traits::TryAsRef;
 
-pub mod mac_frame;
-pub mod window_frame;
-
+/// Necessary trait for your window-state.
+///
+/// This enables reordering the application windows.
 pub trait Window: Any {
     /// Set as top window.
     fn set_top(&mut self, top: bool);
