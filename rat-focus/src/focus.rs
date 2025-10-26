@@ -19,9 +19,20 @@ pub struct Focus {
 }
 
 macro_rules! focus_debug {
-    ($log:expr, $($arg:tt)+) => {
-        if $log.get() {
+    ($core:expr, $($arg:tt)+) => {
+        if $core.log.get() {
             log::log!(log::Level::Debug, $($arg)+);
+        }
+    }
+}
+
+macro_rules! focus_fail {
+    ($core:expr, $($arg:tt)+) => {
+        if $core.log.get() {
+            log::log!(log::Level::Debug, $($arg)+);
+        }
+        if $core.insta_panic.get() {
+            panic!($($arg)+)
         }
     }
 }
@@ -39,6 +50,19 @@ impl Focus {
         self.last.log.set(false);
     }
 
+    /// Enable insta-panic if any function is called
+    /// with a widget that is not part of the Focus.
+    pub fn enable_panic(&self) {
+        self.core.insta_panic.set(true);
+        self.last.insta_panic.set(true);
+    }
+
+    /// Disable insta-panic.
+    pub fn disable_panic(&self) {
+        self.core.insta_panic.set(false);
+        self.last.insta_panic.set(false);
+    }
+
     /// Sets the focus to the given widget.
     ///
     /// This changes the focus and the gained/lost flags.
@@ -53,18 +77,18 @@ impl Focus {
     /// of the container.
     #[inline]
     pub fn focus(&self, widget_state: &'_ dyn HasFocus) {
-        focus_debug!(self.core.log, "focus {:?}", widget_state.focus().name());
+        focus_debug!(self.core, "focus {:?}", widget_state.focus().name());
         let flag = widget_state.focus();
         if self.core.is_widget(&flag) {
             if let Some(n) = self.core.index_of(&flag) {
                 self.core.focus_idx(n, true);
             } else {
-                focus_debug!(self.core.log, "    => widget not found");
+                panic!("    => invalid widget?");
             }
         } else if self.core.is_container(&flag) {
             self.core.first_container(&flag);
         } else {
-            focus_debug!(self.core.log, "    => not a valid widget");
+            focus_fail!(self.core, "    => not a valid widget");
         }
     }
 
@@ -87,7 +111,7 @@ impl Focus {
     #[inline]
     pub fn by_widget_id(&self, widget_id: usize) {
         let widget_state = self.core.find_widget_id(widget_id);
-        focus_debug!(self.core.log, "focus {:?} -> {:?}", widget_id, widget_state);
+        focus_debug!(self.core, "focus {:?} -> {:?}", widget_id, widget_state);
         let Some(widget_state) = widget_state else {
             return;
         };
@@ -97,12 +121,12 @@ impl Focus {
             if let Some(n) = self.core.index_of(&flag) {
                 self.core.focus_idx(n, true);
             } else {
-                focus_debug!(self.core.log, "    => widget not found");
+                panic!("    => invalid widget");
             }
         } else if self.core.is_container(&flag) {
             self.core.first_container(&flag);
         } else {
-            focus_debug!(self.core.log, "    => not a valid widget");
+            focus_fail!(self.core, "    => not a valid widget");
         }
     }
 
@@ -116,7 +140,7 @@ impl Focus {
     /// currently focused widget.
     #[inline(always)]
     pub fn first(&self) {
-        focus_debug!(self.core.log, "focus first");
+        focus_debug!(self.core, "focus first");
         self.core.first();
     }
 
@@ -131,21 +155,36 @@ impl Focus {
     /// all widgets.
     #[inline(always)]
     pub fn none(&self) {
-        focus_debug!(self.core.log, "focus none");
+        focus_debug!(self.core, "focus none");
         self.core.none();
-        focus_debug!(self.core.log, "    -> done");
+        focus_debug!(self.core, "    -> done");
     }
 
     /// This widget will have the focus, but it is not
     /// yet part of the focus cycle. And the focus cycle
     /// can't be properly rebuilt at this point.
+    ///
+    /// If the widget *is* part of the focus this will
+    /// behave just like [focus].
     #[inline(always)]
     pub fn future(&self, widget_state: &'_ dyn HasFocus) {
-        focus_debug!(self.core.log, "future focus");
-        self.core.none();
-        widget_state.focus().set(true);
-        widget_state.focus().set_gained(true);
-        focus_debug!(self.core.log, "    -> done");
+        focus_debug!(self.core, "focus {:?}", widget_state.focus().name());
+        let flag = widget_state.focus();
+        if self.core.is_widget(&flag) {
+            if let Some(n) = self.core.index_of(&flag) {
+                self.core.focus_idx(n, true);
+            } else {
+                panic!("    => invalid widget");
+            }
+        } else if self.core.is_container(&flag) {
+            self.core.first_container(&flag);
+        } else {
+            focus_debug!(self.core, "future focus");
+            self.core.none();
+            widget_state.focus().set(true);
+            widget_state.focus().set_gained(true);
+            focus_debug!(self.core, "    -> done");
+        }
     }
 
     /// Change to focus to the widget at the given position.
@@ -158,10 +197,10 @@ impl Focus {
     /// do nothing.
     #[inline(always)]
     pub fn focus_at(&self, col: u16, row: u16) -> bool {
-        focus_debug!(self.core.log, "focus at {},{}", col, row);
+        focus_debug!(self.core, "focus at {},{}", col, row);
         match self.navigation() {
             Some(Navigation::Lock) => {
-                focus_debug!(self.core.log, "    -> locked");
+                focus_debug!(self.core, "    -> locked");
                 false
             }
             _ => self.core.focus_at(col, row),
@@ -186,7 +225,7 @@ impl Focus {
             }
             Some(Navigation::Leave | Navigation::ReachLeaveBack | Navigation::Regular) => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "next after {:?}",
                     self.core
                         .focused()
@@ -197,7 +236,7 @@ impl Focus {
             }
             v => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "next after {:?}, but navigation says {:?}",
                     self.core
                         .focused()
@@ -228,7 +267,7 @@ impl Focus {
             }
             Some(Navigation::Leave | Navigation::ReachLeaveFront | Navigation::Regular) => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "prev before {:?}",
                     self.core
                         .focused()
@@ -239,7 +278,7 @@ impl Focus {
             }
             v => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "prev before {:?}, but navigation says {:?}",
                     self.core
                         .focused()
@@ -278,7 +317,7 @@ impl Focus {
                 | Navigation::Regular,
             ) => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "force next after {:?}",
                     self.core.focused().map(|v| v.name().to_string())
                 );
@@ -286,7 +325,7 @@ impl Focus {
             }
             v => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "force next after {:?}, but navigation says {:?}",
                     self.core.focused().map(|v| v.name().to_string()),
                     v
@@ -322,7 +361,7 @@ impl Focus {
                 | Navigation::Regular,
             ) => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "force prev before {:?}",
                     self.core.focused().map(|v| v.name().to_string())
                 );
@@ -330,7 +369,7 @@ impl Focus {
             }
             v => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "force prev before {:?}, but navigation says {:?}",
                     self.core.focused().map(|v| v.name().to_string()),
                     v
@@ -338,6 +377,18 @@ impl Focus {
                 false
             }
         }
+    }
+
+    /// Is this widget part of this focus-cycle?
+    #[inline(always)]
+    pub fn is_valid_widget(&self, widget_state: &'_ dyn HasFocus) -> bool {
+        self.core.is_widget(&widget_state.focus())
+    }
+
+    /// Is this a container that is part of this focus-cycle?
+    #[inline(always)]
+    pub fn is_valid_container(&self, widget_state: &'_ dyn HasFocus) -> bool {
+        self.core.is_container(&widget_state.focus())
     }
 
     /// Returns the focused widget as FocusFlag.
@@ -404,22 +455,18 @@ impl Focus {
     /// container.
     #[inline]
     pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocus) {
-        focus_debug!(
-            self.core.log,
-            "focus no_lost {:?}",
-            widget_state.focus().name()
-        );
+        focus_debug!(self.core, "focus no_lost {:?}", widget_state.focus().name());
         let flag = widget_state.focus();
         if self.core.is_widget(&flag) {
             if let Some(n) = self.core.index_of(&flag) {
                 self.core.focus_idx(n, false);
             } else {
-                focus_debug!(self.core.log, "    => widget not found");
+                panic!("    => invalid widget");
             }
         } else if self.core.is_container(&flag) {
             self.core.first_container(&flag);
         } else {
-            focus_debug!(self.core.log, "    => not a valid widget");
+            focus_fail!(self.core, "    => not a valid widget");
         }
     }
 
@@ -437,7 +484,7 @@ impl Focus {
     #[inline]
     pub fn expel_focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(
-            self.core.log,
+            self.core,
             "expel from widget {:?}",
             widget_state.focus().name()
         );
@@ -447,25 +494,25 @@ impl Focus {
                 if widget_state.is_focused() {
                     self.core.next();
                     if widget_state.is_focused() {
-                        focus_debug!(self.core.log, "    -> no other focus, cleared");
+                        focus_debug!(self.core, "    -> no other focus, cleared");
                         flag.clear();
                     } else {
-                        focus_debug!(self.core.log, "    -> expelled");
+                        focus_debug!(self.core, "    -> expelled");
                     }
                 } else {
-                    focus_debug!(self.core.log, "    => widget not focused");
+                    focus_debug!(self.core, "    => widget not focused");
                 }
             } else {
-                focus_debug!(self.core.log, "    => widget not found");
+                panic!("    => invalid widget");
             }
         } else if self.core.is_container(&flag) {
             if flag.is_focused() {
                 self.core.expel_container(flag);
             } else {
-                focus_debug!(self.core.log, "    => container not focused");
+                focus_debug!(self.core, "    => container not focused");
             }
         } else {
-            focus_debug!(self.core.log, "    => not a valid widget");
+            focus_fail!(self.core, "    => not a valid widget");
         }
     }
 
@@ -478,7 +525,7 @@ impl Focus {
     /// This resets the focus-flags of the removed container.
     pub fn remove_container(&mut self, container: &'_ dyn HasFocus) {
         focus_debug!(
-            self.core.log,
+            self.core,
             "focus remove container {:?} ",
             container.focus().name()
         );
@@ -486,12 +533,12 @@ impl Focus {
         if self.core.is_container(&flag) {
             if let Some((cidx, _)) = self.core.container_index_of(&flag) {
                 self.core.remove_container(cidx).reset();
-                focus_debug!(self.core.log, "    -> removed");
+                focus_debug!(self.core, "    -> removed");
             } else {
-                focus_debug!(self.core.log, "    => container not found");
+                panic!("    => invalid container?");
             }
         } else {
-            focus_debug!(self.core.log, "    => no container flag");
+            focus_fail!(self.core, "    => no container flag");
         }
     }
 
@@ -507,7 +554,7 @@ impl Focus {
     /// of the widget structure are reset.
     pub fn update_container(&mut self, container: &'_ dyn HasFocus) {
         focus_debug!(
-            self.core.log,
+            self.core,
             "focus update container {:?} ",
             container.focus().name()
         );
@@ -525,12 +572,12 @@ impl Focus {
 
                 self.core.insert_container(range.start, cidx, insert.core);
 
-                focus_debug!(self.core.log, "    -> updated");
+                focus_debug!(self.core, "    -> updated");
             } else {
-                focus_debug!(self.core.log, "    => container not found");
+                panic!("    => invalid container?");
             }
         } else {
-            focus_debug!(self.core.log, "    => no container flag");
+            focus_fail!(self.core, "    => no container flag");
         }
     }
 
@@ -549,7 +596,7 @@ impl Focus {
     /// of the widget structure are reset.
     pub fn replace_container(&mut self, container: &'_ dyn HasFocus, new: &'_ dyn HasFocus) {
         focus_debug!(
-            self.core.log,
+            self.core,
             "focus replace container {:?} with {:?} ",
             container.focus().name(),
             new.focus().name()
@@ -568,12 +615,12 @@ impl Focus {
 
                 self.core.insert_container(range.start, cidx, insert.core);
 
-                focus_debug!(self.core.log, "    -> replaced");
+                focus_debug!(self.core, "    -> replaced");
             } else {
-                focus_debug!(self.core.log, "    => container not found");
+                panic!("    => invalid container");
             }
         } else {
-            focus_debug!(self.core.log, "    => no container flag");
+            focus_fail!(self.core, "    => no container flag");
         }
     }
 
@@ -617,6 +664,7 @@ mod core {
         last: FocusCore,
 
         log: Cell<bool>,
+        insta_panic: Cell<bool>,
 
         // base z value.
         // starting a container adds the z-value of the container
@@ -653,6 +701,7 @@ mod core {
                 Self {
                     last: last.core,
                     log: Default::default(),
+                    insta_panic: Default::default(),
                     z_base: 0,
                     focus_ids: last.last.focus_ids,
                     focus_flags: last.last.focus_flags,
@@ -666,6 +715,7 @@ mod core {
                 Self {
                     last: FocusCore::default(),
                     log: Default::default(),
+                    insta_panic: Default::default(),
                     z_base: Default::default(),
                     focus_ids: Default::default(),
                     focus_flags: Default::default(),
@@ -718,6 +768,16 @@ mod core {
             self.log.set(false);
         }
 
+        /// Enable insta-panic for certain failures.
+        pub fn enable_panic(&self) {
+            self.insta_panic.set(true);
+        }
+
+        /// Disable insta-panic for certain failures.
+        pub fn disable_panic(&self) {
+            self.insta_panic.set(false);
+        }
+
         /// Add a widget by calling its `build` function.
         pub fn widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
             widget.build(self);
@@ -744,7 +804,7 @@ mod core {
             // override navigation for the widget
             if let Some(idx) = self.focus_flags.iter().position(|v| *v == widget_flag) {
                 focus_debug!(
-                    self.log,
+                    self,
                     "override navigation for {:?} with {:?}",
                     widget_flag,
                     navigation
@@ -753,14 +813,14 @@ mod core {
                 self.navigable[idx] = navigation;
             } else {
                 if self.container_ids.contains(&widget_flag.widget_id()) {
-                    focus_debug!(
-                        self.log,
+                    focus_fail!(
+                        self,
                         "FAIL to override navigation for {:?}. This is a container.",
                         widget_flag,
                     );
                 } else {
-                    focus_debug!(
-                        self.log,
+                    focus_fail!(
+                        self,
                         "FAIL to override navigation for {:?}. Widget doesn't use this focus-flag",
                         widget_flag,
                     );
@@ -798,7 +858,7 @@ mod core {
 
         /// End a container widget.
         pub fn end(&mut self, tag: FocusFlag) {
-            focus_debug!(self.log, "end container {:?}", tag);
+            focus_debug!(self, "end container {:?}", tag);
             assert!(self.container_ids.contains(&tag.widget_id()));
 
             for (c, r) in self.containers.iter_mut().rev() {
@@ -810,7 +870,7 @@ mod core {
                     r.end = self.focus_flags.len();
                     c.complete = true;
 
-                    focus_debug!(self.log, "container range {:?}", r);
+                    focus_debug!(self, "container range {:?}", r);
 
                     self.z_base -= c.delta_z;
 
@@ -867,7 +927,7 @@ mod core {
                 assert!(matches!(navigable, Navigation::Mouse | Navigation::None))
             }
 
-            focus_debug!(self.log, "widget {:?}", focus);
+            focus_debug!(self, "widget {:?}", focus);
 
             self.focus_ids.insert(focus.widget_id());
             self.focus_flags.push(focus);
@@ -891,7 +951,7 @@ mod core {
             area: Rect,
             area_z: u16,
         ) -> FocusFlag {
-            focus_debug!(self.log, "start container {:?}", container_flag);
+            focus_debug!(self, "start container {:?}", container_flag);
 
             // no duplicates allowed for containers.
             assert!(!self.container_ids.contains(&container_flag.widget_id()));
@@ -944,11 +1004,13 @@ mod core {
             }
 
             let log = self.last.log.get();
+            let insta_panic = self.last.insta_panic.get();
 
             Focus {
                 last: self.last,
                 core: FocusCore {
                     log: Cell::new(log),
+                    insta_panic: Cell::new(insta_panic),
                     focus_ids: self.focus_ids,
                     focus_flags: self.focus_flags,
                     duplicate: self.duplicate,
@@ -982,6 +1044,7 @@ mod core {
     pub(super) struct FocusCore {
         /// Focus logging
         pub(super) log: Cell<bool>,
+        pub(super) insta_panic: Cell<bool>,
 
         /// List of focus-ids.
         focus_ids: HashSet<usize, FxBuildHasher>,
@@ -1136,6 +1199,7 @@ mod core {
 
             FocusCore {
                 log: Cell::new(false),
+                insta_panic: Cell::new(false),
                 focus_ids,
                 focus_flags,
                 duplicate,
@@ -1212,7 +1276,7 @@ mod core {
         /// other flags.
         fn __focus(&self, n: usize, set_lost: bool) -> bool {
             if let Some(f) = self.focus_flags.get(n) {
-                focus_debug!(self.log, "    -> focus {}:{:?}", n, f.name());
+                focus_debug!(self, "    -> focus {}:{:?}", n, f.name());
                 f.set(true);
                 if set_lost {
                     if f.lost() {
@@ -1292,7 +1356,7 @@ mod core {
                 self.__focus(n, true);
                 self.__accumulate();
             } else {
-                focus_debug!(self.log, "    -> no navigable widget");
+                focus_debug!(self, "    -> no navigable widget");
             }
         }
 
@@ -1311,13 +1375,13 @@ mod core {
                         self.__focus(n, true);
                         self.__accumulate();
                     } else {
-                        focus_debug!(self.log, "    -> no navigable widget for container");
+                        focus_debug!(self, "    -> no navigable widget for container");
                     }
                 } else {
-                    focus_debug!(self.log, "    -> no navigable widget");
+                    focus_debug!(self, "    -> no navigable widget");
                 }
             } else {
-                focus_debug!(self.log, "    => container not found");
+                focus_fail!(self, "    => container not found");
             }
         }
 
@@ -1346,7 +1410,7 @@ mod core {
             for (idx, (sub, _)) in self.containers.iter().enumerate() {
                 if sub.area.0.contains(pos) {
                     focus_debug!(
-                        self.log,
+                        self,
                         "    container area-match {:?}",
                         sub.container_flag.name()
                     );
@@ -1365,11 +1429,7 @@ mod core {
             // search widgets
             for (idx, area) in self.areas.iter().enumerate() {
                 if area.0.contains(pos) {
-                    focus_debug!(
-                        self.log,
-                        "    area-match {:?}",
-                        self.focus_flags[idx].name()
-                    );
+                    focus_debug!(self, "    area-match {:?}", self.focus_flags[idx].name());
 
                     z_order = if let Some(zz) = z_order {
                         if zz.1 <= area.1 {
@@ -1394,7 +1454,7 @@ mod core {
                             return r;
                         } else {
                             focus_debug!(
-                                self.log,
+                                self,
                                 "    -> not mouse reachable {:?}",
                                 self.focus_flags[idx].name()
                             );
@@ -1414,7 +1474,7 @@ mod core {
             }
 
             // last is on top
-            focus_debug!(self.log, "    -> no widget at pos");
+            focus_debug!(self, "    -> no widget at pos");
 
             false
         }
@@ -1429,14 +1489,14 @@ mod core {
 
                 // still focused?
                 if flag.is_focused() {
-                    focus_debug!(self.log, "    -> focus not usable. cleared");
+                    focus_debug!(self, "    -> focus not usable. cleared");
                     self.none();
                 } else {
-                    focus_debug!(self.log, "    -> expelled.");
+                    focus_debug!(self, "    -> expelled.");
                 }
                 true
             } else {
-                focus_debug!(self.log, "    => container not found");
+                focus_fail!(self, "    => container not found");
                 false
             }
         }
@@ -1454,7 +1514,7 @@ mod core {
             }
             if let Some(n) = self.first_navigable(0) {
                 focus_debug!(
-                    self.log,
+                    self,
                     "    use first_navigable {}:{:?}",
                     n,
                     self.focus_flags[n].name()
@@ -1463,7 +1523,7 @@ mod core {
                 self.__accumulate();
                 return true;
             }
-            focus_debug!(self.log, "    -> no next");
+            focus_debug!(self, "    -> no next");
             false
         }
 
@@ -1480,7 +1540,7 @@ mod core {
             }
             if let Some(n) = self.first_navigable(0) {
                 focus_debug!(
-                    self.log,
+                    self,
                     "    use first_navigable {}:{:?}",
                     n,
                     self.focus_flags[n].name()
@@ -1489,7 +1549,7 @@ mod core {
                 self.__accumulate();
                 return true;
             }
-            focus_debug!(self.log, "    -> no prev");
+            focus_debug!(self, "    -> no prev");
             false
         }
 
@@ -1520,7 +1580,7 @@ mod core {
         /// First navigable flag starting at n.
         fn first_navigable(&self, start: usize) -> Option<usize> {
             focus_debug!(
-                self.log,
+                self,
                 "first navigable, start at {}:{:?} ",
                 start,
                 if start < self.focus_flags.len() {
@@ -1537,18 +1597,18 @@ mod core {
                         | Navigation::ReachLeaveFront
                         | Navigation::Regular
                 ) {
-                    focus_debug!(self.log, "    -> {}:{:?}", n, self.focus_flags[n].name());
+                    focus_debug!(self, "    -> {}:{:?}", n, self.focus_flags[n].name());
                     return Some(n);
                 }
             }
-            focus_debug!(self.log, "    -> no first");
+            focus_debug!(self, "    -> no first");
             None
         }
 
         /// Next navigable flag, starting at start.
         fn next_navigable(&self, start: usize) -> usize {
             focus_debug!(
-                self.log,
+                self,
                 "next navigable after {}:{:?}",
                 start,
                 if start < self.focus_flags.len() {
@@ -1572,11 +1632,11 @@ mod core {
                         | Navigation::ReachLeaveFront
                         | Navigation::Regular
                 ) {
-                    focus_debug!(self.log, "    -> {}:{:?}", n, self.focus_flags[n].name());
+                    focus_debug!(self, "    -> {}:{:?}", n, self.focus_flags[n].name());
                     return n;
                 }
                 if n == start {
-                    focus_debug!(self.log, "    -> {}:end at start", n);
+                    focus_debug!(self, "    -> {}:end at start", n);
                     return n;
                 }
             }
@@ -1585,7 +1645,7 @@ mod core {
         /// Previous navigable flag, starting at start.
         fn prev_navigable(&self, start: usize) -> usize {
             focus_debug!(
-                self.log,
+                self,
                 "prev navigable before {}:{:?}",
                 start,
                 self.focus_flags[start].name()
@@ -1605,11 +1665,11 @@ mod core {
                         | Navigation::ReachLeaveFront
                         | Navigation::Regular
                 ) {
-                    focus_debug!(self.log, "    -> {}:{:?}", n, self.focus_flags[n].name());
+                    focus_debug!(self, "    -> {}:{:?}", n, self.focus_flags[n].name());
                     return n;
                 }
                 if n == start {
-                    focus_debug!(self.log, "    -> {}:end at start", n);
+                    focus_debug!(self, "    -> {}:end at start", n);
                     return n;
                 }
             }
@@ -1777,7 +1837,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
         match event {
             ct_event!(keycode press Tab) => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "Tab {:?}",
                     self.focused().map(|v| v.name().to_string())
                 );
@@ -1787,7 +1847,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
                     Outcome::Continue
                 };
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "    -> {:?}",
                     self.focused().map(|v| v.name().to_string())
                 );
@@ -1795,7 +1855,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
             }
             ct_event!(keycode press SHIFT-Tab) | ct_event!(keycode press SHIFT-BackTab) => {
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "BackTab {:?}",
                     self.focused().map(|v| v.name().to_string())
                 );
@@ -1805,7 +1865,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
                     Outcome::Continue
                 };
                 focus_debug!(
-                    self.core.log,
+                    self.core,
                     "    -> {:?}",
                     self.focused().map(|v| v.name().to_string())
                 );
@@ -1821,10 +1881,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(mouse down Left for column, row) => {
-                focus_debug!(self.core.log, "mouse down {},{}", column, row);
+                focus_debug!(self.core, "mouse down {},{}", column, row);
                 if self.focus_at(*column, *row) {
                     focus_debug!(
-                        self.core.log,
+                        self.core,
                         "    -> {:?}",
                         self.focused().map(|v| v.name().to_string())
                     );
