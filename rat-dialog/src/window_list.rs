@@ -16,14 +16,17 @@ use try_as::traits::TryAsRef;
 /// Necessary trait for your window-state.
 ///
 /// This enables reordering the application windows.
-pub trait Window: Any {
+pub trait Window<Context>: Any
+where
+    Context: 'static,
+{
     /// Set as top window.
-    fn set_top(&mut self, top: bool);
+    fn set_top(&mut self, top: bool, ctx: &mut Context);
     /// Window area.
     fn area(&self) -> Rect;
 }
 
-impl dyn Window {
+impl<Context> dyn Window<Context> {
     pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
         (self as &dyn Any).downcast_ref::<T>()
     }
@@ -87,17 +90,23 @@ pub struct WindowList<Event, Context, Error> {
 
 struct WindowListCore<Event, Context, Error> {
     len: Cell<usize>,
-    render: RefCell<Vec<Box<dyn Fn(Rect, &mut Buffer, &mut dyn Window, &mut Context) + 'static>>>,
+    render: RefCell<
+        Vec<Box<dyn Fn(Rect, &mut Buffer, &mut dyn Window<Context>, &mut Context) + 'static>>,
+    >,
     event: RefCell<
         Vec<
             Box<
-                dyn Fn(&Event, &mut dyn Window, &mut Context) -> Result<WindowControl<Event>, Error>
+                dyn Fn(
+                        &Event,
+                        &mut dyn Window<Context>,
+                        &mut Context,
+                    ) -> Result<WindowControl<Event>, Error>
                     + 'static,
             >,
         >,
     >,
     type_id: RefCell<Vec<TypeId>>,
-    state: RefCell<Vec<Option<Box<dyn Window>>>>,
+    state: RefCell<Vec<Option<Box<dyn Window<Context>>>>>,
 }
 
 impl<Event, Context, Error> Clone for WindowList<Event, Context, Error> {
@@ -156,7 +165,10 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
     }
 }
 
-impl<Event, Context, Error> WindowList<Event, Context, Error> {
+impl<Event, Context, Error> WindowList<Event, Context, Error>
+where
+    Context: 'static,
+{
     pub fn new() -> Self {
         Self::default()
     }
@@ -166,10 +178,15 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
     /// This shows the window on top of any other.
     pub fn show(
         &self,
-        render: impl Fn(Rect, &mut Buffer, &mut dyn Window, &'_ mut Context) + 'static,
-        event: impl Fn(&Event, &mut dyn Window, &'_ mut Context) -> Result<WindowControl<Event>, Error>
+        render: impl Fn(Rect, &mut Buffer, &mut dyn Window<Context>, &'_ mut Context) + 'static,
+        event: impl Fn(
+            &Event,
+            &mut dyn Window<Context>,
+            &'_ mut Context,
+        ) -> Result<WindowControl<Event>, Error>
         + 'static,
-        state: impl Window,
+        state: impl Window<Context>,
+        ctx: &mut Context,
     ) {
         self.core.len.update(|v| v + 1);
         self.core.type_id.borrow_mut().push(state.type_id());
@@ -177,7 +194,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.event.borrow_mut().push(Box::new(event));
         self.core.render.borrow_mut().push(Box::new(render));
 
-        self.set_top_window();
+        self.set_top_window(ctx);
     }
 
     /// Remove the window from the list.
@@ -189,7 +206,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
     /// Return [WindowControl::Close] instead of calling this function.
     ///
     /// Panics when out-of-bounds.
-    pub fn close(&self, n: usize) -> Box<dyn Window> {
+    pub fn close(&self, n: usize, ctx: &mut Context) -> Box<dyn Window<Context>> {
         for s in self.core.state.borrow().iter() {
             if s.is_none() {
                 panic!("state is gone");
@@ -208,7 +225,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
             .remove(n)
             .expect("state exists");
 
-        self.set_top_window();
+        self.set_top_window(ctx);
 
         r
     }
@@ -222,7 +239,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
     /// to call this during event handling as this happens automatically.
     ///
     /// Panics when out-of-bounds.
-    pub fn to_front(&self, n: usize) {
+    pub fn to_front(&self, n: usize, ctx: &mut Context) {
         for s in self.core.state.borrow().iter() {
             if s.is_none() {
                 panic!("state is gone");
@@ -239,7 +256,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.event.borrow_mut().push(event);
         self.core.render.borrow_mut().push(render);
 
-        self.set_top_window();
+        self.set_top_window(ctx);
     }
 
     /// Move the given window to the bottom.
@@ -250,7 +267,7 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
     /// rendering or event-handling of any dialog-window.
     ///
     /// Panics when out-of-bounds.
-    pub fn to_back(&self, n: usize) {
+    pub fn to_back(&self, n: usize, ctx: &mut Context) {
         for s in self.core.state.borrow().iter() {
             if s.is_none() {
                 panic!("state is gone");
@@ -267,23 +284,23 @@ impl<Event, Context, Error> WindowList<Event, Context, Error> {
         self.core.event.borrow_mut().insert(0, event);
         self.core.render.borrow_mut().insert(0, render);
 
-        self.set_top_window();
+        self.set_top_window(ctx);
     }
 
-    fn set_top_window(&self) {
+    fn set_top_window(&self, ctx: &mut Context) {
         let len = self.len();
 
         if len > 0 {
             let mut states = self.core.state.borrow_mut();
             for i in 0..len - 1 {
                 if let Some(s) = &mut states[i] {
-                    s.set_top(false);
+                    s.set_top(false, ctx);
                 } else {
                     panic!("state is gone");
                 }
             }
             if let Some(s) = &mut states[len - 1] {
-                s.set_top(true);
+                s.set_top(true, ctx);
             } else {
                 panic!("state is gone");
             }
@@ -428,8 +445,11 @@ where
     Event: TryAsRef<crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
+    Context: 'static,
 {
     fn handle(&mut self, event: &Event, ctx: &mut Context) -> Result<WindowControl<Event>, Error> {
+        let mut r_front = WindowControl::Continue;
+
         for n in (0..self.core.len.get()).rev() {
             let (to_front, area) = {
                 let state = self.core.state.borrow();
@@ -458,28 +478,29 @@ where
             self.core.state.borrow_mut()[n] = Some(state);
 
             if to_front {
-                self.to_front(n);
-            }
+                self.to_front(n, ctx);
+                r_front = WindowControl::Changed;
+            };
 
             match r {
                 Ok(r) => match r {
                     WindowControl::Close(_) => {
-                        self.close(n);
-                        return Ok(r);
+                        self.close(n, ctx);
+                        return Ok(max(r, r_front));
                     }
                     WindowControl::Event(_) => {
-                        return Ok(r);
+                        return Ok(max(r, r_front));
                     }
                     WindowControl::Unchanged => {
-                        return Ok(r);
+                        return Ok(max(r, r_front));
                     }
                     WindowControl::Changed => {
-                        return Ok(r);
+                        return Ok(max(r, r_front));
                     }
                     WindowControl::Continue => match event.try_as_ref() {
                         Some(event) => {
                             if mouse_trap(event, area).is_consumed() {
-                                return Ok(WindowControl::Unchanged);
+                                return Ok(max(WindowControl::Unchanged, r_front));
                             }
                         }
                         _ => {}
@@ -489,8 +510,29 @@ where
             }
         }
 
-        Ok(WindowControl::Continue)
+        Ok(r_front)
     }
+}
+
+fn max<Event>(
+    primary: WindowControl<Event>,
+    secondary: WindowControl<Event>,
+) -> WindowControl<Event> {
+    let s = match &primary {
+        WindowControl::Continue => 0,
+        WindowControl::Unchanged => 1,
+        WindowControl::Changed => 2,
+        WindowControl::Event(_) => 3,
+        WindowControl::Close(_) => 4,
+    };
+    let t = match &secondary {
+        WindowControl::Continue => 0,
+        WindowControl::Unchanged => 1,
+        WindowControl::Changed => 2,
+        WindowControl::Event(_) => 3,
+        WindowControl::Close(_) => 4,
+    };
+    if s > t { primary } else { secondary }
 }
 
 /// Handle events from top to bottom of the stack.
@@ -509,6 +551,7 @@ where
     Event: 'static,
     Error: Debug,
     Event: Debug,
+    Context: 'static,
 {
     window_list.handle(event, ctx)
 }

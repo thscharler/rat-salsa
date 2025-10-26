@@ -212,7 +212,10 @@ pub mod app {
             }
         }
 
-        ctx.set_focus(builder.build());
+        let focus = builder.build();
+        focus.enable_log();
+        focus.enable_panic();
+        ctx.set_focus(focus);
     }
 
     pub fn render(
@@ -817,7 +820,7 @@ pub mod turbo {
                 try_flow!({
                     let len = ctx.windows.len();
                     if len > 0 {
-                        ctx.windows.to_front(0);
+                        ctx.windows.clone().to_front(0, ctx);
                         let editor = ctx.windows.get::<EditorState>(len - 1);
                         ctx.focus().focus(&*editor);
                         Control::Changed
@@ -830,7 +833,7 @@ pub mod turbo {
                 try_flow!({
                     let len = ctx.windows.len();
                     if len > 0 {
-                        ctx.windows.to_back(len - 1);
+                        ctx.windows.clone().to_back(len - 1, ctx);
                         let editor = ctx.windows.get::<EditorState>(len - 1);
                         ctx.focus().focus(&*editor);
                         Control::Changed
@@ -844,7 +847,7 @@ pub mod turbo {
                     loop {
                         let n = ctx.windows.len();
                         if n > 0 {
-                            ctx.windows.close(n - 1);
+                            ctx.windows.clone().close(n - 1, ctx);
                         } else {
                             break;
                         }
@@ -856,7 +859,7 @@ pub mod turbo {
                 try_flow!({
                     let n = ctx.windows.len();
                     if n > 0 {
-                        ctx.windows.close(n - 1);
+                        ctx.windows.clone().close(n - 1, ctx);
                     }
                     Control::Changed
                 });
@@ -1041,9 +1044,12 @@ pub mod editor {
     use crate::global::{Global, TurboEvent};
     use crate::turbo::Turbo;
     use anyhow::Error;
-    use rat_dialog::{Window, WindowControl, WindowFrame, WindowFrameOutcome, WindowFrameState};
+    use rat_dialog::{
+        MacFrame, MacFrameState, Window, WindowControl, WindowFrame, WindowFrameOutcome,
+        WindowFrameState,
+    };
     use rat_event::{Dialog, HandleEvent, Regular, try_flow};
-    use rat_salsa::Control;
+    use rat_salsa::{Control, SalsaContext};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
     use rat_widget::scrolled::Scroll;
     use rat_widget::shadow::Shadow;
@@ -1064,10 +1070,11 @@ pub mod editor {
         pub text: TextAreaState,
     }
 
-    impl Window for EditorState {
-        fn set_top(&mut self, top: bool) {
+    impl Window<Global> for EditorState {
+        fn set_top(&mut self, top: bool, ctx: &mut Global) {
             self.window.top = top;
-            // mark
+            // not part of the focus when opening a new window.
+            ctx.focus().future(&self.text);
         }
 
         fn area(&self) -> Rect {
@@ -1167,7 +1174,7 @@ pub mod editor {
 
                 let mut editor = EditorState::open(f)?;
                 editor.window.area = cascade_window(ctx);
-                ctx.windows.show(dlg_render, dlg_event, editor);
+                ctx.windows.clone().show(dlg_render, dlg_event, editor, ctx);
                 Control::Changed
             }
             _ => {
@@ -1177,7 +1184,7 @@ pub mod editor {
         Ok(Control::Continue)
     }
 
-    fn dlg_render(area: Rect, buf: &mut Buffer, state: &mut dyn Window, ctx: &mut Global) {
+    fn dlg_render(area: Rect, buf: &mut Buffer, state: &mut dyn Window<Global>, ctx: &mut Global) {
         let state = state.downcast_mut::<EditorState>().expect("dialog-state");
 
         WindowFrame::new()
@@ -1201,7 +1208,7 @@ pub mod editor {
 
     fn dlg_event(
         event: &TurboEvent,
-        state: &mut dyn Window,
+        state: &mut dyn Window<Global>,
         _ctx: &mut Global,
     ) -> Result<WindowControl<TurboEvent>, Error> {
         let state = state.downcast_mut::<EditorState>().expect("dialog-state");
