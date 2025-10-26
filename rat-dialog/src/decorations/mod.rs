@@ -14,5 +14,10 @@
 //! Moveable and resizable.
 //!
 
-pub mod mac_frame;
-pub mod window_frame;
+mod frame_state;
+mod mac_frame;
+mod window_frame;
+
+pub use frame_state::*;
+pub use mac_frame::*;
+pub use window_frame::*;

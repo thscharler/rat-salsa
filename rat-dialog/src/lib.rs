@@ -18,16 +18,11 @@
 
 use rat_event::{ConsumedEvent, Outcome};
 
-mod decorations;
+pub mod decorations;
+
 mod dialog_stack;
 mod window_list;
 
-pub use decorations::mac_frame::MacFrame;
-pub use decorations::mac_frame::MacFrameState;
-pub use decorations::mac_frame::MacFrameStyle;
-pub use decorations::window_frame::WindowFrame;
-pub use decorations::window_frame::WindowFrameState;
-pub use decorations::window_frame::WindowFrameStyle;
 pub use dialog_stack::DialogStack;
 pub use dialog_stack::handle_dialog_stack;
 pub use window_list::Window;

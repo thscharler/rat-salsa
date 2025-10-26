@@ -91,7 +91,9 @@ mod global {
 
     /// Configuration.
     #[derive(Debug, Default)]
-    pub struct TurboConfig {}
+    pub struct TurboConfig {
+        pub frame_style: i32,
+    }
 
     /// Application wide messages.
     #[derive(Debug)]
@@ -213,8 +215,8 @@ pub mod app {
         }
 
         let focus = builder.build();
-        focus.enable_log();
-        focus.enable_panic();
+        // focus.enable_log();
+        // focus.enable_panic();
         ctx.set_focus(focus);
     }
 
@@ -333,6 +335,14 @@ pub mod app {
                 ct_event!(key press CONTROL-'q') => Ok(Control::Quit),
                 ct_event!(key press ALT-'x') => Ok(Control::Quit),
 
+                ct_event!(keycode press F(9)) => {
+                    ctx.cfg.frame_style = match ctx.cfg.frame_style {
+                        0 => 1,
+                        1 => 0,
+                        _ => 0,
+                    };
+                    Ok(Control::Changed)
+                }
                 ct_event!(keycode press F(8)) => {
                     let pal = salsa_palettes();
 
@@ -1044,10 +1054,8 @@ pub mod editor {
     use crate::global::{Global, TurboEvent};
     use crate::turbo::Turbo;
     use anyhow::Error;
-    use rat_dialog::{
-        MacFrame, MacFrameState, Window, WindowControl, WindowFrame, WindowFrameOutcome,
-        WindowFrameState,
-    };
+    use rat_dialog::decorations::{MacFrame, WindowFrame, WindowFrameState};
+    use rat_dialog::{Window, WindowControl, WindowFrameOutcome};
     use rat_event::{Dialog, HandleEvent, Regular, try_flow};
     use rat_salsa::{Control, SalsaContext};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -1064,7 +1072,6 @@ pub mod editor {
 
     pub struct EditorState {
         pub window: WindowFrameState,
-        // pub window: MacFrameState,
         pub path: PathBuf,
         pub display_name: String,
         pub text: TextAreaState,
@@ -1187,14 +1194,17 @@ pub mod editor {
     fn dlg_render(area: Rect, buf: &mut Buffer, state: &mut dyn Window<Global>, ctx: &mut Global) {
         let state = state.downcast_mut::<EditorState>().expect("dialog-state");
 
-        WindowFrame::new()
-            .styles(ctx.theme.dialog_window(""))
-            .block(ctx.theme.dialog_border(&state.display_name))
-            .render(area, buf, &mut state.window);
-        // MacFrame::new()
-        //     .styles(ctx.theme.dialog_window2(""))
-        //     .block(ctx.theme.dialog_border(&state.display_name))
-        //     .render(area, buf, &mut state.window);
+        if ctx.cfg.frame_style == 0 {
+            WindowFrame::new()
+                .styles(ctx.theme.dialog_window(""))
+                .block(ctx.theme.dialog_border(&state.display_name))
+                .render(area, buf, &mut state.window);
+        } else {
+            MacFrame::new()
+                .styles(ctx.theme.dialog_window2(""))
+                .block(ctx.theme.dialog_border(&state.display_name))
+                .render(area, buf, &mut state.window);
+        }
 
         TextArea::new()
             .styles(ctx.theme.textarea_style())
@@ -1257,7 +1267,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_dialog::{MacFrameStyle, WindowFrameStyle};
+    use rat_dialog::decorations::WindowFrameStyle;
     use rat_theme3::{Contrast, Palette};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
@@ -1536,8 +1546,8 @@ pub mod theme {
             }
         }
 
-        pub fn dialog_window2(&self, title: &'static str) -> MacFrameStyle {
-            MacFrameStyle {
+        pub fn dialog_window2(&self, title: &'static str) -> WindowFrameStyle {
+            WindowFrameStyle {
                 style: self.dialog_style(),
                 block: Some(self.dialog_border(title)),
                 hover: Some(self.scheme().gray(4, Contrast::Normal)),

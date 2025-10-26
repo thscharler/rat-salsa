@@ -317,7 +317,7 @@ pub mod moving {
     use crate::file_dlg_moveable::FileDlgState;
     use crate::{AppEvent, AppResult, Global, file_dlg_fixed, file_dlg_moveable};
     use anyhow::Error;
-    use rat_dialog::WindowFrameState;
+    use rat_dialog::decorations::WindowFrameState;
     use rat_salsa::Control;
     use rat_widget::file_dialog::FileDialogState;
     use ratatui::buffer::Buffer;
@@ -435,7 +435,8 @@ pub mod file_dlg_fixed {
 
 pub mod file_dlg_moveable {
     use crate::{AppDialogResult, AppEvent, Global};
-    use rat_dialog::{WindowControl, WindowFrame, WindowFrameOutcome, WindowFrameState};
+    use rat_dialog::decorations::{WindowFrame, WindowFrameState};
+    use rat_dialog::{WindowControl, WindowFrameOutcome};
     use rat_event::Dialog;
     use rat_salsa::SalsaContext;
     use rat_theme3::SalsaTheme;
