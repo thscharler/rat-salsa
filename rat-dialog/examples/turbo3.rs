@@ -1067,6 +1067,7 @@ pub mod editor {
     impl Window for EditorState {
         fn set_top(&mut self, top: bool) {
             self.window.top = top;
+            // mark
         }
 
         fn area(&self) -> Rect {

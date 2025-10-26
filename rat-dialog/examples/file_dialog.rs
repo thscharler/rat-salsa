@@ -214,7 +214,7 @@ pub fn event(event: &AppEvent, state: &mut Scenery, ctx: &mut Global) -> AppResu
                 WindowControl::Continue => Control::Continue,
                 WindowControl::Unchanged => Control::Unchanged,
                 WindowControl::Changed => Control::Changed,
-                WindowControl::Event(e) => Control::Changed,
+                WindowControl::Event(e) => Control::Event(e),
                 WindowControl::Close(e) => {
                     ctx.queue_event(e);
                     Control::Changed
