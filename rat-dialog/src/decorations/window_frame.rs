@@ -35,12 +35,17 @@ pub struct WindowFrame<'a> {
     focus_style: Option<Style>,
     hover_style: Style,
     drag_style: Style,
+    close_style: Option<Style>,
+    min_style: Option<Style>,
+    max_style: Option<Style>,
 
     limit: Option<Rect>,
 
     can_move: Option<bool>,
     can_resize: Option<bool>,
     can_close: Option<bool>,
+    can_min: Option<bool>,
+    can_max: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -51,9 +56,14 @@ pub struct WindowFrameStyle {
     pub block: Option<Block<'static>>,
     pub hover: Option<Style>,
     pub drag: Option<Style>,
+    pub close: Option<Style>,
+    pub min: Option<Style>,
+    pub max: Option<Style>,
     pub can_move: Option<bool>,
     pub can_resize: Option<bool>,
     pub can_close: Option<bool>,
+    pub can_min: Option<bool>,
+    pub can_max: Option<bool>,
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -87,6 +97,12 @@ pub struct WindowFrameState {
     /// Window can be closed.
     /// __read+write__ May be overwritten by the widget.
     pub can_close: bool,
+    /// Window can be closed.
+    /// __read+write__ May be overwritten by the widget.
+    pub can_min: bool,
+    /// Window can be closed.
+    /// __read+write__ May be overwritten by the widget.
+    pub can_max: bool,
 
     /// move area
     pub move_area: Rect,
@@ -94,9 +110,13 @@ pub struct WindowFrameState {
     pub resize_area: Rect,
     /// close area
     pub close_area: Rect,
+    pub min_area: Rect,
+    pub max_area: Rect,
 
     /// mouse flags for close area
     pub mouse_close: MouseFlags,
+    pub mouse_min: MouseFlags,
+    pub mouse_max: MouseFlags,
     /// mouse flags for resize area
     pub mouse_resize: MouseFlags,
 
@@ -120,9 +140,14 @@ impl Default for WindowFrameStyle {
             block: Default::default(),
             hover: Default::default(),
             drag: Default::default(),
+            close: Default::default(),
+            min: Default::default(),
+            max: Default::default(),
             can_move: Default::default(),
             can_resize: Default::default(),
             can_close: Default::default(),
+            can_min: Default::default(),
+            can_max: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -138,10 +163,15 @@ impl<'a> WindowFrame<'a> {
             focus_style: Default::default(),
             hover_style: Default::default(),
             drag_style: Default::default(),
+            close_style: Default::default(),
+            min_style: Default::default(),
+            max_style: Default::default(),
             limit: Default::default(),
             can_move: Default::default(),
             can_resize: Default::default(),
             can_close: Default::default(),
+            can_min: Default::default(),
+            can_max: Default::default(),
         }
     }
 
@@ -177,6 +207,18 @@ impl<'a> WindowFrame<'a> {
         self
     }
 
+    /// Window can be minimized?
+    pub fn can_min(mut self, v: bool) -> Self {
+        self.can_min = Some(v);
+        self
+    }
+
+    /// Window can be maximized?
+    pub fn can_max(mut self, v: bool) -> Self {
+        self.can_max = Some(v);
+        self
+    }
+
     /// Window block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block.style(self.style));
@@ -198,6 +240,18 @@ impl<'a> WindowFrame<'a> {
         if let Some(drag) = styles.drag {
             self.drag_style = drag;
         }
+        if let Some(drag) = styles.drag {
+            self.drag_style = drag;
+        }
+        if let Some(close) = styles.close {
+            self.close_style = Some(close);
+        }
+        if let Some(min) = styles.min {
+            self.min_style = Some(min);
+        }
+        if let Some(max) = styles.max {
+            self.max_style = Some(max);
+        }
         if let Some(can_move) = styles.can_move {
             self.can_move = Some(can_move);
         }
@@ -206,6 +260,12 @@ impl<'a> WindowFrame<'a> {
         }
         if let Some(can_close) = styles.can_close {
             self.can_move = Some(can_close);
+        }
+        if let Some(can_min) = styles.can_min {
+            self.can_min = Some(can_min);
+        }
+        if let Some(can_max) = styles.can_max {
+            self.can_max = Some(can_max);
         }
         self
     }
@@ -274,18 +334,29 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
         } else {
             state.resize_area = Default::default();
         }
-        if state.can_close {
+        if state.can_min && !state.area.is_empty() {
+            state.min_area = Rect::new(state.area.right().saturating_sub(10), state.area.y, 3, 1);
+        } else {
+            state.min_area = Default::default();
+        }
+        if state.can_max && !state.area.is_empty() {
+            state.max_area = Rect::new(state.area.right().saturating_sub(7), state.area.y, 3, 1);
+        } else {
+            state.max_area = Default::default();
+        }
+        if state.can_close && !state.area.is_empty() {
             state.close_area =
                 Rect::new(state.area.right().saturating_sub(4), state.area.top(), 3, 1);
         } else {
             state.close_area = Default::default();
         }
+
         if state.can_move {
-            if state.can_close {
+            if state.can_close || state.can_min || state.can_max {
                 state.move_area = Rect::new(
                     state.area.x + 1,
                     state.area.y,
-                    state.area.width.saturating_sub(6),
+                    state.area.width.saturating_sub(11),
                     1,
                 );
             } else {
@@ -335,12 +406,34 @@ impl<'a> StatefulWidget for WindowFrame<'a> {
 
         block.render(state.area, buf);
 
-        if state.can_move {
+        if state.can_min && !state.area.is_empty() {
+            Span::from("[↓]")
+                .style(self.style)
+                .render(state.min_area, buf);
+        }
+        if state.can_max && !state.area.is_empty() {
+            if state.area == state.limit {
+                Span::from("[⇵]")
+                    .style(self.style)
+                    .render(state.max_area, buf);
+            } else {
+                Span::from("[↑]")
+                    .style(self.style)
+                    .render(state.max_area, buf);
+            }
+        }
+        if state.can_close && !state.area.is_empty() {
             Span::from("[x]")
                 .style(self.style)
                 .render(state.close_area, buf);
         }
 
+        if state.mouse_min.hover.get() {
+            buf.set_style(state.min_area, self.hover_style);
+        }
+        if state.mouse_max.hover.get() {
+            buf.set_style(state.max_area, self.hover_style);
+        }
         if state.mouse_close.hover.get() {
             buf.set_style(state.close_area, self.hover_style);
         }
@@ -370,10 +463,16 @@ impl Default for WindowFrameState {
             can_move: true,
             can_resize: true,
             can_close: true,
+            can_min: true,
+            can_max: true,
             move_area: Default::default(),
             resize_area: Default::default(),
             close_area: Default::default(),
+            min_area: Default::default(),
+            max_area: Default::default(),
             mouse_close: Default::default(),
+            mouse_min: Default::default(),
+            mouse_max: Default::default(),
             mouse_resize: Default::default(),
             start_move: Default::default(),
             mouse_move: Default::default(),
@@ -411,7 +510,18 @@ impl WindowFrameState {
         if self.area == self.limit && !self.arc_area.is_empty() {
             self.area = self.arc_area;
         } else {
+            self.arc_area = self.area;
             self.area = self.limit;
+        }
+    }
+
+    /// Switch between minimized and normal state.
+    pub fn flip_minimize(&mut self) {
+        if self.area == Rect::default() && !self.arc_area.is_empty() {
+            self.area = self.arc_area;
+        } else {
+            self.arc_area = self.area;
+            self.area = Rect::default();
         }
     }
 
@@ -422,7 +532,7 @@ impl WindowFrameState {
     /// Return
     ///
     /// Returns WindowFrameOutcome::Resized if the area is changed.
-    pub fn set_resized_area(&mut self, mut new_area: Rect, arc: bool) -> WindowFrameOutcome {
+    pub fn set_resized_area(&mut self, mut new_area: Rect) -> WindowFrameOutcome {
         if new_area.x < self.limit.x {
             new_area.width -= self.limit.x - new_area.x;
             new_area.x = self.limit.x;
@@ -439,9 +549,6 @@ impl WindowFrameState {
         }
 
         if new_area != self.area {
-            if arc {
-                self.arc_area = new_area;
-            }
             self.area = new_area;
             WindowFrameOutcome::Resized
         } else {
@@ -457,7 +564,7 @@ impl WindowFrameState {
     /// Return
     ///
     /// Returns WindowFrameOutcome::Moved if the area is changed.
-    pub fn set_moved_area(&mut self, mut new_area: Rect, arc: bool) -> WindowFrameOutcome {
+    pub fn set_moved_area(&mut self, mut new_area: Rect) -> WindowFrameOutcome {
         if new_area.x < self.limit.x {
             new_area.x = self.limit.x;
         }
@@ -484,9 +591,6 @@ impl WindowFrameState {
         }
 
         if new_area != self.area {
-            if arc {
-                self.arc_area = new_area;
-            }
             self.area = new_area;
             WindowFrameOutcome::Moved
         } else {
@@ -508,45 +612,45 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                     if new_area.y > 0 {
                         new_area.y -= 1;
                     }
-                    self.set_moved_area(new_area, true)
+                    self.set_moved_area(new_area)
                 }
                 ct_event!(keycode press Down) => {
                     let mut new_area = self.area;
                     new_area.y += 1;
-                    self.set_moved_area(new_area, true)
+                    self.set_moved_area(new_area)
                 }
                 ct_event!(keycode press Left) => {
                     let mut new_area = self.area;
                     if new_area.x > 0 {
                         new_area.x -= 1;
                     }
-                    self.set_moved_area(new_area, true)
+                    self.set_moved_area(new_area)
                 }
                 ct_event!(keycode press Right) => {
                     let mut new_area = self.area;
                     new_area.x += 1;
-                    self.set_moved_area(new_area, true)
+                    self.set_moved_area(new_area)
                 }
 
                 ct_event!(keycode press Home) => {
                     let mut new_area = self.area;
                     new_area.x = self.limit.left();
-                    self.set_moved_area(new_area, true)
+                    self.set_moved_area(new_area)
                 }
                 ct_event!(keycode press End) => {
                     let mut new_area = self.area;
                     new_area.x = self.limit.right().saturating_sub(new_area.width);
-                    self.set_moved_area(new_area, true)
+                    self.set_moved_area(new_area)
                 }
                 ct_event!(keycode press CONTROL-Home) => {
                     let mut new_area = self.area;
                     new_area.y = self.limit.top();
-                    self.set_moved_area(new_area, true)
+                    self.set_moved_area(new_area)
                 }
                 ct_event!(keycode press CONTROL-End) => {
                     let mut new_area = self.area;
                     new_area.y = self.limit.bottom().saturating_sub(new_area.height);
-                    self.set_moved_area(new_area, true)
+                    self.set_moved_area(new_area)
                 }
 
                 ct_event!(keycode press ALT-Up) => {
@@ -554,24 +658,24 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                     if new_area.height > 1 {
                         new_area.height -= 1;
                     }
-                    self.set_resized_area(new_area, true)
+                    self.set_resized_area(new_area)
                 }
                 ct_event!(keycode press ALT-Down) => {
                     let mut new_area = self.area;
                     new_area.height += 1;
-                    self.set_resized_area(new_area, true)
+                    self.set_resized_area(new_area)
                 }
                 ct_event!(keycode press ALT-Left) => {
                     let mut new_area = self.area;
                     if new_area.width > 1 {
                         new_area.width -= 1;
                     }
-                    self.set_resized_area(new_area, true)
+                    self.set_resized_area(new_area)
                 }
                 ct_event!(keycode press ALT-Right) => {
                     let mut new_area = self.area;
                     new_area.width += 1;
-                    self.set_resized_area(new_area, true)
+                    self.set_resized_area(new_area)
                 }
 
                 ct_event!(keycode press CONTROL_ALT-Down) => {
@@ -580,7 +684,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                         new_area.y += 1;
                         new_area.height -= 1;
                     }
-                    self.set_resized_area(new_area, true)
+                    self.set_resized_area(new_area)
                 }
                 ct_event!(keycode press CONTROL_ALT-Up) => {
                     let mut new_area = self.area;
@@ -588,7 +692,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                         new_area.y -= 1;
                         new_area.height += 1;
                     }
-                    self.set_resized_area(new_area, true)
+                    self.set_resized_area(new_area)
                 }
                 ct_event!(keycode press CONTROL_ALT-Right) => {
                     let mut new_area = self.area;
@@ -596,7 +700,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                         new_area.x += 1;
                         new_area.width -= 1;
                     }
-                    self.set_resized_area(new_area, true)
+                    self.set_resized_area(new_area)
                 }
                 ct_event!(keycode press CONTROL_ALT-Left) => {
                     let mut new_area = self.area;
@@ -604,7 +708,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                         new_area.x -= 1;
                         new_area.width += 1;
                     }
-                    self.set_resized_area(new_area, true)
+                    self.set_resized_area(new_area)
                 }
 
                 ct_event!(keycode press CONTROL-Up) => {
@@ -612,32 +716,44 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                     if self.area.y != self.limit.y || self.area.height != self.limit.height {
                         new_area.y = self.limit.y;
                         new_area.height = self.limit.height;
+                        self.arc_area.y = self.area.y;
+                        self.arc_area.height = self.area.height;
+                        self.set_resized_area(new_area)
+                    } else {
+                        WindowFrameOutcome::Unchanged
                     }
-                    self.set_resized_area(new_area, false)
                 }
                 ct_event!(keycode press CONTROL-Down) => {
                     let mut new_area = self.area;
                     if !self.arc_area.is_empty() {
                         new_area.y = self.arc_area.y;
                         new_area.height = self.arc_area.height;
+                        self.set_resized_area(new_area)
+                    } else {
+                        WindowFrameOutcome::Unchanged
                     }
-                    self.set_resized_area(new_area, false)
                 }
                 ct_event!(keycode press CONTROL-Right) => {
                     let mut new_area = self.area;
                     if self.area.x != self.limit.x || self.area.width != self.limit.width {
                         new_area.x = self.limit.x;
                         new_area.width = self.limit.width;
+                        self.arc_area.x = self.area.x;
+                        self.arc_area.width = self.area.width;
+                        self.set_resized_area(new_area)
+                    } else {
+                        WindowFrameOutcome::Unchanged
                     }
-                    self.set_resized_area(new_area, false)
                 }
                 ct_event!(keycode press CONTROL-Left) => {
                     let mut new_area = self.area;
                     if !self.arc_area.is_empty() {
                         new_area.x = self.arc_area.x;
                         new_area.width = self.arc_area.width;
+                        self.set_resized_area(new_area)
+                    } else {
+                        WindowFrameOutcome::Unchanged
                     }
-                    self.set_resized_area(new_area, false)
                 }
 
                 _ => WindowFrameOutcome::Continue,
@@ -653,6 +769,20 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
             ct_event!(mouse down Left for x,y) if self.close_area.contains((*x, *y).into()) => {
                 WindowFrameOutcome::ShouldClose
             }
+            ct_event!(mouse any for m) if self.mouse_min.hover(self.min_area, m) => {
+                WindowFrameOutcome::Changed
+            }
+            ct_event!(mouse down Left for x,y) if self.min_area.contains((*x, *y).into()) => {
+                self.flip_minimize();
+                WindowFrameOutcome::Changed
+            }
+            ct_event!(mouse any for m) if self.mouse_max.hover(self.max_area, m) => {
+                WindowFrameOutcome::Changed
+            }
+            ct_event!(mouse down Left for x,y) if self.max_area.contains((*x, *y).into()) => {
+                self.flip_maximize();
+                WindowFrameOutcome::Changed
+            }
 
             ct_event!(mouse any for m) if self.mouse_resize.hover(self.resize_area, m) => {
                 WindowFrameOutcome::Changed
@@ -661,7 +791,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
                 let mut new_area = self.area;
                 new_area.width = max(10, m.column.saturating_sub(self.area.x));
                 new_area.height = max(3, m.row.saturating_sub(self.area.y));
-                self.set_resized_area(new_area, true)
+                self.set_resized_area(new_area)
             }
 
             ct_event!(mouse any for m) if self.mouse_move.hover(self.move_area, m) => {
@@ -674,15 +804,12 @@ impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for Window
             ct_event!(mouse any for m) if self.mouse_move.drag(self.move_area, m) => {
                 let delta_x = m.column as i16 - self.start_move.1.x as i16;
                 let delta_y = m.row as i16 - self.start_move.1.y as i16;
-                self.set_moved_area(
-                    Rect::new(
-                        self.start_move.0.x.saturating_add_signed(delta_x),
-                        self.start_move.0.y.saturating_add_signed(delta_y),
-                        self.start_move.0.width,
-                        self.start_move.0.height,
-                    ),
-                    true,
-                )
+                self.set_moved_area(Rect::new(
+                    self.start_move.0.x.saturating_add_signed(delta_x),
+                    self.start_move.0.y.saturating_add_signed(delta_y),
+                    self.start_move.0.width,
+                    self.start_move.0.height,
+                ))
             }
             ct_event!(mouse down Left for x,y) if self.move_area.contains((*x, *y).into()) => {
                 self.start_move = (self.area, Position::new(*x, *y));
