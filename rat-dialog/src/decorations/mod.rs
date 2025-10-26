@@ -14,10 +14,12 @@
 //! Moveable and resizable.
 //!
 
+mod base_dialog;
 mod frame_state;
 mod mac_frame;
 mod window_frame;
 
+pub use base_dialog::*;
 pub use frame_state::*;
 pub use mac_frame::*;
 pub use window_frame::*;
