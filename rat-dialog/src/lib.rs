@@ -1,5 +1,5 @@
 //!
-//! rat-dialog contains two structs that manage terminal windows.
+//! rat-dialog contains two structs that manage TUI windows.
 //!
 //! * [DialogStack]
 //!

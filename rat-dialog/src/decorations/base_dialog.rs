@@ -171,8 +171,16 @@ impl<'a> StatefulWidget for BaseDialog<'a> {
     type State = BaseDialogState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let mut hor = [Constraint::Fill(1); 3];
-        let mut ver = [Constraint::Fill(1); 3];
+        let mut hor = [
+            Constraint::Percentage(19),
+            Constraint::Fill(1),
+            Constraint::Percentage(19),
+        ];
+        let mut ver = [
+            Constraint::Length(2),
+            Constraint::Fill(1),
+            Constraint::Length(2),
+        ];
 
         if let Some(constraints) = self.constrain_position {
             ver[0] = constraints[0];
@@ -188,7 +196,9 @@ impl<'a> StatefulWidget for BaseDialog<'a> {
         }
         if let Some(size) = self.size {
             ver[1] = Constraint::Length(size.height);
+            ver[2] = Constraint::Fill(1);
             hor[1] = Constraint::Length(size.width);
+            hor[2] = Constraint::Fill(1);
         }
 
         let h_layout = Layout::horizontal(hor).split(area);
