@@ -365,13 +365,6 @@ impl FocusFlag {
     }
 
     #[inline]
-    pub(crate) fn notify_on_lost(&self) {
-        if let Some(on_lost) = self.0.on_lost.borrow().as_ref() {
-            on_lost();
-        }
-    }
-
-    #[inline]
     pub fn on_lost(&self, on_lost: impl Fn() + 'static) {
         *(self.0.on_lost.borrow_mut()) = Some(Box::new(on_lost));
     }
@@ -388,13 +381,6 @@ impl FocusFlag {
     #[inline]
     pub fn set_gained(&self, gained: bool) {
         self.0.gained.set(gained);
-    }
-
-    #[inline]
-    pub(crate) fn notify_on_gained(&self) {
-        if let Some(on_gained) = self.0.on_gained.borrow().as_ref() {
-            on_gained();
-        }
     }
 
     #[inline]

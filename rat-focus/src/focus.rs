@@ -1261,9 +1261,6 @@ mod core {
                 }
                 if set_lost {
                     f.set_lost(f.get());
-                    if f.get() {
-                        f.notify_on_lost();
-                    }
                 } else {
                     f.set_lost(false);
                 }
@@ -1287,7 +1284,6 @@ mod core {
                         false
                     } else {
                         f.set_gained(true);
-                        f.notify_on_gained();
                         true
                     }
                 } else {
@@ -1300,6 +1296,21 @@ mod core {
 
         /// Accumulate all container flags.
         fn __accumulate(&self) {
+            for (n, f) in self.focus_flags.iter().enumerate() {
+                if f.gained() && !self.duplicate[n] {
+                    if let Some(on_gained_cb) = f.0.on_gained.borrow().as_ref() {
+                        focus_debug!(self, "    -> notify_on_gained {}:{:?}", n, f.name());
+                        on_gained_cb();
+                    }
+                }
+                if f.lost() && !self.duplicate[n] {
+                    if let Some(on_lost_cb) = f.0.on_lost.borrow().as_ref() {
+                        focus_debug!(self, "    -> notify_on_lost {}:{:?}", n, f.name());
+                        on_lost_cb();
+                    }
+                }
+            }
+
             for (f, r) in &self.containers {
                 let mut any_gained = false;
                 let mut any_lost = false;
@@ -1314,11 +1325,25 @@ mod core {
                 f.container_flag.set(any_focused);
                 f.container_flag.set_lost(any_lost && !any_gained);
                 if any_lost && !any_gained {
-                    f.container_flag.notify_on_lost();
+                    if let Some(on_lost_cb) = f.container_flag.0.on_lost.borrow().as_ref() {
+                        focus_debug!(
+                            self,
+                            "-> notify_on_lost container {:?}",
+                            f.container_flag.name()
+                        );
+                        on_lost_cb();
+                    }
                 }
                 f.container_flag.set_gained(any_gained && !any_lost);
                 if any_gained && !any_lost {
-                    f.container_flag.notify_on_gained();
+                    if let Some(on_gained_cb) = f.container_flag.0.on_gained.borrow().as_ref() {
+                        focus_debug!(
+                            self,
+                            "-> notify_on_gained container {:?}",
+                            f.container_flag.name()
+                        );
+                        on_gained_cb();
+                    }
                 }
             }
         }
