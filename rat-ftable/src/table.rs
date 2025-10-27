@@ -665,6 +665,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// The column layout uses this width.
     ///
     /// See also [auto_layout_width](Table::auto_layout_width).
+    // todo: deprecate
     #[inline]
     pub fn layout_width(mut self, width: u16) -> Self {
         self.layout_width = Some(width);
@@ -677,6 +678,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// Panic:
     /// Rendering will panic, if any constraint other than Constraint::Length(),
     /// Constraint::Min() or Constraint::Max() is used.
+    // todo: deprecate
     #[inline]
     pub fn auto_layout_width(mut self) -> Self {
         self.auto_layout_width = true;
@@ -799,6 +801,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the focus-style to the row-style if the table is focused.
+    // todo: deprecate
     #[inline]
     pub fn show_row_focus(mut self, show: bool) -> Self {
         self.show_row_focus = show;
@@ -814,6 +817,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the focus-style to the column-style if the table is focused.
+    // todo: deprecate
     #[inline]
     pub fn show_column_focus(mut self, show: bool) -> Self {
         self.show_column_focus = show;
@@ -829,6 +833,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the focus-style to the cell-style if the table is focused.
+    // todo: deprecate
     #[inline]
     pub fn show_cell_focus(mut self, show: bool) -> Self {
         self.show_cell_focus = show;
@@ -844,6 +849,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the focus-style to the header-style if the table is focused.
+    // todo: deprecate
     #[inline]
     pub fn show_header_focus(mut self, show: bool) -> Self {
         self.show_header_focus = show;
@@ -859,6 +865,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the footer-style to the table-style if the table is focused.
+    // todo: deprecate
     #[inline]
     pub fn show_footer_focus(mut self, show: bool) -> Self {
         self.show_footer_focus = show;
@@ -877,6 +884,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Just some utility to help with debugging. Usually does nothing.
+    // todo: deprecate
     pub fn debug(mut self, debug: bool) -> Self {
         self.debug = debug;
         self
@@ -1904,7 +1912,7 @@ impl<Selection: TableSelection> TableState<Selection> {
 
     /// Ensures that the selected item is visible.
     /// Caveat: This doesn't work nicely if you have varying row-heights.
-    /// Caveat:
+    /// Caveat: Number of rows needs to be correct.
     pub fn scroll_to_selected(&mut self) -> bool {
         if let Some(selected) = self.selection.lead_selection() {
             let c = self.scroll_to_col(selected.0);
@@ -1917,6 +1925,8 @@ impl<Selection: TableSelection> TableState<Selection> {
 
     /// Ensures that the given row is visible.
     /// Caveat: This doesn't work nicely if you have varying row-heights.
+    /// Caveat: Number of rows needs to be correct.
+    // todo: fix for varying heights
     pub fn scroll_to_row(&mut self, pos: usize) -> bool {
         if pos >= self.rows {
             false
@@ -1987,6 +1997,7 @@ impl<Selection: TableSelection> TableState<Selection> {
 impl TableState<RowSelection> {
     /// Update the state to match adding items.
     /// This corrects the number of rows, offset and selection.
+    // todo: add for other selection
     pub fn items_added(&mut self, pos: usize, n: usize) {
         self.vscroll.items_added(pos, n);
         self.selection.items_added(pos, n);
@@ -1995,6 +2006,7 @@ impl TableState<RowSelection> {
 
     /// Update the state to match removing items.
     /// This corrects the number of rows, offset and selection.
+    // todo: add for other selection
     pub fn items_removed(&mut self, pos: usize, n: usize) {
         self.vscroll.items_removed(pos, n);
         self.selection
@@ -2003,6 +2015,7 @@ impl TableState<RowSelection> {
     }
 
     /// When scrolling the table, change the selection instead of the offset.
+    // todo: add for other selection
     #[inline]
     pub fn set_scroll_selection(&mut self, scroll: bool) {
         self.selection.set_scroll_selected(scroll);
@@ -2028,7 +2041,7 @@ impl TableState<RowSelection> {
     }
 
     /// Return the selected row and ensure it is in the
-    /// range 0..rows.
+    /// range `0..rows`.
     #[inline]
     #[allow(clippy::manual_filter)]
     pub fn selected_checked(&self) -> Option<usize> {
@@ -2052,12 +2065,12 @@ impl TableState<RowSelection> {
 
     /// Scroll delivers a value between 0 and max_offset as offset.
     /// This remaps the ratio to the selection with a range 0..row_len.
-    ///
+    /// Info: This is used when scroll_selected is active.
     pub(crate) fn remap_offset_selection(&self, offset: usize) -> usize {
         if self.vscroll.max_offset() > 0 {
             (self.rows * offset) / self.vscroll.max_offset()
         } else {
-            0 // ???
+            0 // todo: what does this mean?
         }
     }
 
@@ -2140,6 +2153,7 @@ impl TableState<RowSetSelection> {
 
     /// Add to selection. Only works for retired selections, not for the
     /// active anchor-lead range.
+    // todo: fix
     #[inline]
     pub fn add_selected(&mut self, idx: usize) {
         self.selection.add(idx);
@@ -2147,13 +2161,14 @@ impl TableState<RowSetSelection> {
 
     /// Remove from selection. Only works for retired selections, not for the
     /// active anchor-lead range.
+    // todo: fix
     #[inline]
     pub fn remove_selected(&mut self, idx: usize) {
         self.selection.remove(idx);
     }
 
     /// Move the selection to the given row.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_to(&mut self, row: usize, extend: bool) -> bool {
         let r = self
@@ -2164,7 +2179,7 @@ impl TableState<RowSetSelection> {
     }
 
     /// Move the selection up n rows.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_up(&mut self, n: usize, extend: bool) -> bool {
         let r = self
