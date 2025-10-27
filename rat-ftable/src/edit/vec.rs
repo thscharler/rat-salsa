@@ -386,8 +386,10 @@ where
         };
 
         self.commit(ctx)?;
-        self.table.select(Some(row + 1));
-        self.edit(0, row + 1, ctx)?;
+        if row + 1 < self.data.len() {
+            self.table.select(Some(row + 1));
+            self.edit(0, row + 1, ctx)?;
+        }
         Ok(())
     }
 
@@ -436,10 +438,24 @@ where
                 }
                 ct_event!(keycode press Up) => {
                     self.commit(ctx)?;
+                    if self.data.len() == 0 {
+                        self.edit_new(0, ctx)?;
+                    } else if let Some(row) = self.table.selected_checked()
+                        && row > 0
+                    {
+                        self.table.select(Some(row - 1));
+                    }
                     Outcome::Changed
                 }
                 ct_event!(keycode press Down) => {
                     self.commit(ctx)?;
+                    if self.data.len() == 0 {
+                        self.edit_new(0, ctx)?;
+                    } else if let Some(row) = self.table.selected_checked()
+                        && row + 1 < self.data.len()
+                    {
+                        self.table.select(Some(row + 1));
+                    }
                     Outcome::Changed
                 }
                 _ => Outcome::Continue,
@@ -447,6 +463,12 @@ where
 
             Ok(Outcome::Continue)
         } else {
+            if self.table.gained_focus() {
+                if self.data.is_empty() {
+                    self.edit_new(0, ctx)?;
+                }
+            }
+
             try_flow!(match event {
                 ct_event!(mouse any for m) if self.mouse.doubleclick(self.table.table_area, m) => {
                     if let Some((col, row)) = self.table.cell_at_clicked((m.column, m.row)) {
@@ -469,6 +491,9 @@ where
                 ct_event!(keycode press Delete) => {
                     if let Some(row) = self.table.selected_checked() {
                         self.remove(row);
+                        if self.data.len() == 0 {
+                            self.edit_new(0, ctx)?;
+                        }
                     }
                     Outcome::Changed
                 }
