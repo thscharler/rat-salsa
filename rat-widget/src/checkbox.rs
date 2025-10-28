@@ -24,9 +24,9 @@ use crate::_private::NonExhaustive;
 use crate::checkbox::event::CheckOutcome;
 use crate::util::{block_size, revert_style};
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
@@ -37,6 +37,14 @@ use ratatui::widgets::Block;
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
+
+/// Enum controling the behaviour of the Checkbox.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum CheckboxCheck {
+    SingleClick,
+    #[default]
+    DoubleClick,
+}
 
 /// Checkbox widget.
 #[derive(Debug, Clone)]
@@ -49,6 +57,8 @@ pub struct Checkbox<'a> {
 
     true_str: Span<'a>,
     false_str: Span<'a>,
+
+    behave_check: CheckboxCheck,
 
     style: Style,
     focus_style: Option<Style>,
@@ -70,6 +80,8 @@ pub struct CheckboxStyle {
     /// Display text for 'false'
     pub false_str: Option<Span<'static>>,
 
+    pub behave_check: Option<CheckboxCheck>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -88,6 +100,9 @@ pub struct CheckboxState {
     /// Area for the text.
     /// __read only__. renewed for each render.
     pub text_area: Rect,
+    /// Behaviour for check.
+    /// __read only__. renewed for each render.
+    pub behave_check: CheckboxCheck,
 
     /// Checked state.
     /// __read+write__
@@ -146,10 +161,11 @@ impl Default for CheckboxStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            focus: None,
+            focus: Default::default(),
             block: Default::default(),
-            true_str: None,
-            false_str: None,
+            true_str: Default::default(),
+            false_str: Default::default(),
+            behave_check: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -159,13 +175,14 @@ impl Default for Checkbox<'_> {
     fn default() -> Self {
         Self {
             text: Default::default(),
-            checked: None,
-            default: None,
+            checked: Default::default(),
+            default: Default::default(),
             true_str: Span::from("[\u{2713}]"),
             false_str: Span::from("[ ]"),
+            behave_check: Default::default(),
             style: Default::default(),
-            focus_style: None,
-            block: None,
+            focus_style: Default::default(),
+            block: Default::default(),
         }
     }
 }
@@ -190,6 +207,9 @@ impl<'a> Checkbox<'a> {
         }
         if let Some(false_str) = styles.false_str {
             self.false_str = false_str;
+        }
+        if let Some(check) = styles.behave_check {
+            self.behave_check = check;
         }
         self.block = self.block.map(|v| v.style(self.style));
         self
@@ -248,6 +268,12 @@ impl<'a> Checkbox<'a> {
         self
     }
 
+    /// Sets the behaviour for selecting from the list.
+    pub fn behave_check(mut self, check: CheckboxCheck) -> Self {
+        self.behave_check = check;
+        self
+    }
+
     /// Length of the check
     fn check_len(&self) -> u16 {
         max(
@@ -289,6 +315,7 @@ impl StatefulWidget for Checkbox<'_> {
 fn render_ref(widget: &Checkbox<'_>, area: Rect, buf: &mut Buffer, state: &mut CheckboxState) {
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
+    state.behave_check = widget.behave_check;
 
     let chk_len = widget.check_len();
     state.check_area = Rect::new(state.inner.x, state.inner.y, chk_len, 1);
@@ -342,6 +369,7 @@ impl Clone for CheckboxState {
             inner: self.inner,
             check_area: self.check_area,
             text_area: self.text_area,
+            behave_check: self.behave_check,
             checked: self.checked,
             default: self.default,
             focus: FocusFlag::named(self.focus.name()),
@@ -358,6 +386,7 @@ impl Default for CheckboxState {
             inner: Default::default(),
             check_area: Default::default(),
             text_area: Default::default(),
+            behave_check: Default::default(),
             checked: false,
             default: false,
             focus: Default::default(),
@@ -473,7 +502,17 @@ impl HandleEvent<crossterm::event::Event, Regular, CheckOutcome> for CheckboxSta
 impl HandleEvent<crossterm::event::Event, MouseOnly, CheckOutcome> for CheckboxState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> CheckOutcome {
         match event {
-            ct_event!(mouse any for m) if self.mouse.doubleclick(self.area, m) => {
+            ct_event!(mouse any for m)
+                if self.behave_check == CheckboxCheck::DoubleClick
+                    && self.mouse.doubleclick(self.area, m) =>
+            {
+                self.flip_checked();
+                CheckOutcome::Value
+            }
+            ct_event!(mouse down Left for x,y)
+                if self.behave_check == CheckboxCheck::SingleClick
+                    && self.area.contains((*x, *y).into()) =>
+            {
                 self.flip_checked();
                 CheckOutcome::Value
             }
