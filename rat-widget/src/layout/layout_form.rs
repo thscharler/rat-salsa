@@ -265,6 +265,7 @@ where
     right_padding: u16,
 }
 
+#[derive(Debug)]
 struct WidgetDef<W>
 where
     W: Debug + Clone,
@@ -328,7 +329,7 @@ struct XPositions {
 }
 
 // Const part of the page.
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 struct PageDef {
     // border
     page_border: Padding,
@@ -365,7 +366,7 @@ struct PageDef {
 }
 
 // Current page data
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 struct Page {
     // page def consts
     def: Rc<PageDef>,
@@ -390,68 +391,6 @@ struct Page {
 
     // current page x-positions
     x_pos: XPositions,
-}
-
-impl<W> Debug for WidgetDef<W>
-where
-    W: Clone + Debug,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "WidgetDef {:?}: {:?} {:?} {:?}",
-            self.id,
-            self.label_str
-                .as_ref()
-                .map(|v| v.as_ref())
-                .unwrap_or_default(),
-            self.label,
-            self.widget
-        )?;
-
-        Ok(())
-    }
-}
-
-impl Debug for Page {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "Page: [{}x{}] +{}+{} _={}]",
-            self.def.width, self.def.height, self.def.top, self.def.bottom, self.def.line_spacing
-        )?;
-        writeln!(
-            f,
-            "    page   {} {}..{}",
-            self.page_no, self.page_start, self.page_end
-        )?;
-        writeln!(
-            f,
-            "    y      {} padding {}|{}|{}",
-            self.y, self.top_padding, self.bottom_padding, self.bottom_padding_break
-        )?;
-        writeln!(
-            f,
-            "    label  {}+{}",
-            self.x_pos.label_left, self.x_pos.label_width
-        )?;
-        writeln!(
-            f,
-            "    widget {}+{}",
-            self.x_pos.widget_left, self.x_pos.widget_width
-        )?;
-        writeln!(
-            f,
-            "    block  {}..{}",
-            self.x_pos.container_left, self.x_pos.container_right
-        )?;
-        write!(
-            f, //
-            "    total  {}",
-            self.x_pos.total_width
-        )?;
-        Ok(())
-    }
 }
 
 impl BlockDef {
@@ -766,8 +705,9 @@ impl XPositions {
             .full_width
             .saturating_sub(border.left)
             .saturating_sub(border.right);
+        let n_col_spacers = page.def.columns.saturating_sub(1);
         let column_width =
-            (layout_width / page.def.columns).saturating_sub(page.def.column_spacing);
+            layout_width.saturating_sub(page.def.column_spacing * n_col_spacers) / page.def.columns;
         let right_margin = page.def.full_width.saturating_sub(border.right);
 
         let offset;
@@ -880,14 +820,14 @@ impl XPositions {
         }
 
         XPositions {
-            container_left: offset + container_left,
             label_left: offset + label_left,
             label_width: page.def.max_label,
             widget_left: offset + widget_left,
             widget_width: page.def.max_widget,
+            widget_right: offset + widget_right,
+            container_left: offset + container_left,
             container_right: offset + container_right,
             total_width: widget_right - label_left,
-            widget_right: offset + widget_right,
         }
     }
 }
@@ -901,7 +841,9 @@ impl Page {
             .width
             .saturating_sub(layout.page_border.left)
             .saturating_sub(layout.page_border.right);
-        let column_width = (layout_width / layout.columns).saturating_sub(layout.column_spacing);
+        let n_col_spacers = layout.columns.saturating_sub(1);
+        let column_width =
+            layout_width.saturating_sub(layout.column_spacing * n_col_spacers) / layout.columns;
 
         let mut max_label = layout.min_label;
         let mut max_widget = layout.min_widget;
@@ -980,7 +922,7 @@ impl Page {
             spacing,
             line_spacing: layout.line_spacing,
         };
-        let mut s = Self {
+        let mut s = Page {
             def: Rc::new(def),
             page_no: 0,
             page_start: 0,
