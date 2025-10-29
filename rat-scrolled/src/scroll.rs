@@ -652,7 +652,7 @@ impl ScrollState {
         // start of range first
         if range.start >= self.offset + self.page_len {
             if range.end - range.start < self.page_len {
-                self.offset = range.end - self.page_len + 1;
+                self.offset = range.end - self.page_len;
             } else {
                 self.offset = range.start;
             }
@@ -660,7 +660,7 @@ impl ScrollState {
             self.offset = range.start;
         } else if range.end >= self.offset + self.page_len {
             if range.end - range.start < self.page_len {
-                self.offset = range.end - self.page_len + 1;
+                self.offset = range.end - self.page_len;
             } else {
                 self.offset = range.start;
             }
