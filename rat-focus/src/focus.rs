@@ -728,6 +728,14 @@ mod core {
             }
         }
 
+        /// The same as build_for but with logs enabled.
+        pub fn log_build_for(container: &dyn HasFocus) -> Focus {
+            let mut b = FocusBuilder::new(None);
+            b.enable_log();
+            b.widget(container);
+            b.build()
+        }
+
         /// Shortcut for building the focus for a container
         /// that implements [HasFocus].
         ///
@@ -742,6 +750,14 @@ mod core {
         /// the focus, this function is probably fine.
         pub fn build_for(container: &dyn HasFocus) -> Focus {
             let mut b = FocusBuilder::new(None);
+            b.widget(container);
+            b.build()
+        }
+
+        /// The same as rebuild_for but with logs enabled.
+        pub fn log_rebuild_for(container: &dyn HasFocus, old: Option<Focus>) -> Focus {
+            let mut b = FocusBuilder::new(old);
+            b.enable_log();
             b.widget(container);
             b.build()
         }
