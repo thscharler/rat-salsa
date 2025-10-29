@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, Borders, Padding};
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::VecDeque;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::mem;
 use std::ops::Range;
