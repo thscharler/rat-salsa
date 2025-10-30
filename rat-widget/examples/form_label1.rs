@@ -123,7 +123,7 @@ fn render(
         use rat_widget::layout::{FormLabel as L, FormWidget as W};
 
         let mut lf = LayoutForm::new() //
-            .border(Padding::new(2, 2, 1, 1))
+            .padding(Padding::new(2, 2, 1, 1))
             .line_spacing(state.line_spacing)
             .columns(state.columns)
             .flex(state.flex);

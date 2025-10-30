@@ -20,7 +20,7 @@ fn test_break() {
 
 #[test]
 fn test_break2() {
-    let mut layout = LayoutForm::<i32>::new().border(Padding::new(0, 0, 1, 1));
+    let mut layout = LayoutForm::<i32>::new().padding(Padding::new(0, 0, 1, 1));
 
     layout.widget(1, FormLabel::Width(5), FormWidget::Width(15));
     layout.widget(2, FormLabel::Width(5), FormWidget::Width(15));
@@ -38,7 +38,7 @@ fn test_break2() {
 
 #[test]
 fn test_break3() {
-    let mut layout = LayoutForm::<i32>::new().border(Padding::new(0, 0, 1, 1));
+    let mut layout = LayoutForm::<i32>::new().padding(Padding::new(0, 0, 1, 1));
 
     layout.widget(1, FormLabel::Width(5), FormWidget::Width(15));
     layout.widget(2, FormLabel::Size(5, 3), FormWidget::Width(15));
@@ -61,7 +61,7 @@ fn test_break3() {
 
 #[test]
 fn test_break4() {
-    let mut layout = LayoutForm::<i32>::new().border(Padding::new(0, 0, 1, 1));
+    let mut layout = LayoutForm::<i32>::new().padding(Padding::new(0, 0, 1, 1));
 
     let tag = layout.start(Some(Block::bordered()));
     layout.widget(1, FormLabel::Width(5), FormWidget::Width(15));
@@ -80,7 +80,7 @@ fn test_break4() {
 
 #[test]
 fn test_break5() {
-    let mut layout = LayoutForm::<i32>::new().border(Padding::new(0, 0, 1, 1));
+    let mut layout = LayoutForm::<i32>::new().padding(Padding::new(0, 0, 1, 1));
 
     let tag1 = layout.start(Some(Block::bordered()));
     let tag2 = layout.start(Some(Block::bordered()));
@@ -103,7 +103,7 @@ fn test_break5() {
 fn test_overflow() {
     let mut layout = LayoutForm::<i32>::new()
         .line_spacing(1)
-        .border(Padding::new(0, 0, 1, 1));
+        .padding(Padding::new(0, 0, 1, 1));
 
     let tag = layout.start(Some(Block::bordered()));
     layout.widget(0, FormLabel::None, FormWidget::Size(1, u16::MAX));
@@ -120,7 +120,7 @@ fn test_overflow() {
 fn test_overflow2() {
     let mut layout = LayoutForm::<i32>::new()
         .line_spacing(1)
-        .border(Padding::new(0, 0, 1, 1));
+        .padding(Padding::new(0, 0, 1, 1));
 
     let tag = layout.start(Some(Block::bordered()));
     layout.widget(0, FormLabel::None, FormWidget::Size(1, u16::MAX));

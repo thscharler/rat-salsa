@@ -86,7 +86,7 @@ fn render(
     if !state.form.valid_layout(layout_size) {
         let mut form = LayoutForm::new()
             .mirror_odd_border()
-            .border(Padding::new(4, 2, 0, 0))
+            .padding(Padding::new(4, 2, 0, 0))
             .line_spacing(state.line_spacing)
             .columns(state.columns)
             .flex(state.flex);
