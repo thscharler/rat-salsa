@@ -89,7 +89,6 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
             for month in &mut self.months {
                 let r = month.handle(event, Regular);
                 if r.is_consumed() {
-                    //todo: change to on selected
                     self.focus_lead();
                     break 'f r;
                 }
