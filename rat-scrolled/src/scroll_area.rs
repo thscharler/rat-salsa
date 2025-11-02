@@ -12,7 +12,9 @@ use std::cmp::max;
 #[derive(Debug, Default, Clone)]
 pub struct ScrollArea<'a> {
     style: Style,
+    ignore_block: bool,
     block: Option<&'a Block<'a>>,
+    ignore_scroll: bool,
     h_scroll: Option<&'a Scroll<'a>>,
     v_scroll: Option<&'a Scroll<'a>>,
 }
@@ -49,6 +51,13 @@ impl<'a> ScrollArea<'a> {
         self
     }
 
+    /// Ignores the block when rendering and renders only the scrollbars.
+    /// The block is still considered when calculating everything.
+    pub fn ignore_block(mut self) -> Self {
+        self.ignore_block = true;
+        self
+    }
+
     /// Sets the horizontal scroll.
     pub fn h_scroll(mut self, scroll: Option<&'a Scroll<'a>>) -> Self {
         self.h_scroll = scroll;
@@ -58,6 +67,13 @@ impl<'a> ScrollArea<'a> {
     /// Sets the vertical scroll.
     pub fn v_scroll(mut self, scroll: Option<&'a Scroll<'a>>) -> Self {
         self.v_scroll = scroll;
+        self
+    }
+
+    /// Ignores the scrollbars when rendering and renders only the block.
+    /// The scrollbars are still considered when calculating everything.
+    pub fn ignore_scroll(mut self) -> Self {
+        self.ignore_scroll = true;
         self
     }
 
@@ -143,23 +159,27 @@ fn render_scroll_area(
         state.v_scroll.as_deref(),
     );
 
-    if let Some(block) = widget.block {
-        block.render(area, buf);
-    } else {
-        buf.set_style(area, widget.style);
-    }
-    if let Some(h) = widget.h_scroll {
-        if let Some(hstate) = &mut state.h_scroll {
-            h.render(hscroll_area, buf, hstate);
+    if !widget.ignore_block {
+        if let Some(block) = widget.block {
+            block.render(area, buf);
         } else {
-            panic!("no horizontal scroll state");
+            buf.set_style(area, widget.style);
         }
     }
-    if let Some(v) = widget.v_scroll {
-        if let Some(vstate) = &mut state.v_scroll {
-            v.render(vscroll_area, buf, vstate)
-        } else {
-            panic!("no vertical scroll state");
+    if !widget.ignore_scroll {
+        if let Some(h) = widget.h_scroll {
+            if let Some(hstate) = &mut state.h_scroll {
+                h.render(hscroll_area, buf, hstate);
+            } else {
+                panic!("no horizontal scroll state");
+            }
+        }
+        if let Some(v) = widget.v_scroll {
+            if let Some(vstate) = &mut state.v_scroll {
+                v.render(vscroll_area, buf, vstate)
+            } else {
+                panic!("no vertical scroll state");
+            }
         }
     }
 }
