@@ -256,6 +256,7 @@ where
     /// maximum width
     min_label: u16,
     min_widget: u16,
+    min_widget_wide: u16,
 
     /// maximum padding due to containers.
     max_left_padding: u16,
@@ -438,6 +439,7 @@ where
             page_breaks: Default::default(),
             min_label: Default::default(),
             min_widget: Default::default(),
+            min_widget_wide: Default::default(),
             blocks: Default::default(),
             max_left_padding: Default::default(),
             max_right_padding: Default::default(),
@@ -630,18 +632,19 @@ where
         };
         self.min_label = max(self.min_label, w);
 
-        let w = match &widget {
-            FormWidget::None => 0,
-            FormWidget::Width(w) => *w,
-            FormWidget::Size(w, _) => *w,
-            FormWidget::StretchY(w, _) => *w,
-            FormWidget::Wide(w, _) => *w,
-            FormWidget::StretchX(w, _) => *w,
-            FormWidget::WideStretchX(w, _) => *w,
-            FormWidget::StretchXY(w, _) => *w,
-            FormWidget::WideStretchXY(w, _) => *w,
+        let (w, ww) = match &widget {
+            FormWidget::None => (0, 0),
+            FormWidget::Width(w) => (*w, 0),
+            FormWidget::Size(w, _) => (*w, 0),
+            FormWidget::StretchY(w, _) => (*w, 0),
+            FormWidget::Wide(w, _) => (0, *w),
+            FormWidget::StretchX(w, _) => (*w, 0),
+            FormWidget::WideStretchX(w, _) => (0, *w),
+            FormWidget::StretchXY(w, _) => (*w, 0),
+            FormWidget::WideStretchXY(w, _) => (0, *w),
         };
         self.min_widget = max(self.min_widget, w);
+        self.min_widget_wide = max(self.min_widget_wide, ww);
 
         self.widgets.push(WidgetDef {
             id: key,
@@ -848,7 +851,13 @@ impl Page {
             layout_width.saturating_sub(layout.column_spacing * n_col_spacers) / layout.columns;
 
         let mut max_label = layout.min_label;
-        let mut max_widget = layout.min_widget;
+        let mut max_widget = max(
+            layout.min_widget,
+            layout
+                .min_widget_wide
+                .saturating_sub(layout.min_label)
+                .saturating_sub(layout.spacing),
+        );
         let mut spacing = layout.spacing;
 
         let nominal =
@@ -1342,10 +1351,10 @@ fn areas_and_advance<W: Debug + Clone>(
             FormWidget::Width(_) => unreachable!(),
             FormWidget::Size(_, _) => unreachable!(),
             FormWidget::StretchY(_, _) => unreachable!(),
-            FormWidget::Wide(_, _) => Rect::new(
+            FormWidget::Wide(w, _) => Rect::new(
                 page.x_pos.label_left,
                 page.y + label_height,
-                page.x_pos.total_width,
+                min(*w, page.x_pos.total_width),
                 widget_height,
             ),
             FormWidget::StretchX(_, _) => unreachable!(),
