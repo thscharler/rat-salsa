@@ -20,13 +20,15 @@ pub enum FormLabel {
     #[default]
     None,
     /// Label by example.
-    /// Line breaks in the text don't work. TODO.
+    ///
+    /// Line breaks in the text will not work with `Form` or `Clipper`.
     ///
     /// Will create a label area with the max width of all labels and a height of 1.
     /// The area will be top aligned with the widget.
     Str(&'static str),
     /// Label by example.
-    /// Line breaks in the text don't work. TODO.
+    ///
+    /// Line breaks in the text will not work with `Form` or `Clipper`.
     ///
     /// Will create a label area with the max width of all labels and a height of 1.
     /// The area will be top aligned with the widget.
@@ -149,7 +151,7 @@ pub enum FormWidget {
 ///
 /// Can
 /// - create n columns of widgets.
-///     - todo: optimally fill all columns
+///     - to-do: optimally fill all columns
 ///     - add manual breaks for now.
 /// - __not__ usefully stretch the widgets vertically.
 ///
