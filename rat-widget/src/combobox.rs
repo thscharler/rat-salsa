@@ -135,7 +135,7 @@ impl Default for ComboboxStyle {
 impl Default for Combobox<'_> {
     fn default() -> Self {
         Self {
-            choice: Default::default(),
+            choice: Choice::default().skip_item_render(true),
             text: Default::default(),
         }
     }

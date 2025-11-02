@@ -107,6 +107,7 @@ where
     select_style: Option<Style>,
     focus_style: Option<Style>,
     block: Option<Block<'a>>,
+    skip_item_render: bool,
 
     popup_alignment: Alignment,
     popup_placement: Placement,
@@ -135,6 +136,7 @@ where
     button_style: Option<Style>,
     focus_style: Option<Style>,
     block: Option<Block<'a>>,
+    skip_item_render: bool,
     len: Option<u16>,
 
     behave_focus: ChoiceFocus,
@@ -463,6 +465,7 @@ where
             behave_focus: Default::default(),
             behave_select: Default::default(),
             behave_close: Default::default(),
+            skip_item_render: Default::default(),
         }
     }
 }
@@ -623,6 +626,13 @@ where
         self
     }
 
+    /// Skips rendering the selected item.
+    /// This is a flag for Combobox, that wants to do its own rendering instead.
+    pub fn skip_item_render(mut self, skip: bool) -> Self {
+        self.skip_item_render = skip;
+        self
+    }
+
     /// Alignment of the popup.
     ///
     /// __Default__
@@ -748,6 +758,7 @@ where
                 button_style: self.button_style,
                 focus_style: self.focus_style,
                 block: self.block,
+                skip_item_render: self.skip_item_render,
                 len: self.popup_len,
                 behave_focus: self.behave_focus,
                 behave_select: self.behave_select,
@@ -891,9 +902,11 @@ fn render_choice<T: PartialEq + Clone + Default>(
         }
     }
 
-    if let Some(selected) = state.core.selected() {
-        if let Some(item) = widget.items.borrow().get(selected) {
-            item.render(state.item_area, buf);
+    if !widget.skip_item_render {
+        if let Some(selected) = state.core.selected() {
+            if let Some(item) = widget.items.borrow().get(selected) {
+                item.render(state.item_area, buf);
+            }
         }
     }
 
