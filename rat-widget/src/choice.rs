@@ -1049,6 +1049,14 @@ where
     T: PartialEq + Clone + Default,
 {
     fn clone(&self) -> Self {
+        let popup = self.popup.clone();
+        let behave_focus = Rc::new(Cell::new(self.behave_focus.get()));
+        let focus = focus_cb(
+            popup.active.clone(),
+            behave_focus.clone(),
+            Default::default(),
+        );
+
         Self {
             area: self.area,
             nav_char: self.nav_char.clone(),
@@ -1056,12 +1064,12 @@ where
             button_area: self.button_area,
             item_areas: self.item_areas.clone(),
             core: self.core.clone(),
-            popup: self.popup.clone(),
+            popup,
             popup_scroll: self.popup_scroll.clone(),
-            behave_focus: Rc::new(Cell::new(self.behave_focus.get())),
+            behave_focus,
             behave_select: self.behave_select,
             behave_close: self.behave_close,
-            focus: self.focus_cb(FocusFlag::named(self.focus.name())),
+            focus,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
