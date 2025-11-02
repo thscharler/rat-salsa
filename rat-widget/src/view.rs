@@ -307,7 +307,7 @@ impl<'a> ViewBuffer<'a> {
             // render the actual widget.
             widget.render(area, self.buffer(), state);
             // shift and clip the output areas.
-            self.relocate(state);
+            state.relocate(self.shift(), self.widget_area);
         } else {
             state.relocate_hidden();
         }
@@ -318,12 +318,16 @@ impl<'a> ViewBuffer<'a> {
         self.layout
     }
 
-    /// Is the given area visible?
+    /// Is this area inside the buffer area.
     pub fn is_visible_area(&self, area: Rect) -> bool {
         area.intersects(self.buffer.area)
     }
 
     /// Calculate the necessary shift from view to screen.
+    #[deprecated(
+        since = "2.0.0",
+        note = "should not be public. use relocate2() instead."
+    )]
     pub fn shift(&self) -> (i16, i16) {
         (
             self.widget_area.x as i16 - self.offset.x as i16,
@@ -333,8 +337,25 @@ impl<'a> ViewBuffer<'a> {
 
     /// Does nothing for view.
     /// Only exists to match [Clipper](crate::clipper::Clipper).
+    #[deprecated(
+        since = "2.0.0",
+        note = "wrong api, use is_visible_area() or locate_area2()"
+    )]
     pub fn locate_area(&self, area: Rect) -> Rect {
         area
+    }
+
+    /// Validates that this area is inside the buffer area.
+    #[deprecated(
+        since = "2.0.0",
+        note = "wrong api, use is_visible_area() or locate_area2()"
+    )]
+    pub fn locate_area2(&self, area: Rect) -> Option<Rect> {
+        if area.intersects(self.buffer.area) {
+            Some(area)
+        } else {
+            None
+        }
     }
 
     /// After rendering the widget to the buffer it may have
@@ -342,6 +363,8 @@ impl<'a> ViewBuffer<'a> {
     /// coordinates instead of screen coordinates.
     ///
     /// Call this function to correct this after rendering.
+    #[deprecated(since = "2.0.0", note = "wrong api, use relocate2() instead")]
+    #[allow(deprecated)]
     pub fn relocate<S>(&self, state: &mut S)
     where
         S: RelocatableState,
@@ -349,11 +372,33 @@ impl<'a> ViewBuffer<'a> {
         state.relocate(self.shift(), self.widget_area);
     }
 
+    /// After rendering the widget to the buffer it may have
+    /// stored areas in its state. These will be in buffer
+    /// coordinates instead of screen coordinates.
+    ///
+    /// Call this function to correct this after rendering.
+    ///
+    ///
+    ///
+    #[deprecated(since = "2.0.0", note = "wrong api, use relocate2() instead")]
+    #[allow(deprecated)]
+    pub fn relocate2<S>(&self, area: Rect, state: &mut S)
+    where
+        S: RelocatableState,
+    {
+        if self.is_visible_area(area) {
+            state.relocate(self.shift(), self.widget_area);
+        } else {
+            state.relocate_hidden();
+        }
+    }
+
     /// If a widget is not rendered because it is out of
     /// the buffer area, it may still have left over areas
     /// in its state.
     ///
     /// This uses [relocate_hidden](RelocatableState::relocate_hidden) to zero them out.
+    #[deprecated(since = "2.0.0", note = "bad api, use relocate2() instead")]
     pub fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,

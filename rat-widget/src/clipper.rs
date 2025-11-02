@@ -608,7 +608,7 @@ where
             return false;
         };
         render_fn().render(widget_area, &mut self.buffer, state);
-        self.relocate(state);
+        state.relocate(self.shift(), self.widget_area);
         true
     }
 
@@ -639,8 +639,11 @@ where
     /// But this will return None if the given area is outside the buffer.
     #[inline]
     pub fn locate_area(&self, area: Rect) -> Option<Rect> {
-        let area = self.buffer.area.intersection(area);
-        if area.is_empty() { None } else { Some(area) }
+        if self.buffer.area.intersects(area) {
+            Some(area)
+        } else {
+            None
+        }
     }
 
     /// Calculate the necessary shift from layout to screen.
@@ -656,11 +659,29 @@ where
     /// coordinates instead of screen coordinates.
     ///
     /// Call this function to correct this after rendering.
-    fn relocate<S>(&self, state: &mut S)
+    ///
+    /// Note:
+    ///
+    /// This is only necessary if you do some manual rendering
+    /// of stateful widgets. If you use [render] this will
+    /// happen automatically
+    ///
+    /// Parameter:
+    ///
+    /// widget: The visibility of this widget will determine
+    /// if the areas in state are shifted or hidden altogether.
+    pub fn relocate<S>(&self, widget: W, state: &mut S)
     where
         S: RelocatableState,
     {
-        state.relocate(self.shift(), self.widget_area);
+        let Some(idx) = self.layout.borrow().try_index_of(widget) else {
+            return;
+        };
+        if self.locate_area(self.layout.borrow().widget(idx)).is_some() {
+            state.relocate(self.shift(), self.widget_area);
+        } else {
+            state.relocate_hidden();
+        };
     }
 
     /// Return a reference to the buffer.

@@ -721,10 +721,10 @@ where
 
     /// This will clip the area to the page_area.
     #[inline]
-    fn locate_area(&self, area: Rect) -> Option<Rect> {
+    pub fn locate_area(&self, area: Rect) -> Option<Rect> {
         // clip to page
         let area = self.page_area.intersection(area);
-        if !area.is_empty() {
+        if self.page_area.intersects(area) {
             let located = Rect::new(
                 area.x - self.page_area.x + self.widget_area.x,
                 area.y - self.page_area.y + self.widget_area.y,
@@ -733,7 +733,7 @@ where
             );
             // clip to render area
             let located = self.widget_area.intersection(located);
-            if !located.is_empty() {
+            if self.widget_area.intersects(located) {
                 Some(located)
             } else {
                 None
