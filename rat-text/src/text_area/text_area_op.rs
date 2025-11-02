@@ -288,17 +288,21 @@ pub fn delete_next_word(state: &mut TextAreaState) -> bool {
         let cursor = state.cursor();
 
         let start = next_word_start(&state.value, cursor).expect("valid_cursor");
-        if start != cursor {
+        if start > cursor {
             state
                 .value
                 .remove_str_range(TextRange::from(cursor..start))
                 .expect("valid_range")
         } else {
             let end = next_word_end(&state.value, cursor).expect("valid_cursor");
-            state
-                .value
-                .remove_str_range(TextRange::from(cursor..end))
-                .expect("valid_range")
+            if end > cursor {
+                state
+                    .value
+                    .remove_str_range(TextRange::from(cursor..end))
+                    .expect("valid_range")
+            } else {
+                false
+            }
         }
     }
 }
