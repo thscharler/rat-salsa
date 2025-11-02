@@ -49,7 +49,6 @@ pub struct Table<'a, Selection = RowSelection> {
     flex: Flex,
     column_spacing: u16,
     layout_width: Option<u16>,
-    auto_layout_width: bool,
 
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
@@ -72,8 +71,6 @@ pub struct Table<'a, Selection = RowSelection> {
     show_footer_focus: bool,
 
     focus_style: Option<Style>,
-
-    debug: bool,
 
     _phantom: PhantomData<Selection>,
 }
@@ -334,7 +331,6 @@ impl<Selection> Default for Table<'_, Selection> {
             flex: Default::default(),
             column_spacing: Default::default(),
             layout_width: Default::default(),
-            auto_layout_width: Default::default(),
             block: Default::default(),
             hscroll: Default::default(),
             vscroll: Default::default(),
@@ -353,7 +349,6 @@ impl<Selection> Default for Table<'_, Selection> {
             select_footer_style: Default::default(),
             show_footer_focus: Default::default(),
             focus_style: Default::default(),
-            debug: Default::default(),
             _phantom: Default::default(),
         }
     }
@@ -662,10 +657,6 @@ impl<'a, Selection> Table<'a, Selection> {
 
     /// Set the display width of the table.
     /// If this is not set, the width of the rendered area is used.
-    /// The column layout uses this width.
-    ///
-    /// See also [auto_layout_width](Table::auto_layout_width).
-    // todo: deprecate
     #[inline]
     pub fn layout_width(mut self, width: u16) -> Self {
         self.layout_width = Some(width);
@@ -678,10 +669,9 @@ impl<'a, Selection> Table<'a, Selection> {
     /// Panic:
     /// Rendering will panic, if any constraint other than Constraint::Length(),
     /// Constraint::Min() or Constraint::Max() is used.
-    // todo: deprecate
+    #[deprecated(since = "1.1.1", note = "no longer supported")]
     #[inline]
     pub fn auto_layout_width(mut self) -> Self {
-        self.auto_layout_width = true;
         self
     }
 
@@ -801,7 +791,6 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the focus-style to the row-style if the table is focused.
-    // todo: deprecate
     #[inline]
     pub fn show_row_focus(mut self, show: bool) -> Self {
         self.show_row_focus = show;
@@ -817,7 +806,6 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the focus-style to the column-style if the table is focused.
-    // todo: deprecate
     #[inline]
     pub fn show_column_focus(mut self, show: bool) -> Self {
         self.show_column_focus = show;
@@ -833,7 +821,6 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the focus-style to the cell-style if the table is focused.
-    // todo: deprecate
     #[inline]
     pub fn show_cell_focus(mut self, show: bool) -> Self {
         self.show_cell_focus = show;
@@ -849,7 +836,6 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the focus-style to the header-style if the table is focused.
-    // todo: deprecate
     #[inline]
     pub fn show_header_focus(mut self, show: bool) -> Self {
         self.show_header_focus = show;
@@ -865,7 +851,6 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     /// Add the footer-style to the table-style if the table is focused.
-    // todo: deprecate
     #[inline]
     pub fn show_footer_focus(mut self, show: bool) -> Self {
         self.show_footer_focus = show;
@@ -883,10 +868,8 @@ impl<'a, Selection> Table<'a, Selection> {
         self
     }
 
-    /// Just some utility to help with debugging. Usually does nothing.
-    // todo: deprecate
-    pub fn debug(mut self, debug: bool) -> Self {
-        self.debug = debug;
+    #[deprecated(since = "1.1.1", note = "not in use")]
+    pub fn debug(mut self, _: bool) -> Self {
         self
     }
 }
@@ -897,17 +880,6 @@ impl<Selection> Table<'_, Selection> {
     fn total_width(&self, area_width: u16) -> u16 {
         if let Some(layout_width) = self.layout_width {
             layout_width
-        } else if self.auto_layout_width {
-            let mut width = 0;
-            for w in &self.widths {
-                match w {
-                    Constraint::Min(v) => width += *v + self.column_spacing,
-                    Constraint::Max(v) => width += *v + self.column_spacing,
-                    Constraint::Length(v) => width += *v + self.column_spacing,
-                    _ => unimplemented!("Invalid layout constraint."),
-                }
-            }
-            width
         } else {
             area_width
         }
@@ -989,7 +961,8 @@ where
             .style(self.style)
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
-            .v_scroll(self.vscroll.as_ref());
+            .v_scroll(self.vscroll.as_ref())
+            .ignore_scroll();
         state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
         let l_rows = self.layout_areas(state.inner);
@@ -1001,7 +974,7 @@ where
         let (width, l_columns, l_spacers) = self.layout_columns(state.table_area.width);
         self.calculate_column_areas(state.columns, l_columns.as_ref(), l_spacers.as_ref(), state);
 
-        // render block+scroll
+        // render block only
         sa.render(
             area,
             buf,
@@ -1333,6 +1306,21 @@ where
                 .hscroll
                 .set_max_offset(width.saturating_sub(state.table_area.width) as usize);
         }
+
+        // render only the scrollbars.
+        ScrollArea::new()
+            .style(self.style)
+            .block(self.block.as_ref())
+            .ignore_block()
+            .h_scroll(self.hscroll.as_ref())
+            .v_scroll(self.vscroll.as_ref())
+            .render(
+                area,
+                buf,
+                &mut ScrollAreaState::new()
+                    .h_scroll(&mut state.hscroll)
+                    .v_scroll(&mut state.vscroll),
+            );
 
         #[cfg(debug_assertions)]
         {
