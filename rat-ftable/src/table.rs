@@ -671,7 +671,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// Constraint::Min() or Constraint::Max() is used.
     #[deprecated(since = "1.1.1", note = "no longer supported")]
     #[inline]
-    pub fn auto_layout_width(mut self) -> Self {
+    pub fn auto_layout_width(self) -> Self {
         self
     }
 
@@ -869,7 +869,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 
     #[deprecated(since = "1.1.1", note = "not in use")]
-    pub fn debug(mut self, _: bool) -> Self {
+    pub fn debug(self, _: bool) -> Self {
         self
     }
 }
