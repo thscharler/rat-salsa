@@ -614,7 +614,7 @@ where
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
-            self.hidden(state);
+            state.relocate_hidden();
             return false;
         };
         let widget = render_fn();
@@ -622,7 +622,7 @@ where
             widget.render(widget_area, self.buffer, state);
             true
         } else {
-            self.hidden(state);
+            state.relocate_hidden();
             false
         }
     }
@@ -642,7 +642,7 @@ where
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
-            self.hidden(state);
+            state.relocate_hidden();
             return false;
         };
         let widget = render_fn();
@@ -668,7 +668,7 @@ where
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
-            self.hidden(state);
+            state.relocate_hidden();
             return None;
         };
         let (widget, remainder) = render_fn();
@@ -741,15 +741,6 @@ where
         } else {
             None
         }
-    }
-
-    /// Clear the areas in the widget-state.
-    /// This is called by render_xx whenever a widget is invisible.
-    fn hidden<S>(&self, state: &mut S)
-    where
-        S: RelocatableState,
-    {
-        state.relocate((0, 0), Rect::default())
     }
 }
 

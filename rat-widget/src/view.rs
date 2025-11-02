@@ -309,7 +309,7 @@ impl<'a> ViewBuffer<'a> {
             // shift and clip the output areas.
             self.relocate(state);
         } else {
-            self.hidden(state);
+            state.relocate_hidden();
         }
     }
 
@@ -353,12 +353,12 @@ impl<'a> ViewBuffer<'a> {
     /// the buffer area, it may still have left over areas
     /// in its state.
     ///
-    /// This uses the mechanism for [relocate](Self::relocate) to zero them out.
+    /// This uses [relocate_hidden](RelocatableState::relocate_hidden) to zero them out.
     pub fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,
     {
-        state.relocate((0, 0), Rect::default())
+        state.relocate_hidden();
     }
 
     /// Access the temporary buffer.

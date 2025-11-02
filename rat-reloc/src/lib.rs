@@ -18,6 +18,11 @@ pub trait RelocatableState {
     /// - shift: positions are moved by (x,y)
     /// - clip: areas must be clipped to the given Rect.
     fn relocate(&mut self, shift: (i16, i16), clip: Rect);
+
+    /// Relocate all areas to a clip-rect (0,0+0x0).
+    fn relocate_hidden(&mut self) {
+        self.relocate((0, 0), Rect::default())
+    }
 }
 
 /// Create the implementation of RelocatableState for the

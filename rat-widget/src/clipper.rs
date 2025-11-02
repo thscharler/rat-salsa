@@ -601,7 +601,7 @@ where
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
-            self.hidden(state);
+            state.relocate_hidden();
             return false;
         };
         render_fn().render(widget_area, &mut self.buffer, state);
@@ -658,18 +658,6 @@ where
         S: RelocatableState,
     {
         state.relocate(self.shift(), self.widget_area);
-    }
-
-    /// If a widget is not rendered because it is out of
-    /// the buffer area, it may still have left over areas
-    /// in its state.
-    ///
-    /// This uses the mechanism for [relocate](Self::relocate) to zero them out.
-    fn hidden<S>(&self, state: &mut S)
-    where
-        S: RelocatableState,
-    {
-        state.relocate((0, 0), Rect::default())
     }
 
     /// Return a reference to the buffer.
