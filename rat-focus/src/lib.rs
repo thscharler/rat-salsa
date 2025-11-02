@@ -356,17 +356,30 @@ impl FocusFlag {
         self.0.lost.get()
     }
 
-    /// Set the lost-flag and call any on_lost() function.
+    /// Set the lost-flag.
     ///
-    /// on_lost() is only called if the change is from false to true.
+    /// This doesn't call the on_lost callback.
     #[inline]
     pub fn set_lost(&self, lost: bool) {
         self.0.lost.set(lost);
     }
 
+    /// Set an on_lost callback. The intention is that widget-creators
+    /// can use this to get guaranteed notifications on focus-changes.
+    ///
+    /// This is not an api for widget *users.
     #[inline]
     pub fn on_lost(&self, on_lost: impl Fn() + 'static) {
         *(self.0.on_lost.borrow_mut()) = Some(Box::new(on_lost));
+    }
+
+    /// Notify an on_lost() tragedy.
+    #[inline]
+    pub fn call_on_lost(&self) {
+        let borrow = self.0.on_lost.borrow();
+        if let Some(f) = borrow.as_ref() {
+            f();
+        }
     }
 
     /// Just gained the focus.
@@ -375,17 +388,30 @@ impl FocusFlag {
         self.0.gained.get()
     }
 
-    /// Set the gained-flag and call any on_gained() function.
+    /// Set the gained-flag.
     ///
-    /// on_gained() is only called if the change is from false to true.
+    /// This doesn't call the on_gained callback.
     #[inline]
     pub fn set_gained(&self, gained: bool) {
         self.0.gained.set(gained);
     }
 
+    /// Set an on_gained callback. The intention is that widget-creators
+    /// can use this to get guaranteed notifications on focus-changes.
+    ///
+    /// This is not an api for widget *users.
     #[inline]
     pub fn on_gained(&self, on_gained: impl Fn() + 'static) {
         *(self.0.on_gained.borrow_mut()) = Some(Box::new(on_gained));
+    }
+
+    /// Notify an on_gained() comedy.
+    #[inline]
+    pub fn call_on_gained(&self) {
+        let borrow = self.0.on_gained.borrow();
+        if let Some(f) = borrow.as_ref() {
+            f();
+        }
     }
 
     /// Reset all flags to false.
