@@ -788,7 +788,7 @@ fn handle_mouse(state: &mut ComboboxState, event: &crossterm::event::Event) -> C
             match state.choice.popup.handle(event, Popup) {
                 PopupOutcome::Hide => {
                     state.set_popup_active(false);
-                    ComboboxOutcome::Changed // todo: not a close??
+                    ComboboxOutcome::Changed
                 }
                 r => r.into(),
             }

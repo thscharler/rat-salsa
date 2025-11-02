@@ -146,7 +146,6 @@ pub struct TabbedState {
     /// Area for drawing the Block inside the tabs.
     /// __readonly__. renewed for each render.
     pub block_area: Rect,
-    //todo: provide block_area_ext which includes the borders.
     /// Area used to render the content of the tab.
     /// Use this area to render the current tab content.
     /// __readonly__. renewed for each render.
