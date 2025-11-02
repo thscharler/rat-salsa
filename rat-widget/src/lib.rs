@@ -20,6 +20,7 @@ pub mod event {
     pub use crate::calendar::event::CalOutcome;
     pub use crate::checkbox::event::CheckOutcome;
     pub use crate::choice::event::ChoiceOutcome;
+    pub use crate::combobox::event::ComboboxOutcome;
     pub use crate::file_dialog::event::FileOutcome;
     pub use crate::form::event::FormOutcome;
     pub use crate::radio::event::RadioOutcome;
@@ -82,6 +83,7 @@ pub mod calendar;
 pub mod checkbox;
 pub mod choice;
 pub mod clipper;
+pub mod combobox;
 pub mod date_input;
 pub mod file_dialog;
 pub mod form;
