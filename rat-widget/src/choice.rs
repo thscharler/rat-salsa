@@ -140,8 +140,6 @@ where
     behave_focus: ChoiceFocus,
     behave_select: ChoiceSelect,
     behave_close: ChoiceClose,
-
-    _phantom: PhantomData<T>,
 }
 
 /// Renders the popup. This is called after the rest
@@ -754,7 +752,6 @@ where
                 behave_focus: self.behave_focus,
                 behave_select: self.behave_select,
                 behave_close: self.behave_close,
-                _phantom: Default::default(),
             },
             ChoicePopup {
                 items: self.items.clone(),
@@ -1076,51 +1073,52 @@ where
     T: PartialEq + Clone + Default,
 {
     fn default() -> Self {
-        let mut z = Self {
+        let popup = PopupCoreState::default();
+        let behave_focus = Rc::new(Cell::new(ChoiceFocus::default()));
+        let focus = focus_cb(
+            popup.active.clone(),
+            behave_focus.clone(),
+            Default::default(),
+        );
+
+        Self {
             area: Default::default(),
             nav_char: Default::default(),
             item_area: Default::default(),
             button_area: Default::default(),
             item_areas: Default::default(),
             core: Default::default(),
-            popup: Default::default(),
+            popup,
             popup_scroll: Default::default(),
-            behave_focus: Default::default(),
+            behave_focus,
             behave_select: Default::default(),
             behave_close: Default::default(),
-            focus: Default::default(),
+            focus,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
-        };
-        z.focus = z.focus_cb(FocusFlag::default());
-        z
+        }
     }
 }
 
-impl<T> ChoiceState<T>
-where
-    T: PartialEq + Clone + Default,
-{
-    fn focus_cb(&self, flag: FocusFlag) -> FocusFlag {
-        let active = self.popup.active.clone();
-        flag.on_lost(move || {
-            if active.get() {
-                active.set(false);
+fn focus_cb(
+    active: Rc<Cell<bool>>,
+    behave_focus: Rc<Cell<ChoiceFocus>>,
+    flag: FocusFlag,
+) -> FocusFlag {
+    let active_clone = active.clone();
+    flag.on_lost(move || {
+        if active_clone.get() {
+            active_clone.set(false);
+        }
+    });
+    flag.on_gained(move || {
+        if !active.get() {
+            if behave_focus.get() == ChoiceFocus::OpenOnFocusGained {
+                active.set(true);
             }
-        });
-        let active = self.popup.active.clone();
-        let behave = self.behave_focus.clone();
-
-        flag.on_gained(move || {
-            if !active.get() {
-                if behave.get() == ChoiceFocus::OpenOnFocusGained {
-                    active.set(true);
-                }
-            }
-        });
-
-        flag
-    }
+        }
+    });
+    flag
 }
 
 impl<T> HasFocus for ChoiceState<T>
@@ -1164,7 +1162,11 @@ where
 
     pub fn named(name: &str) -> Self {
         let mut z = Self::default();
-        z.focus = z.focus_cb(FocusFlag::named(name));
+        z.focus = focus_cb(
+            z.popup.active.clone(),
+            z.behave_focus.clone(),
+            FocusFlag::named(name),
+        );
         z
     }
 
@@ -1448,16 +1450,6 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
     for ChoiceState<T>
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> ChoiceOutcome {
-        // if !self.is_focused() && self.popup.is_active() {
-        //     self.popup.set_active(false);
-        //     // focus change triggers the repaint.
-        // }
-        // if self.gained_focus() && !self.popup.is_active() {
-        //     if self.behave_focus == ChoiceFocus::OpenOnFocusGained {
-        //         self.popup.set_active(true);
-        //     }
-        // }
-
         let r = if self.is_focused() {
             match event {
                 ct_event!(key press ' ') | ct_event!(keycode press Enter) => {
