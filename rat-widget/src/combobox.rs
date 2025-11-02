@@ -24,20 +24,24 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::cmp::max;
 
+#[derive(Debug)]
 pub struct Combobox<'a> {
     choice: Choice<'a, String>,
     text: TextInput<'a>,
 }
 
+#[derive(Debug)]
 pub struct ComboboxWidget<'a> {
     choice: ChoiceWidget<'a, String>,
     text: TextInput<'a>,
 }
 
+#[derive(Debug)]
 pub struct ComboboxPopup<'a> {
     choice: ChoicePopup<'a, String>,
 }
 
+#[derive(Debug, Clone)]
 pub struct ComboboxStyle {
     pub choice: ChoiceStyle,
     pub text: TextStyle,
@@ -45,6 +49,7 @@ pub struct ComboboxStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
+#[derive(Debug)]
 pub struct ComboboxState {
     /// Total area.
     /// __read only__. renewed with each render.
