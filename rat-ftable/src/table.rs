@@ -2141,7 +2141,8 @@ impl TableState<RowSetSelection> {
 
     /// Add to selection. Only works for retired selections, not for the
     /// active anchor-lead range.
-    // todo: fix
+    ///
+    /// To be sure call [retire_selection] first.
     #[inline]
     pub fn add_selected(&mut self, idx: usize) {
         self.selection.add(idx);
@@ -2149,7 +2150,8 @@ impl TableState<RowSetSelection> {
 
     /// Remove from selection. Only works for retired selections, not for the
     /// active anchor-lead range.
-    // todo: fix
+    ///
+    /// To be sure call [retire_selection] first.
     #[inline]
     pub fn remove_selected(&mut self, idx: usize) {
         self.selection.remove(idx);
