@@ -1569,7 +1569,7 @@ fn handle_mouse<T: PartialEq + Clone + Default>(
             match state.popup.handle(event, Popup) {
                 PopupOutcome::Hide => {
                     state.set_popup_active(false);
-                    ChoiceOutcome::Changed // todo: not a close??
+                    ChoiceOutcome::Changed
                 }
                 r => r.into(),
             }
