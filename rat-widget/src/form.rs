@@ -567,7 +567,7 @@ where
         let Some(idx) = self.layout.try_index_of(widget) else {
             return false;
         };
-        let Some(label_area) = self.locate_label(idx) else {
+        let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
             return false;
         };
         if let Some(label_str) = self.layout.try_label_str(idx) {
@@ -591,7 +591,8 @@ where
         if self.auto_label {
             self.render_auto_label(idx);
         }
-        let Some(widget_area) = self.locate_widget(idx) else {
+
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
             return false;
         };
         render_fn().render(widget_area, self.buffer);
@@ -612,7 +613,7 @@ where
         if self.auto_label {
             self.render_auto_label(idx);
         }
-        let Some(widget_area) = self.locate_widget(idx) else {
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
             self.hidden(state);
             return false;
         };
@@ -640,7 +641,7 @@ where
         if self.auto_label {
             self.render_auto_label(idx);
         }
-        let Some(widget_area) = self.locate_widget(idx) else {
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
             self.hidden(state);
             return false;
         };
@@ -666,7 +667,7 @@ where
         if self.auto_label {
             self.render_auto_label(idx);
         }
-        let Some(widget_area) = self.locate_widget(idx) else {
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
             self.hidden(state);
             return None;
         };
@@ -684,7 +685,7 @@ where
     /// Render the label with the set style and alignment.
     #[inline(always)]
     fn render_auto_label(&mut self, idx: usize) -> bool {
-        let Some(label_area) = self.locate_label(idx) else {
+        let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
             return false;
         };
         let Some(label_str) = self.layout.try_label_str(idx) else {
@@ -702,19 +703,19 @@ where
         true
     }
 
-    /// Relocate the widget area to screen coordinates.
-    /// Returns None if the widget is not visible.
-    /// This clips the area to page_area.
-    #[inline]
-    fn locate_widget(&self, idx: usize) -> Option<Rect> {
+    /// Get the area for the given widget.
+    pub fn locate_widget(&self, widget: W) -> Option<Rect> {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return None;
+        };
         self.locate_area(self.layout.widget(idx))
     }
 
-    /// Relocate the label area to screen coordinates.
-    /// Returns None if the widget is not visible.
-    /// This clips the area to page_area.
-    #[inline]
-    fn locate_label(&self, idx: usize) -> Option<Rect> {
+    /// Get the area for the label of the given widget.
+    pub fn locate_label(&self, widget: W) -> Option<Rect> {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return None;
+        };
         self.locate_area(self.layout.label(idx))
     }
 
