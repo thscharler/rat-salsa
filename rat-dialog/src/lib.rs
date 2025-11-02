@@ -49,6 +49,12 @@ pub enum WindowControl<Event> {
     Close(Event),
 }
 
+// Replace WindowControl with this
+
+// pub trait WindowClose {
+//     fn is_close(&self) -> bool;
+// }
+
 impl<Event> ConsumedEvent for WindowControl<Event> {
     fn is_consumed(&self) -> bool {
         !matches!(self, WindowControl::Continue)

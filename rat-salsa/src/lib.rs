@@ -161,6 +161,7 @@ pub enum Control<Event> {
     /// The other way is to call [SalsaAppContext::queue] to initiate such
     /// events.
     Event(Event),
+    // todo: Closed(event)
     /// Quit the application. TODO: remove
     Quit,
 }
