@@ -548,7 +548,9 @@ where
         }
     }
 
-    // todo: why is this a render instead of returning a Widget??
+    // q: why is this a render instead of returning a Widget??
+    // a: lifetime of `&Option<Cow<'static, str>>`. Can't use
+    //    this as part of a return value.
     /// Render the label for the given widget.
     #[inline(always)]
     pub fn render_label<FN>(&mut self, widget: W, render_fn: FN) -> bool
