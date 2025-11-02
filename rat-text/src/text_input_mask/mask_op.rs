@@ -161,7 +161,6 @@ pub fn remove_range(
                 )
                 .expect("valid_range");
 
-            // todo: needed?: Self::reformat(&mut state.value, &self.mask, mask.sec_start..mask.sec_end);
             pos = mask.sub_end;
         }
 
@@ -566,7 +565,6 @@ fn is_valid_char(state: &MaskedInputState, mask: &Mask, c: char) -> bool {
             if c == '.' || c == ',' {
                 true
             } else if let Some(sepc) = sep.chars().next() {
-                // todo: don't know better
                 sepc == c
             } else {
                 false

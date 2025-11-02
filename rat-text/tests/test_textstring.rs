@@ -145,8 +145,6 @@ fn test_string6() {
     assert_eq!(s.string(), "");
 }
 
-// TODO
-
 #[test]
 fn test_byte_range_at() {
     let s = TextString::new_text("");
@@ -404,8 +402,6 @@ fn test_final_newline() {
     let s = TextString::new_text("abcd\r\n");
     assert!(s.has_final_newline());
 }
-
-// TODO: ---
 
 #[test]
 fn test_insert_char_0() {

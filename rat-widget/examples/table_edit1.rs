@@ -453,7 +453,7 @@ impl TableEditorState for SampleEditorState {
     }
 
     fn set_focused_col(&self, _col: usize) {
-        todo!()
+        // noop
     }
 }
 

@@ -590,8 +590,6 @@ fn test_final_newline() {
     assert!(s.has_final_newline());
 }
 
-// TODO: ---
-
 #[test]
 fn test_insert_char_0() {
     let s = TextRope::new_text("");
