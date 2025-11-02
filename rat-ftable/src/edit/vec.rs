@@ -330,7 +330,7 @@ where
             self.table.items_added(row, 1);
         }
         self.table.move_to(row);
-        self.table.scroll_to_col(0);
+        self.table.scroll_to_col(col);
         self.editor.set_focused_col(col);
     }
 
