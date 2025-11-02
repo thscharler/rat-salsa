@@ -166,6 +166,11 @@ impl Focus {
     ///
     /// If the widget *is* part of the focus this will
     /// behave just like [focus].
+    ///
+    /// Caveat:
+    ///
+    /// If the widget will be in a container in the future,
+    /// the container-flag itself will not be set.
     #[inline(always)]
     pub fn future(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(self.core, "focus {:?}", widget_state.focus().name());
