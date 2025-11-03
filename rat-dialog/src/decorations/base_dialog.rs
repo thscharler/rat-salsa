@@ -9,10 +9,10 @@ use rat_widget::event::{
     ButtonOutcome, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular, ct_event, flow,
 };
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_widget::layout::{DialogItem, layout_dialog};
+use rat_widget::layout::{DialogItem, LayoutOuter, layout_dialog};
 use rat_widget::util::{block_padding2, fill_buf_area};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Position, Rect, Size};
+use ratatui::layout::{Constraint, Flex, Position, Rect, Size};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 
@@ -25,10 +25,7 @@ pub struct BaseDialog<'a> {
     style: Style,
     block: Block<'a>,
     button_style: ButtonStyle,
-    constrain_position: Option<[Constraint; 2]>,
-    constrain_size: Option<[Constraint; 2]>,
-    position: Option<Position>,
-    size: Option<Size>,
+    layout: LayoutOuter,
     ok_text: &'a str,
     cancel_text: &'a str,
 }
@@ -39,10 +36,7 @@ pub struct BaseDialogStyle {
     pub style: Style,
     pub block: Option<Block<'static>>,
     pub button_style: Option<ButtonStyle>,
-    pub constrain_position: Option<[Constraint; 2]>,
-    pub constrain_size: Option<[Constraint; 2]>,
-    pub position: Option<Position>,
-    pub size: Option<Size>,
+    pub layout: Option<LayoutOuter>,
     pub ok_text: Option<&'static str>,
     pub cancel_text: Option<&'static str>,
     pub non_exhaustive: NonExhaustive,
@@ -54,10 +48,7 @@ impl Default for BaseDialogStyle {
             style: Default::default(),
             block: Default::default(),
             button_style: Default::default(),
-            constrain_position: Default::default(),
-            constrain_size: Default::default(),
-            position: Default::default(),
-            size: Default::default(),
+            layout: Default::default(),
             ok_text: Default::default(),
             cancel_text: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -86,10 +77,11 @@ impl<'a> BaseDialog<'a> {
             style: Default::default(),
             block: Block::bordered().border_type(BorderType::Plain),
             button_style: Default::default(),
-            constrain_position: Some([Constraint::Percentage(19), Constraint::Length(3)]),
-            constrain_size: Some([Constraint::Percentage(19), Constraint::Length(3)]),
-            position: None,
-            size: None,
+            layout: LayoutOuter::new()
+                .left(Constraint::Percentage(19))
+                .top(Constraint::Length(3))
+                .right(Constraint::Percentage(19))
+                .bottom(Constraint::Length(3)),
             ok_text: "Ok",
             cancel_text: "Cancel",
         }
@@ -103,17 +95,8 @@ impl<'a> BaseDialog<'a> {
         if let Some(button_style) = styles.button_style {
             self.button_style = button_style;
         }
-        if let Some(constraints) = styles.constrain_position {
-            self.constrain_position = Some(constraints);
-        }
-        if let Some(constraints) = styles.constrain_size {
-            self.constrain_size = Some(constraints);
-        }
-        if let Some(constraints) = styles.position {
-            self.position = Some(constraints);
-        }
-        if let Some(constraints) = styles.size {
-            self.size = Some(constraints);
+        if let Some(layout) = styles.layout {
+            self.layout = layout;
         }
         if let Some(ok_text) = styles.ok_text {
             self.ok_text = ok_text;
@@ -142,27 +125,51 @@ impl<'a> BaseDialog<'a> {
         self
     }
 
-    /// Margin constraints for the top-left corner.
-    pub fn constrain_position(mut self, constraints: [Constraint; 2]) -> Self {
-        self.constrain_position = Some(constraints);
+    /// Margin constraint for the left side.
+    pub fn left(mut self, left: Constraint) -> Self {
+        self.layout = self.layout.left(left);
         self
     }
 
-    /// Margin constraints for the bottom-right corner.
-    pub fn constrain_size(mut self, constraints: [Constraint; 2]) -> Self {
-        self.constrain_position = Some(constraints);
+    /// Margin constraint for the top side.
+    pub fn top(mut self, top: Constraint) -> Self {
+        self.layout = self.layout.top(top);
+        self
+    }
+
+    /// Margin constraint for the right side.
+    pub fn right(mut self, right: Constraint) -> Self {
+        self.layout = self.layout.right(right);
+        self
+    }
+
+    /// Margin constraint for the bottom side.
+    pub fn bottom(mut self, bottom: Constraint) -> Self {
+        self.layout = self.layout.bottom(bottom);
         self
     }
 
     /// Put at a fixed position.
     pub fn position(mut self, pos: Position) -> Self {
-        self.position = Some(pos);
+        self.layout = self.layout.position(pos);
+        self
+    }
+
+    /// Constraint for the width.
+    pub fn width(mut self, width: Constraint) -> Self {
+        self.layout = self.layout.width(width);
+        self
+    }
+
+    /// Constraint for the height.
+    pub fn height(mut self, height: Constraint) -> Self {
+        self.layout = self.layout.height(height);
         self
     }
 
     /// Set at a fixed size.
     pub fn size(mut self, size: Size) -> Self {
-        self.size = Some(size);
+        self.layout = self.layout.size(size);
         self
     }
 }
@@ -171,39 +178,7 @@ impl<'a> StatefulWidget for BaseDialog<'a> {
     type State = BaseDialogState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let mut hor = [
-            Constraint::Percentage(19),
-            Constraint::Fill(1),
-            Constraint::Percentage(19),
-        ];
-        let mut ver = [
-            Constraint::Length(2),
-            Constraint::Fill(1),
-            Constraint::Length(2),
-        ];
-
-        if let Some(constraints) = self.constrain_position {
-            ver[0] = constraints[0];
-            hor[0] = constraints[1];
-        }
-        if let Some(constraint) = self.constrain_size {
-            ver[2] = constraint[0];
-            hor[2] = constraint[1];
-        }
-        if let Some(pos) = self.position {
-            ver[0] = Constraint::Length(pos.y);
-            hor[0] = Constraint::Length(pos.x);
-        }
-        if let Some(size) = self.size {
-            ver[1] = Constraint::Length(size.height);
-            ver[2] = Constraint::Fill(1);
-            hor[1] = Constraint::Length(size.width);
-            hor[2] = Constraint::Fill(1);
-        }
-
-        let h_layout = Layout::horizontal(hor).split(area);
-        let v_layout = Layout::vertical(ver).split(h_layout[1]);
-        state.area = v_layout[1];
+        state.area = self.layout.layout(area);
 
         let l_dlg = layout_dialog(
             state.area,
