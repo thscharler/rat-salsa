@@ -1,3 +1,8 @@
+# 2.1.0
+
+* break: change the type of PopupCoreState::active to Rc<Cell<bool>>.
+  This is a requirement for Choice to make the focus-callbacks work.
+
 # 2.0.0
 
 * remove deprecated

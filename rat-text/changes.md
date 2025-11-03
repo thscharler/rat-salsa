@@ -1,3 +1,11 @@
+# 2.1.0
+
+* break: TextInput, TextInputMask, TextArea: change types of scroll_to_cursor, overwrite, on_focus_gained, on_focus_lost
+  to allow using them as shared state.
+* feature: TextArea; add set_value() and value() as alternatives for set_text() and text()
+  This syncs with the other widgets.
+* fix: range-bounds panic in delete_next_word()
+
 # 2.0.0
 
 * break: change offset/scroll type from usize to upos_type.

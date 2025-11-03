@@ -1,3 +1,8 @@
+# 1.3.0
+
+* fix: scroll_to_range off by one at the end.
+* feature: add ignore_block and ignore_scroll. this helps splitting the render.
+
 # 1.2.0
 
 * feature: add Scroll::horizontal() and Scroll::vertical()

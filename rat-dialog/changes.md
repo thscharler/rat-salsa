@@ -1,6 +1,14 @@
 # 0.7.0
 
+* break: break: Window needs a Context type parameter. Otherwise,
+  setting the focus in set_top() is not possible. This adds Context
+  to most of the function calls too.
+* refactor: MacFrame and WindowFrame now use the same state struct WindowFrameState
 * feature: WindowFrame without border.
+* feature: add BaseDialog widget. It collects shared behaviour/layout of dialog windows.
+* feature: WindowFrame: add no_fill()
+* refactor: move decoration widgets to separate module.
+* refactor: make DialogStack a StatefulWidget
 
 # 0.6.0
 

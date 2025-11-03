@@ -1,3 +1,10 @@
+# 2.3.0
+
+* add 'Rust' palette. blue is a cobalt oxide, green is a chromium oxide,
+  and purple is a purple ochre an iron oxide. matches up nicely:)
+  And of course red orange and yellow are different iron-oxides.
+  ![](svg\rust.jpg)
+
 # 2.2.0
 
 * upgrade rat-text to 2.0.0

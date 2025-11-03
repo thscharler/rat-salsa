@@ -1,3 +1,15 @@
+# 1.3.0
+
+* feature: add callbacks for on_gained/on_lost. These are meant for
+  widget implementors to get reliable notifications for these.
+  Of course, it requires that you put part of your state behind Rc's ...
+
+  These are also called for container-flags for completeness.
+
+* feature: add enable_panic() and disable_panic() to panic when called
+  with widgets that are not part of the focus. A debugging aid.
+* feature: FocusBuilder: add log_build_for and log_rebuild_for.
+
 # 1.2.0
 
 * docs

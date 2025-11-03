@@ -1,3 +1,7 @@
+# 1.3.0
+
+* feature: add relocate_hidden to RelocatableState trait.
+
 # 1.2.1
 
 * docs: updates

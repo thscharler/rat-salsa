@@ -1,3 +1,7 @@
+# 1.4.0
+
+* add 'Rust' palette
+
 # 1.3.0
 
 * upgrade rat-text to 2.0.0

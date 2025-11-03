@@ -1,3 +1,15 @@
+# 1.2.0
+
+* feature: set a default type for Table<Selection=RowSelection>
+* feature: Table: add rows_changed()
+* fix: EditableTableVec: auto-insert an empty row and start editing if the table starts with 0 rows.
+* fix: EditableTableVec: up key when editing should move to the row above. same with down key
+* fix: EditableTableVec: removing the last row should start editing a new row immediately.
+* fix: rendering the scrollbars lagged. the relevant values where only set after the scrollbars where rendered. fixed by
+  splitting block/scollbar rendering.
+* fix: deprecate auto_layout_width. not useful.
+* fix: remove debug()
+
 # 1.1.1
 
 doc fixes

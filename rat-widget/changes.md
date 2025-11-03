@@ -1,3 +1,80 @@
+# 2.1.0
+
+### Combobox (new)
+
+* feature: add a Combobox widget. As in 'editable choice'.
+
+### FormStyle
+
+* feature: add show_navigation
+
+### LayoutForm
+
+* refactor: deprecate border() and replace with padding()
+* feature: allow page-breaks for endless layouts. This will do a column-break for the layout.
+* fix: column_spacing must apply only cols-1 times.
+* fix: widget-width calculation must differentiate between regular and wide widgets.
+
+### LayoutOuter (new)
+
+* feature: add LayoutOuter for window/dialog areas. one more approach of this.
+
+### Choice
+
+* feature: add a behaviour for focus-gained. whether to open the popup immediately or not.
+* fix: Choice need not render the selected item when used for a Combobox.
+
+### Checkbox
+
+* feature: add behaviour for mouse-checks. single or double click.
+
+### Clipper/Form/View
+
+* fix: sync rendering of Clipper and Form.
+* fix: add locate_label and locate_widget back into Form
+* fix: locating an area didn't check if the area itself is empty, before intersecting with the buffer area. or so.
+  now it uses Rect::intersects() everywhere, this handles the empty-area case just fine.
+* feature: Clipper::relocate() is available again with a better api.
+* fix/feature: do all the fixes for View too. Can't break things now, so I add version-2 of some functions and deprecate
+  everything else.
+
+## rat-popup
+
+* break: change the type of PopupCoreState::active to Rc<Cell<bool>>.
+  This is a requirement for Choice to make the focus-callbacks work.
+
+## rat-focus
+
+* feature: add callbacks for on_gained/on_lost. These are meant for
+  widget implementors to get reliable notifications for these.
+  Of course, it requires that you put part of your state behind Rc's ...
+
+  These are also called for container-flags for completeness.
+
+## rat-text
+
+* break: TextInput, TextInputMask, TextArea: change types of scroll_to_cursor, overwrite, on_focus_gained, on_focus_lost
+  to allow using them as shared state.
+* feature: TextArea; add set_value() and value() as alternatives for set_text() and text()
+  This syncs with the other widgets.
+* fix: range-bounds panic in delete_next_word()
+
+## rat-ftable
+
+* feature: set a default type for Table<Selection=RowSelection>
+* feature: Table: add rows_changed()
+* fix: EditableTableVec: auto-insert an empty row and start editing if the table starts with 0 rows.
+* fix: EditableTableVec: up key when editing should move to the row above. same with down key
+* fix: EditableTableVec: removing the last row should start editing a new row immediately.
+* fix: rendering the scrollbars lagged. the relevant values where only set after the scrollbars where rendered. fixed by
+  splitting block/scollbar rendering.
+* fix: deprecate auto_layout_width. not useful.
+* fix: remove debug()
+
+## rat-reloc
+
+* feature: add relocate_hidden to RelocatableState trait.
+
 # 2.0.0
 
 * breaking changes in rat-text
