@@ -465,6 +465,11 @@ impl CheckboxState {
         old_value != self.checked
     }
 
+    /// Reset to default.
+    pub fn clear(&mut self) {
+        self.checked = self.default;
+    }
+
     /// Flip the checkbox.
     /// If it was in default state it just switches off
     /// the default flag. Otherwise, it flips true/false.

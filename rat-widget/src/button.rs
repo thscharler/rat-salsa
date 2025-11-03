@@ -330,6 +330,13 @@ impl ButtonState {
         }
     }
 
+    /// For consistency with other widgets.
+    /// Does nothing.
+    pub fn clear(&mut self) {
+        // noop
+    }
+
+    #[deprecated(since = "2.1.0", note = "useless")]
     pub fn clear_areas(&mut self) {
         self.area = Rect::default();
         self.inner = Rect::default();
