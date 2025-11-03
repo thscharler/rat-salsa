@@ -164,30 +164,36 @@ impl Focus {
     /// yet part of the focus cycle. And the focus cycle
     /// can't be properly rebuilt at this point.
     ///
-    /// If the widget *is* part of the focus this will
-    /// behave just like [focus].
+    /// If the widget *is* part of the focus this will do nothing.
     ///
-    /// Caveat:
-    ///
-    /// If the widget will be in a container in the future,
-    /// the container-flag itself will not be set.
+    /// If the widget is a container, it will just set
+    /// the container-flag. If you want to set a future widget
+    /// and its container, call future() for the widget first,
+    /// then the container.
     #[inline(always)]
     pub fn future(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(self.core, "focus {:?}", widget_state.focus().name());
         let flag = widget_state.focus();
         if self.core.is_widget(&flag) {
-            if let Some(n) = self.core.index_of(&flag) {
-                self.core.focus_idx(n, true);
-            } else {
-                panic!("    => invalid widget");
-            }
+            focus_fail!(
+                self.core,
+                "    => widget is part of focus. use focus() instead"
+            );
         } else if self.core.is_container(&flag) {
-            self.core.first_container(&flag);
+            focus_debug!(self.core, "future container");
+            let had_focus = flag.get();
+            flag.set(true);
+            if !had_focus {
+                flag.set_gained(true);
+                flag.call_on_gained();
+            }
+            focus_debug!(self.core, "    -> done");
         } else {
             focus_debug!(self.core, "future focus");
             self.core.none();
-            widget_state.focus().set(true);
-            widget_state.focus().set_gained(true);
+            flag.set(true);
+            flag.set_gained(true);
+            flag.call_on_gained();
             focus_debug!(self.core, "    -> done");
         }
     }
