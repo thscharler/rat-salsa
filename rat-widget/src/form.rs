@@ -448,6 +448,8 @@ where
 
         if self.navigation {
             self.render_navigation(area, buf, state);
+        } else {
+            self.block.render(area, buf);
         }
 
         let mut form_buf = FormBuffer {
