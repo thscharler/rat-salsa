@@ -133,9 +133,7 @@ fn render(
             Constraint::Length(15),
             Constraint::Length(3),
         ])
-        // auto works with the stated column widths.
-        .auto_layout_width()
-        // or use a fixed total.
+        // use a fixed total.
         // .layout_width(150)
         .column_spacing(1)
         .header(

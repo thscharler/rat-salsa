@@ -1,4 +1,3 @@
-use log::debug;
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::layout::{Rect, Size};
 use ratatui::widgets::{Block, Padding};
