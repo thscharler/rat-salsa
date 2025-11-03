@@ -1316,6 +1316,7 @@ mod core {
         }
 
         /// Accumulate all container flags.
+        #[allow(clippy::collapsible_if)]
         fn __accumulate(&self) {
             for (n, f) in self.focus_flags.iter().enumerate() {
                 if f.gained() && !self.duplicate[n] {
