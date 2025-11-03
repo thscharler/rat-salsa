@@ -51,7 +51,8 @@ use std::cmp::{max, min};
 
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
-use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular, ct_event};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
@@ -137,6 +138,10 @@ pub struct ViewState {
     /// Vertical scroll
     /// __read+write__
     pub vscroll: ScrollState,
+
+    /// Current focus state.
+    /// __read+write__
+    pub focus: FocusFlag,
 
     /// For the buffer to survive render()
     buffer: Option<Buffer>,
@@ -510,6 +515,20 @@ impl Default for ViewStyle {
     }
 }
 
+impl HasFocus for ViewState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.leaf_widget(self);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
+    }
+
+    fn area(&self) -> Rect {
+        self.area
+    }
+}
+
 impl ViewState {
     pub fn new() -> Self {
         Self::default()
@@ -578,7 +597,41 @@ impl ViewState {
 
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ViewState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
-        self.handle(event, MouseOnly)
+        let r = if self.is_focused() {
+            match event {
+                ct_event!(keycode press Left) => self.scroll_left(self.hscroll.scroll_by()).into(),
+                ct_event!(keycode press Right) => {
+                    self.scroll_right(self.hscroll.scroll_by()).into()
+                }
+                ct_event!(keycode press Up) => self.scroll_up(self.vscroll.scroll_by()).into(),
+                ct_event!(keycode press Down) => self.scroll_down(self.vscroll.scroll_by()).into(),
+
+                ct_event!(keycode press PageUp) => self.scroll_up(self.vscroll.page_len()).into(),
+                ct_event!(keycode press PageDown) => {
+                    self.scroll_down(self.vscroll.page_len()).into()
+                }
+                ct_event!(keycode press Home) => self.vertical_scroll_to(0).into(),
+                ct_event!(keycode press End) => {
+                    self.vertical_scroll_to(self.vscroll.max_offset()).into()
+                }
+
+                ct_event!(keycode press ALT-PageUp) => {
+                    self.scroll_left(self.hscroll.page_len()).into()
+                }
+                ct_event!(keycode press ALT-PageDown) => {
+                    self.scroll_right(self.hscroll.page_len()).into()
+                }
+                ct_event!(keycode press ALT-Home) => self.horizontal_scroll_to(0).into(),
+                ct_event!(keycode press ALT-End) => {
+                    self.horizontal_scroll_to(self.hscroll.max_offset()).into()
+                }
+                _ => Outcome::Continue,
+            }
+        } else {
+            Outcome::Continue
+        };
+
+        r.or_else(|| self.handle(event, MouseOnly))
     }
 }
 
@@ -598,4 +651,21 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewState {
             r => r.into(),
         }
     }
+}
+
+/// Handle all events.
+/// Text events are only processed if focus is true.
+/// Mouse events are processed if they are in range.
+pub fn handle_events(
+    state: &mut ViewState,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    state.focus.set(focus);
+    HandleEvent::handle(state, event, Regular)
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events(state: &mut ViewState, event: &crossterm::event::Event) -> Outcome {
+    HandleEvent::handle(state, event, MouseOnly)
 }
