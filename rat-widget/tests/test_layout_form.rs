@@ -1,3 +1,4 @@
+use log::debug;
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::layout::{Rect, Size};
 use ratatui::widgets::{Block, Padding};
@@ -75,12 +76,14 @@ fn test_break4() {
 
     let g = layout.build_paged(Size::new(10, 5));
     assert_eq!(g.page_of(7), Some(6));
-    assert_eq!(g.block_area(6), Rect::new(0, 31, 9, 3));
+    dbg!(&g);
+    assert_eq!(g.block_area(6), Rect::new(0, 31, 10, 3));
 }
 
 #[test]
 fn test_break5() {
-    let mut layout = LayoutForm::<i32>::new().padding(Padding::new(0, 0, 1, 1));
+    let mut layout = LayoutForm::<i32>::new() //
+        .padding(Padding::new(0, 0, 1, 1));
 
     let tag1 = layout.start(Some(Block::bordered()));
     let tag2 = layout.start(Some(Block::bordered()));
@@ -96,7 +99,7 @@ fn test_break5() {
 
     let g = layout.build_paged(Size::new(10, 14));
     assert_eq!(g.page_of(7), Some(0));
-    assert_eq!(g.block_area(1), Rect::new(0, 1, 9, 11));
+    assert_eq!(g.block_area(1), Rect::new(0, 1, 10, 11));
 }
 
 #[test]

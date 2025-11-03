@@ -298,6 +298,7 @@ impl<'a> ViewBuffer<'a> {
     /// Render a widget to the temp buffer.
     /// This expects that the state is a [RelocatableState].
     #[inline(always)]
+    #[allow(deprecated)]
     pub fn render<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
     where
         W: StatefulWidget<State = S>,
