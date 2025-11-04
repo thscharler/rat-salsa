@@ -7,7 +7,7 @@ use crossbeam::channel::Sender;
 use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::tasks::Cancel;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, salsa_themes, SalsaTheme};
+use rat_theme4::{create_theme, salsa_themes, SalsaTheme, StyleName, WidgetStyle};
 use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
     ReadOnly, Regular, TableOutcome,
@@ -64,7 +64,7 @@ fn main() -> Result<(), Error> {
 pub struct GlobalState {
     ctx: SalsaAppContext<FilesEvent, Error>,
     pub cfg: FilesConfig,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
 }
 
 impl SalsaContext<FilesEvent, Error> for GlobalState {
@@ -79,7 +79,7 @@ impl SalsaContext<FilesEvent, Error> for GlobalState {
 }
 
 impl GlobalState {
-    fn new(cfg: FilesConfig, theme: Box<dyn SalsaTheme>) -> Self {
+    fn new(cfg: FilesConfig, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -255,7 +255,7 @@ impl<'a> TableData<'a> for DirData<'a> {
                 if name.as_ref() == "." {
                     let mut l = Line::default();
                     if !t_ctx.focus || !t_ctx.selected_row {
-                        l = l.style(self.ctx.theme.limegreen(0));
+                        l = l.style(self.ctx.theme.p.limegreen(0));
                     }
                     if let Some(dir) = &self.dir {
                         if let Some(name) = dir.file_name() {
@@ -266,7 +266,7 @@ impl<'a> TableData<'a> for DirData<'a> {
                 } else if name.as_ref() == ".." {
                     let mut l = Line::default();
                     if !t_ctx.focus || !t_ctx.selected_row {
-                        l = l.style(self.ctx.theme.green(0));
+                        l = l.style(self.ctx.theme.p.green(0));
                     }
                     if let Some(dir) = &self.dir {
                         if let Some(parent) = dir.parent() {
@@ -342,7 +342,7 @@ fn render(
 
     Text::from(state.main_dir.to_string_lossy())
         .alignment(Alignment::Right)
-        .style(ctx.theme.black(3).fg(ctx.theme.palette().secondary[2]))
+        .style(ctx.theme.p.black(3).fg(ctx.theme.p.secondary[2]))
         .render(path_area, buf);
 
     let split = Split::horizontal()
@@ -352,7 +352,7 @@ fn render(
             Constraint::Fill(1),
         ])
         .split_type(SplitType::Scroll)
-        .styles(ctx.theme.split_style())
+        .styles(ctx.theme.style(WidgetStyle::SPLIT))
         .into_widget(split_area, &mut state.w_split);
 
     // split content
@@ -369,7 +369,7 @@ fn render(
                     .border_type(BorderType::Rounded),
             )
             .vscroll(Scroll::new().start_margin(2).scroll_by(1))
-            .styles(ctx.theme.table_style())
+            .styles(ctx.theme.style(WidgetStyle::TABLE))
             .render(state.w_split.widget_areas[0], buf, &mut state.w_dirs);
 
         Table::new()
@@ -377,8 +377,8 @@ fn render(
                 dir: current_dir(state),
                 files: &state.files,
                 err: &state.err,
-                dir_style: ctx.theme.gray(0),
-                err_style: ctx.theme.red(1),
+                dir_style: ctx.theme.p.gray(0),
+                err_style: ctx.theme.p.red(1),
             })
             .block(
                 Block::new()
@@ -386,11 +386,11 @@ fn render(
                     .border_type(BorderType::Rounded),
             )
             .vscroll(Scroll::new().start_margin(2).scroll_by(1))
-            .styles(ctx.theme.table_style())
+            .styles(ctx.theme.style(WidgetStyle::TABLE))
             .render(state.w_split.widget_areas[1], buf, &mut state.w_files);
 
         let title = if state.w_data.is_focused() {
-            Title::from(Line::from("Content").style(ctx.theme.focus()))
+            Title::from(Line::from("Content").style(ctx.theme.style::<Style>(Style::FOCUS)))
         } else {
             Title::from("Content")
         };
@@ -402,7 +402,7 @@ fn render(
                     .border_set(EMPTY)
                     .title(title),
             )
-            .styles(ctx.theme.textview_style())
+            .styles(ctx.theme.style(WidgetStyle::TEXTVIEW))
             .render(state.w_split.widget_areas[2], buf, &mut state.w_data);
     }
 
@@ -413,7 +413,7 @@ fn render(
         .title("[-.-]")
         .popup_block(Block::bordered())
         .popup_placement(Placement::Above)
-        .styles(ctx.theme.menu_style())
+        .styles(ctx.theme.style(WidgetStyle::MENU))
         .into_widgets();
     menu.render(menu_area, buf, &mut state.w_menu);
     menu_popup.render(menu_area, buf, &mut state.w_menu);
@@ -423,7 +423,7 @@ fn render(
 
     // render error dialog
     if state.error_dlg.active() {
-        let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
+        let err = MsgDialog::new().styles(ctx.theme.style(WidgetStyle::MSG_DIALOG));
         err.render(split_area, buf, &mut state.error_dlg);
     }
 
@@ -437,7 +437,7 @@ fn render(
             Constraint::Length(12),
             Constraint::Length(12),
         ])
-        .styles_ext(ctx.theme.statusline_style_ext())
+        .styles_ext(ctx.theme.style(WidgetStyle::STATUSLINE))
         .render(status_area, buf, &mut state.status);
 
     Ok(())

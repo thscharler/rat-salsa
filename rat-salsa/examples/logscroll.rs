@@ -7,7 +7,7 @@ use log::{debug, warn};
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme, StyleName, WidgetStyle};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::layout_middle;
@@ -17,6 +17,7 @@ use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardErro
 use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::widgets::StatefulWidget;
 use ropey::Rope;
 use std::cell::RefCell;
@@ -86,7 +87,7 @@ pub struct LogScrollConfig {
     theme: String,
 }
 
-fn config_theme(config: &LogScrollConfig) -> Box<dyn SalsaTheme> {
+fn config_theme(config: &LogScrollConfig) -> SalsaTheme {
     create_theme(&config.theme).unwrap_or(create_theme("Imperial Dark").expect("theme"))
 }
 
@@ -138,7 +139,7 @@ fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
 pub struct GlobalState {
     pub ctx: SalsaAppContext<LogScrollEvent, Error>,
     pub cfg: LogScrollConfig,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
     pub file_path: PathBuf,
     pub test: bool,
 }
@@ -155,7 +156,7 @@ impl SalsaContext<LogScrollEvent, Error> for GlobalState {
 }
 
 impl GlobalState {
-    pub fn new(cfg: LogScrollConfig, theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(cfg: LogScrollConfig, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -219,7 +220,7 @@ pub fn render(
     ctx.set_screen_cursor(state.logscroll.screen_cursor());
 
     if state.error_dlg.active() {
-        let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
+        let err = MsgDialog::new().styles(ctx.theme.style(WidgetStyle::MSG_DIALOG));
         let err_area = layout_middle(
             area,
             Constraint::Length(4),
@@ -243,10 +244,10 @@ pub fn render(
             Constraint::Length(12),
         ])
         .styles(vec![
-            ctx.theme.status_base(),
-            ctx.theme.status_base(),
-            ctx.theme.status_base(),
-            ctx.theme.status_base(),
+            ctx.theme.style::<Style>(Style::STATUS_BASE),
+            ctx.theme.style::<Style>(Style::STATUS_BASE),
+            ctx.theme.style::<Style>(Style::STATUS_BASE),
+            ctx.theme.style::<Style>(Style::STATUS_BASE),
         ]);
     status.render(layout[1], buf, &mut state.status);
 
@@ -354,7 +355,7 @@ mod logscroll {
     use rat_salsa::tasks::{Cancel, Liveness};
     use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{Control, SalsaContext};
-    use rat_theme3::{create_theme, salsa_themes, Palette, SalsaTheme};
+    use rat_theme4::{create_theme, salsa_themes, SalsaTheme, StyleName, WidgetStyle};
     use rat_widget::event::{
         ct_event, try_flow, HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome,
     };
@@ -448,7 +449,7 @@ mod logscroll {
             .min_symbol(Some("│"));
 
         let split = Split::vertical()
-            .styles(ctx.theme.split_style())
+            .styles(ctx.theme.style(WidgetStyle::SPLIT))
             .split_type(SplitType::Scroll)
             .mark_offset(1)
             .direction(Direction::Horizontal)
@@ -467,26 +468,29 @@ mod logscroll {
                         Span::from("log/scroll "),
                         Span::from(format!("{:?}", ctx.file_path)),
                     ])
-                    .style(ctx.theme.red(Palette::DARK_3)),
+                    .style(ctx.theme.p.red(7)),
                 ),
             )
-            .styles(ctx.theme.textview_style())
-            .text_style_idx(0, ctx.theme.orange(6))
-            .text_style_idx(1, ctx.theme.yellow(6))
-            .text_style_idx(2, ctx.theme.green(6))
-            .text_style_idx(3, ctx.theme.bluegreen(6))
-            .text_style_idx(4, ctx.theme.cyan(6))
-            .text_style_idx(5, ctx.theme.blue(6))
-            .text_style_idx(6, ctx.theme.deepblue(6))
-            .text_style_idx(7, ctx.theme.purple(6))
-            .text_style_idx(8, ctx.theme.magenta(6))
-            .text_style_idx(9, ctx.theme.redpink(6))
-            .text_style_idx(99, ctx.theme.secondary(2))
-            .text_style_idx(101, ctx.theme.limegreen(2))
+            .styles(ctx.theme.style(WidgetStyle::TEXTVIEW))
+            .text_style_idx(0, ctx.theme.p.orange(6))
+            .text_style_idx(1, ctx.theme.p.yellow(6))
+            .text_style_idx(2, ctx.theme.p.green(6))
+            .text_style_idx(3, ctx.theme.p.bluegreen(6))
+            .text_style_idx(4, ctx.theme.p.cyan(6))
+            .text_style_idx(5, ctx.theme.p.blue(6))
+            .text_style_idx(6, ctx.theme.p.deepblue(6))
+            .text_style_idx(7, ctx.theme.p.purple(6))
+            .text_style_idx(8, ctx.theme.p.magenta(6))
+            .text_style_idx(9, ctx.theme.p.redpink(6))
+            .text_style_idx(99, ctx.theme.p.secondary(2))
+            .text_style_idx(101, ctx.theme.p.limegreen(2))
             .render(state.split.widget_areas[0], buf, &mut state.logtext);
 
         // right side
-        buf.set_style(state.split.widget_areas[1], ctx.theme.container_base());
+        buf.set_style(
+            state.split.widget_areas[1],
+            ctx.theme.style::<Style>(Style::CONTAINER_BASE),
+        );
 
         let l2 = Layout::vertical([
             Constraint::Length(1), //
@@ -500,7 +504,7 @@ mod logscroll {
         let find_area = Rect::new(l2[1].x, l2[1].y, l2[1].width.saturating_sub(1), 1);
         Paired::new(
             PairedWidget::new(Span::from("Find")),
-            TextInput::new().styles(ctx.theme.text_style()),
+            TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         )
         .split(PairSplit::Fix1(5))
         .render(
@@ -511,9 +515,9 @@ mod logscroll {
 
         Table::new()
             .vscroll(v_scroll)
-            .styles(ctx.theme.table_style())
+            .styles(ctx.theme.style(WidgetStyle::TABLE))
             .data(FindData {
-                theme: ctx.theme.as_ref(),
+                theme: &ctx.theme,
                 text: &state.logtext,
                 start_line: state.start_line,
                 data: &state.find_matches,
@@ -522,7 +526,7 @@ mod logscroll {
 
         let matches_area = Rect::new(l2[3].x, l2[3].y, l2[3].width.saturating_sub(1), 1);
         Line::from(format!("{} matches", state.find_matches.len()))
-            .style(ctx.theme.red(Palette::DARK_3))
+            .style(ctx.theme.p.red(7))
             .render(matches_area, buf);
 
         split.render(l0[0], buf, &mut state.split);
@@ -531,7 +535,7 @@ mod logscroll {
     }
 
     struct FindData<'a> {
-        theme: &'a dyn SalsaTheme,
+        theme: &'a SalsaTheme,
         text: &'a TextAreaState,
         start_line: upos_type,
         data: &'a [(usize, usize, usize)],
@@ -540,16 +544,16 @@ mod logscroll {
     impl<'a> FindData<'a> {
         fn color(&self, n: usize) -> Style {
             match n {
-                0 => self.theme.orange(6),
-                1 => self.theme.yellow(6),
-                2 => self.theme.green(6),
-                3 => self.theme.bluegreen(6),
-                4 => self.theme.cyan(6),
-                5 => self.theme.blue(6),
-                6 => self.theme.deepblue(6),
-                7 => self.theme.purple(6),
-                8 => self.theme.magenta(6),
-                _ => self.theme.redpink(6),
+                0 => self.theme.p.orange(6),
+                1 => self.theme.p.yellow(6),
+                2 => self.theme.p.green(6),
+                3 => self.theme.p.bluegreen(6),
+                4 => self.theme.p.cyan(6),
+                5 => self.theme.p.blue(6),
+                6 => self.theme.p.deepblue(6),
+                7 => self.theme.p.purple(6),
+                8 => self.theme.p.magenta(6),
+                _ => self.theme.p.redpink(6),
             }
         }
     }

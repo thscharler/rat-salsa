@@ -5,13 +5,13 @@
 //! look too bad.
 //!
 //!
-use crate::theme::TurboTheme;
+use crate::theme::{turbo_theme, TurboStyle};
 use crate::turbo::Turbo;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::palettes::BASE16;
+use rat_theme4::{SalsaTheme, WidgetStyle, BASE16};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -19,6 +19,7 @@ use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::util::fill_buf_area;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::widgets::StatefulWidget;
 use std::fs;
 use std::path::PathBuf;
@@ -28,7 +29,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = TurboConfig::default();
-    let theme = TurboTheme::new("Base16".into(), BASE16);
+    let theme = turbo_theme(BASE16);
     let mut global = TurboGlobal::new(config, theme);
     let mut state = Scenery::default();
 
@@ -51,7 +52,7 @@ fn main() -> Result<(), Error> {
 pub struct TurboGlobal {
     ctx: SalsaAppContext<TurboEvent, Error>,
     pub cfg: TurboConfig,
-    pub theme: TurboTheme,
+    pub theme: SalsaTheme,
 }
 
 impl SalsaContext<TurboEvent, Error> for TurboGlobal {
@@ -66,7 +67,7 @@ impl SalsaContext<TurboEvent, Error> for TurboGlobal {
 }
 
 impl TurboGlobal {
-    pub fn new(cfg: TurboConfig, theme: TurboTheme) -> Self {
+    pub fn new(cfg: TurboConfig, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -116,7 +117,7 @@ pub fn render(
     ])
     .split(area);
 
-    fill_buf_area(buf, layout[1], " ", ctx.theme.data());
+    fill_buf_area(buf, layout[1], " ", ctx.theme.style::<Style>(Style::DATA));
 
     turbo::render(area, buf, &mut state.turbo, ctx)?;
 
@@ -129,7 +130,7 @@ pub fn render(
             Constraint::Length(2),
         );
         MsgDialog::new()
-            .styles(ctx.theme.msg_dialog_style())
+            .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
             .render(layout_error, buf, &mut state.error_dlg);
     }
 
@@ -142,7 +143,7 @@ pub fn render(
             Constraint::Length(8),
             Constraint::Length(8),
         ])
-        .styles(ctx.theme.statusline_style())
+        .styles_ext(ctx.theme.style(WidgetStyle::STATUSLINE))
         .render(layout[2], buf, &mut state.status);
 
     Ok(())
@@ -242,6 +243,7 @@ pub mod turbo {
     use crate::{TurboEvent, TurboGlobal};
     use anyhow::Error;
     use rat_salsa::{Control, SalsaContext};
+    use rat_theme4::{StyleName, WidgetStyle};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{
@@ -444,10 +446,13 @@ pub mod turbo {
         .split(area);
 
         let (menubar, popup) = Menubar::new(&Menu)
-            .styles(ctx.theme.menu_style())
+            .styles(ctx.theme.style(WidgetStyle::MENU))
             .title("  ")
             .popup_placement(Placement::Below)
-            .popup_block(Block::bordered().style(ctx.theme.menu_style().style))
+            .popup_block(
+                Block::bordered() //
+                    .style(ctx.theme.style::<Style>(Style::POPUP_BORDER)),
+            )
             .into_widgets();
         menubar.render(r[0], buf, &mut state.menu);
         popup.render(r[0], buf, &mut state.menu);
@@ -469,7 +474,7 @@ pub mod turbo {
                 .unwrap_or_default();
 
             PopupMenu::new()
-                .styles(ctx.theme.menu_style())
+                .styles(ctx.theme.style(WidgetStyle::MENU))
                 .item_parsed("_Preferences...")
                 .item_parsed("_Editor...")
                 .item_parsed("_Mouse...")
@@ -572,262 +577,100 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme3::{Contrast, Palette};
-    use rat_widget::button::ButtonStyle;
-    use rat_widget::file_dialog::FileDialogStyle;
-    use rat_widget::line_number::LineNumberStyle;
-    use rat_widget::list::ListStyle;
+    use rat_theme4::{dark_theme, make_dyn, Palette, SalsaTheme, StyleName, WidgetStyle};
     use rat_widget::menu::MenuStyle;
-    use rat_widget::msgdialog::MsgDialogStyle;
     use rat_widget::popup::PopupStyle;
     use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
-    use rat_widget::splitter::SplitStyle;
-    use rat_widget::tabbed::TabbedStyle;
-    use rat_widget::table::TableStyle;
     use rat_widget::text::TextStyle;
     use ratatui::style::Style;
     use ratatui::style::Stylize;
-    use ratatui::widgets::Block;
 
-    #[derive(Debug, Clone)]
-    pub struct TurboTheme {
-        s: Palette,
-        name: String,
+    pub trait TurboStyle {
+        const DATA: &'static str = "data";
+    }
+    impl TurboStyle for Style {}
+
+    pub fn turbo_theme(p: Palette) -> SalsaTheme {
+        let mut th = dark_theme("turbo", p);
+
+        th.define(Style::INPUT, th.p.high_contrast(p.gray[3]));
+        th.define(Style::FOCUS, th.p.high_contrast(p.primary[2]));
+        th.define(Style::SELECT, th.p.high_contrast(p.secondary[1]));
+        th.define(Style::TEXT_FOCUS, th.p.high_contrast(p.primary[0]));
+        th.define(Style::TEXT_SELECT, th.p.high_contrast(p.secondary[0]));
+
+        th.define(Style::CONTAINER_BASE, th.p.high_contrast(p.black[1]));
+        th.define(Style::CONTAINER_BORDER, th.p.normal_contrast(p.black[1]));
+        th.define(Style::CONTAINER_ARROWS, th.p.normal_contrast(p.black[1]));
+
+        th.define(Style::POPUP_BASE, th.p.high_contrast(p.gray[2]));
+        th.define(Style::POPUP_BORDER, th.p.normal_contrast(p.gray[2]));
+        th.define(Style::POPUP_ARROW, th.p.normal_contrast(p.gray[2]));
+
+        th.define(Style::DIALOG_BASE, th.p.high_contrast(p.gray[3]));
+        th.define(Style::DIALOG_BORDER, th.p.normal_contrast(p.gray[3]));
+        th.define(Style::DIALOG_ARROW, th.p.normal_contrast(p.gray[3]));
+
+        th.define(Style::STATUS_BASE, th.p.normal_contrast(p.gray[3]));
+        // add a base style
+        th.define(Style::DATA, th.p.normal_contrast(th.p.deepblue[0]));
+
+        // override styles
+        th.define_fn(WidgetStyle::TEXTAREA, make_dyn!(textarea_style));
+        th.define_fn(WidgetStyle::MENU, make_dyn!(menu_style));
+        th.define_fn(WidgetStyle::SCROLL, make_dyn!(scroll_style));
+
+        th
     }
 
-    impl TurboTheme {
-        pub fn new(name: String, s: Palette) -> Self {
-            Self { s, name }
+    fn textarea_style(th: &SalsaTheme) -> TextStyle {
+        TextStyle {
+            style: th.style(Style::DATA),
+            focus: Some(th.style(Style::FOCUS)),
+            select: Some(th.style(Style::TEXT_SELECT)),
+            ..Default::default()
         }
     }
 
-    impl TurboTheme {
-        /// Some display name.
-        pub fn name(&self) -> &str {
-            &self.name
+    fn menu_style(th: &SalsaTheme) -> MenuStyle {
+        MenuStyle {
+            style: th.style(Style::DIALOG_BASE),
+            title: Some(th.p.gray(3)),
+            focus: Some(th.style(Style::FOCUS)),
+            highlight: Some(th.p.fg_red(2)),
+            disabled: Some(th.p.fg_black(3)),
+            right: Some(Style::default().italic()),
+            popup_style: Some(th.style(Style::DIALOG_BASE)),
+            popup_border: Some(th.style(Style::DIALOG_BORDER)),
+            popup: PopupStyle::default(),
+            ..Default::default()
         }
+    }
 
-        /// Hint at dark.
-        pub fn dark_theme(&self) -> bool {
-            false
-        }
-
-        /// The underlying scheme.
-        pub fn scheme(&self) -> &Palette {
-            &self.s
-        }
-
-        /// Focus style
-        pub fn focus(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.primary[2];
-            Style::default().fg(fg).bg(bg)
-        }
-
-        /// Selection style
-        pub fn select(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.secondary[1];
-            Style::default().fg(fg).bg(bg)
-        }
-
-        /// Text field style.
-        pub fn text_input(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
-        }
-
-        /// Focused text field style.
-        pub fn text_focus(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.primary[0];
-            Style::default().fg(fg).bg(bg)
-        }
-
-        /// Text selection style.
-        pub fn text_select(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.secondary[0];
-            Style::default().fg(fg).bg(bg)
-        }
-
-        /// Data display style. Used for lists, tables, ...
-        pub fn data(&self) -> Style {
-            Style::default().fg(self.s.white[0]).bg(self.s.deepblue[0])
-        }
-
-        /// Background for dialogs.
-        pub fn dialog_style(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
-        }
-
-        /// Style for the status line.
-        pub fn status_style(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
-        }
-
-        /// Style for LineNumbers.
-        pub fn line_nr_style(&self) -> LineNumberStyle {
-            LineNumberStyle {
-                style: self.data().fg(self.s.gray[0]),
-                cursor: Some(self.text_select()),
-                ..LineNumberStyle::default()
-            }
-        }
-
-        /// Complete TextAreaStyle
-        pub fn textarea_style(&self) -> TextStyle {
-            TextStyle {
-                style: self.data(),
-                focus: Some(self.focus()),
-                select: Some(self.text_select()),
-                ..Default::default()
-            }
-        }
-
-        /// Complete TextInputStyle
-        pub fn input_style(&self) -> TextStyle {
-            TextStyle {
-                style: self.text_input(),
-                focus: Some(self.text_focus()),
-                select: Some(self.text_select()),
-                invalid: Some(Style::default().bg(self.s.red[3])),
-                ..Default::default()
-            }
-        }
-
-        /// Complete MenuStyle
-        pub fn menu_style(&self) -> MenuStyle {
-            MenuStyle {
-                style: self.dialog_style(),
-                title: Some(Style::default().fg(self.s.black[0]).bg(self.s.gray[3])),
-                focus: Some(self.focus()),
-                highlight: Some(Style::default().fg(self.s.red[2])),
-                disabled: Some(Style::default().fg(self.s.black[3])),
-                right: Some(Style::default().italic()),
-                popup_style: Some(self.dialog_style()),
-                popup_border: Some(Style::default().fg(self.s.black[3])),
-                popup: PopupStyle::default(),
-                ..Default::default()
-            }
-        }
-
-        /// Complete FTableStyle
-        pub fn table_style(&self) -> TableStyle {
-            TableStyle {
-                style: self.data(),
-                select_row: Some(self.select()),
-                show_row_focus: true,
-                focus_style: Some(self.focus()),
-                ..Default::default()
-            }
-        }
-
-        /// Complete ListStyle
-        pub fn list_style(&self) -> ListStyle {
-            ListStyle {
-                style: self.data(),
-                select: Some(self.select()),
-                focus: Some(self.focus()),
-                ..Default::default()
-            }
-        }
-
-        /// Complete ButtonStyle
-        pub fn button_style(&self) -> ButtonStyle {
-            ButtonStyle {
-                style: self.s.primary(0, Contrast::Normal),
-                focus: Some(self.s.primary(3, Contrast::High)),
-                armed: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[0])),
-                ..Default::default()
-            }
-        }
-
-        /// Complete ScrolledStyle
-        pub fn scroll_style(&self) -> ScrollStyle {
-            let style = Style::default().fg(self.s.black[3]);
-            let arrow_style = Style::default().fg(self.s.black[3]).bg(self.s.secondary[0]);
-            ScrollStyle {
-                thumb_style: Some(style),
-                track_style: Some(style),
-                min_style: Some(style),
-                begin_style: Some(arrow_style),
-                end_style: Some(arrow_style),
-                vertical: Some(ScrollSymbols {
-                    track: "\u{2592}",
-                    thumb: "█",
-                    begin: "▲",
-                    end: "▼",
-                    min: "\u{2591}",
-                }),
-                horizontal: Some(ScrollSymbols {
-                    track: "\u{2592}",
-                    thumb: "█",
-                    begin: "◄",
-                    end: "►",
-                    min: "\u{2591}",
-                }),
-                ..Default::default()
-            }
-        }
-
-        /// Complete Split style
-        pub fn split_style(&self) -> SplitStyle {
-            let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
-            let arrow_style = Style::default().fg(self.s.secondary[0]).bg(self.s.black[1]);
-            SplitStyle {
-                style,
-                arrow_style: Some(arrow_style),
-                drag_style: Some(self.focus()),
-                ..Default::default()
-            }
-        }
-
-        /// Complete Tabbed style
-        pub fn tabbed_style(&self) -> TabbedStyle {
-            let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
-            TabbedStyle {
-                style,
-                tab: Some(self.s.gray(1, Contrast::Normal)),
-                select: Some(self.s.gray(3, Contrast::Normal)),
-                focus: Some(self.focus()),
-                ..Default::default()
-            }
-        }
-
-        /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.
-        /// This is what I need for the
-        /// [minimal](https://github.com/thscharler/rat-salsa/blob/master/examples/minimal.rs)
-        /// example, which shows timings for Render/Event/Action.
-        pub fn statusline_style(&self) -> Vec<Style> {
-            let s = &self.s;
-            vec![
-                self.status_style(),
-                s.blue(3, Contrast::Normal),
-                s.blue(2, Contrast::Normal),
-                s.blue(1, Contrast::Normal),
-            ]
-        }
-
-        /// Complete MsgDialogStyle.
-        pub fn msg_dialog_style(&self) -> MsgDialogStyle {
-            MsgDialogStyle {
-                style: self.dialog_style(),
-                button: Some(self.button_style()),
-                scroll: Some(self.scroll_style()),
-                ..Default::default()
-            }
-        }
-
-        pub fn file_dialog_style(&self) -> FileDialogStyle {
-            FileDialogStyle {
-                style: self.dialog_style(),
-                list: Some(self.list_style()),
-                roots: Some(self.list_style()),
-                text: Some(self.input_style()),
-                button: Some(self.button_style()),
-                block: Some(Block::bordered()),
-                ..Default::default()
-            }
+    fn scroll_style(th: &SalsaTheme) -> ScrollStyle {
+        let style = th.p.fg_black(3);
+        let arrow_style = th.p.secondary(0);
+        ScrollStyle {
+            thumb_style: Some(style),
+            track_style: Some(style),
+            min_style: Some(style),
+            begin_style: Some(arrow_style),
+            end_style: Some(arrow_style),
+            vertical: Some(ScrollSymbols {
+                track: "\u{2592}",
+                thumb: "█",
+                begin: "▲",
+                end: "▼",
+                min: "\u{2591}",
+            }),
+            horizontal: Some(ScrollSymbols {
+                track: "\u{2592}",
+                thumb: "█",
+                begin: "◄",
+                end: "►",
+                min: "\u{2591}",
+            }),
+            ..Default::default()
         }
     }
 }

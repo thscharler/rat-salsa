@@ -6,7 +6,7 @@ use rat_focus::{impl_has_focus, FocusBuilder, HasFocus};
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme, StyleName, WidgetStyle};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::ButtonOutcome;
 use rat_widget::layout::simple_grid;
@@ -17,6 +17,7 @@ use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, BorderType, ListItem, StatefulWidget, Widget};
 
@@ -57,7 +58,7 @@ impl Todo {
 /// Globally accessible data/state.
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -71,7 +72,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             theme,
@@ -140,32 +141,32 @@ pub fn render(
         .split(grid[1][3]);
 
     TextInput::new() //
-        .styles(ctx.theme.text_style())
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
         .render(l1[0], buf, &mut state.input);
 
     Button::new("Add")
-        .styles(ctx.theme.button_style())
-        .hover_style(ctx.theme.limegreen(0))
+        .styles(ctx.theme.style(WidgetStyle::BUTTON))
+        .hover_style(ctx.theme.p.limegreen(0))
         .render(l1[1], buf, &mut state.add);
 
     List::new(state.todos.iter().map(|v| ListItem::new(v.text.as_str())))
         .block(
             Block::bordered()
                 .border_type(BorderType::Rounded)
-                .border_style(ctx.theme.container_border()),
+                .border_style(ctx.theme.style::<Style>(Style::CONTAINER_BORDER)),
         )
         .scroll(Scroll::new())
-        .styles(ctx.theme.list_style())
+        .styles(ctx.theme.style(WidgetStyle::LIST))
         .render(grid[1][5], buf, &mut state.list);
 
     // show inline remove button
-    state.remove.clear_areas(); // clear remnants
+    state.remove.clear(); // clear remnants
     if let Some(row) = state.list.selected() {
         if let Some(area) = state.list.row_area(row) {
             if state.list.is_focused() {
                 Button::new("Remove")
-                    .styles(ctx.theme.button_style())
-                    .hover_style(ctx.theme.limegreen(0))
+                    .styles(ctx.theme.style(WidgetStyle::BUTTON))
+                    .hover_style(ctx.theme.p.limegreen(0))
                     .render(
                         Rect::new(area.right().saturating_sub(9), area.y, 8, 1),
                         buf,

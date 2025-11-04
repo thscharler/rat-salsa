@@ -6,7 +6,7 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
 use rat_widget::event::{ct_event, Dialog, HandleEvent};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -50,7 +50,7 @@ pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
 
     pub cfg: Config,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
     pub status: String,
 }
 
@@ -66,7 +66,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -133,7 +133,7 @@ pub fn render(
     // Error
     if state.error_dlg.active() {
         MsgDialog::new()
-            .styles(ctx.theme.msg_dialog_style())
+            .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
             .render(layout[0], buf, &mut state.error_dlg);
     }
 
@@ -144,7 +144,7 @@ pub fn render(
     ])
     .split(layout[1]);
 
-    let palette = ctx.theme.palette();
+    let palette = &ctx.theme.p;
     let status_color_1 = palette
         .normal_contrast(palette.white[0])
         .bg(palette.blue[3]);
@@ -228,6 +228,7 @@ pub mod nominal {
     use anyhow::Error;
     use rat_salsa::timer::TimerDef;
     use rat_salsa::{Control, SalsaContext};
+    use rat_theme4::WidgetStyle;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{MenuLine, MenuLineState};
@@ -264,7 +265,7 @@ pub mod nominal {
             .split(area);
 
             MenuLine::new()
-                .styles(ctx.theme.menu_style())
+                .styles(ctx.theme.style(WidgetStyle::MENU))
                 .title("-?-")
                 .item_parsed("_Thread")
                 .item_parsed("_Timer")

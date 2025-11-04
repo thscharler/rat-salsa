@@ -7,7 +7,7 @@ use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::Control;
 use rat_salsa::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
 use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -46,7 +46,7 @@ fn main() -> Result<(), Error> {
 pub struct GlobalState {
     pub ctx: SalsaAppContext<ThemesEvent, Error>,
     pub cfg: Config,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
 }
 
 impl SalsaContext<ThemesEvent, Error> for GlobalState {
@@ -60,7 +60,7 @@ impl SalsaContext<ThemesEvent, Error> for GlobalState {
 }
 
 impl GlobalState {
-    fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
+    fn new(cfg: Config, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -118,7 +118,7 @@ pub fn render(
 
     if state.error_dlg.active() {
         MsgDialog::new()
-            .styles(ctx.theme.msg_dialog_style())
+            .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
             .render(layout[0], buf, &mut state.error_dlg);
     }
 
@@ -135,7 +135,7 @@ pub fn render(
             Constraint::Length(12),
             Constraint::Length(12),
         ])
-        .styles(ctx.theme.statusline_style())
+        .styles_ext(ctx.theme.style(WidgetStyle::STATUSLINE))
         .render(layout_status[1], buf, &mut state.status);
 
     Ok(())
@@ -203,7 +203,7 @@ pub mod themes {
     use crate::{GlobalState, ThemesEvent};
     use anyhow::Error;
     use rat_salsa::Control;
-    use rat_theme3::{create_theme, salsa_themes};
+    use rat_theme4::{create_theme, salsa_themes, WidgetStyle};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
     use rat_widget::popup::Placement;
@@ -269,7 +269,7 @@ pub mod themes {
 
         let view = View::new()
             .block(Block::bordered())
-            .vscroll(Scroll::new().styles(ctx.theme.scroll_style()));
+            .vscroll(Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL)));
         let view_area = view.inner(layout[0], &mut state.scroll);
 
         let mut v_buf = view
@@ -277,7 +277,7 @@ pub mod themes {
             .into_buffer(layout[0], &mut state.scroll);
 
         v_buf.render(
-            ShowScheme::new(ctx.theme.name(), ctx.theme.palette()),
+            ShowScheme::new(ctx.theme.name(), &ctx.theme.p),
             Rect::new(0, 0, view_area.width, 38),
             &mut state.scheme,
         );
@@ -290,7 +290,7 @@ pub mod themes {
             Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
                 .split(layout[1]);
         let (menu, menu_popup) = Menubar::new(&Menu)
-            .styles(ctx.theme.menu_style())
+            .styles(ctx.theme.style(WidgetStyle::MENU))
             .popup_placement(Placement::Above)
             .into_widgets();
         menu.render(layout_menu[0], buf, &mut state.menu);
@@ -335,13 +335,13 @@ pub mod themes {
 }
 
 pub mod show_scheme {
-    use rat_theme3::{Palette, TextColorRating};
+    use rat_theme4::Palette;
     use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::reloc::{relocate_area, RelocatableState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
-    use ratatui::style::{Color, Style, Stylize};
+    use ratatui::style::Style;
     use ratatui::text::{Line, Span};
     use ratatui::widgets::StatefulWidget;
     use ratatui::widgets::Widget;
@@ -349,7 +349,7 @@ pub mod show_scheme {
     #[derive(Debug)]
     pub struct ShowScheme<'a> {
         name: &'a str,
-        scheme: &'a Palette,
+        palette: &'a Palette,
     }
 
     #[derive(Debug, Default)]
@@ -379,8 +379,8 @@ pub mod show_scheme {
     }
 
     impl<'a> ShowScheme<'a> {
-        pub fn new(name: &'a str, scheme: &'a Palette) -> Self {
-            Self { name, scheme }
+        pub fn new(name: &'a str, palette: &'a Palette) -> Self {
+            Self { name, palette }
         }
     }
 
@@ -427,51 +427,43 @@ pub mod show_scheme {
             .split(l0[1]);
 
             Span::from(format!("{:10}{}", "", self.name))
-                .style(Style::new().fg(self.scheme.secondary[3]))
+                .style(Style::new().fg(self.palette.secondary[3]))
                 .render(l1[0], buf);
 
-            let make_fg = |c| match Palette::rate_text_color(c) {
-                None => Color::Reset,
-                Some(TextColorRating::Light) => self.scheme.white[3],
-                Some(TextColorRating::Dark) => self.scheme.black[0],
-            };
-
-            let sc = self.scheme;
+            let pal = self.palette;
             for (i, (n, c)) in [
-                ("primary", sc.primary),
-                ("sec\nondary", sc.secondary),
-                ("white", sc.white),
-                ("black", sc.black),
-                ("gray", sc.gray),
-                ("red", sc.red),
-                ("orange", sc.orange),
-                ("yellow", sc.yellow),
-                ("limegreen", sc.limegreen),
-                ("green", sc.green),
-                ("bluegreen", sc.bluegreen),
-                ("cyan", sc.cyan),
-                ("blue", sc.blue),
-                ("deepblue", sc.deepblue),
-                ("purple", sc.purple),
-                ("magenta", sc.magenta),
-                ("redpink", sc.redpink),
+                ("primary", pal.primary),
+                ("sec\nondary", pal.secondary),
+                ("white", pal.white),
+                ("black", pal.black),
+                ("gray", pal.gray),
+                ("red", pal.red),
+                ("orange", pal.orange),
+                ("yellow", pal.yellow),
+                ("limegreen", pal.limegreen),
+                ("green", pal.green),
+                ("bluegreen", pal.bluegreen),
+                ("cyan", pal.cyan),
+                ("blue", pal.blue),
+                ("deepblue", pal.deepblue),
+                ("purple", pal.purple),
+                ("magenta", pal.magenta),
+                ("redpink", pal.redpink),
             ]
             .iter()
             .enumerate()
             {
                 Line::from(vec![
                     Span::from(format!("{:10}", n)),
-                    Span::from("  FG-0  ").bg(c[0]).fg(make_fg(c[0])),
-                    Span::from("  FG-1  ").bg(c[1]).fg(make_fg(c[1])),
-                    Span::from("  FG-2  ").bg(c[2]).fg(make_fg(c[2])),
-                    Span::from("  FG-3  ").bg(c[3]).fg(make_fg(c[3])),
-                    Span::from("  BG-0   ").bg(c[4]).fg(make_fg(c[4])),
-                    Span::from("  BG-1  ").bg(c[5]).fg(make_fg(c[5])),
-                    Span::from("  BG-3  ").bg(c[6]).fg(make_fg(c[6])),
-                    Span::from("  BG-4  ").bg(c[7]).fg(make_fg(c[7])),
-                    Span::from("  grayscale  ")
-                        .bg(Palette::grayscale(c[3]))
-                        .fg(make_fg(Palette::grayscale(c[3]))),
+                    Span::from("  FG-0  ").style(pal.high_contrast(c[0])),
+                    Span::from("  FG-1  ").style(pal.high_contrast(c[1])),
+                    Span::from("  FG-2  ").style(pal.high_contrast(c[2])),
+                    Span::from("  FG-3  ").style(pal.high_contrast(c[3])),
+                    Span::from("  BG-0   ").style(pal.high_contrast(c[4])),
+                    Span::from("  BG-1  ").style(pal.high_contrast(c[5])),
+                    Span::from("  BG-3  ").style(pal.high_contrast(c[6])),
+                    Span::from("  BG-4  ").style(pal.high_contrast(c[7])),
+                    Span::from("  grayscale  ").style(pal.high_contrast(Palette::grayscale(c[3]))),
                 ])
                 .render(l1[i + 1], buf);
             }

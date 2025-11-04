@@ -9,7 +9,7 @@ use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::terminal::CrosstermTerminal;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -50,7 +50,7 @@ fn main() -> Result<(), Error> {
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
     pub cfg: Config,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -65,7 +65,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -225,11 +225,14 @@ pub mod minimal {
     use crate::{AppEvent, Global};
     use anyhow::Error;
     use rat_salsa::{Control, SalsaContext};
+    use rat_theme4::StyleName;
+    use rat_theme4::{SalsaTheme, WidgetStyle};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
+    use ratatui::style::Style;
     use ratatui::text::{Line, Text};
     use ratatui::widgets::{StatefulWidget, Widget};
 
@@ -263,7 +266,7 @@ pub mod minimal {
             Line::from("text text"),
             Line::from("text text"),
         ])
-        .style(ctx.theme.container_base())
+        .style(ctx.theme.style::<Style>(Style::CONTAINER_BASE))
         .render(r[1], buf);
 
         MenuLine::new()
@@ -271,7 +274,7 @@ pub mod minimal {
             .item_parsed("_Second")
             .item_parsed("_Third")
             .item_parsed("_Quit")
-            .styles(ctx.theme.menu_style())
+            .styles(ctx.theme.style(WidgetStyle::MENU))
             .render(r[0], buf, &mut state.menu);
 
         Ok(())

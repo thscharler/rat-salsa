@@ -13,7 +13,7 @@ use anyhow::Error;
 use rat_salsa::poll::{PollCrossterm, PollEvents};
 use rat_salsa::{run_tui, RunConfig};
 use rat_salsa::{Control, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -39,7 +39,7 @@ fn main() -> Result<(), Error> {
 
     let mut state = Scenery::new();
     state.set_game(if let Some(f) = args().nth(1) {
-        game::load_life(&PathBuf::from(f), global.theme.as_ref())?
+        game::load_life(&PathBuf::from(f), &global.theme)?
     } else {
         rat_state()
     });
@@ -88,7 +88,7 @@ pub fn rat_state() -> LifeGameState {
 pub struct GlobalState {
     pub ctx: SalsaAppContext<LifeEvent, Error>,
     pub cfg: LifeConfig,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
 
     pub running: bool,
     pub tick: Rc<RefCell<Duration>>,
@@ -145,7 +145,7 @@ impl SalsaContext<LifeEvent, Error> for GlobalState {
 }
 
 impl GlobalState {
-    pub fn new(cfg: LifeConfig, theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(cfg: LifeConfig, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -220,7 +220,7 @@ pub fn render(
     .split(area);
 
     if state.error_dlg.active() {
-        let err = MsgDialog::new().styles(ctx.theme.msg_dialog_style());
+        let err = MsgDialog::new().styles(ctx.theme.style(WidgetStyle::MSG_DIALOG));
         err.render(layout[0], buf, &mut state.error_dlg);
     }
 
@@ -239,7 +239,7 @@ pub fn render(
             Constraint::Length(8),
             Constraint::Length(8),
         ])
-        .styles(ctx.theme.statusline_style())
+        .styles_ext(ctx.theme.style(WidgetStyle::STATUSLINE))
         .render(status_layout[1], buf, &mut state.status);
 
     state.rt = SystemTime::now();
@@ -323,6 +323,7 @@ pub mod life {
     use anyhow::Error;
     use rat_focus::impl_has_focus;
     use rat_salsa::{Control, SalsaContext};
+    use rat_theme4::WidgetStyle;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
@@ -361,7 +362,7 @@ pub mod life {
         LifeGame.render(r[0], buf, &mut state.game);
 
         MenuLine::new()
-            .styles(ctx.theme.menu_style())
+            .styles(ctx.theme.style(WidgetStyle::MENU))
             .title(format!("--({})>", state.game.name))
             .item_parsed(if ctx.running { "Pau_se" } else { "_Start" })
             .item_parsed("_Next")
@@ -459,7 +460,7 @@ pub mod game {
     use anyhow::{anyhow, Error};
     use ini::Ini;
     use rand::random;
-    use rat_theme3::SalsaTheme;
+    use rat_theme4::SalsaTheme;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::{Color, Style, Stylize};
@@ -743,78 +744,78 @@ pub mod game {
         }
     }
 
-    fn color(s: &str, theme: &dyn SalsaTheme) -> Result<Style, Error> {
+    fn color(s: &str, theme: &SalsaTheme) -> Result<Style, Error> {
         let s = s.trim().to_lowercase();
         let s = s.as_str();
         let r = match s {
-            "black(0)" => theme.black(0),
-            "black(1)" => theme.black(1),
-            "black(2)" => theme.black(2),
-            "black(3)" => theme.black(3),
-            "white(0)" => theme.white(0),
-            "white(1)" => theme.white(1),
-            "white(2)" => theme.white(2),
-            "white(3)" => theme.white(3),
-            "gray(0)" => theme.gray(0),
-            "gray(1)" => theme.gray(1),
-            "gray(2)" => theme.gray(2),
-            "gray(3)" => theme.gray(3),
-            "red(0)" => theme.red(0),
-            "red(1)" => theme.red(1),
-            "red(2)" => theme.red(2),
-            "red(3)" => theme.red(3),
-            "orange(0)" => theme.orange(0),
-            "orange(1)" => theme.orange(1),
-            "orange(2)" => theme.orange(2),
-            "orange(3)" => theme.orange(3),
-            "yellow(0)" => theme.yellow(0),
-            "yellow(1)" => theme.yellow(1),
-            "yellow(2)" => theme.yellow(2),
-            "yellow(3)" => theme.yellow(3),
-            "limegreen(0)" => theme.limegreen(0),
-            "limegreen(1)" => theme.limegreen(1),
-            "limegreen(2)" => theme.limegreen(2),
-            "limegreen(3)" => theme.limegreen(3),
-            "green(0)" => theme.green(0),
-            "green(1)" => theme.green(1),
-            "green(2)" => theme.green(2),
-            "green(3)" => theme.green(3),
-            "bluegreen(0)" => theme.bluegreen(0),
-            "bluegreen(1)" => theme.bluegreen(1),
-            "bluegreen(2)" => theme.bluegreen(2),
-            "bluegreen(3)" => theme.bluegreen(3),
-            "cyan(0)" => theme.cyan(0),
-            "cyan(1)" => theme.cyan(1),
-            "cyan(2)" => theme.cyan(2),
-            "cyan(3)" => theme.cyan(3),
-            "blue(0)" => theme.blue(0),
-            "blue(1)" => theme.blue(1),
-            "blue(2)" => theme.blue(2),
-            "blue(3)" => theme.blue(3),
-            "deepblue(0)" => theme.deepblue(0),
-            "deepblue(1)" => theme.deepblue(1),
-            "deepblue(2)" => theme.deepblue(2),
-            "deepblue(3)" => theme.deepblue(3),
-            "purple(0)" => theme.purple(0),
-            "purple(1)" => theme.purple(1),
-            "purple(2)" => theme.purple(2),
-            "purple(3)" => theme.purple(3),
-            "magenta(0)" => theme.magenta(0),
-            "magenta(1)" => theme.magenta(1),
-            "magenta(2)" => theme.magenta(2),
-            "magenta(3)" => theme.magenta(3),
-            "redpink(0)" => theme.redpink(0),
-            "redpink(1)" => theme.redpink(1),
-            "redpink(2)" => theme.redpink(2),
-            "redpink(3)" => theme.redpink(3),
-            "primary(0)" => theme.primary(0),
-            "primary(1)" => theme.primary(1),
-            "primary(2)" => theme.primary(2),
-            "primary(3)" => theme.primary(3),
-            "secondary(0)" => theme.primary(0),
-            "secondary(1)" => theme.primary(1),
-            "secondary(2)" => theme.primary(2),
-            "secondary(3)" => theme.primary(3),
+            "black(0)" => theme.p.black(0),
+            "black(1)" => theme.p.black(1),
+            "black(2)" => theme.p.black(2),
+            "black(3)" => theme.p.black(3),
+            "white(0)" => theme.p.white(0),
+            "white(1)" => theme.p.white(1),
+            "white(2)" => theme.p.white(2),
+            "white(3)" => theme.p.white(3),
+            "gray(0)" => theme.p.gray(0),
+            "gray(1)" => theme.p.gray(1),
+            "gray(2)" => theme.p.gray(2),
+            "gray(3)" => theme.p.gray(3),
+            "red(0)" => theme.p.red(0),
+            "red(1)" => theme.p.red(1),
+            "red(2)" => theme.p.red(2),
+            "red(3)" => theme.p.red(3),
+            "orange(0)" => theme.p.orange(0),
+            "orange(1)" => theme.p.orange(1),
+            "orange(2)" => theme.p.orange(2),
+            "orange(3)" => theme.p.orange(3),
+            "yellow(0)" => theme.p.yellow(0),
+            "yellow(1)" => theme.p.yellow(1),
+            "yellow(2)" => theme.p.yellow(2),
+            "yellow(3)" => theme.p.yellow(3),
+            "limegreen(0)" => theme.p.limegreen(0),
+            "limegreen(1)" => theme.p.limegreen(1),
+            "limegreen(2)" => theme.p.limegreen(2),
+            "limegreen(3)" => theme.p.limegreen(3),
+            "green(0)" => theme.p.green(0),
+            "green(1)" => theme.p.green(1),
+            "green(2)" => theme.p.green(2),
+            "green(3)" => theme.p.green(3),
+            "bluegreen(0)" => theme.p.bluegreen(0),
+            "bluegreen(1)" => theme.p.bluegreen(1),
+            "bluegreen(2)" => theme.p.bluegreen(2),
+            "bluegreen(3)" => theme.p.bluegreen(3),
+            "cyan(0)" => theme.p.cyan(0),
+            "cyan(1)" => theme.p.cyan(1),
+            "cyan(2)" => theme.p.cyan(2),
+            "cyan(3)" => theme.p.cyan(3),
+            "blue(0)" => theme.p.blue(0),
+            "blue(1)" => theme.p.blue(1),
+            "blue(2)" => theme.p.blue(2),
+            "blue(3)" => theme.p.blue(3),
+            "deepblue(0)" => theme.p.deepblue(0),
+            "deepblue(1)" => theme.p.deepblue(1),
+            "deepblue(2)" => theme.p.deepblue(2),
+            "deepblue(3)" => theme.p.deepblue(3),
+            "purple(0)" => theme.p.purple(0),
+            "purple(1)" => theme.p.purple(1),
+            "purple(2)" => theme.p.purple(2),
+            "purple(3)" => theme.p.purple(3),
+            "magenta(0)" => theme.p.magenta(0),
+            "magenta(1)" => theme.p.magenta(1),
+            "magenta(2)" => theme.p.magenta(2),
+            "magenta(3)" => theme.p.magenta(3),
+            "redpink(0)" => theme.p.redpink(0),
+            "redpink(1)" => theme.p.redpink(1),
+            "redpink(2)" => theme.p.redpink(2),
+            "redpink(3)" => theme.p.redpink(3),
+            "primary(0)" => theme.p.primary(0),
+            "primary(1)" => theme.p.primary(1),
+            "primary(2)" => theme.p.primary(2),
+            "primary(3)" => theme.p.primary(3),
+            "secondary(0)" => theme.p.primary(0),
+            "secondary(1)" => theme.p.primary(1),
+            "secondary(2)" => theme.p.primary(2),
+            "secondary(3)" => theme.p.primary(3),
             "black" => Style::new().on_black(),
             "red" => Style::new().on_red(),
             "green" => Style::new().on_green(),
@@ -906,7 +907,7 @@ pub mod game {
         (live, birth)
     }
 
-    pub fn load_life(file: &Path, theme: &dyn SalsaTheme) -> Result<LifeGameState, Error> {
+    pub fn load_life(file: &Path, theme: &SalsaTheme) -> Result<LifeGameState, Error> {
         let ini = Ini::load_from_file(file)?;
 
         let name = file.file_stem().expect("name").to_string_lossy();

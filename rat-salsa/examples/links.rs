@@ -3,7 +3,7 @@ use log::error;
 use rat_event::try_flow;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme};
 use rat_widget::event::{ct_event, HandleEvent, Regular};
 use rat_widget::scrolled::Scroll;
 use rat_widget::view::{View, ViewState};
@@ -38,7 +38,7 @@ fn main() -> Result<(), Error> {
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
     pub cfg: Config,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -53,7 +53,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,

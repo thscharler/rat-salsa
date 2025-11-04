@@ -9,7 +9,7 @@ use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::terminal::{CrosstermTerminal, SalsaOptions};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme, StyleName, WidgetStyle};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, MenuOutcome, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
@@ -18,6 +18,7 @@ use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::Widget;
+use ratatui::style::Style;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::StatefulWidget;
 use ratatui::{TerminalOptions, Viewport};
@@ -64,7 +65,7 @@ pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
 
     pub cfg: Config,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -79,7 +80,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -149,7 +150,7 @@ pub fn render(
         Line::from("ui ui ui ui "),
         Line::from("ui ui ui ui "),
     ])
-    .style(ctx.theme.container_base())
+    .style(ctx.theme.style::<Style>(Style::CONTAINER_BASE))
     .render(layout[1], buf);
 
     MenuLine::new()
@@ -157,7 +158,7 @@ pub fn render(
         .item_parsed("_Second")
         .item_parsed("_Third")
         .item_parsed("_Quit")
-        .styles(ctx.theme.menu_style())
+        .styles(ctx.theme.style(WidgetStyle::MENU))
         .render(layout[0], buf, &mut state.menu);
 
     let status_layout = Layout::horizontal([

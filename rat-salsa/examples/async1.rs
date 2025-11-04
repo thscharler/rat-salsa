@@ -4,7 +4,7 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::layout_middle;
@@ -49,7 +49,7 @@ fn main() -> Result<(), Error> {
 pub struct Global {
     pub ctx: SalsaAppContext<AppEvent, Error>,
     pub cfg: Config,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -63,7 +63,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -132,7 +132,7 @@ pub fn render(
 
     if state.error_dlg.active() {
         MsgDialog::new()
-            .styles(ctx.theme.msg_dialog_style())
+            .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
             .render(
                 layout_middle(
                     layout[0],
@@ -161,7 +161,7 @@ pub fn render(
             Constraint::Length(8),
             Constraint::Length(8),
         ])
-        .styles(ctx.theme.statusline_style())
+        .styles_ext(ctx.theme.style(WidgetStyle::STATUSLINE))
         .render(status_layout[1], buf, &mut state.status);
 
     Ok(())
@@ -239,6 +239,7 @@ pub mod main_ui {
     use anyhow::Error;
     use rat_focus::impl_has_focus;
     use rat_salsa::{Control, SalsaContext};
+    use rat_theme4::WidgetStyle;
     use rat_widget::event::{HandleEvent, MenuOutcome, Regular};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
@@ -268,7 +269,7 @@ pub mod main_ui {
         .split(area);
 
         let menu = MenuLine::new()
-            .styles(ctx.theme.menu_style())
+            .styles(ctx.theme.style(WidgetStyle::MENU))
             .item_parsed("_Simple Async")
             .item_parsed("_Long Running")
             .item_parsed("_Quit");

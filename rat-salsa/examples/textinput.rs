@@ -4,7 +4,7 @@ use rat_event::try_flow;
 use rat_focus::impl_has_focus;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::{ct_event, ButtonOutcome, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
@@ -48,7 +48,7 @@ fn main() -> Result<(), Error> {
 
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -62,7 +62,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             theme,
@@ -129,21 +129,21 @@ pub fn render(
     );
 
     TextInput::new()
-        .styles(ctx.theme.text_style())
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
         .render(ll[1][1], buf, &mut state.textinput1);
     TextInput::new()
-        .styles(ctx.theme.text_style())
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
         .render(ll[1][3], buf, &mut state.textinput2);
     TextInput::new()
-        .styles(ctx.theme.text_style())
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
         .render(ll[1][5], buf, &mut state.textinput3);
 
     let lb = layout_half(ll[1][7]);
     Button::new("Accept")
-        .styles(ctx.theme.button_style())
+        .styles(ctx.theme.style(WidgetStyle::BUTTON))
         .render(lb.0, buf, &mut state.button1);
     Button::new("Decline")
-        .styles(ctx.theme.button_style())
+        .styles(ctx.theme.style(WidgetStyle::BUTTON))
         .render(lb.1, buf, &mut state.button2);
 
     ctx.set_screen_cursor(

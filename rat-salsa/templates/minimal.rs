@@ -5,7 +5,7 @@ use rat_focus::impl_has_focus;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme3::{create_theme, SalsaTheme};
+use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
 use rat_widget::event::{ct_event, Dialog, HandleEvent, MenuOutcome, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
@@ -47,7 +47,7 @@ pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
 
     pub cfg: Config,
-    pub theme: Box<dyn SalsaTheme>,
+    pub theme: SalsaTheme,
     pub status: String,
 }
 
@@ -63,7 +63,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(cfg: Config, theme: Box<dyn SalsaTheme>) -> Self {
+    pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             cfg,
@@ -125,19 +125,19 @@ pub fn render(
     .split(layout[1]);
 
     MenuLine::new()
-        .styles(ctx.theme.menu_style())
+        .styles(ctx.theme.style(WidgetStyle::MENU))
         .title("-!-")
         .item_parsed("_Quit")
         .render(status_layout[0], buf, &mut state.menu);
 
     if state.error_dlg.active() {
         MsgDialog::new()
-            .styles(ctx.theme.msg_dialog_style())
+            .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
             .render(layout[0], buf, &mut state.error_dlg);
     }
 
     // Status
-    let palette = ctx.theme.palette();
+    let palette = &ctx.theme.p;
     let status_color_1 = palette
         .normal_contrast(palette.white[0])
         .bg(palette.blue[3]);
