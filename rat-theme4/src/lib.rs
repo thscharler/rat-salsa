@@ -1,16 +1,17 @@
-use crate::dark_theme::dark_theme;
-use crate::map_theme::MapTheme;
-use crate::palette::Palette;
-use crate::shell_theme::shell_theme;
 use ratatui::style::Style;
-use std::any::{Any, type_name};
+use std::any::{Any, type_name, type_name_of_val};
+use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
 
-mod boxed;
 mod dark_theme;
-mod map_theme;
 mod palette;
-pub mod palettes;
+mod palettes;
 mod shell_theme;
+
+pub use dark_theme::dark_theme;
+pub use palette::Palette;
+pub use palettes::*;
+pub use shell_theme::shell_theme;
 
 pub struct WidgetStyle;
 
@@ -81,39 +82,89 @@ pub const BG4: usize = 7;
 #[macro_export]
 macro_rules! make_dyn {
     ($fn_name:ident) => {
-        |theme: &dyn $crate::SalsaTheme| {
-            let theme = (theme as &dyn core::any::Any)
-                .downcast_ref::<$crate::map_theme::MapTheme>()
-                .expect("map-theme");
-            Box::new($fn_name(theme))
-        }
+        |theme: &$crate::SalsaTheme| Box::new($fn_name(theme))
     };
 }
 
-pub trait SalsaTheme: Any {
-    /// Theme name.
-    fn name(&self) -> &str;
+enum Entry {
+    Style(Style),
+    Fn(fn(&SalsaTheme) -> Box<dyn Any>),
+    FnClosure(Box<dyn Fn(&SalsaTheme) -> Box<dyn Any> + 'static>),
+}
 
-    /// Color palette.
-    fn p(&self) -> &Palette;
+impl Debug for Entry {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Entry::Style(s) => {
+                write!(f, "{:?}", s)
+            }
+            Entry::Fn(fun) => {
+                write!(f, "{:?}", type_name_of_val(fun))
+            }
+            Entry::FnClosure(fun) => {
+                write!(f, "{:?}", type_name_of_val(fun))
+            }
+        }
+    }
+}
 
-    /// Add a named base_style.
-    fn define(&mut self, n: &'static str, style: Style);
+#[derive(Debug, Default)]
+pub struct SalsaTheme {
+    pub name: String,
+    pub p: Palette,
+    styles: HashMap<&'static str, Entry>,
+}
 
-    /// Add a style as constructor fn.
-    fn define_fn(&mut self, w: &'static str, cr: fn(&dyn SalsaTheme) -> Box<dyn Any>);
+impl SalsaTheme {
+    pub fn new(name: impl Into<String>, s: Palette) -> Self {
+        Self {
+            p: s,
+            name: name.into(),
+            styles: Default::default(),
+        }
+    }
+}
 
-    /// Add a styles as a constructor closure.
-    fn define_closure(
+impl SalsaTheme {
+    /// Some display name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn define(&mut self, n: &'static str, style: Style) {
+        self.styles.insert(n, Entry::Style(style));
+    }
+
+    pub fn define_fn(&mut self, w: &'static str, cr: fn(&SalsaTheme) -> Box<dyn Any>) {
+        self.styles.insert(w, Entry::Fn(cr));
+    }
+
+    pub fn define_closure(
         &mut self,
         w: &'static str,
-        cr: Box<dyn Fn(&dyn SalsaTheme) -> Box<dyn Any> + 'static>,
-    );
+        cr: Box<dyn Fn(&SalsaTheme) -> Box<dyn Any> + 'static>,
+    ) {
+        self.styles.insert(w, Entry::FnClosure(cr));
+    }
 
-    fn dyn_style(&self, w: &str) -> Option<Box<dyn Any>>;
+    fn dyn_style(&self, w: &str) -> Option<Box<dyn Any>> {
+        if let Some(entry) = self.styles.get(w) {
+            match entry {
+                Entry::Style(style) => Some(Box::new(style.clone())),
+                Entry::Fn(create) => Some(create(self)),
+                Entry::FnClosure(create) => Some(create(self)),
+            }
+        } else {
+            if cfg!(debug_assertions) {
+                panic!("unknown style {}", w)
+            } else {
+                None
+            }
+        }
+    }
 
     /// Get the style for the named widget.
-    fn style<O: Default + Sized + 'static>(&self, w: &str) -> O
+    pub fn style<O: Default + Sized + 'static>(&self, w: &str) -> O
     where
         Self: Sized,
     {
@@ -214,9 +265,9 @@ pub fn salsa_themes() -> Vec<&'static str> {
 }
 
 // Create a theme + palette.
-pub fn create_theme(theme: &str) -> Option<Box<dyn SalsaTheme>> {
+pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
     use crate::palettes::*;
-    let theme: Box<dyn SalsaTheme> = match theme {
+    let theme = match theme {
         "Imperial Dark" => dark_theme(theme, IMPERIAL),
         "Radium Dark" => dark_theme(theme, RADIUM),
         "Tundra Dark" => dark_theme(theme, TUNDRA),
@@ -252,8 +303,8 @@ pub fn create_theme(theme: &str) -> Option<Box<dyn SalsaTheme>> {
 }
 
 /// Create an empty SalsaTheme.
-pub fn create_empty(name: &str, p: Palette) -> Box<dyn SalsaTheme> {
-    Box::new(MapTheme::new(name, p))
+pub fn create_empty(name: &str, p: Palette) -> SalsaTheme {
+    SalsaTheme::new(name, p)
 }
 
 // /// Create a style from the given white shade.

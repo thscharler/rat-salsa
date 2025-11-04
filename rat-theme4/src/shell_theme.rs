@@ -1,6 +1,6 @@
-use crate::map_theme::MapTheme;
+use crate::SalsaTheme;
 use crate::palette::Palette;
-use crate::{SalsaTheme, StyleName, WidgetStyle, make_dyn};
+use crate::{StyleName, WidgetStyle, make_dyn};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
@@ -29,8 +29,8 @@ use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
-pub fn shell_theme(name: &str, p: Palette) -> Box<dyn SalsaTheme> {
-    let mut th = MapTheme::new(name, p);
+pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
+    let mut th = SalsaTheme::new(name, p);
 
     th.define(Style::INPUT, th.p.high_contrast(p.gray[0]));
     th.define(Style::FOCUS, th.p.high_contrast(p.primary[2]));
@@ -80,10 +80,10 @@ pub fn shell_theme(name: &str, p: Palette) -> Box<dyn SalsaTheme> {
     th.define_fn(WidgetStyle::TEXTVIEW, make_dyn!(textview));
     th.define_fn(WidgetStyle::VIEW, make_dyn!(view));
 
-    Box::new(th)
+    th
 }
 
-fn button(th: &MapTheme) -> ButtonStyle {
+fn button(th: &SalsaTheme) -> ButtonStyle {
     ButtonStyle {
         style: th.p.gray(2),
         focus: Some(th.style(Style::FOCUS)),
@@ -94,7 +94,7 @@ fn button(th: &MapTheme) -> ButtonStyle {
     }
 }
 
-fn checkbox(th: &MapTheme) -> CheckboxStyle {
+fn checkbox(th: &SalsaTheme) -> CheckboxStyle {
     CheckboxStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::TEXT_FOCUS)),
@@ -102,7 +102,7 @@ fn checkbox(th: &MapTheme) -> CheckboxStyle {
     }
 }
 
-fn choice(th: &MapTheme) -> ChoiceStyle {
+fn choice(th: &SalsaTheme) -> ChoiceStyle {
     ChoiceStyle {
         style: th.style(Style::INPUT),
         select: Some(th.style(Style::TEXT_SELECT)),
@@ -119,7 +119,7 @@ fn choice(th: &MapTheme) -> ChoiceStyle {
     }
 }
 
-fn clipper(th: &MapTheme) -> ClipperStyle {
+fn clipper(th: &SalsaTheme) -> ClipperStyle {
     ClipperStyle {
         style: th.style(Style::CONTAINER_BASE),
         scroll: Some(scroll(th)),
@@ -127,7 +127,7 @@ fn clipper(th: &MapTheme) -> ClipperStyle {
     }
 }
 
-fn container(th: &MapTheme) -> ContainerStyle {
+fn container(th: &SalsaTheme) -> ContainerStyle {
     ContainerStyle {
         style: th.style(Style::CONTAINER_BASE),
         symbol: None,
@@ -136,7 +136,7 @@ fn container(th: &MapTheme) -> ContainerStyle {
     }
 }
 
-fn file_dialog(th: &MapTheme) -> FileDialogStyle {
+fn file_dialog(th: &SalsaTheme) -> FileDialogStyle {
     FileDialogStyle {
         style: th.style(Style::DIALOG_BASE),
         list: Some(list(th)),
@@ -151,7 +151,7 @@ fn file_dialog(th: &MapTheme) -> FileDialogStyle {
     }
 }
 
-fn form(th: &MapTheme) -> FormStyle {
+fn form(th: &SalsaTheme) -> FormStyle {
     FormStyle {
         style: th.style(Style::CONTAINER_BASE),
         navigation: Some(th.style(Style::CONTAINER_ARROWS)),
@@ -164,7 +164,7 @@ fn form(th: &MapTheme) -> FormStyle {
     }
 }
 
-fn line_nr(th: &MapTheme) -> LineNumberStyle {
+fn line_nr(th: &SalsaTheme) -> LineNumberStyle {
     LineNumberStyle {
         style: th.style(Style::CONTAINER_BASE),
         cursor: Some(th.style(Style::TEXT_SELECT)),
@@ -172,7 +172,7 @@ fn line_nr(th: &MapTheme) -> LineNumberStyle {
     }
 }
 
-fn list(th: &MapTheme) -> ListStyle {
+fn list(th: &SalsaTheme) -> ListStyle {
     ListStyle {
         style: th.style(Style::CONTAINER_BASE),
         select: Some(th.style(Style::SELECT)),
@@ -182,7 +182,7 @@ fn list(th: &MapTheme) -> ListStyle {
     }
 }
 
-fn menu(th: &MapTheme) -> MenuStyle {
+fn menu(th: &SalsaTheme) -> MenuStyle {
     MenuStyle {
         style: th.style(Style::STATUS_BASE),
         title: Some(th.p.yellow(2)),
@@ -197,7 +197,7 @@ fn menu(th: &MapTheme) -> MenuStyle {
     }
 }
 
-fn month(th: &MapTheme) -> CalendarStyle {
+fn month(th: &SalsaTheme) -> CalendarStyle {
     CalendarStyle {
         style: Default::default(),
         title: None,
@@ -210,7 +210,7 @@ fn month(th: &MapTheme) -> CalendarStyle {
     }
 }
 
-fn msg_dialog(th: &MapTheme) -> MsgDialogStyle {
+fn msg_dialog(th: &SalsaTheme) -> MsgDialogStyle {
     MsgDialogStyle {
         style: th.style(Style::DIALOG_BASE),
         button: Some(button(th)),
@@ -218,7 +218,7 @@ fn msg_dialog(th: &MapTheme) -> MsgDialogStyle {
     }
 }
 
-fn paragraph(th: &MapTheme) -> ParagraphStyle {
+fn paragraph(th: &SalsaTheme) -> ParagraphStyle {
     ParagraphStyle {
         style: th.style(Style::CONTAINER_BASE),
         focus: Some(th.style(Style::FOCUS)),
@@ -227,7 +227,7 @@ fn paragraph(th: &MapTheme) -> ParagraphStyle {
     }
 }
 
-fn radio(th: &MapTheme) -> RadioStyle {
+fn radio(th: &SalsaTheme) -> RadioStyle {
     RadioStyle {
         layout: Some(RadioLayout::Stacked),
         style: th.style(Style::INPUT),
@@ -237,7 +237,7 @@ fn radio(th: &MapTheme) -> RadioStyle {
 }
 
 /// Scroll style
-fn scroll(th: &MapTheme) -> ScrollStyle {
+fn scroll(th: &SalsaTheme) -> ScrollStyle {
     ScrollStyle {
         thumb_style: Some(th.style(Style::CONTAINER_BORDER)),
         track_style: Some(th.style(Style::CONTAINER_BORDER)),
@@ -248,7 +248,7 @@ fn scroll(th: &MapTheme) -> ScrollStyle {
     }
 }
 
-fn dialog_scroll(th: &MapTheme) -> ScrollStyle {
+fn dialog_scroll(th: &SalsaTheme) -> ScrollStyle {
     ScrollStyle {
         thumb_style: Some(th.style(Style::DIALOG_BORDER)),
         track_style: Some(th.style(Style::DIALOG_BORDER)),
@@ -259,7 +259,7 @@ fn dialog_scroll(th: &MapTheme) -> ScrollStyle {
     }
 }
 
-fn popup_scroll(th: &MapTheme) -> ScrollStyle {
+fn popup_scroll(th: &SalsaTheme) -> ScrollStyle {
     ScrollStyle {
         thumb_style: Some(th.style(Style::POPUP_BORDER)),
         track_style: Some(th.style(Style::POPUP_BORDER)),
@@ -270,7 +270,7 @@ fn popup_scroll(th: &MapTheme) -> ScrollStyle {
     }
 }
 
-fn shadow(th: &MapTheme) -> ShadowStyle {
+fn shadow(th: &SalsaTheme) -> ShadowStyle {
     ShadowStyle {
         style: th.p.normal_contrast(th.p.black[0]),
         dir: ShadowDirection::BottomRight,
@@ -278,7 +278,7 @@ fn shadow(th: &MapTheme) -> ShadowStyle {
     }
 }
 
-fn slider(th: &MapTheme) -> SliderStyle {
+fn slider(th: &SalsaTheme) -> SliderStyle {
     SliderStyle {
         style: th.style(Style::INPUT),
         bounds: Some(th.p.gray(2)),
@@ -289,7 +289,7 @@ fn slider(th: &MapTheme) -> SliderStyle {
     }
 }
 
-fn split(th: &MapTheme) -> SplitStyle {
+fn split(th: &SalsaTheme) -> SplitStyle {
     SplitStyle {
         style: th.style(Style::CONTAINER_BORDER),
         arrow_style: Some(th.style(Style::CONTAINER_ARROWS)),
@@ -298,7 +298,7 @@ fn split(th: &MapTheme) -> SplitStyle {
     }
 }
 
-fn statusline(th: &MapTheme) -> StatusLineStyle {
+fn statusline(th: &SalsaTheme) -> StatusLineStyle {
     StatusLineStyle {
         styles: vec![
             th.style(Style::STATUS_BASE),
@@ -310,7 +310,7 @@ fn statusline(th: &MapTheme) -> StatusLineStyle {
     }
 }
 
-fn tabbed(th: &MapTheme) -> TabbedStyle {
+fn tabbed(th: &SalsaTheme) -> TabbedStyle {
     TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
         tab: Some(th.p.gray(2)),
@@ -320,7 +320,7 @@ fn tabbed(th: &MapTheme) -> TabbedStyle {
     }
 }
 
-fn table(th: &MapTheme) -> TableStyle {
+fn table(th: &SalsaTheme) -> TableStyle {
     TableStyle {
         style: th.style(Style::CONTAINER_BASE),
         select_row: Some(th.style(Style::SELECT)),
@@ -334,7 +334,7 @@ fn table(th: &MapTheme) -> TableStyle {
     }
 }
 
-fn text(th: &MapTheme) -> TextStyle {
+fn text(th: &SalsaTheme) -> TextStyle {
     TextStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::TEXT_FOCUS)),
@@ -344,7 +344,7 @@ fn text(th: &MapTheme) -> TextStyle {
     }
 }
 
-fn textarea(th: &MapTheme) -> TextStyle {
+fn textarea(th: &SalsaTheme) -> TextStyle {
     TextStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::TEXT_FOCUS)),
@@ -355,7 +355,7 @@ fn textarea(th: &MapTheme) -> TextStyle {
     }
 }
 
-fn textview(th: &MapTheme) -> TextStyle {
+fn textview(th: &SalsaTheme) -> TextStyle {
     TextStyle {
         style: th.style(Style::CONTAINER_BASE),
         focus: Some(th.style(Style::CONTAINER_BASE)),
@@ -366,7 +366,7 @@ fn textview(th: &MapTheme) -> TextStyle {
     }
 }
 
-fn view(th: &MapTheme) -> ViewStyle {
+fn view(th: &SalsaTheme) -> ViewStyle {
     ViewStyle {
         scroll: Some(scroll(th)),
         ..Default::default()
