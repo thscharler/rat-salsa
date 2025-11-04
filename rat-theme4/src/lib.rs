@@ -2,28 +2,30 @@ use crate::dark_theme::dark_theme;
 use crate::map_theme::MapTheme;
 use crate::palette::Palette;
 use ratatui::style::{Color, Style};
-use std::any::Any;
+use std::any::{Any, type_name};
 
+mod boxed;
 mod dark_theme;
 mod map_theme;
 mod palette;
 pub mod palettes;
+mod test;
 
-pub struct Widget;
+pub struct WidgetStyle;
 
-impl Widget {
-    const CONTAINER: &'static str = "container";
-    const SCROLL: &'static str = "scroll";
+impl WidgetStyle {
+    pub const CONTAINER: &'static str = "container";
+    pub const SCROLL: &'static str = "scroll";
 
-    const POPUP_SCROLL: &'static str = "scroll.popup";
-    const DIALOG_SCROLL: &'static str = "scroll.dialog";
+    pub const POPUP_SCROLL: &'static str = "scroll.popup";
+    pub const DIALOG_SCROLL: &'static str = "scroll.dialog";
 }
 
-pub struct Named;
+pub struct NamedStyle;
 
-impl Named {
-    const FOCUS: &'static str = "focus";
-    const SELECT: &'static str = "select";
+impl NamedStyle {
+    pub const FOCUS: &'static str = "focus";
+    pub const SELECT: &'static str = "select";
 }
 
 pub enum ThemeColor {
@@ -54,93 +56,93 @@ pub trait SalsaTheme: Any {
     fn name(&self) -> &str;
 
     /// Color palette.
-    fn palette(&self) -> &Palette;
+    fn p(&self) -> &Palette;
 
-    /// Create a style from the given white shade.
-    /// n is `0..8`
-    fn white(&self, n: usize) -> Style;
-
-    /// Create a style from the given black shade.
-    /// n is `0..8`
-    fn black(&self, n: usize) -> Style;
-
-    /// Create a style from the given gray shade.
-    /// n is `0..8`
-    fn gray(&self, n: usize) -> Style;
-
-    /// Create a style from the given red shade.
-    /// n is `0..8`
-    fn red(&self, n: usize) -> Style;
-
-    /// Create a style from the given orange shade.
-    /// n is `0..8`
-    fn orange(&self, n: usize) -> Style;
-
-    /// Create a style from the given yellow shade.
-    /// n is `0..8`
-    fn yellow(&self, n: usize) -> Style;
-
-    /// Create a style from the given limegreen shade.
-    /// n is `0..8`
-    fn limegreen(&self, n: usize) -> Style;
-
-    /// Create a style from the given green shade.
-    /// n is `0..8`
-    fn green(&self, n: usize) -> Style;
-
-    /// Create a style from the given bluegreen shade.
-    /// n is `0..8`
-    fn bluegreen(&self, n: usize) -> Style;
-
-    /// Create a style from the given cyan shade.
-    /// n is `0..8`
-    fn cyan(&self, n: usize) -> Style;
-
-    /// Create a style from the given blue shade.
-    /// n is `0..8`
-    fn blue(&self, n: usize) -> Style;
-
-    /// Create a style from the given deepblue shade.
-    /// n is `0..8`
-    fn deepblue(&self, n: usize) -> Style;
-
-    /// Create a style from the given purple shade.
-    /// n is `0..8`
-    fn purple(&self, n: usize) -> Style;
-
-    /// Create a style from the given magenta shade.
-    /// n is `0..8`
-    fn magenta(&self, n: usize) -> Style;
-
-    /// Create a style from the given redpink shade.
-    /// n is `0..8`
-    fn redpink(&self, n: usize) -> Style;
-
-    /// Create a style from the given primary shade.
-    /// n is `0..8`
-    fn primary(&self, n: usize) -> Style;
-
-    /// Create a style from the given secondary shade.
-    /// n is `0..8`
-    fn secondary(&self, n: usize) -> Style;
-
-    /// Style with only a fg color.
-    fn text_light(&self) -> Style;
-
-    /// Style with only a fg color.
-    fn text_bright(&self) -> Style;
-
-    /// Style with only a fg color.
-    fn text_dark(&self) -> Style;
-
-    /// Style with only a fg color.
-    fn text_black(&self) -> Style;
-
-    /// Create a style from a background color
-    fn style(&self, bg: Color) -> Style;
-
-    /// Create a style from a background color
-    fn high_style(&self, bg: Color) -> Style;
+    // /// Create a style from the given white shade.
+    // /// n is `0..8`
+    // fn white(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given black shade.
+    // /// n is `0..8`
+    // fn black(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given gray shade.
+    // /// n is `0..8`
+    // fn gray(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given red shade.
+    // /// n is `0..8`
+    // fn red(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given orange shade.
+    // /// n is `0..8`
+    // fn orange(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given yellow shade.
+    // /// n is `0..8`
+    // fn yellow(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given limegreen shade.
+    // /// n is `0..8`
+    // fn limegreen(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given green shade.
+    // /// n is `0..8`
+    // fn green(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given bluegreen shade.
+    // /// n is `0..8`
+    // fn bluegreen(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given cyan shade.
+    // /// n is `0..8`
+    // fn cyan(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given blue shade.
+    // /// n is `0..8`
+    // fn blue(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given deepblue shade.
+    // /// n is `0..8`
+    // fn deepblue(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given purple shade.
+    // /// n is `0..8`
+    // fn purple(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given magenta shade.
+    // /// n is `0..8`
+    // fn magenta(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given redpink shade.
+    // /// n is `0..8`
+    // fn redpink(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given primary shade.
+    // /// n is `0..8`
+    // fn primary(&self, n: usize) -> Style;
+    //
+    // /// Create a style from the given secondary shade.
+    // /// n is `0..8`
+    // fn secondary(&self, n: usize) -> Style;
+    //
+    // /// Style with only a fg color.
+    // fn text_light(&self) -> Style;
+    //
+    // /// Style with only a fg color.
+    // fn text_bright(&self) -> Style;
+    //
+    // /// Style with only a fg color.
+    // fn text_dark(&self) -> Style;
+    //
+    // /// Style with only a fg color.
+    // fn text_black(&self) -> Style;
+    //
+    // /// Create a style from a background color
+    // fn normal_style(&self, bg: Color) -> Style;
+    //
+    // /// Create a style from a background color
+    // fn high_style(&self, bg: Color) -> Style;
 
     /// Add a named base_style.
     fn add_named(&mut self, n: &'static str, style: Style);
@@ -148,12 +150,33 @@ pub trait SalsaTheme: Any {
     /// Get a named base-style.
     fn named(&self, n: &str) -> Style;
 
-    fn add_widget(&mut self, w: &'static str, cr: fn(&dyn SalsaTheme) -> Box<dyn Any>);
+    fn add_style(&mut self, w: &'static str, cr: fn(&dyn SalsaTheme) -> Box<dyn Any>);
+
+    fn dyn_style(&self, w: &str) -> Option<Box<dyn Any>>;
 
     /// Get the style for the named widget.
-    fn widget<O: Default + Sized + 'static>(&self, w: &str) -> O
+    fn style<O: Default + Sized + 'static>(&self, w: &str) -> O
     where
-        Self: Sized;
+        Self: Sized,
+    {
+        if cfg!(debug_assertions) {
+            let style = self
+                .dyn_style(w)
+                .expect(format!("unknown widget {}", w).as_str());
+            let style = style
+                .downcast::<O>()
+                .expect(format!("downcast fails for {} to {}", w, type_name::<O>()).as_str());
+            *style
+        } else {
+            let Some(style) = self.dyn_style(w) else {
+                return O::default();
+            };
+            let Ok(style) = style.downcast::<O>() else {
+                return O::default();
+            };
+            *style
+        }
+    }
 }
 
 const PALETTES: &[&str] = &[

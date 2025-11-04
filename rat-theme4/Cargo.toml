@@ -15,4 +15,4 @@ exclude = [".idea/*", ".gitignore"]
 ratatui = { version = "0.29" }
 log = "0.4"
 
-rat-widget = { version = "2.0", path = "../rat-widget" }
+rat-widget = { version = "2.1", path = "../rat-widget" }

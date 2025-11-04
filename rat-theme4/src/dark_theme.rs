@@ -1,6 +1,6 @@
 use crate::map_theme::MapTheme;
 use crate::palette::Palette;
-use crate::{Named, SalsaTheme, Widget, make_dyn};
+use crate::{NamedStyle, SalsaTheme, WidgetStyle, make_dyn};
 use rat_widget::container::ContainerStyle;
 use rat_widget::scrolled::ScrollStyle;
 use ratatui::style::Style;
@@ -8,28 +8,28 @@ use ratatui::style::Style;
 pub fn dark_theme(name: &str, p: Palette) -> Box<dyn SalsaTheme> {
     let mut th = MapTheme::new(name, p);
 
-    th.add_named(Named::FOCUS, th.high_style(p.primary[2]));
-    th.add_named(Named::SELECT, th.high_style(p.secondary[1]));
+    th.add_named(NamedStyle::FOCUS, th.p.high_contrast(p.primary[2]));
+    th.add_named(NamedStyle::SELECT, th.p.high_contrast(p.secondary[1]));
 
-    th.add_widget(Widget::CONTAINER, make_dyn!(container));
-    th.add_widget(Widget::SCROLL, make_dyn!(scroll));
+    th.add_style(WidgetStyle::CONTAINER, make_dyn!(container));
+    th.add_style(WidgetStyle::SCROLL, make_dyn!(scroll));
 
     Box::new(th)
 }
 
 /// Focus style
 fn focus(th: &MapTheme) -> Style {
-    th.high_style(th.p.primary[2])
+    th.p.high_contrast(th.p.primary[2])
 }
 
 /// Selection style
 fn select(th: &MapTheme) -> Style {
-    th.high_style(th.p.secondary[1])
+    th.p.high_contrast(th.p.secondary[1])
 }
 
 /// Container base
 fn container_base(th: &MapTheme) -> Style {
-    th.style(th.p.black[1])
+    th.p.normal_contrast(th.p.black[1])
 }
 
 /// Container border

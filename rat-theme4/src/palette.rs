@@ -51,13 +51,6 @@ pub enum TextColorRating {
     Dark,
 }
 
-/// Used to create a high contrast or normal contrast style.
-#[derive(Debug)]
-pub enum Contrast {
-    High,
-    Normal,
-}
-
 impl Palette {
     /// Color index for a bright variant of the base color.
     /// Brightness increases with the number.
@@ -86,117 +79,124 @@ impl Palette {
 
     /// Create a style from the given white shade.
     /// n is `0..=3`
-    pub fn white(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.white[n], contrast)
+    pub fn white(&self, n: usize) -> Style {
+        self.normal_contrast(self.white[n])
     }
 
     /// Create a style from the given black shade.
     /// n is `0..=3`
-    pub fn black(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.black[n], contrast)
+    pub fn black(&self, n: usize) -> Style {
+        self.normal_contrast(self.black[n])
     }
 
     /// Create a style from the given gray shade.
     /// n is `0..=3`
-    pub fn gray(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.gray[n], contrast)
+    pub fn gray(&self, n: usize) -> Style {
+        self.normal_contrast(self.gray[n])
     }
 
     /// Create a style from the given red shade.
     /// n is `0..=3`
-    pub fn red(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.red[n], contrast)
+    pub fn red(&self, n: usize) -> Style {
+        self.normal_contrast(self.red[n])
     }
 
     /// Create a style from the given orange shade.
     /// n is `0..=3`
-    pub fn orange(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.orange[n], contrast)
+    pub fn orange(&self, n: usize) -> Style {
+        self.normal_contrast(self.orange[n])
     }
 
     /// Create a style from the given yellow shade.
     /// n is `0..=3`
-    pub fn yellow(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.yellow[n], contrast)
+    pub fn yellow(&self, n: usize) -> Style {
+        self.normal_contrast(self.yellow[n])
     }
 
     /// Create a style from the given limegreen shade.
     /// n is `0..=3`
-    pub fn limegreen(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.limegreen[n], contrast)
+    pub fn limegreen(&self, n: usize) -> Style {
+        self.normal_contrast(self.limegreen[n])
     }
 
     /// Create a style from the given green shade.
     /// n is `0..=3`
-    pub fn green(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.green[n], contrast)
+    pub fn green(&self, n: usize) -> Style {
+        self.normal_contrast(self.green[n])
     }
 
     /// Create a style from the given bluegreen shade.
     /// n is `0..=3`
-    pub fn bluegreen(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.bluegreen[n], contrast)
+    pub fn bluegreen(&self, n: usize) -> Style {
+        self.normal_contrast(self.bluegreen[n])
     }
 
     /// Create a style from the given cyan shade.
     /// n is `0..=3`
-    pub fn cyan(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.cyan[n], contrast)
+    pub fn cyan(&self, n: usize) -> Style {
+        self.normal_contrast(self.cyan[n])
     }
 
     /// Create a style from the given blue shade.
     /// n is `0..=3`
-    pub fn blue(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.blue[n], contrast)
+    pub fn blue(&self, n: usize) -> Style {
+        self.normal_contrast(self.blue[n])
     }
 
     /// Create a style from the given deepblue shade.
     /// n is `0..=3`
-    pub fn deepblue(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.deepblue[n], contrast)
+    pub fn deepblue(&self, n: usize) -> Style {
+        self.normal_contrast(self.deepblue[n])
     }
 
     /// Create a style from the given purple shade.
     /// n is `0..=3`
-    pub fn purple(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.purple[n], contrast)
+    pub fn purple(&self, n: usize) -> Style {
+        self.normal_contrast(self.purple[n])
     }
 
     /// Create a style from the given magenta shade.
     /// n is `0..=3`
-    pub fn magenta(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.magenta[n], contrast)
+    pub fn magenta(&self, n: usize) -> Style {
+        self.normal_contrast(self.magenta[n])
     }
 
     /// Create a style from the given redpink shade.
     /// n is `0..=3`
-    pub fn redpink(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.redpink[n], contrast)
+    pub fn redpink(&self, n: usize) -> Style {
+        self.normal_contrast(self.redpink[n])
     }
 
     /// Create a style from the given primary shade.
     /// n is `0..=3`
-    pub fn primary(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.primary[n], contrast)
+    pub fn primary(&self, n: usize) -> Style {
+        self.normal_contrast(self.primary[n])
     }
 
     /// Create a style from the given secondary shade.
     /// n is `0..=3`
-    pub fn secondary(&self, n: usize, contrast: Contrast) -> Style {
-        self.style(self.secondary[n], contrast)
+    pub fn secondary(&self, n: usize) -> Style {
+        self.normal_contrast(self.secondary[n])
+    }
+
+    pub fn text_light(&self) -> Style {
+        Style::new().fg(self.text_light)
+    }
+
+    pub fn text_bright(&self) -> Style {
+        Style::new().fg(self.text_bright)
+    }
+
+    pub fn text_dark(&self) -> Style {
+        Style::new().fg(self.text_dark)
+    }
+
+    pub fn text_black(&self) -> Style {
+        Style::new().fg(self.text_black)
     }
 }
 
 impl Palette {
-    /// Create a style with the given background color and
-    /// contrast.
-    pub fn style(&self, color: Color, contrast: Contrast) -> Style {
-        match contrast {
-            Contrast::High => self.high_contrast(color),
-            Contrast::Normal => self.normal_contrast(color),
-        }
-    }
-
     /// Create a style with the given background color.
     /// Uses `white[3]` or `black[0]` for the foreground,
     /// based on `rate_text_color`.
@@ -208,17 +208,8 @@ impl Palette {
         }
     }
 
-    /// Create a style with the given background color and
-    /// the color with the best contrast from the array.
-    pub fn style_colors(&self, color: Color, text: &[Color], contrast: Contrast) -> Style {
-        match contrast {
-            Contrast::High => self.normal_contrast_color(color, text),
-            Contrast::Normal => self.normal_contrast_color(color, text),
-        }
-    }
-
     /// Create a style with the given background color.
-    /// Uses `white[0]` or `black[3]` for the foreground,
+    /// Uses text_light or text_dark for the foreground,
     /// based on `rate_text_color`.
     pub fn normal_contrast(&self, color: Color) -> Style {
         match Self::rate_text_color(color) {
@@ -327,7 +318,7 @@ impl Palette {
     ///
     /// For the named colors it takes the VGA equivalent as a base.
     /// For indexed colors it splits the range in half as an estimate.
-    pub fn rate_text_color(color: Color) -> Option<TextColorRating> {
+    pub(crate) fn rate_text_color(color: Color) -> Option<TextColorRating> {
         match color {
             Color::Reset => None,
             Color::Black => Some(TextColorRating::Light), //0
