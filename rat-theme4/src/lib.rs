@@ -1,7 +1,8 @@
 use crate::dark_theme::dark_theme;
 use crate::map_theme::MapTheme;
 use crate::palette::Palette;
-use ratatui::style::{Color, Style};
+use crate::shell_theme::shell_theme;
+use ratatui::style::Style;
 use std::any::{Any, type_name};
 
 mod boxed;
@@ -9,35 +10,73 @@ mod dark_theme;
 mod map_theme;
 mod palette;
 pub mod palettes;
-mod test;
+mod shell_theme;
 
 pub struct WidgetStyle;
 
 impl WidgetStyle {
+    pub const BUTTON: &'static str = "button";
+    pub const CHECKBOX: &'static str = "checkbox";
+    pub const CHOICE: &'static str = "choice";
+    pub const CLIPPER: &'static str = "clipper";
     pub const CONTAINER: &'static str = "container";
+    pub const FILE_DIALOG: &'static str = "file-dialog";
+    pub const FORM: &'static str = "form";
+    pub const LINE_NR: &'static str = "line-nr";
+    pub const LIST: &'static str = "list";
+    pub const MENU: &'static str = "menu";
+    pub const MONTH: &'static str = "month";
+    pub const MSG_DIALOG: &'static str = "msg-dialog";
+    pub const PARAGRAPH: &'static str = "paragraph";
+    pub const RADIO: &'static str = "radio";
     pub const SCROLL: &'static str = "scroll";
-
-    pub const POPUP_SCROLL: &'static str = "scroll.popup";
-    pub const DIALOG_SCROLL: &'static str = "scroll.dialog";
+    pub const SCROLL_DIALOG: &'static str = "scroll.dialog";
+    pub const SCROLL_POPUP: &'static str = "scroll.popup";
+    pub const SHADOW: &'static str = "shadow";
+    pub const SLIDER: &'static str = "slider";
+    pub const SPLIT: &'static str = "split";
+    pub const STATUSLINE: &'static str = "statusline";
+    pub const TABBED: &'static str = "tabbed";
+    pub const TABLE: &'static str = "table";
+    pub const TEXT: &'static str = "text";
+    pub const TEXTAREA: &'static str = "textarea";
+    pub const TEXTVIEW: &'static str = "textview";
+    pub const VIEW: &'static str = "view";
 }
 
-pub struct NamedStyle;
+pub trait StyleName {
+    const LABEL: &'static str = "label";
+    const INPUT: &'static str = "input";
+    const FOCUS: &'static str = "focus";
+    const SELECT: &'static str = "select";
+    const TEXT_FOCUS: &'static str = "text-focus";
+    const TEXT_SELECT: &'static str = "text-select";
 
-impl NamedStyle {
-    pub const FOCUS: &'static str = "focus";
-    pub const SELECT: &'static str = "select";
+    const CONTAINER_BASE: &'static str = "container-base";
+    const CONTAINER_BORDER: &'static str = "container-border";
+    const CONTAINER_ARROWS: &'static str = "container-arrows";
+
+    const POPUP_BASE: &'static str = "popup-base";
+    const POPUP_BORDER: &'static str = "popup-border";
+    const POPUP_ARROW: &'static str = "popup-arrow";
+
+    const DIALOG_BASE: &'static str = "dialog-base";
+    const DIALOG_BORDER: &'static str = "dialog-border";
+    const DIALOG_ARROW: &'static str = "dialog-arrow";
+
+    const STATUS_BASE: &'static str = "status-base";
 }
 
-pub enum ThemeColor {
-    C0 = 0,
-    C1,
-    C2,
-    C3,
-    D0,
-    D1,
-    D2,
-    D3,
-}
+impl StyleName for Style {}
+
+pub const FG0: usize = 0;
+pub const FG1: usize = 1;
+pub const FG2: usize = 2;
+pub const FG3: usize = 3;
+pub const BG1: usize = 4;
+pub const BG2: usize = 5;
+pub const BG3: usize = 6;
+pub const BG4: usize = 7;
 
 #[macro_export]
 macro_rules! make_dyn {
@@ -58,99 +97,18 @@ pub trait SalsaTheme: Any {
     /// Color palette.
     fn p(&self) -> &Palette;
 
-    // /// Create a style from the given white shade.
-    // /// n is `0..8`
-    // fn white(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given black shade.
-    // /// n is `0..8`
-    // fn black(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given gray shade.
-    // /// n is `0..8`
-    // fn gray(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given red shade.
-    // /// n is `0..8`
-    // fn red(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given orange shade.
-    // /// n is `0..8`
-    // fn orange(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given yellow shade.
-    // /// n is `0..8`
-    // fn yellow(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given limegreen shade.
-    // /// n is `0..8`
-    // fn limegreen(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given green shade.
-    // /// n is `0..8`
-    // fn green(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given bluegreen shade.
-    // /// n is `0..8`
-    // fn bluegreen(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given cyan shade.
-    // /// n is `0..8`
-    // fn cyan(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given blue shade.
-    // /// n is `0..8`
-    // fn blue(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given deepblue shade.
-    // /// n is `0..8`
-    // fn deepblue(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given purple shade.
-    // /// n is `0..8`
-    // fn purple(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given magenta shade.
-    // /// n is `0..8`
-    // fn magenta(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given redpink shade.
-    // /// n is `0..8`
-    // fn redpink(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given primary shade.
-    // /// n is `0..8`
-    // fn primary(&self, n: usize) -> Style;
-    //
-    // /// Create a style from the given secondary shade.
-    // /// n is `0..8`
-    // fn secondary(&self, n: usize) -> Style;
-    //
-    // /// Style with only a fg color.
-    // fn text_light(&self) -> Style;
-    //
-    // /// Style with only a fg color.
-    // fn text_bright(&self) -> Style;
-    //
-    // /// Style with only a fg color.
-    // fn text_dark(&self) -> Style;
-    //
-    // /// Style with only a fg color.
-    // fn text_black(&self) -> Style;
-    //
-    // /// Create a style from a background color
-    // fn normal_style(&self, bg: Color) -> Style;
-    //
-    // /// Create a style from a background color
-    // fn high_style(&self, bg: Color) -> Style;
-
     /// Add a named base_style.
-    fn add_named(&mut self, n: &'static str, style: Style);
+    fn define(&mut self, n: &'static str, style: Style);
 
-    /// Get a named base-style.
-    fn named(&self, n: &str) -> Style;
+    /// Add a style as constructor fn.
+    fn define_fn(&mut self, w: &'static str, cr: fn(&dyn SalsaTheme) -> Box<dyn Any>);
 
-    fn add_style(&mut self, w: &'static str, cr: fn(&dyn SalsaTheme) -> Box<dyn Any>);
+    /// Add a styles as a constructor closure.
+    fn define_closure(
+        &mut self,
+        w: &'static str,
+        cr: Box<dyn Fn(&dyn SalsaTheme) -> Box<dyn Any> + 'static>,
+    );
 
     fn dyn_style(&self, w: &str) -> Option<Box<dyn Any>>;
 
@@ -272,21 +230,21 @@ pub fn create_theme(theme: &str) -> Option<Box<dyn SalsaTheme>> {
         "OxoCarbon Dark" => dark_theme(theme, OXOCARBON),
         "Rust Dark" => dark_theme(theme, RUST),
         "VSCode Dark" => dark_theme(theme, VSCODE_DARK),
-        //
-        // "Imperial Shell" => Box::new(ShellTheme::new(theme, IMPERIAL)),
-        // "Radium Shell" => Box::new(ShellTheme::new(theme, RADIUM)),
-        // "Tundra Shell" => Box::new(ShellTheme::new(theme, TUNDRA)),
-        // "Ocean Shell" => Box::new(ShellTheme::new(theme, OCEAN)),
-        // "Monochrome Shell" => Box::new(ShellTheme::new(theme, MONOCHROME)),
-        // "Black & White Shell" => Box::new(ShellTheme::new(theme, BLACKWHITE)),
-        // "Base16 Shell" => Box::new(ShellTheme::new(theme, BASE16)),
-        // "Base16 Relax Shell" => Box::new(ShellTheme::new(theme, BASE16_RELAX)),
-        // "Monekai Shell" => Box::new(ShellTheme::new(theme, MONEKAI)),
-        // "Solarized Shell" => Box::new(ShellTheme::new(theme, SOLARIZED)),
-        // "OxoCarbon Shell" => Box::new(ShellTheme::new(theme, OXOCARBON)),
-        // "Rust Shell" => Box::new(ShellTheme::new(theme, RUST)),
-        // "VSCode Shell" => Box::new(ShellTheme::new(theme, VSCODE_DARK)),
-        //
+
+        "Imperial Shell" => shell_theme(theme, IMPERIAL),
+        "Radium Shell" => shell_theme(theme, RADIUM),
+        "Tundra Shell" => shell_theme(theme, TUNDRA),
+        "Ocean Shell" => shell_theme(theme, OCEAN),
+        "Monochrome Shell" => shell_theme(theme, MONOCHROME),
+        "Black & White Shell" => shell_theme(theme, BLACKWHITE),
+        "Base16 Shell" => shell_theme(theme, BASE16),
+        "Base16 Relax Shell" => shell_theme(theme, BASE16_RELAX),
+        "Monekai Shell" => shell_theme(theme, MONEKAI),
+        "Solarized Shell" => shell_theme(theme, SOLARIZED),
+        "OxoCarbon Shell" => shell_theme(theme, OXOCARBON),
+        "Rust Shell" => shell_theme(theme, RUST),
+        "VSCode Shell" => shell_theme(theme, VSCODE_DARK),
+
         _ => return None,
     };
 
@@ -297,3 +255,89 @@ pub fn create_theme(theme: &str) -> Option<Box<dyn SalsaTheme>> {
 pub fn create_empty(name: &str, p: Palette) -> Box<dyn SalsaTheme> {
     Box::new(MapTheme::new(name, p))
 }
+
+// /// Create a style from the given white shade.
+// /// n is `0..8`
+// fn white(&self, n: usize) -> Style;
+//
+// /// Create a style from the given black shade.
+// /// n is `0..8`
+// fn black(&self, n: usize) -> Style;
+//
+// /// Create a style from the given gray shade.
+// /// n is `0..8`
+// fn gray(&self, n: usize) -> Style;
+//
+// /// Create a style from the given red shade.
+// /// n is `0..8`
+// fn red(&self, n: usize) -> Style;
+//
+// /// Create a style from the given orange shade.
+// /// n is `0..8`
+// fn orange(&self, n: usize) -> Style;
+//
+// /// Create a style from the given yellow shade.
+// /// n is `0..8`
+// fn yellow(&self, n: usize) -> Style;
+//
+// /// Create a style from the given limegreen shade.
+// /// n is `0..8`
+// fn limegreen(&self, n: usize) -> Style;
+//
+// /// Create a style from the given green shade.
+// /// n is `0..8`
+// fn green(&self, n: usize) -> Style;
+//
+// /// Create a style from the given bluegreen shade.
+// /// n is `0..8`
+// fn bluegreen(&self, n: usize) -> Style;
+//
+// /// Create a style from the given cyan shade.
+// /// n is `0..8`
+// fn cyan(&self, n: usize) -> Style;
+//
+// /// Create a style from the given blue shade.
+// /// n is `0..8`
+// fn blue(&self, n: usize) -> Style;
+//
+// /// Create a style from the given deepblue shade.
+// /// n is `0..8`
+// fn deepblue(&self, n: usize) -> Style;
+//
+// /// Create a style from the given purple shade.
+// /// n is `0..8`
+// fn purple(&self, n: usize) -> Style;
+//
+// /// Create a style from the given magenta shade.
+// /// n is `0..8`
+// fn magenta(&self, n: usize) -> Style;
+//
+// /// Create a style from the given redpink shade.
+// /// n is `0..8`
+// fn redpink(&self, n: usize) -> Style;
+//
+// /// Create a style from the given primary shade.
+// /// n is `0..8`
+// fn primary(&self, n: usize) -> Style;
+//
+// /// Create a style from the given secondary shade.
+// /// n is `0..8`
+// fn secondary(&self, n: usize) -> Style;
+//
+// /// Style with only a fg color.
+// fn text_light(&self) -> Style;
+//
+// /// Style with only a fg color.
+// fn text_bright(&self) -> Style;
+//
+// /// Style with only a fg color.
+// fn text_dark(&self) -> Style;
+//
+// /// Style with only a fg color.
+// fn text_black(&self) -> Style;
+//
+// /// Create a style from a background color
+// fn normal_style(&self, bg: Color) -> Style;
+//
+// /// Create a style from a background color
+// fn high_style(&self, bg: Color) -> Style;

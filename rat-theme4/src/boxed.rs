@@ -12,19 +12,23 @@ impl SalsaTheme for Box<dyn SalsaTheme> {
         self.as_ref().p()
     }
 
-    fn add_named(&mut self, n: &'static str, style: Style) {
-        self.as_mut().add_named(n, style);
+    fn define(&mut self, n: &'static str, style: Style) {
+        self.as_mut().define(n, style);
     }
 
-    fn named(&self, n: &str) -> Style {
-        self.as_ref().named(n)
+    fn define_fn(&mut self, w: &'static str, cr: fn(&dyn SalsaTheme) -> Box<dyn Any>) {
+        self.as_mut().define_fn(w, cr);
     }
 
-    fn add_style(&mut self, w: &'static str, cr: fn(&dyn SalsaTheme) -> Box<dyn Any>) {
-        self.as_mut().add_style(w, cr);
+    fn define_closure(
+        &mut self,
+        w: &'static str,
+        cr: Box<dyn Fn(&dyn SalsaTheme) -> Box<dyn Any> + 'static>,
+    ) {
+        self.as_mut().define_closure(w, cr);
     }
 
-    fn dyn_style(&self, w: &str) -> Option<Box<(dyn Any + 'static)>> {
+    fn dyn_style(&self, w: &str) -> Option<Box<dyn Any + 'static>> {
         self.as_ref().dyn_style(w)
     }
 }

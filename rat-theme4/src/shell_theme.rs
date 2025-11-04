@@ -29,28 +29,28 @@ use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
-pub fn dark_theme(name: &str, p: Palette) -> Box<dyn SalsaTheme> {
+pub fn shell_theme(name: &str, p: Palette) -> Box<dyn SalsaTheme> {
     let mut th = MapTheme::new(name, p);
 
-    th.define(Style::INPUT, th.p.high_contrast(p.gray[3]));
+    th.define(Style::INPUT, th.p.high_contrast(p.gray[0]));
     th.define(Style::FOCUS, th.p.high_contrast(p.primary[2]));
     th.define(Style::SELECT, th.p.high_contrast(p.secondary[1]));
-    th.define(Style::TEXT_FOCUS, th.p.high_contrast(p.primary[1]));
-    th.define(Style::TEXT_SELECT, th.p.high_contrast(p.secondary[1]));
+    th.define(Style::TEXT_FOCUS, th.p.high_contrast(p.gray[3]));
+    th.define(Style::TEXT_SELECT, th.p.high_contrast(p.secondary[0]));
 
-    th.define(Style::CONTAINER_BASE, th.p.high_contrast(p.black[1]));
-    th.define(Style::CONTAINER_BORDER, th.p.normal_contrast(p.black[1]));
-    th.define(Style::CONTAINER_ARROWS, th.p.normal_contrast(p.black[1]));
+    th.define(Style::CONTAINER_BASE, Style::default());
+    th.define(Style::CONTAINER_BORDER, Style::default());
+    th.define(Style::CONTAINER_ARROWS, Style::default());
 
-    th.define(Style::POPUP_BASE, th.p.high_contrast(p.white[0]));
-    th.define(Style::POPUP_BORDER, th.p.normal_contrast(p.white[0]));
-    th.define(Style::POPUP_ARROW, th.p.normal_contrast(p.white[0]));
+    th.define(Style::POPUP_BASE, th.p.normal_contrast(p.gray[0]));
+    th.define(Style::POPUP_BORDER, th.p.normal_contrast(p.gray[0]));
+    th.define(Style::POPUP_ARROW, th.p.normal_contrast(p.gray[0]));
 
     th.define(Style::DIALOG_BASE, th.p.high_contrast(p.gray[1]));
     th.define(Style::DIALOG_BORDER, th.p.normal_contrast(p.gray[1]));
     th.define(Style::DIALOG_ARROW, th.p.normal_contrast(p.gray[1]));
 
-    th.define(Style::STATUS_BASE, th.p.normal_contrast(p.black[2]));
+    th.define(Style::STATUS_BASE, Style::default());
 
     th.define_fn(WidgetStyle::BUTTON, make_dyn!(button));
     th.define_fn(WidgetStyle::CHECKBOX, make_dyn!(checkbox));
@@ -187,7 +187,7 @@ fn menu(th: &MapTheme) -> MenuStyle {
         style: th.style(Style::STATUS_BASE),
         title: Some(th.p.yellow(2)),
         focus: Some(th.style(Style::FOCUS)),
-        right: Some(th.p.fg_bluegreen(0)),
+        right: Some(th.p.green(3)),
         disabled: Some(th.p.fg_gray(0)),
         highlight: Some(Style::default().underlined()),
         popup_style: Some(th.style(Style::STATUS_BASE)),
@@ -199,10 +199,10 @@ fn menu(th: &MapTheme) -> MenuStyle {
 
 fn month(th: &MapTheme) -> CalendarStyle {
     CalendarStyle {
-        style: th.p.normal_contrast(th.p.black[2]),
+        style: Default::default(),
         title: None,
-        weeknum: Some(th.p.fg_limegreen(2)),
-        weekday: Some(th.p.fg_limegreen(2)),
+        weeknum: Some(th.p.fg_limegreen(0)),
+        weekday: Some(th.p.fg_limegreen(0)),
         day: None,
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
@@ -248,22 +248,22 @@ fn scroll(th: &MapTheme) -> ScrollStyle {
     }
 }
 
-fn popup_scroll(th: &MapTheme) -> ScrollStyle {
-    ScrollStyle {
-        thumb_style: Some(th.style(Style::POPUP_BORDER)),
-        track_style: Some(th.style(Style::POPUP_BORDER)),
-        min_style: Some(th.style(Style::POPUP_BORDER)),
-        begin_style: Some(th.style(Style::POPUP_ARROW)),
-        end_style: Some(th.style(Style::POPUP_ARROW)),
-        ..Default::default()
-    }
-}
-
 fn dialog_scroll(th: &MapTheme) -> ScrollStyle {
     ScrollStyle {
         thumb_style: Some(th.style(Style::DIALOG_BORDER)),
         track_style: Some(th.style(Style::DIALOG_BORDER)),
         min_style: Some(th.style(Style::DIALOG_BORDER)),
+        begin_style: Some(th.style(Style::DIALOG_ARROW)),
+        end_style: Some(th.style(Style::DIALOG_ARROW)),
+        ..Default::default()
+    }
+}
+
+fn popup_scroll(th: &MapTheme) -> ScrollStyle {
+    ScrollStyle {
+        thumb_style: Some(th.style(Style::POPUP_BORDER)),
+        track_style: Some(th.style(Style::POPUP_BORDER)),
+        min_style: Some(th.style(Style::POPUP_BORDER)),
         begin_style: Some(th.style(Style::POPUP_ARROW)),
         end_style: Some(th.style(Style::POPUP_ARROW)),
         ..Default::default()
@@ -302,9 +302,9 @@ fn statusline(th: &MapTheme) -> StatusLineStyle {
     StatusLineStyle {
         styles: vec![
             th.style(Style::STATUS_BASE),
-            th.p.normal_contrast(th.p.blue[3]),
             th.p.normal_contrast(th.p.blue[2]),
-            th.p.normal_contrast(th.p.blue[1]),
+            th.p.normal_contrast(th.p.blue[2]),
+            th.p.normal_contrast(th.p.blue[2]),
         ],
         ..Default::default()
     }
@@ -328,8 +328,8 @@ fn table(th: &MapTheme) -> TableStyle {
         focus_style: Some(th.style(Style::FOCUS)),
         border_style: Some(th.style(Style::CONTAINER_BORDER)),
         scroll: Some(scroll(th)),
-        header: Some(th.p.blue(2)),
-        footer: Some(th.p.blue(2)),
+        header: Some(th.p.green(2)),
+        footer: Some(th.p.green(2)),
         ..Default::default()
     }
 }

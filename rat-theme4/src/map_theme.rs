@@ -1,14 +1,19 @@
 use crate::SalsaTheme;
 use crate::palette::Palette;
 use ratatui::style::Style;
-use std::any::{Any, type_name};
+use std::any::Any;
 use std::collections::HashMap;
+
+enum Entry {
+    Style(Style),
+    Fn(fn(&dyn SalsaTheme) -> Box<dyn Any>),
+    FnClosure(Box<dyn Fn(&dyn SalsaTheme) -> Box<dyn Any> + 'static>),
+}
 
 pub struct MapTheme {
     pub name: Box<str>,
     pub p: Palette,
-    pub named: HashMap<&'static str, Style>,
-    pub widgets: HashMap<&'static str, fn(&dyn SalsaTheme) -> Box<dyn Any>>,
+    styles: HashMap<&'static str, Entry>,
 }
 
 impl MapTheme {
@@ -16,8 +21,7 @@ impl MapTheme {
         Self {
             p: s,
             name: Box::from(name),
-            named: Default::default(),
-            widgets: Default::default(),
+            styles: Default::default(),
         }
     }
 }
@@ -33,57 +37,35 @@ impl SalsaTheme for MapTheme {
         &self.p
     }
 
-    fn add_named(&mut self, n: &'static str, style: Style) {
-        self.named.insert(n, style);
+    fn define(&mut self, n: &'static str, style: Style) {
+        self.styles.insert(n, Entry::Style(style));
     }
 
-    fn named(&self, n: &str) -> Style {
-        if cfg!(debug_assertions) {
-            self.named
-                .get(n)
-                .expect(format!("unknown style {}", n).as_str())
-                .clone()
-        } else {
-            Style::default()
-        }
+    fn define_fn(&mut self, w: &'static str, cr: fn(&dyn SalsaTheme) -> Box<dyn Any>) {
+        self.styles.insert(w, Entry::Fn(cr));
     }
 
-    fn add_style(&mut self, w: &'static str, cr: fn(&dyn SalsaTheme) -> Box<dyn Any>) {
-        self.widgets.insert(w, cr);
+    fn define_closure(
+        &mut self,
+        w: &'static str,
+        cr: Box<dyn Fn(&dyn SalsaTheme) -> Box<dyn Any> + 'static>,
+    ) {
+        self.styles.insert(w, Entry::FnClosure(cr));
     }
 
     fn dyn_style(&self, w: &str) -> Option<Box<dyn Any>> {
-        if cfg!(debug_assertions) {
-            let create = self
-                .widgets
-                .get(w)
-                .expect(format!("unknown widget {}", w).as_str());
-            Some(create(self))
+        if let Some(entry) = self.styles.get(w) {
+            match entry {
+                Entry::Style(style) => Some(Box::new(style.clone())),
+                Entry::Fn(create) => Some(create(self)),
+                Entry::FnClosure(create) => Some(create(self)),
+            }
         } else {
-            None
-        }
-    }
-
-    fn style<O: Default + Sized + 'static>(&self, w: &str) -> O {
-        if cfg!(debug_assertions) {
-            let create = self
-                .widgets
-                .get(w)
-                .expect(format!("unknown widget {}", w).as_str());
-            let style = create(self);
-            let style = style
-                .downcast::<O>()
-                .expect(format!("downcast fails for {} to {}", w, type_name::<O>()).as_str());
-            *style
-        } else {
-            let Some(create) = self.widgets.get(w) else {
-                return O::default();
-            };
-            let style = create(self);
-            let Ok(style) = style.downcast::<O>() else {
-                return O::default();
-            };
-            *style
+            if cfg!(debug_assertions) {
+                panic!("unknown style {}", w)
+            } else {
+                None
+            }
         }
     }
 }

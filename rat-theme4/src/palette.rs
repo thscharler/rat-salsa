@@ -167,6 +167,96 @@ impl Palette {
         self.normal_contrast(self.redpink[n])
     }
 
+    /// Create a style from the given white shade.
+    /// n is `0..=3`
+    pub fn fg_white(&self, n: usize) -> Style {
+        Style::new().fg(self.white[n])
+    }
+
+    /// Create a style from the given black shade.
+    /// n is `0..=3`
+    pub fn fg_black(&self, n: usize) -> Style {
+        Style::new().fg(self.black[n])
+    }
+
+    /// Create a style from the given gray shade.
+    /// n is `0..=3`
+    pub fn fg_gray(&self, n: usize) -> Style {
+        Style::new().fg(self.gray[n])
+    }
+
+    /// Create a style from the given red shade.
+    /// n is `0..=3`
+    pub fn fg_red(&self, n: usize) -> Style {
+        Style::new().fg(self.red[n])
+    }
+
+    /// Create a style from the given orange shade.
+    /// n is `0..=3`
+    pub fn fg_orange(&self, n: usize) -> Style {
+        Style::new().fg(self.orange[n])
+    }
+
+    /// Create a style from the given yellow shade.
+    /// n is `0..=3`
+    pub fn fg_yellow(&self, n: usize) -> Style {
+        Style::new().fg(self.yellow[n])
+    }
+
+    /// Create a style from the given limegreen shade.
+    /// n is `0..=3`
+    pub fn fg_limegreen(&self, n: usize) -> Style {
+        Style::new().fg(self.limegreen[n])
+    }
+
+    /// Create a style from the given green shade.
+    /// n is `0..=3`
+    pub fn fg_green(&self, n: usize) -> Style {
+        Style::new().fg(self.green[n])
+    }
+
+    /// Create a style from the given bluegreen shade.
+    /// n is `0..=3`
+    pub fn fg_bluegreen(&self, n: usize) -> Style {
+        Style::new().fg(self.bluegreen[n])
+    }
+
+    /// Create a style from the given cyan shade.
+    /// n is `0..=3`
+    pub fn fg_cyan(&self, n: usize) -> Style {
+        Style::new().fg(self.cyan[n])
+    }
+
+    /// Create a style from the given blue shade.
+    /// n is `0..=3`
+    pub fn fg_blue(&self, n: usize) -> Style {
+        Style::new().fg(self.blue[n])
+    }
+
+    /// Create a style from the given deepblue shade.
+    /// n is `0..=3`
+    pub fn fg_deepblue(&self, n: usize) -> Style {
+        Style::new().fg(self.deepblue[n])
+    }
+
+    /// Create a style from the given purple shade.
+    /// n is `0..=3`
+    pub fn fg_purple(&self, n: usize) -> Style {
+        Style::new().fg(self.purple[n])
+    }
+
+    /// Create a style from the given magenta shade.
+    /// n is `0..=3`
+    pub fn fg_magenta(&self, n: usize) -> Style {
+        Style::new().fg(self.magenta[n])
+    }
+
+    /// Create a style from the given redpink shade.
+    /// n is `0..=3`
+    pub fn fg_redpink(&self, n: usize) -> Style {
+        Style::new().fg(self.redpink[n])
+    }
+
     /// Create a style from the given primary shade.
     /// n is `0..=3`
     pub fn primary(&self, n: usize) -> Style {
