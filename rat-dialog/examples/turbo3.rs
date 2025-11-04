@@ -1400,7 +1400,7 @@ pub mod theme {
 
         /// Complete MenuStyle
         pub fn menu_style(&self) -> MenuStyle {
-            let highlight = Palette::high_contrast_color(self.s.gray[3], &self.s.red);
+            let highlight = self.s.high_contrast_color(self.s.gray[3], &self.s.red);
 
             MenuStyle {
                 style: self.status_style(),
@@ -1507,7 +1507,7 @@ pub mod theme {
         /// example, which shows timings for Render/Event/Action.
         pub fn statusline_style(&self) -> Vec<Style> {
             let s = &self.s;
-            let flags = Palette::normal_contrast_color(self.s.gray[3], &s.blue);
+            let flags = self.s.normal_contrast_color(self.s.gray[3], &s.blue);
             vec![self.status_style(), flags, flags, flags]
         }
 
