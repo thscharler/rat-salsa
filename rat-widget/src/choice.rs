@@ -542,6 +542,8 @@ where
     /// Combined styles.
     pub fn styles(mut self, styles: ChoiceStyle) -> Self {
         self.style = styles.style;
+        self.block = self.block.map(|v| v.style(self.style));
+
         if styles.button.is_some() {
             self.button_style = styles.button;
         }
@@ -563,14 +565,12 @@ where
         if let Some(close) = styles.behave_close {
             self.behave_close = close;
         }
-        self.block = self.block.map(|v| v.style(self.style));
         if let Some(alignment) = styles.popup.alignment {
             self.popup_alignment = alignment;
         }
         if let Some(placement) = styles.popup.placement {
             self.popup_placement = placement;
         }
-
         self.popup = self.popup.styles(styles.popup.clone());
         if let Some(popup_style) = styles.popup_style {
             self.popup_style = popup_style;
@@ -578,7 +578,6 @@ where
         if let Some(popup_scroll) = styles.popup_scroll {
             self.popup_scroll = self.popup_scroll.map(|v| v.styles(popup_scroll));
         }
-
         self.popup_block = self.popup_block.map(|v| v.style(self.popup_style));
         if let Some(border_style) = styles.popup_border {
             self.popup_block = self.popup_block.map(|v| v.border_style(border_style));
@@ -586,7 +585,6 @@ where
         if styles.popup_block.is_some() {
             self.popup_block = styles.popup_block;
         }
-
         if styles.popup_len.is_some() {
             self.popup_len = styles.popup_len;
         }

@@ -84,6 +84,7 @@ pub mod checkbox;
 pub mod choice;
 pub mod clipper;
 pub mod combobox;
+pub mod container;
 pub mod date_input;
 pub mod file_dialog;
 pub mod form;
