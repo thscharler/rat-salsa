@@ -1,3 +1,44 @@
+//!
+//! SalsaTheme provides a styling system for ratatui apps.
+//!
+//! It has a simple flat naming scheme.
+//!
+//! But it can store
+//! * [ratatui Style](ratatui::style::Style)
+//! * composite styles as used by [rat-widget](rat_widget).
+//!   eg [CheckboxStyle](rat_widget::checkbox::CheckboxStyle)
+//! * practically anything else.
+//!
+//! ## Naming styles
+//!
+//! * It has an extension trait for [Style](ratatui::style::Style) that
+//!   adds constants for known styles. In the same manner you can add your
+//!   application specific styles and have them with code completion.
+//!
+//! * For [rat-widget](rat_widget) composite style it defines an anchor struct
+//!   [WidgetStyle] that performs the same purpose.
+//!
+//! ## Usage
+//!
+//! ```rust
+//! # use ratatui::buffer::Buffer;
+//! # use ratatui::layout::Rect;
+//! # use ratatui::style::Style;
+//! # use ratatui::widgets::StatefulWidget;
+//! # use rat_theme4::{create_empty, SalsaTheme, StyleName, WidgetStyle, };
+//! # use rat_theme4::palettes::BLACKOUT;
+//! # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
+//! # let theme = create_empty("", BLACKOUT);
+//! # let area = Rect::default();
+//! # let mut buf = Buffer::default();
+//! # let buf = &mut buf;
+//! # let mut state = CheckboxState::default();
+//!
+//! Checkbox::new()
+//!     .styles(theme.style(WidgetStyle::CHECKBOX))
+//!     .render(area, buf, &mut state);
+//! ```
+
 use ratatui::style::Style;
 use std::any::{Any, type_name, type_name_of_val};
 use std::collections::HashMap;
@@ -5,14 +46,45 @@ use std::fmt::{Debug, Formatter};
 
 mod dark_theme;
 mod palette;
-mod palettes;
+pub mod palettes;
 mod shell_theme;
 
 pub use dark_theme::dark_theme;
 pub use palette::Palette;
-pub use palettes::*;
 pub use shell_theme::shell_theme;
 
+/// Anchor struct for the names of composite styles used
+/// by rat-widget's.
+///
+/// Use as
+/// ```rust
+/// # use ratatui::style::Style;
+/// # use rat_theme4::{create_empty, SalsaTheme, StyleName, WidgetStyle};
+/// # use rat_theme4::palettes::BLACKOUT;
+/// # use rat_widget::checkbox::CheckboxStyle;
+/// # let theme = create_empty("", BLACKOUT);
+///
+/// let s: CheckboxStyle = theme.style(WidgetStyle::CHECKBOX);
+/// ```
+/// or more likely
+/// ```rust
+/// # use ratatui::buffer::Buffer;
+/// # use ratatui::layout::Rect;
+/// # use ratatui::style::Style;
+/// # use ratatui::widgets::StatefulWidget;
+/// # use rat_theme4::{create_empty, SalsaTheme, StyleName, WidgetStyle, };
+/// # use rat_theme4::palettes::BLACKOUT;
+/// # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
+/// # let theme = create_empty("", BLACKOUT);
+/// # let area = Rect::default();
+/// # let mut buf = Buffer::default();
+/// # let buf = &mut buf;
+/// # let mut state = CheckboxState::default();
+///
+/// Checkbox::new()
+///     .styles(theme.style(WidgetStyle::CHECKBOX))
+///     .render(area, buf, &mut state);
+/// ```
 pub struct WidgetStyle;
 
 impl WidgetStyle {
@@ -45,6 +117,18 @@ impl WidgetStyle {
     pub const VIEW: &'static str = "view";
 }
 
+/// Extension trait for [Style](ratatui::style::Style) that defines
+/// some standard names used by rat-theme.
+///
+/// Use as
+/// ```rust
+/// # use ratatui::style::Style;
+/// # use rat_theme4::{create_empty, SalsaTheme, StyleName, };
+/// # use rat_theme4::palettes::BLACKOUT;
+/// # let theme = create_empty("", BLACKOUT);
+///
+/// let s: Style = theme.style(Style::INPUT);
+/// ```
 pub trait StyleName {
     const LABEL: &'static str = "label";
     const INPUT: &'static str = "input";
@@ -70,22 +154,18 @@ pub trait StyleName {
 
 impl StyleName for Style {}
 
-pub const FG0: usize = 0;
-pub const FG1: usize = 1;
-pub const FG2: usize = 2;
-pub const FG3: usize = 3;
-pub const BG1: usize = 4;
-pub const BG2: usize = 5;
-pub const BG3: usize = 6;
-pub const BG4: usize = 7;
-
+/// This macro takes a function that returns some type and
+/// converts the result to `Box<dyn Any + 'static>`.
+///
+/// Useful when creating a new theme.
 #[macro_export]
-macro_rules! make_dyn {
+macro_rules! style_fn {
     ($fn_name:ident) => {
         |theme: &$crate::SalsaTheme| Box::new($fn_name(theme))
     };
 }
 
+#[allow(clippy::type_complexity)]
 enum Entry {
     Style(Style),
     Fn(fn(&SalsaTheme) -> Box<dyn Any>),
@@ -108,6 +188,14 @@ impl Debug for Entry {
     }
 }
 
+///
+/// SalsaTheme holds any predefined styles for the UI.  
+///
+/// The foremost usage is as a store of named [Style](ratatui::style::Style)s.
+/// It can also hold the structured styles used by rat-widget's.
+/// Or really any value that can be produced by a closure.
+///
+/// It uses a flat naming scheme and doesn't cascade upwards at all.
 #[derive(Debug, Default)]
 pub struct SalsaTheme {
     pub name: String,
@@ -116,6 +204,7 @@ pub struct SalsaTheme {
 }
 
 impl SalsaTheme {
+    /// Create an empty theme with a given color palette.
     pub fn new(name: impl Into<String>, s: Palette) -> Self {
         Self {
             p: s,
@@ -131,26 +220,41 @@ impl SalsaTheme {
         &self.name
     }
 
+    /// Define a style as a plain [Style].
     pub fn define(&mut self, n: &'static str, style: Style) {
         self.styles.insert(n, Entry::Style(style));
     }
 
-    pub fn define_fn(&mut self, w: &'static str, cr: fn(&SalsaTheme) -> Box<dyn Any>) {
-        self.styles.insert(w, Entry::Fn(cr));
+    /// Define a style a struct that will be cloned for every query.
+    pub fn define_clone(&mut self, n: &'static str, sample: impl Clone + 'static) {
+        let boxed = Box::new(move |_th: &SalsaTheme| -> Box<dyn Any> {
+            Box::new(sample.clone()) //
+        });
+        self.styles.insert(n, Entry::FnClosure(boxed));
     }
 
-    pub fn define_closure(
+    /// Define a style as a call to a constructor fn.
+    pub fn define_fn(&mut self, n: &'static str, cr: fn(&SalsaTheme) -> Box<dyn Any>) {
+        self.styles.insert(n, Entry::Fn(cr));
+    }
+
+    /// Define a style as a call to a constraint Fn closure.
+    pub fn define_closure<O: Any>(
         &mut self,
-        w: &'static str,
-        cr: Box<dyn Fn(&SalsaTheme) -> Box<dyn Any> + 'static>,
+        n: &'static str,
+        cr: impl Fn(&SalsaTheme) -> O + 'static,
     ) {
-        self.styles.insert(w, Entry::FnClosure(cr));
+        let wrapped = Box::new(move |th: &SalsaTheme| -> Box<dyn Any> {
+            Box::new(cr(th)) // 
+        });
+        self.styles.insert(n, Entry::FnClosure(wrapped));
     }
 
+    #[allow(clippy::collapsible_else_if)]
     fn dyn_style(&self, w: &str) -> Option<Box<dyn Any>> {
         if let Some(entry) = self.styles.get(w) {
             match entry {
-                Entry::Style(style) => Some(Box::new(style.clone())),
+                Entry::Style(style) => Some(Box::new(*style)),
                 Entry::Fn(create) => Some(create(self)),
                 Entry::FnClosure(create) => Some(create(self)),
             }
@@ -163,18 +267,32 @@ impl SalsaTheme {
         }
     }
 
-    /// Get the style for the named widget.
+    /// Get any of the defined styles.
+    ///
+    /// It downcasts the stored value to the required out type.
+    /// This may fail.
+    ///
+    /// * When debug_assertions are enabled it will panic when
+    ///   called with an unknown style name, or if the downcast
+    ///   to the out type fails.
+    /// * Otherwise, it will return the default value of the out type.
     pub fn style<O: Default + Sized + 'static>(&self, w: &str) -> O
     where
         Self: Sized,
     {
         if cfg!(debug_assertions) {
-            let style = self
-                .dyn_style(w)
-                .expect(format!("unknown widget {}", w).as_str());
-            let style = style
-                .downcast::<O>()
-                .expect(format!("downcast fails for {} to {}", w, type_name::<O>()).as_str());
+            let style = match self.dyn_style(w) {
+                Some(v) => v,
+                None => {
+                    panic!("unknown widget {}", w)
+                }
+            };
+            let style = match style.downcast::<O>() {
+                Ok(v) => v,
+                Err(e) => {
+                    panic!("downcast fails for {} to {}: {:?}", w, type_name::<O>(), e);
+                }
+            };
             *style
         } else {
             let Some(style) = self.dyn_style(w) else {
@@ -201,6 +319,7 @@ const PALETTES: &[&str] = &[
     "Solarized",
     "OxoCarbon",
     "Rust",
+    "Blackout",
     "VSCode",
 ];
 
@@ -225,6 +344,7 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Solarized" => Some(SOLARIZED),
         "OxoCarbon" => Some(OXOCARBON),
         "Rust" => Some(RUST),
+        "Blackout" => Some(BLACKOUT),
         "VSCode" => Some(VSCODE_DARK),
         _ => None,
     }
@@ -258,13 +378,16 @@ const THEMES: &[&str] = &[
     "OxoCarbon Shell",
     "Rust Shell",
     "VSCode Shell",
+    //
+    "Blackout",
 ];
 
+/// Get all Salsa themes.
 pub fn salsa_themes() -> Vec<&'static str> {
     Vec::from(THEMES)
 }
 
-// Create a theme + palette.
+/// Create a theme.
 pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
     use crate::palettes::*;
     let theme = match theme {
@@ -296,6 +419,8 @@ pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
         "Rust Shell" => shell_theme(theme, RUST),
         "VSCode Shell" => shell_theme(theme, VSCODE_DARK),
 
+        "Blackout" => shell_theme(theme, BLACKOUT),
+
         _ => return None,
     };
 
@@ -306,89 +431,3 @@ pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
 pub fn create_empty(name: &str, p: Palette) -> SalsaTheme {
     SalsaTheme::new(name, p)
 }
-
-// /// Create a style from the given white shade.
-// /// n is `0..8`
-// fn white(&self, n: usize) -> Style;
-//
-// /// Create a style from the given black shade.
-// /// n is `0..8`
-// fn black(&self, n: usize) -> Style;
-//
-// /// Create a style from the given gray shade.
-// /// n is `0..8`
-// fn gray(&self, n: usize) -> Style;
-//
-// /// Create a style from the given red shade.
-// /// n is `0..8`
-// fn red(&self, n: usize) -> Style;
-//
-// /// Create a style from the given orange shade.
-// /// n is `0..8`
-// fn orange(&self, n: usize) -> Style;
-//
-// /// Create a style from the given yellow shade.
-// /// n is `0..8`
-// fn yellow(&self, n: usize) -> Style;
-//
-// /// Create a style from the given limegreen shade.
-// /// n is `0..8`
-// fn limegreen(&self, n: usize) -> Style;
-//
-// /// Create a style from the given green shade.
-// /// n is `0..8`
-// fn green(&self, n: usize) -> Style;
-//
-// /// Create a style from the given bluegreen shade.
-// /// n is `0..8`
-// fn bluegreen(&self, n: usize) -> Style;
-//
-// /// Create a style from the given cyan shade.
-// /// n is `0..8`
-// fn cyan(&self, n: usize) -> Style;
-//
-// /// Create a style from the given blue shade.
-// /// n is `0..8`
-// fn blue(&self, n: usize) -> Style;
-//
-// /// Create a style from the given deepblue shade.
-// /// n is `0..8`
-// fn deepblue(&self, n: usize) -> Style;
-//
-// /// Create a style from the given purple shade.
-// /// n is `0..8`
-// fn purple(&self, n: usize) -> Style;
-//
-// /// Create a style from the given magenta shade.
-// /// n is `0..8`
-// fn magenta(&self, n: usize) -> Style;
-//
-// /// Create a style from the given redpink shade.
-// /// n is `0..8`
-// fn redpink(&self, n: usize) -> Style;
-//
-// /// Create a style from the given primary shade.
-// /// n is `0..8`
-// fn primary(&self, n: usize) -> Style;
-//
-// /// Create a style from the given secondary shade.
-// /// n is `0..8`
-// fn secondary(&self, n: usize) -> Style;
-//
-// /// Style with only a fg color.
-// fn text_light(&self) -> Style;
-//
-// /// Style with only a fg color.
-// fn text_bright(&self) -> Style;
-//
-// /// Style with only a fg color.
-// fn text_dark(&self) -> Style;
-//
-// /// Style with only a fg color.
-// fn text_black(&self) -> Style;
-//
-// /// Create a style from a background color
-// fn normal_style(&self, bg: Color) -> Style;
-//
-// /// Create a style from a background color
-// fn high_style(&self, bg: Color) -> Style;

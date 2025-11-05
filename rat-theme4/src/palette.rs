@@ -316,11 +316,11 @@ impl Palette {
         let mut color1 = text[0];
         let mut contrast1 = Self::contrast_bt_srgb(color1, bg);
 
-        for i in 0..text.len() {
-            let test = Self::contrast_bt_srgb(text[i], bg);
+        for text_color in text {
+            let test = Self::contrast_bt_srgb(*text_color, bg);
             if test > contrast1 {
                 color0 = color1;
-                color1 = text[i];
+                color1 = *text_color;
                 contrast1 = test;
             }
         }
@@ -335,11 +335,11 @@ impl Palette {
         let mut color1 = text[0];
         let mut contrast1 = Self::contrast_bt_srgb(color1, bg);
 
-        for i in 0..text.len() {
-            let test = Self::contrast_bt_srgb(text[i], bg);
+        for text_color in text {
+            let test = Self::contrast_bt_srgb(*text_color, bg);
             if test > contrast1 {
                 color0 = color1;
-                color1 = text[i];
+                color1 = *text_color;
                 contrast1 = test;
             }
         }

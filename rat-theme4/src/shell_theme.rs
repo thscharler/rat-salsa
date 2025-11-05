@@ -1,6 +1,6 @@
 use crate::SalsaTheme;
 use crate::palette::Palette;
-use crate::{StyleName, WidgetStyle, make_dyn};
+use crate::{StyleName, WidgetStyle, style_fn};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
@@ -29,6 +29,10 @@ use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
+/// A 'shell'-theme.
+///
+/// It uses almost no background colors and lets your shell
+/// bleed through.
 pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
     let mut th = SalsaTheme::new(name, p);
 
@@ -52,33 +56,33 @@ pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
 
     th.define(Style::STATUS_BASE, Style::default());
 
-    th.define_fn(WidgetStyle::BUTTON, make_dyn!(button));
-    th.define_fn(WidgetStyle::CHECKBOX, make_dyn!(checkbox));
-    th.define_fn(WidgetStyle::CHOICE, make_dyn!(choice));
-    th.define_fn(WidgetStyle::CLIPPER, make_dyn!(clipper));
-    th.define_fn(WidgetStyle::CONTAINER, make_dyn!(container));
-    th.define_fn(WidgetStyle::FILE_DIALOG, make_dyn!(file_dialog));
-    th.define_fn(WidgetStyle::FORM, make_dyn!(form));
-    th.define_fn(WidgetStyle::LINE_NR, make_dyn!(line_nr));
-    th.define_fn(WidgetStyle::LIST, make_dyn!(list));
-    th.define_fn(WidgetStyle::MENU, make_dyn!(menu));
-    th.define_fn(WidgetStyle::MONTH, make_dyn!(month));
-    th.define_fn(WidgetStyle::MSG_DIALOG, make_dyn!(msg_dialog));
-    th.define_fn(WidgetStyle::PARAGRAPH, make_dyn!(paragraph));
-    th.define_fn(WidgetStyle::RADIO, make_dyn!(radio));
-    th.define_fn(WidgetStyle::SCROLL, make_dyn!(scroll));
-    th.define_fn(WidgetStyle::SCROLL_DIALOG, make_dyn!(dialog_scroll));
-    th.define_fn(WidgetStyle::SCROLL_POPUP, make_dyn!(popup_scroll));
-    th.define_fn(WidgetStyle::SHADOW, make_dyn!(shadow));
-    th.define_fn(WidgetStyle::SLIDER, make_dyn!(slider));
-    th.define_fn(WidgetStyle::SPLIT, make_dyn!(split));
-    th.define_fn(WidgetStyle::STATUSLINE, make_dyn!(statusline));
-    th.define_fn(WidgetStyle::TABBED, make_dyn!(tabbed));
-    th.define_fn(WidgetStyle::TABLE, make_dyn!(table));
-    th.define_fn(WidgetStyle::TEXT, make_dyn!(text));
-    th.define_fn(WidgetStyle::TEXTAREA, make_dyn!(textarea));
-    th.define_fn(WidgetStyle::TEXTVIEW, make_dyn!(textview));
-    th.define_fn(WidgetStyle::VIEW, make_dyn!(view));
+    th.define_fn(WidgetStyle::BUTTON, style_fn!(button));
+    th.define_fn(WidgetStyle::CHECKBOX, style_fn!(checkbox));
+    th.define_fn(WidgetStyle::CHOICE, style_fn!(choice));
+    th.define_fn(WidgetStyle::CLIPPER, style_fn!(clipper));
+    th.define_fn(WidgetStyle::CONTAINER, style_fn!(container));
+    th.define_fn(WidgetStyle::FILE_DIALOG, style_fn!(file_dialog));
+    th.define_fn(WidgetStyle::FORM, style_fn!(form));
+    th.define_fn(WidgetStyle::LINE_NR, style_fn!(line_nr));
+    th.define_fn(WidgetStyle::LIST, style_fn!(list));
+    th.define_fn(WidgetStyle::MENU, style_fn!(menu));
+    th.define_fn(WidgetStyle::MONTH, style_fn!(month));
+    th.define_fn(WidgetStyle::MSG_DIALOG, style_fn!(msg_dialog));
+    th.define_fn(WidgetStyle::PARAGRAPH, style_fn!(paragraph));
+    th.define_fn(WidgetStyle::RADIO, style_fn!(radio));
+    th.define_fn(WidgetStyle::SCROLL, style_fn!(scroll));
+    th.define_fn(WidgetStyle::SCROLL_DIALOG, style_fn!(dialog_scroll));
+    th.define_fn(WidgetStyle::SCROLL_POPUP, style_fn!(popup_scroll));
+    th.define_fn(WidgetStyle::SHADOW, style_fn!(shadow));
+    th.define_fn(WidgetStyle::SLIDER, style_fn!(slider));
+    th.define_fn(WidgetStyle::SPLIT, style_fn!(split));
+    th.define_fn(WidgetStyle::STATUSLINE, style_fn!(statusline));
+    th.define_fn(WidgetStyle::TABBED, style_fn!(tabbed));
+    th.define_fn(WidgetStyle::TABLE, style_fn!(table));
+    th.define_fn(WidgetStyle::TEXT, style_fn!(text));
+    th.define_fn(WidgetStyle::TEXTAREA, style_fn!(textarea));
+    th.define_fn(WidgetStyle::TEXTVIEW, style_fn!(textview));
+    th.define_fn(WidgetStyle::VIEW, style_fn!(view));
 
     th
 }
