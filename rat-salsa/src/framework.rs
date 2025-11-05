@@ -239,6 +239,9 @@ where
                 }
                 #[cfg(feature = "dialog")]
                 Ok(Control::Close(a)) => {
+                    // close probably demands a repaint.
+                    global.salsa_ctx().queue.push(Ok(Control::Changed));
+                    // forward event.
                     let ttt = SystemTime::now();
                     let r = event(&a, state, global);
                     global

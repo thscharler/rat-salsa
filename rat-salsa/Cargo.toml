@@ -52,3 +52,8 @@ path = "templates/minimal.rs"
 [[example]]
 name = "nominal"
 path = "templates/nominal.rs"
+
+[[example]]
+name = "dialog"
+path = "templates/dialog.rs"
+required-features = ["dialog"]
