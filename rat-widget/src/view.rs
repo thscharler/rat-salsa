@@ -47,7 +47,7 @@
 //!
 //! ```
 
-use std::cmp::{max, min};
+use std::cmp::min;
 
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
@@ -64,8 +64,11 @@ use ratatui::widgets::{StatefulWidget, Widget};
 /// Configure the view.
 #[derive(Debug, Default, Clone)]
 pub struct View<'a> {
-    layout: Rect,
-    view_size: Option<Size>,
+    view_layout: Option<Rect>,
+    view_x: Option<u16>,
+    view_y: Option<u16>,
+    view_width: Option<u16>,
+    view_height: Option<u16>,
     style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
@@ -80,9 +83,6 @@ pub struct View<'a> {
 ///   widget is currently invisible.
 #[derive(Debug)]
 pub struct ViewBuffer<'a> {
-    // page layout
-    layout: Rect,
-
     // Scroll offset into the view.
     offset: Position,
     buffer: Buffer,
@@ -153,16 +153,39 @@ impl<'a> View<'a> {
         Self::default()
     }
 
-    /// Area for the temp buffer.
+    /// Size of the view buffer.
     pub fn layout(mut self, area: Rect) -> Self {
-        self.layout = area;
+        self.view_layout = Some(area);
         self
     }
 
-    /// Area used for the scrollbars. Maybe bigger then the layout area.
-    /// Uses the area if not set.
+    /// Width of the view buffer.
+    pub fn view_width(mut self, width: u16) -> Self {
+        self.view_width = Some(width);
+        self
+    }
+
+    /// Width of the view buffer.
+    pub fn view_height(mut self, height: u16) -> Self {
+        self.view_height = Some(height);
+        self
+    }
+    /// Start position of the view buffer.
+    pub fn view_x(mut self, x: u16) -> Self {
+        self.view_x = Some(x);
+        self
+    }
+
+    /// Start position of the view buffer.
+    pub fn view_y(mut self, y: u16) -> Self {
+        self.view_y = Some(y);
+        self
+    }
+
+    /// Size of the view buffer.
     pub fn view_size(mut self, view: Size) -> Self {
-        self.view_size = Some(view);
+        self.view_width = Some(view.width);
+        self.view_height = Some(view.height);
         self
     }
 
@@ -229,7 +252,6 @@ impl<'a> View<'a> {
     /// Calculates the layout and creates a temporary buffer.
     pub fn into_buffer(self, area: Rect, state: &mut ViewState) -> ViewBuffer<'a> {
         state.area = area;
-        state.layout = self.layout;
 
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
@@ -237,45 +259,51 @@ impl<'a> View<'a> {
             .v_scroll(self.vscroll.as_ref());
         state.widget_area = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
-        let max_x = if let Some(view_size) = self.view_size {
-            max(state.layout.right(), view_size.width)
+        state.layout = if let Some(layout) = self.view_layout {
+            layout
         } else {
-            state.layout.right()
-        };
-        let max_y = if let Some(view_size) = self.view_size {
-            max(state.layout.bottom(), view_size.height)
-        } else {
-            state.layout.bottom()
+            let mut layout = Rect::new(0, 0, state.widget_area.width, state.widget_area.height);
+            if let Some(x) = self.view_x {
+                layout.x = x;
+            }
+            if let Some(y) = self.view_y {
+                layout.y = y;
+            }
+            if let Some(width) = self.view_width {
+                layout.width = width;
+            }
+            if let Some(height) = self.view_height {
+                layout.height = height;
+            }
+            layout
         };
 
         state
             .hscroll
-            .set_max_offset(max_x.saturating_sub(state.widget_area.width) as usize);
+            .set_max_offset(state.layout.width.saturating_sub(state.widget_area.width) as usize);
         state.hscroll.set_page_len(state.widget_area.width as usize);
         state
             .vscroll
             .set_page_len(state.widget_area.height as usize);
         state
             .vscroll
-            .set_max_offset(max_y.saturating_sub(state.widget_area.height) as usize);
+            .set_max_offset(state.layout.height.saturating_sub(state.widget_area.height) as usize);
 
         // offset is in layout coordinates.
         // internal buffer starts at (view.x,view.y)
         let offset = Position::new(state.hscroll.offset as u16, state.vscroll.offset as u16);
 
         // resize buffer to fit the layout.
-        let buffer_area = state.layout;
         let mut buffer = if let Some(mut buffer) = state.buffer.take() {
             buffer.reset();
-            buffer.resize(buffer_area);
+            buffer.resize(state.layout);
             buffer
         } else {
-            Buffer::empty(buffer_area)
+            Buffer::empty(state.layout)
         };
-        buffer.set_style(buffer_area, self.style);
+        buffer.set_style(state.layout, self.style);
 
         ViewBuffer {
-            layout: self.layout,
             offset,
             buffer,
             widget_area: state.widget_area,
@@ -321,7 +349,7 @@ impl<'a> ViewBuffer<'a> {
 
     /// Return the buffer layout.
     pub fn layout(&self) -> Rect {
-        self.layout
+        self.buffer.area
     }
 
     /// Is this area inside the buffer area.
@@ -439,15 +467,20 @@ impl StatefulWidget for ViewWidget<'_> {
     type State = ViewState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        assert_eq!(area, state.area);
-
+        if cfg!(debug_assertions) {
+            if area != state.area {
+                panic!(
+                    "ViewWidget::render() must be called with the same area as View::into_buffer()."
+                )
+            }
+        }
         ScrollArea::new()
             .style(self.style)
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
             .v_scroll(self.vscroll.as_ref())
             .render(
-                area,
+                state.area,
                 buf,
                 &mut ScrollAreaState::new()
                     .h_scroll(&mut state.hscroll)
