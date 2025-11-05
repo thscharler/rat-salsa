@@ -3,6 +3,7 @@
 use crate::themes::Themes;
 use anyhow::Error;
 use crossterm::event::Event;
+use rat_focus::FocusBuilder;
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::Control;
@@ -125,9 +126,11 @@ pub fn render(
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
     state.status.status(1, format!("R {:.3?}", el).to_string());
 
-    let layout_status =
-        Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
-            .split(layout[1]);
+    let layout_status = Layout::horizontal([
+        Constraint::Percentage(61), //
+        Constraint::Percentage(39),
+    ])
+    .split(layout[1]);
     StatusLine::new()
         .layout([
             Constraint::Fill(1),
@@ -141,7 +144,9 @@ pub fn render(
     Ok(())
 }
 
-pub fn init(_state: &mut Scenery, _ctx: &mut GlobalState) -> Result<(), Error> {
+pub fn init(state: &mut Scenery, ctx: &mut GlobalState) -> Result<(), Error> {
+    ctx.set_focus(FocusBuilder::rebuild_for(&state.mask0, ctx.take_focus()));
+    ctx.focus().first();
     Ok(())
 }
 
@@ -167,6 +172,9 @@ pub fn event(
                     Control::Continue
                 }
             });
+
+            ctx.set_focus(FocusBuilder::rebuild_for(&state.mask0, ctx.take_focus()));
+            ctx.handle_focus(event);
 
             Control::Continue
         }
@@ -202,36 +210,59 @@ pub mod themes {
     use crate::show_scheme::{ShowScheme, ShowSchemeState};
     use crate::{GlobalState, ThemesEvent};
     use anyhow::Error;
+    use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_salsa::Control;
     use rat_theme4::{create_theme, salsa_themes, WidgetStyle};
-    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
+    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular, TableOutcome};
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
     use rat_widget::popup::Placement;
     use rat_widget::scrolled::Scroll;
+    use rat_widget::table::selection::RowSelection;
+    use rat_widget::table::{Table, TableContext, TableDataIter, TableState};
     use rat_widget::view::{View, ViewState};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
-    use ratatui::widgets::{Block, StatefulWidget};
+    use ratatui::layout::{Constraint, Layout, Rect};
+    use ratatui::text::Span;
+    use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
     use std::fmt::Debug;
+    use std::slice;
 
     #[derive(Debug)]
     pub struct Themes {
         pub menu: MenubarState,
+        pub themes: TableState<RowSelection>,
         pub scroll: ViewState,
         pub scheme: ShowSchemeState,
-        pub theme: usize,
+        pub focus: FocusFlag,
     }
 
     impl Default for Themes {
         fn default() -> Self {
             let s = Self {
                 menu: Default::default(),
+                themes: Default::default(),
                 scroll: Default::default(),
                 scheme: Default::default(),
-                theme: 0,
+                focus: Default::default(),
             };
             s.menu.bar.focus.set(true);
             s
+        }
+    }
+
+    impl HasFocus for Themes {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.themes);
+            builder.widget(&self.scheme);
+            builder.widget(&self.menu);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            todo!()
+        }
+
+        fn area(&self) -> Rect {
+            todo!()
         }
     }
 
@@ -240,16 +271,35 @@ pub mod themes {
 
     impl<'a> MenuStructure<'a> for Menu {
         fn menus(&'a self, menu: &mut MenuBuilder<'a>) {
-            menu.item_str("Theme").item_str("Quit");
+            menu.item_str("Quit");
         }
 
-        fn submenu(&'a self, n: usize, submenu: &mut MenuBuilder<'a>) {
-            match n {
-                0 => {
-                    for t in salsa_themes().iter() {
-                        submenu.item_str(*t);
-                    }
-                }
+        fn submenu(&'a self, n: usize, submenu: &mut MenuBuilder<'a>) {}
+    }
+
+    struct IterThemes<'a> {
+        it: slice::Iter<'a, &'a str>,
+        item: Option<&'a &'a str>,
+    }
+
+    impl<'a> TableDataIter<'a> for IterThemes<'a> {
+        fn rows(&self) -> Option<usize> {
+            None
+        }
+
+        fn nth(&mut self, n: usize) -> bool {
+            self.item = self.it.nth(n);
+            self.item.is_some()
+        }
+
+        fn widths(&self) -> Vec<Constraint> {
+            vec![Constraint::Fill(1)]
+        }
+
+        fn render_cell(&self, ctx: &TableContext, column: usize, area: Rect, buf: &mut Buffer) {
+            let Some(item) = self.item else { return };
+            match column {
+                0 => Span::from(*item).render(area, buf),
                 _ => {}
             }
         }
@@ -261,34 +311,52 @@ pub mod themes {
         state: &mut Themes,
         ctx: &mut GlobalState,
     ) -> Result<(), Error> {
-        let layout = Layout::new(
-            Direction::Vertical,
-            [Constraint::Fill(1), Constraint::Length(1)],
-        )
+        let l0 = Layout::vertical([
+            Constraint::Fill(1), //
+            Constraint::Length(1),
+        ])
         .split(area);
+        let l1 = Layout::horizontal([
+            Constraint::Length(20),
+            Constraint::Length(90),
+            Constraint::Fill(1),
+        ])
+        .spacing(2)
+        .split(l0[0]);
 
-        let view = View::new()
+        // theme list
+        let salsa_themes = salsa_themes();
+        let it = IterThemes {
+            it: salsa_themes.iter(),
+            item: Default::default(),
+        };
+        Table::new()
+            .iter(it)
+            .block(Block::new().padding(Padding::new(0, 0, 1, 1)))
+            .vscroll(Scroll::new())
+            .styles(ctx.theme.style(WidgetStyle::TABLE))
+            .render(l1[0], buf, &mut state.themes);
+
+        let mut view = View::new()
             .block(Block::bordered())
-            .vscroll(Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL)));
-        let view_area = view.inner(layout[0], &mut state.scroll);
+            .vscroll(Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL)))
+            .view_height(34)
+            .into_buffer(l1[1], &mut state.scroll);
 
-        let mut v_buf = view
-            .layout(Rect::new(0, 0, view_area.width, 38))
-            .into_buffer(layout[0], &mut state.scroll);
-
-        v_buf.render(
-            ShowScheme::new(ctx.theme.name(), &ctx.theme.p),
-            Rect::new(0, 0, view_area.width, 38),
+        view.render(
+            ShowScheme::new(&ctx.theme.p),
+            Rect::new(0, 0, view.layout().width, 34),
             &mut state.scheme,
         );
 
-        v_buf
-            .into_widget()
-            .render(layout[0], buf, &mut state.scroll);
+        view.into_widget().render(l1[1], buf, &mut state.scroll);
 
-        let layout_menu =
-            Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
-                .split(layout[1]);
+        let layout_menu = Layout::horizontal([
+            Constraint::Percentage(61), //
+            Constraint::Percentage(39),
+        ])
+        .split(l0[1]);
+
         let (menu, menu_popup) = Menubar::new(&Menu)
             .styles(ctx.theme.style(WidgetStyle::MENU))
             .popup_placement(Placement::Above)
@@ -304,33 +372,27 @@ pub mod themes {
         state: &mut Themes,
         ctx: &mut GlobalState,
     ) -> Result<Control<ThemesEvent>, Error> {
-        let r = match event {
-            ThemesEvent::Event(event) => {
-                try_flow!(match state.menu.handle(event, Popup) {
-                    MenuOutcome::MenuSelected(0, n) => {
-                        let theme = salsa_themes()[n];
+        if let ThemesEvent::Event(event) = event {
+            try_flow!(match state.menu.handle(event, Popup) {
+                MenuOutcome::Activated(0) => {
+                    Control::Quit
+                }
+                r => r.into(),
+            });
+            try_flow!(match state.themes.handle(event, Regular) {
+                TableOutcome::Selected => {
+                    if let Some(idx) = state.themes.selected_checked() {
+                        let theme = salsa_themes()[idx];
                         ctx.theme = create_theme(theme).expect("theme");
-                        Control::Changed
                     }
-                    MenuOutcome::MenuActivated(0, n) => {
-                        let theme = salsa_themes()[n];
-                        ctx.theme = create_theme(theme).expect("theme");
-                        Control::Changed
-                    }
-                    MenuOutcome::Activated(1) => {
-                        Control::Quit
-                    }
-                    r => r.into(),
-                });
+                    Control::Changed
+                }
+                r => r.into(),
+            });
+            try_flow!(state.scroll.handle(event, Regular));
+        }
 
-                try_flow!(state.scroll.handle(event, Regular));
-
-                Control::Continue
-            }
-            _ => Control::Continue,
-        };
-
-        Ok(r)
+        Ok(Control::Continue)
     }
 }
 
@@ -340,15 +402,13 @@ pub mod show_scheme {
     use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::reloc::{relocate_area, RelocatableState};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
-    use ratatui::style::Style;
+    use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::text::{Line, Span};
     use ratatui::widgets::StatefulWidget;
     use ratatui::widgets::Widget;
 
     #[derive(Debug)]
     pub struct ShowScheme<'a> {
-        name: &'a str,
         palette: &'a Palette,
     }
 
@@ -379,8 +439,8 @@ pub mod show_scheme {
     }
 
     impl<'a> ShowScheme<'a> {
-        pub fn new(name: &'a str, palette: &'a Palette) -> Self {
-            Self { name, palette }
+        pub fn new(palette: &'a Palette) -> Self {
+            Self { palette }
         }
     }
 
@@ -389,16 +449,6 @@ pub mod show_scheme {
 
         fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
             state.area = area;
-
-            let l0 = Layout::new(
-                Direction::Horizontal,
-                [
-                    Constraint::Fill(1),
-                    Constraint::Length(90),
-                    Constraint::Fill(1),
-                ],
-            )
-            .split(area);
 
             let l1 = Layout::new(
                 Direction::Vertical,
@@ -420,20 +470,14 @@ pub mod show_scheme {
                     Constraint::Length(2),
                     Constraint::Length(2),
                     Constraint::Length(2),
-                    Constraint::Length(2),
                 ],
             )
-            .flex(Flex::Center)
-            .split(l0[1]);
-
-            Span::from(format!("{:10}{}", "", self.name))
-                .style(Style::new().fg(self.palette.secondary[3]))
-                .render(l1[0], buf);
+            .split(area);
 
             let pal = self.palette;
             for (i, (n, c)) in [
                 ("primary", pal.primary),
-                ("sec\nondary", pal.secondary),
+                ("secondary", pal.secondary),
                 ("white", pal.white),
                 ("black", pal.black),
                 ("gray", pal.gray),
@@ -465,7 +509,7 @@ pub mod show_scheme {
                     Span::from("  BG-4  ").style(pal.high_contrast(c[7])),
                     Span::from("  grayscale  ").style(pal.high_contrast(Palette::grayscale(c[3]))),
                 ])
-                .render(l1[i + 1], buf);
+                .render(l1[i], buf);
             }
         }
     }
