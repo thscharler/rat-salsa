@@ -237,6 +237,16 @@ where
                         Err(e) => global.salsa_ctx().queue.push(Err(e)),
                     }
                 }
+                #[cfg(feature = "dialog")]
+                Ok(Control::Close(a)) => {
+                    let ttt = SystemTime::now();
+                    let r = event(&a, state, global);
+                    global
+                        .salsa_ctx()
+                        .last_event
+                        .set(ttt.elapsed().unwrap_or_default());
+                    global.salsa_ctx().queue.push(r);
+                }
                 Ok(Control::Event(a)) => {
                     let ttt = SystemTime::now();
                     let r = event(&a, state, global);

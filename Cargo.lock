@@ -1249,6 +1249,7 @@ dependencies = [
  "rust-ini",
  "sysinfo 0.37.2",
  "tokio",
+ "try_as",
  "unicode-segmentation",
 ]
 

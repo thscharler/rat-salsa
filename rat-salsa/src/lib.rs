@@ -21,6 +21,8 @@ use std::time::Duration;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 
+#[cfg(feature = "dialog")]
+pub mod dialog_stack;
 mod framework;
 mod run_config;
 pub mod tasks;
@@ -161,8 +163,12 @@ pub enum Control<Event> {
     /// The other way is to call [SalsaAppContext::queue] to initiate such
     /// events.
     Event(Event),
-    // todo: Closed(event)
-    /// Quit the application. TODO: remove
+    /// A dialog close event. In the main loop it will be handled
+    /// just like [Control::Event]. But the DialogStack can react
+    /// separately and close the window.
+    #[cfg(feature = "dialog")]
+    Close(Event),
+    /// Quit the application.
     Quit,
 }
 
@@ -182,6 +188,8 @@ impl<Event> Ord for Control<Event> {
                 Control::Unchanged => Ordering::Less,
                 Control::Changed => Ordering::Less,
                 Control::Event(_) => Ordering::Less,
+                #[cfg(feature = "dialog")]
+                Control::Close(_) => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
             Control::Unchanged => match other {
@@ -189,6 +197,8 @@ impl<Event> Ord for Control<Event> {
                 Control::Unchanged => Ordering::Equal,
                 Control::Changed => Ordering::Less,
                 Control::Event(_) => Ordering::Less,
+                #[cfg(feature = "dialog")]
+                Control::Close(_) => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
             Control::Changed => match other {
@@ -196,6 +206,8 @@ impl<Event> Ord for Control<Event> {
                 Control::Unchanged => Ordering::Greater,
                 Control::Changed => Ordering::Equal,
                 Control::Event(_) => Ordering::Less,
+                #[cfg(feature = "dialog")]
+                Control::Close(_) => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
             Control::Event(_) => match other {
@@ -203,6 +215,17 @@ impl<Event> Ord for Control<Event> {
                 Control::Unchanged => Ordering::Greater,
                 Control::Changed => Ordering::Greater,
                 Control::Event(_) => Ordering::Equal,
+                #[cfg(feature = "dialog")]
+                Control::Close(_) => Ordering::Less,
+                Control::Quit => Ordering::Less,
+            },
+            #[cfg(feature = "dialog")]
+            Control::Close(_) => match other {
+                Control::Continue => Ordering::Greater,
+                Control::Unchanged => Ordering::Greater,
+                Control::Changed => Ordering::Greater,
+                Control::Event(_) => Ordering::Greater,
+                Control::Close(_) => Ordering::Equal,
                 Control::Quit => Ordering::Less,
             },
             Control::Quit => match other {
@@ -210,6 +233,8 @@ impl<Event> Ord for Control<Event> {
                 Control::Unchanged => Ordering::Greater,
                 Control::Changed => Ordering::Greater,
                 Control::Event(_) => Ordering::Greater,
+                #[cfg(feature = "dialog")]
+                Control::Close(_) => Ordering::Greater,
                 Control::Quit => Ordering::Equal,
             },
         }
