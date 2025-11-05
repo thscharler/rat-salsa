@@ -86,6 +86,7 @@ pub mod clipper;
 pub mod combobox;
 pub mod container;
 pub mod date_input;
+pub mod dialog_frame;
 pub mod file_dialog;
 pub mod form;
 pub mod hover;
