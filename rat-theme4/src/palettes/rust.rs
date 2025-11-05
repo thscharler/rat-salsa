@@ -10,7 +10,7 @@ pub const RUST: Palette = Palette {
     text_black: Palette::color32(0x131111),
 
     primary: Palette::interpolate(0x75311a, 0xd25a32, 63),
-    secondary: Palette::interpolate(0x1a7574, 0x32d2d1, 63),
+    secondary: Palette::interpolate(0x77551d, 0xcd9537, 63),
 
     white: Palette::interpolate(0xc4bfbb, 0xede3e3, 63),
     gray: Palette::interpolate(0x4f4845, 0xbab3b0, 63),

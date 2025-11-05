@@ -191,6 +191,22 @@ impl Debug for Entry {
     }
 }
 
+/// Categorization of themes.
+/// Helpful when extending an existing theme.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Category {
+    #[default]
+    Other,
+    /// Dark theme.
+    Dark,
+    /// Light theme.
+    Light,
+    /// Shell theme. Themes of this category rely on background colors sparingly
+    /// and use any default the terminal itself provides.
+    Shell,
+}
+
 ///
 /// SalsaTheme holds any predefined styles for the UI.  
 ///
@@ -202,16 +218,18 @@ impl Debug for Entry {
 #[derive(Debug, Default)]
 pub struct SalsaTheme {
     pub name: String,
+    pub cat: Category,
     pub p: Palette,
     styles: HashMap<&'static str, Entry>,
 }
 
 impl SalsaTheme {
     /// Create an empty theme with a given color palette.
-    pub fn new(name: impl Into<String>, s: Palette) -> Self {
+    pub fn new(name: impl Into<String>, cat: Category, p: Palette) -> Self {
         Self {
-            p: s,
             name: name.into(),
+            cat,
+            p,
             styles: Default::default(),
         }
     }
@@ -323,6 +341,7 @@ const PALETTES: &[&str] = &[
     "OxoCarbon",
     "Rust",
     "Blackout",
+    "Shell",
     "VSCode",
 ];
 
@@ -349,6 +368,7 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Rust" => Some(RUST),
         "Red" => Some(RED),
         "Blackout" => Some(BLACKOUT),
+        "Shell" => Some(SHELL),
         "VSCode" => Some(VSCODE_DARK),
         _ => None,
     }
@@ -368,6 +388,7 @@ const THEMES: &[&str] = &[
     "OxoCarbon Dark",
     "Rust Dark",
     "Red Dark",
+    "Shell Dark",
     "VSCode Dark",
     //
     "Imperial Shell",
@@ -383,9 +404,11 @@ const THEMES: &[&str] = &[
     "OxoCarbon Shell",
     "Rust Shell",
     "Red Shell",
+    "Shell Shell",
     "VSCode Shell",
     //
-    "Blackout",
+    "Blackout Dark",
+    "Blackout Shell",
     "Fallback",
 ];
 
@@ -411,6 +434,7 @@ pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
         "OxoCarbon Dark" => dark_theme(theme, OXOCARBON),
         "Rust Dark" => dark_theme(theme, RUST),
         "Red Dark" => dark_theme(theme, RED),
+        "Shell Dark" => dark_theme(theme, SHELL),
         "VSCode Dark" => dark_theme(theme, VSCODE_DARK),
 
         "Imperial Shell" => shell_theme(theme, IMPERIAL),
@@ -426,9 +450,11 @@ pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
         "OxoCarbon Shell" => shell_theme(theme, OXOCARBON),
         "Rust Shell" => shell_theme(theme, RUST),
         "Red Shell" => shell_theme(theme, RED),
+        "Shell Shell" => shell_theme(theme, SHELL),
         "VSCode Shell" => shell_theme(theme, VSCODE_DARK),
 
-        "Blackout" => shell_theme(theme, BLACKOUT),
+        "Blackout Dark" => dark_theme(theme, BLACKOUT),
+        "Blackout Shell" => shell_theme(theme, BLACKOUT),
         "Fallback" => fallback_theme(theme, RED),
 
         _ => return None,
@@ -439,5 +465,5 @@ pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
 
 /// Create an empty SalsaTheme.
 pub fn create_empty(name: &str, p: Palette) -> SalsaTheme {
-    SalsaTheme::new(name, p)
+    SalsaTheme::new(name, Category::Other, p)
 }

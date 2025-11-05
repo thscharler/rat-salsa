@@ -1,5 +1,5 @@
-use crate::SalsaTheme;
 use crate::palette::Palette;
+use crate::{Category, SalsaTheme};
 use crate::{StyleName, WidgetStyle, style_fn};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -31,7 +31,7 @@ use std::time::Duration;
 
 /// A dark theme.
 pub fn dark_theme(name: &str, p: Palette) -> SalsaTheme {
-    let mut th = SalsaTheme::new(name, p);
+    let mut th = SalsaTheme::new(name, Category::Dark, p);
 
     th.define(Style::INPUT, th.p.high_contrast(p.gray[3]));
     th.define(Style::FOCUS, th.p.high_contrast(p.primary[2]));
@@ -191,9 +191,10 @@ fn menu(th: &SalsaTheme) -> MenuStyle {
         right: Some(th.p.fg_bluegreen(0)),
         disabled: Some(th.p.fg_gray(0)),
         highlight: Some(Style::default().underlined()),
-        popup_style: Some(th.style(Style::STATUS_BASE)),
         block: Some(Block::bordered()),
         popup: Default::default(),
+        popup_border: Some(th.style(Style::STATUS_BASE)),
+        popup_style: Some(th.style(Style::STATUS_BASE)),
         ..Default::default()
     }
 }

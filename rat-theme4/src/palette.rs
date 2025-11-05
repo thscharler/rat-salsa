@@ -269,6 +269,108 @@ impl Palette {
         self.normal_contrast(self.secondary[n])
     }
 
+    /// Create a style from the given white shade.
+    /// n is `0..=3`
+    pub fn bg_white(&self, n: usize) -> Style {
+        Style::new().bg(self.white[n])
+    }
+
+    /// Create a style from the given black shade.
+    /// n is `0..=3`
+    pub fn bg_black(&self, n: usize) -> Style {
+        Style::new().bg(self.black[n])
+    }
+
+    /// Create a style from the given gray shade.
+    /// n is `0..=3`
+    pub fn bg_gray(&self, n: usize) -> Style {
+        Style::new().bg(self.gray[n])
+    }
+
+    /// Create a style from the given red shade.
+    /// n is `0..=3`
+    pub fn bg_red(&self, n: usize) -> Style {
+        Style::new().bg(self.red[n])
+    }
+
+    /// Create a style from the given orange shade.
+    /// n is `0..=3`
+    pub fn bg_orange(&self, n: usize) -> Style {
+        Style::new().bg(self.orange[n])
+    }
+
+    /// Create a style from the given yellow shade.
+    /// n is `0..=3`
+    pub fn bg_yellow(&self, n: usize) -> Style {
+        Style::new().bg(self.yellow[n])
+    }
+
+    /// Create a style from the given limegreen shade.
+    /// n is `0..=3`
+    pub fn bg_limegreen(&self, n: usize) -> Style {
+        Style::new().bg(self.limegreen[n])
+    }
+
+    /// Create a style from the given green shade.
+    /// n is `0..=3`
+    pub fn bg_green(&self, n: usize) -> Style {
+        Style::new().bg(self.green[n])
+    }
+
+    /// Create a style from the given bluegreen shade.
+    /// n is `0..=3`
+    pub fn bg_bluegreen(&self, n: usize) -> Style {
+        Style::new().bg(self.bluegreen[n])
+    }
+
+    /// Create a style from the given cyan shade.
+    /// n is `0..=3`
+    pub fn bg_cyan(&self, n: usize) -> Style {
+        Style::new().bg(self.cyan[n])
+    }
+
+    /// Create a style from the given blue shade.
+    /// n is `0..=3`
+    pub fn bg_blue(&self, n: usize) -> Style {
+        Style::new().bg(self.blue[n])
+    }
+
+    /// Create a style from the given deepblue shade.
+    /// n is `0..=3`
+    pub fn bg_deepblue(&self, n: usize) -> Style {
+        Style::new().bg(self.deepblue[n])
+    }
+
+    /// Create a style from the given purple shade.
+    /// n is `0..=3`
+    pub fn bg_purple(&self, n: usize) -> Style {
+        Style::new().bg(self.purple[n])
+    }
+
+    /// Create a style from the given magenta shade.
+    /// n is `0..=3`
+    pub fn bg_magenta(&self, n: usize) -> Style {
+        Style::new().bg(self.magenta[n])
+    }
+
+    /// Create a style from the given redpink shade.
+    /// n is `0..=3`
+    pub fn bg_redpink(&self, n: usize) -> Style {
+        Style::new().bg(self.redpink[n])
+    }
+
+    /// Create a style from the given primary shade.
+    /// n is `0..=3`
+    pub fn bg_primary(&self, n: usize) -> Style {
+        Style::new().bg(self.primary[n])
+    }
+
+    /// Create a style from the given secondary shade.
+    /// n is `0..=3`
+    pub fn bg_secondary(&self, n: usize) -> Style {
+        Style::new().bg(self.secondary[n])
+    }
+
     pub fn text_light(&self) -> Style {
         Style::new().fg(self.text_light)
     }

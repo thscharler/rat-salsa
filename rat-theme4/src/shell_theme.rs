@@ -1,5 +1,5 @@
-use crate::SalsaTheme;
 use crate::palette::Palette;
+use crate::{Category, SalsaTheme};
 use crate::{StyleName, WidgetStyle, style_fn};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -34,25 +34,25 @@ use std::time::Duration;
 /// It uses almost no background colors and lets your shell
 /// bleed through.
 pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
-    let mut th = SalsaTheme::new(name, p);
+    let mut th = SalsaTheme::new(name, Category::Shell, p);
 
-    th.define(Style::INPUT, th.p.high_contrast(p.gray[0]));
-    th.define(Style::FOCUS, th.p.high_contrast(p.primary[2]));
-    th.define(Style::SELECT, th.p.high_contrast(p.secondary[1]));
-    th.define(Style::TEXT_FOCUS, th.p.high_contrast(p.gray[3]));
-    th.define(Style::TEXT_SELECT, th.p.high_contrast(p.secondary[0]));
+    th.define(Style::INPUT, th.p.gray(0));
+    th.define(Style::FOCUS, th.p.bg_primary(2));
+    th.define(Style::SELECT, th.p.bg_secondary(1));
+    th.define(Style::TEXT_FOCUS, th.p.bg_gray(3));
+    th.define(Style::TEXT_SELECT, th.p.bg_secondary(0));
 
     th.define(Style::CONTAINER_BASE, Style::default());
     th.define(Style::CONTAINER_BORDER, Style::default());
     th.define(Style::CONTAINER_ARROWS, Style::default());
 
-    th.define(Style::POPUP_BASE, th.p.normal_contrast(p.gray[0]));
-    th.define(Style::POPUP_BORDER, th.p.normal_contrast(p.gray[0]));
-    th.define(Style::POPUP_ARROW, th.p.normal_contrast(p.gray[0]));
+    th.define(Style::POPUP_BASE, th.p.bg_gray(0));
+    th.define(Style::POPUP_BORDER, th.p.bg_gray(0));
+    th.define(Style::POPUP_ARROW, th.p.bg_gray(0));
 
-    th.define(Style::DIALOG_BASE, th.p.high_contrast(p.gray[1]));
-    th.define(Style::DIALOG_BORDER, th.p.normal_contrast(p.gray[1]));
-    th.define(Style::DIALOG_ARROW, th.p.normal_contrast(p.gray[1]));
+    th.define(Style::DIALOG_BASE, th.p.bg_gray(1));
+    th.define(Style::DIALOG_BORDER, th.p.bg_gray(1));
+    th.define(Style::DIALOG_ARROW, th.p.bg_gray(1));
 
     th.define(Style::STATUS_BASE, Style::default());
 
@@ -189,14 +189,15 @@ fn list(th: &SalsaTheme) -> ListStyle {
 fn menu(th: &SalsaTheme) -> MenuStyle {
     MenuStyle {
         style: th.style(Style::STATUS_BASE),
-        title: Some(th.p.yellow(2)),
+        title: Some(th.p.bg_yellow(2)),
         focus: Some(th.style(Style::FOCUS)),
-        right: Some(th.p.green(3)),
+        right: Some(th.p.fg_green(3)),
         disabled: Some(th.p.fg_gray(0)),
         highlight: Some(Style::default().underlined()),
-        popup_style: Some(th.style(Style::STATUS_BASE)),
         block: Some(Block::bordered()),
         popup: Default::default(),
+        popup_border: Some(th.style(Style::STATUS_BASE)),
+        popup_style: Some(th.style(Style::STATUS_BASE)),
         ..Default::default()
     }
 }
