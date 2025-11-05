@@ -1,6 +1,6 @@
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Stylize};
+use ratatui::style::Style;
 use ratatui::widgets::{Block, Padding};
 use std::mem;
 
