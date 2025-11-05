@@ -26,6 +26,7 @@ pub struct DialogFrame<'a> {
     button_style: ButtonStyle,
     layout: LayoutOuter,
     ok_text: &'a str,
+    no_cancel: bool,
     cancel_text: &'a str,
 }
 
@@ -37,6 +38,7 @@ pub struct DialogFrameStyle {
     pub button_style: Option<ButtonStyle>,
     pub layout: Option<LayoutOuter>,
     pub ok_text: Option<&'static str>,
+    pub no_cancel: Option<bool>,
     pub cancel_text: Option<&'static str>,
     pub non_exhaustive: NonExhaustive,
 }
@@ -49,6 +51,7 @@ impl Default for DialogFrameStyle {
             button_style: Default::default(),
             layout: Default::default(),
             ok_text: Default::default(),
+            no_cancel: Default::default(),
             cancel_text: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -66,6 +69,8 @@ pub struct DialogFrameState {
 
     /// ok-button
     pub ok: ButtonState,
+    /// no cancel button
+    pub no_cancel: bool,
     /// cancel-button
     pub cancel: ButtonState,
 }
@@ -82,6 +87,7 @@ impl<'a> DialogFrame<'a> {
                 .right(Constraint::Percentage(19))
                 .bottom(Constraint::Length(3)),
             ok_text: "Ok",
+            no_cancel: false,
             cancel_text: "Cancel",
         }
     }
@@ -99,6 +105,9 @@ impl<'a> DialogFrame<'a> {
         }
         if let Some(ok_text) = styles.ok_text {
             self.ok_text = ok_text;
+        }
+        if let Some(no_cancel) = styles.no_cancel {
+            self.no_cancel = no_cancel;
         }
         if let Some(cancel_text) = styles.cancel_text {
             self.cancel_text = cancel_text;
@@ -121,6 +130,24 @@ impl<'a> DialogFrame<'a> {
     /// Button style.
     pub fn button_style(mut self, style: ButtonStyle) -> Self {
         self.button_style = style;
+        self
+    }
+
+    /// Ok text.
+    pub fn ok_text(mut self, str: &'a str) -> Self {
+        self.ok_text = str;
+        self
+    }
+
+    /// No cancel button.
+    pub fn no_cancel(mut self) -> Self {
+        self.no_cancel = true;
+        self
+    }
+
+    /// Cancel text.
+    pub fn cancel_text(mut self, str: &'a str) -> Self {
+        self.cancel_text = str;
         self
     }
 
@@ -178,49 +205,73 @@ impl<'a> StatefulWidget for DialogFrame<'a> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = self.layout.layout(area);
+        state.no_cancel = self.no_cancel;
 
-        let l_dlg = layout_dialog(
-            state.area,
-            block_padding2(&self.block),
-            [Constraint::Length(12), Constraint::Length(10)],
-            1,
-            Flex::End,
-        );
+        let l_dlg = if self.no_cancel {
+            layout_dialog(
+                state.area,
+                block_padding2(&self.block),
+                [Constraint::Length(10)],
+                1,
+                Flex::End,
+            )
+        } else {
+            layout_dialog(
+                state.area,
+                block_padding2(&self.block),
+                [Constraint::Length(12), Constraint::Length(10)],
+                1,
+                Flex::End,
+            )
+        };
         state.widget_area = l_dlg.widget_for(DialogItem::Content);
 
         fill_buf_area(buf, l_dlg.area(), " ", self.style);
         self.block.render(state.area, buf);
 
-        Button::new(self.cancel_text)
-            .styles(self.button_style.clone())
-            .render(
+        if self.no_cancel {
+            Button::new(self.ok_text).styles(self.button_style).render(
                 l_dlg.widget_for(DialogItem::Button(0)),
                 buf,
-                &mut state.cancel,
+                &mut state.ok,
             );
-        Button::new(self.ok_text).styles(self.button_style).render(
-            l_dlg.widget_for(DialogItem::Button(1)),
-            buf,
-            &mut state.ok,
-        );
+        } else {
+            Button::new(self.cancel_text)
+                .styles(self.button_style.clone())
+                .render(
+                    l_dlg.widget_for(DialogItem::Button(0)),
+                    buf,
+                    &mut state.cancel,
+                );
+            Button::new(self.ok_text).styles(self.button_style).render(
+                l_dlg.widget_for(DialogItem::Button(1)),
+                buf,
+                &mut state.ok,
+            );
+        }
     }
 }
 
 impl Default for DialogFrameState {
     fn default() -> Self {
-        Self {
+        let z = Self {
             area: Default::default(),
             widget_area: Default::default(),
             ok: Default::default(),
+            no_cancel: Default::default(),
             cancel: Default::default(),
-        }
+        };
+        z.ok.focus.set(true);
+        z
     }
 }
 
 impl HasFocus for DialogFrameState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.ok);
-        builder.widget(&self.cancel);
+        if !self.no_cancel {
+            builder.widget(&self.cancel);
+        }
     }
 
     fn focus(&self) -> FocusFlag {
@@ -285,11 +336,15 @@ impl From<Outcome> for DialogOutcome {
 
 impl<'a> HandleEvent<Event, Dialog, DialogOutcome> for DialogFrameState {
     fn handle(&mut self, event: &Event, _: Dialog) -> DialogOutcome {
-        flow!(match self.cancel.handle(event, Regular) {
-            ButtonOutcome::Pressed => {
-                DialogOutcome::Cancel
+        flow!({
+            if !self.no_cancel {
+                match self.cancel.handle(event, Regular) {
+                    ButtonOutcome::Pressed => DialogOutcome::Cancel,
+                    r => Outcome::from(r).into(),
+                }
+            } else {
+                DialogOutcome::Continue
             }
-            r => Outcome::from(r).into(),
         });
         flow!(match self.ok.handle(event, Regular) {
             ButtonOutcome::Pressed => {
@@ -299,7 +354,7 @@ impl<'a> HandleEvent<Event, Dialog, DialogOutcome> for DialogFrameState {
         });
 
         flow!(match event {
-            ct_event!(keycode press Esc) => {
+            ct_event!(keycode press Esc) if !self.no_cancel => {
                 DialogOutcome::Cancel
             }
             ct_event!(keycode press Enter) | ct_event!(keycode press F(12)) => {

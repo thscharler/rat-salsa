@@ -64,6 +64,9 @@ pub fn fallback_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define_fn(WidgetStyle::CONTAINER, |_| {
         Box::new(ContainerStyle::default())
     });
+    th.define_fn(WidgetStyle::DIALOG_FRAME, |_| {
+        Box::new(FileDialogStyle::default())
+    });
     th.define_fn(WidgetStyle::FILE_DIALOG, |_| {
         Box::new(FileDialogStyle::default())
     });

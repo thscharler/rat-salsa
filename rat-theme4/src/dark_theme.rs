@@ -7,6 +7,7 @@ use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
 use rat_widget::container::ContainerStyle;
+use rat_widget::dialog_frame::DialogFrameStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::form::FormStyle;
 use rat_widget::line_number::LineNumberStyle;
@@ -58,6 +59,7 @@ pub fn dark_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define_fn(WidgetStyle::CHOICE, style_fn!(choice));
     th.define_fn(WidgetStyle::CLIPPER, style_fn!(clipper));
     th.define_fn(WidgetStyle::CONTAINER, style_fn!(container));
+    th.define_fn(WidgetStyle::DIALOG_FRAME, style_fn!(dialog_frame));
     th.define_fn(WidgetStyle::FILE_DIALOG, style_fn!(file_dialog));
     th.define_fn(WidgetStyle::FORM, style_fn!(form));
     th.define_fn(WidgetStyle::LINE_NR, style_fn!(line_nr));
@@ -134,6 +136,15 @@ fn container(th: &SalsaTheme) -> ContainerStyle {
         symbol: None,
         block: None,
         ..Default::default()
+    }
+}
+
+fn dialog_frame(th: &SalsaTheme) -> DialogFrameStyle {
+    DialogFrameStyle {
+        style: th.style(Style::DIALOG_BASE),
+        block: Some(Block::bordered().style(th.style::<Style>(Style::DIALOG_BORDER))),
+        button_style: Some(button(th)),
+        ..DialogFrameStyle::default()
     }
 }
 
