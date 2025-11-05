@@ -32,25 +32,3 @@ pub const SHELL: Palette = Palette {
     magenta: [Color::LightMagenta; 8],
     redpink: [Color::LightRed; 8],
 };
-
-const fn fillin(c0: u32, dark_scale_to: u8) -> [Color; 8] {
-    let r0 = (c0 >> 16) as u8;
-    let g0 = (c0 >> 8) as u8;
-    let b0 = c0 as u8;
-
-    // dark
-    let r4 = Palette::scale_to(r0, dark_scale_to);
-    let g4 = Palette::scale_to(g0, dark_scale_to);
-    let b4 = Palette::scale_to(b0, dark_scale_to);
-
-    [
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r4, g4, b4),
-        Color::Rgb(r4, g4, b4),
-        Color::Rgb(r4, g4, b4),
-        Color::Rgb(r4, g4, b4),
-    ]
-}

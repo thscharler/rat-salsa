@@ -37,10 +37,10 @@ pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
     let mut th = SalsaTheme::new(name, Category::Shell, p);
 
     th.define(Style::INPUT, th.p.gray(0));
-    th.define(Style::FOCUS, th.p.bg_primary(2));
-    th.define(Style::SELECT, th.p.bg_secondary(1));
-    th.define(Style::TEXT_FOCUS, th.p.bg_gray(3));
-    th.define(Style::TEXT_SELECT, th.p.bg_secondary(0));
+    th.define(Style::FOCUS, th.p.high_contrast(th.p.primary[2]));
+    th.define(Style::SELECT, th.p.high_contrast(th.p.secondary[1]));
+    th.define(Style::TEXT_FOCUS, th.p.high_contrast(th.p.gray[3]));
+    th.define(Style::TEXT_SELECT, th.p.high_contrast(th.p.secondary[0]));
 
     th.define(Style::CONTAINER_BASE, Style::default());
     th.define(Style::CONTAINER_BORDER, Style::default());

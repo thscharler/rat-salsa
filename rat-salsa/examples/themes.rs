@@ -147,6 +147,7 @@ pub fn render(
 pub fn init(state: &mut Scenery, ctx: &mut GlobalState) -> Result<(), Error> {
     ctx.set_focus(FocusBuilder::rebuild_for(&state.mask0, ctx.take_focus()));
     ctx.focus().first();
+    state.mask0.themes.select(Some(0));
     Ok(())
 }
 
@@ -207,12 +208,13 @@ pub fn error(
 }
 
 pub mod themes {
-    use crate::show_scheme::{ShowScheme, ShowSchemeState};
+    use crate::show_scheme::ShowScheme;
     use crate::{GlobalState, ThemesEvent};
     use anyhow::Error;
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_salsa::Control;
     use rat_theme4::{create_theme, salsa_themes, WidgetStyle};
+    use rat_widget::checkbox::{Checkbox, CheckboxState};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular, TableOutcome};
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
     use rat_widget::popup::Placement;
@@ -229,20 +231,21 @@ pub mod themes {
 
     #[derive(Debug)]
     pub struct Themes {
-        pub menu: MenubarState,
+        pub contrast: CheckboxState,
         pub themes: TableState<RowSelection>,
         pub scroll: ViewState,
-        pub scheme: ShowSchemeState,
+        pub menu: MenubarState,
+
         pub focus: FocusFlag,
     }
 
     impl Default for Themes {
         fn default() -> Self {
             let s = Self {
+                contrast: Default::default(),
                 menu: Default::default(),
                 themes: Default::default(),
                 scroll: Default::default(),
-                scheme: Default::default(),
                 focus: Default::default(),
             };
             s.menu.bar.focus.set(true);
@@ -252,8 +255,9 @@ pub mod themes {
 
     impl HasFocus for Themes {
         fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.contrast);
             builder.widget(&self.themes);
-            builder.widget(&self.scheme);
+            builder.widget(&self.scroll);
             builder.widget(&self.menu);
         }
 
@@ -318,11 +322,22 @@ pub mod themes {
         .split(area);
         let l1 = Layout::horizontal([
             Constraint::Length(20),
-            Constraint::Length(90),
+            Constraint::Length(92),
             Constraint::Fill(1),
         ])
         .spacing(2)
         .split(l0[0]);
+        let l2 = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+        ])
+        .split(l1[0]);
+
+        Checkbox::new()
+            .text("high contrast")
+            .styles(ctx.theme.style(WidgetStyle::CHECKBOX))
+            .render(l2[0], buf, &mut state.contrast);
 
         // theme list
         let salsa_themes = salsa_themes();
@@ -335,18 +350,20 @@ pub mod themes {
             .block(Block::new().padding(Padding::new(0, 0, 1, 1)))
             .vscroll(Scroll::new())
             .styles(ctx.theme.style(WidgetStyle::TABLE))
-            .render(l1[0], buf, &mut state.themes);
+            .render(l2[2], buf, &mut state.themes);
 
         let mut view = View::new()
             .block(Block::bordered())
-            .vscroll(Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL)))
+            .hscroll(Scroll::new())
+            .vscroll(Scroll::new())
+            .styles(ctx.theme.style(WidgetStyle::VIEW))
+            .view_width(90)
             .view_height(34)
             .into_buffer(l1[1], &mut state.scroll);
 
-        view.render(
-            ShowScheme::new(&ctx.theme.p),
+        view.render_widget(
+            ShowScheme::new(state.contrast.value(), &ctx.theme.p),
             Rect::new(0, 0, view.layout().width, 34),
-            &mut state.scheme,
         );
 
         view.into_widget().render(l1[1], buf, &mut state.scroll);
@@ -379,6 +396,7 @@ pub mod themes {
                 }
                 r => r.into(),
             });
+            try_flow!(state.contrast.handle(event, Regular));
             try_flow!(match state.themes.handle(event, Regular) {
                 TableOutcome::Selected => {
                     if let Some(idx) = state.themes.selected_checked() {
@@ -398,58 +416,30 @@ pub mod themes {
 
 pub mod show_scheme {
     use rat_theme4::Palette;
-    use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
-    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
-    use rat_widget::reloc::{relocate_area, RelocatableState};
+    use rat_widget::focus::HasFocus;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::style::Color;
     use ratatui::text::{Line, Span};
-    use ratatui::widgets::StatefulWidget;
     use ratatui::widgets::Widget;
 
     #[derive(Debug)]
     pub struct ShowScheme<'a> {
+        high_contrast: bool,
         palette: &'a Palette,
     }
 
-    #[derive(Debug, Default)]
-    pub struct ShowSchemeState {
-        pub focus: FocusFlag,
-        pub area: Rect,
-    }
-
-    impl RelocatableState for ShowSchemeState {
-        fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-            self.area = relocate_area(self.area, shift, clip);
-        }
-    }
-
-    impl HasFocus for ShowSchemeState {
-        fn build(&self, builder: &mut FocusBuilder) {
-            builder.leaf_widget(self);
-        }
-
-        fn focus(&self) -> FocusFlag {
-            self.focus.clone()
-        }
-
-        fn area(&self) -> Rect {
-            self.area
-        }
-    }
-
     impl<'a> ShowScheme<'a> {
-        pub fn new(palette: &'a Palette) -> Self {
-            Self { palette }
+        pub fn new(high_contrast: bool, palette: &'a Palette) -> Self {
+            Self {
+                high_contrast,
+                palette,
+            }
         }
     }
 
-    impl<'a> StatefulWidget for ShowScheme<'a> {
-        type State = ShowSchemeState;
-
-        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-            state.area = area;
-
+    impl<'a> Widget for ShowScheme<'a> {
+        fn render(self, area: Rect, buf: &mut Buffer) {
             let l1 = Layout::new(
                 Direction::Vertical,
                 [
@@ -497,32 +487,28 @@ pub mod show_scheme {
             .iter()
             .enumerate()
             {
+                let ccc = |c: Color| {
+                    if self.high_contrast {
+                        pal.high_contrast(c)
+                    } else {
+                        pal.normal_contrast(c)
+                    }
+                };
+
                 Line::from(vec![
                     Span::from(format!("{:10}", n)),
-                    Span::from("  FG-0  ").style(pal.high_contrast(c[0])),
-                    Span::from("  FG-1  ").style(pal.high_contrast(c[1])),
-                    Span::from("  FG-2  ").style(pal.high_contrast(c[2])),
-                    Span::from("  FG-3  ").style(pal.high_contrast(c[3])),
-                    Span::from("  BG-0   ").style(pal.high_contrast(c[4])),
-                    Span::from("  BG-1  ").style(pal.high_contrast(c[5])),
-                    Span::from("  BG-3  ").style(pal.high_contrast(c[6])),
-                    Span::from("  BG-4  ").style(pal.high_contrast(c[7])),
+                    Span::from("  FG-0  ").style(ccc(c[0])),
+                    Span::from("  FG-1  ").style(ccc(c[1])),
+                    Span::from("  FG-2  ").style(ccc(c[2])),
+                    Span::from("  FG-3  ").style(ccc(c[3])),
+                    Span::from("  BG-0   ").style(ccc(c[4])),
+                    Span::from("  BG-1  ").style(ccc(c[5])),
+                    Span::from("  BG-3  ").style(ccc(c[6])),
+                    Span::from("  BG-4  ").style(ccc(c[7])),
                     Span::from("  grayscale  ").style(pal.high_contrast(Palette::grayscale(c[3]))),
                 ])
                 .render(l1[i], buf);
             }
-        }
-    }
-
-    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ShowSchemeState {
-        fn handle(&mut self, event: &crossterm::event::Event, qualifier: Regular) -> Outcome {
-            Outcome::Continue
-        }
-    }
-
-    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ShowSchemeState {
-        fn handle(&mut self, event: &crossterm::event::Event, qualifier: MouseOnly) -> Outcome {
-            Outcome::Continue
         }
     }
 }
