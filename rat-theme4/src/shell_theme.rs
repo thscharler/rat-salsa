@@ -42,6 +42,7 @@ pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define(Style::SELECT, th.p.high_contrast(th.p.secondary[1]));
     th.define(Style::TEXT_FOCUS, th.p.high_contrast(th.p.gray[3]));
     th.define(Style::TEXT_SELECT, th.p.high_contrast(th.p.secondary[0]));
+    th.define(Style::TEXT_SELECT, th.p.gray(2));
 
     th.define(Style::CONTAINER_BASE, Style::default());
     th.define(Style::CONTAINER_BORDER, Style::default());
@@ -91,7 +92,7 @@ pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
 
 fn button(th: &SalsaTheme) -> ButtonStyle {
     ButtonStyle {
-        style: th.p.gray(2),
+        style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
         hover: Some(th.style(Style::SELECT)),

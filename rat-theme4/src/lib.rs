@@ -140,6 +140,7 @@ pub trait StyleName {
     const SELECT: &'static str = "select";
     const TEXT_FOCUS: &'static str = "text-focus";
     const TEXT_SELECT: &'static str = "text-select";
+    const BUTTON_BASE: &'static str = "button-base";
 
     const CONTAINER_BASE: &'static str = "container-base";
     const CONTAINER_BORDER: &'static str = "container-border";

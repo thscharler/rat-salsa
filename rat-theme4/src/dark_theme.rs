@@ -39,6 +39,7 @@ pub fn dark_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define(Style::SELECT, th.p.high_contrast(p.secondary[1]));
     th.define(Style::TEXT_FOCUS, th.p.high_contrast(p.primary[1]));
     th.define(Style::TEXT_SELECT, th.p.high_contrast(p.secondary[1]));
+    th.define(Style::BUTTON_BASE, th.p.gray(2));
 
     th.define(Style::CONTAINER_BASE, th.p.high_contrast(p.black[1]));
     th.define(Style::CONTAINER_BORDER, th.p.normal_contrast(p.black[1]));
@@ -88,7 +89,7 @@ pub fn dark_theme(name: &str, p: Palette) -> SalsaTheme {
 
 fn button(th: &SalsaTheme) -> ButtonStyle {
     ButtonStyle {
-        style: th.p.gray(2),
+        style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
         hover: Some(th.style(Style::SELECT)),
