@@ -11,7 +11,8 @@ use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::{SalsaTheme, WidgetStyle, BASE16};
+use rat_theme4::palettes::BASE16;
+use rat_theme4::{SalsaTheme, WidgetStyle};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -577,7 +578,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme4::{dark_theme, make_dyn, Palette, SalsaTheme, StyleName, WidgetStyle};
+    use rat_theme4::{dark_theme, style_fn, Palette, SalsaTheme, StyleName, WidgetStyle};
     use rat_widget::menu::MenuStyle;
     use rat_widget::popup::PopupStyle;
     use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
@@ -616,9 +617,9 @@ pub mod theme {
         th.define(Style::DATA, th.p.normal_contrast(th.p.deepblue[0]));
 
         // override styles
-        th.define_fn(WidgetStyle::TEXTAREA, make_dyn!(textarea_style));
-        th.define_fn(WidgetStyle::MENU, make_dyn!(menu_style));
-        th.define_fn(WidgetStyle::SCROLL, make_dyn!(scroll_style));
+        th.define_fn(WidgetStyle::TEXTAREA, style_fn!(textarea_style));
+        th.define_fn(WidgetStyle::MENU, style_fn!(menu_style));
+        th.define_fn(WidgetStyle::SCROLL, style_fn!(scroll_style));
 
         th
     }
