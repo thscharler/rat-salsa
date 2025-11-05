@@ -405,6 +405,7 @@ where
     S: HandleEvent<crossterm::event::Event, &'a S::Context<'a>, Result<Outcome, S::Err>>,
     S: TableEditorState,
 {
+    #[allow(clippy::collapsible_if)]
     fn handle(
         &mut self,
         event: &crossterm::event::Event,
@@ -438,7 +439,7 @@ where
                 }
                 ct_event!(keycode press Up) => {
                     self.commit(ctx)?;
-                    if self.data.len() == 0 {
+                    if self.data.is_empty() {
                         self.edit_new(0, ctx)?;
                     } else if let Some(row) = self.table.selected_checked()
                         && row > 0
@@ -449,7 +450,7 @@ where
                 }
                 ct_event!(keycode press Down) => {
                     self.commit(ctx)?;
-                    if self.data.len() == 0 {
+                    if self.data.is_empty() {
                         self.edit_new(0, ctx)?;
                     } else if let Some(row) = self.table.selected_checked()
                         && row + 1 < self.data.len()
@@ -491,7 +492,7 @@ where
                 ct_event!(keycode press Delete) => {
                     if let Some(row) = self.table.selected_checked() {
                         self.remove(row);
-                        if self.data.len() == 0 {
+                        if self.data.is_empty() {
                             self.edit_new(0, ctx)?;
                         }
                     }

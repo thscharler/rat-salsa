@@ -418,15 +418,14 @@ impl Clone for ComboboxState {
         text.focus = focus.clone();
         choice.focus = focus.clone();
 
-        let c = Self {
+        Self {
             area: self.area,
             choice,
             text,
             focus,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
-        };
-        c
+        }
     }
 }
 

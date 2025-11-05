@@ -525,11 +525,8 @@ impl UndoVec {
 
         // style changes may/may not be undone
         if !self.undo_styles {
-            match &undo {
-                UndoOp::SetStyles { .. } => {
-                    return true;
-                }
-                _ => {}
+            if matches!(undo, UndoOp::SetStyles { .. }) {
+                return true;
             }
         }
 
