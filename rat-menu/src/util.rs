@@ -10,12 +10,8 @@ use std::mem;
 /// The latter sends special controls to the terminal,
 /// the former just swaps.
 pub(crate) fn revert_style(mut style: Style) -> Style {
-    if style.fg.is_some() && style.bg.is_some() {
-        mem::swap(&mut style.fg, &mut style.bg);
-        style
-    } else {
-        style.black().on_white()
-    }
+    mem::swap(&mut style.fg, &mut style.bg);
+    style
 }
 
 pub(crate) fn get_block_size(block: &Option<Block>) -> Size {
