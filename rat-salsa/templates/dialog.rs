@@ -1,23 +1,25 @@
 use anyhow::Error;
 use log::error;
 use rat_event::{try_flow, Outcome};
-use rat_focus::impl_has_focus;
+use rat_focus::{impl_has_focus, HasFocus};
 use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
+use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
 use rat_widget::event::{ct_event, Dialog, HandleEvent, MenuOutcome, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
+use std::any::Any;
 use std::fs;
-use std::path::PathBuf;
 use try_as::traits::TryAsRef;
 
 fn main() -> Result<(), Error> {
@@ -229,43 +231,75 @@ pub fn error(
     Ok(Control::Changed)
 }
 
+struct MsgState {
+    pub dlg: DialogFrameState,
+    pub paragraph: ParagraphState,
+    pub message: String,
+}
+
+impl_has_focus!(dlg, paragraph for MsgState);
+
+fn msg_render(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
+    let state = state.downcast_mut::<MsgState>().expect("msg-dialog");
+
+    DialogFrame::new()
+        .styles(ctx.theme.style(WidgetStyle::DIALOG_FRAME))
+        .no_cancel()
+        .left(Constraint::Percentage(19))
+        .right(Constraint::Percentage(19))
+        .top(Constraint::Length(4))
+        .bottom(Constraint::Length(4))
+        .render(area, buf, &mut state.dlg);
+
+    Paragraph::new(state.message.as_str())
+        .styles(ctx.theme.style(WidgetStyle::PARAGRAPH))
+        .render(state.dlg.widget_area, buf, &mut state.paragraph);
+}
+
+fn msg_event(
+    event: &AppEvent,
+    state: &mut dyn Any,
+    ctx: &mut Global,
+) -> Result<Control<AppEvent>, Error> {
+    let state = state.downcast_mut::<MsgState>().expect("msg-dialog");
+
+    if let AppEvent::Event(e) = event {
+        let mut focus = FocusBuilder::build_for(state);
+        ctx.queue(focus.handle(e, Regular));
+
+        try_flow!(state.paragraph.handle(e, Regular));
+        try_flow!(match state.dlg.handle(e, Dialog) {
+            DialogOutcome::Ok => {
+                Control::Close(AppEvent::NoOp)
+            }
+            DialogOutcome::Cancel => {
+                Control::Close(AppEvent::NoOp)
+            }
+            r => r.into(),
+        });
+        Ok(Control::Continue)
+    } else {
+        Ok(Control::Continue)
+    }
+}
+
 pub fn show_error(txt: &str, ctx: &mut Global) {
     for i in 0..ctx.dlg.len() {
-        if ctx.dlg.state_is::<MsgDialogState>(i) {
-            let msg = ctx.dlg.get_mut::<MsgDialogState>(i).expect("msg-dialog");
-            msg.append(txt);
+        if ctx.dlg.state_is::<MsgState>(i) {
+            let mut msg = ctx.dlg.get_mut::<MsgState>(i).expect("msg-dialog");
+            msg.message.push_str(txt);
             return;
         }
     }
 
-    let state = MsgDialogState::new();
-    state.append(txt);
-
     ctx.dlg.push(
-        |area, buf, state, ctx| {
-            let state = state.downcast_mut::<MsgDialogState>().expect("msg-dialog");
-            MsgDialog::new()
-                .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
-                .render(area, buf, state);
+        msg_render,
+        msg_event,
+        MsgState {
+            dlg: Default::default(),
+            paragraph: Default::default(),
+            message: txt.to_string(),
         },
-        |event, state, ctx| {
-            let state = state.downcast_mut::<MsgDialogState>().expect("msg-dialog");
-            if let AppEvent::Event(e) = event {
-                match state.handle(e, Dialog) {
-                    Outcome::Changed => {
-                        if !state.active() {
-                            Ok(Control::Close(AppEvent::NoOp))
-                        } else {
-                            Ok(Control::Changed)
-                        }
-                    }
-                    r => Ok(r.into()),
-                }
-            } else {
-                Ok(Control::Continue)
-            }
-        },
-        state,
     );
 }
 
