@@ -45,11 +45,13 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 
 mod dark_theme;
+mod fallback_theme;
 mod palette;
 pub mod palettes;
 mod shell_theme;
 
 pub use dark_theme::dark_theme;
+pub use fallback_theme::fallback_theme;
 pub use palette::Palette;
 pub use shell_theme::shell_theme;
 
@@ -89,6 +91,7 @@ pub struct WidgetStyle;
 
 impl WidgetStyle {
     pub const BUTTON: &'static str = "button";
+    pub const CALENDAR: &'static str = "calendar";
     pub const CHECKBOX: &'static str = "checkbox";
     pub const CHOICE: &'static str = "choice";
     pub const CLIPPER: &'static str = "clipper";
@@ -344,6 +347,7 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Solarized" => Some(SOLARIZED),
         "OxoCarbon" => Some(OXOCARBON),
         "Rust" => Some(RUST),
+        "Red" => Some(RED),
         "Blackout" => Some(BLACKOUT),
         "VSCode" => Some(VSCODE_DARK),
         _ => None,
@@ -363,6 +367,7 @@ const THEMES: &[&str] = &[
     "Solarized Dark",
     "OxoCarbon Dark",
     "Rust Dark",
+    "Red Dark",
     "VSCode Dark",
     //
     "Imperial Shell",
@@ -377,9 +382,11 @@ const THEMES: &[&str] = &[
     "Solarized Shell",
     "OxoCarbon Shell",
     "Rust Shell",
+    "Red Shell",
     "VSCode Shell",
     //
     "Blackout",
+    "Fallback",
 ];
 
 /// Get all Salsa themes.
@@ -403,6 +410,7 @@ pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
         "Solarized Dark" => dark_theme(theme, SOLARIZED),
         "OxoCarbon Dark" => dark_theme(theme, OXOCARBON),
         "Rust Dark" => dark_theme(theme, RUST),
+        "Red Dark" => dark_theme(theme, RED),
         "VSCode Dark" => dark_theme(theme, VSCODE_DARK),
 
         "Imperial Shell" => shell_theme(theme, IMPERIAL),
@@ -417,9 +425,11 @@ pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
         "Solarized Shell" => shell_theme(theme, SOLARIZED),
         "OxoCarbon Shell" => shell_theme(theme, OXOCARBON),
         "Rust Shell" => shell_theme(theme, RUST),
+        "Red Shell" => shell_theme(theme, RED),
         "VSCode Shell" => shell_theme(theme, VSCODE_DARK),
 
         "Blackout" => shell_theme(theme, BLACKOUT),
+        "Fallback" => fallback_theme(theme, RED),
 
         _ => return None,
     };
