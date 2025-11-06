@@ -286,7 +286,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -297,7 +297,7 @@ checksum = "fc34b93ccb385b40dc71c6fceac4b2ad23662c7eeb248cf10d529b7e055b6ead"
 dependencies = [
  "darling_core",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -491,7 +491,7 @@ checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -663,7 +663,7 @@ dependencies = [
  "indoc",
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -1038,9 +1038,9 @@ checksum = "869675ad2d7541aea90c6d88c81f46a7f4ea9af8cd0395d38f11a95126998a0d"
 
 [[package]]
 name = "quote"
-version = "1.0.41"
+version = "1.0.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce25767e7b499d1b604768e7cde645d14cc8584231ea6b295e9c9eb22c02e1d1"
+checksum = "a338cc41d27e6cc6dce6cefc13a0729dfbb81c262b1f519331575dd80ef3067f"
 dependencies = [
  "proc-macro2",
 ]
@@ -1116,7 +1116,7 @@ version = "1.2.1"
 
 [[package]]
 name = "rat-dialog"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1158,7 +1158,7 @@ dependencies = [
 
 [[package]]
 name = "rat-ftable"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1177,7 +1177,7 @@ dependencies = [
 
 [[package]]
 name = "rat-markdown"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "crossterm",
  "log",
@@ -1192,7 +1192,7 @@ dependencies = [
 
 [[package]]
 name = "rat-menu"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "crossterm",
  "log",
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "rat-popup"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1255,7 +1255,7 @@ dependencies = [
 
 [[package]]
 name = "rat-scrolled"
-version = "1.3.0"
+version = "1.3.1"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1269,7 +1269,7 @@ dependencies = [
 
 [[package]]
 name = "rat-text"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1298,7 +1298,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme"
-version = "0.29.0"
+version = "0.29.1"
 dependencies = [
  "log",
  "map_range_int",
@@ -1308,7 +1308,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme2"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "log",
  "rat-widget",
@@ -1317,7 +1317,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme3"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "log",
  "rat-widget",
@@ -1335,7 +1335,7 @@ dependencies = [
 
 [[package]]
 name = "rat-vim"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1648,7 +1648,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -1664,9 +1664,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.108"
+version = "2.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da58917d35242480a05c2897064da0a80589a2a0476c9a3f2fdc83b53502e917"
+checksum = "2f17c7e013e88258aa9543dcbe81aca68a667a9ac37cd69c9fbc07858bfe0e2f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1760,7 +1760,7 @@ checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -1771,7 +1771,7 @@ checksum = "3ff15c8ecd7de3849db632e14d18d2571fa09dfc5ed93479bc4485c7a517c913"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -1935,7 +1935,7 @@ dependencies = [
  "bumpalo",
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
  "wasm-bindgen-shared",
 ]
 
@@ -2127,7 +2127,7 @@ checksum = "9107ddc059d5b6fbfbffdfa7a7fe3e22a226def0b2608f72e9d552763d3e1ad7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -2138,7 +2138,7 @@ checksum = "053e2e040ab57b9dc951b72c264860db7eb3b0200ba345b4e4c3b14f67855ddf"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -2149,7 +2149,7 @@ checksum = "29bee4b38ea3cde66011baa44dba677c432a78593e202392d1e9070cf2a7fca7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -2160,7 +2160,7 @@ checksum = "3f316c4a2570ba26bbec722032c4099d8c8bc095efccdc15688708623367e358"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]
 
 [[package]]
@@ -2399,5 +2399,5 @@ checksum = "88d2b8d9c68ad2b9e4340d7832716a4d21a22a1154777ad56ea55c51a9cf3831"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.108",
+ "syn 2.0.109",
 ]

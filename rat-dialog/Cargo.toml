@@ -1,6 +1,6 @@
 [package]
 name = "rat-dialog"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2024"
 description = "stacked dialog windows and application windows"
