@@ -1,3 +1,7 @@
+# 1.4.0
+
+* feature: allow calling future() for container flags.
+
 # 1.3.0
 
 * feature: add callbacks for on_gained/on_lost. These are meant for

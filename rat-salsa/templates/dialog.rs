@@ -1,7 +1,7 @@
 use anyhow::Error;
 use log::error;
-use rat_event::{try_flow, Outcome};
-use rat_focus::{impl_has_focus, HasFocus};
+use rat_event::try_flow;
+use rat_focus::impl_has_focus;
 use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
@@ -11,7 +11,6 @@ use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
 use rat_widget::event::{ct_event, Dialog, HandleEvent, MenuOutcome, Regular};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
-use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use ratatui::buffer::Buffer;

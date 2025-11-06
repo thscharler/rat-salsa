@@ -416,7 +416,6 @@ pub mod themes {
 
 pub mod show_scheme {
     use rat_theme4::Palette;
-    use rat_widget::focus::HasFocus;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::style::Color;

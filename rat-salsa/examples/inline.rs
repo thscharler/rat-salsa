@@ -226,7 +226,7 @@ pub mod minimal {
     use anyhow::Error;
     use rat_salsa::{Control, SalsaContext};
     use rat_theme4::StyleName;
-    use rat_theme4::{SalsaTheme, WidgetStyle};
+    use rat_theme4::WidgetStyle;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{MenuLine, MenuLineState};

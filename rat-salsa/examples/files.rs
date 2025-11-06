@@ -14,7 +14,7 @@ use rat_widget::event::{
 };
 use rat_widget::focus::{match_focus, FocusBuilder, HasFocus, Navigation};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menu::{MenuBuilder, MenuStructure, MenuStyle, Menubar, MenubarState};
+use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup::Placement;
 use rat_widget::scrolled::Scroll;

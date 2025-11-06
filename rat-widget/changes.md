@@ -1,3 +1,36 @@
+# 2.2.0
+
+## rat-theme4
+
+New theme crate rat-theme4. Not using defined functions or a trait any longer.
+Just a map style-name -> style. But with some niceties that make life easier.
+
+## Widgets
+
+### DialogFrame (new)
+
+New widget that renders a dialog frame and Ok/Cancel.
+
+### Button
+
+fix: missing clear()
+
+### Checkbox
+
+fix: missing clear()
+
+### Form
+
+fix: no background was rendered when navigation is disabled.
+
+### View
+
+feature: improved api for defining the view-area.
+
+## Focus
+
+* feature: allow calling future() for container flags.
+
 # 2.1.0
 
 ### Combobox (new)

@@ -1,3 +1,17 @@
+# 3.0.0
+
+Start rat-theme4. Simplify everything.
+What is left is a map style-name -> style-constructor.
+
+The style-constructor gets a reference to the theme and
+can use other definitions to create a Style for a widget.
+
+There is a bit of special handling for ratatui 'Style' structs.
+
+And a few convenience functions for different ways to get
+to a style. This is good enough to load/store styles to storage,
+but no implementation for this.
+
 # 2.3.0
 
 * add 'Rust' palette. blue is a cobalt oxide, green is a chromium oxide,

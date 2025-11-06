@@ -1,3 +1,23 @@
+# 2.3.0
+
+* feature: Add support for autonomous dialog windows.
+
+  This copies part of the work done in rat-dialog to rat-salsa itself.
+  It is behind the feature 'dialog' for now.
+
+  It is not included in the SalsaContext for now, I couldn't get
+  the type parameters working satisfactorily. You have to include
+  DialogStack into your Global state manually and call rendering
+  and event-handling for the dialogs too.
+
+  But it is integrated into the Control-enum and doesn't need
+  special handling any longer.
+
+## rat-theme4
+
+New theme crate rat-theme4. Not using defined functions or a trait any longer.
+Just a map style-name -> style. But with some niceties that make life easier.
+
 # 2.2.0
 
 * move render/event timing into the framework.
