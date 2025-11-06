@@ -24,7 +24,7 @@ log = "0.4"
 ratatui = { version = "0.29", features = ["scrolling-regions"] }
 tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
 rat-event = { version = "1.2", path = "../rat-event" }
-rat-focus = { version = "1.2", path = "../rat-focus" }
+rat-focus = { version = "1.4", path = "../rat-focus" }
 try_as = { version = "0.1", optional = true }
 
 [dev-dependencies]
@@ -38,7 +38,7 @@ regex-cursor = "0.1.5"
 rust-ini = "0.21"
 unicode-segmentation = "1.11"
 cli-clipboard = "0.4"
-rat-widget = { version = "2.0", path = "../rat-widget", features = ["user_directories"] }
+rat-widget = { version = "2.2", path = "../rat-widget", features = ["user_directories"] }
 rat-theme4 = { version = "3.0", path = "../rat-theme4" }
 
 [[example]]
