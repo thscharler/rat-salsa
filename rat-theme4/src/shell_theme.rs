@@ -1,11 +1,12 @@
 use crate::palette::Palette;
 use crate::{Category, SalsaTheme};
-use crate::{StyleName, WidgetStyle, style_fn};
+use crate::{StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
+use rat_widget::combobox::ComboboxStyle;
 use rat_widget::container::ContainerStyle;
 use rat_widget::dialog_frame::DialogFrameStyle;
 use rat_widget::file_dialog::FileDialogStyle;
@@ -43,6 +44,7 @@ pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define(Style::TEXT_FOCUS, th.p.high_contrast(th.p.gray[3]));
     th.define(Style::TEXT_SELECT, th.p.high_contrast(th.p.secondary[0]));
     th.define(Style::TEXT_SELECT, th.p.gray(2));
+    th.define(Style::BUTTON_BASE, th.p.gray(2));
 
     th.define(Style::CONTAINER_BASE, Style::default());
     th.define(Style::CONTAINER_BORDER, Style::default());
@@ -58,34 +60,35 @@ pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
 
     th.define(Style::STATUS_BASE, Style::default());
 
-    th.define_fn(WidgetStyle::BUTTON, style_fn!(button));
-    th.define_fn(WidgetStyle::CHECKBOX, style_fn!(checkbox));
-    th.define_fn(WidgetStyle::CHOICE, style_fn!(choice));
-    th.define_fn(WidgetStyle::CLIPPER, style_fn!(clipper));
-    th.define_fn(WidgetStyle::CONTAINER, style_fn!(container));
-    th.define_fn(WidgetStyle::DIALOG_FRAME, style_fn!(dialog_frame));
-    th.define_fn(WidgetStyle::FILE_DIALOG, style_fn!(file_dialog));
-    th.define_fn(WidgetStyle::FORM, style_fn!(form));
-    th.define_fn(WidgetStyle::LINE_NR, style_fn!(line_nr));
-    th.define_fn(WidgetStyle::LIST, style_fn!(list));
-    th.define_fn(WidgetStyle::MENU, style_fn!(menu));
-    th.define_fn(WidgetStyle::MONTH, style_fn!(month));
-    th.define_fn(WidgetStyle::MSG_DIALOG, style_fn!(msg_dialog));
-    th.define_fn(WidgetStyle::PARAGRAPH, style_fn!(paragraph));
-    th.define_fn(WidgetStyle::RADIO, style_fn!(radio));
-    th.define_fn(WidgetStyle::SCROLL, style_fn!(scroll));
-    th.define_fn(WidgetStyle::SCROLL_DIALOG, style_fn!(dialog_scroll));
-    th.define_fn(WidgetStyle::SCROLL_POPUP, style_fn!(popup_scroll));
-    th.define_fn(WidgetStyle::SHADOW, style_fn!(shadow));
-    th.define_fn(WidgetStyle::SLIDER, style_fn!(slider));
-    th.define_fn(WidgetStyle::SPLIT, style_fn!(split));
-    th.define_fn(WidgetStyle::STATUSLINE, style_fn!(statusline));
-    th.define_fn(WidgetStyle::TABBED, style_fn!(tabbed));
-    th.define_fn(WidgetStyle::TABLE, style_fn!(table));
-    th.define_fn(WidgetStyle::TEXT, style_fn!(text));
-    th.define_fn(WidgetStyle::TEXTAREA, style_fn!(textarea));
-    th.define_fn(WidgetStyle::TEXTVIEW, style_fn!(textview));
-    th.define_fn(WidgetStyle::VIEW, style_fn!(view));
+    th.define_fn(WidgetStyle::BUTTON, button);
+    th.define_fn(WidgetStyle::CHECKBOX, checkbox);
+    th.define_fn(WidgetStyle::CHOICE, choice);
+    th.define_fn(WidgetStyle::CLIPPER, clipper);
+    th.define_fn(WidgetStyle::CONTAINER, container);
+    th.define_fn(WidgetStyle::COMBOBOX, combobox);
+    th.define_fn(WidgetStyle::DIALOG_FRAME, dialog_frame);
+    th.define_fn(WidgetStyle::FILE_DIALOG, file_dialog);
+    th.define_fn(WidgetStyle::FORM, form);
+    th.define_fn(WidgetStyle::LINE_NR, line_nr);
+    th.define_fn(WidgetStyle::LIST, list);
+    th.define_fn(WidgetStyle::MENU, menu);
+    th.define_fn(WidgetStyle::MONTH, month);
+    th.define_fn(WidgetStyle::MSG_DIALOG, msg_dialog);
+    th.define_fn(WidgetStyle::PARAGRAPH, paragraph);
+    th.define_fn(WidgetStyle::RADIO, radio);
+    th.define_fn(WidgetStyle::SCROLL, scroll);
+    th.define_fn(WidgetStyle::SCROLL_DIALOG, dialog_scroll);
+    th.define_fn(WidgetStyle::SCROLL_POPUP, popup_scroll);
+    th.define_fn(WidgetStyle::SHADOW, shadow);
+    th.define_fn(WidgetStyle::SLIDER, slider);
+    th.define_fn(WidgetStyle::SPLIT, split);
+    th.define_fn(WidgetStyle::STATUSLINE, statusline);
+    th.define_fn(WidgetStyle::TABBED, tabbed);
+    th.define_fn(WidgetStyle::TABLE, table);
+    th.define_fn(WidgetStyle::TEXT, text);
+    th.define_fn(WidgetStyle::TEXTAREA, textarea);
+    th.define_fn(WidgetStyle::TEXTVIEW, textview);
+    th.define_fn(WidgetStyle::VIEW, view);
 
     th
 }
@@ -143,6 +146,14 @@ fn container(th: &SalsaTheme) -> ContainerStyle {
     }
 }
 
+fn combobox(th: &SalsaTheme) -> ComboboxStyle {
+    ComboboxStyle {
+        choice: choice(th),
+        text: text(th),
+        ..Default::default()
+    }
+}
+
 fn dialog_frame(th: &SalsaTheme) -> DialogFrameStyle {
     DialogFrameStyle {
         style: th.style(Style::DIALOG_BASE),
@@ -160,7 +171,7 @@ fn file_dialog(th: &SalsaTheme) -> FileDialogStyle {
             style: th.style(Style::DIALOG_BASE),
             ..list(th)
         }),
-        text: Some(th.style(Style::INPUT)),
+        text: Some(text(th)),
         button: Some(button(th)),
         block: Some(Block::bordered()),
         ..Default::default()
