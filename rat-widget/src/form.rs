@@ -414,7 +414,9 @@ where
 
     // Calculate the view area for all columns.
     pub fn layout_area(&self, area: Rect) -> Rect {
-        if let Some(block) = &self.block {
+        if let Some(block) = &self.block
+            && self.navigation
+        {
             block.inner(area)
         } else {
             area
@@ -449,7 +451,7 @@ where
         if self.navigation {
             self.render_navigation(area, buf, state);
         } else {
-            self.block.render(area, buf);
+            buf.set_style(area, self.style);
         }
 
         let mut form_buf = FormBuffer {
