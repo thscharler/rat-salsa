@@ -1,6 +1,5 @@
 use rat_theme4::{
-    SalsaTheme, StyleName, WidgetStyle, create_palette, create_theme, log_style_define,
-    salsa_palettes, salsa_themes,
+    SalsaTheme, StyleName, WidgetStyle, create_palette, create_theme, salsa_palettes, salsa_themes,
 };
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
