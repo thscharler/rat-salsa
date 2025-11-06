@@ -578,7 +578,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme4::{dark_theme, style_fn, Palette, SalsaTheme, StyleName, WidgetStyle};
+    use rat_theme4::{dark_theme, Palette, SalsaTheme, StyleName, WidgetStyle};
     use rat_widget::menu::MenuStyle;
     use rat_widget::popup::PopupStyle;
     use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
@@ -599,6 +599,7 @@ pub mod theme {
         th.define(Style::SELECT, th.p.high_contrast(p.secondary[1]));
         th.define(Style::TEXT_FOCUS, th.p.high_contrast(p.primary[0]));
         th.define(Style::TEXT_SELECT, th.p.high_contrast(p.secondary[0]));
+        th.define(Style::BUTTON_BASE, th.p.high_contrast(p.gray[3]));
 
         th.define(Style::CONTAINER_BASE, th.p.high_contrast(p.black[1]));
         th.define(Style::CONTAINER_BORDER, th.p.normal_contrast(p.black[1]));
@@ -617,9 +618,9 @@ pub mod theme {
         th.define(Style::DATA, th.p.normal_contrast(th.p.deepblue[0]));
 
         // override styles
-        th.define_fn(WidgetStyle::TEXTAREA, style_fn!(textarea_style));
-        th.define_fn(WidgetStyle::MENU, style_fn!(menu_style));
-        th.define_fn(WidgetStyle::SCROLL, style_fn!(scroll_style));
+        th.define_fn(WidgetStyle::TEXTAREA, textarea_style);
+        th.define_fn(WidgetStyle::MENU, menu_style);
+        th.define_fn(WidgetStyle::SCROLL, scroll_style);
 
         th
     }
