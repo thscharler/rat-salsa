@@ -299,6 +299,22 @@ impl SalsaTheme {
     ///   called with an unknown style name, or if the downcast
     ///   to the out type fails.
     /// * Otherwise, it will return the default value of the out type.
+    pub fn style_style(&self, w: &str) -> Style
+    where
+        Self: Sized,
+    {
+        self.style::<Style>(w)
+    }
+
+    /// Get any of the defined styles.
+    ///
+    /// It downcasts the stored value to the required out type.
+    /// This may fail.
+    ///
+    /// * When debug_assertions are enabled it will panic when
+    ///   called with an unknown style name, or if the downcast
+    ///   to the out type fails.
+    /// * Otherwise, it will return the default value of the out type.
     pub fn style<O: Default + Sized + 'static>(&self, w: &str) -> O
     where
         Self: Sized,
