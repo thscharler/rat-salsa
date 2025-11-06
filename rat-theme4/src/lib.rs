@@ -96,7 +96,6 @@ impl WidgetStyle {
     pub const CHOICE: &'static str = "choice";
     pub const CLIPPER: &'static str = "clipper";
     pub const COMBOBOX: &'static str = "combobox";
-    pub const CONTAINER: &'static str = "container";
     pub const DIALOG_FRAME: &'static str = "dialog-frame";
     pub const FILE_DIALOG: &'static str = "file-dialog";
     pub const FORM: &'static str = "form";

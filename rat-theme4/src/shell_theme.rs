@@ -7,7 +7,6 @@ use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
 use rat_widget::combobox::ComboboxStyle;
-use rat_widget::container::ContainerStyle;
 use rat_widget::dialog_frame::DialogFrameStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::form::FormStyle;
@@ -64,7 +63,6 @@ pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define_fn(WidgetStyle::CHECKBOX, checkbox);
     th.define_fn(WidgetStyle::CHOICE, choice);
     th.define_fn(WidgetStyle::CLIPPER, clipper);
-    th.define_fn(WidgetStyle::CONTAINER, container);
     th.define_fn(WidgetStyle::COMBOBOX, combobox);
     th.define_fn(WidgetStyle::DIALOG_FRAME, dialog_frame);
     th.define_fn(WidgetStyle::FILE_DIALOG, file_dialog);
@@ -133,15 +131,6 @@ fn clipper(th: &SalsaTheme) -> ClipperStyle {
     ClipperStyle {
         style: th.style(Style::CONTAINER_BASE),
         scroll: Some(scroll(th)),
-        ..Default::default()
-    }
-}
-
-fn container(th: &SalsaTheme) -> ContainerStyle {
-    ContainerStyle {
-        style: th.style(Style::CONTAINER_BASE),
-        symbol: None,
-        block: None,
         ..Default::default()
     }
 }

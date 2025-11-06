@@ -7,7 +7,6 @@ use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
 use rat_widget::combobox::ComboboxStyle;
-use rat_widget::container::ContainerStyle;
 use rat_widget::dialog_frame::DialogFrameStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::form::FormStyle;
@@ -59,7 +58,6 @@ pub fn fallback_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define_fn0(WidgetStyle::CHOICE, ChoiceStyle::default);
     th.define_fn0(WidgetStyle::CLIPPER, ClipperStyle::default);
     th.define_fn0(WidgetStyle::COMBOBOX, ComboboxStyle::default);
-    th.define_fn0(WidgetStyle::CONTAINER, ContainerStyle::default);
     th.define_fn0(WidgetStyle::DIALOG_FRAME, DialogFrameStyle::default);
     th.define_fn0(WidgetStyle::FILE_DIALOG, FileDialogStyle::default);
     th.define_fn0(WidgetStyle::FORM, FormStyle::default);

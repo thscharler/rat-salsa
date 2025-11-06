@@ -7,7 +7,6 @@ use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
 use rat_widget::combobox::ComboboxStyle;
-use rat_widget::container::ContainerStyle;
 use rat_widget::dialog_frame::DialogFrameStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::form::FormStyle;
@@ -75,7 +74,6 @@ fn verify_theme(th: &SalsaTheme) {
     th.style::<CheckboxStyle>(WidgetStyle::CHECKBOX);
     th.style::<ChoiceStyle>(WidgetStyle::CHOICE);
     th.style::<ClipperStyle>(WidgetStyle::CLIPPER);
-    th.style::<ContainerStyle>(WidgetStyle::CONTAINER);
     th.style::<ComboboxStyle>(WidgetStyle::COMBOBOX);
     th.style::<DialogFrameStyle>(WidgetStyle::DIALOG_FRAME);
     th.style::<FileDialogStyle>(WidgetStyle::FILE_DIALOG);
