@@ -38,6 +38,7 @@ use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::cmp::min;
+use std::collections::HashMap;
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -56,7 +57,7 @@ pub struct TextInput<'a> {
     on_focus_gained: TextFocusGained,
     on_focus_lost: TextFocusLost,
     passwd: bool,
-    text_style: Vec<Style>,
+    text_style: HashMap<usize, Style>,
 }
 
 /// State for TextInput.
@@ -188,12 +189,34 @@ impl<'a> TextInput<'a> {
         self
     }
 
+    /// Indexed text-style.
+    ///
+    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// one of these styles.
+    pub fn text_style_idx(mut self, idx: usize, style: Style) -> Self {
+        self.text_style.insert(idx, style);
+        self
+    }
+
     /// List of text-styles.
     ///
-    /// Use [TextInputState::add_style()] to refer a text range to
+    /// Use [TextAreaState::add_style()] to refer a text range to
     /// one of these styles.
     pub fn text_style<T: IntoIterator<Item = Style>>(mut self, styles: T) -> Self {
-        self.text_style = styles.into_iter().collect();
+        for (i, s) in styles.into_iter().enumerate() {
+            self.text_style.insert(i, s);
+        }
+        self
+    }
+
+    /// Map of style_id -> text_style.
+    ///
+    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// one of these styles.
+    pub fn text_style_map<T: Into<Style>>(mut self, styles: HashMap<usize, T>) -> Self {
+        for (i, s) in styles.into_iter() {
+            self.text_style.insert(i, s.into());
+        }
         self
     }
 
@@ -346,7 +369,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                     .value
                     .styles_at_page(g.text_bytes().start, show_range.clone(), &mut styles);
                 for style_nr in &styles {
-                    if let Some(s) = widget.text_style.get(*style_nr) {
+                    if let Some(s) = widget.text_style.get(style_nr) {
                         style = style.patch(*s);
                     }
                 }
@@ -385,7 +408,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                     .value
                     .styles_at_page(g.text_bytes().start, show_range.clone(), &mut styles);
                 for style_nr in &styles {
-                    if let Some(s) = widget.text_style.get(*style_nr) {
+                    if let Some(s) = widget.text_style.get(style_nr) {
                         style = style.patch(*s);
                     }
                 }

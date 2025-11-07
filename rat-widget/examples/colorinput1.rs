@@ -1,5 +1,7 @@
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
+use log::warn;
 use rat_event::try_flow;
+use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::color_input::{ColorInput, ColorInputState};
 use rat_text::{HasScreenCursor, color_input};
 use rat_widget::event::Outcome;
@@ -7,11 +9,13 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{StatefulWidget, Widget};
+use std::cell::RefCell;
 
 mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
+    set_global_clipboard(CliClipboard::default());
 
     let mut data = Data {};
 
@@ -67,7 +71,7 @@ fn render(
     .split(l0[1]);
 
     ColorInput::new() //
-        .styles(istate.theme.text_style())
+        .styles(istate.theme.color_input_style())
         .render(l1[1], frame.buffer_mut(), &mut state.input);
     if let Some((x, y)) = state.input.screen_cursor() {
         frame.set_cursor_position((x, y));
@@ -88,4 +92,34 @@ fn event(
     try_flow!(color_input::handle_events(&mut state.input, true, event));
 
     Ok(Outcome::Continue)
+}
+
+#[derive(Debug, Default, Clone)]
+struct CliClipboard {
+    clip: RefCell<String>,
+}
+
+impl Clipboard for CliClipboard {
+    fn get_string(&self) -> Result<String, ClipboardError> {
+        match cli_clipboard::get_contents() {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                warn!("{:?}", e);
+                Ok(self.clip.borrow().clone())
+            }
+        }
+    }
+
+    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+        let mut clip = self.clip.borrow_mut();
+        *clip = s.to_string();
+
+        match cli_clipboard::set_contents(s.to_string()) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                warn!("{:?}", e);
+                Err(ClipboardError)
+            }
+        }
+    }
 }

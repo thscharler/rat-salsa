@@ -89,7 +89,6 @@ use crate::{
 };
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
-use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -102,6 +101,7 @@ use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::cmp::min;
+use std::collections::HashMap;
 use std::fmt;
 use std::iter::once;
 use std::ops::Range;
@@ -122,7 +122,7 @@ pub struct MaskedInput<'a> {
     focus_style: Option<Style>,
     select_style: Option<Style>,
     invalid_style: Option<Style>,
-    text_style: Vec<Style>,
+    text_style: HashMap<usize, Style>,
     on_focus_gained: TextFocusGained,
     on_focus_lost: TextFocusLost,
 }
@@ -271,12 +271,34 @@ impl<'a> MaskedInput<'a> {
         self
     }
 
+    /// Indexed text-style.
+    ///
+    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// one of these styles.
+    pub fn text_style_idx(mut self, idx: usize, style: Style) -> Self {
+        self.text_style.insert(idx, style);
+        self
+    }
+
     /// List of text-styles.
     ///
     /// Use [MaskedInputState::add_style()] to refer a text range to
     /// one of these styles.
     pub fn text_style<T: IntoIterator<Item = Style>>(mut self, styles: T) -> Self {
-        self.text_style = styles.into_iter().collect();
+        for (i, s) in styles.into_iter().enumerate() {
+            self.text_style.insert(i, s);
+        }
+        self
+    }
+
+    /// Map of style_id -> text_style.
+    ///
+    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// one of these styles.
+    pub fn text_style_map<T: Into<Style>>(mut self, styles: HashMap<usize, T>) -> Self {
+        for (i, s) in styles.into_iter() {
+            self.text_style.insert(i, s.into());
+        }
         self
     }
 
@@ -424,7 +446,7 @@ fn render_ref(
                 .value
                 .styles_at_page(g.text_bytes().start, show_range.clone(), &mut styles);
             for style_nr in &styles {
-                if let Some(s) = widget.text_style.get(*style_nr) {
+                if let Some(s) = widget.text_style.get(style_nr) {
                     style = style.patch(*s);
                 }
             }
@@ -975,6 +997,12 @@ impl MaskedInputState {
 }
 
 impl MaskedInputState {
+    /// Clear all styles.
+    #[inline]
+    pub fn clear_styles(&mut self) {
+        self.value.set_styles(Vec::default());
+    }
+
     /// Set and replace all styles.
     #[inline]
     pub fn set_styles(&mut self, styles: Vec<(Range<usize>, usize)>) {
