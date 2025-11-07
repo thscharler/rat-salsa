@@ -326,6 +326,7 @@ impl ShellTheme {
                 invalid: Some(self.fg_style(self.p.red[Palette::BRIGHT_3])),
                 ..TextStyle::default()
             },
+            field_style: Some(self.p.gray(0, Contrast::Normal)),
             ..Default::default()
         }
     }

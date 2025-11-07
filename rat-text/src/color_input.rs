@@ -1,10 +1,30 @@
+/// Widget for color input.
+///
+/// Currently, supports
+/// * RGB
+/// * HSV
+/// * hexdigits
+///
+/// __Keybindings__
+///
+/// * Switch between color-mode with Up/Down. (or m/M)
+/// * '+' and Alt-'+' increase the value
+/// * '-' and Alt-'-' decrease the value
+/// * 'r', 'h', 'x' switch mode
+///
+/// __Clipboard__
+///
+/// Recognizes common formats when pasted from the clipboard.
+/// * #000000 and #00000000
+/// * 0x000000 and 0x00000000
+/// * 000000 and 00000000
+///
 use crate::_private::NonExhaustive;
 use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
 use crate::{TextError, TextFocusGained, TextFocusLost, TextStyle, upos_type};
-use log::debug;
 use palette::{FromColor, Hsv, Srgb};
 use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
@@ -12,12 +32,16 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style, Stylize};
+use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::min;
 use std::ops::Range;
 
+/// Color input widget.
+///
+/// A text input for colors.
+///
 #[derive(Debug, Default)]
 pub struct ColorInput<'a> {
     style: Style,
@@ -31,6 +55,8 @@ pub struct ColorInput<'a> {
 pub struct ColorInputStyle {
     /// Base style.
     pub text: TextStyle,
+    /// Highlighting the field of the input.
+    pub field_style: Option<Style>,
     /// Disable mode switching.
     pub disable_modes: Option<bool>,
     /// Define default mode.
@@ -43,6 +69,7 @@ impl Default for ColorInputStyle {
     fn default() -> Self {
         Self {
             text: Default::default(),
+            field_style: Default::default(),
             disable_modes: Default::default(),
             mode: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -50,6 +77,7 @@ impl Default for ColorInputStyle {
     }
 }
 
+/// Color mode.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     #[default]
@@ -58,6 +86,7 @@ pub enum Mode {
     HSV,
 }
 
+/// State for the color input.
 #[derive(Debug)]
 pub struct ColorInputState {
     /// Area of the widget.
@@ -67,7 +96,7 @@ pub struct ColorInputState {
     /// __read_only__ renewed with each render.
     pub mode_area: Rect,
 
-    /// value
+    /// value as RGB with 0.0..1.0 ranges.
     pub value: (f32, f32, f32),
 
     /// Disable keys for mode switching.
@@ -97,6 +126,9 @@ impl<'a> ColorInput<'a> {
         if let Some(mode) = style.mode {
             self.mode = Some(mode);
         }
+        if let Some(field_style) = style.field_style {
+            self.widget = self.widget.text_style_idx(1, field_style);
+        }
         self
     }
 
@@ -106,6 +138,13 @@ impl<'a> ColorInput<'a> {
         let style = style.into();
         self.style = style;
         self.widget = self.widget.style(style);
+        self
+    }
+
+    /// Style for the fields of the input.
+    #[inline]
+    pub fn field_style(mut self, style: impl Into<Style>) -> Self {
+        self.widget = self.widget.text_style_idx(1, style.into());
         self
     }
 
@@ -177,8 +216,7 @@ impl<'a> StatefulWidget for &ColorInput<'a> {
 impl StatefulWidget for ColorInput<'_> {
     type State = ColorInputState;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget = self.widget.text_style_idx(1, Style::new().underlined());
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render(&self, area, buf, state);
     }
 }
@@ -293,26 +331,47 @@ impl ColorInputState {
     /// Copy to clipboard
     #[inline]
     pub fn copy_to_clip(&mut self) -> bool {
-        self.widget.copy_to_clip()
+        let Some(clip) = self.widget.value.clipboard() else {
+            return false;
+        };
+
+        let r = (self.value.0 * 255f32) as u32;
+        let g = (self.value.1 * 255f32) as u32;
+        let b = (self.value.2 * 255f32) as u32;
+        let value_str = format!("{:06x}", (r << 16) + (g << 8) + b);
+
+        _ = clip.set_string(&value_str);
+
+        true
     }
 
     /// Cut to clipboard
     #[inline]
     pub fn cut_to_clip(&mut self) -> bool {
-        self.widget.cut_to_clip()
+        let Some(clip) = self.widget.value.clipboard() else {
+            return false;
+        };
+
+        let r = (self.value.0 * 255f32) as u32;
+        let g = (self.value.1 * 255f32) as u32;
+        let b = (self.value.2 * 255f32) as u32;
+        let value_str = format!("{:06x}", (r << 16) + (g << 8) + b);
+
+        match clip.set_string(&value_str) {
+            Ok(_) => self.clear(),
+            Err(_) => {}
+        }
+        true
     }
 
     /// Paste from clipboard.
     #[inline]
     pub fn paste_from_clip(&mut self) -> bool {
-        debug!("paste from clip");
         let Some(clip) = self.widget.value.clipboard() else {
-            debug!("nope");
             return false;
         };
 
         if let Ok(text) = clip.get_string() {
-            debug!("paste {:?}", text);
             if text.starts_with("#") && text.len() == 7 {
                 // #aabbcc
                 if let Ok(v) = u32::from_str_radix(&text[1..7], 16) {
@@ -539,6 +598,7 @@ impl ColorInputState {
         self.widget.is_empty()
     }
 
+    /// Value as Color.
     pub fn value(&self) -> Color {
         Color::Rgb(
             (self.value.0 * 255f32) as u8,
@@ -556,7 +616,6 @@ impl ColorInputState {
                 (r / 255f32, g / 255f32, b / 255f32)
             }
             Mode::HEX => {
-                debug!("hex {:?}", self.widget.section_text(1));
                 let v = u32::from_str_radix(self.widget.section_text(1), 16).expect("hex");
                 let r = ((v >> 16) & 255) as f32;
                 let g = ((v >> 8) & 255) as f32;
@@ -578,7 +637,6 @@ impl ColorInputState {
                 rgb.into_components()
             }
         };
-        debug!("value => {:?}", r);
         r
     }
 
@@ -626,6 +684,7 @@ impl ColorInputState {
                 let b = (self.value.2 * 255f32) as u8;
                 let value_str = format!("{:3} {:3} {:3}", r, g, b);
                 self.widget.set_text(value_str);
+                self.set_mode_styles();
             }
             Mode::HEX => {
                 let r = (self.value.0 * 255f32) as u32;
@@ -633,6 +692,7 @@ impl ColorInputState {
                 let b = (self.value.2 * 255f32) as u32;
                 let value_str = format!("{:06x}", (r << 16) + (g << 8) + b);
                 self.widget.set_text(value_str);
+                self.set_mode_styles();
             }
             Mode::HSV => {
                 let r = self.value.0;
@@ -646,6 +706,7 @@ impl ColorInputState {
                 let v = (v * 100f32) as u32;
                 let value_str = format!("{:3} {:3} {:3}", h, s, v);
                 self.widget.set_text(value_str);
+                self.set_mode_styles();
             }
         }
     }
@@ -707,8 +768,8 @@ impl ColorInputState {
     }
 
     /// Correct the numeric values for each component.
-    pub fn normalize(&mut self) -> bool {
-        match self.mode {
+    fn normalize(&mut self) -> bool {
+        let r = match self.mode {
             Mode::RGB => {
                 self.clamp_section(SEC_R, 255)
                     || self.clamp_section(SEC_G, 255)
@@ -723,9 +784,12 @@ impl ColorInputState {
                     || self.clamp_section(SEC_S, 100)
                     || self.clamp_section(SEC_V, 100)
             }
-        }
+        };
+        self.set_mode_styles();
+        r
     }
 
+    /// Increment the value at the cursor position.
     pub fn increment(&mut self, n: u32) -> bool {
         let section = self.widget.section_id(self.widget.cursor());
         let r = match self.mode {
@@ -738,6 +802,7 @@ impl ColorInputState {
                     let r_min = min(r + n, 255);
                     if r_min != r {
                         self.widget.set_section_value(section, r_min);
+                        self.set_mode_styles();
                         true
                     } else {
                         false
@@ -758,6 +823,7 @@ impl ColorInputState {
                     let r_min = (r + n) % 360;
                     if r_min != r {
                         self.widget.set_section_value(section, r_min);
+                        self.set_mode_styles();
                         true
                     } else {
                         false
@@ -771,6 +837,7 @@ impl ColorInputState {
                     let r_min = min(r + n, 100);
                     if r_min != r {
                         self.widget.set_section_value(section, r_min);
+                        self.set_mode_styles();
                         true
                     } else {
                         false
@@ -786,6 +853,7 @@ impl ColorInputState {
         r
     }
 
+    /// Decrement the value at the cursor position.
     pub fn decrement(&mut self, n: u32) -> bool {
         let section = self.widget.section_id(self.widget.cursor());
         let r = match self.mode {
@@ -798,6 +866,7 @@ impl ColorInputState {
                     let r_min = r.saturating_sub(n);
                     if r_min != r {
                         self.widget.set_section_value(section, r_min);
+                        self.set_mode_styles();
                         true
                     } else {
                         false
@@ -822,6 +891,7 @@ impl ColorInputState {
                     };
                     if r_min != r {
                         self.widget.set_section_value(section, r_min);
+                        self.set_mode_styles();
                         true
                     } else {
                         false
@@ -835,6 +905,7 @@ impl ColorInputState {
                     let r_min = r.saturating_sub(n);
                     if r_min != r {
                         self.widget.set_section_value(section, r_min);
+                        self.set_mode_styles();
                         true
                     } else {
                         false
@@ -850,12 +921,10 @@ impl ColorInputState {
         r
     }
 
-    pub fn set_mode(&mut self, mode: Mode) {
-        self.mode = mode;
+    fn set_mode_styles(&mut self) {
         match self.mode {
             Mode::RGB => {
                 // "##0 ##0 ##0"
-                self.widget.set_mask(PAT_RGB).expect("valid-mask");
                 self.widget.clear_styles();
                 self.widget.add_range_style(0..3, 1).expect("fine");
                 self.widget.add_range_style(4..7, 1).expect("fine");
@@ -863,24 +932,43 @@ impl ColorInputState {
             }
             Mode::HEX => {
                 // "hhhhhH"
-                self.widget.set_mask(PAT_HEX).expect("valid-mask");
                 self.widget.clear_styles();
                 self.widget.add_range_style(0..6, 1).expect("fine");
             }
             Mode::HSV => {
                 // "##0 ##0 ##0"
-                self.widget.set_mask(PAT_HSV).expect("valid-mask");
                 self.widget.clear_styles();
                 self.widget.add_range_style(0..3, 1).expect("fine");
                 self.widget.add_range_style(4..7, 1).expect("fine");
                 self.widget.add_range_style(8..11, 1).expect("fine");
             }
         }
+    }
 
+    /// Set the color mode.
+    pub fn set_mode(&mut self, mode: Mode) {
+        self.mode = mode;
+        match self.mode {
+            Mode::RGB => {
+                // "##0 ##0 ##0"
+                self.widget.set_mask(PAT_RGB).expect("valid-mask");
+            }
+            Mode::HEX => {
+                // "hhhhhH"
+                self.widget.set_mask(PAT_HEX).expect("valid-mask");
+            }
+            Mode::HSV => {
+                // "##0 ##0 ##0"
+                self.widget.set_mask(PAT_HSV).expect("valid-mask");
+            }
+        }
+
+        self.set_mode_styles();
         self.value_to_text();
         self.widget.set_default_cursor();
     }
 
+    /// Switch to next mode.
     pub fn next_mode(&mut self) {
         match self.mode {
             Mode::RGB => self.set_mode(Mode::HEX),
@@ -889,6 +977,7 @@ impl ColorInputState {
         }
     }
 
+    /// Switch to prev mode.
     pub fn prev_mode(&mut self) {
         match self.mode {
             Mode::RGB => self.set_mode(Mode::HSV),
@@ -1306,6 +1395,20 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for ColorInputSt
             }
             ct_event!(key press CONTROL-'v') => {
                 if self.paste_from_clip() {
+                    TextOutcome::Changed
+                } else {
+                    TextOutcome::Continue
+                }
+            }
+            ct_event!(key press CONTROL-'c') => {
+                if self.copy_to_clip() {
+                    TextOutcome::Changed
+                } else {
+                    TextOutcome::Continue
+                }
+            }
+            ct_event!(key press CONTROL-'x') => {
+                if self.cut_to_clip() {
                     TextOutcome::Changed
                 } else {
                     TextOutcome::Continue
