@@ -89,6 +89,7 @@ use crate::{
 };
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -105,6 +106,7 @@ use std::fmt;
 use std::iter::once;
 use std::ops::Range;
 use std::rc::Rc;
+use std::str::FromStr;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Text input widget with input mask.
@@ -1182,6 +1184,16 @@ impl MaskedInputState {
         prev.sec_id != mask.sec_id
     }
 
+    /// Get the index of the section at the given cursor position.
+    pub fn section_id(&self, cursor: upos_type) -> u16 {
+        let mask = &self.mask[cursor as usize];
+        if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
+            return self.mask[cursor.saturating_sub(1) as usize].sec_id;
+        } else {
+            mask.sec_id
+        }
+    }
+
     /// Get the range for the section at the given cursor position,
     /// if it is an editable section.
     pub fn section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
@@ -1352,6 +1364,105 @@ impl MaskedInputState {
         self.value.text().as_str()
     }
 
+    /// Parse value.
+    #[inline]
+    pub fn value<T: FromStr>(&self) -> Result<T, <T as FromStr>::Err> {
+        self.value.text().as_str().parse::<T>()
+    }
+
+    /// Parse the value of one section.
+    ///
+    /// __Panic__
+    ///
+    /// Panics on out of bounds.
+    #[inline]
+    pub fn section_value<T: FromStr>(&self, section: u16) -> Result<T, <T as FromStr>::Err> {
+        self.section_text(section).trim().parse::<T>()
+    }
+
+    /// Set the value of one section.
+    ///
+    /// __Panic__
+    ///
+    /// Panics on out of bounds.
+    #[inline]
+    pub fn set_section_value<T: ToString>(&mut self, section: u16, value: T) {
+        let mut len = None;
+        let mut align_left = true;
+        for mask in &self.mask {
+            if mask.sec_id == section {
+                len = Some((mask.sec_end - mask.sec_start) as usize);
+                if mask.right.is_rtol() {
+                    align_left = false;
+                } else {
+                    align_left = true;
+                }
+                break;
+            }
+        }
+        if let Some(len) = len {
+            let txt = if align_left {
+                format!("{:1$}", value.to_string(), len)
+            } else {
+                format!("{:>1$}", value.to_string(), len)
+            };
+            self.set_section_text(section, txt);
+        } else {
+            panic!("invalid section {}", section);
+        }
+    }
+
+    /// Get one section.
+    ///
+    /// __Panic__
+    ///
+    /// Panics on out of bounds.
+    #[inline]
+    pub fn section_text(&self, section: u16) -> &str {
+        for v in &self.mask {
+            if v.sec_id == section {
+                match self.str_slice(v.sec_start..v.sec_end) {
+                    Cow::Borrowed(s) => return s,
+                    Cow::Owned(_) => {
+                        unreachable!("should not be owned")
+                    }
+                };
+            }
+        }
+        panic!("invalid section {}", section);
+    }
+
+    /// Set the text for a given section.
+    /// The text-string is cut to size and filled with blanks if necessary.
+    pub fn set_section_text<S: Into<String>>(&mut self, section: u16, txt: S) {
+        let mut txt = txt.into();
+        for v in &self.mask {
+            if v.sec_id == section {
+                let len = (v.sec_end - v.sec_start) as usize;
+                while txt.graphemes(true).count() > len {
+                    txt.pop();
+                }
+                while txt.graphemes(true).count() < len {
+                    txt.push(' ');
+                }
+                assert_eq!(txt.graphemes(true).count(), len);
+
+                self.value.begin_undo_seq();
+                self.value
+                    .remove_str_range(TextRange::from(
+                        TextPosition::new(v.sec_start, 0)..TextPosition::new(v.sec_end, 0),
+                    ))
+                    .expect("valid-range");
+                self.value
+                    .insert_str(TextPosition::new(v.sec_start, 0), txt.as_str())
+                    .expect("valid-range");
+                self.value.end_undo_seq();
+                return;
+            }
+        }
+        panic!("invalid section {}", section);
+    }
+
     /// Text slice as `Cow<str>`. Uses a byte range.
     #[inline]
     pub fn str_slice_byte(&self, range: Range<usize>) -> Cow<'_, str> {
@@ -1515,6 +1626,14 @@ impl MaskedInputState {
             self.set_default_cursor();
             true
         }
+    }
+
+    /// Set text.
+    ///
+    /// Returns an error if the text contains line-breaks.
+    #[inline]
+    pub fn set_value<S: ToString>(&mut self, s: S) {
+        self.set_text(s.to_string());
     }
 
     /// Set the value.

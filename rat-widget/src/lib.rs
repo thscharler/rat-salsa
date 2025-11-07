@@ -83,6 +83,7 @@ pub mod calendar;
 pub mod checkbox;
 pub mod choice;
 pub mod clipper;
+pub mod color_input;
 pub mod combobox;
 pub mod date_input;
 pub mod dialog_frame;

@@ -1,0 +1,91 @@
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
+use rat_event::try_flow;
+use rat_text::color_input::{ColorInput, ColorInputState};
+use rat_text::{HasScreenCursor, color_input};
+use rat_widget::event::Outcome;
+use ratatui::Frame;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::text::Span;
+use ratatui::widgets::{StatefulWidget, Widget};
+
+mod mini_salsa;
+
+fn main() -> Result<(), anyhow::Error> {
+    setup_logging()?;
+
+    let mut data = Data {};
+
+    let mut state = State {
+        input: ColorInputState::default(),
+    };
+
+    run_ui(
+        "colorinput1",
+        mock_init,
+        event,
+        render,
+        &mut data,
+        &mut state,
+    )
+}
+
+struct Data {}
+
+struct State {
+    pub(crate) input: ColorInputState,
+}
+
+fn render(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    _data: &mut Data,
+    istate: &mut MiniSalsaState,
+    state: &mut State,
+) -> Result<(), anyhow::Error> {
+    let l0 = Layout::horizontal([
+        Constraint::Length(35),
+        Constraint::Length(20),
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+    ])
+    .split(area);
+
+    let l1 = Layout::vertical([
+        Constraint::Length(7),
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Fill(1),
+    ])
+    .split(l0[0]);
+
+    let l2 = Layout::vertical([
+        Constraint::Length(7),
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Fill(1),
+    ])
+    .split(l0[1]);
+
+    ColorInput::new() //
+        .styles(istate.theme.text_style())
+        .render(l1[1], frame.buffer_mut(), &mut state.input);
+    if let Some((x, y)) = state.input.screen_cursor() {
+        frame.set_cursor_position((x, y));
+    }
+
+    Span::from(format!("{:?}", state.input.value())) //
+        .render(l2[1], frame.buffer_mut());
+
+    Ok(())
+}
+
+fn event(
+    event: &crossterm::event::Event,
+    _data: &mut Data,
+    _istate: &mut MiniSalsaState,
+    state: &mut State,
+) -> Result<Outcome, anyhow::Error> {
+    try_flow!(color_input::handle_events(&mut state.input, true, event));
+
+    Ok(Outcome::Continue)
+}
