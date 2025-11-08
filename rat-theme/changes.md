@@ -1,3 +1,11 @@
+# 0.29.2
+
+* sync crate versions.
+
+# 0.29.1
+
+* sync all crate versions.
+
 # 0.29.0
 
 * upgrade rat-text to 2.0.0

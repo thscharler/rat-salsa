@@ -1,3 +1,14 @@
+# 2.2.0
+
+* feature: add ColorInput
+* feature: MaskedInput add
+    * section_id(): get the section of the mask at a position
+    * section_text() and set_section_text(): set the text content per section
+    * value() and set_value(): parse out the text content/set a value type as content.
+    * section_value(): parse out the text content per section.
+    * set_section_value(): set the content per section.
+* fix: sync text-styling betwen all the text-widgets.
+
 # 2.1.0
 
 * break: TextInput, TextInputMask, TextArea: change types of scroll_to_cursor, overwrite, on_focus_gained, on_focus_lost

@@ -1,3 +1,11 @@
+# 1.4.2
+
+* sync crate versions.
+
+# 1.4.1
+
+* sync all crate versions.
+
 # 1.4.0
 
 * add 'Rust' palette

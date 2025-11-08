@@ -1,3 +1,19 @@
+# 2.3.0
+
+## ColorInput (new)
+
+For input of 'Color' values. Supports RGB, HSV and hex-encoded for now.
+
+## Text widgets
+
+* feature: MaskedInput add
+    * section_id(): get the section of the mask at a position
+    * section_text() and set_section_text(): set the text content per section
+    * value() and set_value(): parse out the text content/set a value type as content.
+    * section_value(): parse out the text content per section.
+    * set_section_value(): set the content per section.
+* fix: sync text-styling between all the text-widgets.
+
 # 2.2.0
 
 ## rat-theme4

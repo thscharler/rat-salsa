@@ -1,3 +1,11 @@
+# 0.7.2
+
+* sync crate versions
+
+# 0.7.1
+
+* sync crate versions
+
 # 0.7.0
 
 * break: break: Window needs a Context type parameter. Otherwise,

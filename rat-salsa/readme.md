@@ -18,6 +18,7 @@ It can
 - define [timers](SalsaContext::add_timer).
 - work as a message-queue for in-app messages.
 - support focus-handling with [SalsaContext::focus](SalsaContext::focus)
+- support for an autonomous dialog window stack.
 
 All incoming events are converted to an application defined event-type,
 and are distributed by calling an event-handler function. This function
@@ -52,7 +53,7 @@ returns a [control-flow](Control) which dictates further actions.
     * [rat-popup](https://docs.rs/rat-popup)
       Utility widget to help with popups.
     * [rat-dialog](https:://docs.rs/rat-dialog)
-      Stacks windows/dialogs above the main application.
+      Stacks windows/dialogs above the main application. *experimental*
 
   Crates for specific widgets
 
@@ -64,27 +65,27 @@ returns a [control-flow](Control) which dictates further actions.
     * [rat-text](https://docs.rs/rat-text)
       Text/Value input widgets.
     * [rat-markdown](https://docs.rs/rat-markdown)
-      Extension for TextArea for markdown.
+      Extension for TextArea for markdown. *experimental*
 
   And my 10ct on theming.
 
-    * [rat-theme](https://docs.rs/rat-theme)
-      Color-palettes and widget styles.
     * [rat-theme2](https://docs.rs/rat-theme2)
-      More colors, mainly.
+      Color-palettes and widget styles.
+    * [rat-theme4](https://docs.rs/rat-theme2)
+      Latest iteration. Move to a map of things.
+        + better text-color support
+        + support for deriving themes by modifying existing ones.
 
 ## Example
 
 The examples directory contains some examples
 
-- [files.rs][refFiles]: Minimal filesystem browser.
-- [mdedit.rs][refMDEdit]: Minimal markdown editor.
-- [life.rs][refLife]: Game of Life.
 - [async1.rs][refAsync1]: Async tasks.
+- [files.rs][refFiles]: Minimal filesystem browser.
 - [half_ui.rs][refHalfUI]: Inline/Fixed UI.
 - [inline.rs][refInline]: Inline UI.
+- [life.rs][refLife]: Game of Life.
 - [links.rs][refLinks]: Terminal hyperlinks.
-- [async1.rs][refAsync1]: Async tasks.
 - [logscroll.rs][refLogscroll]: Logfile view and find.
 - [textinput.rs][refTextInput]: Example for text input.
 - [themes.rs][refThemeSamples]: Theme show-room.
@@ -92,10 +93,13 @@ The examples directory contains some examples
 - [turbo.rs][refTurbo]: Reboot Turbo Pascal.
 - [ultra.rs][refUltra]: Rat-salsa in less than 100loc.
 
+- [mdedit.rs][refMDEdit]: Minimal markdown editor.
+
 There are some templates too
 
 - [minimal.rs][refMinimal]: Minimal application with a menubar and statusbar.
 - [nominal.rs][refNominal]: Minimal application, but using subcomponents.
+- [dialog.rs][refDialog]: Minimal application, using dialog windows.
 
 ![image][refFilesGif]
 
@@ -114,13 +118,15 @@ There are some templates too
 
 [refTurbo]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/turbo.rs
 
-[refMDEdit]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/mdedit.rs
+[refMDEdit]: https://github.com/thscharler/mdedit
 
 [refFiles]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/files.rs
 
 [refMinimal]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/minimal.rs
 
 [refNominal]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/nominal.rs
+
+[refDialog]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/dialog.rs
 
 [refHalfUI]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/templates/half_ui.rs
 

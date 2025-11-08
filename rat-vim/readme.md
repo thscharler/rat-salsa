@@ -1,0 +1,7 @@
+# experimental VI mode for rat-text TextArea.
+
+There is a basic subset working but I got stuck with the parser
+and have to rewrite it completely. for which I don't have the
+time now.
+
+But it's good enough to have a peek.

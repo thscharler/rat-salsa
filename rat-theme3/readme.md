@@ -10,18 +10,6 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 * [Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-theme/changes.md)
 
-# Theming support for rat-salsa
+## discontinued ##
 
-This splits themes in two parts,
-
-* [Palette](crate::Palette) - The underlying color-palette with enough colors to play
-  around.
-* [DarkTheme](crate::dark_theme::DarkTheme) takes a palette and produces Styles
-  for rat-widgets.
-
-This intentionally doesn't adhere to any trait, just provides some
-baselines for each widget type. You can use this as is, or copy it
-and adapt it for your applications needs.
-
-[refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
-
+This is discontinued. Switch to rat-theme4. 

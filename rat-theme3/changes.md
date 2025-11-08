@@ -1,3 +1,7 @@
+# 2.3.2
+
+* add __discontinued__ marker.
+
 # 2.3.0
 
 * add 'Rust' palette. blue is a cobalt oxide, green is a chromium oxide,

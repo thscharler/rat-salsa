@@ -1,3 +1,11 @@
+# 0.6.2
+
+rat-text 2.2
+
+# 0.6.1
+
+* sync crate versions
+
 # 0.6.0
 
 * upgrade rat-text to 2.0.0

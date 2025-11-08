@@ -1,3 +1,7 @@
+# 2.3.1
+
+* minor fixes and documentation
+
 # 2.3.0
 
 * feature: Add support for autonomous dialog windows.

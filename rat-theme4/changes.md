@@ -1,3 +1,7 @@
+# 3.0.1
+
+* add ColorInput widget.
+
 # 3.0.0
 
 Start rat-theme4. Simplify everything.
