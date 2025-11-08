@@ -7,7 +7,6 @@ use rat_text::{HasScreenCursor, color_input};
 use rat_widget::event::Outcome;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use std::cell::RefCell;
