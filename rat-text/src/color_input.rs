@@ -32,6 +32,7 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::prelude::BlockExt;
 use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
@@ -47,6 +48,7 @@ pub struct ColorInput<'a> {
     style: Style,
     disable_modes: bool,
     mode: Option<Mode>,
+    block: Option<Block<'a>>,
     widget: MaskedInput<'a>,
 }
 
@@ -92,9 +94,14 @@ pub struct ColorInputState {
     /// Area of the widget.
     /// __read only__ renewed with each render.
     pub area: Rect,
+    /// Area inside the block.
+    pub widget_area: Rect,
     /// Area for the mode.
     /// __read_only__ renewed with each render.
     pub mode_area: Rect,
+    /// Area for the mode label.
+    /// __read_only__ renewed with each render.
+    pub label_area: Rect,
 
     /// value as RGB with 0.0..1.0 ranges.
     pub value: (f32, f32, f32),
@@ -117,8 +124,14 @@ impl<'a> ColorInput<'a> {
 
     /// Set the combined style.
     #[inline]
-    pub fn styles(mut self, style: ColorInputStyle) -> Self {
+    pub fn styles(mut self, mut style: ColorInputStyle) -> Self {
         self.style = style.text.style;
+        if let Some(border_style) = style.text.border_style {
+            self.block = self.block.map(|v| v.style(border_style));
+        }
+        if let Some(block) = style.text.block.take() {
+            self.block = Some(block);
+        }
         self.widget = self.widget.styles(style.text);
         if let Some(disable_modes) = style.disable_modes {
             self.disable_modes = disable_modes;
@@ -186,7 +199,7 @@ impl<'a> ColorInput<'a> {
     /// Block
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
-        self.widget = self.widget.block(block);
+        self.block = Some(block);
         self
     }
 
@@ -227,26 +240,34 @@ fn render(widget: &ColorInput<'_>, area: Rect, buf: &mut Buffer, state: &mut Col
         state.mode = mode;
     }
 
-    let mode_area = Rect::new(area.x, area.y, 4, 1);
+    let inner = widget.block.inner_if_some(area);
+
+    let mode_area = Rect::new(inner.x, inner.y, 4, inner.height);
+    let mode_label = Rect::new(mode_area.x, mode_area.y + mode_area.height / 2, 4, 1);
     let widget_area = Rect::new(
-        area.x + mode_area.width,
-        area.y,
-        area.width.saturating_sub(mode_area.width),
-        1,
+        inner.x + mode_area.width,
+        inner.y,
+        inner.width.saturating_sub(mode_area.width),
+        inner.height,
     );
 
+    state.widget_area = inner;
     state.mode_area = mode_area;
+    state.label_area = mode_label;
 
     let bg = state.value();
     let fg_colors = [Color::Black, Color::White];
     let style = high_contrast_color(bg, &fg_colors);
 
+    widget.block.render(area, buf);
+
+    buf.set_style(mode_area, style);
     let mode_str = match state.mode {
         Mode::RGB => "RGB",
         Mode::HEX => "  #",
         Mode::HSV => "HSV",
     };
-    Line::from(mode_str).style(style).render(mode_area, buf);
+    Line::from(mode_str).render(mode_label, buf);
 
     (&widget.widget).render(widget_area, buf, &mut state.widget);
 }
@@ -255,7 +276,9 @@ impl Default for ColorInputState {
     fn default() -> Self {
         let mut z = Self {
             area: Default::default(),
+            widget_area: Default::default(),
             mode_area: Default::default(),
+            label_area: Default::default(),
             value: Default::default(),
             disable_modes: Default::default(),
             mode: Default::default(),
@@ -335,13 +358,15 @@ impl ColorInputState {
             return false;
         };
 
-        let r = (self.value.0 * 255f32) as u32;
-        let g = (self.value.1 * 255f32) as u32;
-        let b = (self.value.2 * 255f32) as u32;
-        let value_str = format!("{:06x}", (r << 16) + (g << 8) + b);
-
-        _ = clip.set_string(&value_str);
-
+        if self.has_selection() {
+            _ = clip.set_string(self.selected_text().as_ref());
+        } else {
+            let r = (self.value.0 * 255f32) as u32;
+            let g = (self.value.1 * 255f32) as u32;
+            let b = (self.value.2 * 255f32) as u32;
+            let value_str = format!("{:06x}", (r << 16) + (g << 8) + b);
+            _ = clip.set_string(&value_str);
+        }
         true
     }
 
@@ -352,16 +377,23 @@ impl ColorInputState {
             return false;
         };
 
-        let r = (self.value.0 * 255f32) as u32;
-        let g = (self.value.1 * 255f32) as u32;
-        let b = (self.value.2 * 255f32) as u32;
-        let value_str = format!("{:06x}", (r << 16) + (g << 8) + b);
+        if self.has_selection() {
+            match clip.set_string(self.selected_text().as_ref()) {
+                Ok(_) => self.delete_range(self.selection()),
+                Err(_) => false,
+            }
+        } else {
+            let r = (self.value.0 * 255f32) as u32;
+            let g = (self.value.1 * 255f32) as u32;
+            let b = (self.value.2 * 255f32) as u32;
+            let value_str = format!("{:06x}", (r << 16) + (g << 8) + b);
 
-        match clip.set_string(&value_str) {
-            Ok(_) => self.clear(),
-            Err(_) => {}
+            match clip.set_string(&value_str) {
+                Ok(_) => self.clear(),
+                Err(_) => {}
+            }
+            true
         }
-        true
     }
 
     /// Paste from clipboard.

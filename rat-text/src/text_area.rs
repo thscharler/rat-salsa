@@ -243,10 +243,10 @@ impl<'a> TextArea<'a> {
         if styles.select.is_some() {
             self.select_style = styles.select;
         }
+        self.block = self.block.map(|v| v.style(self.style));
         if let Some(border_style) = styles.border_style {
             self.block = self.block.map(|v| v.border_style(border_style));
         }
-        self.block = self.block.map(|v| v.style(self.style));
         if styles.block.is_some() {
             self.block = styles.block;
         }
