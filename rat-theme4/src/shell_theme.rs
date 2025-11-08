@@ -6,6 +6,7 @@ use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
+use rat_widget::color_input::ColorInputStyle;
 use rat_widget::combobox::ComboboxStyle;
 use rat_widget::dialog_frame::DialogFrameStyle;
 use rat_widget::file_dialog::FileDialogStyle;
@@ -64,6 +65,7 @@ pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define_fn(WidgetStyle::CHOICE, choice);
     th.define_fn(WidgetStyle::CLIPPER, clipper);
     th.define_fn(WidgetStyle::COMBOBOX, combobox);
+    th.define_fn(WidgetStyle::COLOR_INPUT, color_input);
     th.define_fn(WidgetStyle::DIALOG_FRAME, dialog_frame);
     th.define_fn(WidgetStyle::FILE_DIALOG, file_dialog);
     th.define_fn(WidgetStyle::FORM, form);
@@ -347,6 +349,19 @@ fn table(th: &SalsaTheme) -> TableStyle {
         scroll: Some(scroll(th)),
         header: Some(th.p.green(2)),
         footer: Some(th.p.green(2)),
+        ..Default::default()
+    }
+}
+
+fn color_input(th: &SalsaTheme) -> ColorInputStyle {
+    ColorInputStyle {
+        text: TextStyle {
+            style: th.style(Style::INPUT),
+            focus: Some(th.style(Style::TEXT_FOCUS)),
+            select: Some(th.style(Style::TEXT_SELECT)),
+            invalid: Some(th.p.fg_red(3)),
+            ..TextStyle::default()
+        },
         ..Default::default()
     }
 }
