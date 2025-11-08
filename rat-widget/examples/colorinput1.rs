@@ -9,7 +9,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use std::cell::RefCell;
 
 mod mini_salsa;
@@ -48,7 +48,8 @@ fn render(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([
-        Constraint::Length(35),
+        Constraint::Length(4),
+        Constraint::Length(18),
         Constraint::Length(20),
         Constraint::Fill(1),
         Constraint::Fill(1),
@@ -57,28 +58,30 @@ fn render(
 
     let l1 = Layout::vertical([
         Constraint::Length(7),
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Fill(1),
-    ])
-    .split(l0[0]);
-
-    let l2 = Layout::vertical([
-        Constraint::Length(7),
-        Constraint::Length(1),
+        Constraint::Length(3),
         Constraint::Length(1),
         Constraint::Fill(1),
     ])
     .split(l0[1]);
 
+    let l2 = Layout::vertical([
+        Constraint::Length(7),
+        Constraint::Length(3),
+        Constraint::Length(1),
+        Constraint::Fill(1),
+    ])
+    .split(l0[2]);
+
     ColorInput::new() //
         .styles(istate.theme.color_input_style())
+        .block(Block::bordered().border_type(BorderType::Rounded))
         .render(l1[1], frame.buffer_mut(), &mut state.input);
+
     if let Some((x, y)) = state.input.screen_cursor() {
         frame.set_cursor_position((x, y));
     }
 
-    Span::from(format!("{:?}", state.input.value())) //
+    Span::from(format!(" -> {:?}", state.input.value())) //
         .render(l2[1], frame.buffer_mut());
 
     Ok(())
