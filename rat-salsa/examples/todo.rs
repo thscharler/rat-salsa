@@ -12,6 +12,7 @@ use rat_widget::event::ButtonOutcome;
 use rat_widget::layout::simple_grid;
 use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
+use rat_widget::reloc::RelocatableState;
 use rat_widget::scrolled::Scroll;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
@@ -160,7 +161,7 @@ pub fn render(
         .render(grid[1][5], buf, &mut state.list);
 
     // show inline remove button
-    state.remove.clear(); // clear remnants
+    state.remove.relocate_hidden();
     if let Some(row) = state.list.selected() {
         if let Some(area) = state.list.row_area(row) {
             if state.list.is_focused() {
