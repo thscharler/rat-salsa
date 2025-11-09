@@ -120,7 +120,7 @@ use std::rc::Rc;
 /// This widget allows rendering to a temporary buffer and clips
 /// it to size for the final rendering.
 #[derive(Debug)]
-pub struct Clipper<'a, W>
+pub struct Clipper<'a, W = usize>
 where
     W: Eq + Clone + Hash,
 {
@@ -202,7 +202,7 @@ impl Default for ClipperStyle {
 
 /// Widget state.
 #[derive(Debug)]
-pub struct ClipperState<W>
+pub struct ClipperState<W = usize>
 where
     W: Eq + Clone + Hash,
 {
@@ -494,7 +494,7 @@ where
 {
     fn drop(&mut self) {
         if !self.destruct {
-            panic!("ClipperBuffer must be used by into_widget()");
+            panic!("ClipperBuffer: Must be used. Call finish(..)");
         }
     }
 }
@@ -838,6 +838,12 @@ where
 {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn named(name: &str) -> Self {
+        let mut z = Self::default();
+        z.container = FocusFlag::named(name);
+        z
     }
 
     /// Clear the layout data and reset any scroll

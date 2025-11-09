@@ -94,7 +94,7 @@ pub enum ChoiceClose {
 /// separately.
 ///
 #[derive(Debug, Clone)]
-pub struct Choice<'a, T>
+pub struct Choice<'a, T = usize>
 where
     T: PartialEq + Clone + Default,
 {

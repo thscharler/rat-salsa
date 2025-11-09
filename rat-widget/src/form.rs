@@ -104,7 +104,7 @@ use unicode_display_width::width as unicode_width;
 /// At the end call [into_buffer](Form::into_buffer) to create the
 /// [FormBuffer] that allows you to render your widgets.
 #[derive(Debug, Clone)]
-pub struct Form<'a, W>
+pub struct Form<'a, W = usize>
 where
     W: Eq + Hash + Clone,
 {
@@ -177,7 +177,7 @@ pub struct FormStyle {
 
 /// Widget state.
 #[derive(Debug, Clone)]
-pub struct FormState<W>
+pub struct FormState<W = usize>
 where
     W: Eq + Hash + Clone,
 {
@@ -809,6 +809,12 @@ where
 {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn named(name: &str) -> Self {
+        let mut z = Self::default();
+        z.container = FocusFlag::named(name);
+        z
     }
 
     /// Clear the layout data and reset the page/page-count.
