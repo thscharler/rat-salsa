@@ -24,7 +24,7 @@ use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{TextError, TextFocusGained, TextFocusLost, TextStyle, upos_type};
+use crate::{TextError, TextFocusGained, TextFocusLost, TextStyle, TextTab, upos_type};
 use palette::{FromColor, Hsv, Srgb};
 use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
@@ -43,7 +43,7 @@ use std::ops::Range;
 ///
 /// A text input for colors.
 ///
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ColorInput<'a> {
     style: Style,
     disable_modes: bool,
@@ -115,6 +115,20 @@ pub struct ColorInputState {
     pub widget: MaskedInputState,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+impl<'a> Default for ColorInput<'a> {
+    fn default() -> Self {
+        let mut z = Self {
+            style: Default::default(),
+            disable_modes: Default::default(),
+            mode: Default::default(),
+            block: Default::default(),
+            widget: Default::default(),
+        };
+        z.widget = z.widget.on_tab(TextTab::MoveToNextWidget);
+        z
+    }
 }
 
 impl<'a> ColorInput<'a> {
@@ -251,6 +265,7 @@ fn render(widget: &ColorInput<'_>, area: Rect, buf: &mut Buffer, state: &mut Col
         inner.height,
     );
 
+    state.area = area;
     state.widget_area = inner;
     state.mode_area = mode_area;
     state.label_area = mode_label;
@@ -315,10 +330,9 @@ impl ColorInputState {
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            widget: MaskedInputState::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.widget.focus = FocusFlag::named(name);
+        z
     }
 
     /// The next edit operation will overwrite the current content
@@ -822,72 +836,12 @@ impl ColorInputState {
     }
 
     /// Increment the value at the cursor position.
-    pub fn increment(&mut self, n: u32) -> bool {
-        let section = self.widget.section_id(self.widget.cursor());
-        let r = match self.mode {
-            Mode::RGB => match section {
-                SEC_R | SEC_G | SEC_B => {
-                    let r = self
-                        .widget
-                        .section_value::<u32>(section)
-                        .unwrap_or_default();
-                    let r_min = min(r + n, 255);
-                    if r_min != r {
-                        self.widget.set_section_value(section, r_min);
-                        self.set_mode_styles();
-                        true
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            },
-            Mode::HEX => {
-                // noop
-                false
-            }
-            Mode::HSV => match section {
-                SEC_H => {
-                    let r = self
-                        .widget
-                        .section_value::<u32>(section)
-                        .unwrap_or_default();
-                    let r_min = (r + n) % 360;
-                    if r_min != r {
-                        self.widget.set_section_value(section, r_min);
-                        self.set_mode_styles();
-                        true
-                    } else {
-                        false
-                    }
-                }
-                SEC_S | SEC_V => {
-                    let r = self
-                        .widget
-                        .section_value::<u32>(section)
-                        .unwrap_or_default();
-                    let r_min = min(r + n, 100);
-                    if r_min != r {
-                        self.widget.set_section_value(section, r_min);
-                        self.set_mode_styles();
-                        true
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            },
-        };
-
-        if r {
-            self.value = self.parse_value();
-        }
-        r
+    pub fn change_section(&mut self, n: i32) -> bool {
+        self.change_section_pos(self.cursor(), n)
     }
 
-    /// Decrement the value at the cursor position.
-    pub fn decrement(&mut self, n: u32) -> bool {
-        let section = self.widget.section_id(self.widget.cursor());
+    pub fn change_section_pos(&mut self, pos: upos_type, n: i32) -> bool {
+        let section = self.widget.section_id(pos);
         let r = match self.mode {
             Mode::RGB => match section {
                 SEC_R | SEC_G | SEC_B => {
@@ -895,7 +849,7 @@ impl ColorInputState {
                         .widget
                         .section_value::<u32>(section)
                         .unwrap_or_default();
-                    let r_min = r.saturating_sub(n);
+                    let r_min = min(r.saturating_add_signed(n), 255);
                     if r_min != r {
                         self.widget.set_section_value(section, r_min);
                         self.set_mode_styles();
@@ -916,10 +870,12 @@ impl ColorInputState {
                         .widget
                         .section_value::<u32>(section)
                         .unwrap_or_default();
-                    let r_min = if r > n {
-                        r - n
-                    } else {
-                        360u32.saturating_sub(n - r)
+                    let r_min = {
+                        let mut r_min = (r as i32 + n) % 360;
+                        if r_min < 0 {
+                            r_min += 360;
+                        }
+                        r_min as u32
                     };
                     if r_min != r {
                         self.widget.set_section_value(section, r_min);
@@ -934,7 +890,7 @@ impl ColorInputState {
                         .widget
                         .section_value::<u32>(section)
                         .unwrap_or_default();
-                    let r_min = r.saturating_sub(n);
+                    let r_min = min(r.saturating_add_signed(n), 100);
                     if r_min != r {
                         self.widget.set_section_value(section, r_min);
                         self.set_mode_styles();
@@ -977,8 +933,13 @@ impl ColorInputState {
         }
     }
 
+    /// Color mode.
+    pub fn mode(&self) -> Mode {
+        self.mode
+    }
+
     /// Set the color mode.
-    pub fn set_mode(&mut self, mode: Mode) {
+    pub fn set_mode(&mut self, mode: Mode) -> bool {
         self.mode = mode;
         match self.mode {
             Mode::RGB => {
@@ -998,10 +959,11 @@ impl ColorInputState {
         self.set_mode_styles();
         self.value_to_text();
         self.widget.set_default_cursor();
+        true
     }
 
     /// Switch to next mode.
-    pub fn next_mode(&mut self) {
+    pub fn next_mode(&mut self) -> bool {
         match self.mode {
             Mode::RGB => self.set_mode(Mode::HEX),
             Mode::HEX => self.set_mode(Mode::HSV),
@@ -1010,7 +972,7 @@ impl ColorInputState {
     }
 
     /// Switch to prev mode.
-    pub fn prev_mode(&mut self) {
+    pub fn prev_mode(&mut self) -> bool {
         match self.mode {
             Mode::RGB => self.set_mode(Mode::HSV),
             Mode::HEX => self.set_mode(Mode::RGB),
@@ -1409,70 +1371,29 @@ const fn color2rgb(color: Color) -> (u8, u8, u8) {
 impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for ColorInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
         flow!(match event {
-            ct_event!(key press '+') => {
-                self.increment(1);
-                TextOutcome::Changed
-            }
-            ct_event!(key press '-') => {
-                self.decrement(1);
-                TextOutcome::Changed
-            }
-            ct_event!(key press ALT-'+') => {
-                self.increment(15);
-                TextOutcome::Changed
-            }
-            ct_event!(key press ALT-'-') => {
-                self.decrement(15);
-                TextOutcome::Changed
-            }
-            ct_event!(key press CONTROL-'v') => {
-                if self.paste_from_clip() {
-                    TextOutcome::Changed
-                } else {
-                    TextOutcome::Continue
-                }
-            }
-            ct_event!(key press CONTROL-'c') => {
-                if self.copy_to_clip() {
-                    TextOutcome::Changed
-                } else {
-                    TextOutcome::Continue
-                }
-            }
-            ct_event!(key press CONTROL-'x') => {
-                if self.cut_to_clip() {
-                    TextOutcome::Changed
-                } else {
-                    TextOutcome::Continue
-                }
-            }
+            ct_event!(key press '+') => self.change_section(1).into(),
+            ct_event!(key press '-') => self.change_section(-1).into(),
+            ct_event!(key press ALT-'+') => self.change_section(15).into(),
+            ct_event!(key press ALT-'-') => self.change_section(-15).into(),
+            ct_event!(key press CONTROL-'v') => self.paste_from_clip().into(),
+            ct_event!(key press CONTROL-'c') => self.copy_to_clip().into(),
+            ct_event!(key press CONTROL-'x') => self.cut_to_clip().into(),
             _ => TextOutcome::Continue,
         });
         if !self.disable_modes {
             flow!(match event {
-                ct_event!(key press 'r') => {
-                    self.set_mode(Mode::RGB);
-                    TextOutcome::Changed
-                }
-                ct_event!(key press 'h') => {
-                    self.set_mode(Mode::HSV);
-                    TextOutcome::Changed
-                }
-                ct_event!(key press 'x') => {
-                    self.set_mode(Mode::HEX);
-                    TextOutcome::Changed
-                }
-                ct_event!(key press 'm') | ct_event!(keycode press Up) => {
-                    self.next_mode();
-                    TextOutcome::Changed
-                }
-                ct_event!(key press SHIFT-'M') | ct_event!(keycode press Down) => {
-                    self.prev_mode();
-                    TextOutcome::Changed
-                }
+                ct_event!(key press 'r') => self.set_mode(Mode::RGB).into(),
+                ct_event!(key press 'h') => self.set_mode(Mode::HSV).into(),
+                ct_event!(key press 'x') => self.set_mode(Mode::HEX).into(),
+                ct_event!(key press 'm') | ct_event!(keycode press Up) => self.next_mode().into(),
+                ct_event!(key press SHIFT-'M') | ct_event!(keycode press Down) =>
+                    self.prev_mode().into(),
                 _ => TextOutcome::Continue,
             });
         }
+
+        flow!(handle_mouse(self, event));
+
         match self.widget.handle(event, Regular) {
             TextOutcome::TextChanged => {
                 self.normalize();
@@ -1492,7 +1413,44 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for ColorInputS
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for ColorInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
+        flow!(handle_mouse(self, event));
         self.widget.handle(event, MouseOnly)
+    }
+}
+
+fn handle_mouse(state: &mut ColorInputState, event: &crossterm::event::Event) -> TextOutcome {
+    match event {
+        ct_event!(scroll down for x,y) if state.widget.area.contains((*x, *y).into()) => {
+            let rx = state
+                .widget
+                .screen_to_col((*x - state.widget.area.x) as i16);
+            state.change_section_pos(rx, -15).into()
+        }
+        ct_event!(scroll up for x,y) if state.widget.area.contains((*x, *y).into()) => {
+            let rx = state
+                .widget
+                .screen_to_col((*x - state.widget.area.x) as i16);
+            state.change_section_pos(rx, 15).into()
+        }
+        ct_event!(scroll ALT down for x,y) if state.mode_area.contains((*x, *y).into()) => {
+            state.next_mode().into()
+        }
+        ct_event!(scroll ALT up for x,y) if state.mode_area.contains((*x, *y).into()) => {
+            state.prev_mode().into()
+        }
+        ct_event!(scroll ALT down for x,y) if state.widget.area.contains((*x, *y).into()) => {
+            let rx = state
+                .widget
+                .screen_to_col((*x - state.widget.area.x) as i16);
+            state.change_section_pos(rx, -1).into()
+        }
+        ct_event!(scroll ALT up for x,y) if state.widget.area.contains((*x, *y).into()) => {
+            let rx = state
+                .widget
+                .screen_to_col((*x - state.widget.area.x) as i16);
+            state.change_section_pos(rx, 1).into()
+        }
+        _ => TextOutcome::Continue,
     }
 }
 

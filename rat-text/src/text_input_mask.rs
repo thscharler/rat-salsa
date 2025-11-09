@@ -85,7 +85,7 @@ use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
     Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition, TextRange,
-    TextStyle, ipos_type, upos_type,
+    TextStyle, TextTab, ipos_type, upos_type,
 };
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
@@ -125,6 +125,7 @@ pub struct MaskedInput<'a> {
     text_style: HashMap<usize, Style>,
     on_focus_gained: TextFocusGained,
     on_focus_lost: TextFocusLost,
+    on_tab: TextTab,
 }
 
 /// State & event-handling.
@@ -174,6 +175,9 @@ pub struct MaskedInputState {
     /// Focus behaviour.
     /// __read only__ use [on_focus_lost](MaskedInput::on_focus_lost)
     pub on_focus_lost: Rc<Cell<TextFocusLost>>,
+    /// Focus behaviour.
+    /// __read only__ use [on_tab](MaskedInput::on_tab)
+    pub on_tab: TextTab,
 
     /// Current focus state.
     /// __read+write__
@@ -229,6 +233,9 @@ impl<'a> MaskedInput<'a> {
         }
         if let Some(of) = styles.on_focus_lost {
             self.on_focus_lost = of;
+        }
+        if let Some(ot) = styles.on_tab {
+            self.on_tab = ot;
         }
         self.block = self.block.map(|v| v.style(self.style));
         if let Some(border_style) = styles.border_style {
@@ -322,6 +329,13 @@ impl<'a> MaskedInput<'a> {
         self.on_focus_lost = of;
         self
     }
+
+    /// Focus behaviour
+    #[inline]
+    pub fn on_tab(mut self, ot: TextTab) -> Self {
+        self.on_tab = ot;
+        self
+    }
 }
 
 impl<'a> StatefulWidget for &MaskedInput<'a> {
@@ -353,6 +367,7 @@ fn render_ref(
     state.compact = widget.compact;
     state.on_focus_gained.set(widget.on_focus_gained);
     state.on_focus_lost.set(widget.on_focus_lost);
+    state.on_tab = widget.on_tab;
 
     if state.scroll_to_cursor.get() {
         let c = state.cursor();
@@ -495,6 +510,7 @@ impl Clone for MaskedInputState {
             overwrite: Rc::new(Cell::new(self.overwrite.get())),
             on_focus_gained: Rc::new(Cell::new(self.on_focus_gained.get())),
             on_focus_lost: Rc::new(Cell::new(self.on_focus_lost.get())),
+            on_tab: self.on_tab,
             focus: self.focus_cb(FocusFlag::named(self.focus.name())),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -524,6 +540,7 @@ impl Default for MaskedInputState {
             overwrite: Default::default(),
             on_focus_gained: Default::default(),
             on_focus_lost: Default::default(),
+            on_tab: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -584,29 +601,33 @@ impl HasFocus for MaskedInputState {
     }
 
     fn navigable(&self) -> Navigation {
-        let sel = self.selection();
+        if self.on_tab == TextTab::MoveToNextSection {
+            let sel = self.selection();
 
-        let has_next = self
-            .next_section_range(sel.end)
-            .map(|v| !v.is_empty())
-            .is_some();
-        let has_prev = self
-            .prev_section_range(sel.start.saturating_sub(1))
-            .map(|v| !v.is_empty())
-            .is_some();
+            let has_next = self
+                .next_section_range(sel.end)
+                .map(|v| !v.is_empty())
+                .is_some();
+            let has_prev = self
+                .prev_section_range(sel.start.saturating_sub(1))
+                .map(|v| !v.is_empty())
+                .is_some();
 
-        if has_next {
-            if has_prev {
-                Navigation::Reach
+            if has_next {
+                if has_prev {
+                    Navigation::Reach
+                } else {
+                    Navigation::ReachLeaveFront
+                }
             } else {
-                Navigation::ReachLeaveFront
+                if has_prev {
+                    Navigation::ReachLeaveBack
+                } else {
+                    Navigation::Regular
+                }
             }
         } else {
-            if has_prev {
-                Navigation::ReachLeaveBack
-            } else {
-                Navigation::Regular
-            }
+            Navigation::Regular
         }
     }
 }
@@ -2090,13 +2111,6 @@ impl MaskedInputState {
 impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
         // small helper ...
-        fn tc(r: bool) -> TextOutcome {
-            if r {
-                TextOutcome::TextChanged
-            } else {
-                TextOutcome::Unchanged
-            }
-        }
         fn overwrite(state: &mut MaskedInputState) {
             if state.overwrite.get() {
                 state.overwrite.set(false);
@@ -2107,74 +2121,84 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
             state.overwrite.set(false);
         }
 
-        // // focus behaviour
-        // if self.lost_focus() {
-        //     match self.on_focus_lost {
-        //         TextFocusLost::None => {}
-        //         TextFocusLost::Position0 => {
-        //             self.set_default_cursor();
-        //             self.scroll_cursor_to_visible();
-        //             // repaint is triggered by focus-change
-        //         }
-        //     }
-        // }
-        // if self.gained_focus() {
-        //     match self.on_focus_gained {
-        //         TextFocusGained::None => {}
-        //         TextFocusGained::Overwrite => {
-        //             self.overwrite = true;
-        //         }
-        //         TextFocusGained::SelectAll => {
-        //             self.select_all();
-        //             // repaint is triggered by focus-change
-        //         }
-        //     }
-        // }
-
         let mut r = if self.is_focused() {
             match event {
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
                 | ct_event!(key press CONTROL_ALT-c) => {
                     overwrite(self);
-                    tc(self.insert_char(*c))
+                    self.insert_char(*c).into()
                 }
                 ct_event!(keycode press Backspace) => {
                     clear_overwrite(self);
-                    tc(self.delete_prev_char())
+                    self.delete_prev_char().into()
                 }
                 ct_event!(keycode press Delete) => {
                     clear_overwrite(self);
-                    tc(self.delete_next_char())
+                    self.delete_next_char().into()
                 }
                 ct_event!(keycode press CONTROL-Backspace)
                 | ct_event!(keycode press ALT-Backspace) => {
                     clear_overwrite(self);
-                    tc(self.delete_prev_section())
+                    self.delete_prev_section().into()
                 }
                 ct_event!(keycode press CONTROL-Delete) => {
                     clear_overwrite(self);
-                    tc(self.delete_next_section())
+                    self.delete_next_section().into()
                 }
                 ct_event!(key press CONTROL-'x') => {
                     clear_overwrite(self);
-                    tc(self.cut_to_clip())
+                    self.cut_to_clip().into()
                 }
                 ct_event!(key press CONTROL-'v') => {
                     clear_overwrite(self);
-                    tc(self.paste_from_clip())
+                    self.paste_from_clip().into()
                 }
                 ct_event!(key press CONTROL-'d') => {
                     clear_overwrite(self);
-                    tc(self.clear())
+                    self.clear().into()
                 }
                 ct_event!(key press CONTROL-'z') => {
                     clear_overwrite(self);
-                    tc(self.undo())
+                    self.undo().into()
                 }
                 ct_event!(key press CONTROL_SHIFT-'Z') => {
                     clear_overwrite(self);
-                    tc(self.redo())
+                    self.redo().into()
+                }
+                ct_event!(keycode press Tab) => {
+                    if self.on_tab == TextTab::MoveToNextSection {
+                        // ignore tab from focus
+                        if !self.focus.gained() {
+                            clear_overwrite(self);
+                            self.select_next_section().into()
+                        } else {
+                            TextOutcome::Unchanged
+                        }
+                    } else {
+                        TextOutcome::Continue
+                    }
+                }
+                ct_event!(keycode press SHIFT-BackTab) => {
+                    if self.on_tab == TextTab::MoveToNextSection {
+                        // ignore tab from focus
+                        if !self.focus.gained() {
+                            clear_overwrite(self);
+                            self.select_prev_section().into()
+                        } else {
+                            TextOutcome::Unchanged
+                        }
+                    } else {
+                        TextOutcome::Continue
+                    }
+                }
+                ct_event!(keycode press ALT-Left) => {
+                    clear_overwrite(self);
+                    self.select_prev_section().into()
+                }
+                ct_event!(keycode press ALT-Right) => {
+                    clear_overwrite(self);
+                    self.select_next_section().into()
                 }
 
                 ct_event!(key release _)
@@ -2259,24 +2283,6 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
                 ct_event!(keycode press SHIFT-End) => {
                     clear_overwrite(self);
                     self.move_to_line_end(true).into()
-                }
-                ct_event!(keycode press Tab) => {
-                    // ignore tab from focus
-                    if !self.focus.gained() {
-                        clear_overwrite(self);
-                        self.select_next_section().into()
-                    } else {
-                        TextOutcome::Unchanged
-                    }
-                }
-                ct_event!(keycode press SHIFT-BackTab) => {
-                    // ignore tab from focus
-                    if !self.focus.gained() {
-                        clear_overwrite(self);
-                        self.select_prev_section().into()
-                    } else {
-                        TextOutcome::Unchanged
-                    }
                 }
                 ct_event!(key press CONTROL-'a') => {
                     clear_overwrite(self);

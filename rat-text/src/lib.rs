@@ -128,6 +128,19 @@ pub enum TextFocusLost {
     Position0,
 }
 
+/// This flag sets the behaviour of the widget when
+/// Tab/BackTab is pressed.
+///
+/// Available for MaskedInput.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum TextTab {
+    /// Tab jumps to the next section of the masked input.
+    #[default]
+    MoveToNextSection,
+    /// Tab behaves regular and jumps to the next widget.
+    MoveToNextWidget,
+}
+
 /// Combined style for the widget.
 #[derive(Debug, Clone)]
 pub struct TextStyle {
@@ -140,6 +153,8 @@ pub struct TextStyle {
     pub on_focus_gained: Option<TextFocusGained>,
     /// Focus behaviour.
     pub on_focus_lost: Option<TextFocusLost>,
+    /// Tab behaviour.
+    pub on_tab: Option<TextTab>,
 
     pub scroll: Option<ScrollStyle>,
     pub block: Option<Block<'static>>,
@@ -157,6 +172,7 @@ impl Default for TextStyle {
             invalid: None,
             on_focus_gained: None,
             on_focus_lost: None,
+            on_tab: None,
             scroll: None,
             block: None,
             border_style: None,
