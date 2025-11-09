@@ -336,6 +336,16 @@ impl<'a> MaskedInput<'a> {
         self.on_tab = ot;
         self
     }
+
+    /// Mask-width.
+    pub fn width(&self, state: &MaskedInputState) -> u16 {
+        state.mask.len() as u16 + 1
+    }
+
+    /// Preferred height: 1
+    pub fn height(&self) -> u16 {
+        1
+    }
 }
 
 impl<'a> StatefulWidget for &MaskedInput<'a> {

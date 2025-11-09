@@ -7,6 +7,7 @@ use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::util::{fallback_select_style, revert_style, transfer_buffer};
 use crate::{TableContext, TableData, TableDataIter, TableSelection};
+use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
@@ -232,7 +233,7 @@ mod data {
 }
 
 /// Combined style.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TableStyle {
     pub style: Style,
     pub header: Option<Style>,
@@ -261,7 +262,7 @@ pub struct TableStyle {
 
 /// Table state.
 #[derive(Debug)]
-pub struct TableState<Selection> {
+pub struct TableState<Selection = RowSelection> {
     /// Current focus state.
     /// __read+write__
     pub focus: FocusFlag,
@@ -1649,6 +1650,12 @@ impl<Selection> HasFocus for TableState<Selection> {
     #[inline]
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl<Selection> HasScreenCursor for TableState<Selection> {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
     }
 }
 

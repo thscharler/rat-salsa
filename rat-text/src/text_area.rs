@@ -370,6 +370,16 @@ impl<'a> TextArea<'a> {
         self.vscroll = Some(scroll.override_vertical());
         self
     }
+
+    /// Preferred width: 0
+    pub fn width(&self) -> u16 {
+        0
+    }
+
+    /// Preferred height: 1
+    pub fn height(&self) -> u16 {
+        1
+    }
 }
 
 impl<'a> StatefulWidget for &TextArea<'a> {

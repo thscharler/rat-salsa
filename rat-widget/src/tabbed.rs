@@ -108,7 +108,7 @@ pub enum TabType {
 /// Use [TabbedState::selected] and [TabbedState::widget_area] to render
 /// the actual content of the tab.
 ///
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Tabbed<'a> {
     tab_type: TabType,
     placement: TabPlacement,
@@ -537,4 +537,24 @@ trait TabWidget: Debug {
         tabbed: &Tabbed<'_>,
         state: &mut TabbedState,
     );
+}
+
+/// Handle all events.
+/// Text events are only processed if focus is true.
+/// Mouse events are processed if they are in range.
+pub fn handle_events(
+    state: &mut TabbedState,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> TabbedOutcome {
+    state.focus.set(focus);
+    HandleEvent::handle(state, event, Regular)
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events(
+    state: &mut TabbedState,
+    event: &crossterm::event::Event,
+) -> TabbedOutcome {
+    HandleEvent::handle(state, event, MouseOnly)
 }

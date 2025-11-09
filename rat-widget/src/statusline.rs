@@ -35,6 +35,9 @@
 //! ```
 
 use crate::_private::NonExhaustive;
+use crate::text::HasScreenCursor;
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -92,11 +95,7 @@ impl Default for StatusLineStyle {
 impl StatusLine {
     /// New widget.
     pub fn new() -> Self {
-        Self {
-            sep: Default::default(),
-            style: Default::default(),
-            widths: Default::default(),
-        }
+        Self::default()
     }
 
     /// Layout for the sections.
@@ -137,6 +136,26 @@ impl Default for StatusLineState {
     }
 }
 
+impl HasFocus for StatusLineState {
+    fn build(&self, _builder: &mut FocusBuilder) {
+        // none
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not available")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not available")
+    }
+}
+
+impl HasScreenCursor for StatusLineState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
 impl RelocatableState for StatusLineState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
@@ -146,6 +165,11 @@ impl RelocatableState for StatusLineState {
 
 impl StatusLineState {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// New named widget.
+    pub fn named(_name: &str) -> Self {
         Self::default()
     }
 
@@ -205,5 +229,17 @@ fn render_ref(widget: &StatusLine, area: Rect, buf: &mut Buffer, state: &mut Sta
         .render(*rect, buf);
 
         buf.set_style(*rect, style);
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for StatusLineState {
+    fn handle(&mut self, _event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+        Outcome::Continue
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for StatusLineState {
+    fn handle(&mut self, _event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
+        Outcome::Continue
     }
 }

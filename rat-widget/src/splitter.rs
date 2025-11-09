@@ -113,7 +113,7 @@ pub struct SplitWidget<'a> {
 ///
 /// Combined styles for the Split.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SplitStyle {
     /// Base style
     pub style: Style,
@@ -1693,4 +1693,21 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for SplitState {
             _ => Outcome::Continue,
         }
     }
+}
+
+/// Handle all events.
+/// Text events are only processed if focus is true.
+/// Mouse events are processed if they are in range.
+pub fn handle_events(
+    state: &mut SplitState,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    state.focus.set(focus);
+    HandleEvent::handle(state, event, Regular)
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events(state: &mut SplitState, event: &crossterm::event::Event) -> Outcome {
+    HandleEvent::handle(state, event, MouseOnly)
 }
