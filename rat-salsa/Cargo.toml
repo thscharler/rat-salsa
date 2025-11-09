@@ -38,12 +38,18 @@ regex-cursor = "0.1.5"
 rust-ini = "0.21"
 unicode-segmentation = "1.11"
 cli-clipboard = "0.4"
+try_as = "0.1.0"
 rat-widget = { version = "2.3", path = "../rat-widget", features = ["user_directories"] }
 rat-theme4 = { version = "3.0", path = "../rat-theme4" }
 
 [[example]]
 name = "async1"
 required-features = ["async", "scrolling-regions"]
+
+
+[[example]]
+name = "palette_edit"
+required-features = ["dialog"]
 
 [[example]]
 name = "minimal"
