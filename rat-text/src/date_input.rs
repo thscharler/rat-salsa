@@ -36,6 +36,12 @@ pub struct DateInput<'a> {
 /// Use [DateInputState::with_pattern] to set the date pattern.
 #[derive(Debug, Clone)]
 pub struct DateInputState {
+    /// Area of the widget
+    /// __read only__ renewed with each render.
+    pub area: Rect,
+    /// Area inside the block.
+    /// __read only__ renewed with each render.
+    pub inner: Rect,
     /// Uses MaskedInputState for the actual functionality.
     pub widget: MaskedInputState,
     /// The chrono format pattern.
@@ -113,6 +119,16 @@ impl<'a> DateInput<'a> {
         self.widget = self.widget.on_focus_lost(of);
         self
     }
+
+    /// Preferred width.
+    pub fn width(&self, state: &DateInputState) -> u16 {
+        state.widget.mask.len() as u16 + 1
+    }
+
+    /// Preferred width.
+    pub fn height(&self) -> u16 {
+        1
+    }
 }
 
 impl<'a> StatefulWidget for &DateInput<'a> {
@@ -120,6 +136,9 @@ impl<'a> StatefulWidget for &DateInput<'a> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         (&self.widget).render(area, buf, &mut state.widget);
+
+        state.area = state.widget.area;
+        state.inner = state.widget.inner;
     }
 }
 
@@ -128,12 +147,17 @@ impl StatefulWidget for DateInput<'_> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget.render(area, buf, &mut state.widget);
+
+        state.area = state.widget.area;
+        state.inner = state.widget.inner;
     }
 }
 
 impl Default for DateInputState {
     fn default() -> Self {
         Self {
+            area: Default::default(),
+            inner: Default::default(),
             widget: Default::default(),
             pattern: Default::default(),
             locale: Default::default(),

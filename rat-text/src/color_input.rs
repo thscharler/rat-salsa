@@ -43,7 +43,7 @@ use std::ops::Range;
 ///
 /// A text input for colors.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ColorInput<'a> {
     style: Style,
     disable_modes: bool,
@@ -89,13 +89,13 @@ pub enum Mode {
 }
 
 /// State for the color input.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ColorInputState {
     /// Area of the widget.
     /// __read only__ renewed with each render.
     pub area: Rect,
     /// Area inside the block.
-    pub widget_area: Rect,
+    pub inner: Rect,
     /// Area for the mode.
     /// __read_only__ renewed with each render.
     pub mode_area: Rect,
@@ -230,6 +230,16 @@ impl<'a> ColorInput<'a> {
         self.widget = self.widget.on_focus_lost(of);
         self
     }
+
+    /// Preferred width
+    pub fn width(&self) -> u16 {
+        16
+    }
+
+    /// Preferred height
+    pub fn height(&self) -> u16 {
+        1
+    }
 }
 
 impl<'a> StatefulWidget for &ColorInput<'a> {
@@ -266,7 +276,7 @@ fn render(widget: &ColorInput<'_>, area: Rect, buf: &mut Buffer, state: &mut Col
     );
 
     state.area = area;
-    state.widget_area = inner;
+    state.inner = inner;
     state.mode_area = mode_area;
     state.label_area = mode_label;
 
@@ -291,7 +301,7 @@ impl Default for ColorInputState {
     fn default() -> Self {
         let mut z = Self {
             area: Default::default(),
-            widget_area: Default::default(),
+            inner: Default::default(),
             mode_area: Default::default(),
             label_area: Default::default(),
             value: Default::default(),
