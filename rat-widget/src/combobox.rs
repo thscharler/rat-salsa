@@ -24,7 +24,7 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::cmp::max;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Combobox<'a> {
     choice: Choice<'a, String>,
     text: TextInput<'a>,
@@ -54,6 +54,8 @@ pub struct ComboboxState {
     /// Total area.
     /// __read only__. renewed with each render.
     pub area: Rect,
+    /// Area inside the border.
+    pub inner: Rect,
     /// Core
     pub choice: ChoiceState<String>,
     /// Text
@@ -374,6 +376,7 @@ fn render_combobox(
 ) {
     state.area = area;
     (&widget.choice).render(area, buf, &mut state.choice);
+    state.inner = state.choice.inner;
     (&widget.text).render(state.choice.item_area, buf, &mut state.text);
 }
 
@@ -420,6 +423,7 @@ impl Clone for ComboboxState {
 
         Self {
             area: self.area,
+            inner: self.inner,
             choice,
             text,
             focus,
@@ -439,6 +443,7 @@ impl Default for ComboboxState {
 
         Self {
             area: Default::default(),
+            inner: Default::default(),
             choice,
             text,
             focus,
@@ -508,6 +513,7 @@ impl ComboboxState {
 
         Self {
             area: Default::default(),
+            inner: Default::default(),
             choice,
             text,
             focus,

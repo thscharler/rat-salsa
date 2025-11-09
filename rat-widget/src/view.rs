@@ -110,7 +110,7 @@ pub struct ViewWidget<'a> {
 }
 
 /// All styles for a view.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ViewStyle {
     pub style: Style,
     pub block: Option<Block<'static>>,

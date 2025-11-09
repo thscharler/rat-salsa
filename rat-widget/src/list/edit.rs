@@ -7,7 +7,7 @@ use crate::list::selection::RowSelection;
 use crate::list::{List, ListSelection, ListState};
 use log::warn;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
@@ -40,7 +40,7 @@ where
 /// Contains `mode` to differentiate between edit/non-edit.
 /// This will lock the focus to the input line while editing.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EditListState<S> {
     /// Editing mode.
     pub mode: Mode,

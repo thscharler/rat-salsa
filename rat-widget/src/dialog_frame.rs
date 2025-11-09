@@ -8,8 +8,11 @@ use crate::event::{
 };
 use crate::focus::{FocusBuilder, FocusFlag, HasFocus};
 use crate::layout::{DialogItem, LayoutOuter, layout_dialog};
+use crate::text::HasScreenCursor;
 use crate::util::{block_padding2, fill_buf_area};
 use crossterm::event::Event;
+use rat_event::MouseOnly;
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect, Size};
 use ratatui::style::Style;
@@ -19,7 +22,7 @@ use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 ///
 /// After rendering BaseDialogState::widget_area is available
 /// to render any content.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct DialogFrame<'a> {
     style: Style,
     block: Block<'a>,
@@ -73,6 +76,8 @@ pub struct DialogFrameState {
     pub no_cancel: bool,
     /// cancel-button
     pub cancel: ButtonState,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a> DialogFrame<'a> {
@@ -198,6 +203,30 @@ impl<'a> DialogFrame<'a> {
         self.layout = self.layout.size(size);
         self
     }
+
+    /// Calculate the resulting dialog area.
+    /// Returns the inner area that is available for drawing widgets.
+    pub fn layout_size(&self, area: Rect) -> Rect {
+        let area = self.layout.layout(area);
+        let l_dlg = if self.no_cancel {
+            layout_dialog(
+                area,
+                block_padding2(&self.block),
+                [Constraint::Length(10)],
+                1,
+                Flex::End,
+            )
+        } else {
+            layout_dialog(
+                area,
+                block_padding2(&self.block),
+                [Constraint::Length(12), Constraint::Length(10)],
+                1,
+                Flex::End,
+            )
+        };
+        l_dlg.widget_for(DialogItem::Content)
+    }
 }
 
 impl<'a> StatefulWidget for DialogFrame<'a> {
@@ -260,6 +289,7 @@ impl Default for DialogFrameState {
             ok: Default::default(),
             no_cancel: Default::default(),
             cancel: Default::default(),
+            non_exhaustive: NonExhaustive,
         };
         z.ok.focus.set(true);
         z
@@ -283,8 +313,25 @@ impl HasFocus for DialogFrameState {
     }
 }
 
+impl HasScreenCursor for DialogFrameState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
+impl RelocatableState for DialogFrameState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.widget_area.relocate(shift, clip);
+    }
+}
+
 impl DialogFrameState {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn named(_name: &str) -> Self {
         Self::default()
     }
 }
@@ -365,4 +412,39 @@ impl<'a> HandleEvent<Event, Dialog, DialogOutcome> for DialogFrameState {
 
         DialogOutcome::Unchanged
     }
+}
+
+impl<'a> HandleEvent<Event, MouseOnly, DialogOutcome> for DialogFrameState {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> DialogOutcome {
+        flow!({
+            if !self.no_cancel {
+                match self.cancel.handle(event, MouseOnly) {
+                    ButtonOutcome::Pressed => DialogOutcome::Cancel,
+                    r => Outcome::from(r).into(),
+                }
+            } else {
+                DialogOutcome::Continue
+            }
+        });
+        flow!(match self.ok.handle(event, MouseOnly) {
+            ButtonOutcome::Pressed => {
+                DialogOutcome::Ok
+            }
+            r => Outcome::from(r).into(),
+        });
+
+        DialogOutcome::Unchanged
+    }
+}
+
+/// Handle events for the popup.
+/// Call before other handlers to deal with intersections
+/// with other widgets.
+pub fn handle_events(state: &mut DialogFrameState, _focus: bool, event: &Event) -> DialogOutcome {
+    HandleEvent::handle(state, event, Dialog)
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events(state: &mut DialogFrameState, event: &Event) -> DialogOutcome {
+    HandleEvent::handle(state, event, MouseOnly)
 }

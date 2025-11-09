@@ -10,6 +10,7 @@ use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
 use crate::util::{block_padding2, reset_buf_area};
+use crossterm::event::Event;
 #[cfg(feature = "user_directories")]
 use dirs::{document_dir, home_dir};
 use rat_event::{
@@ -17,6 +18,7 @@ use rat_event::{
 };
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, on_lost};
 use rat_ftable::event::EditOutcome;
+use rat_reloc::RelocatableState;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{HasScreenCursor, TextStyle};
@@ -69,7 +71,7 @@ pub struct FileDialog<'a> {
 }
 
 /// Combined styles for the FileDialog.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileDialogStyle {
     pub style: Style,
     /// Lists
@@ -89,17 +91,21 @@ pub struct FileDialogStyle {
 }
 
 /// Open/Save or Directory dialog.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 enum Mode {
+    #[default]
     Open,
     Save,
     Dir,
 }
 
 /// State & event-handling.
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 pub struct FileDialogState {
+    /// Area
+    /// __read only__ renewed with each render.
+    pub area: Rect,
     /// Dialog is active.
     pub active: bool,
 
@@ -111,7 +117,7 @@ pub struct FileDialogState {
     dirs: Vec<OsString>,
     filter: Option<Box<dyn Fn(&Path) -> bool + 'static>>,
     files: Vec<OsString>,
-    use_default_roots: bool,
+    no_default_roots: bool,
     roots: Vec<(OsString, PathBuf)>,
 
     path_state: TextInputState,
@@ -187,6 +193,32 @@ pub(crate) mod event {
     }
 }
 
+impl Clone for FileDialogState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            active: self.active,
+            mode: self.mode,
+            path: self.path.clone(),
+            save_name: self.save_name.clone(),
+            save_ext: self.save_ext.clone(),
+            dirs: self.dirs.clone(),
+            filter: None, // todo: replicate somehow??
+            files: self.files.clone(),
+            no_default_roots: self.no_default_roots,
+            roots: self.roots.clone(),
+            path_state: self.path_state.clone(),
+            root_state: self.root_state.clone(),
+            dir_state: self.dir_state.clone(),
+            file_state: self.file_state.clone(),
+            save_name_state: self.save_name_state.clone(),
+            new_state: self.new_state.clone(),
+            cancel_state: self.cancel_state.clone(),
+            ok_state: self.ok_state.clone(),
+        }
+    }
+}
+
 impl Debug for FileDialogState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FileOpenState")
@@ -196,7 +228,7 @@ impl Debug for FileDialogState {
             .field("save_name", &self.save_name)
             .field("dirs", &self.dirs)
             .field("files", &self.files)
-            .field("use_default_roots", &self.use_default_roots)
+            .field("no_default_roots", &self.no_default_roots)
             .field("roots", &self.roots)
             .field("path_state", &self.path_state)
             .field("root_state", &self.root_state)
@@ -227,15 +259,16 @@ impl Default for FileDialogStyle {
 impl Default for FileDialogState {
     fn default() -> Self {
         let mut s = Self {
-            active: false,
-            mode: Mode::Open,
+            area: Default::default(),
+            active: Default::default(),
+            mode: Default::default(),
             path: Default::default(),
             save_name: Default::default(),
             save_ext: Default::default(),
             dirs: Default::default(),
             filter: Default::default(),
             files: Default::default(),
-            use_default_roots: true,
+            no_default_roots: Default::default(),
             roots: Default::default(),
             path_state: Default::default(),
             root_state: Default::default(),
@@ -361,7 +394,7 @@ struct EditDirName<'a> {
     edit_dir: TextInput<'a>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct EditDirNameState {
     edit_dir: TextInputState,
 }
@@ -377,6 +410,12 @@ impl StatefulWidget for EditDirName<'_> {
 impl HasScreenCursor for EditDirNameState {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         self.edit_dir.screen_cursor()
+    }
+}
+
+impl RelocatableState for EditDirNameState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.edit_dir.relocate(shift, clip);
     }
 }
 
@@ -420,6 +459,8 @@ impl StatefulWidget for FileDialog<'_> {
     type State = FileDialogState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        state.area = area;
+
         if !state.active {
             return;
         }
@@ -678,7 +719,12 @@ impl FileDialogState {
 
     /// Use the default set of roots.
     pub fn use_default_roots(&mut self, roots: bool) {
-        self.use_default_roots = roots;
+        self.no_default_roots = !roots;
+    }
+
+    /// Don't use default set of roots.
+    pub fn no_default_roots(&mut self) {
+        self.no_default_roots = true;
     }
 
     /// Add a root path.
@@ -739,7 +785,7 @@ impl FileDialogState {
         self.dirs.clear();
         self.files.clear();
         self.path = Default::default();
-        if self.use_default_roots {
+        if !self.no_default_roots {
             self.clear_roots();
             self.default_roots(path, &old_path);
             if old_path.exists() {
@@ -766,7 +812,7 @@ impl FileDialogState {
         self.dirs.clear();
         self.files.clear();
         self.path = Default::default();
-        if self.use_default_roots {
+        if !self.no_default_roots {
             self.clear_roots();
             self.default_roots(path, &old_path);
             if old_path.exists() {
@@ -807,7 +853,7 @@ impl FileDialogState {
         self.dirs.clear();
         self.files.clear();
         self.path = Default::default();
-        if self.use_default_roots {
+        if !self.no_default_roots {
             self.clear_roots();
             self.default_roots(path, &old_path);
             if old_path.exists() {
@@ -1067,6 +1113,33 @@ impl HasScreenCursor for FileDialogState {
         } else {
             None
         }
+    }
+}
+
+impl HasFocus for FileDialogState {
+    fn build(&self, _builder: &mut FocusBuilder) {
+        // don't expose our inner workings.
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not available")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not available")
+    }
+}
+
+impl RelocatableState for FileDialogState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.path_state.relocate(shift, clip);
+        self.root_state.relocate(shift, clip);
+        self.dir_state.relocate(shift, clip);
+        self.file_state.relocate(shift, clip);
+        self.save_name_state.relocate(shift, clip);
+        self.new_state.relocate(shift, clip);
+        self.cancel_state.relocate(shift, clip);
+        self.ok_state.relocate(shift, clip);
     }
 }
 
@@ -1397,3 +1470,19 @@ fn find_next_by_key(c: char, start: usize, names: &[OsString]) -> Option<usize> 
 
     selected
 }
+
+/// Handle events for the popup.
+/// Call before other handlers to deal with intersections
+/// with other widgets.
+pub fn handle_events(
+    state: &mut FileDialogState,
+    _focus: bool,
+    event: &Event,
+) -> Result<FileOutcome, io::Error> {
+    HandleEvent::handle(state, event, Dialog)
+}
+
+// /// Handle only mouse-events.
+// pub fn handle_mouse_events(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
+//     unimplemented!("yet")
+// }

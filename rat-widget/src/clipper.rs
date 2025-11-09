@@ -359,7 +359,9 @@ where
         self
     }
 
-    /// Calculate the layout width.
+    /// Calculate the layout size.
+    /// Returns the size of the inner area that is available
+    /// for drawing widgets.
     pub fn layout_size(&self, area: Rect, state: &ClipperState<W>) -> Size {
         let width = self.inner(area, state).width;
         Size::new(width, u16::MAX)
