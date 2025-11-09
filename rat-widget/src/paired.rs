@@ -38,21 +38,18 @@
 //! or two StatefulWidgets.
 //!
 use crate::_private::NonExhaustive;
-use map_range_int::MapRange;
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::widgets::{StatefulWidget, Widget};
-use std::cmp::min;
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 /// How to split the area for the two widgets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PairSplit {
     /// Both widgets have a preferred size.
-    /// Both start at their preferred size and get
-    /// resized with half of the remainder.  
     Fix(u16, u16),
     /// The first widget has a preferred size.
     /// The second gets the rest.
@@ -62,6 +59,8 @@ pub enum PairSplit {
     Fix2(u16),
     /// Always split the area in the given ratio.
     Ratio(u16, u16),
+    /// Use the given Constraints
+    Constrain(Constraint, Constraint),
 }
 
 /// Renders 2 widgets side by side.
@@ -71,6 +70,7 @@ pub struct Paired<'a, T, U> {
     second: U,
     split: PairSplit,
     spacing: u16,
+    flex: Flex,
     phantom: PhantomData<&'a ()>,
 }
 
@@ -89,6 +89,7 @@ impl<T, U> Paired<'_, T, U> {
             second,
             split: PairSplit::Ratio(1, 1),
             spacing: 1,
+            flex: Default::default(),
             phantom: Default::default(),
         }
     }
@@ -102,45 +103,45 @@ impl<T, U> Paired<'_, T, U> {
         self.spacing = spacing;
         self
     }
+
+    pub fn flex(mut self, flex: Flex) -> Self {
+        self.flex = flex;
+        self
+    }
 }
 
 impl<T, U> Paired<'_, T, U> {
-    fn layout(&self, area: Rect) -> (u16, u16, u16) {
-        let mut sp = self.spacing;
-
+    fn layout(&self, area: Rect) -> Rc<[Rect]> {
         match self.split {
             PairSplit::Fix(a, b) => {
-                if a + sp + b > area.width {
-                    let rest = area.width - (a + sp + b);
-                    (a - rest / 2, sp, b - (rest - rest / 2))
-                } else {
-                    let rest = (a + sp + b) - area.width;
-                    (a + rest / 2, sp, b + (rest - rest / 2))
-                }
+                Layout::horizontal([Constraint::Length(a), Constraint::Length(b)])
+                    .spacing(self.spacing)
+                    .flex(self.flex)
+                    .split(area) //
             }
             PairSplit::Fix1(a) => {
-                if a > area.width {
-                    sp = 0;
-                    (area.width, sp, 0)
-                } else {
-                    (a, sp, area.width.saturating_sub(a + sp))
-                }
+                Layout::horizontal([Constraint::Length(a), Constraint::Fill(1)])
+                    .spacing(self.spacing)
+                    .flex(self.flex)
+                    .split(area) //
             }
             PairSplit::Fix2(b) => {
-                if b > area.width {
-                    sp = 0;
-                    (area.width, sp, 0)
-                } else {
-                    (area.width.saturating_sub(b + sp), sp, b)
-                }
+                Layout::horizontal([Constraint::Fill(1), Constraint::Length(b)])
+                    .spacing(self.spacing)
+                    .flex(self.flex)
+                    .split(area) //
             }
             PairSplit::Ratio(a, b) => {
-                sp = min(sp, area.width);
-                (
-                    a.map_range_unchecked((0, a + b), (0, area.width - sp)),
-                    sp,
-                    b.map_range_unchecked((0, a + b), (0, area.width - sp)),
-                )
+                Layout::horizontal([Constraint::Fill(a), Constraint::Fill(b)])
+                    .spacing(self.spacing)
+                    .flex(self.flex)
+                    .split(area) //
+            }
+            PairSplit::Constrain(a, b) => {
+                Layout::horizontal([a, b])
+                    .spacing(self.spacing)
+                    .flex(self.flex)
+                    .split(area) //
             }
         }
     }
@@ -156,13 +157,9 @@ where
     type State = PairedState<'a, TS, US>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let (a, sp, b) = self.layout(area);
-
-        let area_a = Rect::new(area.x, area.y, a, area.height);
-        let area_b = Rect::new(area.x + a + sp, area.y, b, area.height);
-
-        self.first.render(area_a, buf, state.first);
-        self.second.render(area_b, buf, state.second);
+        let l = self.layout(area);
+        self.first.render(l[0], buf, state.first);
+        self.second.render(l[1], buf, state.second);
     }
 }
 
@@ -175,13 +172,9 @@ where
     where
         Self: Sized,
     {
-        let (a, sp, b) = self.layout(area);
-
-        let area_a = Rect::new(area.x, area.y, a, area.height);
-        let area_b = Rect::new(area.x + a + sp, area.y, b, area.height);
-
-        self.first.render(area_a, buf);
-        self.second.render(area_b, buf);
+        let l = self.layout(area);
+        self.first.render(l[0], buf);
+        self.second.render(l[1], buf);
     }
 }
 
