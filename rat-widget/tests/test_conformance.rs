@@ -1,16 +1,26 @@
-use rat_focus::FocusFlag;
+use crossterm::event::Event;
+use rat_event::Dialog;
+use rat_text::TextStyle;
+use rat_text::color_input::{ColorInput, ColorInputState, ColorInputStyle};
+use rat_text::date_input::{DateInput, DateInputState};
+use rat_text::event::TextOutcome;
 use rat_widget::button::{Button, ButtonState, ButtonStyle};
 use rat_widget::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
 use rat_widget::calendar::{CalendarState, CalendarStyle, Month, MonthState};
 use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
 use rat_widget::choice::{Choice, ChoiceState, ChoiceStyle};
 use rat_widget::clipper::{Clipper, ClipperBuffer, ClipperState, ClipperStyle};
-use rat_widget::event::{ButtonOutcome, CalOutcome, CheckOutcome, ChoiceOutcome, FormOutcome};
+use rat_widget::combobox::{Combobox, ComboboxState, ComboboxStyle};
+use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogFrameStyle, DialogOutcome};
+use rat_widget::event::{
+    ButtonOutcome, CalOutcome, CheckOutcome, ChoiceOutcome, ComboboxOutcome, FileOutcome,
+    FormOutcome,
+};
 use rat_widget::event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
+use rat_widget::file_dialog::{FileDialog, FileDialogState, FileDialogStyle};
 use rat_widget::focus::HasFocus;
 use rat_widget::form::{Form, FormBuffer, FormState, FormStyle};
 use rat_widget::reloc::RelocatableState;
-use rat_widget::scrolled::Scroll;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::view::{View, ViewBuffer, ViewState, ViewStyle};
 use ratatui::buffer::Buffer;
@@ -18,14 +28,16 @@ use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::Block;
 use ratatui::widgets::StatefulWidget;
-use ratatui::widgets::Widget;
-use std::borrow::Cow;
+use std::fmt::Debug;
+use std::io;
 
 macro_rules! conform_widget {
     (CORE: $widget:ty, $state:ty, $style:ty) => {{
         let mut v = <$widget>::default();
-        print!("{:?}", v);
-        _ = v.clone();
+        fn debug(_: &impl Debug) {}
+        debug(&v);
+        fn clone(_: &impl Clone) {}
+        clone(&v);
 
         v = v.styles(<$style>::default());
         v = v.style(Style::default());
@@ -47,7 +59,6 @@ macro_rules! conform_widget {
         let mut buf = Buffer::empty(Rect::new(5, 5, 15, 15));
         <$widget>::default().render(Rect::new(5, 5, 15, 15), &mut buf, &mut state);
         assert_eq!(state.area, Rect::new(5, 5, 15, 15));
-        assert_ne!(state.area, Rect::new(0, 0, 0, 0));
     }};
     (POPUP: $widget:ty, $state:ty, $style:ty) => {{
         let v = <$widget>::default();
@@ -58,9 +69,12 @@ macro_rules! conform_widget {
         widget(&w2);
     }};
     (VALUE: $widget:ty, $state:ty, $style:ty) => {{
-        let v = <$widget>::default();
-        let _: u16 = v.width();
-        let _: u16 = v.height();
+        let _ = <$widget>::width;
+        let _ = <$widget>::height;
+    }};
+    (FALLIBLE_VALUE: $widget:ty, $state:ty, $style:ty) => {{
+        let _ = <$widget>::width;
+        let _ = <$widget>::height;
     }};
     (CONTAINER: $widget:ty, $state:ty, $style:ty) => {{
         let _ = <$widget>::layout_size;
@@ -72,25 +86,32 @@ macro_rules! conform_widget {
 
 macro_rules! conform_state {
     (CORE: $state:ty, $event:ident, $outcome:ty) => {{
-        let _ = <$state>::default();
+        let v = <$state>::default();
+
+        fn debug(_: &impl Debug) {}
+        debug(&v);
+        fn clone(_: &impl Clone) {}
+        clone(&v);
+        fn focus(_: &impl HasFocus) {}
+        focus(&v);
+
         let _ = <$state>::new;
     }};
     (BASE: $state:ty, $event:ident, $outcome:ty) => {{
         let mut v = <$state>::default();
-        print!("{:?}", v);
-        _ = v.clone();
-        fn focus(_: &impl HasFocus) {}
-        focus(&v);
+
         fn relocatable(_: &impl RelocatableState) {}
         relocatable(&v);
         fn screen_cursor(_: &impl HasScreenCursor) {}
         screen_cursor(&v);
 
-        let event = crossterm::event::Event::FocusGained;
-        let _: $outcome = v.handle(&event, MouseOnly);
-        let r: $outcome = v.handle(&event, $event);
-        r.is_consumed();
-        let _: Outcome = r.into();
+        let _: $outcome = v.handle(&Event::FocusGained, MouseOnly);
+        let r: $outcome = v.handle(&Event::FocusGained, $event);
+
+        fn consumed(_: &impl ConsumedEvent) {}
+        consumed(&r);
+        fn outcome(_: &impl Into<Outcome>) {}
+        outcome(&r);
 
         _ = <$state>::new();
         _ = <$state>::named("some");
@@ -102,19 +123,28 @@ macro_rules! conform_state {
         let v = <$state>::default();
 
         let _ = v.inner;
-        let _: FocusFlag = v.focus;
     }};
     (VALUE: $state:ty, $event:ident, $outcome:ty) => {{
         let mut v = <$state>::default();
+
         let val = v.value();
         v.set_value(val);
         v.clear();
 
         let _ = v.inner;
-        let _: FocusFlag = v.focus;
+    }};
+    (FALLIBLE_VALUE: $state:ty, $event:ident, $outcome:ty) => {{
+        let mut v = <$state>::default();
+
+        let val = v.value().unwrap_or_default();
+        v.set_value(val);
+        v.clear();
+
+        let _ = v.inner;
     }};
     (CONTAINER: $state:ty, $event:ident, $outcome:ty) => {{
         let v = <$state>::default();
+
         _ = v.widget_area;
     }};
     (VIEW: $state:ty, $event:ident, $outcome:ty) => {{}};
@@ -131,14 +161,15 @@ macro_rules! conform_event_fn {
         use $module as tmod;
 
         let mut v = <$state>::default();
-        let _: $outcome = tmod::handle_events(&mut v, true, &crossterm::event::Event::FocusGained);
-        let _: $outcome = tmod::handle_mouse_events(&mut v, &crossterm::event::Event::FocusGained);
+        let _: $outcome = tmod::handle_events(&mut v, true, &Event::FocusGained);
+        let _: $outcome = tmod::handle_mouse_events(&mut v, &Event::FocusGained);
     }};
 }
 
 macro_rules! conform_style {
     ($style:ty) => {{
         let v = <$style>::default();
+        _ = v.clone();
         _ = v.non_exhaustive;
     }};
 }
@@ -196,6 +227,54 @@ fn conform() {
     conform_widget!(CONTAINER : Clipper, ClipperState, ClipperStyle);
     conform_widget!(VIEW: Clipper, ClipperState, ClipperStyle);
     conform_view_buffer!(VIEW : ClipperBuffer<usize>, ClipperState, ClipperStyle);
+
+    // color-input
+    conform_style!(TextStyle);
+    conform_state!(CORE : ColorInputState, Regular, TextOutcome);
+    conform_state!(BASE : ColorInputState, Regular, TextOutcome);
+    conform_state!(VALUE : ColorInputState, Regular, ColorInputOutcome);
+    conform_event_fn!(rat_widget::color_input : ColorInputState, TextOutcome);
+    conform_widget!(CORE : ColorInput, ColorInputState, ColorInputStyle);
+    conform_widget!(BASE : ColorInput, ColorInputState, ColorInputStyle);
+    conform_widget!(VALUE : ColorInput, ColorInputState, ColorInputStyle);
+
+    // choice
+    conform_style!(ComboboxStyle);
+    conform_state!(CORE : ComboboxState, Popup, ComboboxOutcome);
+    conform_state!(POPUP : ComboboxState, Popup, ComboboxOutcome);
+    conform_state!(VALUE : ComboboxState, Popup, ComboboxOutcome);
+    conform_event_fn!(rat_widget::combobox : ComboboxState, ComboboxOutcome);
+    conform_widget!(CORE : Combobox, ComboboxState, ComboboxStyle);
+    conform_widget!(POPUP : Combobox, ComboboxState, ComboboxStyle);
+    conform_widget!(VALUE : Combobox, ComboboxState, ComboboxStyle);
+
+    // date-input
+    conform_style!(TextStyle);
+    conform_state!(CORE : DateInputState, Regular, TextOutcome);
+    conform_state!(BASE : DateInputState, Regular, TextOutcome);
+    conform_state!(FALLIBLE_VALUE : DateInputState, Regular, DateInputOutcome);
+    conform_event_fn!(rat_widget::date_input : DateInputState, TextOutcome);
+    conform_widget!(CORE : DateInput, DateInputState, TextStyle);
+    conform_widget!(BASE : DateInput, DateInputState, TextStyle);
+    conform_widget!(FALLIBLE_VALUE : DateInput, DateInputState, TextStyle);
+
+    // dialog-frame
+    conform_style!(DialogFrameStyle);
+    conform_state!(CORE: DialogFrameState, Dialog, DialogFrameOutcome);
+    conform_state!(BASE: DialogFrameState, Dialog, DialogOutcome);
+    conform_state!(CONTAINER: DialogFrameState, Dialog, DialogOutcome);
+    conform_event_fn!(rat_widget::dialog_frame : DialogFrameState, DialogOutcome);
+    conform_widget!(CORE: DialogFrame, DialogFrameState, DialogFrameStyle);
+    conform_widget!(BASE: DialogFrame, DialogFrameState, DialogFrameStyle);
+    conform_widget!(CONTAINER: DialogFrame, DialogFrameState, DialogFrameStyle);
+
+    // file-dialog
+    conform_style!(FileDialogStyle);
+    conform_state!(CORE: FileDialogState, Dialog, Result<FileOutcome, io::Error>);
+    // no point in that: conform_state!(BASE: FileDialogState, Dialog, Result<FileOutcome, io::Error>);
+    // no mouse: conform_event_fn!(rat_widget::file_dialog : FileDialogState, Result<FileOutcome, io::Error>);
+    conform_widget!(CORE: FileDialog, FileDialogState, FileDialogStyle);
+    conform_widget!(BASE: FileDialog, FileDialogState, FileDialogStyle);
 
     // form
     conform_style!(FormStyle);
