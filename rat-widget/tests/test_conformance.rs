@@ -4,6 +4,8 @@ use rat_text::TextStyle;
 use rat_text::color_input::{ColorInput, ColorInputState, ColorInputStyle};
 use rat_text::date_input::{DateInput, DateInputState};
 use rat_text::event::TextOutcome;
+use rat_text::line_number::{LineNumberState, LineNumberStyle, LineNumbers};
+use rat_text::number_input::{NumberInput, NumberInputState};
 use rat_widget::button::{Button, ButtonState, ButtonStyle};
 use rat_widget::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
 use rat_widget::calendar::{CalendarState, CalendarStyle, Month, MonthState};
@@ -13,14 +15,20 @@ use rat_widget::clipper::{Clipper, ClipperBuffer, ClipperState, ClipperStyle};
 use rat_widget::combobox::{Combobox, ComboboxState, ComboboxStyle};
 use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogFrameStyle, DialogOutcome};
 use rat_widget::event::{
-    ButtonOutcome, CalOutcome, CheckOutcome, ChoiceOutcome, ComboboxOutcome, FileOutcome,
-    FormOutcome,
+    ButtonOutcome, CalOutcome, CheckOutcome, ChoiceOutcome, ComboboxOutcome, FormOutcome,
+    RadioOutcome, SliderOutcome,
 };
-use rat_widget::event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
+use rat_widget::event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_widget::file_dialog::{FileDialog, FileDialogState, FileDialogStyle};
 use rat_widget::focus::HasFocus;
 use rat_widget::form::{Form, FormBuffer, FormState, FormStyle};
+use rat_widget::list::{List, ListState, ListStyle};
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
+use rat_widget::paragraph::{Paragraph, ParagraphState, ParagraphStyle};
+use rat_widget::radio::{Radio, RadioState, RadioStyle};
 use rat_widget::reloc::RelocatableState;
+use rat_widget::shadow::{Shadow, ShadowStyle};
+use rat_widget::slider::{Slider, SliderState, SliderStyle};
 use rat_widget::text::HasScreenCursor;
 use rat_widget::view::{View, ViewBuffer, ViewState, ViewStyle};
 use ratatui::buffer::Buffer;
@@ -29,7 +37,6 @@ use ratatui::style::Style;
 use ratatui::widgets::Block;
 use ratatui::widgets::StatefulWidget;
 use std::fmt::Debug;
-use std::io;
 
 macro_rules! conform_widget {
     (CORE: $widget:ty, $state:ty, $style:ty) => {{
@@ -41,11 +48,13 @@ macro_rules! conform_widget {
 
         v = v.styles(<$style>::default());
         v = v.style(Style::default());
-        v = v.block(Block::default());
+
         _ = v;
     }};
     (BASE: $widget:ty, $state:ty, $style:ty) => {{
-        let v = <$widget>::default();
+        let mut v = <$widget>::default();
+
+        v = v.block(Block::default());
 
         fn stateful_widget(_: &impl StatefulWidget<State = $state>) {}
         stateful_widget(&v);
@@ -69,10 +78,6 @@ macro_rules! conform_widget {
         widget(&w2);
     }};
     (VALUE: $widget:ty, $state:ty, $style:ty) => {{
-        let _ = <$widget>::width;
-        let _ = <$widget>::height;
-    }};
-    (FALLIBLE_VALUE: $widget:ty, $state:ty, $style:ty) => {{
         let _ = <$widget>::width;
         let _ = <$widget>::height;
     }};
@@ -128,7 +133,7 @@ macro_rules! conform_state {
         let mut v = <$state>::default();
 
         let val = v.value();
-        v.set_value(val);
+        _ = v.set_value(val);
         v.clear();
 
         let _ = v.inner;
@@ -137,7 +142,16 @@ macro_rules! conform_state {
         let mut v = <$state>::default();
 
         let val = v.value().unwrap_or_default();
-        v.set_value(val);
+        _ = v.set_value(val);
+        v.clear();
+
+        let _ = v.inner;
+    }};
+    (INFERRED_VALUE: $state:ty, $value_type:ty, $event:ident, $outcome:ty) => {{
+        let mut v = <$state>::default();
+
+        let val: $value_type = v.value().unwrap_or_default();
+        _ = v.set_value(val);
         v.clear();
 
         let _ = v.inner;
@@ -256,7 +270,7 @@ fn conform() {
     conform_event_fn!(rat_widget::date_input : DateInputState, TextOutcome);
     conform_widget!(CORE : DateInput, DateInputState, TextStyle);
     conform_widget!(BASE : DateInput, DateInputState, TextStyle);
-    conform_widget!(FALLIBLE_VALUE : DateInput, DateInputState, TextStyle);
+    conform_widget!(VALUE : DateInput, DateInputState, TextStyle);
 
     // dialog-frame
     conform_style!(DialogFrameStyle);
@@ -269,6 +283,7 @@ fn conform() {
     conform_widget!(CONTAINER: DialogFrame, DialogFrameState, DialogFrameStyle);
 
     // file-dialog
+    // TODO: use DialogFrame
     conform_style!(FileDialogStyle);
     conform_state!(CORE: FileDialogState, Dialog, Result<FileOutcome, io::Error>);
     // no point in that: conform_state!(BASE: FileDialogState, Dialog, Result<FileOutcome, io::Error>);
@@ -285,6 +300,89 @@ fn conform() {
     conform_widget!(CONTAINER : Form, FormState, FormStyle);
     conform_widget!(VIEW: Form, FormState, FormStyle);
     conform_view_buffer!(VIEW : FormBuffer<usize>, FormState, FormStyle);
+
+    // hover
+    // not yet: conform_state!(CORE : HoverState, Popup, FormOutcome);
+    // not yet: conform_widget!(CORE : Hover, FormState, HoverStyle);
+
+    // line-number
+    conform_style!(LineNumberStyle);
+    conform_state!(CORE: LineNumberState, Regular, Outcome);
+    conform_state!(BASE: LineNumberState, Regular, Outcome);
+    // no point?: conform_event_fn!(rat_widget::line_number : LineNumberState, Outcome);
+    conform_widget!(CORE: LineNumbers, LineNumberState, LineNumberStyle);
+    conform_widget!(BASE: LineNumbers, LineNumberState, ButtonStyle);
+
+    // list
+    conform_style!(ListStyle);
+    conform_state!(CORE : ListState, Regular, Outcome);
+    conform_state!(BASE : ListState, Regular, Outcome);
+    conform_event_fn!(rat_widget::list : ListState, Outcome);
+    conform_widget!(CORE : List, ListState, ListStyle);
+    conform_widget!(BASE : List, ListState, ListStyle);
+
+    // todo: all of menu
+
+    // msgdialog
+    // TODO: use DialogFrame
+    conform_style!(MsgDialogStyle);
+    conform_state!(CORE: MsgDialogState, Dialog, Result<FileOutcome, io::Error>);
+    // no point in that: conform_state!(BASE: MsgDialogState, Dialog, Result<FileOutcome, io::Error>);
+    // no mouse: conform_event_fn!(rat_widget::file_dialog : MsgDialogState, Result<FileOutcome, io::Error>);
+    conform_widget!(CORE: MsgDialog, MsgDialogState, MsgDialogStyle);
+    conform_widget!(BASE: MsgDialog, MsgDialogState, MsgDialogStyle);
+
+    // number-input
+    conform_style!(TextStyle);
+    conform_state!(CORE : NumberInputState, Regular, TextOutcome);
+    conform_state!(BASE : NumberInputState, Regular, TextOutcome);
+    conform_state!(INFERRED_VALUE: NumberInputState, i32, Regular, NumberInputOutcome);
+    conform_event_fn!(rat_widget::number_input : NumberInputState, TextOutcome);
+    conform_widget!(CORE : NumberInput, NumberInputState, TextStyle);
+    conform_widget!(BASE : NumberInput, NumberInputState, TextStyle);
+    conform_widget!(VALUE : NumberInput, NumberInputState, TextStyle);
+
+    // paired - more a utility than a widget ...
+    // no style: conform_style!(PairedStyle);
+    // conform_state!(CORE: PairedState, Regular, Outcome);
+    // conform_state!(BASE: PairedState, Regular, Outcome);
+    // conform_event_fn!(rat_widget::button : PairedState, Outcome);
+    // no style: conform_widget!(CORE: Paired, PairedState, PairedStyle);
+    // conform_widget!(BASE: Paired, PairedState, PairedStyle);
+
+    // paragraph
+    conform_style!(ParagraphStyle);
+    conform_state!(CORE : ParagraphState, Regular, Outcome);
+    conform_state!(BASE : ParagraphState, Regular, Outcome);
+    conform_event_fn!(rat_widget::paragraph : ParagraphState, Outcome);
+    conform_widget!(CORE : Paragraph, ParagraphState, ParagraphStyle);
+    conform_widget!(BASE : Paragraph, ParagraphState, ParagraphStyle);
+
+    // radio
+    conform_style!(RadioStyle);
+    conform_state!(CORE : RadioState, Regular, RadioOutcome);
+    conform_state!(BASE : RadioState, Regular, RadioOutcome);
+    conform_state!(VALUE : RadioState, Regular, RadioOutcome);
+    conform_event_fn!(rat_widget::radio : RadioState, RadioOutcome);
+    conform_widget!(CORE : Radio, RadioState, RadioStyle);
+    conform_widget!(BASE : Radio, RadioState, RadioStyle);
+    conform_widget!(VALUE : Radio, RadioState, RadioStyle);
+
+    // shadow
+    conform_style!(ShadowStyle);
+    // conform_state!(CORE: (), Regular, Outcome);
+    // conform_event_fn!(rat_widget::shadow : (), Outcome);
+    conform_widget!(CORE: Shadow, (), ShadowStyle);
+
+    // slider
+    conform_style!(SliderStyle);
+    conform_state!(CORE : SliderState, Regular, SliderOutcome);
+    conform_state!(BASE : SliderState, Regular, SliderOutcome);
+    conform_state!(VALUE : SliderState, Regular, SliderOutcome);
+    conform_event_fn!(rat_widget::slider : SliderState, SliderOutcome);
+    conform_widget!(CORE : Slider, SliderState, SliderStyle);
+    conform_widget!(BASE : Slider, SliderState, SliderStyle);
+    conform_widget!(VALUE : Slider, SliderState, SliderStyle);
 
     // view
     conform_style!(ViewStyle);
