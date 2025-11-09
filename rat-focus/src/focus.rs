@@ -1084,6 +1084,7 @@ mod core {
         /// Contains the area and a z-value for the area.
         areas: Vec<(Rect, u16)>,
         /// Keyboard navigable
+        // TODO: use FocusFlag.navigation() too. this is the override.
         navigable: Vec<Navigation>,
         /// List of focus-ids.
         container_ids: HashSet<usize, FxBuildHasher>,
