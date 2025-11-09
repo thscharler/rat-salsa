@@ -48,7 +48,7 @@ use crate::paragraph::{Paragraph, ParagraphState};
 use crate::util::{block_padding2, reset_buf_area};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rat_event::{ConsumedEvent, Dialog, HandleEvent, Outcome, Regular, ct_event};
-use rat_focus::{Focus, FocusBuilder};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Rect};
@@ -171,6 +171,20 @@ impl Default for MsgDialogStyle {
     }
 }
 
+impl HasFocus for MsgDialogState {
+    fn build(&self, _builder: &mut FocusBuilder) {
+        // don't expose inner workings.
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not available")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not available")
+    }
+}
+
 impl MsgDialogState {
     pub fn new() -> Self {
         Self::default()
@@ -262,67 +276,71 @@ impl StatefulWidget for MsgDialog<'_> {
 }
 
 fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut MsgDialogState) {
-    if state.active.get() {
-        let mut block;
-        let title = state.message_title.borrow();
-        let block = if let Some(b) = &widget.block {
-            if !title.is_empty() {
-                block = b.clone().title(title.as_str());
-                &block
-            } else {
-                b
-            }
-        } else {
-            block = Block::bordered()
-                .style(widget.style)
-                .padding(Padding::new(1, 1, 1, 1));
-            if !title.is_empty() {
-                block = block.title(title.as_str());
-            }
+    state.area = area;
+
+    if !state.active.get() {
+        return;
+    }
+
+    let mut block;
+    let title = state.message_title.borrow();
+    let block = if let Some(b) = &widget.block {
+        if !title.is_empty() {
+            block = b.clone().title(title.as_str());
             &block
+        } else {
+            b
+        }
+    } else {
+        block = Block::bordered()
+            .style(widget.style)
+            .padding(Padding::new(1, 1, 1, 1));
+        if !title.is_empty() {
+            block = block.title(title.as_str());
+        }
+        &block
+    };
+
+    let l_dlg = layout_dialog(
+        area, //
+        block_padding2(block),
+        [Constraint::Length(10)],
+        0,
+        Flex::End,
+    );
+    state.area = l_dlg.area();
+    state.inner = l_dlg.widget_for(DialogItem::Inner);
+
+    reset_buf_area(state.area, buf);
+    block.render(state.area, buf);
+
+    {
+        let scroll = if let Some(style) = &widget.scroll_style {
+            Scroll::new().styles(style.clone())
+        } else {
+            Scroll::new().style(widget.style)
         };
 
-        let l_dlg = layout_dialog(
-            area, //
-            block_padding2(block),
-            [Constraint::Length(10)],
-            0,
-            Flex::End,
-        );
-        state.area = l_dlg.area();
-        state.inner = l_dlg.widget_for(DialogItem::Inner);
-
-        reset_buf_area(state.area, buf);
-        block.render(state.area, buf);
-
-        {
-            let scroll = if let Some(style) = &widget.scroll_style {
-                Scroll::new().styles(style.clone())
-            } else {
-                Scroll::new().style(widget.style)
-            };
-
-            let message = state.message.borrow();
-            let mut lines = Vec::new();
-            for t in message.split('\n') {
-                lines.push(Line::from(t));
-            }
-            let text = Text::from(lines).alignment(Alignment::Center);
-            Paragraph::new(text).scroll(scroll).render(
-                l_dlg.widget_for(DialogItem::Content),
-                buf,
-                &mut state.paragraph.borrow_mut(),
-            );
+        let message = state.message.borrow();
+        let mut lines = Vec::new();
+        for t in message.split('\n') {
+            lines.push(Line::from(t));
         }
-
-        Button::new("Ok")
-            .styles_opt(widget.button_style.clone())
-            .render(
-                l_dlg.widget_for(DialogItem::Button(0)),
-                buf,
-                &mut state.button.borrow_mut(),
-            );
+        let text = Text::from(lines).alignment(Alignment::Center);
+        Paragraph::new(text).scroll(scroll).render(
+            l_dlg.widget_for(DialogItem::Content),
+            buf,
+            &mut state.paragraph.borrow_mut(),
+        );
     }
+
+    Button::new("Ok")
+        .styles_opt(widget.button_style.clone())
+        .render(
+            l_dlg.widget_for(DialogItem::Button(0)),
+            buf,
+            &mut state.button.borrow_mut(),
+        );
 }
 
 impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {

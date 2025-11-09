@@ -39,6 +39,7 @@
 use crate::_private::NonExhaustive;
 use crate::choice::core::ChoiceCore;
 use crate::event::RadioOutcome;
+use crate::text::HasScreenCursor;
 use crate::util::{block_size, fill_buf_area, revert_style, union_non_empty};
 use rat_event::util::{MouseFlags, item_at};
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
@@ -68,7 +69,7 @@ pub enum RadioLayout {
 
 /// Render a list of radio buttons.
 #[derive(Debug, Clone)]
-pub struct Radio<'a, T>
+pub struct Radio<'a, T = usize>
 where
     T: PartialEq + Clone + Default,
 {
@@ -856,6 +857,15 @@ where
 
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl<T> HasScreenCursor for RadioState<T>
+where
+    T: PartialEq + Clone + Default,
+{
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
     }
 }
 

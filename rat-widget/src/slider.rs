@@ -20,12 +20,13 @@
 use crate::_private::NonExhaustive;
 use crate::range_op::RangeOp;
 use crate::slider::event::SliderOutcome;
+use crate::text::HasScreenCursor;
 use crate::util::revert_style;
 use map_range_int::MapRange;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Direction, Position, Rect};
 use ratatui::prelude::BlockExt;
@@ -43,7 +44,7 @@ use unicode_display_width::width as unicode_width;
 /// T has to implement [RangeOp] and [MapRange] to and from u16.
 ///
 #[derive(Debug, Clone)]
-pub struct Slider<'a, T>
+pub struct Slider<'a, T = usize>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
@@ -106,7 +107,7 @@ pub struct SliderStyle {
 }
 
 /// State.
-pub struct SliderState<T>
+pub struct SliderState<T = usize>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
@@ -136,10 +137,13 @@ where
     pub direction: Direction,
 
     /// Value range
+    /// __read+write__. might be overwritten by render.
     pub range: (T, T),
     /// Minor step.
+    /// __read+write__. might be overwritten by render.
     pub step: <T as RangeOp>::Step,
     /// Major step.
+    /// __read+write__. might be overwritten by render.
     pub long_step: Option<<T as RangeOp>::Step>,
 
     /// Value
@@ -376,6 +380,55 @@ where
         self.block = self.block.map(|v| v.style(self.style));
         self
     }
+
+    pub fn width(&self) -> u16 {
+        match self.direction {
+            Direction::Horizontal => {
+                let lower_width = self
+                    .lower_bound
+                    .as_ref()
+                    .map(|v| unicode_width(v) as u16)
+                    .unwrap_or_default();
+                let upper_width = self
+                    .upper_bound
+                    .as_ref()
+                    .map(|v| unicode_width(v) as u16)
+                    .unwrap_or_default();
+
+                let knob_width = unicode_width(
+                    self.render_knob_str(1, false)
+                        .split('\n')
+                        .next()
+                        .expect("one knob"),
+                ) as u16;
+
+                lower_width + upper_width + knob_width + 4
+            }
+            Direction::Vertical => 1,
+        }
+    }
+
+    pub fn height(&self) -> u16 {
+        match self.direction {
+            Direction::Horizontal => 1,
+            Direction::Vertical => {
+                let lower_height = self
+                    .lower_bound
+                    .as_ref()
+                    .map(|v| v.split('\n').count() as u16)
+                    .unwrap_or_default();
+                let upper_height = self
+                    .upper_bound
+                    .as_ref()
+                    .map(|v| v.split('\n').count() as u16)
+                    .unwrap_or_default();
+
+                let knob_height = 1;
+
+                lower_height + upper_height + knob_height + 4
+            }
+        }
+    }
 }
 
 impl<'a, T> Slider<'a, T>
@@ -450,7 +503,7 @@ where
                 (Direction::Horizontal, n) => {
                     let mut tmp = String::new();
                     tmp.push_str("   \n");
-                    for _ in 0..n - 2 {
+                    for _ in 0..n.saturating_sub(2) {
                         tmp.push_str("   \n");
                     }
                     tmp.push_str("   ");
@@ -763,6 +816,16 @@ where
     }
 }
 
+impl<T> HasScreenCursor for SliderState<T>
+where
+    T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
+    u16: MapRange<T>,
+{
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
 impl<T> RelocatableState for SliderState<T>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
@@ -805,6 +868,12 @@ macro_rules! slider_new {
         impl SliderState<$tt> {
             pub fn new() -> Self {
                 Self::new_range((<$tt>::MIN, <$tt>::MAX), 1)
+            }
+
+            pub fn named(name: &str) -> Self {
+                let mut z = Self::new_range((<$tt>::MIN, <$tt>::MAX), 1);
+                z.focus = FocusFlag::named(name);
+                z
             }
         }
     };
@@ -922,6 +991,11 @@ where
     /// Current value.
     pub fn value(&self) -> T {
         self.value
+    }
+
+    /// Set to lower bound.
+    pub fn clear(&mut self) {
+        self.value = self.range.0;
     }
 
     /// Set the range.

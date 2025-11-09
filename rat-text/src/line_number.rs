@@ -32,7 +32,11 @@ use crate::_private::NonExhaustive;
 use crate::text_area::TextAreaState;
 use crate::{TextPosition, upos_type};
 use format_num_pattern::NumberFormat;
+use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
@@ -378,8 +382,51 @@ impl Default for LineNumberState {
     }
 }
 
+impl HasFocus for LineNumberState {
+    fn build(&self, _builder: &mut FocusBuilder) {
+        // none
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not available")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not available")
+    }
+}
+
+impl RelocatableState for LineNumberState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
+    }
+}
+
+impl HasScreenCursor for LineNumberState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
 impl LineNumberState {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn named(_name: &str) -> Self {
+        Self::default()
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for LineNumberState {
+    fn handle(&mut self, _event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+        Outcome::Continue
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for LineNumberState {
+    fn handle(&mut self, _event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
+        Outcome::Continue
     }
 }

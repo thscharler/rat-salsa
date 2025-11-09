@@ -5,7 +5,9 @@
 use crate::_private::NonExhaustive;
 use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
+use crate::text::HasScreenCursor;
 use crate::util::{fallback_select_style, revert_style};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
@@ -41,7 +43,7 @@ pub trait ListSelection {
 /// Fully compatible with ratatui List.
 /// Adds Scroll, selection models, and event-handling.
 #[derive(Debug, Default, Clone)]
-pub struct List<'a, Selection> {
+pub struct List<'a, Selection = RowSelection> {
     block: Option<Block<'a>>,
     scroll: Option<Scroll<'a>>,
 
@@ -82,7 +84,7 @@ pub struct ListStyle {
 
 /// State & event handling.
 #[derive(Debug, PartialEq, Eq)]
-pub struct ListState<Selection> {
+pub struct ListState<Selection = RowSelection> {
     /// Total area
     /// __readonly__. renewed for each render.
     pub area: Rect,
@@ -110,6 +112,8 @@ pub struct ListState<Selection> {
     /// Helper for mouse events.
     /// __used for mouse interaction__
     pub mouse: MouseFlags,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl Default for ListStyle {
@@ -392,6 +396,12 @@ impl<Selection> HasFocus for ListState<Selection> {
     }
 }
 
+impl<Selection> HasScreenCursor for ListState<Selection> {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
 impl<Selection: Default> Default for ListState<Selection> {
     fn default() -> Self {
         Self {
@@ -403,6 +413,7 @@ impl<Selection: Default> Default for ListState<Selection> {
             focus: Default::default(),
             selection: Default::default(),
             mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -418,6 +429,7 @@ impl<Selection: Clone> Clone for ListState<Selection> {
             focus: FocusFlag::named(self.focus.name()),
             selection: self.selection.clone(),
             mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -1127,4 +1139,21 @@ pub mod selection {
             Outcome::Unchanged
         }
     }
+}
+
+/// Handle events for the popup.
+/// Call before other handlers to deal with intersections
+/// with other widgets.
+pub fn handle_events(
+    state: &mut ListState,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    state.focus.set(focus);
+    HandleEvent::handle(state, event, Regular)
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events(state: &mut ListState, event: &crossterm::event::Event) -> Outcome {
+    HandleEvent::handle(state, event, MouseOnly)
 }

@@ -52,7 +52,7 @@ impl Shadow {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ShadowStyle {
     pub style: Style,
     pub dir: ShadowDirection,

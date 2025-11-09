@@ -3,10 +3,11 @@
 //!
 
 use crate::_private::NonExhaustive;
+use crate::text::HasScreenCursor;
 use crate::util::revert_style;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
@@ -23,7 +24,7 @@ use std::ops::DerefMut;
 ///
 /// Fully compatible with ratatui Paragraph.
 /// Add Scroll and event-handling.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Paragraph<'a> {
     style: Style,
     focus_style: Option<Style>,
@@ -36,7 +37,7 @@ pub struct Paragraph<'a> {
     hscroll: Option<Scroll<'a>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParagraphStyle {
     pub style: Style,
     pub focus: Option<Style>,
@@ -333,6 +334,12 @@ impl HasFocus for ParagraphState {
     }
 }
 
+impl HasScreenCursor for ParagraphState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
 impl RelocatableState for ParagraphState {
     fn relocate(&mut self, offset: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, offset, clip);
@@ -503,4 +510,21 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphState
             r => r.into(),
         }
     }
+}
+
+/// Handle events for the popup.
+/// Call before other handlers to deal with intersections
+/// with other widgets.
+pub fn handle_events(
+    state: &mut ParagraphState,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    state.focus.set(focus);
+    HandleEvent::handle(state, event, Regular)
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events(state: &mut ParagraphState, event: &crossterm::event::Event) -> Outcome {
+    HandleEvent::handle(state, event, MouseOnly)
 }

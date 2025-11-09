@@ -37,6 +37,13 @@ pub struct NumberInput<'a> {
 /// State & event handling.
 #[derive(Debug, Clone)]
 pub struct NumberInputState {
+    /// Area of the widget.
+    /// __read only__ renewed with each render.
+    pub area: Rect,
+    /// Area inside the block.
+    /// __read only__ renewed with each render.
+    pub inner: Rect,
+
     pub widget: MaskedInputState,
 
     /// NumberFormat pattern.
@@ -117,6 +124,16 @@ impl<'a> NumberInput<'a> {
         self.widget = self.widget.on_focus_lost(of);
         self
     }
+
+    /// Preferred width.
+    pub fn width(&self, state: &NumberInputState) -> u16 {
+        state.widget.mask.len() as u16 + 1
+    }
+
+    /// Preferred width.
+    pub fn height(&self) -> u16 {
+        1
+    }
 }
 
 impl<'a> StatefulWidget for &NumberInput<'a> {
@@ -124,6 +141,9 @@ impl<'a> StatefulWidget for &NumberInput<'a> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         (&self.widget).render(area, buf, &mut state.widget);
+
+        state.area = state.widget.area;
+        state.inner = state.widget.inner;
     }
 }
 
@@ -132,12 +152,17 @@ impl StatefulWidget for NumberInput<'_> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget.render(area, buf, &mut state.widget);
+
+        state.area = state.widget.area;
+        state.inner = state.widget.inner;
     }
 }
 
 impl Default for NumberInputState {
     fn default() -> Self {
         let mut s = Self {
+            area: Default::default(),
+            inner: Default::default(),
             widget: Default::default(),
             pattern: "".to_string(),
             locale: Default::default(),
