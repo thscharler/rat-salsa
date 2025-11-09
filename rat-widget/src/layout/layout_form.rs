@@ -228,7 +228,7 @@ pub enum FormWidget {
 /// ```
 ///
 #[derive(Debug)]
-pub struct LayoutForm<W>
+pub struct LayoutForm<W = usize>
 where
     W: Eq + Hash + Clone + Debug,
 {
