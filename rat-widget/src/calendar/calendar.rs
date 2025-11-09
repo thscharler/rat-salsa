@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 use crate::calendar::event::CalOutcome;
 use crate::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
 use crate::calendar::{CalendarSelection, MonthState};
@@ -35,6 +36,12 @@ impl Default for TodayPolicy {
 ///
 #[derive(Debug, Clone)]
 pub struct CalendarState<const N: usize, Selection> {
+    /// Complete area
+    /// __read only__. renewed for each render.
+    pub area: Rect,
+    /// Area inside the block.
+    /// __read only__. renewed for each render.
+    pub widget_area: Rect,
     /// Step-size when navigating outside the displayed
     /// calendar.
     ///
@@ -65,6 +72,8 @@ pub struct CalendarState<const N: usize, Selection> {
 
     /// Calendar focus
     pub focus: FocusFlag,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl<const N: usize, Selection> Default for CalendarState<N, Selection>
@@ -76,6 +85,8 @@ where
         let focus = FocusFlag::new();
 
         Self {
+            area: Default::default(),
+            widget_area: Default::default(),
             step: 1,
             months: array::from_fn(|_| {
                 let mut state = MonthState::new();
@@ -87,6 +98,7 @@ where
             primary_idx: Default::default(),
             focus,
             home: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -127,6 +139,15 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
         Selection: Default,
     {
         Self::default()
+    }
+
+    pub fn named(name: &str) -> Self
+    where
+        Selection: Default,
+    {
+        let mut z = Self::default();
+        z.focus = FocusFlag::named(name);
+        z
     }
 
     /// Step-size when navigating outside the displayed
@@ -264,6 +285,11 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
         }
 
         CalOutcome::Changed
+    }
+
+    /// Returns None
+    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
     }
 }
 

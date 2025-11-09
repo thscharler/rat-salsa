@@ -187,6 +187,9 @@ where
     type State = CalendarState<3, Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        state.area = area;
+        state.widget_area = area;
+
         match self.direction {
             Direction::Horizontal => {
                 let width = self.months[0].width();

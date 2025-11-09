@@ -95,7 +95,11 @@ pub struct MonthState<Selection = SingleSelection> {
     pub area: Rect,
     /// Area inside the border.
     /// __readonly__. renewed for each render.
+    #[deprecated(since = "2.3.0", note = "use widget_area")]
     pub inner: Rect,
+    /// Area inside the border.
+    /// __readonly__. renewed for each render.
+    pub widget_area: Rect,
     /// Area of the main calendar.
     /// __readonly__. renewed for each render.
     pub area_cal: Rect,
@@ -216,6 +220,12 @@ impl<'a, Selection> Month<'a, Selection> {
         self
     }
 
+    /// Base style.
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
+
     /// Style for the selection
     pub fn select_style(mut self, style: Style) -> Self {
         self.select_style = Some(style);
@@ -323,6 +333,7 @@ where
     }
 }
 
+#[allow(deprecated)]
 fn render_ref<Selection: CalendarSelection>(
     widget: &Month<'_, Selection>,
     area: Rect,
@@ -389,13 +400,14 @@ fn render_ref<Selection: CalendarSelection>(
             Block::new().style(widget.style)
         }
     };
-    state.inner = block.inner(area);
+    state.widget_area = block.inner(area);
+    state.inner = state.widget_area;
     block.render(area, buf);
 
     let month = day.month();
     let mut w = 0;
-    let mut x = state.inner.x;
-    let mut y = state.inner.y;
+    let mut x = state.widget_area.x;
+    let mut y = state.widget_area.y;
 
     // week days
     if widget.show_weekdays {
@@ -404,7 +416,7 @@ fn render_ref<Selection: CalendarSelection>(
         x += 3;
         buf.set_style(Rect::new(x, y, 3 * 7, 1), weekday_style);
         for _ in 0..7 {
-            let area = Rect::new(x, y, 2, 1).intersection(state.inner);
+            let area = Rect::new(x, y, 2, 1).intersection(state.widget_area);
 
             let day_name = week_0.format_localized("%a", widget.loc).to_string();
             Span::from(format!("{:2} ", day_name)).render(area, buf);
@@ -412,7 +424,7 @@ fn render_ref<Selection: CalendarSelection>(
             x += 3;
             week_0 = week_0 + Days::new(1);
         }
-        x = state.inner.x;
+        x = state.widget_area.x;
         y += 1;
     }
 
@@ -427,7 +439,7 @@ fn render_ref<Selection: CalendarSelection>(
     state.area_weeknum = Rect::new(x, y, 3, state.week_len() as u16);
 
     // first line may omit a few days
-    state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.inner);
+    state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.widget_area);
     Span::from(day.format_localized("%V", widget.loc).to_string())
         .style(week_style)
         .render(state.area_weeks[w], buf);
@@ -447,7 +459,8 @@ fn render_ref<Selection: CalendarSelection>(
             x += 3;
         } else {
             let day_style = calc_day_style(widget, state, day, day_style, select_style);
-            state.area_days[day.day0() as usize] = Rect::new(x, y, 2, 1).intersection(state.inner);
+            state.area_days[day.day0() as usize] =
+                Rect::new(x, y, 2, 1).intersection(state.widget_area);
 
             Span::from(day.format_localized("%e", widget.loc).to_string())
                 .style(day_style)
@@ -466,11 +479,11 @@ fn render_ref<Selection: CalendarSelection>(
     }
 
     w += 1;
-    x = state.inner.x;
+    x = state.widget_area.x;
     y += 1;
 
     while month == day.month() {
-        state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.inner);
+        state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.widget_area);
         Span::from(day.format_localized("%V", widget.loc).to_string())
             .style(week_style)
             .render(state.area_weeks[w], buf);
@@ -490,7 +503,7 @@ fn render_ref<Selection: CalendarSelection>(
                 let day_style = calc_day_style(widget, state, day, day_style, select_style);
 
                 state.area_days[day.day0() as usize] =
-                    Rect::new(x, y, 2, 1).intersection(state.inner);
+                    Rect::new(x, y, 2, 1).intersection(state.widget_area);
 
                 Span::from(day.format_localized("%e", widget.loc).to_string())
                     .style(day_style)
@@ -511,7 +524,7 @@ fn render_ref<Selection: CalendarSelection>(
         }
 
         w += 1;
-        x = state.inner.x;
+        x = state.widget_area.x;
         y += 1;
     }
 }
@@ -561,9 +574,11 @@ impl<Selection> HasFocus for MonthState<Selection> {
 }
 
 impl<Selection> RelocatableState for MonthState<Selection> {
+    #[allow(deprecated)]
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area.relocate(shift, clip);
         self.inner.relocate(shift, clip);
+        self.widget_area.relocate(shift, clip);
         self.area_cal.relocate(shift, clip);
         self.area_weeknum.relocate(shift, clip);
         self.area_days.relocate(shift, clip);
@@ -575,10 +590,12 @@ impl<Selection> Clone for MonthState<Selection>
 where
     Selection: Clone,
 {
+    #[allow(deprecated)]
     fn clone(&self) -> Self {
         Self {
             area: self.area,
             inner: self.inner,
+            widget_area: self.widget_area,
             area_cal: self.area_cal.clone(),
             area_days: self.area_days.clone(),
             area_weeknum: self.area_weeknum.clone(),
@@ -597,10 +614,12 @@ impl<Selection> Default for MonthState<Selection>
 where
     Selection: Default,
 {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             area: Default::default(),
             inner: Default::default(),
+            widget_area: Default::default(),
             area_cal: Default::default(),
             area_days: Default::default(),
             area_weeknum: Default::default(),
@@ -697,6 +716,11 @@ impl<Selection> MonthState<Selection> {
             .as_ref()
             .map(|v| v.is_focused())
             .unwrap_or(false)
+    }
+
+    /// Returns None.
+    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
     }
 }
 
