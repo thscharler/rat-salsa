@@ -22,6 +22,7 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::checkbox::event::CheckOutcome;
+use crate::text::HasScreenCursor;
 use crate::util::{block_size, revert_style};
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
@@ -407,6 +408,12 @@ impl HasFocus for CheckboxState {
 
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl HasScreenCursor for CheckboxState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
     }
 }
 

@@ -1080,3 +1080,28 @@ where
         }
     }
 }
+
+/// Handle all events.
+/// Text events are only processed if focus is true.
+/// Mouse events are processed if they are in range.
+pub fn handle_events<W>(
+    state: &mut ClipperState<W>,
+    _focus: bool,
+    event: &crossterm::event::Event,
+) -> Outcome
+where
+    W: Eq + Clone + Hash,
+{
+    HandleEvent::handle(state, event, Regular)
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events<W>(
+    state: &mut ClipperState<W>,
+    event: &crossterm::event::Event,
+) -> Outcome
+where
+    W: Eq + Clone + Hash,
+{
+    HandleEvent::handle(state, event, MouseOnly)
+}

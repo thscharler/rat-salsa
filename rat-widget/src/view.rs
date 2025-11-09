@@ -236,11 +236,19 @@ impl<'a> View<'a> {
     }
 
     /// Calculate the layout width.
+    #[allow(deprecated)]
+    pub fn layout_size(&self, area: Rect, state: &ViewState) -> u16 {
+        self.inner(area, state).width
+    }
+
+    /// Calculate the layout width.
+    #[allow(deprecated)]
     pub fn layout_width(&self, area: Rect, state: &ViewState) -> u16 {
         self.inner(area, state).width
     }
 
     /// Calculate the view area.
+    #[deprecated(since = "2.3.0", note = "use layout_size instead")]
     pub fn inner(&self, area: Rect, state: &ViewState) -> Rect {
         let sa = ScrollArea::new()
             .block(self.block.as_ref())

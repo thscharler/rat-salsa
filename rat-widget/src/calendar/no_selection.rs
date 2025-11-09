@@ -1,7 +1,7 @@
 use crate::calendar::event::CalOutcome;
 use crate::calendar::{CalendarSelection, CalendarState, MonthState};
 use chrono::NaiveDate;
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
 
 /// No selection model

@@ -2,6 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::calendar::event::CalOutcome;
 use crate::calendar::selection::{NoSelection, RangeSelection, SingleSelection};
 use crate::calendar::{CalendarSelection, MonthState};
+use crate::text::HasScreenCursor;
 use chrono::{Datelike, Days, Local, Months, NaiveDate, Weekday};
 use rat_event::ConsumedEvent;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -41,6 +42,10 @@ pub struct CalendarState<const N: usize, Selection> {
     pub area: Rect,
     /// Area inside the block.
     /// __read only__. renewed for each render.
+    pub inner: Rect,
+    /// Area inside the block.
+    /// __read only__. renewed for each render.
+    #[deprecated(since = "2.3.0", note = "use inner instead")]
     pub widget_area: Rect,
     /// Step-size when navigating outside the displayed
     /// calendar.
@@ -80,12 +85,14 @@ impl<const N: usize, Selection> Default for CalendarState<N, Selection>
 where
     Selection: Default,
 {
+    #[allow(deprecated)]
     fn default() -> Self {
         let selection = Rc::new(RefCell::new(Selection::default()));
         let focus = FocusFlag::new();
 
         Self {
             area: Default::default(),
+            inner: Default::default(),
             widget_area: Default::default(),
             step: 1,
             months: array::from_fn(|_| {
@@ -122,6 +129,12 @@ impl<const N: usize, Selection> HasFocus for CalendarState<N, Selection> {
 
     fn area(&self) -> Rect {
         Rect::default()
+    }
+}
+
+impl<const N: usize, Selection> HasScreenCursor for CalendarState<N, Selection> {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
     }
 }
 

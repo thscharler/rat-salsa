@@ -22,6 +22,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::button::event::ButtonOutcome;
+use crate::text::HasScreenCursor;
 use crate::util::{block_size, revert_style};
 use rat_event::util::{MouseFlags, have_keyboard_enhancement};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
@@ -77,11 +78,7 @@ pub struct ButtonState {
     pub area: Rect,
     /// Area inside the block.
     /// __read only__. renewed for each render.
-    #[deprecated(since = "2.3.0", note = "use widget_area")]
     pub inner: Rect,
-    /// Area inside the block.
-    /// __read only__. renewed for each render.
-    pub widget_area: Rect,
     /// Button has been clicked but not released yet.
     /// __read only__
     pub armed: bool,
@@ -245,11 +242,9 @@ impl StatefulWidget for Button<'_> {
     }
 }
 
-#[allow(deprecated)]
 fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut ButtonState) {
     state.area = area;
-    state.widget_area = widget.block.inner_if_some(area);
-    state.inner = state.widget_area;
+    state.inner = widget.block.inner_if_some(area);
     state.armed_delay = widget.armed_delay;
 
     let style = widget.style;
@@ -275,39 +270,32 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
     }
 
     if state.mouse.hover.get() && widget.hover_style.is_some() {
-        buf.set_style(state.widget_area, widget.hover_style.expect("style"))
+        buf.set_style(state.inner, widget.hover_style.expect("style"))
     } else if state.is_focused() {
-        buf.set_style(state.widget_area, focus_style);
+        buf.set_style(state.inner, focus_style);
     }
 
     if state.armed {
         let armed_area = Rect::new(
-            state.widget_area.x + 1,
-            state.widget_area.y,
-            state.widget_area.width.saturating_sub(2),
-            state.widget_area.height,
+            state.inner.x + 1,
+            state.inner.y,
+            state.inner.width.saturating_sub(2),
+            state.inner.height,
         );
         buf.set_style(armed_area, style.patch(armed_style));
     }
 
     let h = widget.text.height() as u16;
-    let r = state.widget_area.height.saturating_sub(h) / 2;
-    let area = Rect::new(
-        state.widget_area.x,
-        state.widget_area.y + r,
-        state.widget_area.width,
-        h,
-    );
+    let r = state.inner.height.saturating_sub(h) / 2;
+    let area = Rect::new(state.inner.x, state.inner.y + r, state.inner.width, h);
     (&widget.text).render(area, buf);
 }
 
 impl Clone for ButtonState {
-    #[allow(deprecated)]
     fn clone(&self) -> Self {
         Self {
             area: self.area,
             inner: self.inner,
-            widget_area: self.widget_area,
             armed: self.armed,
             armed_delay: self.armed_delay,
             focus: FocusFlag::named(self.focus.name()),
@@ -318,12 +306,10 @@ impl Clone for ButtonState {
 }
 
 impl Default for ButtonState {
-    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             area: Default::default(),
             inner: Default::default(),
-            widget_area: Default::default(),
             armed: Default::default(),
             armed_delay: Default::default(),
             focus: Default::default(),
@@ -346,15 +332,9 @@ impl ButtonState {
     }
 
     #[deprecated(since = "2.1.0", note = "use relocate_hidden() to clear the areas.")]
-    #[allow(deprecated)]
     pub fn clear_areas(&mut self) {
         self.area = Rect::default();
         self.inner = Rect::default();
-    }
-
-    /// Returns None.
-    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-        None
     }
 }
 
@@ -374,12 +354,16 @@ impl HasFocus for ButtonState {
     }
 }
 
+impl HasScreenCursor for ButtonState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
 impl RelocatableState for ButtonState {
-    #[allow(deprecated)]
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
         self.inner = relocate_area(self.inner, shift, clip);
-        self.widget_area = relocate_area(self.widget_area, shift, clip);
     }
 }
 

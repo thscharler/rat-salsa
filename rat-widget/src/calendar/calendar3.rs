@@ -186,8 +186,10 @@ where
 {
     type State = CalendarState<3, Selection>;
 
+    #[allow(deprecated)]
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
+        state.inner = area;
         state.widget_area = area;
 
         match self.direction {

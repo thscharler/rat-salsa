@@ -33,6 +33,7 @@
 use crate::_private::NonExhaustive;
 use crate::choice::core::ChoiceCore;
 use crate::event::ChoiceOutcome;
+use crate::text::HasScreenCursor;
 use crate::util::{block_padding, block_size, revert_style};
 use rat_event::util::{MouseFlags, item_at, mouse_trap};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, ct_event};
@@ -199,6 +200,9 @@ where
     /// Total area.
     /// __read only__. renewed with each render.
     pub area: Rect,
+    /// Area inside the border.
+    /// __read only__. renewed with each render.
+    pub inner: Rect,
     /// First char of each item for navigation.
     /// __read only__. renewed with each render.
     pub nav_char: Vec<Vec<char>>,
@@ -864,19 +868,22 @@ fn render_choice<T: PartialEq + Clone + Default>(
             .map_or(Vec::default(), |c| c.to_lowercase().collect::<Vec<_>>())
     }));
 
-    let inner = widget.block.inner_if_some(area);
+    state.inner = widget.block.inner_if_some(area);
 
     state.item_area = Rect::new(
-        inner.x,
-        inner.y,
-        inner.width.saturating_sub(3),
-        inner.height,
+        state.inner.x,
+        state.inner.y,
+        state.inner.width.saturating_sub(3),
+        state.inner.height,
     );
     state.button_area = Rect::new(
-        inner.right().saturating_sub(min(3, inner.width)),
-        inner.y,
+        state
+            .inner
+            .right()
+            .saturating_sub(min(3, state.inner.width)),
+        state.inner.y,
         3,
-        inner.height,
+        state.inner.height,
     );
 
     let style = widget.style;
@@ -886,14 +893,14 @@ fn render_choice<T: PartialEq + Clone + Default>(
         if let Some(block) = &widget.block {
             block.render(area, buf);
         } else {
-            buf.set_style(inner, style);
+            buf.set_style(state.inner, style);
         }
-        buf.set_style(inner, focus_style);
+        buf.set_style(state.inner, focus_style);
     } else {
         if let Some(block) = &widget.block {
             block.render(area, buf);
         } else {
-            buf.set_style(inner, style);
+            buf.set_style(state.inner, style);
         }
         if let Some(button_style) = widget.button_style {
             buf.set_style(state.button_area, button_style);
@@ -1070,6 +1077,7 @@ where
 
         Self {
             area: self.area,
+            inner: self.inner,
             nav_char: self.nav_char.clone(),
             item_area: self.item_area,
             button_area: self.button_area,
@@ -1102,6 +1110,7 @@ where
 
         Self {
             area: Default::default(),
+            inner: Default::default(),
             nav_char: Default::default(),
             item_area: Default::default(),
             button_area: Default::default(),
@@ -1155,6 +1164,15 @@ where
 
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl<T> HasScreenCursor for ChoiceState<T>
+where
+    T: PartialEq + Clone + Default,
+{
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
     }
 }
 
