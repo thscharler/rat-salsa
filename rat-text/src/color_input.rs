@@ -1384,26 +1384,29 @@ const fn color2rgb(color: Color) -> (u8, u8, u8) {
 
 impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for ColorInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
-        flow!(match event {
-            ct_event!(key press '+') => self.change_section(1).into(),
-            ct_event!(key press '-') => self.change_section(-1).into(),
-            ct_event!(key press ALT-'+') => self.change_section(15).into(),
-            ct_event!(key press ALT-'-') => self.change_section(-15).into(),
-            ct_event!(key press CONTROL-'v') => self.paste_from_clip().into(),
-            ct_event!(key press CONTROL-'c') => self.copy_to_clip().into(),
-            ct_event!(key press CONTROL-'x') => self.cut_to_clip().into(),
-            _ => TextOutcome::Continue,
-        });
-        if !self.disable_modes {
+        if self.is_focused() {
             flow!(match event {
-                ct_event!(key press 'r') => self.set_mode(Mode::RGB).into(),
-                ct_event!(key press 'h') => self.set_mode(Mode::HSV).into(),
-                ct_event!(key press 'x') => self.set_mode(Mode::HEX).into(),
-                ct_event!(key press 'm') | ct_event!(keycode press Up) => self.next_mode().into(),
-                ct_event!(key press SHIFT-'M') | ct_event!(keycode press Down) =>
-                    self.prev_mode().into(),
+                ct_event!(key press '+') => self.change_section(1).into(),
+                ct_event!(key press '-') => self.change_section(-1).into(),
+                ct_event!(key press ALT-'+') => self.change_section(15).into(),
+                ct_event!(key press ALT-'-') => self.change_section(-15).into(),
+                ct_event!(key press CONTROL-'v') => self.paste_from_clip().into(),
+                ct_event!(key press CONTROL-'c') => self.copy_to_clip().into(),
+                ct_event!(key press CONTROL-'x') => self.cut_to_clip().into(),
                 _ => TextOutcome::Continue,
             });
+            if !self.disable_modes {
+                flow!(match event {
+                    ct_event!(key press 'r') => self.set_mode(Mode::RGB).into(),
+                    ct_event!(key press 'h') => self.set_mode(Mode::HSV).into(),
+                    ct_event!(key press 'x') => self.set_mode(Mode::HEX).into(),
+                    ct_event!(key press 'm') | ct_event!(keycode press Up) =>
+                        self.next_mode().into(),
+                    ct_event!(key press SHIFT-'M') | ct_event!(keycode press Down) =>
+                        self.prev_mode().into(),
+                    _ => TextOutcome::Continue,
+                });
+            }
         }
 
         flow!(handle_mouse(self, event));
