@@ -281,6 +281,8 @@ where
     label_str: Option<Cow<'static, str>>,
     // widget constraint
     widget: FormWidget,
+    // extra gap after this widget
+    gap: u16,
 }
 
 /// Tag for a group/block.
@@ -651,7 +653,13 @@ where
             label,
             label_str,
             widget,
+            gap: 0,
         });
+    }
+
+    /// Add a gap in the layout.
+    pub fn gap(&mut self, n: u16) {
+        self.widgets.last_mut().expect("widget").gap = n;
     }
 
     /// Add a manual page break after the last widget.
@@ -1011,8 +1019,10 @@ where
 
         let mut label_area;
         let mut widget_area;
+        let mut gap;
 
-        (label_area, widget_area) = next_widget(&mut page, &mut layout.blocks, widget, idx, false);
+        (label_area, widget_area, gap) =
+            next_widget(&mut page, &mut layout.blocks, widget, idx, false);
         next_blocks(&mut page, &mut layout.blocks, idx, &mut blocks_out);
 
         // page overflow induces page-break
@@ -1029,7 +1039,7 @@ where
             assert!(stretch.is_empty());
 
             // redo current widget
-            (label_area, widget_area) =
+            (label_area, widget_area, gap) =
                 next_widget(&mut page, &mut layout.blocks, widget, idx, true);
             next_blocks(&mut page, &mut layout.blocks, idx, &mut blocks_out);
         }
@@ -1049,8 +1059,16 @@ where
 
         push_blocks(&mut blocks_out, &mut gen_layout);
 
+        let break_gap = !ENDLESS
+            && page
+                .y
+                .saturating_add(gap)
+                .saturating_add(page.bottom_padding_break)
+                > page.page_end;
+        let break_manual = layout.page_breaks.contains(&idx);
+
         // page-break after widget
-        if layout.page_breaks.contains(&idx) {
+        if break_gap || break_manual {
             assert!(blocks_out.is_empty());
             page_break_blocks(&mut page, &mut layout.blocks, idx + 1, &mut blocks_out);
             push_blocks(&mut blocks_out, &mut gen_layout);
@@ -1059,6 +1077,10 @@ where
             }
             page_break::<ENDLESS>(&mut page);
             assert!(stretch.is_empty());
+        }
+
+        if !break_gap {
+            page.y += gap;
         }
 
         drop_blocks(&mut layout.blocks, idx);
@@ -1142,7 +1164,7 @@ fn next_widget<W>(
     widget: &WidgetDef<W>,
     idx: usize,
     must_fit: bool,
-) -> (Rect, Rect)
+) -> (Rect, Rect, u16)
 where
     W: Eq + Hash + Clone + Debug,
 {
@@ -1162,17 +1184,14 @@ where
         if block.range.start <= idx {
             widget_padding(page, idx, block);
         }
-        // if block.range.start > idx {
-        //     break;
-        // }
     }
 
     // get areas + advance
-    let (label_area, widget_area, advance) = areas_and_advance(page, widget, must_fit);
+    let (label_area, widget_area, advance, gap) = areas_and_advance(page, widget, must_fit);
 
     page.y = page.y.saturating_add(advance);
 
-    (label_area, widget_area)
+    (label_area, widget_area, gap)
 }
 
 // open the given container
@@ -1251,7 +1270,7 @@ fn areas_and_advance<W: Debug + Clone>(
     page: &Page,
     widget: &WidgetDef<W>,
     must_fit: bool,
-) -> (Rect, Rect, u16) {
+) -> (Rect, Rect, u16, u16) {
     // [label]
     // [widget]
     // vs
@@ -1279,6 +1298,8 @@ fn areas_and_advance<W: Debug + Clone>(
         FormWidget::StretchXY(_, h) => *h,
         FormWidget::WideStretchXY(_, h) => *h,
     };
+
+    let gap_height = widget.gap;
 
     let stretch_width = page
         .x_pos
@@ -1377,6 +1398,7 @@ fn areas_and_advance<W: Debug + Clone>(
             label_area,
             widget_area,
             label_area.height + widget_area.height,
+            gap_height,
         )
     } else {
         label_height = min(label_height, max_height);
@@ -1446,6 +1468,7 @@ fn areas_and_advance<W: Debug + Clone>(
             label_area,
             widget_area,
             max(label_area.height, widget_area.height),
+            gap_height,
         )
     }
 }
