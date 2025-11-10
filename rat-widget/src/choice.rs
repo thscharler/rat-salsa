@@ -30,11 +30,13 @@
 //!
 //! ```
 //!
+
 use crate::_private::NonExhaustive;
 use crate::choice::core::ChoiceCore;
 use crate::event::ChoiceOutcome;
 use crate::text::HasScreenCursor;
 use crate::util::{block_padding, block_size, revert_style};
+use log::debug;
 use rat_event::util::{MouseFlags, item_at, mouse_trap};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -53,6 +55,7 @@ use std::cell::{Cell, RefCell};
 use std::cmp::{max, min};
 use std::marker::PhantomData;
 use std::rc::Rc;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Enum controling the behaviour of the Choice.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -106,6 +109,7 @@ where
     style: Style,
     button_style: Option<Style>,
     select_style: Option<Style>,
+    select_marker: Option<char>,
     focus_style: Option<Style>,
     block: Option<Block<'a>>,
     skip_item_render: bool,
@@ -156,6 +160,7 @@ where
 
     style: Style,
     select_style: Option<Style>,
+    select_marker: Option<char>,
 
     popup_alignment: Alignment,
     popup_placement: Placement,
@@ -174,6 +179,7 @@ pub struct ChoiceStyle {
     pub style: Style,
     pub button: Option<Style>,
     pub select: Option<Style>,
+    pub select_marker: Option<char>,
     pub focus: Option<Style>,
     pub block: Option<Block<'static>>,
 
@@ -429,6 +435,7 @@ impl Default for ChoiceStyle {
             style: Default::default(),
             button: Default::default(),
             select: Default::default(),
+            select_marker: Default::default(),
             focus: Default::default(),
             block: Default::default(),
             popup: Default::default(),
@@ -457,6 +464,7 @@ where
             style: Default::default(),
             button_style: Default::default(),
             select_style: Default::default(),
+            select_marker: Default::default(),
             focus_style: Default::default(),
             block: Default::default(),
             popup_len: Default::default(),
@@ -554,6 +562,9 @@ where
         if styles.select.is_some() {
             self.select_style = styles.select;
         }
+        if let Some(marker) = styles.select_marker {
+            self.select_marker = Some(marker);
+        }
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
@@ -612,6 +623,12 @@ where
     /// Selection in the list.
     pub fn select_style(mut self, style: Style) -> Self {
         self.select_style = Some(style);
+        self
+    }
+
+    /// Selection in the list.
+    pub fn select_marker(mut self, marker: char) -> Self {
+        self.select_marker = Some(marker);
         self
     }
 
@@ -770,6 +787,7 @@ where
                 items: self.items.clone(),
                 style: self.style,
                 select_style: self.select_style,
+                select_marker: self.select_marker,
                 popup: self.popup,
                 popup_style: self.popup_style,
                 popup_scroll: self.popup_scroll,
@@ -1033,6 +1051,22 @@ fn render_popup<T: PartialEq + Clone + Default>(
         state.item_areas.clear();
         let mut row = inner.y;
         let mut idx = state.popup_scroll.offset;
+
+        let hidden_marker;
+        let (marker_len, marker, no_marker) = {
+            if let Some(marker) = widget.select_marker {
+                hidden_marker = marker.to_string();
+                if unicode_display_width::is_double_width(marker) {
+                    debug!("double {:?}", marker);
+                    (2, Some(hidden_marker.as_str()), Some("  "))
+                } else {
+                    debug!("single {:?}", marker);
+                    (1, Some(hidden_marker.as_str()), Some(" "))
+                }
+            } else {
+                (0, None, None)
+            }
+        };
         loop {
             if row >= inner.bottom() {
                 break;
@@ -1041,17 +1075,33 @@ fn render_popup<T: PartialEq + Clone + Default>(
             let item_area = Rect::new(inner.x, row, inner.width, 1);
             state.item_areas.push(item_area);
 
-            if let Some(item) = widget.items.borrow().get(idx) {
-                let style = if state.core.selected() == Some(idx) {
-                    popup_style.patch(select_style)
-                } else {
-                    popup_style
-                };
-
-                buf.set_style(item_area, style);
-                item.render(item_area, buf);
+            let (style, marker) = if state.core.selected() == Some(idx) {
+                (popup_style.patch(select_style), marker)
             } else {
-                // noop?
+                (popup_style, no_marker)
+            };
+            buf.set_style(item_area, style);
+
+            if let Some(item) = widget.items.borrow().get(idx) {
+                if let Some(marker) = &marker {
+                    marker.render(
+                        Rect::new(item_area.x, item_area.y, marker_len, item_area.height),
+                        buf,
+                    );
+                    item.render(
+                        Rect::new(
+                            item_area.x + marker_len,
+                            item_area.y,
+                            item_area.width.saturating_sub(marker_len),
+                            item_area.height,
+                        ),
+                        buf,
+                    );
+                } else {
+                    item.render(item_area, buf);
+                }
+            } else {
+                // noop
             }
 
             row += 1;
