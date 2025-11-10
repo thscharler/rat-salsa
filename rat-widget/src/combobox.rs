@@ -11,7 +11,7 @@ use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular, ct_event}
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_popup::Placement;
 use rat_popup::event::PopupOutcome;
-use rat_reloc::{RelocatableState, relocate_area};
+use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollAreaState};
 use rat_text::TextStyle;

@@ -17,7 +17,7 @@ use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-use rat_reloc::{RelocatableState, relocate_area, relocate_dark_offset, relocate_pos_tuple};
+use rat_reloc::{RelocatableState, relocate_dark_offset, relocate_pos_tuple};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;

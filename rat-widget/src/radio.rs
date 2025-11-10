@@ -44,7 +44,7 @@ use crate::util::{block_size, fill_buf_area, revert_style, union_non_empty};
 use rat_event::util::{MouseFlags, item_at};
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
+use rat_reloc::{RelocatableState, relocate_areas};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Direction, Rect, Size};
 use ratatui::prelude::BlockExt;

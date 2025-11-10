@@ -9,7 +9,7 @@ use crate::text::HasScreenCursor;
 use crate::util::{fallback_select_style, revert_style};
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
+use rat_reloc::{RelocatableState, relocate_areas};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

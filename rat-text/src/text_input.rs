@@ -29,7 +29,7 @@ use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{RelocatableState, relocate_area, relocate_dark_offset};
+use rat_reloc::{RelocatableState, relocate_dark_offset};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::BlockExt;

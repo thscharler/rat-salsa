@@ -40,7 +40,7 @@ use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle, fallback_popup_style};
-use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
+use rat_reloc::{RelocatableState, relocate_areas};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;

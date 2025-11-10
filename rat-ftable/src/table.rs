@@ -11,7 +11,7 @@ use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
+use rat_reloc::{RelocatableState, relocate_areas};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
