@@ -1424,7 +1424,6 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for ColorInputSt
 
         match self.widget.handle(event, Regular) {
             TextOutcome::TextChanged => {
-                debug!("text changed");
                 self.normalize();
                 self.value = self.parse_value();
                 TextOutcome::TextChanged
