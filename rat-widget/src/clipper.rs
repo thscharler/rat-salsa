@@ -598,6 +598,60 @@ where
         true
     }
 
+    /// Render a stateful widget and its label.
+    #[inline(always)]
+    pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
+    where
+        FN: FnOnce() -> (WW, R),
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        let Some(idx) = self.layout.borrow().try_index_of(widget) else {
+            return None;
+        };
+        if self.auto_label {
+            self.render_auto_label(idx);
+        }
+        let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
+            state.relocate_hidden();
+            return None;
+        };
+        let (widget, remainder) = render_fn();
+        widget.render(widget_area, &mut self.buffer, state);
+        state.relocate(self.shift(), self.widget_area);
+
+        Some(remainder)
+    }
+
+    /// Render a stateful widget and its label.
+    #[inline(always)]
+    pub fn render_opt<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
+    where
+        FN: FnOnce() -> Option<WW>,
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        let Some(idx) = self.layout.borrow().try_index_of(widget) else {
+            return false;
+        };
+        if self.auto_label {
+            self.render_auto_label(idx);
+        }
+        let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
+            state.relocate_hidden();
+            return false;
+        };
+        let widget = render_fn();
+        if let Some(widget) = widget {
+            widget.render(widget_area, &mut self.buffer, state);
+            state.relocate(self.shift(), self.widget_area);
+            true
+        } else {
+            state.relocate_hidden();
+            false
+        }
+    }
+
     /// Get the buffer coordinates for the given widget.
     #[inline]
     pub fn locate_widget(&self, widget: W) -> Option<Rect> {
