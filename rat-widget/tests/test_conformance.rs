@@ -1,7 +1,12 @@
 use crossterm::event::Event;
-use rat_event::Dialog;
+use rat_event::{Dialog, Popup};
 use rat_ftable::event::TableOutcome;
 use rat_ftable::{Table, TableState, TableStyle};
+use rat_menu::MenuStyle;
+use rat_menu::event::MenuOutcome;
+use rat_menu::menubar::{Menubar, MenubarState};
+use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_menu::popup_menu::{PopupMenu, PopupMenuState};
 use rat_text::TextStyle;
 use rat_text::color_input::{ColorInput, ColorInputState, ColorInputStyle};
 use rat_text::date_input::{DateInput, DateInputState};
@@ -77,13 +82,17 @@ macro_rules! conform_widget {
         <$widget>::default().render(Rect::new(5, 5, 15, 15), &mut buf, &mut state);
         assert_eq!(state.area, Rect::new(5, 5, 15, 15));
     }};
-    (POPUP: $widget:ty, $state:ty, $style:ty) => {{
+    (DUAL_POPUP: $widget:ty, $state:ty, $style:ty) => {{
         let v = <$widget>::default();
         let (w1, w2) = v.into_widgets();
 
         fn widget(_: &impl StatefulWidget<State = $state>) {}
         widget(&w1);
         widget(&w2);
+    }};
+    (POPUP: $widget:ty, $state:ty, $style:ty) => {{
+        let _ = <$widget>::width;
+        let _ = <$widget>::height;
     }};
     (VALUE: $widget:ty, $state:ty, $style:ty) => {{
         let _ = <$widget>::width;
@@ -133,8 +142,17 @@ macro_rules! conform_state {
         _ = v.area;
         _ = v.non_exhaustive;
     }};
+    (DUAL_POPUP: $state:ty, $event:ident, $outcome:ty) => {{
+        let v = <$state>::default();
+
+        let _ = v.inner;
+    }};
     (POPUP: $state:ty, $event:ident, $outcome:ty) => {{
         let v = <$state>::default();
+
+        let _ = <$state>::is_active;
+        let _ = <$state>::set_active;
+        let _ = <$state>::flip_active;
 
         let _ = v.inner;
     }};
@@ -249,11 +267,11 @@ fn conform() {
     // choice
     conform_style!(ChoiceStyle);
     conform_state!(CORE : ChoiceState, Popup, ChoiceOutcome);
-    conform_state!(POPUP : ChoiceState, Popup, ChoiceOutcome);
+    conform_state!(DUAL_POPUP : ChoiceState, Popup, ChoiceOutcome);
     conform_state!(VALUE : ChoiceState, Popup, ChoiceOutcome);
     conform_event_fn!(rat_widget::choice : ChoiceState, ChoiceOutcome);
     conform_widget!(CORE : Choice, ChoiceState, ChoiceStyle);
-    conform_widget!(POPUP : Choice, ChoiceState, ChoiceStyle);
+    conform_widget!(DUAL_POPUP : Choice, ChoiceState, ChoiceStyle);
     conform_widget!(VALUE : Choice, ChoiceState, ChoiceStyle);
 
     // clipper
@@ -279,11 +297,11 @@ fn conform() {
     // choice
     conform_style!(ComboboxStyle);
     conform_state!(CORE : ComboboxState, Popup, ComboboxOutcome);
-    conform_state!(POPUP : ComboboxState, Popup, ComboboxOutcome);
+    conform_state!(DUAL_POPUP : ComboboxState, Popup, ComboboxOutcome);
     conform_state!(VALUE : ComboboxState, Popup, ComboboxOutcome);
     conform_event_fn!(rat_widget::combobox : ComboboxState, ComboboxOutcome);
     conform_widget!(CORE : Combobox, ComboboxState, ComboboxStyle);
-    conform_widget!(POPUP : Combobox, ComboboxState, ComboboxStyle);
+    conform_widget!(DUAL_POPUP : Combobox, ComboboxState, ComboboxStyle);
     conform_widget!(VALUE : Combobox, ComboboxState, ComboboxStyle);
 
     // date-input
@@ -346,6 +364,25 @@ fn conform() {
     conform_widget!(BASE : List, ListState, ListStyle);
 
     // todo: all of menu
+    // button
+    conform_style!(MenuStyle);
+    conform_state!(CORE: MenubarState, Popup, MenuOutcome);
+    conform_state!(BASE: MenubarState, Popup, MenuOutcome);
+    conform_event_fn!(rat_widget::menu::menubar : MenubarState, MenuOutcome);
+    conform_widget!(CORE: Menubar, MenubarState, MenuStyle);
+    conform_widget!(DUAL_POPUP: Menubar, MenubarState, MenuStyle);
+
+    conform_state!(CORE: MenuLineState, Regular, MenuOutcome);
+    conform_state!(BASE: MenuLineState, Regular, MenuOutcome);
+    conform_event_fn!(rat_widget::menu::menuline : MenuLineState, MenuOutcome);
+    conform_widget!(CORE: MenuLine, MenuLineState, MenuStyle);
+    conform_widget!(BASE: MenuLine, MenuLineState, MenuStyle);
+
+    conform_state!(CORE: PopupMenuState, Popup, MenuOutcome);
+    conform_state!(BASE: PopupMenuState, Popup, MenuOutcome);
+    conform_event_fn!(rat_widget::menu::popup_menu : PopupMenuState, MenuOutcome);
+    conform_widget!(CORE: PopupMenu, PopupMenuState, MenuStyle);
+    conform_widget!(POPUP: PopupMenu, PopupMenuState, MenuStyle);
 
     // msgdialog
     // TODO: use DialogFrame
