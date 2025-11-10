@@ -139,7 +139,12 @@ impl<const N: usize, Selection> HasScreenCursor for CalendarState<N, Selection> 
 }
 
 impl<const N: usize, Selection> RelocatableState for CalendarState<N, Selection> {
+    #[allow(deprecated)]
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
+        self.widget_area.relocate(shift, clip);
+
         for w in &mut self.months {
             w.relocate(shift, clip);
         }

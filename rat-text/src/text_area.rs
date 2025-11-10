@@ -1806,9 +1806,11 @@ impl HasScreenCursor for TextAreaState {
 impl RelocatableState for TextAreaState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         // clip offset for some corrections.
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
+        self.hscroll.relocate(shift, clip);
+        self.vscroll.relocate(shift, clip);
         self.dark_offset = relocate_dark_offset(self.inner, shift, clip);
-        self.area = relocate_area(self.area, shift, clip);
-        self.inner = relocate_area(self.inner, shift, clip);
         if let Some(screen_cursor) = self.screen_cursor {
             self.screen_cursor = relocate_pos_tuple(screen_cursor, shift, clip);
         }

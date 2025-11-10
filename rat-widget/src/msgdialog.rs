@@ -45,10 +45,12 @@ use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::event::ButtonOutcome;
 use crate::layout::{DialogItem, layout_dialog};
 use crate::paragraph::{Paragraph, ParagraphState};
+use crate::text::HasScreenCursor;
 use crate::util::{block_padding2, reset_buf_area};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rat_event::{ConsumedEvent, Dialog, HandleEvent, Outcome, Regular, ct_event};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
+use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Rect};
@@ -182,6 +184,21 @@ impl HasFocus for MsgDialogState {
 
     fn area(&self) -> Rect {
         unimplemented!("not available")
+    }
+}
+
+impl RelocatableState for MsgDialogState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
+        self.button.borrow_mut().relocate(shift, clip);
+        self.paragraph.borrow_mut().relocate(shift, clip);
+    }
+}
+
+impl HasScreenCursor for MsgDialogState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
     }
 }
 

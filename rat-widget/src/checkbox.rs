@@ -419,8 +419,9 @@ impl HasScreenCursor for CheckboxState {
 
 impl RelocatableState for CheckboxState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-        self.area = relocate_area(self.area, shift, clip);
-        self.inner = relocate_area(self.inner, shift, clip);
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
+        self.check_area.relocate(shift, clip);
     }
 }
 

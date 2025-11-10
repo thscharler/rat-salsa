@@ -436,8 +436,8 @@ impl<Selection: Clone> Clone for ListState<Selection> {
 
 impl<Selection> RelocatableState for ListState<Selection> {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-        self.area = relocate_area(self.area, shift, clip);
-        self.inner = relocate_area(self.inner, shift, clip);
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
         relocate_areas(self.row_areas.as_mut_slice(), shift, clip);
         self.scroll.relocate(shift, clip);
     }

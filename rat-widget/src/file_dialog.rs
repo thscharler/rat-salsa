@@ -1132,6 +1132,7 @@ impl HasFocus for FileDialogState {
 
 impl RelocatableState for FileDialogState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
         self.path_state.relocate(shift, clip);
         self.root_state.relocate(shift, clip);
         self.dir_state.relocate(shift, clip);

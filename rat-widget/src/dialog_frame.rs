@@ -323,6 +323,8 @@ impl RelocatableState for DialogFrameState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area.relocate(shift, clip);
         self.widget_area.relocate(shift, clip);
+        self.ok.relocate(shift, clip);
+        self.cancel.relocate(shift, clip);
     }
 }
 

@@ -874,8 +874,10 @@ where
     T: PartialEq + Clone + Default,
 {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-        self.area = relocate_area(self.area, shift, clip);
-        self.inner = relocate_area(self.inner, shift, clip);
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
+        self.marker_area.relocate(shift, clip);
+        self.continue_area.relocate(shift, clip);
         relocate_areas(self.check_areas.as_mut_slice(), shift, clip);
         relocate_areas(self.text_areas.as_mut_slice(), shift, clip);
     }

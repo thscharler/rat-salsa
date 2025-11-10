@@ -415,6 +415,7 @@ impl RelocatableState for TabbedState {
         self.widget_area = relocate_area(self.widget_area, shift, clip);
         self.tab_title_area = relocate_area(self.tab_title_area, shift, clip);
         relocate_areas(self.tab_title_areas.as_mut(), shift, clip);
+        relocate_areas(self.tab_title_close_areas.as_mut(), shift, clip);
     }
 }
 

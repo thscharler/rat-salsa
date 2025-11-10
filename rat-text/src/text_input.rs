@@ -1345,10 +1345,10 @@ impl HasScreenCursor for TextInputState {
 
 impl RelocatableState for TextInputState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
         // clip offset for some corrections.
         self.dark_offset = relocate_dark_offset(self.inner, shift, clip);
-        self.area = relocate_area(self.area, shift, clip);
-        self.inner = relocate_area(self.inner, shift, clip);
     }
 }
 

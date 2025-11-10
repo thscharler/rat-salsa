@@ -701,6 +701,8 @@ impl HasScreenCursor for DateInputState {
 
 impl RelocatableState for DateInputState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
         self.widget.relocate(shift, clip);
     }
 }
