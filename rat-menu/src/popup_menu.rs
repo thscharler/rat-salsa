@@ -37,11 +37,14 @@ use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
 use crate::util::{get_block_padding, get_block_size, revert_style};
 use crate::{MenuBuilder, MenuItem, MenuStyle, Separator};
+use rat_cursor::HasScreenCursor;
 use rat_event::util::{MouseFlags, mouse_trap};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, ct_event};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 pub use rat_popup::PopupConstraint;
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupCore, PopupCoreState};
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::BlockExt;
@@ -70,6 +73,7 @@ pub struct PopupMenu<'a> {
 /// State & event handling.
 #[derive(Debug, Clone)]
 pub struct PopupMenuState {
+    pub area: Rect,
     /// Popup data.
     pub popup: PopupCoreState,
     /// Areas for each item.
@@ -98,6 +102,7 @@ pub struct PopupMenuState {
 impl Default for PopupMenuState {
     fn default() -> Self {
         Self {
+            area: Default::default(),
             popup: Default::default(),
             item_areas: Default::default(),
             sep_areas: Default::default(),
@@ -214,14 +219,14 @@ impl<'a> PopupMenu<'a> {
 
     /// Fixed width for the menu.
     /// If not set it uses 1.5 times the length of the longest item.
-    pub fn width(mut self, width: u16) -> Self {
+    pub fn menu_width(mut self, width: u16) -> Self {
         self.width = Some(width);
         self
     }
 
     /// Fixed width for the menu.
     /// If not set it uses 1.5 times the length of the longest item.
-    pub fn width_opt(mut self, width: Option<u16>) -> Self {
+    pub fn menu_width_opt(mut self, width: Option<u16>) -> Self {
         self.width = width;
         self
     }
@@ -372,6 +377,14 @@ impl<'a> PopupMenu<'a> {
     pub fn get_block_padding(&self) -> Padding {
         get_block_padding(&self.block)
     }
+
+    pub fn width(&self) -> u16 {
+        self.size().width
+    }
+
+    pub fn height(&self) -> u16 {
+        self.size().height
+    }
 }
 
 impl<'a> StatefulWidget for &PopupMenu<'a> {
@@ -414,6 +427,8 @@ fn render_popup_menu(
     let area = Rect::new(0, 0, size.width, size.height);
 
     (&widget.popup).render(area, buf, &mut state.popup);
+    state.area = state.popup.area;
+
     if widget.block.is_some() {
         widget.block.render(state.popup.area, buf);
     } else {
@@ -496,10 +511,45 @@ fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuS
     }
 }
 
+impl HasFocus for PopupMenuState {
+    fn build(&self, _builder: &mut FocusBuilder) {
+        // none
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not available")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not available")
+    }
+}
+
+impl HasScreenCursor for PopupMenuState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
+impl RelocatableState for PopupMenuState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.popup.relocate(shift, clip);
+        self.item_areas.relocate(shift, clip);
+        self.sep_areas.relocate(shift, clip);
+    }
+}
+
 impl PopupMenuState {
     /// New
     #[inline]
     pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// New
+    #[inline]
+    pub fn named(_name: &str) -> Self {
         Default::default()
     }
 
@@ -533,6 +583,7 @@ impl PopupMenuState {
 
     /// Clear the areas.
     pub fn clear_areas(&mut self) {
+        self.area = Rect::default();
         self.popup.clear_areas();
         self.sep_areas.clear();
         self.navchar.clear();
@@ -814,6 +865,15 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
             MenuOutcome::Continue
         }
     }
+}
+
+/// Same as handle_popup_events.
+pub fn handle_events(
+    state: &mut PopupMenuState,
+    _focus: bool,
+    event: &crossterm::event::Event,
+) -> MenuOutcome {
+    state.handle(event, Popup)
 }
 
 /// Handle all events.

@@ -17,13 +17,16 @@
 //! [Example](https://github.com/thscharler/rat-salsa/blob/master/rat-widget/examples/menubar1.rs)
 //!
 #![allow(clippy::uninlined_format_args)]
+use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
 use crate::menuline::{MenuLine, MenuLineState};
 use crate::popup_menu::{PopupMenu, PopupMenuState};
 use crate::{MenuStructure, MenuStyle};
+use rat_cursor::HasScreenCursor;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::Placement;
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
@@ -87,7 +90,7 @@ pub struct MenubarPopup<'a> {
 }
 
 /// State & event-handling.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct MenubarState {
     /// Area for the menubar.
     /// __readonly__. renewed for each render.
@@ -96,6 +99,8 @@ pub struct MenubarState {
     pub bar: MenuLineState,
     /// State for the last rendered popup menu.
     pub popup: PopupMenuState,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl Default for Menubar<'_> {
@@ -195,7 +200,7 @@ impl<'a> Menubar<'a> {
     /// Fixed width for the menu.
     /// If not set it uses 1.5 times the length of the longest item.
     pub fn popup_width(mut self, width: u16) -> Self {
-        self.popup = self.popup.width(width);
+        self.popup = self.popup.menu_width(width);
         self
     }
 
@@ -384,6 +389,17 @@ impl MenubarState {
     }
 }
 
+impl Default for MenubarState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            bar: Default::default(),
+            popup: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 impl HasFocus for MenubarState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget_with_flags(self.focus(), self.area(), self.area_z(), self.navigable());
@@ -401,6 +417,20 @@ impl HasFocus for MenubarState {
 
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl HasScreenCursor for MenubarState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
+impl RelocatableState for MenubarState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.bar.relocate(shift, clip);
+        self.popup.relocate(shift, clip);
     }
 }
 
@@ -482,6 +512,21 @@ where
 /// to cope with overlapping regions.
 ///
 /// focus - is the menubar focused?
+pub fn handle_events(
+    state: &mut MenubarState,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> MenuOutcome {
+    state.bar.focus.set(focus);
+    state.handle(event, Popup)
+}
+
+/// Handle menu events for the popup-menu.
+///
+/// This one is separate, as it needs to be called before other event-handlers
+/// to cope with overlapping regions.
+///
+/// focus - is the menubar focused?
 pub fn handle_popup_events(
     state: &mut MenubarState,
     focus: bool,
@@ -493,7 +538,7 @@ pub fn handle_popup_events(
 
 /// Handle only mouse-events.
 pub fn handle_mouse_events(
-    state: &mut MenuLineState,
+    state: &mut MenubarState,
     event: &crossterm::event::Event,
 ) -> MenuOutcome {
     state.handle(event, MouseOnly)

@@ -29,14 +29,17 @@ use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
 use crate::util::revert_style;
 use crate::{MenuBuilder, MenuItem, MenuStyle};
+use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::fmt::Debug;
 
 /// Main menu widget.
@@ -45,6 +48,7 @@ pub struct MenuLine<'a> {
     pub(crate) menu: MenuBuilder<'a>,
     title: Line<'a>,
     style: Style,
+    block: Option<Block<'a>>,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
     right_style: Option<Style>,
@@ -58,6 +62,9 @@ pub struct MenuLineState {
     /// Area for the whole widget.
     /// __readonly__. renewed for each render.
     pub area: Rect,
+    /// Area inside the block.
+    /// __read only__. renewed for each render.
+    pub inner: Rect,
     /// Areas for each item.
     /// __readonly__. renewed for each render.
     pub item_areas: Vec<Rect>,
@@ -126,6 +133,11 @@ impl<'a> MenuLine<'a> {
     #[inline]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
+        self.block = self.block.map(|v| v.style(self.style));
+        // block for a popup. don't mix up.
+        // if let Some(block) = styles.block {
+        //     self.block = Some(block);
+        // }
         if styles.highlight.is_some() {
             self.highlight_style = styles.highlight;
         }
@@ -151,6 +163,13 @@ impl<'a> MenuLine<'a> {
     #[inline]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.style(self.style));
+        self
+    }
+
+    /// Block
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block);
         self
     }
 
@@ -243,6 +262,7 @@ impl StatefulWidget for MenuLine<'_> {
 
 fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut MenuLineState) {
     state.area = area;
+    state.inner = widget.block.inner_if_some(area);
     state.item_areas.clear();
 
     if widget.menu.items.is_empty() {
@@ -288,9 +308,13 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         style.underlined()
     };
 
-    buf.set_style(area, style);
+    if let Some(block) = &widget.block {
+        block.render(area, buf);
+    } else {
+        buf.set_style(area, style);
+    }
 
-    let mut item_area = Rect::new(area.x, area.y, 0, 1);
+    let mut item_area = Rect::new(state.inner.x, state.inner.y, 0, 1);
 
     if widget.title.width() > 0 {
         item_area.width = widget.title.width() as u16;
@@ -304,8 +328,8 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     for (n, item) in widget.menu.items.iter().enumerate() {
         item_area.width =
             item.item_width() + item.right_width() + if item.right.is_empty() { 0 } else { 2 };
-        if item_area.right() >= area.right() {
-            item_area = item_area.clamp(area);
+        if item_area.right() >= state.inner.right() {
+            item_area = item_area.clamp(state.inner);
         }
         state.item_areas.push(item_area);
 
@@ -364,6 +388,20 @@ impl HasFocus for MenuLineState {
     /// Focus area.
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl HasScreenCursor for MenuLineState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        None
+    }
+}
+
+impl RelocatableState for MenuLineState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.inner.relocate(shift, clip);
+        self.item_areas.relocate(shift, clip);
     }
 }
 
@@ -553,6 +591,7 @@ impl Clone for MenuLineState {
     fn clone(&self) -> Self {
         Self {
             area: self.area,
+            inner: self.inner,
             item_areas: self.item_areas.clone(),
             navchar: self.navchar.clone(),
             disabled: self.disabled.clone(),
@@ -568,10 +607,11 @@ impl Default for MenuLineState {
     fn default() -> Self {
         Self {
             area: Default::default(),
-            item_areas: vec![],
-            navchar: vec![],
-            disabled: vec![],
-            selected: None,
+            inner: Default::default(),
+            item_areas: Default::default(),
+            navchar: Default::default(),
+            disabled: Default::default(),
+            selected: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
