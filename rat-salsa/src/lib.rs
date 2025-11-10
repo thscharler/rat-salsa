@@ -549,7 +549,7 @@ where
     ///
     /// Panics if no focus has been set.
     #[inline]
-    fn handle_focus<E>(&mut self, event: &E)
+    fn handle_focus<E>(&mut self, event: &E) -> Outcome
     where
         Focus: HandleEvent<E, Regular, Outcome>,
     {
@@ -559,6 +559,7 @@ where
         if r.is_consumed() {
             self.queue(r);
         }
+        r
     }
 
     /// Access the terminal.
