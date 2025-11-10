@@ -2121,6 +2121,13 @@ impl MaskedInputState {
 impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
         // small helper ...
+        fn tc(r: bool) -> TextOutcome {
+            if r {
+                TextOutcome::TextChanged
+            } else {
+                TextOutcome::Unchanged
+            }
+        }
         fn overwrite(state: &mut MaskedInputState) {
             if state.overwrite.get() {
                 state.overwrite.set(false);
@@ -2137,44 +2144,44 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
                 | ct_event!(key press SHIFT-c)
                 | ct_event!(key press CONTROL_ALT-c) => {
                     overwrite(self);
-                    self.insert_char(*c).into()
+                    tc(self.insert_char(*c))
                 }
                 ct_event!(keycode press Backspace) => {
                     clear_overwrite(self);
-                    self.delete_prev_char().into()
+                    tc(self.delete_prev_char())
                 }
                 ct_event!(keycode press Delete) => {
                     clear_overwrite(self);
-                    self.delete_next_char().into()
+                    tc(self.delete_next_char())
                 }
                 ct_event!(keycode press CONTROL-Backspace)
                 | ct_event!(keycode press ALT-Backspace) => {
                     clear_overwrite(self);
-                    self.delete_prev_section().into()
+                    tc(self.delete_prev_section())
                 }
                 ct_event!(keycode press CONTROL-Delete) => {
                     clear_overwrite(self);
-                    self.delete_next_section().into()
+                    tc(self.delete_next_section())
                 }
                 ct_event!(key press CONTROL-'x') => {
                     clear_overwrite(self);
-                    self.cut_to_clip().into()
+                    tc(self.cut_to_clip())
                 }
                 ct_event!(key press CONTROL-'v') => {
                     clear_overwrite(self);
-                    self.paste_from_clip().into()
+                    tc(self.paste_from_clip())
                 }
                 ct_event!(key press CONTROL-'d') => {
                     clear_overwrite(self);
-                    self.clear().into()
+                    tc(self.clear())
                 }
                 ct_event!(key press CONTROL-'z') => {
                     clear_overwrite(self);
-                    self.undo().into()
+                    tc(self.undo())
                 }
                 ct_event!(key press CONTROL_SHIFT-'Z') => {
                     clear_overwrite(self);
-                    self.redo().into()
+                    tc(self.redo())
                 }
                 ct_event!(keycode press Tab) => {
                     if self.on_tab == TextTab::MoveToNextSection {

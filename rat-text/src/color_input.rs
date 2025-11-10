@@ -663,6 +663,13 @@ impl ColorInputState {
         )
     }
 
+    /// Get the value as u32
+    pub fn value_u32(&self) -> u32 {
+        (((self.value.0 * 255f32) as u32) << 16)
+            + (((self.value.1 * 255f32) as u32) << 8)
+            + ((self.value.2 * 255f32) as u32)
+    }
+
     fn parse_value(&self) -> (f32, f32, f32) {
         let r = match self.mode {
             Mode::RGB => {
@@ -1386,10 +1393,14 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for ColorInputSt
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
         if self.is_focused() {
             flow!(match event {
-                ct_event!(key press '+') => self.change_section(1).into(),
-                ct_event!(key press '-') => self.change_section(-1).into(),
-                ct_event!(key press ALT-'+') => self.change_section(15).into(),
-                ct_event!(key press ALT-'-') => self.change_section(-15).into(),
+                ct_event!(key press '+') | ct_event!(keycode press Up) =>
+                    self.change_section(1).into(),
+                ct_event!(key press '-') | ct_event!(keycode press Down) =>
+                    self.change_section(-1).into(),
+                ct_event!(key press ALT-'+') | ct_event!(keycode press ALT-Up) =>
+                    self.change_section(7).into(),
+                ct_event!(key press ALT-'-') | ct_event!(keycode press ALT-Down) =>
+                    self.change_section(-7).into(),
                 ct_event!(key press CONTROL-'v') => self.paste_from_clip().into(),
                 ct_event!(key press CONTROL-'c') => self.copy_to_clip().into(),
                 ct_event!(key press CONTROL-'x') => self.cut_to_clip().into(),
@@ -1400,9 +1411,9 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for ColorInputSt
                     ct_event!(key press 'r') => self.set_mode(Mode::RGB).into(),
                     ct_event!(key press 'h') => self.set_mode(Mode::HSV).into(),
                     ct_event!(key press 'x') => self.set_mode(Mode::HEX).into(),
-                    ct_event!(key press 'm') | ct_event!(keycode press Up) =>
+                    ct_event!(key press 'm') | ct_event!(keycode press PageUp) =>
                         self.next_mode().into(),
-                    ct_event!(key press SHIFT-'M') | ct_event!(keycode press Down) =>
+                    ct_event!(key press SHIFT-'M') | ct_event!(keycode press PageDown) =>
                         self.prev_mode().into(),
                     _ => TextOutcome::Continue,
                 });
@@ -1413,6 +1424,7 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for ColorInputSt
 
         match self.widget.handle(event, Regular) {
             TextOutcome::TextChanged => {
+                debug!("text changed");
                 self.normalize();
                 self.value = self.parse_value();
                 TextOutcome::TextChanged
@@ -1437,35 +1449,35 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for ColorInput
 
 fn handle_mouse(state: &mut ColorInputState, event: &crossterm::event::Event) -> TextOutcome {
     match event {
-        ct_event!(scroll down for x,y) if state.widget.area.contains((*x, *y).into()) => {
-            let rx = state
-                .widget
-                .screen_to_col((*x - state.widget.area.x) as i16);
-            state.change_section_pos(rx, -15).into()
-        }
-        ct_event!(scroll up for x,y) if state.widget.area.contains((*x, *y).into()) => {
-            let rx = state
-                .widget
-                .screen_to_col((*x - state.widget.area.x) as i16);
-            state.change_section_pos(rx, 15).into()
-        }
         ct_event!(scroll ALT down for x,y) if state.mode_area.contains((*x, *y).into()) => {
             state.next_mode().into()
         }
         ct_event!(scroll ALT up for x,y) if state.mode_area.contains((*x, *y).into()) => {
             state.prev_mode().into()
         }
-        ct_event!(scroll ALT down for x,y) if state.widget.area.contains((*x, *y).into()) => {
+        ct_event!(scroll down for x,y) if state.widget.area.contains((*x, *y).into()) => {
             let rx = state
                 .widget
                 .screen_to_col((*x - state.widget.area.x) as i16);
             state.change_section_pos(rx, -1).into()
         }
-        ct_event!(scroll ALT up for x,y) if state.widget.area.contains((*x, *y).into()) => {
+        ct_event!(scroll up for x,y) if state.widget.area.contains((*x, *y).into()) => {
             let rx = state
                 .widget
                 .screen_to_col((*x - state.widget.area.x) as i16);
             state.change_section_pos(rx, 1).into()
+        }
+        ct_event!(scroll ALT down for x,y) if state.widget.area.contains((*x, *y).into()) => {
+            let rx = state
+                .widget
+                .screen_to_col((*x - state.widget.area.x) as i16);
+            state.change_section_pos(rx, -7).into()
+        }
+        ct_event!(scroll ALT up for x,y) if state.widget.area.contains((*x, *y).into()) => {
+            let rx = state
+                .widget
+                .screen_to_col((*x - state.widget.area.x) as i16);
+            state.change_section_pos(rx, 7).into()
         }
         _ => TextOutcome::Continue,
     }
