@@ -1,22 +1,25 @@
 use anyhow::Error;
 use log::error;
-use rat_event::{break_flow, try_flow, Popup};
+use rat_event::{break_flow, try_flow, MouseOnly, Outcome, Popup};
 use rat_focus::{impl_has_focus, FocusFlag, HasFocus};
 use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
+use rat_theme4::{create_theme, Palette, SalsaTheme, WidgetStyle};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::clipper::{Clipper, ClipperState};
-use rat_widget::color_input::{ColorInput, ColorInputState};
+use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
 use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
-use rat_widget::event::{ct_event, Dialog, HandleEvent, MenuOutcome, Regular};
+use rat_widget::event::{
+    ct_event, Dialog, HandleEvent, MenuOutcome, Regular, ScrollOutcome, TextOutcome,
+};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::LayoutForm;
 use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::paired::{Paired, PairedState};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
+use rat_widget::reloc::RelocatableState;
 use rat_widget::scrolled::Scroll;
 use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::text::HasScreenCursor;
@@ -125,6 +128,8 @@ impl From<crossterm::event::Event> for PalEvent {
 pub struct PaletteEdit {
     pub form: ClipperState,
 
+    pub palette: Palette,
+
     pub name: TextInputState,
 
     pub primary: ChoiceState,
@@ -173,6 +178,7 @@ impl Default for PaletteEdit {
     fn default() -> Self {
         let mut z = Self {
             form: ClipperState::named("form"),
+            palette: Default::default(),
             name: TextInputState::named("name"),
             text_light: ColorInputState::named("text_light"),
             text_bright: ColorInputState::named("text_bright"),
@@ -257,10 +263,14 @@ impl HasFocus for PaletteEdit {
         builder.widget(&self.name);
         builder.widget(&self.primary);
         builder.widget(&self.secondary);
-        for v in all_colors(self) {
-            builder.widget(v);
+        builder.widget(&self.text_light);
+        builder.widget(&self.text_bright);
+        builder.widget(&self.text_dark);
+        builder.widget(&self.text_black);
+        for (_, v0, v3) in paired_colors(self) {
+            builder.widget(v0);
+            builder.widget(v3);
         }
-
         builder.widget(&self.menu);
     }
 
@@ -293,105 +303,25 @@ fn paired_colors(state: &PaletteEdit) -> [(&str, &ColorInputState, &ColorInputSt
     ]
 }
 
-fn paired_all_colors_mut(
+fn paired_colors_mut(
     state: &mut PaletteEdit,
-) -> [(&mut ColorInputState, &mut ColorInputState); 17] {
+) -> [(&str, &mut ColorInputState, &mut ColorInputState); 15] {
     [
-        (&mut state.text_light, &mut state.text_bright),
-        (&mut state.text_dark, &mut state.text_black),
-        (&mut state.white0, &mut state.white3),
-        (&mut state.black0, &mut state.black3),
-        (&mut state.gray0, &mut state.gray3),
-        (&mut state.red0, &mut state.red3),
-        (&mut state.orange0, &mut state.orange3),
-        (&mut state.yellow0, &mut state.yellow3),
-        (&mut state.limegreen0, &mut state.limegreen3),
-        (&mut state.green0, &mut state.green3),
-        (&mut state.bluegreen0, &mut state.bluegreen3),
-        (&mut state.cyan0, &mut state.cyan3),
-        (&mut state.blue0, &mut state.blue3),
-        (&mut state.deepblue0, &mut state.deepblue3),
-        (&mut state.purple0, &mut state.purple3),
-        (&mut state.magenta0, &mut state.magenta3),
-        (&mut state.redpink0, &mut state.redpink3),
-    ]
-}
-
-fn all_colors(state: &PaletteEdit) -> [&ColorInputState; 34] {
-    [
-        &state.text_light,
-        &state.text_bright,
-        &state.text_dark,
-        &state.text_black,
-        &state.white0,
-        &state.white3,
-        &state.black0,
-        &state.black3,
-        &state.gray0,
-        &state.gray3,
-        &state.red0,
-        &state.red3,
-        &state.orange0,
-        &state.orange3,
-        &state.yellow0,
-        &state.yellow3,
-        &state.limegreen0,
-        &state.limegreen3,
-        &state.green0,
-        &state.green3,
-        &state.bluegreen0,
-        &state.bluegreen3,
-        &state.cyan0,
-        &state.cyan3,
-        &state.blue0,
-        &state.blue3,
-        &state.deepblue0,
-        &state.deepblue3,
-        &state.purple0,
-        &state.purple3,
-        &state.magenta0,
-        &state.magenta3,
-        &state.redpink0,
-        &state.redpink3,
-    ]
-}
-
-fn all_colors_mut(state: &mut PaletteEdit) -> [&mut ColorInputState; 34] {
-    [
-        &mut state.text_light,
-        &mut state.text_bright,
-        &mut state.text_dark,
-        &mut state.text_black,
-        &mut state.white0,
-        &mut state.white3,
-        &mut state.black0,
-        &mut state.black3,
-        &mut state.gray0,
-        &mut state.gray3,
-        &mut state.red0,
-        &mut state.red3,
-        &mut state.orange0,
-        &mut state.orange3,
-        &mut state.yellow0,
-        &mut state.yellow3,
-        &mut state.limegreen0,
-        &mut state.limegreen3,
-        &mut state.green0,
-        &mut state.green3,
-        &mut state.bluegreen0,
-        &mut state.bluegreen3,
-        &mut state.cyan0,
-        &mut state.cyan3,
-        &mut state.blue0,
-        &mut state.blue3,
-        &mut state.deepblue0,
-        &mut state.deepblue3,
-        &mut state.purple0,
-        &mut state.purple3,
-        &mut state.magenta0,
-        &mut state.magenta3,
-        &mut state.redpink0,
-        &mut state.redpink3,
+        ("White", &mut state.white0, &mut state.white3),
+        ("Black", &mut state.black0, &mut state.black3),
+        ("Gray", &mut state.gray0, &mut state.gray3),
+        ("Red", &mut state.red0, &mut state.red3),
+        ("Orange", &mut state.orange0, &mut state.orange3),
+        ("Yellow", &mut state.yellow0, &mut state.yellow3),
+        ("Limegreen", &mut state.limegreen0, &mut state.limegreen3),
+        ("Green", &mut state.green0, &mut state.green3),
+        ("Bluegreen", &mut state.bluegreen0, &mut state.bluegreen3),
+        ("Cyan", &mut state.cyan0, &mut state.cyan3),
+        ("Blue", &mut state.blue0, &mut state.blue3),
+        ("Deepblue", &mut state.deepblue0, &mut state.deepblue3),
+        ("Purple", &mut state.purple0, &mut state.purple3),
+        ("Magenta", &mut state.magenta0, &mut state.magenta3),
+        ("Redpink", &mut state.redpink0, &mut state.redpink3),
     ]
 }
 
@@ -401,52 +331,57 @@ pub fn render(
     state: &mut PaletteEdit,
     ctx: &mut Global,
 ) -> Result<(), Error> {
-    let layout = Layout::vertical([
+    let l1 = Layout::vertical([
         Constraint::Fill(1), //
         Constraint::Length(1),
     ])
     .split(area);
 
+    let l2 = Layout::horizontal([
+        Constraint::Length(80), //
+    ])
+    .horizontal_margin(1)
+    .split(l1[0]);
+
     let status_layout = Layout::horizontal([
         Constraint::Fill(61), //
         Constraint::Fill(39),
     ])
-    .split(layout[1]);
+    .split(l1[1]);
 
     let mut form = Clipper::new() //
         .vscroll(Scroll::new())
         .styles(ctx.theme.style(WidgetStyle::CLIPPER));
-    let layout_size = form.layout_size(layout[0], &mut state.form);
+    let layout_size = form.layout_size(l2[0], &mut state.form);
     if !state.form.valid_layout(layout_size) {
         use rat_widget::layout::{FormLabel as L, FormWidget as W};
-        let mut layout = LayoutForm::<usize>::new()
-            .spacing(1)
-            .line_spacing(1)
-            // .columns(2)
-            .flex(Flex::Start);
+        let mut layout = LayoutForm::<usize>::new().spacing(1).flex(Flex::Start);
         layout.widget(state.name.id(), L::Str("Name"), W::Width(20));
+        layout.gap(1);
         layout.widget(state.primary.id(), L::Str("Primary"), W::Width(16));
         layout.widget(state.secondary.id(), L::Str("Secondary"), W::Width(16));
+        layout.gap(1);
         layout.widget(state.text_light.id(), L::Str("Text light"), W::Width(33));
         layout.widget(state.text_dark.id(), L::Str("Text dark"), W::Width(33));
-        layout.widget(state.white0.id(), L::Str("White"), W::Width(33));
-        layout.widget(state.black0.id(), L::Str("Black"), W::Width(33));
-        layout.widget(state.gray0.id(), L::Str("Gray"), W::Width(33));
-        layout.widget(state.red0.id(), L::Str("Red"), W::Width(33));
-        layout.widget(state.orange0.id(), L::Str("Orange"), W::Width(33));
-        layout.widget(state.yellow0.id(), L::Str("Yellow"), W::Width(33));
-        layout.widget(state.limegreen0.id(), L::Str("Limegreen"), W::Width(33));
-        layout.widget(state.green0.id(), L::Str("Green"), W::Width(33));
-        layout.widget(state.bluegreen0.id(), L::Str("Bluegreen"), W::Width(33));
-        layout.widget(state.cyan0.id(), L::Str("Cyan"), W::Width(33));
-        layout.widget(state.blue0.id(), L::Str("Blue"), W::Width(33));
-        layout.widget(state.deepblue0.id(), L::Str("Deepblue"), W::Width(33));
-        layout.widget(state.purple0.id(), L::Str("Purple"), W::Width(33));
-        layout.widget(state.magenta0.id(), L::Str("Magenta"), W::Width(33));
-        layout.widget(state.redpink0.id(), L::Str("RedPink"), W::Width(33));
+        layout.gap(1);
+        layout.widget(state.white0.id(), L::Str("White"), W::Width(50));
+        layout.widget(state.black0.id(), L::Str("Black"), W::Width(50));
+        layout.widget(state.gray0.id(), L::Str("Gray"), W::Width(50));
+        layout.widget(state.red0.id(), L::Str("Red"), W::Width(50));
+        layout.widget(state.orange0.id(), L::Str("Orange"), W::Width(50));
+        layout.widget(state.yellow0.id(), L::Str("Yellow"), W::Width(50));
+        layout.widget(state.limegreen0.id(), L::Str("Limegreen"), W::Width(50));
+        layout.widget(state.green0.id(), L::Str("Green"), W::Width(50));
+        layout.widget(state.bluegreen0.id(), L::Str("Bluegreen"), W::Width(50));
+        layout.widget(state.cyan0.id(), L::Str("Cyan"), W::Width(50));
+        layout.widget(state.blue0.id(), L::Str("Blue"), W::Width(50));
+        layout.widget(state.deepblue0.id(), L::Str("Deepblue"), W::Width(50));
+        layout.widget(state.purple0.id(), L::Str("Purple"), W::Width(50));
+        layout.widget(state.magenta0.id(), L::Str("Magenta"), W::Width(50));
+        layout.widget(state.redpink0.id(), L::Str("RedPink"), W::Width(50));
         form = form.layout(layout.build_endless(layout_size.width));
     }
-    let mut form = form.into_buffer(layout[0], &mut state.form);
+    let mut form = form.into_buffer(l2[0], &mut state.form);
 
     form.render(
         state.name.id(),
@@ -458,7 +393,7 @@ pub fn render(
     let primary_items = paired_colors(state)
         .iter()
         .enumerate()
-        .map(|(idx, (n, v0, v3))| {
+        .map(|(idx, (n, v0, _v3))| {
             (
                 idx,
                 Line::from(format!(
@@ -480,11 +415,12 @@ pub fn render(
         },
         &mut state.primary,
     );
+
     let selected_secondary = state.secondary.value();
     let secondary_items = paired_colors(state)
         .iter()
         .enumerate()
-        .map(|(idx, (n, v0, v3))| {
+        .map(|(idx, (n, v0, _v3))| {
             (
                 idx,
                 Line::from(format!(
@@ -506,18 +442,49 @@ pub fn render(
         },
         &mut state.secondary,
     );
-    for (a, b) in paired_all_colors_mut(state) {
+
+    form.render(
+        state.text_light.id(),
+        || {
+            Paired::new(
+                ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+                ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            )
+        },
+        &mut PairedState {
+            first: &mut state.text_light,
+            second: &mut state.text_bright,
+        },
+    );
+    form.render(
+        state.text_dark.id(),
+        || {
+            Paired::new(
+                ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+                ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            )
+        },
+        &mut PairedState {
+            first: &mut state.text_dark,
+            second: &mut state.text_black,
+        },
+    );
+
+    for (_, c0, c3) in paired_colors_mut(state) {
         form.render(
-            a.id(),
+            c0.id(),
             || {
-                Paired::new(
-                    ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
-                    ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
-                )
+                ColorSpan::new()
+                    .color0(ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)))
+                    .color3(ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)))
             },
-            &mut PairedState::new(a, b),
+            &mut ColorSpanState {
+                color0: c0,
+                color3: c3,
+            },
         );
     }
+
     form.render_opt(state.primary.id(), || primary_popup, &mut state.primary);
     form.render_opt(
         state.secondary.id(),
@@ -533,15 +500,19 @@ pub fn render(
         .render(status_layout[0], buf, &mut state.menu);
 
     let mut sc = None;
-    for a in all_colors(state) {
-        if let Some(s) = a.screen_cursor() {
+    for (_, v0, v3) in paired_colors(state) {
+        if let Some(s) = v0.screen_cursor() {
+            sc = Some(s);
+            break;
+        }
+        if let Some(s) = v3.screen_cursor() {
             sc = Some(s);
             break;
         }
     }
     ctx.set_screen_cursor(state.name.screen_cursor().or(sc));
 
-    ctx.dlg.clone().render(layout[0], buf, ctx);
+    ctx.dlg.clone().render(l1[0], buf, ctx);
 
     // Status
     let palette = &ctx.theme.p;
@@ -574,7 +545,7 @@ pub fn render(
 
 pub fn init(state: &mut PaletteEdit, ctx: &mut Global) -> Result<(), Error> {
     ctx.set_focus(FocusBuilder::build_for(state));
-    ctx.focus().enable_log();
+    // ctx.focus().enable_log();
     ctx.focus().first();
     Ok(())
 }
@@ -595,7 +566,11 @@ pub fn event(
     try_flow!(ctx.dlg.clone().handle(event, ctx)?);
 
     if let PalEvent::Event(event) = event {
-        ctx.handle_focus(event);
+        let f = ctx.focus_mut().handle(event, Regular);
+        ctx.queue(f);
+        if f == Outcome::Changed {
+            state.form.show_focused(&ctx.focus());
+        }
 
         try_flow!(color_event(event, state, ctx)?);
 
@@ -609,7 +584,7 @@ pub fn event(
     match event {
         PalEvent::Rendered => {
             ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
-            ctx.focus().enable_log();
+            // ctx.focus().enable_log();
             Ok(Control::Continue)
         }
         PalEvent::Message(s) => {
@@ -623,39 +598,119 @@ pub fn event(
 fn color_event(
     event: &crossterm::event::Event,
     state: &mut PaletteEdit,
-    ctx: &mut Global,
+    _ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
     let mut mode_change = None;
     let r = 'f: {
         break_flow!('f: state.primary.handle(event, Popup));
         break_flow!('f: state.secondary.handle(event, Popup));
+
         break_flow!('f: state.name.handle(event, Regular));
 
-        for v in all_colors_mut(state) {
-            break_flow!('f: {
-                let mode = v.mode();
-                let r = v.handle(event, Regular);
-                if v.mode() != mode {
-                    mode_change = Some(v.mode());
-                }
-                r
-            });
+        break_flow!('f: handle_color(event, &mut state.text_light, &mut mode_change));
+        break_flow!('f: handle_color(event, &mut state.text_bright, &mut mode_change));
+        break_flow!('f: handle_color(event, &mut state.text_dark, &mut mode_change));
+        break_flow!('f: handle_color(event, &mut state.text_black, &mut mode_change));
+        for (_, v0, v3) in paired_colors_mut(state) {
+            break_flow!('f: handle_color(event, v0, &mut mode_change));
+            break_flow!('f: handle_color(event, v3, &mut mode_change));
         }
 
-        break_flow!('f: state.form.handle(event, Regular));
-        state.form.show_focused(&ctx.focus());
+        // completely override Clipper event-handling.
+        // Need none of that only scrolling with the scrollbar.
+        break_flow!('f: match state.form.vscroll.handle(event, MouseOnly) {
+            ScrollOutcome::Up(v) => Outcome::from(state.form.scroll_up(v)),
+            ScrollOutcome::Down(v) => Outcome::from(state.form.scroll_down(v)),
+            ScrollOutcome::VPos(v) => Outcome::from(state.form.set_vertical_offset(v)),
+            ScrollOutcome::Left(v) => Outcome::from(state.form.scroll_left(v)),
+            ScrollOutcome::Right(v) => Outcome::from(state.form.scroll_right(v)),
+            ScrollOutcome::HPos(v) => Outcome::from(state.form.set_horizontal_offset(v)),
+            r => r.into(),
+        });
 
         Control::Continue
     };
 
     if let Some(mode_change) = mode_change {
-        for v in all_colors_mut(state) {
-            v.set_mode(mode_change);
+        state.text_light.set_mode(mode_change);
+        state.text_bright.set_mode(mode_change);
+        state.text_dark.set_mode(mode_change);
+        state.text_black.set_mode(mode_change);
+
+        for (_, v0, v3) in paired_colors_mut(state) {
+            v0.set_mode(mode_change);
+            v3.set_mode(mode_change);
         }
     }
 
+    // if r == Control::Changed {
+    //     rebuild_palette(state);
+    // }
+
     Ok(r)
 }
+
+fn handle_color(
+    event: &crossterm::event::Event,
+    color: &mut ColorInputState,
+    mode_change: &mut Option<Mode>,
+) -> TextOutcome {
+    let mode = color.mode();
+    let r = color.handle(event, Regular);
+    if color.mode() != mode {
+        *mode_change = Some(color.mode());
+    }
+    r
+}
+
+// fn rebuild_palette(state: &mut PaletteEdit) {
+//     state.palette.text_light = state.text_light.value();
+//     state.palette.text_bright = state.text_bright.value();
+//     state.palette.text_dark = state.text_dark.value();
+//     state.palette.text_black = state.text_black.value();
+//     state.palette.white =
+//         Palette::interpolate(state.white0.value_u32(), state.white3.value_u32(), 64);
+//     state.palette.gray = Palette::interpolate(state.gray0.value_u32(), state.gray3.value_u32(), 64);
+//     state.palette.black =
+//         Palette::interpolate(state.black0.value_u32(), state.black3.value_u32(), 64);
+//     state.palette.red = Palette::interpolate(state.red0.value_u32(), state.red3.value_u32(), 64);
+//     state.palette.orange =
+//         Palette::interpolate(state.orange0.value_u32(), state.orange3.value_u32(), 64);
+//     state.palette.yellow =
+//         Palette::interpolate(state.yellow0.value_u32(), state.yellow3.value_u32(), 64);
+//     state.palette.limegreen = Palette::interpolate(
+//         state.limegreen0.value_u32(),
+//         state.limegreen3.value_u32(),
+//         64,
+//     );
+//     state.palette.green =
+//         Palette::interpolate(state.green0.value_u32(), state.green3.value_u32(), 64);
+//     state.palette.bluegreen = Palette::interpolate(
+//         state.bluegreen0.value_u32(),
+//         state.bluegreen3.value_u32(),
+//         64,
+//     );
+//     state.palette.cyan = Palette::interpolate(state.cyan0.value_u32(), state.cyan3.value_u32(), 64);
+//     state.palette.blue = Palette::interpolate(state.blue0.value_u32(), state.blue3.value_u32(), 64);
+//     state.palette.deepblue =
+//         Palette::interpolate(state.deepblue0.value_u32(), state.deepblue3.value_u32(), 64);
+//     state.palette.purple =
+//         Palette::interpolate(state.purple0.value_u32(), state.purple3.value_u32(), 64);
+//     state.palette.magenta =
+//         Palette::interpolate(state.magenta0.value_u32(), state.magenta3.value_u32(), 64);
+//     state.palette.redpink =
+//         Palette::interpolate(state.redpink0.value_u32(), state.redpink3.value_u32(), 64);
+//
+//     let colors = paired_colors(state)
+//         .iter()
+//         .map(|(_, v0, v3)| (v0.value_u32(), v3.value_u32()))
+//         .collect::<Vec<_>>();
+//
+//     let n = state.primary.value();
+//     state.palette.primary = Palette::interpolate(colors[n].0, colors[n].1, 64);
+//     let n = state.secondary.value();
+//     state.palette.secondary = Palette::interpolate(colors[n].0, colors[n].1, 64);
+// }
 
 pub fn error(
     event: Error,
@@ -665,6 +720,59 @@ pub fn error(
     error!("{:?}", event);
     show_error(format!("{:?}", &*event).as_str(), ctx);
     Ok(Control::Changed)
+}
+
+#[derive(Default, Debug)]
+struct ColorSpan<'a> {
+    color0: ColorInput<'a>,
+    color3: ColorInput<'a>,
+}
+
+struct ColorSpanState<'a> {
+    pub color0: &'a mut ColorInputState,
+    pub color3: &'a mut ColorInputState,
+}
+
+impl<'a> RelocatableState for ColorSpanState<'a> {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.color0.relocate(shift, clip);
+        self.color3.relocate(shift, clip);
+    }
+}
+
+impl<'a> ColorSpan<'a> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn color0(mut self, color: ColorInput<'a>) -> Self {
+        self.color0 = color;
+        self
+    }
+
+    pub fn color3(mut self, color: ColorInput<'a>) -> Self {
+        self.color3 = color;
+        self
+    }
+}
+
+impl<'a> StatefulWidget for ColorSpan<'a> {
+    type State = ColorSpanState<'a>;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.color0
+            .render(Rect::new(area.x, area.y, 16, 1), buf, state.color0);
+        self.color3
+            .render(Rect::new(area.x + 17, area.y, 16, 1), buf, state.color3);
+
+        let width = (area.width - 33) / 8;
+        let colors = Palette::interpolate(state.color0.value_u32(), state.color3.value_u32(), 64);
+        for i in 0usize..8usize {
+            let color_area =
+                Rect::new(area.x + 34 + (i as u16) * width, area.y, width, area.height);
+            buf.set_style(color_area, Style::new().bg(colors[i]));
+        }
+    }
 }
 
 struct MsgState {
