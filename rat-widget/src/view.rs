@@ -47,8 +47,6 @@
 //!
 //! ```
 
-use std::cmp::min;
-
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular, ct_event};
@@ -60,6 +58,8 @@ use ratatui::layout::{Position, Rect, Size};
 use ratatui::style::Style;
 use ratatui::widgets::Block;
 use ratatui::widgets::{StatefulWidget, Widget};
+use std::cmp::min;
+use std::mem;
 
 /// Configure the view.
 #[derive(Debug, Default, Clone)]
@@ -94,9 +94,12 @@ pub struct ViewBuffer<'a> {
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
+
+    destruct: bool,
 }
 
 /// Clips and copies the temp buffer to the frame buffer.
+// todo: deprecate
 #[derive(Debug)]
 pub struct ViewWidget<'a> {
     // Scroll offset into the view.
@@ -319,6 +322,15 @@ impl<'a> View<'a> {
             block: self.block,
             hscroll: self.hscroll,
             vscroll: self.vscroll,
+            destruct: false,
+        }
+    }
+}
+
+impl<'a> Drop for ViewBuffer<'a> {
+    fn drop(&mut self) {
+        if !self.destruct {
+            panic!("ViewBuffer: Must be used. Call finish(..)");
         }
     }
 }
@@ -459,15 +471,84 @@ impl<'a> ViewBuffer<'a> {
     /// Rendering the content is finished.
     ///
     /// Convert to the output widget that can be rendered in the target area.
-    pub fn into_widget(self) -> ViewWidget<'a> {
+    #[deprecated(since = "2.3.0", note = "use finish() instead")]
+    pub fn into_widget(mut self) -> ViewWidget<'a> {
+        self.destruct = true;
+
         ViewWidget {
-            block: self.block,
-            hscroll: self.hscroll,
-            vscroll: self.vscroll,
+            block: mem::take(&mut self.block),
+            hscroll: mem::take(&mut self.hscroll),
+            vscroll: mem::take(&mut self.vscroll),
             offset: self.offset,
-            buffer: self.buffer,
+            buffer: mem::take(&mut self.buffer),
             style: self.style,
         }
+    }
+
+    /// Render the buffer.
+    pub fn finish(mut self, tgt_buf: &mut Buffer, state: &mut ViewState) {
+        self.destruct = true;
+
+        ScrollArea::new()
+            .style(self.style)
+            .block(self.block.as_ref())
+            .h_scroll(self.hscroll.as_ref())
+            .v_scroll(self.vscroll.as_ref())
+            .render(
+                state.area,
+                tgt_buf,
+                &mut ScrollAreaState::new()
+                    .h_scroll(&mut state.hscroll)
+                    .v_scroll(&mut state.vscroll),
+            );
+
+        let src_area = self.buffer.area;
+        let tgt_area = state.widget_area;
+        let offset = self.offset;
+
+        // extra offset due to buffer starts right of offset.
+        let off_x0 = src_area.x.saturating_sub(offset.x);
+        let off_y0 = src_area.y.saturating_sub(offset.y);
+        // cut source buffer due to start left of offset.
+        let cut_x0 = offset.x.saturating_sub(src_area.x);
+        let cut_y0 = offset.y.saturating_sub(src_area.y);
+
+        // length to copy
+        let len_src = src_area.width.saturating_sub(cut_x0);
+        let len_tgt = tgt_area.width.saturating_sub(off_x0);
+        let len = min(len_src, len_tgt);
+
+        // area height to copy
+        let height_src = src_area.height.saturating_sub(cut_y0);
+        let height_tgt = tgt_area.height.saturating_sub(off_y0);
+        let height = min(height_src, height_tgt);
+
+        // ** slow version **
+        // for y in 0..height {
+        //     for x in 0..len {
+        //         let src_pos = Position::new(src_area.x + cut_x0 + x, src_area.y + cut_y0 + y);
+        //         let src_cell = self.buffer.cell(src_pos).expect("src-cell");
+        //
+        //         let tgt_pos = Position::new(tgt_area.x + off_x0 + x, tgt_area.y + off_y0 + y);
+        //         let tgt_cell = buf.cell_mut(tgt_pos).expect("tgt_cell");
+        //
+        //         *tgt_cell = src_cell.clone();
+        //     }
+        // }
+
+        for y in 0..height {
+            let src_0 = self
+                .buffer
+                .index_of(src_area.x + cut_x0, src_area.y + cut_y0 + y);
+            let tgt_0 = tgt_buf.index_of(tgt_area.x + off_x0, tgt_area.y + off_y0 + y);
+
+            let src = &self.buffer.content[src_0..src_0 + len as usize];
+            let tgt = &mut tgt_buf.content[tgt_0..tgt_0 + len as usize];
+            tgt.clone_from_slice(src);
+        }
+
+        // keep buffer
+        state.buffer = Some(mem::take(&mut self.buffer));
     }
 }
 

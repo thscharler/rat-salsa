@@ -1,4 +1,5 @@
 //!
+//!
 //! Alternative View widget that renders only visible widgets.
 //!
 //! It uses a [GenericLayout] to find the visible widgets.
@@ -113,7 +114,6 @@ use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
 use std::cmp::{max, min};
 use std::hash::Hash;
-use std::marker::PhantomData;
 use std::mem;
 use std::rc::Rc;
 
@@ -158,22 +158,6 @@ where
     label_alignment: Option<Alignment>,
 
     destruct: bool,
-}
-
-/// Last stage: Clip and dump the temporary buffer to the frame buffer.
-#[derive(Debug)]
-pub struct ClipperWidget<'a, W>
-where
-    W: Eq + Clone + Hash,
-{
-    offset: Position,
-    buffer: Buffer,
-
-    style: Style,
-    block: Option<Block<'a>>,
-    hscroll: Option<Scroll<'a>>,
-    vscroll: Option<Scroll<'a>>,
-    phantom: PhantomData<W>,
 }
 
 /// Clipper styles.
@@ -692,31 +676,10 @@ where
         &mut self.buffer
     }
 
-    pub fn finish(mut self, buffer: &mut Buffer, state: &mut ClipperState<W>) {
-        self.render_block();
+    pub fn finish(mut self, tgt_buf: &mut Buffer, state: &mut ClipperState<W>) {
         self.destruct = true;
 
-        ClipperWidget {
-            block: self.block.take(),
-            hscroll: self.hscroll.take(),
-            vscroll: self.vscroll.take(),
-            offset: self.offset,
-            buffer: mem::take(&mut self.buffer),
-            phantom: Default::default(),
-            style: self.style,
-        }
-        .render(state.area, buffer, state);
-    }
-}
-
-impl<W> StatefulWidget for ClipperWidget<'_, W>
-where
-    W: Eq + Clone + Hash,
-{
-    type State = ClipperState<W>;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        assert_eq!(area, state.area);
+        self.render_block();
 
         ScrollArea::new()
             .style(self.style)
@@ -724,8 +687,8 @@ where
             .h_scroll(self.hscroll.as_ref())
             .v_scroll(self.vscroll.as_ref())
             .render(
-                area,
-                buf,
+                state.area,
+                tgt_buf,
                 &mut ScrollAreaState::new()
                     .h_scroll(&mut state.hscroll)
                     .v_scroll(&mut state.vscroll),
@@ -769,15 +732,15 @@ where
             let src_0 = self
                 .buffer
                 .index_of(src_area.x + cut_x0, src_area.y + cut_y0 + y);
-            let tgt_0 = buf.index_of(tgt_area.x + off_x0, tgt_area.y + off_y0 + y);
+            let tgt_0 = tgt_buf.index_of(tgt_area.x + off_x0, tgt_area.y + off_y0 + y);
 
             let src = &self.buffer.content[src_0..src_0 + len as usize];
-            let tgt = &mut buf.content[tgt_0..tgt_0 + len as usize];
+            let tgt = &mut tgt_buf.content[tgt_0..tgt_0 + len as usize];
             tgt.clone_from_slice(src);
         }
 
         // keep buffer
-        state.buffer = Some(self.buffer);
+        state.buffer = Some(mem::take(&mut self.buffer));
     }
 }
 
