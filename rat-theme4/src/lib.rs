@@ -183,6 +183,7 @@ const PALETTES: &[&str] = &[
     "Solarized",
     "OxoCarbon",
     "Rust",
+    "Red",
     "Blackout",
     "Shell",
     "VSCode",
