@@ -1024,6 +1024,8 @@ impl ClipperState<usize> {
     /// Show the page with the focused widget.
     /// This assumes the usize-key is a widget id.
     /// Does nothing if none of the widgets has the focus.
+    ///
+    /// You must use the boolean to trigger a repaint.
     pub fn show_focused(&mut self, focus: &Focus) -> bool {
         let Some(focused) = focus.focused() else {
             return false;
