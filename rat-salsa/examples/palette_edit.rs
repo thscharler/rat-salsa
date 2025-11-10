@@ -7,23 +7,23 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
-use rat_widget::choice::ChoiceState;
+use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::clipper::{Clipper, ClipperState};
 use rat_widget::color_input::{ColorInput, ColorInputState};
 use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
-use rat_widget::event::{ct_event, Dialog, HandleEvent, MenuOutcome, Regular, TextOutcome};
+use rat_widget::event::{ct_event, Dialog, HandleEvent, MenuOutcome, Regular};
 use rat_widget::focus::FocusBuilder;
-use rat_widget::form::{Form, FormState};
 use rat_widget::layout::LayoutForm;
 use rat_widget::menu::{MenuLine, MenuLineState};
-use rat_widget::paired::{PairSplit, Paired, PairedState};
+use rat_widget::paired::{Paired, PairedState};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
+use rat_widget::scrolled::Scroll;
 use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Color;
+use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::any::Any;
@@ -127,6 +127,9 @@ pub struct PaletteEdit {
 
     pub name: TextInputState,
 
+    pub primary: ChoiceState,
+    pub secondary: ChoiceState,
+
     pub text_light: ColorInputState,
     pub text_bright: ColorInputState,
     pub text_dark: ColorInputState,
@@ -162,8 +165,6 @@ pub struct PaletteEdit {
     pub magenta3: ColorInputState,
     pub redpink0: ColorInputState,
     pub redpink3: ColorInputState,
-    pub primary: ChoiceState,
-    pub secondary: ChoiceState,
 
     pub menu: MenuLineState,
 }
@@ -254,11 +255,12 @@ impl Default for PaletteEdit {
 impl HasFocus for PaletteEdit {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.name);
-        for v in colors(self) {
-            builder.widget(v);
-        }
         builder.widget(&self.primary);
         builder.widget(&self.secondary);
+        for v in all_colors(self) {
+            builder.widget(v);
+        }
+
         builder.widget(&self.menu);
     }
 
@@ -271,7 +273,27 @@ impl HasFocus for PaletteEdit {
     }
 }
 
-fn paired_colors_mut(
+fn paired_colors(state: &PaletteEdit) -> [(&str, &ColorInputState, &ColorInputState); 15] {
+    [
+        ("White", &state.white0, &state.white3),
+        ("Black", &state.black0, &state.black3),
+        ("Gray", &state.gray0, &state.gray3),
+        ("Red", &state.red0, &state.red3),
+        ("Orange", &state.orange0, &state.orange3),
+        ("Yellow", &state.yellow0, &state.yellow3),
+        ("Limegreen", &state.limegreen0, &state.limegreen3),
+        ("Green", &state.green0, &state.green3),
+        ("Bluegreen", &state.bluegreen0, &state.bluegreen3),
+        ("Cyan", &state.cyan0, &state.cyan3),
+        ("Blue", &state.blue0, &state.blue3),
+        ("Deepblue", &state.deepblue0, &state.deepblue3),
+        ("Purple", &state.purple0, &state.purple3),
+        ("Magenta", &state.magenta0, &state.magenta3),
+        ("Redpink", &state.redpink0, &state.redpink3),
+    ]
+}
+
+fn paired_all_colors_mut(
     state: &mut PaletteEdit,
 ) -> [(&mut ColorInputState, &mut ColorInputState); 17] {
     [
@@ -295,7 +317,7 @@ fn paired_colors_mut(
     ]
 }
 
-fn colors(state: &PaletteEdit) -> [&ColorInputState; 34] {
+fn all_colors(state: &PaletteEdit) -> [&ColorInputState; 34] {
     [
         &state.text_light,
         &state.text_bright,
@@ -334,7 +356,7 @@ fn colors(state: &PaletteEdit) -> [&ColorInputState; 34] {
     ]
 }
 
-fn colors_mut(state: &mut PaletteEdit) -> [&mut ColorInputState; 34] {
+fn all_colors_mut(state: &mut PaletteEdit) -> [&mut ColorInputState; 34] {
     [
         &mut state.text_light,
         &mut state.text_bright,
@@ -392,6 +414,7 @@ pub fn render(
     .split(layout[1]);
 
     let mut form = Clipper::new() //
+        .vscroll(Scroll::new())
         .styles(ctx.theme.style(WidgetStyle::CLIPPER));
     let layout_size = form.layout_size(layout[0], &mut state.form);
     if !state.form.valid_layout(layout_size) {
@@ -402,6 +425,8 @@ pub fn render(
             // .columns(2)
             .flex(Flex::Start);
         layout.widget(state.name.id(), L::Str("Name"), W::Width(20));
+        layout.widget(state.primary.id(), L::Str("Primary"), W::Width(16));
+        layout.widget(state.secondary.id(), L::Str("Secondary"), W::Width(16));
         layout.widget(state.text_light.id(), L::Str("Text light"), W::Width(33));
         layout.widget(state.text_dark.id(), L::Str("Text dark"), W::Width(33));
         layout.widget(state.white0.id(), L::Str("White"), W::Width(33));
@@ -419,7 +444,6 @@ pub fn render(
         layout.widget(state.purple0.id(), L::Str("Purple"), W::Width(33));
         layout.widget(state.magenta0.id(), L::Str("Magenta"), W::Width(33));
         layout.widget(state.redpink0.id(), L::Str("RedPink"), W::Width(33));
-        layout.widget(state.primary.id(), L::Str("P/S"), W::Width(33));
         form = form.layout(layout.build_endless(layout_size.width));
     }
     let mut form = form.into_buffer(layout[0], &mut state.form);
@@ -429,7 +453,60 @@ pub fn render(
         || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.name,
     );
-    for (a, b) in paired_colors_mut(state) {
+
+    let selected_primary = state.primary.value();
+    let primary_items = paired_colors(state)
+        .iter()
+        .enumerate()
+        .map(|(idx, (n, v0, v3))| {
+            (
+                idx,
+                Line::from(format!(
+                    "{} {}",
+                    if idx == selected_primary { ">" } else { " " },
+                    n.to_string()
+                )) //
+                .style(ctx.theme.p.normal_contrast(v0.value())),
+            )
+        })
+        .collect::<Vec<_>>();
+    let primary_popup = form.render2(
+        state.primary.id(),
+        || {
+            Choice::new()
+                .items(primary_items.iter().cloned())
+                .styles(ctx.theme.style(WidgetStyle::CHOICE))
+                .into_widgets()
+        },
+        &mut state.primary,
+    );
+    let selected_secondary = state.secondary.value();
+    let secondary_items = paired_colors(state)
+        .iter()
+        .enumerate()
+        .map(|(idx, (n, v0, v3))| {
+            (
+                idx,
+                Line::from(format!(
+                    "{} {}",
+                    if idx == selected_secondary { ">" } else { " " },
+                    n.to_string()
+                )) //
+                .style(ctx.theme.p.normal_contrast(v0.value())),
+            )
+        })
+        .collect::<Vec<_>>();
+    let secondary_popup = form.render2(
+        state.secondary.id(),
+        || {
+            Choice::new()
+                .items(secondary_items.iter().cloned())
+                .styles(ctx.theme.style(WidgetStyle::CHOICE))
+                .into_widgets()
+        },
+        &mut state.secondary,
+    );
+    for (a, b) in paired_all_colors_mut(state) {
         form.render(
             a.id(),
             || {
@@ -441,6 +518,12 @@ pub fn render(
             &mut PairedState::new(a, b),
         );
     }
+    form.render_opt(state.primary.id(), || primary_popup, &mut state.primary);
+    form.render_opt(
+        state.secondary.id(),
+        || secondary_popup,
+        &mut state.secondary,
+    );
     form.finish(buf, &mut state.form);
 
     MenuLine::new()
@@ -450,7 +533,7 @@ pub fn render(
         .render(status_layout[0], buf, &mut state.menu);
 
     let mut sc = None;
-    for a in colors(state) {
+    for a in all_colors(state) {
         if let Some(s) = a.screen_cursor() {
             sc = Some(s);
             break;
@@ -540,7 +623,7 @@ pub fn event(
 fn color_event(
     event: &crossterm::event::Event,
     state: &mut PaletteEdit,
-    _ctx: &mut Global,
+    ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
     let mut mode_change = None;
     let r = 'f: {
@@ -548,7 +631,7 @@ fn color_event(
         break_flow!('f: state.secondary.handle(event, Popup));
         break_flow!('f: state.name.handle(event, Regular));
 
-        for v in colors_mut(state) {
+        for v in all_colors_mut(state) {
             break_flow!('f: {
                 let mode = v.mode();
                 let r = v.handle(event, Regular);
@@ -560,12 +643,13 @@ fn color_event(
         }
 
         break_flow!('f: state.form.handle(event, Regular));
+        state.form.show_focused(&ctx.focus());
 
         Control::Continue
     };
 
     if let Some(mode_change) = mode_change {
-        for v in colors_mut(state) {
+        for v in all_colors_mut(state) {
             v.set_mode(mode_change);
         }
     }
