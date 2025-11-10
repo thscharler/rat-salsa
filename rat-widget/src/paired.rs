@@ -37,7 +37,6 @@
 //! a StatefulWidget. Otherwise, you can only combine two Widgets
 //! or two StatefulWidgets.
 //!
-use crate::_private::NonExhaustive;
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
@@ -78,8 +77,6 @@ pub struct Paired<'a, T, U> {
 pub struct PairedState<'a, TS, US> {
     pub first: &'a mut TS,
     pub second: &'a mut US,
-
-    pub non_exhaustive: NonExhaustive,
 }
 
 impl<T, U> Paired<'_, T, U> {
@@ -201,11 +198,7 @@ where
 
 impl<'a, TS, US> PairedState<'a, TS, US> {
     pub fn new(first: &'a mut TS, second: &'a mut US) -> Self {
-        Self {
-            first,
-            second,
-            non_exhaustive: NonExhaustive,
-        }
+        Self { first, second }
     }
 }
 
