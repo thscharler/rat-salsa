@@ -367,7 +367,7 @@ mod logscroll {
     use rat_widget::table::{Table, TableContext, TableData, TableState};
     use rat_widget::text::{impl_screen_cursor, upos_type, TextPosition};
     use rat_widget::text_input::{TextInput, TextInputState};
-    use rat_widget::textarea::{TextArea, TextAreaState};
+    use rat_widget::textarea::{TextArea, TextAreaState, TextWrap};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::style::Style;
@@ -879,6 +879,16 @@ mod logscroll {
                         }
                         Control::Changed
                     }
+                    ct_event!(key press ALT-'w') => {
+                        let wrap = match state.logtext.text_wrap() {
+                            TextWrap::Shift => TextWrap::Hard,
+                            TextWrap::Hard => TextWrap::Word(8),
+                            TextWrap::Word(_) => TextWrap::Shift,
+                            _ => TextWrap::Shift,
+                        };
+                        state.logtext.set_text_wrap(wrap);
+                        Control::Changed
+                    }
                     ct_event!(keycode press F(4)) => {
                         state
                             .logtext
@@ -1108,5 +1118,6 @@ Use '|' to separate search terms.
 Ctrl+End    jump to end of log and stick there
 ...         standard navigation with arrow-keys etc
 Ctrl+C      copy to clipboard
+Alt+W       toggle text-wrap
 
 "#;
