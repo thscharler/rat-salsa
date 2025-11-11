@@ -17,7 +17,7 @@ use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::radio::{RadioLayout, RadioStyle};
-use rat_widget::scrolled::ScrollStyle;
+use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
 use rat_widget::shadow::{ShadowDirection, ShadowStyle};
 use rat_widget::slider::SliderStyle;
 use rat_widget::splitter::SplitStyle;
@@ -28,6 +28,7 @@ use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
 use ratatui::style::{Style, Stylize};
+use ratatui::symbols;
 use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
@@ -263,6 +264,20 @@ fn scroll(th: &SalsaTheme) -> ScrollStyle {
         min_style: Some(th.style(Style::CONTAINER_BORDER)),
         begin_style: Some(th.style(Style::CONTAINER_ARROWS)),
         end_style: Some(th.style(Style::CONTAINER_ARROWS)),
+        horizontal: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "←",
+            end: "→",
+            min: "░",
+        }),
+        vertical: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "↑",
+            end: "↓",
+            min: "░",
+        }),
         ..Default::default()
     }
 }

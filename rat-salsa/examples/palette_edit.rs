@@ -8,7 +8,10 @@ use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::{create_palette, create_theme, salsa_palettes, Palette, SalsaTheme, WidgetStyle};
+use rat_theme4::{
+    create_palette, create_theme, dark_theme, fallback_theme, salsa_palettes, shell_theme, Palette,
+    SalsaTheme, WidgetStyle,
+};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::color_input::{ColorInput, ColorInputState};
 use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
@@ -126,6 +129,7 @@ impl From<crossterm::event::Event> for PalEvent {
 #[derive(Debug)]
 pub struct Scenery {
     pub defined: ChoiceState<String>,
+    pub themes: ChoiceState<String>,
     pub edit: PaletteEdit,
     pub show: ShowCase,
     pub menu: MenuLineState,
@@ -135,6 +139,7 @@ impl Default for Scenery {
     fn default() -> Self {
         Self {
             defined: ChoiceState::named("palette"),
+            themes: ChoiceState::named("themes"),
             edit: PaletteEdit::default(),
             show: ShowCase::default(),
             menu: MenuLineState::named("menu"),
@@ -145,6 +150,7 @@ impl Default for Scenery {
 impl HasFocus for Scenery {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.defined);
+        builder.widget(&self.themes);
         builder.widget(&self.edit);
         builder.widget(&self.show);
         builder.widget(&self.menu);
@@ -210,7 +216,12 @@ fn render_function(
     state: &mut Scenery,
     ctx: &mut Global,
 ) -> Result<(), Error> {
-    let l_function = Layout::horizontal([Constraint::Length(20)]).split(area);
+    let l_function = Layout::horizontal([
+        Constraint::Length(20), //
+        Constraint::Length(15),
+    ])
+    .split(area);
+
     let (choice, choice_popup) = Choice::new()
         .items(
             once("")
@@ -220,7 +231,20 @@ fn render_function(
         .styles(ctx.theme.style(WidgetStyle::CHOICE))
         .into_widgets();
     choice.render(l_function[0], buf, &mut state.defined);
+
+    let (choice, choice_theme) = Choice::new()
+        .items(
+            once("")
+                .chain(["Dark", "Shell", "Fallback"])
+                .map(|v| (v.to_string(), v.to_string())),
+        )
+        .styles(ctx.theme.style(WidgetStyle::CHOICE))
+        .into_widgets();
+    choice.render(l_function[1], buf, &mut state.themes);
+
     choice_popup.render(l_function[0], buf, &mut state.defined);
+    choice_theme.render(l_function[1], buf, &mut state.themes);
+
     Ok(())
 }
 
@@ -273,8 +297,12 @@ fn screen_cursor(state: &mut Scenery, ctx: &mut Global) {
 
 pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     ctx.set_focus(FocusBuilder::build_for(state));
-    ctx.focus().enable_log();
+    // ctx.focus().enable_log();
     ctx.focus().first();
+
+    let theme = create_edit_theme(state);
+    state.show.set_theme(theme);
+
     Ok(())
 }
 
@@ -296,8 +324,8 @@ pub fn event(
     if let PalEvent::Event(event) = event {
         match ctx.handle_focus(event) {
             Outcome::Changed => {
-                // state.edit.form.show_focused(&ctx.focus());
-                // state.show.form.show_focused(&ctx.focus());
+                state.edit.form.show_focused(&ctx.focus());
+                state.show.form.show_focused(&ctx.focus());
             }
             _ => {}
         }
@@ -306,9 +334,17 @@ pub fn event(
             ChoiceOutcome::Value => {
                 if let Some(palette) = create_palette(state.defined.value().as_str()) {
                     state.edit.set_palette(palette);
-                    debug!("show palette {:#?}", palette);
-                    state.show.set_palette(palette);
                 }
+                let theme = create_edit_theme(state);
+                state.show.set_theme(theme);
+                Control::Changed
+            }
+            r => r.into(),
+        });
+        try_flow!(match state.themes.handle(event, Popup) {
+            ChoiceOutcome::Value => {
+                let theme = create_edit_theme(state);
+                state.show.set_theme(theme);
                 Control::Changed
             }
             r => r.into(),
@@ -316,9 +352,8 @@ pub fn event(
 
         try_flow!(match palette_edit::event(event, &mut state.edit, ctx)? {
             Outcome::Changed => {
-                let pal = state.edit.palette();
-                debug!("show edit palette {:#?}", pal);
-                state.show.set_palette(pal);
+                let theme = create_edit_theme(state);
+                state.show.set_theme(theme);
                 Outcome::Changed
             }
             r => r.into(),
@@ -334,7 +369,7 @@ pub fn event(
     match event {
         PalEvent::Rendered => {
             ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
-            ctx.focus().enable_log();
+            // ctx.focus().enable_log();
             Ok(Control::Continue)
         }
         PalEvent::Message(s) => {
@@ -342,6 +377,15 @@ pub fn event(
             Ok(Control::Changed)
         }
         _ => Ok(Control::Continue),
+    }
+}
+
+fn create_edit_theme(state: &mut Scenery) -> SalsaTheme {
+    let palette = state.edit.palette();
+    match state.themes.value().as_str() {
+        "Shell" => shell_theme("Shell", palette),
+        "Fallback" => fallback_theme("Fallback", palette),
+        _ => dark_theme("Dark", palette),
     }
 }
 
@@ -959,7 +1003,7 @@ mod showcase {
     use rat_widget::radio::{Radio, RadioLayout, RadioState};
     use rat_widget::scrolled::Scroll;
     use rat_widget::slider::{Slider, SliderState};
-    use rat_widget::text::HasScreenCursor;
+    use rat_widget::text::{HasScreenCursor, TextFocusLost};
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
@@ -969,7 +1013,6 @@ mod showcase {
     #[derive(Debug)]
     pub struct ShowCase {
         pub theme: SalsaTheme,
-        pub palette: Palette,
 
         pub form: ClipperState,
 
@@ -993,12 +1036,6 @@ mod showcase {
 
         pub fn set_theme(&mut self, theme: SalsaTheme) {
             self.theme = theme;
-            self.theme.p = self.palette;
-        }
-
-        pub fn set_palette(&mut self, palette: Palette) {
-            self.palette = palette;
-            self.theme.p = palette;
         }
     }
 
@@ -1042,7 +1079,6 @@ mod showcase {
         fn default() -> Self {
             let mut z = Self {
                 theme: Default::default(),
-                palette: Default::default(),
                 form: ClipperState::named("show"),
                 button: ButtonState::named("button"),
                 checkbox: CheckboxState::named("checkbox"),
@@ -1065,8 +1101,7 @@ mod showcase {
             z.number_input
                 .set_format_loc("###,##0.00#", loc)
                 .expect("number_format");
-            z.palette = rat_theme4::palettes::TUNDRA;
-            z.theme = dark_theme("Tundra Dark", z.palette);
+            z.theme = dark_theme("Tundra Dark", rat_theme4::palettes::TUNDRA);
             z.calendar.move_to_today();
             z
         }
@@ -1093,7 +1128,7 @@ mod showcase {
                 .padding(Padding::new(1, 1, 1, 1))
                 .flex(Flex::Start);
             layout.widget(state.button.id(), L::Str("Button"), W::Width(11));
-            layout.widget(state.checkbox.id(), L::Str("Checkbox"), W::Width(12));
+            layout.widget(state.checkbox.id(), L::Str("Checkbox"), W::Width(14));
             layout.widget(state.choice.id(), L::Str("Choice"), W::Width(14));
             layout.widget(state.combobox.id(), L::Str("Combobox"), W::Width(14));
             layout.widget(state.date_input.id(), L::Str("DateInput"), W::Width(11));
@@ -1154,7 +1189,11 @@ mod showcase {
         );
         form.render(
             state.date_input.id(),
-            || DateInput::new().styles(state.theme.style(WidgetStyle::TEXT)),
+            || {
+                DateInput::new()
+                    .on_focus_lost(TextFocusLost::Position0)
+                    .styles(state.theme.style(WidgetStyle::TEXT))
+            },
             &mut state.date_input,
         );
         form.render(
@@ -1177,7 +1216,7 @@ mod showcase {
             state.slider.id(),
             || {
                 Slider::new()
-                    .range((0, 255))
+                    .range((0, 25))
                     .styles(state.theme.style(WidgetStyle::SLIDER))
             },
             &mut state.slider,
@@ -1285,7 +1324,7 @@ impl<'a> StatefulWidget for ColorSpan<'a> {
         self.color3
             .render(Rect::new(area.x + 17, area.y, 16, 1), buf, state.color3);
 
-        let width = (area.width - 33) / 8;
+        let width = (area.width.saturating_sub(33)) / 8;
         let colors = Palette::interpolate(state.color0.value_u32(), state.color3.value_u32(), 64);
         for i in 0usize..8usize {
             let color_area =
