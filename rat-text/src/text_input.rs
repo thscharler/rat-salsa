@@ -1538,11 +1538,11 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputSta
                     overwrite(self);
                     tc(self.insert_char(*c))
                 }
-                ct_event!(keycode press Backspace) => {
+                ct_event!(keycode press Backspace) | ct_event!(keycode press SHIFT-Backspace) => {
                     clear_overwrite(self);
                     tc(self.delete_prev_char())
                 }
-                ct_event!(keycode press Delete) => {
+                ct_event!(keycode press Delete) | ct_event!(keycode press SHIFT-Delete) => {
                     clear_overwrite(self);
                     tc(self.delete_next_char())
                 }

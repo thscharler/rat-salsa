@@ -2636,63 +2636,66 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
             }
         }
 
-        let mut r = if self.is_focused() {
-            match event {
-                ct_event!(key press c)
-                | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => tc(self.insert_char(*c)),
-                ct_event!(keycode press Tab) => {
-                    // ignore tab from focus
-                    tc(if !self.focus.gained() {
-                        self.insert_tab()
-                    } else {
-                        false
-                    })
-                }
-                ct_event!(keycode press SHIFT-BackTab) => {
-                    // ignore tab from focus
-                    tc(if !self.focus.gained() {
-                        self.insert_backtab()
-                    } else {
-                        false
-                    })
-                }
-                ct_event!(keycode press Enter) => tc(self.insert_newline()),
-                ct_event!(keycode press Backspace) => tc(self.delete_prev_char()),
-                ct_event!(keycode press Delete) => tc(self.delete_next_char()),
-                ct_event!(keycode press CONTROL-Backspace)
-                | ct_event!(keycode press ALT-Backspace) => tc(self.delete_prev_word()),
-                ct_event!(keycode press CONTROL-Delete) | ct_event!(keycode press ALT-Delete) => {
-                    tc(self.delete_next_word())
-                }
-                ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
-                ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
-                ct_event!(key press CONTROL-'d') => tc(self.duplicate_text()),
-                ct_event!(key press CONTROL-'y') => tc(self.delete_line()),
-                ct_event!(key press CONTROL-'z') => tc(self.undo()),
-                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.redo()),
+        let mut r =
+            if self.is_focused() {
+                match event {
+                    ct_event!(key press c)
+                    | ct_event!(key press SHIFT-c)
+                    | ct_event!(key press CONTROL_ALT-c) => tc(self.insert_char(*c)),
+                    ct_event!(keycode press Tab) => {
+                        // ignore tab from focus
+                        tc(if !self.focus.gained() {
+                            self.insert_tab()
+                        } else {
+                            false
+                        })
+                    }
+                    ct_event!(keycode press SHIFT-BackTab) => {
+                        // ignore tab from focus
+                        tc(if !self.focus.gained() {
+                            self.insert_backtab()
+                        } else {
+                            false
+                        })
+                    }
+                    ct_event!(keycode press Enter) => tc(self.insert_newline()),
+                    ct_event!(keycode press Backspace)
+                    | ct_event!(keycode press SHIFT-Backspace) => tc(self.delete_prev_char()),
+                    ct_event!(keycode press Delete) | ct_event!(keycode press SHIFT-Delete) => {
+                        tc(self.delete_next_char())
+                    }
+                    ct_event!(keycode press CONTROL-Backspace)
+                    | ct_event!(keycode press ALT-Backspace) => tc(self.delete_prev_word()),
+                    ct_event!(keycode press CONTROL-Delete)
+                    | ct_event!(keycode press ALT-Delete) => tc(self.delete_next_word()),
+                    ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
+                    ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
+                    ct_event!(key press CONTROL-'d') => tc(self.duplicate_text()),
+                    ct_event!(key press CONTROL-'y') => tc(self.delete_line()),
+                    ct_event!(key press CONTROL-'z') => tc(self.undo()),
+                    ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.redo()),
 
-                ct_event!(key release _)
-                | ct_event!(key release SHIFT-_)
-                | ct_event!(key release CONTROL_ALT-_)
-                | ct_event!(keycode release Tab)
-                | ct_event!(keycode release Enter)
-                | ct_event!(keycode release Backspace)
-                | ct_event!(keycode release Delete)
-                | ct_event!(keycode release CONTROL-Backspace)
-                | ct_event!(keycode release ALT-Backspace)
-                | ct_event!(keycode release CONTROL-Delete)
-                | ct_event!(key release CONTROL-'x')
-                | ct_event!(key release CONTROL-'v')
-                | ct_event!(key release CONTROL-'d')
-                | ct_event!(key release CONTROL-'y')
-                | ct_event!(key release CONTROL-'z')
-                | ct_event!(key release CONTROL_SHIFT-'Z') => TextOutcome::Unchanged,
-                _ => TextOutcome::Continue,
-            }
-        } else {
-            TextOutcome::Continue
-        };
+                    ct_event!(key release _)
+                    | ct_event!(key release SHIFT-_)
+                    | ct_event!(key release CONTROL_ALT-_)
+                    | ct_event!(keycode release Tab)
+                    | ct_event!(keycode release Enter)
+                    | ct_event!(keycode release Backspace)
+                    | ct_event!(keycode release Delete)
+                    | ct_event!(keycode release CONTROL-Backspace)
+                    | ct_event!(keycode release ALT-Backspace)
+                    | ct_event!(keycode release CONTROL-Delete)
+                    | ct_event!(key release CONTROL-'x')
+                    | ct_event!(key release CONTROL-'v')
+                    | ct_event!(key release CONTROL-'d')
+                    | ct_event!(key release CONTROL-'y')
+                    | ct_event!(key release CONTROL-'z')
+                    | ct_event!(key release CONTROL_SHIFT-'Z') => TextOutcome::Unchanged,
+                    _ => TextOutcome::Continue,
+                }
+            } else {
+                TextOutcome::Continue
+            };
         if r == TextOutcome::Continue {
             r = self.handle(event, ReadOnly);
         }
