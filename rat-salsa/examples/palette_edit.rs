@@ -1067,6 +1067,7 @@ mod showcase {
                 .expect("number_format");
             z.palette = rat_theme4::palettes::TUNDRA;
             z.theme = dark_theme("Tundra Dark", z.palette);
+            z.calendar.move_to_today();
             z
         }
     }
@@ -1079,6 +1080,7 @@ mod showcase {
     ) -> Result<(), Error> {
         let mut form = Clipper::new() //
             .vscroll(Scroll::new())
+            .buffer_uses_view_size()
             .styles(state.theme.style(WidgetStyle::CLIPPER));
 
         let layout_size = form.layout_size(area, &mut state.form);
@@ -1090,11 +1092,11 @@ mod showcase {
                 .line_spacing(1)
                 .padding(Padding::new(1, 1, 1, 1))
                 .flex(Flex::Start);
-            layout.widget(state.button.id(), L::Str("Button"), W::Width(10));
+            layout.widget(state.button.id(), L::Str("Button"), W::Width(11));
             layout.widget(state.checkbox.id(), L::Str("Checkbox"), W::Width(12));
             layout.widget(state.choice.id(), L::Str("Choice"), W::Width(14));
             layout.widget(state.combobox.id(), L::Str("Combobox"), W::Width(14));
-            layout.widget(state.date_input.id(), L::Str("DateInput"), W::Width(14));
+            layout.widget(state.date_input.id(), L::Str("DateInput"), W::Width(11));
             layout.widget(state.number_input.id(), L::Str("NumberInput"), W::Width(10));
             layout.widget(state.radio.id(), L::Str("Radio"), W::Width(25));
             layout.widget(state.slider.id(), L::Str("Slider"), W::Width(15));
@@ -1130,7 +1132,7 @@ mod showcase {
                         (3, "Three"),
                         (4, "Four"),
                     ])
-                    .popup_placement(Placement::Right)
+                    // .popup_placement(Placement::Right)
                     .styles(state.theme.style(WidgetStyle::CHOICE))
                     .into_widgets()
             },
@@ -1187,7 +1189,11 @@ mod showcase {
         );
         form.render(
             state.textarea.id(),
-            || TextArea::new().styles(state.theme.style(WidgetStyle::TEXTAREA)),
+            || {
+                TextArea::new()
+                    .vscroll(Scroll::new())
+                    .styles(state.theme.style(WidgetStyle::TEXTAREA))
+            },
             &mut state.textarea,
         );
         form.render(
