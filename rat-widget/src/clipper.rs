@@ -131,7 +131,8 @@ where
     vscroll: Option<Scroll<'a>>,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
-    auto_label: bool,
+    manual_label: bool,
+    buffer_uses_view_size: bool,
 }
 
 /// Second stage: render widgets to the temporary buffer.
@@ -141,7 +142,7 @@ where
     W: Eq + Clone + Hash,
 {
     layout: Rc<RefCell<GenericLayout<W>>>,
-    auto_label: bool,
+    no_auto_label: bool,
 
     // offset from buffer to scroll area
     offset: Position,
@@ -232,7 +233,8 @@ where
             vscroll: self.vscroll.clone(),
             label_style: self.label_style.clone(),
             label_alignment: self.label_alignment.clone(),
-            auto_label: self.auto_label,
+            manual_label: self.manual_label,
+            buffer_uses_view_size: self.buffer_uses_view_size,
         }
     }
 }
@@ -250,7 +252,8 @@ where
             vscroll: Default::default(),
             label_style: Default::default(),
             label_alignment: Default::default(),
-            auto_label: true,
+            manual_label: Default::default(),
+            buffer_uses_view_size: Default::default(),
         }
     }
 }
@@ -282,7 +285,7 @@ where
     ///
     /// Default: true
     pub fn auto_label(mut self, auto: bool) -> Self {
-        self.auto_label = auto;
+        self.manual_label = !auto;
         self
     }
 
@@ -340,6 +343,18 @@ where
             self.vscroll = self.vscroll.map(|v| v.styles(styles.clone()));
         }
         self.block = self.block.map(|v| v.style(styles.style));
+        self
+    }
+
+    /// By default, the buffer is sized according to the maximum extend
+    /// of the visible widgets.
+    ///
+    /// This may not be enough, when you use popups.
+    ///
+    /// This flag indicates, that the buffer should be at least the size
+    /// of the rendered view area.
+    pub fn buffer_uses_view_size(mut self) -> Self {
+        self.buffer_uses_view_size = true;
         self
     }
 
@@ -429,7 +444,11 @@ where
         state.widget_area = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
         // run the layout
-        let (ext_area, max_pos) = self.calc_layout(area, state);
+        let (mut ext_area, max_pos) = self.calc_layout(area, state);
+
+        if self.buffer_uses_view_size {
+            ext_area = ext_area.union(area)
+        }
 
         // adjust scroll
         state
@@ -459,7 +478,7 @@ where
 
         ClipperBuffer {
             layout: state.layout.clone(),
-            auto_label: self.auto_label,
+            no_auto_label: self.manual_label,
             offset,
             buffer,
             widget_area: state.widget_area,
@@ -565,7 +584,7 @@ where
         let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return false;
         };
-        if self.auto_label {
+        if !self.no_auto_label {
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
@@ -586,7 +605,7 @@ where
         let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return false;
         };
-        if self.auto_label {
+        if !self.no_auto_label {
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
@@ -616,7 +635,7 @@ where
         let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return None;
         };
-        if self.auto_label {
+        if !self.no_auto_label {
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
