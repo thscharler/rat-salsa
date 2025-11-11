@@ -599,6 +599,13 @@ where
     }
 
     /// Render a stateful widget and its label.
+    ///
+    /// This expects a pair of StatefulWidgets, of which the first
+    /// will be rendered and the second will be returned.
+    ///
+    /// This is for rendering widgets that split in two parts,
+    /// the main widget and a popup. The popup must be rendered later
+    /// to be 'above' all other widgets. Use [render_pop] for this.
     #[inline(always)]
     pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
     where
@@ -623,9 +630,11 @@ where
         Some(remainder)
     }
 
-    /// Render a stateful widget and its label.
+    /// Render an additional popup widget for the given main widget.
+    ///
+    /// Doesn't call relocate() at all.
     #[inline(always)]
-    pub fn render_opt<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
+    pub fn render_popup<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
     where
         FN: FnOnce() -> Option<WW>,
         WW: StatefulWidget<State = SS>,
@@ -634,20 +643,14 @@ where
         let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return false;
         };
-        if self.auto_label {
-            self.render_auto_label(idx);
-        }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
-            state.relocate_hidden();
             return false;
         };
         let widget = render_fn();
         if let Some(widget) = widget {
             widget.render(widget_area, &mut self.buffer, state);
-            state.relocate(self.shift(), self.widget_area);
             true
         } else {
-            state.relocate_hidden();
             false
         }
     }

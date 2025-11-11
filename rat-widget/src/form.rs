@@ -603,8 +603,64 @@ where
         true
     }
 
+    /// Render a stateful widget and its label, if any.
+    #[inline(always)]
+    pub fn render<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
+    where
+        FN: FnOnce() -> WW,
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return false;
+        };
+        if self.auto_label {
+            self.render_auto_label(idx);
+        }
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
+            state.relocate_hidden();
+            return false;
+        };
+        let widget = render_fn();
+        widget.render(widget_area, self.buffer, state);
+        true
+    }
+
+    /// Render a stateful widget and its label.
+    ///
+    /// This expects a pair of StatefulWidgets, of which the first
+    /// will be rendered and the second will be returned.
+    ///
+    /// This is for rendering widgets that split in two parts,
+    /// the main widget and a popup. The popup must be rendered later
+    /// to be 'above' all other widgets. Use [render_pop] for this.
+    #[inline(always)]
+    #[allow(clippy::question_mark)]
+    pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
+    where
+        FN: FnOnce() -> (WW, R),
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return None;
+        };
+        if self.auto_label {
+            self.render_auto_label(idx);
+        }
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
+            state.relocate_hidden();
+            return None;
+        };
+        let (widget, remainder) = render_fn();
+        widget.render(widget_area, self.buffer, state);
+
+        Some(remainder)
+    }
+
     /// Render an optional stateful widget and its label, if any.
     #[inline(always)]
+    #[deprecated(since = "2.3.0", note = "use render_popup() for popups")]
     pub fn render_opt<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
     where
         FN: FnOnce() -> Option<WW>,
@@ -631,54 +687,29 @@ where
         }
     }
 
-    /// Render a stateful widget and its label, if any.
+    /// Render an additional popup widget for the given main widget.
+    ///
+    /// Doesn't call relocate() at all.
     #[inline(always)]
-    pub fn render<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
+    pub fn render_popup<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
     where
-        FN: FnOnce() -> WW,
+        FN: FnOnce() -> Option<WW>,
         WW: StatefulWidget<State = SS>,
         SS: RelocatableState,
     {
         let Some(idx) = self.layout.try_index_of(widget) else {
             return false;
         };
-        if self.auto_label {
-            self.render_auto_label(idx);
-        }
         let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
-            state.relocate_hidden();
             return false;
         };
         let widget = render_fn();
-        widget.render(widget_area, self.buffer, state);
-        true
-    }
-
-    /// Render a stateful widget and its label, if any.
-    /// The closure can return a second value, which will be returned
-    /// if the widget is visible.
-    #[inline(always)]
-    #[allow(clippy::question_mark)]
-    pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
-    where
-        FN: FnOnce() -> (WW, R),
-        WW: StatefulWidget<State = SS>,
-        SS: RelocatableState,
-    {
-        let Some(idx) = self.layout.try_index_of(widget) else {
-            return None;
-        };
-        if self.auto_label {
-            self.render_auto_label(idx);
+        if let Some(widget) = widget {
+            widget.render(widget_area, self.buffer, state);
+            true
+        } else {
+            false
         }
-        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
-            state.relocate_hidden();
-            return None;
-        };
-        let (widget, remainder) = render_fn();
-        widget.render(widget_area, self.buffer, state);
-
-        Some(remainder)
     }
 
     /// Get access to the buffer during rendering a page.

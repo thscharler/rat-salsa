@@ -338,13 +338,16 @@ impl<'a> Drop for ViewBuffer<'a> {
 impl<'a> ViewBuffer<'a> {
     /// Render a widget to the temp buffer.
     #[inline(always)]
-    pub fn render_widget<W>(&mut self, widget: W, area: Rect)
+    pub fn render_widget<W>(&mut self, widget: W, area: Rect) -> bool
     where
         W: Widget,
     {
         if area.intersects(self.buffer.area) {
             // render the actual widget.
             widget.render(area, self.buffer());
+            true
+        } else {
+            false
         }
     }
 
@@ -352,7 +355,7 @@ impl<'a> ViewBuffer<'a> {
     /// This expects that the state is a [RelocatableState].
     #[inline(always)]
     #[allow(deprecated)]
-    pub fn render<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
+    pub fn render<W, S>(&mut self, widget: W, area: Rect, state: &mut S) -> bool
     where
         W: StatefulWidget<State = S>,
         S: RelocatableState,
@@ -362,8 +365,28 @@ impl<'a> ViewBuffer<'a> {
             widget.render(area, self.buffer(), state);
             // shift and clip the output areas.
             state.relocate(self.shift(), self.widget_area);
+            true
         } else {
             state.relocate_hidden();
+            false
+        }
+    }
+
+    /// Render an additional popup widget for the given main widget.
+    ///
+    /// Doesn't call relocate().
+    #[inline(always)]
+    pub fn render_popup<W, S>(&mut self, widget: W, area: Rect, state: &mut S) -> bool
+    where
+        W: StatefulWidget<State = S>,
+        S: RelocatableState,
+    {
+        if area.intersects(self.buffer.area) {
+            // render the actual widget.
+            widget.render(area, self.buffer(), state);
+            true
+        } else {
+            false
         }
     }
 
