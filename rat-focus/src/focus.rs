@@ -1902,7 +1902,8 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
                 };
                 focus_debug!(
                     self.core,
-                    "    -> {:?}",
+                    "    -> {:?} {:?}",
+                    r,
                     self.focused().map(|v| v.name().to_string())
                 );
                 r
@@ -1920,7 +1921,8 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
                 };
                 focus_debug!(
                     self.core,
-                    "    -> {:?}",
+                    "    -> {:?} {:?}",
+                    r,
                     self.focused().map(|v| v.name().to_string())
                 );
                 r
