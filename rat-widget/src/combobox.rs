@@ -8,7 +8,7 @@ use crate::event::ChoiceOutcome;
 use crate::text::HasScreenCursor;
 use rat_event::util::{MouseFlags, item_at, mouse_trap};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular, ct_event};
-use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::Placement;
 use rat_popup::event::PopupOutcome;
 use rat_reloc::RelocatableState;
@@ -477,7 +477,8 @@ impl HasScreenCursor for ComboboxState {
 
 impl HasFocus for ComboboxState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.leaf_widget(self);
+        builder.widget_with_flags(self.focus(), self.area(), 0, self.navigable());
+        builder.widget_with_flags(self.focus(), self.choice.popup.area, 1, Navigation::Mouse);
     }
 
     fn focus(&self) -> FocusFlag {
@@ -495,6 +496,10 @@ impl RelocatableState for ComboboxState {
         self.inner.relocate(shift, clip);
         self.choice.relocate(shift, clip);
         self.text.relocate(shift, clip);
+    }
+
+    fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {
+        self.choice.relocate_popup(shift, clip);
     }
 }
 

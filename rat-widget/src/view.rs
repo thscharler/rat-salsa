@@ -376,6 +376,7 @@ impl<'a> ViewBuffer<'a> {
     ///
     /// Doesn't call relocate().
     #[inline(always)]
+    #[allow(deprecated)]
     pub fn render_popup<W, S>(&mut self, widget: W, area: Rect, state: &mut S) -> bool
     where
         W: StatefulWidget<State = S>,
@@ -384,8 +385,11 @@ impl<'a> ViewBuffer<'a> {
         if area.intersects(self.buffer.area) {
             // render the actual widget.
             widget.render(area, self.buffer(), state);
+            // shift and clip the output areas.
+            state.relocate_popup(self.shift(), self.widget_area);
             true
         } else {
+            state.relocate_popup_hidden();
             false
         }
     }
@@ -423,10 +427,6 @@ impl<'a> ViewBuffer<'a> {
     }
 
     /// Validates that this area is inside the buffer area.
-    #[deprecated(
-        since = "2.0.0",
-        note = "wrong api, use is_visible_area() or locate_area2()"
-    )]
     pub fn locate_area2(&self, area: Rect) -> Option<Rect> {
         if area.intersects(self.buffer.area) {
             Some(area)
@@ -454,10 +454,6 @@ impl<'a> ViewBuffer<'a> {
     /// coordinates instead of screen coordinates.
     ///
     /// Call this function to correct this after rendering.
-    ///
-    ///
-    ///
-    #[deprecated(since = "2.0.0", note = "wrong api, use relocate2() instead")]
     #[allow(deprecated)]
     pub fn relocate2<S>(&self, area: Rect, state: &mut S)
     where

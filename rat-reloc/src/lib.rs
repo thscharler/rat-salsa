@@ -19,6 +19,17 @@ pub trait RelocatableState {
     /// - clip: areas must be clipped to the given Rect.
     fn relocate(&mut self, shift: (i16, i16), clip: Rect);
 
+    /// Relocate only popup areas.
+    /// As rendering the popups is a separate render,
+    /// this has to be separate too.
+    #[allow(unused_variables)]
+    fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {}
+
+    /// Relocate all popup areas to a clip-rect (0,0+0x0).
+    fn relocate_popup_hidden(&mut self) {
+        self.relocate_popup((0, 0), Rect::default())
+    }
+
     /// Relocate all areas to a clip-rect (0,0+0x0).
     fn relocate_hidden(&mut self) {
         self.relocate((0, 0), Rect::default())

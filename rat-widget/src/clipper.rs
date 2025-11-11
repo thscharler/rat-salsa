@@ -663,13 +663,16 @@ where
             return false;
         };
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
+            state.relocate_popup_hidden();
             return false;
         };
         let widget = render_fn();
         if let Some(widget) = widget {
             widget.render(widget_area, &mut self.buffer, state);
+            state.relocate_popup(self.shift(), self.widget_area);
             true
         } else {
+            state.relocate_popup_hidden();
             false
         }
     }

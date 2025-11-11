@@ -701,6 +701,7 @@ where
             return false;
         };
         let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
+            state.relocate_popup_hidden();
             return false;
         };
         let widget = render_fn();
@@ -708,6 +709,7 @@ where
             widget.render(widget_area, self.buffer, state);
             true
         } else {
+            state.relocate_popup_hidden();
             false
         }
     }
