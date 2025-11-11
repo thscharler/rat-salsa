@@ -1,6 +1,7 @@
 use crate::palette_edit::PaletteEdit;
+use crate::showcase::ShowCase;
 use anyhow::Error;
-use log::{error, warn};
+use log::{debug, error, warn};
 use rat_event::{try_flow, Outcome, Popup};
 use rat_focus::{impl_has_focus, FocusFlag, HasFocus};
 use rat_salsa::dialog_stack::DialogStack;
@@ -126,6 +127,7 @@ impl From<crossterm::event::Event> for PalEvent {
 pub struct Scenery {
     pub defined: ChoiceState<String>,
     pub edit: PaletteEdit,
+    pub show: ShowCase,
     pub menu: MenuLineState,
 }
 
@@ -134,6 +136,7 @@ impl Default for Scenery {
         Self {
             defined: ChoiceState::named("palette"),
             edit: PaletteEdit::default(),
+            show: ShowCase::default(),
             menu: MenuLineState::named("menu"),
         }
     }
@@ -143,6 +146,7 @@ impl HasFocus for Scenery {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.defined);
         builder.widget(&self.edit);
+        builder.widget(&self.show);
         builder.widget(&self.menu);
     }
 
@@ -171,12 +175,14 @@ pub fn render(
 
     let l2 = Layout::horizontal([
         Constraint::Length(80), //
+        Constraint::Length(50), //
     ])
     .horizontal_margin(1)
     .split(l1[2]);
 
     // main
     palette_edit::render(l2[0], buf, &mut state.edit, ctx)?;
+    showcase::render(l2[1], buf, &mut state.show, ctx)?;
     screen_cursor(state, ctx);
 
     // functions
@@ -261,12 +267,13 @@ fn render_status(area: Rect, buf: &mut Buffer, ctx: &mut Global) -> Result<(), E
 }
 
 fn screen_cursor(state: &mut Scenery, ctx: &mut Global) {
-    let sc = state.edit.screen_cursor();
+    let sc = state.edit.screen_cursor().or(state.show.screen_cursor());
     ctx.set_screen_cursor(sc);
 }
 
 pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     ctx.set_focus(FocusBuilder::build_for(state));
+    ctx.focus().enable_log();
     ctx.focus().first();
     Ok(())
 }
@@ -289,7 +296,8 @@ pub fn event(
     if let PalEvent::Event(event) = event {
         match ctx.handle_focus(event) {
             Outcome::Changed => {
-                state.edit.form.show_focused(&ctx.focus());
+                // state.edit.form.show_focused(&ctx.focus());
+                // state.show.form.show_focused(&ctx.focus());
             }
             _ => {}
         }
@@ -298,13 +306,24 @@ pub fn event(
             ChoiceOutcome::Value => {
                 if let Some(palette) = create_palette(state.defined.value().as_str()) {
                     state.edit.set_palette(palette);
+                    debug!("show palette {:#?}", palette);
+                    state.show.set_palette(palette);
                 }
                 Control::Changed
             }
             r => r.into(),
         });
 
-        try_flow!(palette_edit::event(event, &mut state.edit, ctx)?);
+        try_flow!(match palette_edit::event(event, &mut state.edit, ctx)? {
+            Outcome::Changed => {
+                let pal = state.edit.palette();
+                debug!("show edit palette {:#?}", pal);
+                state.show.set_palette(pal);
+                Outcome::Changed
+            }
+            r => r.into(),
+        });
+        try_flow!(showcase::event(event, &mut state.show, ctx)?);
 
         try_flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => Control::Quit,
@@ -315,6 +334,7 @@ pub fn event(
     match event {
         PalEvent::Rendered => {
             ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
+            ctx.focus().enable_log();
             Ok(Control::Continue)
         }
         PalEvent::Message(s) => {
@@ -336,11 +356,10 @@ pub fn error(
 }
 
 mod palette_edit {
-    use crate::{ColorSpan, ColorSpanState, Global, PalEvent};
+    use crate::{ColorSpan, ColorSpanState, Global};
     use anyhow::Error;
     use rat_event::{break_flow, MouseOnly, Outcome, Popup};
     use rat_focus::{FocusFlag, HasFocus};
-    use rat_salsa::Control;
     use rat_theme4::{Palette, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::clipper::{Clipper, ClipperState};
@@ -532,6 +551,9 @@ mod palette_edit {
 
         pub fn palette(&self) -> Palette {
             let mut palette = Palette::default();
+            let name = Box::from(self.name.text());
+            let name = Box::leak(name);
+            palette.name = name;
             palette.text_light = self.text_light.value();
             palette.text_bright = self.text_bright.value();
             palette.text_dark = self.text_dark.value();
@@ -837,8 +859,8 @@ mod palette_edit {
             );
         }
 
-        form.render_opt(state.primary.id(), || primary_popup, &mut state.primary);
-        form.render_opt(
+        form.render_popup(state.primary.id(), || primary_popup, &mut state.primary);
+        form.render_popup(
             state.secondary.id(),
             || secondary_popup,
             &mut state.secondary,
@@ -852,7 +874,7 @@ mod palette_edit {
         event: &crossterm::event::Event,
         state: &mut PaletteEdit,
         _ctx: &mut Global,
-    ) -> Result<Control<PalEvent>, Error> {
+    ) -> Result<Outcome, Error> {
         let mut mode_change = None;
 
         let r = 'f: {
@@ -882,7 +904,7 @@ mod palette_edit {
                 r => r.into(),
             });
 
-            Control::Continue
+            Outcome::Continue
         };
 
         if let Some(mode_change) = mode_change {
@@ -911,6 +933,306 @@ mod palette_edit {
             *mode_change = Some(color.mode());
         }
         r
+    }
+}
+
+mod showcase {
+    use crate::Global;
+    use anyhow::Error;
+    use log::debug;
+    use pure_rust_locales::{locale_match, Locale};
+    use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
+    use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
+    use rat_theme4::{create_palette, dark_theme, Palette, SalsaTheme, WidgetStyle};
+    use rat_widget::button::{Button, ButtonState};
+    use rat_widget::calendar::selection::SingleSelection;
+    use rat_widget::calendar::{CalendarState, Month};
+    use rat_widget::checkbox::{Checkbox, CheckboxState};
+    use rat_widget::choice::{Choice, ChoiceState};
+    use rat_widget::clipper::{Clipper, ClipperState};
+    use rat_widget::combobox::{Combobox, ComboboxState};
+    use rat_widget::date_input::{DateInput, DateInputState};
+    use rat_widget::event::ChoiceOutcome;
+    use rat_widget::layout::LayoutForm;
+    use rat_widget::number_input::{NumberInput, NumberInputState};
+    use rat_widget::popup::Placement;
+    use rat_widget::radio::{Radio, RadioLayout, RadioState};
+    use rat_widget::scrolled::Scroll;
+    use rat_widget::slider::{Slider, SliderState};
+    use rat_widget::text::HasScreenCursor;
+    use rat_widget::text_input::{TextInput, TextInputState};
+    use rat_widget::textarea::{TextArea, TextAreaState};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Direction, Flex, Rect};
+    use ratatui::widgets::Padding;
+
+    #[derive(Debug)]
+    pub struct ShowCase {
+        pub theme: SalsaTheme,
+        pub palette: Palette,
+
+        pub form: ClipperState,
+
+        pub button: ButtonState,
+        pub checkbox: CheckboxState,
+        pub choice: ChoiceState,
+        pub combobox: ComboboxState,
+        pub date_input: DateInputState,
+        pub number_input: NumberInputState,
+        pub radio: RadioState,
+        pub slider: SliderState<usize>,
+        pub text: TextInputState,
+        pub textarea: TextAreaState,
+        pub calendar: CalendarState<1, SingleSelection>,
+    }
+
+    impl ShowCase {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        pub fn set_theme(&mut self, theme: SalsaTheme) {
+            self.theme = theme;
+            self.theme.p = self.palette;
+        }
+
+        pub fn set_palette(&mut self, palette: Palette) {
+            self.palette = palette;
+            self.theme.p = palette;
+        }
+    }
+
+    impl HasFocus for ShowCase {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.button);
+            builder.widget(&self.checkbox);
+            builder.widget(&self.choice);
+            builder.widget(&self.combobox);
+            builder.widget(&self.date_input);
+            builder.widget(&self.number_input);
+            builder.widget(&self.radio);
+            builder.widget(&self.slider);
+            builder.widget(&self.text);
+            builder.widget_navigate(&self.textarea, Navigation::Regular);
+            builder.widget(&self.calendar);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("no available")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("no available")
+        }
+    }
+
+    impl HasScreenCursor for ShowCase {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            self.combobox
+                .screen_cursor()
+                .or(self.date_input.screen_cursor())
+                .or(self.number_input.screen_cursor())
+                .or(self.text.screen_cursor())
+                .or(self.textarea.screen_cursor())
+                .or(self.calendar.screen_cursor())
+        }
+    }
+
+    impl Default for ShowCase {
+        fn default() -> Self {
+            let mut z = Self {
+                theme: Default::default(),
+                palette: Default::default(),
+                form: ClipperState::named("show"),
+                button: ButtonState::named("button"),
+                checkbox: CheckboxState::named("checkbox"),
+                choice: ChoiceState::named("choice"),
+                combobox: ComboboxState::named("combobox"),
+                date_input: DateInputState::named("date_input"),
+                number_input: NumberInputState::named("number_input"),
+                radio: RadioState::named("radio"),
+                slider: SliderState::<usize>::named("slider"),
+                text: TextInputState::named("text"),
+                textarea: TextAreaState::named("textarea"),
+                calendar: CalendarState::named("calendar"),
+            };
+
+            let loc = sys_locale::get_locale().expect("locale");
+            let loc = loc.replace("-", "_");
+            let loc = Locale::try_from(loc.as_str()).expect("locale");
+            let fmt = locale_match!(loc => LC_TIME::D_FMT);
+            z.date_input.set_format_loc(fmt, loc).expect("date_format");
+            z.number_input
+                .set_format_loc("###,##0.00#", loc)
+                .expect("number_format");
+            z.palette = rat_theme4::palettes::TUNDRA;
+            z.theme = dark_theme("Tundra Dark", z.palette);
+            z
+        }
+    }
+
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut ShowCase,
+        _ctx: &mut Global,
+    ) -> Result<(), Error> {
+        let mut form = Clipper::new() //
+            .vscroll(Scroll::new())
+            .styles(state.theme.style(WidgetStyle::CLIPPER));
+
+        let layout_size = form.layout_size(area, &mut state.form);
+
+        if !state.form.valid_layout(layout_size) {
+            use rat_widget::layout::{FormLabel as L, FormWidget as W};
+            let mut layout = LayoutForm::<usize>::new()
+                .spacing(1)
+                .line_spacing(1)
+                .padding(Padding::new(1, 1, 1, 1))
+                .flex(Flex::Start);
+            layout.widget(state.button.id(), L::Str("Button"), W::Width(10));
+            layout.widget(state.checkbox.id(), L::Str("Checkbox"), W::Width(12));
+            layout.widget(state.choice.id(), L::Str("Choice"), W::Width(14));
+            layout.widget(state.combobox.id(), L::Str("Combobox"), W::Width(14));
+            layout.widget(state.date_input.id(), L::Str("DateInput"), W::Width(14));
+            layout.widget(state.number_input.id(), L::Str("NumberInput"), W::Width(10));
+            layout.widget(state.radio.id(), L::Str("Radio"), W::Width(25));
+            layout.widget(state.slider.id(), L::Str("Slider"), W::Width(15));
+            layout.widget(state.text.id(), L::Str("TextInput"), W::Width(20));
+            layout.widget(state.textarea.id(), L::Str("TextArea"), W::Size(25, 5));
+            layout.widget(state.calendar.id(), L::Str("Calendar"), W::Size(25, 10));
+            form = form.layout(layout.build_endless(layout_size.width));
+        }
+        let mut form = form.into_buffer(area, &mut state.form);
+
+        form.render(
+            state.button.id(),
+            || Button::new("Ok").styles(state.theme.style(WidgetStyle::BUTTON)),
+            &mut state.button,
+        );
+        form.render(
+            state.checkbox.id(),
+            || {
+                Checkbox::new()
+                    .text("rat-salsa")
+                    .styles(state.theme.style(WidgetStyle::CHECKBOX))
+            },
+            &mut state.checkbox,
+        );
+        let choice_popup = form.render2(
+            state.choice.id(),
+            || {
+                Choice::new()
+                    .items([
+                        (0, "Zero"),
+                        (1, "One"),
+                        (2, "Two"),
+                        (3, "Three"),
+                        (4, "Four"),
+                    ])
+                    .popup_placement(Placement::Right)
+                    .styles(state.theme.style(WidgetStyle::CHOICE))
+                    .into_widgets()
+            },
+            &mut state.choice,
+        );
+        let combo_popup = form.render2(
+            state.combobox.id(),
+            || {
+                Combobox::new()
+                    .items([
+                        ("a".to_string(), "Alpha"),
+                        ("b".to_string(), "Beta"),
+                        ("g".to_string(), "Gamma"),
+                    ])
+                    .styles(state.theme.style(WidgetStyle::COMBOBOX))
+                    .into_widgets()
+            },
+            &mut state.combobox,
+        );
+        form.render(
+            state.date_input.id(),
+            || DateInput::new().styles(state.theme.style(WidgetStyle::TEXT)),
+            &mut state.date_input,
+        );
+        form.render(
+            state.number_input.id(),
+            || NumberInput::new().styles(state.theme.style(WidgetStyle::TEXT)),
+            &mut state.number_input,
+        );
+        form.render(
+            state.radio.id(),
+            || {
+                Radio::new()
+                    .direction(Direction::Horizontal)
+                    .layout(RadioLayout::Stacked)
+                    .items([(0, "abc"), (1, "def"), (2, "ghi"), (3, "jkl")])
+                    .styles(state.theme.style(WidgetStyle::RADIO))
+            },
+            &mut state.radio,
+        );
+        form.render(
+            state.slider.id(),
+            || {
+                Slider::new()
+                    .range((0, 255))
+                    .styles(state.theme.style(WidgetStyle::SLIDER))
+            },
+            &mut state.slider,
+        );
+        form.render(
+            state.text.id(),
+            || TextInput::new().styles(state.theme.style(WidgetStyle::TEXT)),
+            &mut state.text,
+        );
+        form.render(
+            state.textarea.id(),
+            || TextArea::new().styles(state.theme.style(WidgetStyle::TEXTAREA)),
+            &mut state.textarea,
+        );
+        form.render(
+            state.calendar.id(),
+            || Month::new().styles(state.theme.style(WidgetStyle::MONTH)),
+            &mut state.calendar.months[0],
+        );
+
+        form.render_popup(state.choice.id(), || choice_popup, &mut state.choice);
+        form.render_popup(state.combobox.id(), || combo_popup, &mut state.combobox);
+        form.finish(buf, &mut state.form);
+        Ok(())
+    }
+
+    pub fn event(
+        event: &crossterm::event::Event,
+        state: &mut ShowCase,
+        _ctx: &mut Global,
+    ) -> Result<Outcome, Error> {
+        try_flow!(match state.choice.handle(event, Popup) {
+            ChoiceOutcome::Changed => {
+                debug!("choice changed");
+                ChoiceOutcome::Changed
+            }
+            ChoiceOutcome::Value => {
+                debug!("choice value");
+                ChoiceOutcome::Value
+            }
+            r => r,
+        });
+        try_flow!(state.combobox.handle(event, Popup));
+
+        try_flow!(state.button.handle(event, Regular));
+        try_flow!(state.checkbox.handle(event, Regular));
+        try_flow!(state.date_input.handle(event, Regular));
+        try_flow!(state.number_input.handle(event, Regular));
+        try_flow!(state.radio.handle(event, Regular));
+        try_flow!(state.slider.handle(event, Regular));
+        try_flow!(state.text.handle(event, Regular));
+        try_flow!(state.textarea.handle(event, Regular));
+        try_flow!(state.calendar.handle(event, Regular));
+
+        try_flow!(state.form.handle(event, Regular));
+
+        Ok(Outcome::Continue)
     }
 }
 
