@@ -2,7 +2,7 @@ use crate::calendar::event::CalOutcome;
 use crate::calendar::{CalendarSelection, CalendarState, MonthState};
 use chrono::NaiveDate;
 use rat_event::util::item_at;
-use rat_event::{ct_event, flow, ConsumedEvent, HandleEvent, MouseOnly, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::HasFocus;
 
 /// Can select a single date.
@@ -17,11 +17,7 @@ pub struct SingleSelection {
 
 impl CalendarSelection for SingleSelection {
     fn count(&self) -> usize {
-        if self.selected.is_some() {
-            1
-        } else {
-            0
-        }
+        if self.selected.is_some() { 1 } else { 0 }
     }
 
     fn is_selected(&self, date: NaiveDate) -> bool {
@@ -53,6 +49,8 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<Si
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
         if self.is_focused() {
             flow!(match event {
+                ct_event!(keycode press Home) => self.select_day(0),
+                ct_event!(keycode press End) => self.select_last(),
                 ct_event!(keycode press Up) => self.prev_day(7),
                 ct_event!(keycode press Down) => self.next_day(7),
                 ct_event!(keycode press Left) => self.prev_day(1),

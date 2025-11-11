@@ -74,10 +74,12 @@ pub struct Month<'a, Selection> {
     /// Focus
     focus_style: Option<Style>,
 
+    /// Show year in title.
+    hide_year: bool,
     /// Show month name
-    show_month: bool,
+    hide_month: bool,
     /// Show Weekdays above
-    show_weekdays: bool,
+    hide_weekdays: bool,
 
     /// Block
     block: Option<Block<'a>>,
@@ -144,8 +146,9 @@ impl<Selection> Default for Month<'_, Selection> {
             day_styles: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            show_month: true,
-            show_weekdays: true,
+            hide_year: Default::default(),
+            hide_month: Default::default(),
+            hide_weekdays: Default::default(),
             block: Default::default(),
             loc: Default::default(),
             phantom: PhantomData,
@@ -174,17 +177,53 @@ impl<'a, Selection> Month<'a, Selection> {
         self
     }
 
+    /// Show year title
+    #[inline]
+    pub fn hide_year(mut self) -> Self {
+        self.hide_year = true;
+        self
+    }
+
     /// Show month title
     #[inline]
+    pub fn hide_month(mut self) -> Self {
+        self.hide_month = true;
+        self
+    }
+
+    /// Show month title
+    #[inline]
+    pub fn show_year(mut self) -> Self {
+        self.hide_year = false;
+        self
+    }
+
+    /// Show month title
+    #[inline]
+    #[deprecated(since = "2.3.0", note = "typo, use show_month()")]
     pub fn show_show_month(mut self) -> Self {
-        self.show_month = true;
+        self.hide_month = false;
+        self
+    }
+
+    /// Show month title
+    #[inline]
+    pub fn show_month(mut self) -> Self {
+        self.hide_month = false;
+        self
+    }
+
+    /// Show weekday titles
+    #[inline]
+    pub fn hide_weekdays(mut self) -> Self {
+        self.hide_weekdays = true;
         self
     }
 
     /// Show weekday titles
     #[inline]
     pub fn show_weekdays(mut self) -> Self {
-        self.show_weekdays = true;
+        self.hide_weekdays = false;
         self
     }
 
@@ -302,7 +341,7 @@ impl<'a, Selection> Month<'a, Selection> {
         };
 
         let r = MonthState::<Selection>::count_weeks(start_date) as u16;
-        let w = if self.show_weekdays { 1 } else { 0 };
+        let w = if !self.hide_weekdays { 1 } else { 0 };
         let b = max(1, block_size(&self.block).height);
         r + w + b
     }
@@ -372,30 +411,24 @@ fn render_ref<Selection: CalendarSelection>(
         title_style
     };
 
-    let block = if widget.show_month {
-        if let Some(block) = widget.block.clone() {
-            block
-                .title(Title::from(
-                    day.format_localized("%B", widget.loc).to_string(),
-                ))
-                .title_style(title_style)
-                .title_alignment(widget.title_align)
-        } else {
-            Block::new()
-                .style(widget.style)
-                .title(Title::from(
-                    day.format_localized("%B", widget.loc).to_string(),
-                ))
-                .title_style(title_style)
-                .title_alignment(widget.title_align)
-        }
+    let mut block = if let Some(block) = widget.block.clone() {
+        block
     } else {
-        if let Some(block) = widget.block.clone() {
-            block
-        } else {
-            Block::new().style(widget.style)
-        }
+        Block::new().style(widget.style)
     };
+    let title_format = if !widget.hide_month {
+        if !widget.hide_year { "%B %Y" } else { "%B" }
+    } else {
+        ""
+    };
+    if !title_format.is_empty() {
+        block = block
+            .title(Title::from(
+                day.format_localized(title_format, widget.loc).to_string(),
+            ))
+            .title_style(title_style)
+            .title_alignment(widget.title_align)
+    }
     state.inner = block.inner(area);
     block.render(area, buf);
 
@@ -405,7 +438,7 @@ fn render_ref<Selection: CalendarSelection>(
     let mut y = state.inner.y;
 
     // week days
-    if widget.show_weekdays {
+    if !widget.hide_weekdays {
         let mut week_0 = day.week(Weekday::Mon).first_day();
 
         x += 3;
