@@ -50,7 +50,12 @@ impl Hash for FocusFlag {
 
 impl Display for FocusFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "|{}|", self.0.name)
+        let name = self.0.name.borrow();
+        if let Some(name) = &*name {
+            write!(f, "|{}|", name)
+        } else {
+            write!(f, "")
+        }
     }
 }
 
@@ -79,7 +84,7 @@ impl HasFocus for FocusFlag {
 #[derive(Default)]
 struct FocusFlagCore {
     /// Field name for debugging purposes.
-    name: Box<str>,
+    name: RefCell<Option<Box<str>>>,
     /// Focus.
     focus: Cell<bool>,
     /// This widget just gained the focus. This flag is set by [Focus::handle]
@@ -302,10 +307,12 @@ pub trait HasFocus {
 impl Debug for FocusFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FocusFlag")
-            .field("name", &self.name())
-            .field("focus", &self.get())
-            .field("gained", &self.gained())
-            .field("lost", &self.lost())
+            .field("name", &self.0.name)
+            .field("focus", &self.0.focus.get())
+            .field("gained", &self.0.gained.get())
+            .field("on_gained", &self.0.on_gained.borrow().is_some())
+            .field("lost", &self.0.lost.get())
+            .field("on_lost", &self.0.on_lost.borrow().is_some())
             .finish()
     }
 }
@@ -328,8 +335,18 @@ impl FocusFlag {
     /// Create a named flag.
     ///
     /// The name is only used for debugging.
-    pub fn named(name: &str) -> Self {
-        Self(Rc::new(FocusFlagCore::named(name)))
+    #[deprecated(
+        since = "1.4.0",
+        note = "to dangerous, use FocusFlag::new().with_name(..) or FocusFlag::clone_from(..) for a clone."
+    )]
+    pub fn named(name: impl AsRef<str>) -> Self {
+        Self(Rc::new(FocusFlagCore::default().named(name.as_ref())))
+    }
+
+    /// Set a name for a FocusFlag.
+    pub fn with_name(self, name: &str) -> Self {
+        self.set_name(name);
+        self
     }
 
     /// Has the focus.
@@ -346,8 +363,14 @@ impl FocusFlag {
 
     /// Get the field-name.
     #[inline]
-    pub fn name(&self) -> &str {
-        self.0.name.as_ref()
+    pub fn name(&self) -> Box<str> {
+        self.0.name.borrow().clone().unwrap_or(Default::default())
+    }
+
+    /// Set the field-name.
+    #[inline]
+    pub fn set_name(&self, name: &str) {
+        *self.0.name.borrow_mut() = Some(Box::from(name))
     }
 
     /// Just lost the focus.
@@ -424,15 +447,10 @@ impl FocusFlag {
 }
 
 impl FocusFlagCore {
-    pub(crate) fn named(name: &str) -> Self {
-        Self {
-            name: name.into(),
-            focus: Cell::new(false),
-            gained: Cell::new(false),
-            on_gained: RefCell::new(None),
-            lost: Cell::new(false),
-            on_lost: RefCell::new(None),
-        }
+    #[inline(always)]
+    pub(crate) fn named(self, name: &str) -> Self {
+        *self.name.borrow_mut() = Some(Box::from(name));
+        self
     }
 }
 

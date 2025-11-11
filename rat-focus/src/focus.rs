@@ -240,7 +240,7 @@ impl Focus {
                     "next after {:?}",
                     self.core
                         .focused()
-                        .map(|v| v.name().to_string())
+                        .map(|v| v.name())
                         .unwrap_or("None".into())
                 );
                 self.core.next()
@@ -1640,7 +1640,7 @@ mod core {
                 if start < self.focus_flags.len() {
                     self.focus_flags[start].name()
                 } else {
-                    "beginning"
+                    "beginning".into()
                 }
             );
             for n in start..self.focus_flags.len() {
@@ -1668,7 +1668,7 @@ mod core {
                 if start < self.focus_flags.len() {
                     self.focus_flags[start].name()
                 } else {
-                    "last"
+                    "last".into()
                 }
             );
 
