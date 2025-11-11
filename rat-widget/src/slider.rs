@@ -1181,12 +1181,27 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> SliderOutcome {
         match event {
-            ct_event!(mouse drag Left for x,y) | ct_event!(mouse down Left for x,y) => {
-                if self.inner.contains(Position::new(*x, *y)) {
-                    if self.clicked_at(*x, *y) {
+            ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
+                if self.inner.contains(Position::new(m.column, m.row)) {
+                    if self.clicked_at(m.column, m.row) {
                         SliderOutcome::Value
                     } else {
                         SliderOutcome::Unchanged
+                    }
+                } else {
+                    SliderOutcome::Continue
+                }
+            }
+            ct_event!(mouse down Left for x,y) => {
+                if !self.gained_focus() {
+                    if self.inner.contains(Position::new(*x, *y)) {
+                        if self.clicked_at(*x, *y) {
+                            SliderOutcome::Value
+                        } else {
+                            SliderOutcome::Unchanged
+                        }
+                    } else {
+                        SliderOutcome::Continue
                     }
                 } else {
                     SliderOutcome::Continue
