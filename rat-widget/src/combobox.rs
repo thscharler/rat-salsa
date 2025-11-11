@@ -718,6 +718,10 @@ impl HandleEvent<crossterm::event::Event, Popup, ComboboxOutcome> for ComboboxSt
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> ComboboxOutcome {
         let r = if self.is_focused() {
             match event {
+                ct_event!(keycode press Enter) => {
+                    self.flip_popup_active();
+                    ComboboxOutcome::Changed
+                }
                 ct_event!(keycode press Esc) => {
                     if self.set_popup_active(false) {
                         ComboboxOutcome::Changed
