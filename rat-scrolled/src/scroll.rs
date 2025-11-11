@@ -3,7 +3,7 @@ use crate::ScrollbarPolicy;
 use crate::event::ScrollOutcome;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, ct_event};
-use rat_reloc::{RelocatableState, relocate_area};
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;

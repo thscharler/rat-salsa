@@ -3,7 +3,7 @@ use crate::event::PopupOutcome;
 use crate::{Placement, PopupConstraint};
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, Popup, ct_event};
-use rat_reloc::{RelocatableState, relocate_area};
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Style, Stylize};
