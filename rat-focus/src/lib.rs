@@ -3,6 +3,7 @@
 mod focus;
 
 pub use crate::focus::{Focus, FocusBuilder, handle_focus};
+use dyn_clone::{DynClone, clone_box};
 use ratatui::layout::Rect;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Display, Formatter};
@@ -81,6 +82,14 @@ impl HasFocus for FocusFlag {
     }
 }
 
+trait Callback: DynClone + Fn() {}
+impl<T> Callback for T where T: DynClone + Fn() {}
+impl Clone for Box<dyn Callback> {
+    fn clone(&self) -> Self {
+        clone_box(&**self)
+    }
+}
+
 #[derive(Default)]
 struct FocusFlagCore {
     /// Field name for debugging purposes.
@@ -94,7 +103,7 @@ struct FocusFlagCore {
     /// See [on_gained!](crate::on_gained!)
     gained: Cell<bool>,
     /// Callback for set of gained.
-    on_gained: RefCell<Option<Box<dyn Fn()>>>,
+    on_gained: RefCell<Option<Box<dyn Callback>>>,
     /// This widget just lost the focus. This flag is set by [Focus::handle]
     /// if there is a focus transfer, and will be reset by the next
     /// call to [Focus::handle].
@@ -102,7 +111,7 @@ struct FocusFlagCore {
     /// See [on_lost!](crate::on_lost!)
     lost: Cell<bool>,
     /// Callback for set of lost.
-    on_lost: RefCell<Option<Box<dyn Fn()>>>,
+    on_lost: RefCell<Option<Box<dyn Callback>>>,
 }
 
 /// Focus navigation for widgets.
@@ -337,10 +346,15 @@ impl FocusFlag {
     /// The name is only used for debugging.
     #[deprecated(
         since = "1.4.0",
-        note = "to dangerous, use FocusFlag::new().with_name(..) or FocusFlag::clone_from(..) for a clone."
+        note = "to dangerous, use FocusFlag::new().with_name(..) or FocusFlag::deep_clone(..) for a clone."
     )]
     pub fn named(name: impl AsRef<str>) -> Self {
         Self(Rc::new(FocusFlagCore::default().named(name.as_ref())))
+    }
+
+    /// Create a deep clone of the FocusFlag.
+    pub fn deep_clone(&self) -> Self {
+        Self(Rc::new(self.0.deep_clone()))
     }
 
     /// Set a name for a FocusFlag.
@@ -392,7 +406,7 @@ impl FocusFlag {
     ///
     /// This is not an api for widget *users.
     #[inline]
-    pub fn on_lost(&self, on_lost: impl Fn() + 'static) {
+    pub fn on_lost(&self, on_lost: impl Fn() + Clone + 'static) {
         *(self.0.on_lost.borrow_mut()) = Some(Box::new(on_lost));
     }
 
@@ -424,7 +438,7 @@ impl FocusFlag {
     ///
     /// This is not an api for widget *users.
     #[inline]
-    pub fn on_gained(&self, on_gained: impl Fn() + 'static) {
+    pub fn on_gained(&self, on_gained: impl Fn() + Clone + 'static) {
         *(self.0.on_gained.borrow_mut()) = Some(Box::new(on_gained));
     }
 
@@ -451,6 +465,33 @@ impl FocusFlagCore {
     pub(crate) fn named(self, name: &str) -> Self {
         *self.name.borrow_mut() = Some(Box::from(name));
         self
+    }
+
+    pub(crate) fn deep_clone(&self) -> Self {
+        let on_gained = self.on_gained.borrow();
+        let on_gained = if let Some(on_gained) = &*on_gained {
+            let on_gained = on_gained.as_ref();
+            Some(clone_box(on_gained))
+        } else {
+            None
+        };
+
+        let on_lost = self.on_lost.borrow();
+        let on_lost = if let Some(on_lost) = &*on_lost {
+            let on_lost = on_lost.as_ref();
+            Some(clone_box(on_lost))
+        } else {
+            None
+        };
+
+        Self {
+            name: self.name.clone(),
+            focus: Cell::new(self.focus.get()),
+            gained: Cell::new(self.gained.get()),
+            on_gained: RefCell::new(on_gained),
+            lost: Cell::new(self.lost.get()),
+            on_lost: RefCell::new(on_lost),
+        }
     }
 }
 
