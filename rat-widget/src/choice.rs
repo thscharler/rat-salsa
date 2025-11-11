@@ -36,13 +36,12 @@ use crate::choice::core::ChoiceCore;
 use crate::event::ChoiceOutcome;
 use crate::text::HasScreenCursor;
 use crate::util::{block_padding, block_size, revert_style};
-use log::debug;
 use rat_event::util::{MouseFlags, item_at, mouse_trap};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle, fallback_popup_style};
-use rat_reloc::{RelocatableState, relocate_areas};
+use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
@@ -1056,10 +1055,8 @@ fn render_popup<T: PartialEq + Clone + Default>(
             if let Some(marker) = widget.select_marker {
                 hidden_marker = marker.to_string();
                 if unicode_display_width::is_double_width(marker) {
-                    debug!("double {:?}", marker);
                     (2, Some(hidden_marker.as_str()), Some("  "))
                 } else {
-                    debug!("single {:?}", marker);
                     (1, Some(hidden_marker.as_str()), Some(" "))
                 }
             } else {
@@ -1234,7 +1231,7 @@ where
         self.inner.relocate(shift, clip);
         self.item_area.relocate(shift, clip);
         self.button_area.relocate(shift, clip);
-        relocate_areas(&mut self.item_areas, shift, clip);
+        self.item_areas.relocate(shift, clip);
         self.popup.relocate(shift, clip);
         self.popup_scroll.relocate(shift, clip);
     }
