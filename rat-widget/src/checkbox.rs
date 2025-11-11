@@ -373,7 +373,7 @@ impl Clone for CheckboxState {
             behave_check: self.behave_check,
             checked: self.checked,
             default: self.default,
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -431,10 +431,9 @@ impl CheckboxState {
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     /// Get the value.

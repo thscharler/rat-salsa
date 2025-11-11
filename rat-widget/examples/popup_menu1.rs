@@ -259,17 +259,15 @@ mod blue {
 
     impl BlueState {
         pub fn new() -> Self {
-            Self {
-                area: Default::default(),
-                focus: FocusFlag::named("blue"),
-            }
+            let mut z = Self::default();
+            z.focus = z.focus.with_name("blue");
+            z
         }
 
         pub fn named(name: &str) -> Self {
-            Self {
-                area: Default::default(),
-                focus: FocusFlag::named(name),
-            }
+            let mut z = Self::default();
+            z.focus = z.focus.with_name(name);
+            z
         }
     }
 

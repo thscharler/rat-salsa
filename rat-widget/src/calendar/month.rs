@@ -599,7 +599,7 @@ where
             start_date: self.start_date,
             selection: self.selection.clone(),
             container: self.container.clone(),
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -610,6 +610,7 @@ impl<Selection> Default for MonthState<Selection>
 where
     Selection: Default,
 {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             area: Default::default(),
@@ -640,10 +641,9 @@ impl<Selection> MonthState<Selection> {
     where
         Selection: Default,
     {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Self::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     /// Sets the start-date of the calendar. You can set every date, it

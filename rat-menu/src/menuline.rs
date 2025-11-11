@@ -413,10 +413,9 @@ impl MenuLineState {
 
     /// New with a focus name.
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     /// Number of items.
@@ -596,7 +595,7 @@ impl Clone for MenuLineState {
             navchar: self.navchar.clone(),
             disabled: self.disabled.clone(),
             selected: self.selected,
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

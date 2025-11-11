@@ -816,7 +816,7 @@ where
             check_areas: self.check_areas.clone(),
             text_areas: self.text_areas.clone(),
             core: self.core.clone(),
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -892,10 +892,9 @@ where
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     pub fn is_empty(&self) -> bool {

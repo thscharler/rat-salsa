@@ -357,7 +357,7 @@ impl Clone for ParagraphState {
             lines: self.lines,
             vscroll: self.vscroll.clone(),
             hscroll: self.hscroll.clone(),
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -383,10 +383,9 @@ impl ParagraphState {
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Self::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     /// Current offset.

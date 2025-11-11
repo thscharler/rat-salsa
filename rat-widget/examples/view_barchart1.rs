@@ -8,7 +8,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Bar, BarChart, BorderType};
-use ratatui::widgets::{BarGroup, Block, StatefulWidget};
+use ratatui::widgets::{BarGroup, Block};
 
 mod mini_salsa;
 
@@ -76,9 +76,7 @@ fn render(
         Rect::new(0, 0, 100, 15),
     );
 
-    view_buf
-        .into_widget()
-        .render(l[1], frame.buffer_mut(), &mut state.view_state);
+    view_buf.finish(frame.buffer_mut(), &mut state.view_state);
 
     Ok(())
 }

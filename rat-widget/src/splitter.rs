@@ -1103,7 +1103,7 @@ impl Clone for SplitState {
             resize: self.resize,
             area_length: self.area_length.clone(),
             hidden_length: self.hidden_length.clone(),
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             focus_marker: self.focus_marker,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -1149,10 +1149,9 @@ impl SplitState {
 
     /// New state with a focus-name.
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Self::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     /// Set the position for the nth splitter.

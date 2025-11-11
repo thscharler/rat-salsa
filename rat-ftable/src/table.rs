@@ -1592,7 +1592,7 @@ impl Default for TableStyle {
 impl<Selection: Clone> Clone for TableState<Selection> {
     fn clone(&self) -> Self {
         Self {
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             area: self.area,
             inner: self.inner,
             header_area: self.header_area,
@@ -1705,7 +1705,7 @@ where
 
     pub fn named(name: &str) -> Self {
         Self {
-            focus: FocusFlag::named(name),
+            focus: FocusFlag::new().with_name(name),
             ..TableState::default()
         }
     }

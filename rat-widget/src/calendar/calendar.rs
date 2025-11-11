@@ -164,7 +164,7 @@ impl<const N: usize, Selection> CalendarState<N, Selection> {
         Selection: Default,
     {
         let mut z = Self::default();
-        z.focus = FocusFlag::named(name);
+        z.focus = z.focus.with_name(name);
         z
     }
 

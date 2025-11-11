@@ -298,7 +298,7 @@ impl Clone for ButtonState {
             inner: self.inner,
             armed: self.armed,
             armed_delay: self.armed_delay,
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -325,10 +325,9 @@ impl ButtonState {
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     #[deprecated(since = "2.1.0", note = "use relocate_hidden() to clear the areas.")]

@@ -813,7 +813,7 @@ where
 
     pub fn named(name: &str) -> Self {
         let mut z = Self::default();
-        z.container = FocusFlag::named(name);
+        z.container = z.container.with_name(name);
         z
     }
 

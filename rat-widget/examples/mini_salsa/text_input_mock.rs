@@ -109,11 +109,10 @@ impl TextInputMockState {
         Self::default()
     }
 
-    pub fn named(s: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(s),
-            area: Default::default(),
-        }
+    pub fn named(name: &str) -> Self {
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     pub fn clear_areas(&mut self) {

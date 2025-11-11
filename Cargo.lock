@@ -1234,6 +1234,7 @@ version = "1.4.0"
 dependencies = [
  "anyhow",
  "crossterm",
+ "dyn-clone",
  "fern",
  "fxhash",
  "log",
@@ -1283,9 +1284,11 @@ version = "2.0.1"
 dependencies = [
  "crossterm",
  "log",
+ "rat-cursor",
  "rat-event",
  "rat-focus",
  "rat-popup",
+ "rat-reloc",
  "ratatui",
  "unicode-display-width",
  "unicode-segmentation",

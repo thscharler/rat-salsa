@@ -124,9 +124,10 @@ impl<'a> Default for ColorInput<'a> {
             disable_modes: Default::default(),
             mode: Default::default(),
             block: Default::default(),
-            widget: Default::default(),
+            widget: MaskedInput::default(),
         };
-        z.widget = z.widget.on_tab(TextTab::MoveToNextWidget);
+        // z.widget = z.widget.on_tab(TextTab::MoveToNextWidget);
+        z.widget = z.widget.on_focus_lost(TextFocusLost::Position0);
         z
     }
 }
@@ -228,6 +229,13 @@ impl<'a> ColorInput<'a> {
     #[inline]
     pub fn on_focus_lost(mut self, of: TextFocusLost) -> Self {
         self.widget = self.widget.on_focus_lost(of);
+        self
+    }
+
+    /// `Tab` behaviour
+    #[inline]
+    pub fn on_tab(mut self, of: TextTab) -> Self {
+        self.widget = self.widget.on_tab(of);
         self
     }
 
@@ -341,7 +349,7 @@ impl ColorInputState {
 
     pub fn named(name: &str) -> Self {
         let mut z = Self::default();
-        z.widget.focus = FocusFlag::named(name);
+        z.widget.focus = z.widget.focus.with_name(name);
         z
     }
 

@@ -417,7 +417,7 @@ impl Clone for ComboboxState {
     fn clone(&self) -> Self {
         let mut text = self.text.clone();
         let mut choice = self.choice.clone();
-        let focus = focus_cb("", text.focus, choice.focus);
+        let focus = focus_cb(self.focus.fake_clone(), text.focus, choice.focus);
         text.focus = focus.clone();
         choice.focus = focus.clone();
 
@@ -437,7 +437,7 @@ impl Default for ComboboxState {
     fn default() -> Self {
         let mut text = TextInputState::default();
         let mut choice = ChoiceState::default();
-        let focus = focus_cb("", text.focus, choice.focus);
+        let focus = focus_cb(FocusFlag::default(), text.focus, choice.focus);
         text.focus = focus.clone();
         choice.focus = focus.clone();
 
@@ -453,9 +453,7 @@ impl Default for ComboboxState {
     }
 }
 
-fn focus_cb(name: &str, choice: FocusFlag, text: FocusFlag) -> FocusFlag {
-    let flag = FocusFlag::named(name);
-
+fn focus_cb(flag: FocusFlag, choice: FocusFlag, text: FocusFlag) -> FocusFlag {
     let choice_clone = choice.clone();
     let text_clone = text.clone();
     flag.on_lost(move || {
@@ -508,7 +506,7 @@ impl ComboboxState {
     pub fn named(name: &str) -> Self {
         let mut text = TextInputState::default();
         let mut choice = ChoiceState::default();
-        let focus = focus_cb(name, text.focus, choice.focus);
+        let focus = focus_cb(FocusFlag::new().with_name(name), text.focus, choice.focus);
         text.focus = focus.clone();
         choice.focus = focus.clone();
 

@@ -55,7 +55,6 @@ use std::cell::{Cell, RefCell};
 use std::cmp::{max, min};
 use std::marker::PhantomData;
 use std::rc::Rc;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Enum controling the behaviour of the Choice.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -1122,7 +1121,7 @@ where
         let focus = focus_cb(
             popup.active.clone(),
             behave_focus.clone(),
-            Default::default(),
+            self.focus.fake_clone(),
         );
 
         Self {
@@ -1251,11 +1250,7 @@ where
 
     pub fn named(name: &str) -> Self {
         let mut z = Self::default();
-        z.focus = focus_cb(
-            z.popup.active.clone(),
-            z.behave_focus.clone(),
-            FocusFlag::named(name),
-        );
+        z.focus = z.focus.with_name(name);
         z
     }
 

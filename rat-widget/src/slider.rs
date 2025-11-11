@@ -872,7 +872,7 @@ macro_rules! slider_new {
 
             pub fn named(name: &str) -> Self {
                 let mut z = Self::new_range((<$tt>::MIN, <$tt>::MAX), 1);
-                z.focus = FocusFlag::named(name);
+                z.focus = z.focus.with_name(name);
                 z
             }
         }
@@ -929,7 +929,7 @@ where
             step: self.step,
             long_step: self.long_step,
             value: self.value,
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

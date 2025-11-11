@@ -466,7 +466,7 @@ impl Clone for TextInputState {
             overwrite: Rc::new(Cell::new(self.overwrite.get())),
             on_focus_gained: Rc::new(Cell::new(self.on_focus_gained.get())),
             on_focus_lost: Rc::new(Cell::new(self.on_focus_lost.get())),
-            focus: self.focus_cb(FocusFlag::named(self.focus.name())),
+            focus: self.focus_cb(self.focus.fake_clone()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -557,7 +557,7 @@ impl TextInputState {
 
     pub fn named(name: &str) -> Self {
         let mut z = Self::default();
-        z.focus = z.focus_cb(FocusFlag::named(name));
+        z.focus = z.focus.with_name(name);
         z
     }
 

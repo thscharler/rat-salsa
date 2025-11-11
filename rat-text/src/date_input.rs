@@ -7,7 +7,9 @@ use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle, upos_type};
+use crate::{
+    HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle, TextTab, upos_type,
+};
 use chrono::NaiveDate;
 use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use rat_event::{HandleEvent, MouseOnly, Regular};
@@ -120,6 +122,13 @@ impl<'a> DateInput<'a> {
         self
     }
 
+    /// `Tab` behaviour
+    #[inline]
+    pub fn on_tab(mut self, of: TextTab) -> Self {
+        self.widget = self.widget.on_tab(of);
+        self
+    }
+
     /// Preferred width.
     pub fn width(&self, state: &DateInputState) -> u16 {
         state.widget.mask.len() as u16 + 1
@@ -194,10 +203,9 @@ impl DateInputState {
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            widget: MaskedInputState::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.widget.focus = z.widget.focus.with_name(name);
+        z
     }
 
     /// New state with a chrono date pattern.

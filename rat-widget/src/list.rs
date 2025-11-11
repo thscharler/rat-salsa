@@ -426,7 +426,7 @@ impl<Selection: Clone> Clone for ListState<Selection> {
             row_areas: self.row_areas.clone(),
             rows: self.rows,
             scroll: self.scroll.clone(),
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             selection: self.selection.clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -457,10 +457,9 @@ impl<Selection: ListSelection> ListState<Selection> {
     where
         Selection: Default,
     {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     #[inline]

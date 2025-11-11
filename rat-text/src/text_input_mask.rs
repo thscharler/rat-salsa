@@ -89,6 +89,7 @@ use crate::{
 };
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -376,6 +377,7 @@ fn render_ref(
     state.rendered = state.inner.as_size();
     state.compact = widget.compact;
     state.on_focus_gained.set(widget.on_focus_gained);
+    debug!("fwd {:?}", widget.on_focus_lost);
     state.on_focus_lost.set(widget.on_focus_lost);
     state.on_tab = widget.on_tab;
 
@@ -505,6 +507,7 @@ fn render_ref(
 
 impl Clone for MaskedInputState {
     fn clone(&self) -> Self {
+        debug!("clone");
         Self {
             area: self.area,
             inner: self.inner,
@@ -521,7 +524,7 @@ impl Clone for MaskedInputState {
             on_focus_gained: Rc::new(Cell::new(self.on_focus_gained.get())),
             on_focus_lost: Rc::new(Cell::new(self.on_focus_lost.get())),
             on_tab: self.on_tab,
-            focus: self.focus_cb(FocusFlag::named(self.focus.name())),
+            focus: self.focus_cb(self.focus.fake_clone()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -530,6 +533,7 @@ impl Clone for MaskedInputState {
 
 impl Default for MaskedInputState {
     fn default() -> Self {
+        debug!("construct default");
         let core = TextCore::new(
             Some(Box::new(UndoVec::new(99))),
             Some(Box::new(global_clipboard())),
@@ -562,47 +566,57 @@ impl Default for MaskedInputState {
 
 impl MaskedInputState {
     fn focus_cb(&self, flag: FocusFlag) -> FocusFlag {
+        debug!("focus_cb");
         let on_focus_lost = self.on_focus_lost.clone();
         let cursor = self.value.shared_cursor();
         let scroll_cursor_to_visible = self.scroll_to_cursor.clone();
-        flag.on_lost(move || match on_focus_lost.get() {
-            TextFocusLost::None => {}
-            TextFocusLost::Position0 => {
-                scroll_cursor_to_visible.set(true);
-                let mut new_cursor = cursor.get();
-                new_cursor.cursor.x = 0;
-                new_cursor.anchor.x = 0;
-                cursor.set(new_cursor);
+        flag.on_lost(move || {
+            debug!("on_lost now {:?}", on_focus_lost.get());
+            match on_focus_lost.get() {
+                TextFocusLost::None => {}
+                TextFocusLost::Position0 => {
+                    scroll_cursor_to_visible.set(true);
+                    let mut new_cursor = cursor.get();
+                    new_cursor.cursor.x = 0;
+                    new_cursor.anchor.x = 0;
+                    cursor.set(new_cursor);
+                }
             }
         });
         let on_focus_gained = self.on_focus_gained.clone();
         let overwrite = self.overwrite.clone();
         let cursor = self.value.shared_cursor();
         let scroll_cursor_to_visible = self.scroll_to_cursor.clone();
-        flag.on_gained(move || match on_focus_gained.get() {
-            TextFocusGained::None => {}
-            TextFocusGained::Overwrite => {
-                overwrite.set(true);
-            }
-            TextFocusGained::SelectAll => {
-                scroll_cursor_to_visible.set(true);
-                let mut new_cursor = cursor.get();
-                new_cursor.anchor = TextPosition::new(0, 0);
-                new_cursor.cursor = TextPosition::new(0, 1);
-                cursor.set(new_cursor);
+        flag.on_gained(move || {
+            debug!("on_gained now {:?}", on_focus_gained.get());
+            match on_focus_gained.get() {
+                TextFocusGained::None => {}
+                TextFocusGained::Overwrite => {
+                    overwrite.set(true);
+                }
+                TextFocusGained::SelectAll => {
+                    scroll_cursor_to_visible.set(true);
+                    let mut new_cursor = cursor.get();
+                    new_cursor.anchor = TextPosition::new(0, 0);
+                    new_cursor.cursor = TextPosition::new(0, 1);
+                    cursor.set(new_cursor);
+                }
             }
         });
 
+        debug!("focus_cb -> {:?}", flag);
         flag
     }
 }
 
 impl HasFocus for MaskedInputState {
     fn build(&self, builder: &mut FocusBuilder) {
+        debug!("add as leaf");
         builder.leaf_widget(self);
     }
 
     fn focus(&self) -> FocusFlag {
+        debug!("fetch focus {:?}", self.focus.clone());
         self.focus.clone()
     }
 
@@ -649,7 +663,7 @@ impl MaskedInputState {
 
     pub fn named(name: &str) -> Self {
         let mut z = Self::default();
-        z.focus = z.focus_cb(FocusFlag::named(name));
+        z.focus = z.focus.with_name(name);
         z
     }
 

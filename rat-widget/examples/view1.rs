@@ -8,7 +8,7 @@ use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::view::{View, ViewState};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect, Size};
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Wrap};
+use ratatui::widgets::{Block, BorderType, Wrap};
 
 mod mini_salsa;
 
@@ -88,9 +88,7 @@ fn render(
 
     // view content is done, now convert to the output widget and
     // render it.
-    view_buf
-        .into_widget()
-        .render(l[1], frame.buffer_mut(), &mut state.view_state);
+    view_buf.finish(frame.buffer_mut(), &mut state.view_state);
 
     Ok(())
 }

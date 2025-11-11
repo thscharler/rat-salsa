@@ -7,7 +7,9 @@ use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle, upos_type};
+use crate::{
+    HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle, TextTab, upos_type,
+};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -125,6 +127,13 @@ impl<'a> NumberInput<'a> {
         self
     }
 
+    /// `Tab` behaviour
+    #[inline]
+    pub fn on_tab(mut self, of: TextTab) -> Self {
+        self.widget = self.widget.on_tab(of);
+        self
+    }
+
     /// Preferred width.
     pub fn width(&self, state: &NumberInputState) -> u16 {
         state.widget.mask.len() as u16 + 1
@@ -215,10 +224,9 @@ impl NumberInputState {
     }
 
     pub fn named(name: &str) -> Self {
-        Self {
-            widget: MaskedInputState::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.widget.focus = z.widget.focus.with_name(name);
+        z
     }
 
     pub fn with_pattern<S: AsRef<str>>(mut self, pattern: S) -> Result<Self, NumberFmtError> {

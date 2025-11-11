@@ -827,7 +827,7 @@ where
             layout: self.layout.clone(),
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
-            container: FocusFlag::named(self.container.name()),
+            container: self.container.fake_clone(),
             buffer: None,
             non_exhaustive: NonExhaustive,
         }
@@ -861,7 +861,7 @@ where
 
     pub fn named(name: &str) -> Self {
         let mut z = Self::default();
-        z.container = FocusFlag::named(name);
+        z.container = z.container.with_name(name);
         z
     }
 

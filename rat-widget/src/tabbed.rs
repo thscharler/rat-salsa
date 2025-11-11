@@ -384,7 +384,7 @@ impl Clone for TabbedState {
             tab_title_areas: self.tab_title_areas.clone(),
             tab_title_close_areas: self.tab_title_close_areas.clone(),
             selected: self.selected,
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             mouse: Default::default(),
         }
     }
@@ -427,10 +427,9 @@ impl TabbedState {
 
     /// State with a focus name.
     pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Default::default()
-        }
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     pub fn selected(&self) -> Option<usize> {

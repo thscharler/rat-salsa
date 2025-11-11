@@ -189,7 +189,7 @@ impl Clone for TextAreaState {
             newline: self.newline.clone(),
             tab_width: self.tab_width,
             expand_tabs: self.expand_tabs,
-            focus: FocusFlag::named(self.focus.name()),
+            focus: self.focus.fake_clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -624,7 +624,7 @@ impl TextAreaState {
     #[inline]
     pub fn named(name: &str) -> Self {
         Self {
-            focus: FocusFlag::named(name),
+            focus: FocusFlag::new().with_name(name),
             ..Default::default()
         }
     }
