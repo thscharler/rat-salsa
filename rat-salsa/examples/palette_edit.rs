@@ -739,10 +739,9 @@ pub fn error(
 mod palette_edit {
     use crate::{ColorSpan, ColorSpanState, Global};
     use anyhow::Error;
-    use rat_event::{break_flow, MouseOnly, Outcome, Popup};
+    use rat_event::{break_flow, MouseOnly, Outcome};
     use rat_focus::{FocusFlag, HasFocus};
     use rat_theme4::{Palette, WidgetStyle};
-    use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::clipper::{Clipper, ClipperState};
     use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
     use rat_widget::event::{HandleEvent, Regular, ScrollOutcome, TextOutcome};
@@ -755,7 +754,6 @@ mod palette_edit {
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Flex, Rect};
     use ratatui::style::Color;
-    use ratatui::text::Line;
 
     #[derive(Debug)]
     pub struct PaletteEdit {
@@ -764,8 +762,10 @@ mod palette_edit {
         pub form: ClipperState,
         pub name: TextInputState,
 
-        pub primary: ChoiceState,
-        pub secondary: ChoiceState,
+        pub primary0: ColorInputState,
+        pub primary3: ColorInputState,
+        pub secondary0: ColorInputState,
+        pub secondary3: ColorInputState,
 
         pub text_light: ColorInputState,
         pub text_bright: ColorInputState,
@@ -844,14 +844,22 @@ mod palette_edit {
                 magenta3: ColorInputState::named("magenta3"),
                 redpink0: ColorInputState::named("redpink0"),
                 redpink3: ColorInputState::named("redpink3"),
-                primary: ChoiceState::named("primary"),
-                secondary: ChoiceState::named("secondary"),
+                primary0: ColorInputState::named("primary0"),
+                primary3: ColorInputState::named("primary3"),
+                secondary0: ColorInputState::named("secondary0"),
+                secondary3: ColorInputState::named("secondary3"),
             };
 
             z.text_light.set_value(Color::Rgb(255, 255, 255));
             z.text_bright.set_value(Color::Rgb(255, 255, 255));
             z.text_dark.set_value(Color::Rgb(0, 0, 0));
             z.text_black.set_value(Color::Rgb(0, 0, 0));
+
+            z.primary0.set_value(Color::Rgb(255, 255, 255));
+            z.primary3.set_value(Color::Rgb(255, 255, 255));
+            z.secondary0.set_value(Color::Rgb(170, 170, 170));
+            z.secondary3.set_value(Color::Rgb(170, 170, 170));
+
             z.white0.set_value(Color::Rgb(255, 255, 255));
             z.white3.set_value(Color::Rgb(255, 255, 255));
             z.black0.set_value(Color::Rgb(0, 0, 0));
@@ -888,8 +896,10 @@ mod palette_edit {
     }
 
     impl PaletteEdit {
-        fn paired_colors(&self) -> [(&'static str, &ColorInputState, &ColorInputState); 15] {
+        fn paired_colors(&self) -> [(&'static str, &ColorInputState, &ColorInputState); 17] {
             [
+                ("Primary", &self.primary0, &self.primary3),
+                ("Secondary", &self.secondary0, &self.secondary3),
                 ("White", &self.white0, &self.white3),
                 ("Black", &self.black0, &self.black3),
                 ("Gray", &self.gray0, &self.gray3),
@@ -910,8 +920,10 @@ mod palette_edit {
 
         fn paired_colors_mut(
             &mut self,
-        ) -> [(&str, &mut ColorInputState, &mut ColorInputState); 15] {
+        ) -> [(&str, &mut ColorInputState, &mut ColorInputState); 17] {
             [
+                ("Primary", &mut self.primary0, &mut self.primary3),
+                ("Secondary", &mut self.secondary0, &mut self.secondary3),
                 ("White", &mut self.white0, &mut self.white3),
                 ("Black", &mut self.black0, &mut self.black3),
                 ("Gray", &mut self.gray0, &mut self.gray3),
@@ -939,6 +951,10 @@ mod palette_edit {
             palette.text_bright = self.text_bright.value();
             palette.text_dark = self.text_dark.value();
             palette.text_black = self.text_black.value();
+            palette.primary =
+                Palette::interpolate(self.primary0.value_u32(), self.primary3.value_u32(), 64);
+            palette.secondary =
+                Palette::interpolate(self.secondary0.value_u32(), self.secondary3.value_u32(), 64);
             palette.white =
                 Palette::interpolate(self.white0.value_u32(), self.white3.value_u32(), 64);
             palette.gray = Palette::interpolate(self.gray0.value_u32(), self.gray3.value_u32(), 64);
@@ -965,31 +981,19 @@ mod palette_edit {
                 Palette::interpolate(self.magenta0.value_u32(), self.magenta3.value_u32(), 64);
             palette.redpink =
                 Palette::interpolate(self.redpink0.value_u32(), self.redpink3.value_u32(), 64);
-
-            let colors = self
-                .paired_colors()
-                .iter()
-                .map(|(_, v0, v3)| (v0.value_u32(), v3.value_u32()))
-                .collect::<Vec<_>>();
-
-            let n = self.primary.value();
-            palette.primary = Palette::interpolate(colors[n].0, colors[n].1, 64);
-            let n = self.secondary.value();
-            palette.secondary = Palette::interpolate(colors[n].0, colors[n].1, 64);
             palette
         }
 
         pub fn set_palette(&mut self, palette: Palette) {
             self.name.set_value(palette.name);
-            self.primary
-                .set_value(palette_idx(&palette, &palette.primary));
-            self.secondary
-                .set_value(palette_idx(&palette, &palette.secondary));
-
             self.text_light.set_value(palette.text_light);
             self.text_bright.set_value(palette.text_bright);
             self.text_dark.set_value(palette.text_dark);
             self.text_black.set_value(palette.text_black);
+            self.primary0.set_value(palette.primary[0]);
+            self.primary3.set_value(palette.primary[3]);
+            self.secondary0.set_value(palette.secondary[0]);
+            self.secondary3.set_value(palette.secondary[3]);
             self.white0.set_value(palette.white[0]);
             self.white3.set_value(palette.white[3]);
             self.black0.set_value(palette.black[0]);
@@ -1023,47 +1027,9 @@ mod palette_edit {
         }
     }
 
-    fn palette_idx(palette: &Palette, colors: &[Color; 8]) -> usize {
-        if colors == &palette.white {
-            0
-        } else if colors == &palette.black {
-            1
-        } else if colors == &palette.gray {
-            2
-        } else if colors == &palette.red {
-            3
-        } else if colors == &palette.orange {
-            4
-        } else if colors == &palette.yellow {
-            5
-        } else if colors == &palette.limegreen {
-            6
-        } else if colors == &palette.green {
-            7
-        } else if colors == &palette.bluegreen {
-            8
-        } else if colors == &palette.cyan {
-            9
-        } else if colors == &palette.blue {
-            10
-        } else if colors == &palette.deepblue {
-            11
-        } else if colors == &palette.purple {
-            12
-        } else if colors == &palette.magenta {
-            13
-        } else if colors == &palette.redpink {
-            14
-        } else {
-            0
-        }
-    }
-
     impl HasFocus for PaletteEdit {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.name);
-            builder.widget(&self.primary);
-            builder.widget(&self.secondary);
             builder.widget(&self.text_light);
             builder.widget(&self.text_bright);
             builder.widget(&self.text_dark);
@@ -1122,11 +1088,11 @@ mod palette_edit {
             let mut layout = LayoutForm::<usize>::new().spacing(1).flex(Flex::Start);
             layout.widget(state.name.id(), L::Str("Name"), W::Width(20));
             layout.gap(1);
-            layout.widget(state.primary.id(), L::Str("Primary"), W::Width(16));
-            layout.widget(state.secondary.id(), L::Str("Secondary"), W::Width(16));
-            layout.gap(1);
             layout.widget(state.text_light.id(), L::Str("Text light"), W::Width(33));
             layout.widget(state.text_dark.id(), L::Str("Text dark"), W::Width(33));
+            layout.gap(1);
+            layout.widget(state.primary0.id(), L::Str("Primary"), W::Width(50));
+            layout.widget(state.secondary0.id(), L::Str("Secondary"), W::Width(50));
             layout.gap(1);
             layout.widget(state.white0.id(), L::Str("White"), W::Width(50));
             layout.widget(state.black0.id(), L::Str("Black"), W::Width(50));
@@ -1152,53 +1118,6 @@ mod palette_edit {
             || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
             &mut state.name,
         );
-
-        let primary_items = state
-            .paired_colors()
-            .iter()
-            .enumerate()
-            .map(|(idx, (n, v0, _v3))| {
-                (
-                    idx,
-                    Line::from(*n).style(ctx.theme.p.normal_contrast(v0.value())),
-                )
-            })
-            .collect::<Vec<_>>();
-        let primary_popup = form.render2(
-            state.primary.id(),
-            || {
-                Choice::new()
-                    .items(primary_items.iter().cloned())
-                    .select_marker('→')
-                    .styles(ctx.theme.style(WidgetStyle::CHOICE))
-                    .into_widgets()
-            },
-            &mut state.primary,
-        );
-
-        let secondary_items = state
-            .paired_colors()
-            .iter()
-            .enumerate()
-            .map(|(idx, (n, v0, _v3))| {
-                (
-                    idx,
-                    Line::from(*n).style(ctx.theme.p.normal_contrast(v0.value())),
-                )
-            })
-            .collect::<Vec<_>>();
-        let secondary_popup = form.render2(
-            state.secondary.id(),
-            || {
-                Choice::new()
-                    .items(secondary_items.iter().cloned())
-                    .select_marker('→')
-                    .styles(ctx.theme.style(WidgetStyle::CHOICE))
-                    .into_widgets()
-            },
-            &mut state.secondary,
-        );
-
         form.render(
             state.text_light.id(),
             || {
@@ -1241,12 +1160,6 @@ mod palette_edit {
             );
         }
 
-        form.render_popup(state.primary.id(), || primary_popup, &mut state.primary);
-        form.render_popup(
-            state.secondary.id(),
-            || secondary_popup,
-            &mut state.secondary,
-        );
         form.finish(buf, &mut state.form);
 
         Ok(())
@@ -1260,11 +1173,7 @@ mod palette_edit {
         let mut mode_change = None;
 
         let r = 'f: {
-            break_flow!('f: state.primary.handle(event, Popup));
-            break_flow!('f: state.secondary.handle(event, Popup));
-
             break_flow!('f: state.name.handle(event, Regular));
-
             break_flow!('f: handle_color(event, &mut state.text_light, &mut mode_change));
             break_flow!('f: handle_color(event, &mut state.text_bright, &mut mode_change));
             break_flow!('f: handle_color(event, &mut state.text_dark, &mut mode_change));
@@ -1294,7 +1203,6 @@ mod palette_edit {
             state.text_bright.set_mode(mode_change);
             state.text_dark.set_mode(mode_change);
             state.text_black.set_mode(mode_change);
-
             for (_, v0, v3) in state.paired_colors_mut() {
                 v0.set_mode(mode_change);
                 v3.set_mode(mode_change);
