@@ -1,10 +1,12 @@
 use crate::configparser_ext::ConfigParserExt;
+use crate::datainput::DataInput;
 use crate::message::{msg_event, msg_render, MsgState};
 use crate::palette_edit::PaletteEdit;
-use crate::showcase::ShowCase;
+use crate::show_tabs::ShowTabs;
 use anyhow::{anyhow, Error};
 use configparser::ini::Ini;
-use log::{error, warn};
+use log::{debug, error, warn};
+use pure_rust_locales::Locale;
 use rat_event::{try_flow, Outcome, Popup};
 use rat_focus::{FocusFlag, HasFocus};
 use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render};
@@ -26,7 +28,7 @@ use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
 use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
@@ -45,7 +47,7 @@ fn main() -> Result<(), Error> {
     let config = Config::default();
     let theme = create_theme("Imperial Shell").expect("theme");
     let mut global = Global::new(config, theme);
-    let mut state = Scenery::default();
+    let mut state = Scenery::new(global.loc);
 
     run_tui(
         init,
@@ -70,6 +72,8 @@ pub struct Global {
 
     pub cfg: Config,
     pub theme: SalsaTheme,
+    pub show_theme: SalsaTheme,
+    pub loc: Locale,
 
     pub status_frame: usize,
     pub status: String,
@@ -88,14 +92,20 @@ impl SalsaContext<PalEvent, Error> for Global {
 
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
-        Self {
+        let mut z = Self {
             ctx: Default::default(),
             dlg: Default::default(),
             cfg,
             theme,
+            show_theme: Default::default(),
+            loc: Default::default(),
             status_frame: 0,
             status: Default::default(),
-        }
+        };
+        let loc = sys_locale::get_locale().expect("locale");
+        let loc = loc.replace("-", "_");
+        z.loc = Locale::try_from(loc.as_str()).expect("locale");
+        z
     }
 }
 
@@ -144,18 +154,18 @@ pub struct Scenery {
     pub file_dlg: Rc<RefCell<FileDialogState>>,
 
     pub edit: PaletteEdit,
-    pub show: ShowCase,
+    pub show: ShowTabs,
     pub menu: MenuLineState,
 }
 
-impl Default for Scenery {
-    fn default() -> Self {
+impl Scenery {
+    pub fn new(loc: Locale) -> Self {
         Self {
             defined: ChoiceState::named("palette"),
             themes: ChoiceState::named("themes"),
             file_dlg: Rc::new(RefCell::new(FileDialogState::default())),
             edit: PaletteEdit::default(),
-            show: ShowCase::default(),
+            show: ShowTabs::new(loc),
             menu: MenuLineState::named("menu"),
         }
     }
@@ -192,17 +202,19 @@ pub fn render(
         Constraint::Length(1),
     ])
     .split(area);
-
     let l2 = Layout::horizontal([
-        Constraint::Length(80), //
+        Constraint::Length(64), //
         Constraint::Length(50), //
     ])
     .horizontal_margin(1)
+    .flex(Flex::Center)
     .split(l1[2]);
+    debug!("{:?}", l1[2]);
+    debug!("{:?}", l2);
 
     // main
     palette_edit::render(l2[0], buf, &mut state.edit, ctx)?;
-    showcase::render(l2[1], buf, &mut state.show, ctx)?;
+    show_tabs::render(l2[1], buf, &mut state.show, ctx)?;
     screen_cursor(state, ctx);
 
     // functions
@@ -231,9 +243,11 @@ fn render_function(
     ctx: &mut Global,
 ) -> Result<(), Error> {
     let l_function = Layout::horizontal([
+        Constraint::Length(4),  //
         Constraint::Length(20), //
         Constraint::Length(15),
     ])
+    .spacing(1)
     .split(area);
 
     let (choice, choice_popup) = Choice::new()
@@ -244,7 +258,7 @@ fn render_function(
         )
         .styles(ctx.theme.style(WidgetStyle::CHOICE))
         .into_widgets();
-    choice.render(l_function[0], buf, &mut state.defined);
+    choice.render(l_function[1], buf, &mut state.defined);
 
     let (choice, choice_theme) = Choice::new()
         .items(
@@ -254,10 +268,10 @@ fn render_function(
         )
         .styles(ctx.theme.style(WidgetStyle::CHOICE))
         .into_widgets();
-    choice.render(l_function[1], buf, &mut state.themes);
+    choice.render(l_function[2], buf, &mut state.themes);
 
-    choice_popup.render(l_function[0], buf, &mut state.defined);
-    choice_theme.render(l_function[1], buf, &mut state.themes);
+    choice_popup.render(l_function[1], buf, &mut state.defined);
+    choice_theme.render(l_function[2], buf, &mut state.themes);
 
     Ok(())
 }
@@ -330,8 +344,7 @@ pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     // ctx.focus().enable_log();
     ctx.focus().first();
 
-    let theme = create_edit_theme(state);
-    state.show.set_theme(theme);
+    ctx.show_theme = create_edit_theme(state);
 
     Ok(())
 }
@@ -355,7 +368,7 @@ pub fn event(
         match ctx.handle_focus(event) {
             Outcome::Changed => {
                 state.edit.form.show_focused(&ctx.focus());
-                state.show.form.show_focused(&ctx.focus());
+                state.show.show_focused(&ctx.focus());
             }
             _ => {}
         }
@@ -365,16 +378,14 @@ pub fn event(
                 if let Some(palette) = create_palette(state.defined.value().as_str()) {
                     state.edit.set_palette(palette);
                 }
-                let theme = create_edit_theme(state);
-                state.show.set_theme(theme);
+                ctx.show_theme = create_edit_theme(state);
                 Control::Changed
             }
             r => r.into(),
         });
         try_flow!(match state.themes.handle(event, Popup) {
             ChoiceOutcome::Value => {
-                let theme = create_edit_theme(state);
-                state.show.set_theme(theme);
+                ctx.show_theme = create_edit_theme(state);
                 Control::Changed
             }
             r => r.into(),
@@ -382,13 +393,12 @@ pub fn event(
 
         try_flow!(match palette_edit::event(event, &mut state.edit, ctx)? {
             Outcome::Changed => {
-                let theme = create_edit_theme(state);
-                state.show.set_theme(theme);
+                ctx.show_theme = create_edit_theme(state);
                 Outcome::Changed
             }
             r => r.into(),
         });
-        try_flow!(showcase::event(event, &mut state.show, ctx)?);
+        try_flow!(show_tabs::event(event, &mut state.show, ctx)?);
 
         try_flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => load_pal(state, ctx)?,
@@ -672,7 +682,7 @@ fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, 
 fn load_pal_file(
     path: &Path,
     state: &mut Scenery,
-    _ctx: &mut Global,
+    ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
     let mut ff = Ini::new_std();
     match ff.load(path) {
@@ -707,8 +717,7 @@ fn load_pal_file(
     palette.secondary = ff.parse_array("palette", "secondary", Color::default());
 
     state.edit.set_palette(palette);
-    let theme = create_edit_theme(state);
-    state.show.set_theme(theme);
+    ctx.show_theme = create_edit_theme(state);
 
     Ok(Control::Changed)
 }
@@ -751,6 +760,7 @@ mod palette_edit {
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Flex, Rect};
     use ratatui::style::Color;
+    use ratatui::widgets::{Block, BorderType};
 
     #[derive(Debug)]
     pub struct PaletteEdit {
@@ -1075,6 +1085,7 @@ mod palette_edit {
         ctx: &mut Global,
     ) -> Result<(), Error> {
         let mut form = Clipper::new() //
+            .block(Block::bordered().border_type(BorderType::Rounded))
             .vscroll(Scroll::new())
             .styles(ctx.theme.style(WidgetStyle::CLIPPER));
 
@@ -1223,7 +1234,312 @@ mod palette_edit {
     }
 }
 
-mod showcase {
+pub mod show_tabs {
+    use crate::datainput::DataInput;
+    use crate::readability::Readability;
+    use crate::{datainput, readability, Global};
+    use anyhow::Error;
+    use pure_rust_locales::Locale;
+    use rat_event::{try_flow, HandleEvent, Outcome, Regular};
+    use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
+    use rat_theme4::WidgetStyle;
+    use rat_widget::tabbed::{Tabbed, TabbedState};
+    use rat_widget::text::HasScreenCursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::widgets::{Block, BorderType, StatefulWidget};
+
+    #[derive(Debug)]
+    pub struct ShowTabs {
+        pub tabs: TabbedState,
+        pub input: DataInput,
+        pub readability: Readability,
+    }
+
+    impl ShowTabs {
+        pub fn new(loc: Locale) -> Self {
+            Self {
+                tabs: Default::default(),
+                input: DataInput::new(loc),
+                readability: Readability::default(),
+            }
+        }
+
+        pub fn show_focused(&mut self, focus: &Focus) {
+            match self.tabs.selected() {
+                Some(0) => {
+                    self.input.form.show_focused(focus);
+                }
+                Some(1) => { /*noop*/ }
+                _ => {}
+            }
+        }
+    }
+
+    impl HasFocus for ShowTabs {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.tabs);
+            match self.tabs.selected() {
+                Some(0) => {
+                    builder.widget(&self.input);
+                }
+                Some(1) => {
+                    builder.widget(&self.readability);
+                }
+                _ => {}
+            }
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("not available")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("not available")
+        }
+    }
+
+    impl HasScreenCursor for ShowTabs {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            match self.tabs.selected() {
+                Some(0) => self.input.screen_cursor(),
+                Some(1) => self.readability.screen_cursor(),
+                _ => None,
+            }
+        }
+    }
+
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut ShowTabs,
+        ctx: &mut Global,
+    ) -> Result<(), Error> {
+        Tabbed::new()
+            .tabs(["Input", "Text"])
+            .block(Block::bordered().border_type(BorderType::Rounded))
+            .styles(ctx.show_theme.style(WidgetStyle::TABBED))
+            .render(area, buf, &mut state.tabs);
+
+        match state.tabs.selected() {
+            Some(0) => {
+                let mut area = state.tabs.widget_area;
+                area.width += 1;
+                datainput::render(area, buf, &mut state.input, ctx)
+            }
+            Some(1) => {
+                readability::render(state.tabs.widget_area, buf, &mut state.readability, ctx)
+            }
+            _ => Ok(()),
+        }
+    }
+
+    pub fn event(
+        event: &crossterm::event::Event,
+        state: &mut ShowTabs,
+        ctx: &mut Global,
+    ) -> Result<Outcome, Error> {
+        try_flow!(match state.tabs.selected() {
+            Some(0) => {
+                datainput::event(event, &mut state.input, ctx)?
+            }
+            Some(1) => {
+                readability::event(event, &mut state.readability, ctx)?
+            }
+            _ => {
+                Outcome::Continue
+            }
+        });
+        try_flow!(state.tabs.handle(event, Regular));
+        Ok(Outcome::Continue)
+    }
+}
+
+pub mod readability {
+    use crate::Global;
+    use anyhow::Error;
+    use log::debug;
+    use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
+    use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+    use rat_theme4::WidgetStyle;
+    use rat_widget::checkbox::{Checkbox, CheckboxState};
+    use rat_widget::choice::{Choice, ChoiceState};
+    use rat_widget::paragraph::{Paragraph, ParagraphState};
+    use rat_widget::scrolled::Scroll;
+    use rat_widget::slider::{Slider, SliderState};
+    use rat_widget::text::HasScreenCursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::style::Style;
+    use ratatui::text::Line;
+    use ratatui::widgets::{StatefulWidget, Wrap};
+
+    #[derive(Debug)]
+    pub struct Readability {
+        pub colors: ChoiceState<usize>,
+        pub gradient: SliderState<usize>,
+        pub high_contrast: CheckboxState,
+        pub para: ParagraphState,
+    }
+
+    impl Readability {
+        pub fn new() -> Self {
+            Self::default()
+        }
+    }
+
+    impl Default for Readability {
+        fn default() -> Self {
+            let mut z = Self {
+                colors: Default::default(),
+                gradient: Default::default(),
+                high_contrast: Default::default(),
+                para: Default::default(),
+            };
+            z.colors.set_value(4);
+            z.gradient.set_value(4);
+            z
+        }
+    }
+
+    impl HasFocus for Readability {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.colors);
+            builder.widget(&self.gradient);
+            builder.widget(&self.high_contrast);
+            builder.widget(&self.para);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("not available")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("not available")
+        }
+    }
+
+    impl HasScreenCursor for Readability {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            None
+        }
+    }
+
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Readability,
+        ctx: &mut Global,
+    ) -> Result<(), Error> {
+        let l0 = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+        ])
+        .split(area);
+        let l1 = Layout::horizontal([
+            Constraint::Fill(1), //
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+        ])
+        .spacing(1)
+        .split(l0[1]);
+
+        let names = [
+            "Primary",
+            "Secondary",
+            "White",
+            "Black",
+            "Gray",
+            "Red",
+            "Orange",
+            "Yellow",
+            "Limegreen",
+            "Green",
+            "Bluegreen",
+            "Cyan",
+            "Blue",
+            "Deepblue",
+            "Purple",
+            "Magenta",
+            "Redpink",
+        ];
+
+        let (colors, colors_popup) = Choice::new()
+            .items(
+                ctx.show_theme
+                    .p
+                    .array()
+                    .iter()
+                    .zip(names.iter())
+                    .enumerate()
+                    .map(|(i, (v, n))| (i, Line::from(*n).style(Style::new().bg(v[0])))),
+            )
+            .select_marker('*')
+            .styles(ctx.show_theme.style(WidgetStyle::CHOICE))
+            .into_widgets();
+        colors.render(l1[0], buf, &mut state.colors);
+
+        Slider::new()
+            .direction(Direction::Horizontal)
+            .range((0, 7))
+            .styles(ctx.show_theme.style(WidgetStyle::SLIDER))
+            .render(l1[1], buf, &mut state.gradient);
+
+        Checkbox::new()
+            .styles(ctx.show_theme.style(WidgetStyle::CHECKBOX))
+            .text("+Contrast")
+            .render(l1[2], buf, &mut state.high_contrast);
+
+        let colors = ctx.show_theme.p.array();
+        let sel_color = state.colors.selected().unwrap_or(0);
+        let sel_gradient = state.gradient.value();
+        let high_contrast = state.high_contrast.value();
+        let text_style = if high_contrast {
+            ctx.show_theme
+                .p
+                .high_contrast(colors[sel_color][sel_gradient])
+        } else {
+            ctx.show_theme
+                .p
+                .normal_contrast(colors[sel_color][sel_gradient])
+        };
+
+        Paragraph::new(
+            "
+The __Paris Peace Accords__, officially the Agreement on Ending the War and Restoring Peace in Viet Nam, was a peace agreement signed on January 27, 1973, to establish peace in Vietnam and end the Vietnam War. The agreement was signed by the governments of the Democratic Republic of Vietnam (North Vietnam), the Republic of Vietnam (South Vietnam), the United States, and the Provisional Revolutionary Government of the Republic of South Vietnam (representing South Vietnamese communists).
+
+The Paris Peace Accords removed the remaining United States forces, and fighting between the three remaining powers  temporarily stopped. The agreement's provisions were immediately and frequently broken by both North and South Vietnamese forces with no official response from the United States. Open fighting broke out in March 1973, and North Vietnamese offensives enlarged their territory by the end of the year. The war continued until the fall of Saigon to North Vietnamese forces in 1975. This photograph shows William P. Rogers, United States Secretary of State, signing the accords in Paris.
+",
+        )
+        .vscroll(Scroll::new())
+        .styles(ctx.show_theme.style(WidgetStyle::PARAGRAPH))
+        .style(text_style)
+        .wrap(Wrap { trim: false })
+
+        .render(l0[3], buf, &mut state.para);
+
+        // don't forget the popup ...
+        colors_popup.render(l1[0], buf, &mut state.colors);
+
+        Ok(())
+    }
+
+    pub fn event(
+        event: &crossterm::event::Event,
+        state: &mut Readability,
+        _ctx: &mut Global,
+    ) -> Result<Outcome, Error> {
+        try_flow!(state.colors.handle(event, Popup));
+        try_flow!(state.gradient.handle(event, Regular));
+        try_flow!(state.high_contrast.handle(event, Regular));
+        try_flow!(state.para.handle(event, Regular));
+        Ok(Outcome::Continue)
+    }
+}
+
+pub mod datainput {
     use crate::Global;
     use anyhow::Error;
     use log::debug;
@@ -1257,10 +1573,7 @@ mod showcase {
     use ratatui::widgets::{Block, Borders, Padding};
 
     #[derive(Debug)]
-    pub struct ShowCase {
-        pub theme: SalsaTheme,
-        pub loc: Locale,
-
+    pub struct DataInput {
         pub form: ClipperState,
 
         pub button: ButtonState,
@@ -1276,17 +1589,7 @@ mod showcase {
         pub calendar: CalendarState<1, SingleSelection>,
     }
 
-    impl ShowCase {
-        pub fn new() -> Self {
-            Self::default()
-        }
-
-        pub fn set_theme(&mut self, theme: SalsaTheme) {
-            self.theme = theme;
-        }
-    }
-
-    impl HasFocus for ShowCase {
+    impl HasFocus for DataInput {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.button);
             builder.widget(&self.checkbox);
@@ -1310,7 +1613,7 @@ mod showcase {
         }
     }
 
-    impl HasScreenCursor for ShowCase {
+    impl HasScreenCursor for DataInput {
         fn screen_cursor(&self) -> Option<(u16, u16)> {
             self.combobox
                 .screen_cursor()
@@ -1322,11 +1625,9 @@ mod showcase {
         }
     }
 
-    impl Default for ShowCase {
-        fn default() -> Self {
+    impl DataInput {
+        pub fn new(loc: Locale) -> Self {
             let mut z = Self {
-                theme: Default::default(),
-                loc: Default::default(),
                 form: ClipperState::named("show"),
                 button: ButtonState::named("button"),
                 checkbox: CheckboxState::named("checkbox"),
@@ -1341,17 +1642,11 @@ mod showcase {
                 calendar: CalendarState::named("calendar"),
             };
 
-            let loc = sys_locale::get_locale().expect("locale");
-            let loc = loc.replace("-", "_");
-            z.loc = Locale::try_from(loc.as_str()).expect("locale");
-            let fmt = locale_match!(z.loc => LC_TIME::D_FMT);
-            z.date_input
-                .set_format_loc(fmt, z.loc)
-                .expect("date_format");
+            let fmt = locale_match!(loc => LC_TIME::D_FMT);
+            z.date_input.set_format_loc(fmt, loc).expect("date_format");
             z.number_input
-                .set_format_loc("###,##0.00#", z.loc)
+                .set_format_loc("###,##0.00#", loc)
                 .expect("number_format");
-            z.theme = dark_theme("Tundra Dark", rat_theme4::palettes::TUNDRA);
             z.calendar.move_to_today();
             z
         }
@@ -1360,13 +1655,13 @@ mod showcase {
     pub fn render(
         area: Rect,
         buf: &mut Buffer,
-        state: &mut ShowCase,
-        _ctx: &mut Global,
+        state: &mut DataInput,
+        ctx: &mut Global,
     ) -> Result<(), Error> {
         let mut form = Clipper::new() //
             .vscroll(Scroll::new())
             .buffer_uses_view_size()
-            .styles(state.theme.style(WidgetStyle::CLIPPER));
+            .styles(ctx.show_theme.style(WidgetStyle::CLIPPER));
 
         let layout_size = form.layout_size(area, &mut state.form);
 
@@ -1394,7 +1689,7 @@ mod showcase {
 
         form.render(
             state.button.id(),
-            || Button::new("Ok").styles(state.theme.style(WidgetStyle::BUTTON)),
+            || Button::new("Ok").styles(ctx.show_theme.style(WidgetStyle::BUTTON)),
             &mut state.button,
         );
         form.render(
@@ -1402,7 +1697,7 @@ mod showcase {
             || {
                 Checkbox::new()
                     .text("rat-salsa")
-                    .styles(state.theme.style(WidgetStyle::CHECKBOX))
+                    .styles(ctx.show_theme.style(WidgetStyle::CHECKBOX))
             },
             &mut state.checkbox,
         );
@@ -1418,7 +1713,7 @@ mod showcase {
                         (4, "Four"),
                     ])
                     // .popup_placement(Placement::Right)
-                    .styles(state.theme.style(WidgetStyle::CHOICE))
+                    .styles(ctx.show_theme.style(WidgetStyle::CHOICE))
                     .into_widgets()
             },
             &mut state.choice,
@@ -1428,11 +1723,27 @@ mod showcase {
             || {
                 Combobox::new()
                     .items([
-                        ("a".to_string(), "Alpha"),
-                        ("b".to_string(), "Beta"),
-                        ("g".to_string(), "Gamma"),
+                        ("Α".to_string(), "Alpha"),
+                        ("Β".to_string(), "Beta"),
+                        ("Γ".to_string(), "Gamma"),
+                        ("Δ".to_string(), "Delta"),
+                        ("Ε".to_string(), "Epsilon"),
+                        ("Η".to_string(), "Eta"),
+                        ("Θ".to_string(), "Theta"),
+                        ("Ι".to_string(), "Iota"),
+                        ("Κ".to_string(), "Kappa"),
+                        ("Λ".to_string(), "Lambda"),
+                        ("Μ".to_string(), "My"),
+                        ("Ν".to_string(), "Ny"),
+                        ("Ξ".to_string(), "Xi"),
+                        ("Ο".to_string(), "Omikron"),
+                        ("Π".to_string(), "Pi"),
+                        ("Χ".to_string(), "Chi"),
+                        ("Ψ".to_string(), "Psi"),
+                        ("Ω".to_string(), "Omega"),
                     ])
-                    .styles(state.theme.style(WidgetStyle::COMBOBOX))
+                    .popup_len(7)
+                    .styles(ctx.show_theme.style(WidgetStyle::COMBOBOX))
                     .into_widgets()
             },
             &mut state.combobox,
@@ -1442,13 +1753,13 @@ mod showcase {
             || {
                 DateInput::new()
                     .on_focus_lost(TextFocusLost::Position0)
-                    .styles(state.theme.style(WidgetStyle::TEXT))
+                    .styles(ctx.show_theme.style(WidgetStyle::TEXT))
             },
             &mut state.date_input,
         );
         form.render(
             state.number_input.id(),
-            || NumberInput::new().styles(state.theme.style(WidgetStyle::TEXT)),
+            || NumberInput::new().styles(ctx.show_theme.style(WidgetStyle::TEXT)),
             &mut state.number_input,
         );
         form.render(
@@ -1458,7 +1769,7 @@ mod showcase {
                     .direction(Direction::Horizontal)
                     .layout(RadioLayout::Stacked)
                     .items([(0, "abc"), (1, "def"), (2, "ghi"), (3, "jkl")])
-                    .styles(state.theme.style(WidgetStyle::RADIO))
+                    .styles(ctx.show_theme.style(WidgetStyle::RADIO))
             },
             &mut state.radio,
         );
@@ -1471,7 +1782,7 @@ mod showcase {
                     Slider::new()
                         .range((0, 25))
                         .long_step(4)
-                        .styles(state.theme.style(WidgetStyle::SLIDER)),
+                        .styles(ctx.show_theme.style(WidgetStyle::SLIDER)),
                     PairedWidget::new(Line::from(val)),
                 )
                 .split(PairSplit::Constrain(
@@ -1483,7 +1794,7 @@ mod showcase {
         );
         form.render(
             state.text.id(),
-            || TextInput::new().styles(state.theme.style(WidgetStyle::TEXT)),
+            || TextInput::new().styles(ctx.show_theme.style(WidgetStyle::TEXT)),
             &mut state.text,
         );
         let text_area_focused = state.textarea.is_focused();
@@ -1492,16 +1803,16 @@ mod showcase {
             || {
                 TextArea::new()
                     .vscroll(Scroll::new())
-                    .styles(state.theme.style(WidgetStyle::TEXTAREA))
+                    .styles(ctx.show_theme.style(WidgetStyle::TEXTAREA))
                     .block(if text_area_focused {
                         Block::new()
-                            .style(state.theme.style_style(Style::INPUT))
-                            .border_style(state.theme.style_style(Style::FOCUS))
+                            .style(ctx.show_theme.style_style(Style::INPUT))
+                            .border_style(ctx.show_theme.style_style(Style::FOCUS))
                             .borders(Borders::LEFT)
                             .border_set(border::EMPTY)
                     } else {
-                        Block::default().style(state.theme.style_style(Style::INPUT))
-                        // .border_style(state.theme.style_style(Style::INPUT))
+                        Block::default().style(ctx.show_theme.style_style(Style::INPUT))
+                        // .border_style(ctx.show_theme.style_style(Style::INPUT))
                         // .borders(Borders::LEFT)
                         // .border_set(border::EMPTY)
                     })
@@ -1512,8 +1823,8 @@ mod showcase {
             state.calendar.id(),
             || {
                 Month::new()
-                    .locale(state.loc)
-                    .styles(state.theme.style(WidgetStyle::MONTH))
+                    .locale(ctx.loc)
+                    .styles(ctx.show_theme.style(WidgetStyle::MONTH))
             },
             &mut state.calendar.months[0],
         );
@@ -1526,7 +1837,7 @@ mod showcase {
 
     pub fn event(
         event: &crossterm::event::Event,
-        state: &mut ShowCase,
+        state: &mut DataInput,
         ctx: &mut Global,
     ) -> Result<Outcome, Error> {
         try_flow!(match state.choice.handle(event, Popup) {
