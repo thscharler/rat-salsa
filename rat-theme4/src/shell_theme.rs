@@ -394,7 +394,7 @@ fn text(th: &SalsaTheme) -> TextStyle {
 fn textarea(th: &SalsaTheme) -> TextStyle {
     TextStyle {
         style: th.style(Style::INPUT),
-        focus: Some(th.style(Style::TEXT_FOCUS)),
+        focus: Some(th.style(Style::INPUT)),
         select: Some(th.style(Style::TEXT_SELECT)),
         scroll: Some(scroll(th)),
         border_style: Some(th.style(Style::CONTAINER_BORDER)),

@@ -24,7 +24,7 @@ use rat_widget::splitter::SplitStyle;
 use rat_widget::statusline::StatusLineStyle;
 use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
-use rat_widget::text::TextStyle;
+use rat_widget::text::{TextFocusGained, TextFocusLost, TextStyle};
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
 use ratatui::style::{Style, Stylize};
@@ -362,6 +362,8 @@ fn color_input(th: &SalsaTheme) -> ColorInputStyle {
             focus: Some(th.style(Style::TEXT_FOCUS)),
             select: Some(th.style(Style::TEXT_SELECT)),
             invalid: Some(th.p.fg_red(3)),
+            on_focus_gained: Some(TextFocusGained::Overwrite),
+            on_focus_lost: Some(TextFocusLost::Position0),
             ..TextStyle::default()
         },
         ..Default::default()
@@ -381,7 +383,7 @@ fn text(th: &SalsaTheme) -> TextStyle {
 fn textarea(th: &SalsaTheme) -> TextStyle {
     TextStyle {
         style: th.style(Style::INPUT),
-        focus: Some(th.style(Style::TEXT_FOCUS)),
+        focus: Some(th.style(Style::INPUT)),
         select: Some(th.style(Style::TEXT_SELECT)),
         scroll: Some(scroll(th)),
         border_style: Some(th.style(Style::CONTAINER_BORDER)),
