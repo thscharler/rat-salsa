@@ -1,3 +1,76 @@
+# 2.4.0
+
+## Conformance test
+
+* feat: add test_conformance that checks the API of the different widgets.
+    * fixes a lot of missing API.
+* implement HasScreenCursor for every widget.
+* implement RelocatableState for every widget.
+    * check the implementations for missing areas.
+
+## Widgets
+
+### Slider
+
+* Slider: Better mouse behaviour.
+
+### Calendar
+
+* Calendar: Home/End now work with SingleSelection.
+
+### Combobox
+
+* Combobox: Enter should flip the popup.
+
+### Choice
+
+* Choice: add select_marker() char.
+* Choice: set default type to usize.
+
+### FormLayout
+
+* FormLayout: add gap() to add gaps between widgets.
+
+### Clipper/Form/View
+
+* Clipper: add buffers_uses_view_size(). Normally Clipper
+  minimizes it's Buffer, but when rendering Popups this leads to
+  strange behaviour.
+* Clipper: add missing render2()
+* Clipper, Form, View: add render_popup() with new semantics.
+* Clipper, View: remove final stage and add a finish() fn instead.
+* Clipper, Form, LayoutForm: set a default type of usize.
+* Paired: improve Constraints.
+
+## rat-menu
+
+* break: PopupMenu: width() -> menu_width() and width_opt() -> menu_width_opt()
+  at the same time adding width() and height() that return the dimensions.
+
+* feature: add Block to MenuLine
+* fix: minor things to conform to the api guidelines.
+
+## rat-text
+
+* feature: ColorInput mouse handling added.
+* fix: SHIFT-Backspace should work everywhere now.
+  Acts the same as plain Backspace.
+
+## rat-reloc
+
+* feature: add relocate_popup() and relocate_popup_hidden()
+  widgets need to differentiate regular areas and popup areas,
+  as they are not rendered at the same time.
+
+## rat-focus
+
+These changes are related to the introduction of on_gained()
+and on_lost() callbacks:
+
+* break: FocusFlag::name() changed from &str to Box<str>.
+* feature: FocusFlag::set_name() now available.
+* FocusFlag::with_name() adds a name later.
+
 # 2.3.0
 
 ## ColorInput (new)

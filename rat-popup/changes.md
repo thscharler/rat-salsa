@@ -1,3 +1,7 @@
+# 2.2.0
+
+* refactor: changes to RelocatableState
+
 # 2.1.0
 
 * break: change the type of PopupCoreState::active to Rc<Cell<bool>>.

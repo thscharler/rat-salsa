@@ -29,5 +29,5 @@ textwrap = "0.16"
 unicode-segmentation = "1.11"
 
 rat-event = { version = "1.2", path = "../rat-event" }
-rat-focus = { version = "1.4", path = "../rat-focus" }
-rat-text = { version = "2.2", path = "../rat-text" }
+rat-focus = { version = "1.5", path = "../rat-focus" }
+rat-text = { version = "2.3", path = "../rat-text" }

@@ -1,3 +1,9 @@
+# 3.1.0
+
+* Palette: add color2u32()
+* add EverForest and Nord palettes.
+* work on the other palettes too.
+
 # 3.0.1
 
 * add ColorInput widget.

@@ -1,3 +1,12 @@
+# 1.5.0
+
+These changes are related to the introduction of on_gained()
+and on_lost() callbacks:
+
+* break: FocusFlag::name() changed from &str to Box<str>.
+* feature: FocusFlag::set_name() now available.
+* feature: FocusFlag::with_name() adds a name later.
+
 # 1.4.0
 
 * feature: allow calling future() for container flags.

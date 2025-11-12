@@ -1,3 +1,9 @@
+# 1.4.0
+
+* feature: add relocate_popup() and relocate_popup_hidden()
+  widgets need to differentiate regular areas and popup areas,
+  as they are not rendered at the same time.
+
 # 1.3.0
 
 * feature: add relocate_hidden to RelocatableState trait.

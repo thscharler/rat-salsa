@@ -1,3 +1,11 @@
+# 2.4.0
+
+* add example palette_edit
+
+* add wrapper for FileDialog and MessageDialog to use with DialogStack.
+
+* handle_focus() now returns the Outcome.
+
 # 2.3.1
 
 * minor fixes and documentation

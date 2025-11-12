@@ -1,3 +1,7 @@
+# 1.2.1
+
+* fix: conformance with guidelines.
+
 # 1.2.0
 
 * feature: set a default type for Table<Selection=RowSelection>

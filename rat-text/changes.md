@@ -1,3 +1,11 @@
+# 2.3.0
+
+* feature: ColorInput mouse handling added.
+* feature/break: remove increment()/decrement() replace with change_section()
+  and add change_section_pos()
+* fix: SHIFT-Backspace should work everywhere now.
+  Acts the same as plain Backspace.
+
 # 2.2.0
 
 * feature: add ColorInput

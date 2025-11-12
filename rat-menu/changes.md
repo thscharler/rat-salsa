@@ -1,3 +1,11 @@
+# 2.1.0
+
+* break: PopupMenu: width() -> menu_width() and width_opt() -> menu_width_opt()
+  at the same time adding width() and height() that return the dimensions.
+
+* feature: add Block to MenuLine
+* fix: minor things to conform to the api guidelines.
+
 # 2.0.0
 
 * breaking changes in rat-popup
