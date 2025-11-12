@@ -625,11 +625,11 @@ fn save_pal_file(
     let palette = state.edit.palette();
 
     let mut ff = Ini::new_std();
-    ff.set_text("palette", "name", palette.name);
-    ff.set_text("palette", "text_dark", palette.text_dark);
-    ff.set_text("palette", "text_black", palette.text_black);
-    ff.set_text("palette", "text_light", palette.text_light);
-    ff.set_text("palette", "text_bright", palette.text_bright);
+    ff.set_val("palette", "name", palette.name);
+    ff.set_val("palette", "text_dark", palette.text_dark);
+    ff.set_val("palette", "text_black", palette.text_black);
+    ff.set_val("palette", "text_light", palette.text_light);
+    ff.set_val("palette", "text_bright", palette.text_bright);
     ff.set_array("palette", "white", palette.white);
     ff.set_array("palette", "black", palette.black);
     ff.set_array("palette", "gray", palette.gray);
@@ -1733,118 +1733,6 @@ mod configparser_ext {
     pub(crate) trait ConfigParserExt {
         fn new_std() -> Self;
 
-        /// Parse 'sec|val'
-        fn parse_sec1<T: FromStr>(
-            &self, //
-            sec: &str,
-            default: T,
-        ) -> T;
-
-        /// Parse 'sec|val1|val2'
-        fn parse_sec2<T: FromStr, U: FromStr>(
-            &self, //
-            sec: &str,
-            default1: T,
-            default2: U,
-        ) -> (T, U);
-
-        /// Parse 'sec|val1|val2'
-        fn parse_sec3<T: FromStr, U: FromStr, V: FromStr>(
-            &self,
-            sec: &str,
-            default1: T,
-            default2: U,
-            default3: V,
-        ) -> (T, U, V);
-
-        /// Clean the sec by replacing '|' with '_'.
-        /// This is probably not reversible.
-        fn clean_sec(&self, key: &str) -> String;
-
-        /// Create section key 'sec|val1'
-        fn build_sec1<T: ToString>(
-            &self, //
-            sec: &str,
-            val: T,
-        ) -> String;
-
-        /// Create section key 'sec|val1|val2'
-        fn build_sec2<T: ToString, U: ToString>(
-            &self, //
-            sec: &str,
-            val1: T,
-            val2: U,
-        ) -> String;
-
-        /// Create section key 'sec|val1|val2|val3'
-        fn build_sec3<T: ToString, U: ToString, V: ToString>(
-            &self, //
-            sec: &str,
-            val1: T,
-            val2: U,
-            val3: V,
-        ) -> String;
-
-        /// Parse 'key.val'
-        fn parse_key1<T: FromStr>(
-            &self, //
-            key: &str,
-            default: T,
-        ) -> T;
-
-        /// Parse 'key.val1.val2'
-        fn parse_key2<T: FromStr, U: FromStr>(
-            &self, //
-            key: &str,
-            default1: T,
-            default2: U,
-        ) -> (T, U);
-
-        /// Parse 'key.val1.val2'
-        fn parse_key3<T: FromStr, U: FromStr, V: FromStr>(
-            &self,
-            key: &str,
-            default1: T,
-            default2: U,
-            default3: V,
-        ) -> (T, U, V);
-
-        /// Clean the key by replacing '.' with '_'.
-        /// This is probably not reversible.
-        fn clean_key(&self, key: &str) -> String;
-
-        /// Create section key 'key.val1'
-        fn build_key1<T: ToString>(
-            &self, //
-            key: &str,
-            val: T,
-        ) -> String;
-
-        /// Create section key 'key.val1.val2'
-        fn build_key2<T: ToString, U: ToString>(
-            &self, //
-            key: &str,
-            val1: T,
-            val2: U,
-        ) -> String;
-
-        /// Create section key 'key.val1.val2.val3'
-        fn build_key3<T: ToString, U: ToString, V: ToString>(
-            &self, //
-            key: &str,
-            val1: T,
-            val2: U,
-            val3: V,
-        ) -> String;
-
-        /// Get the String value
-        fn get_val<S: AsRef<str>, D: Into<String>>(
-            &self, //
-            sec: S,
-            key: &str,
-            default: D,
-        ) -> String;
-
         /// Get multiline text.
         fn get_text<S: AsRef<str>, D: Into<String>>(
             &self, //
@@ -1868,31 +1756,6 @@ mod configparser_ext {
             default: T,
         ) -> T;
 
-        /// Call parse() for the value.
-        fn parse_val_fallible<T: FromStr, S: AsRef<str>>(
-            &self, //
-            sec: S,
-            key: &str,
-            default: T,
-        ) -> Result<T, <T as FromStr>::Err>;
-
-        /// Parse a value with default.
-        fn parse_val_with<T, S: AsRef<str>>(
-            &self, //
-            sec: S,
-            key: &str,
-            with: impl FnOnce(String) -> Option<T>,
-            default: T,
-        ) -> T;
-
-        fn parse_val_with_fallible<T, E, S: AsRef<str>>(
-            &self, //
-            sec: S,
-            key: &str,
-            with: impl FnOnce(String) -> Result<T, E>,
-            default: T,
-        ) -> Result<T, E>;
-
         /// Set from some type.
         fn set_val<T: ToString, S: AsRef<str>>(
             &mut self, //
@@ -1915,9 +1778,6 @@ mod configparser_ext {
             val: T,
         );
 
-        /// Iterate over one section.
-        fn section_iter<S: AsRef<str>>(&self, sec: S) -> SectionIter<'_>;
-
         /// Write with our standards.
         fn write_std(&self, path: impl AsRef<Path>) -> std::io::Result<()>;
     }
@@ -1930,202 +1790,6 @@ mod configparser_ext {
             def.comment_symbols = vec![];
 
             configparser::ini::Ini::new_from_defaults(def)
-        }
-
-        fn parse_sec1<T: FromStr>(&self, sec: &str, default: T) -> T {
-            let mut s = sec.split('|');
-            s.next();
-            let t = match s.next() {
-                None => {
-                    panic!("invalid section: {:?}", sec)
-                }
-                Some(v) => v.parse().unwrap_or(default),
-            };
-            assert_eq!(s.next(), None);
-            t
-        }
-
-        fn parse_sec2<T: FromStr, U: FromStr>(
-            &self,
-            sec: &str,
-            default1: T,
-            default2: U,
-        ) -> (T, U) {
-            let mut s = sec.split('|');
-            s.next();
-            let t = match s.next() {
-                None => {
-                    panic!("invalid section: {:?}", sec)
-                }
-                Some(v) => v.parse().unwrap_or(default1),
-            };
-            let u = match s.next() {
-                None => {
-                    panic!("invalid section: {:?}", sec)
-                }
-                Some(v) => v.parse().unwrap_or(default2),
-            };
-            assert_eq!(s.next(), None);
-            (t, u)
-        }
-
-        fn parse_sec3<T: FromStr, U: FromStr, V: FromStr>(
-            &self,
-            sec: &str,
-            default1: T,
-            default2: U,
-            default3: V,
-        ) -> (T, U, V) {
-            let mut s = sec.split('|');
-            s.next();
-            let t = match s.next() {
-                None => {
-                    panic!("invalid section: {:?}", sec)
-                }
-                Some(v) => v.parse().unwrap_or(default1),
-            };
-            let u = match s.next() {
-                None => {
-                    panic!("invalid section: {:?}", sec)
-                }
-                Some(v) => v.parse().unwrap_or(default2),
-            };
-            let v = match s.next() {
-                None => {
-                    panic!("invalid section: {:?}", sec)
-                }
-                Some(v) => v.parse().unwrap_or(default3),
-            };
-            assert_eq!(s.next(), None);
-            (t, u, v)
-        }
-
-        fn clean_sec(&self, key: &str) -> String {
-            key.replace('|', "_")
-        }
-
-        fn build_sec1<T: ToString>(&self, sec: &str, val: T) -> String {
-            format!("{}|{}", sec, val.to_string())
-        }
-
-        fn build_sec2<T: ToString, U: ToString>(&self, sec: &str, val1: T, val2: U) -> String {
-            format!("{}|{}|{}", sec, val1.to_string(), val2.to_string())
-        }
-
-        fn build_sec3<T: ToString, U: ToString, V: ToString>(
-            &self,
-            sec: &str,
-            val1: T,
-            val2: U,
-            val3: V,
-        ) -> String {
-            format!(
-                "{}|{}|{}|{}",
-                sec,
-                val1.to_string(),
-                val2.to_string(),
-                val3.to_string()
-            )
-        }
-
-        fn parse_key1<T: FromStr>(&self, key: &str, default: T) -> T {
-            let mut s = key.split('.');
-            s.next();
-            let t = match s.next() {
-                None => {
-                    panic!("invalid key: {:?}", key)
-                }
-                Some(v) => v.parse().unwrap_or(default),
-            };
-            assert_eq!(s.next(), None);
-            t
-        }
-
-        fn parse_key2<T: FromStr, U: FromStr>(
-            &self,
-            key: &str,
-            default1: T,
-            default2: U,
-        ) -> (T, U) {
-            let mut s = key.split('.');
-            s.next();
-            let t = match s.next() {
-                None => {
-                    panic!("invalid key: {:?}", key)
-                }
-                Some(v) => v.parse().unwrap_or(default1),
-            };
-            let u = match s.next() {
-                None => {
-                    panic!("invalid key: {:?}", key)
-                }
-                Some(v) => v.parse().unwrap_or(default2),
-            };
-            assert_eq!(s.next(), None);
-            (t, u)
-        }
-
-        fn parse_key3<T: FromStr, U: FromStr, V: FromStr>(
-            &self,
-            key: &str,
-            default1: T,
-            default2: U,
-            default3: V,
-        ) -> (T, U, V) {
-            let mut s = key.split('.');
-            s.next();
-            let t = match s.next() {
-                None => {
-                    panic!("invalid key: {:?}", key)
-                }
-                Some(v) => v.parse().unwrap_or(default1),
-            };
-            let u = match s.next() {
-                None => {
-                    panic!("invalid key: {:?}", key)
-                }
-                Some(v) => v.parse().unwrap_or(default2),
-            };
-            let v = match s.next() {
-                None => {
-                    panic!("invalid key: {:?}", key)
-                }
-                Some(v) => v.parse().unwrap_or(default3),
-            };
-            assert_eq!(s.next(), None);
-            (t, u, v)
-        }
-
-        fn clean_key(&self, key: &str) -> String {
-            key.replace('.', "_")
-        }
-
-        fn build_key1<T: ToString>(&self, key: &str, val: T) -> String {
-            format!("{}.{}", key, val.to_string())
-        }
-
-        fn build_key2<T: ToString, U: ToString>(&self, key: &str, val1: T, val2: U) -> String {
-            format!("{}.{}.{}", key, val1.to_string(), val2.to_string())
-        }
-
-        fn build_key3<T: ToString, U: ToString, V: ToString>(
-            &self,
-            key: &str,
-            val1: T,
-            val2: U,
-            val3: V,
-        ) -> String {
-            format!(
-                "{}.{}.{}.{}",
-                key,
-                val1.to_string(),
-                val2.to_string(),
-                val3.to_string()
-            )
-        }
-
-        fn get_val<S: AsRef<str>, D: Into<String>>(&self, sec: S, key: &str, default: D) -> String {
-            self.get(sec.as_ref(), key).unwrap_or(default.into())
         }
 
         fn get_text<S: AsRef<str>, D: Into<String>>(
@@ -2194,47 +1858,6 @@ mod configparser_ext {
             }
         }
 
-        fn parse_val_fallible<T: FromStr, S: AsRef<str>>(
-            &self, //
-            sec: S,
-            key: &str,
-            default: T,
-        ) -> Result<T, <T as FromStr>::Err> {
-            if let Some(v) = self.get(sec.as_ref(), key) {
-                v.parse::<T>()
-            } else {
-                Ok(default)
-            }
-        }
-
-        fn parse_val_with<T, S: AsRef<str>>(
-            &self, //
-            sec: S,
-            key: &str,
-            with: impl FnOnce(String) -> Option<T>,
-            default: T,
-        ) -> T {
-            if let Some(v) = self.get(sec.as_ref(), key) {
-                with(v).unwrap_or(default)
-            } else {
-                default
-            }
-        }
-
-        fn parse_val_with_fallible<T, E, S: AsRef<str>>(
-            &self, //
-            sec: S,
-            key: &str,
-            with: impl FnOnce(String) -> Result<T, E>,
-            default: T,
-        ) -> Result<T, E> {
-            if let Some(v) = self.get(sec.as_ref(), key) {
-                with(v)
-            } else {
-                Ok(default)
-            }
-        }
-
         fn set_val<T: ToString, S: AsRef<str>>(&mut self, sec: S, key: &str, val: T) {
             self.set(sec.as_ref(), key, Some(val.to_string()));
         }
@@ -2265,34 +1888,8 @@ mod configparser_ext {
             self.set(sec.as_ref(), key, Some(buf));
         }
 
-        fn section_iter<S: AsRef<str>>(&self, sec: S) -> SectionIter<'_> {
-            SectionIter {
-                it: if let Some(map) = self.get_map_ref().get(sec.as_ref()) {
-                    Some(map.iter())
-                } else {
-                    None
-                },
-            }
-        }
-
         fn write_std(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
             self.pretty_write(path, &WriteOptions::new_with_params(false, 4, 1))
-        }
-    }
-
-    pub(crate) struct SectionIter<'a> {
-        it: Option<indexmap::map::Iter<'a, String, Option<String>>>,
-    }
-
-    impl<'a> Iterator for SectionIter<'a> {
-        type Item = (&'a String, &'a Option<String>);
-
-        fn next(&mut self) -> Option<Self::Item> {
-            if let Some(it) = &mut self.it {
-                it.next()
-            } else {
-                None
-            }
         }
     }
 }
