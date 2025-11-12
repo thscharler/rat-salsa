@@ -36,6 +36,7 @@ use ratatui::widgets::{StatefulWidget, Widget};
 use std::any::Any;
 use std::cell::RefCell;
 use std::fs;
+use std::fs::File;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -112,9 +113,10 @@ pub enum PalEvent {
     NoOp,
     Event(crossterm::event::Event),
     Rendered,
+    Message(String),
     Save(PathBuf),
     Load(PathBuf),
-    Message(String),
+    Export(PathBuf),
 }
 
 impl From<RenderedEvent> for PalEvent {
@@ -413,18 +415,190 @@ pub fn event(
         }
         PalEvent::Save(p) => save_pal_file(&p, state, ctx),
         PalEvent::Load(p) => load_pal_file(&p, state, ctx),
+        PalEvent::Export(p) => export_pal_file(&p, state, ctx),
         _ => Ok(Control::Continue),
     }
 }
 
 fn export_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    todo!()
+    let s = state.file_dlg.clone();
+    s.borrow_mut()
+        .save_dialog_ext(".", state.edit.name.text().to_lowercase(), "rs")?;
+    ctx.dlg.push(
+        file_dialog_render(
+            LayoutOuter::new()
+                .left(Constraint::Percentage(19))
+                .right(Constraint::Percentage(19))
+                .top(Constraint::Length(4))
+                .bottom(Constraint::Length(4)),
+            ctx.theme.style(WidgetStyle::FILE_DIALOG),
+        ),
+        file_dialog_event(|p| match p {
+            Ok(p) => PalEvent::Export(p),
+            Err(_) => PalEvent::NoOp,
+        }),
+        s,
+    );
+    Ok(Control::Changed)
+}
+
+fn export_pal_file(
+    path: &Path,
+    state: &mut Scenery,
+    _ctx: &mut Global,
+) -> Result<Control<PalEvent>, Error> {
+    use std::io::Write;
+
+    let palette = state.edit.palette();
+
+    let c32 = Palette::color2u32;
+
+    let mut wr = File::create(path)?;
+    writeln!(wr, "use crate::Palette;")?;
+    writeln!(wr, "")?;
+    writeln!(wr, "// {}", palette.name)?;
+    writeln!(wr, "const DARKNESS: u8 = 63;")?;
+    writeln!(wr, "")?;
+    writeln!(
+        wr,
+        "pub const {}: Palette = Palette {{",
+        palette.name.to_uppercase()
+    )?;
+    writeln!(wr, "    name: \"{}\", ", palette.name)?;
+    writeln!(wr, "")?;
+    writeln!(
+        wr,
+        "    text_dark: Palette::color32({:#08x}), ",
+        c32(palette.text_dark)
+    )?;
+    writeln!(
+        wr,
+        "    text_black: Palette::color32({:#08x}), ",
+        c32(palette.text_black)
+    )?;
+    writeln!(
+        wr,
+        "    text_light: Palette::color32({:#08x}), ",
+        c32(palette.text_light)
+    )?;
+    writeln!(
+        wr,
+        "    text_bright: Palette::color32({:#08x}), ",
+        c32(palette.text_bright)
+    )?;
+    writeln!(wr, "")?;
+    writeln!(
+        wr,
+        "    primary: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.primary[0]),
+        c32(palette.primary[3])
+    )?;
+    writeln!(
+        wr,
+        "    secondary: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.secondary[0]),
+        c32(palette.secondary[3])
+    )?;
+    writeln!(wr, "")?;
+    writeln!(
+        wr,
+        "    white: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.white[0]),
+        c32(palette.white[3])
+    )?;
+    writeln!(
+        wr,
+        "    black: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.black[0]),
+        c32(palette.black[3])
+    )?;
+    writeln!(
+        wr,
+        "    gray: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.gray[0]),
+        c32(palette.gray[3])
+    )?;
+    writeln!(
+        wr,
+        "    red: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.red[0]),
+        c32(palette.red[3])
+    )?;
+    writeln!(
+        wr,
+        "    orange: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.orange[0]),
+        c32(palette.orange[3])
+    )?;
+    writeln!(
+        wr,
+        "    yellow: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.yellow[0]),
+        c32(palette.yellow[3])
+    )?;
+    writeln!(
+        wr,
+        "    limegreen: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.limegreen[0]),
+        c32(palette.limegreen[3])
+    )?;
+    writeln!(
+        wr,
+        "    green: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.green[0]),
+        c32(palette.green[3])
+    )?;
+    writeln!(
+        wr,
+        "    bluegreen: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.bluegreen[0]),
+        c32(palette.bluegreen[3])
+    )?;
+    writeln!(
+        wr,
+        "    cyan: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.cyan[0]),
+        c32(palette.cyan[3])
+    )?;
+    writeln!(
+        wr,
+        "    blue: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.blue[0]),
+        c32(palette.blue[3])
+    )?;
+    writeln!(
+        wr,
+        "    deepblue: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.deepblue[0]),
+        c32(palette.deepblue[3])
+    )?;
+    writeln!(
+        wr,
+        "    purple: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.purple[0]),
+        c32(palette.purple[3])
+    )?;
+    writeln!(
+        wr,
+        "    magenta: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.magenta[0]),
+        c32(palette.magenta[3])
+    )?;
+    writeln!(
+        wr,
+        "    redpink: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
+        c32(palette.redpink[0]),
+        c32(palette.redpink[3])
+    )?;
+    writeln!(wr, "}};")?;
+
+    Ok(Control::Changed)
 }
 
 fn save_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    let mut s = state.file_dlg.clone();
+    let s = state.file_dlg.clone();
     s.borrow_mut()
-        .save_dialog_ext(".", state.edit.name.text(), "pal")?;
+        .save_dialog_ext(".", state.edit.name.text().to_lowercase(), "pal")?;
     ctx.dlg.push(
         file_dialog_render(
             LayoutOuter::new()
@@ -479,7 +653,7 @@ fn save_pal_file(
 }
 
 fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    let mut s = state.file_dlg.clone();
+    let s = state.file_dlg.clone();
     s.borrow_mut().open_dialog(".")?;
     ctx.dlg.push(
         file_dialog_render(
@@ -806,6 +980,7 @@ mod palette_edit {
         }
 
         pub fn set_palette(&mut self, palette: Palette) {
+            self.name.set_value(palette.name);
             self.primary
                 .set_value(palette_idx(&palette, &palette.primary));
             self.secondary
@@ -1150,7 +1325,7 @@ mod showcase {
     use pure_rust_locales::{locale_match, Locale};
     use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-    use rat_theme4::{dark_theme, SalsaTheme, WidgetStyle};
+    use rat_theme4::{dark_theme, SalsaTheme, StyleName, WidgetStyle};
     use rat_widget::button::{Button, ButtonState};
     use rat_widget::calendar::selection::SingleSelection;
     use rat_widget::calendar::{CalendarState, Month};
@@ -1171,12 +1346,15 @@ mod showcase {
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Flex, Rect};
+    use ratatui::style::Style;
+    use ratatui::symbols::border;
     use ratatui::text::Line;
-    use ratatui::widgets::Padding;
+    use ratatui::widgets::{Block, Borders, Padding};
 
     #[derive(Debug)]
     pub struct ShowCase {
         pub theme: SalsaTheme,
+        pub loc: Locale,
 
         pub form: ClipperState,
 
@@ -1243,6 +1421,7 @@ mod showcase {
         fn default() -> Self {
             let mut z = Self {
                 theme: Default::default(),
+                loc: Default::default(),
                 form: ClipperState::named("show"),
                 button: ButtonState::named("button"),
                 checkbox: CheckboxState::named("checkbox"),
@@ -1259,11 +1438,13 @@ mod showcase {
 
             let loc = sys_locale::get_locale().expect("locale");
             let loc = loc.replace("-", "_");
-            let loc = Locale::try_from(loc.as_str()).expect("locale");
-            let fmt = locale_match!(loc => LC_TIME::D_FMT);
-            z.date_input.set_format_loc(fmt, loc).expect("date_format");
+            z.loc = Locale::try_from(loc.as_str()).expect("locale");
+            let fmt = locale_match!(z.loc => LC_TIME::D_FMT);
+            z.date_input
+                .set_format_loc(fmt, z.loc)
+                .expect("date_format");
             z.number_input
-                .set_format_loc("###,##0.00#", loc)
+                .set_format_loc("###,##0.00#", z.loc)
                 .expect("number_format");
             z.theme = dark_theme("Tundra Dark", rat_theme4::palettes::TUNDRA);
             z.calendar.move_to_today();
@@ -1301,7 +1482,7 @@ mod showcase {
             layout.widget(state.slider.id(), L::Str("Slider"), W::Width(15));
             layout.widget(state.text.id(), L::Str("TextInput"), W::Width(20));
             layout.widget(state.textarea.id(), L::Str("TextArea"), W::Size(25, 5));
-            layout.widget(state.calendar.id(), L::Str("Calendar"), W::Size(25, 10));
+            layout.widget(state.calendar.id(), L::Str("Calendar"), W::Size(25, 8));
             form = form.layout(layout.build_endless(layout_size.width));
         }
         let mut form = form.into_buffer(area, &mut state.form);
@@ -1400,18 +1581,35 @@ mod showcase {
             || TextInput::new().styles(state.theme.style(WidgetStyle::TEXT)),
             &mut state.text,
         );
+        let text_area_focused = state.textarea.is_focused();
         form.render(
             state.textarea.id(),
             || {
                 TextArea::new()
                     .vscroll(Scroll::new())
                     .styles(state.theme.style(WidgetStyle::TEXTAREA))
+                    .block(if text_area_focused {
+                        Block::new()
+                            .style(state.theme.style_style(Style::INPUT))
+                            .border_style(state.theme.style_style(Style::FOCUS))
+                            .borders(Borders::LEFT)
+                            .border_set(border::EMPTY)
+                    } else {
+                        Block::default().style(state.theme.style_style(Style::INPUT))
+                        // .border_style(state.theme.style_style(Style::INPUT))
+                        // .borders(Borders::LEFT)
+                        // .border_set(border::EMPTY)
+                    })
             },
             &mut state.textarea,
         );
         form.render(
             state.calendar.id(),
-            || Month::new().styles(state.theme.style(WidgetStyle::MONTH)),
+            || {
+                Month::new()
+                    .locale(state.loc)
+                    .styles(state.theme.style(WidgetStyle::MONTH))
+            },
             &mut state.calendar.months[0],
         );
 
