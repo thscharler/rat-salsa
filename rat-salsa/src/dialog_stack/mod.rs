@@ -11,7 +11,12 @@ use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::rc::Rc;
-use try_as::traits::TryAsRef;
+use try_as_traits::TryAsRef;
+
+#[cfg(feature = "dialog_widgets")]
+pub mod file_dialog;
+#[cfg(feature = "dialog_widgets")]
+pub mod msgdialog;
 
 /// Hold a stack of dialog-widgets.
 ///

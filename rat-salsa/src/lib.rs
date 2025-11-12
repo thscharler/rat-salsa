@@ -22,6 +22,9 @@ use std::time::Duration;
 use tokio::task::AbortHandle;
 
 #[cfg(feature = "dialog")]
+pub use try_as_traits::{TryAsMut, TryAsRef, TypedContainer};
+
+#[cfg(feature = "dialog")]
 pub mod dialog_stack;
 mod framework;
 mod run_config;
