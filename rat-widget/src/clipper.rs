@@ -142,7 +142,7 @@ where
     W: Eq + Clone + Hash,
 {
     layout: Rc<RefCell<GenericLayout<W>>>,
-    no_auto_label: bool,
+    manual_label: bool,
 
     // offset from buffer to scroll area
     offset: Position,
@@ -478,7 +478,7 @@ where
 
         ClipperBuffer {
             layout: state.layout.clone(),
-            no_auto_label: self.manual_label,
+            manual_label: self.manual_label,
             offset,
             buffer,
             widget_area: state.widget_area,
@@ -584,7 +584,7 @@ where
         let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return false;
         };
-        if !self.no_auto_label {
+        if !self.manual_label {
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
@@ -605,7 +605,7 @@ where
         let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return false;
         };
-        if !self.no_auto_label {
+        if !self.manual_label {
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
@@ -635,7 +635,7 @@ where
         let Some(idx) = self.layout.borrow().try_index_of(widget) else {
             return None;
         };
-        if !self.no_auto_label {
+        if !self.manual_label {
             self.render_auto_label(idx);
         }
         let Some(widget_area) = self.locate_area(self.layout.borrow().widget(idx)) else {
