@@ -951,7 +951,13 @@ mod core {
             // there can be a second entry for the same focus-flag
             // if it is only for mouse interactions.
             if duplicate {
-                assert!(matches!(navigable, Navigation::Mouse | Navigation::None))
+                if !matches!(navigable, Navigation::Mouse | Navigation::None) {
+                    focus_debug!(self, "{:#?}", self);
+                    panic!(
+                        "Duplicate flag is only allowed if the second call uses Navigation::Mouse|Navigation::None. Was {:?}.",
+                        focus
+                    )
+                }
             }
 
             focus_debug!(self, "widget {:?}", focus);

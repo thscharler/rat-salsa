@@ -309,6 +309,7 @@ impl Debug for FocusFlag {
         f.debug_struct("FocusFlag")
             .field("name", &self.0.name)
             .field("focus", &self.0.focus.get())
+            .field("widget_id", &self.widget_id())
             .field("gained", &self.0.gained.get())
             .field("on_gained", &self.0.on_gained.borrow().is_some())
             .field("lost", &self.0.lost.get())
