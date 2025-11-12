@@ -419,7 +419,7 @@ fn render_popup_menu(
     state.disabled = widget.menu.items.iter().map(|v| v.disabled).collect();
 
     if !state.is_active() {
-        state.clear_areas();
+        state.relocate_popup_hidden();
         return;
     }
 
@@ -532,9 +532,11 @@ impl HasScreenCursor for PopupMenuState {
 }
 
 impl RelocatableState for PopupMenuState {
-    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+    fn relocate(&mut self, _shift: (i16, i16), _clip: Rect) {}
+
+    fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {
         self.area.relocate(shift, clip);
-        self.popup.relocate(shift, clip);
+        self.popup.relocate_popup(shift, clip);
         self.item_areas.relocate(shift, clip);
         self.sep_areas.relocate(shift, clip);
     }
@@ -577,11 +579,12 @@ impl PopupMenuState {
     pub fn set_active(&mut self, active: bool) {
         self.popup.set_active(active);
         if !active {
-            self.clear_areas();
+            self.relocate_popup_hidden();
         }
     }
 
     /// Clear the areas.
+    #[deprecated(since = "2.1.0", note = "use relocate_popup_hidden()")]
     pub fn clear_areas(&mut self) {
         self.area = Rect::default();
         self.popup.clear_areas();

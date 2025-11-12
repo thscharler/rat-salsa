@@ -432,6 +432,10 @@ impl RelocatableState for MenubarState {
         self.bar.relocate(shift, clip);
         self.popup.relocate(shift, clip);
     }
+
+    fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {
+        self.popup.relocate_popup(shift, clip);
+    }
 }
 
 impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenubarState {
