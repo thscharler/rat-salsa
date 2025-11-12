@@ -456,7 +456,7 @@ fn export_pal_file(
     let mut wr = File::create(path)?;
     writeln!(wr, "use crate::Palette;")?;
     writeln!(wr, "")?;
-    writeln!(wr, "// {}", palette.name)?;
+    writeln!(wr, "/// {}", palette.name)?;
     writeln!(wr, "const DARKNESS: u8 = 63;")?;
     writeln!(wr, "")?;
     writeln!(
