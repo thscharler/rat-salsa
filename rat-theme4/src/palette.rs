@@ -640,6 +640,12 @@ impl Palette {
         (((v as u16) * scale_to as u16) / 255u16) as u8
     }
 
+    /// Color to u32
+    pub const fn color2u32(color: Color) -> u32 {
+        let (r, g, b) = Self::color2rgb(color);
+        ((r as u32) << 16) + ((g as u32) << 8) + (b as u32)
+    }
+
     /// Gives back the rgb for any ratatui Color.
     /// Has the indexed and the named colors too.
     pub const fn color2rgb(color: Color) -> (u8, u8, u8) {
