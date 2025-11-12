@@ -1,9 +1,12 @@
+use crate::configparser_ext::ConfigParserExt;
 use crate::palette_edit::PaletteEdit;
 use crate::showcase::ShowCase;
-use anyhow::Error;
-use log::{debug, error, warn};
+use anyhow::{anyhow, Error};
+use configparser::ini::Ini;
+use log::{error, warn};
 use rat_event::{try_flow, Outcome, Popup};
 use rat_focus::{impl_has_focus, FocusFlag, HasFocus};
+use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render};
 use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
@@ -16,7 +19,9 @@ use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::color_input::{ColorInput, ColorInputState};
 use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
 use rat_widget::event::{ct_event, ChoiceOutcome, Dialog, HandleEvent, MenuOutcome, Regular};
+use rat_widget::file_dialog::FileDialogState;
 use rat_widget::focus::FocusBuilder;
+use rat_widget::layout::LayoutOuter;
 use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::reloc::RelocatableState;
@@ -25,14 +30,16 @@ use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardErro
 use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
+use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::any::Any;
 use std::cell::RefCell;
 use std::fs;
 use std::iter::once;
-use try_as::traits::TryAsRef;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use try_as_traits::TryAsRef;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -66,6 +73,8 @@ pub struct Global {
 
     pub cfg: Config,
     pub theme: SalsaTheme,
+
+    pub status_frame: usize,
     pub status: String,
 }
 
@@ -87,6 +96,7 @@ impl Global {
             dlg: Default::default(),
             cfg,
             theme,
+            status_frame: 0,
             status: Default::default(),
         }
     }
@@ -102,6 +112,8 @@ pub enum PalEvent {
     NoOp,
     Event(crossterm::event::Event),
     Rendered,
+    Save(PathBuf),
+    Load(PathBuf),
     Message(String),
 }
 
@@ -130,6 +142,9 @@ impl From<crossterm::event::Event> for PalEvent {
 pub struct Scenery {
     pub defined: ChoiceState<String>,
     pub themes: ChoiceState<String>,
+
+    pub file_dlg: Rc<RefCell<FileDialogState>>,
+
     pub edit: PaletteEdit,
     pub show: ShowCase,
     pub menu: MenuLineState,
@@ -140,6 +155,7 @@ impl Default for Scenery {
         Self {
             defined: ChoiceState::named("palette"),
             themes: ChoiceState::named("themes"),
+            file_dlg: Rc::new(RefCell::new(FileDialogState::default())),
             edit: PaletteEdit::default(),
             show: ShowCase::default(),
             menu: MenuLineState::named("menu"),
@@ -205,7 +221,7 @@ pub fn render(
     render_status(status_layout[1], buf, ctx)?;
 
     // dialog windows
-    ctx.dlg.clone().render(l1[0], buf, ctx);
+    ctx.dlg.clone().render(area, buf, ctx);
 
     Ok(())
 }
@@ -256,7 +272,14 @@ fn render_menu(
 ) -> Result<(), Error> {
     MenuLine::new()
         .styles(ctx.theme.style(WidgetStyle::MENU))
-        .title("PAL")
+        .title(Line::from_iter([
+            Span::from(" P ").white().on_red(),
+            Span::from(" A ").white().on_green(),
+            Span::from(" L ").white().on_blue(),
+        ]))
+        .item_parsed("_Load")
+        .item_parsed("_Save")
+        .item_parsed("_Export")
         .item_parsed("_Quit")
         .render(area, buf, &mut state.menu);
     Ok(())
@@ -277,6 +300,15 @@ fn render_status(area: Rect, buf: &mut Buffer, ctx: &mut Global) -> Result<(), E
     )
     .to_string();
     let last_event = format!(" E{:05} ", format!("{:.0?}", ctx.last_event())).to_string();
+
+    if !ctx.status.is_empty() {
+        if ctx.status_frame == 0 {
+            ctx.status_frame = ctx.count();
+        } else if ctx.status_frame + 4 < ctx.count() {
+            ctx.status_frame = 0;
+            ctx.status = String::default();
+        }
+    }
 
     StatusLineStacked::new()
         .center_margin(1)
@@ -361,7 +393,10 @@ pub fn event(
         try_flow!(showcase::event(event, &mut state.show, ctx)?);
 
         try_flow!(match state.menu.handle(event, Regular) {
-            MenuOutcome::Activated(0) => Control::Quit,
+            MenuOutcome::Activated(0) => load_pal(state, ctx)?,
+            MenuOutcome::Activated(1) => save_pal(state, ctx)?,
+            MenuOutcome::Activated(2) => export_pal(state, ctx)?,
+            MenuOutcome::Activated(3) => Control::Quit,
             v => v.into(),
         });
     }
@@ -376,11 +411,139 @@ pub fn event(
             show_error(s, ctx);
             Ok(Control::Changed)
         }
+        PalEvent::Save(p) => save_pal_file(&p, state, ctx),
+        PalEvent::Load(p) => load_pal_file(&p, state, ctx),
         _ => Ok(Control::Continue),
     }
 }
 
-fn create_edit_theme(state: &mut Scenery) -> SalsaTheme {
+fn export_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    todo!()
+}
+
+fn save_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    let mut s = state.file_dlg.clone();
+    s.borrow_mut()
+        .save_dialog_ext(".", state.edit.name.text(), "pal")?;
+    ctx.dlg.push(
+        file_dialog_render(
+            LayoutOuter::new()
+                .left(Constraint::Percentage(19))
+                .right(Constraint::Percentage(19))
+                .top(Constraint::Length(4))
+                .bottom(Constraint::Length(4)),
+            ctx.theme.style(WidgetStyle::FILE_DIALOG),
+        ),
+        file_dialog_event(|p| match p {
+            Ok(p) => PalEvent::Save(p),
+            Err(_) => PalEvent::NoOp,
+        }),
+        s,
+    );
+    Ok(Control::Changed)
+}
+
+fn save_pal_file(
+    path: &Path,
+    state: &mut Scenery,
+    _ctx: &mut Global,
+) -> Result<Control<PalEvent>, Error> {
+    let palette = state.edit.palette();
+
+    let mut ff = Ini::new_std();
+    ff.set_text("palette", "name", palette.name);
+    ff.set_text("palette", "text_dark", palette.text_dark);
+    ff.set_text("palette", "text_black", palette.text_black);
+    ff.set_text("palette", "text_light", palette.text_light);
+    ff.set_text("palette", "text_bright", palette.text_bright);
+    ff.set_array("palette", "white", palette.white);
+    ff.set_array("palette", "black", palette.black);
+    ff.set_array("palette", "gray", palette.gray);
+    ff.set_array("palette", "red", palette.red);
+    ff.set_array("palette", "orange", palette.orange);
+    ff.set_array("palette", "yellow", palette.yellow);
+    ff.set_array("palette", "limegreen", palette.limegreen);
+    ff.set_array("palette", "green", palette.green);
+    ff.set_array("palette", "bluegreen", palette.bluegreen);
+    ff.set_array("palette", "cyan", palette.cyan);
+    ff.set_array("palette", "blue", palette.blue);
+    ff.set_array("palette", "deepblue", palette.deepblue);
+    ff.set_array("palette", "purple", palette.purple);
+    ff.set_array("palette", "magenta", palette.magenta);
+    ff.set_array("palette", "redpink", palette.redpink);
+    ff.set_array("palette", "primary", palette.primary);
+    ff.set_array("palette", "secondary", palette.secondary);
+    ff.write_std(path)?;
+
+    Ok(Control::Changed)
+}
+
+fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    let mut s = state.file_dlg.clone();
+    s.borrow_mut().open_dialog(".")?;
+    ctx.dlg.push(
+        file_dialog_render(
+            LayoutOuter::new()
+                .left(Constraint::Percentage(19))
+                .right(Constraint::Percentage(19))
+                .top(Constraint::Length(4))
+                .bottom(Constraint::Length(4)),
+            ctx.theme.style(WidgetStyle::FILE_DIALOG),
+        ),
+        file_dialog_event(|p| match p {
+            Ok(p) => PalEvent::Load(p),
+            Err(_) => PalEvent::NoOp,
+        }),
+        s,
+    );
+    Ok(Control::Changed)
+}
+
+fn load_pal_file(
+    path: &Path,
+    state: &mut Scenery,
+    _ctx: &mut Global,
+) -> Result<Control<PalEvent>, Error> {
+    let mut ff = Ini::new_std();
+    match ff.load(path) {
+        Ok(_) => {}
+        Err(e) => return Err(anyhow!(e)),
+    };
+
+    let mut palette = Palette::default();
+    let name = Box::from(ff.get_text("palette", "name", ""));
+    let name = Box::leak(name);
+    palette.name = name;
+    palette.text_dark = ff.parse_val("palette", "text_dark", Color::default());
+    palette.text_black = ff.parse_val("palette", "text_black", Color::default());
+    palette.text_light = ff.parse_val("palette", "text_light", Color::default());
+    palette.text_bright = ff.parse_val("palette", "text_bright", Color::default());
+    palette.white = ff.parse_array("palette", "white", Color::default());
+    palette.black = ff.parse_array("palette", "black", Color::default());
+    palette.gray = ff.parse_array("palette", "gray", Color::default());
+    palette.red = ff.parse_array("palette", "red", Color::default());
+    palette.orange = ff.parse_array("palette", "orange", Color::default());
+    palette.yellow = ff.parse_array("palette", "yellow", Color::default());
+    palette.limegreen = ff.parse_array("palette", "limegreen", Color::default());
+    palette.green = ff.parse_array("palette", "green", Color::default());
+    palette.bluegreen = ff.parse_array("palette", "bluegreen", Color::default());
+    palette.cyan = ff.parse_array("palette", "cyan", Color::default());
+    palette.blue = ff.parse_array("palette", "blue", Color::default());
+    palette.deepblue = ff.parse_array("palette", "deepblue", Color::default());
+    palette.purple = ff.parse_array("palette", "purple", Color::default());
+    palette.magenta = ff.parse_array("palette", "magenta", Color::default());
+    palette.redpink = ff.parse_array("palette", "redpink", Color::default());
+    palette.primary = ff.parse_array("palette", "primary", Color::default());
+    palette.secondary = ff.parse_array("palette", "secondary", Color::default());
+
+    state.edit.set_palette(palette);
+    let theme = create_edit_theme(state);
+    state.show.set_theme(theme);
+
+    Ok(Control::Changed)
+}
+
+fn create_edit_theme(state: &Scenery) -> SalsaTheme {
     let palette = state.edit.palette();
     match state.themes.value().as_str() {
         "Shell" => shell_theme("Shell", palette),
@@ -987,7 +1150,7 @@ mod showcase {
     use pure_rust_locales::{locale_match, Locale};
     use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-    use rat_theme4::{create_palette, dark_theme, Palette, SalsaTheme, WidgetStyle};
+    use rat_theme4::{dark_theme, SalsaTheme, WidgetStyle};
     use rat_widget::button::{Button, ButtonState};
     use rat_widget::calendar::selection::SingleSelection;
     use rat_widget::calendar::{CalendarState, Month};
@@ -996,10 +1159,10 @@ mod showcase {
     use rat_widget::clipper::{Clipper, ClipperState};
     use rat_widget::combobox::{Combobox, ComboboxState};
     use rat_widget::date_input::{DateInput, DateInputState};
-    use rat_widget::event::ChoiceOutcome;
+    use rat_widget::event::{ButtonOutcome, ChoiceOutcome};
     use rat_widget::layout::LayoutForm;
     use rat_widget::number_input::{NumberInput, NumberInputState};
-    use rat_widget::popup::Placement;
+    use rat_widget::paired::{PairSplit, Paired, PairedState, PairedWidget};
     use rat_widget::radio::{Radio, RadioLayout, RadioState};
     use rat_widget::scrolled::Scroll;
     use rat_widget::slider::{Slider, SliderState};
@@ -1007,7 +1170,8 @@ mod showcase {
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Direction, Flex, Rect};
+    use ratatui::layout::{Constraint, Direction, Flex, Rect};
+    use ratatui::text::Line;
     use ratatui::widgets::Padding;
 
     #[derive(Debug)]
@@ -1212,14 +1376,24 @@ mod showcase {
             },
             &mut state.radio,
         );
+
+        let val = format!("{}", state.slider.value());
         form.render(
             state.slider.id(),
             || {
-                Slider::new()
-                    .range((0, 25))
-                    .styles(state.theme.style(WidgetStyle::SLIDER))
+                Paired::new(
+                    Slider::new()
+                        .range((0, 25))
+                        .long_step(4)
+                        .styles(state.theme.style(WidgetStyle::SLIDER)),
+                    PairedWidget::new(Line::from(val)),
+                )
+                .split(PairSplit::Constrain(
+                    Constraint::Fill(1),
+                    Constraint::Length(3),
+                ))
             },
-            &mut state.slider,
+            &mut PairedState::new(&mut state.slider, &mut ()),
         );
         form.render(
             state.text.id(),
@@ -1250,7 +1424,7 @@ mod showcase {
     pub fn event(
         event: &crossterm::event::Event,
         state: &mut ShowCase,
-        _ctx: &mut Global,
+        ctx: &mut Global,
     ) -> Result<Outcome, Error> {
         try_flow!(match state.choice.handle(event, Popup) {
             ChoiceOutcome::Changed => {
@@ -1265,7 +1439,13 @@ mod showcase {
         });
         try_flow!(state.combobox.handle(event, Popup));
 
-        try_flow!(state.button.handle(event, Regular));
+        try_flow!(match state.button.handle(event, Regular) {
+            ButtonOutcome::Pressed => {
+                ctx.status = "!!OK!!".to_string();
+                Outcome::Changed
+            }
+            r => r.into(),
+        });
         try_flow!(state.checkbox.handle(event, Regular));
         try_flow!(state.date_input.handle(event, Regular));
         try_flow!(state.number_input.handle(event, Regular));
@@ -1431,6 +1611,581 @@ impl Clipboard for CliClipboard {
             Err(e) => {
                 warn!("{:?}", e);
                 Err(ClipboardError)
+            }
+        }
+    }
+}
+
+mod configparser_ext {
+    use configparser::ini::{IniDefault, WriteOptions};
+    use std::mem;
+    use std::mem::MaybeUninit;
+    use std::path::Path;
+    use std::str::FromStr;
+
+    /// Extensions to configparser for ease of use.
+    pub(crate) trait ConfigParserExt {
+        fn new_std() -> Self;
+
+        /// Parse 'sec|val'
+        fn parse_sec1<T: FromStr>(
+            &self, //
+            sec: &str,
+            default: T,
+        ) -> T;
+
+        /// Parse 'sec|val1|val2'
+        fn parse_sec2<T: FromStr, U: FromStr>(
+            &self, //
+            sec: &str,
+            default1: T,
+            default2: U,
+        ) -> (T, U);
+
+        /// Parse 'sec|val1|val2'
+        fn parse_sec3<T: FromStr, U: FromStr, V: FromStr>(
+            &self,
+            sec: &str,
+            default1: T,
+            default2: U,
+            default3: V,
+        ) -> (T, U, V);
+
+        /// Clean the sec by replacing '|' with '_'.
+        /// This is probably not reversible.
+        fn clean_sec(&self, key: &str) -> String;
+
+        /// Create section key 'sec|val1'
+        fn build_sec1<T: ToString>(
+            &self, //
+            sec: &str,
+            val: T,
+        ) -> String;
+
+        /// Create section key 'sec|val1|val2'
+        fn build_sec2<T: ToString, U: ToString>(
+            &self, //
+            sec: &str,
+            val1: T,
+            val2: U,
+        ) -> String;
+
+        /// Create section key 'sec|val1|val2|val3'
+        fn build_sec3<T: ToString, U: ToString, V: ToString>(
+            &self, //
+            sec: &str,
+            val1: T,
+            val2: U,
+            val3: V,
+        ) -> String;
+
+        /// Parse 'key.val'
+        fn parse_key1<T: FromStr>(
+            &self, //
+            key: &str,
+            default: T,
+        ) -> T;
+
+        /// Parse 'key.val1.val2'
+        fn parse_key2<T: FromStr, U: FromStr>(
+            &self, //
+            key: &str,
+            default1: T,
+            default2: U,
+        ) -> (T, U);
+
+        /// Parse 'key.val1.val2'
+        fn parse_key3<T: FromStr, U: FromStr, V: FromStr>(
+            &self,
+            key: &str,
+            default1: T,
+            default2: U,
+            default3: V,
+        ) -> (T, U, V);
+
+        /// Clean the key by replacing '.' with '_'.
+        /// This is probably not reversible.
+        fn clean_key(&self, key: &str) -> String;
+
+        /// Create section key 'key.val1'
+        fn build_key1<T: ToString>(
+            &self, //
+            key: &str,
+            val: T,
+        ) -> String;
+
+        /// Create section key 'key.val1.val2'
+        fn build_key2<T: ToString, U: ToString>(
+            &self, //
+            key: &str,
+            val1: T,
+            val2: U,
+        ) -> String;
+
+        /// Create section key 'key.val1.val2.val3'
+        fn build_key3<T: ToString, U: ToString, V: ToString>(
+            &self, //
+            key: &str,
+            val1: T,
+            val2: U,
+            val3: V,
+        ) -> String;
+
+        /// Get the String value
+        fn get_val<S: AsRef<str>, D: Into<String>>(
+            &self, //
+            sec: S,
+            key: &str,
+            default: D,
+        ) -> String;
+
+        /// Get multiline text.
+        fn get_text<S: AsRef<str>, D: Into<String>>(
+            &self, //
+            sec: S,
+            key: &str,
+            default: D,
+        ) -> String;
+
+        fn parse_array<const N: usize, T: Copy + FromStr, S: AsRef<str>>(
+            &mut self,
+            sec: S,
+            key: &str,
+            default: T,
+        ) -> [T; N];
+
+        /// Call parse() for the value.
+        fn parse_val<T: FromStr, S: AsRef<str>>(
+            &self, //
+            sec: S,
+            key: &str,
+            default: T,
+        ) -> T;
+
+        /// Call parse() for the value.
+        fn parse_val_fallible<T: FromStr, S: AsRef<str>>(
+            &self, //
+            sec: S,
+            key: &str,
+            default: T,
+        ) -> Result<T, <T as FromStr>::Err>;
+
+        /// Parse a value with default.
+        fn parse_val_with<T, S: AsRef<str>>(
+            &self, //
+            sec: S,
+            key: &str,
+            with: impl FnOnce(String) -> Option<T>,
+            default: T,
+        ) -> T;
+
+        fn parse_val_with_fallible<T, E, S: AsRef<str>>(
+            &self, //
+            sec: S,
+            key: &str,
+            with: impl FnOnce(String) -> Result<T, E>,
+            default: T,
+        ) -> Result<T, E>;
+
+        /// Set from some type.
+        fn set_val<T: ToString, S: AsRef<str>>(
+            &mut self, //
+            sec: S,
+            key: &str,
+            val: T,
+        );
+
+        fn set_array<const N: usize, T: Copy + ToString, S: AsRef<str>>(
+            &mut self,
+            sec: S,
+            key: &str,
+            val: [T; N],
+        );
+
+        fn set_text<T: ToString, S: AsRef<str>>(
+            &mut self, //
+            sec: S,
+            key: &str,
+            val: T,
+        );
+
+        /// Iterate over one section.
+        fn section_iter<S: AsRef<str>>(&self, sec: S) -> SectionIter<'_>;
+
+        /// Write with our standards.
+        fn write_std(&self, path: impl AsRef<Path>) -> std::io::Result<()>;
+    }
+
+    impl ConfigParserExt for configparser::ini::Ini {
+        fn new_std() -> Self {
+            let mut def = IniDefault::default();
+            def.case_sensitive = true;
+            def.multiline = false;
+            def.comment_symbols = vec![];
+
+            configparser::ini::Ini::new_from_defaults(def)
+        }
+
+        fn parse_sec1<T: FromStr>(&self, sec: &str, default: T) -> T {
+            let mut s = sec.split('|');
+            s.next();
+            let t = match s.next() {
+                None => {
+                    panic!("invalid section: {:?}", sec)
+                }
+                Some(v) => v.parse().unwrap_or(default),
+            };
+            assert_eq!(s.next(), None);
+            t
+        }
+
+        fn parse_sec2<T: FromStr, U: FromStr>(
+            &self,
+            sec: &str,
+            default1: T,
+            default2: U,
+        ) -> (T, U) {
+            let mut s = sec.split('|');
+            s.next();
+            let t = match s.next() {
+                None => {
+                    panic!("invalid section: {:?}", sec)
+                }
+                Some(v) => v.parse().unwrap_or(default1),
+            };
+            let u = match s.next() {
+                None => {
+                    panic!("invalid section: {:?}", sec)
+                }
+                Some(v) => v.parse().unwrap_or(default2),
+            };
+            assert_eq!(s.next(), None);
+            (t, u)
+        }
+
+        fn parse_sec3<T: FromStr, U: FromStr, V: FromStr>(
+            &self,
+            sec: &str,
+            default1: T,
+            default2: U,
+            default3: V,
+        ) -> (T, U, V) {
+            let mut s = sec.split('|');
+            s.next();
+            let t = match s.next() {
+                None => {
+                    panic!("invalid section: {:?}", sec)
+                }
+                Some(v) => v.parse().unwrap_or(default1),
+            };
+            let u = match s.next() {
+                None => {
+                    panic!("invalid section: {:?}", sec)
+                }
+                Some(v) => v.parse().unwrap_or(default2),
+            };
+            let v = match s.next() {
+                None => {
+                    panic!("invalid section: {:?}", sec)
+                }
+                Some(v) => v.parse().unwrap_or(default3),
+            };
+            assert_eq!(s.next(), None);
+            (t, u, v)
+        }
+
+        fn clean_sec(&self, key: &str) -> String {
+            key.replace('|', "_")
+        }
+
+        fn build_sec1<T: ToString>(&self, sec: &str, val: T) -> String {
+            format!("{}|{}", sec, val.to_string())
+        }
+
+        fn build_sec2<T: ToString, U: ToString>(&self, sec: &str, val1: T, val2: U) -> String {
+            format!("{}|{}|{}", sec, val1.to_string(), val2.to_string())
+        }
+
+        fn build_sec3<T: ToString, U: ToString, V: ToString>(
+            &self,
+            sec: &str,
+            val1: T,
+            val2: U,
+            val3: V,
+        ) -> String {
+            format!(
+                "{}|{}|{}|{}",
+                sec,
+                val1.to_string(),
+                val2.to_string(),
+                val3.to_string()
+            )
+        }
+
+        fn parse_key1<T: FromStr>(&self, key: &str, default: T) -> T {
+            let mut s = key.split('.');
+            s.next();
+            let t = match s.next() {
+                None => {
+                    panic!("invalid key: {:?}", key)
+                }
+                Some(v) => v.parse().unwrap_or(default),
+            };
+            assert_eq!(s.next(), None);
+            t
+        }
+
+        fn parse_key2<T: FromStr, U: FromStr>(
+            &self,
+            key: &str,
+            default1: T,
+            default2: U,
+        ) -> (T, U) {
+            let mut s = key.split('.');
+            s.next();
+            let t = match s.next() {
+                None => {
+                    panic!("invalid key: {:?}", key)
+                }
+                Some(v) => v.parse().unwrap_or(default1),
+            };
+            let u = match s.next() {
+                None => {
+                    panic!("invalid key: {:?}", key)
+                }
+                Some(v) => v.parse().unwrap_or(default2),
+            };
+            assert_eq!(s.next(), None);
+            (t, u)
+        }
+
+        fn parse_key3<T: FromStr, U: FromStr, V: FromStr>(
+            &self,
+            key: &str,
+            default1: T,
+            default2: U,
+            default3: V,
+        ) -> (T, U, V) {
+            let mut s = key.split('.');
+            s.next();
+            let t = match s.next() {
+                None => {
+                    panic!("invalid key: {:?}", key)
+                }
+                Some(v) => v.parse().unwrap_or(default1),
+            };
+            let u = match s.next() {
+                None => {
+                    panic!("invalid key: {:?}", key)
+                }
+                Some(v) => v.parse().unwrap_or(default2),
+            };
+            let v = match s.next() {
+                None => {
+                    panic!("invalid key: {:?}", key)
+                }
+                Some(v) => v.parse().unwrap_or(default3),
+            };
+            assert_eq!(s.next(), None);
+            (t, u, v)
+        }
+
+        fn clean_key(&self, key: &str) -> String {
+            key.replace('.', "_")
+        }
+
+        fn build_key1<T: ToString>(&self, key: &str, val: T) -> String {
+            format!("{}.{}", key, val.to_string())
+        }
+
+        fn build_key2<T: ToString, U: ToString>(&self, key: &str, val1: T, val2: U) -> String {
+            format!("{}.{}.{}", key, val1.to_string(), val2.to_string())
+        }
+
+        fn build_key3<T: ToString, U: ToString, V: ToString>(
+            &self,
+            key: &str,
+            val1: T,
+            val2: U,
+            val3: V,
+        ) -> String {
+            format!(
+                "{}.{}.{}.{}",
+                key,
+                val1.to_string(),
+                val2.to_string(),
+                val3.to_string()
+            )
+        }
+
+        fn get_val<S: AsRef<str>, D: Into<String>>(&self, sec: S, key: &str, default: D) -> String {
+            self.get(sec.as_ref(), key).unwrap_or(default.into())
+        }
+
+        fn get_text<S: AsRef<str>, D: Into<String>>(
+            &self,
+            sec: S,
+            key: &str,
+            default: D,
+        ) -> String {
+            if let Some(s) = self.get(sec.as_ref(), key) {
+                let mut buf = String::new();
+                let mut esc = false;
+                for c in s.chars() {
+                    if c == '\\' {
+                        if esc {
+                            buf.push('\\');
+                            esc = false;
+                        } else {
+                            esc = true;
+                        }
+                    } else if esc {
+                        match c {
+                            'r' => buf.push('\r'),
+                            'n' => buf.push('\n'),
+                            _ => {
+                                buf.push('\\');
+                                buf.push(c);
+                            }
+                        }
+                        esc = false;
+                    } else {
+                        buf.push(c);
+                    }
+                }
+                buf
+            } else {
+                default.into()
+            }
+        }
+
+        fn parse_array<const N: usize, T: Copy + FromStr, S: AsRef<str>>(
+            &mut self,
+            sec: S,
+            key: &str,
+            default: T,
+        ) -> [T; N] {
+            let sec = sec.as_ref();
+            let mut r = [MaybeUninit::uninit(); N];
+            for (i, v) in r.iter_mut().enumerate() {
+                v.write(self.parse_val(sec, format!("{}.{}", key, i).as_str(), default));
+            }
+            // Everything is initialized. Transmute the array to the
+            // initialized type.
+            unsafe { mem::transmute_copy::<[MaybeUninit<T>; N], [T; N]>(&r) }
+        }
+
+        fn parse_val<T: FromStr, S: AsRef<str>>(
+            &self, //
+            sec: S,
+            key: &str,
+            default: T,
+        ) -> T {
+            if let Some(v) = self.get(sec.as_ref(), key) {
+                v.parse::<T>().unwrap_or(default)
+            } else {
+                default
+            }
+        }
+
+        fn parse_val_fallible<T: FromStr, S: AsRef<str>>(
+            &self, //
+            sec: S,
+            key: &str,
+            default: T,
+        ) -> Result<T, <T as FromStr>::Err> {
+            if let Some(v) = self.get(sec.as_ref(), key) {
+                v.parse::<T>()
+            } else {
+                Ok(default)
+            }
+        }
+
+        fn parse_val_with<T, S: AsRef<str>>(
+            &self, //
+            sec: S,
+            key: &str,
+            with: impl FnOnce(String) -> Option<T>,
+            default: T,
+        ) -> T {
+            if let Some(v) = self.get(sec.as_ref(), key) {
+                with(v).unwrap_or(default)
+            } else {
+                default
+            }
+        }
+
+        fn parse_val_with_fallible<T, E, S: AsRef<str>>(
+            &self, //
+            sec: S,
+            key: &str,
+            with: impl FnOnce(String) -> Result<T, E>,
+            default: T,
+        ) -> Result<T, E> {
+            if let Some(v) = self.get(sec.as_ref(), key) {
+                with(v)
+            } else {
+                Ok(default)
+            }
+        }
+
+        fn set_val<T: ToString, S: AsRef<str>>(&mut self, sec: S, key: &str, val: T) {
+            self.set(sec.as_ref(), key, Some(val.to_string()));
+        }
+
+        fn set_array<const N: usize, T: Copy + ToString, S: AsRef<str>>(
+            &mut self,
+            sec: S,
+            key: &str,
+            val: [T; N],
+        ) {
+            let sec = sec.as_ref();
+            for i in 0..N {
+                self.set_text(sec, format!("{}.{}", key, i).as_str(), val[i]);
+            }
+        }
+
+        fn set_text<T: ToString, S: AsRef<str>>(&mut self, sec: S, key: &str, val: T) {
+            let mut buf = String::new();
+            for c in val.to_string().chars() {
+                if c == '\r' {
+                    // skip
+                } else if c == '\n' {
+                    buf.push_str("\\n");
+                } else {
+                    buf.push(c)
+                }
+            }
+            self.set(sec.as_ref(), key, Some(buf));
+        }
+
+        fn section_iter<S: AsRef<str>>(&self, sec: S) -> SectionIter<'_> {
+            SectionIter {
+                it: if let Some(map) = self.get_map_ref().get(sec.as_ref()) {
+                    Some(map.iter())
+                } else {
+                    None
+                },
+            }
+        }
+
+        fn write_std(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
+            self.pretty_write(path, &WriteOptions::new_with_params(false, 4, 1))
+        }
+    }
+
+    pub(crate) struct SectionIter<'a> {
+        it: Option<indexmap::map::Iter<'a, String, Option<String>>>,
+    }
+
+    impl<'a> Iterator for SectionIter<'a> {
+        type Item = (&'a String, &'a Option<String>);
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some(it) = &mut self.it {
+                it.next()
+            } else {
+                None
             }
         }
     }

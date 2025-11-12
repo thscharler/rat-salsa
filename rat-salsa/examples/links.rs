@@ -9,7 +9,7 @@ use rat_widget::scrolled::Scroll;
 use rat_widget::view::{View, ViewState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui::widgets::Block;
 use std::fs;
 use std::path::PathBuf;
 
@@ -117,7 +117,7 @@ pub fn render(
             .skip = true;
     }
 
-    vbuf.into_widget().render(layout[1], buf, &mut state.view);
+    vbuf.finish(buf, &mut state.view);
 
     Ok(())
 }

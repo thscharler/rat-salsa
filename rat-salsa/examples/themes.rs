@@ -366,7 +366,7 @@ pub mod themes {
             Rect::new(0, 0, view.layout().width, 34),
         );
 
-        view.into_widget().render(l1[1], buf, &mut state.scroll);
+        view.finish(buf, &mut state.scroll);
 
         let layout_menu = Layout::horizontal([
             Constraint::Percentage(61), //

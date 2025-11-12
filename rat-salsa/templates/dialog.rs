@@ -19,7 +19,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::any::Any;
 use std::fs;
-use try_as::traits::TryAsRef;
+use try_as_traits::TryAsRef;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
