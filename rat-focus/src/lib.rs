@@ -324,6 +324,19 @@ impl FocusFlag {
         Self::default()
     }
 
+    /// Create a deep copy of the FocusFlag.
+    ///
+    /// Caution
+    ///
+    /// It will lose the on_gained() and on_lost() callbacks.
+    /// Those can not be replicated/cloned as they will
+    /// most probably hold some Rc's to somewhere.
+    ///
+    /// You will need to set them anew.
+    pub fn new_instance(&self) -> Self {
+        Self(Rc::new(self.0.fake_clone()))
+    }
+
     /// Return an identity value.
     ///
     /// This uses the memory address of the backing Rc so it will
@@ -338,16 +351,10 @@ impl FocusFlag {
     /// The name is only used for debugging.
     #[deprecated(
         since = "1.4.0",
-        note = "to dangerous, use FocusFlag::new().with_name(..) or FocusFlag::deep_clone(..) for a clone."
+        note = "to dangerous, use FocusFlag::new().with_name(..) or FocusFlag::fake_clone(..) for a clone."
     )]
     pub fn named(name: impl AsRef<str>) -> Self {
         Self(Rc::new(FocusFlagCore::default().named(name.as_ref())))
-    }
-
-    /// Create an almost clone of the flag.
-    /// If you need callbacks, set them up fresh.
-    pub fn fake_clone(&self) -> Self {
-        Self(Rc::new(self.0.fake_clone()))
     }
 
     /// Set a name for a FocusFlag.
