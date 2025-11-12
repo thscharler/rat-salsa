@@ -816,7 +816,7 @@ where
             check_areas: self.check_areas.clone(),
             text_areas: self.text_areas.clone(),
             core: self.core.clone(),
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

@@ -1103,7 +1103,7 @@ impl Clone for SplitState {
             resize: self.resize,
             area_length: self.area_length.clone(),
             hidden_length: self.hidden_length.clone(),
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             focus_marker: self.focus_marker,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,

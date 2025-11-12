@@ -632,7 +632,7 @@ where
             start_date: self.start_date,
             selection: self.selection.clone(),
             container: self.container.clone(),
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

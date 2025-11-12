@@ -1118,7 +1118,7 @@ where
         let focus = focus_cb(
             popup.active.clone(),
             behave_focus.clone(),
-            self.focus.fake_clone(),
+            self.focus.new_instance(),
         );
 
         Self {

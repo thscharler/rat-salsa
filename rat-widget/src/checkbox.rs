@@ -373,7 +373,7 @@ impl Clone for CheckboxState {
             behave_check: self.behave_check,
             checked: self.checked,
             default: self.default,
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

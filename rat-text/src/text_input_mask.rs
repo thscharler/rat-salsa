@@ -521,7 +521,7 @@ impl Clone for MaskedInputState {
             on_focus_gained: Rc::new(Cell::new(self.on_focus_gained.get())),
             on_focus_lost: Rc::new(Cell::new(self.on_focus_lost.get())),
             on_tab: self.on_tab,
-            focus: self.focus_cb(self.focus.fake_clone()),
+            focus: self.focus_cb(self.focus.new_instance()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

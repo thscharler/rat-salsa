@@ -298,7 +298,7 @@ impl Clone for ButtonState {
             inner: self.inner,
             armed: self.armed,
             armed_delay: self.armed_delay,
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

@@ -595,7 +595,7 @@ impl Clone for MenuLineState {
             navchar: self.navchar.clone(),
             disabled: self.disabled.clone(),
             selected: self.selected,
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

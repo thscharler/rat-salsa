@@ -189,7 +189,7 @@ impl Clone for TextAreaState {
             newline: self.newline.clone(),
             tab_width: self.tab_width,
             expand_tabs: self.expand_tabs,
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

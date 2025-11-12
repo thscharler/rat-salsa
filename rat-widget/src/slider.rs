@@ -929,7 +929,7 @@ where
             step: self.step,
             long_step: self.long_step,
             value: self.value,
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }

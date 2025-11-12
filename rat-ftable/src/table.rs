@@ -1592,7 +1592,7 @@ impl Default for TableStyle {
 impl<Selection: Clone> Clone for TableState<Selection> {
     fn clone(&self) -> Self {
         Self {
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             area: self.area,
             inner: self.inner,
             header_area: self.header_area,

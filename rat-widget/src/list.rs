@@ -426,7 +426,7 @@ impl<Selection: Clone> Clone for ListState<Selection> {
             row_areas: self.row_areas.clone(),
             rows: self.rows,
             scroll: self.scroll.clone(),
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             selection: self.selection.clone(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,

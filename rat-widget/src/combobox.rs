@@ -417,7 +417,7 @@ impl Clone for ComboboxState {
     fn clone(&self) -> Self {
         let mut text = self.text.clone();
         let mut choice = self.choice.clone();
-        let focus = focus_cb(self.focus.fake_clone(), text.focus, choice.focus);
+        let focus = focus_cb(self.focus.new_instance(), text.focus, choice.focus);
         text.focus = focus.clone();
         choice.focus = focus.clone();
 

@@ -852,7 +852,7 @@ where
             layout: self.layout.clone(),
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
-            container: self.container.fake_clone(),
+            container: self.container.new_instance(),
             buffer: None,
             non_exhaustive: NonExhaustive,
         }

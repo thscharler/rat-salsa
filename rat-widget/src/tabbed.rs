@@ -384,7 +384,7 @@ impl Clone for TabbedState {
             tab_title_areas: self.tab_title_areas.clone(),
             tab_title_close_areas: self.tab_title_close_areas.clone(),
             selected: self.selected,
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
         }
     }

@@ -357,7 +357,7 @@ impl Clone for ParagraphState {
             lines: self.lines,
             vscroll: self.vscroll.clone(),
             hscroll: self.hscroll.clone(),
-            focus: self.focus.fake_clone(),
+            focus: self.focus.new_instance(),
             non_exhaustive: NonExhaustive,
         }
     }
