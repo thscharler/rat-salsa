@@ -1,11 +1,12 @@
 use crate::configparser_ext::ConfigParserExt;
+use crate::message::{msg_event, msg_render, MsgState};
 use crate::palette_edit::PaletteEdit;
 use crate::showcase::ShowCase;
 use anyhow::{anyhow, Error};
 use configparser::ini::Ini;
 use log::{error, warn};
 use rat_event::{try_flow, Outcome, Popup};
-use rat_focus::{impl_has_focus, FocusFlag, HasFocus};
+use rat_focus::{FocusFlag, HasFocus};
 use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render};
 use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
@@ -16,24 +17,19 @@ use rat_theme4::{
     SalsaTheme, WidgetStyle,
 };
 use rat_widget::choice::{Choice, ChoiceState};
-use rat_widget::color_input::{ColorInput, ColorInputState};
-use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
-use rat_widget::event::{ct_event, ChoiceOutcome, Dialog, HandleEvent, MenuOutcome, Regular};
+use rat_widget::event::{ct_event, ChoiceOutcome, HandleEvent, MenuOutcome, Regular};
 use rat_widget::file_dialog::FileDialogState;
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::LayoutOuter;
 use rat_widget::menu::{MenuLine, MenuLineState};
-use rat_widget::paragraph::{Paragraph, ParagraphState};
-use rat_widget::reloc::RelocatableState;
 use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
 use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Style, Stylize};
+use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
-use std::any::Any;
 use std::cell::RefCell;
 use std::fs;
 use std::fs::File;
@@ -737,7 +733,8 @@ pub fn error(
 }
 
 mod palette_edit {
-    use crate::{ColorSpan, ColorSpanState, Global};
+    use crate::color_span::{ColorSpan, ColorSpanState};
+    use crate::Global;
     use anyhow::Error;
     use rat_event::{break_flow, MouseOnly, Outcome};
     use rat_focus::{FocusFlag, HasFocus};
@@ -1567,108 +1564,134 @@ mod showcase {
     }
 }
 
-#[derive(Default, Debug)]
-struct ColorSpan<'a> {
-    color0: ColorInput<'a>,
-    color3: ColorInput<'a>,
-}
+mod color_span {
+    use rat_theme4::Palette;
+    use rat_widget::color_input::{ColorInput, ColorInputState};
+    use rat_widget::reloc::RelocatableState;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::style::Style;
+    use ratatui::widgets::StatefulWidget;
 
-struct ColorSpanState<'a> {
-    pub color0: &'a mut ColorInputState,
-    pub color3: &'a mut ColorInputState,
-}
-
-impl<'a> RelocatableState for ColorSpanState<'a> {
-    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-        self.color0.relocate(shift, clip);
-        self.color3.relocate(shift, clip);
-    }
-}
-
-impl<'a> ColorSpan<'a> {
-    pub fn new() -> Self {
-        Self::default()
+    #[derive(Default, Debug)]
+    pub struct ColorSpan<'a> {
+        color0: ColorInput<'a>,
+        color3: ColorInput<'a>,
     }
 
-    pub fn color0(mut self, color: ColorInput<'a>) -> Self {
-        self.color0 = color;
-        self
+    pub struct ColorSpanState<'a> {
+        pub color0: &'a mut ColorInputState,
+        pub color3: &'a mut ColorInputState,
     }
 
-    pub fn color3(mut self, color: ColorInput<'a>) -> Self {
-        self.color3 = color;
-        self
+    impl<'a> RelocatableState for ColorSpanState<'a> {
+        fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+            self.color0.relocate(shift, clip);
+            self.color3.relocate(shift, clip);
+        }
     }
-}
 
-impl<'a> StatefulWidget for ColorSpan<'a> {
-    type State = ColorSpanState<'a>;
+    impl<'a> ColorSpan<'a> {
+        pub fn new() -> Self {
+            Self::default()
+        }
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.color0
-            .render(Rect::new(area.x, area.y, 16, 1), buf, state.color0);
-        self.color3
-            .render(Rect::new(area.x + 17, area.y, 16, 1), buf, state.color3);
+        pub fn color0(mut self, color: ColorInput<'a>) -> Self {
+            self.color0 = color;
+            self
+        }
 
-        let width = (area.width.saturating_sub(33)) / 8;
-        let colors = Palette::interpolate(state.color0.value_u32(), state.color3.value_u32(), 64);
-        for i in 0usize..8usize {
-            let color_area =
-                Rect::new(area.x + 34 + (i as u16) * width, area.y, width, area.height);
-            buf.set_style(color_area, Style::new().bg(colors[i]));
+        pub fn color3(mut self, color: ColorInput<'a>) -> Self {
+            self.color3 = color;
+            self
+        }
+    }
+
+    impl<'a> StatefulWidget for ColorSpan<'a> {
+        type State = ColorSpanState<'a>;
+
+        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+            self.color0
+                .render(Rect::new(area.x, area.y, 16, 1), buf, state.color0);
+            self.color3
+                .render(Rect::new(area.x + 17, area.y, 16, 1), buf, state.color3);
+
+            let width = (area.width.saturating_sub(33)) / 8;
+            let colors =
+                Palette::interpolate(state.color0.value_u32(), state.color3.value_u32(), 64);
+            for i in 0usize..8usize {
+                let color_area =
+                    Rect::new(area.x + 34 + (i as u16) * width, area.y, width, area.height);
+                buf.set_style(color_area, Style::new().bg(colors[i]));
+            }
         }
     }
 }
 
-struct MsgState {
-    pub dlg: DialogFrameState,
-    pub paragraph: ParagraphState,
-    pub message: String,
-}
+mod message {
+    use crate::{Global, PalEvent};
+    use anyhow::Error;
+    use rat_event::{try_flow, Dialog, HandleEvent, Regular};
+    use rat_focus::{impl_has_focus, FocusBuilder};
+    use rat_salsa::{Control, SalsaContext};
+    use rat_theme4::WidgetStyle;
+    use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
+    use rat_widget::paragraph::{Paragraph, ParagraphState};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Rect};
+    use ratatui::widgets::StatefulWidget;
+    use std::any::Any;
 
-impl_has_focus!(dlg, paragraph for MsgState);
+    pub struct MsgState {
+        pub dlg: DialogFrameState,
+        pub paragraph: ParagraphState,
+        pub message: String,
+    }
 
-fn msg_render(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
-    let state = state.downcast_mut::<MsgState>().expect("msg-dialog");
+    impl_has_focus!(dlg, paragraph for MsgState);
 
-    DialogFrame::new()
-        .styles(ctx.theme.style(WidgetStyle::DIALOG_FRAME))
-        .no_cancel()
-        .left(Constraint::Percentage(19))
-        .right(Constraint::Percentage(19))
-        .top(Constraint::Length(4))
-        .bottom(Constraint::Length(4))
-        .render(area, buf, &mut state.dlg);
+    pub fn msg_render(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
+        let state = state.downcast_mut::<MsgState>().expect("msg-dialog");
 
-    Paragraph::new(state.message.as_str())
-        .styles(ctx.theme.style(WidgetStyle::PARAGRAPH))
-        .render(state.dlg.widget_area, buf, &mut state.paragraph);
-}
+        DialogFrame::new()
+            .styles(ctx.theme.style(WidgetStyle::DIALOG_FRAME))
+            .no_cancel()
+            .left(Constraint::Percentage(19))
+            .right(Constraint::Percentage(19))
+            .top(Constraint::Length(4))
+            .bottom(Constraint::Length(4))
+            .render(area, buf, &mut state.dlg);
 
-fn msg_event(
-    event: &PalEvent,
-    state: &mut dyn Any,
-    ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
-    let state = state.downcast_mut::<MsgState>().expect("msg-dialog");
+        Paragraph::new(state.message.as_str())
+            .styles(ctx.theme.style(WidgetStyle::PARAGRAPH))
+            .render(state.dlg.widget_area, buf, &mut state.paragraph);
+    }
 
-    if let PalEvent::Event(e) = event {
-        let mut focus = FocusBuilder::build_for(state);
-        ctx.queue(focus.handle(e, Regular));
+    pub fn msg_event(
+        event: &PalEvent,
+        state: &mut dyn Any,
+        ctx: &mut Global,
+    ) -> Result<Control<PalEvent>, Error> {
+        let state = state.downcast_mut::<MsgState>().expect("msg-dialog");
 
-        try_flow!(state.paragraph.handle(e, Regular));
-        try_flow!(match state.dlg.handle(e, Dialog) {
-            DialogOutcome::Ok => {
-                Control::Close(PalEvent::NoOp)
-            }
-            DialogOutcome::Cancel => {
-                Control::Close(PalEvent::NoOp)
-            }
-            r => r.into(),
-        });
-        Ok(Control::Continue)
-    } else {
-        Ok(Control::Continue)
+        if let PalEvent::Event(e) = event {
+            let mut focus = FocusBuilder::build_for(state);
+            ctx.queue(focus.handle(e, Regular));
+
+            try_flow!(state.paragraph.handle(e, Regular));
+            try_flow!(match state.dlg.handle(e, Dialog) {
+                DialogOutcome::Ok => {
+                    Control::Close(PalEvent::NoOp)
+                }
+                DialogOutcome::Cancel => {
+                    Control::Close(PalEvent::NoOp)
+                }
+                r => r.into(),
+            });
+            Ok(Control::Continue)
+        } else {
+            Ok(Control::Continue)
+        }
     }
 }
 
