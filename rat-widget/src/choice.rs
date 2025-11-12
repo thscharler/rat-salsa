@@ -1235,7 +1235,7 @@ where
 
     fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {
         self.item_areas.relocate(shift, clip);
-        self.popup.relocate(shift, clip);
+        self.popup.relocate_popup(shift, clip);
         self.popup_scroll.relocate(shift, clip);
     }
 }
