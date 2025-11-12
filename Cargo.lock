@@ -168,6 +168,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "configparser"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e57e3272f0190c3f1584272d613719ba5fc7df7f4942fe542e63d949cf3a649b"
+dependencies = [
+ "indexmap",
+]
+
+[[package]]
 name = "const-random"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1323,11 +1332,14 @@ version = "2.3.1"
 dependencies = [
  "anyhow",
  "cli-clipboard",
+ "configparser",
  "crossbeam",
  "crossterm",
  "dirs",
  "fern",
+ "indexmap",
  "log",
+ "pure-rust-locales",
  "rand 0.9.2",
  "rat-event",
  "rat-focus",
@@ -1337,9 +1349,10 @@ dependencies = [
  "regex-cursor",
  "ropey",
  "rust-ini",
+ "sys-locale",
  "sysinfo 0.37.2",
  "tokio",
- "try_as",
+ "try_as_traits",
  "unicode-segmentation",
 ]
 

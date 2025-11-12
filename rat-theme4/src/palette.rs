@@ -77,6 +77,28 @@ impl Palette {
     /// Brightness increases with the number.
     pub const D3: usize = 7;
 
+    pub fn array(&self) -> [[Color; 8]; 17] {
+        [
+            self.primary,
+            self.secondary,
+            self.white,
+            self.black,
+            self.gray,
+            self.red,
+            self.orange,
+            self.yellow,
+            self.limegreen,
+            self.green,
+            self.bluegreen,
+            self.cyan,
+            self.blue,
+            self.deepblue,
+            self.purple,
+            self.magenta,
+            self.redpink,
+        ]
+    }
+
     /// Create a style from the given white shade.
     /// n is `0..=3`
     pub fn white(&self, n: usize) -> Style {
