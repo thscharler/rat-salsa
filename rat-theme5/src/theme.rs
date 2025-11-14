@@ -24,8 +24,8 @@ pub enum Category {
 trait StyleValue: Any + Debug {}
 impl<T> StyleValue for T where T: Any + Debug {}
 
-type Entry = Box<dyn Fn(&SalsaTheme) -> Box<dyn StyleValue> + 'static>;
-type Modify = Box<dyn Fn(Box<dyn Any>, &SalsaTheme) -> Box<dyn StyleValue> + 'static>;
+type Entry = Box<dyn Fn(&Theme) -> Box<dyn StyleValue> + 'static>;
+type Modify = Box<dyn Fn(Box<dyn Any>, &Theme) -> Box<dyn StyleValue> + 'static>;
 
 ///
 /// SalsaTheme holds any predefined styles for the UI.  
@@ -36,7 +36,7 @@ type Modify = Box<dyn Fn(Box<dyn Any>, &SalsaTheme) -> Box<dyn StyleValue> + 'st
 ///
 /// It uses a flat naming scheme and doesn't cascade upwards at all.
 #[derive(Default)]
-pub struct SalsaTheme {
+pub struct Theme {
     pub name: String,
     pub cat: Category,
     pub p: Palette,
@@ -44,9 +44,9 @@ pub struct SalsaTheme {
     modify: HashMap<&'static str, Modify>,
 }
 
-impl Debug for SalsaTheme {
+impl Debug for Theme {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SalsaTheme")
+        f.debug_struct("Theme")
             .field("name", &self.name)
             .field("cat", &self.cat)
             .field("palette", &self.p)
@@ -56,7 +56,7 @@ impl Debug for SalsaTheme {
     }
 }
 
-impl SalsaTheme {
+impl Theme {
     /// Create an empty theme with a given color palette.
     pub fn new(name: impl Into<String>, cat: Category, p: Palette) -> Self {
         Self {
@@ -75,7 +75,7 @@ impl SalsaTheme {
 
     /// Define a style as a plain [Style].
     pub fn define(&mut self, name: &'static str, style: Style) {
-        let boxed = Box::new(move |_: &SalsaTheme| -> Box<dyn StyleValue> { Box::new(style) });
+        let boxed = Box::new(move |_: &Theme| -> Box<dyn StyleValue> { Box::new(style) });
         if is_log_style_define() {
             info!("salsa-style: {:?}->{:?}", name, style);
         }
@@ -84,7 +84,7 @@ impl SalsaTheme {
 
     /// Define a style a struct that will be cloned for every query.
     pub fn define_clone(&mut self, name: &'static str, sample: impl Clone + Any + Debug + 'static) {
-        let boxed = Box::new(move |_th: &SalsaTheme| -> Box<dyn StyleValue> {
+        let boxed = Box::new(move |_th: &Theme| -> Box<dyn StyleValue> {
             Box::new(sample.clone()) //
         });
         if is_log_style_define() {
@@ -99,9 +99,9 @@ impl SalsaTheme {
     pub fn define_fn<O: Any + Debug>(
         &mut self,
         name: &'static str,
-        create: impl Fn(&SalsaTheme) -> O + 'static,
+        create: impl Fn(&Theme) -> O + 'static,
     ) {
-        let boxed = Box::new(move |th: &SalsaTheme| -> Box<dyn StyleValue> {
+        let boxed = Box::new(move |th: &Theme| -> Box<dyn StyleValue> {
             Box::new(create(th)) //
         });
         if is_log_style_define() {
@@ -119,7 +119,7 @@ impl SalsaTheme {
         name: &'static str,
         create: impl Fn() -> O + 'static,
     ) {
-        let boxed = Box::new(move |_th: &SalsaTheme| -> Box<dyn StyleValue> {
+        let boxed = Box::new(move |_th: &Theme| -> Box<dyn StyleValue> {
             Box::new(create()) //
         });
         if is_log_style_define() {
@@ -132,11 +132,10 @@ impl SalsaTheme {
     pub fn modify<O: Any + Debug>(
         &mut self,
         name: &'static str,
-        modify: impl Fn(Box<dyn Any>, &SalsaTheme) -> Box<O> + 'static,
+        modify: impl Fn(Box<dyn Any>, &Theme) -> Box<O> + 'static,
     ) {
-        let boxed = Box::new(
-            move |v: Box<dyn Any>, th: &SalsaTheme| -> Box<dyn StyleValue> { modify(v, th) },
-        );
+        let boxed =
+            Box::new(move |v: Box<dyn Any>, th: &Theme| -> Box<dyn StyleValue> { modify(v, th) });
         match self.modify.entry(name) {
             hash_map::Entry::Occupied(_) => {
                 panic!("salsa-theme: only a single modification is possible");

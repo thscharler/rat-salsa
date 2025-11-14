@@ -1344,6 +1344,7 @@ dependencies = [
  "rat-event",
  "rat-focus",
  "rat-theme4",
+ "rat-theme5",
  "rat-widget",
  "ratatui",
  "regex-cursor",
@@ -1431,6 +1432,15 @@ dependencies = [
 [[package]]
 name = "rat-theme4"
 version = "3.1.0"
+dependencies = [
+ "log",
+ "rat-widget",
+ "ratatui",
+]
+
+[[package]]
+name = "rat-theme5"
+version = "4.0.0"
 dependencies = [
  "log",
  "rat-widget",
