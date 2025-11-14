@@ -2,14 +2,11 @@ use crate::{Colors, ColorsExt, Palette};
 use ratatui::style::Color;
 
 /// Imperial
-///
-/// Uses purple and gold for primary/secondary.
-/// Other colors are bright, strong and slightly smudged.
-const DARKNESS: u8 = 63;
+const DARKNESS: u8 = 64;
 
 pub const IMPERIAL: Palette = {
     let mut p = Palette {
-        name: "Imperial",
+        name: "Imperial", 
 
         color: [
             Palette::interpolate2(0xdedfe3, 0xf6f6f3, 0x0, 0x0),
@@ -35,6 +32,7 @@ pub const IMPERIAL: Palette = {
         color_ext: [Color::Reset; ColorsExt::LEN],
     };
 
+    p.color_ext[ColorsExt::LabelFg as usize] = p.color[Colors::White as usize][0];
     p.color_ext[ColorsExt::Input as usize] = p.color[Colors::Gray as usize][3];
     p.color_ext[ColorsExt::Focus as usize] = p.color[Colors::Primary as usize][2];
     p.color_ext[ColorsExt::Select as usize] = p.color[Colors::Secondary as usize][1];
@@ -46,22 +44,22 @@ pub const IMPERIAL: Palette = {
     p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Blue as usize][1];
     p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextLight as usize][0];
     p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Blue as usize][1];
-    p.color_ext[ColorsExt::Shadow as usize] = p.color[Colors::Black as usize][0];
-    p.color_ext[ColorsExt::KeyBinding as usize] = p.color[Colors::BlueGreen as usize][0];
+    p.color_ext[ColorsExt::Shadow as usize] = p.color[Colors::TextDark as usize][0];
     p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][1];
     p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][1];
     p.color_ext[ColorsExt::ButtonBase as usize] = p.color[Colors::Gray as usize][2];
-    p.color_ext[ColorsExt::MenuBase as usize] = p.color[Colors::Black as usize][1];
-    p.color_ext[ColorsExt::ContainerBase as usize] = p.color[Colors::Black as usize][1];
+    p.color_ext[ColorsExt::MenuBase as usize] = p.color[Colors::TextDark as usize][1];
+    p.color_ext[ColorsExt::KeyBinding as usize] = p.color[Colors::BlueGreen as usize][0];
+    p.color_ext[ColorsExt::StatusBase as usize] = p.color[Colors::TextDark as usize][2];
+    p.color_ext[ColorsExt::ContainerBase as usize] = p.color[Colors::TextDark as usize][1];
     p.color_ext[ColorsExt::ContainerBorderFg as usize] = p.color[Colors::Gray as usize][2];
     p.color_ext[ColorsExt::ContainerArrowFg as usize] = p.color[Colors::Gray as usize][2];
-    p.color_ext[ColorsExt::PopupBase as usize] = p.color[Colors::White as usize][0];
+    p.color_ext[ColorsExt::PopupBase as usize] = p.color[Colors::TextLight as usize][0];
     p.color_ext[ColorsExt::PopupBorderFg as usize] = p.color[Colors::Gray as usize][3];
     p.color_ext[ColorsExt::PopupArrowFg as usize] = p.color[Colors::Gray as usize][3];
     p.color_ext[ColorsExt::DialogBase as usize] = p.color[Colors::Gray as usize][1];
     p.color_ext[ColorsExt::DialogBorderFg as usize] = p.color[Colors::Gray as usize][3];
     p.color_ext[ColorsExt::DialogArrowFg as usize] = p.color[Colors::Gray as usize][3];
-    p.color_ext[ColorsExt::StatusBase as usize] = p.color[Colors::Black as usize][2];
 
     p
 };
