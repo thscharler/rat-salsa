@@ -803,6 +803,7 @@ mod palette_edit {
         ctx: &mut Global,
     ) -> Result<(), Error> {
         let mut form = Clipper::new() //
+            .buffer_uses_view_size()
             .block(Block::bordered().border_type(BorderType::Rounded))
             .vscroll(Scroll::new())
             .styles(ctx.theme.style(WidgetStyle::CLIPPER));

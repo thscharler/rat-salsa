@@ -54,7 +54,11 @@ required-features = ["async", "scrolling-regions"]
 
 
 [[example]]
-name = "palette_edit"
+name = "palette_edit4"
+required-features = ["dialog"]
+
+[[example]]
+name = "palette_edit5"
 required-features = ["dialog"]
 
 [[example]]
