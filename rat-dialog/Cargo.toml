@@ -15,7 +15,7 @@ exclude = [".idea/*", ".gitignore"]
 default = []
 
 [dependencies]
-crossterm = "0.28"
+crossterm = "0.29"
 log = "0.4"
 try_as = "0.1.0"
 ratatui = { version = "0.29" }

@@ -16,7 +16,7 @@ user_directories = ["dep:dirs", "dep:sysinfo"]
 
 [dependencies]
 ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
-crossterm = "0.28"
+crossterm = "0.29"
 unicode-segmentation = "1.11"
 unicode-display-width = "0.3"
 log = "0.4"
