@@ -137,7 +137,7 @@ impl WidgetStyle {
 /// let s: Style = theme.style(Style::INPUT);
 /// ```
 pub trait StyleName {
-    const LABEL: &'static str = "label";
+    const LABEL_FG: &'static str = "label-fg";
     const INPUT: &'static str = "input";
     const FOCUS: &'static str = "focus";
     const SELECT: &'static str = "select";
@@ -155,16 +155,16 @@ pub trait StyleName {
     const STATUS_BASE: &'static str = "status-base";
 
     const CONTAINER_BASE: &'static str = "container-base";
-    const CONTAINER_BORDER: &'static str = "container-border";
-    const CONTAINER_ARROW: &'static str = "container-arrows";
+    const CONTAINER_BORDER_FG: &'static str = "container-border-fg";
+    const CONTAINER_ARROW_FG: &'static str = "container-arrows-fg";
 
     const POPUP_BASE: &'static str = "popup-base";
-    const POPUP_BORDER: &'static str = "popup-border";
-    const POPUP_ARROW: &'static str = "popup-arrow";
+    const POPUP_BORDER_FG: &'static str = "popup-border-fg";
+    const POPUP_ARROW_FG: &'static str = "popup-arrow-fg";
 
     const DIALOG_BASE: &'static str = "dialog-base";
-    const DIALOG_BORDER: &'static str = "dialog-border";
-    const DIALOG_ARROW: &'static str = "dialog-arrow";
+    const DIALOG_BORDER_FG: &'static str = "dialog-border-fg";
+    const DIALOG_ARROW_FG: &'static str = "dialog-arrow-fg";
 }
 impl StyleName for Style {}
 

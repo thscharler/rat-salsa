@@ -35,14 +35,24 @@ use std::time::Duration;
 pub fn dark_theme(name: &str, p: Palette) -> Theme {
     let mut th = Theme::new(name, Category::Dark, p);
 
+    th.define(Style::LABEL_FG, th.p.fg_style_ext(ColorsExt::LabelFg));
     th.define(Style::INPUT, th.p.style_ext(ColorsExt::Input));
     th.define(Style::FOCUS, th.p.style_ext(ColorsExt::Focus));
     th.define(Style::SELECT, th.p.style_ext(ColorsExt::Select));
     th.define(Style::DISABLED, th.p.style_ext(ColorsExt::Disabled));
     th.define(Style::INVALID, th.p.style_ext(ColorsExt::Invalid));
-    th.define(Style::TITLE, th.p.style_ext(ColorsExt::Title));
-    th.define(Style::HEADER, th.p.style_ext(ColorsExt::Header));
-    th.define(Style::FOOTER, th.p.style_ext(ColorsExt::Footer));
+    th.define(
+        Style::TITLE,
+        th.p.fg_bg_style_ext(ColorsExt::TitleFg, ColorsExt::Title),
+    );
+    th.define(
+        Style::HEADER,
+        th.p.fg_bg_style_ext(ColorsExt::HeaderFg, ColorsExt::Header),
+    );
+    th.define(
+        Style::FOOTER,
+        th.p.fg_bg_style_ext(ColorsExt::FooterFg, ColorsExt::Footer),
+    );
     th.define(Style::SHADOW, th.p.style_ext(ColorsExt::Shadow));
     th.define(Style::TEXT_FOCUS, th.p.style_ext(ColorsExt::TextFocus));
     th.define(Style::TEXT_SELECT, th.p.style_ext(ColorsExt::Select));
@@ -57,24 +67,33 @@ pub fn dark_theme(name: &str, p: Palette) -> Theme {
         th.p.style_ext(ColorsExt::ContainerBase),
     );
     th.define(
-        Style::CONTAINER_BORDER,
-        th.p.style_ext(ColorsExt::ContainerBorder),
+        Style::CONTAINER_BORDER_FG,
+        th.p.fg_bg_style_ext(ColorsExt::ContainerBorderFg, ColorsExt::ContainerBase),
     );
     th.define(
-        Style::CONTAINER_ARROW,
-        th.p.style_ext(ColorsExt::ContainerArrow),
+        Style::CONTAINER_ARROW_FG,
+        th.p.fg_bg_style_ext(ColorsExt::ContainerArrowFg, ColorsExt::ContainerBase),
     );
 
     th.define(Style::POPUP_BASE, th.p.style_ext(ColorsExt::PopupBase));
-    th.define(Style::POPUP_BORDER, th.p.style_ext(ColorsExt::PopupBorder));
-    th.define(Style::POPUP_ARROW, th.p.style_ext(ColorsExt::PopupArrow));
+    th.define(
+        Style::POPUP_BORDER_FG,
+        th.p.fg_bg_style_ext(ColorsExt::PopupBorderFg, ColorsExt::PopupBase),
+    );
+    th.define(
+        Style::POPUP_ARROW_FG,
+        th.p.fg_bg_style_ext(ColorsExt::PopupArrowFg, ColorsExt::PopupBase),
+    );
 
     th.define(Style::DIALOG_BASE, th.p.style_ext(ColorsExt::DialogBase));
     th.define(
-        Style::DIALOG_BORDER,
-        th.p.style_ext(ColorsExt::DialogBorder),
+        Style::DIALOG_BORDER_FG,
+        th.p.fg_bg_style_ext(ColorsExt::DialogBorderFg, ColorsExt::DialogBase),
     );
-    th.define(Style::DIALOG_ARROW, th.p.style_ext(ColorsExt::DialogArrow));
+    th.define(
+        Style::DIALOG_ARROW_FG,
+        th.p.fg_bg_style_ext(ColorsExt::DialogArrowFg, ColorsExt::DialogBase),
+    );
 
     th.define_fn(WidgetStyle::BUTTON, button);
     th.define_fn(WidgetStyle::CHECKBOX, checkbox);
@@ -142,12 +161,12 @@ fn choice(th: &Theme) -> ChoiceStyle {
         select: Some(th.style(Style::TEXT_SELECT)),
         focus: Some(th.style(Style::TEXT_FOCUS)),
         popup_style: Some(th.style(Style::POPUP_BASE)),
-        popup_border: Some(th.style(Style::POPUP_BORDER)),
+        popup_border: Some(th.style(Style::POPUP_BORDER_FG)),
         popup_scroll: Some(popup_scroll(th)),
         popup_block: Some(
             Block::bordered()
                 .borders(Borders::LEFT)
-                .border_style(th.style::<Style>(Style::POPUP_BORDER)),
+                .border_style(th.style::<Style>(Style::POPUP_BORDER_FG)),
         ),
         ..Default::default()
     }
@@ -156,6 +175,7 @@ fn choice(th: &Theme) -> ChoiceStyle {
 fn clipper(th: &Theme) -> ClipperStyle {
     ClipperStyle {
         style: th.style(Style::CONTAINER_BASE),
+        label_style: Some(th.style(Style::LABEL_FG)),
         scroll: Some(scroll(th)),
         ..Default::default()
     }
@@ -164,7 +184,7 @@ fn clipper(th: &Theme) -> ClipperStyle {
 fn dialog_frame(th: &Theme) -> DialogFrameStyle {
     DialogFrameStyle {
         style: th.style(Style::DIALOG_BASE),
-        block: Some(Block::bordered().style(th.style::<Style>(Style::DIALOG_BORDER))),
+        border_style: Some(th.style::<Style>(Style::DIALOG_BORDER_FG)),
         button_style: Some(button(th)),
         ..DialogFrameStyle::default()
     }
@@ -188,12 +208,14 @@ fn file_dialog(th: &Theme) -> FileDialogStyle {
 fn form(th: &Theme) -> FormStyle {
     FormStyle {
         style: th.style(Style::CONTAINER_BASE),
-        navigation: Some(th.style(Style::CONTAINER_ARROW)),
+        label_style: Some(th.style(Style::LABEL_FG)),
+        navigation: Some(th.style(Style::CONTAINER_ARROW_FG)),
         block: Some(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
-                .border_style(th.style::<Style>(Style::CONTAINER_BORDER)),
+                .border_style(th.style::<Style>(Style::CONTAINER_BORDER_FG)),
         ),
+        border_style: Some(th.style::<Style>(Style::CONTAINER_BORDER_FG)),
         ..Default::default()
     }
 }
@@ -274,33 +296,33 @@ fn radio(th: &Theme) -> RadioStyle {
 /// Scroll style
 fn scroll(th: &Theme) -> ScrollStyle {
     ScrollStyle {
-        thumb_style: Some(th.style(Style::CONTAINER_BORDER)),
-        track_style: Some(th.style(Style::CONTAINER_BORDER)),
-        min_style: Some(th.style(Style::CONTAINER_BORDER)),
-        begin_style: Some(th.style(Style::CONTAINER_ARROW)),
-        end_style: Some(th.style(Style::CONTAINER_ARROW)),
+        thumb_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        track_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        min_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        begin_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        end_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
         ..Default::default()
     }
 }
 
 fn popup_scroll(th: &Theme) -> ScrollStyle {
     ScrollStyle {
-        thumb_style: Some(th.style(Style::POPUP_BORDER)),
-        track_style: Some(th.style(Style::POPUP_BORDER)),
-        min_style: Some(th.style(Style::POPUP_BORDER)),
-        begin_style: Some(th.style(Style::POPUP_ARROW)),
-        end_style: Some(th.style(Style::POPUP_ARROW)),
+        thumb_style: Some(th.style(Style::POPUP_BORDER_FG)),
+        track_style: Some(th.style(Style::POPUP_BORDER_FG)),
+        min_style: Some(th.style(Style::POPUP_BORDER_FG)),
+        begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        end_style: Some(th.style(Style::POPUP_ARROW_FG)),
         ..Default::default()
     }
 }
 
 fn dialog_scroll(th: &Theme) -> ScrollStyle {
     ScrollStyle {
-        thumb_style: Some(th.style(Style::DIALOG_BORDER)),
-        track_style: Some(th.style(Style::DIALOG_BORDER)),
-        min_style: Some(th.style(Style::DIALOG_BORDER)),
-        begin_style: Some(th.style(Style::POPUP_ARROW)),
-        end_style: Some(th.style(Style::POPUP_ARROW)),
+        thumb_style: Some(th.style(Style::DIALOG_BORDER_FG)),
+        track_style: Some(th.style(Style::DIALOG_BORDER_FG)),
+        min_style: Some(th.style(Style::DIALOG_BORDER_FG)),
+        begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        end_style: Some(th.style(Style::POPUP_ARROW_FG)),
         ..Default::default()
     }
 }
@@ -326,8 +348,8 @@ fn slider(th: &Theme) -> SliderStyle {
 
 fn split(th: &Theme) -> SplitStyle {
     SplitStyle {
-        style: th.style(Style::CONTAINER_BORDER),
-        arrow_style: Some(th.style(Style::CONTAINER_ARROW)),
+        style: th.style(Style::CONTAINER_BORDER_FG),
+        arrow_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
         drag_style: Some(th.style(Style::FOCUS)),
         ..Default::default()
     }
@@ -348,6 +370,7 @@ fn statusline(th: &Theme) -> StatusLineStyle {
 fn tabbed(th: &Theme) -> TabbedStyle {
     TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         tab: Some(th.style(Style::INPUT)),
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
@@ -361,7 +384,7 @@ fn table(th: &Theme) -> TableStyle {
         select_row: Some(th.style(Style::SELECT)),
         show_row_focus: true,
         focus_style: Some(th.style(Style::FOCUS)),
-        border_style: Some(th.style(Style::CONTAINER_BORDER)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         scroll: Some(scroll(th)),
         header: Some(th.style(Style::HEADER)),
         footer: Some(th.style(Style::FOOTER)),
@@ -400,7 +423,7 @@ fn textarea(th: &Theme) -> TextStyle {
         focus: Some(th.style(Style::INPUT)),
         select: Some(th.style(Style::TEXT_SELECT)),
         scroll: Some(scroll(th)),
-        border_style: Some(th.style(Style::CONTAINER_BORDER)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()
     }
 }
@@ -411,7 +434,7 @@ fn textview(th: &Theme) -> TextStyle {
         focus: Some(th.style(Style::CONTAINER_BASE)),
         select: Some(th.style(Style::TEXT_SELECT)),
         scroll: Some(scroll(th)),
-        border_style: Some(th.style(Style::CONTAINER_BORDER)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()
     }
 }
