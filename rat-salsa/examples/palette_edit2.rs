@@ -163,7 +163,6 @@ pub fn pal_choice(pal: Palette) -> Vec<(ColorIdx, Line<'static>)> {
 #[derive(Debug)]
 pub struct Scenery {
     pub defined: ChoiceState<String>,
-    pub themes: ChoiceState<String>,
 
     pub file_dlg: Rc<RefCell<FileDialogState>>,
 
@@ -176,7 +175,6 @@ impl Scenery {
     pub fn new(loc: Locale) -> Self {
         Self {
             defined: ChoiceState::named("palette"),
-            themes: ChoiceState::named("themes"),
             file_dlg: Rc::new(RefCell::new(FileDialogState::default())),
             edit: PaletteEdit::default(),
             show: ShowTabs::new(loc),
@@ -188,7 +186,6 @@ impl Scenery {
 impl HasFocus for Scenery {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.defined);
-        builder.widget(&self.themes);
         builder.widget(&self.edit);
         builder.widget(&self.show);
         builder.widget(&self.menu);
@@ -217,14 +214,12 @@ pub fn render(
     ])
     .split(area);
     let l2 = Layout::horizontal([
-        Constraint::Length(64), //
+        Constraint::Length(69), //
         Constraint::Length(50), //
     ])
     .horizontal_margin(1)
     .flex(Flex::Center)
     .split(l1[2]);
-    debug!("{:?}", l1[2]);
-    debug!("{:?}", l2);
 
     // main
     palette_edit::render(l2[0], buf, &mut state.edit, ctx)?;
@@ -259,7 +254,6 @@ fn render_function(
     let l_function = Layout::horizontal([
         Constraint::Length(4),  //
         Constraint::Length(20), //
-        Constraint::Length(15),
     ])
     .spacing(1)
     .split(area);
@@ -274,18 +268,7 @@ fn render_function(
         .into_widgets();
     choice.render(l_function[1], buf, &mut state.defined);
 
-    let (choice, choice_theme) = Choice::new()
-        .items(
-            once("")
-                .chain(["Dark", "Shell", "Fallback"])
-                .map(|v| (v.to_string(), v.to_string())),
-        )
-        .styles(ctx.theme.style(WidgetStyle::CHOICE))
-        .into_widgets();
-    choice.render(l_function[2], buf, &mut state.themes);
-
     choice_popup.render(l_function[1], buf, &mut state.defined);
-    choice_theme.render(l_function[2], buf, &mut state.themes);
 
     Ok(())
 }
@@ -392,13 +375,6 @@ pub fn event(
                 if let Some(palette) = create_palette(state.defined.value().as_str()) {
                     state.edit.set_palette(palette);
                 }
-                ctx.show_theme = create_edit_theme(state);
-                Control::Changed
-            }
-            r => r.into(),
-        });
-        try_flow!(match state.themes.handle(event, Popup) {
-            ChoiceOutcome::Value => {
                 ctx.show_theme = create_edit_theme(state);
                 Control::Changed
             }
@@ -741,7 +717,7 @@ fn load_pal_file(
 
 fn create_edit_theme(state: &Scenery) -> Theme {
     let palette = state.edit.palette();
-    match state.themes.value().as_str() {
+    match state.show.themes.value().as_str() {
         // "Shell" => shell_theme("Shell", palette),
         // "Fallback" => fallback_theme("Fallback", palette),
         _ => dark_theme("Dark", palette),
@@ -768,9 +744,10 @@ mod palette_edit {
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::clipper::{Clipper, ClipperState};
     use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
-    use rat_widget::event::{HandleEvent, Regular, ScrollOutcome, TextOutcome};
+    use rat_widget::event::{HandleEvent, Regular, TextOutcome};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::LayoutForm;
+    use rat_widget::popup::Placement;
     use rat_widget::scrolled::Scroll;
     use rat_widget::text::HasScreenCursor;
     use rat_widget::text_input::{TextInput, TextInputState};
@@ -926,7 +903,7 @@ mod palette_edit {
                 layout.widget(
                     state.color[c as usize].0.id(),
                     L::String(c.to_string()),
-                    W::Width(33),
+                    W::Width(51),
                 );
             }
             layout.gap(1);
@@ -991,17 +968,25 @@ mod palette_edit {
         let pal = state.palette();
         let pal_choice = crate::pal_choice(pal);
 
+        let mut popup_ext = Vec::new();
         for c in ColorsExt::array() {
             let popup = form.render2(
                 state.color_ext[c as usize].id(),
                 || {
                     Choice::new()
                         .items(pal_choice.iter().cloned())
+                        .select_marker('*')
+                        .popup_len(8)
+                        .popup_scroll(Scroll::default())
+                        .popup_placement(Placement::Right)
                         .styles(ctx.theme.style(WidgetStyle::CHOICE))
                         .into_widgets()
                 },
                 &mut state.color_ext[c as usize],
             );
+            popup_ext.push((c, popup));
+        }
+        for (c, popup) in popup_ext {
             form.render_popup(
                 state.color_ext[c as usize].id(),
                 || popup,
@@ -1032,17 +1017,7 @@ mod palette_edit {
                 break_flow!('f: handle_color(event, &mut state.color[c as usize].3, &mut mode_change));
             }
 
-            // completely override Clipper event-handling.
-            // Need none of that only scrolling with the scrollbar.
-            break_flow!('f: match state.form.vscroll.handle(event, MouseOnly) {
-                ScrollOutcome::Up(v) => Outcome::from(state.form.scroll_up(v)),
-                ScrollOutcome::Down(v) => Outcome::from(state.form.scroll_down(v)),
-                ScrollOutcome::VPos(v) => Outcome::from(state.form.set_vertical_offset(v)),
-                ScrollOutcome::Left(v) => Outcome::from(state.form.scroll_left(v)),
-                ScrollOutcome::Right(v) => Outcome::from(state.form.scroll_right(v)),
-                ScrollOutcome::HPos(v) => Outcome::from(state.form.set_horizontal_offset(v)),
-                r => r.into(),
-            });
+            break_flow!('f: state.form.handle(event, MouseOnly));
 
             Outcome::Continue
         };
@@ -1073,32 +1048,43 @@ mod palette_edit {
 
 pub mod show_tabs {
     use crate::datainput::DataInput;
+    use crate::other::Other;
     use crate::readability::Readability;
-    use crate::{datainput, readability, Global};
+    use crate::{datainput, other, readability, Global};
     use anyhow::Error;
     use pure_rust_locales::Locale;
-    use rat_event::{try_flow, HandleEvent, Outcome, Regular};
+    use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
-    use rat_theme5::WidgetStyle;
+    use rat_theme5::{dark_theme, StyleName, WidgetStyle};
+    use rat_widget::choice::{Choice, ChoiceState};
+    use rat_widget::event::ChoiceOutcome;
     use rat_widget::tabbed::{Tabbed, TabbedState};
     use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::widgets::{Block, BorderType, StatefulWidget};
+    use ratatui::layout::{Alignment, Constraint, Layout, Rect};
+    use ratatui::style::Style;
+    use ratatui::text::Text;
+    use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+    use std::iter::once;
 
+    // mark tabs
     #[derive(Debug)]
     pub struct ShowTabs {
+        pub themes: ChoiceState<String>,
         pub tabs: TabbedState,
         pub input: DataInput,
         pub readability: Readability,
+        pub other: Other,
     }
 
     impl ShowTabs {
         pub fn new(loc: Locale) -> Self {
             Self {
+                themes: ChoiceState::named("themes"),
                 tabs: Default::default(),
                 input: DataInput::new(loc),
                 readability: Readability::default(),
+                other: Other::default(),
             }
         }
 
@@ -1108,6 +1094,9 @@ pub mod show_tabs {
                     self.input.form.show_focused(focus);
                 }
                 Some(1) => { /*noop*/ }
+                Some(2) => {
+                    self.other.form.show_focused(focus);
+                }
                 _ => {}
             }
         }
@@ -1116,12 +1105,16 @@ pub mod show_tabs {
     impl HasFocus for ShowTabs {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.tabs);
+            builder.widget(&self.themes);
             match self.tabs.selected() {
                 Some(0) => {
                     builder.widget(&self.input);
                 }
                 Some(1) => {
                     builder.widget(&self.readability);
+                }
+                Some(2) => {
+                    builder.widget(&self.other);
                 }
                 _ => {}
             }
@@ -1141,6 +1134,7 @@ pub mod show_tabs {
             match self.tabs.selected() {
                 Some(0) => self.input.screen_cursor(),
                 Some(1) => self.readability.screen_cursor(),
+                Some(2) => self.other.screen_cursor(),
                 _ => None,
             }
         }
@@ -1152,23 +1146,64 @@ pub mod show_tabs {
         state: &mut ShowTabs,
         ctx: &mut Global,
     ) -> Result<(), Error> {
+        let l0 = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+        ])
+        .spacing(1)
+        .split(area);
+
+        let l_function = Layout::horizontal([
+            Constraint::Length(2), //
+            Constraint::Length(12),
+        ])
+        .spacing(1)
+        .split(l0[1]);
+
+        Text::from("Preview")
+            .alignment(Alignment::Center)
+            .style(ctx.show_theme.style_style(Style::TITLE))
+            .render(l0[0], buf);
+
+        let (choice, choice_theme) = Choice::new()
+            .items(
+                once("")
+                    .chain([
+                        "Dark",  //
+                        "Shell", //
+                        "Fallback",
+                    ])
+                    .map(|v| (v.to_string(), v.to_string())),
+            )
+            .styles(ctx.theme.style(WidgetStyle::CHOICE))
+            .into_widgets();
+        choice.render(l_function[1], buf, &mut state.themes);
+
         Tabbed::new()
-            .tabs(["Input", "Text"])
+            .tabs(["Input", "Text", "Other"])
             .block(Block::bordered().border_type(BorderType::Rounded))
             .styles(ctx.show_theme.style(WidgetStyle::TABBED))
-            .render(area, buf, &mut state.tabs);
+            .render(l0[2], buf, &mut state.tabs);
 
         match state.tabs.selected() {
             Some(0) => {
                 let mut area = state.tabs.widget_area;
                 area.width += 1;
-                datainput::render(area, buf, &mut state.input, ctx)
+                datainput::render(area, buf, &mut state.input, ctx)?;
             }
             Some(1) => {
-                readability::render(state.tabs.widget_area, buf, &mut state.readability, ctx)
+                readability::render(state.tabs.widget_area, buf, &mut state.readability, ctx)?;
             }
-            _ => Ok(()),
-        }
+            Some(2) => {
+                other::render(state.tabs.widget_area, buf, &mut state.other, ctx)?;
+            }
+            _ => {}
+        };
+
+        choice_theme.render(l_function[1], buf, &mut state.themes);
+
+        Ok(())
     }
 
     pub fn event(
@@ -1176,12 +1211,28 @@ pub mod show_tabs {
         state: &mut ShowTabs,
         ctx: &mut Global,
     ) -> Result<Outcome, Error> {
+        try_flow!(match state.themes.handle(event, Popup) {
+            ChoiceOutcome::Value => {
+                let pal = ctx.show_theme.p;
+                ctx.show_theme = match state.themes.value().as_str() {
+                    // "Shell" => shell_theme("Shell", palette),
+                    // "Fallback" => fallback_theme("Fallback", palette),
+                    _ => dark_theme("Dark", pal),
+                };
+                Outcome::Changed
+            }
+            r => r.into(),
+        });
+
         try_flow!(match state.tabs.selected() {
             Some(0) => {
                 datainput::event(event, &mut state.input, ctx)?
             }
             Some(1) => {
                 readability::event(event, &mut state.readability, ctx)?
+            }
+            Some(2) => {
+                other::event(event, &mut state.other, ctx)?
             }
             _ => {
                 Outcome::Continue
@@ -1202,16 +1253,14 @@ pub mod readability {
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::paragraph::{Paragraph, ParagraphState};
     use rat_widget::scrolled::Scroll;
-    use rat_widget::slider::{Slider, SliderState};
     use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::widgets::{StatefulWidget, Wrap};
 
     #[derive(Debug)]
     pub struct Readability {
         pub colors: ChoiceState<ColorIdx>,
-        pub gradient: SliderState<usize>,
         pub high_contrast: CheckboxState,
         pub para: ParagraphState,
     }
@@ -1226,12 +1275,10 @@ pub mod readability {
         fn default() -> Self {
             let mut z = Self {
                 colors: Default::default(),
-                gradient: Default::default(),
                 high_contrast: Default::default(),
                 para: Default::default(),
             };
             z.colors.set_value(ColorIdx(Colors::Gray, 0));
-            z.gradient.set_value(4);
             z
         }
     }
@@ -1239,7 +1286,6 @@ pub mod readability {
     impl HasFocus for Readability {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.colors);
-            builder.widget(&self.gradient);
             builder.widget(&self.high_contrast);
             builder.widget(&self.para);
         }
@@ -1288,12 +1334,6 @@ pub mod readability {
             .into_widgets();
         colors.render(l1[0], buf, &mut state.colors);
 
-        Slider::new()
-            .direction(Direction::Horizontal)
-            .range((0, 7))
-            .styles(ctx.show_theme.style(WidgetStyle::SLIDER))
-            .render(l1[1], buf, &mut state.gradient);
-
         Checkbox::new()
             .styles(ctx.show_theme.style(WidgetStyle::CHECKBOX))
             .text("+Contrast")
@@ -1332,9 +1372,321 @@ The Paris Peace Accords removed the remaining United States forces, and fighting
         _ctx: &mut Global,
     ) -> Result<Outcome, Error> {
         try_flow!(state.colors.handle(event, Popup));
-        try_flow!(state.gradient.handle(event, Regular));
         try_flow!(state.high_contrast.handle(event, Regular));
         try_flow!(state.para.handle(event, Regular));
+        Ok(Outcome::Continue)
+    }
+}
+
+// mark other
+pub mod other {
+    use crate::Global;
+    use anyhow::Error;
+    use log::debug;
+    use rat_event::{try_flow, Dialog, HandleEvent, Outcome, Popup, Regular};
+    use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+    use rat_theme5::WidgetStyle;
+    use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
+    use rat_widget::form::{Form, FormState};
+    use rat_widget::layout::LayoutForm;
+    use rat_widget::list::{List, ListState};
+    use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
+    use rat_widget::popup::Placement;
+    use rat_widget::scrolled::Scroll;
+    use rat_widget::splitter::{Split, SplitState, SplitType};
+    use rat_widget::statusline::{StatusLine, StatusLineState};
+    use rat_widget::table::textdata::{Cell, Row};
+    use rat_widget::table::{Table, TableState};
+    use rat_widget::text::HasScreenCursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
+    use ratatui::prelude::StatefulWidget;
+    use ratatui::widgets::Block;
+
+    #[derive(Debug)]
+    pub struct Other {
+        pub form: FormState<usize>,
+        pub dialog_flag: FocusFlag,
+        pub dialog: DialogFrameState,
+        pub split: SplitState,
+        pub list: ListState,
+        pub table: TableState,
+        pub menu: MenubarState,
+        pub status: StatusLineState,
+    }
+
+    impl HasFocus for Other {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.menu);
+            builder.widget(&self.form);
+            builder.widget(&self.list);
+            builder.widget(&self.table);
+            builder.widget(&self.split);
+            builder.widget(&self.dialog_flag);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("not available")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("not available")
+        }
+    }
+
+    impl HasScreenCursor for Other {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            None
+        }
+    }
+
+    impl Default for Other {
+        fn default() -> Self {
+            let mut z = Self {
+                form: FormState::named("form"),
+                dialog_flag: FocusFlag::new().with_name("dialog-flag"),
+                dialog: DialogFrameState::named("dialog"),
+                split: SplitState::named("split"),
+                list: ListState::named("list"),
+                table: TableState::named("table"),
+                menu: MenubarState::named("menubar"),
+                status: StatusLineState::named("status"),
+            };
+            z.status.status(0, "... something ...");
+            z.status.status(1, "[join]");
+            z.status.status(2, "[conn]");
+            z.status.status(3, "[sync]");
+            z
+        }
+    }
+
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Other,
+        ctx: &mut Global,
+    ) -> Result<(), Error> {
+        let l0 = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ])
+        .spacing(1)
+        .split(area);
+
+        let mut form = Form::new().styles(ctx.show_theme.style(WidgetStyle::FORM));
+
+        let layout_size = form.layout_size(area);
+        if !state.form.valid_layout(layout_size) {
+            use rat_widget::layout::{FormLabel as L, FormWidget as W};
+            let mut layout = LayoutForm::<usize>::new().flex(Flex::Legacy);
+            layout.widget(state.list.id(), L::Str("List"), W::WideStretchXY(20, 4));
+            layout.page_break();
+            layout.widget(state.table.id(), L::Str("Table"), W::WideStretchXY(20, 4));
+            layout.page_break();
+            layout.widget(state.split.id(), L::Str("Split"), W::WideStretchXY(20, 4));
+            layout.page_break();
+            layout.widget(
+                state.dialog_flag.id(),
+                L::Str("Dialog"),
+                W::WideStretchXY(20, 4),
+            );
+            form = form.layout(layout.build_paged(layout_size));
+        }
+        let mut form = form.into_buffer(l0[1], buf, &mut state.form);
+
+        form.render(
+            state.list.id(),
+            || {
+                List::new([
+                    "Backpacks: A portable bag with straps for carrying personal items, commonly used for school or travel.",
+                    "Books: Written or printed works consisting of pages bound together along one side, used for reading and learning.",
+                    "Bicycles: Human-powered vehicles with two wheels, used for transportation and recreation.",
+                    "Coffee Makers: Appliances designed to brew coffee from ground beans, commonly found in homes and offices.",
+                    "Smartphones: Portable devices combining a mobile phone with advanced computing capabilities, including internet access and apps.",
+                    "Gardens: Plots of land cultivated for growing plants, flowers, or vegetables, often for aesthetic or practical purposes.",
+                    "Music Boxes: Mechanical devices that play music through a rotating cylinder with pins, often used as decorative items.",
+                    "Pens: Writing instruments that dispense ink, used for writing or drawing.",
+                    "Laptops: Portable computers with integrated screen, keyboard, and battery, designed for mobile computing.",
+                    "Dogs: Domesticated mammals commonly kept as pets, known for loyalty and companionship."
+                ])
+                    .scroll(Scroll::new())
+                    .styles(ctx.show_theme.style(WidgetStyle::LIST))
+            },
+            &mut state.list,
+        );
+        form.render(
+            state.table.id(),
+            || {
+                Table::new_ratatui(
+                    [
+                        Row::new([
+                            Cell::new("1"),
+                            Cell::new("67.9"),
+                            Cell::new("Female"),
+                            Cell::new("236.4"),
+                            Cell::new("129.8"),
+                            Cell::new("26.4"),
+                            Cell::new("Yes"),
+                            Cell::new("High"),
+                        ]),
+                        Row::new([
+                            Cell::new("2"),
+                            Cell::new("54.8"),
+                            Cell::new("Female"),
+                            Cell::new("256.3"),
+                            Cell::new("133.4"),
+                            Cell::new("28.4"),
+                            Cell::new("No"),
+                            Cell::new("Medium"),
+                        ]),
+                        Row::new([
+                            Cell::new("3"),
+                            Cell::new("68.4"),
+                            Cell::new("Male"),
+                            Cell::new("198.7"),
+                            Cell::new("158.5"),
+                            Cell::new("24.1"),
+                            Cell::new("Yes"),
+                            Cell::new("High"),
+                        ]),
+                        Row::new([
+                            Cell::new("4"),
+                            Cell::new("67.9"),
+                            Cell::new("Male"),
+                            Cell::new("205.0"),
+                            Cell::new("136.0"),
+                            Cell::new("19.9"),
+                            Cell::new("No"),
+                            Cell::new("Low"),
+                        ]),
+                        Row::new([
+                            Cell::new("5"),
+                            Cell::new("60.9"),
+                            Cell::new("Male"),
+                            Cell::new("207.7"),
+                            Cell::new("145.4"),
+                            Cell::new("26.7"),
+                            Cell::new("No"),
+                            Cell::new("Medium"),
+                        ]),
+                        Row::new([
+                            Cell::new("6"),
+                            Cell::new("44.9"),
+                            Cell::new("Female"),
+                            Cell::new("222.5"),
+                            Cell::new("130.6"),
+                            Cell::new("30.6"),
+                            Cell::new("Noe"),
+                            Cell::new("Low"),
+                        ]),
+                    ],
+                    [
+                        Constraint::Length(1),
+                        Constraint::Length(4),
+                        Constraint::Length(6),
+                        Constraint::Length(11),
+                        Constraint::Length(10),
+                        Constraint::Length(5),
+                        Constraint::Length(7),
+                        Constraint::Length(9),
+                    ],
+                )
+                .scroll(Scroll::new())
+                .column_spacing(1)
+                .header(Row::new([
+                    Cell::new("#"),
+                    Cell::new("Age"),
+                    Cell::new("Gender"),
+                    Cell::new("Cholesterol"),
+                    Cell::new("SystolicBP"),
+                    Cell::new("BMI"),
+                    Cell::new("Smoking"),
+                    Cell::new("Education"),
+                ]))
+                .styles(ctx.show_theme.style(WidgetStyle::TABLE))
+                .layout_column_widths()
+            },
+            &mut state.table,
+        );
+        let split_overlay = form.render2(
+            state.split.id(),
+            || {
+                Split::new()
+                    .direction(Direction::Horizontal)
+                    .split_type(SplitType::FullPlain)
+                    .constraints([
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(60),
+                    ])
+                    .styles(ctx.show_theme.style(WidgetStyle::SPLIT))
+                    .into_widgets()
+            },
+            &mut state.split,
+        );
+        form.render_popup(state.split.id(), || split_overlay, &mut state.split);
+        form.render(
+            state.dialog_flag.id(),
+            || {
+                DialogFrame::new()
+                    .left(Constraint::Length(3))
+                    .right(Constraint::Length(3))
+                    .top(Constraint::Length(3))
+                    .bottom(Constraint::Length(3))
+                    .block(Block::bordered().title("Dialog"))
+                    .styles(ctx.show_theme.style(WidgetStyle::DIALOG_FRAME))
+            },
+            &mut state.dialog,
+        );
+
+        let (menu, menu_popup) = Menubar::new(&StaticMenu {
+            menu: &[
+                ("_File", &["_Open", "_Save", "\\___", "_Quit"]),
+                ("_Help|F1", &["No Help"]),
+            ],
+        })
+        .styles(ctx.show_theme.style(WidgetStyle::MENU))
+        .popup_placement(Placement::Below)
+        .into_widgets();
+        menu.render(l0[0], buf, &mut state.menu);
+
+        debug!("status {:?}", state.status);
+        StatusLine::new()
+            .layout([
+                Constraint::Fill(1),
+                Constraint::Length(6),
+                Constraint::Length(6),
+                Constraint::Length(6),
+            ])
+            .styles_ext(ctx.show_theme.style(WidgetStyle::STATUSLINE))
+            .render(l0[2], buf, &mut state.status);
+
+        menu_popup.render(l0[0], buf, &mut state.menu);
+
+        Ok(())
+    }
+
+    pub fn event(
+        event: &crossterm::event::Event,
+        state: &mut Other,
+        _ctx: &mut Global,
+    ) -> Result<Outcome, Error> {
+        try_flow!(state.menu.handle(event, Popup));
+
+        try_flow!(state.list.handle(event, Regular));
+        try_flow!(state.table.handle(event, Regular));
+        try_flow!(state.split.handle(event, Regular));
+        try_flow!(match state.dialog.handle(event, Dialog) {
+            DialogOutcome::Unchanged => {
+                // ignore this result!!
+                DialogOutcome::Continue
+            }
+            r => r,
+        });
+
+        try_flow!(state.form.handle(event, Regular));
+
         Ok(Outcome::Continue)
     }
 }
@@ -1342,7 +1694,6 @@ The Paris Peace Accords removed the remaining United States forces, and fighting
 pub mod datainput {
     use crate::Global;
     use anyhow::Error;
-    use log::debug;
     use pure_rust_locales::{locale_match, Locale};
     use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -1372,16 +1723,19 @@ pub mod datainput {
     use ratatui::text::Line;
     use ratatui::widgets::{Block, Borders, Padding};
 
+    // mark
     #[derive(Debug)]
     pub struct DataInput {
         pub form: ClipperState,
 
+        pub disabled: ButtonState,
         pub button: ButtonState,
         pub checkbox: CheckboxState,
         pub choice: ChoiceState,
         pub combobox: ComboboxState,
         pub date_input: DateInputState,
         pub number_input: NumberInputState,
+        pub number_invalid: NumberInputState,
         pub radio: RadioState,
         pub slider: SliderState<usize>,
         pub text: TextInputState,
@@ -1391,12 +1745,14 @@ pub mod datainput {
 
     impl HasFocus for DataInput {
         fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.disabled);
             builder.widget(&self.button);
             builder.widget(&self.checkbox);
             builder.widget(&self.choice);
             builder.widget(&self.combobox);
             builder.widget(&self.date_input);
             builder.widget(&self.number_input);
+            builder.widget(&self.number_invalid);
             builder.widget(&self.radio);
             builder.widget(&self.slider);
             builder.widget(&self.text);
@@ -1419,6 +1775,7 @@ pub mod datainput {
                 .screen_cursor()
                 .or(self.date_input.screen_cursor())
                 .or(self.number_input.screen_cursor())
+                .or(self.number_invalid.screen_cursor())
                 .or(self.text.screen_cursor())
                 .or(self.textarea.screen_cursor())
                 .or(self.calendar.screen_cursor())
@@ -1429,12 +1786,14 @@ pub mod datainput {
         pub fn new(loc: Locale) -> Self {
             let mut z = Self {
                 form: ClipperState::named("show"),
+                disabled: ButtonState::named("disabled"),
                 button: ButtonState::named("button"),
                 checkbox: CheckboxState::named("checkbox"),
                 choice: ChoiceState::named("choice"),
                 combobox: ComboboxState::named("combobox"),
                 date_input: DateInputState::named("date_input"),
                 number_input: NumberInputState::named("number_input"),
+                number_invalid: NumberInputState::named("number_invalid"),
                 radio: RadioState::named("radio"),
                 slider: SliderState::<usize>::named("slider"),
                 text: TextInputState::named("text"),
@@ -1447,6 +1806,10 @@ pub mod datainput {
             z.number_input
                 .set_format_loc("###,##0.00#", loc)
                 .expect("number_format");
+            z.number_invalid
+                .set_format_loc("###,##0.00#", loc)
+                .expect("number_format");
+            z.number_invalid.set_invalid(true);
             z.calendar.move_to_today();
             z
         }
@@ -1472,12 +1835,14 @@ pub mod datainput {
                 .line_spacing(1)
                 .padding(Padding::new(1, 1, 1, 1))
                 .flex(Flex::Start);
+            layout.widget(state.disabled.id(), L::Str("Disabled"), W::Width(11));
             layout.widget(state.button.id(), L::Str("Button"), W::Width(11));
             layout.widget(state.checkbox.id(), L::Str("Checkbox"), W::Width(14));
             layout.widget(state.choice.id(), L::Str("Choice"), W::Width(14));
             layout.widget(state.combobox.id(), L::Str("Combobox"), W::Width(14));
             layout.widget(state.date_input.id(), L::Str("DateInput"), W::Width(11));
-            layout.widget(state.number_input.id(), L::Str("NumberInput"), W::Width(10));
+            layout.widget(state.number_input.id(), L::Str("NumberInput"), W::Width(11));
+            layout.widget(state.number_invalid.id(), L::Str("Invalid"), W::Width(11));
             layout.widget(state.radio.id(), L::Str("Radio"), W::Width(25));
             layout.widget(state.slider.id(), L::Str("Slider"), W::Width(15));
             layout.widget(state.text.id(), L::Str("TextInput"), W::Width(20));
@@ -1487,6 +1852,15 @@ pub mod datainput {
         }
         let mut form = form.into_buffer(area, &mut state.form);
 
+        form.render(
+            state.disabled.id(),
+            || {
+                Button::new("Disabled")
+                    .styles(ctx.show_theme.style(WidgetStyle::BUTTON))
+                    .style(ctx.show_theme.style_style(Style::DISABLED))
+            },
+            &mut state.disabled,
+        );
         form.render(
             state.button.id(),
             || Button::new("Ok").styles(ctx.show_theme.style(WidgetStyle::BUTTON)),
@@ -1542,6 +1916,7 @@ pub mod datainput {
                         ("Ψ".to_string(), "Psi"),
                         ("Ω".to_string(), "Omega"),
                     ])
+                    .popup_scroll(Scroll::new())
                     .popup_len(7)
                     .styles(ctx.show_theme.style(WidgetStyle::COMBOBOX))
                     .into_widgets()
@@ -1561,6 +1936,11 @@ pub mod datainput {
             state.number_input.id(),
             || NumberInput::new().styles(ctx.show_theme.style(WidgetStyle::TEXT)),
             &mut state.number_input,
+        );
+        form.render(
+            state.number_invalid.id(),
+            || NumberInput::new().styles(ctx.show_theme.style(WidgetStyle::TEXT)),
+            &mut state.number_invalid,
         );
         form.render(
             state.radio.id(),
@@ -1642,11 +2022,9 @@ pub mod datainput {
     ) -> Result<Outcome, Error> {
         try_flow!(match state.choice.handle(event, Popup) {
             ChoiceOutcome::Changed => {
-                debug!("choice changed");
                 ChoiceOutcome::Changed
             }
             ChoiceOutcome::Value => {
-                debug!("choice value");
                 ChoiceOutcome::Value
             }
             r => r,
@@ -1663,6 +2041,7 @@ pub mod datainput {
         try_flow!(state.checkbox.handle(event, Regular));
         try_flow!(state.date_input.handle(event, Regular));
         try_flow!(state.number_input.handle(event, Regular));
+        try_flow!(state.number_invalid.handle(event, Regular));
         try_flow!(state.radio.handle(event, Regular));
         try_flow!(state.slider.handle(event, Regular));
         try_flow!(state.text.handle(event, Regular));
