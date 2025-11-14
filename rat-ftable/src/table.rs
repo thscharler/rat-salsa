@@ -50,6 +50,7 @@ pub struct Table<'a, Selection = RowSelection> {
     flex: Flex,
     column_spacing: u16,
     layout_width: Option<u16>,
+    layout_column_widths: bool,
 
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
@@ -255,6 +256,7 @@ pub struct TableStyle {
 
     pub block: Option<Block<'static>>,
     pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     pub scroll: Option<ScrollStyle>,
 
     pub non_exhaustive: NonExhaustive,
@@ -332,6 +334,7 @@ impl<Selection> Default for Table<'_, Selection> {
             flex: Default::default(),
             column_spacing: Default::default(),
             layout_width: Default::default(),
+            layout_column_widths: true,
             block: Default::default(),
             hscroll: Default::default(),
             vscroll: Default::default(),
@@ -664,6 +667,20 @@ impl<'a, Selection> Table<'a, Selection> {
         self
     }
 
+    /// Use the sum of all column-lengths as the layout width.
+    ///
+    /// If a [layout_width] is set too, that one will win.
+    ///
+    /// __Panic__
+    ///
+    /// Rendering will panic, if any constraint other than Constraint::Length(),
+    /// Constraint::Min() or Constraint::Max() is used.
+    #[inline]
+    pub fn layout_column_widths(mut self) -> Self {
+        self.layout_column_widths = true;
+        self
+    }
+
     /// Calculates the width from the given column-constraints.
     /// If a fixed [layout_width](Table::layout_width) is set too, that one will win.
     ///
@@ -681,6 +698,18 @@ impl<'a, Selection> Table<'a, Selection> {
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self.block = self.block.map(|v| v.style(self.style));
+        self
+    }
+
+    /// Sets the border-style for the Block, if any.
+    pub fn border_style(mut self, style: Style) -> Self {
+        self.block = self.block.map(|v| v.border_style(style));
+        self
+    }
+
+    /// Sets the title-style for the Block, if any.
+    pub fn title_style(mut self, style: Style) -> Self {
+        self.block = self.block.map(|v| v.title_style(style));
         self
     }
 
@@ -738,6 +767,9 @@ impl<'a, Selection> Table<'a, Selection> {
         }
         if let Some(border_style) = styles.border_style {
             self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
         }
         self.block = self.block.map(|v| v.style(self.style));
         if styles.block.is_some() {
@@ -881,6 +913,26 @@ impl<Selection> Table<'_, Selection> {
     fn total_width(&self, area_width: u16) -> u16 {
         if let Some(layout_width) = self.layout_width {
             layout_width
+        } else if self.layout_column_widths {
+            let mut width = 0;
+            for w in self.widths.iter().copied() {
+                match w {
+                    Constraint::Min(v) => width += v + self.column_spacing,
+                    Constraint::Max(v) => width += v + self.column_spacing,
+                    Constraint::Length(v) => width += v + self.column_spacing,
+                    Constraint::Percentage(p) => {
+                        width += (((area_width as u32) * (p as u32)) / 100) as u16;
+                    }
+                    Constraint::Ratio(n, d) => {
+                        width += (((area_width as u32) * n) / d) as u16;
+                    }
+                    Constraint::Fill(_) => {
+                        /* unsupported, use dummy */
+                        width += 10;
+                    }
+                }
+            }
+            max(width, area_width)
         } else {
             area_width
         }
@@ -1583,6 +1635,7 @@ impl Default for TableStyle {
             focus_style: None,
             block: None,
             border_style: None,
+            title_style: None,
             scroll: None,
             non_exhaustive: NonExhaustive,
         }
