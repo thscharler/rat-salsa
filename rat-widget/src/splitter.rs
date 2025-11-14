@@ -100,6 +100,12 @@ pub struct Split<'a> {
     drag_style: Option<Style>,
 }
 
+/// Widget for the Layout of the split.
+#[derive(Debug, Clone)]
+pub struct LayoutWidget<'a> {
+    split: Split<'a>,
+}
+
 /// Primary widget for rendering the Split.
 #[derive(Debug, Clone)]
 pub struct SplitWidget<'a> {
@@ -280,6 +286,10 @@ impl Default for SplitStyle {
 }
 
 impl<'a> Split<'a> {
+    /// Create a new split.
+    ///
+    /// To have any split-areas you must set a list of [constraints]
+    /// for both the number and initial sizes of the areas.
     pub fn new() -> Self {
         Self {
             direction: Direction::Horizontal,
@@ -287,6 +297,7 @@ impl<'a> Split<'a> {
         }
     }
 
+    /// Horizontal split.
     pub fn horizontal() -> Self {
         Self {
             direction: Direction::Horizontal,
@@ -294,6 +305,7 @@ impl<'a> Split<'a> {
         }
     }
 
+    /// Vertical split
     pub fn vertical() -> Self {
         Self {
             direction: Direction::Horizontal,
@@ -444,6 +456,7 @@ impl<'a> Split<'a> {
     /// Use [SplitState::widget_areas] to render your contents, and
     /// then render the SplitWidget. This allows it to render some
     /// decorations on top of your widgets.
+    #[deprecated(since = "2.4.0", note = "use into_widgets() instead")]
     pub fn into_widget(self, area: Rect, state: &mut SplitState) -> SplitWidget<'a> {
         self.layout_split(area, state);
 
@@ -461,6 +474,7 @@ impl<'a> Split<'a> {
     /// Render your content first, using the layout information.
     /// And the SplitWidget as last to allow rendering over
     /// the content widgets.
+    #[deprecated(since = "2.4.0", note = "use into_widgets() instead")]
     pub fn into_widget_layout(
         self,
         area: Rect,
@@ -474,6 +488,29 @@ impl<'a> Split<'a> {
                 mode: 1,
             },
             state.widget_areas.clone(),
+        )
+    }
+
+    /// Constructs the widgets for rendering.
+    ///
+    /// Returns the LayoutWidget that must run first. It
+    /// doesn't actually render anything, it just calculates
+    /// the layout for the split regions.
+    ///
+    /// Use the layout in [SplitState::widget_areas] to render
+    /// your widgets.
+    ///
+    /// The SplitWidget actually renders the split itself.
+    /// Render it after you finished with the content.
+    pub fn into_widgets(self) -> (LayoutWidget<'a>, SplitWidget<'a>) {
+        (
+            LayoutWidget {
+                split: self.clone(),
+            },
+            SplitWidget {
+                split: self,
+                mode: 1,
+            },
         )
     }
 }
@@ -897,6 +934,24 @@ impl Split<'_> {
                 s,
             )
         })
+    }
+}
+
+impl<'a> StatefulWidget for &LayoutWidget<'a> {
+    type State = SplitState;
+
+    fn render(self, area: Rect, _buf: &mut Buffer, state: &mut Self::State) {
+        // just run the layout here. SplitWidget renders the rest.
+        self.split.layout_split(area, state);
+    }
+}
+
+impl<'a> StatefulWidget for LayoutWidget<'a> {
+    type State = SplitState;
+
+    fn render(self, area: Rect, _buf: &mut Buffer, state: &mut Self::State) {
+        // just run the layout here. SplitWidget renders the rest.
+        self.split.layout_split(area, state);
     }
 }
 
