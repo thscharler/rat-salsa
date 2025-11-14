@@ -94,6 +94,8 @@ impl Default for StatusLineStyle {
 
 impl StatusLine {
     /// New widget.
+    ///
+    /// The actual number of items is set by [layout].
     pub fn new() -> Self {
         Self::default()
     }
