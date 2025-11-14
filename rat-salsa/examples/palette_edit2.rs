@@ -1,7 +1,9 @@
+use crate::configparser_ext::ConfigParserExt;
 use crate::message::{msg_event, msg_render, MsgState};
 use crate::palette_edit::PaletteEdit;
 use crate::show_tabs::ShowTabs;
-use anyhow::Error;
+use anyhow::{anyhow, Error};
+use configparser::ini::Ini;
 use log::{debug, error, warn};
 use pure_rust_locales::Locale;
 use rat_event::{try_flow, Outcome, Popup};
@@ -12,8 +14,8 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme5::{
-    create_palette, create_theme, dark_theme, salsa_palettes, ColorIdx, Colors, Palette, Theme,
-    WidgetStyle,
+    create_palette, create_theme, dark_theme, salsa_palettes, ColorIdx, Colors, ColorsExt, Palette,
+    Theme, WidgetStyle,
 };
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ct_event, ChoiceOutcome, HandleEvent, MenuOutcome, Regular};
@@ -26,10 +28,11 @@ use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardErro
 use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Stylize;
+use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cell::RefCell;
+use std::fs::File;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -176,7 +179,7 @@ impl Scenery {
         Self {
             defined: ChoiceState::named("palette"),
             file_dlg: Rc::new(RefCell::new(FileDialogState::default())),
-            edit: PaletteEdit::default(),
+            edit: PaletteEdit::new(loc),
             show: ShowTabs::new(loc),
             menu: MenuLineState::named("menu"),
         }
@@ -439,155 +442,67 @@ fn export_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>
 }
 
 fn export_pal_file(
-    _path: &Path,
+    path: &Path,
     state: &mut Scenery,
     _ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
-    // use std::io::Write;
+    use std::io::Write;
 
-    let _palette = state.edit.palette();
+    let c32 = Palette::color_to_u32;
 
-    let _c32 = Palette::color_to_u32;
+    let name = state.edit.name.text();
 
-    // TODO
-    // let mut wr = File::create(path)?;
-    // writeln!(wr, "use crate::Palette;")?;
-    // writeln!(wr, "")?;
-    // writeln!(wr, "/// {}", palette.name)?;
-    // writeln!(wr, "const DARKNESS: u8 = 63;")?;
-    // writeln!(wr, "")?;
-    // writeln!(
-    //     wr,
-    //     "pub const {}: Palette = Palette {{",
-    //     palette.name.to_uppercase()
-    // )?;
-    // writeln!(wr, "    name: \"{}\", ", palette.name)?;
-    // writeln!(wr, "")?;
-    // writeln!(
-    //     wr,
-    //     "    text_dark: Palette::color32({:#08x}), ",
-    //     c32(palette.text_dark)
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    text_black: Palette::color32({:#08x}), ",
-    //     c32(palette.text_black)
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    text_light: Palette::color32({:#08x}), ",
-    //     c32(palette.text_light)
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    text_bright: Palette::color32({:#08x}), ",
-    //     c32(palette.text_bright)
-    // )?;
-    // writeln!(wr, "")?;
-    // writeln!(
-    //     wr,
-    //     "    primary: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.primary[0]),
-    //     c32(palette.primary[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    secondary: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.secondary[0]),
-    //     c32(palette.secondary[3])
-    // )?;
-    // writeln!(wr, "")?;
-    // writeln!(
-    //     wr,
-    //     "    white: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.white[0]),
-    //     c32(palette.white[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    black: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.black[0]),
-    //     c32(palette.black[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    gray: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.gray[0]),
-    //     c32(palette.gray[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    red: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.red[0]),
-    //     c32(palette.red[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    orange: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.orange[0]),
-    //     c32(palette.orange[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    yellow: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.yellow[0]),
-    //     c32(palette.yellow[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    limegreen: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.limegreen[0]),
-    //     c32(palette.limegreen[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    green: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.green[0]),
-    //     c32(palette.green[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    bluegreen: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.bluegreen[0]),
-    //     c32(palette.bluegreen[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    cyan: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.cyan[0]),
-    //     c32(palette.cyan[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    blue: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.blue[0]),
-    //     c32(palette.blue[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    deepblue: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.deepblue[0]),
-    //     c32(palette.deepblue[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    purple: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.purple[0]),
-    //     c32(palette.purple[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    magenta: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.magenta[0]),
-    //     c32(palette.magenta[3])
-    // )?;
-    // writeln!(
-    //     wr,
-    //     "    redpink: Palette::interpolate({:#08x}, {:#08x}, DARKNESS), ",
-    //     c32(palette.redpink[0]),
-    //     c32(palette.redpink[3])
-    // )?;
-    // writeln!(wr, "}};")?;
+    let mut wr = File::create(path)?;
+    writeln!(wr, "use crate::{{Colors, ColorsExt, Palette}};")?;
+    writeln!(wr, "use ratatui::style::Color;")?;
+    writeln!(wr, "")?;
+    writeln!(wr, "/// {}", name)?;
+    writeln!(
+        wr,
+        "const DARKNESS: u8 = {};",
+        state.edit.dark.value::<u8>().unwrap_or(64)
+    )?;
+    writeln!(wr, "")?;
+    writeln!(wr, "pub const {}: Palette = {{", name.to_uppercase(),)?;
+    writeln!(wr, "    let mut p = Palette {{")?;
+    writeln!(wr, "        name: \"{}\", ", name)?;
+    writeln!(wr, "")?;
+    writeln!(wr, "        color: [")?;
+    for c in [Colors::TextLight, Colors::TextDark] {
+        let c0 = state.edit.color[c as usize].0.value();
+        let c3 = state.edit.color[c as usize].3.value();
+        writeln!(
+            wr,
+            "            Palette::interpolate2({:#08x}, {:#08x}, 0x0, 0x0),",
+            c32(c0),
+            c32(c3)
+        )?;
+    }
+    for c in Colors::array_no_text() {
+        let c0 = state.edit.color[c as usize].0.value();
+        let c3 = state.edit.color[c as usize].3.value();
+        writeln!(
+            wr,
+            "            Palette::interpolate({:#08x}, {:#08x}, DARKNESS),",
+            c32(c0),
+            c32(c3)
+        )?;
+    }
+    writeln!(wr, "        ],")?;
+    writeln!(wr, "        color_ext: [Color::Reset; ColorsExt::LEN],")?;
+    writeln!(wr, "    }};")?;
+    writeln!(wr, "")?;
+    for c in ColorsExt::array() {
+        let ccc = state.edit.color_ext[c as usize].value();
+        writeln!(
+            wr,
+            "    p.color_ext[ColorsExt::{:?} as usize] = p.color[Colors::{:?} as usize][{}];",
+            c, ccc.0, ccc.1
+        )?;
+    }
+    writeln!(wr, "")?;
+    writeln!(wr, "    p")?;
+    writeln!(wr, "}};")?;
 
     Ok(Control::Changed)
 }
@@ -615,37 +530,35 @@ fn save_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, 
 }
 
 fn save_pal_file(
-    _path: &Path,
+    path: &Path,
     state: &mut Scenery,
     _ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
-    let _palette = state.edit.palette();
+    //let pal = state.edit.palette();
 
-    // TODO
-    // let mut ff = Ini::new_std();
-    // ff.set_val("palette", "name", palette.name);
-    // ff.set_val("palette", "text_dark", palette.text_dark);
-    // ff.set_val("palette", "text_black", palette.text_black);
-    // ff.set_val("palette", "text_light", palette.text_light);
-    // ff.set_val("palette", "text_bright", palette.text_bright);
-    // ff.set_array("palette", "white", palette.white);
-    // ff.set_array("palette", "black", palette.black);
-    // ff.set_array("palette", "gray", palette.gray);
-    // ff.set_array("palette", "red", palette.red);
-    // ff.set_array("palette", "orange", palette.orange);
-    // ff.set_array("palette", "yellow", palette.yellow);
-    // ff.set_array("palette", "limegreen", palette.limegreen);
-    // ff.set_array("palette", "green", palette.green);
-    // ff.set_array("palette", "bluegreen", palette.bluegreen);
-    // ff.set_array("palette", "cyan", palette.cyan);
-    // ff.set_array("palette", "blue", palette.blue);
-    // ff.set_array("palette", "deepblue", palette.deepblue);
-    // ff.set_array("palette", "purple", palette.purple);
-    // ff.set_array("palette", "magenta", palette.magenta);
-    // ff.set_array("palette", "redpink", palette.redpink);
-    // ff.set_array("palette", "primary", palette.primary);
-    // ff.set_array("palette", "secondary", palette.secondary);
-    // ff.write_std(path)?;
+    let mut ff = Ini::new_std();
+    ff.set_text("palette", "name", state.edit.name.text());
+    ff.set_val(
+        "palette",
+        "dark",
+        state.edit.dark.value::<u8>().unwrap_or(63),
+    );
+    for c in Colors::array() {
+        ff.set_array(
+            "color",
+            c.name(),
+            [
+                state.edit.color[c as usize].0.value(),
+                state.edit.color[c as usize].3.value(),
+            ],
+        );
+    }
+    for c in ColorsExt::array() {
+        let color_idx = state.edit.color_ext[c as usize].value();
+        ff.set_val("reference", c.name(), color_idx);
+    }
+
+    ff.write_std(path)?;
 
     Ok(Control::Changed)
 }
@@ -672,45 +585,37 @@ fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, 
 }
 
 fn load_pal_file(
-    _path: &Path,
-    _state: &mut Scenery,
-    _ctx: &mut Global,
+    path: &Path,
+    state: &mut Scenery,
+    ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
-    // TODO
-    // let mut ff = Ini::new_std();
-    // match ff.load(path) {
-    //     Ok(_) => {}
-    //     Err(e) => return Err(anyhow!(e)),
-    // };
+    let mut ff = Ini::new_std();
+    match ff.load(path) {
+        Ok(_) => {}
+        Err(e) => return Err(anyhow!(e)),
+    };
 
-    // let mut palette = Palette::default();
-    // let name = Box::from(ff.get_text("palette", "name", ""));
-    // let name = Box::leak(name);
-    // palette.name = name;
-    // palette.text_dark = ff.parse_val("palette", "text_dark", Color::default());
-    // palette.text_black = ff.parse_val("palette", "text_black", Color::default());
-    // palette.text_light = ff.parse_val("palette", "text_light", Color::default());
-    // palette.text_bright = ff.parse_val("palette", "text_bright", Color::default());
-    // palette.white = ff.parse_array("palette", "white", Color::default());
-    // palette.black = ff.parse_array("palette", "black", Color::default());
-    // palette.gray = ff.parse_array("palette", "gray", Color::default());
-    // palette.red = ff.parse_array("palette", "red", Color::default());
-    // palette.orange = ff.parse_array("palette", "orange", Color::default());
-    // palette.yellow = ff.parse_array("palette", "yellow", Color::default());
-    // palette.limegreen = ff.parse_array("palette", "limegreen", Color::default());
-    // palette.green = ff.parse_array("palette", "green", Color::default());
-    // palette.bluegreen = ff.parse_array("palette", "bluegreen", Color::default());
-    // palette.cyan = ff.parse_array("palette", "cyan", Color::default());
-    // palette.blue = ff.parse_array("palette", "blue", Color::default());
-    // palette.deepblue = ff.parse_array("palette", "deepblue", Color::default());
-    // palette.purple = ff.parse_array("palette", "purple", Color::default());
-    // palette.magenta = ff.parse_array("palette", "magenta", Color::default());
-    // palette.redpink = ff.parse_array("palette", "redpink", Color::default());
-    // palette.primary = ff.parse_array("palette", "primary", Color::default());
-    // palette.secondary = ff.parse_array("palette", "secondary", Color::default());
-    //
-    // state.edit.set_palette(palette);
-    // ctx.show_theme = create_edit_theme(state);
+    state
+        .edit
+        .name
+        .set_value(ff.get_text("palette", "name", ""));
+
+    _ = state
+        .edit
+        .dark
+        .set_value(ff.parse_val::<u8, _>("palette", "dark", 63));
+
+    for c in Colors::array() {
+        let ccc = ff.parse_array::<2, _, _>("color", c.name(), Color::default());
+        state.edit.color[c as usize].0.set_value(ccc[0]);
+        state.edit.color[c as usize].3.set_value(ccc[1]);
+    }
+    for c in ColorsExt::array() {
+        let color_idx = ff.parse_val("reference", c.name(), ColorIdx::default());
+        state.edit.color_ext[c as usize].set_value(color_idx);
+    }
+
+    ctx.show_theme = create_edit_theme(state);
 
     Ok(Control::Changed)
 }
@@ -738,6 +643,7 @@ mod palette_edit {
     use crate::color_span::{ColorSpan, ColorSpanState};
     use crate::Global;
     use anyhow::Error;
+    use pure_rust_locales::Locale;
     use rat_event::{break_flow, MouseOnly, Outcome, Popup};
     use rat_focus::{FocusFlag, HasFocus};
     use rat_theme5::{ColorIdx, Colors, ColorsExt, Palette, WidgetStyle};
@@ -747,6 +653,7 @@ mod palette_edit {
     use rat_widget::event::{HandleEvent, Regular, TextOutcome};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::LayoutForm;
+    use rat_widget::number_input::{NumberInput, NumberInputState};
     use rat_widget::popup::Placement;
     use rat_widget::scrolled::Scroll;
     use rat_widget::text::HasScreenCursor;
@@ -763,17 +670,19 @@ mod palette_edit {
 
         pub form: ClipperState,
         pub name: TextInputState,
+        pub dark: NumberInputState,
 
         pub color: [(ColorInputState, (), (), ColorInputState); Colors::LEN],
         pub color_ext: [ChoiceState<ColorIdx>; ColorsExt::LEN],
     }
 
-    impl Default for PaletteEdit {
-        fn default() -> Self {
-            Self {
+    impl PaletteEdit {
+        pub fn new(loc: Locale) -> Self {
+            let mut z = Self {
                 palette: Default::default(),
                 form: ClipperState::named("form"),
                 name: TextInputState::named("name"),
+                dark: NumberInputState::named("dark"),
                 color: array::from_fn(|i| {
                     (
                         ColorInputState::named(format!("{}-0", Colors::array()[i].name()).as_str()),
@@ -783,7 +692,9 @@ mod palette_edit {
                     )
                 }),
                 color_ext: array::from_fn(|i| ChoiceState::named(ColorsExt::array()[i].name())),
-            }
+            };
+            z.dark.set_format_loc("999", loc).expect("format");
+            z
         }
     }
 
@@ -793,6 +704,8 @@ mod palette_edit {
             let name = Box::from(self.name.text());
             let name = Box::leak(name);
             palette.name = name;
+
+            let dark = self.dark.value().unwrap_or(64);
 
             palette.color[Colors::TextLight as usize] = Palette::interpolatec2(
                 self.color[Colors::TextLight as usize].0.value(),
@@ -810,7 +723,7 @@ mod palette_edit {
                 palette.color[c as usize] = Palette::interpolatec(
                     self.color[c as usize].0.value(),
                     self.color[c as usize].3.value(),
-                    64,
+                    dark,
                 );
             }
             for c in ColorsExt::array() {
@@ -823,6 +736,7 @@ mod palette_edit {
 
         pub fn set_palette(&mut self, pal: Palette) {
             self.name.set_value(pal.name);
+            _ = self.dark.set_value(64);
 
             for c in Colors::array() {
                 self.color[c as usize].0.set_value(pal.color[c as usize][0]);
@@ -847,6 +761,7 @@ mod palette_edit {
     impl HasFocus for PaletteEdit {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.name);
+            builder.widget(&self.dark);
             for c in Colors::array() {
                 builder.widget(&self.color[c as usize].0);
                 builder.widget(&self.color[c as usize].3);
@@ -898,6 +813,7 @@ mod palette_edit {
             use rat_widget::layout::{FormLabel as L, FormWidget as W};
             let mut layout = LayoutForm::<usize>::new().spacing(1).flex(Flex::Start);
             layout.widget(state.name.id(), L::Str("Name"), W::Width(20));
+            layout.widget(state.dark.id(), L::Str("Dark"), W::Width(4));
             layout.gap(1);
             for c in Colors::array() {
                 layout.widget(
@@ -922,6 +838,11 @@ mod palette_edit {
             state.name.id(),
             || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
             &mut state.name,
+        );
+        form.render(
+            state.dark.id(),
+            || NumberInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
+            &mut state.dark,
         );
         form.render(
             state.color[Colors::TextLight as usize].0.id(),
@@ -1012,6 +933,17 @@ mod palette_edit {
             }
 
             break_flow!('f: state.name.handle(event, Regular));
+            break_flow!('f: match state.dark.handle(event, Regular) {
+                TextOutcome::TextChanged => {
+                    if state.dark.value().unwrap_or(0) > 255 {
+                        state.dark.set_invalid(true);
+                    } else {
+                        state.dark.set_invalid(false);
+                    }
+                    TextOutcome::TextChanged
+                }
+                r => r
+            });
             for c in Colors::array() {
                 break_flow!('f: handle_color(event, &mut state.color[c  as usize].0, &mut mode_change));
                 break_flow!('f: handle_color(event, &mut state.color[c as usize].3, &mut mode_change));
@@ -1382,7 +1314,6 @@ The Paris Peace Accords removed the remaining United States forces, and fighting
 pub mod other {
     use crate::Global;
     use anyhow::Error;
-    use log::debug;
     use rat_event::{try_flow, Dialog, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_theme5::WidgetStyle;
@@ -1651,7 +1582,6 @@ pub mod other {
         .into_widgets();
         menu.render(l0[0], buf, &mut state.menu);
 
-        debug!("status {:?}", state.status);
         StatusLine::new()
             .layout([
                 Constraint::Fill(1),
@@ -2254,6 +2184,7 @@ impl Clipboard for CliClipboard {
 
 mod configparser_ext {
     use configparser::ini::{IniDefault, WriteOptions};
+    use std::fmt::Debug;
     use std::mem;
     use std::mem::MaybeUninit;
     use std::path::Path;
@@ -2272,7 +2203,7 @@ mod configparser_ext {
             default: D,
         ) -> String;
 
-        fn parse_array<const N: usize, T: Copy + FromStr, S: AsRef<str>>(
+        fn parse_array<const N: usize, T: Copy + FromStr + Debug, S: AsRef<str>>(
             &mut self,
             sec: S,
             key: &str,
@@ -2360,16 +2291,32 @@ mod configparser_ext {
             }
         }
 
-        fn parse_array<const N: usize, T: Copy + FromStr, S: AsRef<str>>(
+        fn parse_array<const N: usize, T: Copy + FromStr + Debug, S: AsRef<str>>(
             &mut self,
             sec: S,
             key: &str,
             default: T,
         ) -> [T; N] {
             let sec = sec.as_ref();
+
             let mut r = [MaybeUninit::uninit(); N];
-            for (i, v) in r.iter_mut().enumerate() {
-                v.write(self.parse_val(sec, format!("{}.{}", key, i).as_str(), default));
+
+            let val_str = self.get_text(sec, key, "");
+            let mut val_str = val_str.split(',');
+            for i in 0..N {
+                if let Some(v) = val_str.next() {
+                    let v = v.trim();
+                    match v.parse::<T>() {
+                        Ok(v) => {
+                            r[i] = MaybeUninit::new(v);
+                        }
+                        Err(_) => {
+                            r[i] = MaybeUninit::new(default);
+                        }
+                    }
+                } else {
+                    r[i] = MaybeUninit::new(default);
+                }
             }
             // Everything is initialized. Transmute the array to the
             // initialized type.
@@ -2400,9 +2347,14 @@ mod configparser_ext {
             val: [T; N],
         ) {
             let sec = sec.as_ref();
+            let mut val_str = String::new();
             for i in 0..N {
-                self.set_text(sec, format!("{}.{}", key, i).as_str(), val[i]);
+                if i > 0 {
+                    val_str.push_str(", ");
+                }
+                val_str.push_str(&val[i].to_string());
             }
+            self.set_text(sec, key, val_str);
         }
 
         fn set_text<T: ToString, S: AsRef<str>>(&mut self, sec: S, key: &str, val: T) {
