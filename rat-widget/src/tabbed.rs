@@ -133,6 +133,8 @@ pub struct TabbedStyle {
     pub tab_type: Option<TabType>,
     pub placement: Option<TabPlacement>,
     pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -273,6 +275,18 @@ impl<'a> Tabbed<'a> {
         self
     }
 
+    /// Sets the border-style for the Block, if any.
+    pub fn border_style(mut self, style: Style) -> Self {
+        self.block = self.block.map(|v| v.border_style(style));
+        self
+    }
+
+    /// Sets the title-style for the Block, if any.
+    pub fn title_style(mut self, style: Style) -> Self {
+        self.block = self.block.map(|v| v.title_style(style));
+        self
+    }
+
     /// Set combined styles.
     pub fn styles(mut self, styles: TabbedStyle) -> Self {
         self.style = styles.style;
@@ -291,6 +305,13 @@ impl<'a> Tabbed<'a> {
         if let Some(placement) = styles.placement {
             self.placement = placement
         }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if styles.block.is_some() {
             self.block = styles.block;
         }
@@ -332,6 +353,8 @@ impl Default for TabbedStyle {
             tab_type: None,
             placement: None,
             block: None,
+            border_style: None,
+            title_style: None,
             non_exhaustive: NonExhaustive,
         }
     }

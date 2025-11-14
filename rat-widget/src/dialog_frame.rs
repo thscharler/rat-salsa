@@ -38,6 +38,8 @@ pub struct DialogFrame<'a> {
 pub struct DialogFrameStyle {
     pub style: Style,
     pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     pub button_style: Option<ButtonStyle>,
     pub layout: Option<LayoutOuter>,
     pub ok_text: Option<&'static str>,
@@ -51,6 +53,8 @@ impl Default for DialogFrameStyle {
         Self {
             style: Default::default(),
             block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
             button_style: Default::default(),
             layout: Default::default(),
             ok_text: Default::default(),
@@ -99,6 +103,13 @@ impl<'a> DialogFrame<'a> {
 
     pub fn styles(mut self, styles: DialogFrameStyle) -> Self {
         self.style = styles.style;
+        self.block = self.block.style(self.style);
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.border_style(border_style);
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.title_style(title_style);
+        }
         if let Some(block) = styles.block {
             self.block = block;
         }
@@ -129,6 +140,18 @@ impl<'a> DialogFrame<'a> {
     /// Block for the dialog.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = block;
+        self
+    }
+
+    /// Sets the border-style for the Block, if any.
+    pub fn border_style(mut self, style: Style) -> Self {
+        self.block = self.block.border_style(style);
+        self
+    }
+
+    /// Sets the title-style for the Block, if any.
+    pub fn title_style(mut self, style: Style) -> Self {
+        self.block = self.block.title_style(style);
         self
     }
 

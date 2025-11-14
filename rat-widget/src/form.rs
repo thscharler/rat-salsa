@@ -163,6 +163,10 @@ pub struct FormStyle {
     pub title: Option<Style>,
     /// Block.
     pub block: Option<Block<'static>>,
+    /// Border style for a block.
+    pub border_style: Option<Style>,
+    /// Title style for a block.
+    pub title_style: Option<Style>,
     /// Navigation icon.
     pub next_page_mark: Option<&'static str>,
     /// Navigation icon.
@@ -336,6 +340,12 @@ where
         self
     }
 
+    /// Sets the border-style for the Block, if any.
+    pub fn border_style(mut self, style: Style) -> Self {
+        self.block = self.block.map(|v| v.border_style(style));
+        self
+    }
+
     pub fn next_page_mark(mut self, txt: &'a str) -> Self {
         self.next_page = txt;
         self
@@ -380,8 +390,12 @@ where
         if let Some(title) = styles.title {
             self.title_style = Some(title);
         }
-        if let Some(block) = styles.block {
-            self.block = Some(block);
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+        if styles.block.is_some() {
+            self.block = styles.block;
         }
         if let Some(txt) = styles.next_page_mark {
             self.next_page = txt;
@@ -395,8 +409,6 @@ where
         if let Some(txt) = styles.last_page_mark {
             self.last_page = txt;
         }
-        self.block = self.block.map(|v| v.style(styles.style));
-
         if let Some(label) = styles.label_style {
             self.label_style = Some(label);
         }
@@ -785,16 +797,18 @@ impl Default for FormStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            label_style: None,
-            label_alignment: None,
-            navigation: None,
-            show_navigation: None,
-            title: None,
-            block: None,
-            next_page_mark: None,
-            prev_page_mark: None,
-            first_page_mark: None,
-            last_page_mark: None,
+            label_style: Default::default(),
+            label_alignment: Default::default(),
+            navigation: Default::default(),
+            show_navigation: Default::default(),
+            title: Default::default(),
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            next_page_mark: Default::default(),
+            prev_page_mark: Default::default(),
+            first_page_mark: Default::default(),
+            last_page_mark: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
