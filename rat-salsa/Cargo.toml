@@ -46,6 +46,7 @@ configparser = { version = "3.1", features = ["indexmap"] }
 indexmap = "2.12"
 
 rat-theme4 = { version = "3.1", path = "../rat-theme4" }
+rat-theme5 = { version = "4.0", path = "../rat-theme5" }
 
 [[example]]
 name = "async1"
