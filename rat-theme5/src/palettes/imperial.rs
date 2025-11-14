@@ -7,9 +7,7 @@ use ratatui::style::Color;
 /// Other colors are bright, strong and slightly smudged.
 const DARKNESS: u8 = 63;
 
-pub const IMPERIAL: Palette = init_palette();
-
-const fn init_palette() -> Palette {
+pub const IMPERIAL: Palette = {
     let mut p = Palette {
         name: "Imperial",
 
@@ -66,4 +64,4 @@ const fn init_palette() -> Palette {
     p.color_ext[ColorsExt::StatusBase as usize] = p.color[Colors::Black as usize][2];
 
     p
-}
+};

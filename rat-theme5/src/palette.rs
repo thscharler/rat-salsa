@@ -1,5 +1,6 @@
 use ratatui::style::{Color, Style};
 use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ColorIdx(pub Colors, pub usize);
@@ -61,6 +62,31 @@ pub enum ColorsExt {
     DialogArrowFg,
 }
 
+impl Display for ColorIdx {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.0.name(), self.1)
+    }
+}
+
+impl FromStr for ColorIdx {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut ss = s.split(':');
+        let Some(name) = ss.next() else {
+            return Err(());
+        };
+        let Some(c) = Colors::from_name(name) else {
+            return Err(());
+        };
+        let Some(idx) = ss.next() else { return Err(()) };
+        let Ok(idx) = idx.parse::<usize>() else {
+            return Err(());
+        };
+        Ok(ColorIdx(c, idx))
+    }
+}
+
 impl Display for Colors {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
@@ -84,6 +110,31 @@ impl Colors {
             TextLight, TextDark, Primary, Secondary, White, Black, Gray, Red, Orange, Yellow,
             LimeGreen, Green, BlueGreen, Cyan, Blue, DeepBlue, Purple, Magenta, RedPink,
         ]
+    }
+
+    pub fn from_name(n: &str) -> Option<Self> {
+        match n {
+            "text-light" => Some(Colors::TextLight),
+            "text-dark" => Some(Colors::TextDark),
+            "primary" => Some(Colors::Primary),
+            "secondary" => Some(Colors::Secondary),
+            "white" => Some(Colors::White),
+            "black" => Some(Colors::Black),
+            "gray" => Some(Colors::Gray),
+            "red" => Some(Colors::Red),
+            "orange" => Some(Colors::Orange),
+            "yellow" => Some(Colors::Yellow),
+            "lime-green" => Some(Colors::LimeGreen),
+            "green" => Some(Colors::Green),
+            "blue-green" => Some(Colors::BlueGreen),
+            "cyan" => Some(Colors::Cyan),
+            "blue" => Some(Colors::Blue),
+            "deep-blue" => Some(Colors::DeepBlue),
+            "purple" => Some(Colors::Purple),
+            "magenta" => Some(Colors::Magenta),
+            "red-pink" => Some(Colors::RedPink),
+            _ => None,
+        }
     }
 
     pub const fn name(self) -> &'static str {
@@ -152,6 +203,40 @@ impl ColorsExt {
             DialogBorderFg,
             DialogArrowFg,
         ]
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "label" => Some(ColorsExt::LabelFg),
+            "input" => Some(ColorsExt::Input),
+            "focus" => Some(ColorsExt::Focus),
+            "select" => Some(ColorsExt::Select),
+            "disabled" => Some(ColorsExt::Disabled),
+            "invalid" => Some(ColorsExt::Invalid),
+            "title-fg" => Some(ColorsExt::TitleFg),
+            "title" => Some(ColorsExt::Title),
+            "header-fg" => Some(ColorsExt::HeaderFg),
+            "header" => Some(ColorsExt::Header),
+            "footer-fg" => Some(ColorsExt::FooterFg),
+            "footer" => Some(ColorsExt::Footer),
+            "shadow" => Some(ColorsExt::Shadow),
+            "text-focus" => Some(ColorsExt::TextFocus),
+            "text-select" => Some(ColorsExt::TextSelect),
+            "button-base" => Some(ColorsExt::ButtonBase),
+            "menu-base" => Some(ColorsExt::MenuBase),
+            "key-binding" => Some(ColorsExt::KeyBinding),
+            "status-base" => Some(ColorsExt::StatusBase),
+            "container-base" => Some(ColorsExt::ContainerBase),
+            "container-border" => Some(ColorsExt::ContainerBorderFg),
+            "container-arrow" => Some(ColorsExt::ContainerArrowFg),
+            "popup-base" => Some(ColorsExt::PopupBase),
+            "popup-border" => Some(ColorsExt::PopupBorderFg),
+            "popup-arrow" => Some(ColorsExt::PopupArrowFg),
+            "dialog-base" => Some(ColorsExt::DialogBase),
+            "dialog-border" => Some(ColorsExt::DialogBorderFg),
+            "dialog-arrow" => Some(ColorsExt::DialogArrowFg),
+            _ => None,
+        }
     }
 
     pub const fn name(self) -> &'static str {
