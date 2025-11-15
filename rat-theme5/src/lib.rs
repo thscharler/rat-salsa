@@ -47,15 +47,15 @@ mod dark_theme;
 // mod light_theme;
 mod palette;
 pub mod palettes;
+mod shell_theme;
 mod theme;
-// mod shell_theme;
 
 pub use dark_theme::dark_theme;
 // pub use fallback_theme::fallback_theme;
 // pub use light_theme::light_theme;
 pub use palette::{ColorIdx, Colors, ColorsExt, Palette};
+pub use shell_theme::shell_theme;
 pub use theme::{Category, Theme};
-// pub use shell_theme::shell_theme;
 
 /// Anchor struct for the names of composite styles used
 /// by rat-widget's.
@@ -143,6 +143,7 @@ pub trait StyleName {
     const SELECT: &'static str = "select";
     const DISABLED: &'static str = "disabled";
     const INVALID: &'static str = "invalid";
+    const HOVER: &'static str = "hover";
     const TITLE: &'static str = "title";
     const HEADER: &'static str = "header";
     const FOOTER: &'static str = "footer";
@@ -180,24 +181,24 @@ fn is_log_style_define() -> bool {
 }
 
 const PALETTES: &[&str] = &[
-    "Imperial",
-    // "Radium",
-    // "Tundra",
-    // "Ocean",
-    // "Monochrome",
-    // "Black & White",
-    // "Base16",
-    // "Base16 Relax",
-    // "Monekai",
-    // "Solarized",
-    // "OxoCarbon",
-    // "EverForest",
-    // "Nord",
-    // "Rust",
-    // "Red",
-    // "Blackout",
-    // "Shell",
-    // "VSCode",
+    "Imperial", //
+    "Radium",   //
+    "Tundra",
+    "Rust", //
+            // "Ocean",
+            // "Monochrome",
+            // "Black & White",
+            // "Base16",
+            // "Base16 Relax",
+            // "Monekai",
+            // "Solarized",
+            // "OxoCarbon",
+            // "EverForest",
+            // "Nord",
+            // "Red",
+            // "Blackout",
+            // "Shell",
+            // "VSCode",
 ];
 
 /// All currently existing color palettes.
@@ -210,8 +211,8 @@ pub fn create_palette(name: &str) -> Option<Palette> {
     use crate::palettes::*;
     match name {
         "Imperial" => Some(IMPERIAL),
-        // "Radium" => Some(RADIUM),
-        // "Tundra" => Some(TUNDRA),
+        "Radium" => Some(RADIUM),
+        "Tundra" => Some(TUNDRA),
         // "Ocean" => Some(OCEAN),
         // "Monochrome" => Some(MONOCHROME),
         // "Black & White" => Some(BLACKWHITE),
@@ -222,7 +223,7 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         // "OxoCarbon" => Some(OXOCARBON),
         // "EverForest" => Some(EVERFOREST),
         // "Nord" => Some(NORD),
-        // "Rust" => Some(RUST),
+        "Rust" => Some(RUST),
         // "Red" => Some(RED),
         // "Blackout" => Some(BLACKOUT),
         // "Shell" => Some(SHELL),
@@ -233,8 +234,8 @@ pub fn create_palette(name: &str) -> Option<Palette> {
 
 const THEMES: &[&str] = &[
     "Imperial Dark",
-    // "Radium Dark",
-    // "Tundra Dark",
+    "Radium Dark",
+    "Tundra Dark",
     // "Ocean Dark",
     // "Monochrome Dark",
     // "Black & White Dark",
@@ -245,14 +246,14 @@ const THEMES: &[&str] = &[
     // "OxoCarbon Dark",
     // "EverForest Dark",
     // "Nord Dark",
-    // "Rust Dark",
+    "Rust Dark",
     // "Red Dark",
     // "Shell Dark",
     // "VSCode Dark",
     // //
-    // "Imperial Shell",
-    // "Radium Shell",
-    // "Tundra Shell",
+    "Imperial Shell",
+    "Radium Shell",
+    "Tundra Shell",
     // "Ocean Shell",
     // "Monochrome Shell",
     // "Black & White Shell",
@@ -263,7 +264,7 @@ const THEMES: &[&str] = &[
     // "OxoCarbon Shell",
     // "EverForest Shell",
     // "Nord Shell",
-    // "Rust Shell",
+    "Rust Shell",
     // "Red Shell",
     // "Shell Shell",
     // "VSCode Shell",
@@ -283,8 +284,8 @@ pub fn create_theme(theme: &str) -> Option<Theme> {
     use crate::palettes::*;
     let theme = match theme {
         "Imperial Dark" => dark_theme(theme, IMPERIAL),
-        // "Radium Dark" => dark_theme(theme, RADIUM),
-        // "Tundra Dark" => dark_theme(theme, TUNDRA),
+        "Radium Dark" => dark_theme(theme, RADIUM),
+        "Tundra Dark" => dark_theme(theme, TUNDRA),
         // "Ocean Dark" => dark_theme(theme, OCEAN),
         // "Monochrome Dark" => dark_theme(theme, MONOCHROME),
         // "Black & White Dark" => dark_theme(theme, BLACKWHITE),
@@ -295,14 +296,14 @@ pub fn create_theme(theme: &str) -> Option<Theme> {
         // "OxoCarbon Dark" => dark_theme(theme, OXOCARBON),
         // "EverForest Dark" => dark_theme(theme, EVERFOREST),
         // "Nord Dark" => dark_theme(theme, NORD),
-        // "Rust Dark" => dark_theme(theme, RUST),
+        "Rust Dark" => dark_theme(theme, RUST),
         // "Red Dark" => dark_theme(theme, RED),
         // "Shell Dark" => dark_theme(theme, SHELL),
         // "VSCode Dark" => dark_theme(theme, VSCODE_DARK),
         //
-        // "Imperial Shell" => shell_theme(theme, IMPERIAL),
-        // "Radium Shell" => shell_theme(theme, RADIUM),
-        // "Tundra Shell" => shell_theme(theme, TUNDRA),
+        "Imperial Shell" => shell_theme(theme, IMPERIAL),
+        "Radium Shell" => shell_theme(theme, RADIUM),
+        "Tundra Shell" => shell_theme(theme, TUNDRA),
         // "Ocean Shell" => shell_theme(theme, OCEAN),
         // "Monochrome Shell" => shell_theme(theme, MONOCHROME),
         // "Black & White Shell" => shell_theme(theme, BLACKWHITE),
@@ -313,7 +314,7 @@ pub fn create_theme(theme: &str) -> Option<Theme> {
         // "OxoCarbon Shell" => shell_theme(theme, OXOCARBON),
         // "EverForest Shell" => shell_theme(theme, EVERFOREST),
         // "Nord Shell" => shell_theme(theme, NORD),
-        // "Rust Shell" => shell_theme(theme, RUST),
+        "Rust Shell" => shell_theme(theme, RUST),
         // "Red Shell" => shell_theme(theme, RED),
         // "Shell Shell" => shell_theme(theme, SHELL),
         // "VSCode Shell" => shell_theme(theme, VSCODE_DARK),

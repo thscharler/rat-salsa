@@ -41,6 +41,7 @@ pub fn dark_theme(name: &str, p: Palette) -> Theme {
     th.define(Style::SELECT, th.p.style_ext(ColorsExt::Select));
     th.define(Style::DISABLED, th.p.style_ext(ColorsExt::Disabled));
     th.define(Style::INVALID, th.p.style_ext(ColorsExt::Invalid));
+    th.define(Style::HOVER, th.p.style_ext(ColorsExt::Hover));
     th.define(
         Style::TITLE,
         th.p.fg_bg_style_ext(ColorsExt::TitleFg, ColorsExt::Title),
@@ -56,7 +57,7 @@ pub fn dark_theme(name: &str, p: Palette) -> Theme {
     th.define(Style::SHADOW, th.p.style_ext(ColorsExt::Shadow));
     th.define(Style::TEXT_FOCUS, th.p.style_ext(ColorsExt::TextFocus));
     th.define(Style::TEXT_SELECT, th.p.style_ext(ColorsExt::Select));
-    th.define(Style::KEY_BINDING, th.p.style_ext(ColorsExt::KeyBinding));
+    th.define(Style::KEY_BINDING, th.p.fg_style_ext(ColorsExt::KeyBinding));
 
     th.define(Style::BUTTON_BASE, th.p.style_ext(ColorsExt::ButtonBase));
     th.define(Style::MENU_BASE, th.p.style_ext(ColorsExt::MenuBase));
@@ -133,7 +134,7 @@ fn button(th: &Theme) -> ButtonStyle {
         style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
-        hover: Some(th.style(Style::SELECT)),
+        hover: Some(th.style(Style::HOVER)),
         armed_delay: Some(Duration::from_millis(50)),
         ..Default::default()
     }
@@ -210,6 +211,7 @@ fn form(th: &Theme) -> FormStyle {
         style: th.style(Style::CONTAINER_BASE),
         label_style: Some(th.style(Style::LABEL_FG)),
         navigation: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        navigation_hover: Some(th.style(Style::HOVER)),
         block: Some(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
@@ -350,7 +352,7 @@ fn split(th: &Theme) -> SplitStyle {
     SplitStyle {
         style: th.style(Style::CONTAINER_BORDER_FG),
         arrow_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
-        drag_style: Some(th.style(Style::FOCUS)),
+        drag_style: Some(th.style(Style::HOVER)),
         ..Default::default()
     }
 }
@@ -372,6 +374,7 @@ fn tabbed(th: &Theme) -> TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         tab: Some(th.style(Style::INPUT)),
+        hover: Some(th.style(Style::HOVER)),
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
         ..Default::default()

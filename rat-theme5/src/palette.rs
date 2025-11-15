@@ -38,6 +38,7 @@ pub enum ColorsExt {
     Select,
     Disabled,
     Invalid,
+    Hover,
     TitleFg,
     Title,
     HeaderFg,
@@ -169,7 +170,7 @@ impl Display for ColorsExt {
 }
 
 impl ColorsExt {
-    pub const LEN: usize = 28;
+    pub const LEN: usize = 29;
 
     pub const fn array() -> [ColorsExt; ColorsExt::LEN] {
         use ColorsExt::*;
@@ -180,6 +181,7 @@ impl ColorsExt {
             Select,
             Disabled,
             Invalid,
+            Hover,
             TitleFg,
             Title,
             HeaderFg,
@@ -213,6 +215,7 @@ impl ColorsExt {
             "select" => Some(ColorsExt::Select),
             "disabled" => Some(ColorsExt::Disabled),
             "invalid" => Some(ColorsExt::Invalid),
+            "hover" => Some(ColorsExt::Hover),
             "title-fg" => Some(ColorsExt::TitleFg),
             "title" => Some(ColorsExt::Title),
             "header-fg" => Some(ColorsExt::HeaderFg),
@@ -247,6 +250,7 @@ impl ColorsExt {
             ColorsExt::Select => "select",
             ColorsExt::Disabled => "disabled",
             ColorsExt::Invalid => "invalid",
+            ColorsExt::Hover => "hover",
             ColorsExt::TitleFg => "title-fg",
             ColorsExt::Title => "title",
             ColorsExt::HeaderFg => "header-fg",
