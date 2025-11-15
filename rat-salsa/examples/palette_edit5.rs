@@ -14,8 +14,8 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme5::{
-    create_palette, create_theme, dark_theme, salsa_palettes, ColorIdx, Colors, ColorsExt, Palette,
-    Theme, WidgetStyle,
+    create_palette, create_theme, dark_theme, salsa_palettes, shell_theme, ColorIdx, Colors,
+    ColorsExt, Palette, Theme, WidgetStyle,
 };
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ct_event, ChoiceOutcome, HandleEvent, MenuOutcome, Regular};
@@ -36,6 +36,7 @@ use std::fs::File;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::str::FromStr;
 use std::{array, fs};
 use try_as_traits::TryAsRef;
 
@@ -595,24 +596,169 @@ fn load_pal_file(
         Err(e) => return Err(anyhow!(e)),
     };
 
-    state
-        .edit
-        .name
-        .set_value(ff.get_text("palette", "name", ""));
+    if ff.get("palette", "text_black").is_some() {
+        state
+            .edit
+            .name
+            .set_value(ff.get_text("palette", "name", ""));
 
-    _ = state
-        .edit
-        .dark
-        .set_value(ff.parse_val::<u8, _>("palette", "dark", 63));
+        state.edit.color[Colors::TextLight as usize]
+            .0
+            .set_value(ff.parse_val("palette", "text_light", Color::default()));
+        state.edit.color[Colors::TextLight as usize]
+            .3
+            .set_value(ff.parse_val("palette", "text_bright", Color::default()));
+        state.edit.color[Colors::TextDark as usize]
+            .0
+            .set_value(ff.parse_val("palette", "text_black", Color::default()));
+        state.edit.color[Colors::TextDark as usize]
+            .3
+            .set_value(ff.parse_val("palette", "text_dark", Color::default()));
 
-    for c in Colors::array() {
-        let ccc = ff.parse_array::<2, _, _>("color", c.name(), Color::default());
-        state.edit.color[c as usize].0.set_value(ccc[0]);
-        state.edit.color[c as usize].3.set_value(ccc[1]);
-    }
-    for c in ColorsExt::array() {
-        let color_idx = ff.parse_val("reference", c.name(), ColorIdx::default());
-        state.edit.color_ext[c as usize].set_value(color_idx);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "white", Color::default());
+        state.edit.color[Colors::White as usize].0.set_value(a[0]);
+        state.edit.color[Colors::White as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "gray", Color::default());
+        state.edit.color[Colors::Gray as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Gray as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "black", Color::default());
+        state.edit.color[Colors::Black as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Black as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "red", Color::default());
+        state.edit.color[Colors::Red as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Red as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "orange", Color::default());
+        state.edit.color[Colors::Orange as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Orange as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "yellow", Color::default());
+        state.edit.color[Colors::Yellow as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Yellow as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "limegreen", Color::default());
+        state.edit.color[Colors::LimeGreen as usize]
+            .0
+            .set_value(a[0]);
+        state.edit.color[Colors::LimeGreen as usize]
+            .3
+            .set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "green", Color::default());
+        state.edit.color[Colors::Green as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Green as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "bluegreen", Color::default());
+        state.edit.color[Colors::BlueGreen as usize]
+            .0
+            .set_value(a[0]);
+        state.edit.color[Colors::BlueGreen as usize]
+            .3
+            .set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "cyan", Color::default());
+        state.edit.color[Colors::Cyan as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Cyan as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "blue", Color::default());
+        state.edit.color[Colors::Blue as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Blue as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "deepblue", Color::default());
+        state.edit.color[Colors::DeepBlue as usize]
+            .0
+            .set_value(a[0]);
+        state.edit.color[Colors::DeepBlue as usize]
+            .3
+            .set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "purple", Color::default());
+        state.edit.color[Colors::Purple as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Purple as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "magenta", Color::default());
+        state.edit.color[Colors::Magenta as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Magenta as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "redpink", Color::default());
+        state.edit.color[Colors::RedPink as usize].0.set_value(a[0]);
+        state.edit.color[Colors::RedPink as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "primary", Color::default());
+        state.edit.color[Colors::Primary as usize].0.set_value(a[0]);
+        state.edit.color[Colors::Primary as usize].3.set_value(a[3]);
+        let a = ff.parse_array_v4::<8, _, _>("palette", "secondary", Color::default());
+        state.edit.color[Colors::Secondary as usize]
+            .0
+            .set_value(a[0]);
+        state.edit.color[Colors::Secondary as usize]
+            .3
+            .set_value(a[3]);
+
+        let color_idx = ColorIdx::from_str("white:0").expect("color");
+        state.edit.color_ext[ColorsExt::LabelFg as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("gray:3").expect("color");
+        state.edit.color_ext[ColorsExt::Input as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("primary:1").expect("color");
+        state.edit.color_ext[ColorsExt::Focus as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("secondary:1").expect("color");
+        state.edit.color_ext[ColorsExt::Select as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("gray:3").expect("color");
+        state.edit.color_ext[ColorsExt::Disabled as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("red:1").expect("color");
+        state.edit.color_ext[ColorsExt::Invalid as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("text-light:0").expect("color");
+        state.edit.color_ext[ColorsExt::TitleFg as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("red:0").expect("color");
+        state.edit.color_ext[ColorsExt::Title as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("text-light:0").expect("color");
+        state.edit.color_ext[ColorsExt::HeaderFg as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("blue:0").expect("color");
+        state.edit.color_ext[ColorsExt::Header as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("text-light:0").expect("color");
+        state.edit.color_ext[ColorsExt::FooterFg as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("blue:0").expect("color");
+        state.edit.color_ext[ColorsExt::Footer as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("text-dark:0").expect("color");
+        state.edit.color_ext[ColorsExt::Shadow as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("primary:1").expect("color");
+        state.edit.color_ext[ColorsExt::TextFocus as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("secondary:1").expect("color");
+        state.edit.color_ext[ColorsExt::TextSelect as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("gray:0").expect("color");
+        state.edit.color_ext[ColorsExt::ButtonBase as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("black:1").expect("color");
+        state.edit.color_ext[ColorsExt::MenuBase as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("blue-green:0").expect("color");
+        state.edit.color_ext[ColorsExt::KeyBinding as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("black:1").expect("color");
+        state.edit.color_ext[ColorsExt::StatusBase as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("black:2").expect("color");
+        state.edit.color_ext[ColorsExt::ContainerBase as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("gray:1").expect("color");
+        state.edit.color_ext[ColorsExt::ContainerBorderFg as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("gray:1").expect("color");
+        state.edit.color_ext[ColorsExt::ContainerArrowFg as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("white:0").expect("color");
+        state.edit.color_ext[ColorsExt::PopupBase as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("gray:3").expect("color");
+        state.edit.color_ext[ColorsExt::PopupBorderFg as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("gray:3").expect("color");
+        state.edit.color_ext[ColorsExt::PopupArrowFg as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("gray:2").expect("color");
+        state.edit.color_ext[ColorsExt::DialogBase as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("black:3").expect("color");
+        state.edit.color_ext[ColorsExt::DialogBorderFg as usize].set_value(color_idx);
+        let color_idx = ColorIdx::from_str("black:3").expect("color");
+        state.edit.color_ext[ColorsExt::DialogArrowFg as usize].set_value(color_idx);
+    } else {
+        state
+            .edit
+            .name
+            .set_value(ff.get_text("palette", "name", ""));
+
+        _ = state
+            .edit
+            .dark
+            .set_value(ff.parse_val::<u8, _>("palette", "dark", 63));
+
+        for c in Colors::array() {
+            let ccc = ff.parse_array::<2, _, _>("color", c.name(), Color::default());
+            state.edit.color[c as usize].0.set_value(ccc[0]);
+            state.edit.color[c as usize].3.set_value(ccc[1]);
+        }
+        for c in ColorsExt::array() {
+            let color_idx = ff.parse_val("reference", c.name(), ColorIdx::default());
+            state.edit.color_ext[c as usize].set_value(color_idx);
+        }
     }
 
     ctx.show_theme = create_edit_theme(state);
@@ -623,7 +769,7 @@ fn load_pal_file(
 fn create_edit_theme(state: &Scenery) -> Theme {
     let palette = state.edit.palette();
     match state.show.themes.value().as_str() {
-        // "Shell" => shell_theme("Shell", palette),
+        "Shell" => shell_theme("Shell", palette),
         // "Fallback" => fallback_theme("Fallback", palette),
         _ => dark_theme("Dark", palette),
     }
@@ -988,7 +1134,7 @@ pub mod show_tabs {
     use pure_rust_locales::Locale;
     use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
-    use rat_theme5::{dark_theme, StyleName, WidgetStyle};
+    use rat_theme5::{dark_theme, shell_theme, StyleName, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::event::ChoiceOutcome;
     use rat_widget::tabbed::{Tabbed, TabbedState};
@@ -1109,12 +1255,13 @@ pub mod show_tabs {
                     ])
                     .map(|v| (v.to_string(), v.to_string())),
             )
-            .styles(ctx.theme.style(WidgetStyle::CHOICE))
+            .styles(ctx.show_theme.style(WidgetStyle::CHOICE))
             .into_widgets();
         choice.render(l_function[1], buf, &mut state.themes);
 
         Tabbed::new()
             .tabs(["Input", "Text", "Other"])
+            // .closeable(true)
             .block(Block::bordered().border_type(BorderType::Rounded))
             .styles(ctx.show_theme.style(WidgetStyle::TABBED))
             .render(l0[2], buf, &mut state.tabs);
@@ -1148,7 +1295,7 @@ pub mod show_tabs {
             ChoiceOutcome::Value => {
                 let pal = ctx.show_theme.p;
                 ctx.show_theme = match state.themes.value().as_str() {
-                    // "Shell" => shell_theme("Shell", palette),
+                    "Shell" => shell_theme("Shell", pal),
                     // "Fallback" => fallback_theme("Fallback", palette),
                     _ => dark_theme("Dark", pal),
                 };
@@ -2204,6 +2351,13 @@ mod configparser_ext {
             default: D,
         ) -> String;
 
+        fn parse_array_v4<const N: usize, T: Copy + FromStr, S: AsRef<str>>(
+            &mut self,
+            sec: S,
+            key: &str,
+            default: T,
+        ) -> [T; N];
+
         fn parse_array<const N: usize, T: Copy + FromStr + Debug, S: AsRef<str>>(
             &mut self,
             sec: S,
@@ -2290,6 +2444,22 @@ mod configparser_ext {
             } else {
                 default.into()
             }
+        }
+
+        fn parse_array_v4<const N: usize, T: Copy + FromStr, S: AsRef<str>>(
+            &mut self,
+            sec: S,
+            key: &str,
+            default: T,
+        ) -> [T; N] {
+            let sec = sec.as_ref();
+            let mut r = [MaybeUninit::uninit(); N];
+            for (i, v) in r.iter_mut().enumerate() {
+                v.write(self.parse_val(sec, format!("{}.{}", key, i).as_str(), default));
+            }
+            // Everything is initialized. Transmute the array to the
+            // initialized type.
+            unsafe { mem::transmute_copy::<[MaybeUninit<T>; N], [T; N]>(&r) }
         }
 
         fn parse_array<const N: usize, T: Copy + FromStr + Debug, S: AsRef<str>>(
