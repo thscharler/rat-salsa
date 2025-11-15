@@ -118,6 +118,7 @@ pub struct Tabbed<'a> {
 
     style: Style,
     tab_style: Option<Style>,
+    hover_style: Option<Style>,
     select_style: Option<Style>,
     focus_style: Option<Style>,
 }
@@ -127,6 +128,7 @@ pub struct Tabbed<'a> {
 pub struct TabbedStyle {
     pub style: Style,
     pub tab: Option<Style>,
+    pub hover: Option<Style>,
     pub select: Option<Style>,
     pub focus: Option<Style>,
 
@@ -296,6 +298,9 @@ impl<'a> Tabbed<'a> {
         if styles.select.is_some() {
             self.select_style = styles.select;
         }
+        if styles.hover.is_some() {
+            self.hover_style = styles.hover;
+        }
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
@@ -330,6 +335,12 @@ impl<'a> Tabbed<'a> {
         self
     }
 
+    /// Style for hover.
+    pub fn hover_style(mut self, style: Style) -> Self {
+        self.hover_style = Some(style);
+        self
+    }
+
     /// Style for the selected tab.
     pub fn select_style(mut self, style: Style) -> Self {
         self.select_style = Some(style);
@@ -348,6 +359,7 @@ impl Default for TabbedStyle {
         Self {
             style: Default::default(),
             tab: None,
+            hover: None,
             select: None,
             focus: None,
             tab_type: None,

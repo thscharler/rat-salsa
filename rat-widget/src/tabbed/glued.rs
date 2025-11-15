@@ -192,6 +192,11 @@ impl TabWidget for GluedTabs {
         } else {
             tabbed.style
         };
+        let hover_style = if let Some(hover_style) = tabbed.hover_style {
+            hover_style
+        } else {
+            tabbed.style
+        };
 
         buf.set_style(state.tab_title_area, tabbed.style);
         tabbed.block.clone().render(state.block_area, buf);
@@ -225,7 +230,7 @@ impl TabWidget for GluedTabs {
         if tabbed.closeable {
             for i in 0..state.tab_title_close_areas.len() {
                 if state.mouse.hover.get() == Some(i) {
-                    buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
+                    buf.set_style(state.tab_title_close_areas[i], hover_style);
                 }
                 if let Some(cell) = buf.cell_mut(state.tab_title_close_areas[i].as_position()) {
                     cell.set_symbol(" \u{2A2F} ");

@@ -79,7 +79,6 @@
 //! ```
 use crate::_private::NonExhaustive;
 use crate::layout::GenericLayout;
-use crate::util::revert_style;
 use event::FormOutcome;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
@@ -113,6 +112,7 @@ where
     style: Style,
     block: Option<Block<'a>>,
     nav_style: Option<Style>,
+    nav_hover_style: Option<Style>,
     title_style: Option<Style>,
     navigation: bool,
     next_page: &'a str,
@@ -157,6 +157,8 @@ pub struct FormStyle {
     pub label_alignment: Option<Alignment>,
     /// navigation style.
     pub navigation: Option<Style>,
+    /// navigation hover.
+    pub navigation_hover: Option<Style>,
     /// show navigation
     pub show_navigation: Option<bool>,
     /// title style.
@@ -272,6 +274,7 @@ where
             style: Default::default(),
             block: Default::default(),
             nav_style: Default::default(),
+            nav_hover_style: Default::default(),
             title_style: Default::default(),
             navigation: true,
             next_page: ">>>",
@@ -319,6 +322,12 @@ where
     /// Style for navigation.
     pub fn nav_style(mut self, nav_style: Style) -> Self {
         self.nav_style = Some(nav_style);
+        self
+    }
+
+    /// Style for navigation.
+    pub fn nav_hover_style(mut self, nav_hover: Style) -> Self {
+        self.nav_hover_style = Some(nav_hover);
         self
     }
 
@@ -383,6 +392,9 @@ where
         self.style = styles.style;
         if let Some(nav) = styles.navigation {
             self.nav_style = Some(nav);
+        }
+        if let Some(nav) = styles.navigation_hover {
+            self.nav_hover_style = Some(nav);
         }
         if let Some(navigation) = styles.show_navigation {
             self.navigation = navigation;
@@ -526,8 +538,9 @@ where
         if !state.layout.is_endless() {
             // active areas
             let nav_style = self.nav_style.unwrap_or(self.style);
+            let nav_hover_style = self.nav_hover_style.unwrap_or(self.style);
             if matches!(state.mouse.hover.get(), Some(0)) {
-                buf.set_style(state.prev_area, revert_style(nav_style));
+                buf.set_style(state.prev_area, nav_hover_style);
             } else {
                 buf.set_style(state.prev_area, nav_style);
             }
@@ -537,7 +550,7 @@ where
                 Span::from(self.first_page).render(state.prev_area, buf);
             }
             if matches!(state.mouse.hover.get(), Some(1)) {
-                buf.set_style(state.next_area, revert_style(nav_style));
+                buf.set_style(state.next_area, nav_hover_style);
             } else {
                 buf.set_style(state.next_area, nav_style);
             }
@@ -800,6 +813,7 @@ impl Default for FormStyle {
             label_style: Default::default(),
             label_alignment: Default::default(),
             navigation: Default::default(),
+            navigation_hover: Default::default(),
             show_navigation: Default::default(),
             title: Default::default(),
             block: Default::default(),
