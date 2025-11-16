@@ -1,5 +1,6 @@
 [palette]
 name=Tundra
+docs=An adaption of nvchad's tundra theme.\n-- Thanks to original theme for existing <https://github.com/sam4llis/nvim-tundra>\n
 dark=63
 
 [color]
@@ -30,6 +31,7 @@ focus=primary:1
 select=secondary:1
 disabled=gray:3
 invalid=red:3
+hover=black:0
 title-fg=text-dark:3
 title=red:0
 header-fg=blue:2

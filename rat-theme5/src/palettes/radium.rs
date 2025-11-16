@@ -3,13 +3,12 @@ use ratatui::style::Color;
 
 /// Radium
 /// An adaption of nvchad's radium theme.
-///
 /// -- credits to original radium theme from <https://github.com/dharmx>
 const DARKNESS: u8 = 63;
 
 pub const RADIUM: Palette = {
     let mut p = Palette {
-        name: "Radium",
+        name: "Radium", 
 
         color: [
             Palette::interpolate2(0xc4c4c5, 0xaaaaaa, 0x0, 0x0),
@@ -41,6 +40,7 @@ pub const RADIUM: Palette = {
     p.color_ext[ColorsExt::Select as usize] = p.color[Colors::Secondary as usize][1];
     p.color_ext[ColorsExt::Disabled as usize] = p.color[Colors::Gray as usize][0];
     p.color_ext[ColorsExt::Invalid as usize] = p.color[Colors::Red as usize][3];
+    p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Black as usize][0];
     p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextLight as usize][0];
     p.color_ext[ColorsExt::Title as usize] = p.color[Colors::Secondary as usize][0];
     p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::Cyan as usize][0];

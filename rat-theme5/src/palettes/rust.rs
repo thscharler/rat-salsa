@@ -2,6 +2,7 @@ use crate::{Colors, ColorsExt, Palette};
 use ratatui::style::Color;
 
 /// Rust
+/// Rusty theme.
 const DARKNESS: u8 = 64;
 
 pub const RUST: Palette = {

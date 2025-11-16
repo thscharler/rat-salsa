@@ -1,5 +1,6 @@
 [palette]
 name=Rust
+docs=Rusty theme.
 dark=64
 
 [color]

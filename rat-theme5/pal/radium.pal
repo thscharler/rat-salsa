@@ -1,5 +1,6 @@
 [palette]
 name=Radium
+docs=An adaption of nvchad's radium theme.\n-- credits to original radium theme from <https://github.com/dharmx>
 dark=63
 
 [color]
@@ -30,6 +31,7 @@ focus=primary:0
 select=secondary:1
 disabled=gray:0
 invalid=red:3
+hover=black:0
 title-fg=text-light:0
 title=secondary:0
 header-fg=cyan:0

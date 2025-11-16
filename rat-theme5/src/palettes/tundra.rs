@@ -2,7 +2,9 @@ use crate::{Colors, ColorsExt, Palette};
 use ratatui::style::Color;
 
 /// Tundra
-const DARKNESS: u8 = 64;
+/// An adaption of nvchad's tundra theme.
+/// -- Thanks to original theme for existing <https://github.com/sam4llis/nvim-tundra>
+const DARKNESS: u8 = 63;
 
 pub const TUNDRA: Palette = {
     let mut p = Palette {
@@ -38,6 +40,7 @@ pub const TUNDRA: Palette = {
     p.color_ext[ColorsExt::Select as usize] = p.color[Colors::Secondary as usize][1];
     p.color_ext[ColorsExt::Disabled as usize] = p.color[Colors::Gray as usize][3];
     p.color_ext[ColorsExt::Invalid as usize] = p.color[Colors::Red as usize][3];
+    p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Black as usize][0];
     p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextDark as usize][3];
     p.color_ext[ColorsExt::Title as usize] = p.color[Colors::Red as usize][0];
     p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::Blue as usize][2];
