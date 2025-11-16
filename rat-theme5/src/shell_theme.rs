@@ -47,9 +47,9 @@ pub fn shell_theme(name: &str, p: Palette) -> Theme {
     th.define(Style::DISABLED, th.p.style_ext(ColorsExt::Disabled));
     th.define(Style::INVALID, th.p.style_ext(ColorsExt::Invalid));
     th.define(Style::HOVER, th.p.fg_style_ext(ColorsExt::Hover));
-    th.define(Style::TITLE, th.p.fg_style_ext(ColorsExt::Title)); // todo
-    th.define(Style::HEADER, th.p.fg_style_ext(ColorsExt::Header));
-    th.define(Style::FOOTER, th.p.fg_style_ext(ColorsExt::Footer));
+    th.define(Style::TITLE, th.p.fg_style_ext(ColorsExt::TitleFg));
+    th.define(Style::HEADER, th.p.fg_style_ext(ColorsExt::HeaderFg));
+    th.define(Style::FOOTER, th.p.fg_style_ext(ColorsExt::FooterFg));
     th.define(Style::SHADOWS, th.p.style_ext(ColorsExt::Shadows));
     th.define(Style::TEXT_FOCUS, th.p.style_ext(ColorsExt::TextFocus));
     th.define(Style::TEXT_SELECT, th.p.style_ext(ColorsExt::Select));

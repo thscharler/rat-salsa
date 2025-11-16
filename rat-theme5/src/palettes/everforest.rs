@@ -33,7 +33,6 @@ pub const EVERFOREST: Palette = {
     };
 
     p.color_ext[ColorsExt::LabelFg as usize] = p.color[Colors::White as usize][0];
-    p.color_ext[ColorsExt::Input as usize] = p.color[Colors::Gray as usize][3];
     p.color_ext[ColorsExt::Focus as usize] = p.color[Colors::Primary as usize][1];
     p.color_ext[ColorsExt::Select as usize] = p.color[Colors::Secondary as usize][1];
     p.color_ext[ColorsExt::Disabled as usize] = p.color[Colors::Gray as usize][3];

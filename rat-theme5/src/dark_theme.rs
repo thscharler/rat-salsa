@@ -1,7 +1,6 @@
 use crate::palette::{Colors, ColorsExt, Palette};
 use crate::{Category, Theme};
 use crate::{StyleName, WidgetStyle};
-use log::debug;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
@@ -74,12 +73,6 @@ pub fn dark_theme(name: &str, p: Palette) -> Theme {
     );
     th.define(
         Style::CONTAINER_BORDER_FG,
-        th.p.fg_bg_style_ext(ColorsExt::ContainerBorderFg, ColorsExt::ContainerBase),
-    );
-    debug!(
-        "container_border_fg {:?} {:?} {:?} ",
-        th.p.color_ext(ColorsExt::ContainerBorderFg),
-        th.p.color_ext(ColorsExt::ContainerBase),
         th.p.fg_bg_style_ext(ColorsExt::ContainerBorderFg, ColorsExt::ContainerBase),
     );
     th.define(
