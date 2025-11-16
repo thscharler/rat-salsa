@@ -122,6 +122,7 @@ pub enum PalEvent {
     Load(PathBuf),
     Export(PathBuf),
     Base46(PathBuf),
+    ContainerBase(ColorIdx),
 }
 
 impl From<RenderedEvent> for PalEvent {
@@ -398,8 +399,17 @@ pub fn event(
             show_error(s, ctx);
             Ok(Control::Changed)
         }
+        PalEvent::ContainerBase(c) => {
+            state.detail.show.readability.colors.set_value(*c);
+            Ok(Control::Changed)
+        }
         PalEvent::Save(p) => save_pal_file(&p, state, ctx),
-        PalEvent::Load(p) => load_pal_file(&p, state, ctx),
+        PalEvent::Load(p) => {
+            _ = load_pal_file(&p, state, ctx)?;
+            let c = state.edit.color_ext[ColorsExt::ContainerBase as usize].value();
+            state.detail.show.readability.colors.set_value(c);
+            Ok(Control::Changed)
+        }
         PalEvent::Export(p) => export_pal_file(&p, state, ctx),
         PalEvent::Base46(p) => import_base46_file(&p, state, ctx),
         _ => Ok(Control::Continue),
@@ -709,6 +719,14 @@ fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, 
     for c in ColorsExt::array() {
         state.edit.color_ext[c as usize].set_value(ColorIdx(Colors::default(), 0));
     }
+
+    state
+        .detail
+        .show
+        .readability
+        .colors
+        .set_value(ColorIdx(Colors::default(), 0));
+
     Ok(Control::Changed)
 }
 
@@ -956,7 +974,6 @@ mod base46 {
     use rat_widget::text::impl_screen_cursor;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Flex, Rect};
-    use ratatui::widgets::{Block, BorderType};
 
     #[allow(non_snake_case)]
     #[derive(Debug, Default)]
@@ -1401,6 +1418,51 @@ mod base46 {
 
         if let Some(mode_change) = mode_change {
             state.white.set_mode(mode_change);
+            state.darker_black.set_mode(mode_change);
+            state.black.set_mode(mode_change);
+            state.black2.set_mode(mode_change);
+            state.one_bg.set_mode(mode_change);
+            state.one_bg2.set_mode(mode_change);
+            state.one_bg3.set_mode(mode_change);
+            state.grey.set_mode(mode_change);
+            state.grey_fg.set_mode(mode_change);
+            state.grey_fg2.set_mode(mode_change);
+            state.light_grey.set_mode(mode_change);
+            state.red.set_mode(mode_change);
+            state.baby_pink.set_mode(mode_change);
+            state.pink.set_mode(mode_change);
+            state.line.set_mode(mode_change);
+            state.green.set_mode(mode_change);
+            state.vibrant_green.set_mode(mode_change);
+            state.nord_blue.set_mode(mode_change);
+            state.blue.set_mode(mode_change);
+            state.yellow.set_mode(mode_change);
+            state.sun.set_mode(mode_change);
+            state.purple.set_mode(mode_change);
+            state.dark_purple.set_mode(mode_change);
+            state.teal.set_mode(mode_change);
+            state.orange.set_mode(mode_change);
+            state.cyan.set_mode(mode_change);
+            state.statusline_bg.set_mode(mode_change);
+            state.lightbg.set_mode(mode_change);
+            state.pmenu_bg.set_mode(mode_change);
+            state.folder_bg.set_mode(mode_change);
+            state.base00.set_mode(mode_change);
+            state.base01.set_mode(mode_change);
+            state.base02.set_mode(mode_change);
+            state.base03.set_mode(mode_change);
+            state.base04.set_mode(mode_change);
+            state.base05.set_mode(mode_change);
+            state.base06.set_mode(mode_change);
+            state.base07.set_mode(mode_change);
+            state.base08.set_mode(mode_change);
+            state.base09.set_mode(mode_change);
+            state.base0A.set_mode(mode_change);
+            state.base0B.set_mode(mode_change);
+            state.base0C.set_mode(mode_change);
+            state.base0D.set_mode(mode_change);
+            state.base0E.set_mode(mode_change);
+            state.base0F.set_mode(mode_change);
         }
 
         Ok(r)
@@ -1471,11 +1533,12 @@ mod base46 {
 
 mod palette_edit {
     use crate::color_span::{ColorSpan, ColorSpanState};
-    use crate::Global;
+    use crate::{Global, PalEvent};
     use anyhow::Error;
     use pure_rust_locales::Locale;
     use rat_event::{event_flow, MouseOnly, Outcome, Popup};
     use rat_focus::{FocusFlag, HasFocus, Navigation};
+    use rat_salsa::SalsaContext;
     use rat_theme5::{ColorIdx, Colors, ColorsExt, Palette, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::clipper::{Clipper, ClipperState};
@@ -1752,7 +1815,7 @@ mod palette_edit {
     pub fn event(
         event: &crossterm::event::Event,
         state: &mut PaletteEdit,
-        _ctx: &mut Global,
+        ctx: &mut Global,
     ) -> Result<Outcome, Error> {
         let mut mode_change = None;
 
@@ -1761,6 +1824,11 @@ mod palette_edit {
                 event_flow!(
                     break 'f match state.color_ext[c as usize].handle(event, Popup) {
                         ChoiceOutcome::Value => {
+                            if c == ColorsExt::ContainerBase {
+                                ctx.queue_event(PalEvent::ContainerBase(
+                                    state.color_ext[c as usize].value(),
+                                ));
+                            }
                             ChoiceOutcome::Value
                         }
                         r => r,
@@ -1952,6 +2020,7 @@ pub mod show_tabs {
     use crate::readability::Readability;
     use crate::{datainput, other, readability, Global};
     use anyhow::Error;
+    use log::debug;
     use pure_rust_locales::Locale;
     use rat_event::{event_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
@@ -1961,10 +2030,10 @@ pub mod show_tabs {
     use rat_widget::tabbed::{Tabbed, TabbedState};
     use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Alignment, Constraint, Layout, Rect};
+    use ratatui::layout::{Alignment, Constraint, Layout, Position, Rect};
     use ratatui::style::Style;
     use ratatui::text::Text;
-    use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+    use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
     use std::iter::once;
 
     // mark tabs
@@ -2055,6 +2124,16 @@ pub mod show_tabs {
         .spacing(1)
         .split(area);
 
+        let base = ctx.show_theme.style_style(Style::CONTAINER_BASE);
+        for r in area.top()..area.bottom() {
+            for c in area.left()..area.right() {
+                if let Some(cell) = buf.cell_mut(Position::new(c, r)) {
+                    cell.reset();
+                    cell.set_style(base);
+                }
+            }
+        }
+
         Text::from("Preview")
             .alignment(Alignment::Center)
             .style(ctx.show_theme.style_style(Style::TITLE))
@@ -2082,7 +2161,11 @@ pub mod show_tabs {
 
         Tabbed::new()
             .tabs(["Input", "Text", "Other"])
-            .block(Block::bordered().border_type(BorderType::Rounded))
+            .block(
+                Block::bordered()
+                    .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
+                    .border_type(BorderType::Rounded),
+            )
             .styles(ctx.show_theme.style(WidgetStyle::TABBED))
             .render(l0[3], buf, &mut state.tabs);
 
