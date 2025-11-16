@@ -97,6 +97,7 @@ pub fn dark_theme(name: &str, p: Palette) -> Theme {
     );
 
     th.define_fn(WidgetStyle::BUTTON, button);
+    th.define_fn(WidgetStyle::CALENDAR, month);
     th.define_fn(WidgetStyle::CHECKBOX, checkbox);
     th.define_fn(WidgetStyle::CHOICE, choice);
     th.define_fn(WidgetStyle::CLIPPER, clipper);

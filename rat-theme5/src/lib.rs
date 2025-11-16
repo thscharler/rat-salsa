@@ -297,7 +297,7 @@ pub fn create_theme(theme: &str) -> Option<Theme> {
         "EverForest Dark" => dark_theme(theme, EVERFOREST),
         "Nord Dark" => dark_theme(theme, NORD),
         "Rust Dark" => dark_theme(theme, RUST),
-        "Red Dark" => dark_theme(theme, REDS),
+        "Reds Dark" => dark_theme(theme, REDS),
         "Shell Dark" => dark_theme(theme, SHELL),
         "VSCode Dark" => dark_theme(theme, VSCODEDARK),
         //

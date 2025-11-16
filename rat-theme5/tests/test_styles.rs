@@ -27,6 +27,7 @@ use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
 use ratatui::style::Style;
+use std::io::Write;
 
 #[test]
 fn test_palette() {
@@ -36,16 +37,19 @@ fn test_palette() {
     }
 }
 
-// #[test]
-// fn test_styles() {
-//     let themes = salsa_themes();
-//
-//     for theme in themes {
-//         eprintln!("THEME {:?}", theme);
-//         let th = create_theme(theme).expect("theme");
-//         verify_theme(&th);
-//     }
-// }
+#[test]
+fn test_styles() {
+    let themes = salsa_themes();
+
+    for theme in themes {
+        eprintln!();
+        eprintln!("THEME {:?}", theme);
+        eprintln!();
+        _ = std::io::stderr().flush();
+        let th = create_theme(theme).expect("theme");
+        verify_theme(&th);
+    }
+}
 
 #[test]
 fn test_fallback() {
