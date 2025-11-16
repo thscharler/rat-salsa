@@ -8,7 +8,7 @@ const DARKNESS: u8 = 63;
 
 pub const TUNDRA: Palette = {
     let mut p = Palette {
-        name: "Tundra",
+        name: "Tundra", 
 
         color: [
             Palette::interpolate2(0xe6eaf2, 0xffffff, 0x0, 0x0),
@@ -28,7 +28,7 @@ pub const TUNDRA: Palette = {
             Palette::interpolate(0xc7d0fc, 0xa5b4fc, DARKNESS),
             Palette::interpolate(0xbfcaf2, 0x9baaf2, DARKNESS),
             Palette::interpolate(0xb7abd9, 0xb3a6da, DARKNESS),
-            Palette::interpolate(0xffc9c9, 0xff8e8e, DARKNESS),
+            Palette::interpolate(0xffc9c9, 0xf98b8b, DARKNESS),
             Palette::interpolate(0xfffcad, 0xfecdd3, DARKNESS),
         ],
         color_ext: [Color::Reset; ColorsExt::LEN],
@@ -40,13 +40,13 @@ pub const TUNDRA: Palette = {
     p.color_ext[ColorsExt::Select as usize] = p.color[Colors::Secondary as usize][1];
     p.color_ext[ColorsExt::Disabled as usize] = p.color[Colors::Gray as usize][3];
     p.color_ext[ColorsExt::Invalid as usize] = p.color[Colors::Red as usize][3];
-    p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Black as usize][0];
+    p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Secondary as usize][0];
     p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextDark as usize][3];
     p.color_ext[ColorsExt::Title as usize] = p.color[Colors::Red as usize][0];
-    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::Blue as usize][2];
-    p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Gray as usize][3];
-    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::Blue as usize][2];
-    p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Gray as usize][3];
+    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::TextDark as usize][3];
+    p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Blue as usize][3];
+    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextDark as usize][3];
+    p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Blue as usize][3];
     p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::TextDark as usize][0];
     p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][1];
     p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][1];

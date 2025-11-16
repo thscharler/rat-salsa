@@ -1,3 +1,4 @@
+use log::debug;
 use ratatui::style::{Color, Style};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -12,7 +13,6 @@ pub enum Colors {
     Primary,
     Secondary,
     White,
-    #[default]
     Black,
     Gray,
     Red,
@@ -27,6 +27,8 @@ pub enum Colors {
     Purple,
     Magenta,
     RedPink,
+    #[default]
+    None,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -134,6 +136,7 @@ impl Colors {
             "purple" => Some(Colors::Purple),
             "magenta" => Some(Colors::Magenta),
             "red-pink" => Some(Colors::RedPink),
+            "none" => Some(Colors::None),
             _ => None,
         }
     }
@@ -159,6 +162,7 @@ impl Colors {
             Colors::Purple => "purple",
             Colors::Magenta => "magenta",
             Colors::RedPink => "red-pink",
+            Colors::None => "none",
         }
     }
 }
@@ -308,33 +312,52 @@ pub(crate) enum Rating {
 
 impl Palette {
     pub fn color(&self, id: Colors, n: usize) -> Color {
-        self.color[id as usize][n]
+        if id == Colors::None {
+            Color::Reset
+        } else {
+            self.color[id as usize][n]
+        }
     }
 
     pub fn style(&self, id: Colors, n: usize) -> Style {
-        let color = self.color[id as usize][n];
+        let color = self.color(id, n);
         self.normal_contrast(color)
     }
 
     pub fn high_style(&self, id: Colors, n: usize) -> Style {
-        let color = self.color[id as usize][n];
+        let color = self.color(id, n);
         self.high_contrast(color)
     }
 
-    pub fn fg_bg_style(&self, fg: ColorsExt, n: usize, bg: ColorsExt, m: usize) -> Style {
-        let color = self.color[fg as usize][n];
-        let color_bg = self.color[bg as usize][m];
-        Style::new().fg(color).bg(color_bg)
+    pub fn fg_bg_style(&self, fg: Colors, n: usize, bg: Colors, m: usize) -> Style {
+        let color = self.color(fg, n);
+        let color_bg = self.color(bg, m);
+        let mut style = Style::new();
+        if color != Color::Reset {
+            style = style.fg(color);
+        }
+        if color_bg != Color::Reset {
+            style = style.bg(color_bg);
+        }
+        style
     }
 
     pub fn fg_style(&self, id: Colors, n: usize) -> Style {
-        let color = self.color[id as usize][n];
-        Style::new().fg(color)
+        let color = self.color(id, n);
+        let mut style = Style::new();
+        if color != Color::Reset {
+            style = style.fg(color);
+        }
+        style
     }
 
     pub fn bg_style(&self, id: Colors, n: usize) -> Style {
-        let color = self.color[id as usize][n];
-        Style::new().bg(color)
+        let color = self.color(id, n);
+        let mut style = Style::new();
+        if color != Color::Reset {
+            style = style.bg(color);
+        }
+        style
     }
 
     pub fn color_ext(&self, id: ColorsExt) -> Color {
@@ -354,17 +377,32 @@ impl Palette {
     pub fn fg_bg_style_ext(&self, fg: ColorsExt, bg: ColorsExt) -> Style {
         let color = self.color_ext[fg as usize];
         let color_bg = self.color_ext[bg as usize];
-        Style::new().fg(color).bg(color_bg)
+        let mut style = Style::new();
+        if color != Color::Reset {
+            style = style.fg(color);
+        }
+        if color_bg != Color::Reset {
+            style = style.bg(color_bg);
+        }
+        style
     }
 
     pub fn fg_style_ext(&self, id: ColorsExt) -> Style {
         let color = self.color_ext[id as usize];
-        Style::new().fg(color)
+        let mut style = Style::new();
+        if color != Color::Reset {
+            style = style.fg(color);
+        }
+        style
     }
 
     pub fn bg_style_ext(&self, id: ColorsExt) -> Style {
         let color = self.color_ext[id as usize];
-        Style::new().bg(color)
+        let mut style = Style::new();
+        if color != Color::Reset {
+            style = style.bg(color);
+        }
+        style
     }
 }
 
@@ -374,7 +412,7 @@ impl Palette {
     /// based on `rate_text_color`.
     pub fn high_contrast(&self, color: Color) -> Style {
         match Self::rate_text_color(color) {
-            None => Style::reset(),
+            None => Style::new(),
             Some(Rating::Light) => Style::new().bg(color).fg(self.color(Colors::TextLight, 3)),
             Some(Rating::Dark) => Style::new().bg(color).fg(self.color(Colors::TextLight, 3)),
         }
@@ -385,7 +423,7 @@ impl Palette {
     /// based on `rate_text_color`.
     pub fn normal_contrast(&self, color: Color) -> Style {
         match Self::rate_text_color(color) {
-            None => Style::reset(),
+            None => Style::new(),
             Some(Rating::Light) => Style::new().bg(color).fg(self.color(Colors::TextLight, 0)),
             Some(Rating::Dark) => Style::new().bg(color).fg(self.color(Colors::TextDark, 0)),
         }
@@ -394,6 +432,9 @@ impl Palette {
     /// Pick a color from the choice with a good contrast to the
     /// given background.
     pub fn normal_contrast_color(&self, bg: Color, text: &[Color]) -> Style {
+        if bg == Color::Reset {
+            return Style::new();
+        }
         let mut color0 = text[0];
         let mut color1 = text[0];
         let mut contrast1 = Self::contrast_bt_srgb(color1, bg);
@@ -413,6 +454,9 @@ impl Palette {
     /// Pick a color from the choice with the best contrast to the
     /// given background.
     pub fn high_contrast_color(&self, bg: Color, text: &[Color]) -> Style {
+        if bg == Color::Reset {
+            return Style::new();
+        }
         let mut color0 = text[0];
         let mut color1 = text[0];
         let mut contrast1 = Self::contrast_bt_srgb(color1, bg);

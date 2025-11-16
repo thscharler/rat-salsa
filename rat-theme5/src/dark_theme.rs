@@ -1,6 +1,7 @@
 use crate::palette::{Colors, ColorsExt, Palette};
 use crate::{Category, Theme};
 use crate::{StyleName, WidgetStyle};
+use log::debug;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
@@ -34,6 +35,10 @@ use std::time::Duration;
 /// A dark theme.
 pub fn dark_theme(name: &str, p: Palette) -> Theme {
     let mut th = Theme::new(name, Category::Dark, p);
+
+    // for i in ColorsExt::array() {
+    //     debug!("{:?} {:?}", i, p.color_ext(i));
+    // }
 
     th.define(Style::LABEL_FG, th.p.fg_style_ext(ColorsExt::LabelFg));
     th.define(Style::INPUT, th.p.style_ext(ColorsExt::Input));
@@ -69,6 +74,12 @@ pub fn dark_theme(name: &str, p: Palette) -> Theme {
     );
     th.define(
         Style::CONTAINER_BORDER_FG,
+        th.p.fg_bg_style_ext(ColorsExt::ContainerBorderFg, ColorsExt::ContainerBase),
+    );
+    debug!(
+        "container_border_fg {:?} {:?} {:?} ",
+        th.p.color_ext(ColorsExt::ContainerBorderFg),
+        th.p.color_ext(ColorsExt::ContainerBase),
         th.p.fg_bg_style_ext(ColorsExt::ContainerBorderFg, ColorsExt::ContainerBase),
     );
     th.define(

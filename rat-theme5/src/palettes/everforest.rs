@@ -6,7 +6,7 @@ const DARKNESS: u8 = 63;
 
 pub const EVERFOREST: Palette = {
     let mut p = Palette {
-        name: "EverForest",
+        name: "EverForest", 
 
         color: [
             Palette::interpolate2(0xd8d4cb, 0xf4f0e6, 0x0, 0x0),
@@ -39,13 +39,13 @@ pub const EVERFOREST: Palette = {
     p.color_ext[ColorsExt::Disabled as usize] = p.color[Colors::Gray as usize][3];
     p.color_ext[ColorsExt::Invalid as usize] = p.color[Colors::Red as usize][1];
     p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Black as usize][0];
-    p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextLight as usize][0];
+    p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextDark as usize][0];
     p.color_ext[ColorsExt::Title as usize] = p.color[Colors::Red as usize][0];
-    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Blue as usize][0];
-    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Blue as usize][0];
-    p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::TextDark as usize][0];
+    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::TextDark as usize][3];
+    p.color_ext[ColorsExt::Header as usize] = p.color[Colors::DeepBlue as usize][0];
+    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextDark as usize][3];
+    p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::DeepBlue as usize][0];
+    p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::Black as usize][0];
     p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][1];
     p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][1];
     p.color_ext[ColorsExt::ButtonBase as usize] = p.color[Colors::Gray as usize][0];
