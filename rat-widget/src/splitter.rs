@@ -37,7 +37,7 @@
 use crate::_private::NonExhaustive;
 use crate::util::{fill_buf_area, revert_style};
 use rat_event::util::MouseFlagsN;
-use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, event_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{RelocatableState, relocate_area, relocate_areas, relocate_positions};
 use ratatui::buffer::Buffer;
@@ -1696,26 +1696,28 @@ impl SplitState {
 
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SplitState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
-        flow!(if self.is_focused() {
-            if let Some(n) = self.focus_marker {
-                match event {
-                    ct_event!(keycode press Left) => self.move_split_left(n, 1).into(),
-                    ct_event!(keycode press Right) => self.move_split_right(n, 1).into(),
-                    ct_event!(keycode press Up) => self.move_split_up(n, 1).into(),
-                    ct_event!(keycode press Down) => self.move_split_down(n, 1).into(),
+        event_flow!(
+            return if self.is_focused() {
+                if let Some(n) = self.focus_marker {
+                    match event {
+                        ct_event!(keycode press Left) => self.move_split_left(n, 1).into(),
+                        ct_event!(keycode press Right) => self.move_split_right(n, 1).into(),
+                        ct_event!(keycode press Up) => self.move_split_up(n, 1).into(),
+                        ct_event!(keycode press Down) => self.move_split_down(n, 1).into(),
 
-                    ct_event!(keycode press ALT-Left) => self.select_prev_split().into(),
-                    ct_event!(keycode press ALT-Right) => self.select_next_split().into(),
-                    ct_event!(keycode press ALT-Up) => self.select_prev_split().into(),
-                    ct_event!(keycode press ALT-Down) => self.select_next_split().into(),
-                    _ => Outcome::Continue,
+                        ct_event!(keycode press ALT-Left) => self.select_prev_split().into(),
+                        ct_event!(keycode press ALT-Right) => self.select_next_split().into(),
+                        ct_event!(keycode press ALT-Up) => self.select_prev_split().into(),
+                        ct_event!(keycode press ALT-Down) => self.select_next_split().into(),
+                        _ => Outcome::Continue,
+                    }
+                } else {
+                    Outcome::Continue
                 }
             } else {
                 Outcome::Continue
             }
-        } else {
-            Outcome::Continue
-        });
+        );
 
         self.handle(event, MouseOnly)
     }

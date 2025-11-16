@@ -14,7 +14,7 @@ use crossterm::event::Event;
 #[cfg(feature = "user_directories")]
 use dirs::{document_dir, home_dir};
 use rat_event::{
-    ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow, try_flow,
+    ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular, ct_event, event_flow,
 };
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, on_lost};
 use rat_ftable::event::EditOutcome;
@@ -1249,13 +1249,13 @@ fn handle_new(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    try_flow!(match state.new_state.handle(event, Regular) {
+    event_flow!(match state.new_state.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.start_edit_dir()
         }
         r => Outcome::from(r).into(),
     });
-    try_flow!(match event {
+    event_flow!(match event {
         ct_event!(key press CONTROL-'n') => {
             state.start_edit_dir()
         }
@@ -1268,7 +1268,7 @@ fn handle_ok(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    try_flow!(match state.ok_state.handle(event, Regular) {
+    event_flow!(match state.ok_state.handle(event, Regular) {
         ButtonOutcome::Pressed => state.choose_selected(),
         r => Outcome::from(r).into(),
     });
@@ -1279,13 +1279,13 @@ fn handle_cancel(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    try_flow!(match state.cancel_state.handle(event, Regular) {
+    event_flow!(match state.cancel_state.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.close_cancel()
         }
         r => Outcome::from(r).into(),
     });
-    try_flow!(match event {
+    event_flow!(match event {
         ct_event!(keycode press Esc) => {
             state.close_cancel()
         }
@@ -1298,9 +1298,9 @@ fn handle_name(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    try_flow!(Outcome::from(state.save_name_state.handle(event, Regular)));
+    event_flow!(Outcome::from(state.save_name_state.handle(event, Regular)));
     if state.save_name_state.is_focused() {
-        try_flow!(match event {
+        event_flow!(match event {
             ct_event!(keycode press Enter) => {
                 state.choose_selected()
             }
@@ -1314,9 +1314,9 @@ fn handle_path(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    try_flow!(Outcome::from(state.path_state.handle(event, Regular)));
+    event_flow!(Outcome::from(state.path_state.handle(event, Regular)));
     if state.path_state.is_focused() {
-        try_flow!(match event {
+        event_flow!(match event {
             ct_event!(keycode press Enter) => {
                 state.use_path_input()?;
                 state.build_focus().focus_no_lost(&state.dir_state.list);
@@ -1337,7 +1337,7 @@ fn handle_roots(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    try_flow!(match state.root_state.handle(event, Regular) {
+    event_flow!(match state.root_state.handle(event, Regular) {
         Outcome::Changed => {
             state.chroot_selected()?
         }
@@ -1355,7 +1355,7 @@ fn handle_dirs(
         return Ok(FileOutcome::Continue);
     }
 
-    try_flow!(match state.dir_state.handle(event, Regular) {
+    event_flow!(match state.dir_state.handle(event, Regular) {
         EditOutcome::Edit => {
             state.chdir_selected()?
         }
@@ -1370,7 +1370,7 @@ fn handle_dirs(
         }
     });
     if state.dir_state.list.is_focused() {
-        try_flow!(handle_nav(&mut state.dir_state.list, &state.dirs, event));
+        event_flow!(handle_nav(&mut state.dir_state.list, &state.dirs, event)?);
     }
     Ok(FileOutcome::Continue)
 }
@@ -1380,7 +1380,7 @@ fn handle_files(
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
     if state.file_state.is_focused() {
-        try_flow!(match event {
+        event_flow!(match event {
             ct_event!(mouse any for m)
                 if state
                     .file_state
@@ -1394,8 +1394,8 @@ fn handle_files(
             }
             _ => FileOutcome::Continue,
         });
-        try_flow!(
-            match handle_nav(&mut state.file_state, &state.files, event) {
+        event_flow!(
+            match handle_nav(&mut state.file_state, &state.files, event)? {
                 FileOutcome::Changed => {
                     if state.mode == Mode::Save {
                         state.name_selected()?
@@ -1407,7 +1407,7 @@ fn handle_files(
             }
         );
     }
-    try_flow!(match state.file_state.handle(event, Regular).into() {
+    event_flow!(match state.file_state.handle(event, Regular).into() {
         FileOutcome::Changed => {
             if state.mode == Mode::Save {
                 state.name_selected()?
@@ -1424,8 +1424,8 @@ fn handle_nav(
     list: &mut ListState<RowSelection>,
     nav: &[OsString],
     event: &crossterm::event::Event,
-) -> FileOutcome {
-    flow!(match event {
+) -> Result<FileOutcome, io::Error> {
+    event_flow!(match event {
         ct_event!(key press c) => {
             let next = find_next_by_key(*c, list.selected().unwrap_or(0), nav);
             if let Some(next) = next {
@@ -1436,7 +1436,7 @@ fn handle_nav(
         }
         _ => FileOutcome::Continue,
     });
-    FileOutcome::Continue
+    Ok(FileOutcome::Continue)
 }
 
 #[allow(clippy::question_mark)]

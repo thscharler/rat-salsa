@@ -1,13 +1,13 @@
 use crate::calendar::calendar::CalendarState;
 use crate::calendar::event::CalOutcome;
 use crate::calendar::{
-    first_day_of_month, is_first_day_of_month, is_last_day_of_month, is_same_month, is_same_week,
-    last_day_of_month, CalendarSelection, MonthState,
+    CalendarSelection, MonthState, first_day_of_month, is_first_day_of_month, is_last_day_of_month,
+    is_same_month, is_same_week, last_day_of_month,
 };
 use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
 use rat_event::util::item_at;
-use rat_event::ConsumedEvent;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
+use rat_event::{ConsumedEvent, event_flow};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
 use std::ops::RangeInclusive;
 
@@ -298,27 +298,29 @@ impl RangeSelection {
 impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<RangeSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
         if self.is_focused() {
-            flow!(match event {
-                ct_event!(keycode press Home) => self.select_day(0, false),
-                ct_event!(keycode press End) => self.select_last(false),
-                ct_event!(keycode press SHIFT-Home) => self.select_day(0, true),
-                ct_event!(keycode press SHIFT-End) => self.select_last(true),
+            event_flow!(
+                return match event {
+                    ct_event!(keycode press Home) => self.select_day(0, false),
+                    ct_event!(keycode press End) => self.select_last(false),
+                    ct_event!(keycode press SHIFT-Home) => self.select_day(0, true),
+                    ct_event!(keycode press SHIFT-End) => self.select_last(true),
 
-                ct_event!(keycode press Up) => self.prev_day(7, false),
-                ct_event!(keycode press Down) => self.next_day(7, false),
-                ct_event!(keycode press Left) => self.prev_day(1, false),
-                ct_event!(keycode press Right) => self.next_day(1, false),
-                ct_event!(keycode press SHIFT-Up) => self.prev_day(7, true),
-                ct_event!(keycode press SHIFT-Down) => self.next_day(7, true),
-                ct_event!(keycode press SHIFT-Left) => self.prev_day(1, true),
-                ct_event!(keycode press SHIFT-Right) => self.next_day(1, true),
+                    ct_event!(keycode press Up) => self.prev_day(7, false),
+                    ct_event!(keycode press Down) => self.next_day(7, false),
+                    ct_event!(keycode press Left) => self.prev_day(1, false),
+                    ct_event!(keycode press Right) => self.next_day(1, false),
+                    ct_event!(keycode press SHIFT-Up) => self.prev_day(7, true),
+                    ct_event!(keycode press SHIFT-Down) => self.next_day(7, true),
+                    ct_event!(keycode press SHIFT-Left) => self.prev_day(1, true),
+                    ct_event!(keycode press SHIFT-Right) => self.next_day(1, true),
 
-                ct_event!(keycode press ALT-Up) => self.prev_week(1, false),
-                ct_event!(keycode press ALT-Down) => self.next_week(1, false),
-                ct_event!(keycode press ALT_SHIFT-Up) => self.prev_week(1, true),
-                ct_event!(keycode press ALT_SHIFT-Down) => self.next_week(1, true),
-                _ => CalOutcome::Continue,
-            })
+                    ct_event!(keycode press ALT-Up) => self.prev_week(1, false),
+                    ct_event!(keycode press ALT-Down) => self.next_week(1, false),
+                    ct_event!(keycode press ALT_SHIFT-Up) => self.prev_week(1, true),
+                    ct_event!(keycode press ALT_SHIFT-Down) => self.next_week(1, true),
+                    _ => CalOutcome::Continue,
+                }
+            )
         }
 
         self.handle(event, MouseOnly)

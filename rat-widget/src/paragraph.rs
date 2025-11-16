@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::text::HasScreenCursor;
 use crate::util::revert_style;
-use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, event_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area};
 use rat_scrolled::event::ScrollOutcome;
@@ -431,39 +431,41 @@ impl ParagraphState {
 
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
-        flow!(if self.is_focused() {
-            match event {
-                ct_event!(keycode press Up) => self.scroll_up(1).into(),
-                ct_event!(keycode press Down) => self.scroll_down(1).into(),
-                ct_event!(keycode press PageUp) => {
-                    self.scroll_up(self.vscroll.page_len() * 6 / 10).into()
-                }
-                ct_event!(keycode press PageDown) => {
-                    self.scroll_down(self.vscroll.page_len() * 6 / 10).into()
-                }
-                ct_event!(keycode press Home) => self.set_line_offset(0).into(),
-                ct_event!(keycode press End) => {
-                    self.set_line_offset(self.vscroll.max_offset()).into()
-                }
+        event_flow!(
+            return if self.is_focused() {
+                match event {
+                    ct_event!(keycode press Up) => self.scroll_up(1).into(),
+                    ct_event!(keycode press Down) => self.scroll_down(1).into(),
+                    ct_event!(keycode press PageUp) => {
+                        self.scroll_up(self.vscroll.page_len() * 6 / 10).into()
+                    }
+                    ct_event!(keycode press PageDown) => {
+                        self.scroll_down(self.vscroll.page_len() * 6 / 10).into()
+                    }
+                    ct_event!(keycode press Home) => self.set_line_offset(0).into(),
+                    ct_event!(keycode press End) => {
+                        self.set_line_offset(self.vscroll.max_offset()).into()
+                    }
 
-                ct_event!(keycode press Left) => self.scroll_left(1).into(),
-                ct_event!(keycode press Right) => self.scroll_right(1).into(),
-                ct_event!(keycode press ALT-PageUp) => {
-                    self.scroll_left(self.hscroll.page_len() * 6 / 10).into()
-                }
-                ct_event!(keycode press ALT-PageDown) => {
-                    self.scroll_right(self.hscroll.page_len() * 6 / 10).into()
-                }
-                ct_event!(keycode press ALT-Home) => self.set_col_offset(0).into(),
-                ct_event!(keycode press ALT-End) => {
-                    self.set_col_offset(self.hscroll.max_offset()).into()
-                }
+                    ct_event!(keycode press Left) => self.scroll_left(1).into(),
+                    ct_event!(keycode press Right) => self.scroll_right(1).into(),
+                    ct_event!(keycode press ALT-PageUp) => {
+                        self.scroll_left(self.hscroll.page_len() * 6 / 10).into()
+                    }
+                    ct_event!(keycode press ALT-PageDown) => {
+                        self.scroll_right(self.hscroll.page_len() * 6 / 10).into()
+                    }
+                    ct_event!(keycode press ALT-Home) => self.set_col_offset(0).into(),
+                    ct_event!(keycode press ALT-End) => {
+                        self.set_col_offset(self.hscroll.max_offset()).into()
+                    }
 
-                _ => Outcome::Continue,
+                    _ => Outcome::Continue,
+                }
+            } else {
+                Outcome::Continue
             }
-        } else {
-            Outcome::Continue
-        });
+        );
 
         self.handle(event, MouseOnly)
     }

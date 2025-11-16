@@ -252,6 +252,86 @@ impl From<bool> for Outcome {
     }
 }
 
+/// # experimental #
+///
+/// Tries to unify the currently 3 flow! constructs.
+///
+/// * `flow!(expr) -> event_flow!(return expr)`
+///   The non Result case stays gets a `return`. It's rather uncommon
+///   to __not__ have a Result during event-handling, so this should be fin.
+/// * `try_flow!(expr) -> event_flow!(expr)`
+///   This becomes the main branch.
+/// * `break_flow!('x: expr) -> event_flow!(break 'x expr)`
+///   This now matches actual rust syntax, which is good for rustfmt.
+///   The `break 'x` is stripped and reapplied after result-conversion.
+///
+/// __...___
+///
+/// I'll try this out... If it's fine I'll leave the other macros
+/// with a discouraging remark and promote this variant.
+///
+/// note: of course the default is diametrical when you write
+/// library code for a new widget. as usual :-|. stick with it
+/// though as libraries should be used more often than written.
+#[macro_export]
+macro_rules! event_flow {
+    (log $n:ident: return $x:expr) => {{
+        use log::debug;
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            debug!("{} {:#?}", stringify!($n), r);
+            return r.into();
+        } else {
+            debug!("{} continue", stringify!($n));
+        }
+    }};
+    (log $n:ident: break $l:lifetime $x:expr) => {{
+        use log::debug;
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            debug!("{} {:#?}", stringify!($n), r);
+            break $l r.into();
+        } else {
+            debug!("{} continue", stringify!($n));
+        }
+    }};
+    (log $n:ident: $x:expr) => {{
+        use log::debug;
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            debug!("{} {:#?}", stringify!($n), r);
+            return Ok(r.into());
+        } else {
+            debug!("{} continue", stringify!($n));
+        }
+    }};
+    (break $l:lifetime $x:expr) => {{
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            break $l r.into();
+        }
+    }};
+    (return $x:expr) => {{
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            return r.into();
+        }
+    }};
+    ($x:expr) => {{
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            return Ok(r.into());
+        }
+    }};
+
+}
+
 /// Returns from the current function if the block returns
 /// a value for which `[ConsumedEvent::is_consumed] == true`.
 ///

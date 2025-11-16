@@ -48,7 +48,7 @@ use crate::event::TabbedOutcome;
 use crate::tabbed::attached::AttachedTabs;
 use crate::tabbed::glued::GluedTabs;
 use rat_event::util::MouseFlagsN;
-use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, event_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
 use ratatui::buffer::Buffer;
@@ -507,13 +507,15 @@ impl TabbedState {
 impl HandleEvent<crossterm::event::Event, Regular, TabbedOutcome> for TabbedState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> TabbedOutcome {
         if self.is_focused() {
-            flow!(match event {
-                ct_event!(keycode press Left) => self.prev_tab().into(),
-                ct_event!(keycode press Right) => self.next_tab().into(),
-                ct_event!(keycode press Up) => self.prev_tab().into(),
-                ct_event!(keycode press Down) => self.next_tab().into(),
-                _ => TabbedOutcome::Continue,
-            });
+            event_flow!(
+                return match event {
+                    ct_event!(keycode press Left) => self.prev_tab().into(),
+                    ct_event!(keycode press Right) => self.next_tab().into(),
+                    ct_event!(keycode press Up) => self.prev_tab().into(),
+                    ct_event!(keycode press Down) => self.next_tab().into(),
+                    _ => TabbedOutcome::Continue,
+                }
+            );
         }
 
         self.handle(event, MouseOnly)

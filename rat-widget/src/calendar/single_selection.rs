@@ -2,7 +2,7 @@ use crate::calendar::event::CalOutcome;
 use crate::calendar::{CalendarSelection, CalendarState, MonthState};
 use chrono::NaiveDate;
 use rat_event::util::item_at;
-use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event, flow};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event, event_flow};
 use rat_focus::HasFocus;
 
 /// Can select a single date.
@@ -48,15 +48,17 @@ impl SingleSelection {
 impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<SingleSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
         if self.is_focused() {
-            flow!(match event {
-                ct_event!(keycode press Home) => self.select_day(0),
-                ct_event!(keycode press End) => self.select_last(),
-                ct_event!(keycode press Up) => self.prev_day(7),
-                ct_event!(keycode press Down) => self.next_day(7),
-                ct_event!(keycode press Left) => self.prev_day(1),
-                ct_event!(keycode press Right) => self.next_day(1),
-                _ => CalOutcome::Continue,
-            })
+            event_flow!(
+                return match event {
+                    ct_event!(keycode press Home) => self.select_day(0),
+                    ct_event!(keycode press End) => self.select_last(),
+                    ct_event!(keycode press Up) => self.prev_day(7),
+                    ct_event!(keycode press Down) => self.next_day(7),
+                    ct_event!(keycode press Left) => self.prev_day(1),
+                    ct_event!(keycode press Right) => self.next_day(1),
+                    _ => CalOutcome::Continue,
+                }
+            )
         }
 
         self.handle(event, MouseOnly)

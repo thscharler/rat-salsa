@@ -6,7 +6,7 @@ use anyhow::{anyhow, Error};
 use configparser::ini::Ini;
 use log::{debug, error, warn};
 use pure_rust_locales::Locale;
-use rat_event::{try_flow, Outcome, Popup};
+use rat_event::{event_flow, Outcome, Popup};
 use rat_focus::{FocusFlag, HasFocus};
 use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render};
 use rat_salsa::dialog_stack::DialogStack;
@@ -362,14 +362,14 @@ pub fn event(
     ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
     if let PalEvent::Event(event) = event {
-        try_flow!(match &event {
+        event_flow!(match &event {
             ct_event!(resized) => Control::Changed,
             ct_event!(key press CONTROL-'q') => Control::Quit,
             _ => Control::Continue,
         });
     }
 
-    try_flow!(ctx.dlg.clone().handle(event, ctx)?);
+    event_flow!(ctx.dlg.clone().handle(event, ctx)?);
 
     if let PalEvent::Event(event) = event {
         match ctx.handle_focus(event) {
@@ -380,7 +380,7 @@ pub fn event(
             _ => {}
         }
 
-        try_flow!(match state.defined.handle(event, Popup) {
+        event_flow!(match state.defined.handle(event, Popup) {
             ChoiceOutcome::Value => {
                 if let Some(palette) = create_palette(state.defined.value().as_str()) {
                     state.edit.import_palette(palette);
@@ -391,16 +391,16 @@ pub fn event(
             r => r.into(),
         });
 
-        try_flow!(match palette_edit::event(event, &mut state.edit, ctx)? {
+        event_flow!(match palette_edit::event(event, &mut state.edit, ctx)? {
             Outcome::Changed => {
                 ctx.show_theme = create_edit_theme(state);
                 Outcome::Changed
             }
             r => r.into(),
         });
-        try_flow!(show_tabs::event(event, &mut state.show, ctx)?);
+        event_flow!(show_tabs::event(event, &mut state.show, ctx)?);
 
-        try_flow!(match state.menu.handle(event, Regular) {
+        event_flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => new_pal(state, ctx)?,
             MenuOutcome::Activated(1) => load_pal(state, ctx)?,
             MenuOutcome::Activated(2) => save_pal(state, ctx)?,
@@ -825,7 +825,7 @@ mod palette_edit {
     use crate::Global;
     use anyhow::Error;
     use pure_rust_locales::Locale;
-    use rat_event::{break_flow, event_flow, flow, MouseOnly, Outcome, Popup};
+    use rat_event::{event_flow, MouseOnly, Outcome, Popup};
     use rat_focus::{FocusFlag, HasFocus, Navigation};
     use rat_theme5::{ColorIdx, Colors, ColorsExt, Palette, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
@@ -1201,7 +1201,7 @@ pub mod show_tabs {
     use crate::{datainput, other, readability, Global};
     use anyhow::Error;
     use pure_rust_locales::Locale;
-    use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
+    use rat_event::{event_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
     use rat_theme5::{dark_theme, shell_theme, StyleName, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
@@ -1360,7 +1360,7 @@ pub mod show_tabs {
         state: &mut ShowTabs,
         ctx: &mut Global,
     ) -> Result<Outcome, Error> {
-        try_flow!(match state.themes.handle(event, Popup) {
+        event_flow!(match state.themes.handle(event, Popup) {
             ChoiceOutcome::Value => {
                 let pal = ctx.show_theme.p;
                 ctx.show_theme = match state.themes.value().as_str() {
@@ -1373,7 +1373,7 @@ pub mod show_tabs {
             r => r.into(),
         });
 
-        try_flow!(match state.tabs.selected() {
+        event_flow!(match state.tabs.selected() {
             Some(0) => {
                 datainput::event(event, &mut state.input, ctx)?
             }
@@ -1387,7 +1387,7 @@ pub mod show_tabs {
                 Outcome::Continue
             }
         });
-        try_flow!(state.tabs.handle(event, Regular));
+        event_flow!(state.tabs.handle(event, Regular));
         Ok(Outcome::Continue)
     }
 }
@@ -1395,7 +1395,7 @@ pub mod show_tabs {
 pub mod readability {
     use crate::Global;
     use anyhow::Error;
-    use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
+    use rat_event::{event_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_theme5::{ColorIdx, Colors, WidgetStyle};
     use rat_widget::checkbox::{Checkbox, CheckboxState};
@@ -1520,9 +1520,9 @@ The Paris Peace Accords removed the remaining United States forces, and fighting
         state: &mut Readability,
         _ctx: &mut Global,
     ) -> Result<Outcome, Error> {
-        try_flow!(state.colors.handle(event, Popup));
-        try_flow!(state.high_contrast.handle(event, Regular));
-        try_flow!(state.para.handle(event, Regular));
+        event_flow!(state.colors.handle(event, Popup));
+        event_flow!(state.high_contrast.handle(event, Regular));
+        event_flow!(state.para.handle(event, Regular));
         Ok(Outcome::Continue)
     }
 }
@@ -1531,7 +1531,7 @@ The Paris Peace Accords removed the remaining United States forces, and fighting
 pub mod other {
     use crate::Global;
     use anyhow::Error;
-    use rat_event::{try_flow, Dialog, HandleEvent, Outcome, Popup, Regular};
+    use rat_event::{event_flow, Dialog, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_theme5::WidgetStyle;
     use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
@@ -1819,12 +1819,12 @@ pub mod other {
         state: &mut Other,
         _ctx: &mut Global,
     ) -> Result<Outcome, Error> {
-        try_flow!(state.menu.handle(event, Popup));
+        event_flow!(state.menu.handle(event, Popup));
 
-        try_flow!(state.list.handle(event, Regular));
-        try_flow!(state.table.handle(event, Regular));
-        try_flow!(state.split.handle(event, Regular));
-        try_flow!(match state.dialog.handle(event, Dialog) {
+        event_flow!(state.list.handle(event, Regular));
+        event_flow!(state.table.handle(event, Regular));
+        event_flow!(state.split.handle(event, Regular));
+        event_flow!(match state.dialog.handle(event, Dialog) {
             DialogOutcome::Unchanged => {
                 // ignore this result!!
                 DialogOutcome::Continue
@@ -1832,7 +1832,7 @@ pub mod other {
             r => r,
         });
 
-        try_flow!(state.form.handle(event, Regular));
+        event_flow!(state.form.handle(event, Regular));
 
         Ok(Outcome::Continue)
     }
@@ -1842,7 +1842,7 @@ pub mod datainput {
     use crate::Global;
     use anyhow::Error;
     use pure_rust_locales::{locale_match, Locale};
-    use rat_event::{try_flow, HandleEvent, Outcome, Popup, Regular};
+    use rat_event::{event_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
     use rat_theme5::{StyleName, WidgetStyle};
     use rat_widget::button::{Button, ButtonState};
@@ -2167,7 +2167,7 @@ pub mod datainput {
         state: &mut DataInput,
         ctx: &mut Global,
     ) -> Result<Outcome, Error> {
-        try_flow!(match state.choice.handle(event, Popup) {
+        event_flow!(match state.choice.handle(event, Popup) {
             ChoiceOutcome::Changed => {
                 ChoiceOutcome::Changed
             }
@@ -2176,26 +2176,26 @@ pub mod datainput {
             }
             r => r,
         });
-        try_flow!(state.combobox.handle(event, Popup));
+        event_flow!(state.combobox.handle(event, Popup));
 
-        try_flow!(match state.button.handle(event, Regular) {
+        event_flow!(match state.button.handle(event, Regular) {
             ButtonOutcome::Pressed => {
                 ctx.status = "!!OK!!".to_string();
                 Outcome::Changed
             }
             r => r.into(),
         });
-        try_flow!(state.checkbox.handle(event, Regular));
-        try_flow!(state.date_input.handle(event, Regular));
-        try_flow!(state.number_input.handle(event, Regular));
-        try_flow!(state.number_invalid.handle(event, Regular));
-        try_flow!(state.radio.handle(event, Regular));
-        try_flow!(state.slider.handle(event, Regular));
-        try_flow!(state.text.handle(event, Regular));
-        try_flow!(state.textarea.handle(event, Regular));
-        try_flow!(state.calendar.handle(event, Regular));
+        event_flow!(state.checkbox.handle(event, Regular));
+        event_flow!(state.date_input.handle(event, Regular));
+        event_flow!(state.number_input.handle(event, Regular));
+        event_flow!(state.number_invalid.handle(event, Regular));
+        event_flow!(state.radio.handle(event, Regular));
+        event_flow!(state.slider.handle(event, Regular));
+        event_flow!(state.text.handle(event, Regular));
+        event_flow!(state.textarea.handle(event, Regular));
+        event_flow!(state.calendar.handle(event, Regular));
 
-        try_flow!(state.form.handle(event, Regular));
+        event_flow!(state.form.handle(event, Regular));
 
         Ok(Outcome::Continue)
     }
@@ -2297,7 +2297,7 @@ mod color_span {
 mod message {
     use crate::{Global, PalEvent};
     use anyhow::Error;
-    use rat_event::{try_flow, Dialog, HandleEvent, Regular};
+    use rat_event::{event_flow, Dialog, HandleEvent, Regular};
     use rat_focus::{impl_has_focus, FocusBuilder};
     use rat_salsa::{Control, SalsaContext};
     use rat_theme5::WidgetStyle;
@@ -2344,8 +2344,8 @@ mod message {
             let mut focus = FocusBuilder::build_for(state);
             ctx.queue(focus.handle(e, Regular));
 
-            try_flow!(state.paragraph.handle(e, Regular));
-            try_flow!(match state.dlg.handle(e, Dialog) {
+            event_flow!(state.paragraph.handle(e, Regular));
+            event_flow!(match state.dlg.handle(e, Dialog) {
                 DialogOutcome::Ok => {
                     Control::Close(PalEvent::NoOp)
                 }

@@ -770,9 +770,10 @@ pub mod selection {
     //! Different selection models.
     //!
 
-    use crate::event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
+    use crate::event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event};
     use crate::list::{ListSelection, ListState};
     use crossterm::event::KeyModifiers;
+    use rat_event::event_flow;
     use rat_focus::HasFocus;
     use rat_ftable::TableSelection;
     use rat_scrolled::ScrollAreaState;
@@ -912,24 +913,26 @@ pub mod selection {
 
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<RowSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-            flow!(match event {
-                ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
-                    self.move_to(self.row_at_drag((m.column, m.row))).into()
-                }
-                ct_event!(mouse down Left for column, row) => {
-                    if self.inner.contains((*column, *row).into()) {
-                        if let Some(new_row) = self.row_at_clicked((*column, *row)) {
-                            self.move_to(new_row).into()
+            event_flow!(
+                return match event {
+                    ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
+                        self.move_to(self.row_at_drag((m.column, m.row))).into()
+                    }
+                    ct_event!(mouse down Left for column, row) => {
+                        if self.inner.contains((*column, *row).into()) {
+                            if let Some(new_row) = self.row_at_clicked((*column, *row)) {
+                                self.move_to(new_row).into()
+                            } else {
+                                Outcome::Continue
+                            }
                         } else {
                             Outcome::Continue
                         }
-                    } else {
-                        Outcome::Continue
                     }
-                }
 
-                _ => Outcome::Continue,
-            });
+                    _ => Outcome::Continue,
+                }
+            );
 
             let mut sas = ScrollAreaState::new()
                 .area(self.inner)
@@ -1063,58 +1066,60 @@ pub mod selection {
 
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<RowSetSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> Outcome {
-            flow!(match event {
-                ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)
-                    if self.mouse.drag(self.inner, m)
-                        || self.mouse.drag2(self.inner, m, KeyModifiers::CONTROL) =>
-                {
-                    self.move_to(self.row_at_drag((m.column, m.row)), true)
-                        .into()
-                }
-                ct_event!(mouse down Left for column, row) => {
-                    let pos = (*column, *row);
-                    if self.inner.contains(pos.into()) {
-                        if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.move_to(new_row, false).into()
-                        } else {
-                            Outcome::Continue
-                        }
-                    } else {
-                        Outcome::Continue
+            event_flow!(
+                return match event {
+                    ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)
+                        if self.mouse.drag(self.inner, m)
+                            || self.mouse.drag2(self.inner, m, KeyModifiers::CONTROL) =>
+                    {
+                        self.move_to(self.row_at_drag((m.column, m.row)), true)
+                            .into()
                     }
-                }
-                ct_event!(mouse down ALT-Left for column, row) => {
-                    let pos = (*column, *row);
-                    if self.area.contains(pos.into()) {
-                        if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.move_to(new_row, true).into()
-                        } else {
-                            Outcome::Continue
-                        }
-                    } else {
-                        Outcome::Continue
-                    }
-                }
-                ct_event!(mouse down CONTROL-Left for column, row) => {
-                    let pos = (*column, *row);
-                    if self.area.contains(pos.into()) {
-                        if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.retire_selection();
-                            if self.selection.is_selected_row(new_row) {
-                                self.selection.remove(new_row);
+                    ct_event!(mouse down Left for column, row) => {
+                        let pos = (*column, *row);
+                        if self.inner.contains(pos.into()) {
+                            if let Some(new_row) = self.row_at_clicked(pos) {
+                                self.move_to(new_row, false).into()
                             } else {
-                                self.move_to(new_row, true);
+                                Outcome::Continue
                             }
-                            Outcome::Changed
                         } else {
                             Outcome::Continue
                         }
-                    } else {
-                        Outcome::Continue
                     }
+                    ct_event!(mouse down ALT-Left for column, row) => {
+                        let pos = (*column, *row);
+                        if self.area.contains(pos.into()) {
+                            if let Some(new_row) = self.row_at_clicked(pos) {
+                                self.move_to(new_row, true).into()
+                            } else {
+                                Outcome::Continue
+                            }
+                        } else {
+                            Outcome::Continue
+                        }
+                    }
+                    ct_event!(mouse down CONTROL-Left for column, row) => {
+                        let pos = (*column, *row);
+                        if self.area.contains(pos.into()) {
+                            if let Some(new_row) = self.row_at_clicked(pos) {
+                                self.retire_selection();
+                                if self.selection.is_selected_row(new_row) {
+                                    self.selection.remove(new_row);
+                                } else {
+                                    self.move_to(new_row, true);
+                                }
+                                Outcome::Changed
+                            } else {
+                                Outcome::Continue
+                            }
+                        } else {
+                            Outcome::Continue
+                        }
+                    }
+                    _ => Outcome::Continue,
                 }
-                _ => Outcome::Continue,
-            });
+            );
 
             let mut sas = ScrollAreaState::new()
                 .area(self.inner)

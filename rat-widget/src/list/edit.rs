@@ -7,7 +7,7 @@ use crate::list::selection::RowSelection;
 use crate::list::{List, ListSelection, ListState};
 use log::warn;
 use rat_event::util::MouseFlags;
-use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, event_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
@@ -287,79 +287,87 @@ where
     fn handle(&mut self, event: &crossterm::event::Event, ctx: C) -> EditOutcome {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
             if self.editor.is_focused() {
-                flow!(self.editor.handle(event, ctx));
+                event_flow!(return self.editor.handle(event, ctx));
 
-                flow!(match event {
-                    ct_event!(keycode press Esc) => {
-                        EditOutcome::Cancel
-                    }
-                    ct_event!(keycode press Enter) => {
-                        EditOutcome::Commit
-                    }
-                    ct_event!(keycode press Tab) => {
-                        if self.list.selected() < Some(self.list.rows().saturating_sub(1)) {
-                            EditOutcome::CommitAndEdit
-                        } else {
-                            EditOutcome::CommitAndAppend
+                event_flow!(
+                    return match event {
+                        ct_event!(keycode press Esc) => {
+                            EditOutcome::Cancel
                         }
+                        ct_event!(keycode press Enter) => {
+                            EditOutcome::Commit
+                        }
+                        ct_event!(keycode press Tab) => {
+                            if self.list.selected() < Some(self.list.rows().saturating_sub(1)) {
+                                EditOutcome::CommitAndEdit
+                            } else {
+                                EditOutcome::CommitAndAppend
+                            }
+                        }
+                        ct_event!(keycode press Up) => {
+                            EditOutcome::Commit
+                        }
+                        ct_event!(keycode press Down) => {
+                            EditOutcome::Commit
+                        }
+                        _ => EditOutcome::Continue,
                     }
-                    ct_event!(keycode press Up) => {
-                        EditOutcome::Commit
-                    }
-                    ct_event!(keycode press Down) => {
-                        EditOutcome::Commit
-                    }
-                    _ => EditOutcome::Continue,
-                });
+                );
             } else {
-                flow!(self.editor.handle(event, MouseOnly));
+                event_flow!(return self.editor.handle(event, MouseOnly));
             }
         } else {
-            flow!(match event {
-                ct_event!(mouse any for m) if self.mouse.doubleclick(self.list.inner, m) => {
-                    if self.list.row_at_clicked((m.column, m.row)).is_some() {
-                        EditOutcome::Edit
-                    } else {
-                        EditOutcome::Continue
-                    }
-                }
-                _ => EditOutcome::Continue,
-            });
-
-            if self.list.is_focused() {
-                flow!(match event {
-                    ct_event!(keycode press Insert) => {
-                        EditOutcome::Insert
-                    }
-                    ct_event!(keycode press Delete) => {
-                        EditOutcome::Remove
-                    }
-                    ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
-                        EditOutcome::Edit
-                    }
-                    ct_event!(keycode press Down) => {
-                        if let Some(row) = self.list.selection.lead_selection() {
-                            if row == self.list.rows().saturating_sub(1) {
-                                EditOutcome::Append
-                            } else {
-                                EditOutcome::Continue
-                            }
+            event_flow!(
+                return match event {
+                    ct_event!(mouse any for m) if self.mouse.doubleclick(self.list.inner, m) => {
+                        if self.list.row_at_clicked((m.column, m.row)).is_some() {
+                            EditOutcome::Edit
                         } else {
                             EditOutcome::Continue
                         }
                     }
-                    _ => {
-                        EditOutcome::Continue
+                    _ => EditOutcome::Continue,
+                }
+            );
+
+            if self.list.is_focused() {
+                event_flow!(
+                    return match event {
+                        ct_event!(keycode press Insert) => {
+                            EditOutcome::Insert
+                        }
+                        ct_event!(keycode press Delete) => {
+                            EditOutcome::Remove
+                        }
+                        ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
+                            EditOutcome::Edit
+                        }
+                        ct_event!(keycode press Down) => {
+                            if let Some(row) = self.list.selection.lead_selection() {
+                                if row == self.list.rows().saturating_sub(1) {
+                                    EditOutcome::Append
+                                } else {
+                                    EditOutcome::Continue
+                                }
+                            } else {
+                                EditOutcome::Continue
+                            }
+                        }
+                        _ => {
+                            EditOutcome::Continue
+                        }
                     }
-                });
-                flow!(match self.list.handle(event, Regular) {
-                    Outcome::Continue => EditOutcome::Continue,
-                    Outcome::Unchanged => EditOutcome::Unchanged,
-                    Outcome::Changed => EditOutcome::Changed,
-                });
+                );
+                event_flow!(
+                    return match self.list.handle(event, Regular) {
+                        Outcome::Continue => EditOutcome::Continue,
+                        Outcome::Unchanged => EditOutcome::Unchanged,
+                        Outcome::Changed => EditOutcome::Changed,
+                    }
+                );
             }
 
-            flow!(self.list.handle(event, MouseOnly));
+            event_flow!(return self.list.handle(event, MouseOnly));
         }
 
         EditOutcome::Continue
