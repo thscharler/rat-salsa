@@ -169,6 +169,8 @@ pub struct Scenery {
     pub defined: ChoiceState<String>,
 
     pub file_dlg: Rc<RefCell<FileDialogState>>,
+    pub file_dlg_export: Rc<RefCell<FileDialogState>>,
+    pub file_path: Option<PathBuf>,
 
     pub edit: PaletteEdit,
     pub show: ShowTabs,
@@ -180,6 +182,8 @@ impl Scenery {
         Self {
             defined: ChoiceState::named("palette"),
             file_dlg: Rc::new(RefCell::new(FileDialogState::default())),
+            file_dlg_export: Rc::new(RefCell::new(FileDialogState::default())),
+            file_path: None,
             edit: PaletteEdit::new(loc),
             show: ShowTabs::new(loc),
             menu: MenuLineState::named("menu"),
@@ -290,8 +294,10 @@ fn render_menu(
             Span::from(" A ").white().on_green(),
             Span::from(" L ").white().on_blue(),
         ]))
+        .item_parsed("_New")
         .item_parsed("_Load")
         .item_parsed("_Save")
+        .item_parsed("_Save as")
         .item_parsed("_Export")
         .item_parsed("_Quit")
         .render(area, buf, &mut state.menu);
@@ -377,7 +383,7 @@ pub fn event(
         try_flow!(match state.defined.handle(event, Popup) {
             ChoiceOutcome::Value => {
                 if let Some(palette) = create_palette(state.defined.value().as_str()) {
-                    state.edit.set_palette(palette);
+                    state.edit.import_palette(palette);
                 }
                 ctx.show_theme = create_edit_theme(state);
                 Control::Changed
@@ -395,10 +401,12 @@ pub fn event(
         try_flow!(show_tabs::event(event, &mut state.show, ctx)?);
 
         try_flow!(match state.menu.handle(event, Regular) {
-            MenuOutcome::Activated(0) => load_pal(state, ctx)?,
-            MenuOutcome::Activated(1) => save_pal(state, ctx)?,
-            MenuOutcome::Activated(2) => export_pal(state, ctx)?,
-            MenuOutcome::Activated(3) => Control::Quit,
+            MenuOutcome::Activated(0) => new_pal(state, ctx)?,
+            MenuOutcome::Activated(1) => load_pal(state, ctx)?,
+            MenuOutcome::Activated(2) => save_pal(state, ctx)?,
+            MenuOutcome::Activated(3) => saveas_pal(state, ctx)?,
+            MenuOutcome::Activated(4) => export_pal(state, ctx)?,
+            MenuOutcome::Activated(5) => Control::Quit,
             v => v.into(),
         });
     }
@@ -421,7 +429,7 @@ pub fn event(
 }
 
 fn export_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    let s = state.file_dlg.clone();
+    let s = state.file_dlg_export.clone();
     s.borrow_mut()
         .save_dialog_ext(".", state.edit.name.text().to_lowercase(), "rs")?;
     ctx.dlg.push(
@@ -458,6 +466,9 @@ fn export_pal_file(
     writeln!(wr, "use ratatui::style::Color;")?;
     writeln!(wr, "")?;
     writeln!(wr, "/// {}", name)?;
+    for l in state.edit.docs.text().lines() {
+        writeln!(wr, "/// {}", l)?;
+    }
     writeln!(
         wr,
         "const DARKNESS: u8 = {};",
@@ -508,7 +519,7 @@ fn export_pal_file(
     Ok(Control::Changed)
 }
 
-fn save_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn saveas_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_dlg.clone();
     s.borrow_mut()
         .save_dialog_ext(".", state.edit.name.text().to_lowercase(), "pal")?;
@@ -530,15 +541,24 @@ fn save_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, 
     Ok(Control::Changed)
 }
 
+fn save_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    if let Some(file_path) = state.file_path.clone() {
+        save_pal_file(&file_path, state, ctx)
+    } else {
+        saveas_pal(state, ctx)
+    }
+}
+
 fn save_pal_file(
     path: &Path,
     state: &mut Scenery,
     _ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
-    //let pal = state.edit.palette();
+    state.file_path = Some(path.into());
 
     let mut ff = Ini::new_std();
     ff.set_text("palette", "name", state.edit.name.text());
+    ff.set_text("palette", "docs", state.edit.docs.text());
     ff.set_val(
         "palette",
         "dark",
@@ -561,6 +581,12 @@ fn save_pal_file(
 
     ff.write_std(path)?;
 
+    Ok(Control::Changed)
+}
+
+fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    state.file_path = None;
+    state.edit.import_palette(Palette::default());
     Ok(Control::Changed)
 }
 
@@ -590,6 +616,8 @@ fn load_pal_file(
     state: &mut Scenery,
     ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
+    state.file_path = Some(path.into());
+
     let mut ff = Ini::new_std();
     match ff.load(path) {
         Ok(_) => {}
@@ -601,6 +629,8 @@ fn load_pal_file(
             .edit
             .name
             .set_value(ff.get_text("palette", "name", ""));
+        state.edit.docs.set_value("");
+        _ = state.edit.dark.set_value(63);
 
         state.edit.color[Colors::TextLight as usize]
             .0
@@ -745,6 +775,11 @@ fn load_pal_file(
             .name
             .set_value(ff.get_text("palette", "name", ""));
 
+        state
+            .edit
+            .docs
+            .set_value(ff.get_text("palette", "docs", ""));
+
         _ = state
             .edit
             .dark
@@ -790,13 +825,13 @@ mod palette_edit {
     use crate::Global;
     use anyhow::Error;
     use pure_rust_locales::Locale;
-    use rat_event::{break_flow, MouseOnly, Outcome, Popup};
-    use rat_focus::{FocusFlag, HasFocus};
+    use rat_event::{break_flow, event_flow, flow, MouseOnly, Outcome, Popup};
+    use rat_focus::{FocusFlag, HasFocus, Navigation};
     use rat_theme5::{ColorIdx, Colors, ColorsExt, Palette, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::clipper::{Clipper, ClipperState};
     use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
-    use rat_widget::event::{HandleEvent, Regular, TextOutcome};
+    use rat_widget::event::{ChoiceOutcome, HandleEvent, Regular, TextOutcome};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::LayoutForm;
     use rat_widget::number_input::{NumberInput, NumberInputState};
@@ -804,6 +839,7 @@ mod palette_edit {
     use rat_widget::scrolled::Scroll;
     use rat_widget::text::HasScreenCursor;
     use rat_widget::text_input::{TextInput, TextInputState};
+    use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Flex, Rect};
     use ratatui::style::Color;
@@ -816,6 +852,7 @@ mod palette_edit {
 
         pub form: ClipperState,
         pub name: TextInputState,
+        pub docs: TextAreaState,
         pub dark: NumberInputState,
 
         pub color: [(ColorInputState, (), (), ColorInputState); Colors::LEN],
@@ -828,6 +865,7 @@ mod palette_edit {
                 palette: Default::default(),
                 form: ClipperState::named("form"),
                 name: TextInputState::named("name"),
+                docs: TextAreaState::named("docs"),
                 dark: NumberInputState::named("dark"),
                 color: array::from_fn(|i| {
                     (
@@ -880,7 +918,7 @@ mod palette_edit {
             palette
         }
 
-        pub fn set_palette(&mut self, pal: Palette) {
+        pub fn import_palette(&mut self, pal: Palette) {
             self.name.set_value(pal.name);
             _ = self.dark.set_value(64);
 
@@ -907,6 +945,7 @@ mod palette_edit {
     impl HasFocus for PaletteEdit {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.name);
+            builder.widget_navigate(&self.docs, Navigation::Regular);
             builder.widget(&self.dark);
             for c in Colors::array() {
                 builder.widget(&self.color[c as usize].0);
@@ -928,17 +967,20 @@ mod palette_edit {
 
     impl HasScreenCursor for PaletteEdit {
         fn screen_cursor(&self) -> Option<(u16, u16)> {
-            self.name.screen_cursor().or_else(|| {
-                for c in Colors::array() {
-                    if let Some(s) = self.color[c as usize].0.screen_cursor() {
-                        return Some(s);
+            self.name
+                .screen_cursor()
+                .or(self.docs.screen_cursor())
+                .or_else(|| {
+                    for c in Colors::array() {
+                        if let Some(s) = self.color[c as usize].0.screen_cursor() {
+                            return Some(s);
+                        }
+                        if let Some(s) = self.color[c as usize].3.screen_cursor() {
+                            return Some(s);
+                        }
                     }
-                    if let Some(s) = self.color[c as usize].3.screen_cursor() {
-                        return Some(s);
-                    }
-                }
-                None
-            })
+                    None
+                })
         }
     }
 
@@ -960,6 +1002,7 @@ mod palette_edit {
             use rat_widget::layout::{FormLabel as L, FormWidget as W};
             let mut layout = LayoutForm::<usize>::new().spacing(1).flex(Flex::Start);
             layout.widget(state.name.id(), L::Str("Name"), W::Width(20));
+            layout.widget(state.docs.id(), L::Str("Doc"), W::StretchX(20, 3));
             layout.widget(state.dark.id(), L::Str("Dark"), W::Width(4));
             layout.gap(1);
             for c in Colors::array() {
@@ -987,6 +1030,15 @@ mod palette_edit {
             &mut state.name,
         );
         form.render(
+            state.docs.id(),
+            || {
+                TextArea::new()
+                    .vscroll(Scroll::new())
+                    .styles(ctx.theme.style(WidgetStyle::TEXTAREA))
+            },
+            &mut state.docs,
+        );
+        form.render(
             state.dark.id(),
             || NumberInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
             &mut state.dark,
@@ -996,6 +1048,7 @@ mod palette_edit {
             || {
                 ColorSpan::new()
                     .half()
+                    .dark(state.dark.value().unwrap_or(63))
                     .color0(ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)))
                     .color3(ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)))
             },
@@ -1009,6 +1062,7 @@ mod palette_edit {
             || {
                 ColorSpan::new()
                     .half()
+                    .dark(state.dark.value().unwrap_or(63))
                     .color0(ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)))
                     .color3(ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)))
             },
@@ -1023,6 +1077,7 @@ mod palette_edit {
                 state.color[c as usize].0.id(),
                 || {
                     ColorSpan::new()
+                        .dark(state.dark.value().unwrap_or(63))
                         .color0(ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)))
                         .color3(ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)))
                 },
@@ -1076,27 +1131,41 @@ mod palette_edit {
 
         let r = 'f: {
             for c in ColorsExt::array() {
-                break_flow!('f: state.color_ext[c as usize].handle(event, Popup));
-            }
-
-            break_flow!('f: state.name.handle(event, Regular));
-            break_flow!('f: match state.dark.handle(event, Regular) {
-                TextOutcome::TextChanged => {
-                    if state.dark.value().unwrap_or(0) > 255 {
-                        state.dark.set_invalid(true);
-                    } else {
-                        state.dark.set_invalid(false);
+                event_flow!(
+                    break 'f match state.color_ext[c as usize].handle(event, Popup) {
+                        ChoiceOutcome::Value => {
+                            ChoiceOutcome::Value
+                        }
+                        r => r,
                     }
-                    TextOutcome::TextChanged
-                }
-                r => r
-            });
-            for c in Colors::array() {
-                break_flow!('f: handle_color(event, &mut state.color[c  as usize].0, &mut mode_change));
-                break_flow!('f: handle_color(event, &mut state.color[c as usize].3, &mut mode_change));
+                )
             }
 
-            break_flow!('f: state.form.handle(event, MouseOnly));
+            event_flow!(break 'f state.name.handle(event, Regular));
+            event_flow!(break 'f state.docs.handle(event, Regular));
+            event_flow!(
+                break 'f match state.dark.handle(event, Regular) {
+                    TextOutcome::TextChanged => {
+                        if state.dark.value().unwrap_or(0) > 255 {
+                            state.dark.set_invalid(true);
+                        } else {
+                            state.dark.set_invalid(false);
+                        }
+                        TextOutcome::TextChanged
+                    }
+                    r => r,
+                }
+            );
+            for c in Colors::array() {
+                event_flow!(
+                    break 'f handle_color(event, &mut state.color[c as usize].0, &mut mode_change)
+                );
+                event_flow!(
+                    break 'f handle_color(event, &mut state.color[c as usize].3, &mut mode_change)
+                );
+            }
+
+            event_flow!(break 'f state.form.handle(event, MouseOnly));
 
             Outcome::Continue
         };
@@ -2144,6 +2213,7 @@ mod color_span {
     #[derive(Default, Debug)]
     pub struct ColorSpan<'a> {
         half: bool,
+        dark: u8,
         color0: ColorInput<'a>,
         color3: ColorInput<'a>,
     }
@@ -2170,6 +2240,11 @@ mod color_span {
             self
         }
 
+        pub fn dark(mut self, dark: u8) -> Self {
+            self.dark = dark;
+            self
+        }
+
         pub fn color0(mut self, color: ColorInput<'a>) -> Self {
             self.color0 = color;
             self
@@ -2192,8 +2267,11 @@ mod color_span {
 
             if self.half {
                 let width = (area.width.saturating_sub(33)) / 4;
-                let colors =
-                    Palette::interpolate(state.color0.value_u32(), state.color3.value_u32(), 64);
+                let colors = Palette::interpolate(
+                    state.color0.value_u32(),
+                    state.color3.value_u32(),
+                    self.dark,
+                );
                 for i in 0usize..4usize {
                     let color_area =
                         Rect::new(area.x + 34 + (i as u16) * width, area.y, width, area.height);
@@ -2201,8 +2279,11 @@ mod color_span {
                 }
             } else {
                 let width = (area.width.saturating_sub(33)) / 8;
-                let colors =
-                    Palette::interpolate(state.color0.value_u32(), state.color3.value_u32(), 64);
+                let colors = Palette::interpolate(
+                    state.color0.value_u32(),
+                    state.color3.value_u32(),
+                    self.dark,
+                );
                 for i in 0usize..8usize {
                     let color_area =
                         Rect::new(area.x + 34 + (i as u16) * width, area.y, width, area.height);
