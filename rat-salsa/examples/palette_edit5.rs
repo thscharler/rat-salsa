@@ -147,11 +147,17 @@ impl From<crossterm::event::Event> for PalEvent {
 }
 
 pub fn pal_choice(pal: Palette) -> Vec<(ColorIdx, Line<'static>)> {
-    const COLOR_X_8: usize = Colors::LEN * 8;
+    const COLOR_X_8: usize = Colors::LEN * 8 + 1;
     let pal_choice = array::from_fn::<_, COLOR_X_8, _>(|n| {
-        let c = Colors::array()[n / 8];
-        let n = n % 8;
-        (c, n)
+        if n == Colors::LEN * 8 {
+            let c = Colors::None;
+            let n = 0;
+            (c, n)
+        } else {
+            let c = Colors::array()[n / 8];
+            let n = n % 8;
+            (c, n)
+        }
     });
     pal_choice
         .iter()
@@ -615,11 +621,13 @@ fn export_pal_file(
     writeln!(wr, "")?;
     for c in ColorsExt::array() {
         let ccc = state.edit.color_ext[c as usize].value();
-        writeln!(
-            wr,
-            "    p.color_ext[ColorsExt::{:?} as usize] = p.color[Colors::{:?} as usize][{}];",
-            c, ccc.0, ccc.1
-        )?;
+        if ccc.0 != Colors::None {
+            writeln!(
+                wr,
+                "    p.color_ext[ColorsExt::{:?} as usize] = p.color[Colors::{:?} as usize][{}];",
+                c, ccc.0, ccc.1
+            )?;
+        }
     }
     writeln!(wr, "")?;
     writeln!(wr, "    p")?;
@@ -1624,7 +1632,7 @@ mod palette_edit {
             }
             for c in ColorsExt::array() {
                 let ColorIdx(cc, n) = self.color_ext[c as usize].value();
-                palette.color_ext[c as usize] = palette.color[cc as usize][n];
+                palette.color_ext[c as usize] = palette.color(cc, n);
             }
 
             palette
@@ -2020,7 +2028,6 @@ pub mod show_tabs {
     use crate::readability::Readability;
     use crate::{datainput, other, readability, Global};
     use anyhow::Error;
-    use log::debug;
     use pure_rust_locales::Locale;
     use rat_event::{event_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
