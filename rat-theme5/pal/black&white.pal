@@ -1,0 +1,56 @@
+[palette]
+name=Black&White
+docs=
+dark=63
+
+[color]
+text-light=#FFFFFF, #FFFFFF
+text-dark=#000000, #000000
+primary=#FFFFFF, #FFFFFF
+secondary=#000000, #000000
+white=#FFFFFF, #FFFFFF
+black=#000000, #000000
+gray=#808080, #808080
+red=#FFFFFF, #AAAAAA
+orange=#FFFFFF, #AAAAAA
+yellow=#FFFFFF, #AAAAAA
+lime-green=#FFFFFF, #AAAAAA
+green=#FFFFFF, #AAAAAA
+blue-green=#FFFFFF, #AAAAAA
+cyan=#FFFFFF, #AAAAAA
+blue=#FFFFFF, #AAAAAA
+deep-blue=#FFFFFF, #AAAAAA
+purple=#FFFFFF, #AAAAAA
+magenta=#FFFFFF, #AAAAAA
+red-pink=#FFFFFF, #AAAAAA
+
+[reference]
+label=white:0
+input=gray:3
+focus=primary:1
+select=secondary:1
+disabled=gray:3
+invalid=red:1
+hover=black:0
+title-fg=text-light:0
+title=red:0
+header-fg=text-light:0
+header=blue:0
+footer-fg=text-light:0
+footer=blue:0
+shadow=text-dark:0
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:1
+key-binding=blue-green:0
+status-base=black:1
+container-base=black:2
+container-border=gray:1
+container-arrow=gray:1
+popup-base=white:0
+popup-border=gray:3
+popup-arrow=gray:3
+dialog-base=gray:2
+dialog-border=black:3
+dialog-arrow=black:3

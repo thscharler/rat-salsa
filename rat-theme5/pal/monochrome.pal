@@ -1,0 +1,56 @@
+[palette]
+name=Monochrome
+docs=
+dark=63
+
+[color]
+text-light=#B4B4B4, #F0F0F0
+text-dark=#1A1A1A, #383838
+primary=#B4B4B4, #F0F0F0
+secondary=#424242, #777777
+white=#B4B4B4, #F0F0F0
+black=#1A1A1A, #383838
+gray=#424242, #777777
+red=#EDA1A1, #EDE1E1
+orange=#EFB6A0, #F0E7E4
+yellow=#EFD7AA, #FFFBF2
+lime-green=#DAE09D, #F4F5E9
+green=#CDD489, #ECEDE1
+blue-green=#8AC3D4, #D5DEE0
+cyan=#86B5D8, #D5DBE0
+blue=#93AFC6, #D5DBE0
+deep-blue=#91A5D6, #D3D6DE
+purple=#CCADD3, #DED5E0
+magenta=#C7A4CF, #D7D0D8
+red-pink=#ECA8A8, #EDE1E1
+
+[reference]
+label=white:0
+input=gray:3
+focus=primary:1
+select=secondary:1
+disabled=gray:3
+invalid=red:1
+hover=black:0
+title-fg=text-light:0
+title=red:0
+header-fg=text-light:0
+header=blue:0
+footer-fg=text-light:0
+footer=blue:0
+shadow=text-dark:0
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:1
+key-binding=blue-green:0
+status-base=black:1
+container-base=black:2
+container-border=gray:1
+container-arrow=gray:1
+popup-base=white:0
+popup-border=gray:3
+popup-arrow=gray:3
+dialog-base=gray:2
+dialog-border=black:3
+dialog-arrow=black:3

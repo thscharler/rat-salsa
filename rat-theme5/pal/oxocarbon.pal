@@ -1,0 +1,56 @@
+[palette]
+name=OxoCarbon
+docs=
+dark=63
+
+[color]
+text-light=#DDE1E6, #FFFFFF
+text-dark=#161616, #3C3C3C
+primary=#993560, #F7569C
+secondary=#464646, #5F5F5F
+white=#DDE1E6, #FFFFFF
+black=#161616, #3C3C3C
+gray=#464646, #5F5F5F
+red=#993560, #F7569C
+orange=#99755C, #F8BD96
+yellow=#998B6C, #FAE3B0
+lime-green=#2C8043, #2BE665
+green=#05807D, #08BDBA
+blue-green=#4E7C99, #82CFFF
+cyan=#24807E, #3DDBD9
+blue=#1F6A99, #33B1FF
+deep-blue=#486599, #78A9FF
+purple=#725999, #BE95FF
+magenta=#725999, #BE95FF
+red-pink=#994C71, #FF7EBD
+
+[reference]
+label=white:0
+input=gray:3
+focus=primary:1
+select=secondary:1
+disabled=gray:3
+invalid=red:1
+hover=black:0
+title-fg=text-light:0
+title=red:0
+header-fg=text-light:0
+header=blue:0
+footer-fg=text-light:0
+footer=blue:0
+shadow=text-dark:0
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:1
+key-binding=blue-green:0
+status-base=black:1
+container-base=black:2
+container-border=gray:1
+container-arrow=gray:1
+popup-base=white:0
+popup-border=gray:3
+popup-arrow=gray:3
+dialog-base=gray:2
+dialog-border=black:3
+dialog-arrow=black:3

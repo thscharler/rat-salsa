@@ -1,0 +1,56 @@
+[palette]
+name=Base16 Relax
+docs=
+dark=63
+
+[color]
+text-light=#AAAAAA, #FFFFFF
+text-dark=#000000, #555555
+primary=#00AA00, #57FF57
+secondary=#00AAAA, #57FFFF
+white=#AAAAAA, #FFFFFF
+black=#000000, #555555
+gray=#555555, #AAAAAA
+red=#AA0000, #FF5757
+orange=#AA5500, #FFAB57
+yellow=#FFFF55, #FFFFB3
+lime-green=#55FF55, #B3FFB3
+green=#00AA00, #57FF57
+blue-green=#55FFFF, #B3FFFF
+cyan=#00AAAA, #57FFFF
+blue=#5555FF, #B3B3FF
+deep-blue=#0000AF, #5757AF
+purple=#AA00AA, #FF57FF
+magenta=#FF55FF, #FFB3FF
+red-pink=#FF5555, #FFB3B3
+
+[reference]
+label=white:0
+input=gray:3
+focus=primary:1
+select=secondary:1
+disabled=gray:3
+invalid=red:1
+hover=cyan:1
+title-fg=text-light:2
+title=red:0
+header-fg=text-light:2
+header=blue:0
+footer-fg=text-light:2
+footer=blue:0
+shadows=black:0
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:7
+key-binding=blue-green:0
+status-base=black:7
+container-base=black:6
+container-border=gray:1
+container-arrow=gray:1
+popup-base=white:0
+popup-border=gray:3
+popup-arrow=gray:3
+dialog-base=gray:2
+dialog-border=black:3
+dialog-arrow=black:3

@@ -1,0 +1,56 @@
+[palette]
+name=VSCodeDark
+docs=
+dark=63
+
+[color]
+text-light=#D4D4D4, #FFFFFF
+text-dark=#1A1A1A, #3A3A3A
+primary=#D4D4D4, #FFFFFF
+secondary=#444444, #878787
+white=#D4D4D4, #FFFFFF
+black=#1A1A1A, #3A3A3A
+gray=#444444, #878787
+red=#D0525C, #D16969
+orange=#D57E62, #D3967D
+yellow=#E0C485, #D7BA7D
+lime-green=#7DC94E, #9CDA80
+green=#4EC994, #80DABA
+blue-green=#9CDC98, #B5CEA8
+cyan=#8FD7FF, #9CDCFE
+blue=#60A6E0, #89BEEC
+deep-blue=#4294D6, #85BAE6
+purple=#B77BDF, #BD88ED
+magenta=#CB7DD4, #BB7CB6
+red-pink=#EA696F, #E98691
+
+[reference]
+label=white:0
+input=gray:3
+focus=primary:1
+select=secondary:1
+disabled=gray:3
+invalid=red:1
+hover=black:0
+title-fg=text-light:0
+title=red:0
+header-fg=text-light:0
+header=blue:0
+footer-fg=text-light:0
+footer=blue:0
+shadow=text-dark:0
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:1
+key-binding=blue-green:0
+status-base=black:1
+container-base=black:2
+container-border=gray:1
+container-arrow=gray:1
+popup-base=white:0
+popup-border=gray:3
+popup-arrow=gray:3
+dialog-base=gray:2
+dialog-border=black:3
+dialog-arrow=black:3

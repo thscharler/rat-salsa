@@ -1,0 +1,56 @@
+[palette]
+name=Reds
+docs=
+dark=63
+
+[color]
+text-light=#CFAFAF, #E2CFCF
+text-dark=#301D1D, #704343
+primary=#FF0000, #FF8080
+secondary=#FF4000, #FF9F80
+white=#CFAFAF, #E2CFCF
+black=#301D1D, #704343
+gray=#6F4343, #BD8F8F
+red=#FF0000, #FF8080
+orange=#FF0000, #FF8080
+yellow=#FF0000, #FF8080
+lime-green=#FF0000, #FF8080
+green=#FF0000, #FF8080
+blue-green=#FF0000, #FF8080
+cyan=#FF0000, #FF8080
+blue=#FF0000, #FF8080
+deep-blue=#FF0000, #FF8080
+purple=#FF0000, #FF8080
+magenta=#FF0000, #FF8080
+red-pink=#FF0000, #FF8080
+
+[reference]
+label=white:0
+input=gray:3
+focus=primary:1
+select=secondary:1
+disabled=gray:3
+invalid=red:1
+hover=black:0
+title-fg=text-light:0
+title=red:0
+header-fg=text-light:0
+header=blue:0
+footer-fg=text-light:0
+footer=blue:0
+shadow=text-dark:0
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:1
+key-binding=blue-green:0
+status-base=black:1
+container-base=black:2
+container-border=gray:1
+container-arrow=gray:1
+popup-base=white:0
+popup-border=gray:3
+popup-arrow=gray:3
+dialog-base=gray:2
+dialog-border=black:3
+dialog-arrow=black:3
