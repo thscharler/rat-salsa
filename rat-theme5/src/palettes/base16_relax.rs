@@ -1,33 +1,33 @@
 use crate::{Colors, ColorsExt, Palette};
 use ratatui::style::Color;
 
-/// Monochrome
+/// Base16 Relax
 const DARKNESS: u8 = 63;
 
-pub const MONOCHROME: Palette = {
+pub const BASE16_RELAX: Palette = {
     let mut p = Palette {
-        name: "Monochrome",
+        name: "Base16 Relax",
 
         color: [
-            Palette::interpolate2(0xb4b4b4, 0xf0f0f0, 0x0, 0x0),
-            Palette::interpolate2(0x1a1a1a, 0x383838, 0x0, 0x0),
-            Palette::interpolate(0xb4b4b4, 0xf0f0f0, DARKNESS),
-            Palette::interpolate(0x424242, 0x777777, DARKNESS),
-            Palette::interpolate(0xb4b4b4, 0xf0f0f0, DARKNESS),
-            Palette::interpolate(0x1a1a1a, 0x383838, DARKNESS),
-            Palette::interpolate(0x424242, 0x777777, DARKNESS),
-            Palette::interpolate(0xeda1a1, 0xede1e1, DARKNESS),
-            Palette::interpolate(0xefb6a0, 0xf0e7e4, DARKNESS),
-            Palette::interpolate(0xefd7aa, 0xfffbf2, DARKNESS),
-            Palette::interpolate(0xdae09d, 0xf4f5e9, DARKNESS),
-            Palette::interpolate(0xcdd489, 0xecede1, DARKNESS),
-            Palette::interpolate(0x8ac3d4, 0xd5dee0, DARKNESS),
-            Palette::interpolate(0x86b5d8, 0xd5dbe0, DARKNESS),
-            Palette::interpolate(0x93afc6, 0xd5dbe0, DARKNESS),
-            Palette::interpolate(0x91a5d6, 0xd3d6de, DARKNESS),
-            Palette::interpolate(0xccadd3, 0xded5e0, DARKNESS),
-            Palette::interpolate(0xc7a4cf, 0xd7d0d8, DARKNESS),
-            Palette::interpolate(0xeca8a8, 0xede1e1, DARKNESS),
+            Palette::interpolate2(0xaaaaaa, 0xffffff, 0x0, 0x0),
+            Palette::interpolate2(0x000000, 0x555555, 0x0, 0x0),
+            Palette::interpolate(0x00aa00, 0x57ff57, DARKNESS),
+            Palette::interpolate(0x00aaaa, 0x57ffff, DARKNESS),
+            Palette::interpolate(0xaaaaaa, 0xffffff, DARKNESS),
+            Palette::interpolate(0x000000, 0x555555, DARKNESS),
+            Palette::interpolate(0x555555, 0xaaaaaa, DARKNESS),
+            Palette::interpolate(0xaa0000, 0xff5757, DARKNESS),
+            Palette::interpolate(0xaa5500, 0xffab57, DARKNESS),
+            Palette::interpolate(0xffff55, 0xffffb3, DARKNESS),
+            Palette::interpolate(0x55ff55, 0xb3ffb3, DARKNESS),
+            Palette::interpolate(0x00aa00, 0x57ff57, DARKNESS),
+            Palette::interpolate(0x55ffff, 0xb3ffff, DARKNESS),
+            Palette::interpolate(0x00aaaa, 0x57ffff, DARKNESS),
+            Palette::interpolate(0x5555ff, 0xb3b3ff, DARKNESS),
+            Palette::interpolate(0x0000af, 0x5757af, DARKNESS),
+            Palette::interpolate(0xaa00aa, 0xff57ff, DARKNESS),
+            Palette::interpolate(0xff55ff, 0xffb3ff, DARKNESS),
+            Palette::interpolate(0xff5555, 0xffb3b3, DARKNESS),
         ],
         color_ext: [Color::Reset; ColorsExt::LEN],
     };

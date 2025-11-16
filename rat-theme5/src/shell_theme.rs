@@ -50,7 +50,7 @@ pub fn shell_theme(name: &str, p: Palette) -> Theme {
     th.define(Style::TITLE, th.p.fg_style_ext(ColorsExt::Title)); // todo
     th.define(Style::HEADER, th.p.fg_style_ext(ColorsExt::Header));
     th.define(Style::FOOTER, th.p.fg_style_ext(ColorsExt::Footer));
-    th.define(Style::SHADOW, th.p.style_ext(ColorsExt::Shadow));
+    th.define(Style::SHADOWS, th.p.style_ext(ColorsExt::Shadows));
     th.define(Style::TEXT_FOCUS, th.p.style_ext(ColorsExt::TextFocus));
     th.define(Style::TEXT_SELECT, th.p.style_ext(ColorsExt::Select));
     th.define(Style::KEY_BINDING, th.p.fg_style_ext(ColorsExt::KeyBinding));
@@ -90,6 +90,7 @@ pub fn shell_theme(name: &str, p: Palette) -> Theme {
     );
 
     th.define_fn(WidgetStyle::BUTTON, button);
+    th.define_fn(WidgetStyle::CALENDAR, month);
     th.define_fn(WidgetStyle::CHECKBOX, checkbox);
     th.define_fn(WidgetStyle::CHOICE, choice);
     th.define_fn(WidgetStyle::CLIPPER, clipper);
@@ -339,7 +340,7 @@ fn dialog_scroll(th: &Theme) -> ScrollStyle {
 
 fn shadow(th: &Theme) -> ShadowStyle {
     ShadowStyle {
-        style: th.style(Style::SHADOW),
+        style: th.style(Style::SHADOWS),
         dir: ShadowDirection::BottomRight,
         ..ShadowStyle::default()
     }

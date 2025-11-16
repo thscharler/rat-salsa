@@ -8,7 +8,7 @@ const DARKNESS: u8 = 63;
 
 pub const TUNDRA: Palette = {
     let mut p = Palette {
-        name: "Tundra", 
+        name: "Tundra",
 
         color: [
             Palette::interpolate2(0xe6eaf2, 0xffffff, 0x0, 0x0),
@@ -47,7 +47,7 @@ pub const TUNDRA: Palette = {
     p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Gray as usize][3];
     p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::Blue as usize][2];
     p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Gray as usize][3];
-    p.color_ext[ColorsExt::Shadow as usize] = p.color[Colors::TextDark as usize][0];
+    p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::TextDark as usize][0];
     p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][1];
     p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][1];
     p.color_ext[ColorsExt::ButtonBase as usize] = p.color[Colors::Gray as usize][0];

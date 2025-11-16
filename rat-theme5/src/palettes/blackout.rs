@@ -1,74 +1,66 @@
-use crate::Palette;
+use crate::{Colors, ColorsExt, Palette};
 use ratatui::style::Color;
 
-pub const BLACKOUT: Palette = Palette {
-    name: "Blackout",
+/// Blackout
+const DARKNESS: u8 = 63;
 
-    text_light: Palette::color32(0x000000),
-    text_bright: Palette::color32(0x000000),
-    text_dark: Palette::color32(0x000000),
-    text_black: Palette::color32(0x000000),
+pub const BLACKOUT: Palette = {
+    let mut p = Palette {
+        name: "Blackout",
 
-    primary: fillin(0x000000),
-    secondary: fillin(0x000000),
+        color: [
+            Palette::interpolate2(0x000000, 0x000000, 0x0, 0x0),
+            Palette::interpolate2(0x000000, 0x000000, 0x0, 0x0),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0xaaaa00, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+            Palette::interpolate(0x000000, 0x000000, DARKNESS),
+        ],
+        color_ext: [Color::Reset; ColorsExt::LEN],
+    };
 
-    white: [
-        Color::Rgb(0xaa, 0xaa, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-    ],
-    gray: [
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-    ],
-    black: [
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-        Color::Rgb(0x00, 0x00, 0x00),
-    ],
+    p.color_ext[ColorsExt::LabelFg as usize] = p.color[Colors::White as usize][0];
+    p.color_ext[ColorsExt::Input as usize] = p.color[Colors::Gray as usize][3];
+    p.color_ext[ColorsExt::Focus as usize] = p.color[Colors::Primary as usize][1];
+    p.color_ext[ColorsExt::Select as usize] = p.color[Colors::Secondary as usize][1];
+    p.color_ext[ColorsExt::Disabled as usize] = p.color[Colors::Gray as usize][3];
+    p.color_ext[ColorsExt::Invalid as usize] = p.color[Colors::Red as usize][1];
+    p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Black as usize][0];
+    p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextLight as usize][0];
+    p.color_ext[ColorsExt::Title as usize] = p.color[Colors::Red as usize][0];
+    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::TextLight as usize][0];
+    p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Blue as usize][0];
+    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextLight as usize][0];
+    p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Blue as usize][0];
+    p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::TextDark as usize][0];
+    p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][1];
+    p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][1];
+    p.color_ext[ColorsExt::ButtonBase as usize] = p.color[Colors::Gray as usize][0];
+    p.color_ext[ColorsExt::MenuBase as usize] = p.color[Colors::Black as usize][1];
+    p.color_ext[ColorsExt::KeyBinding as usize] = p.color[Colors::BlueGreen as usize][0];
+    p.color_ext[ColorsExt::StatusBase as usize] = p.color[Colors::Black as usize][1];
+    p.color_ext[ColorsExt::ContainerBase as usize] = p.color[Colors::Black as usize][2];
+    p.color_ext[ColorsExt::ContainerBorderFg as usize] = p.color[Colors::Gray as usize][1];
+    p.color_ext[ColorsExt::ContainerArrowFg as usize] = p.color[Colors::Gray as usize][1];
+    p.color_ext[ColorsExt::PopupBase as usize] = p.color[Colors::White as usize][0];
+    p.color_ext[ColorsExt::PopupBorderFg as usize] = p.color[Colors::Gray as usize][3];
+    p.color_ext[ColorsExt::PopupArrowFg as usize] = p.color[Colors::Gray as usize][3];
+    p.color_ext[ColorsExt::DialogBase as usize] = p.color[Colors::Gray as usize][2];
+    p.color_ext[ColorsExt::DialogBorderFg as usize] = p.color[Colors::Black as usize][3];
+    p.color_ext[ColorsExt::DialogArrowFg as usize] = p.color[Colors::Black as usize][3];
 
-    red: fillin(0x000000),
-    orange: fillin(0x000000),
-    yellow: fillin(0x000000),
-    limegreen: fillin(0x000000),
-    green: fillin(0x000000),
-    bluegreen: fillin(0x000000),
-    cyan: fillin(0x000000),
-    blue: fillin(0x000000),
-    deepblue: fillin(0x000000),
-    purple: fillin(0x000000),
-    magenta: fillin(0x000000),
-    redpink: fillin(0x000000),
+    p
 };
-
-const fn fillin(c0: u32) -> [Color; 8] {
-    let r0 = (c0 >> 16) as u8;
-    let g0 = (c0 >> 8) as u8;
-    let b0 = c0 as u8;
-    [
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-        Color::Rgb(r0, g0, b0),
-    ]
-}

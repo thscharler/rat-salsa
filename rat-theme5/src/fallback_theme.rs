@@ -1,5 +1,5 @@
 use crate::palette::Palette;
-use crate::{Category, SalsaTheme};
+use crate::{Category, Theme};
 use crate::{StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -29,29 +29,39 @@ use rat_widget::view::ViewStyle;
 use ratatui::style::Style;
 
 /// A theme to test the fallback-styles of each widget.
-pub fn fallback_theme(name: &str, p: Palette) -> SalsaTheme {
-    let mut th = SalsaTheme::new(name, Category::Other, p);
+pub fn fallback_theme(name: &str, p: Palette) -> Theme {
+    let mut th = Theme::new(name, Category::Other, p);
 
+    th.define(Style::LABEL_FG, Style::default());
     th.define(Style::INPUT, Style::default());
     th.define(Style::FOCUS, Style::default());
     th.define(Style::SELECT, Style::default());
+    th.define(Style::DISABLED, Style::default());
+    th.define(Style::INVALID, Style::default());
+    th.define(Style::HOVER, Style::default());
+    th.define(Style::TITLE, Style::default());
+    th.define(Style::HEADER, Style::default());
+    th.define(Style::FOOTER, Style::default());
+    th.define(Style::SHADOWS, Style::default());
     th.define(Style::TEXT_FOCUS, Style::default());
     th.define(Style::TEXT_SELECT, Style::default());
+    th.define(Style::KEY_BINDING, Style::default());
+
     th.define(Style::BUTTON_BASE, Style::default());
+    th.define(Style::MENU_BASE, Style::default());
+    th.define(Style::STATUS_BASE, Style::default());
 
     th.define(Style::CONTAINER_BASE, Style::default());
-    th.define(Style::CONTAINER_BORDER, Style::default());
-    th.define(Style::CONTAINER_ARROWS, Style::default());
+    th.define(Style::CONTAINER_BORDER_FG, Style::default());
+    th.define(Style::CONTAINER_ARROW_FG, Style::default());
 
     th.define(Style::POPUP_BASE, Style::default());
-    th.define(Style::POPUP_BORDER, Style::default());
-    th.define(Style::POPUP_ARROW, Style::default());
+    th.define(Style::POPUP_BORDER_FG, Style::default());
+    th.define(Style::POPUP_ARROW_FG, Style::default());
 
     th.define(Style::DIALOG_BASE, Style::default());
-    th.define(Style::DIALOG_BORDER, Style::default());
-    th.define(Style::DIALOG_ARROW, Style::default());
-
-    th.define(Style::STATUS_BASE, Style::default());
+    th.define(Style::DIALOG_BORDER_FG, Style::default());
+    th.define(Style::DIALOG_ARROW_FG, Style::default());
 
     th.define_fn0(WidgetStyle::BUTTON, ButtonStyle::default);
     th.define_fn0(WidgetStyle::CALENDAR, CalendarStyle::default);

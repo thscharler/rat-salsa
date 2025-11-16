@@ -54,7 +54,7 @@ pub fn dark_theme(name: &str, p: Palette) -> Theme {
         Style::FOOTER,
         th.p.fg_bg_style_ext(ColorsExt::FooterFg, ColorsExt::Footer),
     );
-    th.define(Style::SHADOW, th.p.style_ext(ColorsExt::Shadow));
+    th.define(Style::SHADOWS, th.p.style_ext(ColorsExt::Shadows));
     th.define(Style::TEXT_FOCUS, th.p.style_ext(ColorsExt::TextFocus));
     th.define(Style::TEXT_SELECT, th.p.style_ext(ColorsExt::Select));
     th.define(Style::KEY_BINDING, th.p.fg_style_ext(ColorsExt::KeyBinding));
@@ -331,7 +331,7 @@ fn dialog_scroll(th: &Theme) -> ScrollStyle {
 
 fn shadow(th: &Theme) -> ShadowStyle {
     ShadowStyle {
-        style: th.style(Style::SHADOW),
+        style: th.style(Style::SHADOWS),
         dir: ShadowDirection::BottomRight,
         ..ShadowStyle::default()
     }

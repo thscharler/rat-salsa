@@ -25,10 +25,9 @@
 //! # use ratatui::layout::Rect;
 //! # use ratatui::style::Style;
 //! # use ratatui::widgets::StatefulWidget;
-//! # use rat_theme4::{create_empty, SalsaTheme, StyleName, WidgetStyle, };
-//! # use rat_theme4::palettes::BLACKOUT;
+//! # use rat_theme5::{Theme, StyleName, WidgetStyle, };
 //! # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
-//! # let theme = create_empty("", BLACKOUT);
+//! # let theme = Theme::default();
 //! # let area = Rect::default();
 //! # let mut buf = Buffer::default();
 //! # let buf = &mut buf;
@@ -43,7 +42,7 @@ use ratatui::style::Style;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 mod dark_theme;
-// mod fallback_theme;
+mod fallback_theme;
 // mod light_theme;
 mod palette;
 pub mod palettes;
@@ -53,6 +52,7 @@ mod theme;
 pub use dark_theme::dark_theme;
 // pub use fallback_theme::fallback_theme;
 // pub use light_theme::light_theme;
+use crate::fallback_theme::fallback_theme;
 pub use palette::{ColorIdx, Colors, ColorsExt, Palette};
 pub use shell_theme::shell_theme;
 pub use theme::{Category, Theme};
@@ -63,10 +63,10 @@ pub use theme::{Category, Theme};
 /// Use as
 /// ```rust
 /// # use ratatui::style::Style;
-/// # use rat_theme4::{create_empty, SalsaTheme, StyleName, WidgetStyle};
-/// # use rat_theme4::palettes::BLACKOUT;
+/// # use rat_theme5::{Theme, StyleName, WidgetStyle};
+/// # use rat_theme5::palettes::BLACKOUT;
 /// # use rat_widget::checkbox::CheckboxStyle;
-/// # let theme = create_empty("", BLACKOUT);
+/// # let theme = Theme::default();
 ///
 /// let s: CheckboxStyle = theme.style(WidgetStyle::CHECKBOX);
 /// ```
@@ -76,10 +76,10 @@ pub use theme::{Category, Theme};
 /// # use ratatui::layout::Rect;
 /// # use ratatui::style::Style;
 /// # use ratatui::widgets::StatefulWidget;
-/// # use rat_theme4::{create_empty, SalsaTheme, StyleName, WidgetStyle, };
-/// # use rat_theme4::palettes::BLACKOUT;
+/// # use rat_theme5::{Theme, StyleName, WidgetStyle, };
+/// # use rat_theme5::palettes::BLACKOUT;
 /// # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
-/// # let theme = create_empty("", BLACKOUT);
+/// # let theme = Theme::default();
 /// # let area = Rect::default();
 /// # let mut buf = Buffer::default();
 /// # let buf = &mut buf;
@@ -130,9 +130,9 @@ impl WidgetStyle {
 /// Use as
 /// ```rust
 /// # use ratatui::style::Style;
-/// # use rat_theme4::{create_empty, SalsaTheme, StyleName, };
-/// # use rat_theme4::palettes::BLACKOUT;
-/// # let theme = create_empty("", BLACKOUT);
+/// # use rat_theme5::{Theme, StyleName, };
+/// # use rat_theme5::palettes::BLACKOUT;
+/// # let theme = Theme::default();
 ///
 /// let s: Style = theme.style(Style::INPUT);
 /// ```
@@ -147,7 +147,7 @@ pub trait StyleName {
     const TITLE: &'static str = "title";
     const HEADER: &'static str = "header";
     const FOOTER: &'static str = "footer";
-    const SHADOW: &'static str = "shadow";
+    const SHADOWS: &'static str = "shadows";
     const TEXT_FOCUS: &'static str = "text-focus";
     const TEXT_SELECT: &'static str = "text-select";
     const KEY_BINDING: &'static str = "key-binding";
@@ -182,23 +182,23 @@ fn is_log_style_define() -> bool {
 
 const PALETTES: &[&str] = &[
     "Imperial", //
-    "Radium",   //
+    "Radium",
     "Tundra",
-    "Rust", //
-            // "Ocean",
-            // "Monochrome",
-            // "Black & White",
-            // "Base16",
-            // "Base16 Relax",
-            // "Monekai",
-            // "Solarized",
-            // "OxoCarbon",
-            // "EverForest",
-            // "Nord",
-            // "Red",
-            // "Blackout",
-            // "Shell",
-            // "VSCode",
+    "Rust",
+    "Ocean",
+    "Monochrome",
+    "Black&White",
+    "Base16",
+    "Base16 Relax",
+    "Monekai",
+    "Solarized",
+    "OxoCarbon",
+    "EverForest",
+    "Nord",
+    "Reds",
+    "Blackout",
+    "Shell",
+    "VSCodeDark",
 ];
 
 /// All currently existing color palettes.
@@ -213,21 +213,21 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Imperial" => Some(IMPERIAL),
         "Radium" => Some(RADIUM),
         "Tundra" => Some(TUNDRA),
-        // "Ocean" => Some(OCEAN),
-        // "Monochrome" => Some(MONOCHROME),
-        // "Black & White" => Some(BLACKWHITE),
-        // "Base16" => Some(BASE16),
-        // "Base16 Relax" => Some(BASE16_RELAX),
-        // "Monekai" => Some(MONEKAI),
-        // "Solarized" => Some(SOLARIZED),
-        // "OxoCarbon" => Some(OXOCARBON),
-        // "EverForest" => Some(EVERFOREST),
-        // "Nord" => Some(NORD),
+        "Ocean" => Some(OCEAN),
+        "Monochrome" => Some(MONOCHROME),
+        "Black&White" => Some(BLACK_WHITE),
+        "Base16" => Some(BASE16),
+        "Base16 Relax" => Some(BASE16_RELAX),
+        "Monekai" => Some(MONEKAI),
+        "Solarized" => Some(SOLARIZED),
+        "OxoCarbon" => Some(OXOCARBON),
+        "EverForest" => Some(EVERFOREST),
+        "Nord" => Some(NORD),
         "Rust" => Some(RUST),
-        // "Red" => Some(RED),
-        // "Blackout" => Some(BLACKOUT),
-        // "Shell" => Some(SHELL),
-        // "VSCode" => Some(VSCODE_DARK),
+        "Reds" => Some(REDS),
+        "Blackout" => Some(BLACKOUT),
+        "Shell" => Some(SHELL),
+        "VSCodeDark" => Some(VSCODEDARK),
         _ => None,
     }
 }
@@ -236,42 +236,42 @@ const THEMES: &[&str] = &[
     "Imperial Dark",
     "Radium Dark",
     "Tundra Dark",
-    // "Ocean Dark",
-    // "Monochrome Dark",
-    // "Black & White Dark",
-    // "Base16 Dark",
-    // "Base16 Relax Dark",
-    // "Monekai Dark",
-    // "Solarized Dark",
-    // "OxoCarbon Dark",
-    // "EverForest Dark",
-    // "Nord Dark",
+    "Ocean Dark",
+    "Monochrome Dark",
+    "Black&White Dark",
+    "Base16 Dark",
+    "Base16 Relax Dark",
+    "Monekai Dark",
+    "Solarized Dark",
+    "OxoCarbon Dark",
+    "EverForest Dark",
+    "Nord Dark",
     "Rust Dark",
-    // "Red Dark",
-    // "Shell Dark",
-    // "VSCode Dark",
+    "Reds Dark",
+    "Shell Dark",
+    "VSCode Dark",
     // //
     "Imperial Shell",
     "Radium Shell",
     "Tundra Shell",
-    // "Ocean Shell",
-    // "Monochrome Shell",
-    // "Black & White Shell",
-    // "Base16 Shell",
-    // "Base16 Relax Shell",
-    // "Monekai Shell",
-    // "Solarized Shell",
-    // "OxoCarbon Shell",
-    // "EverForest Shell",
-    // "Nord Shell",
+    "Ocean Shell",
+    "Monochrome Shell",
+    "Black&White Shell",
+    "Base16 Shell",
+    "Base16 Relax Shell",
+    "Monekai Shell",
+    "Solarized Shell",
+    "OxoCarbon Shell",
+    "EverForest Shell",
+    "Nord Shell",
     "Rust Shell",
-    // "Red Shell",
-    // "Shell Shell",
-    // "VSCode Shell",
-    // //
-    // "Blackout Dark",
-    // "Blackout Shell",
-    // "Fallback",
+    "Reds Shell",
+    "Shell Shell",
+    "VSCode Shell",
+    //
+    "Blackout Dark",
+    "Blackout Shell",
+    "Fallback",
 ];
 
 /// Get all Salsa themes.
@@ -286,42 +286,42 @@ pub fn create_theme(theme: &str) -> Option<Theme> {
         "Imperial Dark" => dark_theme(theme, IMPERIAL),
         "Radium Dark" => dark_theme(theme, RADIUM),
         "Tundra Dark" => dark_theme(theme, TUNDRA),
-        // "Ocean Dark" => dark_theme(theme, OCEAN),
-        // "Monochrome Dark" => dark_theme(theme, MONOCHROME),
-        // "Black & White Dark" => dark_theme(theme, BLACKWHITE),
-        // "Base16 Dark" => dark_theme(theme, BASE16),
-        // "Base16 Relax Dark" => dark_theme(theme, BASE16_RELAX),
-        // "Monekai Dark" => dark_theme(theme, MONEKAI),
-        // "Solarized Dark" => dark_theme(theme, SOLARIZED),
-        // "OxoCarbon Dark" => dark_theme(theme, OXOCARBON),
-        // "EverForest Dark" => dark_theme(theme, EVERFOREST),
-        // "Nord Dark" => dark_theme(theme, NORD),
+        "Ocean Dark" => dark_theme(theme, OCEAN),
+        "Monochrome Dark" => dark_theme(theme, MONOCHROME),
+        "Black&White Dark" => dark_theme(theme, BLACK_WHITE),
+        "Base16 Dark" => dark_theme(theme, BASE16),
+        "Base16 Relax Dark" => dark_theme(theme, BASE16_RELAX),
+        "Monekai Dark" => dark_theme(theme, MONEKAI),
+        "Solarized Dark" => dark_theme(theme, SOLARIZED),
+        "OxoCarbon Dark" => dark_theme(theme, OXOCARBON),
+        "EverForest Dark" => dark_theme(theme, EVERFOREST),
+        "Nord Dark" => dark_theme(theme, NORD),
         "Rust Dark" => dark_theme(theme, RUST),
-        // "Red Dark" => dark_theme(theme, RED),
-        // "Shell Dark" => dark_theme(theme, SHELL),
-        // "VSCode Dark" => dark_theme(theme, VSCODE_DARK),
+        "Red Dark" => dark_theme(theme, REDS),
+        "Shell Dark" => dark_theme(theme, SHELL),
+        "VSCode Dark" => dark_theme(theme, VSCODEDARK),
         //
         "Imperial Shell" => shell_theme(theme, IMPERIAL),
         "Radium Shell" => shell_theme(theme, RADIUM),
         "Tundra Shell" => shell_theme(theme, TUNDRA),
-        // "Ocean Shell" => shell_theme(theme, OCEAN),
-        // "Monochrome Shell" => shell_theme(theme, MONOCHROME),
-        // "Black & White Shell" => shell_theme(theme, BLACKWHITE),
-        // "Base16 Shell" => shell_theme(theme, BASE16),
-        // "Base16 Relax Shell" => shell_theme(theme, BASE16_RELAX),
-        // "Monekai Shell" => shell_theme(theme, MONEKAI),
-        // "Solarized Shell" => shell_theme(theme, SOLARIZED),
-        // "OxoCarbon Shell" => shell_theme(theme, OXOCARBON),
-        // "EverForest Shell" => shell_theme(theme, EVERFOREST),
-        // "Nord Shell" => shell_theme(theme, NORD),
+        "Ocean Shell" => shell_theme(theme, OCEAN),
+        "Monochrome Shell" => shell_theme(theme, MONOCHROME),
+        "Black&White Shell" => shell_theme(theme, BLACK_WHITE),
+        "Base16 Shell" => shell_theme(theme, BASE16),
+        "Base16 Relax Shell" => shell_theme(theme, BASE16_RELAX),
+        "Monekai Shell" => shell_theme(theme, MONEKAI),
+        "Solarized Shell" => shell_theme(theme, SOLARIZED),
+        "OxoCarbon Shell" => shell_theme(theme, OXOCARBON),
+        "EverForest Shell" => shell_theme(theme, EVERFOREST),
+        "Nord Shell" => shell_theme(theme, NORD),
         "Rust Shell" => shell_theme(theme, RUST),
-        // "Red Shell" => shell_theme(theme, RED),
-        // "Shell Shell" => shell_theme(theme, SHELL),
-        // "VSCode Shell" => shell_theme(theme, VSCODE_DARK),
+        "Reds Shell" => shell_theme(theme, REDS),
+        "Shell Shell" => shell_theme(theme, SHELL),
+        "VSCode Shell" => shell_theme(theme, VSCODEDARK),
         //
-        // "Blackout Dark" => dark_theme(theme, BLACKOUT),
-        // "Blackout Shell" => shell_theme(theme, BLACKOUT),
-        // "Fallback" => fallback_theme(theme, RED),
+        "Blackout Dark" => dark_theme(theme, BLACKOUT),
+        "Blackout Shell" => shell_theme(theme, BLACKOUT),
+        "Fallback" => fallback_theme(theme, REDS),
         _ => return None,
     };
 

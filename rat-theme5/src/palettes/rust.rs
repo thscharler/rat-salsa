@@ -7,7 +7,7 @@ const DARKNESS: u8 = 64;
 
 pub const RUST: Palette = {
     let mut p = Palette {
-        name: "Rust", 
+        name: "Rust",
 
         color: [
             Palette::interpolate2(0xd1ccc8, 0xefe6e6, 0x0, 0x0),
@@ -46,7 +46,7 @@ pub const RUST: Palette = {
     p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Blue as usize][0];
     p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextLight as usize][0];
     p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Blue as usize][0];
-    p.color_ext[ColorsExt::Shadow as usize] = p.color[Colors::TextDark as usize][0];
+    p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::TextDark as usize][0];
     p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][1];
     p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][1];
     p.color_ext[ColorsExt::ButtonBase as usize] = p.color[Colors::Gray as usize][0];

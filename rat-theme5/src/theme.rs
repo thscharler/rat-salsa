@@ -1,3 +1,4 @@
+use crate::fallback_theme::fallback_theme;
 use crate::{Palette, is_log_style_define};
 use log::info;
 use ratatui::style::Style;
@@ -35,13 +36,18 @@ type Modify = Box<dyn Fn(Box<dyn Any>, &Theme) -> Box<dyn StyleValue> + 'static>
 /// Or really any value that can be produced by a closure.
 ///
 /// It uses a flat naming scheme and doesn't cascade upwards at all.
-#[derive(Default)]
 pub struct Theme {
     pub name: String,
     pub cat: Category,
     pub p: Palette,
     styles: HashMap<&'static str, Entry>,
     modify: HashMap<&'static str, Modify>,
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        fallback_theme("Fallback", Palette::default())
+    }
 }
 
 impl Debug for Theme {
