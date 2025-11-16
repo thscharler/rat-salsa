@@ -4,10 +4,10 @@ use crate::palette_edit::PaletteEdit;
 use crate::show_tabs::ShowTabs;
 use anyhow::{anyhow, Error};
 use configparser::ini::Ini;
-use log::{debug, error, warn};
+use log::{error, warn};
 use pure_rust_locales::Locale;
 use rat_event::{event_flow, Outcome, Popup};
-use rat_focus::{FocusFlag, HasFocus};
+use rat_focus::{FocusFlag, HasFocus, Navigation};
 use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render};
 use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
@@ -166,8 +166,6 @@ pub fn pal_choice(pal: Palette) -> Vec<(ColorIdx, Line<'static>)> {
 
 #[derive(Debug)]
 pub struct Scenery {
-    pub defined: ChoiceState<String>,
-
     pub file_dlg: Rc<RefCell<FileDialogState>>,
     pub file_dlg_export: Rc<RefCell<FileDialogState>>,
     pub file_path: Option<PathBuf>,
@@ -180,7 +178,6 @@ pub struct Scenery {
 impl Scenery {
     pub fn new(loc: Locale) -> Self {
         Self {
-            defined: ChoiceState::named("palette"),
             file_dlg: Rc::new(RefCell::new(FileDialogState::default())),
             file_dlg_export: Rc::new(RefCell::new(FileDialogState::default())),
             file_path: None,
@@ -193,10 +190,9 @@ impl Scenery {
 
 impl HasFocus for Scenery {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget(&self.defined);
         builder.widget(&self.edit);
         builder.widget(&self.show);
-        builder.widget(&self.menu);
+        builder.widget_navigate(&self.menu, Navigation::Leave);
     }
 
     fn focus(&self) -> FocusFlag {
@@ -215,8 +211,6 @@ pub fn render(
     ctx: &mut Global,
 ) -> Result<(), Error> {
     let l1 = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Length(1),
         Constraint::Fill(1), //
         Constraint::Length(1),
     ])
@@ -227,56 +221,25 @@ pub fn render(
     ])
     .horizontal_margin(1)
     .flex(Flex::Center)
-    .split(l1[2]);
+    .split(l1[0]);
 
     // main
     palette_edit::render(l2[0], buf, &mut state.edit, ctx)?;
     show_tabs::render(l2[1], buf, &mut state.show, ctx)?;
     screen_cursor(state, ctx);
 
-    // functions
-    render_function(l1[0], buf, state, ctx)?;
-
     // menu & status
     let status_layout = Layout::horizontal([
         Constraint::Fill(61), //
         Constraint::Fill(39),
     ])
-    .split(l1[3]);
+    .split(l1[1]);
 
     render_menu(status_layout[0], buf, state, ctx)?;
     render_status(status_layout[1], buf, ctx)?;
 
     // dialog windows
     ctx.dlg.clone().render(area, buf, ctx);
-
-    Ok(())
-}
-
-fn render_function(
-    area: Rect,
-    buf: &mut Buffer,
-    state: &mut Scenery,
-    ctx: &mut Global,
-) -> Result<(), Error> {
-    let l_function = Layout::horizontal([
-        Constraint::Length(4),  //
-        Constraint::Length(20), //
-    ])
-    .spacing(1)
-    .split(area);
-
-    let (choice, choice_popup) = Choice::new()
-        .items(
-            once("")
-                .chain(salsa_palettes())
-                .map(|v| (v.to_string(), v.to_string())),
-        )
-        .styles(ctx.theme.style(WidgetStyle::CHOICE))
-        .into_widgets();
-    choice.render(l_function[1], buf, &mut state.defined);
-
-    choice_popup.render(l_function[1], buf, &mut state.defined);
 
     Ok(())
 }
@@ -379,17 +342,6 @@ pub fn event(
             }
             _ => {}
         }
-
-        event_flow!(match state.defined.handle(event, Popup) {
-            ChoiceOutcome::Value => {
-                if let Some(palette) = create_palette(state.defined.value().as_str()) {
-                    state.edit.import_palette(palette);
-                }
-                ctx.show_theme = create_edit_theme(state);
-                Control::Changed
-            }
-            r => r.into(),
-        });
 
         event_flow!(match palette_edit::event(event, &mut state.edit, ctx)? {
             Outcome::Changed => {
@@ -586,7 +538,17 @@ fn save_pal_file(
 
 fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     state.file_path = None;
-    state.edit.import_palette(Palette::default());
+
+    state.edit.name.set_value("pal.name");
+    _ = state.edit.dark.set_value(64);
+
+    for c in Colors::array() {
+        state.edit.color[c as usize].0.set_value(Color::default());
+        state.edit.color[c as usize].3.set_value(Color::default());
+    }
+    for c in ColorsExt::array() {
+        state.edit.color_ext[c as usize].set_value(ColorIdx(Colors::default(), 0));
+    }
     Ok(Control::Changed)
 }
 
@@ -916,29 +878,6 @@ mod palette_edit {
             }
 
             palette
-        }
-
-        pub fn import_palette(&mut self, pal: Palette) {
-            self.name.set_value(pal.name);
-            _ = self.dark.set_value(64);
-
-            for c in Colors::array() {
-                self.color[c as usize].0.set_value(pal.color[c as usize][0]);
-                self.color[c as usize].3.set_value(pal.color[c as usize][3]);
-            }
-            for c in ColorsExt::array() {
-                let (cc, n) = 'f: {
-                    for cc in Colors::array() {
-                        for n in 0..8usize {
-                            if pal.color_ext[c as usize] == pal.color[cc as usize][n] {
-                                break 'f (cc, n);
-                            }
-                        }
-                    }
-                    (Colors::Black, 0)
-                };
-                self.color_ext[c as usize].set_value(ColorIdx(cc, n));
-            }
         }
     }
 
@@ -1297,23 +1236,23 @@ pub mod show_tabs {
         let l0 = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(1),
+            Constraint::Length(1),
             Constraint::Fill(1),
         ])
         .spacing(1)
         .split(area);
+
+        Text::from("Preview")
+            .alignment(Alignment::Center)
+            .style(ctx.show_theme.style_style(Style::TITLE))
+            .render(l0[1], buf);
 
         let l_function = Layout::horizontal([
             Constraint::Length(2), //
             Constraint::Length(12),
         ])
         .spacing(1)
-        .split(l0[1]);
-
-        Text::from("Preview")
-            .alignment(Alignment::Center)
-            .style(ctx.show_theme.style_style(Style::TITLE))
-            .render(l0[0], buf);
-
+        .split(l0[2]);
         let (choice, choice_theme) = Choice::new()
             .items(
                 once("")
@@ -1333,7 +1272,7 @@ pub mod show_tabs {
             // .closeable(true)
             .block(Block::bordered().border_type(BorderType::Rounded))
             .styles(ctx.show_theme.style(WidgetStyle::TABBED))
-            .render(l0[2], buf, &mut state.tabs);
+            .render(l0[3], buf, &mut state.tabs);
 
         match state.tabs.selected() {
             Some(0) => {
