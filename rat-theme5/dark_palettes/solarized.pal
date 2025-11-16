@@ -1,0 +1,56 @@
+[palette]
+name=Solarized
+docs=credit https://github.com/altercation/solarized/tree/master/vim-colors-solarized
+dark=64
+
+[color]
+text-light=#EEE8D5, #FDF6E3
+text-dark=#002B36, #073642
+primary=#CB4B16, #CB4B16
+secondary=#586E75, #839496
+white=#EEE8D5, #FDF6E3
+black=#002B36, #073642
+gray=#586E75, #839496
+red=#DC322F, #DC322F
+orange=#CB4B16, #CB4B16
+yellow=#B58900, #B58900
+lime-green=#859900, #859900
+green=#859900, #859900
+blue-green=#2AA198, #2AA198
+cyan=#2AA198, #2AA198
+blue=#268BD2, #268BD2
+deep-blue=#268BD2, #268BD2
+purple=#6C71C4, #6C71C4
+magenta=#D33682, #D33682
+red-pink=#D33682, #D33682
+
+[reference]
+label=text-light:0
+input=gray:3
+focus=primary:1
+select=secondary:0
+disabled=gray:0
+invalid=red:0
+hover=blue:0
+title-fg=text-light:0
+title=blue:0
+header-fg=text-light:0
+header=blue:0
+footer-fg=text-light:0
+footer=blue:0
+shadows=black:0
+text-focus=primary:1
+text-select=secondary:0
+button-base=secondary:3
+menu-base=black:0
+key-binding=black:0
+status-base=black:0
+container-base=text-dark:0
+container-border=gray:3
+container-arrow=gray:3
+popup-base=gray:1
+popup-border=text-dark:0
+popup-arrow=text-dark:0
+dialog-base=gray:1
+dialog-border=text-dark:0
+dialog-arrow=text-dark:0

@@ -1,0 +1,56 @@
+[palette]
+name=Ocean
+docs=My take on an ocean theme.
+dark=63
+
+[color]
+text-light=#E5E5DD, #F2F2EE
+text-dark=#030305, #0C092C
+primary=#FF8D3C, #FFBF3C
+secondary=#2B4779, #6688CC
+white=#E5E5DD, #F2F2EE
+black=#030305, #0C092C
+gray=#4F6167, #BCC7CC
+red=#FF5E7F, #FF9276
+orange=#FF9F5B, #FFDC94
+yellow=#FFDA5D, #FFF675
+lime-green=#7D8447, #E1E5B9
+green=#658362, #99C794
+blue-green=#3A615C, #5B9C90
+cyan=#24ADBC, #B8DADE
+blue=#4F86CA, #BFDCFF
+deep-blue=#2B4779, #6688CC
+purple=#5068D7, #C7C4FF
+magenta=#7952D6, #C9BDE4
+red-pink=#9752D6, #CEBDE7
+
+[reference]
+label=white:0
+input=gray:3
+focus=primary:1
+select=secondary:1
+disabled=gray:3
+invalid=red:0
+hover=primary:2
+title-fg=text-dark:3
+title=yellow:0
+header-fg=text-light:0
+header=blue:0
+footer-fg=text-light:0
+footer=blue:0
+shadows=black:3
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:3
+key-binding=blue-green:0
+status-base=black:3
+container-base=black:3
+container-border=gray:0
+container-arrow=blue-green:0
+popup-base=gray:3
+popup-border=text-dark:3
+popup-arrow=text-dark:3
+dialog-base=gray:2
+dialog-border=text-dark:3
+dialog-arrow=text-dark:3

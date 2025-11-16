@@ -1,0 +1,56 @@
+[palette]
+name=MaterialDark
+docs=Credits to original theme https://github.com/marko-cerovac/material.nvim for existing\n-
+dark=64
+
+[color]
+text-light=#EEFFFF, #EEFFFF
+text-dark=#191919, #191919
+primary=#CCA055, #FFCB6B
+secondary=#96B26C, #C3E88D
+white=#EEFFFF, #EEFFFF
+black=#191919, #292929
+gray=#4A4A4A, #6B6B6B
+red=#F07178, #F07178
+orange=#F78C6C, #F78C6C
+yellow=#FFCB6B, #FFCB6B
+lime-green=#C3E88D, #C3E88D
+green=#C3E88D, #C3E88D
+blue-green=#ABCF76, #ABCF76
+cyan=#89DDFF, #89DDFF
+blue=#82AAFF, #82AAFF
+deep-blue=#6E98EB, #6E98EB
+purple=#B480D6, #B480D6
+magenta=#DA70CA, #DA70CA
+red-pink=#FFADFF, #FFADFF
+
+[reference]
+label=white:0
+input=gray:2
+focus=primary:1
+select=secondary:1
+disabled=gray:3
+invalid=red:1
+hover=gray:2
+title-fg=text-light:0
+title=red:0
+header-fg=blue:0
+header=none:0
+footer-fg=blue:0
+footer=none:0
+shadows=black:0
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:1
+key-binding=blue-green:0
+status-base=black:1
+container-base=black:1
+container-border=gray:1
+container-arrow=gray:1
+popup-base=gray:0
+popup-border=gray:3
+popup-arrow=gray:3
+dialog-base=gray:2
+dialog-border=text-light:0
+dialog-arrow=text-light:0

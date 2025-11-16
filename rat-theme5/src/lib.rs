@@ -248,7 +248,7 @@ const THEMES: &[&str] = &[
     "EverForest Dark",
     "Nord Dark",
     "Rust Dark",
-    "Naterial Dark",
+    "Material Dark",
     "Reds Dark",
     "Shell Dark",
     "VSCode Dark",

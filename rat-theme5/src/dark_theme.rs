@@ -35,10 +35,6 @@ use std::time::Duration;
 pub fn dark_theme(name: &str, p: Palette) -> Theme {
     let mut th = Theme::new(name, Category::Dark, p);
 
-    // for i in ColorsExt::array() {
-    //     debug!("{:?} {:?}", i, p.color_ext(i));
-    // }
-
     th.define(Style::LABEL_FG, th.p.fg_style_ext(ColorsExt::LabelFg));
     th.define(Style::INPUT, th.p.style_ext(ColorsExt::Input));
     th.define(Style::FOCUS, th.p.style_ext(ColorsExt::Focus));
@@ -61,7 +57,7 @@ pub fn dark_theme(name: &str, p: Palette) -> Theme {
     th.define(Style::SHADOWS, th.p.style_ext(ColorsExt::Shadows));
     th.define(Style::TEXT_FOCUS, th.p.style_ext(ColorsExt::TextFocus));
     th.define(Style::TEXT_SELECT, th.p.style_ext(ColorsExt::Select));
-    th.define(Style::KEY_BINDING, th.p.fg_style_ext(ColorsExt::KeyBinding));
+    th.define(Style::KEY_BINDING, th.p.style_ext(ColorsExt::KeyBinding));
 
     th.define(Style::BUTTON_BASE, th.p.style_ext(ColorsExt::ButtonBase));
     th.define(Style::MENU_BASE, th.p.style_ext(ColorsExt::MenuBase));
@@ -263,7 +259,7 @@ fn menu(th: &Theme) -> MenuStyle {
 
 fn month(th: &Theme) -> CalendarStyle {
     CalendarStyle {
-        style: th.style(Style::INPUT),
+        style: th.style(Style::CONTAINER_BASE),
         title: None,
         weeknum: Some(th.style(Style::HEADER)),
         weekday: Some(th.style(Style::HEADER)),

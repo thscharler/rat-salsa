@@ -1,0 +1,56 @@
+[palette]
+name=Monekai
+docs=
+dark=63
+
+[color]
+text-light=#F5F4F1, #FFFEFC
+text-dark=#272822, #464741
+primary=#C11F5A, #F92672
+secondary=#5C7289, #81A1C1
+white=#F5F4F1, #F5F4F1
+black=#22231D, #2F302A
+gray=#4D4E48, #64655F
+red=#E36D76, #E36D76
+orange=#D39467, #D39467
+yellow=#E6C181, #E6C181
+lime-green=#96C367, #96C367
+green=#96C367, #96C367
+blue-green=#34BFD0, #34BFD0
+cyan=#41AFEF, #41AFEF
+blue=#51AFEF, #51AFEF
+deep-blue=#81A1C1, #81A1C1
+purple=#AE81FF, #AE81FF
+magenta=#F92672, #F72270
+red-pink=#F98385, #F98385
+
+[reference]
+label=white:0
+input=gray:3
+focus=primary:1
+select=secondary:3
+disabled=gray:0
+invalid=red:1
+hover=primary:4
+title-fg=text-light:0
+title=magenta:0
+header-fg=text-light:0
+header=deep-blue:0
+footer-fg=text-light:0
+footer=deep-blue:0
+shadows=black:0
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:0
+key-binding=blue-green:0
+status-base=black:0
+container-base=black:0
+container-border=gray:1
+container-arrow=gray:1
+popup-base=gray:1
+popup-border=text-dark:0
+popup-arrow=text-dark:0
+dialog-base=gray:1
+dialog-border=black:3
+dialog-arrow=black:3
