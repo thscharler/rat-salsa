@@ -275,6 +275,7 @@ fn render_menu(
         .item_parsed("_Save as")
         .item_parsed("_Export")
         .item_parsed("_Base46")
+        .item_parsed("_Use46")
         .item_parsed("_Quit")
         .render(area, buf, &mut state.menu);
     Ok(())
@@ -372,7 +373,8 @@ pub fn event(
             MenuOutcome::Activated(3) => saveas_pal(state, ctx)?,
             MenuOutcome::Activated(4) => export_pal(state, ctx)?,
             MenuOutcome::Activated(5) => import_base46(state, ctx)?,
-            MenuOutcome::Activated(6) => Control::Quit,
+            MenuOutcome::Activated(6) => use_base46(state, ctx)?,
+            MenuOutcome::Activated(7) => Control::Quit,
             v => v.into(),
         });
 
@@ -756,6 +758,67 @@ fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, 
         }),
         s,
     );
+    Ok(Control::Changed)
+}
+
+fn use_base46(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    let v = state.detail.base46.white.value();
+    state.edit.color[Colors::TextLight as usize].0.set_value(v);
+    state.edit.color[Colors::TextLight as usize].3.set_value(v);
+    let v = state.detail.base46.darker_black.value();
+    state.edit.color[Colors::TextDark as usize].0.set_value(v);
+    state.edit.color[Colors::TextDark as usize].3.set_value(v);
+
+    let v = state.detail.base46.white.value();
+    state.edit.color[Colors::White as usize].0.set_value(v);
+    state.edit.color[Colors::White as usize].3.set_value(v);
+
+    let v = state.detail.base46.grey.value();
+    state.edit.color[Colors::Gray as usize].0.set_value(v);
+    let v = state.detail.base46.light_grey.value();
+    state.edit.color[Colors::Gray as usize].3.set_value(v);
+
+    let v = state.detail.base46.darker_black.value();
+    state.edit.color[Colors::Black as usize].0.set_value(v);
+    let v = state.detail.base46.black2.value();
+    state.edit.color[Colors::Black as usize].3.set_value(v);
+
+    let v = state.detail.base46.red.value();
+    state.edit.color[Colors::Red as usize].0.set_value(v);
+    state.edit.color[Colors::Red as usize].3.set_value(v);
+    let v = state.detail.base46.orange.value();
+    state.edit.color[Colors::Orange as usize].0.set_value(v);
+    state.edit.color[Colors::Orange as usize].3.set_value(v);
+    let v = state.detail.base46.yellow.value();
+    state.edit.color[Colors::Yellow as usize].0.set_value(v);
+    state.edit.color[Colors::Yellow as usize].3.set_value(v);
+    let v = state.detail.base46.vibrant_green.value();
+    state.edit.color[Colors::LimeGreen as usize].0.set_value(v);
+    state.edit.color[Colors::LimeGreen as usize].3.set_value(v);
+    let v = state.detail.base46.green.value();
+    state.edit.color[Colors::Green as usize].0.set_value(v);
+    state.edit.color[Colors::Green as usize].3.set_value(v);
+    let v = state.detail.base46.teal.value();
+    state.edit.color[Colors::BlueGreen as usize].0.set_value(v);
+    state.edit.color[Colors::BlueGreen as usize].3.set_value(v);
+    let v = state.detail.base46.cyan.value();
+    state.edit.color[Colors::Cyan as usize].0.set_value(v);
+    state.edit.color[Colors::Cyan as usize].3.set_value(v);
+    let v = state.detail.base46.blue.value();
+    state.edit.color[Colors::Blue as usize].0.set_value(v);
+    state.edit.color[Colors::Blue as usize].3.set_value(v);
+    let v = state.detail.base46.nord_blue.value();
+    state.edit.color[Colors::DeepBlue as usize].0.set_value(v);
+    state.edit.color[Colors::DeepBlue as usize].3.set_value(v);
+    let v = state.detail.base46.dark_purple.value();
+    state.edit.color[Colors::Purple as usize].0.set_value(v);
+    state.edit.color[Colors::Purple as usize].3.set_value(v);
+    let v = state.detail.base46.pink.value();
+    state.edit.color[Colors::Magenta as usize].0.set_value(v);
+    state.edit.color[Colors::Magenta as usize].3.set_value(v);
+    let v = state.detail.base46.baby_pink.value();
+    state.edit.color[Colors::RedPink as usize].0.set_value(v);
+    state.edit.color[Colors::RedPink as usize].3.set_value(v);
     Ok(Control::Changed)
 }
 

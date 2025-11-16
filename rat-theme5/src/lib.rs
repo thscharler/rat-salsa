@@ -44,8 +44,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 mod dark_theme;
 mod fallback_theme;
 // mod light_theme;
+pub mod dark_palettes;
 mod palette;
-pub mod palettes;
 mod shell_theme;
 mod theme;
 
@@ -208,7 +208,7 @@ pub fn salsa_palettes() -> Vec<&'static str> {
 
 /// Get a Palette by name.
 pub fn create_palette(name: &str) -> Option<Palette> {
-    use crate::palettes::*;
+    use crate::dark_palettes::*;
     match name {
         "Imperial" => Some(IMPERIAL),
         "Radium" => Some(RADIUM),
@@ -224,6 +224,7 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "EverForest" => Some(EVERFOREST),
         "Nord" => Some(NORD),
         "Rust" => Some(RUST),
+        "Material" => Some(MATERIALDARK),
         "Reds" => Some(REDS),
         "Blackout" => Some(BLACKOUT),
         "Shell" => Some(SHELL),
@@ -247,6 +248,7 @@ const THEMES: &[&str] = &[
     "EverForest Dark",
     "Nord Dark",
     "Rust Dark",
+    "Naterial Dark",
     "Reds Dark",
     "Shell Dark",
     "VSCode Dark",
@@ -265,6 +267,7 @@ const THEMES: &[&str] = &[
     "EverForest Shell",
     "Nord Shell",
     "Rust Shell",
+    "Material Shell",
     "Reds Shell",
     "Shell Shell",
     "VSCode Shell",
@@ -281,7 +284,7 @@ pub fn salsa_themes() -> Vec<&'static str> {
 
 /// Create a theme.
 pub fn create_theme(theme: &str) -> Option<Theme> {
-    use crate::palettes::*;
+    use crate::dark_palettes::*;
     let theme = match theme {
         "Imperial Dark" => dark_theme(theme, IMPERIAL),
         "Radium Dark" => dark_theme(theme, RADIUM),
@@ -297,6 +300,7 @@ pub fn create_theme(theme: &str) -> Option<Theme> {
         "EverForest Dark" => dark_theme(theme, EVERFOREST),
         "Nord Dark" => dark_theme(theme, NORD),
         "Rust Dark" => dark_theme(theme, RUST),
+        "Material Dark" => dark_theme(theme, MATERIALDARK),
         "Reds Dark" => dark_theme(theme, REDS),
         "Shell Dark" => dark_theme(theme, SHELL),
         "VSCode Dark" => dark_theme(theme, VSCODEDARK),
@@ -315,6 +319,7 @@ pub fn create_theme(theme: &str) -> Option<Theme> {
         "EverForest Shell" => shell_theme(theme, EVERFOREST),
         "Nord Shell" => shell_theme(theme, NORD),
         "Rust Shell" => shell_theme(theme, RUST),
+        "Material Shell" => shell_theme(theme, MATERIALDARK),
         "Reds Shell" => shell_theme(theme, REDS),
         "Shell Shell" => shell_theme(theme, SHELL),
         "VSCode Shell" => shell_theme(theme, VSCODEDARK),
