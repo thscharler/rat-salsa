@@ -160,7 +160,17 @@ fn choice(th: &Theme) -> ChoiceStyle {
         popup_scroll: Some(popup_scroll(th)),
         popup_block: Some(
             Block::bordered()
-                .borders(Borders::LEFT)
+                .borders(Borders::LEFT | Borders::BOTTOM | Borders::RIGHT)
+                .border_set(border::Set {
+                    top_left: "X",
+                    top_right: "X",
+                    bottom_left: "▀",
+                    bottom_right: "▀",
+                    vertical_left: "▌",
+                    vertical_right: "▐",
+                    horizontal_top: "X",
+                    horizontal_bottom: "▀",
+                })
                 .border_style(th.style::<Style>(Style::POPUP_BORDER_FG)),
         ),
         ..Default::default()
@@ -323,6 +333,20 @@ fn popup_scroll(th: &Theme) -> ScrollStyle {
         min_style: Some(th.style(Style::POPUP_BORDER_FG)),
         begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
         end_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        horizontal: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "←",
+            end: "→",
+            min: "░",
+        }),
+        vertical: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "↑",
+            end: "↓",
+            min: "░",
+        }),
         ..Default::default()
     }
 }
@@ -334,6 +358,20 @@ fn dialog_scroll(th: &Theme) -> ScrollStyle {
         min_style: Some(th.style(Style::DIALOG_BORDER_FG)),
         begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
         end_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        horizontal: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "←",
+            end: "→",
+            min: "░",
+        }),
+        vertical: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "↑",
+            end: "↓",
+            min: "░",
+        }),
         ..Default::default()
     }
 }

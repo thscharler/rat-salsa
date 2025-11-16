@@ -21,7 +21,7 @@ cyan=#C8EAFC, #BAE6FD
 blue=#C7D0FC, #A5B4FC
 deep-blue=#BFCAF2, #9BAAF2
 purple=#B7ABD9, #B3A6DA
-magenta=#FFC9C9, #FF8E8E
+magenta=#FFC9C9, #F98B8B
 red-pink=#FFFCAD, #FECDD3
 
 [reference]
@@ -31,13 +31,13 @@ focus=primary:1
 select=secondary:1
 disabled=gray:3
 invalid=red:3
-hover=black:0
+hover=secondary:0
 title-fg=text-dark:3
 title=red:0
-header-fg=blue:2
-header=gray:3
-footer-fg=blue:2
-footer=gray:3
+header-fg=text-dark:3
+header=blue:3
+footer-fg=text-dark:3
+footer=blue:3
 shadows=text-dark:0
 text-focus=primary:1
 text-select=secondary:1
