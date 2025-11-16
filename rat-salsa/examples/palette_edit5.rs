@@ -538,7 +538,7 @@ fn import_base46_file(
 fn export_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_dlg_export.clone();
     s.borrow_mut()
-        .save_dialog_ext(".", state.edit.name.text().to_lowercase(), "rs")?;
+        .save_dialog_ext(".", state.edit.file_name(), "rs")?;
     ctx.dlg.push(
         file_dialog_render(
             LayoutOuter::new()
@@ -566,13 +566,11 @@ fn export_pal_file(
 
     let c32 = Palette::color_to_u32;
 
-    let name = state.edit.name.text();
-
     let mut wr = File::create(path)?;
     writeln!(wr, "use crate::{{Colors, ColorsExt, Palette}};")?;
     writeln!(wr, "use ratatui::style::Color;")?;
     writeln!(wr, "")?;
-    writeln!(wr, "/// {}", name)?;
+    writeln!(wr, "/// {}", state.edit.name())?;
     for l in state.edit.docs.text().lines() {
         writeln!(wr, "/// {}", l)?;
     }
@@ -582,19 +580,9 @@ fn export_pal_file(
         state.edit.dark.value::<u8>().unwrap_or(64)
     )?;
     writeln!(wr, "")?;
-    let const_name = name
-        .chars()
-        .filter_map(|v| {
-            if v.is_alphanumeric() {
-                Some(v)
-            } else {
-                Some('_')
-            }
-        })
-        .collect::<String>();
-    writeln!(wr, "pub const {}: Palette = {{", const_name.to_uppercase(),)?;
+    writeln!(wr, "pub const {}: Palette = {{", state.edit.const_name(),)?;
     writeln!(wr, "    let mut p = Palette {{")?;
-    writeln!(wr, "        name: \"{}\", ", name)?;
+    writeln!(wr, "        name: \"{}\", ", state.edit.name())?;
     writeln!(wr, "")?;
     writeln!(wr, "        color: [")?;
     for c in [Colors::TextLight, Colors::TextDark] {
@@ -640,21 +628,8 @@ fn export_pal_file(
 
 fn saveas_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_save_dlg.clone();
-    let name = state
-        .edit
-        .name
-        .text() //
-        .chars()
-        .filter_map(|v| {
-            if v.is_alphanumeric() {
-                Some(v)
-            } else {
-                Some('_')
-            }
-        })
-        .collect::<String>();
     s.borrow_mut()
-        .save_dialog_ext(".", name.to_lowercase(), "pal")?;
+        .save_dialog_ext(".", state.edit.file_name(), "pal")?;
     ctx.dlg.push(
         file_dialog_render(
             LayoutOuter::new()
@@ -689,7 +664,7 @@ fn save_pal_file(
     state.file_path = Some(path.into());
 
     let mut ff = Ini::new_std();
-    ff.set_text("palette", "name", state.edit.name.text());
+    ff.set_text("palette", "name", state.edit.name());
     ff.set_text("palette", "docs", state.edit.docs.text());
     ff.set_val(
         "palette",
@@ -1662,6 +1637,42 @@ mod palette_edit {
             };
             z.dark.set_format_loc("999", loc).expect("format");
             z
+        }
+
+        pub fn name(&self) -> String {
+            self.name.text().into()
+        }
+
+        pub fn file_name(&self) -> String {
+            let name = self
+                .name
+                .text()
+                .chars()
+                .filter_map(|v| {
+                    if v.is_alphanumeric() {
+                        Some(v)
+                    } else {
+                        Some('_')
+                    }
+                })
+                .collect::<String>();
+            name.to_lowercase()
+        }
+
+        pub fn const_name(&self) -> String {
+            let name = self
+                .name
+                .text()
+                .chars()
+                .filter_map(|v| {
+                    if v.is_alphanumeric() {
+                        Some(v)
+                    } else {
+                        Some('_')
+                    }
+                })
+                .collect::<String>();
+            name.to_uppercase()
         }
     }
 
