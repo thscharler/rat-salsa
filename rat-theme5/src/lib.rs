@@ -46,14 +46,15 @@ mod fallback_theme;
 // mod light_theme;
 pub mod dark_palettes;
 mod palette;
+mod shell_shell_theme;
 mod shell_theme;
 mod theme;
 
 pub use dark_theme::dark_theme;
-// pub use fallback_theme::fallback_theme;
 // pub use light_theme::light_theme;
 use crate::fallback_theme::fallback_theme;
 pub use palette::{ColorIdx, Colors, ColorsExt, Palette};
+pub use shell_shell_theme::shell_shell_theme;
 pub use shell_theme::shell_theme;
 pub use theme::{Category, Theme};
 
@@ -197,7 +198,6 @@ const PALETTES: &[&str] = &[
     "Nord",
     "Reds",
     "Blackout",
-    "Shell",
     "VSCodeDark",
 ];
 
@@ -227,7 +227,6 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Material" => Some(MATERIALDARK),
         "Reds" => Some(REDS),
         "Blackout" => Some(BLACKOUT),
-        "Shell" => Some(SHELL),
         "VSCodeDark" => Some(VSCODEDARK),
         _ => None,
     }
@@ -250,7 +249,6 @@ const THEMES: &[&str] = &[
     "Rust Dark",
     "Material Dark",
     "Reds Dark",
-    "Shell Dark",
     "VSCode Dark",
     // //
     "Imperial Shell",
@@ -269,11 +267,10 @@ const THEMES: &[&str] = &[
     "Rust Shell",
     "Material Shell",
     "Reds Shell",
-    "Shell Shell",
     "VSCode Shell",
     //
-    "Blackout Dark",
-    "Blackout Shell",
+    "Shell",
+    "Blackout",
     "Fallback",
 ];
 
@@ -302,7 +299,6 @@ pub fn create_theme(theme: &str) -> Option<Theme> {
         "Rust Dark" => dark_theme(theme, RUST),
         "Material Dark" => dark_theme(theme, MATERIALDARK),
         "Reds Dark" => dark_theme(theme, REDS),
-        "Shell Dark" => dark_theme(theme, SHELL),
         "VSCode Dark" => dark_theme(theme, VSCODEDARK),
         //
         "Imperial Shell" => shell_theme(theme, IMPERIAL),
@@ -321,11 +317,10 @@ pub fn create_theme(theme: &str) -> Option<Theme> {
         "Rust Shell" => shell_theme(theme, RUST),
         "Material Shell" => shell_theme(theme, MATERIALDARK),
         "Reds Shell" => shell_theme(theme, REDS),
-        "Shell Shell" => shell_theme(theme, SHELL),
         "VSCode Shell" => shell_theme(theme, VSCODEDARK),
         //
-        "Blackout Dark" => dark_theme(theme, BLACKOUT),
-        "Blackout Shell" => shell_theme(theme, BLACKOUT),
+        "Shell" => shell_shell_theme(theme),
+        "Blackout" => dark_theme(theme, BLACKOUT),
         "Fallback" => fallback_theme(theme, REDS),
         _ => return None,
     };

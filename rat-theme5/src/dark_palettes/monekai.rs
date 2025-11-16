@@ -27,7 +27,7 @@ pub const MONEKAI: Palette = {
             Palette::interpolate(0x81a1c1, 0x81a1c1, DARKNESS),
             Palette::interpolate(0xae81ff, 0xae81ff, DARKNESS),
             Palette::interpolate(0xf92672, 0xf72270, DARKNESS),
-            Palette::interpolate(0xf98385, 0xf98385, DARKNESS),
+            Palette::interpolate(0xf98385, 0xf98381, DARKNESS),
         ],
         color_ext: [Color::Reset; ColorsExt::LEN],
     };
@@ -37,14 +37,11 @@ pub const MONEKAI: Palette = {
     p.color_ext[ColorsExt::Focus as usize] = p.color[Colors::Primary as usize][1];
     p.color_ext[ColorsExt::Select as usize] = p.color[Colors::Secondary as usize][3];
     p.color_ext[ColorsExt::Disabled as usize] = p.color[Colors::Gray as usize][0];
-    p.color_ext[ColorsExt::Invalid as usize] = p.color[Colors::Red as usize][1];
-    p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Primary as usize][4];
-    p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Title as usize] = p.color[Colors::Magenta as usize][0];
-    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Header as usize] = p.color[Colors::DeepBlue as usize][0];
-    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::DeepBlue as usize][0];
+    p.color_ext[ColorsExt::Invalid as usize] = p.color[Colors::RedPink as usize][0];
+    p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Purple as usize][0];
+    p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::Magenta as usize][0];
+    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::DeepBlue as usize][0];
+    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::DeepBlue as usize][0];
     p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::Black as usize][0];
     p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][1];
     p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][1];

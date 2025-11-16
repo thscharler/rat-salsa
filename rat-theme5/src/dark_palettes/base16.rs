@@ -27,7 +27,7 @@ pub const BASE16: Palette = {
             Palette::interpolate(0x0000af, 0x0000af, DARKNESS),
             Palette::interpolate(0xaa00aa, 0xaa00aa, DARKNESS),
             Palette::interpolate(0xff55ff, 0xff55ff, DARKNESS),
-            Palette::interpolate(0xff5555, 0xff5555, DARKNESS),
+            Palette::interpolate(0xff5555, 0xff5a55, DARKNESS),
         ],
         color_ext: [Color::Reset; ColorsExt::LEN],
     };
@@ -41,16 +41,14 @@ pub const BASE16: Palette = {
     p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Secondary as usize][0];
     p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextLight as usize][0];
     p.color_ext[ColorsExt::Title as usize] = p.color[Colors::Red as usize][0];
-    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Blue as usize][0];
-    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Blue as usize][0];
+    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::Blue as usize][0];
+    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::Blue as usize][0];
     p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::Black as usize][0];
     p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][0];
     p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][0];
     p.color_ext[ColorsExt::ButtonBase as usize] = p.color[Colors::Gray as usize][0];
     p.color_ext[ColorsExt::MenuBase as usize] = p.color[Colors::Black as usize][0];
-    p.color_ext[ColorsExt::KeyBinding as usize] = p.color[Colors::BlueGreen as usize][0];
+    p.color_ext[ColorsExt::KeyBinding as usize] = p.color[Colors::Orange as usize][0];
     p.color_ext[ColorsExt::StatusBase as usize] = p.color[Colors::Black as usize][0];
     p.color_ext[ColorsExt::ContainerBase as usize] = p.color[Colors::Black as usize][0];
     p.color_ext[ColorsExt::ContainerBorderFg as usize] = p.color[Colors::Gray as usize][0];
