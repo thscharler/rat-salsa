@@ -1,12 +1,12 @@
 use crate::configparser_ext::ConfigParserExt;
 use crate::message::{msg_event, msg_render, MsgState};
 use crate::palette_edit::PaletteEdit;
-use crate::show_tabs::ShowTabs;
+use crate::show_or_base46::ShowOrBase46;
 use anyhow::{anyhow, Error};
 use configparser::ini::Ini;
 use log::{error, warn};
 use pure_rust_locales::Locale;
-use rat_event::{event_flow, Outcome, Popup};
+use rat_event::{event_flow, Outcome};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
 use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render};
 use rat_salsa::dialog_stack::DialogStack;
@@ -14,11 +14,9 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme5::{
-    create_palette, create_theme, dark_theme, salsa_palettes, shell_theme, ColorIdx, Colors,
-    ColorsExt, Palette, Theme, WidgetStyle,
+    create_theme, dark_theme, shell_theme, ColorIdx, Colors, ColorsExt, Palette, Theme, WidgetStyle,
 };
-use rat_widget::choice::{Choice, ChoiceState};
-use rat_widget::event::{ct_event, ChoiceOutcome, HandleEvent, MenuOutcome, Regular};
+use rat_widget::event::{ct_event, HandleEvent, MenuOutcome, Regular};
 use rat_widget::file_dialog::FileDialogState;
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::LayoutOuter;
@@ -33,7 +31,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cell::RefCell;
 use std::fs::File;
-use std::iter::once;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str::FromStr;
@@ -123,6 +121,7 @@ pub enum PalEvent {
     Save(PathBuf),
     Load(PathBuf),
     Export(PathBuf),
+    Base46(PathBuf),
 }
 
 impl From<RenderedEvent> for PalEvent {
@@ -166,24 +165,30 @@ pub fn pal_choice(pal: Palette) -> Vec<(ColorIdx, Line<'static>)> {
 
 #[derive(Debug)]
 pub struct Scenery {
-    pub file_dlg: Rc<RefCell<FileDialogState>>,
+    pub file_load_dlg: Rc<RefCell<FileDialogState>>,
+    pub file_save_dlg: Rc<RefCell<FileDialogState>>,
     pub file_dlg_export: Rc<RefCell<FileDialogState>>,
+    pub file_dlg_import: Rc<RefCell<FileDialogState>>,
     pub file_path: Option<PathBuf>,
 
     pub edit: PaletteEdit,
-    pub show: ShowTabs,
+    pub detail: ShowOrBase46,
     pub menu: MenuLineState,
+    pub menu_return_focus: Option<FocusFlag>,
 }
 
 impl Scenery {
     pub fn new(loc: Locale) -> Self {
         Self {
-            file_dlg: Rc::new(RefCell::new(FileDialogState::default())),
+            file_load_dlg: Rc::new(RefCell::new(FileDialogState::default())),
+            file_save_dlg: Rc::new(RefCell::new(FileDialogState::default())),
             file_dlg_export: Rc::new(RefCell::new(FileDialogState::default())),
+            file_dlg_import: Rc::new(RefCell::new(FileDialogState::default())),
             file_path: None,
             edit: PaletteEdit::new(loc),
-            show: ShowTabs::new(loc),
+            detail: ShowOrBase46::new(loc),
             menu: MenuLineState::named("menu"),
+            menu_return_focus: Default::default(),
         }
     }
 }
@@ -191,7 +196,7 @@ impl Scenery {
 impl HasFocus for Scenery {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.edit);
-        builder.widget(&self.show);
+        builder.widget(&self.detail);
         builder.widget_navigate(&self.menu, Navigation::Leave);
     }
 
@@ -217,7 +222,7 @@ pub fn render(
     .split(area);
     let l2 = Layout::horizontal([
         Constraint::Length(69), //
-        Constraint::Length(50), //
+        Constraint::Fill(1),    //
     ])
     .horizontal_margin(1)
     .flex(Flex::Center)
@@ -225,7 +230,7 @@ pub fn render(
 
     // main
     palette_edit::render(l2[0], buf, &mut state.edit, ctx)?;
-    show_tabs::render(l2[1], buf, &mut state.show, ctx)?;
+    show_or_base46::render(l2[1], buf, &mut state.detail, ctx)?;
     screen_cursor(state, ctx);
 
     // menu & status
@@ -262,6 +267,7 @@ fn render_menu(
         .item_parsed("_Save")
         .item_parsed("_Save as")
         .item_parsed("_Export")
+        .item_parsed("_Base46")
         .item_parsed("_Quit")
         .render(area, buf, &mut state.menu);
     Ok(())
@@ -305,7 +311,7 @@ fn render_status(area: Rect, buf: &mut Buffer, ctx: &mut Global) -> Result<(), E
 }
 
 fn screen_cursor(state: &mut Scenery, ctx: &mut Global) {
-    let sc = state.edit.screen_cursor().or(state.show.screen_cursor());
+    let sc = state.edit.screen_cursor().or(state.detail.screen_cursor());
     ctx.set_screen_cursor(sc);
 }
 
@@ -338,7 +344,7 @@ pub fn event(
         match ctx.handle_focus(event) {
             Outcome::Changed => {
                 state.edit.form.show_focused(&ctx.focus());
-                state.show.show_focused(&ctx.focus());
+                state.detail.show_focused(&ctx.focus());
             }
             _ => {}
         }
@@ -350,7 +356,7 @@ pub fn event(
             }
             r => r.into(),
         });
-        event_flow!(show_tabs::event(event, &mut state.show, ctx)?);
+        event_flow!(show_or_base46::event(event, &mut state.detail, ctx)?);
 
         event_flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => new_pal(state, ctx)?,
@@ -358,9 +364,28 @@ pub fn event(
             MenuOutcome::Activated(2) => save_pal(state, ctx)?,
             MenuOutcome::Activated(3) => saveas_pal(state, ctx)?,
             MenuOutcome::Activated(4) => export_pal(state, ctx)?,
-            MenuOutcome::Activated(5) => Control::Quit,
+            MenuOutcome::Activated(5) => import_base46(state, ctx)?,
+            MenuOutcome::Activated(6) => Control::Quit,
             v => v.into(),
         });
+
+        event_flow!(match event {
+            ct_event!(keycode press Esc) => {
+                if state.menu.is_focused() {
+                    let last = state
+                        .menu_return_focus
+                        .clone()
+                        .unwrap_or(state.edit.name.focus());
+                    ctx.focus().focus(&last);
+                } else {
+                    state.menu_return_focus = ctx.focus().focused();
+                    ctx.focus().focus(&state.menu);
+                }
+
+                Control::Changed
+            }
+            _ => Control::Continue,
+        })
     }
 
     match event {
@@ -376,8 +401,120 @@ pub fn event(
         PalEvent::Save(p) => save_pal_file(&p, state, ctx),
         PalEvent::Load(p) => load_pal_file(&p, state, ctx),
         PalEvent::Export(p) => export_pal_file(&p, state, ctx),
+        PalEvent::Base46(p) => import_base46_file(&p, state, ctx),
         _ => Ok(Control::Continue),
     }
+}
+
+fn import_base46(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    let s = state.file_dlg_import.clone();
+    s.borrow_mut().open_dialog(".")?;
+    ctx.dlg.push(
+        file_dialog_render(
+            LayoutOuter::new()
+                .left(Constraint::Percentage(19))
+                .right(Constraint::Percentage(19))
+                .top(Constraint::Length(4))
+                .bottom(Constraint::Length(4)),
+            ctx.theme.style(WidgetStyle::FILE_DIALOG),
+        ),
+        file_dialog_event(|p| match p {
+            Ok(p) => PalEvent::Base46(p),
+            Err(_) => PalEvent::NoOp,
+        }),
+        s,
+    );
+    Ok(Control::Changed)
+}
+
+fn import_base46_file(
+    path: &Path,
+    state: &mut Scenery,
+    _ctx: &mut Global,
+) -> Result<Control<PalEvent>, Error> {
+    let mut buf = String::new();
+    {
+        let mut f = File::open(path)?;
+        f.read_to_string(&mut buf)?;
+    }
+
+    // quick and dirty parser
+    let mut mode = 0;
+    for l in buf.lines() {
+        if l.starts_with("M.base_30") {
+            mode = 1;
+        } else if l.starts_with("M.base_16") {
+            mode = 1;
+        } else if l.starts_with("}") {
+            mode = 0;
+        } else if mode == 1 {
+            let l = l.trim();
+            let mut it = l.split(['=', ',']);
+            let Some(name) = it.next() else {
+                continue;
+            };
+            let name = name.trim();
+            let Some(color) = it.next() else {
+                continue;
+            };
+            let color = color.trim_matches([' ', '"']);
+            let Ok(color) = Color::from_str(color) else {
+                continue;
+            };
+
+            match name {
+                "white" => state.detail.base46.white.set_value(color),
+                "darker_black" => state.detail.base46.darker_black.set_value(color),
+                "black" => state.detail.base46.black.set_value(color),
+                "black2" => state.detail.base46.black2.set_value(color),
+                "one_bg" => state.detail.base46.one_bg.set_value(color),
+                "one_bg2" => state.detail.base46.one_bg2.set_value(color),
+                "one_bg3" => state.detail.base46.one_bg3.set_value(color),
+                "grey" => state.detail.base46.grey.set_value(color),
+                "grey_fg" => state.detail.base46.grey_fg.set_value(color),
+                "grey_fg2" => state.detail.base46.grey_fg2.set_value(color),
+                "light_grey" => state.detail.base46.light_grey.set_value(color),
+                "red" => state.detail.base46.red.set_value(color),
+                "baby_pink" => state.detail.base46.baby_pink.set_value(color),
+                "pink" => state.detail.base46.pink.set_value(color),
+                "line" => state.detail.base46.line.set_value(color),
+                "green" => state.detail.base46.green.set_value(color),
+                "vibrant_green" => state.detail.base46.vibrant_green.set_value(color),
+                "nord_blue" => state.detail.base46.nord_blue.set_value(color),
+                "blue" => state.detail.base46.blue.set_value(color),
+                "yellow" => state.detail.base46.yellow.set_value(color),
+                "sun" => state.detail.base46.sun.set_value(color),
+                "purple" => state.detail.base46.purple.set_value(color),
+                "dark_purple" => state.detail.base46.dark_purple.set_value(color),
+                "teal" => state.detail.base46.teal.set_value(color),
+                "orange" => state.detail.base46.orange.set_value(color),
+                "cyan" => state.detail.base46.cyan.set_value(color),
+                "statusline_bg" => state.detail.base46.statusline_bg.set_value(color),
+                "lightbg" => state.detail.base46.lightbg.set_value(color),
+                "pmenu_bg" => state.detail.base46.pmenu_bg.set_value(color),
+                "folder_bg" => state.detail.base46.folder_bg.set_value(color),
+                "base00" => state.detail.base46.base00.set_value(color),
+                "base01" => state.detail.base46.base01.set_value(color),
+                "base02" => state.detail.base46.base02.set_value(color),
+                "base03" => state.detail.base46.base03.set_value(color),
+                "base04" => state.detail.base46.base04.set_value(color),
+                "base05" => state.detail.base46.base05.set_value(color),
+                "base06" => state.detail.base46.base06.set_value(color),
+                "base07" => state.detail.base46.base07.set_value(color),
+                "base08" => state.detail.base46.base08.set_value(color),
+                "base09" => state.detail.base46.base09.set_value(color),
+                "base0A" => state.detail.base46.base0A.set_value(color),
+                "base0B" => state.detail.base46.base0B.set_value(color),
+                "base0C" => state.detail.base46.base0C.set_value(color),
+                "base0D" => state.detail.base46.base0D.set_value(color),
+                "base0E" => state.detail.base46.base0E.set_value(color),
+                "base0F" => state.detail.base46.base0F.set_value(color),
+                _ => {}
+            }
+        }
+    }
+
+    Ok(Control::Changed)
 }
 
 fn export_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
@@ -427,7 +564,17 @@ fn export_pal_file(
         state.edit.dark.value::<u8>().unwrap_or(64)
     )?;
     writeln!(wr, "")?;
-    writeln!(wr, "pub const {}: Palette = {{", name.to_uppercase(),)?;
+    let const_name = name
+        .chars()
+        .filter_map(|v| {
+            if v.is_alphanumeric() {
+                Some(v)
+            } else {
+                Some('_')
+            }
+        })
+        .collect::<String>();
+    writeln!(wr, "pub const {}: Palette = {{", const_name.to_uppercase(),)?;
     writeln!(wr, "    let mut p = Palette {{")?;
     writeln!(wr, "        name: \"{}\", ", name)?;
     writeln!(wr, "")?;
@@ -472,9 +619,22 @@ fn export_pal_file(
 }
 
 fn saveas_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    let s = state.file_dlg.clone();
+    let s = state.file_save_dlg.clone();
+    let name = state
+        .edit
+        .name
+        .text() //
+        .chars()
+        .filter_map(|v| {
+            if v.is_alphanumeric() {
+                Some(v)
+            } else {
+                Some('_')
+            }
+        })
+        .collect::<String>();
     s.borrow_mut()
-        .save_dialog_ext(".", state.edit.name.text().to_lowercase(), "pal")?;
+        .save_dialog_ext(".", name.to_lowercase(), "pal")?;
     ctx.dlg.push(
         file_dialog_render(
             LayoutOuter::new()
@@ -553,7 +713,7 @@ fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, 
 }
 
 fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    let s = state.file_dlg.clone();
+    let s = state.file_load_dlg.clone();
     s.borrow_mut().open_dialog(".")?;
     ctx.dlg.push(
         file_dialog_render(
@@ -700,7 +860,7 @@ fn load_pal_file(
         let color_idx = ColorIdx::from_str("blue:0").expect("color");
         state.edit.color_ext[ColorsExt::Footer as usize].set_value(color_idx);
         let color_idx = ColorIdx::from_str("text-dark:0").expect("color");
-        state.edit.color_ext[ColorsExt::Shadow as usize].set_value(color_idx);
+        state.edit.color_ext[ColorsExt::Shadows as usize].set_value(color_idx);
         let color_idx = ColorIdx::from_str("primary:1").expect("color");
         state.edit.color_ext[ColorsExt::TextFocus as usize].set_value(color_idx);
         let color_idx = ColorIdx::from_str("secondary:1").expect("color");
@@ -765,7 +925,7 @@ fn load_pal_file(
 
 fn create_edit_theme(state: &Scenery) -> Theme {
     let palette = state.edit.palette();
-    match state.show.themes.value().as_str() {
+    match state.detail.show.themes.value().as_str() {
         "Shell" => shell_theme("Shell", palette),
         // "Fallback" => fallback_theme("Fallback", palette),
         _ => dark_theme("Dark", palette),
@@ -780,6 +940,533 @@ pub fn error(
     error!("{:?}", event);
     show_error(format!("{:?}", &*event).as_str(), ctx);
     Ok(Control::Changed)
+}
+
+mod base46 {
+    use crate::Global;
+    use anyhow::Error;
+    use rat_event::{event_flow, HandleEvent, Outcome, Regular};
+    use rat_focus::{impl_has_focus, HasFocus};
+    use rat_theme5::WidgetStyle;
+    use rat_widget::clipper::{Clipper, ClipperState};
+    use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
+    use rat_widget::event::TextOutcome;
+    use rat_widget::layout::LayoutForm;
+    use rat_widget::scrolled::Scroll;
+    use rat_widget::text::impl_screen_cursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Flex, Rect};
+    use ratatui::widgets::{Block, BorderType};
+
+    #[allow(non_snake_case)]
+    #[derive(Debug, Default)]
+    pub struct Base46 {
+        pub form: ClipperState,
+
+        pub white: ColorInputState,
+        pub darker_black: ColorInputState,
+        pub black: ColorInputState,
+        pub black2: ColorInputState,
+        pub one_bg: ColorInputState,
+        pub one_bg2: ColorInputState,
+        pub one_bg3: ColorInputState,
+        pub grey: ColorInputState,
+        pub grey_fg: ColorInputState,
+        pub grey_fg2: ColorInputState,
+        pub light_grey: ColorInputState,
+        pub red: ColorInputState,
+        pub baby_pink: ColorInputState,
+        pub pink: ColorInputState,
+        pub line: ColorInputState,
+        pub green: ColorInputState,
+        pub vibrant_green: ColorInputState,
+        pub nord_blue: ColorInputState,
+        pub blue: ColorInputState,
+        pub yellow: ColorInputState,
+        pub sun: ColorInputState,
+        pub purple: ColorInputState,
+        pub dark_purple: ColorInputState,
+        pub teal: ColorInputState,
+        pub orange: ColorInputState,
+        pub cyan: ColorInputState,
+        pub statusline_bg: ColorInputState,
+        pub lightbg: ColorInputState,
+        pub pmenu_bg: ColorInputState,
+        pub folder_bg: ColorInputState,
+        pub base00: ColorInputState,
+        pub base01: ColorInputState,
+        pub base02: ColorInputState,
+        pub base03: ColorInputState,
+        pub base04: ColorInputState,
+        pub base05: ColorInputState,
+        pub base06: ColorInputState,
+        pub base07: ColorInputState,
+        pub base08: ColorInputState,
+        pub base09: ColorInputState,
+        pub base0A: ColorInputState,
+        pub base0B: ColorInputState,
+        pub base0C: ColorInputState,
+        pub base0D: ColorInputState,
+        pub base0E: ColorInputState,
+        pub base0F: ColorInputState,
+    }
+
+    impl_has_focus!(
+        white, darker_black, black, black2, one_bg, one_bg2, one_bg3, grey,
+        grey_fg, grey_fg2, light_grey, red, baby_pink, pink, line, green,
+        vibrant_green, nord_blue, blue, yellow, sun, purple, dark_purple,
+        teal, orange, cyan, statusline_bg, lightbg, pmenu_bg, folder_bg,
+        base00, base01, base02, base03, base04, base05, base06, base07,
+        base08, base09, base0A, base0B, base0C, base0D, base0E, base0F
+        for Base46);
+    impl_screen_cursor!(
+        white, darker_black, black, black2, one_bg, one_bg2, one_bg3, grey,
+        grey_fg, grey_fg2, light_grey, red, baby_pink, pink, line, green,
+        vibrant_green, nord_blue, blue, yellow, sun, purple, dark_purple,
+        teal, orange, cyan, statusline_bg, lightbg, pmenu_bg, folder_bg,
+        base00, base01, base02, base03, base04, base05, base06, base07,
+        base08, base09, base0A, base0B, base0C, base0D, base0E, base0F
+        for Base46
+    );
+
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Base46,
+        ctx: &mut Global,
+    ) -> Result<(), Error> {
+        let mut form = Clipper::new()
+            .buffer_uses_view_size()
+            .vscroll(Scroll::new())
+            .styles(ctx.theme.style(WidgetStyle::CLIPPER));
+        let layout_size = form.layout_size(area, &mut state.form);
+
+        if !state.form.valid_layout(layout_size) {
+            use rat_widget::layout::{FormLabel as L, FormWidget as W};
+            let mut layout = LayoutForm::<usize>::new().spacing(1).flex(Flex::Start);
+            layout.widget(state.white.id(), L::Str("white"), W::Width(17));
+            layout.widget(
+                state.darker_black.id(),
+                L::Str("darker_black"),
+                W::Width(17),
+            );
+            layout.widget(state.black.id(), L::Str("black"), W::Width(17));
+            layout.widget(state.black2.id(), L::Str("black2"), W::Width(17));
+            layout.widget(state.one_bg.id(), L::Str("one_bg"), W::Width(17));
+            layout.widget(state.one_bg2.id(), L::Str("one_bg2"), W::Width(17));
+            layout.widget(state.one_bg3.id(), L::Str("one_bg3"), W::Width(17));
+            layout.widget(state.grey.id(), L::Str("grey"), W::Width(17));
+            layout.widget(state.grey_fg.id(), L::Str("grey_fg"), W::Width(17));
+            layout.widget(state.grey_fg2.id(), L::Str("grey_fg2"), W::Width(17));
+            layout.widget(state.light_grey.id(), L::Str("light_grey"), W::Width(17));
+            layout.widget(state.red.id(), L::Str("red"), W::Width(17));
+            layout.widget(state.baby_pink.id(), L::Str("baby_pink"), W::Width(17));
+            layout.widget(state.pink.id(), L::Str("pink"), W::Width(17));
+            layout.widget(state.line.id(), L::Str("line"), W::Width(17));
+            layout.widget(state.green.id(), L::Str("green"), W::Width(17));
+            layout.widget(
+                state.vibrant_green.id(),
+                L::Str("vibrant_green"),
+                W::Width(17),
+            );
+            layout.widget(state.nord_blue.id(), L::Str("nord_blue"), W::Width(17));
+            layout.widget(state.blue.id(), L::Str("blue"), W::Width(17));
+            layout.widget(state.yellow.id(), L::Str("yellow"), W::Width(17));
+            layout.widget(state.sun.id(), L::Str("sun"), W::Width(17));
+            layout.widget(state.purple.id(), L::Str("purple"), W::Width(17));
+            layout.widget(state.dark_purple.id(), L::Str("dark_purple"), W::Width(17));
+            layout.widget(state.teal.id(), L::Str("teal"), W::Width(17));
+            layout.widget(state.orange.id(), L::Str("orange"), W::Width(17));
+            layout.widget(state.cyan.id(), L::Str("cyan"), W::Width(17));
+            layout.widget(
+                state.statusline_bg.id(),
+                L::Str("statusline_bg"),
+                W::Width(17),
+            );
+            layout.widget(state.lightbg.id(), L::Str("lightbg"), W::Width(17));
+            layout.widget(state.pmenu_bg.id(), L::Str("pmenu_bg"), W::Width(17));
+            layout.widget(state.folder_bg.id(), L::Str("folder_bg"), W::Width(17));
+            layout.widget(state.base00.id(), L::Str("base00"), W::Width(17));
+            layout.widget(state.base01.id(), L::Str("base01"), W::Width(17));
+            layout.widget(state.base02.id(), L::Str("base02"), W::Width(17));
+            layout.widget(state.base03.id(), L::Str("base03"), W::Width(17));
+            layout.widget(state.base04.id(), L::Str("base04"), W::Width(17));
+            layout.widget(state.base05.id(), L::Str("base05"), W::Width(17));
+            layout.widget(state.base06.id(), L::Str("base06"), W::Width(17));
+            layout.widget(state.base07.id(), L::Str("base07"), W::Width(17));
+            layout.widget(state.base08.id(), L::Str("base08"), W::Width(17));
+            layout.widget(state.base09.id(), L::Str("base09"), W::Width(17));
+            layout.widget(state.base0A.id(), L::Str("base0A"), W::Width(17));
+            layout.widget(state.base0B.id(), L::Str("base0B"), W::Width(17));
+            layout.widget(state.base0C.id(), L::Str("base0C"), W::Width(17));
+            layout.widget(state.base0D.id(), L::Str("base0D"), W::Width(17));
+            layout.widget(state.base0E.id(), L::Str("base0E"), W::Width(17));
+            layout.widget(state.base0F.id(), L::Str("base0F"), W::Width(17));
+            form = form.layout(layout.build_endless(layout_size.width))
+        }
+
+        let mut form = form.into_buffer(area, &mut state.form);
+        form.render(
+            state.white.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.white,
+        );
+        form.render(
+            state.darker_black.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.darker_black,
+        );
+        form.render(
+            state.black.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.black,
+        );
+        form.render(
+            state.black2.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.black2,
+        );
+        form.render(
+            state.one_bg.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.one_bg,
+        );
+        form.render(
+            state.one_bg2.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.one_bg2,
+        );
+        form.render(
+            state.one_bg3.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.one_bg3,
+        );
+        form.render(
+            state.grey.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.grey,
+        );
+        form.render(
+            state.grey_fg.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.grey_fg,
+        );
+        form.render(
+            state.grey_fg2.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.grey_fg2,
+        );
+        form.render(
+            state.light_grey.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.light_grey,
+        );
+        form.render(
+            state.red.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.red,
+        );
+        form.render(
+            state.baby_pink.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.baby_pink,
+        );
+        form.render(
+            state.pink.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.pink,
+        );
+        form.render(
+            state.line.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.line,
+        );
+        form.render(
+            state.green.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.green,
+        );
+        form.render(
+            state.vibrant_green.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.vibrant_green,
+        );
+        form.render(
+            state.nord_blue.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.nord_blue,
+        );
+        form.render(
+            state.blue.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.blue,
+        );
+        form.render(
+            state.yellow.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.yellow,
+        );
+        form.render(
+            state.sun.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.sun,
+        );
+        form.render(
+            state.purple.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.purple,
+        );
+        form.render(
+            state.dark_purple.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.dark_purple,
+        );
+        form.render(
+            state.teal.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.teal,
+        );
+        form.render(
+            state.orange.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.orange,
+        );
+        form.render(
+            state.cyan.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.cyan,
+        );
+        form.render(
+            state.statusline_bg.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.statusline_bg,
+        );
+        form.render(
+            state.lightbg.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.lightbg,
+        );
+        form.render(
+            state.pmenu_bg.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.pmenu_bg,
+        );
+        form.render(
+            state.folder_bg.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.folder_bg,
+        );
+        form.render(
+            state.base00.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base00,
+        );
+        form.render(
+            state.base01.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base01,
+        );
+        form.render(
+            state.base02.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base02,
+        );
+        form.render(
+            state.base03.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base03,
+        );
+        form.render(
+            state.base04.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base04,
+        );
+        form.render(
+            state.base05.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base05,
+        );
+        form.render(
+            state.base06.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base06,
+        );
+        form.render(
+            state.base07.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base07,
+        );
+        form.render(
+            state.base08.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base08,
+        );
+        form.render(
+            state.base09.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base09,
+        );
+        form.render(
+            state.base0A.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base0A,
+        );
+        form.render(
+            state.base0B.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base0B,
+        );
+        form.render(
+            state.base0C.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base0C,
+        );
+        form.render(
+            state.base0D.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base0D,
+        );
+        form.render(
+            state.base0E.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base0E,
+        );
+        form.render(
+            state.base0F.id(),
+            || ColorInput::new().styles(ctx.theme.style(WidgetStyle::COLOR_INPUT)),
+            &mut state.base0F,
+        );
+        form.finish(buf, &mut state.form);
+        Ok(())
+    }
+
+    #[allow(unused_variables)]
+    pub fn event(
+        event: &crossterm::event::Event,
+        state: &mut Base46,
+        _ctx: &mut Global,
+    ) -> Result<Outcome, Error> {
+        let mut mode_change = None;
+        let r = 'f: {
+            event_flow!(break 'f handle_color(event, &mut state.white, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.darker_black, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.black, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.black2, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.one_bg, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.one_bg2, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.one_bg3, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.grey, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.grey_fg, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.grey_fg2, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.light_grey, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.red, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.baby_pink, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.pink, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.line, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.green, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.vibrant_green, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.nord_blue, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.blue, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.yellow, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.sun, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.purple, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.dark_purple, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.teal, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.orange, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.cyan, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.statusline_bg, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.lightbg, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.pmenu_bg, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.folder_bg, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base00, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base01, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base02, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base03, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base04, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base05, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base06, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base07, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base08, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base09, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base0A, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base0B, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base0C, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base0D, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base0E, &mut mode_change)?);
+            event_flow!(break 'f handle_color(event, &mut state.base0F, &mut mode_change)?);
+
+            event_flow!(break 'f state.form.handle(event, Regular));
+            Outcome::Continue
+        };
+
+        if let Some(mode_change) = mode_change {
+            state.white.set_mode(mode_change);
+        }
+
+        Ok(r)
+    }
+
+    fn handle_color(
+        event: &crossterm::event::Event,
+        color: &mut ColorInputState,
+        mode_change: &mut Option<Mode>,
+    ) -> Result<TextOutcome, Error> {
+        let mode = color.mode();
+        let r = color.handle(event, Regular);
+        if color.mode() != mode {
+            *mode_change = Some(color.mode());
+        }
+        Ok(r)
+    }
+
+    /*
+    white
+    darker_black
+    black
+    black2
+    one_bg
+    one_bg2
+    one_bg3
+    grey
+    grey_fg
+    grey_fg2
+    light_grey
+    red
+    baby_pink
+    pink
+    line
+    green
+    vibrant_green
+    nord_blue
+    blue
+    yellow
+    sun
+    purple
+    dark_purple
+    teal
+    orange
+    cyan
+    statusline_bg
+    lightbg
+    pmenu_bg
+    folder_bg
+    base00
+    base01
+    base02
+    base03
+    base04
+    base05
+    base06
+    base07
+    base08
+    base09
+    base0A
+    base0B
+    base0C
+    base0D
+    base0E
+    base0F
+     */
 }
 
 mod palette_edit {
@@ -1061,6 +1748,7 @@ mod palette_edit {
         Ok(())
     }
 
+    #[allow(unused_variables)]
     pub fn event(
         event: &crossterm::event::Event,
         state: &mut PaletteEdit,
@@ -1130,6 +1818,131 @@ mod palette_edit {
             *mode_change = Some(color.mode());
         }
         r
+    }
+}
+
+pub mod show_or_base46 {
+    use crate::base46::Base46;
+    use crate::show_tabs::ShowTabs;
+    use crate::{base46, show_tabs, Global};
+    use anyhow::Error;
+    use pure_rust_locales::Locale;
+    use rat_event::{event_flow, HandleEvent, Outcome, Regular};
+    use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
+    use rat_theme5::WidgetStyle;
+    use rat_widget::tabbed::{Tabbed, TabbedState};
+    use rat_widget::text::HasScreenCursor;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::widgets::{Block, BorderType, StatefulWidget};
+
+    // mark tabs
+    #[derive(Debug)]
+    pub struct ShowOrBase46 {
+        pub tabs: TabbedState,
+        pub show: ShowTabs,
+        pub base46: Base46,
+    }
+
+    impl ShowOrBase46 {
+        pub fn new(loc: Locale) -> Self {
+            Self {
+                tabs: Default::default(),
+                show: ShowTabs::new(loc),
+                base46: Base46::default(),
+            }
+        }
+
+        pub fn show_focused(&mut self, focus: &Focus) {
+            match self.tabs.selected() {
+                Some(0) => {
+                    self.show.show_focused(focus);
+                }
+                Some(1) => {
+                    self.base46.form.show_focused(focus);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    impl HasFocus for ShowOrBase46 {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.tabs);
+            match self.tabs.selected() {
+                Some(0) => {
+                    builder.widget(&self.show);
+                }
+                Some(1) => {
+                    builder.widget(&self.base46);
+                }
+                _ => {}
+            }
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("not available")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("not available")
+        }
+    }
+
+    impl HasScreenCursor for ShowOrBase46 {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            match self.tabs.selected() {
+                Some(0) => self.show.screen_cursor(),
+                Some(2) => self.base46.screen_cursor(),
+                _ => None,
+            }
+        }
+    }
+
+    pub fn render(
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut ShowOrBase46,
+        ctx: &mut Global,
+    ) -> Result<(), Error> {
+        Tabbed::new()
+            .tabs(["Preview", "Base46"])
+            .block(Block::bordered().border_type(BorderType::Rounded))
+            .styles(ctx.theme.style(WidgetStyle::TABBED))
+            .render(area, buf, &mut state.tabs);
+
+        match state.tabs.selected() {
+            Some(0) => {
+                show_tabs::render(state.tabs.widget_area, buf, &mut state.show, ctx)?;
+            }
+            Some(1) => {
+                let mut area = state.tabs.widget_area;
+                area.width += 1;
+                base46::render(area, buf, &mut state.base46, ctx)?;
+            }
+            _ => {}
+        };
+        Ok(())
+    }
+
+    pub fn event(
+        event: &crossterm::event::Event,
+        state: &mut ShowOrBase46,
+        ctx: &mut Global,
+    ) -> Result<Outcome, Error> {
+        event_flow!(match state.tabs.selected() {
+            Some(0) => {
+                show_tabs::event(event, &mut state.show, ctx)?
+            }
+            Some(1) => {
+                base46::event(event, &mut state.base46, ctx)?
+            }
+            _ => {
+                Outcome::Continue
+            }
+        });
+        event_flow!(state.tabs.handle(event, Regular));
+        Ok(Outcome::Continue)
     }
 }
 
@@ -1257,9 +2070,9 @@ pub mod show_tabs {
             .items(
                 once("")
                     .chain([
-                        "Dark",  //
-                        "Shell", //
-                        "Fallback",
+                        "Dark",     //
+                        "Shell",    //
+                        "Fallback", //
                     ])
                     .map(|v| (v.to_string(), v.to_string())),
             )
@@ -1269,7 +2082,6 @@ pub mod show_tabs {
 
         Tabbed::new()
             .tabs(["Input", "Text", "Other"])
-            // .closeable(true)
             .block(Block::bordered().border_type(BorderType::Rounded))
             .styles(ctx.show_theme.style(WidgetStyle::TABBED))
             .render(l0[3], buf, &mut state.tabs);
