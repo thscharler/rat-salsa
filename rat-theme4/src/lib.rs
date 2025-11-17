@@ -39,7 +39,7 @@
 //! ```
 
 use log::debug;
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -55,9 +55,10 @@ mod theme;
 
 pub use dark_theme::dark_theme;
 // pub use light_theme::light_theme;
+use crate::dark_palettes::{BLACKOUT, REDS};
 pub use crate::fallback_theme::fallback_theme;
 pub use core_theme::core_theme;
-pub use palette::{ColorIdx, Colors, ColorsExt, Palette};
+pub use palette::{ColorIdx, Colors, Palette};
 pub use shell_theme::shell_theme;
 pub use theme::{Category, SalsaTheme};
 
@@ -173,6 +174,74 @@ pub trait StyleName {
 }
 impl StyleName for Style {}
 
+pub trait RatWidgetColor {
+    const LABEL_FG: &'static str = "label";
+    const INPUT: &'static str = "input";
+    const FOCUS: &'static str = "focus";
+    const SELECT: &'static str = "select";
+    const DISABLED: &'static str = "disabled";
+    const INVALID: &'static str = "invalid";
+    const HOVER: &'static str = "hover";
+    const TITLE_FG: &'static str = "title-fg";
+    const TITLE: &'static str = "title";
+    const HEADER_FG: &'static str = "header-fg";
+    const HEADER: &'static str = "header";
+    const FOOTER_FG: &'static str = "footer-fg";
+    const FOOTER: &'static str = "footer";
+    const SHADOWS: &'static str = "shadows";
+    const TEXT_FOCUS: &'static str = "text-focus";
+    const TEXT_SELECT: &'static str = "text-select";
+    const BUTTON_BASE: &'static str = "button-base";
+    const MENU_BASE: &'static str = "menu-base";
+    const KEY_BINDING: &'static str = "key-binding";
+    const STATUS_BASE: &'static str = "status-base";
+    const CONTAINER_BASE: &'static str = "container-base";
+    const CONTAINER_BORDER_FG: &'static str = "container-border";
+    const CONTAINER_ARROW_FG: &'static str = "container-arrow";
+    const POPUP_BASE: &'static str = "popup-base";
+    const POPUP_BORDER_FG: &'static str = "popup-border";
+    const POPUP_ARROW_FG: &'static str = "popup-arrow";
+    const DIALOG_BASE: &'static str = "dialog-base";
+    const DIALOG_BORDER_FG: &'static str = "dialog-border";
+    const DIALOG_ARROW_FG: &'static str = "dialog-arrow";
+}
+impl RatWidgetColor for Color {}
+
+pub fn rat_widget_color_names() -> &'static [&'static str] {
+    static NAMES: [&'static str; 29] = [
+        Color::LABEL_FG,
+        Color::INPUT,
+        Color::FOCUS,
+        Color::SELECT,
+        Color::DISABLED,
+        Color::INVALID,
+        Color::HOVER,
+        Color::TITLE_FG,
+        Color::TITLE,
+        Color::HEADER_FG,
+        Color::HEADER,
+        Color::FOOTER_FG,
+        Color::FOOTER,
+        Color::SHADOWS,
+        Color::TEXT_FOCUS,
+        Color::TEXT_SELECT,
+        Color::BUTTON_BASE,
+        Color::MENU_BASE,
+        Color::KEY_BINDING,
+        Color::STATUS_BASE,
+        Color::CONTAINER_BASE,
+        Color::CONTAINER_BORDER_FG,
+        Color::CONTAINER_ARROW_FG,
+        Color::POPUP_BASE,
+        Color::POPUP_BORDER_FG,
+        Color::POPUP_ARROW_FG,
+        Color::DIALOG_BASE,
+        Color::DIALOG_BORDER_FG,
+        Color::DIALOG_ARROW_FG,
+    ];
+    &NAMES
+}
+
 static LOG_DEFINES: AtomicBool = AtomicBool::new(false);
 
 /// Log style definition.
@@ -277,7 +346,6 @@ pub fn salsa_themes() -> Vec<&'static str> {
 
 /// Create a theme.
 pub fn create_theme(theme: &str) -> SalsaTheme {
-    use crate::dark_palettes::*;
     let themes = THEMES.get_or_init(init_themes);
     let Some(def) = themes.theme_init.get(&theme) else {
         if cfg!(debug_assertions) {

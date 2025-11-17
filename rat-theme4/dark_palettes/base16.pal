@@ -1,0 +1,56 @@
+[palette]
+name=Base16
+docs=
+dark=63
+
+[color]
+text-light=#AAAAAA, #FFFFFF
+text-dark=#000000, #555555
+primary=#00AAAA, #00AAAA
+secondary=#00AA00, #00AA00
+white=#AAAAAA, #FFFFFF
+black=#000000, #555555
+gray=#555555, #AAAAAA
+red=#AA0000, #AA0000
+orange=#AA5500, #AA5500
+yellow=#FFFF55, #FFFF55
+lime-green=#55FF55, #55FF55
+green=#00AA00, #00AA00
+blue-green=#55FFFF, #55FFFF
+cyan=#00AAAA, #00AAAA
+blue=#5555FF, #5555FF
+deep-blue=#0000AF, #0000AF
+purple=#AA00AA, #AA00AA
+magenta=#FF55FF, #FF55FF
+red-pink=#FF5555, #FF5A55
+
+[reference]
+label=white:0
+input=gray:3
+focus=primary:0
+select=secondary:0
+disabled=gray:3
+invalid=red:0
+hover=secondary:0
+title-fg=text-light:0
+title=red:0
+header-fg=blue:0
+header=none:0
+footer-fg=blue:0
+footer=none:0
+shadows=black:0
+text-focus=primary:0
+text-select=secondary:0
+button-base=gray:0
+menu-base=black:0
+key-binding=orange:0
+status-base=black:0
+container-base=black:0
+container-border=gray:0
+container-arrow=gray:0
+popup-base=white:0
+popup-border=black:0
+popup-arrow=black:0
+dialog-base=gray:0
+dialog-border=black:0
+dialog-arrow=black:0

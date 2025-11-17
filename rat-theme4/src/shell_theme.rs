@@ -1,5 +1,5 @@
 use crate::palette::Palette;
-use crate::{Category, Colors, ColorsExt, SalsaTheme};
+use crate::{Category, Colors, RatWidgetColor, SalsaTheme};
 use crate::{StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -27,7 +27,7 @@ use rat_widget::table::TableStyle;
 use rat_widget::text::{TextFocusGained, TextFocusLost, TextStyle};
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
-use ratatui::style::{Style, Stylize};
+use ratatui::style::{Color, Style, Stylize};
 use ratatui::symbols;
 use ratatui::symbols::border;
 use ratatui::widgets::{Block, Borders};
@@ -40,53 +40,53 @@ use std::time::Duration;
 pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
     let mut th = SalsaTheme::new(name, Category::Shell, p);
 
-    th.define(Style::LABEL_FG, th.p.fg_style_ext(ColorsExt::LabelFg));
-    th.define(Style::INPUT, th.p.style_ext(ColorsExt::Input));
-    th.define(Style::FOCUS, th.p.style_ext(ColorsExt::Focus));
-    th.define(Style::SELECT, th.p.style_ext(ColorsExt::Select));
-    th.define(Style::DISABLED, th.p.style_ext(ColorsExt::Disabled));
-    th.define(Style::INVALID, th.p.style_ext(ColorsExt::Invalid));
-    th.define(Style::HOVER, th.p.fg_style_ext(ColorsExt::Hover));
-    th.define(Style::TITLE, th.p.fg_style_ext(ColorsExt::TitleFg));
-    th.define(Style::HEADER, th.p.fg_style_ext(ColorsExt::HeaderFg));
-    th.define(Style::FOOTER, th.p.fg_style_ext(ColorsExt::FooterFg));
-    th.define(Style::SHADOWS, th.p.style_ext(ColorsExt::Shadows));
-    th.define(Style::TEXT_FOCUS, th.p.style_ext(ColorsExt::TextFocus));
-    th.define(Style::TEXT_SELECT, th.p.style_ext(ColorsExt::Select));
-    th.define(Style::KEY_BINDING, th.p.style_ext(ColorsExt::KeyBinding));
+    th.define(Style::LABEL_FG, th.p.fg_style_ext(Color::LABEL_FG));
+    th.define(Style::INPUT, th.p.style_ext(Color::INPUT));
+    th.define(Style::FOCUS, th.p.style_ext(Color::FOCUS));
+    th.define(Style::SELECT, th.p.style_ext(Color::SELECT));
+    th.define(Style::DISABLED, th.p.style_ext(Color::DISABLED));
+    th.define(Style::INVALID, th.p.style_ext(Color::INVALID));
+    th.define(Style::HOVER, th.p.fg_style_ext(Color::HOVER));
+    th.define(Style::TITLE, th.p.fg_style_ext(Color::TITLE_FG));
+    th.define(Style::HEADER, th.p.fg_style_ext(Color::HEADER_FG));
+    th.define(Style::FOOTER, th.p.fg_style_ext(Color::FOOTER_FG));
+    th.define(Style::SHADOWS, th.p.style_ext(Color::SHADOWS));
+    th.define(Style::TEXT_FOCUS, th.p.style_ext(Color::TEXT_FOCUS));
+    th.define(Style::TEXT_SELECT, th.p.style_ext(Color::SELECT));
+    th.define(Style::KEY_BINDING, th.p.style_ext(Color::KEY_BINDING));
 
-    th.define(Style::BUTTON_BASE, th.p.style_ext(ColorsExt::ButtonBase));
+    th.define(Style::BUTTON_BASE, th.p.style_ext(Color::BUTTON_BASE));
     th.define(Style::MENU_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(Style::STATUS_BASE, th.p.fg_style(Colors::TextLight, 0));
 
     th.define(Style::CONTAINER_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::CONTAINER_BORDER_FG,
-        th.p.fg_style_ext(ColorsExt::ContainerBorderFg),
+        th.p.fg_style_ext(Color::CONTAINER_BORDER_FG),
     );
     th.define(
         Style::CONTAINER_ARROW_FG,
-        th.p.fg_style_ext(ColorsExt::ContainerArrowFg),
+        th.p.fg_style_ext(Color::CONTAINER_ARROW_FG),
     );
 
     th.define(Style::POPUP_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::POPUP_BORDER_FG,
-        th.p.fg_style_ext(ColorsExt::PopupBorderFg),
+        th.p.fg_style_ext(Color::POPUP_BORDER_FG),
     );
     th.define(
         Style::POPUP_ARROW_FG,
-        th.p.fg_style_ext(ColorsExt::PopupArrowFg),
+        th.p.fg_style_ext(Color::POPUP_ARROW_FG),
     );
 
     th.define(Style::DIALOG_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::DIALOG_BORDER_FG,
-        th.p.fg_style_ext(ColorsExt::DialogBorderFg),
+        th.p.fg_style_ext(Color::DIALOG_BORDER_FG),
     );
     th.define(
         Style::DIALOG_ARROW_FG,
-        th.p.fg_style_ext(ColorsExt::DialogArrowFg),
+        th.p.fg_style_ext(Color::DIALOG_ARROW_FG),
     );
 
     th.define_fn(WidgetStyle::BUTTON, button);
@@ -128,7 +128,7 @@ fn button(th: &SalsaTheme) -> ButtonStyle {
         style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
-        hover: Some(th.p.style_ext(ColorsExt::Hover)),
+        hover: Some(th.p.style_ext(Color::HOVER)),
         armed_delay: Some(Duration::from_millis(50)),
         ..Default::default()
     }
@@ -420,10 +420,10 @@ fn tabbed(th: &SalsaTheme) -> TabbedStyle {
     TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        tab: Some(th.p.fg_style_ext(ColorsExt::Input)),
-        hover: Some(th.p.fg_style_ext(ColorsExt::Hover)),
-        select: Some(th.p.fg_style_ext(ColorsExt::Select)),
-        focus: Some(th.p.fg_style_ext(ColorsExt::Focus)),
+        tab: Some(th.p.fg_style_ext(Color::INPUT)),
+        hover: Some(th.p.fg_style_ext(Color::HOVER)),
+        select: Some(th.p.fg_style_ext(Color::SELECT)),
+        focus: Some(th.p.fg_style_ext(Color::FOCUS)),
         ..Default::default()
     }
 }

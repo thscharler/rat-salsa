@@ -1,0 +1,56 @@
+[palette]
+name=Reds
+docs=
+dark=63
+
+[color]
+text-light=#CFAFAF, #E2CFCF
+text-dark=#160D0D, #3A2323
+primary=#A50000, #A55454
+secondary=#A52300, #A56654
+white=#CFAFAF, #E2CFCF
+black=#160D0D, #3A2323
+gray=#6F4343, #BD8F8F
+red=#FF7F7F, #FFCCCC
+orange=#FF7F7F, #FFCCCC
+yellow=#FF7F7F, #FFCCCC
+lime-green=#FF7F7F, #FFCCCC
+green=#FF7F7F, #FFCCCC
+blue-green=#FF7F7F, #FFCCCC
+cyan=#FF7F7F, #FFCCCC
+blue=#FF7F7F, #FFCCCC
+deep-blue=#FF7F7F, #FFCCCC
+purple=#FF7F7F, #FFCCCC
+magenta=#FF7F7F, #FFCCCC
+red-pink=#FF7F7F, #FFCCCC
+
+[reference]
+label=white:0
+input=gray:2
+focus=primary:1
+select=secondary:3
+disabled=gray:3
+invalid=red:1
+hover=secondary:1
+title-fg=text-light:0
+title=red:0
+header-fg=blue:2
+header=black:1
+footer-fg=blue:2
+footer=black:1
+shadows=none:0
+text-focus=primary:1
+text-select=secondary:1
+button-base=gray:0
+menu-base=black:0
+key-binding=blue-green:0
+status-base=black:0
+container-base=black:1
+container-border=gray:1
+container-arrow=gray:1
+popup-base=gray:1
+popup-border=gray:3
+popup-arrow=gray:3
+dialog-base=gray:2
+dialog-border=black:3
+dialog-arrow=black:3

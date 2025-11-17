@@ -1,6 +1,7 @@
 use crate::palette::Palette;
-use crate::{Category, Colors, ColorsExt, SalsaTheme};
+use crate::{Category, ColorIdx, Colors, RatWidgetColor, SalsaTheme};
 use crate::{StyleName, WidgetStyle};
+use log::debug;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
@@ -33,92 +34,87 @@ use ratatui::symbols::border;
 use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
-pub const SHELL: Palette = {
-    let mut p = Palette {
-        name: "Shell",
-
-        color: [
-            [
-                Color::Gray,
-                Color::Gray,
-                Color::White,
-                Color::White,
-                Color::Gray,
-                Color::Gray,
-                Color::White,
-                Color::White,
-            ], // text light
-            [
-                Color::DarkGray,
-                Color::DarkGray,
-                Color::Black,
-                Color::Black,
-                Color::DarkGray,
-                Color::DarkGray,
-                Color::Black,
-                Color::Black,
-            ], // text dark
-            [Color::Cyan; 8],   // primary
-            [Color::Yellow; 8], // secondary
-            [Color::White; 8],  // white
-            [Color::Black; 8],
-            [
-                Color::Gray,
-                Color::Gray,
-                Color::DarkGray,
-                Color::DarkGray,
-                Color::Gray,
-                Color::Gray,
-                Color::DarkGray,
-                Color::DarkGray,
-            ],
-            [Color::Red; 8],
-            [Color::Yellow; 8],
-            [Color::LightYellow; 8],
-            [Color::LightGreen; 8],
-            [Color::Green; 8],
-            [Color::Cyan; 8],
-            [Color::LightCyan; 8],
-            [Color::LightBlue; 8],
-            [Color::Blue; 8],
-            [Color::Magenta; 8],
-            [Color::LightMagenta; 8],
-            [Color::LightRed; 8],
+pub const SHELL: Palette = Palette {
+    name: "Shell",
+    color: [
+        [
+            Color::Gray,
+            Color::Gray,
+            Color::White,
+            Color::White,
+            Color::Gray,
+            Color::Gray,
+            Color::White,
+            Color::White,
+        ], // text light
+        [
+            Color::DarkGray,
+            Color::DarkGray,
+            Color::Black,
+            Color::Black,
+            Color::DarkGray,
+            Color::DarkGray,
+            Color::Black,
+            Color::Black,
+        ], // text dark
+        [Color::Cyan; 8],   // primary
+        [Color::Yellow; 8], // secondary
+        [Color::White; 8],  // white
+        [Color::Black; 8],
+        [
+            Color::Gray,
+            Color::Gray,
+            Color::DarkGray,
+            Color::DarkGray,
+            Color::Gray,
+            Color::Gray,
+            Color::DarkGray,
+            Color::DarkGray,
         ],
-        color_ext: [Color::Reset; ColorsExt::LEN],
-    };
-
-    p.color_ext[ColorsExt::LabelFg as usize] = p.color[Colors::White as usize][0];
-    p.color_ext[ColorsExt::Input as usize] = p.color[Colors::Gray as usize][3];
-    p.color_ext[ColorsExt::Focus as usize] = p.color[Colors::Primary as usize][0];
-    p.color_ext[ColorsExt::Select as usize] = p.color[Colors::Secondary as usize][0];
-    p.color_ext[ColorsExt::Disabled as usize] = p.color[Colors::Gray as usize][0];
-    p.color_ext[ColorsExt::Invalid as usize] = p.color[Colors::Red as usize][0];
-    p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Black as usize][0];
-    p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Title as usize] = p.color[Colors::Red as usize][0];
-    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Blue as usize][0];
-    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextLight as usize][0];
-    p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Blue as usize][0];
-    p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::TextDark as usize][0];
-    p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][0];
-    p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][0];
-    p.color_ext[ColorsExt::ButtonBase as usize] = p.color[Colors::Gray as usize][0];
-    p.color_ext[ColorsExt::MenuBase as usize] = p.color[Colors::Black as usize][0];
-    p.color_ext[ColorsExt::KeyBinding as usize] = p.color[Colors::BlueGreen as usize][0];
-    p.color_ext[ColorsExt::StatusBase as usize] = p.color[Colors::Black as usize][0];
-    p.color_ext[ColorsExt::ContainerBase as usize] = p.color[Colors::Black as usize][0];
-    p.color_ext[ColorsExt::ContainerBorderFg as usize] = p.color[Colors::Gray as usize][0];
-    p.color_ext[ColorsExt::ContainerArrowFg as usize] = p.color[Colors::Gray as usize][0];
-    p.color_ext[ColorsExt::PopupBase as usize] = p.color[Colors::White as usize][0];
-    p.color_ext[ColorsExt::PopupBorderFg as usize] = p.color[Colors::Gray as usize][3];
-    p.color_ext[ColorsExt::PopupArrowFg as usize] = p.color[Colors::Gray as usize][3];
-    p.color_ext[ColorsExt::DialogBase as usize] = p.color[Colors::Gray as usize][3];
-    p.color_ext[ColorsExt::DialogBorderFg as usize] = p.color[Colors::Black as usize][3];
-    p.color_ext[ColorsExt::DialogArrowFg as usize] = p.color[Colors::Black as usize][3];
-
-    p
+        [Color::Red; 8],
+        [Color::Yellow; 8],
+        [Color::LightYellow; 8],
+        [Color::LightGreen; 8],
+        [Color::Green; 8],
+        [Color::Cyan; 8],
+        [Color::LightCyan; 8],
+        [Color::LightBlue; 8],
+        [Color::Blue; 8],
+        [Color::Magenta; 8],
+        [Color::LightMagenta; 8],
+        [Color::LightRed; 8],
+    ],
+    aliased: &[
+        (Color::BUTTON_BASE, ColorIdx(Colors::Gray, 0)),
+        (Color::CONTAINER_ARROW_FG, ColorIdx(Colors::Gray, 0)),
+        (Color::CONTAINER_BASE, ColorIdx(Colors::Black, 0)),
+        (Color::CONTAINER_BORDER_FG, ColorIdx(Colors::Gray, 0)),
+        (Color::DIALOG_ARROW_FG, ColorIdx(Colors::Black, 0)),
+        (Color::DIALOG_BASE, ColorIdx(Colors::Gray, 3)),
+        (Color::DIALOG_BORDER_FG, ColorIdx(Colors::Black, 0)),
+        (Color::DISABLED, ColorIdx(Colors::Gray, 0)),
+        (Color::FOCUS, ColorIdx(Colors::Primary, 0)),
+        (Color::FOOTER, ColorIdx(Colors::Blue, 0)),
+        (Color::FOOTER_FG, ColorIdx(Colors::TextLight, 0)),
+        (Color::HEADER, ColorIdx(Colors::Blue, 0)),
+        (Color::HEADER_FG, ColorIdx(Colors::TextLight, 0)),
+        (Color::HOVER, ColorIdx(Colors::Black, 0)),
+        (Color::INPUT, ColorIdx(Colors::Gray, 3)),
+        (Color::INVALID, ColorIdx(Colors::Red, 0)),
+        (Color::KEY_BINDING, ColorIdx(Colors::BlueGreen, 0)),
+        (Color::LABEL_FG, ColorIdx(Colors::White, 0)),
+        (Color::MENU_BASE, ColorIdx(Colors::Black, 0)),
+        (Color::POPUP_ARROW_FG, ColorIdx(Colors::Gray, 3)),
+        (Color::POPUP_BASE, ColorIdx(Colors::White, 0)),
+        (Color::POPUP_BORDER_FG, ColorIdx(Colors::Gray, 3)),
+        (Color::SELECT, ColorIdx(Colors::Secondary, 0)),
+        (Color::SHADOWS, ColorIdx(Colors::TextDark, 0)),
+        (Color::STATUS_BASE, ColorIdx(Colors::Black, 0)),
+        (Color::TEXT_FOCUS, ColorIdx(Colors::Primary, 0)),
+        (Color::TEXT_SELECT, ColorIdx(Colors::Secondary, 0)),
+        (Color::TITLE, ColorIdx(Colors::Red, 0)),
+        (Color::TITLE_FG, ColorIdx(Colors::TextLight, 0)),
+    ],
 };
 
 /// A 'shell'-theme.
@@ -129,59 +125,53 @@ pub fn core_theme(name: &str) -> SalsaTheme {
     let p = SHELL;
     let mut th = SalsaTheme::new(name, Category::Shell, p);
 
-    th.define(Style::LABEL_FG, th.p.fg_style_ext(ColorsExt::LabelFg));
-    th.define(Style::INPUT, th.p.style_ext(ColorsExt::Input));
-    th.define(Style::FOCUS, th.p.high_style_ext(ColorsExt::Focus));
-    th.define(Style::SELECT, th.p.high_style_ext(ColorsExt::Select));
-    th.define(Style::DISABLED, th.p.style_ext(ColorsExt::Disabled));
-    th.define(Style::INVALID, th.p.style_ext(ColorsExt::Invalid));
-    th.define(Style::HOVER, th.p.fg_style_ext(ColorsExt::Hover));
-    th.define(Style::TITLE, th.p.fg_style_ext(ColorsExt::TitleFg));
-    th.define(Style::HEADER, th.p.fg_style_ext(ColorsExt::HeaderFg));
-    th.define(Style::FOOTER, th.p.fg_style_ext(ColorsExt::FooterFg));
-    th.define(Style::SHADOWS, th.p.style_ext(ColorsExt::Shadows));
-    th.define(Style::TEXT_FOCUS, th.p.high_style_ext(ColorsExt::TextFocus));
-    th.define(Style::TEXT_SELECT, th.p.high_style_ext(ColorsExt::Select));
-    th.define(
-        Style::KEY_BINDING,
-        th.p.high_style_ext(ColorsExt::KeyBinding),
-    );
+    th.define(Style::LABEL_FG, th.p.fg_style_ext(Color::LABEL_FG));
+    th.define(Style::INPUT, th.p.style_ext(Color::INPUT));
+    th.define(Style::FOCUS, th.p.high_style_ext(Color::FOCUS));
+    th.define(Style::SELECT, th.p.high_style_ext(Color::SELECT));
+    th.define(Style::DISABLED, th.p.style_ext(Color::DISABLED));
+    th.define(Style::INVALID, th.p.style_ext(Color::INVALID));
+    th.define(Style::HOVER, th.p.fg_style_ext(Color::HOVER));
+    th.define(Style::TITLE, th.p.fg_style_ext(Color::TITLE_FG));
+    th.define(Style::HEADER, th.p.fg_style_ext(Color::HEADER_FG));
+    th.define(Style::FOOTER, th.p.fg_style_ext(Color::FOOTER_FG));
+    th.define(Style::SHADOWS, th.p.style_ext(Color::SHADOWS));
+    th.define(Style::TEXT_FOCUS, th.p.high_style_ext(Color::TEXT_FOCUS));
+    th.define(Style::TEXT_SELECT, th.p.high_style_ext(Color::SELECT));
+    th.define(Style::KEY_BINDING, th.p.high_style_ext(Color::KEY_BINDING));
 
-    th.define(
-        Style::BUTTON_BASE,
-        th.p.high_style_ext(ColorsExt::ButtonBase),
-    );
+    th.define(Style::BUTTON_BASE, th.p.high_style_ext(Color::BUTTON_BASE));
     th.define(Style::MENU_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(Style::STATUS_BASE, th.p.fg_style(Colors::TextLight, 0));
 
     th.define(Style::CONTAINER_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::CONTAINER_BORDER_FG,
-        th.p.fg_style_ext(ColorsExt::ContainerBorderFg),
+        th.p.fg_style_ext(Color::CONTAINER_BORDER_FG),
     );
     th.define(
         Style::CONTAINER_ARROW_FG,
-        th.p.fg_style_ext(ColorsExt::ContainerArrowFg),
+        th.p.fg_style_ext(Color::CONTAINER_ARROW_FG),
     );
 
     th.define(Style::POPUP_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::POPUP_BORDER_FG,
-        th.p.fg_style_ext(ColorsExt::PopupBorderFg),
+        th.p.fg_style_ext(Color::POPUP_BORDER_FG),
     );
     th.define(
         Style::POPUP_ARROW_FG,
-        th.p.fg_style_ext(ColorsExt::PopupArrowFg),
+        th.p.fg_style_ext(Color::POPUP_ARROW_FG),
     );
 
     th.define(Style::DIALOG_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::DIALOG_BORDER_FG,
-        th.p.fg_style_ext(ColorsExt::DialogBorderFg),
+        th.p.fg_style_ext(Color::DIALOG_BORDER_FG),
     );
     th.define(
         Style::DIALOG_ARROW_FG,
-        th.p.fg_style_ext(ColorsExt::DialogArrowFg),
+        th.p.fg_style_ext(Color::DIALOG_ARROW_FG),
     );
 
     th.define_fn(WidgetStyle::BUTTON, button);
@@ -223,7 +213,7 @@ fn button(th: &SalsaTheme) -> ButtonStyle {
         style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
-        hover: Some(th.p.style_ext(ColorsExt::Hover)),
+        hover: Some(th.p.style_ext(Color::HOVER)),
         armed_delay: Some(Duration::from_millis(50)),
         ..Default::default()
     }
@@ -515,10 +505,10 @@ fn tabbed(th: &SalsaTheme) -> TabbedStyle {
     TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        tab: Some(th.p.fg_style_ext(ColorsExt::Input)),
-        hover: Some(th.p.fg_style_ext(ColorsExt::Hover)),
-        select: Some(th.p.fg_style_ext(ColorsExt::Select)),
-        focus: Some(th.p.fg_style_ext(ColorsExt::Focus)),
+        tab: Some(th.p.fg_style_ext(Color::INPUT)),
+        hover: Some(th.p.fg_style_ext(Color::HOVER)),
+        select: Some(th.p.fg_style_ext(Color::SELECT)),
+        focus: Some(th.p.fg_style_ext(Color::FOCUS)),
         ..Default::default()
     }
 }

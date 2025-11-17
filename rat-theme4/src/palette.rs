@@ -1,11 +1,12 @@
+use log::debug;
 use ratatui::style::{Color, Style};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ColorIdx(pub Colors, pub usize);
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Colors {
     TextLight = 0,
     TextDark,
@@ -28,40 +29,6 @@ pub enum Colors {
     RedPink,
     #[default]
     None,
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ColorsExt {
-    #[default]
-    LabelFg,
-    Input,
-    Focus,
-    Select,
-    Disabled,
-    Invalid,
-    Hover,
-    TitleFg,
-    Title,
-    HeaderFg,
-    Header,
-    FooterFg,
-    Footer,
-    Shadows,
-    TextFocus,
-    TextSelect,
-    ButtonBase,
-    MenuBase,
-    KeyBinding,
-    StatusBase,
-    ContainerBase,
-    ContainerBorderFg,
-    ContainerArrowFg,
-    PopupBase,
-    PopupBorderFg,
-    PopupArrowFg,
-    DialogBase,
-    DialogBorderFg,
-    DialogArrowFg,
 }
 
 impl Display for ColorIdx {
@@ -166,120 +133,6 @@ impl Colors {
     }
 }
 
-impl Display for ColorsExt {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl ColorsExt {
-    pub const LEN: usize = 29;
-
-    pub const fn array() -> [ColorsExt; ColorsExt::LEN] {
-        use ColorsExt::*;
-        [
-            LabelFg,
-            Input,
-            Focus,
-            Select,
-            Disabled,
-            Invalid,
-            Hover,
-            TitleFg,
-            Title,
-            HeaderFg,
-            Header,
-            FooterFg,
-            Footer,
-            Shadows,
-            TextFocus,
-            TextSelect,
-            ButtonBase,
-            MenuBase,
-            KeyBinding,
-            StatusBase,
-            ContainerBase,
-            ContainerBorderFg,
-            ContainerArrowFg,
-            PopupBase,
-            PopupBorderFg,
-            PopupArrowFg,
-            DialogBase,
-            DialogBorderFg,
-            DialogArrowFg,
-        ]
-    }
-
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "label" => Some(ColorsExt::LabelFg),
-            "input" => Some(ColorsExt::Input),
-            "focus" => Some(ColorsExt::Focus),
-            "select" => Some(ColorsExt::Select),
-            "disabled" => Some(ColorsExt::Disabled),
-            "invalid" => Some(ColorsExt::Invalid),
-            "hover" => Some(ColorsExt::Hover),
-            "title-fg" => Some(ColorsExt::TitleFg),
-            "title" => Some(ColorsExt::Title),
-            "header-fg" => Some(ColorsExt::HeaderFg),
-            "header" => Some(ColorsExt::Header),
-            "footer-fg" => Some(ColorsExt::FooterFg),
-            "footer" => Some(ColorsExt::Footer),
-            "shadows" => Some(ColorsExt::Shadows),
-            "text-focus" => Some(ColorsExt::TextFocus),
-            "text-select" => Some(ColorsExt::TextSelect),
-            "button-base" => Some(ColorsExt::ButtonBase),
-            "menu-base" => Some(ColorsExt::MenuBase),
-            "key-binding" => Some(ColorsExt::KeyBinding),
-            "status-base" => Some(ColorsExt::StatusBase),
-            "container-base" => Some(ColorsExt::ContainerBase),
-            "container-border" => Some(ColorsExt::ContainerBorderFg),
-            "container-arrow" => Some(ColorsExt::ContainerArrowFg),
-            "popup-base" => Some(ColorsExt::PopupBase),
-            "popup-border" => Some(ColorsExt::PopupBorderFg),
-            "popup-arrow" => Some(ColorsExt::PopupArrowFg),
-            "dialog-base" => Some(ColorsExt::DialogBase),
-            "dialog-border" => Some(ColorsExt::DialogBorderFg),
-            "dialog-arrow" => Some(ColorsExt::DialogArrowFg),
-            _ => None,
-        }
-    }
-
-    pub const fn name(self) -> &'static str {
-        match self {
-            ColorsExt::LabelFg => "label",
-            ColorsExt::Input => "input",
-            ColorsExt::Focus => "focus",
-            ColorsExt::Select => "select",
-            ColorsExt::Disabled => "disabled",
-            ColorsExt::Invalid => "invalid",
-            ColorsExt::Hover => "hover",
-            ColorsExt::TitleFg => "title-fg",
-            ColorsExt::Title => "title",
-            ColorsExt::HeaderFg => "header-fg",
-            ColorsExt::Header => "header",
-            ColorsExt::FooterFg => "footer-fg",
-            ColorsExt::Footer => "footer",
-            ColorsExt::Shadows => "shadows",
-            ColorsExt::TextFocus => "text-focus",
-            ColorsExt::TextSelect => "text-select",
-            ColorsExt::ButtonBase => "button-base",
-            ColorsExt::MenuBase => "menu-base",
-            ColorsExt::KeyBinding => "key-binding",
-            ColorsExt::StatusBase => "status-base",
-            ColorsExt::ContainerBase => "container-base",
-            ColorsExt::ContainerBorderFg => "container-border",
-            ColorsExt::ContainerArrowFg => "container-arrow",
-            ColorsExt::PopupBase => "popup-base",
-            ColorsExt::PopupBorderFg => "popup-border",
-            ColorsExt::PopupArrowFg => "popup-arrow",
-            ColorsExt::DialogBase => "dialog-base",
-            ColorsExt::DialogBorderFg => "dialog-border",
-            ColorsExt::DialogArrowFg => "dialog-arrow",
-        }
-    }
-}
-
 /// Color palette.
 ///
 /// This provides the palette used for a theme.
@@ -287,7 +140,7 @@ impl ColorsExt {
 pub struct Palette {
     pub name: &'static str,
     pub color: [[Color; 8]; Colors::LEN],
-    pub color_ext: [Color; ColorsExt::LEN],
+    pub aliased: &'static [(&'static str, ColorIdx)],
 }
 
 impl Default for Palette {
@@ -295,7 +148,7 @@ impl Default for Palette {
         Self {
             name: "",
             color: [[Color::default(); 8]; Colors::LEN],
-            color_ext: [Color::default(); ColorsExt::LEN],
+            aliased: &[],
         }
     }
 }
@@ -463,23 +316,40 @@ impl Palette {
         style
     }
 
-    pub fn color_ext(&self, id: ColorsExt) -> Color {
-        self.color_ext[id as usize]
+    pub fn color_ext(&self, id: &str) -> Color {
+        match self.aliased.binary_search_by_key(&id, |v| v.0) {
+            Ok(n) => {
+                let (_, ColorIdx { 0: c, 1: idx }) = self.aliased[n];
+                if c != Colors::None {
+                    debug!("use alias {:?} {:?}", c, idx);
+                    self.color[c as usize][idx]
+                } else {
+                    Color::default()
+                }
+            }
+            Err(_) => {
+                if cfg!(debug_assertions) {
+                    panic!("unknown aliased color {:?}", id);
+                } else {
+                    Color::default()
+                }
+            }
+        }
     }
 
-    pub fn style_ext(&self, id: ColorsExt) -> Style {
-        let color = self.color_ext[id as usize];
+    pub fn style_ext(&self, bg: &str) -> Style {
+        let color = self.color_ext(bg);
         self.normal_contrast(color)
     }
 
-    pub fn high_style_ext(&self, id: ColorsExt) -> Style {
-        let color = self.color_ext[id as usize];
+    pub fn high_style_ext(&self, bg: &str) -> Style {
+        let color = self.color_ext(bg);
         self.high_contrast(color)
     }
 
-    pub fn fg_bg_style_ext(&self, fg: ColorsExt, bg: ColorsExt) -> Style {
-        let color = self.color_ext[fg as usize];
-        let color_bg = self.color_ext[bg as usize];
+    pub fn fg_bg_style_ext(&self, fg: &str, bg: &str) -> Style {
+        let color = self.color_ext(fg);
+        let color_bg = self.color_ext(bg);
         let mut style = Style::new();
         if color != Color::Reset {
             style = style.fg(color);
@@ -490,8 +360,8 @@ impl Palette {
         style
     }
 
-    pub fn fg_style_ext(&self, id: ColorsExt) -> Style {
-        let color = self.color_ext[id as usize];
+    pub fn fg_style_ext(&self, fg: &str) -> Style {
+        let color = self.color_ext(fg);
         let mut style = Style::new();
         if color != Color::Reset {
             style = style.fg(color);
@@ -499,8 +369,8 @@ impl Palette {
         style
     }
 
-    pub fn bg_style_ext(&self, id: ColorsExt) -> Style {
-        let color = self.color_ext[id as usize];
+    pub fn bg_style_ext(&self, bg: &str) -> Style {
+        let color = self.color_ext(bg);
         let mut style = Style::new();
         if color != Color::Reset {
             style = style.bg(color);
