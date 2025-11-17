@@ -347,6 +347,7 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Reds" => Some(dark::REDS),
         "Blackout" => Some(dark::BLACKOUT),
         "Shell" => Some(core::SHELL),
+        "Imperial Light" => Some(light::IMPERIAL),
         "EverForest Light" => Some(light::EVERFOREST),
         _ => None,
     }
