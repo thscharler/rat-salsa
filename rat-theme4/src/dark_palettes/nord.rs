@@ -50,6 +50,7 @@ pub const NORD: Palette = Palette {
         ("key-binding", ColorIdx(Colors::BlueGreen, 0)),
         ("label", ColorIdx(Colors::White, 0)),
         ("menu-base", ColorIdx(Colors::Black, 0)),
+        ("month-header-fg", ColorIdx(Colors::None, 0)),
         ("popup-arrow", ColorIdx(Colors::Gray, 0)),
         ("popup-base", ColorIdx(Colors::White, 0)),
         ("popup-border", ColorIdx(Colors::Gray, 0)),
@@ -60,6 +61,7 @@ pub const NORD: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 0)),
         ("title", ColorIdx(Colors::Red, 0)),
         ("title-fg", ColorIdx(Colors::TextLight, 0)),
+        ("week-header-fg", ColorIdx(Colors::Yellow, 0)),
     ],
 };
 

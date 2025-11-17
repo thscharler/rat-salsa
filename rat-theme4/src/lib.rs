@@ -44,20 +44,24 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+mod core_theme;
 mod dark_theme;
 mod fallback_theme;
-// mod light_theme;
-mod core_theme;
-pub mod dark_palettes;
+mod light_theme;
 mod palette;
 mod shell_theme;
 mod theme;
 
-pub use dark_theme::dark_theme;
-// pub use light_theme::light_theme;
-use crate::dark_palettes::{BLACKOUT, REDS};
+pub mod dark_palettes;
+pub mod light_palettes;
+pub mod core_palettes {
+    pub use crate::core_theme::SHELL;
+}
+
 pub use crate::fallback_theme::fallback_theme;
 pub use core_theme::core_theme;
+pub use dark_theme::dark_theme;
+pub use light_theme::light_theme;
 pub use palette::{ColorIdx, Colors, Palette};
 pub use shell_theme::shell_theme;
 pub use theme::{Category, SalsaTheme};
@@ -153,6 +157,8 @@ pub trait StyleName {
     const HEADER: &'static str = "header";
     const FOOTER: &'static str = "footer";
     const SHADOWS: &'static str = "shadows";
+    const WEEK_HEADER_FG: &'static str = "week-header-fg";
+    const MONTH_HEADER_FG: &'static str = "month-header-fg";
     const TEXT_FOCUS: &'static str = "text-focus";
     const TEXT_SELECT: &'static str = "text-select";
     const KEY_BINDING: &'static str = "key-binding";
@@ -189,6 +195,8 @@ pub trait RatWidgetColor {
     const FOOTER_FG: &'static str = "footer-fg";
     const FOOTER: &'static str = "footer";
     const SHADOWS: &'static str = "shadows";
+    const WEEK_HEADER_FG: &'static str = "week-header-fg";
+    const MONTH_HEADER_FG: &'static str = "month-header-fg";
     const TEXT_FOCUS: &'static str = "text-focus";
     const TEXT_SELECT: &'static str = "text-select";
     const BUTTON_BASE: &'static str = "button-base";
@@ -208,7 +216,7 @@ pub trait RatWidgetColor {
 impl RatWidgetColor for Color {}
 
 pub fn rat_widget_color_names() -> &'static [&'static str] {
-    static NAMES: [&'static str; 29] = [
+    &[
         Color::LABEL_FG,
         Color::INPUT,
         Color::FOCUS,
@@ -223,6 +231,8 @@ pub fn rat_widget_color_names() -> &'static [&'static str] {
         Color::FOOTER_FG,
         Color::FOOTER,
         Color::SHADOWS,
+        Color::WEEK_HEADER_FG,
+        Color::MONTH_HEADER_FG,
         Color::TEXT_FOCUS,
         Color::TEXT_SELECT,
         Color::BUTTON_BASE,
@@ -238,8 +248,7 @@ pub fn rat_widget_color_names() -> &'static [&'static str] {
         Color::DIALOG_BASE,
         Color::DIALOG_BORDER_FG,
         Color::DIALOG_ARROW_FG,
-    ];
-    &NAMES
+    ]
 }
 
 static LOG_DEFINES: AtomicBool = AtomicBool::new(false);
@@ -296,9 +305,9 @@ fn init_themes() -> Def {
         if name != "Blackout" && name != "Fallback" {
             if !theme.contains(&name) {
                 theme.push(name);
-                theme_init.insert(name, (cat, pal));
             }
         }
+        theme_init.insert(name, (cat, pal));
     }
 
     let d = Def {
@@ -310,41 +319,51 @@ fn init_themes() -> Def {
     d
 }
 
-/// All currently existing color palettes.
+/// All defined color palettes.
 pub fn salsa_palettes() -> Vec<&'static str> {
     let themes = THEMES.get_or_init(init_themes);
     themes.palette.clone()
 }
 
-/// Get a Palette by name.
+/// Create one of the defined palettes.
+///
+/// The available palettes can be queried by [salsa_palettes].
 pub fn create_palette(name: &str) -> Option<Palette> {
-    use crate::dark_palettes::*;
+    use crate::core_palettes as core;
+    use crate::dark_palettes as dark;
+    use crate::light_palettes as light;
     match name {
-        "Imperial" => Some(IMPERIAL),
-        "Radium" => Some(RADIUM),
-        "Tundra" => Some(TUNDRA),
-        "Ocean" => Some(OCEAN),
-        "Monochrome" => Some(MONOCHROME),
-        "Black&White" => Some(BLACK_WHITE),
-        "Monekai" => Some(MONEKAI),
-        "Solarized" => Some(SOLARIZED),
-        "OxoCarbon" => Some(OXOCARBON),
-        "EverForest" => Some(EVERFOREST),
-        "Nord" => Some(NORD),
-        "Rust" => Some(RUST),
-        "Material" => Some(MATERIAL),
-        "VSCode" => Some(VSCODE),
+        "Imperial" => Some(dark::IMPERIAL),
+        "Radium" => Some(dark::RADIUM),
+        "Tundra" => Some(dark::TUNDRA),
+        "Ocean" => Some(dark::OCEAN),
+        "Monochrome" => Some(dark::MONOCHROME),
+        "Black&White" => Some(dark::BLACK_WHITE),
+        "Monekai" => Some(dark::MONEKAI),
+        "Solarized" => Some(dark::SOLARIZED),
+        "OxoCarbon" => Some(dark::OXOCARBON),
+        "EverForest" => Some(dark::EVERFOREST),
+        "Nord" => Some(dark::NORD),
+        "Rust" => Some(dark::RUST),
+        "Material" => Some(dark::MATERIAL),
+        "VSCode" => Some(dark::VSCODE),
+        "Reds" => Some(dark::REDS),
+        "Blackout" => Some(dark::BLACKOUT),
+        "Shell" => Some(core::SHELL),
+        "EverForest Light" => Some(light::EVERFOREST),
         _ => None,
     }
 }
 
-/// Get all Salsa themes.
+/// All defined rat-salsa themes.
 pub fn salsa_themes() -> Vec<&'static str> {
     let themes = THEMES.get_or_init(init_themes);
     themes.theme.clone()
 }
 
-/// Create a theme.
+/// Create one of the defined themes.
+///
+/// The available themes can be queried by [salsa_themes].
 pub fn create_theme(theme: &str) -> SalsaTheme {
     let themes = THEMES.get_or_init(init_themes);
     let Some(def) = themes.theme_init.get(&theme) else {
@@ -365,6 +384,16 @@ pub fn create_theme(theme: &str) -> SalsaTheme {
             };
             dark_theme(theme, pal)
         }
+        ("light", p) => {
+            let Some(pal) = create_palette(*p) else {
+                if cfg!(debug_assertions) {
+                    panic!("no palette {:?}", *p);
+                } else {
+                    return core_theme(theme);
+                }
+            };
+            light_theme(theme, pal)
+        }
         ("shell", p) => {
             let Some(pal) = create_palette(*p) else {
                 if cfg!(debug_assertions) {
@@ -376,8 +405,8 @@ pub fn create_theme(theme: &str) -> SalsaTheme {
             shell_theme(theme, pal)
         }
         ("core", _) => core_theme(theme),
-        ("blackout", _) => dark_theme(theme, BLACKOUT),
-        ("fallback", _) => fallback_theme(theme, REDS),
+        ("blackout", _) => dark_theme(theme, dark_palettes::BLACKOUT),
+        ("fallback", _) => fallback_theme(theme, dark_palettes::REDS),
         _ => {
             if cfg!(debug_assertions) {
                 panic!("no theme {:?}", theme);

@@ -49,6 +49,7 @@ pub const SOLARIZED: Palette = Palette {
         ("key-binding", ColorIdx(Colors::Black, 0)),
         ("label", ColorIdx(Colors::TextLight, 0)),
         ("menu-base", ColorIdx(Colors::Black, 0)),
+        ("month-header-fg", ColorIdx(Colors::None, 0)),
         ("popup-arrow", ColorIdx(Colors::TextDark, 0)),
         ("popup-base", ColorIdx(Colors::Gray, 1)),
         ("popup-border", ColorIdx(Colors::TextDark, 0)),
@@ -59,6 +60,7 @@ pub const SOLARIZED: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 0)),
         ("title", ColorIdx(Colors::None, 0)),
         ("title-fg", ColorIdx(Colors::Blue, 0)),
+        ("week-header-fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
 

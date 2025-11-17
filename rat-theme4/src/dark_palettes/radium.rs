@@ -50,6 +50,7 @@ pub const RADIUM: Palette = Palette {
         ("key-binding", ColorIdx(Colors::BlueGreen, 0)),
         ("label", ColorIdx(Colors::TextLight, 0)),
         ("menu-base", ColorIdx(Colors::Black, 3)),
+        ("month-header-fg", ColorIdx(Colors::None, 0)),
         ("popup-arrow", ColorIdx(Colors::Black, 0)),
         ("popup-base", ColorIdx(Colors::Gray, 2)),
         ("popup-border", ColorIdx(Colors::Black, 0)),
@@ -60,6 +61,7 @@ pub const RADIUM: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 3)),
         ("title", ColorIdx(Colors::Secondary, 0)),
         ("title-fg", ColorIdx(Colors::TextLight, 0)),
+        ("week-header-fg", ColorIdx(Colors::BlueGreen, 0)),
     ],
 };
 

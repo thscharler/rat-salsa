@@ -49,6 +49,7 @@ pub const OCEAN: Palette = Palette {
         ("key-binding", ColorIdx(Colors::BlueGreen, 0)),
         ("label", ColorIdx(Colors::White, 0)),
         ("menu-base", ColorIdx(Colors::Black, 3)),
+        ("month-header-fg", ColorIdx(Colors::None, 0)),
         ("popup-arrow", ColorIdx(Colors::TextDark, 3)),
         ("popup-base", ColorIdx(Colors::Gray, 3)),
         ("popup-border", ColorIdx(Colors::TextDark, 3)),
@@ -59,6 +60,7 @@ pub const OCEAN: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 1)),
         ("title", ColorIdx(Colors::Yellow, 0)),
         ("title-fg", ColorIdx(Colors::TextDark, 3)),
+        ("week-header-fg", ColorIdx(Colors::Gray, 2)),
     ],
 };
 

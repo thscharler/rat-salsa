@@ -1,5 +1,5 @@
 use crate::palette::Palette;
-use crate::{Category, SalsaTheme};
+use crate::{Category, Colors, RatWidgetColor, SalsaTheme};
 use crate::{StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -27,43 +27,83 @@ use rat_widget::table::TableStyle;
 use rat_widget::text::{TextFocusGained, TextFocusLost, TextStyle};
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
-use ratatui::style::{Style, Stylize};
+use ratatui::style::{Color, Style, Stylize};
 use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
-/// A dark theme.
+/// A light theme.
 pub fn light_theme(name: &str, p: Palette) -> SalsaTheme {
     let mut th = SalsaTheme::new(name, Category::Dark, p);
 
-    th.define(Style::INPUT, th.p.high_contrast(p.gray[1]));
-    th.define("alt-input", th.p.high_contrast(p.gray[3]));
-    th.define(Style::FOCUS, th.p.high_contrast(p.primary[3]));
-    th.define(Style::SELECT, th.p.high_contrast(p.secondary[3]));
-    th.define(Style::TEXT_FOCUS, th.p.high_contrast(p.primary[3]));
-    th.define(Style::TEXT_SELECT, th.p.high_contrast(p.secondary[3]));
-    th.define(Style::BUTTON_BASE, th.p.gray(1));
-
-    th.define(Style::CONTAINER_BASE, th.p.normal_contrast(p.gray[3]));
+    th.define(Style::LABEL_FG, th.p.fg_style_ext(Color::LABEL_FG));
+    th.define(Style::INPUT, th.p.style_ext(Color::INPUT));
+    th.define(Style::FOCUS, th.p.style_ext(Color::FOCUS));
+    th.define(Style::SELECT, th.p.style_ext(Color::SELECT));
+    th.define(Style::DISABLED, th.p.style_ext(Color::DISABLED));
+    th.define(Style::INVALID, th.p.style_ext(Color::INVALID));
+    th.define(Style::HOVER, th.p.style_ext(Color::HOVER));
     th.define(
-        Style::CONTAINER_BORDER,
-        th.p.normal_contrast_color(p.gray[3], &p.black),
+        Style::TITLE,
+        th.p.fg_bg_style_ext(Color::TITLE_FG, Color::TITLE),
     );
     th.define(
-        Style::CONTAINER_ARROWS,
-        th.p.normal_contrast_color(p.gray[3], &p.black),
+        Style::HEADER,
+        th.p.fg_bg_style_ext(Color::HEADER_FG, Color::HEADER),
+    );
+    th.define(
+        Style::FOOTER,
+        th.p.fg_bg_style_ext(Color::FOOTER_FG, Color::FOOTER),
+    );
+    th.define(Style::SHADOWS, th.p.style_ext(Color::SHADOWS));
+    th.define(
+        Style::WEEK_HEADER_FG,
+        th.p.fg_style_ext(Color::WEEK_HEADER_FG),
+    );
+    th.define(
+        Style::MONTH_HEADER_FG,
+        th.p.fg_style_ext(Color::MONTH_HEADER_FG),
+    );
+    th.define(Style::SHADOWS, th.p.style_ext(Color::SHADOWS));
+    th.define(Style::TEXT_FOCUS, th.p.style_ext(Color::TEXT_FOCUS));
+    th.define(Style::TEXT_SELECT, th.p.style_ext(Color::SELECT));
+    th.define(Style::KEY_BINDING, th.p.style_ext(Color::KEY_BINDING));
+
+    th.define(Style::BUTTON_BASE, th.p.style_ext(Color::BUTTON_BASE));
+    th.define(Style::MENU_BASE, th.p.style_ext(Color::MENU_BASE));
+    th.define(Style::STATUS_BASE, th.p.style_ext(Color::STATUS_BASE));
+
+    th.define(Style::CONTAINER_BASE, th.p.style_ext(Color::CONTAINER_BASE));
+    th.define(
+        Style::CONTAINER_BORDER_FG,
+        th.p.fg_bg_style_ext(Color::CONTAINER_BORDER_FG, Color::CONTAINER_BASE),
+    );
+    th.define(
+        Style::CONTAINER_ARROW_FG,
+        th.p.fg_bg_style_ext(Color::CONTAINER_ARROW_FG, Color::CONTAINER_BASE),
     );
 
-    th.define(Style::POPUP_BASE, th.p.high_contrast(p.white[0]));
-    th.define(Style::POPUP_BORDER, th.p.normal_contrast(p.white[0]));
-    th.define(Style::POPUP_ARROW, th.p.normal_contrast(p.white[0]));
+    th.define(Style::POPUP_BASE, th.p.style_ext(Color::POPUP_BASE));
+    th.define(
+        Style::POPUP_BORDER_FG,
+        th.p.fg_bg_style_ext(Color::POPUP_BORDER_FG, Color::POPUP_BASE),
+    );
+    th.define(
+        Style::POPUP_ARROW_FG,
+        th.p.fg_bg_style_ext(Color::POPUP_ARROW_FG, Color::POPUP_BASE),
+    );
 
-    th.define(Style::DIALOG_BASE, th.p.high_contrast(p.white[0]));
-    th.define(Style::DIALOG_BORDER, th.p.normal_contrast(p.white[0]));
-    th.define(Style::DIALOG_ARROW, th.p.normal_contrast(p.white[0]));
-
-    th.define(Style::STATUS_BASE, th.p.normal_contrast(p.gray[2]));
+    th.define(Style::DIALOG_BASE, th.p.style_ext(Color::DIALOG_BASE));
+    th.define(
+        Style::DIALOG_BORDER_FG,
+        th.p.fg_bg_style_ext(Color::DIALOG_BORDER_FG, Color::DIALOG_BASE),
+    );
+    th.define(
+        Style::DIALOG_ARROW_FG,
+        th.p.fg_bg_style_ext(Color::DIALOG_ARROW_FG, Color::DIALOG_BASE),
+    );
 
     th.define_fn(WidgetStyle::BUTTON, button);
+    th.define_fn(WidgetStyle::CALENDAR, month);
     th.define_fn(WidgetStyle::CHECKBOX, checkbox);
     th.define_fn(WidgetStyle::CHOICE, choice);
     th.define_fn(WidgetStyle::CLIPPER, clipper);
@@ -101,7 +141,7 @@ fn button(th: &SalsaTheme) -> ButtonStyle {
         style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
-        hover: Some(th.style(Style::SELECT)),
+        hover: Some(th.style(Style::HOVER)),
         armed_delay: Some(Duration::from_millis(50)),
         ..Default::default()
     }
@@ -109,7 +149,7 @@ fn button(th: &SalsaTheme) -> ButtonStyle {
 
 fn checkbox(th: &SalsaTheme) -> CheckboxStyle {
     CheckboxStyle {
-        style: th.style("alt-input"),
+        style: th.style(Style::INPUT),
         focus: Some(th.style(Style::TEXT_FOCUS)),
         ..Default::default()
     }
@@ -129,12 +169,12 @@ fn choice(th: &SalsaTheme) -> ChoiceStyle {
         select: Some(th.style(Style::TEXT_SELECT)),
         focus: Some(th.style(Style::TEXT_FOCUS)),
         popup_style: Some(th.style(Style::POPUP_BASE)),
-        popup_border: Some(th.style(Style::POPUP_BORDER)),
+        popup_border: Some(th.style(Style::POPUP_BORDER_FG)),
         popup_scroll: Some(popup_scroll(th)),
         popup_block: Some(
             Block::bordered()
                 .borders(Borders::LEFT)
-                .border_style(th.style::<Style>(Style::POPUP_BORDER)),
+                .border_style(th.style::<Style>(Style::POPUP_BORDER_FG)),
         ),
         ..Default::default()
     }
@@ -143,6 +183,7 @@ fn choice(th: &SalsaTheme) -> ChoiceStyle {
 fn clipper(th: &SalsaTheme) -> ClipperStyle {
     ClipperStyle {
         style: th.style(Style::CONTAINER_BASE),
+        label_style: Some(th.style(Style::LABEL_FG)),
         scroll: Some(scroll(th)),
         ..Default::default()
     }
@@ -151,7 +192,7 @@ fn clipper(th: &SalsaTheme) -> ClipperStyle {
 fn dialog_frame(th: &SalsaTheme) -> DialogFrameStyle {
     DialogFrameStyle {
         style: th.style(Style::DIALOG_BASE),
-        block: Some(Block::bordered().style(th.style::<Style>(Style::DIALOG_BORDER))),
+        border_style: Some(th.style::<Style>(Style::DIALOG_BORDER_FG)),
         button_style: Some(button(th)),
         ..DialogFrameStyle::default()
     }
@@ -175,12 +216,15 @@ fn file_dialog(th: &SalsaTheme) -> FileDialogStyle {
 fn form(th: &SalsaTheme) -> FormStyle {
     FormStyle {
         style: th.style(Style::CONTAINER_BASE),
-        navigation: Some(th.style(Style::CONTAINER_ARROWS)),
+        label_style: Some(th.style(Style::LABEL_FG)),
+        navigation: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        navigation_hover: Some(th.style(Style::HOVER)),
         block: Some(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
-                .border_style(th.style::<Style>(Style::CONTAINER_BORDER)),
+                .border_style(th.style::<Style>(Style::CONTAINER_BORDER_FG)),
         ),
+        border_style: Some(th.style::<Style>(Style::CONTAINER_BORDER_FG)),
         ..Default::default()
     }
 }
@@ -206,10 +250,10 @@ fn list(th: &SalsaTheme) -> ListStyle {
 fn menu(th: &SalsaTheme) -> MenuStyle {
     MenuStyle {
         style: th.style(Style::STATUS_BASE),
-        title: Some(th.p.yellow(2)),
+        title: Some(th.style(Style::TITLE)),
         focus: Some(th.style(Style::FOCUS)),
-        right: Some(th.p.fg_bluegreen(0)),
-        disabled: Some(th.p.fg_gray(0)),
+        right: Some(th.style(Style::KEY_BINDING)),
+        disabled: Some(th.style(Style::DISABLED)),
         highlight: Some(Style::default().underlined()),
         block: Some(Block::bordered()),
         popup: Default::default(),
@@ -221,10 +265,10 @@ fn menu(th: &SalsaTheme) -> MenuStyle {
 
 fn month(th: &SalsaTheme) -> CalendarStyle {
     CalendarStyle {
-        style: th.style("alt-input"),
-        title: None,
-        weeknum: Some(th.p.fg_limegreen(2)),
-        weekday: Some(th.p.fg_limegreen(2)),
+        style: th.style(Style::CONTAINER_BASE),
+        title: Some(th.style(Style::MONTH_HEADER_FG)),
+        weeknum: Some(th.style(Style::WEEK_HEADER_FG)),
+        weekday: Some(th.style(Style::WEEK_HEADER_FG)),
         day: None,
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
@@ -252,7 +296,7 @@ fn paragraph(th: &SalsaTheme) -> ParagraphStyle {
 fn radio(th: &SalsaTheme) -> RadioStyle {
     RadioStyle {
         layout: Some(RadioLayout::Stacked),
-        style: th.style("alt-input"),
+        style: th.style(Style::INPUT),
         focus: Some(th.style(Style::TEXT_FOCUS)),
         ..Default::default()
     }
@@ -261,40 +305,40 @@ fn radio(th: &SalsaTheme) -> RadioStyle {
 /// Scroll style
 fn scroll(th: &SalsaTheme) -> ScrollStyle {
     ScrollStyle {
-        thumb_style: Some(th.style(Style::CONTAINER_BORDER)),
-        track_style: Some(th.style(Style::CONTAINER_BORDER)),
-        min_style: Some(th.style(Style::CONTAINER_BORDER)),
-        begin_style: Some(th.style(Style::CONTAINER_ARROWS)),
-        end_style: Some(th.style(Style::CONTAINER_ARROWS)),
+        thumb_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        track_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        min_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        begin_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        end_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
         ..Default::default()
     }
 }
 
 fn popup_scroll(th: &SalsaTheme) -> ScrollStyle {
     ScrollStyle {
-        thumb_style: Some(th.style(Style::POPUP_BORDER)),
-        track_style: Some(th.style(Style::POPUP_BORDER)),
-        min_style: Some(th.style(Style::POPUP_BORDER)),
-        begin_style: Some(th.style(Style::POPUP_ARROW)),
-        end_style: Some(th.style(Style::POPUP_ARROW)),
+        thumb_style: Some(th.style(Style::POPUP_BORDER_FG)),
+        track_style: Some(th.style(Style::POPUP_BORDER_FG)),
+        min_style: Some(th.style(Style::POPUP_BORDER_FG)),
+        begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        end_style: Some(th.style(Style::POPUP_ARROW_FG)),
         ..Default::default()
     }
 }
 
 fn dialog_scroll(th: &SalsaTheme) -> ScrollStyle {
     ScrollStyle {
-        thumb_style: Some(th.style(Style::DIALOG_BORDER)),
-        track_style: Some(th.style(Style::DIALOG_BORDER)),
-        min_style: Some(th.style(Style::DIALOG_BORDER)),
-        begin_style: Some(th.style(Style::POPUP_ARROW)),
-        end_style: Some(th.style(Style::POPUP_ARROW)),
+        thumb_style: Some(th.style(Style::DIALOG_BORDER_FG)),
+        track_style: Some(th.style(Style::DIALOG_BORDER_FG)),
+        min_style: Some(th.style(Style::DIALOG_BORDER_FG)),
+        begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        end_style: Some(th.style(Style::POPUP_ARROW_FG)),
         ..Default::default()
     }
 }
 
 fn shadow(th: &SalsaTheme) -> ShadowStyle {
     ShadowStyle {
-        style: th.p.normal_contrast(th.p.black[0]),
+        style: th.style(Style::SHADOWS),
         dir: ShadowDirection::BottomRight,
         ..ShadowStyle::default()
     }
@@ -303,7 +347,7 @@ fn shadow(th: &SalsaTheme) -> ShadowStyle {
 fn slider(th: &SalsaTheme) -> SliderStyle {
     SliderStyle {
         style: th.style(Style::INPUT),
-        bounds: Some(th.p.gray(2)),
+        bounds: Some(th.style(Style::INPUT)),
         knob: Some(th.style(Style::TEXT_SELECT)),
         focus: Some(th.style(Style::TEXT_FOCUS)),
         text_align: Some(Alignment::Center),
@@ -313,9 +357,9 @@ fn slider(th: &SalsaTheme) -> SliderStyle {
 
 fn split(th: &SalsaTheme) -> SplitStyle {
     SplitStyle {
-        style: th.style(Style::CONTAINER_BORDER),
-        arrow_style: Some(th.style(Style::CONTAINER_ARROWS)),
-        drag_style: Some(th.style(Style::FOCUS)),
+        style: th.style(Style::CONTAINER_BORDER_FG),
+        arrow_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        drag_style: Some(th.style(Style::HOVER)),
         ..Default::default()
     }
 }
@@ -324,9 +368,9 @@ fn statusline(th: &SalsaTheme) -> StatusLineStyle {
     StatusLineStyle {
         styles: vec![
             th.style(Style::STATUS_BASE),
-            th.p.normal_contrast(th.p.blue[3]),
-            th.p.normal_contrast(th.p.blue[2]),
-            th.p.normal_contrast(th.p.blue[1]),
+            th.p.style(Colors::Blue, 3),
+            th.p.style(Colors::Blue, 2),
+            th.p.style(Colors::Blue, 1),
         ],
         ..Default::default()
     }
@@ -335,8 +379,10 @@ fn statusline(th: &SalsaTheme) -> StatusLineStyle {
 fn tabbed(th: &SalsaTheme) -> TabbedStyle {
     TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
-        tab: Some(th.p.gray(2)),
-        select: Some(th.p.secondary(0)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        tab: Some(th.style(Style::INPUT)),
+        hover: Some(th.style(Style::HOVER)),
+        select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
         ..Default::default()
     }
@@ -348,10 +394,10 @@ fn table(th: &SalsaTheme) -> TableStyle {
         select_row: Some(th.style(Style::SELECT)),
         show_row_focus: true,
         focus_style: Some(th.style(Style::FOCUS)),
-        border_style: Some(th.style(Style::CONTAINER_BORDER)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         scroll: Some(scroll(th)),
-        header: Some(th.p.blue(2)),
-        footer: Some(th.p.blue(2)),
+        header: Some(th.style(Style::HEADER)),
+        footer: Some(th.style(Style::FOOTER)),
         ..Default::default()
     }
 }
@@ -362,7 +408,7 @@ fn color_input(th: &SalsaTheme) -> ColorInputStyle {
             style: th.style(Style::INPUT),
             focus: Some(th.style(Style::TEXT_FOCUS)),
             select: Some(th.style(Style::TEXT_SELECT)),
-            invalid: Some(th.p.fg_red(3)),
+            invalid: Some(th.style(Style::INVALID)),
             on_focus_gained: Some(TextFocusGained::Overwrite),
             on_focus_lost: Some(TextFocusLost::Position0),
             ..TextStyle::default()
@@ -376,7 +422,7 @@ fn text(th: &SalsaTheme) -> TextStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::TEXT_FOCUS)),
         select: Some(th.style(Style::TEXT_SELECT)),
-        invalid: Some(th.p.fg_red(3)),
+        invalid: Some(th.style(Style::INVALID)),
         ..TextStyle::default()
     }
 }
@@ -387,7 +433,7 @@ fn textarea(th: &SalsaTheme) -> TextStyle {
         focus: Some(th.style(Style::INPUT)),
         select: Some(th.style(Style::TEXT_SELECT)),
         scroll: Some(scroll(th)),
-        border_style: Some(th.style(Style::CONTAINER_BORDER)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()
     }
 }
@@ -398,7 +444,7 @@ fn textview(th: &SalsaTheme) -> TextStyle {
         focus: Some(th.style(Style::CONTAINER_BASE)),
         select: Some(th.style(Style::TEXT_SELECT)),
         scroll: Some(scroll(th)),
-        border_style: Some(th.style(Style::CONTAINER_BORDER)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()
     }
 }

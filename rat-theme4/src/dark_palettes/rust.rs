@@ -49,6 +49,7 @@ pub const RUST: Palette = Palette {
         ("key-binding", ColorIdx(Colors::BlueGreen, 0)),
         ("label", ColorIdx(Colors::White, 2)),
         ("menu-base", ColorIdx(Colors::Black, 0)),
+        ("month-header-fg", ColorIdx(Colors::None, 0)),
         ("popup-arrow", ColorIdx(Colors::Gray, 3)),
         ("popup-base", ColorIdx(Colors::White, 0)),
         ("popup-border", ColorIdx(Colors::Gray, 3)),
@@ -59,6 +60,7 @@ pub const RUST: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 1)),
         ("title", ColorIdx(Colors::Primary, 1)),
         ("title-fg", ColorIdx(Colors::TextLight, 0)),
+        ("week-header-fg", ColorIdx(Colors::Gray, 1)),
     ],
 };
 

@@ -51,6 +51,14 @@ pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define(Style::HEADER, th.p.fg_style_ext(Color::HEADER_FG));
     th.define(Style::FOOTER, th.p.fg_style_ext(Color::FOOTER_FG));
     th.define(Style::SHADOWS, th.p.style_ext(Color::SHADOWS));
+    th.define(
+        Style::WEEK_HEADER_FG,
+        th.p.fg_style_ext(Color::WEEK_HEADER_FG),
+    );
+    th.define(
+        Style::MONTH_HEADER_FG,
+        th.p.fg_style_ext(Color::MONTH_HEADER_FG),
+    );
     th.define(Style::TEXT_FOCUS, th.p.style_ext(Color::TEXT_FOCUS));
     th.define(Style::TEXT_SELECT, th.p.style_ext(Color::SELECT));
     th.define(Style::KEY_BINDING, th.p.style_ext(Color::KEY_BINDING));
@@ -264,9 +272,9 @@ fn menu(th: &SalsaTheme) -> MenuStyle {
 fn month(th: &SalsaTheme) -> CalendarStyle {
     CalendarStyle {
         style: th.style(Style::CONTAINER_BASE),
-        title: None,
-        weeknum: Some(th.style(Style::HEADER)),
-        weekday: Some(th.style(Style::HEADER)),
+        title: Some(th.style(Style::MONTH_HEADER_FG)),
+        weeknum: Some(th.style(Style::WEEK_HEADER_FG)),
+        weekday: Some(th.style(Style::WEEK_HEADER_FG)),
         day: None,
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),

@@ -48,6 +48,7 @@ pub const MONOCHROME: Palette = Palette {
         ("key-binding", ColorIdx(Colors::BlueGreen, 0)),
         ("label", ColorIdx(Colors::White, 0)),
         ("menu-base", ColorIdx(Colors::Black, 1)),
+        ("month-header-fg", ColorIdx(Colors::None, 0)),
         ("popup-arrow", ColorIdx(Colors::Gray, 3)),
         ("popup-base", ColorIdx(Colors::Gray, 0)),
         ("popup-border", ColorIdx(Colors::Gray, 3)),
@@ -58,6 +59,7 @@ pub const MONOCHROME: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 0)),
         ("title", ColorIdx(Colors::LimeGreen, 0)),
         ("title-fg", ColorIdx(Colors::TextDark, 3)),
+        ("week-header-fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
 

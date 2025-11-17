@@ -48,6 +48,7 @@ pub const BASE16: Palette = Palette {
         ("key-binding", ColorIdx(Colors::Orange, 0)),
         ("label", ColorIdx(Colors::White, 0)),
         ("menu-base", ColorIdx(Colors::Black, 0)),
+        ("month-header-fg", ColorIdx(Colors::Gray, 0)),
         ("popup-arrow", ColorIdx(Colors::Black, 0)),
         ("popup-base", ColorIdx(Colors::White, 0)),
         ("popup-border", ColorIdx(Colors::Black, 0)),
@@ -58,6 +59,7 @@ pub const BASE16: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 0)),
         ("title", ColorIdx(Colors::Red, 0)),
         ("title-fg", ColorIdx(Colors::TextLight, 0)),
+        ("week-header-fg", ColorIdx(Colors::Gray, 0)),
     ],
 };
 

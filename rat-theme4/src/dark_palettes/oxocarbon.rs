@@ -48,6 +48,7 @@ pub const OXOCARBON: Palette = Palette {
         ("key-binding", ColorIdx(Colors::BlueGreen, 0)),
         ("label", ColorIdx(Colors::White, 0)),
         ("menu-base", ColorIdx(Colors::Black, 1)),
+        ("month-header-fg", ColorIdx(Colors::None, 0)),
         ("popup-arrow", ColorIdx(Colors::White, 0)),
         ("popup-base", ColorIdx(Colors::Gray, 0)),
         ("popup-border", ColorIdx(Colors::White, 0)),
@@ -58,6 +59,7 @@ pub const OXOCARBON: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 1)),
         ("title", ColorIdx(Colors::Red, 0)),
         ("title-fg", ColorIdx(Colors::TextLight, 0)),
+        ("week-header-fg", ColorIdx(Colors::BlueGreen, 0)),
     ],
 };
 

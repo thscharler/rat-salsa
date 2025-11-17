@@ -48,6 +48,7 @@ pub const MONEKAI: Palette = Palette {
         ("key-binding", ColorIdx(Colors::BlueGreen, 0)),
         ("label", ColorIdx(Colors::White, 0)),
         ("menu-base", ColorIdx(Colors::Black, 0)),
+        ("month-header-fg", ColorIdx(Colors::None, 0)),
         ("popup-arrow", ColorIdx(Colors::TextDark, 0)),
         ("popup-base", ColorIdx(Colors::Gray, 1)),
         ("popup-border", ColorIdx(Colors::TextDark, 0)),
@@ -58,6 +59,7 @@ pub const MONEKAI: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 1)),
         ("title", ColorIdx(Colors::None, 0)),
         ("title-fg", ColorIdx(Colors::Magenta, 0)),
+        ("week-header-fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
 

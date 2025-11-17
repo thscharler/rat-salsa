@@ -6,7 +6,7 @@ use crate::{ColorIdx, Colors, Palette};
 const DARKNESS: u8 = 64;
 
 pub const IMPERIAL: Palette = Palette {
-    name: "Imperial",
+    name: "Imperial", 
 
     color: [
         Palette::interpolate2(0xdedfe3, 0xf6f6f3, 0x0, 0x0),
@@ -50,6 +50,7 @@ pub const IMPERIAL: Palette = Palette {
         ("key-binding", ColorIdx(Colors::BlueGreen, 0)),
         ("label", ColorIdx(Colors::White, 0)),
         ("menu-base", ColorIdx(Colors::Black, 1)),
+        ("month-header-fg", ColorIdx(Colors::White, 0)),
         ("popup-arrow", ColorIdx(Colors::Black, 3)),
         ("popup-base", ColorIdx(Colors::Gray, 3)),
         ("popup-border", ColorIdx(Colors::Black, 3)),
@@ -60,5 +61,7 @@ pub const IMPERIAL: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 1)),
         ("title", ColorIdx(Colors::Red, 0)),
         ("title-fg", ColorIdx(Colors::TextLight, 0)),
+        ("week-header-fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
+

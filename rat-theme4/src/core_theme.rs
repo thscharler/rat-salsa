@@ -1,7 +1,6 @@
 use crate::palette::Palette;
 use crate::{Category, ColorIdx, Colors, RatWidgetColor, SalsaTheme};
 use crate::{StyleName, WidgetStyle};
-use log::debug;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
@@ -98,12 +97,13 @@ pub const SHELL: Palette = Palette {
         (Color::FOOTER_FG, ColorIdx(Colors::TextLight, 0)),
         (Color::HEADER, ColorIdx(Colors::Blue, 0)),
         (Color::HEADER_FG, ColorIdx(Colors::TextLight, 0)),
-        (Color::HOVER, ColorIdx(Colors::Black, 0)),
+        (Color::HOVER, ColorIdx(Colors::Gray, 3)),
         (Color::INPUT, ColorIdx(Colors::Gray, 3)),
         (Color::INVALID, ColorIdx(Colors::Red, 0)),
         (Color::KEY_BINDING, ColorIdx(Colors::BlueGreen, 0)),
         (Color::LABEL_FG, ColorIdx(Colors::White, 0)),
         (Color::MENU_BASE, ColorIdx(Colors::Black, 0)),
+        (Color::MONTH_HEADER_FG, ColorIdx(Colors::TextDark, 0)),
         (Color::POPUP_ARROW_FG, ColorIdx(Colors::Gray, 3)),
         (Color::POPUP_BASE, ColorIdx(Colors::White, 0)),
         (Color::POPUP_BORDER_FG, ColorIdx(Colors::Gray, 3)),
@@ -114,13 +114,16 @@ pub const SHELL: Palette = Palette {
         (Color::TEXT_SELECT, ColorIdx(Colors::Secondary, 0)),
         (Color::TITLE, ColorIdx(Colors::Red, 0)),
         (Color::TITLE_FG, ColorIdx(Colors::TextLight, 0)),
+        (Color::WEEK_HEADER_FG, ColorIdx(Colors::TextDark, 0)),
     ],
 };
 
-/// A 'shell'-theme.
+/// A true shell theme.
 ///
-/// It uses almost no background colors and lets your shell
-/// bleed through.
+/// It only uses predefined colors as in `Color::Red` or
+/// `Color::White` and constructs a theme.
+///
+/// As a shell theme it uses no backgrounds.
 pub fn core_theme(name: &str) -> SalsaTheme {
     let p = SHELL;
     let mut th = SalsaTheme::new(name, Category::Shell, p);
@@ -136,6 +139,11 @@ pub fn core_theme(name: &str) -> SalsaTheme {
     th.define(Style::HEADER, th.p.fg_style_ext(Color::HEADER_FG));
     th.define(Style::FOOTER, th.p.fg_style_ext(Color::FOOTER_FG));
     th.define(Style::SHADOWS, th.p.style_ext(Color::SHADOWS));
+    th.define(Style::WEEK_HEADER_FG, th.p.style_ext(Color::WEEK_HEADER_FG));
+    th.define(
+        Style::MONTH_HEADER_FG,
+        th.p.style_ext(Color::MONTH_HEADER_FG),
+    );
     th.define(Style::TEXT_FOCUS, th.p.high_style_ext(Color::TEXT_FOCUS));
     th.define(Style::TEXT_SELECT, th.p.high_style_ext(Color::SELECT));
     th.define(Style::KEY_BINDING, th.p.high_style_ext(Color::KEY_BINDING));

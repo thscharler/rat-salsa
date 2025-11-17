@@ -43,6 +43,8 @@ pub fn fallback_theme(name: &str, p: Palette) -> SalsaTheme {
     th.define(Style::HEADER, Style::default());
     th.define(Style::FOOTER, Style::default());
     th.define(Style::SHADOWS, Style::default());
+    th.define(Style::WEEK_HEADER_FG, Style::default());
+    th.define(Style::MONTH_HEADER_FG, Style::default());
     th.define(Style::TEXT_FOCUS, Style::default());
     th.define(Style::TEXT_SELECT, Style::default());
     th.define(Style::KEY_BINDING, Style::default());

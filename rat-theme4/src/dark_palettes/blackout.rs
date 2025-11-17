@@ -4,7 +4,7 @@ use crate::{ColorIdx, Colors, Palette};
 const DARKNESS: u8 = 63;
 
 pub const BLACKOUT: Palette = Palette {
-    name: "Blackout",
+    name: "Blackout", 
 
     color: [
         Palette::interpolate2(0x000000, 0x000000, 0x0, 0x0),
@@ -48,6 +48,7 @@ pub const BLACKOUT: Palette = Palette {
         ("key-binding", ColorIdx(Colors::BlueGreen, 0)),
         ("label", ColorIdx(Colors::White, 0)),
         ("menu-base", ColorIdx(Colors::Black, 1)),
+        ("month-header-fg", ColorIdx(Colors::None, 0)),
         ("popup-arrow", ColorIdx(Colors::Gray, 3)),
         ("popup-base", ColorIdx(Colors::White, 0)),
         ("popup-border", ColorIdx(Colors::Gray, 3)),
@@ -58,5 +59,7 @@ pub const BLACKOUT: Palette = Palette {
         ("text-select", ColorIdx(Colors::Secondary, 1)),
         ("title", ColorIdx(Colors::Red, 0)),
         ("title-fg", ColorIdx(Colors::TextLight, 0)),
+        ("week-header-fg", ColorIdx(Colors::None, 0)),
     ],
 };
+
