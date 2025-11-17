@@ -25,10 +25,9 @@
 //! # use ratatui::layout::Rect;
 //! # use ratatui::style::Style;
 //! # use ratatui::widgets::StatefulWidget;
-//! # use rat_theme4::{create_empty, SalsaTheme, StyleName, WidgetStyle, };
-//! # use rat_theme4::palettes::BLACKOUT;
+//! # use rat_theme5::{Theme, StyleName, WidgetStyle, };
 //! # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
-//! # let theme = create_empty("", BLACKOUT);
+//! # let theme = Theme::default();
 //! # let area = Rect::default();
 //! # let mut buf = Buffer::default();
 //! # let buf = &mut buf;
@@ -44,16 +43,20 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 mod dark_theme;
 mod fallback_theme;
+// mod light_theme;
+pub mod dark_palettes;
 mod palette;
-pub mod palettes;
-mod salsa_theme;
+mod shell_shell_theme;
 mod shell_theme;
+mod theme;
 
 pub use dark_theme::dark_theme;
-pub use fallback_theme::fallback_theme;
-pub use palette::Palette;
-pub use salsa_theme::{Category, SalsaTheme};
+// pub use light_theme::light_theme;
+use crate::fallback_theme::fallback_theme;
+pub use palette::{ColorIdx, Colors, ColorsExt, Palette};
+pub use shell_shell_theme::shell_shell_theme;
 pub use shell_theme::shell_theme;
+pub use theme::{Category, Theme};
 
 /// Anchor struct for the names of composite styles used
 /// by rat-widget's.
@@ -61,10 +64,10 @@ pub use shell_theme::shell_theme;
 /// Use as
 /// ```rust
 /// # use ratatui::style::Style;
-/// # use rat_theme4::{create_empty, SalsaTheme, StyleName, WidgetStyle};
-/// # use rat_theme4::palettes::BLACKOUT;
+/// # use rat_theme5::{Theme, StyleName, WidgetStyle};
+/// # use rat_theme5::palettes::BLACKOUT;
 /// # use rat_widget::checkbox::CheckboxStyle;
-/// # let theme = create_empty("", BLACKOUT);
+/// # let theme = Theme::default();
 ///
 /// let s: CheckboxStyle = theme.style(WidgetStyle::CHECKBOX);
 /// ```
@@ -74,10 +77,10 @@ pub use shell_theme::shell_theme;
 /// # use ratatui::layout::Rect;
 /// # use ratatui::style::Style;
 /// # use ratatui::widgets::StatefulWidget;
-/// # use rat_theme4::{create_empty, SalsaTheme, StyleName, WidgetStyle, };
-/// # use rat_theme4::palettes::BLACKOUT;
+/// # use rat_theme5::{Theme, StyleName, WidgetStyle, };
+/// # use rat_theme5::palettes::BLACKOUT;
 /// # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
-/// # let theme = create_empty("", BLACKOUT);
+/// # let theme = Theme::default();
 /// # let area = Rect::default();
 /// # let mut buf = Buffer::default();
 /// # let buf = &mut buf;
@@ -128,34 +131,42 @@ impl WidgetStyle {
 /// Use as
 /// ```rust
 /// # use ratatui::style::Style;
-/// # use rat_theme4::{create_empty, SalsaTheme, StyleName, };
-/// # use rat_theme4::palettes::BLACKOUT;
-/// # let theme = create_empty("", BLACKOUT);
+/// # use rat_theme5::{Theme, StyleName, };
+/// # use rat_theme5::palettes::BLACKOUT;
+/// # let theme = Theme::default();
 ///
 /// let s: Style = theme.style(Style::INPUT);
 /// ```
 pub trait StyleName {
-    const LABEL: &'static str = "label";
+    const LABEL_FG: &'static str = "label-fg";
     const INPUT: &'static str = "input";
     const FOCUS: &'static str = "focus";
     const SELECT: &'static str = "select";
+    const DISABLED: &'static str = "disabled";
+    const INVALID: &'static str = "invalid";
+    const HOVER: &'static str = "hover";
+    const TITLE: &'static str = "title";
+    const HEADER: &'static str = "header";
+    const FOOTER: &'static str = "footer";
+    const SHADOWS: &'static str = "shadows";
     const TEXT_FOCUS: &'static str = "text-focus";
     const TEXT_SELECT: &'static str = "text-select";
+    const KEY_BINDING: &'static str = "key-binding";
     const BUTTON_BASE: &'static str = "button-base";
+    const MENU_BASE: &'static str = "menu-base";
+    const STATUS_BASE: &'static str = "status-base";
 
     const CONTAINER_BASE: &'static str = "container-base";
-    const CONTAINER_BORDER: &'static str = "container-border";
-    const CONTAINER_ARROWS: &'static str = "container-arrows";
+    const CONTAINER_BORDER_FG: &'static str = "container-border-fg";
+    const CONTAINER_ARROW_FG: &'static str = "container-arrows-fg";
 
     const POPUP_BASE: &'static str = "popup-base";
-    const POPUP_BORDER: &'static str = "popup-border";
-    const POPUP_ARROW: &'static str = "popup-arrow";
+    const POPUP_BORDER_FG: &'static str = "popup-border-fg";
+    const POPUP_ARROW_FG: &'static str = "popup-arrow-fg";
 
     const DIALOG_BASE: &'static str = "dialog-base";
-    const DIALOG_BORDER: &'static str = "dialog-border";
-    const DIALOG_ARROW: &'static str = "dialog-arrow";
-
-    const STATUS_BASE: &'static str = "status-base";
+    const DIALOG_BORDER_FG: &'static str = "dialog-border-fg";
+    const DIALOG_ARROW_FG: &'static str = "dialog-arrow-fg";
 }
 impl StyleName for Style {}
 
@@ -171,12 +182,13 @@ fn is_log_style_define() -> bool {
 }
 
 const PALETTES: &[&str] = &[
-    "Imperial",
+    "Imperial", //
     "Radium",
     "Tundra",
+    "Rust",
     "Ocean",
     "Monochrome",
-    "Black & White",
+    "Black&White",
     "Base16",
     "Base16 Relax",
     "Monekai",
@@ -184,11 +196,9 @@ const PALETTES: &[&str] = &[
     "OxoCarbon",
     "EverForest",
     "Nord",
-    "Rust",
-    "Red",
+    "Reds",
     "Blackout",
-    "Shell",
-    "VSCode",
+    "VSCodeDark",
 ];
 
 /// All currently existing color palettes.
@@ -198,14 +208,14 @@ pub fn salsa_palettes() -> Vec<&'static str> {
 
 /// Get a Palette by name.
 pub fn create_palette(name: &str) -> Option<Palette> {
-    use crate::palettes::*;
+    use crate::dark_palettes::*;
     match name {
         "Imperial" => Some(IMPERIAL),
         "Radium" => Some(RADIUM),
         "Tundra" => Some(TUNDRA),
         "Ocean" => Some(OCEAN),
         "Monochrome" => Some(MONOCHROME),
-        "Black & White" => Some(BLACKWHITE),
+        "Black&White" => Some(BLACK_WHITE),
         "Base16" => Some(BASE16),
         "Base16 Relax" => Some(BASE16_RELAX),
         "Monekai" => Some(MONEKAI),
@@ -214,10 +224,10 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "EverForest" => Some(EVERFOREST),
         "Nord" => Some(NORD),
         "Rust" => Some(RUST),
-        "Red" => Some(RED),
+        "Material" => Some(MATERIALDARK),
+        "Reds" => Some(REDS),
         "Blackout" => Some(BLACKOUT),
-        "Shell" => Some(SHELL),
-        "VSCode" => Some(VSCODE_DARK),
+        "VSCodeDark" => Some(VSCODEDARK),
         _ => None,
     }
 }
@@ -228,7 +238,7 @@ const THEMES: &[&str] = &[
     "Tundra Dark",
     "Ocean Dark",
     "Monochrome Dark",
-    "Black & White Dark",
+    "Black&White Dark",
     "Base16 Dark",
     "Base16 Relax Dark",
     "Monekai Dark",
@@ -237,16 +247,16 @@ const THEMES: &[&str] = &[
     "EverForest Dark",
     "Nord Dark",
     "Rust Dark",
-    "Red Dark",
-    "Shell Dark",
+    "Material Dark",
+    "Reds Dark",
     "VSCode Dark",
-    //
+    // //
     "Imperial Shell",
     "Radium Shell",
     "Tundra Shell",
     "Ocean Shell",
     "Monochrome Shell",
-    "Black & White Shell",
+    "Black&White Shell",
     "Base16 Shell",
     "Base16 Relax Shell",
     "Monekai Shell",
@@ -255,12 +265,12 @@ const THEMES: &[&str] = &[
     "EverForest Shell",
     "Nord Shell",
     "Rust Shell",
-    "Red Shell",
-    "Shell Shell",
+    "Material Shell",
+    "Reds Shell",
     "VSCode Shell",
     //
-    "Blackout Dark",
-    "Blackout Shell",
+    "Shell",
+    "Blackout",
     "Fallback",
 ];
 
@@ -270,15 +280,15 @@ pub fn salsa_themes() -> Vec<&'static str> {
 }
 
 /// Create a theme.
-pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
-    use crate::palettes::*;
+pub fn create_theme(theme: &str) -> Option<Theme> {
+    use crate::dark_palettes::*;
     let theme = match theme {
         "Imperial Dark" => dark_theme(theme, IMPERIAL),
         "Radium Dark" => dark_theme(theme, RADIUM),
         "Tundra Dark" => dark_theme(theme, TUNDRA),
         "Ocean Dark" => dark_theme(theme, OCEAN),
         "Monochrome Dark" => dark_theme(theme, MONOCHROME),
-        "Black & White Dark" => dark_theme(theme, BLACKWHITE),
+        "Black&White Dark" => dark_theme(theme, BLACK_WHITE),
         "Base16 Dark" => dark_theme(theme, BASE16),
         "Base16 Relax Dark" => dark_theme(theme, BASE16_RELAX),
         "Monekai Dark" => dark_theme(theme, MONEKAI),
@@ -287,16 +297,16 @@ pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
         "EverForest Dark" => dark_theme(theme, EVERFOREST),
         "Nord Dark" => dark_theme(theme, NORD),
         "Rust Dark" => dark_theme(theme, RUST),
-        "Red Dark" => dark_theme(theme, RED),
-        "Shell Dark" => dark_theme(theme, SHELL),
-        "VSCode Dark" => dark_theme(theme, VSCODE_DARK),
-
+        "Material Dark" => dark_theme(theme, MATERIALDARK),
+        "Reds Dark" => dark_theme(theme, REDS),
+        "VSCode Dark" => dark_theme(theme, VSCODEDARK),
+        //
         "Imperial Shell" => shell_theme(theme, IMPERIAL),
         "Radium Shell" => shell_theme(theme, RADIUM),
         "Tundra Shell" => shell_theme(theme, TUNDRA),
         "Ocean Shell" => shell_theme(theme, OCEAN),
         "Monochrome Shell" => shell_theme(theme, MONOCHROME),
-        "Black & White Shell" => shell_theme(theme, BLACKWHITE),
+        "Black&White Shell" => shell_theme(theme, BLACK_WHITE),
         "Base16 Shell" => shell_theme(theme, BASE16),
         "Base16 Relax Shell" => shell_theme(theme, BASE16_RELAX),
         "Monekai Shell" => shell_theme(theme, MONEKAI),
@@ -305,21 +315,15 @@ pub fn create_theme(theme: &str) -> Option<SalsaTheme> {
         "EverForest Shell" => shell_theme(theme, EVERFOREST),
         "Nord Shell" => shell_theme(theme, NORD),
         "Rust Shell" => shell_theme(theme, RUST),
-        "Red Shell" => shell_theme(theme, RED),
-        "Shell Shell" => shell_theme(theme, SHELL),
-        "VSCode Shell" => shell_theme(theme, VSCODE_DARK),
-
-        "Blackout Dark" => dark_theme(theme, BLACKOUT),
-        "Blackout Shell" => shell_theme(theme, BLACKOUT),
-        "Fallback" => fallback_theme(theme, RED),
-
+        "Material Shell" => shell_theme(theme, MATERIALDARK),
+        "Reds Shell" => shell_theme(theme, REDS),
+        "VSCode Shell" => shell_theme(theme, VSCODEDARK),
+        //
+        "Shell" => shell_shell_theme(theme),
+        "Blackout" => dark_theme(theme, BLACKOUT),
+        "Fallback" => fallback_theme(theme, REDS),
         _ => return None,
     };
 
     Some(theme)
-}
-
-/// Create an empty SalsaTheme.
-pub fn create_empty(name: &str, p: Palette) -> SalsaTheme {
-    SalsaTheme::new(name, Category::Other, p)
 }

@@ -1,5 +1,5 @@
-use crate::palette::{Colors, ColorsExt, Palette};
-use crate::{Category, Theme};
+use crate::palette::Palette;
+use crate::{Category, Colors, ColorsExt, Theme};
 use crate::{StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -17,7 +17,7 @@ use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::radio::{RadioLayout, RadioStyle};
-use rat_widget::scrolled::ScrollStyle;
+use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
 use rat_widget::shadow::{ShadowDirection, ShadowStyle};
 use rat_widget::slider::SliderStyle;
 use rat_widget::splitter::SplitStyle;
@@ -27,73 +27,161 @@ use rat_widget::table::TableStyle;
 use rat_widget::text::{TextFocusGained, TextFocusLost, TextStyle};
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
-use ratatui::style::{Style, Stylize};
+use ratatui::style::{Color, Style, Stylize};
+use ratatui::symbols;
+use ratatui::symbols::border;
 use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
-/// A dark theme.
-pub fn dark_theme(name: &str, p: Palette) -> Theme {
-    let mut th = Theme::new(name, Category::Dark, p);
+pub const SHELL: Palette = {
+    let mut p = Palette {
+        name: "Shell",
+
+        color: [
+            [
+                Color::Gray,
+                Color::Gray,
+                Color::White,
+                Color::White,
+                Color::Gray,
+                Color::Gray,
+                Color::White,
+                Color::White,
+            ], // text light
+            [
+                Color::DarkGray,
+                Color::DarkGray,
+                Color::Black,
+                Color::Black,
+                Color::DarkGray,
+                Color::DarkGray,
+                Color::Black,
+                Color::Black,
+            ], // text dark
+            [Color::Cyan; 8],   // primary
+            [Color::Yellow; 8], // secondary
+            [Color::White; 8],  // white
+            [Color::Black; 8],
+            [
+                Color::Gray,
+                Color::Gray,
+                Color::DarkGray,
+                Color::DarkGray,
+                Color::Gray,
+                Color::Gray,
+                Color::DarkGray,
+                Color::DarkGray,
+            ],
+            [Color::Red; 8],
+            [Color::Yellow; 8],
+            [Color::LightYellow; 8],
+            [Color::LightGreen; 8],
+            [Color::Green; 8],
+            [Color::Cyan; 8],
+            [Color::LightCyan; 8],
+            [Color::LightBlue; 8],
+            [Color::Blue; 8],
+            [Color::Magenta; 8],
+            [Color::LightMagenta; 8],
+            [Color::LightRed; 8],
+        ],
+        color_ext: [Color::Reset; ColorsExt::LEN],
+    };
+
+    p.color_ext[ColorsExt::LabelFg as usize] = p.color[Colors::White as usize][0];
+    p.color_ext[ColorsExt::Input as usize] = p.color[Colors::Gray as usize][3];
+    p.color_ext[ColorsExt::Focus as usize] = p.color[Colors::Primary as usize][0];
+    p.color_ext[ColorsExt::Select as usize] = p.color[Colors::Secondary as usize][0];
+    p.color_ext[ColorsExt::Disabled as usize] = p.color[Colors::Gray as usize][0];
+    p.color_ext[ColorsExt::Invalid as usize] = p.color[Colors::Red as usize][0];
+    p.color_ext[ColorsExt::Hover as usize] = p.color[Colors::Black as usize][0];
+    p.color_ext[ColorsExt::TitleFg as usize] = p.color[Colors::TextLight as usize][0];
+    p.color_ext[ColorsExt::Title as usize] = p.color[Colors::Red as usize][0];
+    p.color_ext[ColorsExt::HeaderFg as usize] = p.color[Colors::TextLight as usize][0];
+    p.color_ext[ColorsExt::Header as usize] = p.color[Colors::Blue as usize][0];
+    p.color_ext[ColorsExt::FooterFg as usize] = p.color[Colors::TextLight as usize][0];
+    p.color_ext[ColorsExt::Footer as usize] = p.color[Colors::Blue as usize][0];
+    p.color_ext[ColorsExt::Shadows as usize] = p.color[Colors::TextDark as usize][0];
+    p.color_ext[ColorsExt::TextFocus as usize] = p.color[Colors::Primary as usize][0];
+    p.color_ext[ColorsExt::TextSelect as usize] = p.color[Colors::Secondary as usize][0];
+    p.color_ext[ColorsExt::ButtonBase as usize] = p.color[Colors::Gray as usize][0];
+    p.color_ext[ColorsExt::MenuBase as usize] = p.color[Colors::Black as usize][0];
+    p.color_ext[ColorsExt::KeyBinding as usize] = p.color[Colors::BlueGreen as usize][0];
+    p.color_ext[ColorsExt::StatusBase as usize] = p.color[Colors::Black as usize][0];
+    p.color_ext[ColorsExt::ContainerBase as usize] = p.color[Colors::Black as usize][0];
+    p.color_ext[ColorsExt::ContainerBorderFg as usize] = p.color[Colors::Gray as usize][0];
+    p.color_ext[ColorsExt::ContainerArrowFg as usize] = p.color[Colors::Gray as usize][0];
+    p.color_ext[ColorsExt::PopupBase as usize] = p.color[Colors::White as usize][0];
+    p.color_ext[ColorsExt::PopupBorderFg as usize] = p.color[Colors::Gray as usize][3];
+    p.color_ext[ColorsExt::PopupArrowFg as usize] = p.color[Colors::Gray as usize][3];
+    p.color_ext[ColorsExt::DialogBase as usize] = p.color[Colors::Gray as usize][3];
+    p.color_ext[ColorsExt::DialogBorderFg as usize] = p.color[Colors::Black as usize][3];
+    p.color_ext[ColorsExt::DialogArrowFg as usize] = p.color[Colors::Black as usize][3];
+
+    p
+};
+
+/// A 'shell'-theme.
+///
+/// It uses almost no background colors and lets your shell
+/// bleed through.
+pub fn shell_shell_theme(name: &str) -> Theme {
+    let p = SHELL;
+    let mut th = Theme::new(name, Category::Shell, p);
 
     th.define(Style::LABEL_FG, th.p.fg_style_ext(ColorsExt::LabelFg));
     th.define(Style::INPUT, th.p.style_ext(ColorsExt::Input));
-    th.define(Style::FOCUS, th.p.style_ext(ColorsExt::Focus));
-    th.define(Style::SELECT, th.p.style_ext(ColorsExt::Select));
+    th.define(Style::FOCUS, th.p.high_style_ext(ColorsExt::Focus));
+    th.define(Style::SELECT, th.p.high_style_ext(ColorsExt::Select));
     th.define(Style::DISABLED, th.p.style_ext(ColorsExt::Disabled));
     th.define(Style::INVALID, th.p.style_ext(ColorsExt::Invalid));
-    th.define(Style::HOVER, th.p.style_ext(ColorsExt::Hover));
-    th.define(
-        Style::TITLE,
-        th.p.fg_bg_style_ext(ColorsExt::TitleFg, ColorsExt::Title),
-    );
-    th.define(
-        Style::HEADER,
-        th.p.fg_bg_style_ext(ColorsExt::HeaderFg, ColorsExt::Header),
-    );
-    th.define(
-        Style::FOOTER,
-        th.p.fg_bg_style_ext(ColorsExt::FooterFg, ColorsExt::Footer),
-    );
+    th.define(Style::HOVER, th.p.fg_style_ext(ColorsExt::Hover));
+    th.define(Style::TITLE, th.p.fg_style_ext(ColorsExt::TitleFg));
+    th.define(Style::HEADER, th.p.fg_style_ext(ColorsExt::HeaderFg));
+    th.define(Style::FOOTER, th.p.fg_style_ext(ColorsExt::FooterFg));
     th.define(Style::SHADOWS, th.p.style_ext(ColorsExt::Shadows));
-    th.define(Style::TEXT_FOCUS, th.p.style_ext(ColorsExt::TextFocus));
-    th.define(Style::TEXT_SELECT, th.p.style_ext(ColorsExt::Select));
-    th.define(Style::KEY_BINDING, th.p.style_ext(ColorsExt::KeyBinding));
-
-    th.define(Style::BUTTON_BASE, th.p.style_ext(ColorsExt::ButtonBase));
-    th.define(Style::MENU_BASE, th.p.style_ext(ColorsExt::MenuBase));
-    th.define(Style::STATUS_BASE, th.p.style_ext(ColorsExt::StatusBase));
+    th.define(Style::TEXT_FOCUS, th.p.high_style_ext(ColorsExt::TextFocus));
+    th.define(Style::TEXT_SELECT, th.p.high_style_ext(ColorsExt::Select));
+    th.define(
+        Style::KEY_BINDING,
+        th.p.high_style_ext(ColorsExt::KeyBinding),
+    );
 
     th.define(
-        Style::CONTAINER_BASE,
-        th.p.style_ext(ColorsExt::ContainerBase),
+        Style::BUTTON_BASE,
+        th.p.high_style_ext(ColorsExt::ButtonBase),
     );
+    th.define(Style::MENU_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define(Style::STATUS_BASE, th.p.fg_style(Colors::TextLight, 0));
+
+    th.define(Style::CONTAINER_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::CONTAINER_BORDER_FG,
-        th.p.fg_bg_style_ext(ColorsExt::ContainerBorderFg, ColorsExt::ContainerBase),
+        th.p.fg_style_ext(ColorsExt::ContainerBorderFg),
     );
     th.define(
         Style::CONTAINER_ARROW_FG,
-        th.p.fg_bg_style_ext(ColorsExt::ContainerArrowFg, ColorsExt::ContainerBase),
+        th.p.fg_style_ext(ColorsExt::ContainerArrowFg),
     );
 
-    th.define(Style::POPUP_BASE, th.p.style_ext(ColorsExt::PopupBase));
+    th.define(Style::POPUP_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::POPUP_BORDER_FG,
-        th.p.fg_bg_style_ext(ColorsExt::PopupBorderFg, ColorsExt::PopupBase),
+        th.p.fg_style_ext(ColorsExt::PopupBorderFg),
     );
     th.define(
         Style::POPUP_ARROW_FG,
-        th.p.fg_bg_style_ext(ColorsExt::PopupArrowFg, ColorsExt::PopupBase),
+        th.p.fg_style_ext(ColorsExt::PopupArrowFg),
     );
 
-    th.define(Style::DIALOG_BASE, th.p.style_ext(ColorsExt::DialogBase));
+    th.define(Style::DIALOG_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::DIALOG_BORDER_FG,
-        th.p.fg_bg_style_ext(ColorsExt::DialogBorderFg, ColorsExt::DialogBase),
+        th.p.fg_style_ext(ColorsExt::DialogBorderFg),
     );
     th.define(
         Style::DIALOG_ARROW_FG,
-        th.p.fg_bg_style_ext(ColorsExt::DialogArrowFg, ColorsExt::DialogBase),
+        th.p.fg_style_ext(ColorsExt::DialogArrowFg),
     );
 
     th.define_fn(WidgetStyle::BUTTON, button);
@@ -135,7 +223,7 @@ fn button(th: &Theme) -> ButtonStyle {
         style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
-        hover: Some(th.style(Style::HOVER)),
+        hover: Some(th.p.style_ext(ColorsExt::Hover)),
         armed_delay: Some(Duration::from_millis(50)),
         ..Default::default()
     }
@@ -167,7 +255,17 @@ fn choice(th: &Theme) -> ChoiceStyle {
         popup_scroll: Some(popup_scroll(th)),
         popup_block: Some(
             Block::bordered()
-                .borders(Borders::LEFT)
+                .borders(Borders::LEFT | Borders::BOTTOM | Borders::RIGHT)
+                .border_set(border::Set {
+                    top_left: "X",
+                    top_right: "X",
+                    bottom_left: "▀",
+                    bottom_right: "▀",
+                    vertical_left: "▌",
+                    vertical_right: "▐",
+                    horizontal_top: "X",
+                    horizontal_bottom: "▀",
+                })
                 .border_style(th.style::<Style>(Style::POPUP_BORDER_FG)),
         ),
         ..Default::default()
@@ -216,6 +314,7 @@ fn form(th: &Theme) -> FormStyle {
         block: Some(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
+                .border_set(border::EMPTY)
                 .border_style(th.style::<Style>(Style::CONTAINER_BORDER_FG)),
         ),
         border_style: Some(th.style::<Style>(Style::CONTAINER_BORDER_FG)),
@@ -304,6 +403,20 @@ fn scroll(th: &Theme) -> ScrollStyle {
         min_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         begin_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
         end_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        horizontal: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "←",
+            end: "→",
+            min: "░",
+        }),
+        vertical: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "↑",
+            end: "↓",
+            min: "░",
+        }),
         ..Default::default()
     }
 }
@@ -315,6 +428,20 @@ fn popup_scroll(th: &Theme) -> ScrollStyle {
         min_style: Some(th.style(Style::POPUP_BORDER_FG)),
         begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
         end_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        horizontal: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "←",
+            end: "→",
+            min: "░",
+        }),
+        vertical: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "↑",
+            end: "↓",
+            min: "░",
+        }),
         ..Default::default()
     }
 }
@@ -326,6 +453,20 @@ fn dialog_scroll(th: &Theme) -> ScrollStyle {
         min_style: Some(th.style(Style::DIALOG_BORDER_FG)),
         begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
         end_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        horizontal: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "←",
+            end: "→",
+            min: "░",
+        }),
+        vertical: Some(ScrollSymbols {
+            track: "▒",
+            thumb: symbols::block::FULL,
+            begin: "↑",
+            end: "↓",
+            min: "░",
+        }),
         ..Default::default()
     }
 }
@@ -374,10 +515,10 @@ fn tabbed(th: &Theme) -> TabbedStyle {
     TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        tab: Some(th.style(Style::INPUT)),
-        hover: Some(th.style(Style::HOVER)),
-        select: Some(th.style(Style::SELECT)),
-        focus: Some(th.style(Style::FOCUS)),
+        tab: Some(th.p.fg_style_ext(ColorsExt::Input)),
+        hover: Some(th.p.fg_style_ext(ColorsExt::Hover)),
+        select: Some(th.p.fg_style_ext(ColorsExt::Select)),
+        focus: Some(th.p.fg_style_ext(ColorsExt::Focus)),
         ..Default::default()
     }
 }

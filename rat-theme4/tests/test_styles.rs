@@ -1,5 +1,5 @@
 use rat_theme4::{
-    SalsaTheme, StyleName, WidgetStyle, create_palette, create_theme, salsa_palettes, salsa_themes,
+    StyleName, Theme, WidgetStyle, create_palette, create_theme, salsa_palettes, salsa_themes,
 };
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -27,6 +27,7 @@ use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
 use ratatui::style::Style;
+use std::io::Write;
 
 #[test]
 fn test_palette() {
@@ -41,7 +42,10 @@ fn test_styles() {
     let themes = salsa_themes();
 
     for theme in themes {
+        eprintln!();
         eprintln!("THEME {:?}", theme);
+        eprintln!();
+        _ = std::io::stderr().flush();
         let th = create_theme(theme).expect("theme");
         verify_theme(&th);
     }
@@ -53,30 +57,42 @@ fn test_fallback() {
     verify_theme(&th);
 }
 
-fn verify_theme(th: &SalsaTheme) {
+fn verify_theme(th: &Theme) {
+    th.style_style(Style::LABEL_FG);
     th.style_style(Style::INPUT);
     th.style_style(Style::FOCUS);
     th.style_style(Style::SELECT);
+    th.style_style(Style::DISABLED);
+    th.style_style(Style::INVALID);
+    th.style_style(Style::HOVER);
+    th.style_style(Style::TITLE);
+    th.style_style(Style::HEADER);
+    th.style_style(Style::FOOTER);
+    th.style_style(Style::SHADOWS);
     th.style_style(Style::TEXT_FOCUS);
     th.style_style(Style::TEXT_SELECT);
+    th.style_style(Style::KEY_BINDING);
     th.style_style(Style::BUTTON_BASE);
+    th.style_style(Style::MENU_BASE);
+    th.style_style(Style::STATUS_BASE);
     th.style_style(Style::CONTAINER_BASE);
-    th.style_style(Style::CONTAINER_BORDER);
-    th.style_style(Style::CONTAINER_ARROWS);
+    th.style_style(Style::CONTAINER_BORDER_FG);
+    th.style_style(Style::CONTAINER_ARROW_FG);
     th.style_style(Style::POPUP_BASE);
-    th.style_style(Style::POPUP_BORDER);
-    th.style_style(Style::POPUP_ARROW);
+    th.style_style(Style::POPUP_BORDER_FG);
+    th.style_style(Style::POPUP_ARROW_FG);
     th.style_style(Style::DIALOG_BASE);
-    th.style_style(Style::DIALOG_BORDER);
-    th.style_style(Style::DIALOG_ARROW);
+    th.style_style(Style::DIALOG_BORDER_FG);
+    th.style_style(Style::DIALOG_ARROW_FG);
     th.style_style(Style::STATUS_BASE);
 
     th.style::<ButtonStyle>(WidgetStyle::BUTTON);
+    th.style::<CalendarStyle>(WidgetStyle::CALENDAR);
     th.style::<CheckboxStyle>(WidgetStyle::CHECKBOX);
     th.style::<ChoiceStyle>(WidgetStyle::CHOICE);
     th.style::<ClipperStyle>(WidgetStyle::CLIPPER);
-    th.style::<ComboboxStyle>(WidgetStyle::COMBOBOX);
     th.style::<ColorInputStyle>(WidgetStyle::COLOR_INPUT);
+    th.style::<ComboboxStyle>(WidgetStyle::COMBOBOX);
     th.style::<DialogFrameStyle>(WidgetStyle::DIALOG_FRAME);
     th.style::<FileDialogStyle>(WidgetStyle::FILE_DIALOG);
     th.style::<FormStyle>(WidgetStyle::FORM);
