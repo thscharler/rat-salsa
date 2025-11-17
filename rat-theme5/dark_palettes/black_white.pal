@@ -1,0 +1,56 @@
+[palette]
+name=Black&White
+docs=
+dark=63
+
+[color]
+text-light=#FFFFFF, #FFFFFF
+text-dark=#000000, #000000
+primary=#FFFFFF, #000000
+secondary=#FFFFFF, #000000
+white=#FFFFFF, #FFFFFF
+black=#000000, #000000
+gray=#FFFFFF, #000000
+red=#FFFFFF, #7F7F7F
+orange=#FFFFFF, #7F7F7F
+yellow=#FFFFFF, #7F7F7F
+lime-green=#FFFFFF, #7F7F7F
+green=#FFFFFF, #7F7F7F
+blue-green=#FFFFFF, #7F7F7F
+cyan=#FFFFFF, #7F7F7F
+blue=#FFFFFF, #7F7F7F
+deep-blue=#FFFFFF, #7F7F7F
+purple=#FFFFFF, #7F7F7F
+magenta=#FFFFFF, #7F7F7F
+red-pink=#FFFFFF, #7F7F7F
+
+[reference]
+label=white:0
+input=gray:1
+focus=primary:0
+select=secondary:2
+disabled=gray:2
+invalid=red:1
+hover=gray:0
+title-fg=text-light:0
+title=red:3
+header-fg=blue:3
+header=none:0
+footer-fg=blue:3
+footer=none:0
+shadows=black:0
+text-focus=primary:0
+text-select=secondary:1
+button-base=gray:1
+menu-base=black:0
+key-binding=blue-green:0
+status-base=black:0
+container-base=black:0
+container-border=gray:0
+container-arrow=gray:1
+popup-base=white:0
+popup-border=gray:2
+popup-arrow=gray:2
+dialog-base=gray:2
+dialog-border=gray:0
+dialog-arrow=black:0
