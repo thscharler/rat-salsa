@@ -14,8 +14,8 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_theme4::{
-    create_theme, dark_theme, shell_theme, ColorIdx, Colors, ColorsExt, Palette, SalsaTheme,
-    WidgetStyle,
+    create_theme, dark_theme, rat_widget_color_names, shell_theme, ColorIdx, Colors, Palette,
+    RatWidgetColor, SalsaTheme, WidgetStyle,
 };
 use rat_widget::event::{ct_event, HandleEvent, MenuOutcome, Regular};
 use rat_widget::file_dialog::FileDialogState;
@@ -415,8 +415,11 @@ pub fn event(
         PalEvent::Save(p) => save_pal_file(&p, state, ctx),
         PalEvent::Load(p) => {
             _ = load_pal_file(&p, state, ctx)?;
-            let c = state.edit.color_ext[ColorsExt::ContainerBase as usize].value();
-            state.detail.show.readability.colors.set_value(c);
+            // TODO
+            // let c = state.edit.color_ext[
+            //     ColorsExt::ContainerBase as usize
+            //     ].value();
+            // state.detail.show.readability.colors.set_value(c);
             Ok(Control::Changed)
         }
         PalEvent::Export(p) => export_pal_file(&p, state, ctx),
@@ -568,8 +571,7 @@ fn export_pal_file(
     let c32 = Palette::color_to_u32;
 
     let mut wr = File::create(path)?;
-    writeln!(wr, "use crate::{{Colors, ColorsExt, Palette}};")?;
-    writeln!(wr, "use ratatui::style::Color;")?;
+    writeln!(wr, "use crate::{{ColorIdx, Colors, Palette}};")?;
     writeln!(wr, "")?;
     writeln!(wr, "/// {}", state.edit.name())?;
     for l in state.edit.docs.text().lines() {
@@ -581,17 +583,20 @@ fn export_pal_file(
         state.edit.dark.value::<u8>().unwrap_or(64)
     )?;
     writeln!(wr, "")?;
-    writeln!(wr, "pub const {}: Palette = {{", state.edit.const_name(),)?;
-    writeln!(wr, "    let mut p = Palette {{")?;
-    writeln!(wr, "        name: \"{}\", ", state.edit.name())?;
+    writeln!(
+        wr,
+        "pub const {}: Palette = Palette {{",
+        state.edit.const_name(),
+    )?;
+    writeln!(wr, "    name: \"{}\", ", state.edit.name())?;
     writeln!(wr, "")?;
-    writeln!(wr, "        color: [")?;
+    writeln!(wr, "    color: [")?;
     for c in [Colors::TextLight, Colors::TextDark] {
         let c0 = state.edit.color[c as usize].0.value();
         let c3 = state.edit.color[c as usize].3.value();
         writeln!(
             wr,
-            "            Palette::interpolate2({:#08x}, {:#08x}, 0x0, 0x0),",
+            "        Palette::interpolate2({:#08x}, {:#08x}, 0x0, 0x0),",
             c32(c0),
             c32(c3)
         )?;
@@ -601,28 +606,25 @@ fn export_pal_file(
         let c3 = state.edit.color[c as usize].3.value();
         writeln!(
             wr,
-            "            Palette::interpolate({:#08x}, {:#08x}, DARKNESS),",
+            "        Palette::interpolate({:#08x}, {:#08x}, DARKNESS),",
             c32(c0),
             c32(c3)
         )?;
     }
-    writeln!(wr, "        ],")?;
-    writeln!(wr, "        color_ext: [Color::Reset; ColorsExt::LEN],")?;
-    writeln!(wr, "    }};")?;
-    writeln!(wr, "")?;
-    for c in ColorsExt::array() {
-        let ccc = state.edit.color_ext[c as usize].value();
-        if ccc.0 != Colors::None {
-            writeln!(
-                wr,
-                "    p.color_ext[ColorsExt::{:?} as usize] = p.color[Colors::{:?} as usize][{}];",
-                c, ccc.0, ccc.1
-            )?;
-        }
+    writeln!(wr, "    ],")?;
+    writeln!(wr, "    // must be sorted!")?;
+    writeln!(wr, "    aliased: &[")?;
+    let aliased = state.edit.aliased();
+    for (n, c) in aliased {
+        writeln!(
+            wr,
+            "        ({:?}, ColorIdx(Colors::{:?}, {:?})),",
+            n, c.0, c.1
+        )?;
     }
-    writeln!(wr, "")?;
-    writeln!(wr, "    p")?;
+    writeln!(wr, "    ],")?;
     writeln!(wr, "}};")?;
+    writeln!(wr, "")?;
 
     Ok(Control::Changed)
 }
@@ -682,9 +684,10 @@ fn save_pal_file(
             ],
         );
     }
-    for c in ColorsExt::array() {
-        let color_idx = state.edit.color_ext[c as usize].value();
-        ff.set_val("reference", c.name(), color_idx);
+
+    for (c, s) in state.edit.color_ext.iter() {
+        let c_idx = s.value();
+        ff.set_val("reference", c, c_idx);
     }
 
     ff.write_std(path)?;
@@ -702,8 +705,8 @@ fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, 
         state.edit.color[c as usize].0.set_value(Color::default());
         state.edit.color[c as usize].3.set_value(Color::default());
     }
-    for c in ColorsExt::array() {
-        state.edit.color_ext[c as usize].set_value(ColorIdx(Colors::default(), 0));
+    for (_, s) in state.edit.color_ext.iter_mut() {
+        s.set_value(ColorIdx(Colors::default(), 0));
     }
 
     state
@@ -812,6 +815,7 @@ fn load_pal_file(
     };
 
     if ff.get("palette", "text_black").is_some() {
+        // V4
         state
             .edit
             .name
@@ -900,62 +904,151 @@ fn load_pal_file(
             .3
             .set_value(a[3]);
 
-        let color_idx = ColorIdx::from_str("white:0").expect("color");
-        state.edit.color_ext[ColorsExt::LabelFg as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("gray:3").expect("color");
-        state.edit.color_ext[ColorsExt::Input as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("primary:1").expect("color");
-        state.edit.color_ext[ColorsExt::Focus as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("secondary:1").expect("color");
-        state.edit.color_ext[ColorsExt::Select as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("gray:3").expect("color");
-        state.edit.color_ext[ColorsExt::Disabled as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("red:1").expect("color");
-        state.edit.color_ext[ColorsExt::Invalid as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("text-light:0").expect("color");
-        state.edit.color_ext[ColorsExt::TitleFg as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("red:0").expect("color");
-        state.edit.color_ext[ColorsExt::Title as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("text-light:0").expect("color");
-        state.edit.color_ext[ColorsExt::HeaderFg as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("blue:0").expect("color");
-        state.edit.color_ext[ColorsExt::Header as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("text-light:0").expect("color");
-        state.edit.color_ext[ColorsExt::FooterFg as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("blue:0").expect("color");
-        state.edit.color_ext[ColorsExt::Footer as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("text-dark:0").expect("color");
-        state.edit.color_ext[ColorsExt::Shadows as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("primary:1").expect("color");
-        state.edit.color_ext[ColorsExt::TextFocus as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("secondary:1").expect("color");
-        state.edit.color_ext[ColorsExt::TextSelect as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("gray:0").expect("color");
-        state.edit.color_ext[ColorsExt::ButtonBase as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("black:1").expect("color");
-        state.edit.color_ext[ColorsExt::MenuBase as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("blue-green:0").expect("color");
-        state.edit.color_ext[ColorsExt::KeyBinding as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("black:1").expect("color");
-        state.edit.color_ext[ColorsExt::StatusBase as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("black:2").expect("color");
-        state.edit.color_ext[ColorsExt::ContainerBase as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("gray:1").expect("color");
-        state.edit.color_ext[ColorsExt::ContainerBorderFg as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("gray:1").expect("color");
-        state.edit.color_ext[ColorsExt::ContainerArrowFg as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("white:0").expect("color");
-        state.edit.color_ext[ColorsExt::PopupBase as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("gray:3").expect("color");
-        state.edit.color_ext[ColorsExt::PopupBorderFg as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("gray:3").expect("color");
-        state.edit.color_ext[ColorsExt::PopupArrowFg as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("gray:2").expect("color");
-        state.edit.color_ext[ColorsExt::DialogBase as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("black:3").expect("color");
-        state.edit.color_ext[ColorsExt::DialogBorderFg as usize].set_value(color_idx);
-        let color_idx = ColorIdx::from_str("black:3").expect("color");
-        state.edit.color_ext[ColorsExt::DialogArrowFg as usize].set_value(color_idx);
+        state
+            .edit
+            .color_ext
+            .entry(Color::LABEL_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::White, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::INPUT)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Gray, 3)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::FOCUS)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Primary, 1)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::SELECT)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Secondary, 1)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::DISABLED)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Gray, 3)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::INVALID)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Red, 1)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::TITLE_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::TextLight, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::TITLE)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Red, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::HEADER_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::TextLight, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::HEADER)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::TextLight, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::HEADER)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Blue, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::FOOTER_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::TextLight, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::FOOTER)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Blue, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::SHADOWS)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::TextDark, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::TEXT_FOCUS)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Primary, 1)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::TEXT_SELECT)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Secondary, 1)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::BUTTON_BASE)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Gray, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::MENU_BASE)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Black, 1)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::KEY_BINDING)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::BlueGreen, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::STATUS_BASE)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Black, 1)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::CONTAINER_BASE)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Black, 2)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::CONTAINER_BORDER_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Black, 2)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::CONTAINER_ARROW_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Gray, 1)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::POPUP_BASE)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::White, 0)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::POPUP_BORDER_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Gray, 3)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::POPUP_ARROW_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Gray, 3)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::DIALOG_BASE)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Gray, 2)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::DIALOG_BORDER_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Black, 3)));
+        state
+            .edit
+            .color_ext
+            .entry(Color::DIALOG_ARROW_FG)
+            .and_modify(|v| _ = v.set_value(ColorIdx(Colors::Black, 3)));
     } else {
         state
             .edit
@@ -977,9 +1070,13 @@ fn load_pal_file(
             state.edit.color[c as usize].0.set_value(ccc[0]);
             state.edit.color[c as usize].3.set_value(ccc[1]);
         }
-        for c in ColorsExt::array() {
-            let color_idx = ff.parse_val("reference", c.name(), ColorIdx::default());
-            state.edit.color_ext[c as usize].set_value(color_idx);
+        for c in rat_widget_color_names() {
+            let c_idx = ff.parse_val("reference", c, ColorIdx::default());
+            state
+                .edit
+                .color_ext
+                .entry(c)
+                .and_modify(|v| _ = v.set_value(c_idx));
         }
     }
 
@@ -1580,13 +1677,13 @@ mod base46 {
 
 mod palette_edit {
     use crate::color_span::{ColorSpan, ColorSpanState};
-    use crate::{Global, PalEvent};
+    use crate::Global;
     use anyhow::Error;
+    use indexmap::IndexMap;
     use pure_rust_locales::Locale;
     use rat_event::{event_flow, MouseOnly, Outcome, Popup};
     use rat_focus::{FocusFlag, HasFocus, Navigation};
-    use rat_salsa::SalsaContext;
-    use rat_theme4::{ColorIdx, Colors, ColorsExt, Palette, WidgetStyle};
+    use rat_theme4::{rat_widget_color_names, ColorIdx, Colors, Palette, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::clipper::{Clipper, ClipperState};
     use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
@@ -1615,7 +1712,7 @@ mod palette_edit {
         pub dark: NumberInputState,
 
         pub color: [(ColorInputState, (), (), ColorInputState); Colors::LEN],
-        pub color_ext: [ChoiceState<ColorIdx>; ColorsExt::LEN],
+        pub color_ext: IndexMap<&'static str, ChoiceState<ColorIdx>>,
     }
 
     impl PaletteEdit {
@@ -1634,7 +1731,13 @@ mod palette_edit {
                         ColorInputState::named(format!("{}-3", Colors::array()[i].name()).as_str()),
                     )
                 }),
-                color_ext: array::from_fn(|i| ChoiceState::named(ColorsExt::array()[i].name())),
+                color_ext: {
+                    let mut map = IndexMap::new();
+                    for n in rat_widget_color_names() {
+                        map.insert(*n, ChoiceState::named(*n));
+                    }
+                    map
+                },
             };
             z.dark.set_format_loc("999", loc).expect("format");
             z
@@ -1678,6 +1781,15 @@ mod palette_edit {
     }
 
     impl PaletteEdit {
+        pub fn aliased(&self) -> Vec<(&'static str, ColorIdx)> {
+            let mut aliased = Vec::new();
+            for (n, s) in self.color_ext.iter() {
+                aliased.push((*n, s.value()))
+            }
+            aliased.sort();
+            aliased
+        }
+
         pub fn palette(&self) -> Palette {
             let mut palette = Palette::default();
             let name = Box::from(self.name.text());
@@ -1705,10 +1817,8 @@ mod palette_edit {
                     dark,
                 );
             }
-            for c in ColorsExt::array() {
-                let ColorIdx(cc, n) = self.color_ext[c as usize].value();
-                palette.color_ext[c as usize] = palette.color(cc, n);
-            }
+
+            palette.aliased = self.aliased().leak();
 
             palette
         }
@@ -1723,8 +1833,8 @@ mod palette_edit {
                 builder.widget(&self.color[c as usize].0);
                 builder.widget(&self.color[c as usize].3);
             }
-            for c in ColorsExt::array() {
-                builder.widget(&self.color_ext[c as usize]);
+            for (_, s) in self.color_ext.iter() {
+                builder.widget(s);
             }
         }
 
@@ -1785,12 +1895,8 @@ mod palette_edit {
                 );
             }
             layout.gap(1);
-            for c in ColorsExt::array() {
-                layout.widget(
-                    state.color_ext[c as usize].id(),
-                    L::String(c.to_string()),
-                    W::Width(15),
-                );
+            for (n, s) in state.color_ext.iter() {
+                layout.widget(s.id(), L::String(n.to_string()), W::Width(15));
             }
             form = form.layout(layout.build_endless(layout_size.width));
         }
@@ -1864,9 +1970,9 @@ mod palette_edit {
         let pal_choice = crate::pal_choice(pal);
 
         let mut popup_ext = Vec::new();
-        for c in ColorsExt::array() {
+        for (n, s) in state.color_ext.iter_mut() {
             let popup = form.render2(
-                state.color_ext[c as usize].id(),
+                s.id(),
                 || {
                     Choice::new()
                         .items(pal_choice.iter().cloned())
@@ -1877,16 +1983,13 @@ mod palette_edit {
                         .styles(ctx.theme.style(WidgetStyle::CHOICE))
                         .into_widgets()
                 },
-                &mut state.color_ext[c as usize],
+                s,
             );
-            popup_ext.push((c, popup));
+            popup_ext.push((*n, popup));
         }
-        for (c, popup) in popup_ext {
-            form.render_popup(
-                state.color_ext[c as usize].id(),
-                || popup,
-                &mut state.color_ext[c as usize],
-            );
+        for (n, popup) in popup_ext {
+            let s = state.color_ext.get_mut(&n).expect("state");
+            form.render_popup(s.id(), || popup, s);
         }
 
         form.finish(buf, &mut state.form);
@@ -1903,15 +2006,16 @@ mod palette_edit {
         let mut mode_change = None;
 
         let r = 'f: {
-            for c in ColorsExt::array() {
+            for (_, s) in state.color_ext.iter_mut() {
                 event_flow!(
-                    break 'f match state.color_ext[c as usize].handle(event, Popup) {
+                    break 'f match s.handle(event, Popup) {
                         ChoiceOutcome::Value => {
-                            if c == ColorsExt::ContainerBase {
-                                ctx.queue_event(PalEvent::ContainerBase(
-                                    state.color_ext[c as usize].value(),
-                                ));
-                            }
+                            // TODO
+                            // if c == ColorsExt::ContainerBase {
+                            //     ctx.queue_event(PalEvent::ContainerBase(
+                            //         state.color_ext[c as usize].value(),
+                            //     ));
+                            // }
                             ChoiceOutcome::Value
                         }
                         r => r,
