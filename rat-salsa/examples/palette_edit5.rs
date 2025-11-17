@@ -4,7 +4,7 @@ use crate::palette_edit::PaletteEdit;
 use crate::show_or_base46::ShowOrBase46;
 use anyhow::{anyhow, Error};
 use configparser::ini::Ini;
-use log::{error, warn};
+use log::{debug, error, warn};
 use pure_rust_locales::Locale;
 use rat_event::{event_flow, Outcome};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
@@ -31,6 +31,7 @@ use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cell::RefCell;
+use std::env::args;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -40,13 +41,35 @@ use std::{array, fs};
 use try_as_traits::TryAsRef;
 
 fn main() -> Result<(), Error> {
+    let mut extra_alias = Vec::new();
+    let mut args = args();
+    _ = args.next();
+    if let Some(attr_file) = args.next() {
+        let path = PathBuf::from(attr_file);
+        let path = path.canonicalize()?;
+
+        let mut buf = String::new();
+
+        let mut f = File::open(path)?;
+        f.read_to_string(&mut buf)?;
+
+        for l in buf.lines() {
+            extra_alias.push(l.trim().to_string());
+        }
+    }
+
     setup_logging()?;
     set_global_clipboard(CliClipboard::default());
 
-    let config = Config::default();
-    let theme = create_theme("Imperial Dark");
+    let loc = sys_locale::get_locale().expect("locale");
+    let loc = loc.replace("-", "_");
+    let loc = Locale::try_from(loc.as_str()).expect("locale");
+    let config = Config { loc, extra_alias };
+
+    let theme = create_theme("Shell");
+
     let mut global = Global::new(config, theme);
-    let mut state = Scenery::new(global.loc);
+    let mut state = Scenery::new(&global.cfg);
 
     run_tui(
         init,
@@ -72,7 +95,6 @@ pub struct Global {
     pub cfg: Config,
     pub theme: SalsaTheme,
     pub show_theme: SalsaTheme,
-    pub loc: Locale,
 
     pub status_frame: usize,
     pub status: String,
@@ -91,26 +113,33 @@ impl SalsaContext<PalEvent, Error> for Global {
 
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
-        let mut z = Self {
+        Self {
             ctx: Default::default(),
             dlg: Default::default(),
             cfg,
             theme,
             show_theme: Default::default(),
-            loc: Default::default(),
             status_frame: 0,
             status: Default::default(),
-        };
-        let loc = sys_locale::get_locale().expect("locale");
-        let loc = loc.replace("-", "_");
-        z.loc = Locale::try_from(loc.as_str()).expect("locale");
-        z
+        }
     }
 }
 
 /// Configuration.
 #[derive(Debug, Default)]
-pub struct Config {}
+pub struct Config {
+    pub loc: Locale,
+    pub extra_alias: Vec<String>,
+}
+
+impl Config {
+    pub fn aliases(&self) -> Vec<String> {
+        let mut r = Vec::new();
+        r.extend(rat_widget_color_names().iter().map(|v| v.to_string()));
+        r.extend(self.extra_alias.iter().cloned());
+        r
+    }
+}
 
 /// Application wide messages.
 #[derive(Debug)]
@@ -186,15 +215,15 @@ pub struct Scenery {
 }
 
 impl Scenery {
-    pub fn new(loc: Locale) -> Self {
+    pub fn new(cfg: &Config) -> Self {
         Self {
             file_load_dlg: Rc::new(RefCell::new(FileDialogState::default())),
             file_save_dlg: Rc::new(RefCell::new(FileDialogState::default())),
             file_dlg_export: Rc::new(RefCell::new(FileDialogState::default())),
             file_dlg_import: Rc::new(RefCell::new(FileDialogState::default())),
             file_path: None,
-            edit: PaletteEdit::new(loc),
-            detail: ShowOrBase46::new(loc),
+            edit: PaletteEdit::new(cfg),
+            detail: ShowOrBase46::new(cfg),
             menu: MenuLineState::named("menu"),
             menu_return_focus: Default::default(),
         }
@@ -829,13 +858,9 @@ fn load_pal_file(
         state.edit.color[c as usize].0.set_value(ccc[0]);
         state.edit.color[c as usize].3.set_value(ccc[1]);
     }
-    for c in rat_widget_color_names() {
-        let c_idx = ff.parse_val("reference", c, ColorIdx::default());
-        state
-            .edit
-            .color_ext
-            .entry(c)
-            .and_modify(|v| _ = v.set_value(c_idx));
+    for (n, s) in state.edit.color_ext.iter_mut() {
+        let c_idx = ff.parse_val("reference", n, ColorIdx::default());
+        s.set_value(c_idx);
     }
 
     ctx.show_theme = create_edit_theme(state);
@@ -1434,16 +1459,13 @@ mod base46 {
 
 mod palette_edit {
     use crate::color_span::{ColorSpan, ColorSpanState};
-    use crate::{Global, PalEvent};
+    use crate::{Config, Global, PalEvent};
     use anyhow::Error;
     use indexmap::IndexMap;
-    use pure_rust_locales::Locale;
     use rat_event::{event_flow, MouseOnly, Outcome, Popup};
     use rat_focus::{FocusFlag, HasFocus, Navigation};
     use rat_salsa::SalsaContext;
-    use rat_theme4::{
-        rat_widget_color_names, ColorIdx, Colors, Palette, RatWidgetColor, WidgetStyle,
-    };
+    use rat_theme4::{ColorIdx, Colors, Palette, RatWidgetColor, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::clipper::{Clipper, ClipperState};
     use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
@@ -1472,11 +1494,11 @@ mod palette_edit {
         pub dark: NumberInputState,
 
         pub color: [(ColorInputState, (), (), ColorInputState); Colors::LEN],
-        pub color_ext: IndexMap<&'static str, ChoiceState<ColorIdx>>,
+        pub color_ext: IndexMap<String, ChoiceState<ColorIdx>>,
     }
 
     impl PaletteEdit {
-        pub fn new(loc: Locale) -> Self {
+        pub fn new(cfg: &Config) -> Self {
             let mut z = Self {
                 palette: Default::default(),
                 form: ClipperState::named("form"),
@@ -1493,13 +1515,13 @@ mod palette_edit {
                 }),
                 color_ext: {
                     let mut map = IndexMap::new();
-                    for n in rat_widget_color_names() {
-                        map.insert(*n, ChoiceState::named(*n));
+                    for n in cfg.aliases() {
+                        map.insert(n.clone(), ChoiceState::named(&n));
                     }
                     map
                 },
             };
-            z.dark.set_format_loc("999", loc).expect("format");
+            z.dark.set_format_loc("999", cfg.loc).expect("format");
             z
         }
 
@@ -1544,7 +1566,9 @@ mod palette_edit {
         pub fn aliased(&self) -> Vec<(&'static str, ColorIdx)> {
             let mut aliased = Vec::new();
             for (n, s) in self.color_ext.iter() {
-                aliased.push((*n, s.value()))
+                let n = n.clone().into_boxed_str();
+                let n = Box::leak(n);
+                aliased.push((&*n, s.value()))
             }
             aliased.sort();
             aliased
@@ -1744,7 +1768,7 @@ mod palette_edit {
                 },
                 s,
             );
-            popup_ext.push((*n, popup));
+            popup_ext.push((n.clone(), popup));
         }
         for (n, popup) in popup_ext {
             let s = state.color_ext.get_mut(&n).expect("state");
@@ -1835,9 +1859,8 @@ mod palette_edit {
 pub mod show_or_base46 {
     use crate::base46::Base46;
     use crate::show_tabs::ShowTabs;
-    use crate::{base46, show_tabs, Global};
+    use crate::{base46, show_tabs, Config, Global};
     use anyhow::Error;
-    use pure_rust_locales::Locale;
     use rat_event::{event_flow, HandleEvent, Outcome, Regular};
     use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
     use rat_theme4::WidgetStyle;
@@ -1856,10 +1879,10 @@ pub mod show_or_base46 {
     }
 
     impl ShowOrBase46 {
-        pub fn new(loc: Locale) -> Self {
+        pub fn new(cfg: &Config) -> Self {
             Self {
                 tabs: Default::default(),
-                show: ShowTabs::new(loc),
+                show: ShowTabs::new(cfg.loc),
                 base46: Base46::default(),
             }
         }
@@ -2926,7 +2949,7 @@ pub mod datainput {
             state.calendar.id(),
             || {
                 Month::new()
-                    .locale(ctx.loc)
+                    .locale(ctx.cfg.loc)
                     .styles(ctx.show_theme.style(WidgetStyle::MONTH))
             },
             &mut state.calendar.months[0],

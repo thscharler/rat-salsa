@@ -321,7 +321,6 @@ impl Palette {
             Ok(n) => {
                 let (_, ColorIdx { 0: c, 1: idx }) = self.aliased[n];
                 if c != Colors::None {
-                    debug!("use alias {:?} {:?}", c, idx);
                     self.color[c as usize][idx]
                 } else {
                     Color::default()

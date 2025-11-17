@@ -313,7 +313,6 @@ fn init_themes() -> Def {
         theme,
         theme_init,
     };
-    debug!("{:#?}", d);
     d
 }
 
