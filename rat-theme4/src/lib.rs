@@ -38,25 +38,28 @@
 //!     .render(area, buf, &mut state);
 //! ```
 
+use log::debug;
 use ratatui::style::Style;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 mod dark_theme;
 mod fallback_theme;
 // mod light_theme;
+mod core_theme;
 pub mod dark_palettes;
 mod palette;
-mod shell_shell_theme;
 mod shell_theme;
 mod theme;
 
 pub use dark_theme::dark_theme;
 // pub use light_theme::light_theme;
-use crate::fallback_theme::fallback_theme;
+pub use crate::fallback_theme::fallback_theme;
+pub use core_theme::core_theme;
 pub use palette::{ColorIdx, Colors, ColorsExt, Palette};
-pub use shell_shell_theme::shell_shell_theme;
 pub use shell_theme::shell_theme;
-pub use theme::{Category, Theme};
+pub use theme::{Category, SalsaTheme};
 
 /// Anchor struct for the names of composite styles used
 /// by rat-widget's.
@@ -181,29 +184,67 @@ fn is_log_style_define() -> bool {
     LOG_DEFINES.load(Ordering::Acquire)
 }
 
-const PALETTES: &[&str] = &[
-    "Imperial", //
-    "Radium",
-    "Tundra",
-    "Rust",
-    "Ocean",
-    "Monochrome",
-    "Black&White",
-    "Base16",
-    "Base16 Relax",
-    "Monekai",
-    "Solarized",
-    "OxoCarbon",
-    "EverForest",
-    "Nord",
-    "Reds",
-    "Blackout",
-    "VSCodeDark",
-];
+const PALETTE_DEF: &str = include_str!("themes.ini");
+
+#[derive(Debug)]
+struct Def {
+    palette: Vec<&'static str>,
+    theme: Vec<&'static str>,
+    theme_init: HashMap<&'static str, (&'static str, &'static str)>,
+}
+
+static THEMES: OnceLock<Def> = OnceLock::new();
+
+fn init_themes() -> Def {
+    let mut palette = Vec::new();
+    let mut theme = Vec::new();
+    let mut theme_init = HashMap::new();
+
+    for l in PALETTE_DEF.lines() {
+        if !l.contains('=') {
+            continue;
+        }
+
+        let mut it = l.split(['=', ',']);
+        let Some(name) = it.next() else {
+            continue;
+        };
+        let Some(cat) = it.next() else {
+            continue;
+        };
+        let Some(pal) = it.next() else {
+            continue;
+        };
+        let name = name.trim();
+        let cat = cat.trim();
+        let pal = pal.trim();
+
+        if pal != "None" {
+            if !palette.contains(&pal) {
+                palette.push(pal);
+            }
+        }
+        if name != "Blackout" && name != "Fallback" {
+            if !theme.contains(&name) {
+                theme.push(name);
+                theme_init.insert(name, (cat, pal));
+            }
+        }
+    }
+
+    let d = Def {
+        palette,
+        theme,
+        theme_init,
+    };
+    debug!("{:#?}", d);
+    d
+}
 
 /// All currently existing color palettes.
 pub fn salsa_palettes() -> Vec<&'static str> {
-    Vec::from(PALETTES)
+    let themes = THEMES.get_or_init(init_themes);
+    themes.palette.clone()
 }
 
 /// Get a Palette by name.
@@ -216,114 +257,65 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Ocean" => Some(OCEAN),
         "Monochrome" => Some(MONOCHROME),
         "Black&White" => Some(BLACK_WHITE),
-        "Base16" => Some(BASE16),
-        "Base16 Relax" => Some(BASE16_RELAX),
         "Monekai" => Some(MONEKAI),
         "Solarized" => Some(SOLARIZED),
         "OxoCarbon" => Some(OXOCARBON),
         "EverForest" => Some(EVERFOREST),
         "Nord" => Some(NORD),
         "Rust" => Some(RUST),
-        "Material" => Some(MATERIALDARK),
-        "Reds" => Some(REDS),
-        "Blackout" => Some(BLACKOUT),
-        "VSCodeDark" => Some(VSCODEDARK),
+        "Material" => Some(MATERIAL),
+        "VSCode" => Some(VSCODE),
         _ => None,
     }
 }
 
-const THEMES: &[&str] = &[
-    "Imperial Dark",
-    "Radium Dark",
-    "Tundra Dark",
-    "Ocean Dark",
-    "Monochrome Dark",
-    "Black&White Dark",
-    "Base16 Dark",
-    "Base16 Relax Dark",
-    "Monekai Dark",
-    "Solarized Dark",
-    "OxoCarbon Dark",
-    "EverForest Dark",
-    "Nord Dark",
-    "Rust Dark",
-    "Material Dark",
-    "Reds Dark",
-    "VSCode Dark",
-    // //
-    "Imperial Shell",
-    "Radium Shell",
-    "Tundra Shell",
-    "Ocean Shell",
-    "Monochrome Shell",
-    "Black&White Shell",
-    "Base16 Shell",
-    "Base16 Relax Shell",
-    "Monekai Shell",
-    "Solarized Shell",
-    "OxoCarbon Shell",
-    "EverForest Shell",
-    "Nord Shell",
-    "Rust Shell",
-    "Material Shell",
-    "Reds Shell",
-    "VSCode Shell",
-    //
-    "Shell",
-    "Blackout",
-    "Fallback",
-];
-
 /// Get all Salsa themes.
 pub fn salsa_themes() -> Vec<&'static str> {
-    Vec::from(THEMES)
+    let themes = THEMES.get_or_init(init_themes);
+    themes.theme.clone()
 }
 
 /// Create a theme.
-pub fn create_theme(theme: &str) -> Option<Theme> {
+pub fn create_theme(theme: &str) -> SalsaTheme {
     use crate::dark_palettes::*;
-    let theme = match theme {
-        "Imperial Dark" => dark_theme(theme, IMPERIAL),
-        "Radium Dark" => dark_theme(theme, RADIUM),
-        "Tundra Dark" => dark_theme(theme, TUNDRA),
-        "Ocean Dark" => dark_theme(theme, OCEAN),
-        "Monochrome Dark" => dark_theme(theme, MONOCHROME),
-        "Black&White Dark" => dark_theme(theme, BLACK_WHITE),
-        "Base16 Dark" => dark_theme(theme, BASE16),
-        "Base16 Relax Dark" => dark_theme(theme, BASE16_RELAX),
-        "Monekai Dark" => dark_theme(theme, MONEKAI),
-        "Solarized Dark" => dark_theme(theme, SOLARIZED),
-        "OxoCarbon Dark" => dark_theme(theme, OXOCARBON),
-        "EverForest Dark" => dark_theme(theme, EVERFOREST),
-        "Nord Dark" => dark_theme(theme, NORD),
-        "Rust Dark" => dark_theme(theme, RUST),
-        "Material Dark" => dark_theme(theme, MATERIALDARK),
-        "Reds Dark" => dark_theme(theme, REDS),
-        "VSCode Dark" => dark_theme(theme, VSCODEDARK),
-        //
-        "Imperial Shell" => shell_theme(theme, IMPERIAL),
-        "Radium Shell" => shell_theme(theme, RADIUM),
-        "Tundra Shell" => shell_theme(theme, TUNDRA),
-        "Ocean Shell" => shell_theme(theme, OCEAN),
-        "Monochrome Shell" => shell_theme(theme, MONOCHROME),
-        "Black&White Shell" => shell_theme(theme, BLACK_WHITE),
-        "Base16 Shell" => shell_theme(theme, BASE16),
-        "Base16 Relax Shell" => shell_theme(theme, BASE16_RELAX),
-        "Monekai Shell" => shell_theme(theme, MONEKAI),
-        "Solarized Shell" => shell_theme(theme, SOLARIZED),
-        "OxoCarbon Shell" => shell_theme(theme, OXOCARBON),
-        "EverForest Shell" => shell_theme(theme, EVERFOREST),
-        "Nord Shell" => shell_theme(theme, NORD),
-        "Rust Shell" => shell_theme(theme, RUST),
-        "Material Shell" => shell_theme(theme, MATERIALDARK),
-        "Reds Shell" => shell_theme(theme, REDS),
-        "VSCode Shell" => shell_theme(theme, VSCODEDARK),
-        //
-        "Shell" => shell_shell_theme(theme),
-        "Blackout" => dark_theme(theme, BLACKOUT),
-        "Fallback" => fallback_theme(theme, REDS),
-        _ => return None,
+    let themes = THEMES.get_or_init(init_themes);
+    let Some(def) = themes.theme_init.get(&theme) else {
+        if cfg!(debug_assertions) {
+            panic!("no theme {:?}", theme);
+        } else {
+            return core_theme(theme);
+        }
     };
-
-    Some(theme)
+    match def {
+        ("dark", p) => {
+            let Some(pal) = create_palette(*p) else {
+                if cfg!(debug_assertions) {
+                    panic!("no palette {:?}", *p);
+                } else {
+                    return core_theme(theme);
+                }
+            };
+            dark_theme(theme, pal)
+        }
+        ("shell", p) => {
+            let Some(pal) = create_palette(*p) else {
+                if cfg!(debug_assertions) {
+                    panic!("no palette {:?}", *p);
+                } else {
+                    return core_theme(theme);
+                }
+            };
+            shell_theme(theme, pal)
+        }
+        ("core", _) => core_theme(theme),
+        ("blackout", _) => dark_theme(theme, BLACKOUT),
+        ("fallback", _) => fallback_theme(theme, REDS),
+        _ => {
+            if cfg!(debug_assertions) {
+                panic!("no theme {:?}", theme);
+            } else {
+                core_theme(theme)
+            }
+        }
+    }
 }

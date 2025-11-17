@@ -24,7 +24,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_theme("Imperial Dark").expect("theme");
+    let theme = create_theme("Imperial Dark");
     let mut global = GlobalState::new(config, theme);
     let mut state = Scenery::default();
 
@@ -362,7 +362,7 @@ pub mod themes {
             .into_buffer(l1[1], &mut state.scroll);
 
         view.render_widget(
-            ShowScheme::new(state.contrast.value(), &ctx.theme.p),
+            ShowScheme::new(state.contrast.value(), &ctx.theme, &ctx.theme.p),
             Rect::new(0, 0, view.layout().width, 34),
         );
 
@@ -401,7 +401,7 @@ pub mod themes {
                 TableOutcome::Selected => {
                     if let Some(idx) = state.themes.selected_checked() {
                         let theme = salsa_themes()[idx];
-                        ctx.theme = create_theme(theme).expect("theme");
+                        ctx.theme = create_theme(theme);
                     }
                     Control::Changed
                 }
@@ -415,23 +415,25 @@ pub mod themes {
 }
 
 pub mod show_scheme {
-    use rat_theme4::Palette;
+    use rat_theme4::{Colors, Palette, SalsaTheme, StyleName};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
-    use ratatui::style::Color;
+    use ratatui::style::{Color, Style};
     use ratatui::text::{Line, Span};
     use ratatui::widgets::Widget;
 
     #[derive(Debug)]
     pub struct ShowScheme<'a> {
         high_contrast: bool,
+        theme: &'a SalsaTheme,
         palette: &'a Palette,
     }
 
     impl<'a> ShowScheme<'a> {
-        pub fn new(high_contrast: bool, palette: &'a Palette) -> Self {
+        pub fn new(high_contrast: bool, theme: &'a SalsaTheme, palette: &'a Palette) -> Self {
             Self {
                 high_contrast,
+                theme,
                 palette,
             }
         }
@@ -439,6 +441,7 @@ pub mod show_scheme {
 
     impl<'a> Widget for ShowScheme<'a> {
         fn render(self, area: Rect, buf: &mut Buffer) {
+            buf.set_style(area, self.theme.style_style(Style::CONTAINER_BASE));
             let l1 = Layout::new(
                 Direction::Vertical,
                 [
@@ -465,23 +468,23 @@ pub mod show_scheme {
 
             let pal = self.palette;
             for (i, (n, c)) in [
-                ("primary", pal.primary),
-                ("secondary", pal.secondary),
-                ("white", pal.white),
-                ("black", pal.black),
-                ("gray", pal.gray),
-                ("red", pal.red),
-                ("orange", pal.orange),
-                ("yellow", pal.yellow),
-                ("limegreen", pal.limegreen),
-                ("green", pal.green),
-                ("bluegreen", pal.bluegreen),
-                ("cyan", pal.cyan),
-                ("blue", pal.blue),
-                ("deepblue", pal.deepblue),
-                ("purple", pal.purple),
-                ("magenta", pal.magenta),
-                ("redpink", pal.redpink),
+                ("primary", pal.color[Colors::Primary as usize]),
+                ("secondary", pal.color[Colors::Secondary as usize]),
+                ("white", pal.color[Colors::White as usize]),
+                ("black", pal.color[Colors::Black as usize]),
+                ("gray", pal.color[Colors::Gray as usize]),
+                ("red", pal.color[Colors::Red as usize]),
+                ("orange", pal.color[Colors::Orange as usize]),
+                ("yellow", pal.color[Colors::Yellow as usize]),
+                ("limegreen", pal.color[Colors::LimeGreen as usize]),
+                ("green", pal.color[Colors::Green as usize]),
+                ("bluegreen", pal.color[Colors::BlueGreen as usize]),
+                ("cyan", pal.color[Colors::Cyan as usize]),
+                ("blue", pal.color[Colors::Blue as usize]),
+                ("deepblue", pal.color[Colors::DeepBlue as usize]),
+                ("purple", pal.color[Colors::Purple as usize]),
+                ("magenta", pal.color[Colors::Magenta as usize]),
+                ("redpink", pal.color[Colors::RedPink as usize]),
             ]
             .iter()
             .enumerate()

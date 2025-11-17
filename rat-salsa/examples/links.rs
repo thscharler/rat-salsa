@@ -17,7 +17,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_theme("Imperial Dark").expect("theme");
+    let theme = create_theme("Imperial Dark");
     let mut global = Global::new(config, theme);
     let mut state = Minimal::default();
 

@@ -7,7 +7,7 @@ use crossbeam::channel::Sender;
 use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::tasks::Cancel;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::{create_theme, salsa_themes, SalsaTheme, StyleName, WidgetStyle};
+use rat_theme4::{create_theme, salsa_themes, Colors, SalsaTheme, StyleName, WidgetStyle};
 use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
     ReadOnly, Regular, TableOutcome,
@@ -42,7 +42,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = FilesConfig::default();
-    let theme = create_theme("Imperial Dark").expect("theme");
+    let theme = create_theme("Imperial Dark");
     let mut global = GlobalState::new(config, theme);
     let mut state = Files::default();
 
@@ -342,10 +342,14 @@ fn render(
 
     Text::from(state.main_dir.to_string_lossy())
         .alignment(Alignment::Right)
-        .style(ctx.theme.p.black(3).fg(ctx.theme.p.secondary[2]))
+        .style(
+            ctx.theme
+                .p
+                .fg_bg_style(Colors::Secondary, 2, Colors::Black, 3),
+        )
         .render(path_area, buf);
 
-    let split = Split::horizontal()
+    let (split_layout, split) = Split::horizontal()
         .constraints([
             Constraint::Length(25),
             Constraint::Length(25),
@@ -353,7 +357,8 @@ fn render(
         ])
         .split_type(SplitType::Scroll)
         .styles(ctx.theme.style(WidgetStyle::SPLIT))
-        .into_widget(split_area, &mut state.w_split);
+        .into_widgets();
+    split_layout.render(split_area, buf, &mut state.w_split);
 
     // split content
     {
@@ -548,12 +553,12 @@ fn crossterm(
         }
         MenuOutcome::MenuSelected(1, n) => {
             let theme = salsa_themes()[n];
-            ctx.theme = create_theme(theme).expect("theme");
+            ctx.theme = create_theme(theme);
             Control::Changed
         }
         MenuOutcome::MenuActivated(1, n) => {
             let theme = salsa_themes()[n];
-            ctx.theme = create_theme(theme).expect("theme");
+            ctx.theme = create_theme(theme);
             Control::Changed
         }
         MenuOutcome::Activated(2) => {

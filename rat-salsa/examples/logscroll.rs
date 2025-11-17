@@ -88,7 +88,7 @@ pub struct LogScrollConfig {
 }
 
 fn config_theme(config: &LogScrollConfig) -> SalsaTheme {
-    create_theme(&config.theme).unwrap_or(create_theme("Imperial Dark").expect("theme"))
+    create_theme(&config.theme)
 }
 
 fn load_config() -> Result<LogScrollConfig, Error> {
@@ -448,7 +448,7 @@ mod logscroll {
             .thumb_symbol("█")
             .min_symbol(Some("│"));
 
-        let split = Split::vertical()
+        let (split_layout, split) = Split::vertical()
             .styles(ctx.theme.style(WidgetStyle::SPLIT))
             .split_type(SplitType::Scroll)
             .mark_offset(1)
@@ -457,7 +457,8 @@ mod logscroll {
                 Constraint::Fill(1), //
                 Constraint::Length(ctx.cfg.split_pos),
             ])
-            .into_widget(l0[0], &mut state.split);
+            .into_widgets();
+        split_layout.render(l0[0], buf, &mut state.split);
 
         TextArea::new()
             .vscroll(v_scroll.clone().start_margin(2))
@@ -911,7 +912,7 @@ mod logscroll {
                             .position(|v| *v == ctx.theme.name())
                             .unwrap_or(0);
                         let pos = (pos + 1) % themes.len();
-                        ctx.theme = create_theme(&themes[pos]).expect(&themes[pos]);
+                        ctx.theme = create_theme(&themes[pos]);
                         ctx.cfg.theme = themes[pos].to_string();
                         ctx.queue_event(LogScrollEvent::StoreCfg);
                         ctx.queue_event(LogScrollEvent::Status(0, ctx.theme.name().into()));

@@ -13,8 +13,9 @@ use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme5::{
-    create_theme, dark_theme, shell_theme, ColorIdx, Colors, ColorsExt, Palette, Theme, WidgetStyle,
+use rat_theme4::{
+    create_theme, dark_theme, shell_theme, ColorIdx, Colors, ColorsExt, Palette, SalsaTheme,
+    WidgetStyle,
 };
 use rat_widget::event::{ct_event, HandleEvent, MenuOutcome, Regular};
 use rat_widget::file_dialog::FileDialogState;
@@ -43,7 +44,7 @@ fn main() -> Result<(), Error> {
     set_global_clipboard(CliClipboard::default());
 
     let config = Config::default();
-    let theme = create_theme("Imperial Dark").expect("theme");
+    let theme = create_theme("Imperial Dark");
     let mut global = Global::new(config, theme);
     let mut state = Scenery::new(global.loc);
 
@@ -69,8 +70,8 @@ pub struct Global {
     dlg: DialogStack<PalEvent, Global, Error>,
 
     pub cfg: Config,
-    pub theme: Theme,
-    pub show_theme: Theme,
+    pub theme: SalsaTheme,
+    pub show_theme: SalsaTheme,
     pub loc: Locale,
 
     pub status_frame: usize,
@@ -89,7 +90,7 @@ impl SalsaContext<PalEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(cfg: Config, theme: Theme) -> Self {
+    pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         let mut z = Self {
             ctx: Default::default(),
             dlg: Default::default(),
@@ -736,7 +737,7 @@ fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, 
     Ok(Control::Changed)
 }
 
-fn use_base46(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn use_base46(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let v = state.detail.base46.white.value();
     state.edit.color[Colors::TextLight as usize].0.set_value(v);
     state.edit.color[Colors::TextLight as usize].3.set_value(v);
@@ -987,7 +988,7 @@ fn load_pal_file(
     Ok(Control::Changed)
 }
 
-fn create_edit_theme(state: &Scenery) -> Theme {
+fn create_edit_theme(state: &Scenery) -> SalsaTheme {
     let palette = state.edit.palette();
     match state.detail.show.themes.value().as_str() {
         "Shell" => shell_theme("Shell", palette),
@@ -1011,7 +1012,7 @@ mod base46 {
     use anyhow::Error;
     use rat_event::{event_flow, HandleEvent, Outcome, Regular};
     use rat_focus::{impl_has_focus, HasFocus};
-    use rat_theme5::WidgetStyle;
+    use rat_theme4::WidgetStyle;
     use rat_widget::clipper::{Clipper, ClipperState};
     use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
     use rat_widget::event::TextOutcome;
@@ -1585,7 +1586,7 @@ mod palette_edit {
     use rat_event::{event_flow, MouseOnly, Outcome, Popup};
     use rat_focus::{FocusFlag, HasFocus, Navigation};
     use rat_salsa::SalsaContext;
-    use rat_theme5::{ColorIdx, Colors, ColorsExt, Palette, WidgetStyle};
+    use rat_theme4::{ColorIdx, Colors, ColorsExt, Palette, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::clipper::{Clipper, ClipperState};
     use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
@@ -1979,7 +1980,7 @@ pub mod show_or_base46 {
     use pure_rust_locales::Locale;
     use rat_event::{event_flow, HandleEvent, Outcome, Regular};
     use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
-    use rat_theme5::WidgetStyle;
+    use rat_theme4::WidgetStyle;
     use rat_widget::tabbed::{Tabbed, TabbedState};
     use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
@@ -2105,7 +2106,7 @@ pub mod show_tabs {
     use pure_rust_locales::Locale;
     use rat_event::{event_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
-    use rat_theme5::{dark_theme, shell_theme, StyleName, WidgetStyle};
+    use rat_theme4::{dark_theme, shell_theme, StyleName, WidgetStyle};
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::event::ChoiceOutcome;
     use rat_widget::tabbed::{Tabbed, TabbedState};
@@ -2312,7 +2313,7 @@ pub mod readability {
     use anyhow::Error;
     use rat_event::{event_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-    use rat_theme5::{ColorIdx, Colors, WidgetStyle};
+    use rat_theme4::{ColorIdx, Colors, WidgetStyle};
     use rat_widget::checkbox::{Checkbox, CheckboxState};
     use rat_widget::choice::{Choice, ChoiceState};
     use rat_widget::paragraph::{Paragraph, ParagraphState};
@@ -2448,7 +2449,7 @@ pub mod other {
     use anyhow::Error;
     use rat_event::{event_flow, Dialog, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-    use rat_theme5::WidgetStyle;
+    use rat_theme4::WidgetStyle;
     use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
     use rat_widget::form::{Form, FormState};
     use rat_widget::layout::LayoutForm;
@@ -2759,7 +2760,7 @@ pub mod datainput {
     use pure_rust_locales::{locale_match, Locale};
     use rat_event::{event_flow, HandleEvent, Outcome, Popup, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-    use rat_theme5::{StyleName, WidgetStyle};
+    use rat_theme4::{StyleName, WidgetStyle};
     use rat_widget::button::{Button, ButtonState};
     use rat_widget::calendar::selection::SingleSelection;
     use rat_widget::calendar::{CalendarState, Month};
@@ -3117,7 +3118,7 @@ pub mod datainput {
 }
 
 mod color_span {
-    use rat_theme5::Palette;
+    use rat_theme4::Palette;
     use rat_widget::color_input::{ColorInput, ColorInputState};
     use rat_widget::reloc::RelocatableState;
     use ratatui::buffer::Buffer;
@@ -3215,7 +3216,7 @@ mod message {
     use rat_event::{event_flow, Dialog, HandleEvent, Regular};
     use rat_focus::{impl_has_focus, FocusBuilder};
     use rat_salsa::{Control, SalsaContext};
-    use rat_theme5::WidgetStyle;
+    use rat_theme4::WidgetStyle;
     use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
     use rat_widget::paragraph::{Paragraph, ParagraphState};
     use ratatui::buffer::Buffer;

@@ -34,7 +34,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = LifeConfig::default();
-    let theme = create_theme("Imperial Dark").expect("theme");
+    let theme = create_theme("Imperial Dark");
     let mut global = GlobalState::new(config, theme);
 
     let mut state = Scenery::new();

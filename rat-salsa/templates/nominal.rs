@@ -6,7 +6,7 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
+use rat_theme4::{create_theme, Colors, SalsaTheme, WidgetStyle};
 use rat_widget::event::{ct_event, Dialog, HandleEvent};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -23,7 +23,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_theme("Imperial Dark").expect("theme");
+    let theme = create_theme("Imperial Dark");
     let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 
@@ -145,12 +145,8 @@ pub fn render(
     .split(layout[1]);
 
     let palette = &ctx.theme.p;
-    let status_color_1 = palette
-        .normal_contrast(palette.white[0])
-        .bg(palette.blue[3]);
-    let status_color_2 = palette
-        .normal_contrast(palette.white[0])
-        .bg(palette.blue[2]);
+    let status_color_1 = palette.fg_bg_style(Colors::White, 0, Colors::Blue, 3);
+    let status_color_2 = palette.fg_bg_style(Colors::White, 0, Colors::Blue, 2);
     let last_render = format!(
         " R({:03}){:>5} ",
         ctx.count(),

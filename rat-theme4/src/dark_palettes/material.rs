@@ -6,9 +6,9 @@ use ratatui::style::Color;
 /// -
 const DARKNESS: u8 = 64;
 
-pub const MATERIALDARK: Palette = {
+pub const MATERIAL: Palette = {
     let mut p = Palette {
-        name: "MaterialDark", 
+        name: "MaterialDark",
 
         color: [
             Palette::interpolate2(0xeeffff, 0xeeffff, 0x0, 0x0),

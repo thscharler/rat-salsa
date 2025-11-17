@@ -23,7 +23,7 @@ fn main() -> Result<(), Error> {
     let rt = tokio::runtime::Runtime::new()?;
 
     let config = Config::default();
-    let theme = create_theme("Imperial Dark").expect("theme");
+    let theme = create_theme("Imperial Dark");
     let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 

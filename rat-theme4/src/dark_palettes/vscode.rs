@@ -4,9 +4,9 @@ use ratatui::style::Color;
 /// VSCodeDark
 const DARKNESS: u8 = 63;
 
-pub const VSCODEDARK: Palette = {
+pub const VSCODE: Palette = {
     let mut p = Palette {
-        name: "VSCodeDark", 
+        name: "VSCodeDark",
 
         color: [
             Palette::interpolate2(0xd4d4d4, 0xffffff, 0x0, 0x0),

@@ -1,5 +1,5 @@
 use rat_theme4::{
-    StyleName, Theme, WidgetStyle, create_palette, create_theme, salsa_palettes, salsa_themes,
+    SalsaTheme, StyleName, WidgetStyle, create_palette, create_theme, salsa_palettes, salsa_themes,
 };
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -46,18 +46,18 @@ fn test_styles() {
         eprintln!("THEME {:?}", theme);
         eprintln!();
         _ = std::io::stderr().flush();
-        let th = create_theme(theme).expect("theme");
+        let th = create_theme(theme);
         verify_theme(&th);
     }
 }
 
 #[test]
 fn test_fallback() {
-    let th = create_theme("Fallback").expect("theme");
+    let th = create_theme("Fallback");
     verify_theme(&th);
 }
 
-fn verify_theme(th: &Theme) {
+fn verify_theme(th: &SalsaTheme) {
     th.style_style(Style::LABEL_FG);
     th.style_style(Style::INPUT);
     th.style_style(Style::FOCUS);

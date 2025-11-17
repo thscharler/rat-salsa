@@ -15,7 +15,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
 
 fn main() -> Result<(), Error> {
-    let theme = create_theme("Monochrome Dark").expect("theme");
+    let theme = create_theme("Monochrome Dark");
     let mut global = Global::new(theme);
 
     let mut state = BasicText::default();

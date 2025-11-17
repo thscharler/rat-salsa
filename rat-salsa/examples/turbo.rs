@@ -11,7 +11,7 @@ use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::palettes::BASE16;
+use rat_theme4::dark_palettes::BASE16;
 use rat_theme4::{SalsaTheme, WidgetStyle};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
 use rat_widget::focus::FocusBuilder;
@@ -452,7 +452,7 @@ pub mod turbo {
             .popup_placement(Placement::Below)
             .popup_block(
                 Block::bordered() //
-                    .style(ctx.theme.style::<Style>(Style::POPUP_BORDER)),
+                    .style(ctx.theme.style::<Style>(Style::POPUP_BORDER_FG)),
             )
             .into_widgets();
         menubar.render(r[0], buf, &mut state.menu);
@@ -578,7 +578,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme4::{dark_theme, Palette, SalsaTheme, StyleName, WidgetStyle};
+    use rat_theme4::{dark_theme, Colors, Palette, SalsaTheme, StyleName, WidgetStyle};
     use rat_widget::menu::MenuStyle;
     use rat_widget::popup::PopupStyle;
     use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
@@ -594,28 +594,76 @@ pub mod theme {
     pub fn turbo_theme(p: Palette) -> SalsaTheme {
         let mut th = dark_theme("turbo", p);
 
-        th.define(Style::INPUT, th.p.high_contrast(p.gray[3]));
-        th.define(Style::FOCUS, th.p.high_contrast(p.primary[2]));
-        th.define(Style::SELECT, th.p.high_contrast(p.secondary[1]));
-        th.define(Style::TEXT_FOCUS, th.p.high_contrast(p.primary[0]));
-        th.define(Style::TEXT_SELECT, th.p.high_contrast(p.secondary[0]));
-        th.define(Style::BUTTON_BASE, th.p.high_contrast(p.gray[3]));
+        th.define(Style::INPUT, th.p.high_contrast(p.color(Colors::Gray, 3)));
+        th.define(
+            Style::FOCUS,
+            th.p.high_contrast(p.color(Colors::Primary, 2)),
+        );
+        th.define(
+            Style::SELECT,
+            th.p.high_contrast(p.color(Colors::Secondary, 1)),
+        );
+        th.define(
+            Style::TEXT_FOCUS,
+            th.p.high_contrast(p.color(Colors::Primary, 0)),
+        );
+        th.define(
+            Style::TEXT_SELECT,
+            th.p.high_contrast(p.color(Colors::Secondary, 0)),
+        );
+        th.define(
+            Style::BUTTON_BASE,
+            th.p.high_contrast(p.color(Colors::Gray, 3)),
+        );
 
-        th.define(Style::CONTAINER_BASE, th.p.high_contrast(p.black[1]));
-        th.define(Style::CONTAINER_BORDER, th.p.normal_contrast(p.black[1]));
-        th.define(Style::CONTAINER_ARROWS, th.p.normal_contrast(p.black[1]));
+        th.define(
+            Style::CONTAINER_BASE,
+            th.p.high_contrast(p.color(Colors::Black, 1)),
+        );
+        th.define(
+            Style::CONTAINER_BORDER_FG,
+            th.p.normal_contrast(p.color(Colors::Black, 1)),
+        );
+        th.define(
+            Style::CONTAINER_ARROW_FG,
+            th.p.normal_contrast(p.color(Colors::Black, 1)),
+        );
 
-        th.define(Style::POPUP_BASE, th.p.high_contrast(p.gray[2]));
-        th.define(Style::POPUP_BORDER, th.p.normal_contrast(p.gray[2]));
-        th.define(Style::POPUP_ARROW, th.p.normal_contrast(p.gray[2]));
+        th.define(
+            Style::POPUP_BASE,
+            th.p.high_contrast(p.color(Colors::Gray, 2)),
+        );
+        th.define(
+            Style::POPUP_BORDER_FG,
+            th.p.normal_contrast(p.color(Colors::Gray, 2)),
+        );
+        th.define(
+            Style::POPUP_ARROW_FG,
+            th.p.normal_contrast(p.color(Colors::Gray, 2)),
+        );
 
-        th.define(Style::DIALOG_BASE, th.p.high_contrast(p.gray[3]));
-        th.define(Style::DIALOG_BORDER, th.p.normal_contrast(p.gray[3]));
-        th.define(Style::DIALOG_ARROW, th.p.normal_contrast(p.gray[3]));
+        th.define(
+            Style::DIALOG_BASE,
+            th.p.high_contrast(p.color(Colors::Gray, 3)),
+        );
+        th.define(
+            Style::DIALOG_BORDER_FG,
+            th.p.normal_contrast(p.color(Colors::Gray, 3)),
+        );
+        th.define(
+            Style::DIALOG_ARROW_FG,
+            th.p.normal_contrast(p.color(Colors::Gray, 3)),
+        );
 
-        th.define(Style::STATUS_BASE, th.p.normal_contrast(p.gray[3]));
+        th.define(
+            Style::STATUS_BASE,
+            th.p.normal_contrast(p.color(Colors::Gray, 3)),
+        );
         // add a base style
-        th.define(Style::DATA, th.p.normal_contrast(th.p.deepblue[0]));
+        th.define(
+            Style::DATA,
+            th.p.normal_contrast(p.color(Colors::DeepBlue, 0)),
+        );
 
         // override styles
         th.define_fn(WidgetStyle::TEXTAREA, textarea_style);
@@ -639,18 +687,18 @@ pub mod theme {
             style: th.style(Style::DIALOG_BASE),
             title: Some(th.p.gray(3)),
             focus: Some(th.style(Style::FOCUS)),
-            highlight: Some(th.p.fg_red(2)),
-            disabled: Some(th.p.fg_black(3)),
+            highlight: Some(th.p.fg_style(Colors::Red, 2)),
+            disabled: Some(th.p.fg_style(Colors::Black, 3)),
             right: Some(Style::default().italic()),
             popup_style: Some(th.style(Style::DIALOG_BASE)),
-            popup_border: Some(th.style(Style::DIALOG_BORDER)),
+            popup_border: Some(th.style(Style::DIALOG_BORDER_FG)),
             popup: PopupStyle::default(),
             ..Default::default()
         }
     }
 
     fn scroll_style(th: &SalsaTheme) -> ScrollStyle {
-        let style = th.p.fg_black(3);
+        let style = th.p.fg_style(Colors::Black, 3);
         let arrow_style = th.p.secondary(0);
         ScrollStyle {
             thumb_style: Some(style),

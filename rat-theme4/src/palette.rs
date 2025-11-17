@@ -310,6 +310,110 @@ pub(crate) enum Rating {
 }
 
 impl Palette {
+    /// Create a style from the given white shade.
+    /// n is `0..=3`
+    pub fn white(&self, n: usize) -> Style {
+        self.style(Colors::White, n)
+    }
+
+    /// Create a style from the given black shade.
+    /// n is `0..=3`
+    pub fn black(&self, n: usize) -> Style {
+        self.style(Colors::Black, n)
+    }
+
+    /// Create a style from the given gray shade.
+    /// n is `0..=3`
+    pub fn gray(&self, n: usize) -> Style {
+        self.style(Colors::Gray, n)
+    }
+
+    /// Create a style from the given red shade.
+    /// n is `0..=3`
+    pub fn red(&self, n: usize) -> Style {
+        self.style(Colors::Red, n)
+    }
+
+    /// Create a style from the given orange shade.
+    /// n is `0..=3`
+    pub fn orange(&self, n: usize) -> Style {
+        self.style(Colors::Orange, n)
+    }
+
+    /// Create a style from the given yellow shade.
+    /// n is `0..=3`
+    pub fn yellow(&self, n: usize) -> Style {
+        self.style(Colors::Yellow, n)
+    }
+
+    /// Create a style from the given limegreen shade.
+    /// n is `0..=3`
+    pub fn limegreen(&self, n: usize) -> Style {
+        self.style(Colors::LimeGreen, n)
+    }
+
+    /// Create a style from the given green shade.
+    /// n is `0..=3`
+    pub fn green(&self, n: usize) -> Style {
+        self.style(Colors::Green, n)
+    }
+
+    /// Create a style from the given bluegreen shade.
+    /// n is `0..=3`
+    pub fn bluegreen(&self, n: usize) -> Style {
+        self.style(Colors::BlueGreen, n)
+    }
+
+    /// Create a style from the given cyan shade.
+    /// n is `0..=3`
+    pub fn cyan(&self, n: usize) -> Style {
+        self.style(Colors::Cyan, n)
+    }
+
+    /// Create a style from the given blue shade.
+    /// n is `0..=3`
+    pub fn blue(&self, n: usize) -> Style {
+        self.style(Colors::Blue, n)
+    }
+
+    /// Create a style from the given deepblue shade.
+    /// n is `0..=3`
+    pub fn deepblue(&self, n: usize) -> Style {
+        self.style(Colors::DeepBlue, n)
+    }
+
+    /// Create a style from the given purple shade.
+    /// n is `0..=3`
+    pub fn purple(&self, n: usize) -> Style {
+        self.style(Colors::Purple, n)
+    }
+
+    /// Create a style from the given magenta shade.
+    /// n is `0..=3`
+    pub fn magenta(&self, n: usize) -> Style {
+        self.style(Colors::Magenta, n)
+    }
+
+    /// Create a style from the given redpink shade.
+    /// n is `0..=3`
+    pub fn redpink(&self, n: usize) -> Style {
+        self.style(Colors::RedPink, n)
+    }
+
+    /// Create a style from the given primary shade.
+    /// n is `0..=3`
+    pub fn primary(&self, n: usize) -> Style {
+        self.style(Colors::Primary, n)
+    }
+
+    /// Create a style from the given secondary shade.
+    /// n is `0..=3`
+    pub fn secondary(&self, n: usize) -> Style {
+        self.style(Colors::Secondary, n)
+    }
+}
+
+impl Palette {
     pub fn color(&self, id: Colors, n: usize) -> Color {
         if id == Colors::None {
             Color::Reset
@@ -413,7 +517,7 @@ impl Palette {
         match Self::rate_text_color(color) {
             None => Style::new(),
             Some(Rating::Light) => Style::new().bg(color).fg(self.color(Colors::TextLight, 3)),
-            Some(Rating::Dark) => Style::new().bg(color).fg(self.color(Colors::TextLight, 3)),
+            Some(Rating::Dark) => Style::new().bg(color).fg(self.color(Colors::TextDark, 3)),
         }
     }
 

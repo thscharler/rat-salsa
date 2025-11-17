@@ -25,7 +25,7 @@ use ratatui::widgets::{Block, BorderType, ListItem, StatefulWidget, Widget};
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let theme = create_theme("Imperial Dark").expect("theme");
+    let theme = create_theme("Imperial Dark");
     let mut global = Global::new(theme);
     let mut state = Todos::default();
 
@@ -154,7 +154,7 @@ pub fn render(
         .block(
             Block::bordered()
                 .border_type(BorderType::Rounded)
-                .border_style(ctx.theme.style::<Style>(Style::CONTAINER_BORDER)),
+                .border_style(ctx.theme.style::<Style>(Style::CONTAINER_BORDER_FG)),
         )
         .scroll(Scroll::new())
         .styles(ctx.theme.style(WidgetStyle::LIST))
