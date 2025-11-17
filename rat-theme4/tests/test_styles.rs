@@ -1,5 +1,6 @@
 use rat_theme4::{
-    SalsaTheme, StyleName, WidgetStyle, create_palette, create_theme, salsa_palettes, salsa_themes,
+    SalsaTheme, StyleName, WidgetStyle, create_palette, create_theme, rat_widget_color_names,
+    salsa_palettes, salsa_themes,
 };
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -33,7 +34,13 @@ use std::io::Write;
 fn test_palette() {
     let palettes = salsa_palettes();
     for pal in palettes {
-        create_palette(pal);
+        eprintln!();
+        eprintln!("PALETTE {:?}", pal);
+        eprintln!();
+        let pal = create_palette(pal).expect("pal");
+        for n in rat_widget_color_names() {
+            _ = pal.color_ext(n);
+        }
     }
 }
 
@@ -69,6 +76,8 @@ fn verify_theme(th: &SalsaTheme) {
     th.style_style(Style::HEADER);
     th.style_style(Style::FOOTER);
     th.style_style(Style::SHADOWS);
+    th.style_style(Style::WEEK_HEADER_FG);
+    th.style_style(Style::MONTH_HEADER_FG);
     th.style_style(Style::TEXT_FOCUS);
     th.style_style(Style::TEXT_SELECT);
     th.style_style(Style::KEY_BINDING);

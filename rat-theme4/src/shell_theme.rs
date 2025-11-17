@@ -428,10 +428,10 @@ fn tabbed(th: &SalsaTheme) -> TabbedStyle {
     TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        tab: Some(th.p.fg_style_ext(Color::INPUT)),
-        hover: Some(th.p.fg_style_ext(Color::HOVER)),
-        select: Some(th.p.fg_style_ext(Color::SELECT)),
-        focus: Some(th.p.fg_style_ext(Color::FOCUS)),
+        tab: Some(th.style(Style::INPUT)),
+        hover: Some(th.style(Style::HOVER)),
+        select: Some(th.style(Style::SELECT)),
+        focus: Some(th.style(Style::FOCUS)),
         ..Default::default()
     }
 }

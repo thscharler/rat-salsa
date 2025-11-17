@@ -255,8 +255,8 @@ fn choice(th: &SalsaTheme) -> ChoiceStyle {
             Block::bordered()
                 .borders(Borders::LEFT | Borders::BOTTOM | Borders::RIGHT)
                 .border_set(border::Set {
-                    top_left: "X",
-                    top_right: "X",
+                    top_left: " ",
+                    top_right: " ",
                     bottom_left: "▀",
                     bottom_right: "▀",
                     vertical_left: "▌",
@@ -357,9 +357,9 @@ fn menu(th: &SalsaTheme) -> MenuStyle {
 fn month(th: &SalsaTheme) -> CalendarStyle {
     CalendarStyle {
         style: th.style(Style::CONTAINER_BASE),
-        title: None,
-        weeknum: Some(th.style(Style::HEADER)),
-        weekday: Some(th.style(Style::HEADER)),
+        title: Some(th.style(Style::MONTH_HEADER_FG)),
+        weeknum: Some(th.style(Style::WEEK_HEADER_FG)),
+        weekday: Some(th.style(Style::WEEK_HEADER_FG)),
         day: None,
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
@@ -513,10 +513,10 @@ fn tabbed(th: &SalsaTheme) -> TabbedStyle {
     TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        tab: Some(th.p.fg_style_ext(Color::INPUT)),
-        hover: Some(th.p.fg_style_ext(Color::HOVER)),
-        select: Some(th.p.fg_style_ext(Color::SELECT)),
-        focus: Some(th.p.fg_style_ext(Color::FOCUS)),
+        tab: Some(th.style(Style::INPUT)),
+        hover: Some(th.style(Style::HOVER)),
+        select: Some(th.style(Style::SELECT)),
+        focus: Some(th.style(Style::FOCUS)),
         ..Default::default()
     }
 }

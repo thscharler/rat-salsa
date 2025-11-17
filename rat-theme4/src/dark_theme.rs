@@ -28,6 +28,7 @@ use rat_widget::text::{TextFocusGained, TextFocusLost, TextStyle};
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
 use ratatui::style::{Color, Style, Stylize};
+use ratatui::symbols::border;
 use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
@@ -222,6 +223,7 @@ fn form(th: &SalsaTheme) -> FormStyle {
         block: Some(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
+                .border_set(border::EMPTY)
                 .border_style(th.style::<Style>(Style::CONTAINER_BORDER_FG)),
         ),
         border_style: Some(th.style::<Style>(Style::CONTAINER_BORDER_FG)),

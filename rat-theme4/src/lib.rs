@@ -47,7 +47,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 mod core_theme;
 mod dark_theme;
 mod fallback_theme;
-mod light_theme;
 mod palette;
 mod shell_theme;
 mod theme;
@@ -61,7 +60,6 @@ pub mod core_palettes {
 pub use crate::fallback_theme::fallback_theme;
 pub use core_theme::core_theme;
 pub use dark_theme::dark_theme;
-pub use light_theme::light_theme;
 pub use palette::{ColorIdx, Colors, Palette};
 pub use shell_theme::shell_theme;
 pub use theme::{Category, SalsaTheme};
@@ -392,7 +390,9 @@ pub fn create_theme(theme: &str) -> SalsaTheme {
                     return core_theme(theme);
                 }
             };
-            light_theme(theme, pal)
+            // currently no difference, just a different
+            // set of color palettes
+            dark_theme(theme, pal)
         }
         ("shell", p) => {
             let Some(pal) = create_palette(*p) else {
