@@ -66,8 +66,8 @@ macro_rules! conform_widget {
         let mut v = <$widget>::default();
 
         v = v.block(Block::default());
-        v = v.border_style(Style::default());
-        v = v.title_style(Style::default());
+        // TODO: v = v.border_style(Style::default());
+        // TODO: v = v.title_style(Style::default());
         v = v.styles(<$style>::default());
         v = v.style(Style::default());
 
