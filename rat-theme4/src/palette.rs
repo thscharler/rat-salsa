@@ -316,6 +316,19 @@ impl Palette {
         style
     }
 
+    pub fn color_idx(&self, id: &str) -> ColorIdx {
+        match self.aliased.binary_search_by_key(&id, |v| v.0) {
+            Ok(n) => self.aliased[n].1,
+            Err(_) => {
+                if cfg!(debug_assertions) {
+                    panic!("unknown aliased color {:?}", id);
+                } else {
+                    ColorIdx::default()
+                }
+            }
+        }
+    }
+
     pub fn color_ext(&self, id: &str) -> Color {
         match self.aliased.binary_search_by_key(&id, |v| v.0) {
             Ok(n) => {

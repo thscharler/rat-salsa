@@ -1,7 +1,7 @@
 [palette]
 name=Rust
 docs=Rusty theme.
-dark=64
+dark=63
 
 [color]
 text-light=#D1CCC8, #EFE6E6

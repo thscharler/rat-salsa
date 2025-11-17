@@ -1,7 +1,7 @@
 [palette]
 name=Radium
 docs=An adaption of nvchad's radium theme.\n-- credits to original radium theme from <https://github.com/dharmx>
-dark=96
+dark=63
 
 [color]
 text-light=#D4D4D5, #FFFFFF

@@ -3,10 +3,10 @@ use crate::{ColorIdx, Colors, Palette};
 /// Material
 /// Credits to original theme https://github.com/marko-cerovac/material.nvim for existing
 /// -
-const DARKNESS: u8 = 64;
+const DARKNESS: u8 = 63;
 
 pub const MATERIAL: Palette = Palette {
-    name: "Material", 
+    name: "Material",
 
     color: [
         Palette::interpolate2(0xeeffff, 0xeeffff, 0x0, 0x0),
@@ -64,4 +64,3 @@ pub const MATERIAL: Palette = Palette {
         ("week-header-fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
-

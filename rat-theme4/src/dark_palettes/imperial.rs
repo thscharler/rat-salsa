@@ -3,10 +3,10 @@ use crate::{ColorIdx, Colors, Palette};
 /// Imperial
 /// Uses purple and gold for primary/secondary.
 /// Other colors are bright, strong and slightly smudged.
-const DARKNESS: u8 = 64;
+const DARKNESS: u8 = 63;
 
 pub const IMPERIAL: Palette = Palette {
-    name: "Imperial", 
+    name: "Imperial",
 
     color: [
         Palette::interpolate2(0xdedfe3, 0xf6f6f3, 0x0, 0x0),
@@ -70,4 +70,3 @@ pub const IMPERIAL: Palette = Palette {
         ("week-header-fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
-

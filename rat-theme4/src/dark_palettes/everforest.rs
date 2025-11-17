@@ -1,10 +1,10 @@
 use crate::{ColorIdx, Colors, Palette};
 
 /// EverForest
-const DARKNESS: u8 = 128;
+const DARKNESS: u8 = 63;
 
 pub const EVERFOREST: Palette = Palette {
-    name: "EverForest", 
+    name: "EverForest",
 
     color: [
         Palette::interpolate2(0xd8d4cb, 0xf4f0e6, 0x0, 0x0),
@@ -62,4 +62,3 @@ pub const EVERFOREST: Palette = Palette {
         ("week-header-fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
-

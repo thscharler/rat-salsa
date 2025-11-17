@@ -2,10 +2,10 @@ use crate::{ColorIdx, Colors, Palette};
 
 /// Rust
 /// Rusty theme.
-const DARKNESS: u8 = 64;
+const DARKNESS: u8 = 63;
 
 pub const RUST: Palette = Palette {
-    name: "Rust", 
+    name: "Rust",
 
     color: [
         Palette::interpolate2(0xd1ccc8, 0xefe6e6, 0x0, 0x0),
@@ -63,4 +63,3 @@ pub const RUST: Palette = Palette {
         ("week-header-fg", ColorIdx(Colors::Gray, 1)),
     ],
 };
-

@@ -3,10 +3,10 @@ use crate::{ColorIdx, Colors, Palette};
 /// Radium
 /// An adaption of nvchad's radium theme.
 /// -- credits to original radium theme from <https://github.com/dharmx>
-const DARKNESS: u8 = 96;
+const DARKNESS: u8 = 63;
 
 pub const RADIUM: Palette = Palette {
-    name: "Radium", 
+    name: "Radium",
 
     color: [
         Palette::interpolate2(0xd4d4d5, 0xffffff, 0x0, 0x0),
@@ -64,4 +64,3 @@ pub const RADIUM: Palette = Palette {
         ("week-header-fg", ColorIdx(Colors::BlueGreen, 0)),
     ],
 };
-

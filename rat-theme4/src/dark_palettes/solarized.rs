@@ -2,10 +2,10 @@ use crate::{ColorIdx, Colors, Palette};
 
 /// Solarized
 /// credit https://github.com/altercation/solarized/tree/master/vim-colors-solarized
-const DARKNESS: u8 = 64;
+const DARKNESS: u8 = 63;
 
 pub const SOLARIZED: Palette = Palette {
-    name: "Solarized", 
+    name: "Solarized",
 
     color: [
         Palette::interpolate2(0xeee8d5, 0xfdf6e3, 0x0, 0x0),
@@ -63,4 +63,3 @@ pub const SOLARIZED: Palette = Palette {
         ("week-header-fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
-

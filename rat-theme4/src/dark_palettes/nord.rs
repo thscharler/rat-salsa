@@ -2,11 +2,11 @@ use crate::{ColorIdx, Colors, Palette};
 
 /// Nord
 /// Credits to original https://github.com/arcticicestudio/nord-vim
-/// 
-const DARKNESS: u8 = 128;
+///
+const DARKNESS: u8 = 63;
 
 pub const NORD: Palette = Palette {
-    name: "Nord", 
+    name: "Nord",
 
     color: [
         Palette::interpolate2(0xe5e9f0, 0xe5e9f0, 0x0, 0x0),
@@ -64,4 +64,3 @@ pub const NORD: Palette = Palette {
         ("week-header-fg", ColorIdx(Colors::Yellow, 0)),
     ],
 };
-

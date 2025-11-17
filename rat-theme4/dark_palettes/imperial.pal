@@ -1,7 +1,7 @@
 [palette]
 name=Imperial
 docs=Uses purple and gold for primary/secondary.\nOther colors are bright, strong and slightly smudged.
-dark=64
+dark=63
 
 [color]
 text-light=#DEDFE3, #F6F6F3
