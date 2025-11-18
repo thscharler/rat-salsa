@@ -14,14 +14,38 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 This splits themes in two parts,
 
-* [Palette](crate::Palette) - The underlying color-palette with enough colors to play
-  around.
-* [DarkTheme](crate::dark_theme::DarkTheme) takes a palette and produces Styles
-  for rat-widgets.
+* [Palette](crate::Palette)
+  This defines a color palette. It contains a rainbow-table,  
+  explicit primary, secondary colors and light/bright/dark/black
+  text-colors.
 
-This intentionally doesn't adhere to any trait, just provides some
-baselines for each widget type. You can use this as is, or copy it
-and adapt it for your applications needs.
+  Plus it contains a list of aliases for semantic colors.
+  e.g.: "label-fg", "focus", "select", "container-base"
+  These point to specific colors in the palette and can
+  be used to create the actual theme composition.
+
+* [SalsaTheme](crate::SalsaTheme)
+  Takes a palette and creates `Styles`.
+
+  And it creates concrete `xxStyle` structs to configure
+  specific rat-widgets. It can also store `yyStyle` structs
+  for your own widgets.
+
+## Extras
+
+There is `pal-edit` a visual editor for palettes.
+It can create the .rs palettes and has its own storage format too.
+And, it can be configured to use extra aliases needed by your
+application.
+
+## Application specific palettes.
+
+It's not too complicated, I just had no time to make an example yet.
+Mostly it boils down to mapping a theme-name to a SalsaTheme+Palette.
+
+## Loadable palettes.
+
+It's doable. The .pal files are sufficient to create a Palette, but
+it's not implemented yet.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
-
