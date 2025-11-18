@@ -1,7 +1,7 @@
-use crate::datainput::DataInput;
-use crate::other::Other;
-use crate::readability::Readability;
-use crate::{Global, datainput, other, readability};
+use crate::sample_data_input::SampleDataInput;
+use crate::sample_other::SampleOther;
+use crate::sample_readability::SampleReadability;
+use crate::{Global, sample_data_input, sample_other, sample_readability};
 use anyhow::Error;
 use pure_rust_locales::Locale;
 use rat_theme4::{StyleName, WidgetStyle, dark_theme, shell_theme};
@@ -19,22 +19,22 @@ use std::iter::once;
 
 // mark tabs
 #[derive(Debug)]
-pub struct ShowTabs {
+pub struct ShowSample {
     pub themes: ChoiceState<String>,
     pub tabs: TabbedState,
-    pub input: DataInput,
-    pub readability: Readability,
-    pub other: Other,
+    pub input: SampleDataInput,
+    pub readability: SampleReadability,
+    pub other: SampleOther,
 }
 
-impl ShowTabs {
+impl ShowSample {
     pub fn new(loc: Locale) -> Self {
         Self {
             themes: ChoiceState::named("themes"),
             tabs: Default::default(),
-            input: DataInput::new(loc),
-            readability: Readability::default(),
-            other: Other::default(),
+            input: SampleDataInput::new(loc),
+            readability: SampleReadability::default(),
+            other: SampleOther::default(),
         }
     }
 
@@ -52,7 +52,7 @@ impl ShowTabs {
     }
 }
 
-impl HasFocus for ShowTabs {
+impl HasFocus for ShowSample {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.tabs);
         builder.widget(&self.themes);
@@ -79,7 +79,7 @@ impl HasFocus for ShowTabs {
     }
 }
 
-impl HasScreenCursor for ShowTabs {
+impl HasScreenCursor for ShowSample {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         match self.tabs.selected() {
             Some(0) => self.input.screen_cursor(),
@@ -93,7 +93,7 @@ impl HasScreenCursor for ShowTabs {
 pub fn render(
     area: Rect,
     buf: &mut Buffer,
-    state: &mut ShowTabs,
+    state: &mut ShowSample,
     ctx: &mut Global,
 ) -> Result<(), Error> {
     let l0 = Layout::vertical([
@@ -154,13 +154,13 @@ pub fn render(
         Some(0) => {
             let mut area = state.tabs.widget_area;
             area.width += 1;
-            datainput::render(area, buf, &mut state.input, ctx)?;
+            sample_data_input::render(area, buf, &mut state.input, ctx)?;
         }
         Some(1) => {
-            readability::render(state.tabs.widget_area, buf, &mut state.readability, ctx)?;
+            sample_readability::render(state.tabs.widget_area, buf, &mut state.readability, ctx)?;
         }
         Some(2) => {
-            other::render(state.tabs.widget_area, buf, &mut state.other, ctx)?;
+            sample_other::render(state.tabs.widget_area, buf, &mut state.other, ctx)?;
         }
         _ => {}
     };
@@ -172,7 +172,7 @@ pub fn render(
 
 pub fn event(
     event: &crossterm::event::Event,
-    state: &mut ShowTabs,
+    state: &mut ShowSample,
     ctx: &mut Global,
 ) -> Result<Outcome, Error> {
     event_flow!(match state.themes.handle(event, Popup) {
@@ -190,13 +190,13 @@ pub fn event(
 
     event_flow!(match state.tabs.selected() {
         Some(0) => {
-            datainput::event(event, &mut state.input, ctx)?
+            sample_data_input::event(event, &mut state.input, ctx)?
         }
         Some(1) => {
-            readability::event(event, &mut state.readability, ctx)?
+            sample_readability::event(event, &mut state.readability, ctx)?
         }
         Some(2) => {
-            other::event(event, &mut state.other, ctx)?
+            sample_other::event(event, &mut state.other, ctx)?
         }
         _ => {
             Outcome::Continue

@@ -13,19 +13,19 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{StatefulWidget, Wrap};
 
 #[derive(Debug)]
-pub struct Readability {
+pub struct SampleReadability {
     pub colors: ChoiceState<ColorIdx>,
     pub high_contrast: CheckboxState,
     pub para: ParagraphState,
 }
 
-impl Readability {
+impl SampleReadability {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl Default for Readability {
+impl Default for SampleReadability {
     fn default() -> Self {
         let mut z = Self {
             colors: Default::default(),
@@ -37,7 +37,7 @@ impl Default for Readability {
     }
 }
 
-impl HasFocus for Readability {
+impl HasFocus for SampleReadability {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.colors);
         builder.widget(&self.high_contrast);
@@ -53,7 +53,7 @@ impl HasFocus for Readability {
     }
 }
 
-impl HasScreenCursor for Readability {
+impl HasScreenCursor for SampleReadability {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         None
     }
@@ -62,7 +62,7 @@ impl HasScreenCursor for Readability {
 pub fn render(
     area: Rect,
     buf: &mut Buffer,
-    state: &mut Readability,
+    state: &mut SampleReadability,
     ctx: &mut Global,
 ) -> Result<(), Error> {
     let l0 = Layout::vertical([
@@ -122,7 +122,7 @@ The Paris Peace Accords removed the remaining United States forces, and fighting
 
 pub fn event(
     event: &crossterm::event::Event,
-    state: &mut Readability,
+    state: &mut SampleReadability,
     _ctx: &mut Global,
 ) -> Result<Outcome, Error> {
     event_flow!(state.colors.handle(event, Popup));

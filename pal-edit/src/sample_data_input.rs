@@ -32,7 +32,7 @@ use ratatui::widgets::{Block, Borders, Padding};
 
 // mark
 #[derive(Debug)]
-pub struct DataInput {
+pub struct SampleDataInput {
     pub form: ClipperState,
 
     pub disabled: ButtonState,
@@ -50,7 +50,7 @@ pub struct DataInput {
     pub calendar: CalendarState<1, SingleSelection>,
 }
 
-impl HasFocus for DataInput {
+impl HasFocus for SampleDataInput {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.disabled);
         builder.widget(&self.button);
@@ -76,7 +76,7 @@ impl HasFocus for DataInput {
     }
 }
 
-impl HasScreenCursor for DataInput {
+impl HasScreenCursor for SampleDataInput {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         self.combobox
             .screen_cursor()
@@ -89,7 +89,7 @@ impl HasScreenCursor for DataInput {
     }
 }
 
-impl DataInput {
+impl SampleDataInput {
     pub fn new(loc: Locale) -> Self {
         let mut z = Self {
             form: ClipperState::named("show"),
@@ -125,7 +125,7 @@ impl DataInput {
 pub fn render(
     area: Rect,
     buf: &mut Buffer,
-    state: &mut DataInput,
+    state: &mut SampleDataInput,
     ctx: &mut Global,
 ) -> Result<(), Error> {
     let mut form = Clipper::new() //
@@ -299,9 +299,6 @@ pub fn render(
                         .border_set(border::EMPTY)
                 } else {
                     Block::default().style(ctx.show_theme.style_style(Style::INPUT))
-                    // .border_style(ctx.show_theme.style_style(Style::INPUT))
-                    // .borders(Borders::LEFT)
-                    // .border_set(border::EMPTY)
                 })
         },
         &mut state.textarea,
@@ -324,7 +321,7 @@ pub fn render(
 
 pub fn event(
     event: &crossterm::event::Event,
-    state: &mut DataInput,
+    state: &mut SampleDataInput,
     ctx: &mut Global,
 ) -> Result<Outcome, Error> {
     event_flow!(match state.choice.handle(event, Popup) {

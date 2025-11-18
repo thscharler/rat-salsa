@@ -2,22 +2,22 @@ mod base46;
 mod clipboard;
 mod color_span;
 mod configparser_ext;
-mod datainput;
 mod message;
-mod other;
 mod palette_edit;
-mod readability;
-mod show_or_base46;
-mod show_tabs;
+mod sample_data_input;
+mod sample_or_base46;
+mod sample_other;
+mod sample_readability;
+mod show_sample;
 
 use crate::clipboard::CliClipboard;
 use crate::configparser_ext::ConfigParserExt;
 use crate::message::{MsgState, msg_event, msg_render};
 use crate::palette_edit::PaletteEdit;
-use crate::show_or_base46::ShowOrBase46;
+use crate::sample_or_base46::ShowOrBase46;
 use anyhow::{Error, anyhow};
 use configparser::ini::Ini;
-use log::{error, warn};
+use log::error;
 use pure_rust_locales::Locale;
 use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render};
@@ -35,7 +35,7 @@ use rat_widget::layout::LayoutOuter;
 use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::text::HasScreenCursor;
-use rat_widget::text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
+use rat_widget::text::clipboard::set_global_clipboard;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Stylize};
@@ -254,7 +254,7 @@ pub fn render(
 
     // main
     palette_edit::render(l2[0], buf, &mut state.edit, ctx)?;
-    show_or_base46::render(l2[1], buf, &mut state.detail, ctx)?;
+    sample_or_base46::render(l2[1], buf, &mut state.detail, ctx)?;
     screen_cursor(state, ctx);
 
     // menu & status
@@ -381,7 +381,7 @@ pub fn event(
             }
             r => r.into(),
         });
-        event_flow!(show_or_base46::event(event, &mut state.detail, ctx)?);
+        event_flow!(sample_or_base46::event(event, &mut state.detail, ctx)?);
 
         event_flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => new_pal(state, ctx)?,

@@ -1,6 +1,6 @@
 use crate::base46::Base46;
-use crate::show_tabs::ShowTabs;
-use crate::{Config, Global, base46, show_tabs};
+use crate::show_sample::ShowSample;
+use crate::{Config, Global, base46, show_sample};
 use anyhow::Error;
 use rat_theme4::WidgetStyle;
 use rat_widget::event::{HandleEvent, Outcome, Regular, event_flow};
@@ -15,7 +15,7 @@ use ratatui::widgets::{Block, BorderType, StatefulWidget};
 #[derive(Debug)]
 pub struct ShowOrBase46 {
     pub tabs: TabbedState,
-    pub show: ShowTabs,
+    pub show: ShowSample,
     pub base46: Base46,
 }
 
@@ -23,7 +23,7 @@ impl ShowOrBase46 {
     pub fn new(cfg: &Config) -> Self {
         Self {
             tabs: Default::default(),
-            show: ShowTabs::new(cfg.loc),
+            show: ShowSample::new(cfg.loc),
             base46: Base46::default(),
         }
     }
@@ -88,7 +88,7 @@ pub fn render(
 
     match state.tabs.selected() {
         Some(0) => {
-            show_tabs::render(state.tabs.widget_area, buf, &mut state.show, ctx)?;
+            show_sample::render(state.tabs.widget_area, buf, &mut state.show, ctx)?;
         }
         Some(1) => {
             let mut area = state.tabs.widget_area;
@@ -107,7 +107,7 @@ pub fn event(
 ) -> Result<Outcome, Error> {
     event_flow!(match state.tabs.selected() {
         Some(0) => {
-            show_tabs::event(event, &mut state.show, ctx)?
+            show_sample::event(event, &mut state.show, ctx)?
         }
         Some(1) => {
             base46::event(event, &mut state.base46, ctx)?

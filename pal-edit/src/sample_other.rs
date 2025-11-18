@@ -21,7 +21,7 @@ use ratatui::prelude::StatefulWidget;
 use ratatui::widgets::Block;
 
 #[derive(Debug)]
-pub struct Other {
+pub struct SampleOther {
     pub form: FormState<usize>,
     pub dialog_flag: FocusFlag,
     pub dialog: DialogFrameState,
@@ -32,7 +32,7 @@ pub struct Other {
     pub status: StatusLineState,
 }
 
-impl HasFocus for Other {
+impl HasFocus for SampleOther {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.menu);
         builder.widget(&self.form);
@@ -51,13 +51,13 @@ impl HasFocus for Other {
     }
 }
 
-impl HasScreenCursor for Other {
+impl HasScreenCursor for SampleOther {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         None
     }
 }
 
-impl Default for Other {
+impl Default for SampleOther {
     fn default() -> Self {
         let mut z = Self {
             form: FormState::named("form"),
@@ -80,7 +80,7 @@ impl Default for Other {
 pub fn render(
     area: Rect,
     buf: &mut Buffer,
-    state: &mut Other,
+    state: &mut SampleOther,
     ctx: &mut Global,
 ) -> Result<(), Error> {
     let l0 = Layout::vertical([
@@ -285,7 +285,7 @@ pub fn render(
 
 pub fn event(
     event: &crossterm::event::Event,
-    state: &mut Other,
+    state: &mut SampleOther,
     _ctx: &mut Global,
 ) -> Result<Outcome, Error> {
     event_flow!(state.menu.handle(event, Popup));
