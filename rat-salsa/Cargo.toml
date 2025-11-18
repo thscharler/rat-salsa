@@ -21,7 +21,7 @@ dialog_widgets = ["dialog", "rat-widget"]
 [dependencies]
 log = "0.4"
 crossbeam = "0.8"
-crossterm = "0.28"
+crossterm = "0.29"
 try_as_traits = { version = "0.1", optional = true }
 ratatui = { version = "0.29", features = ["scrolling-regions"] }
 tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }

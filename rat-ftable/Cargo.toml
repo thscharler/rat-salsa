@@ -17,7 +17,7 @@ collapsible_else_if = "allow"
 unstable-widget-ref = []
 
 [dependencies]
-crossterm = "0.28"
+crossterm = "0.29"
 ratatui = { version = "0.29" }
 log = "0.4"
 
