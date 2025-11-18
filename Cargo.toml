@@ -20,4 +20,5 @@ members = [
     "rat-widget",
     "rat-dialog",
     "rat-vim",
+    "pal-edit",
 ]

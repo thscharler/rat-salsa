@@ -1,0 +1,33 @@
+[package]
+name = "pal-edit"
+version = "1.0.0"
+edition = "2024"
+authors = ["thscharler <thscharler@gmail.com>"]
+description = "edit and preview for rat-theme4 color palettes."
+license = "MIT/Apache-2.0"
+repository = "https://github.com/thscharler/rat-salsa/pal-edit"
+readme = "readme.md"
+keywords = ["ratatui", "themes", "color"]
+categories = ["command-line-interface"]
+exclude = [".idea/*", ".gitignore"]
+
+[dependencies]
+anyhow = "1.0"
+cli-clipboard = "0.4"
+fern = "0.7"
+indexmap = "2.12"
+log = "0.4"
+pure-rust-locales = "0.8"
+sys-locale = "0.3"
+try_as_traits = { version = "0.1" }
+
+configparser = { version = "3.1", features = ["indexmap"] }
+
+crossterm = "0.28"
+ratatui = { version = "0.29", features = ["scrolling-regions"] }
+
+rat-salsa = { version = "2.4", path = "../rat-salsa", features = ["dialog_widgets"] }
+rat-widget = { version = "2.4", path = "../rat-widget", features = ["user_directories"] }
+rat-theme4 = { version = "4.0", path = "../rat-theme4" }
+
+
