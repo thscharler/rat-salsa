@@ -1,20 +1,20 @@
 #![allow(dead_code)]
 
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
+use configparser::ini::Ini;
 use dirs::config_dir;
-use ini::Ini;
 use log::{debug, warn};
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
-use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::{create_theme, SalsaTheme, StyleName, WidgetStyle};
-use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
+use rat_theme4::{SalsaTheme, StyleName, WidgetStyle, create_theme};
+use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
-use rat_widget::text::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
 use rat_widget::text::HasScreenCursor;
+use rat_widget::text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
@@ -95,10 +95,17 @@ fn load_config() -> Result<LogScrollConfig, Error> {
     if let Some(config) = config_dir() {
         let config = config.join("logscroll").join("logscroll.ini");
         if config.exists() {
-            let ini = Ini::load_from_file(config)?;
-            let sec = ini.general_section();
-            let split_pos: u16 = sec.get("split").unwrap_or("25").parse()?;
-            let theme = sec.get("theme").unwrap_or("");
+            let mut ini = Ini::new();
+            match ini.load(config) {
+                Ok(_) => {}
+                Err(e) => {
+                    return Err(anyhow!(e));
+                }
+            };
+
+            let split_pos: u16 = ini.get("default", "split").unwrap_or("25".into()).parse()?;
+            let theme = ini.get("default", "theme").unwrap_or_default();
+
             return Ok(LogScrollConfig {
                 split_pos,
                 theme: theme.into(),
@@ -119,16 +126,22 @@ fn store_config(cfg: &LogScrollConfig) -> Result<(), Error> {
         let config = config_path.join("logscroll.ini");
 
         let mut ini = if config.exists() {
-            Ini::load_from_file(&config)?
+            let mut ini = Ini::new();
+            match ini.load(&config) {
+                Ok(_) => {}
+                Err(e) => {
+                    return Err(anyhow!(e));
+                }
+            };
+            ini
         } else {
             Ini::default()
         };
 
-        let mut sec = ini.with_general_section();
-        sec.set("split", cfg.split_pos.to_string());
-        sec.set("theme", cfg.theme.clone());
+        ini.set("default", "split", Some(cfg.split_pos.to_string()));
+        ini.set("default", "theme", Some(cfg.theme.clone()));
 
-        ini.write_to_file(config)?;
+        ini.write(config)?;
 
         Ok(())
     } else {
@@ -355,9 +368,9 @@ mod logscroll {
     use rat_salsa::tasks::{Cancel, Liveness};
     use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{Control, SalsaContext};
-    use rat_theme4::{create_theme, salsa_themes, SalsaTheme, StyleName, WidgetStyle};
+    use rat_theme4::{SalsaTheme, StyleName, WidgetStyle, create_theme, salsa_themes};
     use rat_widget::event::{
-        ct_event, try_flow, HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome,
+        HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome, ct_event, try_flow,
     };
     use rat_widget::focus::{HasFocus, Navigation};
     use rat_widget::paired::{PairSplit, Paired, PairedState, PairedWidget};
@@ -365,7 +378,7 @@ mod logscroll {
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use rat_widget::table::selection::RowSelection;
     use rat_widget::table::{Table, TableContext, TableData, TableState};
-    use rat_widget::text::{impl_screen_cursor, upos_type, TextPosition};
+    use rat_widget::text::{TextPosition, impl_screen_cursor, upos_type};
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState, TextWrap};
     use ratatui::buffer::Buffer;
@@ -373,7 +386,7 @@ mod logscroll {
     use ratatui::style::Style;
     use ratatui::text::{Line, Span};
     use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
-    use regex_cursor::engines::dfa::{find_iter, Regex};
+    use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
     use ropey::{Rope, RopeBuilder};
     use std::cmp::min;

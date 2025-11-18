@@ -11,10 +11,10 @@ use crate::game::LifeGameState;
 use crate::life::Life;
 use anyhow::Error;
 use rat_salsa::poll::{PollCrossterm, PollEvents};
-use rat_salsa::{run_tui, RunConfig};
 use rat_salsa::{Control, SalsaAppContext, SalsaContext};
-use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
-use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
+use rat_salsa::{RunConfig, run_tui};
+use rat_theme4::{SalsaTheme, WidgetStyle, create_theme};
+use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -317,14 +317,14 @@ pub fn error(
 }
 
 pub mod life {
-    use crate::game::{LifeGame, LifeGameState};
     use crate::GlobalState;
     use crate::LifeEvent;
+    use crate::game::{LifeGame, LifeGameState};
     use anyhow::Error;
     use rat_focus::impl_has_focus;
     use rat_salsa::{Control, SalsaContext};
     use rat_theme4::WidgetStyle;
-    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
+    use rat_widget::event::{HandleEvent, MenuOutcome, Regular, try_flow};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -457,8 +457,8 @@ pub mod life {
 }
 
 pub mod game {
-    use anyhow::{anyhow, Error};
-    use ini::Ini;
+    use anyhow::{Error, anyhow};
+    use configparser::ini::Ini;
     use rand::random;
     use rat_theme4::SalsaTheme;
     use ratatui::buffer::Buffer;
@@ -908,22 +908,31 @@ pub mod game {
     }
 
     pub fn load_life(file: &Path, theme: &SalsaTheme) -> Result<LifeGameState, Error> {
-        let ini = Ini::load_from_file(file)?;
+        let mut ini = Ini::new();
+        match ini.load(file) {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(anyhow!(e));
+            }
+        };
 
         let name = file.file_stem().expect("name").to_string_lossy();
 
-        let rule = rule(&ini.get_from_or(Some("life"), "rules", "23/3"));
-        let one = ini.get_from_or(Some("life"), "one", "1Xx");
-        let one_color = color(&ini.get_from_or(Some("life"), "one.color", "cccccc"), theme)?;
+        let rule = rule(&ini.get("life", "rules").unwrap_or("23/3".into()));
+        let one = ini.get("life", "one").unwrap_or("1Xx".into());
+        let one_color = color(
+            &ini.get("life", "one.color").unwrap_or("cccccc".into()),
+            theme,
+        )?;
         let zero_color = color(
-            &ini.get_from_or(Some("life"), "zero.color", "000000"),
+            &ini.get("life", "zero.color").unwrap_or("000000".into()),
             theme,
         )?;
 
         let mut height = 0;
         let mut width = 0;
         loop {
-            if let Some(v) = ini.get_from(Some("data"), &format!("{}", height)) {
+            if let Some(v) = ini.get("data", &format!("{}", height)) {
                 let v = v.trim_matches('"').trim_matches('\'');
                 width = max(width, v.chars().count() as u16);
             } else {
@@ -933,7 +942,7 @@ pub mod game {
         }
         let mut world_0 = vec![0; width as usize * height as usize];
         for row in 0..height {
-            if let Some(d) = ini.get_from(Some("data"), &format!("{}", row)) {
+            if let Some(d) = ini.get("data", &format!("{}", row)) {
                 let d = d.trim_matches('"').trim_matches('\'');
                 for (col, c) in d.chars().enumerate() {
                     if col >= width as usize {

@@ -32,19 +32,20 @@ rat-widget = { version = "2.4", optional = true, path = "../rat-widget", feature
 
 [dev-dependencies]
 anyhow = "1.0"
-rand = "0.9"
-fern = "0.7"
-dirs = "6.0"
-sysinfo = "0.37"
-sys-locale = "0.3"
-pure-rust-locales = "0.8"
-ropey = "1.6.1"
-regex-cursor = "0.1.5"
-unicode-segmentation = "1.11"
 cli-clipboard = "0.4"
 configparser = { version = "3.1", features = ["indexmap"] }
+dirs = "6.0"
+fern = "0.7"
 indexmap = "2.12"
+pure-rust-locales = "0.8"
+rand = "0.9"
+regex-cursor = "0.1.5"
+ropey = "1.6.1"
+sys-locale = "0.3"
+sysinfo = "0.37"
+unicode-segmentation = "1.11"
 
+rat-widget = { version = "2.4", path = "../rat-widget", features = ["user_directories"] }
 rat-theme4 = { version = "4.0", path = "../rat-theme4" }
 
 [[example]]
