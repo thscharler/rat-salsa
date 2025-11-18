@@ -36,71 +36,74 @@ use std::time::Duration;
 pub fn dark_theme(name: &str, p: Palette) -> SalsaTheme {
     let mut th = SalsaTheme::new(name, Category::Dark, p);
 
-    th.define(Style::LABEL_FG, th.p.fg_style_ext(Color::LABEL_FG));
-    th.define(Style::INPUT, th.p.style_ext(Color::INPUT));
-    th.define(Style::FOCUS, th.p.style_ext(Color::FOCUS));
-    th.define(Style::SELECT, th.p.style_ext(Color::SELECT));
-    th.define(Style::DISABLED, th.p.style_ext(Color::DISABLED));
-    th.define(Style::INVALID, th.p.style_ext(Color::INVALID));
-    th.define(Style::HOVER, th.p.style_ext(Color::HOVER));
+    th.define(Style::LABEL_FG, th.p.fg_style_alias(Color::LABEL_FG));
+    th.define(Style::INPUT, th.p.style_alias(Color::INPUT));
+    th.define(Style::FOCUS, th.p.style_alias(Color::FOCUS));
+    th.define(Style::SELECT, th.p.style_alias(Color::SELECT));
+    th.define(Style::DISABLED, th.p.style_alias(Color::DISABLED));
+    th.define(Style::INVALID, th.p.style_alias(Color::INVALID));
+    th.define(Style::HOVER, th.p.style_alias(Color::HOVER));
     th.define(
         Style::TITLE,
-        th.p.fg_bg_style_ext(Color::TITLE_FG, Color::TITLE),
+        th.p.fg_bg_style_alias(Color::TITLE_FG, Color::TITLE),
     );
     th.define(
         Style::HEADER,
-        th.p.fg_bg_style_ext(Color::HEADER_FG, Color::HEADER),
+        th.p.fg_bg_style_alias(Color::HEADER_FG, Color::HEADER),
     );
     th.define(
         Style::FOOTER,
-        th.p.fg_bg_style_ext(Color::FOOTER_FG, Color::FOOTER),
+        th.p.fg_bg_style_alias(Color::FOOTER_FG, Color::FOOTER),
     );
-    th.define(Style::SHADOWS, th.p.style_ext(Color::SHADOWS));
+    th.define(Style::SHADOWS, th.p.style_alias(Color::SHADOWS));
     th.define(
         Style::WEEK_HEADER_FG,
-        th.p.fg_style_ext(Color::WEEK_HEADER_FG),
+        th.p.fg_style_alias(Color::WEEK_HEADER_FG),
     );
     th.define(
         Style::MONTH_HEADER_FG,
-        th.p.fg_style_ext(Color::MONTH_HEADER_FG),
+        th.p.fg_style_alias(Color::MONTH_HEADER_FG),
     );
-    th.define(Style::SHADOWS, th.p.style_ext(Color::SHADOWS));
-    th.define(Style::TEXT_FOCUS, th.p.style_ext(Color::TEXT_FOCUS));
-    th.define(Style::TEXT_SELECT, th.p.style_ext(Color::SELECT));
-    th.define(Style::KEY_BINDING, th.p.style_ext(Color::KEY_BINDING));
+    th.define(Style::SHADOWS, th.p.style_alias(Color::SHADOWS));
+    th.define(Style::TEXT_FOCUS, th.p.style_alias(Color::TEXT_FOCUS));
+    th.define(Style::TEXT_SELECT, th.p.style_alias(Color::SELECT));
+    th.define(Style::KEY_BINDING, th.p.style_alias(Color::KEY_BINDING));
 
-    th.define(Style::BUTTON_BASE, th.p.style_ext(Color::BUTTON_BASE));
-    th.define(Style::MENU_BASE, th.p.style_ext(Color::MENU_BASE));
-    th.define(Style::STATUS_BASE, th.p.style_ext(Color::STATUS_BASE));
+    th.define(Style::BUTTON_BASE, th.p.style_alias(Color::BUTTON_BASE));
+    th.define(Style::MENU_BASE, th.p.style_alias(Color::MENU_BASE));
+    th.define(Style::STATUS_BASE, th.p.style_alias(Color::STATUS_BASE));
 
-    th.define(Style::CONTAINER_BASE, th.p.style_ext(Color::CONTAINER_BASE));
+    th.define(
+        Style::CONTAINER_BASE,
+        th.p.style_alias(Color::CONTAINER_BASE),
+    );
     th.define(
         Style::CONTAINER_BORDER_FG,
-        th.p.fg_bg_style_ext(Color::CONTAINER_BORDER_FG, Color::CONTAINER_BASE),
+        th.p.fg_bg_style_alias(Color::CONTAINER_BORDER_FG, Color::CONTAINER_BASE),
     );
     th.define(
         Style::CONTAINER_ARROW_FG,
-        th.p.fg_bg_style_ext(Color::CONTAINER_ARROW_FG, Color::CONTAINER_BASE),
+        th.p.fg_bg_style_alias(Color::CONTAINER_ARROW_FG, Color::CONTAINER_BASE),
     );
 
-    th.define(Style::POPUP_BASE, th.p.style_ext(Color::POPUP_BASE));
+    th.define(Style::POPUP_BASE, th.p.style_alias(Color::POPUP_BASE));
     th.define(
         Style::POPUP_BORDER_FG,
-        th.p.fg_bg_style_ext(Color::POPUP_BORDER_FG, Color::POPUP_BASE),
+        th.p.fg_bg_style_alias(Color::POPUP_BORDER_FG, Color::POPUP_BASE),
     );
     th.define(
         Style::POPUP_ARROW_FG,
-        th.p.fg_bg_style_ext(Color::POPUP_ARROW_FG, Color::POPUP_BASE),
+        th.p.fg_bg_style_alias(Color::POPUP_ARROW_FG, Color::POPUP_BASE),
     );
 
-    th.define(Style::DIALOG_BASE, th.p.style_ext(Color::DIALOG_BASE));
+    th.define(Style::DIALOG_BASE, th.p.style_alias(Color::DIALOG_BASE));
     th.define(
         Style::DIALOG_BORDER_FG,
-        th.p.fg_bg_style_ext(Color::DIALOG_BORDER_FG, Color::DIALOG_BASE),
+        th.p.fg_bg_style_alias(Color::DIALOG_BORDER_FG, Color::DIALOG_BASE),
     );
     th.define(
         Style::DIALOG_ARROW_FG,
-        th.p.fg_bg_style_ext(Color::DIALOG_ARROW_FG, Color::DIALOG_BASE),
+        th.p.fg_bg_style_alias(Color::DIALOG_ARROW_FG, Color::DIALOG_BASE),
     );
 
     th.define_fn(WidgetStyle::BUTTON, button);

@@ -39,7 +39,7 @@ fn test_palette() {
         eprintln!();
         let pal = create_palette(pal).expect("pal");
         for n in rat_widget_color_names() {
-            _ = pal.color_ext(n);
+            _ = pal.color_alias(n);
         }
     }
 }

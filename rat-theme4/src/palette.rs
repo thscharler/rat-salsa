@@ -1,4 +1,3 @@
-use log::debug;
 use ratatui::style::{Color, Style};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -316,10 +315,24 @@ impl Palette {
         style
     }
 
-    pub fn color_idx(&self, id: &str) -> ColorIdx {
+    /// Try to find an alias.
+    pub fn try_aliased(&self, id: &str) -> Option<ColorIdx> {
         match self.aliased.binary_search_by_key(&id, |v| v.0) {
-            Ok(n) => self.aliased[n].1,
-            Err(_) => {
+            Ok(n) => Some(self.aliased[n].1),
+            Err(_) => None,
+        }
+    }
+
+    /// Get the ColorIdx of an aliased color.
+    ///
+    /// __Panic__
+    ///
+    /// With debug_assertions this panics if the alias is not found.
+    /// Otherwise, it returns a default.
+    pub fn aliased(&self, id: &str) -> ColorIdx {
+        match self.try_aliased(id) {
+            Some(c) => c,
+            None => {
                 if cfg!(debug_assertions) {
                     panic!("unknown aliased color {:?}", id);
                 } else {
@@ -329,17 +342,17 @@ impl Palette {
         }
     }
 
-    pub fn color_ext(&self, id: &str) -> Color {
-        match self.aliased.binary_search_by_key(&id, |v| v.0) {
-            Ok(n) => {
-                let (_, ColorIdx { 0: c, 1: idx }) = self.aliased[n];
+    /// Get an aliased color.
+    pub fn color_alias(&self, id: &str) -> Color {
+        match self.try_aliased(id) {
+            Some(ColorIdx { 0: c, 1: idx }) => {
                 if c != Colors::None {
                     self.color[c as usize][idx]
                 } else {
                     Color::default()
                 }
             }
-            Err(_) => {
+            None => {
                 if cfg!(debug_assertions) {
                     panic!("unknown aliased color {:?}", id);
                 } else {
@@ -349,19 +362,26 @@ impl Palette {
         }
     }
 
-    pub fn style_ext(&self, bg: &str) -> Style {
-        let color = self.color_ext(bg);
+    /// Get a Style for a color-alias.
+    /// Uses the color as bg() and finds the matching text-color.
+    pub fn style_alias(&self, bg: &str) -> Style {
+        let color = self.color_alias(bg);
         self.normal_contrast(color)
     }
 
-    pub fn high_style_ext(&self, bg: &str) -> Style {
-        let color = self.color_ext(bg);
+    /// Get a Style for a color-alias.
+    /// Uses the color as bg() and finds the matching text-color.
+    /// Uses the high-contrast foreground.
+    pub fn high_style_alias(&self, bg: &str) -> Style {
+        let color = self.color_alias(bg);
         self.high_contrast(color)
     }
 
-    pub fn fg_bg_style_ext(&self, fg: &str, bg: &str) -> Style {
-        let color = self.color_ext(fg);
-        let color_bg = self.color_ext(bg);
+    /// Get a Style for a color-alias.
+    /// Uses explicit aliases for fg() and bg()
+    pub fn fg_bg_style_alias(&self, fg: &str, bg: &str) -> Style {
+        let color = self.color_alias(fg);
+        let color_bg = self.color_alias(bg);
         let mut style = Style::new();
         if color != Color::Reset {
             style = style.fg(color);
@@ -372,8 +392,10 @@ impl Palette {
         style
     }
 
-    pub fn fg_style_ext(&self, fg: &str) -> Style {
-        let color = self.color_ext(fg);
+    /// Get a Style for a color-alias.
+    /// This creates a style with only the fg() color set.
+    pub fn fg_style_alias(&self, fg: &str) -> Style {
+        let color = self.color_alias(fg);
         let mut style = Style::new();
         if color != Color::Reset {
             style = style.fg(color);
@@ -381,8 +403,10 @@ impl Palette {
         style
     }
 
-    pub fn bg_style_ext(&self, bg: &str) -> Style {
-        let color = self.color_ext(bg);
+    /// Get a Style for a color-alias.
+    /// This creates a style with only the bg() color set.
+    pub fn bg_style_alias(&self, bg: &str) -> Style {
+        let color = self.color_alias(bg);
         let mut style = Style::new();
         if color != Color::Reset {
             style = style.bg(color);

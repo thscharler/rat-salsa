@@ -128,58 +128,67 @@ pub fn core_theme(name: &str) -> SalsaTheme {
     let p = SHELL;
     let mut th = SalsaTheme::new(name, Category::Shell, p);
 
-    th.define(Style::LABEL_FG, th.p.fg_style_ext(Color::LABEL_FG));
-    th.define(Style::INPUT, th.p.style_ext(Color::INPUT));
-    th.define(Style::FOCUS, th.p.high_style_ext(Color::FOCUS));
-    th.define(Style::SELECT, th.p.high_style_ext(Color::SELECT));
-    th.define(Style::DISABLED, th.p.style_ext(Color::DISABLED));
-    th.define(Style::INVALID, th.p.style_ext(Color::INVALID));
-    th.define(Style::HOVER, th.p.fg_style_ext(Color::HOVER));
-    th.define(Style::TITLE, th.p.fg_style_ext(Color::TITLE_FG));
-    th.define(Style::HEADER, th.p.fg_style_ext(Color::HEADER_FG));
-    th.define(Style::FOOTER, th.p.fg_style_ext(Color::FOOTER_FG));
-    th.define(Style::SHADOWS, th.p.style_ext(Color::SHADOWS));
-    th.define(Style::WEEK_HEADER_FG, th.p.style_ext(Color::WEEK_HEADER_FG));
+    th.define(Style::LABEL_FG, th.p.fg_style_alias(Color::LABEL_FG));
+    th.define(Style::INPUT, th.p.style_alias(Color::INPUT));
+    th.define(Style::FOCUS, th.p.high_style_alias(Color::FOCUS));
+    th.define(Style::SELECT, th.p.high_style_alias(Color::SELECT));
+    th.define(Style::DISABLED, th.p.style_alias(Color::DISABLED));
+    th.define(Style::INVALID, th.p.style_alias(Color::INVALID));
+    th.define(Style::HOVER, th.p.fg_style_alias(Color::HOVER));
+    th.define(Style::TITLE, th.p.fg_style_alias(Color::TITLE_FG));
+    th.define(Style::HEADER, th.p.fg_style_alias(Color::HEADER_FG));
+    th.define(Style::FOOTER, th.p.fg_style_alias(Color::FOOTER_FG));
+    th.define(Style::SHADOWS, th.p.style_alias(Color::SHADOWS));
+    th.define(
+        Style::WEEK_HEADER_FG,
+        th.p.style_alias(Color::WEEK_HEADER_FG),
+    );
     th.define(
         Style::MONTH_HEADER_FG,
-        th.p.style_ext(Color::MONTH_HEADER_FG),
+        th.p.style_alias(Color::MONTH_HEADER_FG),
     );
-    th.define(Style::TEXT_FOCUS, th.p.high_style_ext(Color::TEXT_FOCUS));
-    th.define(Style::TEXT_SELECT, th.p.high_style_ext(Color::SELECT));
-    th.define(Style::KEY_BINDING, th.p.high_style_ext(Color::KEY_BINDING));
+    th.define(Style::TEXT_FOCUS, th.p.high_style_alias(Color::TEXT_FOCUS));
+    th.define(Style::TEXT_SELECT, th.p.high_style_alias(Color::SELECT));
+    th.define(
+        Style::KEY_BINDING,
+        th.p.high_style_alias(Color::KEY_BINDING),
+    );
 
-    th.define(Style::BUTTON_BASE, th.p.high_style_ext(Color::BUTTON_BASE));
+    th.define(
+        Style::BUTTON_BASE,
+        th.p.high_style_alias(Color::BUTTON_BASE),
+    );
     th.define(Style::MENU_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(Style::STATUS_BASE, th.p.fg_style(Colors::TextLight, 0));
 
     th.define(Style::CONTAINER_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::CONTAINER_BORDER_FG,
-        th.p.fg_style_ext(Color::CONTAINER_BORDER_FG),
+        th.p.fg_style_alias(Color::CONTAINER_BORDER_FG),
     );
     th.define(
         Style::CONTAINER_ARROW_FG,
-        th.p.fg_style_ext(Color::CONTAINER_ARROW_FG),
+        th.p.fg_style_alias(Color::CONTAINER_ARROW_FG),
     );
 
     th.define(Style::POPUP_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::POPUP_BORDER_FG,
-        th.p.fg_style_ext(Color::POPUP_BORDER_FG),
+        th.p.fg_style_alias(Color::POPUP_BORDER_FG),
     );
     th.define(
         Style::POPUP_ARROW_FG,
-        th.p.fg_style_ext(Color::POPUP_ARROW_FG),
+        th.p.fg_style_alias(Color::POPUP_ARROW_FG),
     );
 
     th.define(Style::DIALOG_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define(
         Style::DIALOG_BORDER_FG,
-        th.p.fg_style_ext(Color::DIALOG_BORDER_FG),
+        th.p.fg_style_alias(Color::DIALOG_BORDER_FG),
     );
     th.define(
         Style::DIALOG_ARROW_FG,
-        th.p.fg_style_ext(Color::DIALOG_ARROW_FG),
+        th.p.fg_style_alias(Color::DIALOG_ARROW_FG),
     );
 
     th.define_fn(WidgetStyle::BUTTON, button);
@@ -221,7 +230,7 @@ fn button(th: &SalsaTheme) -> ButtonStyle {
         style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
-        hover: Some(th.p.style_ext(Color::HOVER)),
+        hover: Some(th.p.style_alias(Color::HOVER)),
         armed_delay: Some(Duration::from_millis(50)),
         ..Default::default()
     }
