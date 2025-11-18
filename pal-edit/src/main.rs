@@ -17,6 +17,7 @@ use crate::palette_edit::PaletteEdit;
 use crate::sample_or_base46::ShowOrBase46;
 use anyhow::{Error, anyhow};
 use configparser::ini::Ini;
+use dirs::config_dir;
 use log::error;
 use pure_rust_locales::Locale;
 use rat_salsa::dialog_stack::DialogStack;
@@ -43,8 +44,8 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cell::RefCell;
 use std::env::args;
-use std::fs::File;
-use std::io::Read;
+use std::fs::{File, create_dir_all};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str::FromStr;
@@ -71,11 +72,7 @@ fn main() -> Result<(), Error> {
 
     setup_logging()?;
     set_global_clipboard(CliClipboard::default());
-
-    let loc = sys_locale::get_locale().expect("locale");
-    let loc = loc.replace("-", "_");
-    let loc = Locale::try_from(loc.as_str()).expect("locale");
-    let config = Config { loc, extra_alias };
+    let config = Config::load()?;
 
     let theme = create_theme("Shell");
 
@@ -149,6 +146,50 @@ impl Config {
         r.extend(rat_widget_color_names().iter().map(|v| v.to_string()));
         r.extend(self.extra_alias.iter().cloned());
         r
+    }
+
+    pub fn load() -> Result<Config, Error> {
+        let loc = sys_locale::get_locale().expect("locale");
+        let loc = loc.replace("-", "_");
+        let loc = Locale::try_from(loc.as_str()).expect("locale");
+
+        let extra_alias = if let Some(cfg_dir) = config_dir() {
+            let mut aliases = Vec::new();
+
+            let cfg_path = cfg_dir.join("pal-edit");
+            let cfg_file = cfg_path.join("pal-edit.ini");
+            if cfg_file.exists() {
+                let mut ini = Ini::new();
+                match ini.load(cfg_file) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        return Err(anyhow!(e));
+                    }
+                }
+
+                if let Some(map) = ini.get_map_ref().get("aliases") {
+                    for alias in map.keys() {
+                        aliases.push(alias.trim().into());
+                    }
+                }
+            } else {
+                create_dir_all(cfg_path)?;
+                let mut f = File::create_new(cfg_file)?;
+                f.write_all(
+                    b"[aliases]
+# add extra color aliases here.
+# just names, no values needed.
+# sample
+",
+                )?;
+            }
+
+            aliases
+        } else {
+            Vec::new()
+        };
+
+        Ok(Config { loc, extra_alias })
     }
 }
 

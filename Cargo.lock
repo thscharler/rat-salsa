@@ -923,6 +923,7 @@ dependencies = [
  "cli-clipboard",
  "configparser",
  "crossterm",
+ "dirs",
  "fern",
  "indexmap",
  "log",
