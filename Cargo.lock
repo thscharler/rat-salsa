@@ -1192,7 +1192,7 @@ dependencies = [
  "rat-event",
  "rat-focus",
  "rat-salsa",
- "rat-theme3",
+ "rat-theme4",
  "rat-widget",
  "ratatui",
  "try_as",

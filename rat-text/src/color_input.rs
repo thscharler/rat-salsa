@@ -1455,38 +1455,42 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for ColorInput
 }
 
 fn handle_mouse(state: &mut ColorInputState, event: &crossterm::event::Event) -> TextOutcome {
-    match event {
-        ct_event!(scroll ALT down for x,y) if state.mode_area.contains((*x, *y).into()) => {
-            state.next_mode().into()
+    if state.is_focused() {
+        match event {
+            ct_event!(scroll ALT down for x,y) if state.mode_area.contains((*x, *y).into()) => {
+                state.next_mode().into()
+            }
+            ct_event!(scroll ALT up for x,y) if state.mode_area.contains((*x, *y).into()) => {
+                state.prev_mode().into()
+            }
+            ct_event!(scroll down for x,y) if state.widget.area.contains((*x, *y).into()) => {
+                let rx = state
+                    .widget
+                    .screen_to_col((*x - state.widget.area.x) as i16);
+                state.change_section_pos(rx, -1).into()
+            }
+            ct_event!(scroll up for x,y) if state.widget.area.contains((*x, *y).into()) => {
+                let rx = state
+                    .widget
+                    .screen_to_col((*x - state.widget.area.x) as i16);
+                state.change_section_pos(rx, 1).into()
+            }
+            ct_event!(scroll ALT down for x,y) if state.widget.area.contains((*x, *y).into()) => {
+                let rx = state
+                    .widget
+                    .screen_to_col((*x - state.widget.area.x) as i16);
+                state.change_section_pos(rx, -7).into()
+            }
+            ct_event!(scroll ALT up for x,y) if state.widget.area.contains((*x, *y).into()) => {
+                let rx = state
+                    .widget
+                    .screen_to_col((*x - state.widget.area.x) as i16);
+                state.change_section_pos(rx, 7).into()
+            }
+            _ => TextOutcome::Continue,
         }
-        ct_event!(scroll ALT up for x,y) if state.mode_area.contains((*x, *y).into()) => {
-            state.prev_mode().into()
-        }
-        ct_event!(scroll down for x,y) if state.widget.area.contains((*x, *y).into()) => {
-            let rx = state
-                .widget
-                .screen_to_col((*x - state.widget.area.x) as i16);
-            state.change_section_pos(rx, -1).into()
-        }
-        ct_event!(scroll up for x,y) if state.widget.area.contains((*x, *y).into()) => {
-            let rx = state
-                .widget
-                .screen_to_col((*x - state.widget.area.x) as i16);
-            state.change_section_pos(rx, 1).into()
-        }
-        ct_event!(scroll ALT down for x,y) if state.widget.area.contains((*x, *y).into()) => {
-            let rx = state
-                .widget
-                .screen_to_col((*x - state.widget.area.x) as i16);
-            state.change_section_pos(rx, -7).into()
-        }
-        ct_event!(scroll ALT up for x,y) if state.widget.area.contains((*x, *y).into()) => {
-            let rx = state
-                .widget
-                .screen_to_col((*x - state.widget.area.x) as i16);
-            state.change_section_pos(rx, 7).into()
-        }
-        _ => TextOutcome::Continue,
+    } else {
+        TextOutcome::Continue
     }
 }
 
