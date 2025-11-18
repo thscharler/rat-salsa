@@ -414,8 +414,6 @@ fn color_input(th: &SalsaTheme) -> ColorInputStyle {
             focus: Some(th.style(Style::TEXT_FOCUS)),
             select: Some(th.style(Style::TEXT_SELECT)),
             invalid: Some(th.style(Style::INVALID)),
-            on_focus_gained: Some(TextFocusGained::Overwrite),
-            on_focus_lost: Some(TextFocusLost::Position0),
             ..TextStyle::default()
         },
         ..Default::default()

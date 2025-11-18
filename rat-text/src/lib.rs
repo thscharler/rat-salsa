@@ -105,10 +105,10 @@ pub mod event {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum TextFocusGained {
     /// None
-    #[default]
     None,
     /// Editing overwrites the current content.
     /// Any movement resets this flag and allows editing.
+    #[default]
     Overwrite,
     /// Select all text on focus gain.
     SelectAll,
@@ -121,10 +121,10 @@ pub enum TextFocusGained {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum TextFocusLost {
     /// None
-    #[default]
     None,
     /// Sets the offset to 0. This prevents strangely clipped
     /// text for long inputs.
+    #[default]
     Position0,
 }
 
