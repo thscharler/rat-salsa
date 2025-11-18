@@ -12,7 +12,7 @@ use anyhow::Error;
 use rat_dialog::{DialogStack, WindowControl};
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme3::palettes::BASE16;
+use rat_theme4::dark_palettes::BASE16;
 use ratatui::layout::Rect;
 use std::fs;
 use std::path::PathBuf;
@@ -890,7 +890,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme3::{Contrast, Palette};
+    use rat_theme4::{Colors, Palette};
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::line_number::LineNumberStyle;
@@ -907,13 +907,13 @@ pub mod theme {
 
     #[derive(Debug, Clone)]
     pub struct TurboTheme {
-        s: Palette,
+        p: Palette,
         name: String,
     }
 
     impl TurboTheme {
-        pub fn new(name: String, s: Palette) -> Self {
-            Self { s, name }
+        pub fn new(name: String, p: Palette) -> Self {
+            Self { p, name }
         }
     }
 
@@ -929,62 +929,70 @@ pub mod theme {
         }
 
         /// The underlying scheme.
-        pub fn scheme(&self) -> &Palette {
-            &self.s
+        pub fn palette(&self) -> &Palette {
+            &self.p
         }
 
         /// Focus style
         pub fn focus(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.primary[2];
+            let fg = self.p.color(Colors::Black, 0);
+            let bg = self.p.color(Colors::Primary, 2);
             Style::default().fg(fg).bg(bg)
         }
 
         /// Selection style
         pub fn select(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.secondary[1];
+            let fg = self.p.color(Colors::Black, 0);
+            let bg = self.p.color(Colors::Secondary, 1);
             Style::default().fg(fg).bg(bg)
         }
 
         /// Text field style.
         pub fn text_input(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
+            Style::default()
+                .fg(self.p.color(Colors::Black, 0))
+                .bg(self.p.color(Colors::Gray, 3))
         }
 
         /// Focused text field style.
         pub fn text_focus(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.primary[0];
+            let fg = self.p.color(Colors::Black, 0);
+            let bg = self.p.color(Colors::Primary, 0);
             Style::default().fg(fg).bg(bg)
         }
 
         /// Text selection style.
         pub fn text_select(&self) -> Style {
-            let fg = self.s.black[0];
-            let bg = self.s.secondary[0];
+            let fg = self.p.color(Colors::Black, 0);
+            let bg = self.p.color(Colors::Secondary, 0);
             Style::default().fg(fg).bg(bg)
         }
 
         /// Data display style. Used for lists, tables, ...
         pub fn data(&self) -> Style {
-            Style::default().fg(self.s.white[3]).bg(self.s.deepblue[0])
+            Style::default()
+                .fg(self.p.color(Colors::White, 3))
+                .bg(self.p.color(Colors::DeepBlue, 0))
         }
 
         /// Background for dialogs.
         pub fn dialog_style(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
+            Style::default()
+                .fg(self.p.color(Colors::Black, 0))
+                .bg(self.p.color(Colors::Gray, 3))
         }
 
         /// Style for the status line.
         pub fn status_style(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
+            Style::default()
+                .fg(self.p.color(Colors::Black, 0))
+                .bg(self.p.color(Colors::Gray, 3))
         }
 
         /// Style for LineNumbers.
         pub fn line_nr_style(&self) -> LineNumberStyle {
             LineNumberStyle {
-                style: self.data().fg(self.s.gray[0]),
+                style: self.data().fg(self.p.color(Colors::Gray, 0)),
                 cursor: Some(self.text_select()),
                 ..LineNumberStyle::default()
             }
@@ -1006,7 +1014,7 @@ pub mod theme {
                 style: self.text_input(),
                 focus: Some(self.text_focus()),
                 select: Some(self.text_select()),
-                invalid: Some(Style::default().bg(self.s.red[3])),
+                invalid: Some(Style::default().bg(self.p.color(Colors::Red, 3))),
                 ..Default::default()
             }
         }
@@ -1015,13 +1023,17 @@ pub mod theme {
         pub fn menu_style(&self) -> MenuStyle {
             MenuStyle {
                 style: self.dialog_style(),
-                title: Some(Style::default().fg(self.s.black[0]).bg(self.s.gray[3])),
+                title: Some(
+                    Style::default()
+                        .fg(self.p.color(Colors::Black, 0))
+                        .bg(self.p.color(Colors::Gray, 3)),
+                ),
                 focus: Some(self.focus()),
-                highlight: Some(Style::default().fg(self.s.red[2])),
-                disabled: Some(Style::default().fg(self.s.black[3])),
+                highlight: Some(Style::default().fg(self.p.color(Colors::Red, 2))),
+                disabled: Some(Style::default().fg(self.p.color(Colors::Black, 3))),
                 right: Some(Style::default().italic()),
                 popup_style: Some(self.dialog_style()),
-                popup_border: Some(Style::default().fg(self.s.black[3])),
+                popup_border: Some(Style::default().fg(self.p.color(Colors::Black, 3))),
                 popup: PopupStyle::default(),
                 ..Default::default()
             }
@@ -1051,18 +1063,28 @@ pub mod theme {
         /// Complete ButtonStyle
         pub fn button_style(&self) -> ButtonStyle {
             ButtonStyle {
-                style: self.s.secondary(0, Contrast::High),
-                focus: Some(self.s.primary(0, Contrast::High)),
-                armed: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[3])),
-                hover: Some(Style::default().fg(self.s.black[0]).bg(self.s.primary[0])),
+                style: self.p.high_style(Colors::Secondary, 0),
+                focus: Some(self.p.high_style(Colors::Primary, 0)),
+                armed: Some(
+                    Style::default()
+                        .fg(self.p.color(Colors::Black, 0))
+                        .bg(self.p.color(Colors::Secondary, 3)),
+                ),
+                hover: Some(
+                    Style::default()
+                        .fg(self.p.color(Colors::Black, 0))
+                        .bg(self.p.color(Colors::Primary, 0)),
+                ),
                 ..Default::default()
             }
         }
 
         /// Complete ScrolledStyle
         pub fn scroll_style(&self) -> ScrollStyle {
-            let style = Style::default().fg(self.s.black[3]);
-            let arrow_style = Style::default().fg(self.s.black[3]).bg(self.s.secondary[0]);
+            let style = Style::default().fg(self.p.color(Colors::Black, 3));
+            let arrow_style = Style::default()
+                .fg(self.p.color(Colors::Black, 3))
+                .bg(self.p.color(Colors::Secondary, 0));
             ScrollStyle {
                 thumb_style: Some(style),
                 track_style: Some(style),
@@ -1089,8 +1111,12 @@ pub mod theme {
 
         /// Complete Split style
         pub fn split_style(&self) -> SplitStyle {
-            let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
-            let arrow_style = Style::default().fg(self.s.secondary[0]).bg(self.s.black[1]);
+            let style = Style::default()
+                .fg(self.p.color(Colors::Gray, 0))
+                .bg(self.p.color(Colors::Black, 1));
+            let arrow_style = Style::default()
+                .fg(self.p.color(Colors::Secondary, 0))
+                .bg(self.p.color(Colors::Black, 1));
             SplitStyle {
                 style,
                 arrow_style: Some(arrow_style),
@@ -1101,11 +1127,13 @@ pub mod theme {
 
         /// Complete Tabbed style
         pub fn tabbed_style(&self) -> TabbedStyle {
-            let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
+            let style = Style::default()
+                .fg(self.p.color(Colors::Gray, 0))
+                .bg(self.p.color(Colors::Black, 1));
             TabbedStyle {
                 style,
-                tab: Some(self.s.gray(1, Contrast::Normal)),
-                select: Some(self.s.gray(3, Contrast::Normal)),
+                tab: Some(self.p.style(Colors::Gray, 1)),
+                select: Some(self.p.style(Colors::Gray, 3)),
                 focus: Some(self.focus()),
                 ..Default::default()
             }
@@ -1116,12 +1144,12 @@ pub mod theme {
         /// [minimal](https://github.com/thscharler/rat-salsa/blob/master/examples/minimal.rs)
         /// example, which shows timings for Render/Event/Action.
         pub fn statusline_style(&self) -> Vec<Style> {
-            let s = &self.s;
+            let s = &self.p;
             vec![
                 self.status_style(),
-                s.blue(3, Contrast::Normal),
-                s.blue(2, Contrast::Normal),
-                s.blue(1, Contrast::Normal),
+                s.style(Colors::Blue, 3),
+                s.style(Colors::Blue, 2),
+                s.style(Colors::Blue, 1),
             ]
         }
 

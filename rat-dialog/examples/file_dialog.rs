@@ -7,8 +7,8 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::{TimeOut, TimerDef};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme3::palettes::IMPERIAL;
-use rat_theme3::{DarkTheme, SalsaTheme};
+use rat_theme4::dark_palettes::IMPERIAL;
+use rat_theme4::{SalsaTheme, WidgetStyle, dark_theme};
 use rat_widget::event::{Dialog, HandleEvent, MenuOutcome, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
@@ -28,7 +28,7 @@ type AppDialogResult = Result<WindowControl<AppEvent>, Error>;
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+    let theme = dark_theme("Imperial Dark", IMPERIAL);
     let mut global = Global::new(theme);
     let mut state = Scenery::default();
 
@@ -53,7 +53,7 @@ fn main() -> Result<(), Error> {
 #[derive(Debug)]
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
-    pub theme: DarkTheme,
+    pub theme: SalsaTheme,
     pub dialogs: DialogStack<AppEvent, Global, Error>,
 }
 
@@ -69,7 +69,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 }
 
 impl Global {
-    pub fn new(theme: DarkTheme) -> Self {
+    pub fn new(theme: SalsaTheme) -> Self {
         Self {
             ctx: Default::default(),
             theme,
@@ -165,7 +165,7 @@ pub fn render(
     .split(area);
 
     let (menubar, menupopup) = Menubar::new(&MENU)
-        .styles(ctx.theme.menu_style())
+        .styles(ctx.theme.style(WidgetStyle::MENU))
         .title("rata-tui")
         .into_widgets();
     menubar.render(layout[1], buf, &mut state.menu);
@@ -175,7 +175,7 @@ pub fn render(
 
     if state.error_dlg.active() {
         MsgDialog::new()
-            .styles(ctx.theme.msg_dialog_style())
+            .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
             .render(layout[0], buf, &mut state.error_dlg);
     }
 
@@ -195,7 +195,7 @@ pub fn render(
             Constraint::Length(8),
             Constraint::Length(8),
         ])
-        .styles(ctx.theme.statusline_style())
+        .styles_ext(ctx.theme.style(WidgetStyle::STATUSLINE))
         .render(status_layout[1], buf, &mut state.status);
 
     Ok(())
@@ -379,7 +379,7 @@ pub mod file_dlg_fixed {
     use rat_dialog::WindowControl;
     use rat_event::Dialog;
     use rat_salsa::SalsaContext;
-    use rat_theme3::SalsaTheme;
+    use rat_theme4::WidgetStyle;
     use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::layout::layout_middle;
@@ -403,7 +403,7 @@ pub mod file_dlg_fixed {
         );
 
         FileDialog::new()
-            .styles(ctx.theme.file_dialog_style())
+            .styles(ctx.theme.style(WidgetStyle::FILE_DIALOG))
             .render(area, buf, state);
 
         ctx.set_screen_cursor(state.screen_cursor());
@@ -439,13 +439,14 @@ pub mod file_dlg_moveable {
     use rat_dialog::{WindowControl, WindowFrameOutcome};
     use rat_event::Dialog;
     use rat_salsa::SalsaContext;
-    use rat_theme3::SalsaTheme;
+    use rat_theme4::{StyleName, WidgetStyle};
     use rat_widget::event::{FileOutcome, HandleEvent, try_flow};
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::layout::layout_middle;
     use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Rect};
+    use ratatui::style::Style;
     use ratatui::widgets::StatefulWidget;
     use std::any::Any;
 
@@ -469,14 +470,14 @@ pub mod file_dlg_moveable {
         }
 
         FileDialog::new()
-            .styles(ctx.theme.file_dialog_style())
+            .styles(ctx.theme.style(WidgetStyle::FILE_DIALOG))
             .render(state.window.area, buf, &mut state.filedlg);
 
         WindowFrame::new()
             .no_fill()
-            .style(ctx.theme.dialog_base())
-            .drag_style(ctx.theme.dialog_base())
-            .hover_style(ctx.theme.limegreen(1))
+            .style(ctx.theme.style_style(Style::DIALOG_BASE))
+            .drag_style(ctx.theme.style_style(Style::DIALOG_BASE))
+            .hover_style(ctx.theme.p.limegreen(1))
             .render(area, buf, &mut state.window);
 
         ctx.set_screen_cursor(state.filedlg.screen_cursor());
