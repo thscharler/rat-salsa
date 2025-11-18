@@ -1,0 +1,58 @@
+[palette]
+name=Imperial
+docs=Uses purple and gold for primary/secondary.\nOther colors are bright, strong and slightly smudged.
+dark=63
+
+[color]
+text-light=#DEDFE3, #F6F6F3
+text-dark=#0F1014, #2A2B37
+primary=#3D0070, #8900F9
+secondary=#726100, #E0C200
+white=#DEDFE3, #F6F6F3
+black=#0F1014, #2A2B37
+gray=#3B3D4E, #6E7291
+red=#601414, #D22D2D
+orange=#5E3913, #D3802C
+yellow=#756600, #D6B900
+lime-green=#3C5E17, #80CE31
+green=#186218, #32C932
+blue-green=#1B5944, #3ABC93
+cyan=#1B5184, #2BCECE
+blue=#234668, #2B81D4
+deep-blue=#202083, #3232CC
+purple=#4B0089, #8C00FF
+magenta=#4F1B4F, #BD44C4
+red-pink=#47101D, #C3425B
+
+[reference]
+label=text-dark:4
+input=gray:1
+focus=primary:1
+select=secondary:2
+disabled=gray:7
+invalid=red:1
+hover=gray:0
+title-fg=text-light:0
+title=red:0
+header-fg=none:0
+header=blue-green:1
+footer-fg=none:0
+footer=blue-green:1
+shadows=text-dark:0
+week-header-fg=black:3
+month-header-fg=white:0
+text-focus=primary:1
+text-select=secondary:2
+button-base=gray:1
+menu-base=gray:2
+key-binding=blue-green:0
+status-base=gray:2
+container-base=gray:3
+container-border=gray:0
+container-arrow=gray:0
+popup-base=gray:2
+popup-border=black:3
+popup-arrow=black:3
+dialog-base=gray:2
+dialog-border=black:3
+dialog-arrow=black:3
