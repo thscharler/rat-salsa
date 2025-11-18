@@ -444,7 +444,7 @@ where
                     } else if let Some(row) = self.table.selected_checked()
                         && row > 0
                     {
-                        self.table.select(Some(row - 1));
+                        self.table.select(Some(row));
                     }
                     Outcome::Changed
                 }
