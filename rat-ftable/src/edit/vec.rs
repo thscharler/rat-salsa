@@ -412,55 +412,58 @@ where
         ctx: &'a S::Context<'a>,
     ) -> Result<Outcome, S::Err> {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
-            try_flow!(match self.editor.handle(event, ctx)? {
-                Outcome::Continue => Outcome::Continue,
-                Outcome::Unchanged => Outcome::Unchanged,
-                r => {
-                    if let Some(col) = self.editor.focused_col() {
-                        self.table.scroll_to_col(col);
+            if self.is_focused() {
+                try_flow!(match self.editor.handle(event, ctx)? {
+                    Outcome::Continue => Outcome::Continue,
+                    Outcome::Unchanged => Outcome::Unchanged,
+                    r => {
+                        if let Some(col) = self.editor.focused_col() {
+                            self.table.scroll_to_col(col);
+                        }
+                        r
                     }
-                    r
-                }
-            });
+                });
 
-            try_flow!(match event {
-                ct_event!(keycode press Esc) => {
-                    self.cancel();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Enter) => {
-                    if self.table.selected_checked() < Some(self.table.rows().saturating_sub(1)) {
-                        self.commit_and_edit(ctx)?;
-                        Outcome::Changed
-                    } else {
-                        self.commit_and_append(ctx)?;
+                try_flow!(match event {
+                    ct_event!(keycode press Esc) => {
+                        self.cancel();
                         Outcome::Changed
                     }
-                }
-                ct_event!(keycode press Up) => {
-                    self.commit(ctx)?;
-                    if self.data.is_empty() {
-                        self.edit_new(0, ctx)?;
-                    } else if let Some(row) = self.table.selected_checked()
-                        && row > 0
-                    {
-                        self.table.select(Some(row));
+                    ct_event!(keycode press Enter) => {
+                        if self.table.selected_checked() < Some(self.table.rows().saturating_sub(1))
+                        {
+                            self.commit_and_edit(ctx)?;
+                            Outcome::Changed
+                        } else {
+                            self.commit_and_append(ctx)?;
+                            Outcome::Changed
+                        }
                     }
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Down) => {
-                    self.commit(ctx)?;
-                    if self.data.is_empty() {
-                        self.edit_new(0, ctx)?;
-                    } else if let Some(row) = self.table.selected_checked()
-                        && row + 1 < self.data.len()
-                    {
-                        self.table.select(Some(row + 1));
+                    ct_event!(keycode press Up) => {
+                        self.commit(ctx)?;
+                        if self.data.is_empty() {
+                            self.edit_new(0, ctx)?;
+                        } else if let Some(row) = self.table.selected_checked()
+                            && row > 0
+                        {
+                            self.table.select(Some(row));
+                        }
+                        Outcome::Changed
                     }
-                    Outcome::Changed
-                }
-                _ => Outcome::Continue,
-            });
+                    ct_event!(keycode press Down) => {
+                        self.commit(ctx)?;
+                        if self.data.is_empty() {
+                            self.edit_new(0, ctx)?;
+                        } else if let Some(row) = self.table.selected_checked()
+                            && row + 1 < self.data.len()
+                        {
+                            self.table.select(Some(row + 1));
+                        }
+                        Outcome::Changed
+                    }
+                    _ => Outcome::Continue,
+                });
+            }
 
             Ok(Outcome::Continue)
         } else {
@@ -482,52 +485,54 @@ where
                 _ => Outcome::Continue,
             });
 
-            try_flow!(match event {
-                ct_event!(keycode press Insert) => {
-                    if let Some(row) = self.table.selected_checked() {
-                        self.edit_new(row, ctx)?;
-                    }
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Delete) => {
-                    if let Some(row) = self.table.selected_checked() {
-                        self.remove(row);
-                        if self.data.is_empty() {
-                            self.edit_new(0, ctx)?;
+            if self.is_focused() {
+                try_flow!(match event {
+                    ct_event!(keycode press Insert) => {
+                        if let Some(row) = self.table.selected_checked() {
+                            self.edit_new(row, ctx)?;
                         }
-                    }
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
-                    if let Some(row) = self.table.selected_checked() {
-                        self.edit(0, row, ctx)?;
                         Outcome::Changed
-                    } else if self.table.rows() == 0 {
-                        self.edit_new(0, ctx)?;
-                        Outcome::Changed
-                    } else {
-                        Outcome::Continue
                     }
-                }
-                ct_event!(keycode press Down) => {
-                    if let Some(row) = self.table.selected_checked() {
-                        if row == self.table.rows().saturating_sub(1) {
-                            self.edit_new(row + 1, ctx)?;
+                    ct_event!(keycode press Delete) => {
+                        if let Some(row) = self.table.selected_checked() {
+                            self.remove(row);
+                            if self.data.is_empty() {
+                                self.edit_new(0, ctx)?;
+                            }
+                        }
+                        Outcome::Changed
+                    }
+                    ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
+                        if let Some(row) = self.table.selected_checked() {
+                            self.edit(0, row, ctx)?;
+                            Outcome::Changed
+                        } else if self.table.rows() == 0 {
+                            self.edit_new(0, ctx)?;
                             Outcome::Changed
                         } else {
                             Outcome::Continue
                         }
-                    } else if self.table.rows() == 0 {
-                        self.edit_new(0, ctx)?;
-                        Outcome::Changed
-                    } else {
+                    }
+                    ct_event!(keycode press Down) => {
+                        if let Some(row) = self.table.selected_checked() {
+                            if row == self.table.rows().saturating_sub(1) {
+                                self.edit_new(row + 1, ctx)?;
+                                Outcome::Changed
+                            } else {
+                                Outcome::Continue
+                            }
+                        } else if self.table.rows() == 0 {
+                            self.edit_new(0, ctx)?;
+                            Outcome::Changed
+                        } else {
+                            Outcome::Continue
+                        }
+                    }
+                    _ => {
                         Outcome::Continue
                     }
-                }
-                _ => {
-                    Outcome::Continue
-                }
-            });
+                });
+            }
 
             try_flow!(self.table.handle(event, Regular));
 
