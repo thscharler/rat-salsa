@@ -5,15 +5,15 @@
 //! look too bad.
 //!
 //!
-use crate::theme::{turbo_theme, TurboStyle};
+use crate::theme::{TurboStyle, turbo_theme};
 use crate::turbo::Turbo;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa::poll::PollCrossterm;
-use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::dark_palettes::BASE16;
 use rat_theme4::{SalsaTheme, WidgetStyle};
-use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
+use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -245,7 +245,7 @@ pub mod turbo {
     use anyhow::Error;
     use rat_salsa::{Control, SalsaContext};
     use rat_theme4::{StyleName, WidgetStyle};
-    use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup};
+    use rat_widget::event::{HandleEvent, MenuOutcome, Popup, ct_event, try_flow};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{
         MenuBuilder, MenuStructure, Menubar, MenubarState, PopupConstraint, PopupMenu,
@@ -578,7 +578,7 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme4::{dark_theme, Colors, Palette, SalsaTheme, StyleName, WidgetStyle};
+    use rat_theme4::{Colors, Palette, SalsaTheme, StyleName, WidgetStyle, dark_theme};
     use rat_widget::menu::MenuStyle;
     use rat_widget::popup::PopupStyle;
     use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
@@ -594,73 +594,73 @@ pub mod theme {
     pub fn turbo_theme(p: Palette) -> SalsaTheme {
         let mut th = dark_theme("turbo", p);
 
-        th.define(Style::INPUT, th.p.high_contrast(p.color(Colors::Gray, 3)));
-        th.define(
+        th.define_style(Style::INPUT, th.p.high_contrast(p.color(Colors::Gray, 3)));
+        th.define_style(
             Style::FOCUS,
             th.p.high_contrast(p.color(Colors::Primary, 2)),
         );
-        th.define(
+        th.define_style(
             Style::SELECT,
             th.p.high_contrast(p.color(Colors::Secondary, 1)),
         );
-        th.define(
+        th.define_style(
             Style::TEXT_FOCUS,
             th.p.high_contrast(p.color(Colors::Primary, 0)),
         );
-        th.define(
+        th.define_style(
             Style::TEXT_SELECT,
             th.p.high_contrast(p.color(Colors::Secondary, 0)),
         );
-        th.define(
+        th.define_style(
             Style::BUTTON_BASE,
             th.p.high_contrast(p.color(Colors::Gray, 3)),
         );
 
-        th.define(
+        th.define_style(
             Style::CONTAINER_BASE,
             th.p.high_contrast(p.color(Colors::Black, 1)),
         );
-        th.define(
+        th.define_style(
             Style::CONTAINER_BORDER_FG,
             th.p.normal_contrast(p.color(Colors::Black, 1)),
         );
-        th.define(
+        th.define_style(
             Style::CONTAINER_ARROW_FG,
             th.p.normal_contrast(p.color(Colors::Black, 1)),
         );
 
-        th.define(
+        th.define_style(
             Style::POPUP_BASE,
             th.p.high_contrast(p.color(Colors::Gray, 2)),
         );
-        th.define(
+        th.define_style(
             Style::POPUP_BORDER_FG,
             th.p.normal_contrast(p.color(Colors::Gray, 2)),
         );
-        th.define(
+        th.define_style(
             Style::POPUP_ARROW_FG,
             th.p.normal_contrast(p.color(Colors::Gray, 2)),
         );
 
-        th.define(
+        th.define_style(
             Style::DIALOG_BASE,
             th.p.high_contrast(p.color(Colors::Gray, 3)),
         );
-        th.define(
+        th.define_style(
             Style::DIALOG_BORDER_FG,
             th.p.normal_contrast(p.color(Colors::Gray, 3)),
         );
-        th.define(
+        th.define_style(
             Style::DIALOG_ARROW_FG,
             th.p.normal_contrast(p.color(Colors::Gray, 3)),
         );
 
-        th.define(
+        th.define_style(
             Style::STATUS_BASE,
             th.p.normal_contrast(p.color(Colors::Gray, 3)),
         );
         // add a base style
-        th.define(
+        th.define_style(
             Style::DATA,
             th.p.normal_contrast(p.color(Colors::DeepBlue, 0)),
         );
