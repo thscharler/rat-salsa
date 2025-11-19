@@ -4,7 +4,7 @@ use crate::{ColorIdx, Colors, Palette};
 const DARKNESS: u8 = 63;
 
 pub const EVERFOREST: Palette = Palette {
-    name: "EverForest", 
+    name: "EverForest",
 
     color: [
         Palette::interpolate2(0xd8d4cb, 0xf4f0e6, 0x0, 0x0),
@@ -37,14 +37,11 @@ pub const EVERFOREST: Palette = Palette {
         ("dialog-base.bg", ColorIdx(Colors::Gray, 3)),
         ("dialog-border.fg", ColorIdx(Colors::None, 0)),
         ("disabled.bg", ColorIdx(Colors::Gray, 3)),
-        ("document", ColorIdx(Colors::None, 0)),
         ("focus.bg", ColorIdx(Colors::Primary, 1)),
         ("footer.bg", ColorIdx(Colors::None, 0)),
         ("footer.fg", ColorIdx(Colors::DeepBlue, 0)),
         ("header.bg", ColorIdx(Colors::None, 0)),
         ("header.fg", ColorIdx(Colors::DeepBlue, 0)),
-        ("heading-1", ColorIdx(Colors::None, 0)),
-        ("heading-2", ColorIdx(Colors::None, 0)),
         ("hover.bg", ColorIdx(Colors::DeepBlue, 2)),
         ("input.bg", ColorIdx(Colors::White, 1)),
         ("invalid.bg", ColorIdx(Colors::Red, 1)),
@@ -58,7 +55,6 @@ pub const EVERFOREST: Palette = Palette {
         ("select.bg", ColorIdx(Colors::Secondary, 1)),
         ("shadow.bg", ColorIdx(Colors::Black, 0)),
         ("status-base.bg", ColorIdx(Colors::Black, 1)),
-        ("sub-form", ColorIdx(Colors::None, 0)),
         ("text-focus.bg", ColorIdx(Colors::Primary, 1)),
         ("text-select.bg", ColorIdx(Colors::Secondary, 1)),
         ("title.bg", ColorIdx(Colors::None, 0)),
@@ -66,4 +62,3 @@ pub const EVERFOREST: Palette = Palette {
         ("week-header.fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
-

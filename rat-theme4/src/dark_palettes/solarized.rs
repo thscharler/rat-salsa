@@ -5,7 +5,7 @@ use crate::{ColorIdx, Colors, Palette};
 const DARKNESS: u8 = 63;
 
 pub const SOLARIZED: Palette = Palette {
-    name: "Solarized", 
+    name: "Solarized",
 
     color: [
         Palette::interpolate2(0xeee8d5, 0xfdf6e3, 0x0, 0x0),
@@ -38,14 +38,11 @@ pub const SOLARIZED: Palette = Palette {
         ("dialog-base.bg", ColorIdx(Colors::Gray, 1)),
         ("dialog-border.fg", ColorIdx(Colors::None, 0)),
         ("disabled.bg", ColorIdx(Colors::Gray, 0)),
-        ("document", ColorIdx(Colors::None, 0)),
         ("focus.bg", ColorIdx(Colors::Primary, 1)),
         ("footer.bg", ColorIdx(Colors::None, 0)),
         ("footer.fg", ColorIdx(Colors::Blue, 0)),
         ("header.bg", ColorIdx(Colors::None, 0)),
         ("header.fg", ColorIdx(Colors::Blue, 0)),
-        ("heading-1", ColorIdx(Colors::None, 0)),
-        ("heading-2", ColorIdx(Colors::None, 0)),
         ("hover.bg", ColorIdx(Colors::Blue, 0)),
         ("input.bg", ColorIdx(Colors::Gray, 3)),
         ("invalid.bg", ColorIdx(Colors::Red, 0)),
@@ -59,7 +56,6 @@ pub const SOLARIZED: Palette = Palette {
         ("select.bg", ColorIdx(Colors::Secondary, 0)),
         ("shadow.bg", ColorIdx(Colors::Black, 0)),
         ("status-base.bg", ColorIdx(Colors::Black, 0)),
-        ("sub-form", ColorIdx(Colors::None, 0)),
         ("text-focus.bg", ColorIdx(Colors::Primary, 1)),
         ("text-select.bg", ColorIdx(Colors::Secondary, 0)),
         ("title.bg", ColorIdx(Colors::None, 0)),
@@ -67,4 +63,3 @@ pub const SOLARIZED: Palette = Palette {
         ("week-header.fg", ColorIdx(Colors::Gray, 3)),
     ],
 };
-

@@ -6,7 +6,7 @@ use crate::{ColorIdx, Colors, Palette};
 const DARKNESS: u8 = 63;
 
 pub const RADIUM: Palette = Palette {
-    name: "Radium", 
+    name: "Radium",
 
     color: [
         Palette::interpolate2(0xd4d4d5, 0xffffff, 0x0, 0x0),
@@ -39,14 +39,11 @@ pub const RADIUM: Palette = Palette {
         ("dialog-base.bg", ColorIdx(Colors::Gray, 2)),
         ("dialog-border.fg", ColorIdx(Colors::None, 0)),
         ("disabled.bg", ColorIdx(Colors::Gray, 0)),
-        ("document", ColorIdx(Colors::None, 0)),
         ("focus.bg", ColorIdx(Colors::Primary, 3)),
         ("footer.bg", ColorIdx(Colors::Black, 0)),
         ("footer.fg", ColorIdx(Colors::LimeGreen, 0)),
         ("header.bg", ColorIdx(Colors::Black, 0)),
         ("header.fg", ColorIdx(Colors::LimeGreen, 0)),
-        ("heading-1", ColorIdx(Colors::None, 0)),
-        ("heading-2", ColorIdx(Colors::None, 0)),
         ("hover.bg", ColorIdx(Colors::Green, 3)),
         ("input.bg", ColorIdx(Colors::Gray, 3)),
         ("invalid.bg", ColorIdx(Colors::Red, 0)),
@@ -60,7 +57,6 @@ pub const RADIUM: Palette = Palette {
         ("select.bg", ColorIdx(Colors::Secondary, 3)),
         ("shadow.bg", ColorIdx(Colors::Black, 0)),
         ("status-base.bg", ColorIdx(Colors::Black, 3)),
-        ("sub-form", ColorIdx(Colors::None, 0)),
         ("text-focus.bg", ColorIdx(Colors::Primary, 3)),
         ("text-select.bg", ColorIdx(Colors::Secondary, 3)),
         ("title.bg", ColorIdx(Colors::Secondary, 0)),
@@ -68,4 +64,3 @@ pub const RADIUM: Palette = Palette {
         ("week-header.fg", ColorIdx(Colors::BlueGreen, 0)),
     ],
 };
-
