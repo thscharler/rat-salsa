@@ -17,7 +17,6 @@ use ratatui::text::Text;
 use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
 use std::iter::once;
 
-// mark tabs
 #[derive(Debug)]
 pub struct ShowSample {
     pub themes: ChoiceState<String>,
@@ -177,7 +176,7 @@ pub fn event(
 ) -> Result<Outcome, Error> {
     event_flow!(match state.themes.handle(event, Popup) {
         ChoiceOutcome::Value => {
-            let pal = ctx.show_theme.p;
+            let pal = ctx.show_theme.p.clone();
             ctx.show_theme = match state.themes.value().as_str() {
                 "Shell" => shell_theme("Shell", pal),
                 // "Fallback" => fallback_theme("Fallback", palette),

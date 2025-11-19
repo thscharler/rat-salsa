@@ -23,6 +23,7 @@ use ratatui::layout::{Flex, Rect};
 use ratatui::style::Color;
 use ratatui::widgets::{Block, BorderType};
 use std::array;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct PaletteEdit {
@@ -108,12 +109,10 @@ impl PaletteEdit {
 }
 
 impl PaletteEdit {
-    pub fn aliased(&self) -> Vec<(&'static str, ColorIdx)> {
+    pub fn aliased(&self) -> Vec<(Cow<'static, str>, ColorIdx)> {
         let mut aliased = Vec::new();
         for (n, s) in self.color_ext.iter() {
-            let n = n.clone().into_boxed_str();
-            let n = Box::leak(n);
-            aliased.push((&*n, s.value()))
+            aliased.push((Cow::Owned(n.to_string()), s.value()))
         }
         aliased.sort();
         aliased
@@ -121,10 +120,7 @@ impl PaletteEdit {
 
     pub fn palette(&self) -> Palette {
         let mut palette = Palette::default();
-        let name = Box::from(self.name.text());
-        let name = Box::leak(name);
-        palette.name = name;
-
+        palette.name = Cow::Owned(self.name.value());
         let dark = self.dark.value().unwrap_or(64);
 
         palette.color[Colors::TextLight as usize] = Palette::interpolatec2(
@@ -146,7 +142,7 @@ impl PaletteEdit {
                 dark,
             );
         }
-        palette.aliased = self.aliased().leak();
+        palette.aliased = Cow::Owned(self.aliased());
 
         palette
     }

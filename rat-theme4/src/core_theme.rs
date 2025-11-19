@@ -1,5 +1,5 @@
-use crate::palette::Palette;
-use crate::{Category, ColorIdx, Colors, RatWidgetColor, SalsaTheme};
+use crate::palette::{Palette, define_alias};
+use crate::{Category, Colors, RatWidgetColor, SalsaTheme};
 use crate::{StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -31,10 +31,11 @@ use ratatui::style::{Color, Style, Stylize};
 use ratatui::symbols;
 use ratatui::symbols::border;
 use ratatui::widgets::{Block, Borders};
+use std::borrow::Cow;
 use std::time::Duration;
 
 pub const SHELL: Palette = Palette {
-    name: "Shell",
+    name: Cow::Borrowed("Shell"),
     color: [
         [
             Color::Gray,
@@ -83,39 +84,39 @@ pub const SHELL: Palette = Palette {
         [Color::LightMagenta; 8],
         [Color::LightRed; 8],
     ],
-    aliased: &[
-        (Color::BUTTON_BASE_BG, ColorIdx(Colors::Gray, 0)),
-        (Color::CONTAINER_ARROW_FG, ColorIdx(Colors::Gray, 0)),
-        (Color::CONTAINER_BASE_BG, ColorIdx(Colors::Black, 0)),
-        (Color::CONTAINER_BORDER_FG, ColorIdx(Colors::Gray, 0)),
-        (Color::DIALOG_ARROW_FG, ColorIdx(Colors::Black, 0)),
-        (Color::DIALOG_BASE_BG, ColorIdx(Colors::Gray, 3)),
-        (Color::DIALOG_BORDER_FG, ColorIdx(Colors::Black, 0)),
-        (Color::DISABLED_BG, ColorIdx(Colors::Gray, 0)),
-        (Color::FOCUS_BG, ColorIdx(Colors::Primary, 0)),
-        (Color::FOOTER_BG, ColorIdx(Colors::Blue, 0)),
-        (Color::FOOTER_FG, ColorIdx(Colors::TextLight, 0)),
-        (Color::HEADER_BG, ColorIdx(Colors::Blue, 0)),
-        (Color::HEADER_FG, ColorIdx(Colors::TextLight, 0)),
-        (Color::HOVER_BG, ColorIdx(Colors::Gray, 3)),
-        (Color::INPUT_BG, ColorIdx(Colors::Gray, 3)),
-        (Color::INVALID_BG, ColorIdx(Colors::Red, 0)),
-        (Color::KEY_BINDING_BG, ColorIdx(Colors::BlueGreen, 0)),
-        (Color::LABEL_FG, ColorIdx(Colors::White, 0)),
-        (Color::MENU_BASE_BG, ColorIdx(Colors::Black, 0)),
-        (Color::MONTH_HEADER_FG, ColorIdx(Colors::TextDark, 0)),
-        (Color::POPUP_ARROW_FG, ColorIdx(Colors::Gray, 3)),
-        (Color::POPUP_BASE_BG, ColorIdx(Colors::White, 0)),
-        (Color::POPUP_BORDER_FG, ColorIdx(Colors::Gray, 3)),
-        (Color::SELECT_BG, ColorIdx(Colors::Secondary, 0)),
-        (Color::SHADOW_BG, ColorIdx(Colors::TextDark, 0)),
-        (Color::STATUS_BASE_BG, ColorIdx(Colors::Black, 0)),
-        (Color::TEXT_FOCUS_BG, ColorIdx(Colors::Primary, 0)),
-        (Color::TEXT_SELECT_BG, ColorIdx(Colors::Secondary, 0)),
-        (Color::TITLE_BG, ColorIdx(Colors::Red, 0)),
-        (Color::TITLE_FG, ColorIdx(Colors::TextLight, 0)),
-        (Color::WEEK_HEADER_FG, ColorIdx(Colors::TextDark, 0)),
-    ],
+    aliased: Cow::Borrowed(&[
+        define_alias(Color::BUTTON_BASE_BG, Colors::Gray, 0),
+        define_alias(Color::CONTAINER_ARROW_FG, Colors::Gray, 0),
+        define_alias(Color::CONTAINER_BASE_BG, Colors::Black, 0),
+        define_alias(Color::CONTAINER_BORDER_FG, Colors::Gray, 0),
+        define_alias(Color::DIALOG_ARROW_FG, Colors::Black, 0),
+        define_alias(Color::DIALOG_BASE_BG, Colors::Gray, 3),
+        define_alias(Color::DIALOG_BORDER_FG, Colors::Black, 0),
+        define_alias(Color::DISABLED_BG, Colors::Gray, 0),
+        define_alias(Color::FOCUS_BG, Colors::Primary, 0),
+        define_alias(Color::FOOTER_BG, Colors::Blue, 0),
+        define_alias(Color::FOOTER_FG, Colors::TextLight, 0),
+        define_alias(Color::HEADER_BG, Colors::Blue, 0),
+        define_alias(Color::HEADER_FG, Colors::TextLight, 0),
+        define_alias(Color::HOVER_BG, Colors::Gray, 3),
+        define_alias(Color::INPUT_BG, Colors::Gray, 3),
+        define_alias(Color::INVALID_BG, Colors::Red, 0),
+        define_alias(Color::KEY_BINDING_BG, Colors::BlueGreen, 0),
+        define_alias(Color::LABEL_FG, Colors::White, 0),
+        define_alias(Color::MENU_BASE_BG, Colors::Black, 0),
+        define_alias(Color::MONTH_HEADER_FG, Colors::TextDark, 0),
+        define_alias(Color::POPUP_ARROW_FG, Colors::Gray, 3),
+        define_alias(Color::POPUP_BASE_BG, Colors::White, 0),
+        define_alias(Color::POPUP_BORDER_FG, Colors::Gray, 3),
+        define_alias(Color::SELECT_BG, Colors::Secondary, 0),
+        define_alias(Color::SHADOW_BG, Colors::TextDark, 0),
+        define_alias(Color::STATUS_BASE_BG, Colors::Black, 0),
+        define_alias(Color::TEXT_FOCUS_BG, Colors::Primary, 0),
+        define_alias(Color::TEXT_SELECT_BG, Colors::Secondary, 0),
+        define_alias(Color::TITLE_BG, Colors::Red, 0),
+        define_alias(Color::TITLE_FG, Colors::TextLight, 0),
+        define_alias(Color::WEEK_HEADER_FG, Colors::TextDark, 0),
+    ]),
 };
 
 /// A true shell theme.

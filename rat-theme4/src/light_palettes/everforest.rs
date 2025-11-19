@@ -1,10 +1,11 @@
-use crate::{ColorIdx, Colors, Palette};
+use std::borrow::Cow;
+use crate::{Colors, Palette, define_alias};
 
 /// EverForest
 const DARKNESS: u8 = 63;
 
 pub const EVERFOREST: Palette = Palette {
-    name: "EverForest",
+    name: Cow::Borrowed("EverForest"), 
 
     color: [
         Palette::interpolate2(0xd8d4cb, 0xfcf8ef, 0x0, 0x0),
@@ -28,37 +29,38 @@ pub const EVERFOREST: Palette = Palette {
         Palette::interpolate(0xce8196, 0xbf7082, DARKNESS),
     ],
     // must be sorted!
-    aliased: &[
-        ("button-base.bg", ColorIdx(Colors::Green, 4)),
-        ("container-arrow.fg", ColorIdx(Colors::None, 0)),
-        ("container-base.bg", ColorIdx(Colors::BlueGreen, 0)),
-        ("container-border.fg", ColorIdx(Colors::None, 0)),
-        ("dialog-arrow.fg", ColorIdx(Colors::None, 0)),
-        ("dialog-base.bg", ColorIdx(Colors::White, 0)),
-        ("dialog-border.fg", ColorIdx(Colors::None, 0)),
-        ("disabled.bg", ColorIdx(Colors::Gray, 2)),
-        ("focus.bg", ColorIdx(Colors::Primary, 1)),
-        ("footer.bg", ColorIdx(Colors::None, 0)),
-        ("footer.fg", ColorIdx(Colors::DeepBlue, 7)),
-        ("header.bg", ColorIdx(Colors::None, 0)),
-        ("header.fg", ColorIdx(Colors::DeepBlue, 7)),
-        ("hover.bg", ColorIdx(Colors::DeepBlue, 3)),
-        ("input.bg", ColorIdx(Colors::White, 0)),
-        ("invalid.bg", ColorIdx(Colors::Red, 1)),
-        ("key-binding.bg", ColorIdx(Colors::Green, 0)),
-        ("label.fg", ColorIdx(Colors::TextDark, 1)),
-        ("menu-base.bg", ColorIdx(Colors::White, 3)),
-        ("month-header.fg", ColorIdx(Colors::None, 0)),
-        ("popup-arrow.fg", ColorIdx(Colors::None, 0)),
-        ("popup-base.bg", ColorIdx(Colors::White, 2)),
-        ("popup-border.fg", ColorIdx(Colors::None, 0)),
-        ("select.bg", ColorIdx(Colors::Secondary, 1)),
-        ("shadow.bg", ColorIdx(Colors::Black, 0)),
-        ("status-base.bg", ColorIdx(Colors::White, 3)),
-        ("text-focus.bg", ColorIdx(Colors::Primary, 2)),
-        ("text-select.bg", ColorIdx(Colors::Secondary, 1)),
-        ("title.bg", ColorIdx(Colors::None, 0)),
-        ("title.fg", ColorIdx(Colors::Green, 4)),
-        ("week-header.fg", ColorIdx(Colors::Gray, 0)),
-    ],
+    aliased: Cow::Borrowed(&[
+        define_alias("button-base.bg", Colors::Green, 4),
+        define_alias("container-arrow.fg", Colors::None, 0),
+        define_alias("container-base.bg", Colors::BlueGreen, 0),
+        define_alias("container-border.fg", Colors::None, 0),
+        define_alias("dialog-arrow.fg", Colors::None, 0),
+        define_alias("dialog-base.bg", Colors::White, 0),
+        define_alias("dialog-border.fg", Colors::None, 0),
+        define_alias("disabled.bg", Colors::Gray, 2),
+        define_alias("focus.bg", Colors::Primary, 1),
+        define_alias("footer.bg", Colors::None, 0),
+        define_alias("footer.fg", Colors::DeepBlue, 7),
+        define_alias("header.bg", Colors::None, 0),
+        define_alias("header.fg", Colors::DeepBlue, 7),
+        define_alias("hover.bg", Colors::DeepBlue, 3),
+        define_alias("input.bg", Colors::White, 0),
+        define_alias("invalid.bg", Colors::Red, 1),
+        define_alias("key-binding.bg", Colors::Green, 0),
+        define_alias("label.fg", Colors::TextDark, 1),
+        define_alias("menu-base.bg", Colors::White, 3),
+        define_alias("month-header.fg", Colors::None, 0),
+        define_alias("popup-arrow.fg", Colors::None, 0),
+        define_alias("popup-base.bg", Colors::White, 2),
+        define_alias("popup-border.fg", Colors::None, 0),
+        define_alias("select.bg", Colors::Secondary, 1),
+        define_alias("shadow.bg", Colors::Black, 0),
+        define_alias("status-base.bg", Colors::White, 3),
+        define_alias("text-focus.bg", Colors::Primary, 2),
+        define_alias("text-select.bg", Colors::Secondary, 1),
+        define_alias("title.bg", Colors::None, 0),
+        define_alias("title.fg", Colors::Green, 4),
+        define_alias("week-header.fg", Colors::Gray, 0),
+    ]),
 };
+

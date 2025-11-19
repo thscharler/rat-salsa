@@ -24,7 +24,7 @@ use rat_widget::splitter::SplitStyle;
 use rat_widget::statusline::StatusLineStyle;
 use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
-use rat_widget::text::{TextFocusGained, TextFocusLost, TextStyle};
+use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
 use ratatui::style::{Color, Style, Stylize};

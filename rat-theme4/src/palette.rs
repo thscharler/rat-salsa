@@ -1,4 +1,5 @@
 use ratatui::style::{Color, Style};
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
@@ -135,19 +136,23 @@ impl Colors {
 /// Color palette.
 ///
 /// This provides the palette used for a theme.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Palette {
-    pub name: &'static str,
+    /// Name of the color palette.
+    pub name: Cow<'static, str>,
+    /// Color palette. Use [Colors] for indexing.
     pub color: [[Color; 8]; Colors::LEN],
-    pub aliased: &'static [(&'static str, ColorIdx)],
+    /// **Sorted** list of aliases.
+    /// Must be pre-sorted for binary-search.
+    pub aliased: Cow<'static, [(Cow<'static, str>, ColorIdx)]>,
 }
 
 impl Default for Palette {
     fn default() -> Self {
         Self {
-            name: "",
+            name: Cow::Borrowed(""),
             color: [[Color::default(); 8]; Colors::LEN],
-            aliased: &[],
+            aliased: Cow::Borrowed(&[]),
         }
     }
 }
@@ -159,6 +164,26 @@ pub(crate) enum Rating {
     Light,
     /// Use dark/black text for the given background.
     Dark,
+}
+
+/// Create a color alias.
+/// This is a const fn.
+pub const fn define_alias(
+    alias: &'static str,
+    color: Colors,
+    n: usize,
+) -> (Cow<'static, str>, ColorIdx) {
+    (Cow::Borrowed(alias), ColorIdx(color, n))
+}
+
+/// Create a color alias for owned values.
+pub fn define_rt_alias(
+    alias: impl Into<String>,
+    color: Colors,
+    n: usize,
+) -> (Cow<'static, str>, ColorIdx) {
+    let alias = alias.into();
+    (Cow::Owned(alias), ColorIdx(color, n))
 }
 
 impl Palette {
@@ -317,7 +342,7 @@ impl Palette {
 
     /// Try to find an alias.
     pub fn try_aliased(&self, id: &str) -> Option<ColorIdx> {
-        match self.aliased.binary_search_by_key(&id, |v| v.0) {
+        match self.aliased.binary_search_by_key(&id, |v| v.0.as_ref()) {
             Ok(n) => Some(self.aliased[n].1),
             Err(_) => None,
         }

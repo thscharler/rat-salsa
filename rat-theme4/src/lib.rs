@@ -25,9 +25,9 @@
 //! # use ratatui::layout::Rect;
 //! # use ratatui::style::Style;
 //! # use ratatui::widgets::StatefulWidget;
-//! # use rat_theme5::{Theme, StyleName, WidgetStyle, };
+//! # use rat_theme4::{SalsaTheme, StyleName, WidgetStyle, };
 //! # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
-//! # let theme = Theme::default();
+//! # let theme = SalsaTheme::default();
 //! # let area = Rect::default();
 //! # let mut buf = Buffer::default();
 //! # let buf = &mut buf;
@@ -59,7 +59,7 @@ pub mod core_palettes {
 pub use crate::fallback_theme::fallback_theme;
 pub use core_theme::core_theme;
 pub use dark_theme::dark_theme;
-pub use palette::{ColorIdx, Colors, Palette};
+pub use palette::{ColorIdx, Colors, Palette, define_alias, define_rt_alias};
 pub use shell_theme::shell_theme;
 pub use theme::{Category, SalsaTheme};
 
@@ -69,10 +69,10 @@ pub use theme::{Category, SalsaTheme};
 /// Use as
 /// ```rust
 /// # use ratatui::style::Style;
-/// # use rat_theme5::{Theme, StyleName, WidgetStyle};
-/// # use rat_theme5::palettes::BLACKOUT;
+/// # use rat_theme4::{SalsaTheme, StyleName, WidgetStyle};
+/// # use rat_theme4::dark_palettes::BLACKOUT;
 /// # use rat_widget::checkbox::CheckboxStyle;
-/// # let theme = Theme::default();
+/// # let theme = SalsaTheme::default();
 ///
 /// let s: CheckboxStyle = theme.style(WidgetStyle::CHECKBOX);
 /// ```
@@ -82,10 +82,10 @@ pub use theme::{Category, SalsaTheme};
 /// # use ratatui::layout::Rect;
 /// # use ratatui::style::Style;
 /// # use ratatui::widgets::StatefulWidget;
-/// # use rat_theme5::{Theme, StyleName, WidgetStyle, };
-/// # use rat_theme5::palettes::BLACKOUT;
+/// # use rat_theme4::{SalsaTheme, StyleName, WidgetStyle, };
+/// # use rat_theme4::dark_palettes::BLACKOUT;
 /// # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
-/// # let theme = Theme::default();
+/// # let theme = SalsaTheme::default();
 /// # let area = Rect::default();
 /// # let mut buf = Buffer::default();
 /// # let buf = &mut buf;
@@ -136,9 +136,9 @@ impl WidgetStyle {
 /// Use as
 /// ```rust
 /// # use ratatui::style::Style;
-/// # use rat_theme5::{Theme, StyleName, };
-/// # use rat_theme5::palettes::BLACKOUT;
-/// # let theme = Theme::default();
+/// # use rat_theme4::{SalsaTheme, StyleName, };
+/// # use rat_theme4::dark_palettes::BLACKOUT;
+/// # let theme = SalsaTheme::default();
 ///
 /// let s: Style = theme.style(Style::INPUT);
 /// ```

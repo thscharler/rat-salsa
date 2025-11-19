@@ -651,7 +651,8 @@ fn export_pal_file(
     let c32 = Palette::color_to_u32;
 
     let mut wr = File::create(path)?;
-    writeln!(wr, "use crate::{{ColorIdx, Colors, Palette}};")?;
+    writeln!(wr, "use std::borrow::Cow;")?;
+    writeln!(wr, "use crate::{{Colors, Palette, define_alias}};")?;
     writeln!(wr, "")?;
     writeln!(wr, "/// {}", state.edit.name())?;
     for l in state.edit.docs.text().lines() {
@@ -668,7 +669,7 @@ fn export_pal_file(
         "pub const {}: Palette = Palette {{",
         state.edit.const_name(),
     )?;
-    writeln!(wr, "    name: \"{}\", ", state.edit.name())?;
+    writeln!(wr, "    name: Cow::Borrowed(\"{}\"), ", state.edit.name())?;
     writeln!(wr, "")?;
     writeln!(wr, "    color: [")?;
     for c in [Colors::TextLight, Colors::TextDark] {
@@ -693,16 +694,16 @@ fn export_pal_file(
     }
     writeln!(wr, "    ],")?;
     writeln!(wr, "    // must be sorted!")?;
-    writeln!(wr, "    aliased: &[")?;
+    writeln!(wr, "    aliased: Cow::Borrowed(&[")?;
     let aliased = state.edit.aliased();
     for (n, c) in aliased {
         writeln!(
             wr,
-            "        ({:?}, ColorIdx(Colors::{:?}, {:?})),",
+            "        define_alias({:?}, Colors::{:?}, {:?}),",
             n, c.0, c.1
         )?;
     }
-    writeln!(wr, "    ],")?;
+    writeln!(wr, "    ]),")?;
     writeln!(wr, "}};")?;
     writeln!(wr, "")?;
 

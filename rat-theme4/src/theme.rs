@@ -1,7 +1,7 @@
 use crate::fallback_theme::fallback_theme;
 use crate::{ColorIdx, Palette, is_log_style_define};
 use log::info;
-use ratatui::style::{Color, Style};
+use ratatui::style::Style;
 use std::any::{Any, type_name};
 use std::collections::{HashMap, hash_map};
 use std::fmt::{Debug, Formatter};
@@ -81,7 +81,8 @@ impl SalsaTheme {
 
     /// Define a color as a [ColorIdx] into the underlying palette.
     pub fn define_color(&mut self, name: &'static str, color_idx: ColorIdx) {
-        let boxed = Box::new(move |th: &SalsaTheme| -> Box<dyn StyleValue> { Box::new(color_idx) });
+        let boxed =
+            Box::new(move |_th: &SalsaTheme| -> Box<dyn StyleValue> { Box::new(color_idx) });
         self.define(name, boxed);
     }
 

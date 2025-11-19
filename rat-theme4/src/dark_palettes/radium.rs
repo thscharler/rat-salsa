@@ -1,4 +1,5 @@
-use crate::{ColorIdx, Colors, Palette};
+use std::borrow::Cow;
+use crate::{Colors, Palette, define_alias};
 
 /// Radium
 /// An adaption of nvchad's radium theme.
@@ -6,7 +7,7 @@ use crate::{ColorIdx, Colors, Palette};
 const DARKNESS: u8 = 63;
 
 pub const RADIUM: Palette = Palette {
-    name: "Radium",
+    name: Cow::Borrowed("Radium"), 
 
     color: [
         Palette::interpolate2(0xd4d4d5, 0xffffff, 0x0, 0x0),
@@ -30,37 +31,38 @@ pub const RADIUM: Palette = Palette {
         Palette::interpolate(0xff8e8e, 0xff8e8e, DARKNESS),
     ],
     // must be sorted!
-    aliased: &[
-        ("button-base.bg", ColorIdx(Colors::White, 3)),
-        ("container-arrow.fg", ColorIdx(Colors::None, 0)),
-        ("container-base.bg", ColorIdx(Colors::Black, 3)),
-        ("container-border.fg", ColorIdx(Colors::None, 0)),
-        ("dialog-arrow.fg", ColorIdx(Colors::None, 0)),
-        ("dialog-base.bg", ColorIdx(Colors::Gray, 2)),
-        ("dialog-border.fg", ColorIdx(Colors::None, 0)),
-        ("disabled.bg", ColorIdx(Colors::Gray, 0)),
-        ("focus.bg", ColorIdx(Colors::Primary, 3)),
-        ("footer.bg", ColorIdx(Colors::Black, 0)),
-        ("footer.fg", ColorIdx(Colors::LimeGreen, 0)),
-        ("header.bg", ColorIdx(Colors::Black, 0)),
-        ("header.fg", ColorIdx(Colors::LimeGreen, 0)),
-        ("hover.bg", ColorIdx(Colors::Green, 3)),
-        ("input.bg", ColorIdx(Colors::Gray, 3)),
-        ("invalid.bg", ColorIdx(Colors::Red, 0)),
-        ("key-binding.bg", ColorIdx(Colors::BlueGreen, 0)),
-        ("label.fg", ColorIdx(Colors::TextLight, 0)),
-        ("menu-base.bg", ColorIdx(Colors::Black, 3)),
-        ("month-header.fg", ColorIdx(Colors::None, 0)),
-        ("popup-arrow.fg", ColorIdx(Colors::None, 0)),
-        ("popup-base.bg", ColorIdx(Colors::Gray, 2)),
-        ("popup-border.fg", ColorIdx(Colors::None, 0)),
-        ("select.bg", ColorIdx(Colors::Secondary, 3)),
-        ("shadow.bg", ColorIdx(Colors::Black, 0)),
-        ("status-base.bg", ColorIdx(Colors::Black, 3)),
-        ("text-focus.bg", ColorIdx(Colors::Primary, 3)),
-        ("text-select.bg", ColorIdx(Colors::Secondary, 3)),
-        ("title.bg", ColorIdx(Colors::Secondary, 0)),
-        ("title.fg", ColorIdx(Colors::TextLight, 0)),
-        ("week-header.fg", ColorIdx(Colors::BlueGreen, 0)),
-    ],
+    aliased: Cow::Borrowed(&[
+        define_alias("button-base.bg", Colors::White, 3),
+        define_alias("container-arrow.fg", Colors::None, 0),
+        define_alias("container-base.bg", Colors::Black, 3),
+        define_alias("container-border.fg", Colors::None, 0),
+        define_alias("dialog-arrow.fg", Colors::None, 0),
+        define_alias("dialog-base.bg", Colors::Gray, 2),
+        define_alias("dialog-border.fg", Colors::None, 0),
+        define_alias("disabled.bg", Colors::Gray, 0),
+        define_alias("focus.bg", Colors::Primary, 3),
+        define_alias("footer.bg", Colors::Black, 0),
+        define_alias("footer.fg", Colors::LimeGreen, 0),
+        define_alias("header.bg", Colors::Black, 0),
+        define_alias("header.fg", Colors::LimeGreen, 0),
+        define_alias("hover.bg", Colors::Green, 3),
+        define_alias("input.bg", Colors::Gray, 3),
+        define_alias("invalid.bg", Colors::Red, 0),
+        define_alias("key-binding.bg", Colors::BlueGreen, 0),
+        define_alias("label.fg", Colors::TextLight, 0),
+        define_alias("menu-base.bg", Colors::Black, 3),
+        define_alias("month-header.fg", Colors::None, 0),
+        define_alias("popup-arrow.fg", Colors::None, 0),
+        define_alias("popup-base.bg", Colors::Gray, 2),
+        define_alias("popup-border.fg", Colors::None, 0),
+        define_alias("select.bg", Colors::Secondary, 3),
+        define_alias("shadow.bg", Colors::Black, 0),
+        define_alias("status-base.bg", Colors::Black, 3),
+        define_alias("text-focus.bg", Colors::Primary, 3),
+        define_alias("text-select.bg", Colors::Secondary, 3),
+        define_alias("title.bg", Colors::Secondary, 0),
+        define_alias("title.fg", Colors::TextLight, 0),
+        define_alias("week-header.fg", Colors::BlueGreen, 0),
+    ]),
 };
+
