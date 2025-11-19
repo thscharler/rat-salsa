@@ -53,10 +53,6 @@ name = "async1"
 required-features = ["async", "scrolling-regions"]
 
 [[example]]
-name = "palette_edit5"
-required-features = ["dialog_widgets"]
-
-[[example]]
 name = "minimal"
 path = "templates/minimal.rs"
 

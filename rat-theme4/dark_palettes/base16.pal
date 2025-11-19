@@ -27,7 +27,7 @@ red-pink=#FF5555, #FF5A55
 [reference]
 label.fg=white:0
 input.bg=gray:3
-focus.bg.bg=primary:0
+focus.bg=primary:0
 select.bg=secondary:0
 disabled.bg=gray:3
 invalid.bg=red:0
@@ -41,7 +41,7 @@ footer.bg=none:0
 shadow.bg=black:0
 week-header.fg=gray:0
 month-header.fg=gray:0
-text-focus.bg.bg=primary:0
+text-focus.bg=primary:0
 text-select.bg=secondary:0
 button-base.bg=gray:0
 menu-base.bg=black:0
