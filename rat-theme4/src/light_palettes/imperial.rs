@@ -16,7 +16,7 @@ pub const IMPERIAL: Palette = Palette {
         Palette::interpolate(0x726100, 0xe0c200, DARKNESS),
         Palette::interpolate(0xdedfe3, 0xf6f6f3, DARKNESS),
         Palette::interpolate(0x0f1014, 0x2a2b37, DARKNESS),
-        Palette::interpolate(0x3b3d4e, 0x6e7291, DARKNESS),
+        Palette::interpolate(0x595c75, 0x7f84a8, DARKNESS),
         Palette::interpolate(0x601414, 0xd22d2d, DARKNESS),
         Palette::interpolate(0x5e3913, 0xd3802c, DARKNESS),
         Palette::interpolate(0x756600, 0xd6b900, DARKNESS),

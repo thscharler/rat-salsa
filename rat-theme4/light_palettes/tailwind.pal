@@ -1,0 +1,58 @@
+[palette]
+name=Tailwind
+docs=
+dark=92
+
+[color]
+text-light=#CCC9C7, #EAEAFF
+text-dark=#202021, #1C1C1C
+primary=#FFB86A, #A07343
+secondary=#CAD5E2, #62748E
+white=#C2C2D3, #FFFBF9
+black=#252526, #111111
+gray=#D6D3D1, #79716B
+red=#FFA2A2, #FB2C36
+orange=#FFB86A, #FF6900
+yellow=#FFDF20, #F0B100
+lime-green=#BBF451, #7CCF00
+green=#7BF1A8, #00C950
+blue-green=#5EE9B5, #00BBA7
+cyan=#46ECD5, #00B8DB
+blue=#74D4FF, #2B7FFF
+deep-blue=#8EC5FF, #615FFF
+purple=#C4B4FF, #8E51FF
+magenta=#F4A8FF, #E12AFB
+red-pink=#FDA5D5, #FF2056
+
+[reference]
+label.fg=text-dark:0
+input.bg=secondary:1
+focus.bg=primary:0
+select.bg=primary:2
+disabled.bg=secondary:4
+invalid.bg=red:1
+hover.bg=secondary:5
+title.fg=yellow:0
+title.bg=none:0
+header.fg=blue:4
+header.bg=none:0
+footer.fg=blue:4
+footer.bg=none:0
+shadow.bg=black:0
+week-header.fg=blue:4
+month-header.fg=text-dark:0
+text-focus.bg=primary:0
+text-select.bg=primary:2
+button-base.bg=secondary:0
+menu-base.bg=secondary:1
+key-binding.bg=lime-green:3
+status-base.bg=secondary:1
+container-base.bg=secondary:2
+container-border.fg=gray:4
+container-arrow.fg=gray:4
+popup-base.bg=secondary:0
+popup-border.fg=secondary:4
+popup-arrow.fg=secondary:4
+dialog-base.bg=secondary:1
+dialog-border.fg=secondary:3
+dialog-arrow.fg=secondary:3

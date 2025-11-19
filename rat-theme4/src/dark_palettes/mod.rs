@@ -13,6 +13,7 @@ mod radium;
 mod reds;
 mod rust;
 mod solarized;
+mod tailwind;
 mod tundra;
 mod vscode;
 
@@ -31,5 +32,6 @@ pub use radium::RADIUM;
 pub use reds::REDS;
 pub use rust::RUST;
 pub use solarized::SOLARIZED;
+pub use tailwind::TAILWIND;
 pub use tundra::TUNDRA;
 pub use vscode::VSCODE;

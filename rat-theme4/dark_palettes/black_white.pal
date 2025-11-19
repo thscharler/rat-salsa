@@ -1,8 +1,8 @@
 [palette]
-name = Black&White
-docs =
-dark = 63
- 
+name=Black&White
+docs=
+dark=63
+
 [color]
 text-light=#FFFFFF, #FFFFFF
 text-dark=#000000, #000000
@@ -44,15 +44,15 @@ month-header.fg=none:0
 text-focus.bg=primary:0
 text-select.bg=secondary:1
 button-base.bg=gray:1
-menu-base.bg=black:0
+menu-base.bg=gray:2
 key-binding.bg=blue-green:0
-status-base.bg=black:0
+status-base.bg=gray:2
 container-base.bg=black:0
-container-border.bg=gray:0
-container-arrow.bg=gray:1
+container-border.fg=none:0
+container-arrow.fg=none:0
 popup-base.bg=white:0
-popup-border.bg=gray:2
-popup-arrow.bg=gray:2
+popup-border.fg=none:0
+popup-arrow.fg=none:0
 dialog-base.bg=gray:2
-dialog-border.bg=gray:0
-dialog-arrow.bg=black:0
+dialog-border.fg=none:0
+dialog-arrow.fg=none:0

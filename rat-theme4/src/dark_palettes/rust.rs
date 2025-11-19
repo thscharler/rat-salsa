@@ -47,7 +47,7 @@ pub const RUST: Palette = Palette {
         define_alias("hover.bg", Colors::Blue, 0),
         define_alias("input.bg", Colors::Gray, 3),
         define_alias("invalid.bg", Colors::Purple, 1),
-        define_alias("key-binding.bg", Colors::BlueGreen, 0),
+        define_alias("key-binding.bg", Colors::BlueGreen, 1),
         define_alias("label.fg", Colors::White, 2),
         define_alias("menu-base.bg", Colors::Black, 0),
         define_alias("month-header.fg", Colors::None, 0),
