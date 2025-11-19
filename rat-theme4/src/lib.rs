@@ -342,12 +342,14 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Nord" => Some(dark::NORD),
         "Rust" => Some(dark::RUST),
         "Material" => Some(dark::MATERIAL),
+        "Tailwind" => Some(dark::TAILWIND),
         "VSCode" => Some(dark::VSCODE),
         "Reds" => Some(dark::REDS),
         "Blackout" => Some(dark::BLACKOUT),
         "Shell" => Some(core::SHELL),
         "Imperial Light" => Some(light::IMPERIAL),
         "EverForest Light" => Some(light::EVERFOREST),
+        "Tailwind Light" => Some(light::TAILWIND),
         _ => None,
     }
 }
