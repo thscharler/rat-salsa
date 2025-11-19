@@ -353,7 +353,7 @@ fn list(th: &SalsaTheme) -> ListStyle {
 
 fn menu(th: &SalsaTheme) -> MenuStyle {
     MenuStyle {
-        style: th.style(Style::STATUS_BASE),
+        style: th.style(Style::MENU_BASE),
         title: Some(th.style(Style::TITLE)),
         focus: Some(th.style(Style::FOCUS)),
         right: Some(th.style(Style::KEY_BINDING)),
@@ -361,8 +361,8 @@ fn menu(th: &SalsaTheme) -> MenuStyle {
         highlight: Some(Style::default().underlined()),
         block: Some(Block::bordered()),
         popup: Default::default(),
-        popup_border: Some(th.style(Style::STATUS_BASE)),
-        popup_style: Some(th.style(Style::STATUS_BASE)),
+        popup_border: Some(th.style(Style::MENU_BASE)),
+        popup_style: Some(th.style(Style::MENU_BASE)),
         ..Default::default()
     }
 }
