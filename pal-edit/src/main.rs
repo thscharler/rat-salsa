@@ -285,9 +285,10 @@ pub fn render(
         Constraint::Length(1),
     ])
     .split(area);
+    let edit_width = PaletteEdit::width(&ctx.cfg);
     let l2 = Layout::horizontal([
-        Constraint::Length(69), //
-        Constraint::Fill(1),    //
+        Constraint::Length(edit_width), //
+        Constraint::Fill(1),            //
     ])
     .horizontal_margin(1)
     .flex(Flex::Center)
@@ -472,7 +473,7 @@ pub fn event(
         PalEvent::Save(p) => save_pal_file(&p, state, ctx),
         PalEvent::Load(p) => {
             _ = load_pal_file(&p, state, ctx)?;
-            if let Some(c) = state.edit.color_ext.get(Color::CONTAINER_BASE) {
+            if let Some(c) = state.edit.color_ext.get(Color::CONTAINER_BASE_BG) {
                 state.detail.show.readability.colors.set_value(c.value());
             }
             Ok(Control::Changed)

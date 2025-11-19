@@ -65,6 +65,11 @@ impl PaletteEdit {
         z
     }
 
+    pub fn width(cfg: &Config) -> u16 {
+        let max_label = cfg.aliases().iter().map(|v| v.len()).max().unwrap_or(10) as u16;
+        max_label + 54
+    }
+
     pub fn name(&self) -> String {
         self.name.text().into()
     }
@@ -333,7 +338,7 @@ pub fn event(
             event_flow!(
                 break 'f match s.handle(event, Popup) {
                     ChoiceOutcome::Value => {
-                        if *n == Color::CONTAINER_BASE {
+                        if *n == Color::CONTAINER_BASE_BG {
                             ctx.queue_event(PalEvent::ContainerBase(s.value()));
                         }
                         ChoiceOutcome::Value
