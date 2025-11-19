@@ -36,7 +36,7 @@ pub const RUST: Palette = Palette {
         define_alias("container-base.bg", Colors::Gray, 1),
         define_alias("container-border.fg", Colors::Gray, 7),
         define_alias("dialog-arrow.fg", Colors::Black, 3),
-        define_alias("dialog-base.bg", Colors::Gray, 3),
+        define_alias("dialog-base.bg", Colors::Gray, 2),
         define_alias("dialog-border.fg", Colors::Black, 3),
         define_alias("disabled.bg", Colors::Gray, 3),
         define_alias("focus.bg", Colors::Primary, 1),
