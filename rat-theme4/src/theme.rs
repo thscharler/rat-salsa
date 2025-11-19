@@ -79,13 +79,6 @@ impl SalsaTheme {
         &self.name
     }
 
-    /// Define a color as a [ColorIdx] into the underlying palette.
-    pub fn define_color(&mut self, name: &'static str, color_idx: ColorIdx) {
-        let boxed =
-            Box::new(move |_th: &SalsaTheme| -> Box<dyn StyleValue> { Box::new(color_idx) });
-        self.define(name, boxed);
-    }
-
     /// Define a style as a plain [Style].
     pub fn define_style(&mut self, name: &'static str, style: Style) {
         let boxed = Box::new(move |_: &SalsaTheme| -> Box<dyn StyleValue> { Box::new(style) });
@@ -206,26 +199,6 @@ impl SalsaTheme {
                 entry.insert(boxed);
             }
         };
-    }
-
-    /// Get a defined [ColorIdx].
-    ///
-    /// This is the same as the single [style] function, it just
-    /// fixes the return-type to [ColorIdx].
-    ///
-    /// This may fail:
-    ///
-    /// __Panic__
-    ///
-    /// * When debug_assertions are enabled it will panic when
-    ///   called with an unknown style name, or if the downcast
-    ///   to the out type fails.
-    /// * Otherwise, it will return the default value of the out type.
-    pub fn style_color_idx(&self, name: &str) -> ColorIdx
-    where
-        Self: Sized,
-    {
-        self.style::<ColorIdx>(name)
     }
 
     /// Get one of the defined ratatui-Styles.

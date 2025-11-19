@@ -1,6 +1,8 @@
+use log::debug;
 use ratatui::style::{Color, Style};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+use std::mem;
 use std::str::FromStr;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -338,6 +340,23 @@ impl Palette {
             style = style.bg(color);
         }
         style
+    }
+
+    /// Add an alias.
+    ///
+    pub fn add_aliased(&mut self, id: &str, color_idx: ColorIdx) {
+        if matches!(self.aliased, Cow::Borrowed(_)) {
+            self.aliased = Cow::Owned(mem::take(&mut self.aliased).into_owned());
+        }
+        match &mut self.aliased {
+            Cow::Borrowed(_) => {
+                unreachable!()
+            }
+            Cow::Owned(aliased) => {
+                aliased.push((Cow::Owned(id.to_string()), color_idx));
+                aliased.sort();
+            }
+        }
     }
 
     /// Try to find an alias.
