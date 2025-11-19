@@ -40,59 +40,59 @@ use std::time::Duration;
 pub fn shell_theme(name: &str, p: Palette) -> SalsaTheme {
     let mut th = SalsaTheme::new(name, Category::Shell, p);
 
-    th.define(Style::LABEL_FG, th.p.fg_style_alias(Color::LABEL_FG));
-    th.define(Style::INPUT, th.p.style_alias(Color::INPUT));
-    th.define(Style::FOCUS, th.p.style_alias(Color::FOCUS));
-    th.define(Style::SELECT, th.p.style_alias(Color::SELECT));
-    th.define(Style::DISABLED, th.p.style_alias(Color::DISABLED));
-    th.define(Style::INVALID, th.p.style_alias(Color::INVALID));
-    th.define(Style::HOVER, th.p.fg_style_alias(Color::HOVER));
-    th.define(Style::TITLE, th.p.fg_style_alias(Color::TITLE_FG));
-    th.define(Style::HEADER, th.p.fg_style_alias(Color::HEADER_FG));
-    th.define(Style::FOOTER, th.p.fg_style_alias(Color::FOOTER_FG));
-    th.define(Style::SHADOWS, th.p.style_alias(Color::SHADOWS));
-    th.define(
+    th.define_style(Style::LABEL_FG, th.p.fg_style_alias(Color::LABEL_FG));
+    th.define_style(Style::INPUT, th.p.style_alias(Color::INPUT_BG));
+    th.define_style(Style::FOCUS, th.p.style_alias(Color::FOCUS_BG));
+    th.define_style(Style::SELECT, th.p.style_alias(Color::SELECT_BG));
+    th.define_style(Style::DISABLED, th.p.style_alias(Color::DISABLED_BG));
+    th.define_style(Style::INVALID, th.p.style_alias(Color::INVALID_BG));
+    th.define_style(Style::HOVER, th.p.fg_style_alias(Color::HOVER_BG));
+    th.define_style(Style::TITLE, th.p.fg_style_alias(Color::TITLE_FG));
+    th.define_style(Style::HEADER, th.p.fg_style_alias(Color::HEADER_FG));
+    th.define_style(Style::FOOTER, th.p.fg_style_alias(Color::FOOTER_FG));
+    th.define_style(Style::SHADOWS, th.p.style_alias(Color::SHADOW_BG));
+    th.define_style(
         Style::WEEK_HEADER_FG,
         th.p.fg_style_alias(Color::WEEK_HEADER_FG),
     );
-    th.define(
+    th.define_style(
         Style::MONTH_HEADER_FG,
         th.p.fg_style_alias(Color::MONTH_HEADER_FG),
     );
-    th.define(Style::TEXT_FOCUS, th.p.style_alias(Color::TEXT_FOCUS));
-    th.define(Style::TEXT_SELECT, th.p.style_alias(Color::SELECT));
-    th.define(Style::KEY_BINDING, th.p.style_alias(Color::KEY_BINDING));
+    th.define_style(Style::TEXT_FOCUS, th.p.style_alias(Color::TEXT_FOCUS_BG));
+    th.define_style(Style::TEXT_SELECT, th.p.style_alias(Color::SELECT_BG));
+    th.define_style(Style::KEY_BINDING, th.p.style_alias(Color::KEY_BINDING_BG));
 
-    th.define(Style::BUTTON_BASE, th.p.style_alias(Color::BUTTON_BASE));
-    th.define(Style::MENU_BASE, th.p.fg_style(Colors::TextLight, 0));
-    th.define(Style::STATUS_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(Style::BUTTON_BASE, th.p.style_alias(Color::BUTTON_BASE_BG));
+    th.define_style(Style::MENU_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(Style::STATUS_BASE, th.p.fg_style(Colors::TextLight, 0));
 
-    th.define(Style::CONTAINER_BASE, th.p.fg_style(Colors::TextLight, 0));
-    th.define(
+    th.define_style(Style::CONTAINER_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(
         Style::CONTAINER_BORDER_FG,
         th.p.fg_style_alias(Color::CONTAINER_BORDER_FG),
     );
-    th.define(
+    th.define_style(
         Style::CONTAINER_ARROW_FG,
         th.p.fg_style_alias(Color::CONTAINER_ARROW_FG),
     );
 
-    th.define(Style::POPUP_BASE, th.p.fg_style(Colors::TextLight, 0));
-    th.define(
+    th.define_style(Style::POPUP_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(
         Style::POPUP_BORDER_FG,
         th.p.fg_style_alias(Color::POPUP_BORDER_FG),
     );
-    th.define(
+    th.define_style(
         Style::POPUP_ARROW_FG,
         th.p.fg_style_alias(Color::POPUP_ARROW_FG),
     );
 
-    th.define(Style::DIALOG_BASE, th.p.fg_style(Colors::TextLight, 0));
-    th.define(
+    th.define_style(Style::DIALOG_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(
         Style::DIALOG_BORDER_FG,
         th.p.fg_style_alias(Color::DIALOG_BORDER_FG),
     );
-    th.define(
+    th.define_style(
         Style::DIALOG_ARROW_FG,
         th.p.fg_style_alias(Color::DIALOG_ARROW_FG),
     );
@@ -136,7 +136,7 @@ fn button(th: &SalsaTheme) -> ButtonStyle {
         style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
-        hover: Some(th.p.style_alias(Color::HOVER)),
+        hover: Some(th.p.style_alias(Color::HOVER_BG)),
         armed_delay: Some(Duration::from_millis(50)),
         ..Default::default()
     }

@@ -38,7 +38,6 @@
 //!     .render(area, buf, &mut state);
 //! ```
 
-use log::debug;
 use ratatui::style::{Color, Style};
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -179,71 +178,71 @@ pub trait StyleName {
 impl StyleName for Style {}
 
 pub trait RatWidgetColor {
-    const LABEL_FG: &'static str = "label";
-    const INPUT: &'static str = "input";
-    const FOCUS: &'static str = "focus";
-    const SELECT: &'static str = "select";
-    const DISABLED: &'static str = "disabled";
-    const INVALID: &'static str = "invalid";
-    const HOVER: &'static str = "hover";
-    const TITLE_FG: &'static str = "title-fg";
-    const TITLE: &'static str = "title";
-    const HEADER_FG: &'static str = "header-fg";
-    const HEADER: &'static str = "header";
-    const FOOTER_FG: &'static str = "footer-fg";
-    const FOOTER: &'static str = "footer";
-    const SHADOWS: &'static str = "shadows";
-    const WEEK_HEADER_FG: &'static str = "week-header-fg";
-    const MONTH_HEADER_FG: &'static str = "month-header-fg";
-    const TEXT_FOCUS: &'static str = "text-focus";
-    const TEXT_SELECT: &'static str = "text-select";
-    const BUTTON_BASE: &'static str = "button-base";
-    const MENU_BASE: &'static str = "menu-base";
-    const KEY_BINDING: &'static str = "key-binding";
-    const STATUS_BASE: &'static str = "status-base";
-    const CONTAINER_BASE: &'static str = "container-base";
-    const CONTAINER_BORDER_FG: &'static str = "container-border";
-    const CONTAINER_ARROW_FG: &'static str = "container-arrow";
-    const POPUP_BASE: &'static str = "popup-base";
-    const POPUP_BORDER_FG: &'static str = "popup-border";
-    const POPUP_ARROW_FG: &'static str = "popup-arrow";
-    const DIALOG_BASE: &'static str = "dialog-base";
-    const DIALOG_BORDER_FG: &'static str = "dialog-border";
-    const DIALOG_ARROW_FG: &'static str = "dialog-arrow";
+    const LABEL_FG: &'static str = "label.fg";
+    const INPUT_BG: &'static str = "input.bg";
+    const FOCUS_BG: &'static str = "focus.bg";
+    const SELECT_BG: &'static str = "select.bg";
+    const DISABLED_BG: &'static str = "disabled.bg";
+    const INVALID_BG: &'static str = "invalid.bg";
+    const HOVER_BG: &'static str = "hover.bg";
+    const TITLE_FG: &'static str = "title.fg";
+    const TITLE_BG: &'static str = "title.bg";
+    const HEADER_FG: &'static str = "header.fg";
+    const HEADER_BG: &'static str = "header.bg";
+    const FOOTER_FG: &'static str = "footer.fg";
+    const FOOTER_BG: &'static str = "footer.bg";
+    const SHADOW_BG: &'static str = "shadow.bg";
+    const WEEK_HEADER_FG: &'static str = "week-header.fg";
+    const MONTH_HEADER_FG: &'static str = "month-header.fg";
+    const TEXT_FOCUS_BG: &'static str = "text-focus.bg";
+    const TEXT_SELECT_BG: &'static str = "text-select.bg";
+    const BUTTON_BASE_BG: &'static str = "button-base.bg";
+    const MENU_BASE_BG: &'static str = "menu-base.bg";
+    const KEY_BINDING_BG: &'static str = "key-binding.bg";
+    const STATUS_BASE_BG: &'static str = "status-base.bg";
+    const CONTAINER_BASE_BG: &'static str = "container-base.bg";
+    const CONTAINER_BORDER_FG: &'static str = "container-border.fg";
+    const CONTAINER_ARROW_FG: &'static str = "container-arrow.fg";
+    const POPUP_BASE_BG: &'static str = "popup-base.bg";
+    const POPUP_BORDER_FG: &'static str = "popup-border.fg";
+    const POPUP_ARROW_FG: &'static str = "popup-arrow.fg";
+    const DIALOG_BASE_BG: &'static str = "dialog-base.bg";
+    const DIALOG_BORDER_FG: &'static str = "dialog-border.fg";
+    const DIALOG_ARROW_FG: &'static str = "dialog-arrow.fg";
 }
 impl RatWidgetColor for Color {}
 
 pub fn rat_widget_color_names() -> &'static [&'static str] {
     &[
         Color::LABEL_FG,
-        Color::INPUT,
-        Color::FOCUS,
-        Color::SELECT,
-        Color::DISABLED,
-        Color::INVALID,
-        Color::HOVER,
+        Color::INPUT_BG,
+        Color::FOCUS_BG,
+        Color::SELECT_BG,
+        Color::DISABLED_BG,
+        Color::INVALID_BG,
+        Color::HOVER_BG,
         Color::TITLE_FG,
-        Color::TITLE,
+        Color::TITLE_BG,
         Color::HEADER_FG,
-        Color::HEADER,
+        Color::HEADER_BG,
         Color::FOOTER_FG,
-        Color::FOOTER,
-        Color::SHADOWS,
+        Color::FOOTER_BG,
+        Color::SHADOW_BG,
         Color::WEEK_HEADER_FG,
         Color::MONTH_HEADER_FG,
-        Color::TEXT_FOCUS,
-        Color::TEXT_SELECT,
-        Color::BUTTON_BASE,
-        Color::MENU_BASE,
-        Color::KEY_BINDING,
-        Color::STATUS_BASE,
-        Color::CONTAINER_BASE,
+        Color::TEXT_FOCUS_BG,
+        Color::TEXT_SELECT_BG,
+        Color::BUTTON_BASE_BG,
+        Color::MENU_BASE_BG,
+        Color::KEY_BINDING_BG,
+        Color::STATUS_BASE_BG,
+        Color::CONTAINER_BASE_BG,
         Color::CONTAINER_BORDER_FG,
         Color::CONTAINER_ARROW_FG,
-        Color::POPUP_BASE,
+        Color::POPUP_BASE_BG,
         Color::POPUP_BORDER_FG,
         Color::POPUP_ARROW_FG,
-        Color::DIALOG_BASE,
+        Color::DIALOG_BASE_BG,
         Color::DIALOG_BORDER_FG,
         Color::DIALOG_ARROW_FG,
     ]

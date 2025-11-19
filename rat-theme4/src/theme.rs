@@ -1,7 +1,7 @@
 use crate::fallback_theme::fallback_theme;
-use crate::{Palette, is_log_style_define};
+use crate::{ColorIdx, Palette, is_log_style_define};
 use log::info;
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 use std::any::{Any, type_name};
 use std::collections::{HashMap, hash_map};
 use std::fmt::{Debug, Formatter};
@@ -79,13 +79,16 @@ impl SalsaTheme {
         &self.name
     }
 
+    /// Define a color as a [ColorIdx] into the underlying palette.
+    pub fn define_color(&mut self, name: &'static str, color_idx: ColorIdx) {
+        let boxed = Box::new(move |th: &SalsaTheme| -> Box<dyn StyleValue> { Box::new(color_idx) });
+        self.define(name, boxed);
+    }
+
     /// Define a style as a plain [Style].
-    pub fn define(&mut self, name: &'static str, style: Style) {
+    pub fn define_style(&mut self, name: &'static str, style: Style) {
         let boxed = Box::new(move |_: &SalsaTheme| -> Box<dyn StyleValue> { Box::new(style) });
-        if is_log_style_define() {
-            info!("salsa-style: {:?}->{:?}", name, style);
-        }
-        self.styles.insert(name, boxed);
+        self.define(name, boxed);
     }
 
     /// Define a style a struct that will be cloned for every query.
@@ -93,15 +96,12 @@ impl SalsaTheme {
         let boxed = Box::new(move |_th: &SalsaTheme| -> Box<dyn StyleValue> {
             Box::new(sample.clone()) //
         });
-        if is_log_style_define() {
-            info!("salsa-style: {:?}->{:?}", name, boxed(self));
-        }
-        self.styles.insert(name, boxed);
+        self.define(name, boxed);
     }
 
     /// Define a style as a call to a constructor fn.
     ///
-    /// The constructor gets access to all previously initialized styles.
+    /// The constructor gets access to all previously defined styles.
     pub fn define_fn<O: Any + Debug>(
         &mut self,
         name: &'static str,
@@ -110,10 +110,7 @@ impl SalsaTheme {
         let boxed = Box::new(move |th: &SalsaTheme| -> Box<dyn StyleValue> {
             Box::new(create(th)) //
         });
-        if is_log_style_define() {
-            info!("salsa-style: {:?}->{:?}", name, boxed(self));
-        }
-        self.styles.insert(name, boxed);
+        self.define(name, boxed);
     }
 
     /// Define a style as a call to a constructor fn.
@@ -128,39 +125,117 @@ impl SalsaTheme {
         let boxed = Box::new(move |_th: &SalsaTheme| -> Box<dyn StyleValue> {
             Box::new(create()) //
         });
+        self.define(name, boxed);
+    }
+
+    fn define(&mut self, name: &'static str, boxed: Entry) {
         if is_log_style_define() {
-            info!("salsa-style: {:?}->{:?}", name, boxed(self));
+            info!("salsa-style: {:?}->{:?}", name, (*boxed)(self));
         }
-        self.styles.insert(name, boxed);
+        match self.styles.insert(name, boxed) {
+            None => {}
+            Some(v) => {
+                if is_log_style_define() {
+                    info!("salsa-style: OVERWRITE {:?}. Was {:?}", name, v(self));
+                }
+            }
+        };
     }
 
     /// Add a modification of a defined style.
-    pub fn modify<O: Any + Debug>(
+    ///
+    /// This function is applied to the original style every time the style is queried.
+    ///
+    /// Currently only a single modification is possible. If you set a second one
+    /// it will overwrite the previous.
+    ///
+    /// __Panic__
+    ///
+    /// * When debug_assertions are enabled the modifier will panic if
+    ///   it gets a type other than `O`.
+    /// * Otherwise it will fall back to the default value of `O`.
+    ///
+    pub fn modify<O: Any + Default + Debug + Sized + 'static>(
         &mut self,
         name: &'static str,
-        modify: impl Fn(Box<dyn Any>, &SalsaTheme) -> Box<O> + 'static,
+        modify: impl Fn(O, &SalsaTheme) -> O + 'static,
     ) {
         let boxed = Box::new(
-            move |v: Box<dyn Any>, th: &SalsaTheme| -> Box<dyn StyleValue> { modify(v, th) },
+            move |v: Box<dyn Any>, th: &SalsaTheme| -> Box<dyn StyleValue> {
+                if cfg!(debug_assertions) {
+                    let v = match v.downcast::<O>() {
+                        Ok(v) => *v,
+                        Err(e) => {
+                            panic!(
+                                "downcast fails for '{}' to {}. Is {:?}",
+                                name,
+                                type_name::<O>(),
+                                e
+                            );
+                        }
+                    };
+
+                    let v = modify(v, th);
+
+                    Box::new(v)
+                } else {
+                    let v = match v.downcast::<O>() {
+                        Ok(v) => *v,
+                        Err(_) => O::default(),
+                    };
+
+                    let v = modify(v, th);
+
+                    Box::new(v)
+                }
+            },
         );
+
         match self.modify.entry(name) {
-            hash_map::Entry::Occupied(_) => {
-                panic!("salsa-theme: only a single modification is possible");
+            hash_map::Entry::Occupied(mut entry) => {
+                if is_log_style_define() {
+                    info!("salsa-style: overwrite modifier for {:?}", name);
+                }
+                _ = entry.insert(boxed);
             }
             hash_map::Entry::Vacant(entry) => {
+                if is_log_style_define() {
+                    info!("salsa-style: set modifier for {:?}", name);
+                }
                 entry.insert(boxed);
             }
         };
     }
 
+    /// Get a defined [ColorIdx].
+    ///
+    /// This is the same as the single [style] function, it just
+    /// fixes the return-type to [ColorIdx].
+    ///
+    /// This may fail:
+    ///
+    /// __Panic__
+    ///
+    /// * When debug_assertions are enabled it will panic when
+    ///   called with an unknown style name, or if the downcast
+    ///   to the out type fails.
+    /// * Otherwise, it will return the default value of the out type.
+    pub fn style_color_idx(&self, name: &str) -> ColorIdx
+    where
+        Self: Sized,
+    {
+        self.style::<ColorIdx>(name)
+    }
+
     /// Get one of the defined ratatui-Styles.
     ///
     /// This is the same as the single [style] function, it just
-    /// fixes the return-type to style. This is useful if the
-    /// receiver is declared as `impl Into<Style>`.
+    /// fixes the return-type to [Style]. This is useful if the
+    /// receiver is defined as `impl Into<Style>`.
     ///
-    /// It downcasts the stored value to the required out type.
-    /// This may fail.
+    /// This may fail:
+    ///
+    /// __Panic__
     ///
     /// * When debug_assertions are enabled it will panic when
     ///   called with an unknown style name, or if the downcast
@@ -176,7 +251,10 @@ impl SalsaTheme {
     /// Get any of the defined styles.
     ///
     /// It downcasts the stored value to the required out type.
-    /// This may fail.
+    ///
+    /// This may fail:
+    ///
+    /// __Panic__
     ///
     /// * When debug_assertions are enabled it will panic when
     ///   called with an unknown style name, or if the downcast
@@ -219,6 +297,7 @@ impl SalsaTheme {
         }
     }
 
+    /// Get a style struct or the modified variant of it.
     #[allow(clippy::collapsible_else_if)]
     fn dyn_style(&self, name: &str) -> Option<Box<dyn StyleValue>> {
         if let Some(entry_fn) = self.styles.get(name) {

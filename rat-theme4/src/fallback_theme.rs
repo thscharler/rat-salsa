@@ -32,38 +32,38 @@ use ratatui::style::Style;
 pub fn fallback_theme(name: &str, p: Palette) -> SalsaTheme {
     let mut th = SalsaTheme::new(name, Category::Other, p);
 
-    th.define(Style::LABEL_FG, Style::default());
-    th.define(Style::INPUT, Style::default());
-    th.define(Style::FOCUS, Style::default());
-    th.define(Style::SELECT, Style::default());
-    th.define(Style::DISABLED, Style::default());
-    th.define(Style::INVALID, Style::default());
-    th.define(Style::HOVER, Style::default());
-    th.define(Style::TITLE, Style::default());
-    th.define(Style::HEADER, Style::default());
-    th.define(Style::FOOTER, Style::default());
-    th.define(Style::SHADOWS, Style::default());
-    th.define(Style::WEEK_HEADER_FG, Style::default());
-    th.define(Style::MONTH_HEADER_FG, Style::default());
-    th.define(Style::TEXT_FOCUS, Style::default());
-    th.define(Style::TEXT_SELECT, Style::default());
-    th.define(Style::KEY_BINDING, Style::default());
+    th.define_style(Style::LABEL_FG, Style::default());
+    th.define_style(Style::INPUT, Style::default());
+    th.define_style(Style::FOCUS, Style::default());
+    th.define_style(Style::SELECT, Style::default());
+    th.define_style(Style::DISABLED, Style::default());
+    th.define_style(Style::INVALID, Style::default());
+    th.define_style(Style::HOVER, Style::default());
+    th.define_style(Style::TITLE, Style::default());
+    th.define_style(Style::HEADER, Style::default());
+    th.define_style(Style::FOOTER, Style::default());
+    th.define_style(Style::SHADOWS, Style::default());
+    th.define_style(Style::WEEK_HEADER_FG, Style::default());
+    th.define_style(Style::MONTH_HEADER_FG, Style::default());
+    th.define_style(Style::TEXT_FOCUS, Style::default());
+    th.define_style(Style::TEXT_SELECT, Style::default());
+    th.define_style(Style::KEY_BINDING, Style::default());
 
-    th.define(Style::BUTTON_BASE, Style::default());
-    th.define(Style::MENU_BASE, Style::default());
-    th.define(Style::STATUS_BASE, Style::default());
+    th.define_style(Style::BUTTON_BASE, Style::default());
+    th.define_style(Style::MENU_BASE, Style::default());
+    th.define_style(Style::STATUS_BASE, Style::default());
 
-    th.define(Style::CONTAINER_BASE, Style::default());
-    th.define(Style::CONTAINER_BORDER_FG, Style::default());
-    th.define(Style::CONTAINER_ARROW_FG, Style::default());
+    th.define_style(Style::CONTAINER_BASE, Style::default());
+    th.define_style(Style::CONTAINER_BORDER_FG, Style::default());
+    th.define_style(Style::CONTAINER_ARROW_FG, Style::default());
 
-    th.define(Style::POPUP_BASE, Style::default());
-    th.define(Style::POPUP_BORDER_FG, Style::default());
-    th.define(Style::POPUP_ARROW_FG, Style::default());
+    th.define_style(Style::POPUP_BASE, Style::default());
+    th.define_style(Style::POPUP_BORDER_FG, Style::default());
+    th.define_style(Style::POPUP_ARROW_FG, Style::default());
 
-    th.define(Style::DIALOG_BASE, Style::default());
-    th.define(Style::DIALOG_BORDER_FG, Style::default());
-    th.define(Style::DIALOG_ARROW_FG, Style::default());
+    th.define_style(Style::DIALOG_BASE, Style::default());
+    th.define_style(Style::DIALOG_BORDER_FG, Style::default());
+    th.define_style(Style::DIALOG_ARROW_FG, Style::default());
 
     th.define_fn0(WidgetStyle::BUTTON, ButtonStyle::default);
     th.define_fn0(WidgetStyle::CALENDAR, CalendarStyle::default);
