@@ -350,6 +350,7 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "Imperial Light" => Some(light::IMPERIAL),
         "EverForest Light" => Some(light::EVERFOREST),
         "Tailwind Light" => Some(light::TAILWIND),
+        "Rust Light" => Some(light::RUST),
         _ => None,
     }
 }

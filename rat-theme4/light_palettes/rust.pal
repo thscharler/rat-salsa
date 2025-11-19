@@ -1,0 +1,58 @@
+[palette]
+name=Rust
+docs=Rusty theme.
+dark=85
+
+[color]
+text-light=#CEC9C6, #EFE6E6
+text-dark=#070607, #0F0E0D
+primary=#75311A, #D25A32
+secondary=#75654C, #CCAB76
+white=#C4BFBB, #EDE3E3
+black=#101011, #464251
+gray=#726E6B, #A39D99
+red=#75311A, #D25A32
+orange=#75431A, #D27A32
+yellow=#77551D, #CD9537
+lime-green=#44664D, #699B76
+green=#44664D, #699B76
+blue-green=#1A7574, #32D2D1
+cyan=#1A7574, #32D2D1
+blue=#005D94, #38B6FF
+deep-blue=#005D94, #38B6FF
+purple=#722234, #C63F5D
+magenta=#7B1964, #C62FA3
+red-pink=#7B1964, #D332AD
+
+[reference]
+label.fg=text-dark:0
+input.bg=gray:3
+focus.bg=primary:1
+select.bg=secondary:0
+disabled.bg=gray:3
+invalid.bg=purple:1
+hover.bg=blue:0
+title.fg=text-light:0
+title.bg=primary:1
+header.fg=blue:0
+header.bg=none:0
+footer.fg=blue:0
+footer.bg=none:0
+shadow.bg=text-dark:0
+week-header.fg=secondary:7
+month-header.fg=text-light:0
+text-focus.bg=primary:1
+text-select.bg=secondary:1
+button-base.bg=gray:0
+menu-base.bg=gray:0
+key-binding.bg=blue-green:1
+status-base.bg=gray:0
+container-base.bg=gray:1
+container-border.fg=gray:7
+container-arrow.fg=secondary:7
+popup-base.bg=white:0
+popup-border.fg=black:3
+popup-arrow.fg=black:3
+dialog-base.bg=gray:3
+dialog-border.fg=black:3
+dialog-arrow.fg=black:3
