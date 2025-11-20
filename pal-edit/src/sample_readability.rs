@@ -75,7 +75,6 @@ pub fn render(
     let l1 = Layout::horizontal([
         Constraint::Fill(1), //
         Constraint::Fill(1),
-        Constraint::Fill(1),
     ])
     .spacing(1)
     .split(l0[1]);
@@ -91,7 +90,7 @@ pub fn render(
     Checkbox::new()
         .styles(ctx.show_theme.style(WidgetStyle::CHECKBOX))
         .text("+Contrast")
-        .render(l1[2], buf, &mut state.high_contrast);
+        .render(l1[1], buf, &mut state.high_contrast);
 
     let sel_color = state.colors.value();
     let high_contrast = state.high_contrast.value();

@@ -342,12 +342,8 @@ fn render_menu(
 
 fn render_status(area: Rect, buf: &mut Buffer, ctx: &mut Global) -> Result<(), Error> {
     let palette = &ctx.theme.p;
-    let status_color_1 = palette
-        .normal_contrast(palette.color(Colors::White, 0))
-        .bg(palette.color(Colors::Blue, 3));
-    let status_color_2 = palette
-        .normal_contrast(palette.color(Colors::White, 0))
-        .bg(palette.color(Colors::Blue, 2));
+    let status_color_1 = palette.high_style(Colors::Blue, 0);
+    let status_color_2 = palette.high_style(Colors::Blue, 2);
     let last_render = format!(
         " R({:03}){:05} ",
         ctx.count(),
