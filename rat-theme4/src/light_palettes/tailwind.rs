@@ -58,8 +58,8 @@ pub const TAILWIND: Palette = Palette {
         define_alias("status-base.bg", Colors::Secondary, 1),
         define_alias("text-focus.bg", Colors::Primary, 0),
         define_alias("text-select.bg", Colors::Primary, 2),
-        define_alias("title.bg", Colors::None, 0),
-        define_alias("title.fg", Colors::Yellow, 0),
+        define_alias("title.bg", Colors::Blue, 7),
+        define_alias("title.fg", Colors::TextLight, 0),
         define_alias("week-header.fg", Colors::Blue, 4),
     ]),
 };
