@@ -15,6 +15,7 @@ pub enum DialogItem {
 }
 
 /// Calculates a layout for a dialog with buttons.
+#[inline]
 pub fn layout_dialog<const N: usize>(
     area: Rect,
     padding: Padding,

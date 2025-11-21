@@ -1,7 +1,9 @@
 //!
 //! Constrains an area from its outside.
 //!
-use ratatui::layout::{Constraint, Layout, Position, Rect, Size};
+use crate::layout::{DialogItem, GenericLayout, layout_dialog};
+use ratatui::layout::{Constraint, Flex, Layout, Position, Rect, Size};
+use ratatui::widgets::Padding;
 
 /// This lets you define the outer bounds of a target area.
 ///
@@ -80,6 +82,7 @@ impl LayoutOuter {
     }
 
     /// Calculate the area.
+    #[inline]
     pub fn layout(&self, area: Rect) -> Rect {
         let mut hor = [
             Constraint::Length(0),
@@ -125,5 +128,19 @@ impl LayoutOuter {
         let h_layout = Layout::horizontal(hor).split(area);
         let v_layout = Layout::vertical(ver).split(h_layout[1]);
         v_layout[1]
+    }
+
+    /// Create a dialog layout with the given constraints.
+    #[inline]
+    pub fn layout_dialog<const N: usize>(
+        &self,
+        area: Rect,
+        padding: Padding,
+        buttons: [Constraint; N],
+        button_spacing: u16,
+        button_flex: Flex,
+    ) -> GenericLayout<DialogItem> {
+        let inner = self.layout(area);
+        layout_dialog(inner, padding, buttons, button_spacing, button_flex)
     }
 }
