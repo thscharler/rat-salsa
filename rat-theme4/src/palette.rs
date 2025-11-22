@@ -18,7 +18,6 @@
 //! with multiple palettes.
 //!
 
-use crate::RatWidgetColor;
 use ratatui::style::{Color, Style};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};

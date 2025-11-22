@@ -66,7 +66,7 @@ impl PopFocusBlueState {
             cc: ' ',
             placement: Default::default(),
             popup: Default::default(),
-            focus: FocusFlag::named("foc"),
+            focus: FocusFlag::new().with_name("foc"),
         }
     }
 

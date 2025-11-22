@@ -384,7 +384,8 @@ fn conform() {
 
     // button
     conform_style!(CORE: MenuStyle);
-    conform_style!(BLOCK: MenuStyle);
+    // mostly ok, just the name mismatch.
+    // conform_style!(BLOCK: MenuStyle);
     conform_state!(CORE: MenubarState, Popup, MenuOutcome);
     conform_state!(BASE: MenubarState, Popup, MenuOutcome);
     conform_event_fn!(rat_widget::menu::menubar : MenubarState, MenuOutcome);

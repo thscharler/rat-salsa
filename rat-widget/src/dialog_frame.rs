@@ -7,7 +7,7 @@ use crate::event::{
     ButtonOutcome, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular, ct_event, flow,
 };
 use crate::focus::{FocusBuilder, FocusFlag, HasFocus};
-use crate::layout::{DialogItem, LayoutOuter, layout_dialog};
+use crate::layout::{DialogItem, LayoutOuter};
 use crate::text::HasScreenCursor;
 use crate::util::{block_padding2, reset_buf_area};
 use crossterm::event::Event;

@@ -100,7 +100,7 @@ impl TextInputMockState {
 
     pub fn named(s: &str) -> Self {
         Self {
-            focus: FocusFlag::named(s),
+            focus: FocusFlag::new().with_name(s),
             area: Default::default(),
         }
     }

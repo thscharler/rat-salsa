@@ -54,14 +54,14 @@ impl BlueState {
     pub fn new() -> Self {
         Self {
             area: Default::default(),
-            focus: FocusFlag::named("blue"),
+            focus: FocusFlag::new().with_name("blue"),
         }
     }
 
     pub fn named(name: &str) -> Self {
         Self {
             area: Default::default(),
-            focus: FocusFlag::named(name),
+            focus: FocusFlag::new().with_name(name),
         }
     }
 }

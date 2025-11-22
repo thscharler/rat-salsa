@@ -138,7 +138,7 @@ pub mod substratum2 {
     impl Substratum2State {
         pub fn named(name: &str) -> Self {
             Self {
-                container_focus: FocusFlag::named(name),
+                container_focus: FocusFlag::new().with_name(name),
                 area: Default::default(),
                 stratum1: SubstratumState::named(format!("{}.1", name).as_str()),
                 stratum2: SubstratumState::named(format!("{}.2", name).as_str()),
@@ -259,7 +259,7 @@ pub mod substratum1 {
     impl SubstratumState {
         pub fn named(name: &str) -> Self {
             Self {
-                container_focus: FocusFlag::named(name),
+                container_focus: FocusFlag::new().with_name(name),
                 area: Default::default(),
                 input1: Default::default(),
                 input2: Default::default(),

@@ -31,7 +31,7 @@ use rat_reloc::{RelocatableState, relocate_area};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Styled};
+use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::thread;

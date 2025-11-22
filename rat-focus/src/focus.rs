@@ -1798,8 +1798,8 @@ mod core {
         #[test]
         #[should_panic]
         fn test_double_insert() {
-            let a = FocusFlag::named("a");
-            let b = FocusFlag::named("b");
+            let a = FocusFlag::new().with_name("a");
+            let b = FocusFlag::new().with_name("b");
 
             let mut fb = FocusBuilder::new(None);
             fb.widget(&a);
@@ -1810,15 +1810,15 @@ mod core {
 
         #[test]
         fn test_insert_remove() {
-            let a = FocusFlag::named("a");
-            let b = FocusFlag::named("b");
-            let c = FocusFlag::named("c");
-            let d = FocusFlag::named("d");
-            let e = FocusFlag::named("e");
-            let f = FocusFlag::named("f");
-            let g = FocusFlag::named("g");
-            let h = FocusFlag::named("h");
-            let i = FocusFlag::named("i");
+            let a = FocusFlag::new().with_name("a");
+            let b = FocusFlag::new().with_name("b");
+            let c = FocusFlag::new().with_name("c");
+            let d = FocusFlag::new().with_name("d");
+            let e = FocusFlag::new().with_name("e");
+            let f = FocusFlag::new().with_name("f");
+            let g = FocusFlag::new().with_name("g");
+            let h = FocusFlag::new().with_name("h");
+            let i = FocusFlag::new().with_name("i");
 
             let mut fb = FocusBuilder::new(None);
             fb.widget(&a);
@@ -1829,7 +1829,7 @@ mod core {
             assert_eq!(ff.core.focus_flags[1], b);
             assert_eq!(ff.core.focus_flags[2], c);
 
-            let cc = FocusFlag::named("cc");
+            let cc = FocusFlag::new().with_name("cc");
             let mut fb = FocusBuilder::new(None);
             fb.widget(&a);
             let cc_end = fb.start_with_flags(cc.clone(), Rect::default(), 0);
@@ -1874,7 +1874,7 @@ mod core {
             }
 
             let dd = DD {
-                dd: FocusFlag::named("dd"),
+                dd: FocusFlag::new().with_name("dd"),
                 g: g.clone(),
                 h: h.clone(),
                 i: i.clone(),

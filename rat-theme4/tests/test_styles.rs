@@ -1,4 +1,3 @@
-use rat_theme4::palette::rat_widget_color_names;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{
     StyleName, WidgetStyle, create_palette, create_theme, salsa_palettes, salsa_themes,
@@ -33,14 +32,20 @@ use std::io::Write;
 
 #[test]
 fn test_palette() {
+    use rat_theme4::palette::Colors::*;
+
     let palettes = salsa_palettes();
     for pal in palettes {
         eprintln!();
         eprintln!("PALETTE {:?}", pal);
         eprintln!();
         let pal = create_palette(pal).expect("pal");
-        for n in rat_widget_color_names() {
-            _ = pal.color_alias(n);
+
+        for n in [
+            TextLight, TextDark, Primary, Secondary, White, Black, Gray, Red, Orange, Yellow,
+            LimeGreen, Green, BlueGreen, Cyan, Blue, DeepBlue, Purple, Magenta, RedPink, None,
+        ] {
+            _ = pal.color_alias(&n.to_string());
         }
     }
 }

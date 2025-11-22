@@ -27,7 +27,7 @@ use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{RatWidgetColor, WidgetStyle, create_theme, theme, themes};
+use rat_theme4::{RatWidgetColor, WidgetStyle, create_theme, themes};
 use rat_widget::event::{HandleEvent, MenuOutcome, Outcome, Regular, ct_event, event_flow};
 use rat_widget::file_dialog::FileDialogState;
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -647,7 +647,7 @@ fn export_pal_file(
 
     let mut wr = File::create(path)?;
     writeln!(wr, "use std::borrow::Cow;")?;
-    writeln!(wr, "use crate::{{Colors, Palette, define_alias}};")?;
+    writeln!(wr, "use crate::palette::{{Colors, Palette, define_alias}};")?;
     writeln!(wr, "")?;
     writeln!(wr, "/// {}", state.edit.name())?;
     for l in state.edit.docs.text().lines() {

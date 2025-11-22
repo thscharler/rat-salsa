@@ -106,7 +106,8 @@ fn render(
             .join_1(blk)
             .join_0(blk);
     }
-    let split = split.into_widget(l2[1], &mut state.split);
+    let (split_layout, split) = split.into_widgets();
+    split_layout.render(l2[1], frame.buffer_mut(), &mut state.split);
 
     // First split widget. Show some TEXT.
     if !state.split.is_hidden(0) {

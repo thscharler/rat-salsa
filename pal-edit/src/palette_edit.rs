@@ -1,5 +1,5 @@
 use crate::color_span::{ColorSpan, ColorSpanState};
-use crate::{Config, Global, PalEvent};
+use crate::{Config, Global, PalEvent, color_array, color_array_no_text};
 use anyhow::Error;
 use indexmap::IndexMap;
 use rat_salsa::SalsaContext;
@@ -49,10 +49,10 @@ impl PaletteEdit {
             dark: NumberInputState::named("dark"),
             color: array::from_fn(|i| {
                 (
-                    ColorInputState::named(format!("{}-0", Colors::array()[i].name()).as_str()),
+                    ColorInputState::named(format!("{}-0", color_array()[i]).as_str()),
                     (),
                     (),
-                    ColorInputState::named(format!("{}-3", Colors::array()[i].name()).as_str()),
+                    ColorInputState::named(format!("{}-3", color_array()[i]).as_str()),
                 )
             }),
             color_ext: {
@@ -136,7 +136,7 @@ impl PaletteEdit {
             Color::default(),
             Color::default(),
         );
-        for c in Colors::array_no_text() {
+        for c in color_array_no_text() {
             palette.color[c as usize] = Palette::interpolatec(
                 self.color[c as usize].0.value(),
                 self.color[c as usize].3.value(),
@@ -154,7 +154,7 @@ impl HasFocus for PaletteEdit {
         builder.widget(&self.name);
         builder.widget_navigate(&self.docs, Navigation::Regular);
         builder.widget(&self.dark);
-        for c in Colors::array() {
+        for c in color_array() {
             builder.widget(&self.color[c as usize].0);
             builder.widget(&self.color[c as usize].3);
         }
@@ -178,7 +178,7 @@ impl HasScreenCursor for PaletteEdit {
             .screen_cursor()
             .or(self.docs.screen_cursor())
             .or_else(|| {
-                for c in Colors::array() {
+                for c in color_array() {
                     if let Some(s) = self.color[c as usize].0.screen_cursor() {
                         return Some(s);
                     }
@@ -212,7 +212,7 @@ pub fn render(
         layout.widget(state.docs.id(), L::Str("Doc"), W::StretchX(20, 3));
         layout.widget(state.dark.id(), L::Str("Dark"), W::Width(4));
         layout.gap(1);
-        for c in Colors::array() {
+        for c in color_array() {
             layout.widget(
                 state.color[c as usize].0.id(),
                 L::String(c.to_string()),
@@ -275,7 +275,7 @@ pub fn render(
         },
     );
 
-    for c in Colors::array() {
+    for c in color_array() {
         form.render(
             state.color[c as usize].0.id(),
             || {
@@ -360,7 +360,7 @@ pub fn event(
                 r => r,
             }
         );
-        for c in Colors::array() {
+        for c in color_array() {
             event_flow!(
                 break 'f handle_color(event, &mut state.color[c as usize].0, &mut mode_change)
             );
@@ -375,7 +375,7 @@ pub fn event(
     };
 
     if let Some(mode_change) = mode_change {
-        for c in Colors::array() {
+        for c in color_array() {
             state.color[c as usize].0.set_mode(mode_change);
             state.color[c as usize].3.set_mode(mode_change);
         }
