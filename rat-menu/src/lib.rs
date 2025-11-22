@@ -105,12 +105,15 @@ pub mod event {
 /// Combined styles.
 #[derive(Debug, Clone)]
 pub struct MenuStyle {
-    /// Base style.
+    /// Base style for the main-menu.
     pub style: Style,
-    /// Button border mark
+    /// Border for the main-menu.
     pub menu_block: Option<Block<'static>>,
+    /// Border-style for the main-menu.
     pub border_style: Option<Style>,
+    /// Title-style for the main-menu border.
     pub title_style: Option<Style>,
+
     /// Menuline title style.
     pub title: Option<Style>,
     /// Style for the _ highlight/nav-char
@@ -124,17 +127,27 @@ pub struct MenuStyle {
 
     /// Styling for the popup menus.
     pub popup_style: Option<Style>,
-    /// Block for the popup menus.
+    /// Block for the popup-menu.
     #[deprecated(since = "2.1.0", note = "use popup_block instead")]
     pub block: Option<Block<'static>>,
-    /// Block for the popup menus.
+    /// Block for the popup-menu.
     pub popup_block: Option<Block<'static>>,
+    /// Border style for the popup-menu.
+    pub popup_border: Option<Style>,
+    /// Border style for the popup-menu.
+    pub popup_title: Option<Style>,
+    /// Style for the _ highlight/nav-char for the popup-menu.
+    pub popup_highlight: Option<Style>,
+    /// Style for a disabled item for the popup-menu.
+    pub popup_disabled: Option<Style>,
+    /// Style for the hotkey for the popup-menu.
+    pub popup_right: Option<Style>,
+    /// Focus style for the popup-menu.
+    pub popup_focus: Option<Style>,
+    /// Style for separators for the popup-menu.
+    pub popup_separator: Option<Style>,
     /// Popup itself
     pub popup: PopupStyle,
-    /// Border style
-    pub popup_border: Option<Style>,
-    /// Border style
-    pub popup_title: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -155,9 +168,14 @@ impl Default for MenuStyle {
             popup_style: Default::default(),
             block: Default::default(),
             popup_block: Default::default(),
-            popup: Default::default(),
             popup_border: Default::default(),
             popup_title: Default::default(),
+            popup_highlight: Default::default(),
+            popup_disabled: Default::default(),
+            popup_right: Default::default(),
+            popup_focus: Default::default(),
+            popup_separator: Default::default(),
+            popup: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }

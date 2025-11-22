@@ -42,15 +42,7 @@ use std::fmt::Debug;
 pub struct Menubar<'a> {
     structure: Option<&'a dyn MenuStructure<'a>>,
 
-    title: Line<'a>,
-    style: Style,
-    block: Option<Block<'a>>,
-    title_style: Option<Style>,
-
-    focus_style: Option<Style>,
-    highlight_style: Option<Style>,
-    disabled_style: Option<Style>,
-    right_style: Option<Style>,
+    menu: MenuLine<'a>,
 
     popup_alignment: Alignment,
     popup_placement: Placement,
@@ -64,17 +56,7 @@ pub struct Menubar<'a> {
 #[derive(Debug, Clone)]
 pub struct MenubarLine<'a> {
     structure: Option<&'a dyn MenuStructure<'a>>,
-
-    style: Style,
-    block: Option<Block<'a>>,
-
-    title: Line<'a>,
-    title_style: Option<Style>,
-
-    focus_style: Option<Style>,
-    highlight_style: Option<Style>,
-    disabled_style: Option<Style>,
-    right_style: Option<Style>,
+    menu: MenuLine<'a>,
 }
 
 /// Menubar popup widget.
@@ -83,14 +65,6 @@ pub struct MenubarLine<'a> {
 #[derive(Debug, Clone)]
 pub struct MenubarPopup<'a> {
     structure: Option<&'a dyn MenuStructure<'a>>,
-
-    style: Style,
-
-    focus_style: Option<Style>,
-    highlight_style: Option<Style>,
-    disabled_style: Option<Style>,
-    right_style: Option<Style>,
-
     popup_alignment: Alignment,
     popup_placement: Placement,
     popup_offset: Option<(i16, i16)>,
@@ -100,7 +74,7 @@ pub struct MenubarPopup<'a> {
 /// State & event-handling.
 #[derive(Debug, Clone)]
 pub struct MenubarState {
-    /// Area for the menubar.
+    /// Area for the main-menubar.
     /// __readonly__. renewed for each render.
     pub area: Rect,
     /// State for the menu.
@@ -115,14 +89,7 @@ impl Default for Menubar<'_> {
     fn default() -> Self {
         Self {
             structure: Default::default(),
-            title: Default::default(),
-            style: Default::default(),
-            block: Default::default(),
-            title_style: Default::default(),
-            focus_style: Default::default(),
-            highlight_style: Default::default(),
-            disabled_style: Default::default(),
-            right_style: Default::default(),
+            menu: Default::default(),
             popup_alignment: Alignment::Left,
             popup_placement: Placement::AboveOrBelow,
             popup_offset: Default::default(),
@@ -140,95 +107,45 @@ impl<'a> Menubar<'a> {
         }
     }
 
-    /// Title text.
-    #[inline]
-    pub fn title(mut self, title: impl Into<Line<'a>>) -> Self {
-        self.title = title.into();
-        self
-    }
-
-    /// Combined style.
-    #[inline]
-    pub fn styles(mut self, styles: MenuStyle) -> Self {
-        self.popup = self.popup.styles(styles.clone());
-
-        self.style = styles.style;
-
-        if styles.menu_block.is_some() {
-            self.block = styles.menu_block;
-        }
-        if let Some(border_style) = styles.border_style {
-            self.block = self.block.map(|v| v.border_style(border_style));
-        }
-        if let Some(title_style) = styles.title_style {
-            self.block = self.block.map(|v| v.title_style(title_style));
-        }
-        self.block = self.block.map(|v| v.style(self.style));
-
-        if styles.highlight.is_some() {
-            self.highlight_style = styles.highlight;
-        }
-        if styles.disabled.is_some() {
-            self.disabled_style = styles.disabled;
-        }
-        if styles.focus.is_some() {
-            self.focus_style = styles.focus;
-        }
-        if styles.title.is_some() {
-            self.title_style = styles.title;
-        }
-        if styles.focus.is_some() {
-            self.focus_style = styles.focus;
-        }
-        if styles.right.is_some() {
-            self.right_style = styles.right;
-        }
-
-        if let Some(alignment) = styles.popup.alignment {
-            self.popup_alignment = alignment;
-        }
-        if let Some(placement) = styles.popup.placement {
-            self.popup_placement = placement;
-        }
-        if let Some(offset) = styles.popup.offset {
-            self.popup_offset = Some(offset);
-        }
-
-        self
-    }
-
     /// Base style.
     #[inline]
     pub fn style(mut self, style: Style) -> Self {
-        self.style = style;
+        self.menu = self.menu.style(style);
         self
     }
 
     /// Block.
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
-        self.block = Some(block.style(self.style));
+        self.menu = self.menu.block(block);
+        self
+    }
+
+    /// Title text.
+    #[inline]
+    pub fn title(mut self, title: impl Into<Line<'a>>) -> Self {
+        self.menu = self.menu.title(title);
         self
     }
 
     /// Menu-title style.
     #[inline]
     pub fn title_style(mut self, style: Style) -> Self {
-        self.title_style = Some(style);
+        self.menu = self.menu.title_style(style);
         self
     }
 
     /// Selection + Focus
     #[inline]
     pub fn focus_style(mut self, style: Style) -> Self {
-        self.focus_style = Some(style);
+        self.menu = self.menu.focus_style(style);
         self
     }
 
     /// Selection + Focus
     #[inline]
     pub fn right_style(mut self, style: Style) -> Self {
-        self.right_style = Some(style);
+        self.menu = self.menu.right_style(style);
         self
     }
 
@@ -261,10 +178,49 @@ impl<'a> Menubar<'a> {
         self
     }
 
-    /// Block for the popup menus.
+    /// Base style for the popup-menu.
+    #[inline]
+    pub fn popup_style(mut self, style: Style) -> Self {
+        self.popup = self.popup.style(style);
+        self
+    }
+
+    /// Block for the popup-menu.
     #[inline]
     pub fn popup_block(mut self, block: Block<'a>) -> Self {
         self.popup = self.popup.block(block);
+        self
+    }
+
+    /// Selection + Focus for the popup-menu.
+    #[inline]
+    pub fn popup_focus_style(mut self, style: Style) -> Self {
+        self.popup = self.popup.focus_style(style);
+        self
+    }
+
+    /// Hotkey for the popup-menu.
+    #[inline]
+    pub fn popup_right_style(mut self, style: Style) -> Self {
+        self.popup = self.popup.right_style(style);
+        self
+    }
+
+    /// Combined style.
+    #[inline]
+    pub fn styles(mut self, styles: MenuStyle) -> Self {
+        self.menu = self.menu.styles(styles.clone());
+        self.popup = self.popup.styles(styles.clone());
+
+        if let Some(alignment) = styles.popup.alignment {
+            self.popup_alignment = alignment;
+        }
+        if let Some(placement) = styles.popup.placement {
+            self.popup_placement = placement;
+        }
+        if let Some(offset) = styles.popup.offset {
+            self.popup_offset = Some(offset);
+        }
         self
     }
 
@@ -278,24 +234,10 @@ impl<'a> Menubar<'a> {
         (
             MenubarLine {
                 structure: self.structure,
-                title: self.title,
-
-                style: self.style,
-                block: self.block,
-                title_style: self.title_style,
-                focus_style: self.focus_style,
-                highlight_style: self.highlight_style,
-                disabled_style: self.disabled_style,
-                right_style: self.right_style,
+                menu: self.menu,
             },
             MenubarPopup {
                 structure: self.structure,
-
-                style: self.style,
-                focus_style: self.focus_style,
-                highlight_style: self.highlight_style,
-                disabled_style: self.disabled_style,
-                right_style: self.right_style,
                 popup_alignment: self.popup_alignment,
                 popup_placement: self.popup_placement,
                 popup_offset: self.popup_offset,
@@ -313,23 +255,17 @@ impl StatefulWidget for MenubarLine<'_> {
     }
 }
 
-fn render_menubar(widget: MenubarLine<'_>, area: Rect, buf: &mut Buffer, state: &mut MenubarState) {
-    let mut menu = MenuLine::new()
-        .title(widget.title.clone())
-        .style(widget.style)
-        .block_opt(widget.block)
-        .highlight_style_opt(widget.highlight_style)
-        .disabled_style_opt(widget.disabled_style)
-        .right_style_opt(widget.right_style)
-        .title_style_opt(widget.title_style)
-        .focus_style_opt(widget.focus_style);
-
+fn render_menubar(
+    mut widget: MenubarLine<'_>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut MenubarState,
+) {
     if let Some(structure) = &widget.structure {
-        structure.menus(&mut menu.menu);
+        structure.menus(&mut widget.menu.menu);
     }
-    menu.render(area, buf, &mut state.bar);
-
-    // Combined area + each part with a z-index.
+    widget.menu.render(area, buf, &mut state.bar);
+    // Area of the main bar.
     state.area = state.bar.area;
 }
 
@@ -342,14 +278,11 @@ impl StatefulWidget for MenubarPopup<'_> {
 }
 
 fn render_menu_popup(
-    widget: MenubarPopup<'_>,
+    mut widget: MenubarPopup<'_>,
     _area: Rect,
     buf: &mut Buffer,
     state: &mut MenubarState,
 ) {
-    // Combined area + each part with a z-index.
-    state.area = state.bar.area;
-
     let Some(selected) = state.bar.selected() else {
         return;
     };
@@ -367,28 +300,19 @@ fn render_menu_popup(
             (-(popup_padding.left as i16 + 1), 0)
         };
 
-        let mut popup = widget
+        widget.popup = widget
             .popup
             .constraint(
                 widget
                     .popup_placement
                     .into_constraint(widget.popup_alignment, item),
             )
-            .offset(sub_offset)
-            .style(widget.style)
-            .focus_style_opt(widget.focus_style)
-            .highlight_style_opt(widget.highlight_style)
-            .disabled_style_opt(widget.disabled_style)
-            .right_style_opt(widget.right_style);
+            .offset(sub_offset);
+        structure.submenu(selected, &mut widget.popup.menu);
 
-        structure.submenu(selected, &mut popup.menu);
-
-        if !popup.menu.items.is_empty() {
+        if !widget.popup.menu.items.is_empty() {
             let area = state.bar.item_areas[selected];
-            popup.render(area, buf, &mut state.popup);
-
-            // Combined area + each part with a z-index.
-            state.area = state.bar.area.union(state.popup.popup.area);
+            widget.popup.render(area, buf, &mut state.popup);
         }
     } else {
         state.popup = Default::default();

@@ -59,9 +59,9 @@ use unicode_segmentation::UnicodeSegmentation;
 #[derive(Debug, Default, Clone)]
 pub struct PopupMenu<'a> {
     pub(crate) menu: MenuBuilder<'a>,
+    pub(crate) popup: PopupCore,
 
     width: Option<u16>,
-    popup: PopupCore,
 
     style: Style,
     block: Option<Block<'a>>,
@@ -69,6 +69,7 @@ pub struct PopupMenu<'a> {
     disabled_style: Option<Style>,
     right_style: Option<Style>,
     focus_style: Option<Style>,
+    separator_style: Option<Style>,
 }
 
 /// State & event handling.
@@ -288,17 +289,20 @@ impl<'a> PopupMenu<'a> {
         }
         self.block = self.block.map(|v| v.style(self.style));
 
-        if styles.highlight.is_some() {
-            self.highlight_style = styles.highlight;
+        if styles.popup_highlight.is_some() {
+            self.highlight_style = styles.popup_highlight;
         }
-        if styles.disabled.is_some() {
-            self.disabled_style = styles.disabled;
+        if styles.popup_disabled.is_some() {
+            self.disabled_style = styles.popup_disabled;
         }
-        if styles.right.is_some() {
-            self.right_style = styles.right;
+        if styles.popup_right.is_some() {
+            self.right_style = styles.popup_right;
         }
-        if styles.focus.is_some() {
-            self.focus_style = styles.focus;
+        if styles.popup_focus.is_some() {
+            self.focus_style = styles.popup_focus;
+        }
+        if styles.popup_separator.is_some() {
+            self.separator_style = styles.popup_separator;
         }
         self
     }
@@ -453,6 +457,7 @@ fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuS
     let right_style = style.patch(widget.right_style.unwrap_or_default());
     let highlight_style = style.patch(widget.highlight_style.unwrap_or(Style::new().underlined()));
     let disabled_style = style.patch(widget.disabled_style.unwrap_or_default());
+    let separator_style = style.patch(widget.separator_style.unwrap_or_default());
 
     let sel_style = focus_style;
     let sel_right_style = focus_style.patch(widget.right_style.unwrap_or_default());
@@ -513,6 +518,7 @@ fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuS
             for x in 0..sep_area.width {
                 if let Some(cell) = buf.cell_mut((sep_area.x + x, sep_area.y)) {
                     cell.set_symbol(sym);
+                    cell.set_style(separator_style);
                 }
             }
         }
