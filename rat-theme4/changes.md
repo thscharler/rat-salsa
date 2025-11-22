@@ -1,3 +1,20 @@
+# 4.0.0
+
+Complete refactor of theming.
+
+* Palette can now be uses both in const context and at runtime
+  without resorting to leak().
+* Palette colors can have semantic aliases.
+* More Palettes
+* Some Light themes and palettes.
+* Much better support for modifications by an application.
+    * Define new color-aliases.
+    * Add custom Styles.
+    * Modify predefined Styles.
+* Everything is HashMaps to Fn closures.
+* Access to styles based on style-names (strings), but with
+  names as constants anchored on Color, Style and the new WidgetStyle.
+
 # 3.1.0
 
 * Palette: add color2u32()

@@ -1,3 +1,7 @@
+# 0.8.0
+
+* move examples to rat-theme4
+
 # 0.7.2
 
 * sync crate versions

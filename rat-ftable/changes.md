@@ -1,3 +1,12 @@
+# 1.3.0
+
+* feature: add layout_column_widths() to calculate the table-width
+  according to the sum of all columns. Similar to the old auto_layout_width(),
+  but does a proper calculation for all Constraint variants.
+* fix: add missing border_style and title_style.
+* fix: event handling in EditableTableVec
+* fix: event handling in EditableTableVec should honor focus.
+
 # 1.2.1
 
 * fix: conformance with guidelines.

@@ -1,3 +1,7 @@
+# 1.4.0
+
+* add experimental event_flow! macro that unifies the existing ones.
+
 # 1.2.5
 
 * break: add missing NonExhaustive to MouseFlags and MouseFlagsN.

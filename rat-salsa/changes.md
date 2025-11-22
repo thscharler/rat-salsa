@@ -1,3 +1,7 @@
+# 2.5.0
+
+* switch examples to rat-theme4
+
 # 2.4.0
 
 * add example palette_edit

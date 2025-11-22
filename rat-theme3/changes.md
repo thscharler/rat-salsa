@@ -1,3 +1,7 @@
+# 2.4.0
+
+* fix upstream changes for MenuStyle.
+
 # 2.3.2
 
 * add __discontinued__ marker.

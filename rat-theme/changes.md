@@ -1,3 +1,7 @@
+# 0.30.0
+
+* fix upstream changes for MenuStyle.
+
 # 0.29.2
 
 * sync crate versions.

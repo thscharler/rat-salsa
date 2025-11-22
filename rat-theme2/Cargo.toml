@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme2"
-version = "1.4.2"
+version = "1.5.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "dark theme and color-schemes"
@@ -15,4 +15,4 @@ exclude = [".idea/*", ".gitignore"]
 ratatui = { version = "0.29" }
 log = "0.4"
 
-rat-widget = { version = "2.4", path = "../rat-widget" }
+rat-widget = { version = "2.5", path = "../rat-widget" }

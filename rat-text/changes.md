@@ -1,3 +1,10 @@
+# 2.4.0
+
+* fix: ColorInput: mouse scrolling should only change values
+  when the input is focused.
+* refactor: Default for TextFocusLost changed to Position0
+* refactor: Default for TextFocusGained changed to Overwrite
+
 # 2.3.0
 
 * feature: ColorInput mouse handling added.

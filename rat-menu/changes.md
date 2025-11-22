@@ -1,3 +1,17 @@
+# 2.2.0
+
+* refactor/fix: All widgets now use the same logic when
+  using a Block from some xxxStyle struct. And all xxxStyle structs
+  now have the abilitiy to just set the border_style and the
+  title_style without defining a full Block.
+
+* break (minor): styling for the popup-menu is now separated from
+  styling for the main-menu. If you use MenuStyle you need to define the
+  colors for the popup-menu. It will fall back to defaults, so your
+  application will still run, just rendering will be off.
+
+* feature: add separate style for menu separators.
+
 # 2.1.0
 
 * break: PopupMenu: width() -> menu_width() and width_opt() -> menu_width_opt()

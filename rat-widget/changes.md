@@ -1,3 +1,20 @@
+# 2.5.0
+
+* refactor/fix: All widgets now use the same logic when
+  using a Block from some xxxStyle struct. And all xxxStyle structs
+  now have the abilitiy to just set the border_style and the
+  title_style without defining a full Block.
+
+* refactor: doesn't fit with Form or Clipper. Add LayoutWidget, that
+  just does the layout calculation and acts as the main widget.
+  The existing SplitWidget is fine.
+  deprecate into_widget() and into_widget_layout() and use the
+  standard into_widgets() to create the two widgets.
+
+* feature: add layout_dialog() to LayoutOuter
+
+*
+
 # 2.4.0
 
 ## Conformance test
