@@ -64,7 +64,7 @@ use unicode_segmentation::UnicodeSegmentation;
 /// rendered.
 ///
 /// 1. Construct the Split.
-/// 2. Call [Split::into_widget_layout] to create the actual
+/// 2. Call [Split::into_widgets] to create the actual
 ///    widget and the layout of the regions.
 /// 3. Render the content areas.
 /// 4. Render the split widget last. There are options that
@@ -86,16 +86,16 @@ pub struct Split<'a> {
     join_0: Option<BorderType>,
     // joiner right/bottom
     join_1: Option<BorderType>,
-    // offset from left/top for the split-mark
+    // offset from left/top for the split-mar-k
     mark_offset: u16,
-    // mark char 1
+    // mar-k char 1
     mark_0_char: Option<&'a str>,
-    // mark char 2
+    // mar-k char 2
     mark_1_char: Option<&'a str>,
 
     // styling
-    block: Option<Block<'a>>,
     style: Style,
+    block: Option<Block<'a>>,
     arrow_style: Option<Style>,
     drag_style: Option<Style>,
 }
@@ -112,7 +112,7 @@ pub struct SplitWidget<'a> {
     split: Split<'a>,
     // internal mode:
     // 0 - legacy
-    // 1 - used for into_widget_layout()
+    // 1 - used for into_widgets()
     mode: u8,
 }
 
@@ -123,6 +123,10 @@ pub struct SplitWidget<'a> {
 pub struct SplitStyle {
     /// Base style
     pub style: Style,
+    /// Block
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     /// Arrow style.
     pub arrow_style: Option<Style>,
     /// Style while dragging.
@@ -134,9 +138,6 @@ pub struct SplitStyle {
     /// Marker for a vertical split.
     /// Only the first 2 chars are used.
     pub vertical_mark: Option<&'static str>,
-
-    /// Block
-    pub block: Option<Block<'static>>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -217,10 +218,10 @@ pub struct SplitState {
     /// It might overlap with the widget area.
     /// __readonly__ renewed for each render.
     pub splitline_areas: Vec<Rect>,
-    /// Start position for drawing the mark.
+    /// Start position for drawing the mar-k.
     /// __readonly__ renewed for each render.
     pub splitline_mark_position: Vec<Position>,
-    /// Offset of the mark from top/left.
+    /// Offset of the mar-k from top/left.
     /// __readonly__ renewed for each render.
     pub mark_offset: u16,
 
@@ -275,11 +276,13 @@ impl Default for SplitStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            arrow_style: None,
-            drag_style: None,
-            horizontal_mark: None,
-            vertical_mark: None,
-            block: None,
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            arrow_style: Default::default(),
+            drag_style: Default::default(),
+            horizontal_mark: Default::default(),
+            vertical_mark: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -377,6 +380,17 @@ impl<'a> Split<'a> {
     /// Set all styles.
     pub fn styles(mut self, styles: SplitStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+
         if styles.drag_style.is_some() {
             self.drag_style = styles.drag_style;
         }
@@ -407,15 +421,13 @@ impl<'a> Split<'a> {
                 }
             }
         }
-        if styles.block.is_some() {
-            self.block = styles.block;
-        }
         self
     }
 
     /// Style for the split area.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 

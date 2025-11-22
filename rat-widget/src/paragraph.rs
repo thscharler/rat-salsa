@@ -27,23 +27,25 @@ use std::ops::DerefMut;
 #[derive(Debug, Clone, Default)]
 pub struct Paragraph<'a> {
     style: Style,
+    block: Option<Block<'a>>,
+    vscroll: Option<Scroll<'a>>,
+    hscroll: Option<Scroll<'a>>,
+
     focus_style: Option<Style>,
 
     wrap: Option<Wrap>,
     para: RefCell<ratatui::widgets::Paragraph<'a>>,
-
-    block: Option<Block<'a>>,
-    vscroll: Option<Scroll<'a>>,
-    hscroll: Option<Scroll<'a>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ParagraphStyle {
     pub style: Style,
-    pub focus: Option<Style>,
-
     pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     pub scroll: Option<ScrollStyle>,
+
+    pub focus: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -79,9 +81,11 @@ impl Default for ParagraphStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            focus: None,
-            block: None,
-            scroll: None,
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            scroll: Default::default(),
+            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -137,17 +141,25 @@ impl<'a> Paragraph<'a> {
     /// Styles.
     pub fn styles(mut self, styles: ParagraphStyle) -> Self {
         self.style = styles.style;
-        if styles.focus.is_some() {
-            self.focus_style = styles.focus;
-        }
         if styles.block.is_some() {
             self.block = styles.block;
         }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if let Some(styles) = styles.scroll {
             self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
             self.vscroll = self.vscroll.map(|v| v.styles(styles));
         }
-        self.block = self.block.map(|v| v.style(self.style));
+
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
+        }
+
         self
     }
 

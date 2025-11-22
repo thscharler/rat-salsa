@@ -52,13 +52,13 @@ pub struct Table<'a, Selection = RowSelection> {
     layout_width: Option<u16>,
     layout_column_widths: bool,
 
+    style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
-
     header_style: Option<Style>,
     footer_style: Option<Style>,
-    style: Style,
+    focus_style: Option<Style>,
 
     auto_styles: bool,
     select_row_style: Option<Style>,
@@ -71,8 +71,6 @@ pub struct Table<'a, Selection = RowSelection> {
     show_header_focus: bool,
     select_footer_style: Option<Style>,
     show_footer_focus: bool,
-
-    focus_style: Option<Style>,
 
     _phantom: PhantomData<Selection>,
 }
@@ -237,8 +235,13 @@ mod data {
 #[derive(Debug, Clone)]
 pub struct TableStyle {
     pub style: Style,
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
+    pub scroll: Option<ScrollStyle>,
     pub header: Option<Style>,
     pub footer: Option<Style>,
+    pub focus_style: Option<Style>,
 
     pub select_row: Option<Style>,
     pub select_column: Option<Style>,
@@ -251,13 +254,6 @@ pub struct TableStyle {
     pub show_cell_focus: bool,
     pub show_header_focus: bool,
     pub show_footer_focus: bool,
-
-    pub focus_style: Option<Style>,
-
-    pub block: Option<Block<'static>>,
-    pub border_style: Option<Style>,
-    pub title_style: Option<Style>,
-    pub scroll: Option<ScrollStyle>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -736,6 +732,21 @@ impl<'a, Selection> Table<'a, Selection> {
     #[inline]
     pub fn styles(mut self, styles: TableStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+
+        if let Some(styles) = styles.scroll {
+            self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
+            self.vscroll = self.vscroll.map(|v| v.styles(styles));
+        }
         if styles.header.is_some() {
             self.header_style = styles.header;
         }
@@ -764,20 +775,6 @@ impl<'a, Selection> Table<'a, Selection> {
         self.show_footer_focus = styles.show_footer_focus;
         if styles.focus_style.is_some() {
             self.focus_style = styles.focus_style;
-        }
-        if let Some(border_style) = styles.border_style {
-            self.block = self.block.map(|v| v.border_style(border_style));
-        }
-        if let Some(title_style) = styles.title_style {
-            self.block = self.block.map(|v| v.title_style(title_style));
-        }
-        self.block = self.block.map(|v| v.style(self.style));
-        if styles.block.is_some() {
-            self.block = styles.block;
-        }
-        if let Some(styles) = styles.scroll {
-            self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
-            self.vscroll = self.vscroll.map(|v| v.styles(styles));
         }
         self
     }

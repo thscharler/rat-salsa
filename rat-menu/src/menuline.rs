@@ -168,6 +168,7 @@ impl<'a> MenuLine<'a> {
     }
 
     /// Block
+    #[deprecated(since = "2.1.0", note = "was a mistake to add this")]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self

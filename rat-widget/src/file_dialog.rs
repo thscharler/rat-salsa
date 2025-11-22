@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::event::{ButtonOutcome, FileOutcome, TextOutcome};
-use crate::layout::{DialogItem, layout_as_grid, layout_dialog};
+use crate::layout::{DialogItem, LayoutOuter, layout_as_grid};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
@@ -23,7 +23,7 @@ use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{HasScreenCursor, TextStyle};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Position, Rect, Size};
 use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, ListItem};
@@ -58,14 +58,15 @@ use sysinfo::Disks;
 ///
 #[derive(Debug, Clone)]
 pub struct FileDialog<'a> {
-    block: Option<Block<'a>>,
-    no_block: bool,
-
     style: Style,
+    block: Option<Block<'a>>,
     list_style: Option<ListStyle>,
     roots_style: Option<ListStyle>,
     text_style: Option<TextStyle>,
     button_style: Option<ButtonStyle>,
+
+    layout: LayoutOuter,
+
     ok_text: &'a str,
     cancel_text: &'a str,
 }
@@ -74,6 +75,12 @@ pub struct FileDialog<'a> {
 #[derive(Debug, Clone)]
 pub struct FileDialogStyle {
     pub style: Style,
+    /// Outer border.
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
+    /// Placement
+    pub layout: Option<LayoutOuter>,
     /// Lists
     pub list: Option<ListStyle>,
     /// FS roots
@@ -82,10 +89,6 @@ pub struct FileDialogStyle {
     pub text: Option<TextStyle>,
     /// Buttons.
     pub button: Option<ButtonStyle>,
-    /// Outer border.
-    pub block: Option<Block<'static>>,
-    /// Don't create a border
-    pub no_block: Option<bool>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -245,13 +248,15 @@ impl Default for FileDialogStyle {
     fn default() -> Self {
         FileDialogStyle {
             style: Default::default(),
+            layout: Default::default(),
             list: Default::default(),
             roots: Default::default(),
             button: Default::default(),
             block: Default::default(),
-            no_block: Default::default(),
+            border_style: Default::default(),
             text: Default::default(),
             non_exhaustive: NonExhaustive,
+            title_style: Default::default(),
         }
     }
 }
@@ -289,8 +294,8 @@ impl<'a> Default for FileDialog<'a> {
     fn default() -> Self {
         Self {
             block: Default::default(),
-            no_block: false,
             style: Default::default(),
+            layout: Default::default(),
             list_style: Default::default(),
             roots_style: Default::default(),
             text_style: Default::default(),
@@ -326,16 +331,10 @@ impl<'a> FileDialog<'a> {
         self
     }
 
-    /// Remove block
-    pub fn no_block(mut self) -> Self {
-        self.block = None;
-        self.no_block = true;
-        self
-    }
-
     /// Base style
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 
@@ -363,9 +362,70 @@ impl<'a> FileDialog<'a> {
         self
     }
 
+    /// Margin constraint for the left side.
+    pub fn left(mut self, left: Constraint) -> Self {
+        self.layout = self.layout.left(left);
+        self
+    }
+
+    /// Margin constraint for the top side.
+    pub fn top(mut self, top: Constraint) -> Self {
+        self.layout = self.layout.top(top);
+        self
+    }
+
+    /// Margin constraint for the right side.
+    pub fn right(mut self, right: Constraint) -> Self {
+        self.layout = self.layout.right(right);
+        self
+    }
+
+    /// Margin constraint for the bottom side.
+    pub fn bottom(mut self, bottom: Constraint) -> Self {
+        self.layout = self.layout.bottom(bottom);
+        self
+    }
+
+    /// Put at a fixed position.
+    pub fn position(mut self, pos: Position) -> Self {
+        self.layout = self.layout.position(pos);
+        self
+    }
+
+    /// Constraint for the width.
+    pub fn width(mut self, width: Constraint) -> Self {
+        self.layout = self.layout.width(width);
+        self
+    }
+
+    /// Constraint for the height.
+    pub fn height(mut self, height: Constraint) -> Self {
+        self.layout = self.layout.height(height);
+        self
+    }
+
+    /// Set at a fixed size.
+    pub fn size(mut self, size: Size) -> Self {
+        self.layout = self.layout.size(size);
+        self
+    }
+
     /// All styles.
     pub fn styles(mut self, styles: FileDialogStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+        if let Some(layout) = styles.layout {
+            self.layout = layout;
+        }
         if styles.list.is_some() {
             self.list_style = styles.list;
         }
@@ -378,13 +438,6 @@ impl<'a> FileDialog<'a> {
         if styles.button.is_some() {
             self.button_style = styles.button;
         }
-        if let Some(no_block) = styles.no_block {
-            self.no_block = no_block;
-        }
-        if styles.block.is_some() {
-            self.block = styles.block;
-        }
-        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 }
@@ -468,7 +521,7 @@ impl StatefulWidget for FileDialog<'_> {
         let block;
         let block = if let Some(block) = self.block.as_ref() {
             block
-        } else if !self.no_block {
+        } else {
             block = Block::bordered()
                 .title(match state.mode {
                     Mode::Open => " Open ",
@@ -477,12 +530,9 @@ impl StatefulWidget for FileDialog<'_> {
                 })
                 .style(self.style);
             &block
-        } else {
-            block = Block::new().style(self.style);
-            &block
         };
 
-        let layout = layout_dialog(
+        let layout = self.layout.layout_dialog(
             area,
             block_padding2(block),
             [
@@ -493,6 +543,7 @@ impl StatefulWidget for FileDialog<'_> {
             0,
             Flex::Center,
         );
+        state.area = layout.area();
 
         reset_buf_area(layout.area(), buf);
         block.render(area, buf);

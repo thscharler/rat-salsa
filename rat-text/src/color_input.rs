@@ -46,9 +46,11 @@ use std::ops::Range;
 #[derive(Debug, Clone)]
 pub struct ColorInput<'a> {
     style: Style,
+    block: Option<Block<'a>>,
+
     disable_modes: bool,
     mode: Option<Mode>,
-    block: Option<Block<'a>>,
+
     widget: MaskedInput<'a>,
 }
 
@@ -141,12 +143,16 @@ impl<'a> ColorInput<'a> {
     #[inline]
     pub fn styles(mut self, mut style: ColorInputStyle) -> Self {
         self.style = style.text.style;
-        if let Some(border_style) = style.text.border_style {
-            self.block = self.block.map(|v| v.style(border_style));
-        }
         if let Some(block) = style.text.block.take() {
             self.block = Some(block);
         }
+        if let Some(border_style) = style.text.border_style {
+            self.block = self.block.map(|v| v.style(border_style));
+        }
+        if let Some(title_style) = style.text.title_style {
+            self.block = self.block.map(|v| v.style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         self.widget = self.widget.styles(style.text);
         if let Some(disable_modes) = style.disable_modes {
             self.disable_modes = disable_modes;
@@ -165,6 +171,7 @@ impl<'a> ColorInput<'a> {
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         let style = style.into();
         self.style = style;
+        self.block = self.block.map(|v| v.style(style));
         self.widget = self.widget.style(style);
         self
     }

@@ -9,7 +9,7 @@ use crate::event::{
 use crate::focus::{FocusBuilder, FocusFlag, HasFocus};
 use crate::layout::{DialogItem, LayoutOuter, layout_dialog};
 use crate::text::HasScreenCursor;
-use crate::util::{block_padding2, fill_buf_area};
+use crate::util::{block_padding2, reset_buf_area};
 use crossterm::event::Event;
 use rat_event::MouseOnly;
 use rat_reloc::RelocatableState;
@@ -24,7 +24,6 @@ use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 /// to render any content.
 #[derive(Debug, Clone, Default)]
 pub struct DialogFrame<'a> {
-    style: Style,
     block: Block<'a>,
     button_style: ButtonStyle,
     layout: LayoutOuter,
@@ -87,7 +86,6 @@ pub struct DialogFrameState {
 impl<'a> DialogFrame<'a> {
     pub fn new() -> Self {
         Self {
-            style: Default::default(),
             block: Block::bordered().border_type(BorderType::Plain),
             button_style: Default::default(),
             layout: LayoutOuter::new()
@@ -102,16 +100,15 @@ impl<'a> DialogFrame<'a> {
     }
 
     pub fn styles(mut self, styles: DialogFrameStyle) -> Self {
-        self.style = styles.style;
-        self.block = self.block.style(self.style);
+        if let Some(block) = styles.block {
+            self.block = block;
+        }
+        self.block = self.block.style(styles.style);
         if let Some(border_style) = styles.border_style {
             self.block = self.block.border_style(border_style);
         }
         if let Some(title_style) = styles.title_style {
             self.block = self.block.title_style(title_style);
-        }
-        if let Some(block) = styles.block {
-            self.block = block;
         }
         if let Some(button_style) = styles.button_style {
             self.button_style = button_style;
@@ -133,7 +130,7 @@ impl<'a> DialogFrame<'a> {
 
     /// Base style for the dialog.
     pub fn style(mut self, style: Style) -> Self {
-        self.style = style;
+        self.block = self.block.style(style);
         self
     }
 
@@ -230,9 +227,8 @@ impl<'a> DialogFrame<'a> {
     /// Calculate the resulting dialog area.
     /// Returns the inner area that is available for drawing widgets.
     pub fn layout_size(&self, area: Rect) -> Rect {
-        let area = self.layout.layout(area);
         let l_dlg = if self.no_cancel {
-            layout_dialog(
+            self.layout.layout_dialog(
                 area,
                 block_padding2(&self.block),
                 [Constraint::Length(10)],
@@ -240,7 +236,7 @@ impl<'a> DialogFrame<'a> {
                 Flex::End,
             )
         } else {
-            layout_dialog(
+            self.layout.layout_dialog(
                 area,
                 block_padding2(&self.block),
                 [Constraint::Length(12), Constraint::Length(10)],
@@ -256,29 +252,28 @@ impl<'a> StatefulWidget for DialogFrame<'a> {
     type State = DialogFrameState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = self.layout.layout(area);
-        state.no_cancel = self.no_cancel;
-
         let l_dlg = if self.no_cancel {
-            layout_dialog(
-                state.area,
+            self.layout.layout_dialog(
+                area,
                 block_padding2(&self.block),
                 [Constraint::Length(10)],
                 1,
                 Flex::End,
             )
         } else {
-            layout_dialog(
-                state.area,
+            self.layout.layout_dialog(
+                area,
                 block_padding2(&self.block),
                 [Constraint::Length(12), Constraint::Length(10)],
                 1,
                 Flex::End,
             )
         };
+        state.area = l_dlg.area();
         state.widget_area = l_dlg.widget_for(DialogItem::Content);
+        state.no_cancel = self.no_cancel;
 
-        fill_buf_area(buf, l_dlg.area(), " ", self.style);
+        reset_buf_area(l_dlg.area(), buf);
         self.block.render(state.area, buf);
 
         if self.no_cancel {

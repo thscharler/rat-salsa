@@ -31,7 +31,7 @@ use rat_reloc::{RelocatableState, relocate_area};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
+use ratatui::style::{Style, Styled};
 use ratatui::text::Text;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::thread;
@@ -42,11 +42,11 @@ use std::time::Duration;
 pub struct Button<'a> {
     text: Text<'a>,
     style: Style,
+    block: Option<Block<'a>>,
     focus_style: Option<Style>,
     hover_style: Option<Style>,
     armed_style: Option<Style>,
     armed_delay: Option<Duration>,
-    block: Option<Block<'a>>,
 }
 
 /// Composite style.
@@ -54,14 +54,16 @@ pub struct Button<'a> {
 pub struct ButtonStyle {
     /// Base style
     pub style: Style,
+    /// Button border mark
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     /// Focused style
     pub focus: Option<Style>,
     /// Armed style
     pub armed: Option<Style>,
     /// Hover style
     pub hover: Option<Style>,
-    /// Button border
-    pub block: Option<Block<'static>>,
     /// Some terminals repaint too fast to see the click.
     /// This adds some delay when the button state goes from
     /// armed to clicked.
@@ -105,11 +107,13 @@ impl Default for ButtonStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            focus: None,
-            armed: None,
-            hover: None,
-            block: None,
-            armed_delay: None,
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            focus: Default::default(),
+            armed: Default::default(),
+            hover: Default::default(),
+            armed_delay: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -130,10 +134,20 @@ impl<'a> Button<'a> {
         }
     }
 
-    /// Set all styles.
+    /// Set all styles. mark
     #[inline]
     pub fn styles(mut self, styles: ButtonStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
@@ -146,17 +160,15 @@ impl<'a> Button<'a> {
         if styles.hover.is_some() {
             self.hover_style = styles.hover;
         }
-        if let Some(block) = styles.block {
-            self.block = Some(block);
-        }
-        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Set the base-style.
     #[inline]
     pub fn style(mut self, style: impl Into<Style>) -> Self {
-        self.style = style.into();
+        let style = style.into();
+        self.style = style.clone();
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 
@@ -210,8 +222,7 @@ impl<'a> Button<'a> {
     /// Block.
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
-        self.block = Some(block);
-        self.block = self.block.map(|v| v.style(self.style));
+        self.block = Some(block.style(self.style));
         self
     }
 

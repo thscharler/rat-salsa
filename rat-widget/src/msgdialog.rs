@@ -43,7 +43,7 @@
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::event::ButtonOutcome;
-use crate::layout::{DialogItem, layout_dialog};
+use crate::layout::{DialogItem, LayoutOuter, layout_dialog};
 use crate::paragraph::{Paragraph, ParagraphState};
 use crate::text::HasScreenCursor;
 use crate::util::{block_padding2, reset_buf_area};
@@ -53,7 +53,7 @@ use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Flex, Rect};
+use ratatui::layout::{Alignment, Constraint, Flex, Position, Rect, Size};
 use ratatui::style::Style;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
@@ -65,17 +65,22 @@ use std::fmt::Debug;
 #[derive(Debug, Default, Clone)]
 pub struct MsgDialog<'a> {
     style: Style,
+    block: Option<Block<'a>>,
     scroll_style: Option<ScrollStyle>,
     button_style: Option<ButtonStyle>,
-    block: Option<Block<'a>>,
+
+    layout: LayoutOuter,
 }
 
 /// Combined style.
 #[derive(Debug, Clone)]
 pub struct MsgDialogStyle {
     pub style: Style,
-    pub scroll: Option<ScrollStyle>,
     pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
+    pub scroll: Option<ScrollStyle>,
+
     pub button: Option<ButtonStyle>,
 
     pub non_exhaustive: NonExhaustive,
@@ -110,12 +115,7 @@ pub struct MsgDialogState {
 impl<'a> MsgDialog<'a> {
     /// New widget
     pub fn new() -> Self {
-        Self {
-            block: None,
-            style: Default::default(),
-            scroll_style: Default::default(),
-            button_style: Default::default(),
-        }
+        Self::default()
     }
 
     /// Block
@@ -125,19 +125,76 @@ impl<'a> MsgDialog<'a> {
         self
     }
 
+    /// Margin constraint for the left side.
+    pub fn left(mut self, left: Constraint) -> Self {
+        self.layout = self.layout.left(left);
+        self
+    }
+
+    /// Margin constraint for the top side.
+    pub fn top(mut self, top: Constraint) -> Self {
+        self.layout = self.layout.top(top);
+        self
+    }
+
+    /// Margin constraint for the right side.
+    pub fn right(mut self, right: Constraint) -> Self {
+        self.layout = self.layout.right(right);
+        self
+    }
+
+    /// Margin constraint for the bottom side.
+    pub fn bottom(mut self, bottom: Constraint) -> Self {
+        self.layout = self.layout.bottom(bottom);
+        self
+    }
+
+    /// Put at a fixed position.
+    pub fn position(mut self, pos: Position) -> Self {
+        self.layout = self.layout.position(pos);
+        self
+    }
+
+    /// Constraint for the width.
+    pub fn width(mut self, width: Constraint) -> Self {
+        self.layout = self.layout.width(width);
+        self
+    }
+
+    /// Constraint for the height.
+    pub fn height(mut self, height: Constraint) -> Self {
+        self.layout = self.layout.height(height);
+        self
+    }
+
+    /// Set at a fixed size.
+    pub fn size(mut self, size: Size) -> Self {
+        self.layout = self.layout.size(size);
+        self
+    }
+
     /// Combined style
     pub fn styles(mut self, styles: MsgDialogStyle) -> Self {
         self.style = styles.style;
-        if styles.scroll.is_some() {
-            self.scroll_style = styles.scroll;
-        }
         if styles.block.is_some() {
             self.block = styles.block;
         }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+
+        if styles.scroll.is_some() {
+            self.scroll_style = styles.scroll;
+        }
+
         if styles.button.is_some() {
             self.button_style = styles.button;
         }
-        self.block = self.block.map(|v| v.style(self.style));
+
         self
     }
 
@@ -165,8 +222,10 @@ impl Default for MsgDialogStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            scroll: None,
-            block: None,
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            scroll: Default::default(),
             button: Default::default(),
             non_exhaustive: NonExhaustive,
         }

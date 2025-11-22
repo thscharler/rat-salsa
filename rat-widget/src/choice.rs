@@ -180,6 +180,8 @@ pub struct ChoiceStyle {
     pub select_marker: Option<char>,
     pub focus: Option<Style>,
     pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
 
     pub popup: PopupStyle,
     pub popup_style: Option<Style>,
@@ -436,6 +438,8 @@ impl Default for ChoiceStyle {
             select_marker: Default::default(),
             focus: Default::default(),
             block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
             popup: Default::default(),
             popup_style: Default::default(),
             popup_border: Default::default(),
@@ -552,8 +556,16 @@ where
     /// Combined styles.
     pub fn styles(mut self, styles: ChoiceStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
         self.block = self.block.map(|v| v.style(self.style));
-
         if styles.button.is_some() {
             self.button_style = styles.button;
         }
@@ -565,9 +577,6 @@ where
         }
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
-        }
-        if styles.block.is_some() {
-            self.block = styles.block;
         }
         if let Some(select) = styles.behave_focus {
             self.behave_focus = select;

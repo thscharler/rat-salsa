@@ -84,9 +84,9 @@ where
     continue_str: Span<'a>,
 
     style: Style,
+    block: Option<Block<'a>>,
     select_style: Option<Style>,
     focus_style: Option<Style>,
-    block: Option<Block<'a>>,
 }
 
 /// Composite style.
@@ -97,12 +97,15 @@ pub struct RadioStyle {
 
     /// Base style.
     pub style: Style,
+    /// Border
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
+
     /// Selected style.
     pub select: Option<Style>,
     /// Focused style
     pub focus: Option<Style>,
-    /// Border
-    pub block: Option<Block<'static>>,
 
     /// Display text for 'true'
     pub true_str: Option<Span<'static>>,
@@ -192,14 +195,16 @@ pub(crate) mod event {
 impl Default for RadioStyle {
     fn default() -> Self {
         Self {
-            layout: None,
+            layout: Default::default(),
             style: Default::default(),
-            select: None,
-            focus: None,
             block: Default::default(),
-            true_str: None,
-            false_str: None,
-            continue_str: None,
+            border_style: Default::default(),
+            title_style: Default::default(),
+            select: Default::default(),
+            focus: Default::default(),
+            true_str: Default::default(),
+            false_str: Default::default(),
+            continue_str: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -265,6 +270,16 @@ where
     /// Set all styles.
     pub fn styles(mut self, styles: RadioStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if let Some(layout) = styles.layout {
             self.layout = layout;
         }
@@ -274,23 +289,21 @@ where
         if styles.select.is_some() {
             self.select_style = styles.focus;
         }
-        if let Some(block) = styles.block {
-            self.block = Some(block);
-        }
         if let Some(true_str) = styles.true_str {
             self.true_str = true_str;
         }
         if let Some(false_str) = styles.false_str {
             self.false_str = false_str;
         }
-        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Set the base-style.
     #[inline]
     pub fn style(mut self, style: impl Into<Style>) -> Self {
-        self.style = style.into();
+        let style = style.into();
+        self.style = style.clone();
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 

@@ -11,8 +11,8 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
-use ratatui::style::Style;
 use ratatui::style::Stylize;
+use ratatui::style::{Style, Styled};
 use ratatui::text::Span;
 use ratatui::widgets::block::Title;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
@@ -57,6 +57,8 @@ pub struct Month<'a, Selection> {
 
     /// Base style.
     style: Style,
+    /// Block
+    block: Option<Block<'a>>,
     /// Title style.
     title_style: Option<Style>,
     /// Title align.
@@ -80,9 +82,6 @@ pub struct Month<'a, Selection> {
     hide_month: bool,
     /// Show Weekdays above
     hide_weekdays: bool,
-
-    /// Block
-    block: Option<Block<'a>>,
 
     /// Locale
     loc: chrono::Locale,
@@ -229,36 +228,44 @@ impl<'a, Selection> Month<'a, Selection> {
 
     /// Set the composite style.
     #[inline]
-    pub fn styles(mut self, s: CalendarStyle) -> Self {
-        self.style = s.style;
-        if s.title.is_some() {
-            self.title_style = s.title;
+    pub fn styles(mut self, styles: CalendarStyle) -> Self {
+        self.style = styles.style;
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
         }
-        if s.weeknum.is_some() {
-            self.weeknum_style = s.weeknum;
-        }
-        if s.weekday.is_some() {
-            self.weekday_style = s.weekday;
-        }
-        if s.day.is_some() {
-            self.day_style = s.day;
-        }
-        if s.select.is_some() {
-            self.select_style = s.select;
-        }
-        if s.focus.is_some() {
-            self.focus_style = s.focus;
-        }
-        if s.block.is_some() {
-            self.block = s.block;
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
         }
         self.block = self.block.map(|v| v.style(self.style));
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if styles.title.is_some() {
+            self.title_style = styles.title;
+        }
+        if styles.weeknum.is_some() {
+            self.weeknum_style = styles.weeknum;
+        }
+        if styles.weekday.is_some() {
+            self.weekday_style = styles.weekday;
+        }
+        if styles.day.is_some() {
+            self.day_style = styles.day;
+        }
+        if styles.select.is_some() {
+            self.select_style = styles.select;
+        }
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
+        }
+
         self
     }
 
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.set_style(style));
         self
     }
 

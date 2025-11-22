@@ -75,18 +75,18 @@ pub mod text_area_op;
 /// [`TextAreaState`] to handle common actions.
 #[derive(Debug, Default, Clone)]
 pub struct TextArea<'a> {
+    style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     h_max_offset: Option<upos_type>,
     h_overscroll: Option<upos_type>,
     vscroll: Option<Scroll<'a>>,
 
-    text_wrap: Option<TextWrap>,
-
-    style: Style,
     focus_style: Option<Style>,
     select_style: Option<Style>,
     text_style: HashMap<usize, Style>,
+
+    text_wrap: Option<TextWrap>,
 }
 
 /// State & event handling.
@@ -237,29 +237,35 @@ impl<'a> TextArea<'a> {
     #[inline]
     pub fn styles(mut self, styles: TextStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+
+        if let Some(styles) = styles.scroll {
+            self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
+            self.vscroll = self.vscroll.map(|v| v.styles(styles));
+        }
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
         if styles.select.is_some() {
             self.select_style = styles.select;
         }
-        self.block = self.block.map(|v| v.style(self.style));
-        if let Some(border_style) = styles.border_style {
-            self.block = self.block.map(|v| v.border_style(border_style));
-        }
-        if styles.block.is_some() {
-            self.block = styles.block;
-        }
-        if let Some(styles) = styles.scroll {
-            self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
-            self.vscroll = self.vscroll.map(|v| v.styles(styles));
-        }
+
         self
     }
 
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 

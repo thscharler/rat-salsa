@@ -69,6 +69,7 @@ pub struct View<'a> {
     view_y: Option<u16>,
     view_width: Option<u16>,
     view_height: Option<u16>,
+
     style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
@@ -117,6 +118,8 @@ pub struct ViewWidget<'a> {
 pub struct ViewStyle {
     pub style: Style,
     pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     pub scroll: Option<ScrollStyle>,
     pub non_exhaustive: NonExhaustive,
 }
@@ -230,11 +233,17 @@ impl<'a> View<'a> {
         if styles.block.is_some() {
             self.block = styles.block;
         }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if let Some(styles) = styles.scroll {
             self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
             self.vscroll = self.vscroll.map(|v| v.styles(styles.clone()));
         }
-        self.block = self.block.map(|v| v.style(styles.style));
         self
     }
 
@@ -649,8 +658,10 @@ impl Default for ViewStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            block: None,
-            scroll: None,
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            scroll: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }

@@ -50,6 +50,7 @@ where
     u16: MapRange<T>,
 {
     style: Style,
+    block: Option<Block<'a>>,
     bounds_style: Option<Style>,
     knob_style: Option<Style>,
     focus_style: Option<Style>,
@@ -69,8 +70,6 @@ where
     horizontal_knob: Option<Cow<'a, str>>,
     vertical_knob: Option<Cow<'a, str>>,
 
-    block: Option<Block<'a>>,
-
     _phantom: PhantomData<T>,
 }
 
@@ -78,6 +77,10 @@ where
 pub struct SliderStyle {
     /// Base style.
     pub style: Style,
+    /// Border
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     /// Style for the upper/lower bounds text.
     pub bounds: Option<Style>,
     /// Style for the knob.
@@ -99,9 +102,6 @@ pub struct SliderStyle {
     pub vertical_knob: Option<&'static str>,
     /// Text for the knob in horizontal mode.
     pub horizontal_knob: Option<&'static str>,
-
-    /// Border
-    pub block: Option<Block<'static>>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -198,16 +198,18 @@ impl Default for SliderStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            bounds: None,
-            knob: None,
-            focus: None,
-            text_align: None,
-            lower_bound: None,
-            upper_bound: None,
-            track_char: None,
-            vertical_knob: None,
-            horizontal_knob: None,
-            block: None,
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            bounds: Default::default(),
+            knob: Default::default(),
+            focus: Default::default(),
+            text_align: Default::default(),
+            lower_bound: Default::default(),
+            upper_bound: Default::default(),
+            track_char: Default::default(),
+            vertical_knob: Default::default(),
+            horizontal_knob: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -277,6 +279,16 @@ where
     /// Set all styles.
     pub fn styles(mut self, styles: SliderStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if styles.bounds.is_some() {
             self.bounds_style = styles.bounds;
         }
@@ -304,10 +316,6 @@ where
         if styles.horizontal_knob.is_some() {
             self.horizontal_knob = styles.horizontal_knob.map(Cow::Borrowed);
         }
-        if styles.block.is_some() {
-            self.block = styles.block;
-        }
-        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 

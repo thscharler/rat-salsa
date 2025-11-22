@@ -116,16 +116,19 @@ use unicode_segmentation::UnicodeSegmentation;
 /// [`MaskedInputState`] to handle common actions.
 #[derive(Debug, Default, Clone)]
 pub struct MaskedInput<'a> {
-    compact: bool,
-    block: Option<Block<'a>>,
     style: Style,
+    block: Option<Block<'a>>,
     focus_style: Option<Style>,
     select_style: Option<Style>,
     invalid_style: Option<Style>,
-    text_style: HashMap<usize, Style>,
+
+    compact: bool,
+
     on_focus_gained: TextFocusGained,
     on_focus_lost: TextFocusLost,
     on_tab: TextTab,
+
+    text_style: HashMap<usize, Style>,
 }
 
 /// State & event-handling.
@@ -219,6 +222,17 @@ impl<'a> MaskedInput<'a> {
     #[inline]
     pub fn styles(mut self, styles: TextStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
@@ -236,13 +250,6 @@ impl<'a> MaskedInput<'a> {
         }
         if let Some(ot) = styles.on_tab {
             self.on_tab = ot;
-        }
-        self.block = self.block.map(|v| v.style(self.style));
-        if let Some(border_style) = styles.border_style {
-            self.block = self.block.map(|v| v.border_style(border_style));
-        }
-        if styles.block.is_some() {
-            self.block = styles.block;
         }
         self
     }

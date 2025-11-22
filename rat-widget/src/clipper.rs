@@ -165,10 +165,12 @@ where
 #[derive(Debug, Clone)]
 pub struct ClipperStyle {
     pub style: Style,
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
+    pub scroll: Option<ScrollStyle>,
     pub label_style: Option<Style>,
     pub label_alignment: Option<Alignment>,
-    pub block: Option<Block<'static>>,
-    pub scroll: Option<ScrollStyle>,
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -176,10 +178,12 @@ impl Default for ClipperStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            label_style: None,
-            label_alignment: None,
-            block: None,
-            scroll: None,
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            scroll: Default::default(),
+            label_style: Default::default(),
+            label_alignment: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -329,14 +333,21 @@ where
     /// Combined style.
     pub fn styles(mut self, styles: ClipperStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if styles.label_style.is_some() {
             self.label_style = styles.label_style;
         }
         if styles.label_alignment.is_some() {
             self.label_alignment = styles.label_alignment;
-        }
-        if styles.block.is_some() {
-            self.block = styles.block;
         }
         if let Some(styles) = styles.scroll {
             self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));

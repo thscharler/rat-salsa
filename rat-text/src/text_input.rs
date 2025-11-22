@@ -49,14 +49,16 @@ use std::rc::Rc;
 /// [`TextInputState`] to handle common actions.
 #[derive(Debug, Default, Clone)]
 pub struct TextInput<'a> {
-    block: Option<Block<'a>>,
     style: Style,
+    block: Option<Block<'a>>,
     focus_style: Option<Style>,
     select_style: Option<Style>,
     invalid_style: Option<Style>,
+
     on_focus_gained: TextFocusGained,
     on_focus_lost: TextFocusLost,
     passwd: bool,
+
     text_style: HashMap<usize, Style>,
 }
 
@@ -134,6 +136,17 @@ impl<'a> TextInput<'a> {
     #[inline]
     pub fn styles(mut self, styles: TextStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
@@ -149,20 +162,15 @@ impl<'a> TextInput<'a> {
         if let Some(of) = styles.on_focus_lost {
             self.on_focus_lost = of;
         }
-        self.block = self.block.map(|v| v.style(self.style));
-        if let Some(border_style) = styles.border_style {
-            self.block = self.block.map(|v| v.border_style(border_style));
-        }
-        if styles.block.is_some() {
-            self.block = styles.block;
-        }
         self
     }
 
     /// Base text style.
     #[inline]
     pub fn style(mut self, style: impl Into<Style>) -> Self {
-        self.style = style.into();
+        let style = style.into();
+        self.style = style.clone();
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 

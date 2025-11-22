@@ -7,6 +7,10 @@ use ratatui::widgets::Block;
 pub struct CalendarStyle {
     /// Base style.
     pub style: Style,
+    /// Block.
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     /// Title style.
     pub title: Option<Style>,
     /// Week-number style.
@@ -19,8 +23,6 @@ pub struct CalendarStyle {
     pub select: Option<Style>,
     /// Focused style.
     pub focus: Option<Style>,
-    /// Block.
-    pub block: Option<Block<'static>>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -29,13 +31,15 @@ impl Default for CalendarStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            title: None,
-            weeknum: None,
-            weekday: None,
-            day: None,
-            select: None,
-            focus: None,
-            block: None,
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            title: Default::default(),
+            weeknum: Default::default(),
+            weekday: Default::default(),
+            day: Default::default(),
+            select: Default::default(),
+            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }

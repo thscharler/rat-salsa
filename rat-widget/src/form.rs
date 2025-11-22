@@ -151,6 +151,12 @@ where
 pub struct FormStyle {
     /// base style
     pub style: Style,
+    /// Block.
+    pub block: Option<Block<'static>>,
+    /// Border style for a block.
+    pub border_style: Option<Style>,
+    /// Title style for a block.
+    pub title_style: Option<Style>,
     /// label style.
     pub label_style: Option<Style>,
     /// label alignment.
@@ -163,12 +169,6 @@ pub struct FormStyle {
     pub show_navigation: Option<bool>,
     /// title style.
     pub title: Option<Style>,
-    /// Block.
-    pub block: Option<Block<'static>>,
-    /// Border style for a block.
-    pub border_style: Option<Style>,
-    /// Title style for a block.
-    pub title_style: Option<Style>,
     /// Navigation icon.
     pub next_page_mark: Option<&'static str>,
     /// Navigation icon.
@@ -349,12 +349,6 @@ where
         self
     }
 
-    /// Sets the border-style for the Block, if any.
-    pub fn border_style(mut self, style: Style) -> Self {
-        self.block = self.block.map(|v| v.border_style(style));
-        self
-    }
-
     pub fn next_page_mark(mut self, txt: &'a str) -> Self {
         self.next_page = txt;
         self
@@ -390,6 +384,16 @@ where
     /// Set all styles.
     pub fn styles(mut self, styles: FormStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if let Some(nav) = styles.navigation {
             self.nav_style = Some(nav);
         }
@@ -401,13 +405,6 @@ where
         }
         if let Some(title) = styles.title {
             self.title_style = Some(title);
-        }
-        if let Some(border_style) = styles.border_style {
-            self.block = self.block.map(|v| v.border_style(border_style));
-        }
-        self.block = self.block.map(|v| v.style(self.style));
-        if styles.block.is_some() {
-            self.block = styles.block;
         }
         if let Some(txt) = styles.next_page_mark {
             self.next_page = txt;

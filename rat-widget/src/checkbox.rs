@@ -31,7 +31,7 @@ use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
+use ratatui::style::{Style, Styled};
 use ratatui::text::Span;
 use ratatui::text::Text;
 use ratatui::widgets::Block;
@@ -62,8 +62,8 @@ pub struct Checkbox<'a> {
     behave_check: CheckboxCheck,
 
     style: Style,
-    focus_style: Option<Style>,
     block: Option<Block<'a>>,
+    focus_style: Option<Style>,
 }
 
 /// Composite style.
@@ -75,6 +75,8 @@ pub struct CheckboxStyle {
     pub focus: Option<Style>,
     /// Border
     pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
 
     /// Display text for 'true'
     pub true_str: Option<Span<'static>>,
@@ -164,6 +166,8 @@ impl Default for CheckboxStyle {
             style: Default::default(),
             focus: Default::default(),
             block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
             true_str: Default::default(),
             false_str: Default::default(),
             behave_check: Default::default(),
@@ -197,11 +201,18 @@ impl<'a> Checkbox<'a> {
     /// Set all styles.
     pub fn styles(mut self, styles: CheckboxStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
-        }
-        if let Some(block) = styles.block {
-            self.block = Some(block);
         }
         if let Some(true_str) = styles.true_str {
             self.true_str = true_str;
@@ -212,14 +223,15 @@ impl<'a> Checkbox<'a> {
         if let Some(check) = styles.behave_check {
             self.behave_check = check;
         }
-        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Set the base-style.
     #[inline]
     pub fn style(mut self, style: impl Into<Style>) -> Self {
-        self.style = style.into();
+        let style = style.into();
+        self.style = style.clone();
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 

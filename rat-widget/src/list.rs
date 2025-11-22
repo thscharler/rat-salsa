@@ -44,19 +44,19 @@ pub trait ListSelection {
 /// Adds Scroll, selection models, and event-handling.
 #[derive(Debug, Default, Clone)]
 pub struct List<'a, Selection = RowSelection> {
-    block: Option<Block<'a>>,
-    scroll: Option<Scroll<'a>>,
-
     items: Vec<ListItem<'a>>,
 
     style: Style,
+    block: Option<Block<'a>>,
+    scroll: Option<Scroll<'a>>,
+    scroll_padding: usize,
+
     select_style: Option<Style>,
     focus_style: Option<Style>,
     direction: ListDirection,
     highlight_spacing: HighlightSpacing,
     highlight_symbol: Option<&'static str>,
     repeat_highlight_symbol: bool,
-    scroll_padding: usize,
 
     _phantom: PhantomData<Selection>,
 }
@@ -66,18 +66,20 @@ pub struct List<'a, Selection = RowSelection> {
 pub struct ListStyle {
     /// Style
     pub style: Style,
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
+    pub scroll: Option<ScrollStyle>,
+    pub scroll_padding: Option<usize>,
+
     /// Style for selection
     pub select: Option<Style>,
     /// Style for selection when focused.
     pub focus: Option<Style>,
 
-    pub block: Option<Block<'static>>,
-    pub scroll: Option<ScrollStyle>,
-
     pub highlight_spacing: Option<HighlightSpacing>,
     pub highlight_symbol: Option<&'static str>,
     pub repeat_highlight_symbol: Option<bool>,
-    pub scroll_padding: Option<usize>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -120,14 +122,16 @@ impl Default for ListStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            select: None,
-            focus: None,
-            block: None,
-            scroll: None,
-            highlight_spacing: None,
-            highlight_symbol: None,
-            repeat_highlight_symbol: None,
-            scroll_padding: None,
+            select: Default::default(),
+            focus: Default::default(),
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            scroll: Default::default(),
+            highlight_spacing: Default::default(),
+            highlight_symbol: Default::default(),
+            repeat_highlight_symbol: Default::default(),
+            scroll_padding: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -198,17 +202,29 @@ impl<'a, Selection> List<'a, Selection> {
     #[inline]
     pub fn styles(mut self, styles: ListStyle) -> Self {
         self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+
+        if let Some(styles) = styles.scroll {
+            self.scroll = self.scroll.map(|v| v.styles(styles));
+        }
+        if let Some(scroll_padding) = styles.scroll_padding {
+            self.scroll_padding = scroll_padding;
+        }
+
         if styles.select.is_some() {
             self.select_style = styles.select;
         }
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
-        }
-        if let Some(styles) = styles.scroll {
-            self.scroll = self.scroll.map(|v| v.styles(styles));
-        }
-        if let Some(block) = styles.block {
-            self.block = Some(block);
         }
         if let Some(highlight_spacing) = styles.highlight_spacing {
             self.highlight_spacing = highlight_spacing;
@@ -219,10 +235,6 @@ impl<'a, Selection> List<'a, Selection> {
         if let Some(repeat_highlight_symbol) = styles.repeat_highlight_symbol {
             self.repeat_highlight_symbol = repeat_highlight_symbol;
         }
-        if let Some(scroll_padding) = styles.scroll_padding {
-            self.scroll_padding = scroll_padding;
-        }
-        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 

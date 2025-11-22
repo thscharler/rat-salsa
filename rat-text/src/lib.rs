@@ -145,6 +145,10 @@ pub enum TextTab {
 #[derive(Debug, Clone)]
 pub struct TextStyle {
     pub style: Style,
+    pub scroll: Option<ScrollStyle>,
+    pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     pub focus: Option<Style>,
     pub select: Option<Style>,
     pub invalid: Option<Style>,
@@ -156,10 +160,6 @@ pub struct TextStyle {
     /// Tab behaviour.
     pub on_tab: Option<TextTab>,
 
-    pub scroll: Option<ScrollStyle>,
-    pub block: Option<Block<'static>>,
-    pub border_style: Option<Style>,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -167,15 +167,16 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            focus: None,
-            select: None,
-            invalid: None,
-            on_focus_gained: None,
-            on_focus_lost: None,
-            on_tab: None,
-            scroll: None,
-            block: None,
-            border_style: None,
+            scroll: Default::default(),
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            focus: Default::default(),
+            select: Default::default(),
+            invalid: Default::default(),
+            on_focus_gained: Default::default(),
+            on_focus_lost: Default::default(),
+            on_tab: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }

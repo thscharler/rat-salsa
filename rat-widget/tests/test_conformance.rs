@@ -66,8 +66,6 @@ macro_rules! conform_widget {
         let mut v = <$widget>::default();
 
         v = v.block(Block::default());
-        // TODO: v = v.border_style(Style::default());
-        // TODO: v = v.title_style(Style::default());
         v = v.styles(<$style>::default());
         v = v.style(Style::default());
 
@@ -225,17 +223,24 @@ macro_rules! conform_event_fn {
 }
 
 macro_rules! conform_style {
-    ($style:ty) => {{
+    (CORE: $style:ty) => {{
         let v = <$style>::default();
         _ = v.clone();
         _ = v.non_exhaustive;
+    }};
+    (BLOCK: $style:ty) => {{
+        let mut v = <$style>::default();
+        v.border_style = Some(Style::default());
+        v.title_style = Some(Style::default());
+        v.block = Some(Block::default());
     }};
 }
 
 #[test]
 fn conform() {
     // button
-    conform_style!(ButtonStyle);
+    conform_style!(CORE: ButtonStyle);
+    conform_style!(BLOCK: ButtonStyle);
     conform_state!(CORE: ButtonState, Regular, ButtonOutcome);
     conform_state!(BASE: ButtonState, Regular, ButtonOutcome);
     conform_event_fn!(rat_widget::button : ButtonState, ButtonOutcome);
@@ -243,7 +248,8 @@ fn conform() {
     conform_widget!(BASE: Button, ButtonState, ButtonStyle);
 
     // calendar
-    conform_style!(CalendarStyle);
+    conform_style!(CORE: CalendarStyle);
+    conform_style!(BLOCK: CalendarStyle);
     conform_state!(BASE: CalendarState <3, SingleSelection>, Regular, CalOutcome);
     conform_widget!(BASE: Month<SingleSelection>, MonthState<SingleSelection>, CalendarStyle);
     conform_state!(BASE: MonthState<SingleSelection>, Regular, CalOutcome);
@@ -257,7 +263,8 @@ fn conform() {
     conform_state!(BASE: MonthState<NoSelection>, Regular, CalOutcome);
 
     // checkbox
-    conform_style!(CheckboxStyle);
+    conform_style!(CORE: CheckboxStyle);
+    conform_style!(BLOCK: CheckboxStyle);
     conform_state!(CORE : CheckboxState, Regular, CheckOutcome);
     conform_state!(BASE : CheckboxState, Regular, CheckOutcome);
     conform_state!(VALUE : CheckboxState, Regular, CheckOutcome);
@@ -267,7 +274,8 @@ fn conform() {
     conform_widget!(VALUE : Checkbox, CheckboxState, CheckboxStyle);
 
     // choice
-    conform_style!(ChoiceStyle);
+    conform_style!(CORE: ChoiceStyle);
+    conform_style!(BLOCK: ChoiceStyle);
     conform_state!(CORE : ChoiceState, Popup, ChoiceOutcome);
     conform_state!(DUAL_POPUP : ChoiceState, Popup, ChoiceOutcome);
     conform_state!(VALUE : ChoiceState, Popup, ChoiceOutcome);
@@ -277,7 +285,8 @@ fn conform() {
     conform_widget!(VALUE : Choice, ChoiceState, ChoiceStyle);
 
     // clipper
-    conform_style!(ClipperStyle);
+    conform_style!(CORE: ClipperStyle);
+    conform_style!(BLOCK: ClipperStyle);
     conform_state!(CORE : ClipperState, Popup, ClipperOutcome);
     conform_state!(CONTAINER : ClipperState, Popup, ClipperOutcome);
     conform_event_fn!(rat_widget::clipper : ClipperState, Outcome);
@@ -287,7 +296,8 @@ fn conform() {
     conform_view_buffer!(VIEW : ClipperBuffer<usize>, ClipperState, ClipperStyle);
 
     // color-input
-    conform_style!(TextStyle);
+    conform_style!(CORE: TextStyle);
+    conform_style!(BLOCK: TextStyle);
     conform_state!(CORE : ColorInputState, Regular, TextOutcome);
     conform_state!(BASE : ColorInputState, Regular, TextOutcome);
     conform_state!(VALUE : ColorInputState, Regular, ColorInputOutcome);
@@ -297,7 +307,7 @@ fn conform() {
     conform_widget!(VALUE : ColorInput, ColorInputState, ColorInputStyle);
 
     // choice
-    conform_style!(ComboboxStyle);
+    conform_style!(CORE: ComboboxStyle);
     conform_state!(CORE : ComboboxState, Popup, ComboboxOutcome);
     conform_state!(DUAL_POPUP : ComboboxState, Popup, ComboboxOutcome);
     conform_state!(VALUE : ComboboxState, Popup, ComboboxOutcome);
@@ -307,7 +317,8 @@ fn conform() {
     conform_widget!(VALUE : Combobox, ComboboxState, ComboboxStyle);
 
     // date-input
-    conform_style!(TextStyle);
+    conform_style!(CORE: TextStyle);
+    conform_style!(BLOCK: TextStyle);
     conform_state!(CORE : DateInputState, Regular, TextOutcome);
     conform_state!(BASE : DateInputState, Regular, TextOutcome);
     conform_state!(FALLIBLE_VALUE : DateInputState, Regular, DateInputOutcome);
@@ -317,7 +328,8 @@ fn conform() {
     conform_widget!(VALUE : DateInput, DateInputState, TextStyle);
 
     // dialog-frame
-    conform_style!(DialogFrameStyle);
+    conform_style!(CORE: DialogFrameStyle);
+    conform_style!(BLOCK: DialogFrameStyle);
     conform_state!(CORE: DialogFrameState, Dialog, DialogFrameOutcome);
     conform_state!(BASE: DialogFrameState, Dialog, DialogOutcome);
     conform_state!(CONTAINER: DialogFrameState, Dialog, DialogOutcome);
@@ -328,7 +340,8 @@ fn conform() {
 
     // file-dialog
     // TODO: use DialogFrame
-    conform_style!(FileDialogStyle);
+    conform_style!(CORE: FileDialogStyle);
+    conform_style!(BLOCK: FileDialogStyle);
     conform_state!(CORE: FileDialogState, Dialog, Result<FileOutcome, io::Error>);
     // no point in that: conform_state!(BASE: FileDialogState, Dialog, Result<FileOutcome, io::Error>);
     // no mouse: conform_event_fn!(rat_widget::file_dialog : FileDialogState, Result<FileOutcome, io::Error>);
@@ -336,7 +349,8 @@ fn conform() {
     conform_widget!(BASE: FileDialog, FileDialogState, FileDialogStyle);
 
     // form
-    conform_style!(FormStyle);
+    conform_style!(CORE: FormStyle);
+    conform_style!(BLOCK: FormStyle);
     conform_state!(CORE : FormState, Popup, FormOutcome);
     conform_state!(CONTAINER : FormState, Popup, FormOutcome);
     conform_event_fn!(rat_widget::form : FormState, FormOutcome);
@@ -350,7 +364,7 @@ fn conform() {
     // not yet: conform_widget!(CORE : Hover, FormState, HoverStyle);
 
     // line-number
-    conform_style!(LineNumberStyle);
+    conform_style!(CORE: LineNumberStyle);
     conform_state!(CORE: LineNumberState, Regular, Outcome);
     conform_state!(BASE: LineNumberState, Regular, Outcome);
     // no point?: conform_event_fn!(rat_widget::line_number : LineNumberState, Outcome);
@@ -358,7 +372,8 @@ fn conform() {
     // not enough: conform_widget!(BASE: LineNumbers, LineNumberState, ButtonStyle);
 
     // list
-    conform_style!(ListStyle);
+    conform_style!(CORE: ListStyle);
+    conform_style!(BLOCK: ListStyle);
     conform_state!(CORE : ListState, Regular, Outcome);
     conform_state!(BASE : ListState, Regular, Outcome);
     conform_event_fn!(rat_widget::list : ListState, Outcome);
@@ -366,8 +381,9 @@ fn conform() {
     conform_widget!(BASE : List, ListState, ListStyle);
 
     // todo: all of menu
+
     // button
-    conform_style!(MenuStyle);
+    conform_style!(CORE: MenuStyle);
     conform_state!(CORE: MenubarState, Popup, MenuOutcome);
     conform_state!(BASE: MenubarState, Popup, MenuOutcome);
     conform_event_fn!(rat_widget::menu::menubar : MenubarState, MenuOutcome);
@@ -378,7 +394,7 @@ fn conform() {
     conform_state!(BASE: MenuLineState, Regular, MenuOutcome);
     conform_event_fn!(rat_widget::menu::menuline : MenuLineState, MenuOutcome);
     conform_widget!(CORE: MenuLine, MenuLineState, MenuStyle);
-    conform_widget!(BASE: MenuLine, MenuLineState, MenuStyle);
+    // TODO: conform_widget!(BASE: MenuLine, MenuLineState, MenuStyle);
 
     conform_state!(CORE: PopupMenuState, Popup, MenuOutcome);
     conform_state!(BASE: PopupMenuState, Popup, MenuOutcome);
@@ -388,7 +404,8 @@ fn conform() {
 
     // msgdialog
     // TODO: use DialogFrame
-    conform_style!(MsgDialogStyle);
+    conform_style!(CORE: MsgDialogStyle);
+    // TODO: conform_style!(BLOCK: MsgDialogStyle);
     conform_state!(CORE: MsgDialogState, Dialog, Result<FileOutcome, io::Error>);
     // no point in that: conform_state!(BASE: MsgDialogState, Dialog, Result<FileOutcome, io::Error>);
     // no mouse: conform_event_fn!(rat_widget::file_dialog : MsgDialogState, Result<FileOutcome, io::Error>);
@@ -396,7 +413,8 @@ fn conform() {
     conform_widget!(BASE: MsgDialog, MsgDialogState, MsgDialogStyle);
 
     // number-input
-    conform_style!(TextStyle);
+    conform_style!(CORE: TextStyle);
+    conform_style!(BLOCK: TextStyle);
     conform_state!(CORE : NumberInputState, Regular, TextOutcome);
     conform_state!(BASE : NumberInputState, Regular, TextOutcome);
     conform_state!(INFERRED_FALLIBLE_VALUE: NumberInputState, i32, Regular, NumberInputOutcome);
@@ -408,7 +426,8 @@ fn conform() {
     // paired - more a utility than a widget ...
 
     // paragraph
-    conform_style!(ParagraphStyle);
+    conform_style!(CORE: ParagraphStyle);
+    conform_style!(BLOCK: ParagraphStyle);
     conform_state!(CORE : ParagraphState, Regular, Outcome);
     conform_state!(BASE : ParagraphState, Regular, Outcome);
     conform_event_fn!(rat_widget::paragraph : ParagraphState, Outcome);
@@ -416,7 +435,8 @@ fn conform() {
     conform_widget!(BASE : Paragraph, ParagraphState, ParagraphStyle);
 
     // radio
-    conform_style!(RadioStyle);
+    conform_style!(CORE: RadioStyle);
+    conform_style!(BLOCK: RadioStyle);
     conform_state!(CORE : RadioState, Regular, RadioOutcome);
     conform_state!(BASE : RadioState, Regular, RadioOutcome);
     conform_state!(VALUE : RadioState, Regular, RadioOutcome);
@@ -426,13 +446,14 @@ fn conform() {
     conform_widget!(VALUE : Radio, RadioState, RadioStyle);
 
     // shadow
-    conform_style!(ShadowStyle);
+    conform_style!(CORE: ShadowStyle);
     // conform_state!(CORE: (), Regular, Outcome);
     // conform_event_fn!(rat_widget::shadow : (), Outcome);
     conform_widget!(CORE: Shadow, (), ShadowStyle);
 
     // slider
-    conform_style!(SliderStyle);
+    conform_style!(CORE: SliderStyle);
+    conform_style!(BLOCK: SliderStyle);
     conform_state!(CORE : SliderState, Regular, SliderOutcome);
     conform_state!(BASE : SliderState, Regular, SliderOutcome);
     conform_state!(VALUE : SliderState, Regular, SliderOutcome);
@@ -442,7 +463,8 @@ fn conform() {
     conform_widget!(VALUE : Slider, SliderState, SliderStyle);
 
     // splitter
-    conform_style!(SplitStyle);
+    conform_style!(CORE: SplitStyle);
+    conform_style!(BLOCK: SplitStyle);
     conform_state!(CORE : SplitState, Popup, SplitterOutcome);
     conform_state!(MULTI_CONTAINER : SplitState, Popup, SplitterOutcome);
     conform_event_fn!(rat_widget::splitter : SplitState, Outcome);
@@ -450,7 +472,8 @@ fn conform() {
     conform_widget!(MULTI_CONTAINER : Split, SplitterState, SplitterStyle);
 
     // status-line
-    conform_style!(StatusLineStyle);
+    conform_style!(CORE: StatusLineStyle);
+    // no point: conform_style!(BLOCK: StatusLineStyle);
     conform_state!(CORE: StatusLineState, Regular, Outcome);
     conform_state!(BASE: StatusLineState, Regular, Outcome);
     // no point: conform_event_fn!(rat_widget::statusline : StatusLineState, Outcome);
@@ -461,7 +484,8 @@ fn conform() {
     conform_widget!(CORE: StatusLineStacked, (), ());
 
     // tabbed
-    conform_style!(TabbedStyle);
+    conform_style!(CORE: TabbedStyle);
+    conform_style!(BLOCK: TabbedStyle);
     conform_state!(CORE : TabbedState, Popup, TabbedOutcome);
     conform_state!(CONTAINER : TabbedState, Popup, TabbedOutcome);
     conform_event_fn!(rat_widget::tabbed : TabbedState, TabbedOutcome);
@@ -469,7 +493,8 @@ fn conform() {
     conform_widget!(MULTI_CONTAINER : Tabbed, TabbedState, TabbedterStyle);
 
     // table
-    conform_style!(TableStyle);
+    conform_style!(CORE: TableStyle);
+    conform_style!(BLOCK: TableStyle);
     conform_state!(CORE : TableState, Regular, TableOutcome);
     conform_state!(BASE : TableState, Regular, TableOutcome);
     // exist, can't check this way: conform_event_fn!(rat_widget::table : TableState, TableOutcome);
@@ -477,7 +502,8 @@ fn conform() {
     conform_widget!(BASE : Table, TableState, TableStyle);
 
     // text-input
-    conform_style!(TextStyle);
+    conform_style!(CORE: TextStyle);
+    conform_style!(BLOCK: TextStyle);
     conform_state!(CORE : TextInputState, Regular, TextOutcome);
     conform_state!(BASE : TextInputState, Regular, TextOutcome);
     conform_state!(INFERRED_VALUE: TextInputState, String, Regular, TextInputOutcome);
@@ -487,7 +513,8 @@ fn conform() {
     conform_widget!(VALUE : TextInput, TextInputState, TextStyle);
 
     // masked-input
-    conform_style!(TextStyle);
+    conform_style!(CORE: TextStyle);
+    conform_style!(BLOCK: TextStyle);
     conform_state!(CORE : MaskedInputState, Regular, TextOutcome);
     conform_state!(BASE : MaskedInputState, Regular, TextOutcome);
     conform_state!(INFERRED_FALLIBLE_VALUE: MaskedInputState, String, Regular, MaskedInputOutcome);
@@ -497,7 +524,8 @@ fn conform() {
     conform_widget!(VALUE : MaskedInput, MaskedInputState, TextStyle);
 
     // text_area
-    conform_style!(TextStyle);
+    conform_style!(CORE: TextStyle);
+    conform_style!(BLOCK: TextStyle);
     conform_state!(CORE : TextAreaState, Regular, TextOutcome);
     conform_state!(BASE : TextAreaState, Regular, TextOutcome);
     conform_state!(INFERRED_VALUE: TextAreaState, String, Regular, TextAreaOutcome);
@@ -507,7 +535,8 @@ fn conform() {
     conform_widget!(VALUE : TextArea, TextAreaState, TextStyle);
 
     // view
-    conform_style!(ViewStyle);
+    conform_style!(CORE: ViewStyle);
+    conform_style!(BLOCK: ViewStyle);
     conform_state!(CORE : ViewState, Popup, ViewOutcome);
     conform_state!(CONTAINER : ViewState, Popup, ViewOutcome);
     conform_event_fn!(rat_widget::view : ViewState, Outcome);
