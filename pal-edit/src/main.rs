@@ -25,7 +25,7 @@ use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme4::palette::{ColorIdx, Colors, Palette, rat_widget_color_names};
+use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{RatWidgetColor, WidgetStyle, create_theme, theme, themes};
 use rat_widget::event::{HandleEvent, MenuOutcome, Outcome, Regular, ct_event, event_flow};
@@ -487,7 +487,7 @@ pub fn pal_choice(pal: Palette) -> Vec<(ColorIdx, Line<'static>)> {
             let n = 0;
             (c, n)
         } else {
-            let c = Colors::array()[n / 8];
+            let c = color_array()[n / 8];
             let n = n % 8;
             (c, n)
         }
@@ -677,7 +677,7 @@ fn export_pal_file(
             c32(c3)
         )?;
     }
-    for c in Colors::array_no_text() {
+    for c in color_array_no_text() {
         let c0 = state.edit.color[c as usize].0.value();
         let c3 = state.edit.color[c as usize].3.value();
         writeln!(
@@ -750,10 +750,10 @@ fn save_pal_file(
         "dark",
         state.edit.dark.value::<u8>().unwrap_or(63),
     );
-    for c in Colors::array() {
+    for c in color_array() {
         ff.set_array(
             "color",
-            c.name(),
+            &c.to_string(),
             [
                 state.edit.color[c as usize].0.value(),
                 state.edit.color[c as usize].3.value(),
@@ -777,7 +777,7 @@ fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, 
     state.edit.name.set_value("pal.name");
     _ = state.edit.dark.set_value(64);
 
-    for c in Colors::array() {
+    for c in color_array() {
         state.edit.color[c as usize].0.set_value(Color::default());
         state.edit.color[c as usize].3.set_value(Color::default());
     }
@@ -902,8 +902,8 @@ fn load_pal_file(
         .edit
         .dark
         .set_value(ff.parse_val::<u8, _>("palette", "dark", 63));
-    for c in Colors::array() {
-        let ccc = ff.parse_array::<2, _, _>("color", c.name(), Color::default());
+    for c in color_array() {
+        let ccc = ff.parse_array::<2, _, _>("color", &c.to_string(), Color::default());
         state.edit.color[c as usize].0.set_value(ccc[0]);
         state.edit.color[c as usize].3.set_value(ccc[1]);
     }
@@ -923,6 +923,58 @@ fn create_edit_theme(state: &Scenery) -> SalsaTheme {
         "Shell" => themes::create_shell("Shell", palette),
         _ => themes::create_dark("Dark", palette),
     }
+}
+
+fn rat_widget_color_names() -> &'static [&'static str] {
+    &[
+        Color::LABEL_FG,
+        Color::INPUT_BG,
+        Color::FOCUS_BG,
+        Color::SELECT_BG,
+        Color::DISABLED_BG,
+        Color::INVALID_BG,
+        Color::HOVER_BG,
+        Color::TITLE_FG,
+        Color::TITLE_BG,
+        Color::HEADER_FG,
+        Color::HEADER_BG,
+        Color::FOOTER_FG,
+        Color::FOOTER_BG,
+        Color::SHADOW_BG,
+        Color::WEEK_HEADER_FG,
+        Color::MONTH_HEADER_FG,
+        Color::TEXT_FOCUS_BG,
+        Color::TEXT_SELECT_BG,
+        Color::BUTTON_BASE_BG,
+        Color::MENU_BASE_BG,
+        Color::KEY_BINDING_BG,
+        Color::STATUS_BASE_BG,
+        Color::CONTAINER_BASE_BG,
+        Color::CONTAINER_BORDER_FG,
+        Color::CONTAINER_ARROW_FG,
+        Color::POPUP_BASE_BG,
+        Color::POPUP_BORDER_FG,
+        Color::POPUP_ARROW_FG,
+        Color::DIALOG_BASE_BG,
+        Color::DIALOG_BORDER_FG,
+        Color::DIALOG_ARROW_FG,
+    ]
+}
+
+const fn color_array_no_text() -> [Colors; Colors::LEN - 2] {
+    use Colors::*;
+    [
+        Primary, Secondary, White, Black, Gray, Red, Orange, Yellow, LimeGreen, Green, BlueGreen,
+        Cyan, Blue, DeepBlue, Purple, Magenta, RedPink,
+    ]
+}
+
+const fn color_array() -> [Colors; Colors::LEN] {
+    use Colors::*;
+    [
+        TextLight, TextDark, Primary, Secondary, White, Black, Gray, Red, Orange, Yellow,
+        LimeGreen, Green, BlueGreen, Cyan, Blue, DeepBlue, Purple, Magenta, RedPink,
+    ]
 }
 
 pub fn error(
