@@ -388,7 +388,11 @@ impl DarkTheme {
             right: Some(Style::default().fg(self.s.bluegreen[0])),
             disabled: Some(Style::default().fg(self.s.gray[0])),
             highlight: Some(Style::default().underlined()),
-            block: Some(Block::bordered()),
+            popup_block: Some(Block::bordered()),
+            popup_focus: Some(self.focus()),
+            popup_right: Some(Style::default().fg(self.s.bluegreen[0])),
+            popup_disabled: Some(Style::default().fg(self.s.gray[0])),
+            popup_highlight: Some(Style::default().underlined()),
             popup: PopupStyle::default(),
             ..Default::default()
         }
