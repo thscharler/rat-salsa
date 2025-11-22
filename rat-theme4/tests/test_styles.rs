@@ -1,3 +1,4 @@
+use rat_theme4::RatWidgetColor;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{
     StyleName, WidgetStyle, create_palette, create_theme, salsa_palettes, salsa_themes,
@@ -27,13 +28,11 @@ use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 use std::io::Write;
 
 #[test]
 fn test_palette() {
-    use rat_theme4::palette::Colors::*;
-
     let palettes = salsa_palettes();
     for pal in palettes {
         eprintln!();
@@ -42,8 +41,37 @@ fn test_palette() {
         let pal = create_palette(pal).expect("pal");
 
         for n in [
-            TextLight, TextDark, Primary, Secondary, White, Black, Gray, Red, Orange, Yellow,
-            LimeGreen, Green, BlueGreen, Cyan, Blue, DeepBlue, Purple, Magenta, RedPink, None,
+            Color::LABEL_FG,
+            Color::INPUT_BG,
+            Color::FOCUS_BG,
+            Color::SELECT_BG,
+            Color::DISABLED_BG,
+            Color::INVALID_BG,
+            Color::HOVER_BG,
+            Color::TITLE_FG,
+            Color::TITLE_BG,
+            Color::HEADER_FG,
+            Color::HEADER_BG,
+            Color::FOOTER_FG,
+            Color::FOOTER_BG,
+            Color::SHADOW_BG,
+            Color::WEEK_HEADER_FG,
+            Color::MONTH_HEADER_FG,
+            Color::TEXT_FOCUS_BG,
+            Color::TEXT_SELECT_BG,
+            Color::BUTTON_BASE_BG,
+            Color::MENU_BASE_BG,
+            Color::KEY_BINDING_BG,
+            Color::STATUS_BASE_BG,
+            Color::CONTAINER_BASE_BG,
+            Color::CONTAINER_BORDER_FG,
+            Color::CONTAINER_ARROW_FG,
+            Color::POPUP_BASE_BG,
+            Color::POPUP_BORDER_FG,
+            Color::POPUP_ARROW_FG,
+            Color::DIALOG_BASE_BG,
+            Color::DIALOG_BORDER_FG,
+            Color::DIALOG_ARROW_FG,
         ] {
             _ = pal.color_alias(&n.to_string());
         }
