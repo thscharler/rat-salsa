@@ -1,8 +1,15 @@
+//!
+//! Defines the SHELL palette.
+//!
 use crate::RatWidgetColor;
 use crate::palette::{Colors, Palette, define_alias};
 use ratatui::style::Color;
 use std::borrow::Cow;
 
+/// A `shell` palette that uses only named [Color]s.
+///
+/// This is useful if you want to let the terminal decide
+/// what exact color 'red' really is.
 pub const SHELL: Palette = Palette {
     name: Cow::Borrowed("Shell"),
     color: [

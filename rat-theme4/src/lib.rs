@@ -33,6 +33,10 @@
 //! # let buf = &mut buf;
 //! # let mut state = CheckboxState::default();
 //!
+//! // ratatui Style
+//! let s = theme.style::<Style>(Style::SELECT);
+//!
+//! // composite style
 //! Checkbox::new()
 //!     .styles(theme.style(WidgetStyle::CHECKBOX))
 //!     .render(area, buf, &mut state);
@@ -46,6 +50,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub mod palette;
 pub mod theme;
 
+/// Currently shipped palettes.
 pub mod palettes {
     pub mod core;
     pub mod dark;
@@ -58,9 +63,20 @@ pub mod themes {
     mod fallback;
     mod shell;
 
+    /// Create a `core` theme that acts as a fallback.
+    /// It uses the SHELL palette and set almost no backgrounds.
     pub use core::create_core;
+    /// Creates a `dark` theme.
     pub use dark::create_dark;
+    /// Create the `fallback` theme.
+    /// This is more for testing widgets than anything else.
+    /// It just uses `Default::default()` for any style.
+    /// This helps to check if a widget is still functional
+    /// if no styling is applied.
     pub use fallback::create_fallback;
+    /// Creates a `shell` theme. This uses the dark palettes,
+    /// but sets almost no backgrounds. Instead, it lets the
+    /// terminal background shine.
     pub use shell::create_shell;
 }
 
@@ -228,6 +244,7 @@ impl RatWidgetColor for Color {}
 static LOG_DEFINES: AtomicBool = AtomicBool::new(false);
 
 /// Log style definition.
+/// May help debugging styling problems ...
 pub fn log_style_define(log: bool) {
     LOG_DEFINES.store(log, Ordering::Release);
 }
@@ -301,6 +318,12 @@ pub fn salsa_palettes() -> Vec<&'static str> {
 /// Create one of the defined palettes.
 ///
 /// The available palettes can be queried by [salsa_palettes].
+///
+/// Currently known: Imperial, Radium, Tundra, Ocean, Monochrome,
+/// Black&White, Monekai, Solarized, OxoCarbon, EverForest,
+/// Nord, Rust, Material, Tailwind, VSCode, Reds, Blackout,
+/// Shell, Imperial Light, EverForest Light, Tailwind Light,
+/// Rust Light.
 pub fn create_palette(name: &str) -> Option<palette::Palette> {
     use crate::palettes::core;
     use crate::palettes::dark;
@@ -341,6 +364,17 @@ pub fn salsa_themes() -> Vec<&'static str> {
 /// Create one of the defined themes.
 ///
 /// The available themes can be queried by [salsa_themes].
+///
+/// Currently known: Imperial Dark, Radium Dark, Tundra Dark,
+/// Ocean Dark, Monochrome Dark, Black&White Dark, Monekai Dark,
+/// Solarized Dark, OxoCarbon Dark, EverForest Dark, Nord Dark,
+/// Rust Dark, Material Dark, Tailwind Dark, VSCode Dark,
+/// Imperial Light, EverForest Light, Tailwind Light, Rust Light,
+/// Imperial Shell, Radium Shell, Tundra Shell, Ocean Shell,
+/// Monochrome Shell, Black&White Shell, Monekai Shell,
+/// Solarized Shell, OxoCarbon Shell, EverForest Shell, Nord Shell,
+/// Rust Shell, Material Shell, Tailwind Shell, VSCode Shell,
+/// Shell, Blackout and Fallback.
 pub fn create_theme(theme: &str) -> theme::SalsaTheme {
     let themes = THEMES.get_or_init(init_themes);
     let Some(def) = themes.theme_init.get(&theme) else {

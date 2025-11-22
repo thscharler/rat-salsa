@@ -1,3 +1,39 @@
+//!
+//! SalsaTheme is the main structure for themes.
+//!
+//! It holds one [Palette] that has the color-table
+//! and a list of aliases for colors in the color-table.
+//! These aliases allow the palette to give a bit more
+//! semantics to it plain color-array.
+//!
+//! SalsaTheme is on the other end and has a hashmap
+//! of style-names that map to
+//! * a [Style]
+//! * a Fn closure that creates a widget-specific xxxStyle struct.
+//!   this closure can use the palette or any previously defined
+//!   styles to create the xxxStyle struct.
+//!
+//! In between is a create-fn that links all of this together.
+//!
+//! In your application you can use one of the defined Themes/Palettes
+//! and modify/extend before you hand it off to your UI code.
+//!
+//! __Rationale__
+//!
+//! - Colors are separated from styles. There is an editor `pal-edit`
+//!   to create a palette + aliases. It can generate rust code
+//!   that can be used as `statíc` data.
+//! - There is a `.pal` file-format for this. **todo: add a function
+//!   to load a .pal**
+//!
+//! - Themes and xxxStyle structs can contain other things than
+//!   colors. `Block` is used often. Alignment and related flags
+//!   are available. And there are some flags that modify the
+//!   behaviour of widgets.
+//! - xxxStyle combine everything in one package, and can be
+//!   set with one function call when rendering. You don't need
+//!   20 lines of styling functions for each widget.
+//!
 use crate::is_log_style_define;
 use crate::palette::Palette;
 use crate::themes::create_fallback;

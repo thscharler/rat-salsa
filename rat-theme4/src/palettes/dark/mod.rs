@@ -1,3 +1,6 @@
+//!
+//! Palettes with dark-aligned color-aliases.
+//!
 mod base16;
 mod black_white;
 mod blackout;

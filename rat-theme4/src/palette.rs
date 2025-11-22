@@ -1,3 +1,23 @@
+//!
+//! [Palette] is the color palette for salsa-themes.
+//!
+//! It has graduations for white, black, gray, red, orange,
+//! yellow, limegreen, green, bluegreen, cyan, blue, deepblue,
+//! purple, magenta and a redpink.
+//! And it has a primary and a secondary highlight color.
+//! And it has graduations for light/dark text.
+//!
+//! There is an algorithm that chooses the text-color for a
+//! given background.
+//!
+//! And there is a semantic layer, that can give names to
+//! specific colors. It's these names/aliases that are primarily
+//! used when composing everything into a theme.
+//!
+//! This way salsa-theme can have one dark theme that works
+//! with multiple palettes.
+//!
+
 use crate::RatWidgetColor;
 use ratatui::style::{Color, Style};
 use std::borrow::Cow;
@@ -46,7 +66,7 @@ pub enum Colors {
 
 impl Display for ColorIdx {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.0.name(), self.1)
+        write!(f, "{}:{}", self.0, self.1)
     }
 }
 
@@ -58,7 +78,7 @@ impl FromStr for ColorIdx {
         let Some(name) = ss.next() else {
             return Err(());
         };
-        let Some(c) = Colors::from_name(name) else {
+        let Ok(c) = Colors::from_str(name) else {
             return Err(());
         };
         let Some(idx) = ss.next() else { return Err(()) };
@@ -71,57 +91,7 @@ impl FromStr for ColorIdx {
 
 impl Display for Colors {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl Colors {
-    pub const LEN: usize = 19;
-
-    pub const fn array_no_text() -> [Colors; Colors::LEN - 2] {
-        use Colors::*;
-        [
-            Primary, Secondary, White, Black, Gray, Red, Orange, Yellow, LimeGreen, Green,
-            BlueGreen, Cyan, Blue, DeepBlue, Purple, Magenta, RedPink,
-        ]
-    }
-
-    pub const fn array() -> [Colors; Colors::LEN] {
-        use Colors::*;
-        [
-            TextLight, TextDark, Primary, Secondary, White, Black, Gray, Red, Orange, Yellow,
-            LimeGreen, Green, BlueGreen, Cyan, Blue, DeepBlue, Purple, Magenta, RedPink,
-        ]
-    }
-
-    pub fn from_name(n: &str) -> Option<Self> {
-        match n {
-            "text-light" => Some(Colors::TextLight),
-            "text-dark" => Some(Colors::TextDark),
-            "primary" => Some(Colors::Primary),
-            "secondary" => Some(Colors::Secondary),
-            "white" => Some(Colors::White),
-            "black" => Some(Colors::Black),
-            "gray" => Some(Colors::Gray),
-            "red" => Some(Colors::Red),
-            "orange" => Some(Colors::Orange),
-            "yellow" => Some(Colors::Yellow),
-            "lime-green" => Some(Colors::LimeGreen),
-            "green" => Some(Colors::Green),
-            "blue-green" => Some(Colors::BlueGreen),
-            "cyan" => Some(Colors::Cyan),
-            "blue" => Some(Colors::Blue),
-            "deep-blue" => Some(Colors::DeepBlue),
-            "purple" => Some(Colors::Purple),
-            "magenta" => Some(Colors::Magenta),
-            "red-pink" => Some(Colors::RedPink),
-            "none" => Some(Colors::None),
-            _ => None,
-        }
-    }
-
-    pub const fn name(self) -> &'static str {
-        match self {
+        let s = match self {
             Colors::TextLight => "text-light",
             Colors::TextDark => "text-dark",
             Colors::Primary => "primary",
@@ -142,8 +112,43 @@ impl Colors {
             Colors::Magenta => "magenta",
             Colors::RedPink => "red-pink",
             Colors::None => "none",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl FromStr for Colors {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "text-light" => Ok(Colors::TextLight),
+            "text-dark" => Ok(Colors::TextDark),
+            "primary" => Ok(Colors::Primary),
+            "secondary" => Ok(Colors::Secondary),
+            "white" => Ok(Colors::White),
+            "black" => Ok(Colors::Black),
+            "gray" => Ok(Colors::Gray),
+            "red" => Ok(Colors::Red),
+            "orange" => Ok(Colors::Orange),
+            "yellow" => Ok(Colors::Yellow),
+            "lime-green" => Ok(Colors::LimeGreen),
+            "green" => Ok(Colors::Green),
+            "blue-green" => Ok(Colors::BlueGreen),
+            "cyan" => Ok(Colors::Cyan),
+            "blue" => Ok(Colors::Blue),
+            "deep-blue" => Ok(Colors::DeepBlue),
+            "purple" => Ok(Colors::Purple),
+            "magenta" => Ok(Colors::Magenta),
+            "red-pink" => Ok(Colors::RedPink),
+            "none" => Ok(Colors::None),
+            _ => Err(()),
         }
     }
+}
+
+impl Colors {
+    pub const LEN: usize = 19;
 }
 
 /// Color palette.
@@ -179,8 +184,7 @@ pub(crate) enum Rating {
     Dark,
 }
 
-/// Create a color alias.
-/// This is a const fn.
+/// Create a color alias. Useful when creating a static Palette.
 pub const fn define_alias(
     alias: &'static str,
     color: Colors,
@@ -189,7 +193,8 @@ pub const fn define_alias(
     (Cow::Borrowed(alias), ColorIdx(color, n))
 }
 
-/// Create a color alias for owned values.
+/// Create a color alias. This function is useful when
+/// modifying a Palette at runtime.
 pub fn define_rt_alias(
     alias: impl Into<String>,
     color: Colors,
@@ -199,148 +204,112 @@ pub fn define_rt_alias(
     (Cow::Owned(alias), ColorIdx(color, n))
 }
 
-///
-pub fn rat_widget_color_names() -> &'static [&'static str] {
-    &[
-        Color::LABEL_FG,
-        Color::INPUT_BG,
-        Color::FOCUS_BG,
-        Color::SELECT_BG,
-        Color::DISABLED_BG,
-        Color::INVALID_BG,
-        Color::HOVER_BG,
-        Color::TITLE_FG,
-        Color::TITLE_BG,
-        Color::HEADER_FG,
-        Color::HEADER_BG,
-        Color::FOOTER_FG,
-        Color::FOOTER_BG,
-        Color::SHADOW_BG,
-        Color::WEEK_HEADER_FG,
-        Color::MONTH_HEADER_FG,
-        Color::TEXT_FOCUS_BG,
-        Color::TEXT_SELECT_BG,
-        Color::BUTTON_BASE_BG,
-        Color::MENU_BASE_BG,
-        Color::KEY_BINDING_BG,
-        Color::STATUS_BASE_BG,
-        Color::CONTAINER_BASE_BG,
-        Color::CONTAINER_BORDER_FG,
-        Color::CONTAINER_ARROW_FG,
-        Color::POPUP_BASE_BG,
-        Color::POPUP_BORDER_FG,
-        Color::POPUP_ARROW_FG,
-        Color::DIALOG_BASE_BG,
-        Color::DIALOG_BORDER_FG,
-        Color::DIALOG_ARROW_FG,
-    ]
-}
-
 impl Palette {
     /// Create a style from the given white shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn white(&self, n: usize) -> Style {
         self.style(Colors::White, n)
     }
 
     /// Create a style from the given black shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn black(&self, n: usize) -> Style {
         self.style(Colors::Black, n)
     }
 
     /// Create a style from the given gray shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn gray(&self, n: usize) -> Style {
         self.style(Colors::Gray, n)
     }
 
     /// Create a style from the given red shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn red(&self, n: usize) -> Style {
         self.style(Colors::Red, n)
     }
 
     /// Create a style from the given orange shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn orange(&self, n: usize) -> Style {
         self.style(Colors::Orange, n)
     }
 
     /// Create a style from the given yellow shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn yellow(&self, n: usize) -> Style {
         self.style(Colors::Yellow, n)
     }
 
     /// Create a style from the given limegreen shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn limegreen(&self, n: usize) -> Style {
         self.style(Colors::LimeGreen, n)
     }
 
     /// Create a style from the given green shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn green(&self, n: usize) -> Style {
         self.style(Colors::Green, n)
     }
 
     /// Create a style from the given bluegreen shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn bluegreen(&self, n: usize) -> Style {
         self.style(Colors::BlueGreen, n)
     }
 
     /// Create a style from the given cyan shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn cyan(&self, n: usize) -> Style {
         self.style(Colors::Cyan, n)
     }
 
     /// Create a style from the given blue shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn blue(&self, n: usize) -> Style {
         self.style(Colors::Blue, n)
     }
 
     /// Create a style from the given deepblue shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn deepblue(&self, n: usize) -> Style {
         self.style(Colors::DeepBlue, n)
     }
 
     /// Create a style from the given purple shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn purple(&self, n: usize) -> Style {
         self.style(Colors::Purple, n)
     }
 
     /// Create a style from the given magenta shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn magenta(&self, n: usize) -> Style {
         self.style(Colors::Magenta, n)
     }
 
     /// Create a style from the given redpink shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn redpink(&self, n: usize) -> Style {
         self.style(Colors::RedPink, n)
     }
 
     /// Create a style from the given primary shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn primary(&self, n: usize) -> Style {
         self.style(Colors::Primary, n)
     }
 
     /// Create a style from the given secondary shade.
-    /// n is `0..=3`
+    /// n is 0..=7 with 4..=7 as darker variants of the first 3.
     pub fn secondary(&self, n: usize) -> Style {
         self.style(Colors::Secondary, n)
     }
 }
 
 impl Palette {
+    /// The Color for the id + index n.
     pub fn color(&self, id: Colors, n: usize) -> Color {
         if id == Colors::None {
             Color::Reset
@@ -349,16 +318,23 @@ impl Palette {
         }
     }
 
+    /// Create a style with the given background color.
+    /// The foreground is chosen from the text-colors for a
+    /// normal contrast.
     pub fn style(&self, id: Colors, n: usize) -> Style {
         let color = self.color(id, n);
         self.normal_contrast(color)
     }
 
+    /// Create a style with the given background color.
+    /// The foreground is chosen from the text-colors for
+    /// high contrast.
     pub fn high_style(&self, id: Colors, n: usize) -> Style {
         let color = self.color(id, n);
         self.high_contrast(color)
     }
 
+    /// Create a style with the given fg/bg.
     pub fn fg_bg_style(&self, fg: Colors, n: usize, bg: Colors, m: usize) -> Style {
         let color = self.color(fg, n);
         let color_bg = self.color(bg, m);
@@ -372,6 +348,7 @@ impl Palette {
         style
     }
 
+    /// Create a style with only fg set.
     pub fn fg_style(&self, id: Colors, n: usize) -> Style {
         let color = self.color(id, n);
         let mut style = Style::new();
@@ -381,6 +358,7 @@ impl Palette {
         style
     }
 
+    /// Create a style with only bg set.
     pub fn bg_style(&self, id: Colors, n: usize) -> Style {
         let color = self.color(id, n);
         let mut style = Style::new();
@@ -391,7 +369,6 @@ impl Palette {
     }
 
     /// Add an alias.
-    ///
     pub fn add_aliased(&mut self, id: &str, color_idx: ColorIdx) {
         if matches!(self.aliased, Cow::Borrowed(_)) {
             self.aliased = Cow::Owned(mem::take(&mut self.aliased).into_owned());
@@ -455,15 +432,16 @@ impl Palette {
     }
 
     /// Get a Style for a color-alias.
-    /// Uses the color as bg() and finds the matching text-color.
+    /// Uses the color as bg() and finds the matching text-color
+    /// for normal contrast.
     pub fn style_alias(&self, bg: &str) -> Style {
         let color = self.color_alias(bg);
         self.normal_contrast(color)
     }
 
     /// Get a Style for a color-alias.
-    /// Uses the color as bg() and finds the matching text-color.
-    /// Uses the high-contrast foreground.
+    /// Uses the color as bg() and finds the matching text-color
+    /// for high contrast.
     pub fn high_style_alias(&self, bg: &str) -> Style {
         let color = self.color_alias(bg);
         self.high_contrast(color)
@@ -664,20 +642,6 @@ impl Palette {
             }
         }
     }
-
-    // /// Reduces the range of the given color from 0..255
-    // /// to 0..scale_to.
-    // ///
-    // /// This gives a true dark equivalent which can be used
-    // /// as a background for a dark theme.
-    // pub const fn darken(color: Color, scale_to: u8) -> Color {
-    //     let (r, g, b) = Self::color2rgb(color);
-    //     Color::Rgb(
-    //         Self::scale_to(r, scale_to),
-    //         Self::scale_to(g, scale_to),
-    //         Self::scale_to(b, scale_to),
-    //     )
-    // }
 
     /// Converts the given color to an equivalent grayscale.
     pub const fn grayscale(color: Color) -> Color {
