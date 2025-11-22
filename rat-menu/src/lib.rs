@@ -107,6 +107,10 @@ pub mod event {
 pub struct MenuStyle {
     /// Base style.
     pub style: Style,
+    /// Button border mark
+    pub menu_block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
+    pub title_style: Option<Style>,
     /// Menuline title style.
     pub title: Option<Style>,
     /// Style for the _ highlight/nav-char
@@ -121,19 +125,28 @@ pub struct MenuStyle {
     /// Styling for the popup menus.
     pub popup_style: Option<Style>,
     /// Block for the popup menus.
+    #[deprecated(since = "2.1.0", note = "use popup_block instead")]
     pub block: Option<Block<'static>>,
+    /// Block for the popup menus.
+    pub popup_block: Option<Block<'static>>,
     /// Popup itself
     pub popup: PopupStyle,
     /// Border style
     pub popup_border: Option<Style>,
+    /// Border style
+    pub popup_title: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
 
 impl Default for MenuStyle {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             style: Default::default(),
+            menu_block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
             title: Default::default(),
             highlight: Default::default(),
             disabled: Default::default(),
@@ -141,8 +154,10 @@ impl Default for MenuStyle {
             focus: Default::default(),
             popup_style: Default::default(),
             block: Default::default(),
+            popup_block: Default::default(),
             popup: Default::default(),
             popup_border: Default::default(),
+            popup_title: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }

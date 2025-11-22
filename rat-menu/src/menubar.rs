@@ -44,7 +44,9 @@ pub struct Menubar<'a> {
 
     title: Line<'a>,
     style: Style,
+    block: Option<Block<'a>>,
     title_style: Option<Style>,
+
     focus_style: Option<Style>,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
@@ -52,6 +54,7 @@ pub struct Menubar<'a> {
 
     popup_alignment: Alignment,
     popup_placement: Placement,
+    popup_offset: Option<(i16, i16)>,
     popup: PopupMenu<'a>,
 }
 
@@ -62,9 +65,12 @@ pub struct Menubar<'a> {
 pub struct MenubarLine<'a> {
     structure: Option<&'a dyn MenuStructure<'a>>,
 
-    title: Line<'a>,
     style: Style,
+    block: Option<Block<'a>>,
+
+    title: Line<'a>,
     title_style: Option<Style>,
+
     focus_style: Option<Style>,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
@@ -79,6 +85,7 @@ pub struct MenubarPopup<'a> {
     structure: Option<&'a dyn MenuStructure<'a>>,
 
     style: Style,
+
     focus_style: Option<Style>,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
@@ -86,6 +93,7 @@ pub struct MenubarPopup<'a> {
 
     popup_alignment: Alignment,
     popup_placement: Placement,
+    popup_offset: Option<(i16, i16)>,
     popup: PopupMenu<'a>,
 }
 
@@ -109,6 +117,7 @@ impl Default for Menubar<'_> {
             structure: Default::default(),
             title: Default::default(),
             style: Default::default(),
+            block: Default::default(),
             title_style: Default::default(),
             focus_style: Default::default(),
             highlight_style: Default::default(),
@@ -116,12 +125,14 @@ impl Default for Menubar<'_> {
             right_style: Default::default(),
             popup_alignment: Alignment::Left,
             popup_placement: Placement::AboveOrBelow,
+            popup_offset: Default::default(),
             popup: Default::default(),
         }
     }
 }
 
 impl<'a> Menubar<'a> {
+    #[inline]
     pub fn new(structure: &'a dyn MenuStructure<'a>) -> Self {
         Self {
             structure: Some(structure),
@@ -142,6 +153,18 @@ impl<'a> Menubar<'a> {
         self.popup = self.popup.styles(styles.clone());
 
         self.style = styles.style;
+
+        if styles.menu_block.is_some() {
+            self.block = styles.menu_block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
+
         if styles.highlight.is_some() {
             self.highlight_style = styles.highlight;
         }
@@ -160,12 +183,17 @@ impl<'a> Menubar<'a> {
         if styles.right.is_some() {
             self.right_style = styles.right;
         }
+
         if let Some(alignment) = styles.popup.alignment {
             self.popup_alignment = alignment;
         }
         if let Some(placement) = styles.popup.placement {
             self.popup_placement = placement;
         }
+        if let Some(offset) = styles.popup.offset {
+            self.popup_offset = Some(offset);
+        }
+
         self
     }
 
@@ -173,6 +201,13 @@ impl<'a> Menubar<'a> {
     #[inline]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self
+    }
+
+    /// Block.
+    #[inline]
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block.style(self.style));
         self
     }
 
@@ -199,24 +234,35 @@ impl<'a> Menubar<'a> {
 
     /// Fixed width for the menu.
     /// If not set it uses 1.5 times the length of the longest item.
+    #[inline]
     pub fn popup_width(mut self, width: u16) -> Self {
         self.popup = self.popup.menu_width(width);
         self
     }
 
     /// Placement relative to the render-area.
+    #[inline]
     pub fn popup_alignment(mut self, alignment: Alignment) -> Self {
         self.popup_alignment = alignment;
         self
     }
 
     /// Placement relative to the render-area.
+    #[inline]
+    pub fn popup_offset(mut self, offset: (i16, i16)) -> Self {
+        self.popup_offset = Some(offset);
+        self
+    }
+
+    /// Placement relative to the render-area.
+    #[inline]
     pub fn popup_placement(mut self, placement: Placement) -> Self {
         self.popup_placement = placement;
         self
     }
 
     /// Block for the popup menus.
+    #[inline]
     pub fn popup_block(mut self, block: Block<'a>) -> Self {
         self.popup = self.popup.block(block);
         self
@@ -227,12 +273,15 @@ impl<'a> Menubar<'a> {
     ///
     /// The menu-popup should be rendered after all widgets
     /// that might be below the popup have been rendered.
+    #[inline]
     pub fn into_widgets(self) -> (MenubarLine<'a>, MenubarPopup<'a>) {
         (
             MenubarLine {
                 structure: self.structure,
                 title: self.title,
+
                 style: self.style,
+                block: self.block,
                 title_style: self.title_style,
                 focus_style: self.focus_style,
                 highlight_style: self.highlight_style,
@@ -241,6 +290,7 @@ impl<'a> Menubar<'a> {
             },
             MenubarPopup {
                 structure: self.structure,
+
                 style: self.style,
                 focus_style: self.focus_style,
                 highlight_style: self.highlight_style,
@@ -248,6 +298,7 @@ impl<'a> Menubar<'a> {
                 right_style: self.right_style,
                 popup_alignment: self.popup_alignment,
                 popup_placement: self.popup_placement,
+                popup_offset: self.popup_offset,
                 popup: self.popup,
             },
         )
@@ -258,24 +309,20 @@ impl StatefulWidget for MenubarLine<'_> {
     type State = MenubarState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_menubar(&self, area, buf, state);
+        render_menubar(self, area, buf, state);
     }
 }
 
-fn render_menubar(
-    widget: &MenubarLine<'_>,
-    area: Rect,
-    buf: &mut Buffer,
-    state: &mut MenubarState,
-) {
+fn render_menubar(widget: MenubarLine<'_>, area: Rect, buf: &mut Buffer, state: &mut MenubarState) {
     let mut menu = MenuLine::new()
         .title(widget.title.clone())
         .style(widget.style)
-        .title_style_opt(widget.title_style)
-        .focus_style_opt(widget.focus_style)
+        .block_opt(widget.block)
         .highlight_style_opt(widget.highlight_style)
         .disabled_style_opt(widget.disabled_style)
-        .right_style_opt(widget.right_style);
+        .right_style_opt(widget.right_style)
+        .title_style_opt(widget.title_style)
+        .focus_style_opt(widget.focus_style);
 
     if let Some(structure) = &widget.structure {
         structure.menus(&mut menu.menu);
@@ -314,7 +361,11 @@ fn render_menu_popup(
         let item = state.bar.item_areas[selected];
 
         let popup_padding = widget.popup.get_block_padding();
-        let sub_offset = (-(popup_padding.left as i16 + 1), 0);
+        let sub_offset = if let Some(offset) = widget.popup_offset {
+            offset
+        } else {
+            (-(popup_padding.left as i16 + 1), 0)
+        };
 
         let mut popup = widget
             .popup
