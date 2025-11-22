@@ -54,7 +54,7 @@ pub struct Button<'a> {
 pub struct ButtonStyle {
     /// Base style
     pub style: Style,
-    /// Button border mark
+    /// Button border
     pub block: Option<Block<'static>>,
     pub border_style: Option<Style>,
     pub title_style: Option<Style>,
@@ -120,6 +120,7 @@ impl Default for ButtonStyle {
 }
 
 impl<'a> Button<'a> {
+    #[inline]
     pub fn new(text: impl Into<Text<'a>>) -> Self {
         Self::default().text(text)
     }
@@ -134,7 +135,7 @@ impl<'a> Button<'a> {
         }
     }
 
-    /// Set all styles. mark
+    /// Set all styles.
     #[inline]
     pub fn styles(mut self, styles: ButtonStyle) -> Self {
         self.style = styles.style;
@@ -189,12 +190,14 @@ impl<'a> Button<'a> {
     /// Some terminals repaint too fast to see the click.
     /// This adds some delay when the button state goes from
     /// armed to clicked.
+    #[inline]
     pub fn armed_delay(mut self, delay: Duration) -> Self {
         self.armed_delay = Some(delay);
         self
     }
 
     /// Style for hover over the button.
+    #[inline]
     pub fn hover_style(mut self, style: impl Into<Style>) -> Self {
         self.hover_style = Some(style.into());
         self
@@ -208,12 +211,14 @@ impl<'a> Button<'a> {
     }
 
     /// Left align button text.
+    #[inline]
     pub fn left_aligned(mut self) -> Self {
         self.text = self.text.left_aligned();
         self
     }
 
     /// Right align button text.
+    #[inline]
     pub fn right_aligned(mut self) -> Self {
         self.text = self.text.right_aligned();
         self
@@ -227,11 +232,13 @@ impl<'a> Button<'a> {
     }
 
     /// Inherent width.
+    #[inline]
     pub fn width(&self) -> u16 {
         self.text.width() as u16 + block_size(&self.block).width
     }
 
     /// Inherent height.
+    #[inline]
     pub fn height(&self) -> u16 {
         self.text.height() as u16 + block_size(&self.block).height
     }

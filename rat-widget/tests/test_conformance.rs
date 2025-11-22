@@ -384,6 +384,7 @@ fn conform() {
 
     // button
     conform_style!(CORE: MenuStyle);
+    conform_style!(BLOCK: MenuStyle);
     conform_state!(CORE: MenubarState, Popup, MenuOutcome);
     conform_state!(BASE: MenubarState, Popup, MenuOutcome);
     conform_event_fn!(rat_widget::menu::menubar : MenubarState, MenuOutcome);
@@ -394,7 +395,7 @@ fn conform() {
     conform_state!(BASE: MenuLineState, Regular, MenuOutcome);
     conform_event_fn!(rat_widget::menu::menuline : MenuLineState, MenuOutcome);
     conform_widget!(CORE: MenuLine, MenuLineState, MenuStyle);
-    // TODO: conform_widget!(BASE: MenuLine, MenuLineState, MenuStyle);
+    conform_widget!(BASE: MenuLine, MenuLineState, MenuStyle);
 
     conform_state!(CORE: PopupMenuState, Popup, MenuOutcome);
     conform_state!(BASE: PopupMenuState, Popup, MenuOutcome);
