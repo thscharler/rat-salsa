@@ -133,11 +133,16 @@ impl<'a> MenuLine<'a> {
     #[inline]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
+        if styles.menu_block.is_some() {
+            self.block = styles.menu_block;
+        }
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        if let Some(title_style) = styles.title_style {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
         self.block = self.block.map(|v| v.style(self.style));
-        // block for a popup. don't mix up.
-        // if let Some(block) = styles.block {
-        //     self.block = Some(block);
-        // }
         if styles.highlight.is_some() {
             self.highlight_style = styles.highlight;
         }
@@ -168,9 +173,16 @@ impl<'a> MenuLine<'a> {
     }
 
     /// Block
-    #[deprecated(since = "2.1.0", note = "was a mistake to add this")]
+    #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self
+    }
+
+    /// Block
+    #[inline]
+    pub fn block_opt(mut self, block: Option<Block<'a>>) -> Self {
+        self.block = block;
         self
     }
 
