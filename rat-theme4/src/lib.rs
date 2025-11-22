@@ -45,7 +45,12 @@
 //! ```
 
 use ratatui::style::{Color, Style};
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+use std::io;
+use std::io::ErrorKind;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -319,6 +324,153 @@ fn init_themes() -> Def {
 pub fn salsa_palettes() -> Vec<&'static str> {
     let themes = THEMES.get_or_init(init_themes);
     themes.palette.clone()
+}
+
+#[derive(Debug)]
+pub struct LoadPaletteErr(u8);
+
+impl Display for LoadPaletteErr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "load palette failed: {}", self.0)
+    }
+}
+
+impl Error for LoadPaletteErr {}
+
+/// Load a .pal file as a Palette.
+pub fn load_palette(mut r: impl std::io::Read) -> Result<palette::Palette, std::io::Error> {
+    let mut buf = String::new();
+    r.read_to_string(&mut buf)?;
+
+    enum S {
+        Start,
+        Recognize,
+        Color,
+        Reference,
+        Fail(u8),
+    }
+
+    let mut pal = palette::Palette::default();
+    let mut dark = 63u8;
+
+    let mut state = S::Start;
+    'm: for l in buf.lines() {
+        let l = l.trim();
+        match state {
+            S::Start => {
+                if l.trim() == "[palette]" {
+                    state = S::Recognize;
+                } else {
+                    state = S::Fail(1);
+                    break 'm;
+                }
+            }
+            S::Recognize => {
+                if l == "[color]" {
+                    state = S::Color;
+                } else if l.is_empty() || l.starts_with("#") {
+                    // ok
+                } else if l.starts_with("name=") {
+                    if let Some(name_str) = l.split('=').nth(1) {
+                        pal.name = Cow::Owned(name_str.to_string());
+                    }
+                } else if l.starts_with("docs=") {
+                    // ok
+                } else if l.starts_with("dark") {
+                    if let Some(dark_str) = l.split('=').nth(1) {
+                        if let Ok(v) = dark_str.parse::<u8>() {
+                            dark = v;
+                        } else {
+                            // skip
+                        }
+                    }
+                } else {
+                    state = S::Fail(2);
+                    break 'm;
+                }
+            }
+            S::Color => {
+                if l == "[reference]" {
+                    state = S::Reference;
+                } else if l.is_empty() || l.starts_with("#") {
+                    // ok
+                } else {
+                    let mut kvv = l.split(['=', ',']);
+                    let cn = if let Some(v) = kvv.next() {
+                        let Ok(c) = v.trim().parse::<palette::Colors>() else {
+                            state = S::Fail(3);
+                            break 'm;
+                        };
+                        c
+                    } else {
+                        state = S::Fail(4);
+                        break 'm;
+                    };
+                    let c0 = if let Some(v) = kvv.next() {
+                        let Ok(v) = v.trim().parse::<Color>() else {
+                            state = S::Fail(5);
+                            break 'm;
+                        };
+                        v
+                    } else {
+                        state = S::Fail(6);
+                        break 'm;
+                    };
+                    let c3 = if let Some(v) = kvv.next() {
+                        let Ok(v) = v.trim().parse::<Color>() else {
+                            state = S::Fail(7);
+                            break 'm;
+                        };
+                        v
+                    } else {
+                        state = S::Fail(8);
+                        break 'm;
+                    };
+                    if cn == palette::Colors::TextLight || cn == palette::Colors::TextDark {
+                        pal.color[cn as usize] = palette::Palette::interpolatec2(
+                            c0,
+                            c3,
+                            Color::default(),
+                            Color::default(),
+                        )
+                    } else {
+                        pal.color[cn as usize] = palette::Palette::interpolatec(c0, c3, dark);
+                    }
+                }
+            }
+            S::Reference => {
+                let mut kv = l.split('=');
+                let rn = if let Some(v) = kv.next() {
+                    v
+                } else {
+                    state = S::Fail(9);
+                    break 'm;
+                };
+                let ci = if let Some(v) = kv.next() {
+                    if let Ok(ci) = v.parse::<palette::ColorIdx>() {
+                        ci
+                    } else {
+                        state = S::Fail(10);
+                        break 'm;
+                    }
+                } else {
+                    state = S::Fail(11);
+                    break 'm;
+                };
+                pal.add_aliased(rn, ci);
+            }
+            S::Fail(_) => {
+                unreachable!()
+            }
+        }
+    }
+
+    match state {
+        S::Fail(n) => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(n))),
+        S::Start => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(100))),
+        S::Recognize => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(101))),
+        S::Color | S::Reference => Ok(pal),
+    }
 }
 
 /// Create one of the defined palettes.
