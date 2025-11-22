@@ -25,7 +25,9 @@
 //! # use ratatui::layout::Rect;
 //! # use ratatui::style::Style;
 //! # use ratatui::widgets::StatefulWidget;
-//! # use rat_theme4::{SalsaTheme, StyleName, WidgetStyle, };
+//! # use rat_theme4::theme::{SalsaTheme};
+//! # use rat_theme4::{StyleName, WidgetStyle};
+//! # use rat_theme4::palettes::dark::BLACKOUT;
 //! # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
 //! # let theme = SalsaTheme::default();
 //! # let area = Rect::default();
@@ -203,8 +205,9 @@ impl StyleName for Style {}
 ///
 /// Use as
 /// ```rust
-/// # use ratatui::style::Style;
+/// # use ratatui::style::{Style, Color};
 /// # use rat_theme4::theme::{SalsaTheme};
+/// # use rat_theme4::RatWidgetColor;
 /// # let theme = SalsaTheme::default();
 ///
 /// let c: Color = theme.p.color_alias(Color::LABEL_FG);

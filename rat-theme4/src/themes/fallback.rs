@@ -1,6 +1,6 @@
-use crate::palette::Palette;
+use crate::palette::{ColorIdx, Palette};
 use crate::theme::{Category, SalsaTheme};
-use crate::{StyleName, WidgetStyle};
+use crate::{RatWidgetColor, StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
@@ -26,11 +26,43 @@ use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 
 /// A theme to test the fallback-styles of each widget.
 pub fn create_fallback(name: &str, p: Palette) -> SalsaTheme {
     let mut th = SalsaTheme::new(name, Category::Other, p);
+
+    th.p.add_aliased(Color::LABEL_FG, ColorIdx::default());
+    th.p.add_aliased(Color::INPUT_BG, ColorIdx::default());
+    th.p.add_aliased(Color::FOCUS_BG, ColorIdx::default());
+    th.p.add_aliased(Color::SELECT_BG, ColorIdx::default());
+    th.p.add_aliased(Color::DISABLED_BG, ColorIdx::default());
+    th.p.add_aliased(Color::INVALID_BG, ColorIdx::default());
+    th.p.add_aliased(Color::HOVER_BG, ColorIdx::default());
+    th.p.add_aliased(Color::TITLE_FG, ColorIdx::default());
+    th.p.add_aliased(Color::TITLE_BG, ColorIdx::default());
+    th.p.add_aliased(Color::HEADER_FG, ColorIdx::default());
+    th.p.add_aliased(Color::HEADER_BG, ColorIdx::default());
+    th.p.add_aliased(Color::FOOTER_FG, ColorIdx::default());
+    th.p.add_aliased(Color::FOOTER_BG, ColorIdx::default());
+    th.p.add_aliased(Color::SHADOW_BG, ColorIdx::default());
+    th.p.add_aliased(Color::WEEK_HEADER_FG, ColorIdx::default());
+    th.p.add_aliased(Color::MONTH_HEADER_FG, ColorIdx::default());
+    th.p.add_aliased(Color::TEXT_FOCUS_BG, ColorIdx::default());
+    th.p.add_aliased(Color::TEXT_SELECT_BG, ColorIdx::default());
+    th.p.add_aliased(Color::BUTTON_BASE_BG, ColorIdx::default());
+    th.p.add_aliased(Color::MENU_BASE_BG, ColorIdx::default());
+    th.p.add_aliased(Color::KEY_BINDING_BG, ColorIdx::default());
+    th.p.add_aliased(Color::STATUS_BASE_BG, ColorIdx::default());
+    th.p.add_aliased(Color::CONTAINER_BASE_BG, ColorIdx::default());
+    th.p.add_aliased(Color::CONTAINER_BORDER_FG, ColorIdx::default());
+    th.p.add_aliased(Color::CONTAINER_ARROW_FG, ColorIdx::default());
+    th.p.add_aliased(Color::POPUP_BASE_BG, ColorIdx::default());
+    th.p.add_aliased(Color::POPUP_BORDER_FG, ColorIdx::default());
+    th.p.add_aliased(Color::POPUP_ARROW_FG, ColorIdx::default());
+    th.p.add_aliased(Color::DIALOG_BASE_BG, ColorIdx::default());
+    th.p.add_aliased(Color::DIALOG_BORDER_FG, ColorIdx::default());
+    th.p.add_aliased(Color::DIALOG_ARROW_FG, ColorIdx::default());
 
     th.define_style(Style::LABEL_FG, Style::default());
     th.define_style(Style::INPUT, Style::default());
