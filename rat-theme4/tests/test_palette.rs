@@ -1,4 +1,5 @@
-use rat_theme4::{Colors, Palette, RatWidgetColor, define_alias, define_rt_alias};
+use rat_theme4::RatWidgetColor;
+use rat_theme4::palette::{Colors, Palette, define_alias, define_rt_alias};
 use ratatui::style::Color;
 use std::borrow::Cow;
 

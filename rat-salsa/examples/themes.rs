@@ -4,12 +4,13 @@ use crate::themes::Themes;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_focus::FocusBuilder;
+use rat_salsa::Control;
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
-use rat_salsa::Control;
-use rat_salsa::{run_tui, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::{create_theme, SalsaTheme, WidgetStyle};
-use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
+use rat_salsa::{RunConfig, SalsaAppContext, SalsaContext, run_tui};
+use rat_theme4::theme::SalsaTheme;
+use rat_theme4::{WidgetStyle, create_theme};
+use rat_widget::event::{Dialog, HandleEvent, ct_event, try_flow};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
@@ -213,9 +214,9 @@ pub mod themes {
     use anyhow::Error;
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_salsa::Control;
-    use rat_theme4::{create_theme, salsa_themes, WidgetStyle};
+    use rat_theme4::{WidgetStyle, create_theme, salsa_themes};
     use rat_widget::checkbox::{Checkbox, CheckboxState};
-    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular, TableOutcome};
+    use rat_widget::event::{HandleEvent, MenuOutcome, Popup, Regular, TableOutcome, try_flow};
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
     use rat_widget::popup::Placement;
     use rat_widget::scrolled::Scroll;
@@ -415,7 +416,9 @@ pub mod themes {
 }
 
 pub mod show_scheme {
-    use rat_theme4::{Colors, Palette, SalsaTheme, StyleName};
+    use rat_theme4::StyleName;
+    use rat_theme4::palette::{Colors, Palette};
+    use rat_theme4::theme::SalsaTheme;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::style::{Color, Style};

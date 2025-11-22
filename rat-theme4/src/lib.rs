@@ -43,25 +43,26 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-mod core_theme;
-mod dark_theme;
-mod fallback_theme;
-mod palette;
-mod shell_theme;
-mod theme;
+pub mod palette;
+pub mod theme;
 
-pub mod dark_palettes;
-pub mod light_palettes;
-pub mod core_palettes {
-    pub use crate::core_theme::SHELL;
+pub mod palettes {
+    pub mod core;
+    pub mod dark;
+    pub mod light;
 }
 
-pub use crate::fallback_theme::fallback_theme;
-pub use core_theme::core_theme;
-pub use dark_theme::dark_theme;
-pub use palette::{ColorIdx, Colors, Palette, define_alias, define_rt_alias};
-pub use shell_theme::shell_theme;
-pub use theme::{Category, SalsaTheme};
+pub mod themes {
+    mod core;
+    mod dark;
+    mod fallback;
+    mod shell;
+
+    pub use core::create_core;
+    pub use dark::create_dark;
+    pub use fallback::create_fallback;
+    pub use shell::create_shell;
+}
 
 /// Anchor struct for the names of composite styles used
 /// by rat-widget's.
@@ -131,7 +132,7 @@ impl WidgetStyle {
 }
 
 /// Extension trait for [Style](ratatui::style::Style) that defines
-/// some standard names used by rat-theme.
+/// some standard names used by rat-theme/rat-widget
 ///
 /// Use as
 /// ```rust
@@ -177,6 +178,18 @@ pub trait StyleName {
 }
 impl StyleName for Style {}
 
+///
+/// Extension trait for [Color](ratatui::style::Color) that defines
+/// standard names used by rat-theme to define color-aliases.
+///
+/// Use as
+/// ```rust
+/// # use ratatui::style::Style;
+/// # use rat_theme4::theme::{SalsaTheme};
+/// # let theme = SalsaTheme::default();
+///
+/// let c: Color = theme.p.color_alias(Color::LABEL_FG);
+/// ```
 pub trait RatWidgetColor {
     const LABEL_FG: &'static str = "label.fg";
     const INPUT_BG: &'static str = "input.bg";
@@ -211,42 +224,6 @@ pub trait RatWidgetColor {
     const DIALOG_ARROW_FG: &'static str = "dialog-arrow.fg";
 }
 impl RatWidgetColor for Color {}
-
-pub fn rat_widget_color_names() -> &'static [&'static str] {
-    &[
-        Color::LABEL_FG,
-        Color::INPUT_BG,
-        Color::FOCUS_BG,
-        Color::SELECT_BG,
-        Color::DISABLED_BG,
-        Color::INVALID_BG,
-        Color::HOVER_BG,
-        Color::TITLE_FG,
-        Color::TITLE_BG,
-        Color::HEADER_FG,
-        Color::HEADER_BG,
-        Color::FOOTER_FG,
-        Color::FOOTER_BG,
-        Color::SHADOW_BG,
-        Color::WEEK_HEADER_FG,
-        Color::MONTH_HEADER_FG,
-        Color::TEXT_FOCUS_BG,
-        Color::TEXT_SELECT_BG,
-        Color::BUTTON_BASE_BG,
-        Color::MENU_BASE_BG,
-        Color::KEY_BINDING_BG,
-        Color::STATUS_BASE_BG,
-        Color::CONTAINER_BASE_BG,
-        Color::CONTAINER_BORDER_FG,
-        Color::CONTAINER_ARROW_FG,
-        Color::POPUP_BASE_BG,
-        Color::POPUP_BORDER_FG,
-        Color::POPUP_ARROW_FG,
-        Color::DIALOG_BASE_BG,
-        Color::DIALOG_BORDER_FG,
-        Color::DIALOG_ARROW_FG,
-    ]
-}
 
 static LOG_DEFINES: AtomicBool = AtomicBool::new(false);
 
@@ -324,10 +301,10 @@ pub fn salsa_palettes() -> Vec<&'static str> {
 /// Create one of the defined palettes.
 ///
 /// The available palettes can be queried by [salsa_palettes].
-pub fn create_palette(name: &str) -> Option<Palette> {
-    use crate::core_palettes as core;
-    use crate::dark_palettes as dark;
-    use crate::light_palettes as light;
+pub fn create_palette(name: &str) -> Option<palette::Palette> {
+    use crate::palettes::core;
+    use crate::palettes::dark;
+    use crate::palettes::light;
     match name {
         "Imperial" => Some(dark::IMPERIAL),
         "Radium" => Some(dark::RADIUM),
@@ -364,13 +341,13 @@ pub fn salsa_themes() -> Vec<&'static str> {
 /// Create one of the defined themes.
 ///
 /// The available themes can be queried by [salsa_themes].
-pub fn create_theme(theme: &str) -> SalsaTheme {
+pub fn create_theme(theme: &str) -> theme::SalsaTheme {
     let themes = THEMES.get_or_init(init_themes);
     let Some(def) = themes.theme_init.get(&theme) else {
         if cfg!(debug_assertions) {
             panic!("no theme {:?}", theme);
         } else {
-            return core_theme(theme);
+            return themes::create_core(theme);
         }
     };
     match def {
@@ -379,41 +356,41 @@ pub fn create_theme(theme: &str) -> SalsaTheme {
                 if cfg!(debug_assertions) {
                     panic!("no palette {:?}", *p);
                 } else {
-                    return core_theme(theme);
+                    return themes::create_core(theme);
                 }
             };
-            dark_theme(theme, pal)
+            themes::create_dark(theme, pal)
         }
         ("light", p) => {
             let Some(pal) = create_palette(*p) else {
                 if cfg!(debug_assertions) {
                     panic!("no palette {:?}", *p);
                 } else {
-                    return core_theme(theme);
+                    return themes::create_core(theme);
                 }
             };
             // currently no difference, just a different
             // set of color palettes
-            dark_theme(theme, pal)
+            themes::create_dark(theme, pal)
         }
         ("shell", p) => {
             let Some(pal) = create_palette(*p) else {
                 if cfg!(debug_assertions) {
                     panic!("no palette {:?}", *p);
                 } else {
-                    return core_theme(theme);
+                    return themes::create_core(theme);
                 }
             };
-            shell_theme(theme, pal)
+            themes::create_shell(theme, pal)
         }
-        ("core", _) => core_theme(theme),
-        ("blackout", _) => dark_theme(theme, dark_palettes::BLACKOUT),
-        ("fallback", _) => fallback_theme(theme, dark_palettes::REDS),
+        ("core", _) => themes::create_core(theme),
+        ("blackout", _) => themes::create_dark(theme, palettes::dark::BLACKOUT),
+        ("fallback", _) => themes::create_fallback(theme, palettes::dark::REDS),
         _ => {
             if cfg!(debug_assertions) {
                 panic!("no theme {:?}", theme);
             } else {
-                core_theme(theme)
+                themes::create_core(theme)
             }
         }
     }

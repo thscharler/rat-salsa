@@ -7,8 +7,10 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::{TimeOut, TimerDef};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme4::dark_palettes::IMPERIAL;
-use rat_theme4::{SalsaTheme, WidgetStyle, dark_theme};
+use rat_theme4::WidgetStyle;
+use rat_theme4::palettes::dark::IMPERIAL;
+use rat_theme4::theme::SalsaTheme;
+use rat_theme4::themes::create_dark;
 use rat_widget::event::{Dialog, HandleEvent, MenuOutcome, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
@@ -28,7 +30,7 @@ type AppDialogResult = Result<WindowControl<AppEvent>, Error>;
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let theme = dark_theme("Imperial Dark", IMPERIAL);
+    let theme = create_dark("Imperial Dark", IMPERIAL);
     let mut global = Global::new(theme);
     let mut state = Scenery::default();
 

@@ -32,8 +32,8 @@ use std::time::Duration;
 /// A sample theme for shell usage.
 #[derive(Debug, Clone)]
 pub struct ShellTheme {
-    p: Palette,
-    name: &'static str,
+    pub p: Palette,
+    pub name: &'static str,
 }
 
 impl ShellTheme {
@@ -42,7 +42,7 @@ impl ShellTheme {
     }
 
     /// Create a style with only a text foreground color
-    fn fg_style(&self, color: Color) -> Style {
+    pub fn fg_style(&self, color: Color) -> Style {
         Style::new().fg(color)
     }
 }
@@ -400,6 +400,7 @@ impl ShellTheme {
     }
 
     /// Complete MenuStyle
+    #[allow(deprecated)]
     pub fn menu_style(&self) -> MenuStyle {
         MenuStyle {
             style: self.status_base(),

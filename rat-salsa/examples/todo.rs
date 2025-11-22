@@ -1,12 +1,13 @@
 use anyhow::Error;
 use crossterm::event::Event as CrosstermEvent;
 use log::debug;
-use rat_event::{ct_event, try_flow, HandleEvent, Regular};
-use rat_focus::{impl_has_focus, FocusBuilder, HasFocus};
+use rat_event::{HandleEvent, Regular, ct_event, try_flow};
+use rat_focus::{FocusBuilder, HasFocus, impl_has_focus};
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
-use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::{create_theme, SalsaTheme, StyleName, WidgetStyle};
+use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
+use rat_theme4::theme::SalsaTheme;
+use rat_theme4::{StyleName, WidgetStyle, create_theme};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::ButtonOutcome;
 use rat_widget::layout::simple_grid;

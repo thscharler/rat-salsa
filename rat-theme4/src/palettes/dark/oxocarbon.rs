@@ -1,11 +1,11 @@
+use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
-use crate::{Colors, Palette, define_alias};
 
 /// OxoCarbon
 const DARKNESS: u8 = 63;
 
 pub const OXOCARBON: Palette = Palette {
-    name: Cow::Borrowed("OxoCarbon"), 
+    name: Cow::Borrowed("OxoCarbon"),
 
     color: [
         Palette::interpolate2(0xf2f4f8, 0xf9fbff, 0x0, 0x0),
@@ -63,4 +63,3 @@ pub const OXOCARBON: Palette = Palette {
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
-

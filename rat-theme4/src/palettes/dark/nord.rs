@@ -1,13 +1,13 @@
+use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
-use crate::{Colors, Palette, define_alias};
 
 /// Nord
 /// Credits to original https://github.com/arcticicestudio/nord-vim
-/// 
+///
 const DARKNESS: u8 = 63;
 
 pub const NORD: Palette = Palette {
-    name: Cow::Borrowed("Nord"), 
+    name: Cow::Borrowed("Nord"),
 
     color: [
         Palette::interpolate2(0xe5e9f0, 0xe5e9f0, 0x0, 0x0),
@@ -65,4 +65,3 @@ pub const NORD: Palette = Palette {
         define_alias("week-header.fg", Colors::Yellow, 0),
     ]),
 };
-

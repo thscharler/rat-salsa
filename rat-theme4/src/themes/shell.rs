@@ -1,5 +1,6 @@
-use crate::palette::{Palette, define_alias};
-use crate::{Category, Colors, RatWidgetColor, SalsaTheme};
+use crate::RatWidgetColor;
+use crate::palette::{Colors, Palette};
+use crate::theme::{Category, SalsaTheme};
 use crate::{StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -24,115 +25,26 @@ use rat_widget::splitter::SplitStyle;
 use rat_widget::statusline::StatusLineStyle;
 use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
-use rat_widget::text::{TextFocusGained, TextFocusLost, TextStyle};
+use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::symbols;
 use ratatui::symbols::border;
 use ratatui::widgets::{Block, Borders};
-use std::borrow::Cow;
 use std::time::Duration;
 
-pub const SHELL: Palette = Palette {
-    name: Cow::Borrowed("Shell"),
-    color: [
-        [
-            Color::Gray,
-            Color::Gray,
-            Color::White,
-            Color::White,
-            Color::Gray,
-            Color::Gray,
-            Color::White,
-            Color::White,
-        ], // text light
-        [
-            Color::DarkGray,
-            Color::DarkGray,
-            Color::Black,
-            Color::Black,
-            Color::DarkGray,
-            Color::DarkGray,
-            Color::Black,
-            Color::Black,
-        ], // text dark
-        [Color::Cyan; 8],   // primary
-        [Color::Yellow; 8], // secondary
-        [Color::White; 8],  // white
-        [Color::Black; 8],
-        [
-            Color::Gray,
-            Color::Gray,
-            Color::DarkGray,
-            Color::DarkGray,
-            Color::Gray,
-            Color::Gray,
-            Color::DarkGray,
-            Color::DarkGray,
-        ],
-        [Color::Red; 8],
-        [Color::Yellow; 8],
-        [Color::LightYellow; 8],
-        [Color::LightGreen; 8],
-        [Color::Green; 8],
-        [Color::Cyan; 8],
-        [Color::LightCyan; 8],
-        [Color::LightBlue; 8],
-        [Color::Blue; 8],
-        [Color::Magenta; 8],
-        [Color::LightMagenta; 8],
-        [Color::LightRed; 8],
-    ],
-    aliased: Cow::Borrowed(&[
-        define_alias(Color::BUTTON_BASE_BG, Colors::Gray, 0),
-        define_alias(Color::CONTAINER_ARROW_FG, Colors::Gray, 0),
-        define_alias(Color::CONTAINER_BASE_BG, Colors::Black, 0),
-        define_alias(Color::CONTAINER_BORDER_FG, Colors::Gray, 0),
-        define_alias(Color::DIALOG_ARROW_FG, Colors::Black, 0),
-        define_alias(Color::DIALOG_BASE_BG, Colors::Gray, 3),
-        define_alias(Color::DIALOG_BORDER_FG, Colors::Black, 0),
-        define_alias(Color::DISABLED_BG, Colors::Gray, 0),
-        define_alias(Color::FOCUS_BG, Colors::Primary, 0),
-        define_alias(Color::FOOTER_BG, Colors::Blue, 0),
-        define_alias(Color::FOOTER_FG, Colors::TextLight, 0),
-        define_alias(Color::HEADER_BG, Colors::Blue, 0),
-        define_alias(Color::HEADER_FG, Colors::TextLight, 0),
-        define_alias(Color::HOVER_BG, Colors::Gray, 3),
-        define_alias(Color::INPUT_BG, Colors::Gray, 3),
-        define_alias(Color::INVALID_BG, Colors::Red, 0),
-        define_alias(Color::KEY_BINDING_BG, Colors::BlueGreen, 0),
-        define_alias(Color::LABEL_FG, Colors::White, 0),
-        define_alias(Color::MENU_BASE_BG, Colors::Black, 0),
-        define_alias(Color::MONTH_HEADER_FG, Colors::TextDark, 0),
-        define_alias(Color::POPUP_ARROW_FG, Colors::Gray, 3),
-        define_alias(Color::POPUP_BASE_BG, Colors::White, 0),
-        define_alias(Color::POPUP_BORDER_FG, Colors::Gray, 3),
-        define_alias(Color::SELECT_BG, Colors::Secondary, 0),
-        define_alias(Color::SHADOW_BG, Colors::TextDark, 0),
-        define_alias(Color::STATUS_BASE_BG, Colors::Black, 0),
-        define_alias(Color::TEXT_FOCUS_BG, Colors::Primary, 0),
-        define_alias(Color::TEXT_SELECT_BG, Colors::Secondary, 0),
-        define_alias(Color::TITLE_BG, Colors::Red, 0),
-        define_alias(Color::TITLE_FG, Colors::TextLight, 0),
-        define_alias(Color::WEEK_HEADER_FG, Colors::TextDark, 0),
-    ]),
-};
-
-/// A true shell theme.
+/// A 'shell'-theme.
 ///
-/// It only uses predefined colors as in `Color::Red` or
-/// `Color::White` and constructs a theme.
-///
-/// As a shell theme it uses no backgrounds.
-pub fn core_theme(name: &str) -> SalsaTheme {
-    let p = SHELL;
+/// It uses almost no background colors and lets your shell
+/// bleed through.
+pub fn create_shell(name: &str, p: Palette) -> SalsaTheme {
     let mut th = SalsaTheme::new(name, Category::Shell, p);
 
     th.define_style(Style::LABEL_FG, th.p.fg_style_alias(Color::LABEL_FG));
     th.define_style(Style::INPUT, th.p.style_alias(Color::INPUT_BG));
-    th.define_style(Style::FOCUS, th.p.high_style_alias(Color::FOCUS_BG));
-    th.define_style(Style::SELECT, th.p.high_style_alias(Color::SELECT_BG));
+    th.define_style(Style::FOCUS, th.p.style_alias(Color::FOCUS_BG));
+    th.define_style(Style::SELECT, th.p.style_alias(Color::SELECT_BG));
     th.define_style(Style::DISABLED, th.p.style_alias(Color::DISABLED_BG));
     th.define_style(Style::INVALID, th.p.style_alias(Color::INVALID_BG));
     th.define_style(Style::HOVER, th.p.fg_style_alias(Color::HOVER_BG));
@@ -142,26 +54,17 @@ pub fn core_theme(name: &str) -> SalsaTheme {
     th.define_style(Style::SHADOWS, th.p.style_alias(Color::SHADOW_BG));
     th.define_style(
         Style::WEEK_HEADER_FG,
-        th.p.style_alias(Color::WEEK_HEADER_FG),
+        th.p.fg_style_alias(Color::WEEK_HEADER_FG),
     );
     th.define_style(
         Style::MONTH_HEADER_FG,
-        th.p.style_alias(Color::MONTH_HEADER_FG),
+        th.p.fg_style_alias(Color::MONTH_HEADER_FG),
     );
-    th.define_style(
-        Style::TEXT_FOCUS,
-        th.p.high_style_alias(Color::TEXT_FOCUS_BG),
-    );
-    th.define_style(Style::TEXT_SELECT, th.p.high_style_alias(Color::SELECT_BG));
-    th.define_style(
-        Style::KEY_BINDING,
-        th.p.high_style_alias(Color::KEY_BINDING_BG),
-    );
+    th.define_style(Style::TEXT_FOCUS, th.p.style_alias(Color::TEXT_FOCUS_BG));
+    th.define_style(Style::TEXT_SELECT, th.p.style_alias(Color::SELECT_BG));
+    th.define_style(Style::KEY_BINDING, th.p.style_alias(Color::KEY_BINDING_BG));
 
-    th.define_style(
-        Style::BUTTON_BASE,
-        th.p.high_style_alias(Color::BUTTON_BASE_BG),
-    );
+    th.define_style(Style::BUTTON_BASE, th.p.style_alias(Color::BUTTON_BASE_BG));
     th.define_style(Style::MENU_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define_style(Style::STATUS_BASE, th.p.fg_style(Colors::TextLight, 0));
 
@@ -268,8 +171,8 @@ fn choice(th: &SalsaTheme) -> ChoiceStyle {
             Block::bordered()
                 .borders(Borders::LEFT | Borders::BOTTOM | Borders::RIGHT)
                 .border_set(border::Set {
-                    top_left: " ",
-                    top_right: " ",
+                    top_left: "X",
+                    top_right: "X",
                     bottom_left: "▀",
                     bottom_right: "▀",
                     vertical_left: "▌",
@@ -359,10 +262,14 @@ fn menu(th: &SalsaTheme) -> MenuStyle {
         right: Some(th.style(Style::KEY_BINDING)),
         disabled: Some(th.style(Style::DISABLED)),
         highlight: Some(Style::default().underlined()),
-        block: Some(Block::bordered()),
+        popup_block: Some(Block::bordered()),
         popup: Default::default(),
         popup_border: Some(th.style(Style::MENU_BASE)),
         popup_style: Some(th.style(Style::MENU_BASE)),
+        popup_focus: Some(th.style(Style::FOCUS)),
+        popup_right: Some(th.style(Style::KEY_BINDING)),
+        popup_disabled: Some(th.style(Style::DISABLED)),
+        popup_highlight: Some(Style::default().underlined()),
         ..Default::default()
     }
 }
@@ -555,8 +462,6 @@ fn color_input(th: &SalsaTheme) -> ColorInputStyle {
             focus: Some(th.style(Style::TEXT_FOCUS)),
             select: Some(th.style(Style::TEXT_SELECT)),
             invalid: Some(th.style(Style::INVALID)),
-            on_focus_gained: Some(TextFocusGained::Overwrite),
-            on_focus_lost: Some(TextFocusLost::Position0),
             ..TextStyle::default()
         },
         ..Default::default()
@@ -569,8 +474,6 @@ fn text(th: &SalsaTheme) -> TextStyle {
         focus: Some(th.style(Style::TEXT_FOCUS)),
         select: Some(th.style(Style::TEXT_SELECT)),
         invalid: Some(th.style(Style::INVALID)),
-        on_focus_gained: Some(TextFocusGained::Overwrite),
-        on_focus_lost: Some(TextFocusLost::Position0),
         ..TextStyle::default()
     }
 }

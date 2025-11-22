@@ -1,4 +1,4 @@
-use rat_theme4::Palette;
+use rat_theme4::palette::Palette;
 use rat_widget::color_input::{ColorInput, ColorInputState};
 use rat_widget::reloc::RelocatableState;
 use ratatui::buffer::Buffer;

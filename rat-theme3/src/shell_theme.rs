@@ -370,7 +370,11 @@ impl SalsaTheme for ShellTheme {
             right: Some(self.fg_style(self.p.green[Palette::BRIGHT_3])),
             disabled: Some(self.fg_style(self.p.gray[Palette::BRIGHT_2])),
             highlight: Some(Style::default().underlined()),
-            block: Some(Block::bordered().style(self.popup_border())),
+            popup_block: Some(Block::bordered().style(self.popup_border())),
+            popup_focus: Some(self.focus()),
+            popup_right: Some(self.fg_style(self.p.green[Palette::BRIGHT_3])),
+            popup_disabled: Some(self.fg_style(self.p.gray[Palette::BRIGHT_2])),
+            popup_highlight: Some(Style::default().underlined()),
             ..Default::default()
         }
     }

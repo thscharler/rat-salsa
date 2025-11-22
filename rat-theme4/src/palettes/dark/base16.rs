@@ -1,11 +1,11 @@
+use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
-use crate::{Colors, Palette, define_alias};
 
 /// Base16
 const DARKNESS: u8 = 63;
 
 pub const BASE16: Palette = Palette {
-    name: Cow::Borrowed("Base16"), 
+    name: Cow::Borrowed("Base16"),
 
     color: [
         Palette::interpolate2(0xaaaaaa, 0xffffff, 0x0, 0x0),
@@ -63,4 +63,3 @@ pub const BASE16: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 0),
     ]),
 };
-

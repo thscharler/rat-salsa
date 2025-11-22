@@ -11,8 +11,9 @@ use anyhow::Error;
 use crossterm::event::Event;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme4::dark_palettes::BASE16;
-use rat_theme4::{SalsaTheme, WidgetStyle};
+use rat_theme4::WidgetStyle;
+use rat_theme4::palettes::dark::BASE16;
+use rat_theme4::theme::SalsaTheme;
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -578,7 +579,10 @@ fn setup_logging() -> Result<(), Error> {
 
 #[allow(dead_code)]
 pub mod theme {
-    use rat_theme4::{Colors, Palette, SalsaTheme, StyleName, WidgetStyle, dark_theme};
+    use rat_theme4::palette::{Colors, Palette};
+    use rat_theme4::theme::SalsaTheme;
+    use rat_theme4::themes::create_dark;
+    use rat_theme4::{StyleName, WidgetStyle};
     use rat_widget::menu::MenuStyle;
     use rat_widget::popup::PopupStyle;
     use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
@@ -592,7 +596,7 @@ pub mod theme {
     impl TurboStyle for Style {}
 
     pub fn turbo_theme(p: Palette) -> SalsaTheme {
-        let mut th = dark_theme("turbo", p.clone());
+        let mut th = create_dark("turbo", p.clone());
 
         th.define_style(Style::INPUT, th.p.high_contrast(p.color(Colors::Gray, 3)));
         th.define_style(

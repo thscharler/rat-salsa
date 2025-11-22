@@ -25,10 +25,9 @@ use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme4::{
-    ColorIdx, Colors, Palette, RatWidgetColor, SalsaTheme, WidgetStyle, create_theme, dark_theme,
-    rat_widget_color_names, shell_theme,
-};
+use rat_theme4::palette::{ColorIdx, Colors, Palette, rat_widget_color_names};
+use rat_theme4::theme::SalsaTheme;
+use rat_theme4::{RatWidgetColor, WidgetStyle, create_theme, theme, themes};
 use rat_widget::event::{HandleEvent, MenuOutcome, Outcome, Regular, ct_event, event_flow};
 use rat_widget::file_dialog::FileDialogState;
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -921,8 +920,8 @@ fn load_pal_file(
 fn create_edit_theme(state: &Scenery) -> SalsaTheme {
     let palette = state.edit.palette();
     match state.detail.show.themes.value().as_str() {
-        "Shell" => shell_theme("Shell", palette),
-        _ => dark_theme("Dark", palette),
+        "Shell" => themes::create_shell("Shell", palette),
+        _ => themes::create_dark("Dark", palette),
     }
 }
 

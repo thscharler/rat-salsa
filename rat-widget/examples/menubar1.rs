@@ -3,6 +3,8 @@ use rat_event::{Outcome, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
 use rat_menu::{StaticMenu, menubar};
+use rat_theme4::WidgetStyle;
+use rat_theme4::theme::SalsaTheme;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::StatefulWidget;
@@ -12,8 +14,10 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     mini_salsa::setup_logging()?;
 
+    let theme = rat_theme4::create_theme("Imperial Dark");
+
     let mut data = Data::default();
-    let mut state = State::default();
+    let mut state = State::new(theme);
     state.menu.bar.focus.set(true);
 
     mini_salsa::run_ui("menubar1", mock_init, event, render, &mut data, &mut state)
@@ -22,9 +26,18 @@ fn main() -> Result<(), anyhow::Error> {
 #[derive(Default)]
 struct Data {}
 
-#[derive(Default)]
 struct State {
-    pub(crate) menu: MenubarState,
+    pub theme: SalsaTheme,
+    pub menu: MenubarState,
+}
+
+impl State {
+    pub fn new(theme: SalsaTheme) -> Self {
+        Self {
+            theme,
+            menu: MenubarState::default(),
+        }
+    }
 }
 
 static MENU: StaticMenu = StaticMenu {
@@ -66,13 +79,57 @@ fn render(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
+    let l1 = Layout::vertical([
+        Constraint::Fill(1), //
+        Constraint::Length(1),
+    ])
+    .split(area);
 
-    let (menu, menu_popup) = Menubar::new(&MENU)
-        .styles(istate.theme.menu_style())
+    let theme = &state.theme;
+    // let st = MenuStyle {
+    //     title: Some(theme.fg_style(theme.p.black[0])),
+    //     style: Style::new().fg(theme.p.text_black).bg(theme.p.gray[1]),
+    //     focus: Some(Style::new().fg(theme.p.text_light).bg(theme.p.gray[1])),
+    //     right: Some(istate.theme.fg_style(theme.p.bluegreen[2])),
+    //     disabled: Some(theme.fg_style(theme.p.gray[2])),
+    //     highlight: Some(Style::default().underlined()),
+    //     menu_block: Some(
+    //         Block::bordered()
+    //             .borders(Borders::BOTTOM)
+    //             .border_set(border::QUADRANT_INSIDE),
+    //     ),
+    //     border_style: Some(Style::new().fg(theme.p.gray[0]).bg(Color::Reset)),
+    //     title_style: None,
+    //
+    //     popup: PopupStyle {
+    //         alignment: None,
+    //         placement: Some(Placement::AboveOrBelow),
+    //         offset: Some((0, 0)),
+    //         ..Default::default()
+    //     },
+    //     popup_style: Some(Style::new().fg(theme.p.white[0]).bg(theme.p.gray[1])),
+    //     popup_separator: Some(theme.fg_style(theme.p.text_dark)),
+    //     popup_focus: Some(theme.focus()),
+    //     popup_highlight: Some(Style::default().underlined()),
+    //     popup_disabled: Some(theme.fg_style(theme.p.gray[2])),
+    //     popup_right: Some(istate.theme.fg_style(theme.p.bluegreen[2])),
+    //     popup_block: Some(
+    //         Block::bordered()
+    //             .padding(Padding::new(0, 0, 0, 0))
+    //             .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM | Borders::TOP)
+    //             .border_set(border::QUADRANT_INSIDE),
+    //     ),
+    //     popup_border: Some(Style::new().fg(theme.p.gray[0]).bg(Color::Reset)),
+    //     popup_title: None,
+    //
+    //     ..Default::default()
+    // };
+
+    let (menu, menu_popup) = Menubar::new(&MENU) //
+        .styles(theme.style(WidgetStyle::MENU))
         .title("⋱⋰⋱⋰⋱")
         .into_widgets();
     menu.render(l1[1], frame.buffer_mut(), &mut state.menu);

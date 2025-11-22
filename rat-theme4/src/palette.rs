@@ -1,18 +1,25 @@
-use log::debug;
+use crate::RatWidgetColor;
 use ratatui::style::{Color, Style};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::mem;
 use std::str::FromStr;
 
+/// Refers to a color in the Palette.
+/// This is used for color-aliases.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ColorIdx(pub Colors, pub usize);
 
+/// Names/Indexes into the color-table of the palette.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Colors {
+    /// Colors for light text.
     TextLight = 0,
+    /// Colors for dark text.
     TextDark,
+    /// Primary highlight color.
     Primary,
+    /// Secondary highlight color.
     Secondary,
     White,
     Black,
@@ -29,6 +36,10 @@ pub enum Colors {
     Purple,
     Magenta,
     RedPink,
+    /// Undefined color.
+    ///
+    /// Maps to Color::Reset when queried as a color.
+    /// When used to define a style fg or bg it sets them to [Option::None].
     #[default]
     None,
 }
@@ -186,6 +197,43 @@ pub fn define_rt_alias(
 ) -> (Cow<'static, str>, ColorIdx) {
     let alias = alias.into();
     (Cow::Owned(alias), ColorIdx(color, n))
+}
+
+///
+pub fn rat_widget_color_names() -> &'static [&'static str] {
+    &[
+        Color::LABEL_FG,
+        Color::INPUT_BG,
+        Color::FOCUS_BG,
+        Color::SELECT_BG,
+        Color::DISABLED_BG,
+        Color::INVALID_BG,
+        Color::HOVER_BG,
+        Color::TITLE_FG,
+        Color::TITLE_BG,
+        Color::HEADER_FG,
+        Color::HEADER_BG,
+        Color::FOOTER_FG,
+        Color::FOOTER_BG,
+        Color::SHADOW_BG,
+        Color::WEEK_HEADER_FG,
+        Color::MONTH_HEADER_FG,
+        Color::TEXT_FOCUS_BG,
+        Color::TEXT_SELECT_BG,
+        Color::BUTTON_BASE_BG,
+        Color::MENU_BASE_BG,
+        Color::KEY_BINDING_BG,
+        Color::STATUS_BASE_BG,
+        Color::CONTAINER_BASE_BG,
+        Color::CONTAINER_BORDER_FG,
+        Color::CONTAINER_ARROW_FG,
+        Color::POPUP_BASE_BG,
+        Color::POPUP_BORDER_FG,
+        Color::POPUP_ARROW_FG,
+        Color::DIALOG_BASE_BG,
+        Color::DIALOG_BORDER_FG,
+        Color::DIALOG_ARROW_FG,
+    ]
 }
 
 impl Palette {

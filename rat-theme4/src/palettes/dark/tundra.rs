@@ -1,5 +1,5 @@
+use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
-use crate::{Colors, Palette, define_alias};
 
 /// Tundra
 /// An adaption of nvchad's tundra theme.
@@ -7,7 +7,7 @@ use crate::{Colors, Palette, define_alias};
 const DARKNESS: u8 = 63;
 
 pub const TUNDRA: Palette = Palette {
-    name: Cow::Borrowed("Tundra"), 
+    name: Cow::Borrowed("Tundra"),
 
     color: [
         Palette::interpolate2(0xe6eaf2, 0xffffff, 0x0, 0x0),
@@ -65,4 +65,3 @@ pub const TUNDRA: Palette = Palette {
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
-

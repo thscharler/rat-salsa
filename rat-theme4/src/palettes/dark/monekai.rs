@@ -1,11 +1,11 @@
+use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
-use crate::{Colors, Palette, define_alias};
 
 /// Monekai
 const DARKNESS: u8 = 63;
 
 pub const MONEKAI: Palette = Palette {
-    name: Cow::Borrowed("Monekai"), 
+    name: Cow::Borrowed("Monekai"),
 
     color: [
         Palette::interpolate2(0xf5f4f1, 0xfffefc, 0x0, 0x0),
@@ -63,4 +63,3 @@ pub const MONEKAI: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

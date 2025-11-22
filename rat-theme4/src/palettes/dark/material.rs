@@ -1,5 +1,5 @@
+use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
-use crate::{Colors, Palette, define_alias};
 
 /// Material
 /// Credits to original theme https://github.com/marko-cerovac/material.nvim for existing
@@ -7,7 +7,7 @@ use crate::{Colors, Palette, define_alias};
 const DARKNESS: u8 = 63;
 
 pub const MATERIAL: Palette = Palette {
-    name: Cow::Borrowed("Material"), 
+    name: Cow::Borrowed("Material"),
 
     color: [
         Palette::interpolate2(0xeeffff, 0xeeffff, 0x0, 0x0),
@@ -65,4 +65,3 @@ pub const MATERIAL: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

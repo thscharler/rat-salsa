@@ -1,5 +1,6 @@
-use crate::fallback_theme::fallback_theme;
-use crate::{ColorIdx, Palette, is_log_style_define};
+use crate::is_log_style_define;
+use crate::palette::Palette;
+use crate::themes::create_fallback;
 use log::info;
 use ratatui::style::Style;
 use std::any::{Any, type_name};
@@ -46,7 +47,7 @@ pub struct SalsaTheme {
 
 impl Default for SalsaTheme {
     fn default() -> Self {
-        fallback_theme("Fallback", Palette::default())
+        create_fallback("Fallback", Palette::default())
     }
 }
 

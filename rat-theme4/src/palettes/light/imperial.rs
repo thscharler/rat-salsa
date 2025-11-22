@@ -1,5 +1,5 @@
+use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
-use crate::{Colors, Palette, define_alias};
 
 /// Imperial
 /// Uses purple and gold for primary/secondary.
@@ -7,7 +7,7 @@ use crate::{Colors, Palette, define_alias};
 const DARKNESS: u8 = 63;
 
 pub const IMPERIAL: Palette = Palette {
-    name: Cow::Borrowed("Imperial"), 
+    name: Cow::Borrowed("Imperial"),
 
     color: [
         Palette::interpolate2(0xdedfe3, 0xf6f6f3, 0x0, 0x0),
@@ -65,4 +65,3 @@ pub const IMPERIAL: Palette = Palette {
         define_alias("week-header.fg", Colors::Black, 0),
     ]),
 };
-

@@ -1,11 +1,11 @@
+use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
-use crate::{Colors, Palette, define_alias};
 
 /// VSCode
 const DARKNESS: u8 = 63;
 
 pub const VSCODE: Palette = Palette {
-    name: Cow::Borrowed("VSCode"), 
+    name: Cow::Borrowed("VSCode"),
 
     color: [
         Palette::interpolate2(0xd4d4d4, 0xffffff, 0x0, 0x0),
@@ -63,4 +63,3 @@ pub const VSCODE: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

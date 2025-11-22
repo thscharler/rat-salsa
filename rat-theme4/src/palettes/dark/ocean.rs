@@ -1,12 +1,12 @@
+use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
-use crate::{Colors, Palette, define_alias};
 
 /// Ocean
 /// My take on an ocean theme.
 const DARKNESS: u8 = 63;
 
 pub const OCEAN: Palette = Palette {
-    name: Cow::Borrowed("Ocean"), 
+    name: Cow::Borrowed("Ocean"),
 
     color: [
         Palette::interpolate2(0xe5e5dd, 0xf2f2ee, 0x0, 0x0),
@@ -64,4 +64,3 @@ pub const OCEAN: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 2),
     ]),
 };
-

@@ -4,7 +4,8 @@ use crate::sample_readability::SampleReadability;
 use crate::{Global, sample_data_input, sample_other, sample_readability};
 use anyhow::Error;
 use pure_rust_locales::Locale;
-use rat_theme4::{StyleName, WidgetStyle, dark_theme, shell_theme};
+use rat_theme4::themes::{create_dark, create_shell};
+use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, HandleEvent, Outcome, Popup, Regular, event_flow};
 use rat_widget::focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
@@ -178,9 +179,9 @@ pub fn event(
         ChoiceOutcome::Value => {
             let pal = ctx.show_theme.p.clone();
             ctx.show_theme = match state.themes.value().as_str() {
-                "Shell" => shell_theme("Shell", pal),
+                "Shell" => create_shell("Shell", pal),
                 // "Fallback" => fallback_theme("Fallback", palette),
-                _ => dark_theme("Dark", pal),
+                _ => create_dark("Dark", pal),
             };
             Outcome::Changed
         }

@@ -6,13 +6,15 @@ use anyhow::Error;
 use crossbeam::channel::Sender;
 use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::tasks::Cancel;
-use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
-use rat_theme4::{create_theme, salsa_themes, Colors, SalsaTheme, StyleName, WidgetStyle};
+use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
+use rat_theme4::palette::Colors;
+use rat_theme4::theme::SalsaTheme;
+use rat_theme4::{StyleName, WidgetStyle, create_theme, salsa_themes};
 use rat_widget::event::{
-    ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup,
-    ReadOnly, Regular, TableOutcome,
+    Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup, ReadOnly, Regular,
+    TableOutcome, ct_event, try_flow,
 };
-use rat_widget::focus::{match_focus, FocusBuilder, HasFocus, Navigation};
+use rat_widget::focus::{FocusBuilder, HasFocus, Navigation, match_focus};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -22,7 +24,7 @@ use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{Table, TableContext, TableData, TableState};
-use rat_widget::text::{impl_screen_cursor, HasScreenCursor};
+use rat_widget::text::{HasScreenCursor, impl_screen_cursor};
 use rat_widget::textarea::{TextArea, TextAreaState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};

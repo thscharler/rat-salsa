@@ -7,7 +7,8 @@ use log::{debug, warn};
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme4::{SalsaTheme, StyleName, WidgetStyle, create_theme};
+use rat_theme4::theme::SalsaTheme;
+use rat_theme4::{StyleName, WidgetStyle, create_theme};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::layout_middle;
@@ -368,7 +369,8 @@ mod logscroll {
     use rat_salsa::tasks::{Cancel, Liveness};
     use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{Control, SalsaContext};
-    use rat_theme4::{SalsaTheme, StyleName, WidgetStyle, create_theme, salsa_themes};
+    use rat_theme4::theme::SalsaTheme;
+    use rat_theme4::{StyleName, WidgetStyle, create_theme, salsa_themes};
     use rat_widget::event::{
         HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome, ct_event, try_flow,
     };

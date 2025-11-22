@@ -13,7 +13,8 @@ use anyhow::Error;
 use rat_salsa::poll::{PollCrossterm, PollEvents};
 use rat_salsa::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa::{RunConfig, run_tui};
-use rat_theme4::{SalsaTheme, WidgetStyle, create_theme};
+use rat_theme4::theme::SalsaTheme;
+use rat_theme4::{WidgetStyle, create_theme};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -460,7 +461,7 @@ pub mod game {
     use anyhow::{Error, anyhow};
     use configparser::ini::Ini;
     use rand::random;
-    use rat_theme4::SalsaTheme;
+    use rat_theme4::theme::SalsaTheme;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::{Color, Style, Stylize};

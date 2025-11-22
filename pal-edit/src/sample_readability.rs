@@ -1,6 +1,7 @@
 use crate::Global;
 use anyhow::Error;
-use rat_theme4::{ColorIdx, Colors, WidgetStyle};
+use rat_theme4::WidgetStyle;
+use rat_theme4::palette::{ColorIdx, Colors};
 use rat_widget::checkbox::{Checkbox, CheckboxState};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{HandleEvent, Outcome, Popup, Regular, event_flow};

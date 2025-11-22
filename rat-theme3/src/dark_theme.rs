@@ -395,7 +395,11 @@ impl SalsaTheme for DarkTheme {
             disabled: Some(Style::default().fg(self.p.gray[0])),
             highlight: Some(Style::default().underlined()),
             popup_style: Some(self.status_base()),
-            block: Some(Block::bordered()),
+            popup_block: Some(Block::bordered()),
+            popup_focus: Some(self.focus()),
+            popup_right: Some(Style::default().fg(self.p.bluegreen[0])),
+            popup_disabled: Some(Style::default().fg(self.p.gray[0])),
+            popup_highlight: Some(Style::default().underlined()),
             popup: Default::default(),
             ..Default::default()
         }
