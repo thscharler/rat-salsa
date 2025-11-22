@@ -62,8 +62,9 @@ pub struct PopupMenu<'a> {
 
     width: Option<u16>,
     popup: PopupCore,
-    block: Option<Block<'a>>,
+
     style: Style,
+    block: Option<Block<'a>>,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
     right_style: Option<Style>,
@@ -263,6 +264,7 @@ impl<'a> PopupMenu<'a> {
     }
 
     /// Set a style-set.
+    #[allow(deprecated)]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.popup = self.popup.styles(styles.popup.clone());
 
@@ -272,13 +274,19 @@ impl<'a> PopupMenu<'a> {
             self.style = styles.style;
         }
 
-        self.block = self.block.map(|v| v.style(self.style));
-        if let Some(border_style) = styles.popup_border {
-            self.block = self.block.map(|v| v.border_style(border_style));
-        }
         if styles.block.is_some() {
             self.block = styles.block;
         }
+        if styles.popup_block.is_some() {
+            self.block = styles.popup_block;
+        }
+        if let Some(title_style) = styles.popup_title {
+            self.block = self.block.map(|v| v.title_style(title_style));
+        }
+        if let Some(border_style) = styles.popup_border {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
 
         if styles.highlight.is_some() {
             self.highlight_style = styles.highlight;
