@@ -1457,7 +1457,6 @@ dependencies = [
  "rat-reloc",
  "rat-scrolled",
  "rat-text",
- "rat-theme4",
  "ratatui",
  "sys-locale",
  "sysinfo 0.33.1",
