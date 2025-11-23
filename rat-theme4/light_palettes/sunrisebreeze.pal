@@ -1,0 +1,58 @@
+[palette]
+name=SunriseBreeze
+docs=
+dark=128
+
+[color]
+text-light=#EBEBEB, #FFFFFF
+text-dark=#0D0F11, #191919
+primary=#0969DA, #0C7DFF
+secondary=#2C9AB7, #2C9AB7
+white=#EBEBEB, #E0E0E0
+black=#1B1F23, #242424
+gray=#A7B4B7, #74797F
+red=#D64545, #D64545
+orange=#D9822B, #D9822B
+yellow=#BB8009, #BB8009
+lime-green=#2EA043, #2EA043
+green=#238636, #238636
+blue-green=#2C9AB7, #2C9AB7
+cyan=#2C9AB7, #2C9AB7
+blue=#0969DA, #0969DA
+deep-blue=#0969DA, #0969DA
+purple=#6F4ECF, #6F4ECF
+magenta=#F29999, #F29999
+red-pink=#E87C7C, #E87C7C
+
+[reference]
+label.fg=text-dark:0
+input.bg=gray:3
+focus.bg=primary:1
+select.bg=secondary:0
+disabled.bg=gray:3
+invalid.bg=red:0
+hover.bg=primary:3
+title.fg=text-light:0
+title.bg=primary:1
+header.fg=blue:4
+header.bg=none:0
+footer.fg=blue:4
+footer.bg=none:0
+shadow.bg=text-dark:0
+week-header.fg=secondary:7
+month-header.fg=primary:7
+text-focus.bg=primary:1
+text-select.bg=secondary:1
+button-base.bg=gray:0
+menu-base.bg=gray:0
+key-binding.bg=blue-green:1
+status-base.bg=gray:0
+container-base.bg=gray:1
+container-border.fg=primary:7
+container-arrow.fg=primary:7
+popup-base.bg=white:0
+popup-border.fg=black:3
+popup-arrow.fg=black:3
+dialog-base.bg=gray:2
+dialog-border.fg=black:3
+dialog-arrow.fg=black:3
