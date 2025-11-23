@@ -1,14 +1,22 @@
 use crate::sample_data_input::SampleDataInput;
-use crate::sample_other::SampleOther;
+use crate::sample_dialog::{SampleDialog, SampleDialogState};
+use crate::sample_list::SampleList;
 use crate::sample_readability::SampleReadability;
-use crate::{Global, sample_data_input, sample_other, sample_readability};
+use crate::sample_split::SampleSplit;
+use crate::sample_table::SampleTable;
+use crate::{
+    Global, sample_data_input, sample_list, sample_readability, sample_split, sample_table,
+};
 use anyhow::Error;
 use pure_rust_locales::Locale;
-use rat_theme4::themes::{create_dark, create_shell};
+use rat_theme4::themes::{create_dark, create_fallback, create_shell};
 use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, HandleEvent, Outcome, Popup, Regular, event_flow};
-use rat_widget::focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
+use rat_widget::focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
+use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
+use rat_widget::popup::Placement;
+use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::tabbed::{Tabbed, TabbedState};
 use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
@@ -21,21 +29,37 @@ use std::iter::once;
 #[derive(Debug)]
 pub struct ShowSample {
     pub themes: ChoiceState<String>,
+    pub menu: MenubarState,
+    pub status: StatusLineState,
+
     pub tabs: TabbedState,
     pub input: SampleDataInput,
     pub readability: SampleReadability,
-    pub other: SampleOther,
+    pub dialog: SampleDialogState,
+    pub split: SampleSplit,
+    pub table: SampleTable,
+    pub list: SampleList,
 }
 
 impl ShowSample {
     pub fn new(loc: Locale) -> Self {
-        Self {
+        let mut z = Self {
             themes: ChoiceState::named("themes"),
+            menu: Default::default(),
+            status: Default::default(),
             tabs: Default::default(),
             input: SampleDataInput::new(loc),
             readability: SampleReadability::default(),
-            other: SampleOther::default(),
-        }
+            dialog: Default::default(),
+            split: Default::default(),
+            table: Default::default(),
+            list: Default::default(),
+        };
+        z.status.status(0, "... something ...");
+        z.status.status(1, "[join]");
+        z.status.status(2, "[conn]");
+        z.status.status(3, "[sync]");
+        z
     }
 
     pub fn show_focused(&mut self, focus: &Focus) {
@@ -44,9 +68,10 @@ impl ShowSample {
                 self.input.form.show_focused(focus);
             }
             Some(1) => { /*noop*/ }
-            Some(2) => {
-                self.other.form.show_focused(focus);
-            }
+            Some(2) => { /*noop*/ }
+            Some(3) => { /*noop*/ }
+            Some(4) => { /*noop*/ }
+            Some(5) => { /*noop*/ }
             _ => {}
         }
     }
@@ -54,8 +79,9 @@ impl ShowSample {
 
 impl HasFocus for ShowSample {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget(&self.tabs);
         builder.widget(&self.themes);
+        builder.widget(&self.menu);
+        builder.widget_navigate(&self.tabs, Navigation::Regular);
         match self.tabs.selected() {
             Some(0) => {
                 builder.widget(&self.input);
@@ -64,7 +90,16 @@ impl HasFocus for ShowSample {
                 builder.widget(&self.readability);
             }
             Some(2) => {
-                builder.widget(&self.other);
+                builder.widget(&self.dialog);
+            }
+            Some(3) => {
+                builder.widget(&self.split);
+            }
+            Some(4) => {
+                builder.widget(&self.table);
+            }
+            Some(5) => {
+                builder.widget(&self.list);
             }
             _ => {}
         }
@@ -84,7 +119,10 @@ impl HasScreenCursor for ShowSample {
         match self.tabs.selected() {
             Some(0) => self.input.screen_cursor(),
             Some(1) => self.readability.screen_cursor(),
-            Some(2) => self.other.screen_cursor(),
+            Some(2) => self.dialog.screen_cursor(),
+            Some(3) => self.split.screen_cursor(),
+            Some(4) => self.table.screen_cursor(),
+            Some(5) => self.list.screen_cursor(),
             _ => None,
         }
     }
@@ -100,7 +138,9 @@ pub fn render(
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
+        Constraint::Length(1),
         Constraint::Fill(1),
+        Constraint::Length(1),
     ])
     .spacing(1)
     .split(area);
@@ -140,15 +180,26 @@ pub fn render(
         .into_widgets();
     choice.render(l_function[1], buf, &mut state.themes);
 
+    let (menu, menu_popup) = Menubar::new(&StaticMenu {
+        menu: &[
+            ("_File", &["_Open", "_Save", "\\___", "_Quit"]),
+            ("_Help|F1", &["No Help"]),
+        ],
+    })
+    .styles(ctx.show_theme.style(WidgetStyle::MENU))
+    .popup_placement(Placement::Below)
+    .into_widgets();
+    menu.render(l0[3], buf, &mut state.menu);
+
     Tabbed::new()
-        .tabs(["Input", "Text", "Other"])
+        .tabs(["Input", "Text", "Dialog", "Split", "Table", "List"])
         .block(
             Block::bordered()
                 .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
                 .border_type(BorderType::Rounded),
         )
         .styles(ctx.show_theme.style(WidgetStyle::TABBED))
-        .render(l0[3], buf, &mut state.tabs);
+        .render(l0[4], buf, &mut state.tabs);
 
     match state.tabs.selected() {
         Some(0) => {
@@ -160,12 +211,36 @@ pub fn render(
             sample_readability::render(state.tabs.widget_area, buf, &mut state.readability, ctx)?;
         }
         Some(2) => {
-            sample_other::render(state.tabs.widget_area, buf, &mut state.other, ctx)?;
+            SampleDialog::new(&ctx.show_theme).render(
+                state.tabs.widget_area,
+                buf,
+                &mut state.dialog,
+            );
+        }
+        Some(3) => {
+            sample_split::render(state.tabs.widget_area, buf, &mut state.split, ctx)?;
+        }
+        Some(4) => {
+            sample_table::render(state.tabs.widget_area, buf, &mut state.table, ctx)?;
+        }
+        Some(5) => {
+            sample_list::render(state.tabs.widget_area, buf, &mut state.list, ctx)?;
         }
         _ => {}
     };
 
+    StatusLine::new()
+        .layout([
+            Constraint::Fill(1),
+            Constraint::Length(6),
+            Constraint::Length(6),
+            Constraint::Length(6),
+        ])
+        .styles_ext(ctx.show_theme.style(WidgetStyle::STATUSLINE))
+        .render(l0[5], buf, &mut state.status);
+
     choice_theme.render(l_function[1], buf, &mut state.themes);
+    menu_popup.render(l0[3], buf, &mut state.menu);
 
     Ok(())
 }
@@ -180,13 +255,14 @@ pub fn event(
             let pal = ctx.show_theme.p.clone();
             ctx.show_theme = match state.themes.value().as_str() {
                 "Shell" => create_shell("Shell", pal),
-                // "Fallback" => fallback_theme("Fallback", palette),
+                "Fallback" => create_fallback("Fallback", pal),
                 _ => create_dark("Dark", pal),
             };
             Outcome::Changed
         }
         r => r.into(),
     });
+    event_flow!(state.menu.handle(event, Popup));
 
     event_flow!(match state.tabs.selected() {
         Some(0) => {
@@ -196,7 +272,16 @@ pub fn event(
             sample_readability::event(event, &mut state.readability, ctx)?
         }
         Some(2) => {
-            sample_other::event(event, &mut state.other, ctx)?
+            state.dialog.handle(event, Regular)
+        }
+        Some(3) => {
+            sample_split::event(event, &mut state.split, ctx)?
+        }
+        Some(4) => {
+            sample_table::event(event, &mut state.table, ctx)?
+        }
+        Some(5) => {
+            sample_list::event(event, &mut state.list, ctx)?
         }
         _ => {
             Outcome::Continue

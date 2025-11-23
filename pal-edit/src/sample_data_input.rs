@@ -118,6 +118,10 @@ impl SampleDataInput {
             .expect("number_format");
         z.number_invalid.set_invalid(true);
         z.calendar.move_to_today();
+        z.text.set_text("text text text");
+        z.text.set_selection(0, 4);
+        z.textarea.set_text("sample sample\nsample\nsample sample");
+        z.textarea.set_selection((0, 1), (6, 1));
         z
     }
 }

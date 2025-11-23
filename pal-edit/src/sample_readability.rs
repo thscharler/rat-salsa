@@ -15,7 +15,8 @@ use ratatui::widgets::{StatefulWidget, Wrap};
 
 #[derive(Debug)]
 pub struct SampleReadability {
-    pub colors: ChoiceState<ColorIdx>,
+    pub bg_color: ChoiceState<ColorIdx>,
+    pub fg_color: ChoiceState<ColorIdx>,
     pub high_contrast: CheckboxState,
     pub para: ParagraphState,
 }
@@ -29,18 +30,21 @@ impl SampleReadability {
 impl Default for SampleReadability {
     fn default() -> Self {
         let mut z = Self {
-            colors: Default::default(),
+            bg_color: Default::default(),
+            fg_color: Default::default(),
             high_contrast: Default::default(),
             para: Default::default(),
         };
-        z.colors.set_value(ColorIdx(Colors::Gray, 0));
+        z.bg_color.set_value(ColorIdx(Colors::Gray, 0));
+        z.fg_color.set_value(ColorIdx(Colors::None, 0));
         z
     }
 }
 
 impl HasFocus for SampleReadability {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget(&self.colors);
+        builder.widget(&self.bg_color);
+        builder.widget(&self.fg_color);
         builder.widget(&self.high_contrast);
         builder.widget(&self.para);
     }
@@ -75,30 +79,45 @@ pub fn render(
     .split(area);
     let l1 = Layout::horizontal([
         Constraint::Fill(1), //
+        Constraint::Fill(1), //
         Constraint::Fill(1),
     ])
     .spacing(1)
     .split(l0[1]);
 
     let pal_choice = crate::pal_choice(ctx.show_theme.p.clone());
-    let (colors, colors_popup) = Choice::new()
+    let (colors, bg_colors_popup) = Choice::new()
+        .items(pal_choice.clone())
+        .select_marker('*')
+        .styles(ctx.show_theme.style(WidgetStyle::CHOICE))
+        .into_widgets();
+    colors.render(l1[0], buf, &mut state.bg_color);
+
+    let (colors, fg_colors_popup) = Choice::new()
         .items(pal_choice)
         .select_marker('*')
         .styles(ctx.show_theme.style(WidgetStyle::CHOICE))
         .into_widgets();
-    colors.render(l1[0], buf, &mut state.colors);
+    colors.render(l1[1], buf, &mut state.fg_color);
 
     Checkbox::new()
         .styles(ctx.show_theme.style(WidgetStyle::CHECKBOX))
         .text("+Contrast")
-        .render(l1[1], buf, &mut state.high_contrast);
+        .render(l1[2], buf, &mut state.high_contrast);
 
-    let sel_color = state.colors.value();
+    let sel_bg = state.bg_color.value();
+    let sel_fg = state.fg_color.value();
     let high_contrast = state.high_contrast.value();
-    let text_style = if high_contrast {
-        ctx.show_theme.p.high_style(sel_color.0, sel_color.1)
+    let text_style = if sel_fg.0 == Colors::None {
+        if high_contrast {
+            ctx.show_theme.p.high_style(sel_bg.0, sel_bg.1)
+        } else {
+            ctx.show_theme.p.style(sel_bg.0, sel_bg.1)
+        }
     } else {
-        ctx.show_theme.p.style(sel_color.0, sel_color.1)
+        ctx.show_theme
+            .p
+            .fg_bg_style(sel_fg.0, sel_fg.1, sel_bg.0, sel_bg.1)
     };
 
     Paragraph::new(
@@ -115,7 +134,8 @@ The Paris Peace Accords removed the remaining United States forces, and fighting
             .render(l0[3], buf, &mut state.para);
 
     // don't forget the popup ...
-    colors_popup.render(l1[0], buf, &mut state.colors);
+    bg_colors_popup.render(l1[0], buf, &mut state.bg_color);
+    fg_colors_popup.render(l1[0], buf, &mut state.bg_color);
 
     Ok(())
 }
@@ -125,7 +145,8 @@ pub fn event(
     state: &mut SampleReadability,
     _ctx: &mut Global,
 ) -> Result<Outcome, Error> {
-    event_flow!(state.colors.handle(event, Popup));
+    event_flow!(state.bg_color.handle(event, Popup));
+    event_flow!(state.fg_color.handle(event, Popup));
     event_flow!(state.high_contrast.handle(event, Regular));
     event_flow!(state.para.handle(event, Regular));
     Ok(Outcome::Continue)

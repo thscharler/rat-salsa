@@ -5,9 +5,12 @@ mod foreign;
 mod message;
 mod palette_edit;
 mod sample_data_input;
+mod sample_dialog;
+mod sample_list;
 mod sample_or_base46;
-mod sample_other;
 mod sample_readability;
+mod sample_split;
+mod sample_table;
 mod show_sample;
 
 use crate::clipboard::CliClipboard;
@@ -461,14 +464,14 @@ pub fn event(
             Ok(Control::Changed)
         }
         PalEvent::ContainerBase(c) => {
-            state.detail.show.readability.colors.set_value(*c);
+            state.detail.show.readability.bg_color.set_value(*c);
             Ok(Control::Changed)
         }
         PalEvent::Save(p) => save_pal_file(&p, state, ctx),
         PalEvent::Load(p) => {
             _ = load_pal_file(&p, state, ctx)?;
             if let Some(c) = state.edit.color_ext.get(Color::CONTAINER_BASE_BG) {
-                state.detail.show.readability.colors.set_value(c.value());
+                state.detail.show.readability.bg_color.set_value(c.value());
             }
             Ok(Control::Changed)
         }
@@ -701,7 +704,7 @@ fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, 
         .detail
         .show
         .readability
-        .colors
+        .bg_color
         .set_value(ColorIdx(Colors::default(), 0));
 
     Ok(Control::Changed)
