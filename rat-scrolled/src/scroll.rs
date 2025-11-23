@@ -109,6 +109,8 @@ pub struct ScrollStyle {
     pub horizontal: Option<ScrollSymbols>,
     pub vertical: Option<ScrollSymbols>,
 
+    pub policy: Option<ScrollbarPolicy>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -194,6 +196,7 @@ impl Default for ScrollStyle {
             min_style: None,
             horizontal: None,
             vertical: None,
+            policy: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -354,6 +357,9 @@ impl<'a> Scroll<'a> {
         }
         if styles.min_style.is_some() {
             self.min_style = styles.min_style;
+        }
+        if let Some(policy) = styles.policy {
+            self.policy = policy;
         }
         self
     }
