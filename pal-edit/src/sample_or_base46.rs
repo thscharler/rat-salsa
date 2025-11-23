@@ -1,6 +1,6 @@
-use crate::base46::Base46;
+use crate::foreign::Foreign;
 use crate::show_sample::ShowSample;
-use crate::{Config, Global, base46, show_sample};
+use crate::{Config, Global, foreign, show_sample};
 use anyhow::Error;
 use rat_theme4::WidgetStyle;
 use rat_widget::event::{HandleEvent, Outcome, Regular, event_flow};
@@ -16,7 +16,7 @@ use ratatui::widgets::{Block, BorderType, StatefulWidget};
 pub struct ShowOrBase46 {
     pub tabs: TabbedState,
     pub show: ShowSample,
-    pub base46: Base46,
+    pub foreign: Foreign,
 }
 
 impl ShowOrBase46 {
@@ -24,7 +24,7 @@ impl ShowOrBase46 {
         Self {
             tabs: Default::default(),
             show: ShowSample::new(cfg.loc),
-            base46: Base46::default(),
+            foreign: Foreign::default(),
         }
     }
 
@@ -34,7 +34,7 @@ impl ShowOrBase46 {
                 self.show.show_focused(focus);
             }
             Some(1) => {
-                self.base46.form.show_focused(focus);
+                self.foreign.form.show_focused(focus);
             }
             _ => {}
         }
@@ -49,7 +49,7 @@ impl HasFocus for ShowOrBase46 {
                 builder.widget(&self.show);
             }
             Some(1) => {
-                builder.widget(&self.base46);
+                builder.widget(&self.foreign);
             }
             _ => {}
         }
@@ -68,7 +68,7 @@ impl HasScreenCursor for ShowOrBase46 {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         match self.tabs.selected() {
             Some(0) => self.show.screen_cursor(),
-            Some(2) => self.base46.screen_cursor(),
+            Some(2) => self.foreign.screen_cursor(),
             _ => None,
         }
     }
@@ -81,7 +81,7 @@ pub fn render(
     ctx: &mut Global,
 ) -> Result<(), Error> {
     Tabbed::new()
-        .tabs(["Preview", "Base46"])
+        .tabs(["Preview", "Foreign"])
         .block(Block::bordered().border_type(BorderType::Rounded))
         .styles(ctx.theme.style(WidgetStyle::TABBED))
         .render(area, buf, &mut state.tabs);
@@ -93,7 +93,7 @@ pub fn render(
         Some(1) => {
             let mut area = state.tabs.widget_area;
             area.width += 1;
-            base46::render(area, buf, &mut state.base46, ctx)?;
+            foreign::render(area, buf, &mut state.foreign, ctx)?;
         }
         _ => {}
     };
@@ -110,7 +110,7 @@ pub fn event(
             show_sample::event(event, &mut state.show, ctx)?
         }
         Some(1) => {
-            base46::event(event, &mut state.base46, ctx)?
+            foreign::event(event, &mut state.foreign, ctx)?
         }
         _ => {
             Outcome::Continue

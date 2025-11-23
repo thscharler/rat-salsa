@@ -1,7 +1,7 @@
-mod base46;
 mod clipboard;
 mod color_span;
 mod configparser_ext;
+mod foreign;
 mod message;
 mod palette_edit;
 mod sample_data_input;
@@ -47,7 +47,6 @@ use std::fs::{File, create_dir_all};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::str::FromStr;
 use std::{array, fs};
 use try_as_traits::TryAsRef;
 
@@ -332,7 +331,7 @@ fn render_menu(
         .item_parsed("_Save")
         .item_parsed("_Save as")
         .item_parsed("_Export")
-        .item_parsed("_Base46")
+        .item_parsed("_Extern")
         .item_parsed("_Use46")
         .item_parsed("_Quit")
         .render(area, buf, &mut state.menu);
@@ -474,7 +473,10 @@ pub fn event(
             Ok(Control::Changed)
         }
         PalEvent::Export(p) => export_pal_file(&p, state, ctx),
-        PalEvent::Base46(p) => import_base46_file(&p, state, ctx),
+        PalEvent::Base46(p) => {
+            state.detail.tabs.select(Some(1));
+            state.detail.foreign.load_from_file(&p)
+        }
         _ => Ok(Control::Continue),
     }
 }
@@ -521,96 +523,6 @@ fn import_base46(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEve
         }),
         s,
     );
-    Ok(Control::Changed)
-}
-
-fn import_base46_file(
-    path: &Path,
-    state: &mut Scenery,
-    _ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
-    let mut buf = String::new();
-    {
-        let mut f = File::open(path)?;
-        f.read_to_string(&mut buf)?;
-    }
-
-    // quick and dirty parser
-    let mut mode = 0;
-    for l in buf.lines() {
-        if l.starts_with("M.base_30") {
-            mode = 1;
-        } else if l.starts_with("M.base_16") {
-            mode = 1;
-        } else if l.starts_with("}") {
-            mode = 0;
-        } else if mode == 1 {
-            let l = l.trim();
-            let mut it = l.split(['=', ',']);
-            let Some(name) = it.next() else {
-                continue;
-            };
-            let name = name.trim();
-            let Some(color) = it.next() else {
-                continue;
-            };
-            let color = color.trim_matches([' ', '"']);
-            let Ok(color) = Color::from_str(color) else {
-                continue;
-            };
-
-            match name {
-                "white" => state.detail.base46.white.set_value(color),
-                "darker_black" => state.detail.base46.darker_black.set_value(color),
-                "black" => state.detail.base46.black.set_value(color),
-                "black2" => state.detail.base46.black2.set_value(color),
-                "one_bg" => state.detail.base46.one_bg.set_value(color),
-                "one_bg2" => state.detail.base46.one_bg2.set_value(color),
-                "one_bg3" => state.detail.base46.one_bg3.set_value(color),
-                "grey" => state.detail.base46.grey.set_value(color),
-                "grey_fg" => state.detail.base46.grey_fg.set_value(color),
-                "grey_fg2" => state.detail.base46.grey_fg2.set_value(color),
-                "light_grey" => state.detail.base46.light_grey.set_value(color),
-                "red" => state.detail.base46.red.set_value(color),
-                "baby_pink" => state.detail.base46.baby_pink.set_value(color),
-                "pink" => state.detail.base46.pink.set_value(color),
-                "line" => state.detail.base46.line.set_value(color),
-                "green" => state.detail.base46.green.set_value(color),
-                "vibrant_green" => state.detail.base46.vibrant_green.set_value(color),
-                "nord_blue" => state.detail.base46.nord_blue.set_value(color),
-                "blue" => state.detail.base46.blue.set_value(color),
-                "yellow" => state.detail.base46.yellow.set_value(color),
-                "sun" => state.detail.base46.sun.set_value(color),
-                "purple" => state.detail.base46.purple.set_value(color),
-                "dark_purple" => state.detail.base46.dark_purple.set_value(color),
-                "teal" => state.detail.base46.teal.set_value(color),
-                "orange" => state.detail.base46.orange.set_value(color),
-                "cyan" => state.detail.base46.cyan.set_value(color),
-                "statusline_bg" => state.detail.base46.statusline_bg.set_value(color),
-                "lightbg" => state.detail.base46.lightbg.set_value(color),
-                "pmenu_bg" => state.detail.base46.pmenu_bg.set_value(color),
-                "folder_bg" => state.detail.base46.folder_bg.set_value(color),
-                "base00" => state.detail.base46.base00.set_value(color),
-                "base01" => state.detail.base46.base01.set_value(color),
-                "base02" => state.detail.base46.base02.set_value(color),
-                "base03" => state.detail.base46.base03.set_value(color),
-                "base04" => state.detail.base46.base04.set_value(color),
-                "base05" => state.detail.base46.base05.set_value(color),
-                "base06" => state.detail.base46.base06.set_value(color),
-                "base07" => state.detail.base46.base07.set_value(color),
-                "base08" => state.detail.base46.base08.set_value(color),
-                "base09" => state.detail.base46.base09.set_value(color),
-                "base0A" => state.detail.base46.base0A.set_value(color),
-                "base0B" => state.detail.base46.base0B.set_value(color),
-                "base0C" => state.detail.base46.base0C.set_value(color),
-                "base0D" => state.detail.base46.base0D.set_value(color),
-                "base0E" => state.detail.base46.base0E.set_value(color),
-                "base0F" => state.detail.base46.base0F.set_value(color),
-                _ => {}
-            }
-        }
-    }
-
     Ok(Control::Changed)
 }
 
@@ -817,63 +729,79 @@ fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, 
 }
 
 fn use_base46(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    let v = state.detail.base46.white.value();
-    state.edit.color[Colors::TextLight as usize].0.set_value(v);
-    state.edit.color[Colors::TextLight as usize].3.set_value(v);
-    let v = state.detail.base46.darker_black.value();
-    state.edit.color[Colors::TextDark as usize].0.set_value(v);
-    state.edit.color[Colors::TextDark as usize].3.set_value(v);
+    if let Some(v) = state.detail.foreign.color("white") {
+        state.edit.color[Colors::TextLight as usize].0.set_value(v);
+        state.edit.color[Colors::TextLight as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("darker_black") {
+        state.edit.color[Colors::TextDark as usize].0.set_value(v);
+        state.edit.color[Colors::TextDark as usize].3.set_value(v);
+    }
 
-    let v = state.detail.base46.white.value();
-    state.edit.color[Colors::White as usize].0.set_value(v);
-    state.edit.color[Colors::White as usize].3.set_value(v);
-
-    let v = state.detail.base46.grey.value();
-    state.edit.color[Colors::Gray as usize].0.set_value(v);
-    let v = state.detail.base46.light_grey.value();
-    state.edit.color[Colors::Gray as usize].3.set_value(v);
-
-    let v = state.detail.base46.darker_black.value();
-    state.edit.color[Colors::Black as usize].0.set_value(v);
-    let v = state.detail.base46.black2.value();
-    state.edit.color[Colors::Black as usize].3.set_value(v);
-
-    let v = state.detail.base46.red.value();
-    state.edit.color[Colors::Red as usize].0.set_value(v);
-    state.edit.color[Colors::Red as usize].3.set_value(v);
-    let v = state.detail.base46.orange.value();
-    state.edit.color[Colors::Orange as usize].0.set_value(v);
-    state.edit.color[Colors::Orange as usize].3.set_value(v);
-    let v = state.detail.base46.yellow.value();
-    state.edit.color[Colors::Yellow as usize].0.set_value(v);
-    state.edit.color[Colors::Yellow as usize].3.set_value(v);
-    let v = state.detail.base46.vibrant_green.value();
-    state.edit.color[Colors::LimeGreen as usize].0.set_value(v);
-    state.edit.color[Colors::LimeGreen as usize].3.set_value(v);
-    let v = state.detail.base46.green.value();
-    state.edit.color[Colors::Green as usize].0.set_value(v);
-    state.edit.color[Colors::Green as usize].3.set_value(v);
-    let v = state.detail.base46.teal.value();
-    state.edit.color[Colors::BlueGreen as usize].0.set_value(v);
-    state.edit.color[Colors::BlueGreen as usize].3.set_value(v);
-    let v = state.detail.base46.cyan.value();
-    state.edit.color[Colors::Cyan as usize].0.set_value(v);
-    state.edit.color[Colors::Cyan as usize].3.set_value(v);
-    let v = state.detail.base46.blue.value();
-    state.edit.color[Colors::Blue as usize].0.set_value(v);
-    state.edit.color[Colors::Blue as usize].3.set_value(v);
-    let v = state.detail.base46.nord_blue.value();
-    state.edit.color[Colors::DeepBlue as usize].0.set_value(v);
-    state.edit.color[Colors::DeepBlue as usize].3.set_value(v);
-    let v = state.detail.base46.dark_purple.value();
-    state.edit.color[Colors::Purple as usize].0.set_value(v);
-    state.edit.color[Colors::Purple as usize].3.set_value(v);
-    let v = state.detail.base46.pink.value();
-    state.edit.color[Colors::Magenta as usize].0.set_value(v);
-    state.edit.color[Colors::Magenta as usize].3.set_value(v);
-    let v = state.detail.base46.baby_pink.value();
-    state.edit.color[Colors::RedPink as usize].0.set_value(v);
-    state.edit.color[Colors::RedPink as usize].3.set_value(v);
+    if let Some(v) = state.detail.foreign.color("white") {
+        state.edit.color[Colors::White as usize].0.set_value(v);
+        state.edit.color[Colors::White as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("grey") {
+        state.edit.color[Colors::Gray as usize].0.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("light_grey") {
+        state.edit.color[Colors::Gray as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("darker_black") {
+        state.edit.color[Colors::Black as usize].0.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("black2") {
+        state.edit.color[Colors::Black as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("red") {
+        state.edit.color[Colors::Red as usize].0.set_value(v);
+        state.edit.color[Colors::Red as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("orange") {
+        state.edit.color[Colors::Orange as usize].0.set_value(v);
+        state.edit.color[Colors::Orange as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("yellow") {
+        state.edit.color[Colors::Yellow as usize].0.set_value(v);
+        state.edit.color[Colors::Yellow as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("vibrant_green") {
+        state.edit.color[Colors::LimeGreen as usize].0.set_value(v);
+        state.edit.color[Colors::LimeGreen as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("green") {
+        state.edit.color[Colors::Green as usize].0.set_value(v);
+        state.edit.color[Colors::Green as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("teal") {
+        state.edit.color[Colors::BlueGreen as usize].0.set_value(v);
+        state.edit.color[Colors::BlueGreen as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("cyan") {
+        state.edit.color[Colors::Cyan as usize].0.set_value(v);
+        state.edit.color[Colors::Cyan as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("blue") {
+        state.edit.color[Colors::Blue as usize].0.set_value(v);
+        state.edit.color[Colors::Blue as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("nord_blue") {
+        state.edit.color[Colors::DeepBlue as usize].0.set_value(v);
+        state.edit.color[Colors::DeepBlue as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("dark_purple") {
+        state.edit.color[Colors::Purple as usize].0.set_value(v);
+        state.edit.color[Colors::Purple as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("pink") {
+        state.edit.color[Colors::Magenta as usize].0.set_value(v);
+        state.edit.color[Colors::Magenta as usize].3.set_value(v);
+    }
+    if let Some(v) = state.detail.foreign.color("baby_pink") {
+        state.edit.color[Colors::RedPink as usize].0.set_value(v);
+        state.edit.color[Colors::RedPink as usize].3.set_value(v);
+    }
     Ok(Control::Changed)
 }
 

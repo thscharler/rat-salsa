@@ -1,6 +1,8 @@
 use crate::Global;
 use anyhow::Error;
+use crossterm::event::Event;
 use rat_theme4::WidgetStyle;
+use rat_theme4::theme::SalsaTheme;
 use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
 use rat_widget::event::{Dialog, HandleEvent, Outcome, Popup, Regular, event_flow};
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
@@ -9,22 +11,24 @@ use rat_widget::layout::LayoutForm;
 use rat_widget::list::{List, ListState};
 use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
 use rat_widget::popup::Placement;
+use rat_widget::reloc::RelocatableState;
 use rat_widget::scrolled::Scroll;
 use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{Table, TableState};
 use rat_widget::text::HasScreenCursor;
+use rat_widget::text_input::{TextInput, TextInputState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::StatefulWidget;
 use ratatui::widgets::Block;
+use std::cmp::min;
 
 #[derive(Debug)]
 pub struct SampleOther {
     pub form: FormState<usize>,
-    pub dialog_flag: FocusFlag,
-    pub dialog: DialogFrameState,
+    pub dialog: DialogSampleState,
     pub split: SplitState,
     pub list: ListState,
     pub table: TableState,
@@ -39,7 +43,7 @@ impl HasFocus for SampleOther {
         builder.widget(&self.list);
         builder.widget(&self.table);
         builder.widget(&self.split);
-        builder.widget(&self.dialog_flag);
+        builder.widget(&self.dialog);
     }
 
     fn focus(&self) -> FocusFlag {
@@ -53,7 +57,7 @@ impl HasFocus for SampleOther {
 
 impl HasScreenCursor for SampleOther {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
-        None
+        self.dialog.screen_cursor()
     }
 }
 
@@ -61,8 +65,7 @@ impl Default for SampleOther {
     fn default() -> Self {
         let mut z = Self {
             form: FormState::named("form"),
-            dialog_flag: FocusFlag::new().with_name("dialog-flag"),
-            dialog: DialogFrameState::named("dialog"),
+            dialog: DialogSampleState::default(),
             split: SplitState::named("split"),
             list: ListState::named("list"),
             table: TableState::named("table"),
@@ -103,35 +106,31 @@ pub fn render(
         layout.page_break();
         layout.widget(state.split.id(), L::Str("Split"), W::WideStretchXY(20, 4));
         layout.page_break();
-        layout.widget(
-            state.dialog_flag.id(),
-            L::Str("Dialog"),
-            W::WideStretchXY(20, 4),
-        );
+        layout.widget(state.dialog.id(), L::Str("Dialog"), W::WideStretchXY(20, 4));
         form = form.layout(layout.build_paged(layout_size));
     }
     let mut form = form.into_buffer(l0[1], buf, &mut state.form);
 
     form.render(
-            state.list.id(),
-            || {
-                List::new([
-                    "Backpacks: A portable bag with straps for carrying personal items, commonly used for school or travel.",
-                    "Books: Written or printed works consisting of pages bound together along one side, used for reading and learning.",
-                    "Bicycles: Human-powered vehicles with two wheels, used for transportation and recreation.",
-                    "Coffee Makers: Appliances designed to brew coffee from ground beans, commonly found in homes and offices.",
-                    "Smartphones: Portable devices combining a mobile phone with advanced computing capabilities, including internet access and apps.",
-                    "Gardens: Plots of land cultivated for growing plants, flowers, or vegetables, often for aesthetic or practical purposes.",
-                    "Music Boxes: Mechanical devices that play music through a rotating cylinder with pins, often used as decorative items.",
-                    "Pens: Writing instruments that dispense ink, used for writing or drawing.",
-                    "Laptops: Portable computers with integrated screen, keyboard, and battery, designed for mobile computing.",
-                    "Dogs: Domesticated mammals commonly kept as pets, known for loyalty and companionship."
-                ])
-                    .scroll(Scroll::new())
-                    .styles(ctx.show_theme.style(WidgetStyle::LIST))
-            },
-            &mut state.list,
-        );
+        state.list.id(),
+        || {
+            List::new([
+                "Backpacks: A portable bag with straps for carrying personal items, commonly used for school or travel.",
+                "Books: Written or printed works consisting of pages bound together along one side, used for reading and learning.",
+                "Bicycles: Human-powered vehicles with two wheels, used for transportation and recreation.",
+                "Coffee Makers: Appliances designed to brew coffee from ground beans, commonly found in homes and offices.",
+                "Smartphones: Portable devices combining a mobile phone with advanced computing capabilities, including internet access and apps.",
+                "Gardens: Plots of land cultivated for growing plants, flowers, or vegetables, often for aesthetic or practical purposes.",
+                "Music Boxes: Mechanical devices that play music through a rotating cylinder with pins, often used as decorative items.",
+                "Pens: Writing instruments that dispense ink, used for writing or drawing.",
+                "Laptops: Portable computers with integrated screen, keyboard, and battery, designed for mobile computing.",
+                "Dogs: Domesticated mammals commonly kept as pets, known for loyalty and companionship."
+            ])
+                .scroll(Scroll::new())
+                .styles(ctx.show_theme.style(WidgetStyle::LIST))
+        },
+        &mut state.list,
+    );
     form.render(
         state.table.id(),
         || {
@@ -244,16 +243,8 @@ pub fn render(
     );
     form.render_popup(state.split.id(), || split_overlay, &mut state.split);
     form.render(
-        state.dialog_flag.id(),
-        || {
-            DialogFrame::new()
-                .left(Constraint::Length(3))
-                .right(Constraint::Length(3))
-                .top(Constraint::Length(3))
-                .bottom(Constraint::Length(3))
-                .block(Block::bordered().title("Dialog"))
-                .styles(ctx.show_theme.style(WidgetStyle::DIALOG_FRAME))
-        },
+        state.dialog.id(),
+        || DialogSample::new(&ctx.show_theme),
         &mut state.dialog,
     );
 
@@ -304,4 +295,85 @@ pub fn event(
     event_flow!(state.form.handle(event, Regular));
 
     Ok(Outcome::Continue)
+}
+
+pub struct DialogSample<'a> {
+    theme: &'a SalsaTheme,
+}
+
+#[derive(Debug, Default)]
+pub struct DialogSampleState {
+    pub frame: DialogFrameState,
+    pub input: TextInputState,
+    pub container: FocusFlag,
+}
+
+impl<'a> DialogSample<'a> {
+    pub fn new(theme: &'a SalsaTheme) -> Self {
+        Self { theme }
+    }
+}
+
+impl<'a> StatefulWidget for DialogSample<'a> {
+    type State = DialogSampleState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        DialogFrame::new()
+            .left(Constraint::Length(3))
+            .right(Constraint::Length(3))
+            .top(Constraint::Length(3))
+            .bottom(Constraint::Length(3))
+            .block(Block::bordered().title("Dialog"))
+            .styles(self.theme.style(WidgetStyle::DIALOG_FRAME))
+            .render(area, buf, &mut state.frame);
+
+        let txt_area = Rect::new(
+            state.frame.widget_area.x + 1,
+            state.frame.widget_area.y + 1,
+            min(state.frame.widget_area.width.saturating_sub(1), 20),
+            1,
+        );
+
+        TextInput::new()
+            .styles(self.theme.style(WidgetStyle::TEXT))
+            .render(txt_area, buf, &mut state.input);
+    }
+}
+
+impl HasFocus for DialogSampleState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        let tag = builder.start(self);
+        builder.widget(&self.input);
+        builder.widget(&self.frame);
+        builder.end(tag);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        self.container.focus()
+    }
+
+    fn area(&self) -> Rect {
+        self.frame.area
+    }
+}
+
+impl HasScreenCursor for DialogSampleState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        self.input.screen_cursor()
+    }
+}
+
+impl RelocatableState for DialogSampleState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.input.relocate(shift, clip);
+        self.frame.relocate(shift, clip);
+    }
+}
+
+impl HandleEvent<Event, Dialog, DialogOutcome> for DialogSampleState {
+    fn handle(&mut self, event: &Event, _qualifier: Dialog) -> DialogOutcome {
+        event_flow!(return Outcome::from(self.input.handle(event, Regular)));
+        event_flow!(return self.frame.handle(event, Dialog));
+        DialogOutcome::Continue
+    }
 }
