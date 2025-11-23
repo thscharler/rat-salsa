@@ -1,12 +1,12 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Rust
 /// Rusty theme.
 const DARKNESS: u8 = 85;
 
 pub const RUST: Palette = Palette {
-    name: Cow::Borrowed("Rust"),
+    name: Cow::Borrowed("Rust"), 
 
     color: [
         Palette::interpolate2(0xcec9c6, 0xefe6e6, 0x0, 0x0),
@@ -32,11 +32,11 @@ pub const RUST: Palette = Palette {
     // must be sorted!
     aliased: Cow::Borrowed(&[
         define_alias("button-base.bg", Colors::Gray, 0),
-        define_alias("container-arrow.fg", Colors::Secondary, 7),
-        define_alias("container-base.bg", Colors::Gray, 1),
+        define_alias("container-arrow.fg", Colors::Gray, 7),
+        define_alias("container-base.bg", Colors::Gray, 2),
         define_alias("container-border.fg", Colors::Gray, 7),
         define_alias("dialog-arrow.fg", Colors::Black, 3),
-        define_alias("dialog-base.bg", Colors::Gray, 2),
+        define_alias("dialog-base.bg", Colors::Gray, 3),
         define_alias("dialog-border.fg", Colors::Black, 3),
         define_alias("disabled.bg", Colors::Gray, 3),
         define_alias("focus.bg", Colors::Primary, 1),
@@ -51,9 +51,9 @@ pub const RUST: Palette = Palette {
         define_alias("label.fg", Colors::TextDark, 0),
         define_alias("menu-base.bg", Colors::Gray, 0),
         define_alias("month-header.fg", Colors::TextLight, 0),
-        define_alias("popup-arrow.fg", Colors::Black, 3),
+        define_alias("popup-arrow.fg", Colors::Gray, 0),
         define_alias("popup-base.bg", Colors::White, 0),
-        define_alias("popup-border.fg", Colors::Black, 3),
+        define_alias("popup-border.fg", Colors::Gray, 0),
         define_alias("select.bg", Colors::Secondary, 0),
         define_alias("shadow.bg", Colors::TextDark, 0),
         define_alias("status-base.bg", Colors::Gray, 0),
@@ -64,3 +64,4 @@ pub const RUST: Palette = Palette {
         define_alias("week-header.fg", Colors::Secondary, 7),
     ]),
 };
+

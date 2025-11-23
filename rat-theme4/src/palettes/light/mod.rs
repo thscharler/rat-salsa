@@ -10,9 +10,11 @@
 mod everforest;
 mod imperial;
 mod rust;
+mod sunrisebreeze;
 mod tailwind;
 
 pub use everforest::EVERFOREST;
 pub use imperial::IMPERIAL;
 pub use rust::RUST;
+pub use sunrisebreeze::SUNRISEBREEZE;
 pub use tailwind::TAILWIND;

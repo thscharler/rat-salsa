@@ -1,11 +1,11 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// EverForest
 const DARKNESS: u8 = 63;
 
 pub const EVERFOREST: Palette = Palette {
-    name: Cow::Borrowed("EverForest"),
+    name: Cow::Borrowed("EverForest"), 
 
     color: [
         Palette::interpolate2(0xd8d4cb, 0xfcf8ef, 0x0, 0x0),
@@ -31,12 +31,12 @@ pub const EVERFOREST: Palette = Palette {
     // must be sorted!
     aliased: Cow::Borrowed(&[
         define_alias("button-base.bg", Colors::Green, 4),
-        define_alias("container-arrow.fg", Colors::None, 0),
+        define_alias("container-arrow.fg", Colors::Gray, 1),
         define_alias("container-base.bg", Colors::BlueGreen, 0),
-        define_alias("container-border.fg", Colors::None, 0),
-        define_alias("dialog-arrow.fg", Colors::None, 0),
+        define_alias("container-border.fg", Colors::Gray, 1),
+        define_alias("dialog-arrow.fg", Colors::Gray, 2),
         define_alias("dialog-base.bg", Colors::White, 0),
-        define_alias("dialog-border.fg", Colors::None, 0),
+        define_alias("dialog-border.fg", Colors::Gray, 2),
         define_alias("disabled.bg", Colors::Gray, 2),
         define_alias("focus.bg", Colors::Primary, 1),
         define_alias("footer.bg", Colors::None, 0),
@@ -50,9 +50,9 @@ pub const EVERFOREST: Palette = Palette {
         define_alias("label.fg", Colors::TextDark, 1),
         define_alias("menu-base.bg", Colors::White, 3),
         define_alias("month-header.fg", Colors::None, 0),
-        define_alias("popup-arrow.fg", Colors::None, 0),
+        define_alias("popup-arrow.fg", Colors::Gray, 2),
         define_alias("popup-base.bg", Colors::White, 2),
-        define_alias("popup-border.fg", Colors::None, 0),
+        define_alias("popup-border.fg", Colors::Gray, 2),
         define_alias("select.bg", Colors::Secondary, 1),
         define_alias("shadow.bg", Colors::Black, 0),
         define_alias("status-base.bg", Colors::White, 3),
@@ -63,3 +63,4 @@ pub const EVERFOREST: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 0),
     ]),
 };
+
