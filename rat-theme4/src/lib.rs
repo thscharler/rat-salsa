@@ -44,6 +44,7 @@
 //!     .render(area, buf, &mut state);
 //! ```
 
+use crate::theme::Category;
 use ratatui::style::{Color, Style};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -566,7 +567,9 @@ pub fn create_theme(theme: &str) -> theme::SalsaTheme {
             };
             // currently no difference, just a different
             // set of color palettes
-            themes::create_dark(theme, pal)
+            let mut theme = themes::create_dark(theme, pal);
+            theme.cat = Category::Light;
+            theme
         }
         ("shell", p) => {
             let Some(pal) = create_palette(*p) else {
