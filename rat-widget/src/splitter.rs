@@ -1712,15 +1712,17 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SplitState {
             return if self.is_focused() {
                 if let Some(n) = self.focus_marker {
                     match event {
-                        ct_event!(keycode press Left) => self.move_split_left(n, 1).into(),
-                        ct_event!(keycode press Right) => self.move_split_right(n, 1).into(),
-                        ct_event!(keycode press Up) => self.move_split_up(n, 1).into(),
-                        ct_event!(keycode press Down) => self.move_split_down(n, 1).into(),
+                        ct_event!(keycode press Left) => self.select_prev_split().into(),
+                        ct_event!(keycode press Right) => self.select_next_split().into(),
+                        ct_event!(keycode press Up) => self.select_prev_split().into(),
+                        ct_event!(keycode press Down) => self.select_next_split().into(),
 
-                        ct_event!(keycode press ALT-Left) => self.select_prev_split().into(),
-                        ct_event!(keycode press ALT-Right) => self.select_next_split().into(),
-                        ct_event!(keycode press ALT-Up) => self.select_prev_split().into(),
-                        ct_event!(keycode press ALT-Down) => self.select_next_split().into(),
+                        ct_event!(keycode press CONTROL-Left) => self.move_split_left(n, 1).into(),
+                        ct_event!(keycode press CONTROL-Right) => {
+                            self.move_split_right(n, 1).into()
+                        }
+                        ct_event!(keycode press CONTROL-Up) => self.move_split_up(n, 1).into(),
+                        ct_event!(keycode press CONTROL-Down) => self.move_split_down(n, 1).into(),
                         _ => Outcome::Continue,
                     }
                 } else {
