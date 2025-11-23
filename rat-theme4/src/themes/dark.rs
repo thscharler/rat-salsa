@@ -18,7 +18,7 @@ use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::radio::{RadioLayout, RadioStyle};
-use rat_widget::scrolled::ScrollStyle;
+use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
 use rat_widget::shadow::{ShadowDirection, ShadowStyle};
 use rat_widget::slider::SliderStyle;
 use rat_widget::splitter::SplitStyle;
@@ -162,8 +162,8 @@ fn checkbox(th: &SalsaTheme) -> CheckboxStyle {
 
 fn combobox(th: &SalsaTheme) -> ComboboxStyle {
     ComboboxStyle {
-        choice: choice(th),
-        text: text(th),
+        choice: th.style(WidgetStyle::CHOICE),
+        text: th.style(WidgetStyle::TEXT),
         ..Default::default()
     }
 }
@@ -175,7 +175,7 @@ fn choice(th: &SalsaTheme) -> ChoiceStyle {
         focus: Some(th.style(Style::TEXT_FOCUS)),
         popup_style: Some(th.style(Style::POPUP_BASE)),
         popup_border: Some(th.style(Style::POPUP_BORDER_FG)),
-        popup_scroll: Some(popup_scroll(th)),
+        popup_scroll: Some(th.style(WidgetStyle::SCROLL_POPUP)),
         popup_block: Some(
             Block::bordered()
                 .borders(Borders::LEFT)
@@ -189,7 +189,7 @@ fn clipper(th: &SalsaTheme) -> ClipperStyle {
     ClipperStyle {
         style: th.style(Style::CONTAINER_BASE),
         label_style: Some(th.style(Style::LABEL_FG)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         ..Default::default()
     }
 }
@@ -198,7 +198,7 @@ fn dialog_frame(th: &SalsaTheme) -> DialogFrameStyle {
     DialogFrameStyle {
         style: th.style(Style::DIALOG_BASE),
         border_style: Some(th.style::<Style>(Style::DIALOG_BORDER_FG)),
-        button_style: Some(button(th)),
+        button_style: Some(th.style(WidgetStyle::BUTTON)),
         ..DialogFrameStyle::default()
     }
 }
@@ -206,13 +206,13 @@ fn dialog_frame(th: &SalsaTheme) -> DialogFrameStyle {
 fn file_dialog(th: &SalsaTheme) -> FileDialogStyle {
     FileDialogStyle {
         style: th.style(Style::DIALOG_BASE),
-        list: Some(list(th)),
+        list: Some(th.style(WidgetStyle::LIST)),
         roots: Some(ListStyle {
             style: th.style(Style::DIALOG_BASE),
-            ..list(th)
+            ..th.style(WidgetStyle::LIST)
         }),
-        text: Some(text(th)),
-        button: Some(button(th)),
+        text: Some(th.style(WidgetStyle::TEXT)),
+        button: Some(th.style(WidgetStyle::BUTTON)),
         block: Some(Block::bordered()),
         ..Default::default()
     }
@@ -248,7 +248,7 @@ fn list(th: &SalsaTheme) -> ListStyle {
         style: th.style(Style::CONTAINER_BASE),
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         ..Default::default()
     }
 }
@@ -289,7 +289,7 @@ fn month(th: &SalsaTheme) -> CalendarStyle {
 fn msg_dialog(th: &SalsaTheme) -> MsgDialogStyle {
     MsgDialogStyle {
         style: th.style(Style::DIALOG_BASE),
-        button: Some(button(th)),
+        button: Some(th.style(WidgetStyle::BUTTON)),
         ..Default::default()
     }
 }
@@ -298,7 +298,7 @@ fn paragraph(th: &SalsaTheme) -> ParagraphStyle {
     ParagraphStyle {
         style: th.style(Style::CONTAINER_BASE),
         focus: Some(th.style(Style::FOCUS)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         ..Default::default()
     }
 }
@@ -331,6 +331,20 @@ fn popup_scroll(th: &SalsaTheme) -> ScrollStyle {
         min_style: Some(th.style(Style::POPUP_BORDER_FG)),
         begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
         end_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        horizontal: Some(ScrollSymbols {
+            track: "",
+            thumb: "▄",
+            begin: "▗",
+            end: "▖",
+            min: " ",
+        }),
+        vertical: Some(ScrollSymbols {
+            track: " ",
+            thumb: "█",
+            begin: "▄",
+            end: "▀",
+            min: " ",
+        }),
         ..Default::default()
     }
 }
@@ -342,6 +356,20 @@ fn dialog_scroll(th: &SalsaTheme) -> ScrollStyle {
         min_style: Some(th.style(Style::DIALOG_BORDER_FG)),
         begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
         end_style: Some(th.style(Style::POPUP_ARROW_FG)),
+        horizontal: Some(ScrollSymbols {
+            track: "",
+            thumb: "▄",
+            begin: "▗",
+            end: "▖",
+            min: " ",
+        }),
+        vertical: Some(ScrollSymbols {
+            track: " ",
+            thumb: "█",
+            begin: "▄",
+            end: "▀",
+            min: " ",
+        }),
         ..Default::default()
     }
 }
@@ -405,7 +433,7 @@ fn table(th: &SalsaTheme) -> TableStyle {
         show_row_focus: true,
         focus_style: Some(th.style(Style::FOCUS)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         header: Some(th.style(Style::HEADER)),
         footer: Some(th.style(Style::FOOTER)),
         ..Default::default()
@@ -440,7 +468,7 @@ fn textarea(th: &SalsaTheme) -> TextStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::INPUT)),
         select: Some(th.style(Style::TEXT_SELECT)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()
     }
@@ -451,7 +479,7 @@ fn textview(th: &SalsaTheme) -> TextStyle {
         style: th.style(Style::CONTAINER_BASE),
         focus: Some(th.style(Style::CONTAINER_BASE)),
         select: Some(th.style(Style::TEXT_SELECT)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()
     }
@@ -459,7 +487,7 @@ fn textview(th: &SalsaTheme) -> TextStyle {
 
 fn view(th: &SalsaTheme) -> ViewStyle {
     ViewStyle {
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         ..Default::default()
     }
 }

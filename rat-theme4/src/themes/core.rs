@@ -26,7 +26,7 @@ use rat_widget::splitter::SplitStyle;
 use rat_widget::statusline::StatusLineStyle;
 use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
-use rat_widget::text::{TextFocusGained, TextFocusLost, TextStyle};
+use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
 use ratatui::layout::Alignment;
 use ratatui::style::{Color, Style, Stylize};
@@ -55,7 +55,6 @@ pub fn create_core(name: &str) -> SalsaTheme {
     th.define_style(Style::TITLE, th.p.fg_style_alias(Color::TITLE_FG));
     th.define_style(Style::HEADER, th.p.fg_style_alias(Color::HEADER_FG));
     th.define_style(Style::FOOTER, th.p.fg_style_alias(Color::FOOTER_FG));
-    th.define_style(Style::SHADOWS, th.p.style_alias(Color::SHADOW_BG));
     th.define_style(
         Style::WEEK_HEADER_FG,
         th.p.style_alias(Color::WEEK_HEADER_FG),
@@ -68,6 +67,7 @@ pub fn create_core(name: &str) -> SalsaTheme {
         Style::TEXT_FOCUS,
         th.p.high_style_alias(Color::TEXT_FOCUS_BG),
     );
+    th.define_style(Style::SHADOWS, th.p.style_alias(Color::SHADOW_BG));
     th.define_style(Style::TEXT_SELECT, th.p.high_style_alias(Color::SELECT_BG));
     th.define_style(
         Style::KEY_BINDING,
@@ -166,8 +166,8 @@ fn checkbox(th: &SalsaTheme) -> CheckboxStyle {
 
 fn combobox(th: &SalsaTheme) -> ComboboxStyle {
     ComboboxStyle {
-        choice: choice(th),
-        text: text(th),
+        choice: th.style(WidgetStyle::CHOICE),
+        text: th.style(WidgetStyle::TEXT),
         ..Default::default()
     }
 }
@@ -179,7 +179,7 @@ fn choice(th: &SalsaTheme) -> ChoiceStyle {
         focus: Some(th.style(Style::TEXT_FOCUS)),
         popup_style: Some(th.style(Style::POPUP_BASE)),
         popup_border: Some(th.style(Style::POPUP_BORDER_FG)),
-        popup_scroll: Some(popup_scroll(th)),
+        popup_scroll: Some(th.style(WidgetStyle::SCROLL_POPUP)),
         popup_block: Some(
             Block::bordered()
                 .borders(Borders::LEFT | Borders::BOTTOM | Borders::RIGHT)
@@ -203,7 +203,7 @@ fn clipper(th: &SalsaTheme) -> ClipperStyle {
     ClipperStyle {
         style: th.style(Style::CONTAINER_BASE),
         label_style: Some(th.style(Style::LABEL_FG)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         ..Default::default()
     }
 }
@@ -212,7 +212,7 @@ fn dialog_frame(th: &SalsaTheme) -> DialogFrameStyle {
     DialogFrameStyle {
         style: th.style(Style::DIALOG_BASE),
         border_style: Some(th.style::<Style>(Style::DIALOG_BORDER_FG)),
-        button_style: Some(button(th)),
+        button_style: Some(th.style(WidgetStyle::BUTTON)),
         ..DialogFrameStyle::default()
     }
 }
@@ -220,13 +220,13 @@ fn dialog_frame(th: &SalsaTheme) -> DialogFrameStyle {
 fn file_dialog(th: &SalsaTheme) -> FileDialogStyle {
     FileDialogStyle {
         style: th.style(Style::DIALOG_BASE),
-        list: Some(list(th)),
+        list: Some(th.style(WidgetStyle::LIST)),
         roots: Some(ListStyle {
             style: th.style(Style::DIALOG_BASE),
-            ..list(th)
+            ..th.style(WidgetStyle::LIST)
         }),
-        text: Some(text(th)),
-        button: Some(button(th)),
+        text: Some(th.style(WidgetStyle::TEXT)),
+        button: Some(th.style(WidgetStyle::BUTTON)),
         block: Some(Block::bordered()),
         ..Default::default()
     }
@@ -262,7 +262,7 @@ fn list(th: &SalsaTheme) -> ListStyle {
         style: th.style(Style::CONTAINER_BASE),
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         ..Default::default()
     }
 }
@@ -303,7 +303,7 @@ fn month(th: &SalsaTheme) -> CalendarStyle {
 fn msg_dialog(th: &SalsaTheme) -> MsgDialogStyle {
     MsgDialogStyle {
         style: th.style(Style::DIALOG_BASE),
-        button: Some(button(th)),
+        button: Some(th.style(WidgetStyle::BUTTON)),
         ..Default::default()
     }
 }
@@ -312,7 +312,7 @@ fn paragraph(th: &SalsaTheme) -> ParagraphStyle {
     ParagraphStyle {
         style: th.style(Style::CONTAINER_BASE),
         focus: Some(th.style(Style::FOCUS)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         ..Default::default()
     }
 }
@@ -461,7 +461,7 @@ fn table(th: &SalsaTheme) -> TableStyle {
         show_row_focus: true,
         focus_style: Some(th.style(Style::FOCUS)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         header: Some(th.style(Style::HEADER)),
         footer: Some(th.style(Style::FOOTER)),
         ..Default::default()
@@ -475,8 +475,6 @@ fn color_input(th: &SalsaTheme) -> ColorInputStyle {
             focus: Some(th.style(Style::TEXT_FOCUS)),
             select: Some(th.style(Style::TEXT_SELECT)),
             invalid: Some(th.style(Style::INVALID)),
-            on_focus_gained: Some(TextFocusGained::Overwrite),
-            on_focus_lost: Some(TextFocusLost::Position0),
             ..TextStyle::default()
         },
         ..Default::default()
@@ -489,8 +487,6 @@ fn text(th: &SalsaTheme) -> TextStyle {
         focus: Some(th.style(Style::TEXT_FOCUS)),
         select: Some(th.style(Style::TEXT_SELECT)),
         invalid: Some(th.style(Style::INVALID)),
-        on_focus_gained: Some(TextFocusGained::Overwrite),
-        on_focus_lost: Some(TextFocusLost::Position0),
         ..TextStyle::default()
     }
 }
@@ -500,7 +496,7 @@ fn textarea(th: &SalsaTheme) -> TextStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::INPUT)),
         select: Some(th.style(Style::TEXT_SELECT)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()
     }
@@ -511,7 +507,7 @@ fn textview(th: &SalsaTheme) -> TextStyle {
         style: th.style(Style::CONTAINER_BASE),
         focus: Some(th.style(Style::CONTAINER_BASE)),
         select: Some(th.style(Style::TEXT_SELECT)),
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()
     }
@@ -519,7 +515,7 @@ fn textview(th: &SalsaTheme) -> TextStyle {
 
 fn view(th: &SalsaTheme) -> ViewStyle {
     ViewStyle {
-        scroll: Some(scroll(th)),
+        scroll: Some(th.style(WidgetStyle::SCROLL)),
         ..Default::default()
     }
 }

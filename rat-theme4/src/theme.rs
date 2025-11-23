@@ -161,13 +161,13 @@ impl SalsaTheme {
 
     fn define(&mut self, name: &'static str, boxed: Entry) {
         if is_log_style_define() {
-            info!("salsa-style: {:?}->{:?}", name, (*boxed)(self));
+            info!("salsa-style: {:?}", name);
         }
         match self.styles.insert(name, boxed) {
             None => {}
-            Some(v) => {
+            Some(_) => {
                 if is_log_style_define() {
-                    info!("salsa-style: OVERWRITE {:?}. Was {:?}", name, v(self));
+                    info!("salsa-style: OVERWRITE {:?}", name);
                 }
             }
         };
