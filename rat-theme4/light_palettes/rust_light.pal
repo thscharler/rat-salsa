@@ -1,5 +1,5 @@
 [palette]
-name=Rust
+name=Rust Light
 docs=Rusty theme.
 dark=85
 
@@ -26,7 +26,7 @@ red-pink=#7B1964, #D332AD
 
 [reference]
 label.fg=text-dark:0
-input.bg=gray:3
+input.bg=gray:1
 focus.bg=primary:1
 select.bg=secondary:0
 disabled.bg=gray:3
@@ -56,3 +56,4 @@ popup-arrow.fg=gray:0
 dialog-base.bg=gray:3
 dialog-border.fg=black:3
 dialog-arrow.fg=black:3
+md+hidden=none:0

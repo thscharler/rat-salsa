@@ -237,7 +237,7 @@ fn form(th: &SalsaTheme) -> FormStyle {
 
 fn line_nr(th: &SalsaTheme) -> LineNumberStyle {
     LineNumberStyle {
-        style: th.style(Style::CONTAINER_BASE),
+        style: th.style(Style::CONTAINER_BORDER_FG),
         cursor: Some(th.style(Style::TEXT_SELECT)),
         ..LineNumberStyle::default()
     }

@@ -1,11 +1,11 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// EverForest
 const DARKNESS: u8 = 63;
 
 pub const EVERFOREST: Palette = Palette {
-    name: Cow::Borrowed("EverForest"),
+    name: Cow::Borrowed("EverForest"), 
 
     color: [
         Palette::interpolate2(0xd8d4cb, 0xfcf8ef, 0x0, 0x0),
@@ -35,7 +35,7 @@ pub const EVERFOREST: Palette = Palette {
         define_alias("container-base.bg", Colors::Black, 2),
         define_alias("container-border.fg", Colors::None, 0),
         define_alias("dialog-arrow.fg", Colors::None, 0),
-        define_alias("dialog-base.bg", Colors::Gray, 3),
+        define_alias("dialog-base.bg", Colors::Black, 3),
         define_alias("dialog-border.fg", Colors::None, 0),
         define_alias("disabled.bg", Colors::Gray, 3),
         define_alias("focus.bg", Colors::Primary, 1),
@@ -48,6 +48,7 @@ pub const EVERFOREST: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 1),
         define_alias("key-binding.bg", Colors::Green, 0),
         define_alias("label.fg", Colors::White, 0),
+        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 1),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::None, 0),
@@ -63,3 +64,4 @@ pub const EVERFOREST: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
+

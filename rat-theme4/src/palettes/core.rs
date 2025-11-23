@@ -36,7 +36,7 @@ pub const SHELL: Palette = Palette {
         [Color::Cyan; 8],   // primary
         [Color::Yellow; 8], // secondary
         [Color::White; 8],  // white
-        [Color::Black; 8],
+        [Color::Black; 8],  // black
         [
             Color::Gray,
             Color::Gray,
@@ -46,7 +46,7 @@ pub const SHELL: Palette = Palette {
             Color::Gray,
             Color::DarkGray,
             Color::DarkGray,
-        ],
+        ], // gray
         [Color::Red; 8],
         [Color::Yellow; 8],
         [Color::LightYellow; 8],
@@ -65,9 +65,9 @@ pub const SHELL: Palette = Palette {
         define_alias(Color::CONTAINER_ARROW_FG, Colors::Gray, 0),
         define_alias(Color::CONTAINER_BASE_BG, Colors::Black, 0),
         define_alias(Color::CONTAINER_BORDER_FG, Colors::Gray, 0),
-        define_alias(Color::DIALOG_ARROW_FG, Colors::Black, 0),
-        define_alias(Color::DIALOG_BASE_BG, Colors::Gray, 3),
-        define_alias(Color::DIALOG_BORDER_FG, Colors::Black, 0),
+        define_alias(Color::DIALOG_ARROW_FG, Colors::Gray, 0),
+        define_alias(Color::DIALOG_BASE_BG, Colors::Black, 0),
+        define_alias(Color::DIALOG_BORDER_FG, Colors::Gray, 0),
         define_alias(Color::DISABLED_BG, Colors::Gray, 0),
         define_alias(Color::FOCUS_BG, Colors::Primary, 0),
         define_alias(Color::FOOTER_BG, Colors::Blue, 0),

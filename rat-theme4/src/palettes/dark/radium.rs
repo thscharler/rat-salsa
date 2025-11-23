@@ -1,5 +1,5 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Radium
 /// An adaption of nvchad's radium theme.
@@ -7,7 +7,7 @@ use std::borrow::Cow;
 const DARKNESS: u8 = 63;
 
 pub const RADIUM: Palette = Palette {
-    name: Cow::Borrowed("Radium"),
+    name: Cow::Borrowed("Radium"), 
 
     color: [
         Palette::interpolate2(0xd4d4d5, 0xffffff, 0x0, 0x0),
@@ -34,10 +34,10 @@ pub const RADIUM: Palette = Palette {
     aliased: Cow::Borrowed(&[
         define_alias("button-base.bg", Colors::White, 3),
         define_alias("container-arrow.fg", Colors::None, 0),
-        define_alias("container-base.bg", Colors::Black, 3),
+        define_alias("container-base.bg", Colors::Black, 2),
         define_alias("container-border.fg", Colors::None, 0),
         define_alias("dialog-arrow.fg", Colors::None, 0),
-        define_alias("dialog-base.bg", Colors::Gray, 2),
+        define_alias("dialog-base.bg", Colors::Black, 3),
         define_alias("dialog-border.fg", Colors::None, 0),
         define_alias("disabled.bg", Colors::Gray, 0),
         define_alias("focus.bg", Colors::Primary, 3),
@@ -46,10 +46,11 @@ pub const RADIUM: Palette = Palette {
         define_alias("header.bg", Colors::Black, 0),
         define_alias("header.fg", Colors::LimeGreen, 0),
         define_alias("hover.bg", Colors::Green, 3),
-        define_alias("input.bg", Colors::Gray, 3),
+        define_alias("input.bg", Colors::Gray, 1),
         define_alias("invalid.bg", Colors::Red, 0),
         define_alias("key-binding.bg", Colors::BlueGreen, 0),
         define_alias("label.fg", Colors::TextLight, 0),
+        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 1),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::None, 0),
@@ -65,3 +66,4 @@ pub const RADIUM: Palette = Palette {
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
+

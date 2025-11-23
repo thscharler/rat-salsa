@@ -1,12 +1,12 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Ocean
 /// My take on an ocean theme.
 const DARKNESS: u8 = 63;
 
 pub const OCEAN: Palette = Palette {
-    name: Cow::Borrowed("Ocean"),
+    name: Cow::Borrowed("Ocean"), 
 
     color: [
         Palette::interpolate2(0xe5e5dd, 0xf2f2ee, 0x0, 0x0),
@@ -33,10 +33,10 @@ pub const OCEAN: Palette = Palette {
     aliased: Cow::Borrowed(&[
         define_alias("button-base.bg", Colors::Gray, 0),
         define_alias("container-arrow.fg", Colors::None, 0),
-        define_alias("container-base.bg", Colors::Black, 3),
+        define_alias("container-base.bg", Colors::Black, 1),
         define_alias("container-border.fg", Colors::None, 0),
         define_alias("dialog-arrow.fg", Colors::None, 0),
-        define_alias("dialog-base.bg", Colors::Gray, 2),
+        define_alias("dialog-base.bg", Colors::Black, 3),
         define_alias("dialog-border.fg", Colors::None, 0),
         define_alias("disabled.bg", Colors::Gray, 3),
         define_alias("focus.bg", Colors::Primary, 1),
@@ -49,10 +49,11 @@ pub const OCEAN: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 0),
         define_alias("key-binding.bg", Colors::BlueGreen, 0),
         define_alias("label.fg", Colors::White, 0),
+        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 1),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::None, 0),
-        define_alias("popup-base.bg", Colors::Gray, 3),
+        define_alias("popup-base.bg", Colors::Gray, 2),
         define_alias("popup-border.fg", Colors::None, 0),
         define_alias("select.bg", Colors::Secondary, 1),
         define_alias("shadow.bg", Colors::Black, 3),
@@ -64,3 +65,4 @@ pub const OCEAN: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 2),
     ]),
 };
+

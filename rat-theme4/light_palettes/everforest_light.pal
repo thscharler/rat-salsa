@@ -1,5 +1,5 @@
 [palette]
-name=EverForest
+name=EverForest Light
 docs=
 dark=63
 
@@ -40,19 +40,20 @@ footer.fg=deep-blue:7
 footer.bg=none:0
 shadow.bg=black:0
 week-header.fg=gray:0
-month-header.fg=none:0
+month-header.fg=text-dark:0
 text-focus.bg=primary:2
 text-select.bg=secondary:1
-button-base.bg=green:4
-menu-base.bg=white:3
-key-binding.bg=green:0
-status-base.bg=white:3
+button-base.bg=white:2
+menu-base.bg=deep-blue:1
+key-binding.bg=white:3
+status-base.bg=deep-blue:1
 container-base.bg=blue-green:0
 container-border.fg=gray:1
 container-arrow.fg=gray:1
 popup-base.bg=white:2
 popup-border.fg=gray:2
 popup-arrow.fg=gray:2
-dialog-base.bg=white:0
-dialog-border.fg=gray:2
-dialog-arrow.fg=gray:2
+dialog-base.bg=cyan:0
+dialog-border.fg=gray:1
+dialog-arrow.fg=gray:1
+md+hidden=none:0

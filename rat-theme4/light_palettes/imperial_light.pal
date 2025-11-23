@@ -1,5 +1,5 @@
 [palette]
-name=Imperial
+name=Imperial Light
 docs=Uses purple and gold for primary/secondary.\nOther colors are bright, strong and slightly smudged.
 dark=63
 
@@ -26,7 +26,7 @@ red-pink=#47101D, #C3425B
 
 [reference]
 label.fg=text-light:0
-input.bg=gray:2
+input.bg=gray:3
 focus.bg=primary:1
 select.bg=secondary:0
 disabled.bg=gray:7
@@ -50,9 +50,10 @@ status-base.bg=gray:2
 container-base.bg=gray:1
 container-border.fg=black:3
 container-arrow.fg=black:3
-popup-base.bg=gray:3
+popup-base.bg=gray:2
 popup-border.fg=black:3
 popup-arrow.fg=black:3
-dialog-base.bg=gray:3
+dialog-base.bg=gray:1
 dialog-border.fg=black:3
 dialog-arrow.fg=black:3
+md+hidden=none:0

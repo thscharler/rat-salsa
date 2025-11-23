@@ -26,7 +26,7 @@ red-pink=#FF8E8E, #FF8E8E
 
 [reference]
 label.fg=text-light:0
-input.bg=gray:3
+input.bg=gray:1
 focus.bg=primary:3
 select.bg=secondary:3
 disabled.bg=gray:0
@@ -47,12 +47,13 @@ button-base.bg=white:3
 menu-base.bg=black:1
 key-binding.bg=blue-green:0
 status-base.bg=black:1
-container-base.bg=black:3
+container-base.bg=black:2
 container-border.fg=none:0
 container-arrow.fg=none:0
 popup-base.bg=gray:2
 popup-border.fg=none:0
 popup-arrow.fg=none:0
-dialog-base.bg=gray:2
+dialog-base.bg=black:3
 dialog-border.fg=none:0
 dialog-arrow.fg=none:0
+md+hidden=none:0

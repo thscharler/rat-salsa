@@ -5,7 +5,7 @@ use std::borrow::Cow;
 const DARKNESS: u8 = 128;
 
 pub const SUNRISEBREEZE: Palette = Palette {
-    name: Cow::Borrowed("SunriseBreeze"),
+    name: Cow::Borrowed("SunriseBreeze Light"),
 
     color: [
         Palette::interpolate2(0xebebeb, 0xffffff, 0x0, 0x0),

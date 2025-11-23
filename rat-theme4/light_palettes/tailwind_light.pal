@@ -1,5 +1,5 @@
 [palette]
-name=Tailwind
+name=Tailwind Light
 docs=
 dark=92
 
@@ -26,7 +26,7 @@ red-pink=#FDA5D5, #FF2056
 
 [reference]
 label.fg=text-dark:0
-input.bg=secondary:1
+input.bg=secondary:0
 focus.bg=primary:0
 select.bg=primary:2
 disabled.bg=secondary:4
@@ -50,9 +50,10 @@ status-base.bg=secondary:1
 container-base.bg=secondary:2
 container-border.fg=gray:4
 container-arrow.fg=gray:4
-popup-base.bg=secondary:0
+popup-base.bg=secondary:1
 popup-border.fg=secondary:4
 popup-arrow.fg=secondary:4
 dialog-base.bg=secondary:1
 dialog-border.fg=secondary:3
 dialog-arrow.fg=secondary:3
+md+hidden=none:0

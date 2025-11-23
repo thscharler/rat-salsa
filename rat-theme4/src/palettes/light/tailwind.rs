@@ -1,11 +1,11 @@
 use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
 
-/// Tailwind
+/// Tailwind Light
 const DARKNESS: u8 = 92;
 
 pub const TAILWIND: Palette = Palette {
-    name: Cow::Borrowed("Tailwind"),
+    name: Cow::Borrowed("Tailwind Light"),
 
     color: [
         Palette::interpolate2(0xccc9c7, 0xeaeaff, 0x0, 0x0),
@@ -44,14 +44,15 @@ pub const TAILWIND: Palette = Palette {
         define_alias("header.bg", Colors::None, 0),
         define_alias("header.fg", Colors::Blue, 4),
         define_alias("hover.bg", Colors::Secondary, 5),
-        define_alias("input.bg", Colors::Secondary, 1),
+        define_alias("input.bg", Colors::Secondary, 0),
         define_alias("invalid.bg", Colors::Red, 1),
         define_alias("key-binding.bg", Colors::LimeGreen, 3),
         define_alias("label.fg", Colors::TextDark, 0),
+        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Secondary, 1),
         define_alias("month-header.fg", Colors::TextDark, 0),
         define_alias("popup-arrow.fg", Colors::Secondary, 4),
-        define_alias("popup-base.bg", Colors::Secondary, 0),
+        define_alias("popup-base.bg", Colors::Secondary, 1),
         define_alias("popup-border.fg", Colors::Secondary, 4),
         define_alias("select.bg", Colors::Primary, 2),
         define_alias("shadow.bg", Colors::Black, 0),
