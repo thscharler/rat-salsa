@@ -1,3 +1,9 @@
+# 2.5.1
+
+* fix: change navigation keys for Split. Cursor not
+  moves between splits and Ctrl+Cursor resizes.
+*
+
 # 2.5.0
 
 * refactor/fix: All widgets now use the same logic when

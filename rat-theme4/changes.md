@@ -1,3 +1,11 @@
+# 4.0.1
+
+* feature: add load_palette() from .pal file
+* add SunriseBreeze theme
+* add DOCUMENT class styles. alternative to CONTAINER class
+  with a slight nuance. just to make content more visible.
+* a lot of fine-tuning of the color-palettes.
+
 # 4.0.0
 
 Complete refactor of theming.

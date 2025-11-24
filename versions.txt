@@ -1,6 +1,6 @@
 Reference of crate-versions that work together:
 
-pal-edit: 1.1.0
+pal-edit: 1.2.0
 
 rat-cursor: 1.2.1
 rat-dialog: 0.8.0
@@ -17,8 +17,8 @@ rat-text: 2.4.0
 rat-theme: 0.30.0
 rat-theme2: 1.5.0
 rat-theme3: 2.3.3
-rat-theme4: 4.0.0
+rat-theme4: 4.0.1
 rat-vim: 0.1.2
-rat-widget: 2.5.0
+rat-widget: 2.5.1
 
 
