@@ -27,8 +27,8 @@ red-pink=#FDA5D5, #FF2056
 [reference]
 label.fg=text-light:0
 input.bg=secondary:1
-text-focus.bg=primary:0
-text-select.bg=primary:2
+input-focus.bg=primary:0
+input-select.bg=primary:2
 focus.bg=primary:0
 select.bg=primary:2
 disabled.bg=secondary:3

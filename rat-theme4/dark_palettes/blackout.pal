@@ -27,8 +27,8 @@ red-pink=#000000, #000000
 [reference]
 label.fg=black:0
 input.bg=black:0
-text-focus.bg=black:0
-text-select.bg=black:0
+input-focus.bg=black:0
+input-select.bg=black:0
 focus.bg=black:0
 select.bg=black:0
 disabled.bg=black:0

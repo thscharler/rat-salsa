@@ -57,6 +57,9 @@ pub fn create_fallback(name: &str, p: Palette) -> SalsaTheme {
     th.p.add_aliased(Color::CONTAINER_BASE_BG, ColorIdx::default());
     th.p.add_aliased(Color::CONTAINER_BORDER_FG, ColorIdx::default());
     th.p.add_aliased(Color::CONTAINER_ARROW_FG, ColorIdx::default());
+    th.p.add_aliased(Color::DOCUMENT_BASE_BG, ColorIdx::default());
+    th.p.add_aliased(Color::DOCUMENT_BORDER_FG, ColorIdx::default());
+    th.p.add_aliased(Color::DOCUMENT_ARROW_FG, ColorIdx::default());
     th.p.add_aliased(Color::POPUP_BASE_BG, ColorIdx::default());
     th.p.add_aliased(Color::POPUP_BORDER_FG, ColorIdx::default());
     th.p.add_aliased(Color::POPUP_ARROW_FG, ColorIdx::default());
@@ -88,6 +91,10 @@ pub fn create_fallback(name: &str, p: Palette) -> SalsaTheme {
     th.define_style(Style::CONTAINER_BASE, Style::default());
     th.define_style(Style::CONTAINER_BORDER_FG, Style::default());
     th.define_style(Style::CONTAINER_ARROW_FG, Style::default());
+
+    th.define_style(Style::DOCUMENT_BASE, Style::default());
+    th.define_style(Style::DOCUMENT_BORDER_FG, Style::default());
+    th.define_style(Style::DOCUMENT_ARROW_FG, Style::default());
 
     th.define_style(Style::POPUP_BASE, Style::default());
     th.define_style(Style::POPUP_BORDER_FG, Style::default());

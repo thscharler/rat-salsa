@@ -27,8 +27,8 @@ red-pink=#FFFFFF, #7F7F7F
 [reference]
 label.fg=white:0
 input.bg=gray:1
-text-focus.bg=primary:0
-text-select.bg=secondary:1
+input-focus.bg=primary:0
+input-select.bg=secondary:1
 focus.bg=primary:0
 select.bg=secondary:2
 disabled.bg=gray:2

@@ -27,8 +27,8 @@ red-pink=#FFFCAD, #FECDD3
 [reference]
 label.fg=white:0
 input.bg=gray:3
-text-focus.bg=primary:1
-text-select.bg=secondary:1
+input-focus.bg=primary:1
+input-select.bg=secondary:1
 focus.bg=primary:1
 select.bg=secondary:1
 disabled.bg=gray:3

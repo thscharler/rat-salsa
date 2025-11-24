@@ -1,3 +1,4 @@
+use log::debug;
 use rat_theme4::RatWidgetColor;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{
@@ -40,6 +41,20 @@ fn test_palette() {
         eprintln!();
         let pal = create_palette(pal).expect("pal");
 
+        if !pal.aliased.iter().is_sorted() {
+            dbg!(&pal.aliased);
+            let mut v = pal
+                .aliased
+                .iter()
+                .map(|v| &v.0)
+                .cloned()
+                .collect::<Vec<_>>();
+            v.sort();
+            dbg!(v);
+        }
+
+        assert!(pal.aliased.is_sorted());
+
         for n in [
             Color::LABEL_FG,
             Color::INPUT_BG,
@@ -66,6 +81,9 @@ fn test_palette() {
             Color::CONTAINER_BASE_BG,
             Color::CONTAINER_BORDER_FG,
             Color::CONTAINER_ARROW_FG,
+            Color::DOCUMENT_BASE_BG,
+            Color::DOCUMENT_BORDER_FG,
+            Color::DOCUMENT_ARROW_FG,
             Color::POPUP_BASE_BG,
             Color::POPUP_BORDER_FG,
             Color::POPUP_ARROW_FG,
@@ -121,6 +139,9 @@ fn verify_theme(th: &SalsaTheme) {
     th.style_style(Style::CONTAINER_BASE);
     th.style_style(Style::CONTAINER_BORDER_FG);
     th.style_style(Style::CONTAINER_ARROW_FG);
+    th.style_style(Style::DOCUMENT_BASE);
+    th.style_style(Style::DOCUMENT_BORDER_FG);
+    th.style_style(Style::DOCUMENT_ARROW_FG);
     th.style_style(Style::POPUP_BASE);
     th.style_style(Style::POPUP_BORDER_FG);
     th.style_style(Style::POPUP_ARROW_FG);

@@ -91,6 +91,16 @@ pub fn create_core(name: &str) -> SalsaTheme {
         th.p.fg_style_alias(Color::CONTAINER_ARROW_FG),
     );
 
+    th.define_style(Style::DOCUMENT_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(
+        Style::DOCUMENT_BORDER_FG,
+        th.p.fg_style_alias(Color::DOCUMENT_BORDER_FG),
+    );
+    th.define_style(
+        Style::DOCUMENT_ARROW_FG,
+        th.p.fg_style_alias(Color::DOCUMENT_ARROW_FG),
+    );
+
     th.define_style(Style::POPUP_BASE, th.p.fg_style(Colors::TextLight, 0));
     th.define_style(
         Style::POPUP_BORDER_FG,

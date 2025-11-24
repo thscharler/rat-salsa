@@ -229,8 +229,8 @@ impl StyleName for Style {}
 pub trait RatWidgetColor {
     const LABEL_FG: &'static str = "label.fg";
     const INPUT_BG: &'static str = "input.bg";
-    const INPUT_FOCUS_BG: &'static str = "text-focus.bg";
-    const INPUT_SELECT_BG: &'static str = "text-select.bg";
+    const INPUT_FOCUS_BG: &'static str = "input-focus.bg";
+    const INPUT_SELECT_BG: &'static str = "input-select.bg";
     const FOCUS_BG: &'static str = "focus.bg";
     const SELECT_BG: &'static str = "select.bg";
     const DISABLED_BG: &'static str = "disabled.bg";

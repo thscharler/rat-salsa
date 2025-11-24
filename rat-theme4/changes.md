@@ -1,3 +1,9 @@
+# 4.0.2
+
+* fix: rename text-select and text-focus to input-focus and
+  input-select.
+* fix: sync all themes.
+
 # 4.0.1
 
 * feature: add load_palette() from .pal file
