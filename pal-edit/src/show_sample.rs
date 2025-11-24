@@ -17,7 +17,7 @@ use rat_widget::focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
 use rat_widget::popup::Placement;
 use rat_widget::statusline::{StatusLine, StatusLineState};
-use rat_widget::tabbed::{Tabbed, TabbedState};
+use rat_widget::tabbed::{TabPlacement, Tabbed, TabbedState};
 use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout, Position, Rect};
@@ -38,6 +38,7 @@ pub struct ShowSample {
     pub dialog: SampleDialogState,
     pub split: SampleSplit,
     pub table: SampleTable,
+    pub doc_table: SampleTable,
     pub list: SampleList,
 }
 
@@ -53,6 +54,7 @@ impl ShowSample {
             dialog: Default::default(),
             split: Default::default(),
             table: Default::default(),
+            doc_table: Default::default(),
             list: Default::default(),
         };
         z.status.status(0, "... something ...");
@@ -72,6 +74,7 @@ impl ShowSample {
             Some(3) => { /*noop*/ }
             Some(4) => { /*noop*/ }
             Some(5) => { /*noop*/ }
+            Some(6) => { /*noop*/ }
             _ => {}
         }
     }
@@ -99,6 +102,9 @@ impl HasFocus for ShowSample {
                 builder.widget(&self.table);
             }
             Some(5) => {
+                builder.widget(&self.doc_table);
+            }
+            Some(6) => {
                 builder.widget(&self.list);
             }
             _ => {}
@@ -122,7 +128,8 @@ impl HasScreenCursor for ShowSample {
             Some(2) => self.dialog.screen_cursor(),
             Some(3) => self.split.screen_cursor(),
             Some(4) => self.table.screen_cursor(),
-            Some(5) => self.list.screen_cursor(),
+            Some(5) => self.doc_table.screen_cursor(),
+            Some(6) => self.list.screen_cursor(),
             _ => None,
         }
     }
@@ -192,10 +199,11 @@ pub fn render(
     menu.render(l0[3], buf, &mut state.menu);
 
     Tabbed::new()
-        .tabs(["Input", "Text", "Dialog", "Split", "Table", "List"])
+        .tabs(["Input", "Text", "Dialog", "Split", "Table", "Doc", "List"])
+        .placement(TabPlacement::Left)
         .block(
             Block::bordered()
-                .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
+                .borders(Borders::LEFT | Borders::RIGHT)
                 .border_type(BorderType::Rounded),
         )
         .styles(ctx.show_theme.style(WidgetStyle::TABBED))
@@ -221,9 +229,12 @@ pub fn render(
             sample_split::render(state.tabs.widget_area, buf, &mut state.split, ctx)?;
         }
         Some(4) => {
-            sample_table::render(state.tabs.widget_area, buf, &mut state.table, ctx)?;
+            sample_table::render(false, state.tabs.widget_area, buf, &mut state.table, ctx)?;
         }
         Some(5) => {
+            sample_table::render(true, state.tabs.widget_area, buf, &mut state.doc_table, ctx)?;
+        }
+        Some(6) => {
             sample_list::render(state.tabs.widget_area, buf, &mut state.list, ctx)?;
         }
         _ => {}
@@ -281,6 +292,9 @@ pub fn event(
             sample_table::event(event, &mut state.table, ctx)?
         }
         Some(5) => {
+            sample_table::event(event, &mut state.doc_table, ctx)?
+        }
+        Some(6) => {
             sample_list::event(event, &mut state.list, ctx)?
         }
         _ => {

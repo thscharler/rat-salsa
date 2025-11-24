@@ -1,16 +1,17 @@
 use crate::Global;
 use anyhow::Error;
 use crossterm::event::Event;
-use rat_theme4::WidgetStyle;
+use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::event::{HandleEvent, Outcome, Regular, event_flow};
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_widget::scrolled::Scroll;
 use rat_widget::table::textdata::{Cell, Row};
-use rat_widget::table::{Table, TableState};
+use rat_widget::table::{Table, TableState, TableStyle};
 use rat_widget::text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::prelude::StatefulWidget;
+use ratatui::style::Style;
 
 #[derive(Debug)]
 pub struct SampleTable {
@@ -46,11 +47,17 @@ impl Default for SampleTable {
 }
 
 pub fn render(
+    doc: bool,
     area: Rect,
     buf: &mut Buffer,
     state: &mut SampleTable,
     ctx: &mut Global,
 ) -> Result<(), Error> {
+    let mut style = ctx.show_theme.style::<TableStyle>(WidgetStyle::TABLE);
+    if doc {
+        style.style = ctx.show_theme.style_style(Style::DOCUMENT_BASE);
+    }
+
     Table::new_ratatui(
         [
             Row::new([
@@ -137,7 +144,7 @@ pub fn render(
         Cell::new("Smoking"),
         Cell::new("Education"),
     ]))
-    .styles(ctx.show_theme.style(WidgetStyle::TABLE))
+    .styles(style)
     .layout_column_widths()
     .render(area, buf, &mut state.table);
 

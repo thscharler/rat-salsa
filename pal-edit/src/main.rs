@@ -852,6 +852,7 @@ fn create_edit_theme(state: &Scenery) -> SalsaTheme {
     let palette = state.edit.palette();
     match state.detail.show.themes.value().as_str() {
         "Shell" => themes::create_shell("Shell", palette),
+        "Fallback" => themes::create_fallback("Fallback", palette),
         _ => themes::create_dark("Dark", palette),
     }
 }
