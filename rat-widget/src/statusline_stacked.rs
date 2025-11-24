@@ -136,16 +136,16 @@ impl<'a> StatusLineStacked<'a> {
 impl<'a> Widget for StatusLineStacked<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let mut x_end = area.right();
-        for (status, gap) in self.right.iter() {
+        for (status, gap) in self.right {
             let width = status.width() as u16;
-            status.render(
+            status.style(self.style).render(
                 Rect::new(x_end.saturating_sub(width), area.y, width, 1),
                 buf,
             );
             x_end = x_end.saturating_sub(width);
 
             let width = gap.width() as u16;
-            gap.render(
+            gap.style(self.style).render(
                 Rect::new(x_end.saturating_sub(width), area.y, width, 1),
                 buf,
             );
@@ -153,16 +153,20 @@ impl<'a> Widget for StatusLineStacked<'a> {
         }
 
         let mut x_start = area.x;
-        for (status, gap) in self.left.iter() {
+        for (status, gap) in self.left {
             let width = status.width() as u16;
-            status.render(Rect::new(x_start, area.y, width, 1), buf);
+            status
+                .style(self.style)
+                .render(Rect::new(x_start, area.y, width, 1), buf);
             x_start += width;
 
             let width = gap.width() as u16;
-            gap.render(Rect::new(x_start, area.y, width, 1), buf);
+            gap.style(self.style)
+                .render(Rect::new(x_start, area.y, width, 1), buf);
             x_start += width;
         }
 
+        // middle area
         buf.set_style(
             Rect::new(x_start, area.y, x_end.saturating_sub(x_start), 1),
             self.style,
@@ -171,8 +175,7 @@ impl<'a> Widget for StatusLineStacked<'a> {
         let center_width = x_end
             .saturating_sub(x_start)
             .saturating_sub(self.center_margin * 2);
-
-        self.center.render(
+        self.center.style(self.style).render(
             Rect::new(x_start + self.center_margin, area.y, center_width, 1),
             buf,
         );
