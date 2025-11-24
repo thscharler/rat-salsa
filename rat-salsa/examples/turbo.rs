@@ -608,11 +608,11 @@ pub mod theme {
             th.p.high_contrast(p.color(Colors::Secondary, 1)),
         );
         th.define_style(
-            Style::TEXT_FOCUS,
+            Style::INPUT_FOCUS,
             th.p.high_contrast(p.color(Colors::Primary, 0)),
         );
         th.define_style(
-            Style::TEXT_SELECT,
+            Style::INPUT_SELECT,
             th.p.high_contrast(p.color(Colors::Secondary, 0)),
         );
         th.define_style(
@@ -681,7 +681,7 @@ pub mod theme {
         TextStyle {
             style: th.style(Style::DATA),
             focus: Some(th.style(Style::FOCUS)),
-            select: Some(th.style(Style::TEXT_SELECT)),
+            select: Some(th.style(Style::INPUT_SELECT)),
             ..Default::default()
         }
     }
