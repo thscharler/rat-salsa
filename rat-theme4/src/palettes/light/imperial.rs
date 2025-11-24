@@ -1,13 +1,13 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Imperial Light
 /// Uses purple and gold for primary/secondary.
 /// Other colors are bright, strong and slightly smudged.
 const DARKNESS: u8 = 63;
 
-pub const IMPERIAL: Palette = Palette {
-    name: Cow::Borrowed("Imperial Light"),
+pub const IMPERIAL_LIGHT: Palette = Palette {
+    name: Cow::Borrowed("Imperial Light"), 
 
     color: [
         Palette::interpolate2(0xdedfe3, 0xf6f6f3, 0x0, 0x0),
@@ -40,6 +40,9 @@ pub const IMPERIAL: Palette = Palette {
         define_alias("dialog-base.bg", Colors::Gray, 3),
         define_alias("dialog-border.fg", Colors::TextDark, 0),
         define_alias("disabled.bg", Colors::Gray, 7),
+        define_alias("document-arrow.fg", Colors::Black, 3),
+        define_alias("document-base.bg", Colors::Gray, 0),
+        define_alias("document-border.fg", Colors::Black, 3),
         define_alias("focus.bg", Colors::Primary, 1),
         define_alias("footer.bg", Colors::BlueGreen, 0),
         define_alias("footer.fg", Colors::TextLight, 0),
@@ -50,7 +53,6 @@ pub const IMPERIAL: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 1),
         define_alias("key-binding.bg", Colors::BlueGreen, 0),
         define_alias("label.fg", Colors::TextLight, 0),
-        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Gray, 2),
         define_alias("month-header.fg", Colors::White, 0),
         define_alias("popup-arrow.fg", Colors::Black, 3),
@@ -66,3 +68,4 @@ pub const IMPERIAL: Palette = Palette {
         define_alias("week-header.fg", Colors::Black, 0),
     ]),
 };
+

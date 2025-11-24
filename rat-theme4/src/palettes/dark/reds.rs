@@ -1,11 +1,11 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Reds
 const DARKNESS: u8 = 63;
 
 pub const REDS: Palette = Palette {
-    name: Cow::Borrowed("Reds"),
+    name: Cow::Borrowed("Reds"), 
 
     color: [
         Palette::interpolate2(0xcfafaf, 0xe2cfcf, 0x0, 0x0),
@@ -38,6 +38,9 @@ pub const REDS: Palette = Palette {
         define_alias("dialog-base.bg", Colors::Gray, 2),
         define_alias("dialog-border.fg", Colors::None, 0),
         define_alias("disabled.bg", Colors::Gray, 3),
+        define_alias("document-arrow.fg", Colors::None, 0),
+        define_alias("document-base.bg", Colors::Black, 2),
+        define_alias("document-border.fg", Colors::None, 0),
         define_alias("focus.bg", Colors::Primary, 1),
         define_alias("footer.bg", Colors::Black, 1),
         define_alias("footer.fg", Colors::Blue, 2),
@@ -63,3 +66,4 @@ pub const REDS: Palette = Palette {
         define_alias("week-header.fg", Colors::None, 0),
     ]),
 };
+

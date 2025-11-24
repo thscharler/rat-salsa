@@ -1,11 +1,11 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Tailwind Light
 const DARKNESS: u8 = 92;
 
-pub const TAILWIND: Palette = Palette {
-    name: Cow::Borrowed("Tailwind Light"),
+pub const TAILWIND_LIGHT: Palette = Palette {
+    name: Cow::Borrowed("Tailwind Light"), 
 
     color: [
         Palette::interpolate2(0xccc9c7, 0xeaeaff, 0x0, 0x0),
@@ -38,6 +38,9 @@ pub const TAILWIND: Palette = Palette {
         define_alias("dialog-base.bg", Colors::Secondary, 1),
         define_alias("dialog-border.fg", Colors::Secondary, 3),
         define_alias("disabled.bg", Colors::Secondary, 4),
+        define_alias("document-arrow.fg", Colors::Gray, 4),
+        define_alias("document-base.bg", Colors::Secondary, 1),
+        define_alias("document-border.fg", Colors::Gray, 4),
         define_alias("focus.bg", Colors::Primary, 0),
         define_alias("footer.bg", Colors::None, 0),
         define_alias("footer.fg", Colors::Blue, 4),
@@ -48,11 +51,10 @@ pub const TAILWIND: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 1),
         define_alias("key-binding.bg", Colors::LimeGreen, 3),
         define_alias("label.fg", Colors::TextDark, 0),
-        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Secondary, 1),
         define_alias("month-header.fg", Colors::TextDark, 0),
         define_alias("popup-arrow.fg", Colors::Secondary, 4),
-        define_alias("popup-base.bg", Colors::Secondary, 1),
+        define_alias("popup-base.bg", Colors::Gray, 1),
         define_alias("popup-border.fg", Colors::Secondary, 4),
         define_alias("select.bg", Colors::Primary, 2),
         define_alias("shadow.bg", Colors::Black, 0),
@@ -64,3 +66,4 @@ pub const TAILWIND: Palette = Palette {
         define_alias("week-header.fg", Colors::Blue, 4),
     ]),
 };
+

@@ -13,8 +13,8 @@ mod rust;
 mod sunrisebreeze;
 mod tailwind;
 
-pub use everforest::EVERFOREST;
-pub use imperial::IMPERIAL;
-pub use rust::RUST;
-pub use sunrisebreeze::SUNRISEBREEZE;
-pub use tailwind::TAILWIND;
+pub use everforest::EVERFOREST_LIGHT;
+pub use imperial::IMPERIAL_LIGHT;
+pub use rust::RUST_LIGHT;
+pub use sunrisebreeze::SUNRISEBREEZE_LIGHT;
+pub use tailwind::TAILWIND_LIGHT;

@@ -523,11 +523,11 @@ pub fn create_palette(name: &str) -> Option<palette::Palette> {
         "Blackout" => Some(dark::BLACKOUT),
         "Shell" => Some(core::SHELL),
 
-        "Imperial Light" => Some(light::IMPERIAL),
-        "EverForest Light" => Some(light::EVERFOREST),
-        "Tailwind Light" => Some(light::TAILWIND),
-        "Rust Light" => Some(light::RUST),
-        "SunriseBreeze Light" => Some(light::SUNRISEBREEZE),
+        "Imperial Light" => Some(light::IMPERIAL_LIGHT),
+        "EverForest Light" => Some(light::EVERFOREST_LIGHT),
+        "Tailwind Light" => Some(light::TAILWIND_LIGHT),
+        "Rust Light" => Some(light::RUST_LIGHT),
+        "SunriseBreeze Light" => Some(light::SUNRISEBREEZE_LIGHT),
         _ => None,
     }
 }

@@ -1,11 +1,11 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
-/// SunriseBreeze
+/// SunriseBreeze Light
 const DARKNESS: u8 = 128;
 
-pub const SUNRISEBREEZE: Palette = Palette {
-    name: Cow::Borrowed("SunriseBreeze Light"),
+pub const SUNRISEBREEZE_LIGHT: Palette = Palette {
+    name: Cow::Borrowed("SunriseBreeze Light"), 
 
     color: [
         Palette::interpolate2(0xebebeb, 0xffffff, 0x0, 0x0),
@@ -30,14 +30,17 @@ pub const SUNRISEBREEZE: Palette = Palette {
     ],
     // must be sorted!
     aliased: Cow::Borrowed(&[
-        define_alias("button-base.bg", Colors::Gray, 0),
+        define_alias("button-base.bg", Colors::Gray, 2),
         define_alias("container-arrow.fg", Colors::Primary, 7),
         define_alias("container-base.bg", Colors::Gray, 1),
         define_alias("container-border.fg", Colors::Primary, 7),
         define_alias("dialog-arrow.fg", Colors::Gray, 6),
-        define_alias("dialog-base.bg", Colors::Gray, 2),
+        define_alias("dialog-base.bg", Colors::Gray, 0),
         define_alias("dialog-border.fg", Colors::Gray, 6),
         define_alias("disabled.bg", Colors::Gray, 3),
+        define_alias("document-arrow.fg", Colors::Primary, 7),
+        define_alias("document-base.bg", Colors::Gray, 0),
+        define_alias("document-border.fg", Colors::Primary, 7),
         define_alias("focus.bg", Colors::Primary, 1),
         define_alias("footer.bg", Colors::None, 0),
         define_alias("footer.fg", Colors::Blue, 4),
@@ -63,3 +66,4 @@ pub const SUNRISEBREEZE: Palette = Palette {
         define_alias("week-header.fg", Colors::Secondary, 7),
     ]),
 };
+

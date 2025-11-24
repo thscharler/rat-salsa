@@ -87,6 +87,19 @@ pub fn create_dark(name: &str, p: Palette) -> SalsaTheme {
         th.p.fg_bg_style_alias(Color::CONTAINER_ARROW_FG, Color::CONTAINER_BASE_BG),
     );
 
+    th.define_style(
+        Style::DOCUMENT_BASE,
+        th.p.style_alias(Color::DOCUMENT_BASE_BG),
+    );
+    th.define_style(
+        Style::DOCUMENT_BORDER_FG,
+        th.p.fg_bg_style_alias(Color::DOCUMENT_BORDER_FG, Color::DOCUMENT_BASE_BG),
+    );
+    th.define_style(
+        Style::DOCUMENT_ARROW_FG,
+        th.p.fg_bg_style_alias(Color::DOCUMENT_ARROW_FG, Color::DOCUMENT_BASE_BG),
+    );
+
     th.define_style(Style::POPUP_BASE, th.p.style_alias(Color::POPUP_BASE_BG));
     th.define_style(
         Style::POPUP_BORDER_FG,

@@ -1,11 +1,11 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Tailwind
 const DARKNESS: u8 = 92;
 
 pub const TAILWIND: Palette = Palette {
-    name: Cow::Borrowed("Tailwind"),
+    name: Cow::Borrowed("Tailwind"), 
 
     color: [
         Palette::interpolate2(0xccc9c7, 0xeaeaff, 0x0, 0x0),
@@ -38,6 +38,9 @@ pub const TAILWIND: Palette = Palette {
         define_alias("dialog-base.bg", Colors::Secondary, 5),
         define_alias("dialog-border.fg", Colors::Secondary, 2),
         define_alias("disabled.bg", Colors::Secondary, 3),
+        define_alias("document-arrow.fg", Colors::Gray, 3),
+        define_alias("document-base.bg", Colors::Secondary, 6),
+        define_alias("document-border.fg", Colors::Gray, 4),
         define_alias("focus.bg", Colors::Primary, 0),
         define_alias("footer.bg", Colors::None, 0),
         define_alias("footer.fg", Colors::Secondary, 2),
@@ -63,3 +66,4 @@ pub const TAILWIND: Palette = Palette {
         define_alias("week-header.fg", Colors::Secondary, 2),
     ]),
 };
+
