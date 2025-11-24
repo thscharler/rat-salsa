@@ -68,7 +68,7 @@ impl HasScreenCursor for ShowOrBase46 {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         match self.tabs.selected() {
             Some(0) => self.show.screen_cursor(),
-            Some(2) => self.foreign.screen_cursor(),
+            Some(1) => self.foreign.screen_cursor(),
             _ => None,
         }
     }
