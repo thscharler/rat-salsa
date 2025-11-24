@@ -82,8 +82,8 @@ fn test_static() {
             define_alias(Color::SELECT_BG, Colors::Secondary, 0),
             define_alias(Color::SHADOW_BG, Colors::TextDark, 0),
             define_alias(Color::STATUS_BASE_BG, Colors::Black, 0),
-            define_alias(Color::TEXT_FOCUS_BG, Colors::Primary, 0),
-            define_alias(Color::TEXT_SELECT_BG, Colors::Secondary, 0),
+            define_alias(Color::INPUT_FOCUS_BG, Colors::Primary, 0),
+            define_alias(Color::INPUT_SELECT_BG, Colors::Secondary, 0),
             define_alias(Color::TITLE_BG, Colors::Red, 0),
             define_alias(Color::TITLE_FG, Colors::TextLight, 0),
             define_alias(Color::WEEK_HEADER_FG, Colors::TextDark, 0),
@@ -122,8 +122,12 @@ fn test_runtime() {
     aliased.push(define_rt_alias(Color::SELECT_BG, Colors::Secondary, 0));
     aliased.push(define_rt_alias(Color::SHADOW_BG, Colors::TextDark, 0));
     aliased.push(define_rt_alias(Color::STATUS_BASE_BG, Colors::Black, 0));
-    aliased.push(define_rt_alias(Color::TEXT_FOCUS_BG, Colors::Primary, 0));
-    aliased.push(define_rt_alias(Color::TEXT_SELECT_BG, Colors::Secondary, 0));
+    aliased.push(define_rt_alias(Color::INPUT_FOCUS_BG, Colors::Primary, 0));
+    aliased.push(define_rt_alias(
+        Color::INPUT_SELECT_BG,
+        Colors::Secondary,
+        0,
+    ));
     aliased.push(define_rt_alias(Color::TITLE_BG, Colors::Red, 0));
     aliased.push(define_rt_alias(Color::TITLE_FG, Colors::TextLight, 0));
     aliased.push(define_rt_alias(Color::WEEK_HEADER_FG, Colors::TextDark, 0));

@@ -66,8 +66,8 @@ pub fn create_dark(name: &str, p: Palette) -> SalsaTheme {
         th.p.fg_style_alias(Color::MONTH_HEADER_FG),
     );
     th.define_style(Style::SHADOWS, th.p.style_alias(Color::SHADOW_BG));
-    th.define_style(Style::TEXT_FOCUS, th.p.style_alias(Color::TEXT_FOCUS_BG));
-    th.define_style(Style::TEXT_SELECT, th.p.style_alias(Color::SELECT_BG));
+    th.define_style(Style::INPUT_FOCUS, th.p.style_alias(Color::INPUT_FOCUS_BG));
+    th.define_style(Style::INPUT_SELECT, th.p.style_alias(Color::SELECT_BG));
     th.define_style(Style::KEY_BINDING, th.p.style_alias(Color::KEY_BINDING_BG));
 
     th.define_style(Style::BUTTON_BASE, th.p.style_alias(Color::BUTTON_BASE_BG));
@@ -155,7 +155,7 @@ fn button(th: &SalsaTheme) -> ButtonStyle {
 fn checkbox(th: &SalsaTheme) -> CheckboxStyle {
     CheckboxStyle {
         style: th.style(Style::INPUT),
-        focus: Some(th.style(Style::TEXT_FOCUS)),
+        focus: Some(th.style(Style::INPUT_FOCUS)),
         ..Default::default()
     }
 }
@@ -171,8 +171,8 @@ fn combobox(th: &SalsaTheme) -> ComboboxStyle {
 fn choice(th: &SalsaTheme) -> ChoiceStyle {
     ChoiceStyle {
         style: th.style(Style::INPUT),
-        select: Some(th.style(Style::TEXT_SELECT)),
-        focus: Some(th.style(Style::TEXT_FOCUS)),
+        select: Some(th.style(Style::INPUT_SELECT)),
+        focus: Some(th.style(Style::INPUT_FOCUS)),
         popup_style: Some(th.style(Style::POPUP_BASE)),
         popup_border: Some(th.style(Style::POPUP_BORDER_FG)),
         popup_scroll: Some(th.style(WidgetStyle::SCROLL_POPUP)),
@@ -238,7 +238,7 @@ fn form(th: &SalsaTheme) -> FormStyle {
 fn line_nr(th: &SalsaTheme) -> LineNumberStyle {
     LineNumberStyle {
         style: th.style(Style::CONTAINER_BORDER_FG),
-        cursor: Some(th.style(Style::TEXT_SELECT)),
+        cursor: Some(th.style(Style::INPUT_SELECT)),
         ..LineNumberStyle::default()
     }
 }
@@ -307,7 +307,7 @@ fn radio(th: &SalsaTheme) -> RadioStyle {
     RadioStyle {
         layout: Some(RadioLayout::Stacked),
         style: th.style(Style::INPUT),
-        focus: Some(th.style(Style::TEXT_FOCUS)),
+        focus: Some(th.style(Style::INPUT_FOCUS)),
         ..Default::default()
     }
 }
@@ -386,8 +386,8 @@ fn slider(th: &SalsaTheme) -> SliderStyle {
     SliderStyle {
         style: th.style(Style::INPUT),
         bounds: Some(th.style(Style::INPUT)),
-        knob: Some(th.style(Style::TEXT_SELECT)),
-        focus: Some(th.style(Style::TEXT_FOCUS)),
+        knob: Some(th.style(Style::INPUT_SELECT)),
+        focus: Some(th.style(Style::INPUT_FOCUS)),
         text_align: Some(Alignment::Center),
         ..Default::default()
     }
@@ -444,8 +444,8 @@ fn color_input(th: &SalsaTheme) -> ColorInputStyle {
     ColorInputStyle {
         text: TextStyle {
             style: th.style(Style::INPUT),
-            focus: Some(th.style(Style::TEXT_FOCUS)),
-            select: Some(th.style(Style::TEXT_SELECT)),
+            focus: Some(th.style(Style::INPUT_FOCUS)),
+            select: Some(th.style(Style::INPUT_SELECT)),
             invalid: Some(th.style(Style::INVALID)),
             ..TextStyle::default()
         },
@@ -456,8 +456,8 @@ fn color_input(th: &SalsaTheme) -> ColorInputStyle {
 fn text(th: &SalsaTheme) -> TextStyle {
     TextStyle {
         style: th.style(Style::INPUT),
-        focus: Some(th.style(Style::TEXT_FOCUS)),
-        select: Some(th.style(Style::TEXT_SELECT)),
+        focus: Some(th.style(Style::INPUT_FOCUS)),
+        select: Some(th.style(Style::INPUT_SELECT)),
         invalid: Some(th.style(Style::INVALID)),
         ..TextStyle::default()
     }
@@ -467,7 +467,7 @@ fn textarea(th: &SalsaTheme) -> TextStyle {
     TextStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::INPUT)),
-        select: Some(th.style(Style::TEXT_SELECT)),
+        select: Some(th.style(Style::INPUT_SELECT)),
         scroll: Some(th.style(WidgetStyle::SCROLL)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()
@@ -478,7 +478,7 @@ fn textview(th: &SalsaTheme) -> TextStyle {
     TextStyle {
         style: th.style(Style::CONTAINER_BASE),
         focus: Some(th.style(Style::CONTAINER_BASE)),
-        select: Some(th.style(Style::TEXT_SELECT)),
+        select: Some(th.style(Style::INPUT_SELECT)),
         scroll: Some(th.style(WidgetStyle::SCROLL)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..TextStyle::default()

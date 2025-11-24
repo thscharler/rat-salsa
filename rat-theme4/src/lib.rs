@@ -173,19 +173,23 @@ impl WidgetStyle {
 pub trait StyleName {
     const LABEL_FG: &'static str = "label-fg";
     const INPUT: &'static str = "input";
+    const INPUT_FOCUS: &'static str = "text-focus";
+    const INPUT_SELECT: &'static str = "text-select";
     const FOCUS: &'static str = "focus";
     const SELECT: &'static str = "select";
     const DISABLED: &'static str = "disabled";
     const INVALID: &'static str = "invalid";
-    const HOVER: &'static str = "hover";
+
     const TITLE: &'static str = "title";
     const HEADER: &'static str = "header";
     const FOOTER: &'static str = "footer";
+
+    const HOVER: &'static str = "hover";
     const SHADOWS: &'static str = "shadows";
+
     const WEEK_HEADER_FG: &'static str = "week-header-fg";
     const MONTH_HEADER_FG: &'static str = "month-header-fg";
-    const TEXT_FOCUS: &'static str = "text-focus";
-    const TEXT_SELECT: &'static str = "text-select";
+
     const KEY_BINDING: &'static str = "key-binding";
     const BUTTON_BASE: &'static str = "button-base";
     const MENU_BASE: &'static str = "menu-base";
@@ -194,6 +198,10 @@ pub trait StyleName {
     const CONTAINER_BASE: &'static str = "container-base";
     const CONTAINER_BORDER_FG: &'static str = "container-border-fg";
     const CONTAINER_ARROW_FG: &'static str = "container-arrows-fg";
+
+    const DOCUMENT_BASE: &'static str = "document-base";
+    const DOCUMENT_BORDER_FG: &'static str = "document-border-fg";
+    const DOCUMENT_ARROW_FG: &'static str = "document-arrows-fg";
 
     const POPUP_BASE: &'static str = "popup-base";
     const POPUP_BORDER_FG: &'static str = "popup-border-fg";
@@ -221,29 +229,36 @@ impl StyleName for Style {}
 pub trait RatWidgetColor {
     const LABEL_FG: &'static str = "label.fg";
     const INPUT_BG: &'static str = "input.bg";
+    const INPUT_FOCUS_BG: &'static str = "text-focus.bg";
+    const INPUT_SELECT_BG: &'static str = "text-select.bg";
     const FOCUS_BG: &'static str = "focus.bg";
     const SELECT_BG: &'static str = "select.bg";
     const DISABLED_BG: &'static str = "disabled.bg";
     const INVALID_BG: &'static str = "invalid.bg";
-    const HOVER_BG: &'static str = "hover.bg";
+
     const TITLE_FG: &'static str = "title.fg";
     const TITLE_BG: &'static str = "title.bg";
     const HEADER_FG: &'static str = "header.fg";
     const HEADER_BG: &'static str = "header.bg";
     const FOOTER_FG: &'static str = "footer.fg";
     const FOOTER_BG: &'static str = "footer.bg";
+
+    const HOVER_BG: &'static str = "hover.bg";
+    const BUTTON_BASE_BG: &'static str = "button-base.bg";
+    const KEY_BINDING_BG: &'static str = "key-binding.bg";
+    const MENU_BASE_BG: &'static str = "menu-base.bg";
+    const STATUS_BASE_BG: &'static str = "status-base.bg";
     const SHADOW_BG: &'static str = "shadow.bg";
+
     const WEEK_HEADER_FG: &'static str = "week-header.fg";
     const MONTH_HEADER_FG: &'static str = "month-header.fg";
-    const TEXT_FOCUS_BG: &'static str = "text-focus.bg";
-    const TEXT_SELECT_BG: &'static str = "text-select.bg";
-    const BUTTON_BASE_BG: &'static str = "button-base.bg";
-    const MENU_BASE_BG: &'static str = "menu-base.bg";
-    const KEY_BINDING_BG: &'static str = "key-binding.bg";
-    const STATUS_BASE_BG: &'static str = "status-base.bg";
+
     const CONTAINER_BASE_BG: &'static str = "container-base.bg";
     const CONTAINER_BORDER_FG: &'static str = "container-border.fg";
     const CONTAINER_ARROW_FG: &'static str = "container-arrow.fg";
+    const DOCUMENT_BASE_BG: &'static str = "document-base.bg";
+    const DOCUMENT_BORDER_FG: &'static str = "document-border.fg";
+    const DOCUMENT_ARROW_FG: &'static str = "document-arrow.fg";
     const POPUP_BASE_BG: &'static str = "popup-base.bg";
     const POPUP_BORDER_FG: &'static str = "popup-border.fg";
     const POPUP_ARROW_FG: &'static str = "popup-arrow.fg";

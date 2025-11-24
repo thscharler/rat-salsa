@@ -48,8 +48,8 @@ pub fn create_fallback(name: &str, p: Palette) -> SalsaTheme {
     th.p.add_aliased(Color::SHADOW_BG, ColorIdx::default());
     th.p.add_aliased(Color::WEEK_HEADER_FG, ColorIdx::default());
     th.p.add_aliased(Color::MONTH_HEADER_FG, ColorIdx::default());
-    th.p.add_aliased(Color::TEXT_FOCUS_BG, ColorIdx::default());
-    th.p.add_aliased(Color::TEXT_SELECT_BG, ColorIdx::default());
+    th.p.add_aliased(Color::INPUT_FOCUS_BG, ColorIdx::default());
+    th.p.add_aliased(Color::INPUT_SELECT_BG, ColorIdx::default());
     th.p.add_aliased(Color::BUTTON_BASE_BG, ColorIdx::default());
     th.p.add_aliased(Color::MENU_BASE_BG, ColorIdx::default());
     th.p.add_aliased(Color::KEY_BINDING_BG, ColorIdx::default());
@@ -77,8 +77,8 @@ pub fn create_fallback(name: &str, p: Palette) -> SalsaTheme {
     th.define_style(Style::SHADOWS, Style::default());
     th.define_style(Style::WEEK_HEADER_FG, Style::default());
     th.define_style(Style::MONTH_HEADER_FG, Style::default());
-    th.define_style(Style::TEXT_FOCUS, Style::default());
-    th.define_style(Style::TEXT_SELECT, Style::default());
+    th.define_style(Style::INPUT_FOCUS, Style::default());
+    th.define_style(Style::INPUT_SELECT, Style::default());
     th.define_style(Style::KEY_BINDING, Style::default());
 
     th.define_style(Style::BUTTON_BASE, Style::default());

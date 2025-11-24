@@ -57,8 +57,8 @@ fn test_palette() {
             Color::SHADOW_BG,
             Color::WEEK_HEADER_FG,
             Color::MONTH_HEADER_FG,
-            Color::TEXT_FOCUS_BG,
-            Color::TEXT_SELECT_BG,
+            Color::INPUT_FOCUS_BG,
+            Color::INPUT_SELECT_BG,
             Color::BUTTON_BASE_BG,
             Color::MENU_BASE_BG,
             Color::KEY_BINDING_BG,
@@ -112,8 +112,8 @@ fn verify_theme(th: &SalsaTheme) {
     th.style_style(Style::SHADOWS);
     th.style_style(Style::WEEK_HEADER_FG);
     th.style_style(Style::MONTH_HEADER_FG);
-    th.style_style(Style::TEXT_FOCUS);
-    th.style_style(Style::TEXT_SELECT);
+    th.style_style(Style::INPUT_FOCUS);
+    th.style_style(Style::INPUT_SELECT);
     th.style_style(Style::KEY_BINDING);
     th.style_style(Style::BUTTON_BASE);
     th.style_style(Style::MENU_BASE);
