@@ -49,34 +49,19 @@ use std::env::args;
 use std::fs::{File, create_dir_all};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::process::exit;
 use std::rc::Rc;
 use std::{array, fs};
 use try_as_traits::TryAsRef;
 
 fn main() -> Result<(), Error> {
-    let mut extra_alias = Vec::new();
-    let mut args = args();
-    _ = args.next();
-    if let Some(attr_file) = args.next() {
-        let path = PathBuf::from(attr_file);
-        let path = path.canonicalize()?;
-
-        let mut buf = String::new();
-
-        let mut f = File::open(path)?;
-        f.read_to_string(&mut buf)?;
-
-        for l in buf.lines() {
-            extra_alias.push(l.trim().to_string());
-        }
-    }
+    let arg = parse_arg();
 
     setup_logging()?;
     set_global_clipboard(CliClipboard::default());
-    let config = Config::load()?;
 
+    let config = Config::load(arg.0, arg.1)?;
     let theme = create_theme("Shell");
-
     let mut global = Global::new(config, theme);
     let mut state = Scenery::new(&global.cfg);
 
@@ -93,6 +78,47 @@ fn main() -> Result<(), Error> {
     )?;
 
     Ok(())
+}
+
+fn parse_arg() -> (Option<PathBuf>, Option<PathBuf>) {
+    let mut open_pal_path = None;
+    let mut extra_alias_path = None;
+
+    let mut args = args();
+    _ = args.next();
+
+    enum S {
+        Start,
+        Alias,
+        Fail,
+    }
+    let mut s = S::Start;
+    for arg in args {
+        match s {
+            S::Start => {
+                if arg == "--alias" {
+                    s = S::Alias
+                } else if open_pal_path.is_none() {
+                    open_pal_path = Some(arg.into());
+                } else {
+                    s = S::Fail;
+                }
+            }
+            S::Alias => {
+                if extra_alias_path.is_none() {
+                    extra_alias_path = Some(arg.into());
+                } else {
+                    s = S::Fail;
+                }
+            }
+            S::Fail => {
+                eprintln!("pal-edit palette.pal [--alias custom_aliases]");
+                exit(1)
+            }
+        }
+    }
+
+    (open_pal_path, extra_alias_path)
 }
 
 /// Globally accessible data/state.
@@ -138,7 +164,9 @@ impl Global {
 #[derive(Debug, Default)]
 pub struct Config {
     pub loc: Locale,
+    pub open_path: Option<PathBuf>,
     pub extra_alias: Vec<String>,
+    pub extra_alias2: Vec<String>,
 }
 
 impl Config {
@@ -146,10 +174,14 @@ impl Config {
         let mut r = Vec::new();
         r.extend(rat_widget_color_names().iter().map(|v| v.to_string()));
         r.extend(self.extra_alias.iter().cloned());
+        r.extend(self.extra_alias2.iter().cloned());
         r
     }
 
-    pub fn load() -> Result<Config, Error> {
+    pub fn load(
+        open_path: Option<PathBuf>,
+        extra_alias_path: Option<PathBuf>,
+    ) -> Result<Config, Error> {
         let loc = sys_locale::get_locale().expect("locale");
         let loc = loc.replace("-", "_");
         let loc = Locale::try_from(loc.as_str()).expect("locale");
@@ -190,7 +222,35 @@ impl Config {
             Vec::new()
         };
 
-        Ok(Config { loc, extra_alias })
+        let extra_alias2 = if let Some(extra_alias_path) = extra_alias_path {
+            let mut ini = Ini::new();
+            match ini.load(extra_alias_path) {
+                Ok(_) => {}
+                Err(e) => {
+                    return Err(anyhow!(e));
+                }
+            }
+
+            let mut aliases = Vec::new();
+            if let Some(map) = ini.get_map_ref().get("aliases") {
+                for alias in map.keys() {
+                    aliases.push(alias.trim().into());
+                }
+            }
+            if let Some(map) = ini.get_map_ref().get("default") {
+                for alias in map.keys() {
+                    aliases.push(alias.trim().into());
+                }
+            }
+            aliases
+        };
+
+        Ok(Config {
+            loc,
+            open_path,
+            extra_alias,
+            extra_alias2,
+        })
     }
 }
 
@@ -203,8 +263,9 @@ pub enum PalEvent {
     Message(String),
     Save(PathBuf),
     Load(PathBuf),
-    Export(PathBuf),
-    Base46(PathBuf),
+    ExportRs(PathBuf),
+    ExportPatch(PathBuf),
+    ImportColors(PathBuf),
     ContainerBase(ColorIdx),
 }
 
@@ -332,10 +393,11 @@ fn render_menu(
         .item_parsed("_New")
         .item_parsed("_Load")
         .item_parsed("_Save")
-        .item_parsed("_Save as")
-        .item_parsed("_Export")
-        .item_parsed("_Extern")
-        .item_parsed("_Use46")
+        .item_parsed("_Save_as")
+        .item_parsed("_Export_rs")
+        .item_parsed("_Export_patch")
+        .item_parsed("_From_Extern")
+        .item_parsed("_Use_Base46")
         .item_parsed("_Quit")
         .render(area, buf, &mut state.menu);
     Ok(())
@@ -386,6 +448,10 @@ pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
 
     ctx.show_theme = create_edit_theme(state);
 
+    if let Some(open_path) = ctx.cfg.open_path.take() {
+        ctx.queue_event(PalEvent::Load(open_path))
+    }
+
     Ok(())
 }
 
@@ -427,10 +493,11 @@ pub fn event(
             MenuOutcome::Activated(1) => load_pal(state, ctx)?,
             MenuOutcome::Activated(2) => save_pal(state, ctx)?,
             MenuOutcome::Activated(3) => saveas_pal(state, ctx)?,
-            MenuOutcome::Activated(4) => export_pal(state, ctx)?,
-            MenuOutcome::Activated(5) => import_base46(state, ctx)?,
-            MenuOutcome::Activated(6) => use_base46(state, ctx)?,
-            MenuOutcome::Activated(7) => Control::Quit,
+            MenuOutcome::Activated(4) => export_rs(state, ctx)?,
+            MenuOutcome::Activated(5) => export_patch(state, ctx)?,
+            MenuOutcome::Activated(6) => import_colors(state, ctx)?,
+            MenuOutcome::Activated(7) => use_base46(state, ctx)?,
+            MenuOutcome::Activated(8) => Control::Quit,
             v => v.into(),
         });
 
@@ -475,8 +542,9 @@ pub fn event(
             }
             Ok(Control::Changed)
         }
-        PalEvent::Export(p) => export_pal_file(&p, state, ctx),
-        PalEvent::Base46(p) => {
+        PalEvent::ExportRs(p) => export_pal_to_rs(&p, state, ctx),
+        PalEvent::ExportPatch(p) => export_pal_to_patch(&p, state, ctx),
+        PalEvent::ImportColors(p) => {
             state.detail.tabs.select(Some(1));
             state.detail.foreign.load_from_file(&p)
         }
@@ -508,7 +576,7 @@ pub fn pal_choice(pal: Palette) -> Vec<(ColorIdx, Line<'static>)> {
         .collect::<Vec<_>>()
 }
 
-fn import_base46(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn import_colors(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_dlg_import.clone();
     s.borrow_mut().open_dialog(".")?;
     ctx.dlg.push(
@@ -521,7 +589,7 @@ fn import_base46(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEve
             ctx.theme.style(WidgetStyle::FILE_DIALOG),
         ),
         file_dialog_event(|p| match p {
-            Ok(p) => PalEvent::Base46(p),
+            Ok(p) => PalEvent::ImportColors(p),
             Err(_) => PalEvent::NoOp,
         }),
         s,
@@ -529,7 +597,7 @@ fn import_base46(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEve
     Ok(Control::Changed)
 }
 
-fn export_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn export_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_dlg_export.clone();
     s.borrow_mut()
         .save_dialog_ext(".", state.edit.file_name(), "rs")?;
@@ -543,7 +611,7 @@ fn export_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>
             ctx.theme.style(WidgetStyle::FILE_DIALOG),
         ),
         file_dialog_event(|p| match p {
-            Ok(p) => PalEvent::Export(p),
+            Ok(p) => PalEvent::ExportPatch(p),
             Err(_) => PalEvent::NoOp,
         }),
         s,
@@ -551,7 +619,38 @@ fn export_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>
     Ok(Control::Changed)
 }
 
-fn export_pal_file(
+fn export_rs(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    let s = state.file_dlg_export.clone();
+    s.borrow_mut()
+        .save_dialog_ext(".", state.edit.file_name(), "rs")?;
+    ctx.dlg.push(
+        file_dialog_render(
+            LayoutOuter::new()
+                .left(Constraint::Percentage(19))
+                .right(Constraint::Percentage(19))
+                .top(Constraint::Length(4))
+                .bottom(Constraint::Length(4)),
+            ctx.theme.style(WidgetStyle::FILE_DIALOG),
+        ),
+        file_dialog_event(|p| match p {
+            Ok(p) => PalEvent::ExportRs(p),
+            Err(_) => PalEvent::NoOp,
+        }),
+        s,
+    );
+    Ok(Control::Changed)
+}
+
+fn export_pal_to_patch(
+    path: &Path,
+    state: &mut Scenery,
+    _ctx: &mut Global,
+) -> Result<Control<PalEvent>, Error> {
+    // todo
+    Ok(Control::Continue)
+}
+
+fn export_pal_to_rs(
     path: &Path,
     state: &mut Scenery,
     _ctx: &mut Global,
