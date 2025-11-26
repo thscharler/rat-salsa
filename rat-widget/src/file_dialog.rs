@@ -7,16 +7,15 @@ use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::event::{ButtonOutcome, FileOutcome, TextOutcome};
 use crate::layout::{DialogItem, LayoutOuter, layout_as_grid};
 use crate::list::edit::{EditList, EditListState};
-use crate::list::selection::RowSelection;
+use crate::list::selection::{RowSelection, RowSetSelection};
 use crate::list::{List, ListState, ListStyle};
 use crate::util::{block_padding2, reset_buf_area};
-use crossterm::event::Event;
+use crossterm::event::{Event, MouseEvent};
 #[cfg(feature = "user_directories")]
 use dirs::{document_dir, home_dir};
-use rat_event::{
-    ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular, ct_event, event_flow,
-};
-use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, on_lost};
+use log::debug;
+use rat_event::{Dialog, HandleEvent, MouseOnly, Outcome, Regular, ct_event, event_flow};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation, on_lost};
 use rat_ftable::event::EditOutcome;
 use rat_reloc::RelocatableState;
 use rat_scrolled::Scroll;
@@ -29,6 +28,7 @@ use ratatui::text::Text;
 use ratatui::widgets::{Block, ListItem};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cmp::max;
+use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
@@ -99,8 +99,140 @@ pub struct FileDialogStyle {
 enum Mode {
     #[default]
     Open,
+    OpenMany,
     Save,
     Dir,
+}
+
+#[derive(Debug, Clone)]
+enum FileStateMode {
+    Open(ListState<RowSelection>),
+    OpenMany(ListState<RowSetSelection>),
+    Save(ListState<RowSelection>),
+    Dir(FocusFlag),
+}
+
+impl Default for FileStateMode {
+    fn default() -> Self {
+        Self::Open(Default::default())
+    }
+}
+
+impl HasFocus for FileStateMode {
+    fn build(&self, builder: &mut FocusBuilder) {
+        match self {
+            FileStateMode::Open(st) => {
+                builder.widget(st);
+            }
+            FileStateMode::OpenMany(st) => {
+                builder.widget(st);
+            }
+            FileStateMode::Save(st) => {
+                builder.widget(st);
+            }
+            FileStateMode::Dir(f) => {
+                builder.widget_navigate(f, Navigation::None);
+            }
+        }
+    }
+
+    fn focus(&self) -> FocusFlag {
+        match self {
+            FileStateMode::Open(st) => st.focus(),
+            FileStateMode::OpenMany(st) => st.focus(),
+            FileStateMode::Save(st) => st.focus(),
+            FileStateMode::Dir(f) => f.clone(),
+        }
+    }
+
+    fn area(&self) -> Rect {
+        match self {
+            FileStateMode::Open(st) => st.area(),
+            FileStateMode::OpenMany(st) => st.area(),
+            FileStateMode::Save(st) => st.area(),
+            FileStateMode::Dir(_) => Rect::default(),
+        }
+    }
+}
+
+impl FileStateMode {
+    pub(crate) fn is_double_click(&self, m: &MouseEvent) -> bool {
+        match self {
+            FileStateMode::Open(st) => st.mouse.doubleclick(st.inner, m),
+            FileStateMode::OpenMany(st) => st.mouse.doubleclick(st.inner, m),
+            FileStateMode::Save(st) => st.mouse.doubleclick(st.inner, m),
+            FileStateMode::Dir(_) => false,
+        }
+    }
+
+    pub(crate) fn set_offset(&mut self, n: usize) {
+        match self {
+            FileStateMode::Open(st) => {
+                st.set_offset(n);
+            }
+            FileStateMode::OpenMany(st) => {
+                st.set_offset(n);
+            }
+            FileStateMode::Save(st) => {
+                st.set_offset(n);
+            }
+            FileStateMode::Dir(_) => {}
+        }
+    }
+
+    pub(crate) fn first_selected(&self) -> Option<usize> {
+        match self {
+            FileStateMode::Open(st) => st.selected(),
+            FileStateMode::OpenMany(st) => st.lead(),
+            FileStateMode::Save(st) => st.selected(),
+            FileStateMode::Dir(_) => None,
+        }
+    }
+
+    pub(crate) fn selected(&self) -> HashSet<usize> {
+        match self {
+            FileStateMode::Open(st) => {
+                let mut sel = HashSet::new();
+                if let Some(v) = st.selected() {
+                    sel.insert(v);
+                }
+                sel
+            }
+            FileStateMode::OpenMany(st) => st.selected(),
+            FileStateMode::Save(st) => {
+                let mut sel = HashSet::new();
+                if let Some(v) = st.selected() {
+                    sel.insert(v);
+                }
+                sel
+            }
+            FileStateMode::Dir(_) => Default::default(),
+        }
+    }
+
+    pub(crate) fn select(&mut self, select: Option<usize>) {
+        match self {
+            FileStateMode::Open(st) => {
+                st.select(select);
+            }
+            FileStateMode::OpenMany(st) => {
+                st.set_lead(select, false);
+            }
+            FileStateMode::Save(st) => {
+                st.select(select);
+            }
+            FileStateMode::Dir(_) => {}
+        }
+    }
+
+    pub(crate) fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        match self {
+            FileStateMode::Open(st) => st.relocate(shift, clip),
+            FileStateMode::OpenMany(st) => st.relocate(shift, clip),
+            FileStateMode::Save(st) => st.relocate(shift, clip),
+            FileStateMode::Dir(_) => {}
+        }
+    }
 }
 
 /// State & event-handling.
@@ -126,7 +258,7 @@ pub struct FileDialogState {
     path_state: TextInputState,
     root_state: ListState<RowSelection>,
     dir_state: EditListState<EditDirNameState>,
-    file_state: ListState<RowSelection>,
+    file_state: FileStateMode,
     save_name_state: TextInputState,
     new_state: ButtonState,
     cancel_state: ButtonState,
@@ -154,6 +286,8 @@ pub(crate) mod event {
         Cancel,
         /// Ok
         Ok(PathBuf),
+        ///
+        OkList(Vec<PathBuf>),
     }
 
     impl ConsumedEvent for FileOutcome {
@@ -170,6 +304,7 @@ pub(crate) mod event {
                 FileOutcome::Changed => Outcome::Changed,
                 FileOutcome::Ok(_) => Outcome::Changed,
                 FileOutcome::Cancel => Outcome::Changed,
+                FileOutcome::OkList(_) => Outcome::Changed,
             }
         }
     }
@@ -206,7 +341,7 @@ impl Clone for FileDialogState {
             save_name: self.save_name.clone(),
             save_ext: self.save_ext.clone(),
             dirs: self.dirs.clone(),
-            filter: None, // todo: replicate somehow??
+            filter: None,
             files: self.files.clone(),
             no_default_roots: self.no_default_roots,
             roots: self.roots.clone(),
@@ -263,7 +398,7 @@ impl Default for FileDialogStyle {
 
 impl Default for FileDialogState {
     fn default() -> Self {
-        let mut s = Self {
+        Self {
             area: Default::default(),
             active: Default::default(),
             mode: Default::default(),
@@ -283,10 +418,7 @@ impl Default for FileDialogState {
             new_state: Default::default(),
             cancel_state: Default::default(),
             ok_state: Default::default(),
-        };
-        s.dir_state.list.set_scroll_selection(true);
-        s.file_state.set_scroll_selection(true);
-        s
+        }
     }
 }
 
@@ -472,8 +604,8 @@ impl RelocatableState for EditDirNameState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for EditDirNameState {
-    fn handle(&mut self, event: &crossterm::event::Event, qualifier: Regular) -> EditOutcome {
+impl HandleEvent<Event, Regular, EditOutcome> for EditDirNameState {
+    fn handle(&mut self, event: &Event, qualifier: Regular) -> EditOutcome {
         match self.edit_dir.handle(event, qualifier) {
             TextOutcome::Continue => EditOutcome::Continue,
             TextOutcome::Unchanged => EditOutcome::Unchanged,
@@ -483,8 +615,8 @@ impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for EditDirNameS
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome> for EditDirNameState {
-    fn handle(&mut self, event: &crossterm::event::Event, qualifier: MouseOnly) -> EditOutcome {
+impl HandleEvent<Event, MouseOnly, EditOutcome> for EditDirNameState {
+    fn handle(&mut self, event: &Event, qualifier: MouseOnly) -> EditOutcome {
         match self.edit_dir.handle(event, qualifier) {
             TextOutcome::Continue => EditOutcome::Continue,
             TextOutcome::Unchanged => EditOutcome::Unchanged,
@@ -525,6 +657,7 @@ impl StatefulWidget for FileDialog<'_> {
             block = Block::bordered()
                 .title(match state.mode {
                     Mode::Open => " Open ",
+                    Mode::OpenMany => " Open ",
                     Mode::Save => " Save ",
                     Mode::Dir => " Directory ",
                 })
@@ -551,6 +684,9 @@ impl StatefulWidget for FileDialog<'_> {
         match state.mode {
             Mode::Open => {
                 render_open(&self, layout.widget_for(DialogItem::Content), buf, state);
+            }
+            Mode::OpenMany => {
+                render_open_many(&self, layout.widget_for(DialogItem::Content), buf, state);
             }
             Mode::Save => {
                 render_save(&self, layout.widget_for(DialogItem::Content), buf, state);
@@ -674,6 +810,9 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
     )
     .render(l_grid.widget_for((1, 1)), buf, &mut state.dir_state);
 
+    let FileStateMode::Open(file_state) = &mut state.file_state else {
+        panic!("invalid mode");
+    };
     List::default()
         .items(state.files.iter().map(|v| {
             let s = v.to_string_lossy();
@@ -681,7 +820,69 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         }))
         .scroll(Scroll::new())
         .styles_opt(widget.list_style.clone())
-        .render(l_grid.widget_for((2, 1)), buf, &mut state.file_state);
+        .render(l_grid.widget_for((2, 1)), buf, file_state);
+}
+
+fn render_open_many(
+    widget: &FileDialog<'_>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut FileDialogState,
+) {
+    let l_grid = layout_as_grid(
+        area,
+        Layout::horizontal([
+            Constraint::Percentage(20),
+            Constraint::Percentage(30),
+            Constraint::Percentage(50),
+        ]),
+        Layout::new(
+            Direction::Vertical,
+            [Constraint::Length(1), Constraint::Fill(1)],
+        ),
+    );
+
+    //
+    let mut l_path = l_grid.widget_for((1, 0)).union(l_grid.widget_for((2, 0)));
+    l_path.width = l_path.width.saturating_sub(1);
+    TextInput::new()
+        .styles_opt(widget.text_style.clone())
+        .render(l_path, buf, &mut state.path_state);
+
+    List::default()
+        .items(state.roots.iter().map(|v| {
+            let s = v.0.to_string_lossy();
+            ListItem::from(format!("{}", s))
+        }))
+        .scroll(Scroll::new())
+        .styles_opt(widget.roots_style.clone())
+        .render(l_grid.widget_for((0, 1)), buf, &mut state.root_state);
+
+    EditList::new(
+        List::default()
+            .items(state.dirs.iter().map(|v| {
+                let s = v.to_string_lossy();
+                ListItem::from(s)
+            }))
+            .scroll(Scroll::new())
+            .styles_opt(widget.list_style.clone()),
+        EditDirName {
+            edit_dir: TextInput::new().styles_opt(widget.text_style.clone()),
+        },
+    )
+    .render(l_grid.widget_for((1, 1)), buf, &mut state.dir_state);
+
+    let FileStateMode::OpenMany(file_state) = &mut state.file_state else {
+        panic!("invalid mode");
+    };
+    List::default()
+        .items(state.files.iter().map(|v| {
+            let s = v.to_string_lossy();
+            ListItem::from(s)
+        }))
+        .scroll(Scroll::new())
+        .styles_opt(widget.list_style.clone())
+        .render(l_grid.widget_for((2, 1)), buf, file_state);
 }
 
 fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
@@ -732,6 +933,9 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
     )
     .render(l_grid.widget_for((1, 1)), buf, &mut state.dir_state);
 
+    let FileStateMode::Save(file_state) = &mut state.file_state else {
+        panic!("invalid mode");
+    };
     List::default()
         .items(state.files.iter().map(|v| {
             let s = v.to_string_lossy();
@@ -739,7 +943,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         }))
         .scroll(Scroll::new())
         .styles_opt(widget.list_style.clone())
-        .render(l_grid.widget_for((2, 1)), buf, &mut state.file_state);
+        .render(l_grid.widget_for((2, 1)), buf, file_state);
 
     TextInput::new()
         .styles_opt(widget.text_style.clone())
@@ -831,6 +1035,7 @@ impl FileDialogState {
 
         self.active = true;
         self.mode = Mode::Dir;
+        self.file_state = FileStateMode::Dir(FocusFlag::new());
         self.save_name = None;
         self.save_ext = None;
         self.dirs.clear();
@@ -858,6 +1063,35 @@ impl FileDialogState {
 
         self.active = true;
         self.mode = Mode::Open;
+        self.file_state = FileStateMode::Open(Default::default());
+        self.save_name = None;
+        self.save_ext = None;
+        self.dirs.clear();
+        self.files.clear();
+        self.path = Default::default();
+        if !self.no_default_roots {
+            self.clear_roots();
+            self.default_roots(path, &old_path);
+            if old_path.exists() {
+                self.set_path(&old_path)?;
+            } else {
+                self.set_path(path)?;
+            }
+        } else {
+            self.set_path(path)?;
+        }
+        self.build_focus().focus(&self.file_state);
+        Ok(())
+    }
+
+    /// Show as open-dialog with multiple selection
+    pub fn open_many_dialog(&mut self, path: impl AsRef<Path>) -> Result<(), io::Error> {
+        let path = path.as_ref();
+        let old_path = self.path.clone();
+
+        self.active = true;
+        self.mode = Mode::OpenMany;
+        self.file_state = FileStateMode::OpenMany(Default::default());
         self.save_name = None;
         self.save_ext = None;
         self.dirs.clear();
@@ -899,6 +1133,7 @@ impl FileDialogState {
 
         self.active = true;
         self.mode = Mode::Save;
+        self.file_state = FileStateMode::Save(Default::default());
         self.save_name = Some(OsString::from(name.as_ref()));
         self.save_ext = Some(OsString::from(ext.as_ref()));
         self.dirs.clear();
@@ -1059,14 +1294,14 @@ impl FileDialogState {
 
     /// Set the selected file to the new name field.
     fn name_selected(&mut self) -> Result<FileOutcome, io::Error> {
-        if let Some(select) = self.file_state.selected() {
+        if let Some(select) = self.file_state.first_selected() {
             if let Some(file) = self.files.get(select).cloned() {
                 let name = file.to_string_lossy();
                 self.save_name_state.set_text(name);
                 return Ok(FileOutcome::Changed);
             }
         }
-        Ok(FileOutcome::Unchanged)
+        Ok(FileOutcome::Continue)
     }
 
     /// Start creating a directory.
@@ -1122,35 +1357,49 @@ impl FileDialogState {
 
     /// Choose the selected and close the dialog.
     fn choose_selected(&mut self) -> FileOutcome {
-        if self.mode == Mode::Open {
-            if let Some(select) = self.file_state.selected() {
-                if let Some(file) = self.files.get(select).cloned() {
-                    self.active = false;
-                    return FileOutcome::Ok(self.path.join(file));
+        match self.mode {
+            Mode::Open => {
+                if let Some(select) = self.file_state.first_selected() {
+                    if let Some(file) = self.files.get(select).cloned() {
+                        self.active = false;
+                        return FileOutcome::Ok(self.path.join(file));
+                    }
                 }
             }
-        } else if self.mode == Mode::Save {
-            let mut path = self.path.join(self.save_name_state.text().trim());
-            if let Some(ext) = &self.save_ext {
-                if !ext.is_empty() {
-                    path.set_extension(ext);
-                }
+            Mode::OpenMany => {
+                let sel = self
+                    .file_state
+                    .selected()
+                    .iter()
+                    .map(|&idx| self.path.join(self.files.get(idx).expect("file")))
+                    .collect::<Vec<_>>();
+                self.active = false;
+                return FileOutcome::OkList(sel);
             }
-            self.active = false;
-            return FileOutcome::Ok(path);
-        } else if self.mode == Mode::Dir {
-            if let Some(select) = self.dir_state.list.selected() {
-                if let Some(dir) = self.dirs.get(select).cloned() {
-                    self.active = false;
-                    if dir != ".." {
-                        return FileOutcome::Ok(self.path.join(dir));
-                    } else {
-                        return FileOutcome::Ok(self.path.clone());
+            Mode::Save => {
+                let mut path = self.path.join(self.save_name_state.text().trim());
+                if let Some(ext) = &self.save_ext {
+                    if !ext.is_empty() {
+                        path.set_extension(ext);
+                    }
+                }
+                self.active = false;
+                return FileOutcome::Ok(path);
+            }
+            Mode::Dir => {
+                if let Some(select) = self.dir_state.list.selected() {
+                    if let Some(dir) = self.dirs.get(select).cloned() {
+                        self.active = false;
+                        if dir != ".." {
+                            return FileOutcome::Ok(self.path.join(dir));
+                        } else {
+                            return FileOutcome::Ok(self.path.clone());
+                        }
                     }
                 }
             }
         }
-        FileOutcome::Unchanged
+        FileOutcome::Continue
     }
 }
 
@@ -1199,9 +1448,7 @@ impl FileDialogState {
     fn build_focus(&self) -> Focus {
         let mut fb = FocusBuilder::default();
         fb.widget(&self.dir_state);
-        if self.mode == Mode::Save || self.mode == Mode::Open {
-            fb.widget(&self.file_state);
-        }
+        fb.widget(&self.file_state);
         if self.mode == Mode::Save {
             fb.widget(&self.save_name_state);
         }
@@ -1214,92 +1461,52 @@ impl FileDialogState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>>
-    for FileDialogState
-{
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        _qualifier: Dialog,
-    ) -> Result<FileOutcome, io::Error> {
+impl HandleEvent<Event, Dialog, Result<FileOutcome, io::Error>> for FileDialogState {
+    fn handle(&mut self, event: &Event, _qualifier: Dialog) -> Result<FileOutcome, io::Error> {
         if !self.active {
             return Ok(FileOutcome::Continue);
         }
 
         let mut focus = self.build_focus();
-
         let mut f: FileOutcome = focus.handle(event, Regular).into();
-        let mut r = FileOutcome::Continue;
+        let next_focus: Option<&dyn HasFocus> = match event {
+            ct_event!(keycode press F(1)) => Some(&self.root_state),
+            ct_event!(keycode press F(2)) => Some(&self.dir_state),
+            ct_event!(keycode press F(3)) => Some(&self.file_state),
+            ct_event!(keycode press F(4)) => Some(&self.path_state),
+            ct_event!(keycode press F(5)) => Some(&self.save_name_state),
+            _ => None,
+        };
+        if let Some(next_focus) = next_focus {
+            focus.focus(next_focus);
+            f = FileOutcome::Changed;
+        }
 
-        f = f.or_else(|| match event {
-            ct_event!(keycode press F(1)) => {
-                if !self.root_state.is_focused() {
-                    focus.focus(&self.root_state);
-                    FileOutcome::Changed
+        let r = 'f: {
+            event_flow!(break 'f handle_path(self, event)?);
+            event_flow!(
+                break 'f if self.mode == Mode::Save {
+                    handle_name(self, event)?
                 } else {
                     FileOutcome::Continue
                 }
-            }
-            ct_event!(keycode press F(2)) => {
-                if !self.dir_state.is_focused() {
-                    focus.focus(&self.dir_state);
-                    FileOutcome::Changed
-                } else {
-                    FileOutcome::Continue
-                }
-            }
-            ct_event!(keycode press F(3)) => {
-                if !self.file_state.is_focused() {
-                    focus.focus(&self.file_state);
-                    FileOutcome::Changed
-                } else {
-                    FileOutcome::Continue
-                }
-            }
-            ct_event!(keycode press F(4)) => {
-                if !self.path_state.is_focused() {
-                    focus.focus(&self.path_state);
-                    FileOutcome::Changed
-                } else {
-                    FileOutcome::Continue
-                }
-            }
-            ct_event!(keycode press F(5)) => {
-                if !self.save_name_state.is_focused() {
-                    focus.focus(&self.save_name_state);
-                    FileOutcome::Changed
-                } else {
-                    FileOutcome::Continue
-                }
-            }
-            _ => FileOutcome::Continue,
-        });
+            );
+            event_flow!(break 'f handle_files(self, event)?);
+            event_flow!(break 'f handle_dirs(self, event)?);
+            event_flow!(break 'f handle_roots(self, event)?);
+            event_flow!(break 'f handle_new(self, event)?);
+            event_flow!(break 'f handle_cancel(self, event)?);
+            event_flow!(break 'f handle_ok(self, event)?);
+            FileOutcome::Continue
+        };
 
-        r = r.or_else_try(|| {
-            handle_path(self, event)?
-                .or_else_try(|| {
-                    if self.mode == Mode::Save {
-                        handle_name(self, event)
-                    } else {
-                        Ok(FileOutcome::Continue)
-                    }
-                })?
-                .or_else_try(|| handle_files(self, event))?
-                .or_else_try(|| handle_dirs(self, event))?
-                .or_else_try(|| handle_roots(self, event))?
-                .or_else_try(|| handle_new(self, event))?
-                .or_else_try(|| handle_cancel(self, event))?
-                .or_else_try(|| handle_ok(self, event))
-        })?;
-
-        Ok(max(max(f, r), FileOutcome::Unchanged))
+        event_flow!(max(f, r));
+        // capture events
+        Ok(FileOutcome::Unchanged)
     }
 }
 
-fn handle_new(
-    state: &mut FileDialogState,
-    event: &crossterm::event::Event,
-) -> Result<FileOutcome, io::Error> {
+fn handle_new(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
     event_flow!(match state.new_state.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.start_edit_dir()
@@ -1315,10 +1522,7 @@ fn handle_new(
     Ok(FileOutcome::Continue)
 }
 
-fn handle_ok(
-    state: &mut FileDialogState,
-    event: &crossterm::event::Event,
-) -> Result<FileOutcome, io::Error> {
+fn handle_ok(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
     event_flow!(match state.ok_state.handle(event, Regular) {
         ButtonOutcome::Pressed => state.choose_selected(),
         r => Outcome::from(r).into(),
@@ -1326,10 +1530,7 @@ fn handle_ok(
     Ok(FileOutcome::Continue)
 }
 
-fn handle_cancel(
-    state: &mut FileDialogState,
-    event: &crossterm::event::Event,
-) -> Result<FileOutcome, io::Error> {
+fn handle_cancel(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
     event_flow!(match state.cancel_state.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.close_cancel()
@@ -1345,10 +1546,7 @@ fn handle_cancel(
     Ok(FileOutcome::Continue)
 }
 
-fn handle_name(
-    state: &mut FileDialogState,
-    event: &crossterm::event::Event,
-) -> Result<FileOutcome, io::Error> {
+fn handle_name(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
     event_flow!(Outcome::from(state.save_name_state.handle(event, Regular)));
     if state.save_name_state.is_focused() {
         event_flow!(match event {
@@ -1361,10 +1559,7 @@ fn handle_name(
     Ok(FileOutcome::Continue)
 }
 
-fn handle_path(
-    state: &mut FileDialogState,
-    event: &crossterm::event::Event,
-) -> Result<FileOutcome, io::Error> {
+fn handle_path(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
     event_flow!(Outcome::from(state.path_state.handle(event, Regular)));
     if state.path_state.is_focused() {
         event_flow!(match event {
@@ -1384,10 +1579,7 @@ fn handle_path(
     Ok(FileOutcome::Continue)
 }
 
-fn handle_roots(
-    state: &mut FileDialogState,
-    event: &crossterm::event::Event,
-) -> Result<FileOutcome, io::Error> {
+fn handle_roots(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
     event_flow!(match state.root_state.handle(event, Regular) {
         Outcome::Changed => {
             state.chroot_selected()?
@@ -1397,10 +1589,7 @@ fn handle_roots(
     Ok(FileOutcome::Continue)
 }
 
-fn handle_dirs(
-    state: &mut FileDialogState,
-    event: &crossterm::event::Event,
-) -> Result<FileOutcome, io::Error> {
+fn handle_dirs(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
     // capture F2. starts edit/selects dir otherwise.
     if matches!(event, ct_event!(keycode press F(2))) {
         return Ok(FileOutcome::Continue);
@@ -1426,18 +1615,10 @@ fn handle_dirs(
     Ok(FileOutcome::Continue)
 }
 
-fn handle_files(
-    state: &mut FileDialogState,
-    event: &crossterm::event::Event,
-) -> Result<FileOutcome, io::Error> {
+fn handle_files(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
     if state.file_state.is_focused() {
-        event_flow!(match event {
-            ct_event!(mouse any for m)
-                if state
-                    .file_state
-                    .mouse
-                    .doubleclick(state.file_state.inner, m) =>
-            {
+        event_flow!(log f0: match event {
+            ct_event!(mouse any for m) if state.file_state.is_double_click(m) => {
                 state.choose_selected()
             }
             ct_event!(keycode press Enter) => {
@@ -1445,42 +1626,66 @@ fn handle_files(
             }
             _ => FileOutcome::Continue,
         });
-        event_flow!(
-            match handle_nav(&mut state.file_state, &state.files, event)? {
-                FileOutcome::Changed => {
-                    if state.mode == Mode::Save {
-                        state.name_selected()?
-                    } else {
-                        FileOutcome::Changed
-                    }
-                }
-                r => r,
+        event_flow!(log f1: {
+            match &mut state.file_state {
+                FileStateMode::Open(st) => handle_nav(st, &state.files, event)?,
+                FileStateMode::OpenMany(st) => handle_nav_many(st, &state.files, event)?,
+                FileStateMode::Save(st) => match handle_nav(st, &state.files, event)? {
+                    FileOutcome::Changed => state.name_selected()?,
+                    r => r,
+                },
+                FileStateMode::Dir(_) => FileOutcome::Continue,
             }
-        );
+        });
     }
-    event_flow!(match state.file_state.handle(event, Regular).into() {
-        FileOutcome::Changed => {
-            if state.mode == Mode::Save {
-                state.name_selected()?
-            } else {
-                FileOutcome::Changed
+    event_flow!(match &mut state.file_state {
+        FileStateMode::Open(st) => {
+            st.handle(event, Regular).into()
+        }
+        FileStateMode::OpenMany(st) => {
+            st.handle(event, Regular).into()
+        }
+        FileStateMode::Save(st) => {
+            match st.handle(event, Regular) {
+                Outcome::Changed => state.name_selected()?.into(),
+                r => r.into(),
             }
         }
-        r => r,
+        FileStateMode::Dir(_) => FileOutcome::Continue,
     });
+
     Ok(FileOutcome::Continue)
 }
 
 fn handle_nav(
     list: &mut ListState<RowSelection>,
     nav: &[OsString],
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> Result<FileOutcome, io::Error> {
     event_flow!(match event {
         ct_event!(key press c) => {
             let next = find_next_by_key(*c, list.selected().unwrap_or(0), nav);
             if let Some(next) = next {
                 list.move_to(next).into()
+            } else {
+                FileOutcome::Unchanged
+            }
+        }
+        _ => FileOutcome::Continue,
+    });
+    Ok(FileOutcome::Continue)
+}
+
+fn handle_nav_many(
+    list: &mut ListState<RowSetSelection>,
+    nav: &[OsString],
+    event: &Event,
+) -> Result<FileOutcome, io::Error> {
+    event_flow!(match event {
+        ct_event!(key press c) => {
+            let next = find_next_by_key(*c, list.lead().unwrap_or(0), nav);
+            if let Some(next) = next {
+                list.move_to(next, false).into()
             } else {
                 FileOutcome::Unchanged
             }
@@ -1533,8 +1738,3 @@ pub fn handle_events(
 ) -> Result<FileOutcome, io::Error> {
     HandleEvent::handle(state, event, Dialog)
 }
-
-// /// Handle only mouse-events.
-// pub fn handle_mouse_events(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
-//     unimplemented!("yet")
-// }
