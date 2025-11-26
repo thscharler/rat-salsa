@@ -32,7 +32,7 @@ pub struct State {
 
 static MENU: StaticMenu = StaticMenu {
     menu: &[
-        ("File", &["Choose Dir", "Open", "Save"]), //
+        ("File", &["Choose Dir", "Open", "Open multiple", "Save"]), //
         ("Quit", &[]),
     ],
 };
@@ -89,6 +89,11 @@ fn event(
             istate.status[0] = format!("Selected file {:?}", path);
             Outcome::Changed
         }
+        FileOutcome::OkList(paths) => {
+            state.file_open = Default::default();
+            istate.status[0] = format!("Selected {} files", paths.len());
+            Outcome::Changed
+        }
         FileOutcome::Cancel => {
             state.file_open = Default::default();
             istate.status[0] = "Select file cancelled.".to_string();
@@ -108,6 +113,10 @@ fn event(
                 Outcome::Changed
             }
             MenuOutcome::MenuActivated(0, 2) => {
+                state.file_open.open_many_dialog(&PathBuf::from("."))?;
+                Outcome::Changed
+            }
+            MenuOutcome::MenuActivated(0, 3) => {
                 state.file_open.save_dialog(".", "sample.txt")?;
                 Outcome::Changed
             }

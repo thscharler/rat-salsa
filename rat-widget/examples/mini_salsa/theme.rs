@@ -1,4 +1,5 @@
 use crate::mini_salsa::palette::{Contrast, Palette};
+#[cfg(feature = "color_input")]
 use rat_text::color_input::ColorInputStyle;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -317,6 +318,7 @@ impl ShellTheme {
     }
 
     /// Complete TextInputStyle
+    #[cfg(feature = "color_input")]
     pub fn color_input_style(&self) -> ColorInputStyle {
         ColorInputStyle {
             text: TextStyle {
@@ -400,16 +402,21 @@ impl ShellTheme {
     }
 
     /// Complete MenuStyle
-    #[allow(deprecated)]
     pub fn menu_style(&self) -> MenuStyle {
         MenuStyle {
             style: self.status_base(),
             title: Some(self.fg_style(self.p.yellow[Palette::BRIGHT_2])),
-            focus: Some(self.focus()),
-            right: Some(self.fg_style(self.p.green[Palette::BRIGHT_3])),
-            disabled: Some(self.fg_style(self.p.gray[Palette::BRIGHT_2])),
             highlight: Some(Style::default().underlined()),
-            block: Some(Block::bordered().style(self.popup_border())),
+            disabled: Some(self.fg_style(self.p.gray[Palette::BRIGHT_2])),
+            right: Some(self.fg_style(self.p.green[Palette::BRIGHT_3])),
+            focus: Some(self.focus()),
+            popup_style: Some(self.status_base()),
+            popup_block: Some(Block::bordered().style(self.popup_border())),
+            popup_highlight: Some(Style::default().underlined()),
+            popup_disabled: Some(self.fg_style(self.p.gray[Palette::BRIGHT_2])),
+            popup_right: Some(self.fg_style(self.p.green[Palette::BRIGHT_3])),
+            popup_focus: Some(self.focus()),
+            popup: Default::default(),
             ..Default::default()
         }
     }
