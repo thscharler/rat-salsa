@@ -25,6 +25,7 @@ use ratatui::style::Color;
 use ratatui::widgets::{Block, BorderType};
 use std::array;
 use std::borrow::Cow;
+use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct PaletteEdit {
@@ -110,6 +111,17 @@ impl PaletteEdit {
 }
 
 impl PaletteEdit {
+    pub fn aliases_for(&self, names: &HashSet<String>) -> Vec<(Cow<'static, str>, ColorIdx)> {
+        let mut aliased = Vec::new();
+        for (n, s) in self.color_ext.iter() {
+            if names.contains(n) {
+                aliased.push((Cow::Owned(n.to_string()), s.value()))
+            }
+        }
+        aliased.sort();
+        aliased
+    }
+
     pub fn aliased(&self) -> Vec<(Cow<'static, str>, ColorIdx)> {
         let mut aliased = Vec::new();
         for (n, s) in self.color_ext.iter() {

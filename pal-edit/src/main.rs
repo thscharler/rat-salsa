@@ -45,6 +45,7 @@ use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::env::args;
 use std::fs::{File, create_dir_all};
 use std::io::{Read, Write};
@@ -170,6 +171,17 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn extra_aliases(&self) -> HashSet<String> {
+        let mut extra = HashSet::new();
+        for v in &self.extra_alias {
+            extra.insert(v.clone());
+        }
+        for v in &self.extra_alias2 {
+            extra.insert(v.clone());
+        }
+        extra
+    }
+
     pub fn aliases(&self) -> Vec<String> {
         let mut r = Vec::new();
         r.extend(rat_widget_color_names().iter().map(|v| v.to_string()));
@@ -243,6 +255,8 @@ impl Config {
                 }
             }
             aliases
+        } else {
+            Default::default()
         };
 
         Ok(Config {
@@ -644,10 +658,40 @@ fn export_rs(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>,
 fn export_pal_to_patch(
     path: &Path,
     state: &mut Scenery,
-    _ctx: &mut Global,
+    ctx: &mut Global,
 ) -> Result<Control<PalEvent>, Error> {
-    // todo
-    Ok(Control::Continue)
+    use std::io::Write;
+
+    let mut wr = File::create(path)?;
+    writeln!(
+        wr,
+        "use rat_theme4::palette::{{ColorIdx, Colors, Palette}};"
+    )?;
+    writeln!(wr, "")?;
+    writeln!(wr, "/// Patch for {}", state.edit.name())?;
+    for l in state.edit.docs.text().lines() {
+        writeln!(wr, "/// {}", l)?;
+    }
+    writeln!(wr, "")?;
+    writeln!(wr, "pub fn patch(pal: &mut Palette) {{",)?;
+    writeln!(
+        wr,
+        "    if pal.name.as_ref() == \"{}\" {{",
+        state.edit.name()
+    )?;
+    let aliased = state.edit.aliases_for(&ctx.cfg.extra_aliases());
+    for (n, c) in aliased {
+        writeln!(
+            wr,
+            "        pal.add_aliased({:?}, ColorIdx(Colors::{:?}, {:?}));",
+            n, c.0, c.1
+        )?;
+    }
+    writeln!(wr, "    }}")?;
+    writeln!(wr, "}}")?;
+    writeln!(wr, "")?;
+
+    Ok(Control::Changed)
 }
 
 fn export_pal_to_rs(
