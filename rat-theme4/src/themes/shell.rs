@@ -7,6 +7,7 @@ use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
+#[cfg(feature = "color_input")]
 use rat_widget::color_input::ColorInputStyle;
 use rat_widget::combobox::ComboboxStyle;
 use rat_widget::dialog_frame::DialogFrameStyle;
@@ -114,6 +115,7 @@ pub fn create_shell(name: &str, p: Palette) -> SalsaTheme {
     th.define_fn(WidgetStyle::CHOICE, choice);
     th.define_fn(WidgetStyle::CLIPPER, clipper);
     th.define_fn(WidgetStyle::COMBOBOX, combobox);
+    #[cfg(feature = "color_input")]
     th.define_fn(WidgetStyle::COLOR_INPUT, color_input);
     th.define_fn(WidgetStyle::DIALOG_FRAME, dialog_frame);
     th.define_fn(WidgetStyle::FILE_DIALOG, file_dialog);
@@ -465,6 +467,7 @@ fn table(th: &SalsaTheme) -> TableStyle {
     }
 }
 
+#[cfg(feature = "color_input")]
 fn color_input(th: &SalsaTheme) -> ColorInputStyle {
     ColorInputStyle {
         text: TextStyle {

@@ -130,6 +130,7 @@ impl WidgetStyle {
     pub const CHECKBOX: &'static str = "checkbox";
     pub const CHOICE: &'static str = "choice";
     pub const CLIPPER: &'static str = "clipper";
+    #[cfg(feature = "color_input")]
     pub const COLOR_INPUT: &'static str = "color-input";
     pub const COMBOBOX: &'static str = "combobox";
     pub const DIALOG_FRAME: &'static str = "dialog-frame";

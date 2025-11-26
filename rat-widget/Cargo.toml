@@ -12,6 +12,8 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "textarea.gif"]
 
 [features]
+default = []
+color_input = ["rat-text/color_input"]
 user_directories = ["dep:dirs", "dep:sysinfo"]
 
 [dependencies]

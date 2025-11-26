@@ -11,6 +11,10 @@ keywords = ["ratatui", "widget", "theme"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[features]
+default = []
+color_input = ["rat-widget/color_input"]
+
 [dependencies]
 ratatui = { version = "0.29" }
 log = "0.4"

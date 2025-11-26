@@ -2,12 +2,14 @@
 resolver = "2"
 
 members = [
+    "pal-edit",
     "rat-cursor",
+    "rat-dialog",
     "rat-event",
     "rat-focus",
     "rat-ftable",
-    "rat-menu",
     "rat-markdown",
+    "rat-menu",
     "rat-popup",
     "rat-reloc",
     "rat-salsa",
@@ -17,8 +19,6 @@ members = [
     "rat-theme2",
     "rat-theme3",
     "rat-theme4",
-    "rat-widget",
-    "rat-dialog",
     "rat-vim",
-    "pal-edit",
+    "rat-widget",
 ]
