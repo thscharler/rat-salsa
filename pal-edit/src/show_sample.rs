@@ -1,3 +1,4 @@
+use crate::sample_custom::SampleCustom;
 use crate::sample_data_input::SampleDataInput;
 use crate::sample_dialog::{SampleDialog, SampleDialogState};
 use crate::sample_list::SampleList;
@@ -5,7 +6,8 @@ use crate::sample_readability::SampleReadability;
 use crate::sample_split::SampleSplit;
 use crate::sample_table::SampleTable;
 use crate::{
-    Global, sample_data_input, sample_list, sample_readability, sample_split, sample_table,
+    Global, sample_custom, sample_data_input, sample_list, sample_readability, sample_split,
+    sample_table,
 };
 use anyhow::Error;
 use pure_rust_locales::Locale;
@@ -40,6 +42,7 @@ pub struct ShowSample {
     pub table: SampleTable,
     pub doc_table: SampleTable,
     pub list: SampleList,
+    pub custom: SampleCustom,
 }
 
 impl ShowSample {
@@ -56,6 +59,7 @@ impl ShowSample {
             table: Default::default(),
             doc_table: Default::default(),
             list: Default::default(),
+            custom: Default::default(),
         };
         z.status.status(0, "... something ...");
         z.status.status(1, "[join]");
@@ -75,6 +79,7 @@ impl ShowSample {
             Some(4) => { /*noop*/ }
             Some(5) => { /*noop*/ }
             Some(6) => { /*noop*/ }
+            Some(7) => { /*noop*/ }
             _ => {}
         }
     }
@@ -107,6 +112,9 @@ impl HasFocus for ShowSample {
             Some(6) => {
                 builder.widget(&self.list);
             }
+            Some(7) => {
+                builder.widget(&self.custom);
+            }
             _ => {}
         }
     }
@@ -130,6 +138,7 @@ impl HasScreenCursor for ShowSample {
             Some(4) => self.table.screen_cursor(),
             Some(5) => self.doc_table.screen_cursor(),
             Some(6) => self.list.screen_cursor(),
+            Some(7) => self.custom.screen_cursor(),
             _ => None,
         }
     }
@@ -199,7 +208,9 @@ pub fn render(
     menu.render(l0[3], buf, &mut state.menu);
 
     Tabbed::new()
-        .tabs(["Input", "Text", "Dialog", "Split", "Table", "Doc", "List"])
+        .tabs([
+            "Input", "Text", "Dialog", "Split", "Table", "Doc", "List", "Custom",
+        ])
         .placement(TabPlacement::Left)
         .block(
             Block::bordered()
@@ -236,6 +247,9 @@ pub fn render(
         }
         Some(6) => {
             sample_list::render(state.tabs.widget_area, buf, &mut state.list, ctx)?;
+        }
+        Some(7) => {
+            sample_custom::render(state.tabs.widget_area, buf, &mut state.custom, ctx)?;
         }
         _ => {}
     };
@@ -296,6 +310,9 @@ pub fn event(
         }
         Some(6) => {
             sample_list::event(event, &mut state.list, ctx)?
+        }
+        Some(7) => {
+            sample_custom::event(event, &mut state.custom, ctx)?
         }
         _ => {
             Outcome::Continue

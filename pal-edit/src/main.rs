@@ -4,6 +4,7 @@ mod configparser_ext;
 mod foreign;
 mod message;
 mod palette_edit;
+mod sample_custom;
 mod sample_data_input;
 mod sample_dialog;
 mod sample_list;
@@ -24,35 +25,41 @@ use dirs::config_dir;
 use log::error;
 use pure_rust_locales::Locale;
 use rat_salsa::dialog_stack::DialogStack;
-use rat_salsa::dialog_stack::file_dialog::{file_dialog_event, file_dialog_render};
+use rat_salsa::dialog_stack::file_dialog::{
+    file_dialog_event, file_dialog_event2, file_dialog_render,
+};
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{RatWidgetColor, WidgetStyle, create_theme, themes};
-use rat_widget::event::{HandleEvent, MenuOutcome, Outcome, Regular, ct_event, event_flow};
+use rat_theme4::{RatWidgetColor, StyleName, WidgetStyle, create_theme, themes};
+use rat_widget::event::{
+    FileOutcome, HandleEvent, MenuOutcome, Outcome, Popup, Regular, SliderOutcome, ct_event,
+    event_flow,
+};
 use rat_widget::file_dialog::FileDialogState;
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_widget::layout::LayoutOuter;
-use rat_widget::menu::{MenuLine, MenuLineState};
+use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
+use rat_widget::slider::{Slider, SliderState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text::clipboard::set_global_clipboard;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::{Color, Stylize};
+use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
+use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::env::args;
 use std::fs::{File, create_dir_all};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::rc::Rc;
-use std::{array, fs};
+use std::{array, fs, mem};
 use try_as_traits::TryAsRef;
 
 fn main() -> Result<(), Error> {
@@ -81,8 +88,8 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn parse_arg() -> (Option<PathBuf>, Option<PathBuf>) {
-    let mut open_pal_path = None;
+fn parse_arg() -> (Vec<PathBuf>, Option<PathBuf>) {
+    let mut open_pal_path = Vec::new();
     let mut extra_alias_path = None;
 
     let mut args = args();
@@ -99,10 +106,8 @@ fn parse_arg() -> (Option<PathBuf>, Option<PathBuf>) {
             S::Start => {
                 if arg == "--alias" {
                     s = S::Alias
-                } else if open_pal_path.is_none() {
-                    open_pal_path = Some(arg.into());
                 } else {
-                    s = S::Fail;
+                    open_pal_path.push(arg.into());
                 }
             }
             S::Alias => {
@@ -165,7 +170,7 @@ impl Global {
 #[derive(Debug, Default)]
 pub struct Config {
     pub loc: Locale,
-    pub open_path: Option<PathBuf>,
+    pub open_path: Vec<PathBuf>,
     pub extra_alias: Vec<String>,
     pub extra_alias2: Vec<String>,
 }
@@ -191,7 +196,7 @@ impl Config {
     }
 
     pub fn load(
-        open_path: Option<PathBuf>,
+        open_path: Vec<PathBuf>,
         extra_alias_path: Option<PathBuf>,
     ) -> Result<Config, Error> {
         let loc = sys_locale::get_locale().expect("locale");
@@ -276,6 +281,7 @@ pub enum PalEvent {
     Rendered,
     Message(String),
     Save(PathBuf),
+    LoadVec(Vec<PathBuf>),
     Load(PathBuf),
     ExportRs(PathBuf),
     ExportPatch(PathBuf),
@@ -312,9 +318,12 @@ pub struct Scenery {
     pub file_dlg_import: Rc<RefCell<FileDialogState>>,
     pub file_path: Option<PathBuf>,
 
+    pub file_slider: SliderState,
+    pub files: Vec<PathBuf>,
+
     pub edit: PaletteEdit,
     pub detail: ShowOrBase46,
-    pub menu: MenuLineState,
+    pub menu: MenubarState,
     pub menu_return_focus: Option<FocusFlag>,
 }
 
@@ -325,10 +334,12 @@ impl Scenery {
             file_save_dlg: Rc::new(RefCell::new(FileDialogState::default())),
             file_dlg_export: Rc::new(RefCell::new(FileDialogState::default())),
             file_dlg_import: Rc::new(RefCell::new(FileDialogState::default())),
-            file_path: None,
+            file_path: Default::default(),
+            file_slider: SliderState::<usize>::named("files"),
+            files: Default::default(),
             edit: PaletteEdit::new(cfg),
             detail: ShowOrBase46::new(cfg),
-            menu: MenuLineState::named("menu"),
+            menu: MenubarState::named("menu"),
             menu_return_focus: Default::default(),
         }
     }
@@ -357,6 +368,7 @@ pub fn render(
     ctx: &mut Global,
 ) -> Result<(), Error> {
     let l1 = Layout::vertical([
+        Constraint::Length(1),
         Constraint::Fill(1), //
         Constraint::Length(1),
     ])
@@ -368,7 +380,29 @@ pub fn render(
     ])
     .horizontal_margin(1)
     .flex(Flex::Center)
+    .split(l1[1]);
+
+    let l_tool = Layout::horizontal([
+        Constraint::Length(15), //
+        Constraint::Length(20),
+    ])
+    .horizontal_margin(1)
+    .spacing(1)
     .split(l1[0]);
+
+    // tool
+    buf.set_style(l1[0], ctx.theme.style_style(Style::MENU_BASE));
+    if state.files.len() > 0 {
+        Slider::new()
+            .styles(ctx.theme.style(WidgetStyle::SLIDER))
+            .direction(Direction::Horizontal)
+            .render(l_tool[0], buf, &mut state.file_slider);
+
+        let current = state.files[state.file_slider.value()]
+            .file_name()
+            .unwrap_or_default();
+        Span::from(current.to_string_lossy()).render(l_tool[1], buf);
+    }
 
     // main
     palette_edit::render(l2[0], buf, &mut state.edit, ctx)?;
@@ -380,7 +414,7 @@ pub fn render(
         Constraint::Fill(61), //
         Constraint::Fill(39),
     ])
-    .split(l1[1]);
+    .split(l1[2]);
 
     render_menu(status_layout[0], buf, state, ctx)?;
     render_status(status_layout[1], buf, ctx)?;
@@ -397,22 +431,44 @@ fn render_menu(
     state: &mut Scenery,
     ctx: &mut Global,
 ) -> Result<(), Error> {
-    MenuLine::new()
+    static MENU: StaticMenu = StaticMenu {
+        menu: &[
+            (
+                "P_alette",
+                &[
+                    "_New",
+                    "_Load",
+                    "_Save|F12",
+                    "_Save as",
+                    "_Export .rs|Ctrl+E",
+                ],
+            ),
+            (
+                "_Patch", //
+                &["_Export .rs|Ctrl+P"],
+            ),
+            (
+                "_Extern", //
+                &["_Import Colors", "Use Base46 colors"],
+            ),
+            (
+                "_List", //
+                &["_Next|F8", "Prev|F7"],
+            ),
+            (
+                "_Quit", //
+                &[],
+            ),
+        ],
+    };
+
+    Menubar::new(&MENU)
         .styles(ctx.theme.style(WidgetStyle::MENU))
         .title(Line::from_iter([
             Span::from(" P ").white().on_red(),
             Span::from(" A ").white().on_green(),
             Span::from(" L ").white().on_blue(),
         ]))
-        .item_parsed("_New")
-        .item_parsed("_Load")
-        .item_parsed("_Save")
-        .item_parsed("_Save_as")
-        .item_parsed("_Export_rs")
-        .item_parsed("_Export_patch")
-        .item_parsed("_From_Extern")
-        .item_parsed("_Use_Base46")
-        .item_parsed("_Quit")
         .render(area, buf, &mut state.menu);
     Ok(())
 }
@@ -462,8 +518,9 @@ pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
 
     ctx.show_theme = create_edit_theme(state);
 
-    if let Some(open_path) = ctx.cfg.open_path.take() {
-        ctx.queue_event(PalEvent::Load(open_path))
+    let open_path = mem::take(&mut ctx.cfg.open_path);
+    if !open_path.is_empty() {
+        ctx.queue_event(PalEvent::LoadVec(open_path));
     }
 
     Ok(())
@@ -493,6 +550,38 @@ pub fn event(
             _ => {}
         }
 
+        event_flow!(match state.menu.handle(event, Popup) {
+            MenuOutcome::MenuActivated(0, 0) => new_pal(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 1) => load_pal(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 2) => save_pal(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 3) => saveas_pal(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 4) => export_rs(state, ctx)?,
+            MenuOutcome::MenuActivated(1, 0) => export_patch(state, ctx)?,
+            MenuOutcome::MenuActivated(2, 0) => import_colors(state, ctx)?,
+            MenuOutcome::MenuActivated(2, 1) => use_base46(state, ctx)?,
+            MenuOutcome::MenuActivated(3, 0) => next_file(state, ctx)?,
+            MenuOutcome::MenuActivated(3, 1) => prev_file(state, ctx)?,
+            MenuOutcome::Activated(4) => Control::Quit,
+            v => v.into(),
+        });
+
+        event_flow!(match event {
+            ct_event!(keycode press F(12)) => save_pal(state, ctx)?,
+            ct_event!(key press CONTROL-'e') => export_rs(state, ctx)?,
+            ct_event!(key press CONTROL-'p') => export_patch(state, ctx)?,
+            ct_event!(keycode press F(7)) => prev_file(state, ctx)?,
+            ct_event!(keycode press F(8)) => next_file(state, ctx)?,
+            _ => Control::Continue,
+        });
+
+        event_flow!(match state.file_slider.handle(event, Regular) {
+            SliderOutcome::Value => {
+                let p = &state.files[state.file_slider.value()];
+                Control::Event(PalEvent::Load(p.clone()))
+            }
+            r => r.into(),
+        });
+
         event_flow!(match palette_edit::event(event, &mut state.edit, ctx)? {
             Outcome::Changed => {
                 ctx.show_theme = create_edit_theme(state);
@@ -501,19 +590,6 @@ pub fn event(
             r => r.into(),
         });
         event_flow!(sample_or_base46::event(event, &mut state.detail, ctx)?);
-
-        event_flow!(match state.menu.handle(event, Regular) {
-            MenuOutcome::Activated(0) => new_pal(state, ctx)?,
-            MenuOutcome::Activated(1) => load_pal(state, ctx)?,
-            MenuOutcome::Activated(2) => save_pal(state, ctx)?,
-            MenuOutcome::Activated(3) => saveas_pal(state, ctx)?,
-            MenuOutcome::Activated(4) => export_rs(state, ctx)?,
-            MenuOutcome::Activated(5) => export_patch(state, ctx)?,
-            MenuOutcome::Activated(6) => import_colors(state, ctx)?,
-            MenuOutcome::Activated(7) => use_base46(state, ctx)?,
-            MenuOutcome::Activated(8) => Control::Quit,
-            v => v.into(),
-        });
 
         event_flow!(match event {
             ct_event!(keycode press Esc) => {
@@ -549,8 +625,21 @@ pub fn event(
             Ok(Control::Changed)
         }
         PalEvent::Save(p) => save_pal_file(&p, state, ctx),
+        PalEvent::LoadVec(p) => {
+            state.files = p.clone();
+            state.file_slider.set_value(0);
+            state
+                .file_slider
+                .set_range((0, state.files.len().saturating_sub(1)));
+
+            if let Some(p) = p.first() {
+                Ok(Control::Event(PalEvent::Load(p.clone())))
+            } else {
+                Ok(Control::Changed)
+            }
+        }
         PalEvent::Load(p) => {
-            _ = load_pal_file(&p, state, ctx)?;
+            _ = load_pal_file(p, state, ctx)?;
             if let Some(c) = state.edit.color_ext.get(Color::CONTAINER_BASE_BG) {
                 state.detail.show.readability.bg_color.set_value(c.value());
             }
@@ -564,6 +653,13 @@ pub fn event(
         }
         _ => Ok(Control::Continue),
     }
+}
+
+pub fn pal_aliases(pal: Palette) -> Vec<(Option<String>, String)> {
+    pal.aliased
+        .iter()
+        .map(|(v, _)| (Some(v.to_string()), v.to_string()))
+        .collect()
 }
 
 pub fn pal_choice(pal: Palette) -> Vec<(ColorIdx, Line<'static>)> {
@@ -588,6 +684,28 @@ pub fn pal_choice(pal: Palette) -> Vec<(ColorIdx, Line<'static>)> {
             )
         })
         .collect::<Vec<_>>()
+}
+
+fn prev_file(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    let n = state.file_slider.value();
+    if n > 0 {
+        state.file_slider.set_value(n - 1);
+        let path = &state.files[n - 1];
+        Ok(Control::Event(PalEvent::Load(path.clone())))
+    } else {
+        Ok(Control::Unchanged)
+    }
+}
+
+fn next_file(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    let n = state.file_slider.value();
+    if n + 1 < state.files.len() {
+        state.file_slider.set_value(n + 1);
+        let path = &state.files[n + 1];
+        Ok(Control::Event(PalEvent::Load(path.clone())))
+    } else {
+        Ok(Control::Unchanged)
+    }
 }
 
 fn import_colors(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
@@ -855,7 +973,7 @@ fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, 
 
 fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_load_dlg.clone();
-    s.borrow_mut().open_dialog(".")?;
+    s.borrow_mut().open_many_dialog(".")?;
     ctx.dlg.push(
         file_dialog_render(
             LayoutOuter::new()
@@ -865,9 +983,12 @@ fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, 
                 .bottom(Constraint::Length(4)),
             ctx.theme.style(WidgetStyle::FILE_DIALOG),
         ),
-        file_dialog_event(|p| match p {
-            Ok(p) => PalEvent::Load(p),
-            Err(_) => PalEvent::NoOp,
+        file_dialog_event2(|p| match p {
+            FileOutcome::OkList(mut p) => {
+                p.sort();
+                PalEvent::LoadVec(p)
+            }
+            _ => PalEvent::NoOp,
         }),
         s,
     );
