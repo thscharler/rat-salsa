@@ -247,6 +247,16 @@ impl<'a> Menubar<'a> {
     }
 }
 
+impl<'a> StatefulWidget for Menubar<'a> {
+    type State = MenubarState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let (menu, popup) = self.into_widgets();
+        menu.render(area, buf, state);
+        popup.render(area, buf, state);
+    }
+}
+
 impl StatefulWidget for MenubarLine<'_> {
     type State = MenubarState;
 
