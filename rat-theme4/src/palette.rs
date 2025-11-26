@@ -402,7 +402,7 @@ impl Palette {
             Some(c) => c,
             None => {
                 if cfg!(debug_assertions) {
-                    panic!("unknown aliased color {:?}", id);
+                    panic!("unknown aliased color {:?} in palette {:?}", id, self.name);
                 } else {
                     ColorIdx::default()
                 }
@@ -422,7 +422,7 @@ impl Palette {
             }
             None => {
                 if cfg!(debug_assertions) {
-                    panic!("unknown aliased color {:?}", id);
+                    panic!("unknown aliased color {:?} in palette {:?}", id, self.name);
                 } else {
                     Color::default()
                 }
