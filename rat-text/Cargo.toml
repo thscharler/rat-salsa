@@ -13,6 +13,7 @@ exclude = [".idea/*", ".gitignore"]
 
 [features]
 default = []
+color_input = ["palette"]
 cr_lines = ["ropey/cr_lines"]
 unicode_lines = ["ropey/unicode_lines"]
 
