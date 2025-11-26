@@ -11,14 +11,8 @@ keywords = ["tui", "textarea", "editor", "input", "ratatui"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
-[lints.clippy]
-collapsible_else_if = "allow"
-collapsible_if = "allow"
-if_same_then_else = "allow"
-comparison_chain = "allow"
-
 [features]
-default = ["palette"]
+default = []
 cr_lines = ["ropey/cr_lines"]
 unicode_lines = ["ropey/unicode_lines"]
 
