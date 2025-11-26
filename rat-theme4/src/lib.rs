@@ -412,8 +412,8 @@ pub fn load_palette(mut r: impl std::io::Read) -> Result<palette::Palette, std::
                 } else if l.is_empty() || l.starts_with("#") {
                     // ok
                 } else {
-                    let mut kvv = l.split(['=', ',']);
-                    let cn = if let Some(v) = kvv.next() {
+                    let mut kv = l.split('=');
+                    let cn = if let Some(v) = kv.next() {
                         let Ok(c) = v.trim().parse::<palette::Colors>() else {
                             state = S::Fail(3);
                             break 'm;
@@ -423,26 +423,34 @@ pub fn load_palette(mut r: impl std::io::Read) -> Result<palette::Palette, std::
                         state = S::Fail(4);
                         break 'm;
                     };
-                    let c0 = if let Some(v) = kvv.next() {
-                        let Ok(v) = v.trim().parse::<Color>() else {
-                            state = S::Fail(5);
+                    let (c0, c3) = if let Some(v) = kv.next() {
+                        let mut vv = v.split(',');
+                        let c0 = if let Some(v) = vv.next() {
+                            let Ok(v) = v.trim().parse::<Color>() else {
+                                state = S::Fail(5);
+                                break 'm;
+                            };
+                            v
+                        } else {
+                            state = S::Fail(6);
                             break 'm;
                         };
-                        v
-                    } else {
-                        state = S::Fail(6);
-                        break 'm;
-                    };
-                    let c3 = if let Some(v) = kvv.next() {
-                        let Ok(v) = v.trim().parse::<Color>() else {
-                            state = S::Fail(7);
+                        let c3 = if let Some(v) = vv.next() {
+                            let Ok(v) = v.trim().parse::<Color>() else {
+                                state = S::Fail(7);
+                                break 'm;
+                            };
+                            v
+                        } else {
+                            state = S::Fail(8);
                             break 'm;
                         };
-                        v
+                        (c0, c3)
                     } else {
-                        state = S::Fail(8);
+                        state = S::Fail(9);
                         break 'm;
                     };
+
                     if cn == palette::Colors::TextLight || cn == palette::Colors::TextDark {
                         pal.color[cn as usize] = palette::Palette::interpolatec2(
                             c0,
