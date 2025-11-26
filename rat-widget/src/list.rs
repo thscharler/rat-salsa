@@ -1152,7 +1152,7 @@ pub mod selection {
                 return Outcome::Changed;
             }
 
-            Outcome::Unchanged
+            Outcome::Continue
         }
     }
 }
