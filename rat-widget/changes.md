@@ -1,3 +1,11 @@
+# 2.6.0
+
+* fix: List event-handling.
+* feature: GenericLayout add append() function to merge two layouts.
+* fix: LayoutForm: maintain 1 space between label and widget for longer.
+* fix: Tabbed: underflow
+* fix: Clipper: out of bounds
+
 # 2.5.1
 
 * fix: change navigation keys for Split. Cursor not

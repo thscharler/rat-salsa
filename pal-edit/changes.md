@@ -1,3 +1,8 @@
+# 1.3.0
+
+* load multiple files and switch
+* enable patches for palettes.
+
 # 1.2.0
 
 * import anything that looks like a color-map

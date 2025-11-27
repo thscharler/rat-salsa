@@ -1,3 +1,7 @@
+# 2.6.0
+
+* add file_dialog_event2() as a variant.
+
 # 2.5.0
 
 * switch examples to rat-theme4

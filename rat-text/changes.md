@@ -1,3 +1,7 @@
+# 2.5.0
+
+* fix: rename feature palette to color_input
+
 # 2.4.0
 
 * fix: ColorInput: mouse scrolling should only change values

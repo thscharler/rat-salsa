@@ -1,3 +1,7 @@
+# 2.3.0
+
+* allow direct rendering of Menubar
+
 # 2.2.0
 
 * refactor/fix: All widgets now use the same logic when

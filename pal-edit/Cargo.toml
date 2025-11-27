@@ -1,6 +1,6 @@
 [package]
 name = "pal-edit"
-version = "1.2.0"
+version = "1.3.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "edit and preview for rat-theme4 color palettes."
@@ -27,8 +27,8 @@ configparser = { version = "3.1", features = ["indexmap"] }
 crossterm = "0.28"
 ratatui = { version = "0.29", features = ["scrolling-regions"] }
 
-rat-salsa = { version = "2.5", path = "../rat-salsa", features = ["dialog_widgets"] }
-rat-widget = { version = "2.5", path = "../rat-widget", features = ["user_directories", "color_input"] }
+rat-salsa = { version = "2.6", path = "../rat-salsa", features = ["dialog_widgets"] }
+rat-widget = { version = "2.6", path = "../rat-widget", features = ["user_directories", "color_input"] }
 rat-theme4 = { version = "4.0", path = "../rat-theme4", features = ["color_input"] }
 
 

@@ -1,3 +1,7 @@
+# 4.0.3
+
+* fix: report palette-name when panicking.
+
 # 4.0.2
 
 * fix: rename text-select and text-focus to input-focus and
