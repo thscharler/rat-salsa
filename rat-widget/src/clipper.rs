@@ -822,11 +822,17 @@ where
             let src_0 = self
                 .buffer
                 .index_of(src_area.x + cut_x0, src_area.y + cut_y0 + y);
-            let tgt_0 = tgt_buf.index_of(tgt_area.x + off_x0, tgt_area.y + off_y0 + y);
 
-            let src = &self.buffer.content[src_0..src_0 + len as usize];
-            let tgt = &mut tgt_buf.content[tgt_0..tgt_0 + len as usize];
-            tgt.clone_from_slice(src);
+            if tgt_buf
+                .area
+                .contains(Position::new(tgt_area.x + off_x0, tgt_area.y + off_y0 + y))
+            {
+                let tgt_0 = tgt_buf.index_of(tgt_area.x + off_x0, tgt_area.y + off_y0 + y);
+
+                let src = &self.buffer.content[src_0..src_0 + len as usize];
+                let tgt = &mut tgt_buf.content[tgt_0..tgt_0 + len as usize];
+                tgt.clone_from_slice(src);
+            }
         }
 
         // keep buffer
