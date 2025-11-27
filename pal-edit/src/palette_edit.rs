@@ -59,7 +59,7 @@ impl PaletteEdit {
             }),
             color_ext: {
                 let mut map = IndexMap::new();
-                for n in cfg.aliases() {
+                for n in cfg.aliased_vec() {
                     map.insert(n.clone(), ChoiceState::named(&n));
                 }
                 map
@@ -113,7 +113,7 @@ impl PaletteEdit {
 }
 
 impl PaletteEdit {
-    pub fn aliases_for(&self, names: &HashSet<String>) -> Vec<(Cow<'static, str>, ColorIdx)> {
+    pub fn aliased_for(&self, names: Vec<String>) -> Vec<(Cow<'static, str>, ColorIdx)> {
         let mut aliased = Vec::new();
         for (n, s) in self.color_ext.iter() {
             if names.contains(n) {

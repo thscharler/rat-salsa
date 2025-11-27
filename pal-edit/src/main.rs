@@ -166,15 +166,11 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn extra_aliases(&self) -> HashSet<String> {
-        let mut extra = HashSet::new();
-        for v in &self.extra_alias {
-            extra.insert(v.clone());
-        }
-        extra
+    pub fn extra_aliased_vec(&self) -> Vec<String> {
+        self.extra_alias.clone()
     }
 
-    pub fn aliases(&self) -> Vec<String> {
+    pub fn aliased_vec(&self) -> Vec<String> {
         let mut r = Vec::new();
         r.extend(proc::rat_widget_color_names().iter().map(|v| v.to_string()));
         r.extend(self.extra_alias.iter().cloned());
@@ -363,6 +359,7 @@ pub fn render(
     .split(l1[1]);
 
     let l_tool = Layout::horizontal([
+        Constraint::Length(5),
         Constraint::Length(15), //
         Constraint::Length(20),
     ])
@@ -372,16 +369,19 @@ pub fn render(
 
     // tool
     buf.set_style(l1[0], ctx.theme.style_style(Style::MENU_BASE));
+    if state.patch_path.is_some() {
+        Span::from("PATCH").render(l_tool[0], buf);
+    }
     if state.files.len() > 0 {
         Slider::new()
             .styles(ctx.theme.style(WidgetStyle::SLIDER))
             .direction(Direction::Horizontal)
-            .render(l_tool[0], buf, &mut state.file_slider);
+            .render(l_tool[1], buf, &mut state.file_slider);
 
         let current = state.files[state.file_slider.value()]
             .file_name()
             .unwrap_or_default();
-        Span::from(current.to_string_lossy()).render(l_tool[1], buf);
+        Span::from(current.to_string_lossy()).render(l_tool[2], buf);
     }
 
     // main
@@ -531,7 +531,10 @@ pub fn event(
         }
 
         event_flow!(match state.menu.handle(event, Popup) {
-            MenuOutcome::MenuActivated(0, 0) => proc::new_pal(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 0) => {
+                proc::new_pal(state, ctx)?;
+                Control::Changed
+            }
             MenuOutcome::MenuActivated(0, 1) => load_pal_dlg(state, ctx)?,
             MenuOutcome::MenuActivated(0, 2) => save_pal_dlg(state, ctx)?,
             MenuOutcome::MenuActivated(0, 3) => save_as_pal_dlg(state, ctx)?,
@@ -539,7 +542,10 @@ pub fn event(
             MenuOutcome::MenuActivated(1, 0) => load_patch_from_dlg(state, ctx)?,
             MenuOutcome::MenuActivated(1, 1) => export_patch_dlg(state, ctx)?,
             MenuOutcome::MenuActivated(2, 0) => import_colors_dlg(state, ctx)?,
-            MenuOutcome::MenuActivated(2, 1) => proc::use_base46(state, ctx)?,
+            MenuOutcome::MenuActivated(2, 1) => {
+                proc::use_base46(state, ctx)?;
+                Control::Changed
+            }
             MenuOutcome::MenuActivated(3, 0) => open_next_pal(state, ctx)?,
             MenuOutcome::MenuActivated(3, 1) => open_prev_pal(state, ctx)?,
             MenuOutcome::Activated(4) => Control::Quit,
@@ -605,8 +611,8 @@ pub fn event(
             Ok(Control::Changed)
         }
         PalEvent::Save(p) => {
-            //
-            proc::save_pal_file(&p, state, ctx)
+            proc::save_pal(&p, state, ctx)?;
+            Ok(Control::Changed)
         }
         PalEvent::LoadVec(p) => {
             state.files = p.clone();
@@ -621,29 +627,69 @@ pub fn event(
             }
         }
         PalEvent::Load(p) => {
-            _ = proc::load_pal_file(p, state, ctx)?;
+            if state.patch_path.is_some() {
+                _ = save_pal_patch(state, ctx)?;
+            } else {
+                if let Some(p) = state.file_path.clone() {
+                    proc::save_pal(&p, state, ctx)?;
+                }
+            }
+            proc::load_pal(p, state, ctx)?;
+            if state.patch_path.is_some() {
+                _ = load_pal_patch(state, ctx)?;
+            }
             if let Some(c) = state.edit.color_ext.get(Color::CONTAINER_BASE_BG) {
                 state.detail.show.readability.bg_color.set_value(c.value());
             }
             Ok(Control::Changed)
         }
         PalEvent::ExportRs(p) => {
-            //
-            proc::export_pal_to_rs(&p, state, ctx)
+            proc::export_pal_to_rs(&p, state, ctx)?;
+            Ok(Control::Changed)
         }
         PalEvent::PatchPath(p) => {
             state.patch_path = Some(p.clone());
-            Ok(Control::Changed)
+            load_pal_patch(state, ctx)
         }
         PalEvent::ExportPatch(p) => {
-            //
-            proc::export_pal_to_patch(&p, state, ctx)
+            proc::export_pal_to_patch(&p, state, ctx)?;
+            Ok(Control::Changed)
         }
         PalEvent::ImportColors(p) => {
             state.detail.tabs.select(Some(1));
             state.detail.foreign.load_from_file(&p)
         }
         _ => Ok(Control::Continue),
+    }
+}
+
+fn save_pal_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    if let Some(patch_path) = &state.patch_path {
+        if !state.edit.file_name().is_empty() {
+            let patch_file = patch_path
+                .join(state.edit.file_name())
+                .with_extension("ppal");
+            proc::save_patch(&patch_file, state, ctx)?;
+        }
+        Ok(Control::Changed)
+    } else {
+        Ok(Control::Continue)
+    }
+}
+
+fn load_pal_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    if let Some(patch_path) = &state.patch_path {
+        let patch_file = patch_path
+            .join(state.edit.file_name())
+            .with_extension("ppal");
+        if patch_file.exists() {
+            proc::load_patch(&patch_file, state, ctx)?;
+            Ok(Control::Changed)
+        } else {
+            Ok(Control::Continue)
+        }
+    } else {
+        Ok(Control::Continue)
     }
 }
 
@@ -779,7 +825,8 @@ fn save_as_pal_dlg(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalE
 
 fn save_pal_dlg(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     if let Some(file_path) = state.file_path.clone() {
-        proc::save_pal_file(&file_path, state, ctx)
+        proc::save_pal(&file_path, state, ctx)?;
+        Ok(Control::Changed)
     } else {
         save_as_pal_dlg(state, ctx)
     }

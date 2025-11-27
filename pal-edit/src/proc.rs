@@ -1,8 +1,7 @@
 use crate::util::configparser_ext::ConfigParserExt;
-use crate::{Global, PalEvent, Scenery};
+use crate::{Global, Scenery};
 use anyhow::{Error, anyhow};
 use configparser::ini::Ini;
-use rat_salsa::Control;
 use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{RatWidgetColor, themes};
@@ -99,11 +98,48 @@ pub const fn color_array() -> [Colors; Colors::LEN] {
     ]
 }
 
+pub fn save_patch(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
+    let mut ff = Ini::new_std();
+    ff.set_text("palette-patch", "name", state.edit.name());
+    ff.set_text("palette-patch", "docs", state.edit.docs.text());
+
+    let aliased = state.edit.aliased_for(ctx.cfg.extra_aliased_vec());
+    for (c, c_idx) in aliased {
+        ff.set_val("reference", c.as_ref(), c_idx);
+    }
+
+    ff.write_std(path)?;
+
+    Ok(())
+}
+
+pub fn load_patch(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
+    let mut ff = Ini::new_std();
+    match ff.load(path) {
+        Ok(_) => {}
+        Err(e) => return Err(anyhow!(e)),
+    };
+
+    let extra = ctx.cfg.extra_aliased_vec();
+    for (n, s) in state.edit.color_ext.iter_mut() {
+        if extra.contains(n) {
+            let c_idx = ff.parse_val("reference", n, ColorIdx::default());
+            s.set_value(c_idx);
+        }
+    }
+
+    ctx.show_theme = create_edit_theme(state);
+
+    Ok(())
+}
+
+// todo: save-patch
+
 pub fn export_pal_to_patch(
     path: &Path,
     state: &mut Scenery,
     ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
+) -> Result<(), Error> {
     use std::fs::File;
     use std::io::Write;
 
@@ -124,7 +160,7 @@ pub fn export_pal_to_patch(
         "    if pal.name.as_ref() == \"{}\" {{",
         state.edit.name()
     )?;
-    let aliased = state.edit.aliases_for(&ctx.cfg.extra_aliases());
+    let aliased = state.edit.aliased_for(ctx.cfg.extra_aliased_vec());
     for (n, c) in aliased {
         writeln!(
             wr,
@@ -136,14 +172,10 @@ pub fn export_pal_to_patch(
     writeln!(wr, "}}")?;
     writeln!(wr, "")?;
 
-    Ok(Control::Changed)
+    Ok(())
 }
 
-pub fn export_pal_to_rs(
-    path: &Path,
-    state: &mut Scenery,
-    _ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
+pub fn export_pal_to_rs(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     use std::fs::File;
     use std::io::Write;
 
@@ -194,7 +226,7 @@ pub fn export_pal_to_rs(
     writeln!(wr, "    ],")?;
     writeln!(wr, "    // must be sorted!")?;
     writeln!(wr, "    aliased: Cow::Borrowed(&[")?;
-    let aliased = state.edit.aliased();
+    let aliased = state.edit.aliased_for(ctx.cfg.aliased_vec());
     for (n, c) in aliased {
         writeln!(
             wr,
@@ -206,14 +238,10 @@ pub fn export_pal_to_rs(
     writeln!(wr, "}};")?;
     writeln!(wr, "")?;
 
-    Ok(Control::Changed)
+    Ok(())
 }
 
-pub fn save_pal_file(
-    path: &Path,
-    state: &mut Scenery,
-    _ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
+pub fn save_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     state.file_path = Some(path.into());
 
     let mut ff = Ini::new_std();
@@ -235,17 +263,17 @@ pub fn save_pal_file(
         );
     }
 
-    for (c, s) in state.edit.color_ext.iter() {
-        let c_idx = s.value();
-        ff.set_val("reference", c, c_idx);
+    let aliased = state.edit.aliased_for(ctx.cfg.aliased_vec());
+    for (c, c_idx) in aliased {
+        ff.set_val("reference", c.as_ref(), c_idx);
     }
 
     ff.write_std(path)?;
 
-    Ok(Control::Changed)
+    Ok(())
 }
 
-pub fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+pub fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
     state.file_path = None;
 
     state.edit.name.set_value("pal.name");
@@ -266,10 +294,10 @@ pub fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEven
         .bg_color
         .set_value(ColorIdx(Colors::default(), 0));
 
-    Ok(Control::Changed)
+    Ok(())
 }
 
-pub fn use_base46(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+pub fn use_base46(state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
     if let Some(v) = state.detail.foreign.color("white") {
         state.edit.color[Colors::TextLight as usize].0.set_value(v);
         state.edit.color[Colors::TextLight as usize].3.set_value(v);
@@ -343,14 +371,10 @@ pub fn use_base46(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalE
         state.edit.color[Colors::RedPink as usize].0.set_value(v);
         state.edit.color[Colors::RedPink as usize].3.set_value(v);
     }
-    Ok(Control::Changed)
+    Ok(())
 }
 
-pub fn load_pal_file(
-    path: &Path,
-    state: &mut Scenery,
-    ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
+pub fn load_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     state.file_path = Some(path.into());
 
     let mut ff = Ini::new_std();
@@ -383,7 +407,7 @@ pub fn load_pal_file(
 
     ctx.show_theme = create_edit_theme(state);
 
-    Ok(Control::Changed)
+    Ok(())
 }
 
 pub fn create_edit_theme(state: &Scenery) -> SalsaTheme {
