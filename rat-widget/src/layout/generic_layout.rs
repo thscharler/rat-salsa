@@ -425,6 +425,28 @@ where
     pub fn set_block(&mut self, idx: usize, block: Option<Block<'static>>) {
         self.blocks[idx] = block;
     }
+
+    /// Append another layout.
+    ///
+    /// Shifts the second layout to the given starting position and
+    /// adds everything.
+    ///
+    /// If the given layout uses the same widget-identifiers, they
+    /// will simply overwrite existing ones.
+    pub fn append(&mut self, place: Position, mut layout: GenericLayout<W>) {
+        layout = layout.place(place);
+
+        for (w, idx) in layout.widgets {
+            let new_idx = self.widget_areas.len();
+            self.widget_areas.push(layout.widget_areas[idx]);
+            self.labels.push(layout.labels[idx].take());
+            self.label_areas.push(layout.label_areas[idx]);
+            self.widgets.insert(w.clone(), new_idx);
+            self.rwidgets.insert(new_idx, w);
+        }
+        self.block_areas.extend(layout.block_areas);
+        self.blocks.extend(layout.blocks);
+    }
 }
 
 #[inline]
