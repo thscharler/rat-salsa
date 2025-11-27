@@ -326,7 +326,12 @@ pub fn render(
     let pal_choice = crate::pal_choice(pal);
 
     let mut popup_ext = Vec::new();
+    let mut popup_place = Placement::Right;
+    let first_extra = ctx.cfg.extra_alias.get(0).map(|v| v.as_str());
     for (n, s) in state.color_ext.iter_mut() {
+        if Some(n.as_str()) == first_extra {
+            popup_place = Placement::Left;
+        }
         let popup = form.render2(
             s.id(),
             || {
@@ -335,7 +340,7 @@ pub fn render(
                     .select_marker('*')
                     .popup_len(8)
                     .popup_scroll(Scroll::default())
-                    .popup_placement(Placement::Right)
+                    .popup_placement(popup_place)
                     .styles(ctx.theme.style(WidgetStyle::CHOICE))
                     .into_widgets()
             },
