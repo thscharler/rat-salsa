@@ -91,7 +91,7 @@ impl TabWidget for AttachedTabs {
                 state.block_area = Rect::new(
                     area.x + max_width + 2 + close_width,
                     area.y,
-                    area.width - (max_width + 2 + close_width),
+                    area.width.saturating_sub(max_width + 2 + close_width),
                     area.height,
                 );
                 state.tab_title_area =
@@ -102,7 +102,7 @@ impl TabWidget for AttachedTabs {
                 state.block_area = Rect::new(
                     area.x,
                     area.y,
-                    area.width - (max_width + 2 + close_width),
+                    area.width.saturating_sub(max_width + 2 + close_width),
                     area.height,
                 );
                 state.tab_title_area = Rect::new(
