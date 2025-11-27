@@ -85,7 +85,7 @@ pub fn render(
     .spacing(1)
     .split(l0[1]);
 
-    let pal_choice = crate::pal_choice(ctx.show_theme.p.clone());
+    let pal_choice = crate::proc::pal_choice(ctx.show_theme.p.clone());
     let (colors, bg_colors_popup) = Choice::new()
         .items(pal_choice.clone())
         .select_marker('*')

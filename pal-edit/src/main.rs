@@ -1,5 +1,6 @@
 mod foreign;
 mod palette_edit;
+mod proc;
 mod sample;
 mod sample_or_base46;
 mod util;
@@ -19,9 +20,9 @@ use rat_salsa::dialog_stack::file_dialog::{
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme4::palette::{ColorIdx, Colors, Palette};
+use rat_theme4::palette::{ColorIdx, Colors};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{RatWidgetColor, StyleName, WidgetStyle, create_theme, themes};
+use rat_theme4::{RatWidgetColor, StyleName, WidgetStyle, create_theme};
 use rat_widget::event::{
     FileOutcome, HandleEvent, MenuOutcome, Outcome, Popup, Regular, SliderOutcome, ct_event,
     event_flow,
@@ -44,13 +45,12 @@ use std::collections::HashSet;
 use std::env::args;
 use std::fs::{File, create_dir_all};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::exit;
 use std::rc::Rc;
-use std::{array, fs, mem};
+use std::{fs, mem};
 use try_as_traits::TryAsRef;
 use util::clipboard::CliClipboard;
-use util::configparser_ext::ConfigParserExt;
 use util::message::{MsgState, msg_event, msg_render};
 
 fn main() -> Result<(), Error> {
@@ -176,7 +176,7 @@ impl Config {
 
     pub fn aliases(&self) -> Vec<String> {
         let mut r = Vec::new();
-        r.extend(rat_widget_color_names().iter().map(|v| v.to_string()));
+        r.extend(proc::rat_widget_color_names().iter().map(|v| v.to_string()));
         r.extend(self.extra_alias.iter().cloned());
         r
     }
@@ -496,7 +496,7 @@ pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     // ctx.focus().enable_log();
     ctx.focus().first();
 
-    ctx.show_theme = create_edit_theme(state);
+    ctx.show_theme = proc::create_edit_theme(state);
 
     let open_path = mem::take(&mut ctx.cfg.open_path);
     if !open_path.is_empty() {
@@ -531,27 +531,27 @@ pub fn event(
         }
 
         event_flow!(match state.menu.handle(event, Popup) {
-            MenuOutcome::MenuActivated(0, 0) => new_pal(state, ctx)?,
-            MenuOutcome::MenuActivated(0, 1) => load_pal(state, ctx)?,
-            MenuOutcome::MenuActivated(0, 2) => save_pal(state, ctx)?,
-            MenuOutcome::MenuActivated(0, 3) => saveas_pal(state, ctx)?,
-            MenuOutcome::MenuActivated(0, 4) => export_rs(state, ctx)?,
-            MenuOutcome::MenuActivated(1, 0) => load_patch(state, ctx)?,
-            MenuOutcome::MenuActivated(1, 1) => export_patch(state, ctx)?,
-            MenuOutcome::MenuActivated(2, 0) => import_colors(state, ctx)?,
-            MenuOutcome::MenuActivated(2, 1) => use_base46(state, ctx)?,
-            MenuOutcome::MenuActivated(3, 0) => next_file(state, ctx)?,
-            MenuOutcome::MenuActivated(3, 1) => prev_file(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 0) => proc::new_pal(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 1) => load_pal_dlg(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 2) => save_pal_dlg(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 3) => save_as_pal_dlg(state, ctx)?,
+            MenuOutcome::MenuActivated(0, 4) => export_rs_dlg(state, ctx)?,
+            MenuOutcome::MenuActivated(1, 0) => load_patch_from_dlg(state, ctx)?,
+            MenuOutcome::MenuActivated(1, 1) => export_patch_dlg(state, ctx)?,
+            MenuOutcome::MenuActivated(2, 0) => import_colors_dlg(state, ctx)?,
+            MenuOutcome::MenuActivated(2, 1) => proc::use_base46(state, ctx)?,
+            MenuOutcome::MenuActivated(3, 0) => open_next_pal(state, ctx)?,
+            MenuOutcome::MenuActivated(3, 1) => open_prev_pal(state, ctx)?,
             MenuOutcome::Activated(4) => Control::Quit,
             v => v.into(),
         });
 
         event_flow!(match event {
-            ct_event!(keycode press F(12)) => save_pal(state, ctx)?,
-            ct_event!(key press CONTROL-'e') => export_rs(state, ctx)?,
-            ct_event!(key press CONTROL-'p') => export_patch(state, ctx)?,
-            ct_event!(keycode press F(7)) => prev_file(state, ctx)?,
-            ct_event!(keycode press F(8)) => next_file(state, ctx)?,
+            ct_event!(keycode press F(12)) => save_pal_dlg(state, ctx)?,
+            ct_event!(key press CONTROL-'e') => export_rs_dlg(state, ctx)?,
+            ct_event!(key press CONTROL-'p') => export_patch_dlg(state, ctx)?,
+            ct_event!(keycode press F(7)) => open_prev_pal(state, ctx)?,
+            ct_event!(keycode press F(8)) => open_next_pal(state, ctx)?,
             _ => Control::Continue,
         });
 
@@ -565,7 +565,7 @@ pub fn event(
 
         event_flow!(match palette_edit::event(event, &mut state.edit, ctx)? {
             Outcome::Changed => {
-                ctx.show_theme = create_edit_theme(state);
+                ctx.show_theme = proc::create_edit_theme(state);
                 Outcome::Changed
             }
             r => r.into(),
@@ -594,7 +594,6 @@ pub fn event(
     match event {
         PalEvent::Rendered => {
             ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
-            // ctx.focus().enable_log();
             Ok(Control::Continue)
         }
         PalEvent::Message(s) => {
@@ -605,14 +604,16 @@ pub fn event(
             state.detail.show.readability.bg_color.set_value(*c);
             Ok(Control::Changed)
         }
-        PalEvent::Save(p) => save_pal_file(&p, state, ctx),
+        PalEvent::Save(p) => {
+            //
+            proc::save_pal_file(&p, state, ctx)
+        }
         PalEvent::LoadVec(p) => {
             state.files = p.clone();
             state.file_slider.set_value(0);
             state
                 .file_slider
                 .set_range((0, state.files.len().saturating_sub(1)));
-
             if let Some(p) = p.first() {
                 Ok(Control::Event(PalEvent::Load(p.clone())))
             } else {
@@ -620,18 +621,24 @@ pub fn event(
             }
         }
         PalEvent::Load(p) => {
-            _ = load_pal_file(p, state, ctx)?;
+            _ = proc::load_pal_file(p, state, ctx)?;
             if let Some(c) = state.edit.color_ext.get(Color::CONTAINER_BASE_BG) {
                 state.detail.show.readability.bg_color.set_value(c.value());
             }
             Ok(Control::Changed)
         }
-        PalEvent::ExportRs(p) => export_pal_to_rs(&p, state, ctx),
+        PalEvent::ExportRs(p) => {
+            //
+            proc::export_pal_to_rs(&p, state, ctx)
+        }
         PalEvent::PatchPath(p) => {
             state.patch_path = Some(p.clone());
             Ok(Control::Changed)
         }
-        PalEvent::ExportPatch(p) => export_pal_to_patch(&p, state, ctx),
+        PalEvent::ExportPatch(p) => {
+            //
+            proc::export_pal_to_patch(&p, state, ctx)
+        }
         PalEvent::ImportColors(p) => {
             state.detail.tabs.select(Some(1));
             state.detail.foreign.load_from_file(&p)
@@ -640,38 +647,7 @@ pub fn event(
     }
 }
 
-pub fn pal_aliases(pal: Palette) -> Vec<(Option<String>, String)> {
-    pal.aliased
-        .iter()
-        .map(|(v, _)| (Some(v.to_string()), v.to_string()))
-        .collect()
-}
-
-pub fn pal_choice(pal: Palette) -> Vec<(ColorIdx, Line<'static>)> {
-    const COLOR_X_8: usize = Colors::LEN * 8 + 1;
-    let pal_choice = array::from_fn::<_, COLOR_X_8, _>(|n| {
-        if n == Colors::LEN * 8 {
-            let c = Colors::None;
-            let n = 0;
-            (c, n)
-        } else {
-            let c = color_array()[n / 8];
-            let n = n % 8;
-            (c, n)
-        }
-    });
-    pal_choice
-        .iter()
-        .map(|(c, n)| {
-            (
-                ColorIdx(*c, *n),
-                Line::from(format!("{}-{}", c, n)).style(pal.style(*c, *n)),
-            )
-        })
-        .collect::<Vec<_>>()
-}
-
-fn prev_file(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn open_prev_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let n = state.file_slider.value();
     if n > 0 {
         state.file_slider.set_value(n - 1);
@@ -682,7 +658,7 @@ fn prev_file(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>
     }
 }
 
-fn next_file(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn open_next_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let n = state.file_slider.value();
     if n + 1 < state.files.len() {
         state.file_slider.set_value(n + 1);
@@ -693,7 +669,7 @@ fn next_file(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>
     }
 }
 
-fn import_colors(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn import_colors_dlg(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_dlg_import.clone();
     s.borrow_mut().open_dialog(".")?;
     ctx.dlg.push(
@@ -714,7 +690,7 @@ fn import_colors(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEve
     Ok(Control::Changed)
 }
 
-fn load_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn load_patch_from_dlg(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_dlg_export.clone();
     s.borrow_mut().directory_dialog(".")?;
     ctx.dlg.push(
@@ -735,7 +711,7 @@ fn load_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>
     Ok(Control::Changed)
 }
 
-fn export_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn export_patch_dlg(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_dlg_export.clone();
     s.borrow_mut()
         .save_dialog_ext(".", state.edit.file_name(), "rs")?;
@@ -757,7 +733,7 @@ fn export_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEven
     Ok(Control::Changed)
 }
 
-fn export_rs(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn export_rs_dlg(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_dlg_export.clone();
     s.borrow_mut()
         .save_dialog_ext(".", state.edit.file_name(), "rs")?;
@@ -779,115 +755,7 @@ fn export_rs(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>,
     Ok(Control::Changed)
 }
 
-fn export_pal_to_patch(
-    path: &Path,
-    state: &mut Scenery,
-    ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
-    use std::io::Write;
-
-    let mut wr = File::create(path)?;
-    writeln!(
-        wr,
-        "use rat_theme4::palette::{{ColorIdx, Colors, Palette}};"
-    )?;
-    writeln!(wr, "")?;
-    writeln!(wr, "/// Patch for {}", state.edit.name())?;
-    for l in state.edit.docs.text().lines() {
-        writeln!(wr, "/// {}", l)?;
-    }
-    writeln!(wr, "")?;
-    writeln!(wr, "pub fn patch(pal: &mut Palette) {{",)?;
-    writeln!(
-        wr,
-        "    if pal.name.as_ref() == \"{}\" {{",
-        state.edit.name()
-    )?;
-    let aliased = state.edit.aliases_for(&ctx.cfg.extra_aliases());
-    for (n, c) in aliased {
-        writeln!(
-            wr,
-            "        pal.add_aliased({:?}, ColorIdx(Colors::{:?}, {:?}));",
-            n, c.0, c.1
-        )?;
-    }
-    writeln!(wr, "    }}")?;
-    writeln!(wr, "}}")?;
-    writeln!(wr, "")?;
-
-    Ok(Control::Changed)
-}
-
-fn export_pal_to_rs(
-    path: &Path,
-    state: &mut Scenery,
-    _ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
-    use std::io::Write;
-
-    let c32 = Palette::color_to_u32;
-
-    let mut wr = File::create(path)?;
-    writeln!(wr, "use std::borrow::Cow;")?;
-    writeln!(wr, "use crate::palette::{{Colors, Palette, define_alias}};")?;
-    writeln!(wr, "")?;
-    writeln!(wr, "/// {}", state.edit.name())?;
-    for l in state.edit.docs.text().lines() {
-        writeln!(wr, "/// {}", l)?;
-    }
-    writeln!(
-        wr,
-        "const DARKNESS: u8 = {};",
-        state.edit.dark.value::<u8>().unwrap_or(64)
-    )?;
-    writeln!(wr, "")?;
-    writeln!(
-        wr,
-        "pub const {}: Palette = Palette {{",
-        state.edit.const_name(),
-    )?;
-    writeln!(wr, "    name: Cow::Borrowed(\"{}\"), ", state.edit.name())?;
-    writeln!(wr, "")?;
-    writeln!(wr, "    color: [")?;
-    for c in [Colors::TextLight, Colors::TextDark] {
-        let c0 = state.edit.color[c as usize].0.value();
-        let c3 = state.edit.color[c as usize].3.value();
-        writeln!(
-            wr,
-            "        Palette::interpolate2({:#08x}, {:#08x}, 0x0, 0x0),",
-            c32(c0),
-            c32(c3)
-        )?;
-    }
-    for c in color_array_no_text() {
-        let c0 = state.edit.color[c as usize].0.value();
-        let c3 = state.edit.color[c as usize].3.value();
-        writeln!(
-            wr,
-            "        Palette::interpolate({:#08x}, {:#08x}, DARKNESS),",
-            c32(c0),
-            c32(c3)
-        )?;
-    }
-    writeln!(wr, "    ],")?;
-    writeln!(wr, "    // must be sorted!")?;
-    writeln!(wr, "    aliased: Cow::Borrowed(&[")?;
-    let aliased = state.edit.aliased();
-    for (n, c) in aliased {
-        writeln!(
-            wr,
-            "        define_alias({:?}, Colors::{:?}, {:?}),",
-            n, c.0, c.1
-        )?;
-    }
-    writeln!(wr, "    ]),")?;
-    writeln!(wr, "}};")?;
-    writeln!(wr, "")?;
-
-    Ok(Control::Changed)
-}
-
-fn saveas_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn save_as_pal_dlg(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_save_dlg.clone();
     s.borrow_mut()
         .save_dialog_ext(".", state.edit.file_name(), "pal")?;
@@ -909,75 +777,15 @@ fn saveas_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>
     Ok(Control::Changed)
 }
 
-fn save_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn save_pal_dlg(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     if let Some(file_path) = state.file_path.clone() {
-        save_pal_file(&file_path, state, ctx)
+        proc::save_pal_file(&file_path, state, ctx)
     } else {
-        saveas_pal(state, ctx)
+        save_as_pal_dlg(state, ctx)
     }
 }
 
-fn save_pal_file(
-    path: &Path,
-    state: &mut Scenery,
-    _ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
-    state.file_path = Some(path.into());
-
-    let mut ff = Ini::new_std();
-    ff.set_text("palette", "name", state.edit.name());
-    ff.set_text("palette", "docs", state.edit.docs.text());
-    ff.set_val(
-        "palette",
-        "dark",
-        state.edit.dark.value::<u8>().unwrap_or(63),
-    );
-    for c in color_array() {
-        ff.set_array(
-            "color",
-            &c.to_string(),
-            [
-                state.edit.color[c as usize].0.value(),
-                state.edit.color[c as usize].3.value(),
-            ],
-        );
-    }
-
-    for (c, s) in state.edit.color_ext.iter() {
-        let c_idx = s.value();
-        ff.set_val("reference", c, c_idx);
-    }
-
-    ff.write_std(path)?;
-
-    Ok(Control::Changed)
-}
-
-fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    state.file_path = None;
-
-    state.edit.name.set_value("pal.name");
-    _ = state.edit.dark.set_value(64);
-
-    for c in color_array() {
-        state.edit.color[c as usize].0.set_value(Color::default());
-        state.edit.color[c as usize].3.set_value(Color::default());
-    }
-    for (_, s) in state.edit.color_ext.iter_mut() {
-        s.set_value(ColorIdx(Colors::default(), 0));
-    }
-
-    state
-        .detail
-        .show
-        .readability
-        .bg_color
-        .set_value(ColorIdx(Colors::default(), 0));
-
-    Ok(Control::Changed)
-}
-
-fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+fn load_pal_dlg(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let s = state.file_load_dlg.clone();
     s.borrow_mut().open_many_dialog(".")?;
     ctx.dlg.push(
@@ -999,190 +807,6 @@ fn load_pal(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, 
         s,
     );
     Ok(Control::Changed)
-}
-
-fn use_base46(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    if let Some(v) = state.detail.foreign.color("white") {
-        state.edit.color[Colors::TextLight as usize].0.set_value(v);
-        state.edit.color[Colors::TextLight as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("darker_black") {
-        state.edit.color[Colors::TextDark as usize].0.set_value(v);
-        state.edit.color[Colors::TextDark as usize].3.set_value(v);
-    }
-
-    if let Some(v) = state.detail.foreign.color("white") {
-        state.edit.color[Colors::White as usize].0.set_value(v);
-        state.edit.color[Colors::White as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("grey") {
-        state.edit.color[Colors::Gray as usize].0.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("light_grey") {
-        state.edit.color[Colors::Gray as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("darker_black") {
-        state.edit.color[Colors::Black as usize].0.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("black2") {
-        state.edit.color[Colors::Black as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("red") {
-        state.edit.color[Colors::Red as usize].0.set_value(v);
-        state.edit.color[Colors::Red as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("orange") {
-        state.edit.color[Colors::Orange as usize].0.set_value(v);
-        state.edit.color[Colors::Orange as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("yellow") {
-        state.edit.color[Colors::Yellow as usize].0.set_value(v);
-        state.edit.color[Colors::Yellow as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("vibrant_green") {
-        state.edit.color[Colors::LimeGreen as usize].0.set_value(v);
-        state.edit.color[Colors::LimeGreen as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("green") {
-        state.edit.color[Colors::Green as usize].0.set_value(v);
-        state.edit.color[Colors::Green as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("teal") {
-        state.edit.color[Colors::BlueGreen as usize].0.set_value(v);
-        state.edit.color[Colors::BlueGreen as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("cyan") {
-        state.edit.color[Colors::Cyan as usize].0.set_value(v);
-        state.edit.color[Colors::Cyan as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("blue") {
-        state.edit.color[Colors::Blue as usize].0.set_value(v);
-        state.edit.color[Colors::Blue as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("nord_blue") {
-        state.edit.color[Colors::DeepBlue as usize].0.set_value(v);
-        state.edit.color[Colors::DeepBlue as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("dark_purple") {
-        state.edit.color[Colors::Purple as usize].0.set_value(v);
-        state.edit.color[Colors::Purple as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("pink") {
-        state.edit.color[Colors::Magenta as usize].0.set_value(v);
-        state.edit.color[Colors::Magenta as usize].3.set_value(v);
-    }
-    if let Some(v) = state.detail.foreign.color("baby_pink") {
-        state.edit.color[Colors::RedPink as usize].0.set_value(v);
-        state.edit.color[Colors::RedPink as usize].3.set_value(v);
-    }
-    Ok(Control::Changed)
-}
-
-fn load_pal_file(
-    path: &Path,
-    state: &mut Scenery,
-    ctx: &mut Global,
-) -> Result<Control<PalEvent>, Error> {
-    state.file_path = Some(path.into());
-
-    let mut ff = Ini::new_std();
-    match ff.load(path) {
-        Ok(_) => {}
-        Err(e) => return Err(anyhow!(e)),
-    };
-
-    state
-        .edit
-        .name
-        .set_value(ff.get_text("palette", "name", ""));
-    state
-        .edit
-        .docs
-        .set_value(ff.get_text("palette", "docs", ""));
-    _ = state
-        .edit
-        .dark
-        .set_value(ff.parse_val::<u8, _>("palette", "dark", 63));
-    for c in color_array() {
-        let ccc = ff.parse_array::<2, _, _>("color", &c.to_string(), Color::default());
-        state.edit.color[c as usize].0.set_value(ccc[0]);
-        state.edit.color[c as usize].3.set_value(ccc[1]);
-    }
-    for (n, s) in state.edit.color_ext.iter_mut() {
-        let c_idx = ff.parse_val("reference", n, ColorIdx::default());
-        s.set_value(c_idx);
-    }
-
-    ctx.show_theme = create_edit_theme(state);
-
-    Ok(Control::Changed)
-}
-
-fn create_edit_theme(state: &Scenery) -> SalsaTheme {
-    let palette = state.edit.palette();
-    match state.detail.show.themes.value().as_str() {
-        "Shell" => themes::create_shell("Shell", palette),
-        "Fallback" => themes::create_fallback("Fallback", palette),
-        _ => themes::create_dark("Dark", palette),
-    }
-}
-
-fn rat_widget_color_names() -> &'static [&'static str] {
-    &[
-        Color::LABEL_FG,
-        Color::INPUT_BG,
-        Color::INPUT_FOCUS_BG,
-        Color::INPUT_SELECT_BG,
-        Color::FOCUS_BG,
-        Color::SELECT_BG,
-        Color::DISABLED_BG,
-        Color::INVALID_BG,
-        //
-        Color::TITLE_FG,
-        Color::TITLE_BG,
-        Color::HEADER_FG,
-        Color::HEADER_BG,
-        Color::FOOTER_FG,
-        Color::FOOTER_BG,
-        //
-        Color::HOVER_BG,
-        Color::BUTTON_BASE_BG,
-        Color::KEY_BINDING_BG,
-        Color::MENU_BASE_BG,
-        Color::STATUS_BASE_BG,
-        Color::SHADOW_BG,
-        Color::WEEK_HEADER_FG,
-        Color::MONTH_HEADER_FG,
-        //
-        Color::CONTAINER_BASE_BG,
-        Color::CONTAINER_BORDER_FG,
-        Color::CONTAINER_ARROW_FG,
-        Color::DOCUMENT_BASE_BG,
-        Color::DOCUMENT_BORDER_FG,
-        Color::DOCUMENT_ARROW_FG,
-        Color::POPUP_BASE_BG,
-        Color::POPUP_BORDER_FG,
-        Color::POPUP_ARROW_FG,
-        Color::DIALOG_BASE_BG,
-        Color::DIALOG_BORDER_FG,
-        Color::DIALOG_ARROW_FG,
-    ]
-}
-
-const fn color_array_no_text() -> [Colors; Colors::LEN - 2] {
-    use Colors::*;
-    [
-        Primary, Secondary, White, Black, Gray, Red, Orange, Yellow, LimeGreen, Green, BlueGreen,
-        Cyan, Blue, DeepBlue, Purple, Magenta, RedPink,
-    ]
-}
-
-const fn color_array() -> [Colors; Colors::LEN] {
-    use Colors::*;
-    [
-        TextLight, TextDark, Primary, Secondary, White, Black, Gray, Red, Orange, Yellow,
-        LimeGreen, Green, BlueGreen, Cyan, Blue, DeepBlue, Purple, Magenta, RedPink,
-    ]
 }
 
 pub fn error(

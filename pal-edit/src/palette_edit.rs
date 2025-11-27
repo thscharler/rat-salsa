@@ -1,8 +1,8 @@
+use crate::proc::{color_array, color_array_no_text};
 use crate::widget::color_span::{ColorSpan, ColorSpanState};
-use crate::{Config, Global, PalEvent, color_array, color_array_no_text};
+use crate::{Config, Global, PalEvent};
 use anyhow::Error;
 use indexmap::IndexMap;
-use log::debug;
 use rat_salsa::SalsaContext;
 use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::{RatWidgetColor, WidgetStyle};
@@ -323,7 +323,7 @@ pub fn render(
     }
 
     let pal = state.palette();
-    let pal_choice = crate::pal_choice(pal);
+    let pal_choice = crate::proc::pal_choice(pal);
 
     let mut popup_ext = Vec::new();
     let mut popup_place = Placement::Right;

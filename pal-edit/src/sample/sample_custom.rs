@@ -117,7 +117,7 @@ pub fn render(
         state.form.set_layout(l.build_endless(size.width));
     }
     let mut form = form.into_buffer(area, buf, &mut state.form);
-    let pal_choice = crate::pal_aliases(ctx.show_theme.p.clone());
+    let pal_choice = crate::proc::pal_aliases(ctx.show_theme.p.clone());
 
     let fg_1_popup = form.render2(
         state.fg_1.id(),
