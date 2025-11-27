@@ -2,6 +2,7 @@ use crate::color_span::{ColorSpan, ColorSpanState};
 use crate::{Config, Global, PalEvent, color_array, color_array_no_text};
 use anyhow::Error;
 use indexmap::IndexMap;
+use log::debug;
 use rat_salsa::SalsaContext;
 use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::{RatWidgetColor, WidgetStyle};
@@ -68,9 +69,10 @@ impl PaletteEdit {
         z
     }
 
-    pub fn width(cfg: &Config) -> u16 {
-        let max_label = cfg.aliases().iter().map(|v| v.len()).max().unwrap_or(10) as u16;
-        max_label + 54
+    pub fn width(_cfg: &Config) -> u16 {
+        // let max_label = cfg.aliases().iter().map(|v| v.len()).max().unwrap_or(10) as u16;
+        // max_label + 52
+        64
     }
 
     pub fn name(&self) -> String {
@@ -219,7 +221,9 @@ pub fn render(
 
     if !state.form.valid_layout(layout_size) {
         use rat_widget::layout::{FormLabel as L, FormWidget as W};
-        let mut layout = LayoutForm::<usize>::new().spacing(1).flex(Flex::Start);
+        let mut layout = LayoutForm::<usize>::new() //
+            .spacing(1)
+            .flex(Flex::Start);
         layout.widget(state.name.id(), L::Str("Name"), W::Width(20));
         layout.widget(state.docs.id(), L::Str("Doc"), W::StretchX(20, 3));
         layout.widget(state.dark.id(), L::Str("Dark"), W::Width(4));
@@ -232,10 +236,25 @@ pub fn render(
             );
         }
         layout.gap(1);
+        layout.widget(0, L::None, W::Wide(1, 1)); // placeholder
+        let mut layout = layout.build_endless(layout_size.width);
+
+        // build alias list with 2 columns and append.
+        let first_extra = ctx.cfg.extra_alias.get(0).map(|v| v.as_str());
+        let mut layout2 = LayoutForm::<usize>::new()
+            .spacing(1)
+            .columns(2)
+            .flex(Flex::Legacy);
         for (n, s) in state.color_ext.iter() {
-            layout.widget(s.id(), L::String(n.to_string()), W::Width(15));
+            if Some(n.as_str()) == first_extra {
+                layout2.column_break();
+            }
+            layout2.widget(s.id(), L::String(n.to_string()), W::Width(15));
         }
-        form = form.layout(layout.build_endless(layout_size.width));
+        let layout2 = layout2.build_endless(layout_size.width);
+        layout.append(layout.widget_for(0).as_position(), layout2);
+
+        form = form.layout(layout);
     }
     let mut form = form.into_buffer(area, &mut state.form);
 

@@ -172,16 +172,12 @@ pub struct Config {
     pub loc: Locale,
     pub open_path: Vec<PathBuf>,
     pub extra_alias: Vec<String>,
-    pub extra_alias2: Vec<String>,
 }
 
 impl Config {
     pub fn extra_aliases(&self) -> HashSet<String> {
         let mut extra = HashSet::new();
         for v in &self.extra_alias {
-            extra.insert(v.clone());
-        }
-        for v in &self.extra_alias2 {
             extra.insert(v.clone());
         }
         extra
@@ -191,7 +187,6 @@ impl Config {
         let mut r = Vec::new();
         r.extend(rat_widget_color_names().iter().map(|v| v.to_string()));
         r.extend(self.extra_alias.iter().cloned());
-        r.extend(self.extra_alias2.iter().cloned());
         r
     }
 
@@ -203,9 +198,9 @@ impl Config {
         let loc = loc.replace("-", "_");
         let loc = Locale::try_from(loc.as_str()).expect("locale");
 
-        let extra_alias = if let Some(cfg_dir) = config_dir() {
-            let mut aliases = Vec::new();
+        let mut extra_alias = Vec::new();
 
+        if let Some(cfg_dir) = config_dir() {
             let cfg_path = cfg_dir.join("pal-edit");
             let cfg_file = cfg_path.join("pal-edit.ini");
             if cfg_file.exists() {
@@ -219,7 +214,7 @@ impl Config {
 
                 if let Some(map) = ini.get_map_ref().get("aliases") {
                     for alias in map.keys() {
-                        aliases.push(alias.trim().into());
+                        extra_alias.push(alias.trim().into());
                     }
                 }
             } else {
@@ -233,13 +228,9 @@ impl Config {
 ",
                 )?;
             }
-
-            aliases
-        } else {
-            Vec::new()
         };
 
-        let extra_alias2 = if let Some(extra_alias_path) = extra_alias_path {
+        if let Some(extra_alias_path) = extra_alias_path {
             let mut ini = Ini::new();
             match ini.load(extra_alias_path) {
                 Ok(_) => {}
@@ -248,27 +239,22 @@ impl Config {
                 }
             }
 
-            let mut aliases = Vec::new();
             if let Some(map) = ini.get_map_ref().get("aliases") {
                 for alias in map.keys() {
-                    aliases.push(alias.trim().into());
+                    extra_alias.push(alias.trim().into());
                 }
             }
             if let Some(map) = ini.get_map_ref().get("default") {
                 for alias in map.keys() {
-                    aliases.push(alias.trim().into());
+                    extra_alias.push(alias.trim().into());
                 }
             }
-            aliases
-        } else {
-            Default::default()
         };
 
         Ok(Config {
             loc,
             open_path,
             extra_alias,
-            extra_alias2,
         })
     }
 }
@@ -316,10 +302,10 @@ pub struct Scenery {
     pub file_save_dlg: Rc<RefCell<FileDialogState>>,
     pub file_dlg_export: Rc<RefCell<FileDialogState>>,
     pub file_dlg_import: Rc<RefCell<FileDialogState>>,
-    pub file_path: Option<PathBuf>,
 
     pub file_slider: SliderState,
     pub files: Vec<PathBuf>,
+    pub file_path: Option<PathBuf>,
 
     pub edit: PaletteEdit,
     pub detail: ShowOrBase46,
@@ -445,7 +431,7 @@ fn render_menu(
             ),
             (
                 "_Patch", //
-                &["_Export .rs|Ctrl+P"],
+                &["_Auto-Load from", "_Export .rs|Ctrl+P"],
             ),
             (
                 "_Extern", //
@@ -556,7 +542,8 @@ pub fn event(
             MenuOutcome::MenuActivated(0, 2) => save_pal(state, ctx)?,
             MenuOutcome::MenuActivated(0, 3) => saveas_pal(state, ctx)?,
             MenuOutcome::MenuActivated(0, 4) => export_rs(state, ctx)?,
-            MenuOutcome::MenuActivated(1, 0) => export_patch(state, ctx)?,
+            MenuOutcome::MenuActivated(1, 0) => load_patch(state, ctx)?,
+            MenuOutcome::MenuActivated(1, 1) => export_patch(state, ctx)?,
             MenuOutcome::MenuActivated(2, 0) => import_colors(state, ctx)?,
             MenuOutcome::MenuActivated(2, 1) => use_base46(state, ctx)?,
             MenuOutcome::MenuActivated(3, 0) => next_file(state, ctx)?,
@@ -726,6 +713,28 @@ fn import_colors(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEve
         }),
         s,
     );
+    Ok(Control::Changed)
+}
+
+fn load_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    // let s = state.file_dlg_export.clone();
+    // s.borrow_mut()
+    //     .(".", state.edit.file_name(), "rs")?;
+    // ctx.dlg.push(
+    //     file_dialog_render(
+    //         LayoutOuter::new()
+    //             .left(Constraint::Percentage(19))
+    //             .right(Constraint::Percentage(19))
+    //             .top(Constraint::Length(4))
+    //             .bottom(Constraint::Length(4)),
+    //         ctx.theme.style(WidgetStyle::FILE_DIALOG),
+    //     ),
+    //     file_dialog_event(|p| match p {
+    //         Ok(p) => PalEvent::ExportPatch(p),
+    //         Err(_) => PalEvent::NoOp,
+    //     }),
+    //     s,
+    // );
     Ok(Control::Changed)
 }
 

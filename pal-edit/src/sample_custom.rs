@@ -88,7 +88,9 @@ pub fn render(
     state: &mut SampleCustom,
     ctx: &mut Global,
 ) -> Result<(), Error> {
-    let form = Form::new().styles(ctx.show_theme.style(WidgetStyle::FORM));
+    let form = Form::new() //
+        .styles(ctx.show_theme.style(WidgetStyle::FORM))
+        .show_navigation(false);
     let size = form.layout_size(area);
     {
         use rat_widget::layout::{FormLabel as L, FormWidget as W};

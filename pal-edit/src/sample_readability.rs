@@ -135,7 +135,7 @@ The Paris Peace Accords removed the remaining United States forces, and fighting
 
     // don't forget the popup ...
     bg_colors_popup.render(l1[0], buf, &mut state.bg_color);
-    fg_colors_popup.render(l1[1], buf, &mut state.bg_color);
+    fg_colors_popup.render(l1[1], buf, &mut state.fg_color);
 
     Ok(())
 }
