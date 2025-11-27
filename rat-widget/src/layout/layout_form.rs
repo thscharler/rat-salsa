@@ -858,8 +858,8 @@ impl Page {
         let column_width =
             layout_width.saturating_sub(layout.column_spacing * n_col_spacers) / layout.columns;
 
-        let mut max_label = layout.min_label;
-        let mut max_widget = max(
+        let mut min_label = layout.min_label;
+        let mut min_widget = max(
             layout.min_widget,
             layout
                 .min_widget_wide
@@ -869,53 +869,65 @@ impl Page {
         let mut spacing = layout.spacing;
 
         let nominal =
-            layout.max_left_padding + max_label + spacing + max_widget + layout.max_right_padding;
+            layout.max_left_padding + min_label + spacing + min_widget + layout.max_right_padding;
 
         if nominal > column_width {
             let mut reduce = nominal - column_width;
 
-            if spacing > reduce {
-                spacing -= reduce;
-                reduce = 0;
-            } else {
-                reduce -= spacing;
-                spacing = 0;
-            }
-            if max_label > 5 {
-                if max_label - 5 > reduce {
-                    max_label -= reduce;
+            if min_label > 5 && min_label - 5 > reduce {
+                // keep a minimum spacing of 1 as long as there
+                // is more than 5 char of label
+                if spacing.saturating_sub(1) > reduce {
+                    spacing -= reduce;
                     reduce = 0;
                 } else {
-                    reduce -= max_label - 5;
-                    max_label = 5;
+                    reduce -= spacing.saturating_sub(1);
+                    spacing = if spacing > 0 { 1 } else { 0 };
                 }
-            }
-            if max_widget > 5 {
-                if max_widget - 5 > reduce {
-                    max_widget -= reduce;
+            } else {
+                if spacing > reduce {
+                    spacing -= reduce;
                     reduce = 0;
                 } else {
-                    reduce -= max_widget - 5;
-                    max_widget = 5;
+                    reduce -= spacing;
+                    spacing = 0;
                 }
             }
-            if max_label > reduce {
-                max_label -= reduce;
+            if min_label > 5 {
+                if min_label - 5 > reduce {
+                    min_label -= reduce;
+                    reduce = 0;
+                } else {
+                    reduce -= min_label - 5;
+                    min_label = 5;
+                }
+            }
+            if min_widget > 5 {
+                if min_widget - 5 > reduce {
+                    min_widget -= reduce;
+                    reduce = 0;
+                } else {
+                    reduce -= min_widget - 5;
+                    min_widget = 5;
+                }
+            }
+            if min_label > reduce {
+                min_label -= reduce;
                 reduce = 0;
             } else {
-                reduce -= max_label;
-                max_label = 0;
+                reduce -= min_label;
+                min_label = 0;
             }
-            if max_widget > reduce {
-                max_widget -= reduce;
+            if min_widget > reduce {
+                min_widget -= reduce;
                 // reduce = 0;
             } else {
                 // reduce -= max_widget;
-                max_widget = 0;
+                min_widget = 0;
             }
         }
 
-        (max_label, spacing, max_widget)
+        (min_label, spacing, min_widget)
     }
 
     fn new<W>(layout: &LayoutForm<W>, page_size: Size) -> Self
