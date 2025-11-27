@@ -1,22 +1,10 @@
-mod clipboard;
-mod color_span;
-mod configparser_ext;
 mod foreign;
-mod message;
 mod palette_edit;
-mod sample_custom;
-mod sample_data_input;
-mod sample_dialog;
-mod sample_list;
+mod sample;
 mod sample_or_base46;
-mod sample_readability;
-mod sample_split;
-mod sample_table;
-mod show_sample;
+mod util;
+mod widget;
 
-use crate::clipboard::CliClipboard;
-use crate::configparser_ext::ConfigParserExt;
-use crate::message::{MsgState, msg_event, msg_render};
 use crate::palette_edit::PaletteEdit;
 use crate::sample_or_base46::ShowOrBase46;
 use anyhow::{Error, anyhow};
@@ -61,6 +49,9 @@ use std::process::exit;
 use std::rc::Rc;
 use std::{array, fs, mem};
 use try_as_traits::TryAsRef;
+use util::clipboard::CliClipboard;
+use util::configparser_ext::ConfigParserExt;
+use util::message::{MsgState, msg_event, msg_render};
 
 fn main() -> Result<(), Error> {
     let arg = parse_arg();
@@ -270,6 +261,7 @@ pub enum PalEvent {
     LoadVec(Vec<PathBuf>),
     Load(PathBuf),
     ExportRs(PathBuf),
+    PatchPath(PathBuf),
     ExportPatch(PathBuf),
     ImportColors(PathBuf),
     ContainerBase(ColorIdx),
@@ -305,6 +297,7 @@ pub struct Scenery {
 
     pub file_slider: SliderState,
     pub files: Vec<PathBuf>,
+    pub patch_path: Option<PathBuf>,
     pub file_path: Option<PathBuf>,
 
     pub edit: PaletteEdit,
@@ -321,6 +314,7 @@ impl Scenery {
             file_dlg_export: Rc::new(RefCell::new(FileDialogState::default())),
             file_dlg_import: Rc::new(RefCell::new(FileDialogState::default())),
             file_path: Default::default(),
+            patch_path: None,
             file_slider: SliderState::<usize>::named("files"),
             files: Default::default(),
             edit: PaletteEdit::new(cfg),
@@ -423,19 +417,19 @@ fn render_menu(
                 "P_alette",
                 &[
                     "_New",
-                    "_Load",
+                    "_Load..",
                     "_Save|F12",
-                    "_Save as",
-                    "_Export .rs|Ctrl+E",
+                    "_Save as..",
+                    "_Export .rs..|Ctrl+E",
                 ],
             ),
             (
                 "_Patch", //
-                &["_Auto-Load from", "_Export .rs|Ctrl+P"],
+                &["_Auto-Load from..", "_Export .rs..|Ctrl+P"],
             ),
             (
                 "_Extern", //
-                &["_Import Colors", "Use Base46 colors"],
+                &["_Import Colors..", "Use Base46 colors"],
             ),
             (
                 "_List", //
@@ -633,6 +627,10 @@ pub fn event(
             Ok(Control::Changed)
         }
         PalEvent::ExportRs(p) => export_pal_to_rs(&p, state, ctx),
+        PalEvent::PatchPath(p) => {
+            state.patch_path = Some(p.clone());
+            Ok(Control::Changed)
+        }
         PalEvent::ExportPatch(p) => export_pal_to_patch(&p, state, ctx),
         PalEvent::ImportColors(p) => {
             state.detail.tabs.select(Some(1));
@@ -717,24 +715,23 @@ fn import_colors(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEve
 }
 
 fn load_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    // let s = state.file_dlg_export.clone();
-    // s.borrow_mut()
-    //     .(".", state.edit.file_name(), "rs")?;
-    // ctx.dlg.push(
-    //     file_dialog_render(
-    //         LayoutOuter::new()
-    //             .left(Constraint::Percentage(19))
-    //             .right(Constraint::Percentage(19))
-    //             .top(Constraint::Length(4))
-    //             .bottom(Constraint::Length(4)),
-    //         ctx.theme.style(WidgetStyle::FILE_DIALOG),
-    //     ),
-    //     file_dialog_event(|p| match p {
-    //         Ok(p) => PalEvent::ExportPatch(p),
-    //         Err(_) => PalEvent::NoOp,
-    //     }),
-    //     s,
-    // );
+    let s = state.file_dlg_export.clone();
+    s.borrow_mut().directory_dialog(".")?;
+    ctx.dlg.push(
+        file_dialog_render(
+            LayoutOuter::new()
+                .left(Constraint::Percentage(19))
+                .right(Constraint::Percentage(19))
+                .top(Constraint::Length(4))
+                .bottom(Constraint::Length(4)),
+            ctx.theme.style(WidgetStyle::FILE_DIALOG),
+        ),
+        file_dialog_event(|p| match p {
+            Ok(p) => PalEvent::PatchPath(p),
+            Err(_) => PalEvent::NoOp,
+        }),
+        s,
+    );
     Ok(Control::Changed)
 }
 

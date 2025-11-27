@@ -1,13 +1,13 @@
-use crate::sample_custom::SampleCustom;
-use crate::sample_data_input::SampleDataInput;
-use crate::sample_dialog::{SampleDialog, SampleDialogState};
-use crate::sample_list::SampleList;
-use crate::sample_readability::SampleReadability;
-use crate::sample_split::SampleSplit;
-use crate::sample_table::SampleTable;
-use crate::{
-    Global, sample_custom, sample_data_input, sample_list, sample_readability, sample_split,
-    sample_table,
+use crate::Global;
+use crate::sample::sample_custom::SampleCustom;
+use crate::sample::sample_data_input::SampleDataInput;
+use crate::sample::sample_dialog::{SampleDialog, SampleDialogState};
+use crate::sample::sample_list::SampleList;
+use crate::sample::sample_readability::SampleReadability;
+use crate::sample::sample_split::SampleSplit;
+use crate::sample::sample_table::SampleTable;
+use crate::sample::{
+    sample_custom, sample_data_input, sample_list, sample_readability, sample_split, sample_table,
 };
 use anyhow::Error;
 use pure_rust_locales::Locale;

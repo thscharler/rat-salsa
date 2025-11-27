@@ -1,4 +1,4 @@
-use crate::color_span::{ColorSpan, ColorSpanState};
+use crate::widget::color_span::{ColorSpan, ColorSpanState};
 use crate::{Config, Global, PalEvent, color_array, color_array_no_text};
 use anyhow::Error;
 use indexmap::IndexMap;

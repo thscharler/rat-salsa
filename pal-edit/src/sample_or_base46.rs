@@ -1,6 +1,7 @@
 use crate::foreign::Foreign;
-use crate::show_sample::ShowSample;
-use crate::{Config, Global, foreign, show_sample};
+use crate::sample::show_sample;
+use crate::sample::show_sample::ShowSample;
+use crate::{Config, Global, foreign};
 use anyhow::Error;
 use rat_theme4::WidgetStyle;
 use rat_widget::event::{HandleEvent, Outcome, Regular, event_flow};
