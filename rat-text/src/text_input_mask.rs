@@ -427,8 +427,8 @@ fn render_ref(
                 style.patch(focus_style).patch(invalid_style),
                 style
                     .patch(focus_style)
-                    .patch(select_style)
-                    .patch(invalid_style),
+                    .patch(invalid_style)
+                    .patch(select_style),
             )
         } else {
             (
@@ -440,7 +440,7 @@ fn render_ref(
         if state.invalid {
             (
                 style.patch(invalid_style),
-                style.patch(select_style).patch(invalid_style),
+                style.patch(invalid_style).patch(select_style),
             )
         } else {
             (style, style.patch(select_style))
