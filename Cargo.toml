@@ -21,4 +21,5 @@ members = [
     "rat-theme4",
     "rat-vim",
     "rat-widget",
+    "rat-widget-extra",
 ]
