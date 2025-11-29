@@ -15,6 +15,8 @@ pub mod text_input;
 pub mod text_input_mask;
 pub mod undo_buffer;
 
+mod derive;
+
 mod cache;
 mod glyph2;
 mod grapheme;

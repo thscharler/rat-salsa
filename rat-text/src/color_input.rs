@@ -23,10 +23,11 @@ use crate::_private::NonExhaustive;
 use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
-use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{TextError, TextFocusGained, TextFocusLost, TextStyle, TextTab, upos_type};
+use crate::{
+    TextError, TextFocusGained, TextFocusLost, TextStyle, TextTab, derive_text_widget_state,
+    upos_type,
+};
 use palette::{FromColor, Hsv, Srgb};
-use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
@@ -133,6 +134,8 @@ impl<'a> Default for ColorInput<'a> {
         z
     }
 }
+
+// derive_text_widget!(ColorInput<'a>);
 
 impl<'a> ColorInput<'a> {
     pub fn new() -> Self {
@@ -312,6 +315,16 @@ fn render(widget: &ColorInput<'_>, area: Rect, buf: &mut Buffer, state: &mut Col
     (&widget.widget).render(widget_area, buf, &mut state.widget);
 }
 
+derive_text_widget_state!( BASE ColorInputState );
+// derive_text_widget_state!( CLIPBOARD ColorInputState );
+derive_text_widget_state!( UNDO ColorInputState );
+derive_text_widget_state!( STYLE ColorInputState );
+derive_text_widget_state!( OFFSET ColorInputState );
+// derive_text_widget_state!( EDIT ColorInputState );
+// derive_text_widget_state!( FOCUS ColorInputState );
+derive_text_widget_state!( SCREENCURSOR ColorInputState );
+// derive_text_widget_state!( RELOCATE ColorInputState );
+
 impl Default for ColorInputState {
     fn default() -> Self {
         let mut z = Self {
@@ -358,20 +371,6 @@ impl ColorInputState {
         let mut z = Self::default();
         z.widget.focus = z.widget.focus.with_name(name);
         z
-    }
-
-    /// The next edit operation will overwrite the current content
-    /// instead of adding text. Any move operations will cancel
-    /// this overwrite.
-    #[inline]
-    pub fn set_overwrite(&mut self, overwrite: bool) {
-        self.widget.set_overwrite(overwrite);
-    }
-
-    /// Will the next edit operation overwrite the content?
-    #[inline]
-    pub fn overwrite(&self) -> bool {
-        self.widget.overwrite()
     }
 }
 
@@ -486,189 +485,6 @@ impl ColorInputState {
 }
 
 impl ColorInputState {
-    /// Set undo buffer.
-    #[inline]
-    pub fn set_undo_buffer(&mut self, undo: Option<impl UndoBuffer + 'static>) {
-        self.widget.set_undo_buffer(undo);
-    }
-
-    /// Undo
-    #[inline]
-    pub fn undo_buffer(&self) -> Option<&dyn UndoBuffer> {
-        self.widget.undo_buffer()
-    }
-
-    /// Undo
-    #[inline]
-    pub fn undo_buffer_mut(&mut self) -> Option<&mut dyn UndoBuffer> {
-        self.widget.undo_buffer_mut()
-    }
-
-    /// Get all recent replay recordings.
-    #[inline]
-    pub fn recent_replay_log(&mut self) -> Vec<UndoEntry> {
-        self.widget.recent_replay_log()
-    }
-
-    /// Apply the replay recording.
-    #[inline]
-    pub fn replay_log(&mut self, replay: &[UndoEntry]) {
-        self.widget.replay_log(replay)
-    }
-
-    /// Undo operation
-    #[inline]
-    pub fn undo(&mut self) -> bool {
-        self.widget.undo()
-    }
-
-    /// Redo operation
-    #[inline]
-    pub fn redo(&mut self) -> bool {
-        self.widget.redo()
-    }
-}
-
-impl ColorInputState {
-    /// Set and replace all styles.
-    #[inline]
-    pub fn set_styles(&mut self, styles: Vec<(Range<usize>, usize)>) {
-        self.widget.set_styles(styles);
-    }
-
-    /// Add a style for a byte-range.
-    #[inline]
-    pub fn add_style(&mut self, range: Range<usize>, style: usize) {
-        self.widget.add_style(range, style);
-    }
-
-    /// Add a style for a `Range<upos_type>` .
-    /// The style-nr refers to one of the styles set with the widget.
-    #[inline]
-    pub fn add_range_style(
-        &mut self,
-        range: Range<upos_type>,
-        style: usize,
-    ) -> Result<(), TextError> {
-        self.widget.add_range_style(range, style)
-    }
-
-    /// Remove the exact TextRange and style.
-    #[inline]
-    pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
-        self.widget.remove_style(range, style);
-    }
-
-    /// Remove the exact `Range<upos_type>` and style.
-    #[inline]
-    pub fn remove_range_style(
-        &mut self,
-        range: Range<upos_type>,
-        style: usize,
-    ) -> Result<(), TextError> {
-        self.widget.remove_range_style(range, style)
-    }
-
-    /// Find all styles that touch the given range.
-    pub fn styles_in(&self, range: Range<usize>, buf: &mut Vec<(Range<usize>, usize)>) {
-        self.widget.styles_in(range, buf)
-    }
-
-    /// All styles active at the given position.
-    #[inline]
-    pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<(Range<usize>, usize)>) {
-        self.widget.styles_at(byte_pos, buf)
-    }
-
-    /// Check if the given style applies at the position and
-    /// return the complete range for the style.
-    #[inline]
-    pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.widget.styles_at_match(byte_pos, style)
-    }
-
-    /// List of all styles.
-    #[inline]
-    pub fn styles(&self) -> Option<impl Iterator<Item = (Range<usize>, usize)> + '_> {
-        self.widget.styles()
-    }
-}
-
-impl ColorInputState {
-    /// Offset shown.
-    #[inline]
-    pub fn offset(&self) -> upos_type {
-        self.widget.offset()
-    }
-
-    /// Offset shown. This is corrected if the cursor wouldn't be visible.
-    #[inline]
-    pub fn set_offset(&mut self, offset: upos_type) {
-        self.widget.set_offset(offset)
-    }
-
-    /// Cursor position
-    #[inline]
-    pub fn cursor(&self) -> upos_type {
-        self.widget.cursor()
-    }
-
-    /// Set the cursor position, reset selection.
-    #[inline]
-    pub fn set_cursor(&mut self, cursor: upos_type, extend_selection: bool) -> bool {
-        self.widget.set_cursor(cursor, extend_selection)
-    }
-
-    /// Place cursor at some sensible position according to the mask.
-    #[inline]
-    pub fn set_default_cursor(&mut self) {
-        self.widget.set_default_cursor()
-    }
-
-    /// Selection anchor.
-    #[inline]
-    pub fn anchor(&self) -> upos_type {
-        self.widget.anchor()
-    }
-
-    /// Selection
-    #[inline]
-    pub fn has_selection(&self) -> bool {
-        self.widget.has_selection()
-    }
-
-    /// Selection
-    #[inline]
-    pub fn selection(&self) -> Range<upos_type> {
-        self.widget.selection()
-    }
-
-    /// Selection
-    #[inline]
-    pub fn set_selection(&mut self, anchor: upos_type, cursor: upos_type) -> bool {
-        self.widget.set_selection(anchor, cursor)
-    }
-
-    /// Select all text.
-    #[inline]
-    pub fn select_all(&mut self) {
-        self.widget.select_all();
-    }
-
-    /// Selection
-    #[inline]
-    pub fn selected_text(&self) -> &str {
-        self.widget.selected_text()
-    }
-}
-
-impl ColorInputState {
-    /// Empty
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.widget.is_empty()
-    }
-
     /// Value as Color.
     pub fn value(&self) -> Color {
         Color::Rgb(
@@ -716,18 +532,6 @@ impl ColorInputState {
             }
         };
         r
-    }
-
-    /// Length in grapheme count.
-    #[inline]
-    pub fn len(&self) -> upos_type {
-        self.widget.len()
-    }
-
-    /// Length as grapheme count.
-    #[inline]
-    pub fn line_width(&self) -> upos_type {
-        self.widget.line_width()
     }
 }
 
@@ -1037,14 +841,6 @@ impl ColorInputState {
     }
 }
 
-impl HasScreenCursor for ColorInputState {
-    /// The current text cursor as an absolute screen position.
-    #[inline]
-    fn screen_cursor(&self) -> Option<(u16, u16)> {
-        self.widget.screen_cursor()
-    }
-}
-
 impl RelocatableState for ColorInputState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area.relocate(shift, clip);
@@ -1052,30 +848,6 @@ impl RelocatableState for ColorInputState {
         self.mode_area.relocate(shift, clip);
         self.label_area.relocate(shift, clip);
         self.widget.relocate(shift, clip);
-    }
-}
-
-impl ColorInputState {
-    /// Converts a grapheme based position to a screen position
-    /// relative to the widget area.
-    #[inline]
-    pub fn col_to_screen(&self, pos: upos_type) -> Option<u16> {
-        self.widget.col_to_screen(pos)
-    }
-
-    /// Converts from a widget relative screen coordinate to a grapheme index.
-    /// x is the relative screen position.
-    #[inline]
-    pub fn screen_to_col(&self, scx: i16) -> upos_type {
-        self.widget.screen_to_col(scx)
-    }
-
-    /// Set the cursor position from a screen position relative to the origin
-    /// of the widget. This value can be negative, which selects a currently
-    /// not visible position and scrolls to it.
-    #[inline]
-    pub fn set_screen_cursor(&mut self, cursor: i16, extend_selection: bool) -> bool {
-        self.widget.set_screen_cursor(cursor, extend_selection)
     }
 }
 
