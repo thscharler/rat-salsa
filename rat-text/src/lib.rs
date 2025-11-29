@@ -268,11 +268,21 @@ pub enum TextError {
     ),
     /// Invalid regex for search.
     InvalidSearch,
+    /// Invalid format string.
+    InvalidFmt,
+    /// Text value is somehow invalid.
+    InvalidValue,
 }
 
 impl Display for TextError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl From<std::fmt::Error> for TextError {
+    fn from(_: std::fmt::Error) -> Self {
+        TextError::InvalidFmt
     }
 }
 
