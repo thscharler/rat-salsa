@@ -11,11 +11,15 @@ use rat_widget::event::Outcome;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::splitter::{Split, SplitResize, SplitState, SplitType};
 use rat_widget::statusline::StatusLineState;
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget, Wrap};
+use ratatui_core::layout::{Constraint, Direction, Layout, Rect};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
+use ratatui_widgets::paragraph::Wrap;
 
 mod mini_salsa;
 
@@ -261,7 +265,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,
@@ -322,19 +326,31 @@ fn event(
                 Some(BorderType::Rounded) => Some(BorderType::Thick),
                 Some(BorderType::Thick) => Some(BorderType::QuadrantInside),
                 Some(BorderType::QuadrantInside) => Some(BorderType::QuadrantOutside),
-                Some(BorderType::QuadrantOutside) => None,
+                Some(BorderType::QuadrantOutside) => Some(BorderType::LightDoubleDashed),
+                Some(BorderType::LightDoubleDashed) => Some(BorderType::HeavyDoubleDashed),
+                Some(BorderType::HeavyDoubleDashed) => Some(BorderType::LightTripleDashed),
+                Some(BorderType::LightTripleDashed) => Some(BorderType::HeavyTripleDashed),
+                Some(BorderType::HeavyTripleDashed) => Some(BorderType::LightQuadrupleDashed),
+                Some(BorderType::LightQuadrupleDashed) => Some(BorderType::HeavyQuadrupleDashed),
+                Some(BorderType::HeavyQuadrupleDashed) => None,
             };
             Outcome::Changed
         }
         ct_event!(keycode press SHIFT-F(5)) => {
             state.border_type = match state.border_type {
-                None => Some(BorderType::QuadrantOutside),
+                None => Some(BorderType::HeavyQuadrupleDashed),
                 Some(BorderType::Plain) => None,
                 Some(BorderType::Double) => Some(BorderType::Plain),
                 Some(BorderType::Rounded) => Some(BorderType::Double),
                 Some(BorderType::Thick) => Some(BorderType::Rounded),
                 Some(BorderType::QuadrantInside) => Some(BorderType::Thick),
                 Some(BorderType::QuadrantOutside) => Some(BorderType::QuadrantInside),
+                Some(BorderType::LightDoubleDashed) => Some(BorderType::QuadrantOutside),
+                Some(BorderType::HeavyDoubleDashed) => Some(BorderType::LightDoubleDashed),
+                Some(BorderType::LightTripleDashed) => Some(BorderType::HeavyDoubleDashed),
+                Some(BorderType::HeavyTripleDashed) => Some(BorderType::LightTripleDashed),
+                Some(BorderType::LightQuadrupleDashed) => Some(BorderType::HeavyTripleDashed),
+                Some(BorderType::HeavyQuadrupleDashed) => Some(BorderType::LightQuadrupleDashed),
             };
             Outcome::Changed
         }
@@ -346,19 +362,31 @@ fn event(
                 Some(BorderType::Rounded) => Some(BorderType::Thick),
                 Some(BorderType::Thick) => Some(BorderType::QuadrantInside),
                 Some(BorderType::QuadrantInside) => Some(BorderType::QuadrantOutside),
-                Some(BorderType::QuadrantOutside) => None,
+                Some(BorderType::QuadrantOutside) => Some(BorderType::LightDoubleDashed),
+                Some(BorderType::LightDoubleDashed) => Some(BorderType::HeavyDoubleDashed),
+                Some(BorderType::HeavyDoubleDashed) => Some(BorderType::LightTripleDashed),
+                Some(BorderType::LightTripleDashed) => Some(BorderType::HeavyTripleDashed),
+                Some(BorderType::HeavyTripleDashed) => Some(BorderType::LightQuadrupleDashed),
+                Some(BorderType::LightQuadrupleDashed) => Some(BorderType::HeavyQuadrupleDashed),
+                Some(BorderType::HeavyQuadrupleDashed) => None,
             };
             Outcome::Changed
         }
         ct_event!(keycode press SHIFT-F(6)) => {
             state.inner_border_type = match state.inner_border_type {
-                None => Some(BorderType::QuadrantOutside),
+                None => Some(BorderType::HeavyQuadrupleDashed),
                 Some(BorderType::Plain) => None,
                 Some(BorderType::Double) => Some(BorderType::Plain),
                 Some(BorderType::Rounded) => Some(BorderType::Double),
                 Some(BorderType::Thick) => Some(BorderType::Rounded),
                 Some(BorderType::QuadrantInside) => Some(BorderType::Thick),
                 Some(BorderType::QuadrantOutside) => Some(BorderType::QuadrantInside),
+                Some(BorderType::LightDoubleDashed) => Some(BorderType::QuadrantOutside),
+                Some(BorderType::HeavyDoubleDashed) => Some(BorderType::LightDoubleDashed),
+                Some(BorderType::LightTripleDashed) => Some(BorderType::HeavyDoubleDashed),
+                Some(BorderType::HeavyTripleDashed) => Some(BorderType::LightTripleDashed),
+                Some(BorderType::LightQuadrupleDashed) => Some(BorderType::HeavyTripleDashed),
+                Some(BorderType::HeavyQuadrupleDashed) => Some(BorderType::LightQuadrupleDashed),
             };
             Outcome::Changed
         }

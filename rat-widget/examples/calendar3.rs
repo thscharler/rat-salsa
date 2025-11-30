@@ -11,11 +11,13 @@ use rat_widget::button::{Button, ButtonState};
 use rat_widget::calendar::selection::RangeSelection;
 use rat_widget::calendar::{Calendar3, CalendarState, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, CalOutcome, Outcome};
-use ratatui::Frame;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -201,7 +203,7 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut (),
     istate: &mut MiniSalsaState,
     state: &mut State,

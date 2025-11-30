@@ -4,31 +4,31 @@
 use crate::mini_salsa::palette::Palette;
 use crate::mini_salsa::theme::ShellTheme;
 use anyhow::anyhow;
-use crossterm::ExecutableCommand;
-use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
-use crossterm::event::{
-    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, KeyCode,
-    KeyEvent, KeyEventKind, KeyModifiers,
-};
-#[cfg(not(windows))]
-use crossterm::event::{
-    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
-};
-#[cfg(not(windows))]
-use crossterm::terminal::supports_keyboard_enhancement;
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
 use log::error;
 use rat_event::Outcome;
 use rat_event::util::set_have_keyboard_enhancement;
-use ratatui::backend::CrosstermBackend;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::Widget;
-use ratatui::{Frame, Terminal};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::terminal::{Frame, Terminal};
+use ratatui_core::text::Line;
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::ExecutableCommand;
+use ratatui_crossterm::crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
+use ratatui_crossterm::crossterm::event::{
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
+    KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+};
+#[cfg(not(windows))]
+use ratatui_crossterm::crossterm::event::{
+    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
+#[cfg(not(windows))]
+use ratatui_crossterm::crossterm::terminal::supports_keyboard_enhancement;
+use ratatui_crossterm::crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
+use ratatui_crossterm::{CrosstermBackend, crossterm};
 use std::cell::Cell;
 use std::cmp::max;
 use std::fs;
@@ -80,7 +80,7 @@ pub fn run_ui<Data, State>(
     name: &str,
     init: fn(&mut Data, &mut MiniSalsaState, &mut State) -> Result<(), anyhow::Error>,
     handle: fn(
-        &crossterm::event::Event,
+        &Event,
         data: &mut Data,
         istate: &mut MiniSalsaState,
         state: &mut State,
@@ -288,12 +288,12 @@ fn repaint_tui<Data, State>(
 
 fn handle_event<Data, State>(
     handle: fn(
-        &crossterm::event::Event,
+        &Event,
         data: &mut Data,
         istate: &mut MiniSalsaState,
         state: &mut State,
     ) -> Result<Outcome, anyhow::Error>,
-    event: crossterm::event::Event,
+    event: Event,
     data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,
@@ -303,7 +303,7 @@ fn handle_event<Data, State>(
     let t0 = SystemTime::now();
 
     let r = {
-        use crossterm::event::Event;
+        use Event;
         match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Char('q'),

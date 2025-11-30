@@ -4,11 +4,13 @@ use rat_event::{HandleEvent, Popup, Regular, ct_event};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::cmp::max;
 
 #[derive(Debug)]
@@ -102,8 +104,8 @@ impl HasFocus for PopFocusBlueState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopFocusBlueState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
+impl HandleEvent<Event, Regular, PopupOutcome> for PopFocusBlueState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> PopupOutcome {
         if self.focus.gained_focus() {
             self.popup.set_active(true);
         }

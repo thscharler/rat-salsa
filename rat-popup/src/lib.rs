@@ -2,7 +2,7 @@
 //
 #![allow(clippy::collapsible_else_if)]
 
-use ratatui::layout::{Alignment, Rect};
+use ratatui_core::layout::{Alignment, Rect};
 
 mod popup;
 

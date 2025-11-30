@@ -23,12 +23,14 @@ use rat_widget::slider::{Slider, SliderState};
 use rat_widget::text::{HasScreenCursor, TextFocusLost};
 use rat_widget::text_input::{TextInput, TextInputState};
 use rat_widget::textarea::{TextArea, TextAreaState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Flex, Rect};
-use ratatui::style::Style;
-use ratatui::symbols::border;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, Padding};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Direction, Flex, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::symbols::border;
+use ratatui_core::text::Line;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, Padding};
+use ratatui_widgets::borders::Borders;
 
 // mark
 #[derive(Debug)]
@@ -324,7 +326,7 @@ pub fn render(
 }
 
 pub fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     state: &mut SampleDataInput,
     ctx: &mut Global,
 ) -> Result<Outcome, Error> {

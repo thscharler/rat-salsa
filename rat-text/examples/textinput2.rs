@@ -6,10 +6,13 @@ use rat_text::HasScreenCursor;
 use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::event::TextOutcome;
 use rat_text::text_input::{TextInput, TextInputState};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::terminal::Frame;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::paragraph::Paragraph;
 use std::cell::RefCell;
 use std::fmt;
 
@@ -227,7 +230,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,

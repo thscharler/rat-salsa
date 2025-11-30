@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme4"
-version = "4.0.3"
+version = "5.0.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "dark theme and color-schemes"
@@ -12,11 +12,14 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
 [features]
-default = []
+default = ["color_input"]
 color_input = ["rat-widget/color_input"]
 
 [dependencies]
-ratatui = { version = "0.29" }
 log = "0.4"
 
-rat-widget = { version = "2.6", path = "../rat-widget" }
+ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache", "scrolling-regions"] }
+ratatui-widgets = { version = "0.3.0-beta.0", features = ["std", "unstable-rendered-line-info"] }
+ratatui-crossterm = { version = "0.1.0-beta.0", features = ["scrolling-regions"] }
+
+rat-widget = { version = "3.0", path = "../rat-widget" }

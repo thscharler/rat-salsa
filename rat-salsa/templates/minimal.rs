@@ -13,10 +13,11 @@ use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline_stacked::StatusLineStacked;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
 use std::fs;
 use std::path::PathBuf;
 
@@ -82,7 +83,7 @@ pub struct Config {}
 /// Application wide messages.
 #[derive(Debug)]
 pub enum AppEvent {
-    Event(crossterm::event::Event),
+    Event(Event),
     Rendered,
     Message(String),
 }
@@ -93,8 +94,8 @@ impl From<RenderedEvent> for AppEvent {
     }
 }
 
-impl From<crossterm::event::Event> for AppEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for AppEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }

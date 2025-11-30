@@ -4,10 +4,12 @@
 //!
 //! Render line numbers in sync with a text area.
 //! ```
-//! # use ratatui::buffer::Buffer;
-//! # use ratatui::layout::Rect;
-//! # use ratatui::symbols::border::EMPTY;
-//! # use ratatui::widgets::{Block, Borders, StatefulWidget};
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::Rect;
+//! # use ratatui_core::symbols::border::EMPTY;
+//! # use ratatui_core::widgets::{StatefulWidget};
+//! # use ratatui_widgets::block::{Block};
+//! # use ratatui_widgets::borders::{Borders};
 //! use rat_text::line_number::{LineNumberState, LineNumbers};
 //! # use rat_text::text_area::TextAreaState;
 //!
@@ -37,13 +39,14 @@ use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::StatefulWidget;
-use ratatui::widgets::{Block, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_core::widgets::{ Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt};
 
 /// Renders line-numbers.
 ///
@@ -419,14 +422,14 @@ impl LineNumberState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for LineNumberState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl HandleEvent<Event, Regular, Outcome> for LineNumberState {
+    fn handle(&mut self, _event: &Event, _qualifier: Regular) -> Outcome {
         Outcome::Continue
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for LineNumberState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
+impl HandleEvent<Event, MouseOnly, Outcome> for LineNumberState {
+    fn handle(&mut self, _event: &Event, _qualifier: MouseOnly) -> Outcome {
         Outcome::Continue
     }
 }

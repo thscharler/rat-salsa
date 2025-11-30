@@ -4,10 +4,11 @@ use rat_text::HasScreenCursor;
 use rat_widget::date_input;
 use rat_widget::date_input::{DateInput, DateInputState};
 use rat_widget::event::Outcome;
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::Span;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
 
 mod mini_salsa;
 
@@ -81,7 +82,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,
     state: &mut State,

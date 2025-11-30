@@ -7,13 +7,16 @@ use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::cmp::max;
 use std::fmt;
+use ratatui_core::terminal::Frame;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::paragraph::Paragraph;
 
 mod mini_salsa;
 
@@ -190,7 +193,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,
     state: &mut State,

@@ -7,10 +7,13 @@ use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::event::Outcome;
 use rat_widget::range_op::RangeOp;
 use rat_widget::slider::{Slider, SliderState};
-use ratatui::Frame;
-use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
-use ratatui::text::Span;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+use ratatui_core::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 mod mini_salsa;
 
@@ -256,7 +259,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,

@@ -3,9 +3,10 @@ use crate::WindowFrameOutcome;
 use rat_event::util::MouseFlags;
 use rat_event::{ConsumedEvent, Dialog, HandleEvent, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
-use ratatui::layout::{Position, Rect};
-use ratatui::style::Style;
-use ratatui::widgets::Block;
+use ratatui_core::layout::{Position, Rect};
+use ratatui_core::style::Style;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::cmp::max;
 
 #[derive(Debug)]
@@ -260,12 +261,8 @@ impl WindowFrameState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Dialog, WindowFrameOutcome> for WindowFrameState {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        _qualifier: Dialog,
-    ) -> WindowFrameOutcome {
+impl HandleEvent<Event, Dialog, WindowFrameOutcome> for WindowFrameState {
+    fn handle(&mut self, event: &Event, _qualifier: Dialog) -> WindowFrameOutcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => {

@@ -2,10 +2,10 @@
 //! A main menu widget.
 //!
 //! ```
-//! use crossterm::event::Event;
-//! use ratatui::buffer::Buffer;
-//! use ratatui::layout::Rect;
-//! use ratatui::widgets::StatefulWidget;
+//! use ratatui_crossterm::crossterm::event::Event;
+//! use ratatui_core::buffer::Buffer;
+//! use ratatui_core::layout::Rect;
+//! use ratatui_core::widgets::StatefulWidget;
 //! use rat_event::Outcome;
 //! use rat_menu::event::MenuOutcome;
 //! use rat_menu::menuline;
@@ -34,12 +34,13 @@ use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt};
 use std::fmt::Debug;
 
 /// Main menu widget.
@@ -631,9 +632,9 @@ impl Default for MenuLineState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuLineState {
+impl HandleEvent<Event, Regular, MenuOutcome> for MenuLineState {
     #[allow(clippy::redundant_closure)]
-    fn handle(&mut self, event: &crossterm::event::Event, _: Regular) -> MenuOutcome {
+    fn handle(&mut self, event: &Event, _: Regular) -> MenuOutcome {
         let res = if self.is_focused() {
             match event {
                 ct_event!(key press ' ') => {
@@ -709,8 +710,8 @@ impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuLineStat
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineState {
-    fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> MenuOutcome {
+impl HandleEvent<Event, MouseOnly, MenuOutcome> for MenuLineState {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> MenuOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.area, m) => {
                 let idx = self.item_at(self.mouse.pos_of(m));
@@ -750,19 +751,12 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineSt
 /// Handle all events.
 /// Key events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    state: &mut MenuLineState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> MenuOutcome {
+pub fn handle_events(state: &mut MenuLineState, focus: bool, event: &Event) -> MenuOutcome {
     state.focus.set(focus);
     state.handle(event, Regular)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut MenuLineState,
-    event: &crossterm::event::Event,
-) -> MenuOutcome {
+pub fn handle_mouse_events(state: &mut MenuLineState, event: &Event) -> MenuOutcome {
     state.handle(event, MouseOnly)
 }

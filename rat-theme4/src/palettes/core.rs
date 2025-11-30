@@ -3,7 +3,7 @@
 //!
 use crate::RatWidgetColor;
 use crate::palette::{Colors, Palette, define_alias};
-use ratatui::style::Color;
+use ratatui_core::style::Color;
 use std::borrow::Cow;
 
 /// A `shell` palette that uses only named [Color]s.

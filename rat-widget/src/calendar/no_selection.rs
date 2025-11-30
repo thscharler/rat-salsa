@@ -3,6 +3,7 @@ use crate::calendar::{CalendarSelection, CalendarState, MonthState};
 use chrono::NaiveDate;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
+use ratatui_crossterm::crossterm::event::Event;
 
 /// No selection model
 ///
@@ -26,22 +27,20 @@ impl CalendarSelection for NoSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<NoSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
+impl HandleEvent<Event, Regular, CalOutcome> for MonthState<NoSelection> {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> CalOutcome {
         self.handle(event, MouseOnly)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState<NoSelection> {
-    fn handle(&mut self, _event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
+impl HandleEvent<Event, MouseOnly, CalOutcome> for MonthState<NoSelection> {
+    fn handle(&mut self, _event: &Event, _qualifier: MouseOnly) -> CalOutcome {
         CalOutcome::Continue
     }
 }
 
-impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
-    for CalendarState<N, NoSelection>
-{
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
+impl<const N: usize> HandleEvent<Event, Regular, CalOutcome> for CalendarState<N, NoSelection> {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> CalOutcome {
         let mut r = 'f: {
             for month in &mut self.months {
                 let r = month.handle(event, Regular);
@@ -72,10 +71,8 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
     }
 }
 
-impl<const N: usize> HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome>
-    for CalendarState<N, NoSelection>
-{
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
+impl<const N: usize> HandleEvent<Event, MouseOnly, CalOutcome> for CalendarState<N, NoSelection> {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> CalOutcome {
         for i in 0..self.months.len() {
             if self.months[i].gained_focus() {
                 self.set_primary_idx(i);

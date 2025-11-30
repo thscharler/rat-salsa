@@ -9,9 +9,11 @@ use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::scrolled::Scroll;
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::{StatefulWidget, Wrap};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::paragraph::Wrap;
 
 #[derive(Debug)]
 pub struct SampleReadability {
@@ -141,7 +143,7 @@ The Paris Peace Accords removed the remaining United States forces, and fighting
 }
 
 pub fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     state: &mut SampleReadability,
     _ctx: &mut Global,
 ) -> Result<Outcome, Error> {

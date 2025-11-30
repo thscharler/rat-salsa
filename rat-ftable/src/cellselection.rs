@@ -5,6 +5,7 @@ use rat_focus::HasFocus;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::ScrollAreaState;
 use std::cmp::{max, min};
+use ratatui_crossterm::crossterm::event::Event;
 
 /// Select a single cell in the table.
 ///
@@ -158,8 +159,8 @@ impl CellSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, TableOutcome> for TableState<CellSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TableOutcome {
+impl HandleEvent<Event, Regular, TableOutcome> for TableState<CellSelection> {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> TableOutcome {
         let res = if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => {
@@ -249,8 +250,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TableOutcome> for TableState<
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableState<CellSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TableOutcome {
+impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<CellSelection> {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TableOutcome {
         let mut r = match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
                 if self.move_to(self.cell_at_drag((m.column, m.row))) {
@@ -340,7 +341,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableStat
 pub fn handle_events(
     state: &mut TableState<CellSelection>,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TableOutcome {
     state.focus.set(focus);
     state.handle(event, Regular)
@@ -349,7 +350,7 @@ pub fn handle_events(
 /// Handle only mouse-events.
 pub fn handle_mouse_events(
     state: &mut TableState<CellSelection>,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TableOutcome {
     state.handle(event, MouseOnly)
 }

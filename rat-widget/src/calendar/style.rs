@@ -1,6 +1,6 @@
 use crate::_private::NonExhaustive;
-use ratatui::style::Style;
-use ratatui::widgets::Block;
+use ratatui_core::style::Style;
+use ratatui_widgets::block::Block;
 
 /// Composite style for the calendar.
 #[derive(Debug, Clone)]

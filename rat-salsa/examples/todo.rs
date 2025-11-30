@@ -1,5 +1,4 @@
 use anyhow::Error;
-use crossterm::event::Event as CrosstermEvent;
 use log::debug;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{FocusBuilder, HasFocus, impl_has_focus};
@@ -17,11 +16,15 @@ use rat_widget::reloc::RelocatableState;
 use rat_widget::scrolled::Scroll;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::Text;
-use ratatui::widgets::{Block, BorderType, ListItem, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Text;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event as CrosstermEvent;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
+use ratatui_widgets::list::ListItem;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;

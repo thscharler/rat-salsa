@@ -1,10 +1,10 @@
 //! Vertical or horizontal multiple split.
 //!
 //! ```
-//! # use ratatui::buffer::Buffer;
-//! # use ratatui::layout::{Constraint, Rect};
-//! # use ratatui::text::Line;
-//! # use ratatui::widgets::{Widget, StatefulWidget};
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::{Constraint, Rect};
+//! # use ratatui_core::text::Line;
+//! # use ratatui_core::widgets::{Widget, StatefulWidget};
 //! use rat_widget::splitter::{Split, SplitState, SplitType};
 //! # struct State { split: SplitState }
 //! # let mut state = State { split: Default::default() };
@@ -40,13 +40,15 @@ use rat_event::util::MouseFlagsN;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, event_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{RelocatableState, relocate_area, relocate_areas, relocate_positions};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{ StatefulWidget, Widget};
 use std::cmp::{max, min};
 use std::mem;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt};
+use ratatui_widgets::borders::BorderType;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Default, Clone)]
@@ -1706,8 +1708,8 @@ impl SplitState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SplitState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl HandleEvent<Event, Regular, Outcome> for SplitState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> Outcome {
         event_flow!(
             return if self.is_focused() {
                 if let Some(n) = self.focus_marker {
@@ -1737,8 +1739,8 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SplitState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for SplitState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
+impl HandleEvent<Event, MouseOnly, Outcome> for SplitState {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> Outcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.hover(&self.splitline_areas, m) => {
                 Outcome::Changed
@@ -1771,13 +1773,13 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for SplitState {
 pub fn handle_events(
     state: &mut SplitState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> Outcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(state: &mut SplitState, event: &crossterm::event::Event) -> Outcome {
+pub fn handle_mouse_events(state: &mut SplitState, event: &Event) -> Outcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

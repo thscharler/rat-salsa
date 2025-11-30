@@ -4,10 +4,13 @@ use rat_reloc::RelocatableState;
 use rat_text::event::TextOutcome;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{HasScreenCursor, text_input};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget};
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::terminal::Frame;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::paragraph::Paragraph;
 use std::fmt;
 
 mod mini_salsa;
@@ -158,7 +161,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,
     state: &mut State,

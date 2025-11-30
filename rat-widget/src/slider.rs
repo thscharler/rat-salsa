@@ -3,8 +3,9 @@
 //!
 //! ```rust no_run
 //! use rat_widget::slider::{Slider, SliderState};
-//! # use ratatui::layout::Rect;
-//! # use ratatui::prelude::*;
+//! # use ratatui_core::layout::Rect;
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::widgets::StatefulWidget;
 //! #
 //! # let slider_area = Rect::ZERO;
 //! # let mut buf = Buffer::default();
@@ -27,13 +28,14 @@ use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Direction, Position, Rect};
-use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Text};
-use ratatui::widgets::StatefulWidget;
-use ratatui::widgets::{Block, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Direction, Position, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Text};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -1101,12 +1103,12 @@ where
     }
 }
 
-impl<T> HandleEvent<crossterm::event::Event, Regular, SliderOutcome> for SliderState<T>
+impl<T> HandleEvent<Event, Regular, SliderOutcome> for SliderState<T>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> SliderOutcome {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> SliderOutcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press CONTROL-Left)
@@ -1182,12 +1184,12 @@ where
     }
 }
 
-impl<T> HandleEvent<crossterm::event::Event, MouseOnly, SliderOutcome> for SliderState<T>
+impl<T> HandleEvent<Event, MouseOnly, SliderOutcome> for SliderState<T>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> SliderOutcome {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> SliderOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
                 if self.inner.contains(Position::new(m.column, m.row)) {
@@ -1267,11 +1269,7 @@ where
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events<T>(
-    state: &mut SliderState<T>,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> SliderOutcome
+pub fn handle_events<T>(state: &mut SliderState<T>, focus: bool, event: &Event) -> SliderOutcome
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
@@ -1281,10 +1279,7 @@ where
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events<T>(
-    state: &mut SliderState<T>,
-    event: &crossterm::event::Event,
-) -> SliderOutcome
+pub fn handle_mouse_events<T>(state: &mut SliderState<T>, event: &Event) -> SliderOutcome
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,

@@ -21,10 +21,10 @@
 //! ## Usage
 //!
 //! ```rust
-//! # use ratatui::buffer::Buffer;
-//! # use ratatui::layout::Rect;
-//! # use ratatui::style::Style;
-//! # use ratatui::widgets::StatefulWidget;
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::Rect;
+//! # use ratatui_core::style::Style;
+//! # use ratatui_core::widgets::StatefulWidget;
 //! # use rat_theme4::theme::{SalsaTheme};
 //! # use rat_theme4::{StyleName, WidgetStyle};
 //! # use rat_theme4::palettes::dark::BLACKOUT;
@@ -45,7 +45,7 @@
 //! ```
 
 use crate::theme::Category;
-use ratatui::style::{Color, Style};
+use ratatui_core::style::{Color, Style};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
@@ -93,7 +93,7 @@ pub mod themes {
 ///
 /// Use as
 /// ```rust
-/// # use ratatui::style::Style;
+/// # use ratatui_core::style::Style;
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::{ StyleName, WidgetStyle};
 /// # use rat_theme4::palettes::dark::BLACKOUT;
@@ -104,10 +104,10 @@ pub mod themes {
 /// ```
 /// or more likely
 /// ```rust
-/// # use ratatui::buffer::Buffer;
-/// # use ratatui::layout::Rect;
-/// # use ratatui::style::Style;
-/// # use ratatui::widgets::StatefulWidget;
+/// # use ratatui_core::buffer::Buffer;
+/// # use ratatui_core::layout::Rect;
+/// # use ratatui_core::style::Style;
+/// # use ratatui_core::widgets::StatefulWidget;
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::{ StyleName, WidgetStyle};
 /// # use rat_theme4::palettes::dark::BLACKOUT;
@@ -163,7 +163,7 @@ impl WidgetStyle {
 ///
 /// Use as
 /// ```rust
-/// # use ratatui::style::Style;
+/// # use ratatui_core::style::Style;
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::{ StyleName, WidgetStyle};
 /// # use rat_theme4::palettes::dark::BLACKOUT;
@@ -220,7 +220,7 @@ impl StyleName for Style {}
 ///
 /// Use as
 /// ```rust
-/// # use ratatui::style::{Style, Color};
+/// # use ratatui_core::style::{Style, Color};
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::RatWidgetColor;
 /// # let theme = SalsaTheme::default();

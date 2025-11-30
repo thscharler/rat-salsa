@@ -19,9 +19,10 @@ use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 use std::any::Any;
 use std::cell::RefCell;
 use std::env::args;
@@ -164,14 +165,14 @@ pub struct LifeConfig {}
 /// Application event.
 #[derive(Debug)]
 pub enum LifeEvent {
-    Event(crossterm::event::Event),
+    Event(Event),
     Tick,
     Message(String),
     Status(usize, String),
 }
 
-impl From<crossterm::event::Event> for LifeEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for LifeEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }
@@ -327,9 +328,9 @@ pub mod life {
     use rat_theme4::WidgetStyle;
     use rat_widget::event::{HandleEvent, MenuOutcome, Regular, try_flow};
     use rat_widget::menu::{MenuLine, MenuLineState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Layout, Rect};
+    use ratatui_core::widgets::StatefulWidget;
     use std::fmt::Debug;
     use std::time::Duration;
 
@@ -462,10 +463,10 @@ pub mod game {
     use configparser::ini::Ini;
     use rand::random;
     use rat_theme4::theme::SalsaTheme;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::style::{Color, Style, Stylize};
-    use ratatui::widgets::StatefulWidget;
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::Rect;
+    use ratatui_core::style::{Color, Style};
+    use ratatui_core::widgets::StatefulWidget;
     use std::cmp::max;
     use std::fmt::{Debug, Formatter};
     use std::mem;

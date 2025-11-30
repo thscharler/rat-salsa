@@ -27,7 +27,7 @@ use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
-use ratatui::style::{Color, Style};
+use ratatui_core::style::{Color, Style};
 
 /// A theme to test the fallback-styles of each widget.
 pub fn create_fallback(name: &str, p: Palette) -> SalsaTheme {

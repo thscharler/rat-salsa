@@ -1,7 +1,8 @@
 use crate::layout::generic_layout::GenericLayout;
 use crate::util::{block_padding, block_padding2};
-use ratatui::layout::{Flex, Rect, Size};
-use ratatui::widgets::{Block, Borders, Padding};
+use ratatui_core::layout::{Flex, Rect, Size};
+use ratatui_widgets::block::{Block, Padding};
+use ratatui_widgets::borders::Borders;
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::VecDeque;
@@ -156,10 +157,11 @@ pub enum FormWidget {
 /// - __not__ usefully stretch the widgets vertically.
 ///
 /// ```rust no_run
-/// # use ratatui::buffer::Buffer;
-/// # use ratatui::layout::{Flex, Rect};
-/// # use ratatui::text::Span;
-/// # use ratatui::widgets::{Padding, Widget, StatefulWidget};
+/// # use ratatui_core::buffer::Buffer;
+/// # use ratatui_core::layout::{Flex, Rect};
+/// # use ratatui_core::text::Span;
+/// # use ratatui_core::widgets::{Widget, StatefulWidget};
+/// # use ratatui_widgets::block::Padding;
 /// # use rat_focus::{FocusFlag, HasFocus};
 /// # use rat_text::text_input::{TextInput, TextInputState};
 /// # use rat_widget::layout::{GenericLayout, LayoutForm};
@@ -793,7 +795,7 @@ impl XPositions {
                 container_left = 0;
                 container_right = widget_right + page.def.max_right_padding;
             }
-            Flex::SpaceAround => {
+            Flex::SpaceAround | Flex::SpaceEvenly => {
                 let single_width = page.def.max_left_padding
                     + page.def.max_label
                     + page.def.spacing

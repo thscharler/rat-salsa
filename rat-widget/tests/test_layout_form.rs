@@ -1,6 +1,6 @@
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use ratatui::layout::{Rect, Size};
-use ratatui::widgets::{Block, Padding};
+use ratatui_core::layout::{Rect, Size};
+use ratatui_widgets::block::{Block, Padding};
 
 #[test]
 fn test_break() {

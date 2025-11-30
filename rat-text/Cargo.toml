@@ -1,6 +1,6 @@
 [package]
 name = "rat-text"
-version = "2.5.0"
+version = "3.0.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui text input widgets"
@@ -12,14 +12,15 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
 [features]
-default = []
+default = ["color_input"]
 color_input = ["palette"]
 cr_lines = ["ropey/cr_lines"]
 unicode_lines = ["ropey/unicode_lines"]
 
 [dependencies]
-ratatui = { version = "0.29" }
-crossterm = "0.28"
+ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache"] }
+ratatui-widgets = { version = "0.3.0-beta.0", features = ["std", "unstable-rendered-line-info"] }
+ratatui-crossterm = { version = "0.1.0-beta.0" }
 ropey = "1.6.1"
 iset = "0.3"
 pure-rust-locales = "0.8"
@@ -33,11 +34,11 @@ rustc-hash = "2.1"
 regex-cursor = "0.1.5"
 palette = { version = "0.7", optional = true }
 
-rat-event = { version = "1.4", path = "../rat-event" }
-rat-reloc = { version = "1.4", path = "../rat-reloc" }
-rat-cursor = { version = "1.2", path = "../rat-cursor" }
-rat-focus = { version = "1.5", path = "../rat-focus" }
-rat-scrolled = { version = "1.3", path = "../rat-scrolled" }
+rat-event = { version = "2.0", path = "../rat-event" }
+rat-reloc = { version = "2.0", path = "../rat-reloc" }
+rat-cursor = { version = "2.0", path = "../rat-cursor" }
+rat-focus = { version = "2.0", path = "../rat-focus" }
+rat-scrolled = { version = "2.0", path = "../rat-scrolled" }
 
 [dev-dependencies]
 fern = "0.7"

@@ -4,8 +4,10 @@
 
 use crate::_private::NonExhaustive;
 use crate::Outcome;
-use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::layout::{Position, Rect};
+use ratatui_core::layout::{Position, Rect};
+use ratatui_crossterm::crossterm::event::{
+    Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+};
 use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::SystemTime;
@@ -100,9 +102,9 @@ pub fn column_at_drag(encompassing: Rect, areas: &[Rect], x_pos: u16) -> Result<
 /// except Drag events.
 ///
 /// This should catch all events when using a popup area.
-pub fn mouse_trap(event: &crossterm::event::Event, area: Rect) -> Outcome {
+pub fn mouse_trap(event: &Event, area: Rect) -> Outcome {
     match event {
-        crossterm::event::Event::Mouse(MouseEvent {
+        Event::Mouse(MouseEvent {
             kind:
                 MouseEventKind::ScrollLeft
                 | MouseEventKind::ScrollRight

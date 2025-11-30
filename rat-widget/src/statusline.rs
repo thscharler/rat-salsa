@@ -3,10 +3,10 @@
 //!
 //! ```
 //!
-//! use ratatui::buffer::Buffer;
-//! use ratatui::layout::{Constraint, Rect};
-//! use ratatui::style::{Style, Stylize};
-//! use ratatui::widgets::StatefulWidget;
+//! use ratatui_core::buffer::Buffer;
+//! use ratatui_core::layout::{Constraint, Rect};
+//! use ratatui_core::style::{Style, Stylize};
+//! use ratatui_core::widgets::StatefulWidget;
 //! use rat_widget::statusline::{StatusLine, StatusLineState};
 //!
 //! let mut status_line_state = StatusLineState::new();
@@ -39,13 +39,14 @@ use crate::text::HasScreenCursor;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::borrow::Cow;
 use std::fmt::Debug;
+use ratatui_crossterm::crossterm::event::Event;
 
 /// Statusbar with multiple sections.
 #[derive(Debug, Default, Clone)]
@@ -234,14 +235,14 @@ fn render_ref(widget: &StatusLine, area: Rect, buf: &mut Buffer, state: &mut Sta
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for StatusLineState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl HandleEvent<Event, Regular, Outcome> for StatusLineState {
+    fn handle(&mut self, _event: &Event, _qualifier: Regular) -> Outcome {
         Outcome::Continue
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for StatusLineState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
+impl HandleEvent<Event, MouseOnly, Outcome> for StatusLineState {
+    fn handle(&mut self, _event: &Event, _qualifier: MouseOnly) -> Outcome {
         Outcome::Continue
     }
 }

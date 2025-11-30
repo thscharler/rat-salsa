@@ -4,9 +4,9 @@ use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileDialog, FileDialogState, FileDialogStyle};
 use rat_widget::layout::LayoutOuter;
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::StatefulWidget;
 use std::any::Any;
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -49,7 +49,7 @@ pub fn file_dialog_event<Event, Error, Context: SalsaContext<Event, Error>>(
     map: impl Fn(Result<PathBuf, ()>) -> Event,
 ) -> impl Fn(&Event, &mut dyn Any, &mut Context) -> Result<Control<Event>, Error>
 where
-    Event: TryAsRef<crossterm::event::Event> + 'static,
+    Event: TryAsRef<ratatui_crossterm::crossterm::event::Event> + 'static,
     Error: From<std::io::Error> + 'static,
 {
     move |event: &Event, state: &mut dyn Any, ctx: &mut Context| -> Result<Control<Event>, Error> {
@@ -92,7 +92,7 @@ pub fn file_dialog_event2<Event, Error, Context: SalsaContext<Event, Error>>(
     map: impl Fn(FileOutcome) -> Event,
 ) -> impl Fn(&Event, &mut dyn Any, &mut Context) -> Result<Control<Event>, Error>
 where
-    Event: TryAsRef<crossterm::event::Event> + 'static,
+    Event: TryAsRef<ratatui_crossterm::crossterm::event::Event> + 'static,
     Error: From<std::io::Error> + 'static,
 {
     move |event: &Event, state: &mut dyn Any, ctx: &mut Context| -> Result<Control<Event>, Error> {

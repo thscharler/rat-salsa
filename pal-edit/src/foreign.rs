@@ -10,9 +10,10 @@ use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_widget::layout::LayoutForm;
 use rat_widget::scrolled::Scroll;
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Flex, Rect};
-use ratatui::style::Color;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Flex, Rect};
+use ratatui_core::style::Color;
+use ratatui_crossterm::crossterm::event::Event;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -195,11 +196,7 @@ pub fn render(
     Ok(())
 }
 
-pub fn event(
-    event: &crossterm::event::Event,
-    state: &mut Foreign,
-    _ctx: &mut Global,
-) -> Result<Outcome, Error> {
+pub fn event(event: &Event, state: &mut Foreign, _ctx: &mut Global) -> Result<Outcome, Error> {
     let mut master_mode = None;
 
     let r = 'f: {

@@ -2,9 +2,10 @@
 //! A message dialog.
 //!
 //! ```
-//! use ratatui::buffer::Buffer;
-//! use ratatui::prelude::Rect;
-//! use ratatui::widgets::{Block, StatefulWidget};
+//! use ratatui_core::buffer::Buffer;
+//! use ratatui_core::layout::Rect;
+//! use ratatui_core::widgets::{StatefulWidget};
+//! use ratatui_widgets::block::{Block};
 //! use rat_event::{Dialog, HandleEvent, Outcome};
 //! use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 //!
@@ -23,7 +24,8 @@
 //!
 //! // ...
 //!
-//! # let event = crossterm::event::Event::FocusGained;//dummy
+//! # use ratatui_crossterm::crossterm::event::Event;
+//! # let event = Event::FocusGained;//dummy
 //! # let event = &event;
 //! match state.handle(event, Dialog) {
 //!     Outcome::Continue => {}
@@ -47,16 +49,17 @@ use crate::layout::{DialogItem, LayoutOuter, layout_dialog};
 use crate::paragraph::{Paragraph, ParagraphState};
 use crate::text::HasScreenCursor;
 use crate::util::{block_padding2, reset_buf_area};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rat_event::{ConsumedEvent, Dialog, HandleEvent, Outcome, Regular, ct_event};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Flex, Position, Rect, Size};
-use ratatui::style::Style;
-use ratatui::text::{Line, Text};
-use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Constraint, Flex, Position, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Text};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use ratatui_widgets::block::{Block, Padding};
 use std::cell::{Cell, RefCell};
 use std::cmp::max;
 use std::fmt::Debug;
@@ -419,8 +422,8 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         );
 }
 
-impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
-    fn handle(&mut self, event: &crossterm::event::Event, _: Dialog) -> Outcome {
+impl HandleEvent<Event, Dialog, Outcome> for MsgDialogState {
+    fn handle(&mut self, event: &Event, _: Dialog) -> Outcome {
         if self.active.get() {
             let mut focus = self.build_focus();
             let f = focus.handle(event, Regular);
@@ -455,9 +458,6 @@ impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
 }
 
 /// Handle events for the MsgDialog.
-pub fn handle_dialog_events(
-    state: &mut MsgDialogState,
-    event: &crossterm::event::Event,
-) -> Outcome {
+pub fn handle_dialog_events(state: &mut MsgDialogState, event: &Event) -> Outcome {
     state.handle(event, Dialog)
 }

@@ -8,9 +8,11 @@ use rat_text::HasScreenCursor;
 use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileDialog, FileDialogState};
 use rat_widget::layout::layout_middle;
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::path::PathBuf;
 
 mod mini_salsa;
@@ -78,7 +80,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut (),
     istate: &mut MiniSalsaState,
     state: &mut State,

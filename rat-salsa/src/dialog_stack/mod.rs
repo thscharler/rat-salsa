@@ -4,8 +4,8 @@
 
 use crate::Control;
 use rat_event::HandleEvent;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
 use std::any::{Any, TypeId};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
@@ -268,7 +268,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
 impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<Control<Event>, Error>>
     for DialogStack<Event, Context, Error>
 where
-    Event: TryAsRef<crossterm::event::Event>,
+    Event: TryAsRef<ratatui_crossterm::crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
 {
@@ -313,7 +313,7 @@ where
             }
 
             // Block all crossterm events.
-            let event: Option<&crossterm::event::Event> = event.try_as_ref();
+            let event: Option<&ratatui_crossterm::crossterm::event::Event> = event.try_as_ref();
             if event.is_some() {
                 return Ok(Control::Unchanged);
             }
@@ -334,7 +334,7 @@ pub fn handle_dialog_stack<Event, Context, Error>(
     ctx: &mut Context,
 ) -> Result<Control<Event>, Error>
 where
-    Event: TryAsRef<crossterm::event::Event>,
+    Event: TryAsRef<ratatui_crossterm::crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
 {

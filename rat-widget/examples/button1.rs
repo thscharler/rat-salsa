@@ -3,11 +3,12 @@ use rat_event::{HandleEvent, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::{ButtonOutcome, Outcome};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::Span;
-use ratatui::widgets::StatefulWidget;
-use ratatui::widgets::Widget;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::event::Event;
 
 mod mini_salsa;
 
@@ -99,7 +100,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,

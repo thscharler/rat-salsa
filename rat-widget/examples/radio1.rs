@@ -5,9 +5,12 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::event::Outcome;
 use rat_widget::radio::{Radio, RadioLayout, RadioState};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
-use ratatui::widgets::{Block, BorderType, StatefulWidget};
+use ratatui_core::layout::{Constraint, Direction, Flex, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 mod mini_salsa;
 
@@ -128,7 +131,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,

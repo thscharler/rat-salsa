@@ -15,10 +15,11 @@ use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::statusline_stacked::StatusLineStacked;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
 use std::any::Any;
 use std::fs;
 use try_as_traits::TryAsRef;
@@ -88,7 +89,7 @@ pub struct Config {}
 #[derive(Debug)]
 pub enum AppEvent {
     NoOp,
-    Event(crossterm::event::Event),
+    Event(Event),
     Rendered,
     Message(String),
 }
@@ -99,8 +100,8 @@ impl From<RenderedEvent> for AppEvent {
     }
 }
 
-impl TryAsRef<crossterm::event::Event> for AppEvent {
-    fn try_as_ref(&self) -> Option<&crossterm::event::Event> {
+impl TryAsRef<Event> for AppEvent {
+    fn try_as_ref(&self) -> Option<&Event> {
         match self {
             AppEvent::Event(e) => Some(e),
             _ => None,
@@ -108,8 +109,8 @@ impl TryAsRef<crossterm::event::Event> for AppEvent {
     }
 }
 
-impl From<crossterm::event::Event> for AppEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for AppEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }

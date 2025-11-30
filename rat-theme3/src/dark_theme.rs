@@ -25,10 +25,11 @@ use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
-use ratatui::layout::Alignment;
-use ratatui::style::Color;
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Borders};
+use ratatui_core::layout::Alignment;
+use ratatui_core::style::Color;
+use ratatui_core::style::Style;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::Borders;
 use std::time::Duration;
 
 /// One sample theme which prefers dark colors from the color-palette

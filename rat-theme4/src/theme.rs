@@ -38,7 +38,7 @@ use crate::is_log_style_define;
 use crate::palette::Palette;
 use crate::themes::create_fallback;
 use log::info;
-use ratatui::style::Style;
+use ratatui_core::style::Style;
 use std::any::{Any, type_name};
 use std::collections::{HashMap, hash_map};
 use std::fmt::{Debug, Formatter};

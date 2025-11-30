@@ -20,10 +20,12 @@ use rat_widget::scrolled::Scroll;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
 use rat_widget::textarea::{TextArea, TextAreaState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Flex, Rect};
-use ratatui::style::Color;
-use ratatui::widgets::{Block, BorderType};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Flex, Rect};
+use ratatui_core::style::Color;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 use std::array;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -359,11 +361,7 @@ pub fn render(
 }
 
 #[allow(unused_variables)]
-pub fn event(
-    event: &crossterm::event::Event,
-    state: &mut PaletteEdit,
-    ctx: &mut Global,
-) -> Result<Outcome, Error> {
+pub fn event(event: &Event, state: &mut PaletteEdit, ctx: &mut Global) -> Result<Outcome, Error> {
     let mut mode_change = None;
 
     let r = 'f: {
@@ -421,7 +419,7 @@ pub fn event(
 }
 
 fn handle_color(
-    event: &crossterm::event::Event,
+    event: &Event,
     color: &mut ColorInputState,
     mode_change: &mut Option<Mode>,
 ) -> TextOutcome {

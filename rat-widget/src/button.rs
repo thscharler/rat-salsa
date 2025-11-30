@@ -28,14 +28,15 @@ use rat_event::util::{MouseFlags, have_keyboard_enhancement};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::text::Text;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Text;
+use ratatui_core::widgets::{ StatefulWidget, Widget};
 use std::thread;
 use std::time::Duration;
+use ratatui_crossterm::crossterm::event::{Event, KeyEvent, KeyEventKind};
+use ratatui_widgets::block::{Block, BlockExt};
 
 /// Button widget.
 #[derive(Debug, Default, Clone)]
@@ -420,8 +421,8 @@ pub(crate) mod event {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, ButtonOutcome> for ButtonState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> ButtonOutcome {
+impl HandleEvent<Event, Regular, ButtonOutcome> for ButtonState {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> ButtonOutcome {
         let r = if self.is_focused() {
             // Release keys may not be available.
             if have_keyboard_enhancement() {
@@ -464,8 +465,8 @@ impl HandleEvent<crossterm::event::Event, Regular, ButtonOutcome> for ButtonStat
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for ButtonState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> ButtonOutcome {
+impl HandleEvent<Event, MouseOnly, ButtonOutcome> for ButtonState {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> ButtonOutcome {
         match event {
             ct_event!(mouse down Left for column, row) => {
                 if self.area.contains((*column, *row).into()) {
@@ -499,25 +500,25 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for ButtonSt
 }
 
 /// Check event-handling for this hot-key and do Regular key-events otherwise.
-impl HandleEvent<crossterm::event::Event, crossterm::event::KeyEvent, ButtonOutcome>
+impl HandleEvent<Event, KeyEvent, ButtonOutcome>
     for ButtonState
 {
     fn handle(
         &mut self,
-        event: &crossterm::event::Event,
-        hotkey: crossterm::event::KeyEvent,
+        event: &Event,
+        hotkey: KeyEvent,
     ) -> ButtonOutcome {
-        use crossterm::event::Event;
+        use Event;
 
         let r = match event {
             Event::Key(key) => {
                 // Release keys may not be available.
                 if have_keyboard_enhancement() {
                     if hotkey.code == key.code && hotkey.modifiers == key.modifiers {
-                        if key.kind == crossterm::event::KeyEventKind::Press {
+                        if key.kind == KeyEventKind::Press {
                             self.armed = true;
                             ButtonOutcome::Changed
-                        } else if key.kind == crossterm::event::KeyEventKind::Release {
+                        } else if key.kind == KeyEventKind::Release {
                             if self.armed {
                                 if let Some(delay) = self.armed_delay {
                                     thread::sleep(delay);
@@ -536,7 +537,7 @@ impl HandleEvent<crossterm::event::Event, crossterm::event::KeyEvent, ButtonOutc
                     }
                 } else {
                     if hotkey.code == key.code && hotkey.modifiers == key.modifiers {
-                        if key.kind == crossterm::event::KeyEventKind::Press {
+                        if key.kind == KeyEventKind::Press {
                             ButtonOutcome::Pressed
                         } else {
                             ButtonOutcome::Continue
@@ -559,7 +560,7 @@ impl HandleEvent<crossterm::event::Event, crossterm::event::KeyEvent, ButtonOutc
 pub fn handle_events(
     state: &mut ButtonState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> ButtonOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
@@ -568,7 +569,7 @@ pub fn handle_events(
 /// Handle only mouse-events.
 pub fn handle_mouse_events(
     state: &mut ButtonState,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> ButtonOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

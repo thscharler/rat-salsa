@@ -18,7 +18,7 @@
 //! with multiple palettes.
 //!
 
-use ratatui::style::{Color, Style};
+use ratatui_core::style::{Color, Style};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::mem;

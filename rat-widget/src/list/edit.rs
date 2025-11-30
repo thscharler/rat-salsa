@@ -11,9 +11,10 @@ use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, event_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 
 /// Editing mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -278,13 +279,13 @@ where
     }
 }
 
-impl<S, C> HandleEvent<crossterm::event::Event, C, EditOutcome> for EditListState<S>
+impl<S, C> HandleEvent<Event, C, EditOutcome> for EditListState<S>
 where
-    S: HandleEvent<crossterm::event::Event, C, EditOutcome>,
-    S: HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome>,
+    S: HandleEvent<Event, C, EditOutcome>,
+    S: HandleEvent<Event, MouseOnly, EditOutcome>,
     S: HasFocus,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, ctx: C) -> EditOutcome {
+    fn handle(&mut self, event: &Event, ctx: C) -> EditOutcome {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
             if self.editor.is_focused() {
                 event_flow!(return self.editor.handle(event, ctx));
@@ -384,12 +385,12 @@ where
 pub fn handle_edit_events<S, C>(
     state: &mut EditListState<S>,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
     qualifier: C,
 ) -> EditOutcome
 where
-    S: HandleEvent<crossterm::event::Event, C, EditOutcome>,
-    S: HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome>,
+    S: HandleEvent<Event, C, EditOutcome>,
+    S: HandleEvent<Event, MouseOnly, EditOutcome>,
     S: HasFocus,
 {
     state.list.focus.set(focus);

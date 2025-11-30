@@ -1,10 +1,10 @@
 use rat_theme4::palette::Palette;
 use rat_widget::color_input::{ColorInput, ColorInputState};
 use rat_widget::reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
 
 #[derive(Default, Debug)]
 pub struct ColorSpan<'a> {

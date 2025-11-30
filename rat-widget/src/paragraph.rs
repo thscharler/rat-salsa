@@ -10,15 +10,18 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Position, Rect};
-use ratatui::style::Style;
-use ratatui::text::Text;
-use ratatui::widgets::{Block, StatefulWidget, Widget, Wrap};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Position, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Text;
+use ratatui_core::widgets::{ StatefulWidget, Widget, };
 use std::cell::RefCell;
 use std::cmp::min;
 use std::mem;
 use std::ops::DerefMut;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::paragraph::Wrap;
 
 /// List widget.
 ///
@@ -34,7 +37,7 @@ pub struct Paragraph<'a> {
     focus_style: Option<Style>,
 
     wrap: Option<Wrap>,
-    para: RefCell<ratatui::widgets::Paragraph<'a>>,
+    para: RefCell<ratatui_widgets::paragraph::Paragraph<'a>>,
 }
 
 #[derive(Debug, Clone)]
@@ -97,14 +100,14 @@ impl<'a> Paragraph<'a> {
         T: Into<Text<'a>>,
     {
         Self {
-            para: RefCell::new(ratatui::widgets::Paragraph::new(text)),
+            para: RefCell::new(ratatui_widgets::paragraph::Paragraph::new(text)),
             ..Default::default()
         }
     }
 
     /// Text
     pub fn text(mut self, text: impl Into<Text<'a>>) -> Self {
-        let mut para = ratatui::widgets::Paragraph::new(text);
+        let mut para = ratatui_widgets::paragraph::Paragraph::new(text);
         if let Some(wrap) = self.wrap {
             para = para.wrap(wrap);
         }
@@ -441,8 +444,8 @@ impl ParagraphState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl HandleEvent<Event, Regular, Outcome> for ParagraphState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> Outcome {
         event_flow!(
             return if self.is_focused() {
                 match event {
@@ -483,8 +486,8 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+impl HandleEvent<Event, MouseOnly, Outcome> for ParagraphState {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
         let mut sas = ScrollAreaState::new()
             .area(self.inner)
             .h_scroll(&mut self.hscroll)
@@ -531,13 +534,13 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphState
 pub fn handle_events(
     state: &mut ParagraphState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> Outcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(state: &mut ParagraphState, event: &crossterm::event::Event) -> Outcome {
+pub fn handle_mouse_events(state: &mut ParagraphState, event: &Event) -> Outcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

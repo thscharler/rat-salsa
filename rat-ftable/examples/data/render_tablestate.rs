@@ -3,9 +3,9 @@
 use crate::mini_salsa::layout_grid;
 use rat_ftable::selection::RowSelection;
 use rat_ftable::TableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::Widget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::widgets::Widget;
 use std::fmt::Debug;
 
 pub fn render_tablestate<Selection: Debug>(

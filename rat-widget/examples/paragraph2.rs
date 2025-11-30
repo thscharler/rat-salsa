@@ -8,9 +8,12 @@ use rat_text::HasScreenCursor;
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::{Block, StatefulWidget, Wrap};
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::paragraph::Wrap;
 
 mod mini_salsa;
 
@@ -149,7 +152,7 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,

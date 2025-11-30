@@ -12,10 +12,12 @@ use rat_text::HasScreenCursor;
 use rat_widget::clipper::{Clipper, ClipperBuffer, ClipperState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use ratatui::Frame;
-use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders};
+use ratatui_core::layout::{Alignment, Constraint, Flex, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Line;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::{BorderType, Borders};
 use std::array;
 use std::time::SystemTime;
 
@@ -222,7 +224,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,
@@ -281,7 +283,8 @@ fn flip_flex(state: &mut State) -> Outcome {
         Flex::End => Flex::Center,
         Flex::Center => Flex::SpaceBetween,
         Flex::SpaceBetween => Flex::SpaceAround,
-        Flex::SpaceAround => Flex::Legacy,
+        Flex::SpaceAround => Flex::SpaceEvenly,
+        Flex::SpaceEvenly => Flex::Legacy,
     };
     Outcome::Changed
 }

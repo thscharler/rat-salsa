@@ -1,8 +1,8 @@
-use ratatui::layout::{Position, Rect, Size};
-use ratatui::widgets::Block;
+use ratatui_core::layout::{Position, Rect, Size};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::Hash;
+use ratatui_widgets::block::Block;
 
 /// Stores layout data resulting from some layout algorithm.
 ///

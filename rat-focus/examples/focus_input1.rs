@@ -3,10 +3,11 @@ use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
 use crate::mini_salsa::{THEME, mock_init};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::Span;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::text::Span;
 use std::cmp::max;
+use ratatui_core::terminal::Frame;
+use ratatui_crossterm::crossterm::event::Event;
 
 mod adapter;
 mod mini_salsa;
@@ -115,7 +116,7 @@ fn focus_input(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,
     state: &mut State,

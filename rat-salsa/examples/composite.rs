@@ -11,9 +11,10 @@ use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::{ButtonOutcome, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::text::{HasScreenCursor, impl_screen_cursor};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_widgets::block::Block;
 
 fn main() -> Result<(), Error> {
     let theme = create_theme("Monochrome Dark");
@@ -65,10 +66,11 @@ impl Global {
 /// Application wide messages.
 pub mod event {
     use rat_salsa::event::RenderedEvent;
+    use ratatui_crossterm::crossterm::event::Event;
 
     #[derive(Debug)]
     pub enum AppEvent {
-        Event(crossterm::event::Event),
+        Event(Event),
         Rendered,
     }
 
@@ -78,8 +80,8 @@ pub mod event {
         }
     }
 
-    impl From<crossterm::event::Event> for AppEvent {
-        fn from(value: crossterm::event::Event) -> Self {
+    impl From<Event> for AppEvent {
+        fn from(value: Event) -> Self {
             Self::Event(value)
         }
     }
@@ -225,18 +227,18 @@ pub fn event(
 
 #[allow(dead_code)]
 mod three_inputs {
-    use crossterm::event::Event;
     use rat_event::{HandleEvent, MouseOnly, Regular, flow};
     use rat_focus::impl_has_focus;
     use rat_widget::event::TextOutcome;
     use rat_widget::reloc::impl_relocatable_state;
     use rat_widget::text::{TextStyle, impl_screen_cursor};
     use rat_widget::text_input::{TextInput, TextInputState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::prelude::BlockExt;
-    use ratatui::style::Style;
-    use ratatui::widgets::{Block, StatefulWidget, Widget};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Layout, Rect};
+    use ratatui_core::style::Style;
+    use ratatui_core::widgets::{StatefulWidget, Widget};
+    use ratatui_crossterm::crossterm::event::Event;
+    use ratatui_widgets::block::{Block, BlockExt};
 
     #[derive(Debug, Default)]
     pub struct ThreeInputs<'a> {

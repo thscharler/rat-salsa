@@ -10,11 +10,14 @@ use rat_ftable::selection::{CellSelection, cellselection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableData, TableState};
 use rat_scrolled::Scroll;
-use ratatui::Frame;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget, block};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{ StatefulWidget, Widget, };
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 mod data;
 mod mini_salsa;
@@ -144,7 +147,7 @@ fn render(
         .footer(Row::new(["a", "b", "c", "d", "e"]).style(Some(THEME.table_footer())))
         .block(
             Block::bordered()
-                .border_type(block::BorderType::Rounded)
+                .border_type(BorderType::Rounded)
                 .border_style(THEME.container_border())
                 .title("cell-selection"),
         )
@@ -163,7 +166,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,
     state: &mut State,

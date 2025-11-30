@@ -15,9 +15,10 @@ use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -84,7 +85,7 @@ pub struct Config {}
 #[derive(Debug)]
 pub enum AppEvent {
     Timer(TimeOut),
-    Event(crossterm::event::Event),
+    Event(Event),
     Rendered,
     Message(String),
     Status(usize, String),
@@ -102,8 +103,8 @@ impl From<TimeOut> for AppEvent {
     }
 }
 
-impl From<crossterm::event::Event> for AppEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for AppEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }
@@ -231,11 +232,11 @@ pub mod minimal {
     use rat_widget::event::{HandleEvent, MenuOutcome, Regular, try_flow};
     use rat_widget::focus::impl_has_focus;
     use rat_widget::menu::{MenuLine, MenuLineState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::style::Style;
-    use ratatui::text::{Line, Text};
-    use ratatui::widgets::{StatefulWidget, Widget};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Layout, Rect};
+    use ratatui_core::style::Style;
+    use ratatui_core::text::{Line, Text};
+    use ratatui_core::widgets::{StatefulWidget, Widget};
 
     #[derive(Debug, Default)]
     pub struct Minimal {

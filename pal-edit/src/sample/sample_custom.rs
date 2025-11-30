@@ -8,10 +8,12 @@ use rat_widget::form::{Form, FormState};
 use rat_widget::layout::LayoutForm;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Flex, Rect};
-use ratatui::style::Style;
-use ratatui::widgets::{Padding, Wrap};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Flex, Rect};
+use ratatui_core::style::Style;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Padding;
+use ratatui_widgets::paragraph::Wrap;
 
 #[derive(Debug)]
 pub struct SampleCustom {
@@ -235,11 +237,7 @@ fn style_opt(fg: Option<String>, bg: Option<String>, ctx: &mut Global) -> Style 
     }
 }
 
-pub fn event(
-    event: &crossterm::event::Event,
-    state: &mut SampleCustom,
-    _ctx: &mut Global,
-) -> Result<Outcome, Error> {
+pub fn event(event: &Event, state: &mut SampleCustom, _ctx: &mut Global) -> Result<Outcome, Error> {
     event_flow!(state.fg_1.handle(event, Popup));
     event_flow!(state.bg_1.handle(event, Popup));
     event_flow!(state.fg_2.handle(event, Popup));

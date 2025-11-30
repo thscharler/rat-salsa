@@ -6,29 +6,31 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
-use crossterm::event::{
+use log::debug;
+use rat_event::util::set_have_keyboard_enhancement;
+#[cfg(feature = "scrolling-regions")]
+use ratatui_core::backend::Backend;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Position, Rect, Size};
+use ratatui_core::terminal::{Frame, TerminalOptions, Viewport};
+use ratatui_crossterm::CrosstermBackend;
+use ratatui_crossterm::crossterm::ExecutableCommand;
+use ratatui_crossterm::crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
+use ratatui_crossterm::crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
     KeyboardEnhancementFlags,
 };
 #[cfg(not(windows))]
-use crossterm::event::{PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
-#[cfg(not(windows))]
-use crossterm::terminal::supports_keyboard_enhancement;
-use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen,
+use ratatui_crossterm::crossterm::event::{
+    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
-use crossterm::ExecutableCommand;
-use log::debug;
-use rat_event::util::set_have_keyboard_enhancement;
-#[cfg(feature = "scrolling-regions")]
-use ratatui::backend::Backend;
-use ratatui::backend::CrosstermBackend;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect, Size};
-use ratatui::{Frame, TerminalOptions, Viewport};
+#[cfg(not(windows))]
+use ratatui_crossterm::crossterm::terminal::supports_keyboard_enhancement;
+use ratatui_crossterm::crossterm::terminal::{
+    Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
 use std::io;
-use std::io::{stdout, Stdout};
+use std::io::{Stdout, stdout};
 #[cfg(feature = "scrolling-regions")]
 use std::ops::Range;
 
@@ -139,7 +141,7 @@ impl Default for SalsaOptions {
 
 /// Default RenderUI for crossterm.
 pub struct CrosstermTerminal {
-    term: ratatui::Terminal<CrosstermBackend<Stdout>>,
+    term: ratatui_core::terminal::Terminal<CrosstermBackend<Stdout>>,
     cfg: SalsaOptions,
 }
 
@@ -148,7 +150,7 @@ impl CrosstermTerminal {
     pub fn new() -> Result<Self, io::Error> {
         set_panic_hook();
         Ok(Self {
-            term: ratatui::Terminal::new(CrosstermBackend::new(stdout()))?,
+            term: ratatui_core::terminal::Terminal::new(CrosstermBackend::new(stdout()))?,
             cfg: Default::default(),
         })
     }
@@ -166,7 +168,7 @@ impl CrosstermTerminal {
 
         set_panic_hook();
         Ok(Self {
-            term: ratatui::Terminal::with_options(
+            term: ratatui_core::terminal::Terminal::with_options(
                 CrosstermBackend::new(stdout()),
                 options.ratatui_options.clone(),
             )?,
@@ -187,7 +189,7 @@ impl CrosstermTerminal {
 
         set_panic_hook();
         Ok(Self {
-            term: ratatui::Terminal::with_options(
+            term: ratatui_core::terminal::Terminal::with_options(
                 CrosstermBackend::new(stdout()),
                 options.ratatui_options.clone(),
             )?,
@@ -198,7 +200,7 @@ impl CrosstermTerminal {
     pub fn with_options(options: SalsaOptions) -> Result<Self, io::Error> {
         set_panic_hook();
         Ok(Self {
-            term: ratatui::Terminal::with_options(
+            term: ratatui_core::terminal::Terminal::with_options(
                 CrosstermBackend::new(stdout()),
                 options.ratatui_options.clone(),
             )?,

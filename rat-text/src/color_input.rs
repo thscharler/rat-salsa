@@ -31,12 +31,13 @@ use palette::{FromColor, Hsv, Srgb};
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::BlockExt;
-use ratatui::style::{Color, Style};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::{Color, Style};
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt};
 use std::cmp::min;
 use std::ops::Range;
 
@@ -302,7 +303,7 @@ fn render(widget: &ColorInput<'_>, area: Rect, buf: &mut Buffer, state: &mut Col
     let fg_colors = [Color::Black, Color::White];
     let style = high_contrast_color(bg, &fg_colors);
 
-    widget.block.render(area, buf);
+    widget.block.clone().render(area, buf);
 
     buf.set_style(mode_area, style);
     let mode_str = match state.mode {
@@ -1176,8 +1177,8 @@ const fn color2rgb(color: Color) -> (u8, u8, u8) {
 
 // + #
 
-impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for ColorInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
+impl HandleEvent<Event, Regular, TextOutcome> for ColorInputState {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> TextOutcome {
         if self.is_focused() {
             flow!(match event {
                 ct_event!(key press '+') | ct_event!(keycode press Up) =>
@@ -1220,20 +1221,20 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for ColorInputSt
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for ColorInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
+impl HandleEvent<Event, ReadOnly, TextOutcome> for ColorInputState {
+    fn handle(&mut self, event: &Event, _keymap: ReadOnly) -> TextOutcome {
         self.widget.handle(event, ReadOnly)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for ColorInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
+impl HandleEvent<Event, MouseOnly, TextOutcome> for ColorInputState {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TextOutcome {
         flow!(handle_mouse(self, event));
         self.widget.handle(event, MouseOnly)
     }
 }
 
-fn handle_mouse(state: &mut ColorInputState, event: &crossterm::event::Event) -> TextOutcome {
+fn handle_mouse(state: &mut ColorInputState, event: &Event) -> TextOutcome {
     if state.is_focused() {
         match event {
             ct_event!(scroll ALT down for x,y) if state.mode_area.contains((*x, *y).into()) => {
@@ -1276,11 +1277,7 @@ fn handle_mouse(state: &mut ColorInputState, event: &crossterm::event::Event) ->
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    state: &mut ColorInputState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_events(state: &mut ColorInputState, focus: bool, event: &Event) -> TextOutcome {
     state.widget.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
@@ -1291,16 +1288,13 @@ pub fn handle_events(
 pub fn handle_readonly_events(
     state: &mut ColorInputState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TextOutcome {
     state.widget.focus.set(focus);
     state.handle(event, ReadOnly)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut ColorInputState,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_mouse_events(state: &mut ColorInputState, event: &Event) -> TextOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

@@ -6,9 +6,9 @@ use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
 use rat_widget::event::{Dialog, HandleEvent, Regular, event_flow};
 use rat_widget::focus::{FocusBuilder, impl_has_focus};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Rect};
+use ratatui_core::widgets::StatefulWidget;
 use std::any::Any;
 
 pub struct MsgState {

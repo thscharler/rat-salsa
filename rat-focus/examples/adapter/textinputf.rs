@@ -3,12 +3,13 @@
 use crate::adapter::_private::NonExhaustive;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::{StatefulWidget, Widget};
 use std::marker::PhantomData;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
 
 #[derive(Debug, Default)]
 pub struct TextInputF<'a> {
@@ -85,14 +86,14 @@ impl HasFocus for TextInputFState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TextInputFState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+impl HandleEvent<Event, Regular, Outcome> for TextInputFState {
+    fn handle(&mut self, _event: &Event, _keymap: Regular) -> Outcome {
         Outcome::Continue
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TextInputFState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+impl HandleEvent<Event, MouseOnly, Outcome> for TextInputFState {
+    fn handle(&mut self, _event: &Event, _keymap: MouseOnly) -> Outcome {
         Outcome::Continue
     }
 }

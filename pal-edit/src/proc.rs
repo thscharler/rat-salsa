@@ -5,7 +5,8 @@ use configparser::ini::Ini;
 use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{RatWidgetColor, themes};
-use ratatui::prelude::{Color, Line};
+use ratatui_core::style::Color;
+use ratatui_core::text::Line;
 use std::array;
 use std::path::Path;
 

@@ -5,10 +5,13 @@ use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::color_input::{ColorInput, ColorInputState};
 use rat_text::{HasScreenCursor, color_input};
 use rat_widget::event::Outcome;
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::Span;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 use std::cell::RefCell;
 
 mod mini_salsa;
@@ -87,7 +90,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     _istate: &mut MiniSalsaState,
     state: &mut State,

@@ -1,4 +1,3 @@
-use log::debug;
 use rat_theme4::RatWidgetColor;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{
@@ -29,7 +28,7 @@ use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
-use ratatui::style::{Color, Style};
+use ratatui_core::style::{Color, Style};
 use std::io::Write;
 
 #[test]

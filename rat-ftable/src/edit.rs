@@ -12,8 +12,8 @@
 //! * Enter - Commit current edit and edit next/append a row.
 //! * Up/Down - Commit current edit.
 use rat_focus::HasFocus;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
 
 pub mod table;
 pub mod vec;

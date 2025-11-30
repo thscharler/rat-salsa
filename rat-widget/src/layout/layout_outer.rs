@@ -2,8 +2,8 @@
 //! Constrains an area from its outside.
 //!
 use crate::layout::{DialogItem, GenericLayout, layout_dialog};
-use ratatui::layout::{Constraint, Flex, Layout, Position, Rect, Size};
-use ratatui::widgets::Padding;
+use ratatui_core::layout::{Constraint, Flex, Layout, Position, Rect, Size};
+use ratatui_widgets::block::Padding;
 
 /// This lets you define the outer bounds of a target area.
 ///

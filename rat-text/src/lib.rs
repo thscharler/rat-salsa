@@ -30,8 +30,8 @@ use crate::_private::NonExhaustive;
 pub use pure_rust_locales::Locale;
 pub use rat_cursor::{HasScreenCursor, impl_screen_cursor, screen_cursor};
 use rat_scrolled::ScrollStyle;
-use ratatui::style::Style;
-use ratatui::widgets::Block;
+use ratatui_core::style::Style;
+use ratatui_widgets::block::Block;
 
 pub mod event {
     //!

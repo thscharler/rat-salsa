@@ -2,9 +2,9 @@
 
 use crate::tabbed::{TabPlacement, TabWidget, Tabbed, TabbedState};
 use crate::util::revert_style;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
-use ratatui::widgets::Widget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Margin, Rect};
+use ratatui_core::widgets::Widget;
 
 /// Renders simple tabs at the given placement and renders
 /// the block inside the tabs.

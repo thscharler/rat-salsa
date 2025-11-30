@@ -1,6 +1,5 @@
+use ratatui_core::style::{Color, Style};
 use crate::mini_salsa::palette::{Contrast, Palette};
-use ratatui::prelude::Style;
-use ratatui::style::Color;
 
 /// A sample theme for shell usage.
 #[derive(Debug, Clone)]

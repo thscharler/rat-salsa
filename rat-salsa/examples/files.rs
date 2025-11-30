@@ -26,13 +26,15 @@ use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{Table, TableContext, TableData, TableState};
 use rat_widget::text::{HasScreenCursor, impl_screen_cursor};
 use rat_widget::textarea::{TextArea, TextAreaState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::symbols::border::EMPTY;
-use ratatui::text::{Line, Text};
-use ratatui::widgets::block::Title;
-use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::symbols::border::EMPTY;
+use ratatui_core::text::{Line, Text};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::{BorderType, Borders};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -95,7 +97,7 @@ pub struct FilesConfig {}
 
 #[derive(Debug)]
 pub enum FilesEvent {
-    Event(crossterm::event::Event),
+    Event(Event),
     Message(String),
     Status(usize, String),
     ReadDir(Relative, PathBuf, Option<OsString>),
@@ -110,8 +112,8 @@ pub enum FilesEvent {
     UpdateFile(PathBuf, String),
 }
 
-impl From<crossterm::event::Event> for FilesEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for FilesEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }
@@ -397,9 +399,9 @@ fn render(
             .render(state.w_split.widget_areas[1], buf, &mut state.w_files);
 
         let title = if state.w_data.is_focused() {
-            Title::from(Line::from("Content").style(ctx.theme.style::<Style>(Style::FOCUS)))
+            Line::from(Line::from("Content").style(ctx.theme.style::<Style>(Style::FOCUS)))
         } else {
-            Title::from("Content")
+            Line::from("Content")
         };
         TextArea::new()
             .vscroll(Scroll::new())
@@ -505,7 +507,7 @@ fn event(
 }
 
 fn crossterm(
-    event: &crossterm::event::Event,
+    event: &Event,
     state: &mut Files,
     ctx: &mut GlobalState,
 ) -> Result<Control<FilesEvent>, Error> {

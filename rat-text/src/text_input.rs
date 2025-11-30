@@ -25,16 +25,16 @@ use crate::{
     HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition, TextRange, TextStyle,
     ipos_type, upos_type,
 };
-use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_dark_offset};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Rect, Size};
-use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::{Event, KeyModifiers};
+use ratatui_widgets::block::{Block, BlockExt};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::cmp::min;
@@ -1495,8 +1495,8 @@ impl TextInputState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
+impl HandleEvent<Event, Regular, TextOutcome> for TextInputState {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> TextOutcome {
         // small helper ...
         fn tc(r: bool) -> TextOutcome {
             if r {
@@ -1612,8 +1612,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputSta
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
+impl HandleEvent<Event, ReadOnly, TextOutcome> for TextInputState {
+    fn handle(&mut self, event: &Event, _keymap: ReadOnly) -> TextOutcome {
         fn clear_overwrite(state: &mut TextInputState) {
             state.overwrite.set(false);
         }
@@ -1713,8 +1713,8 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputSt
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
+impl HandleEvent<Event, MouseOnly, TextOutcome> for TextInputState {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TextOutcome {
         fn clear_overwrite(state: &mut TextInputState) {
             state.overwrite.set(false);
         }
@@ -1776,11 +1776,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    state: &mut TextInputState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_events(state: &mut TextInputState, focus: bool, event: &Event) -> TextOutcome {
     state.focus.set(focus);
     state.handle(event, Regular)
 }
@@ -1791,16 +1787,13 @@ pub fn handle_events(
 pub fn handle_readonly_events(
     state: &mut TextInputState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TextOutcome {
     state.focus.set(focus);
     state.handle(event, ReadOnly)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut TextInputState,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_mouse_events(state: &mut TextInputState, event: &Event) -> TextOutcome {
     state.handle(event, MouseOnly)
 }

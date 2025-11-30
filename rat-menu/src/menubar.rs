@@ -27,12 +27,14 @@ use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::Placement;
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{ StatefulWidget};
 use std::fmt::Debug;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 
 /// Menubar widget.
 ///
@@ -423,28 +425,28 @@ impl RelocatableState for MenubarState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenubarState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
+impl HandleEvent<Event, Popup, MenuOutcome> for MenubarState {
+    fn handle(&mut self, event: &Event, _qualifier: Popup) -> MenuOutcome {
         handle_menubar(self, event, Popup, Regular)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenubarState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> MenuOutcome {
+impl HandleEvent<Event, MouseOnly, MenuOutcome> for MenubarState {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> MenuOutcome {
         handle_menubar(self, event, MouseOnly, MouseOnly)
     }
 }
 
 fn handle_menubar<Q1, Q2>(
     state: &mut MenubarState,
-    event: &crossterm::event::Event,
+    event: &Event,
     qualifier1: Q1,
     qualifier2: Q2,
 ) -> MenuOutcome
 where
-    PopupMenuState: HandleEvent<crossterm::event::Event, Q1, MenuOutcome>,
-    MenuLineState: HandleEvent<crossterm::event::Event, Q2, MenuOutcome>,
-    MenuLineState: HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome>,
+    PopupMenuState: HandleEvent<Event, Q1, MenuOutcome>,
+    MenuLineState: HandleEvent<Event, Q2, MenuOutcome>,
+    MenuLineState: HandleEvent<Event, MouseOnly, MenuOutcome>,
 {
     if !state.is_focused() {
         state.set_popup_active(false);
@@ -504,7 +506,7 @@ where
 pub fn handle_events(
     state: &mut MenubarState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> MenuOutcome {
     state.bar.focus.set(focus);
     state.handle(event, Popup)
@@ -519,7 +521,7 @@ pub fn handle_events(
 pub fn handle_popup_events(
     state: &mut MenubarState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> MenuOutcome {
     state.bar.focus.set(focus);
     state.handle(event, Popup)
@@ -528,7 +530,7 @@ pub fn handle_popup_events(
 /// Handle only mouse-events.
 pub fn handle_mouse_events(
     state: &mut MenubarState,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> MenuOutcome {
     state.handle(event, MouseOnly)
 }

@@ -12,12 +12,15 @@ use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
 use rat_widget::statusline::StatusLineState;
 use rat_widget::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::symbols::border;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::symbols::border;
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 mod mini_salsa;
 
@@ -46,7 +49,7 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    border_type: Option<(BorderType, border::Set)>,
+    border_type: Option<(BorderType, border::Set<'static>)>,
     placement: TabPlacement,
     style: TabType,
     close: bool,
@@ -189,7 +192,7 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,
@@ -419,7 +422,7 @@ Type: Enhancement
 Status: Open.
 #1355 In ratatui/ratatui;· 0xfalafel opened on Sep 6, 2024",
     "dweatherstone
-crossterm::style::Stylize is imported instead of ratatui::style::Stylize
+crossterm::style::Stylize is imported instead of ratatui_core::style::Stylize
 Type: Bug
 Status: Open.
 #1347 In ratatui/ratatui;· orhun opened on Aug 28, 2024",

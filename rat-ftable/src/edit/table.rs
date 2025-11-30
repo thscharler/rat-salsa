@@ -18,10 +18,11 @@ use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::StatefulWidget;
 use std::fmt::{Debug, Formatter};
+use ratatui_crossterm::crossterm::event::Event;
 
 /// Widget that supports row-wise editing of a table.
 ///
@@ -349,13 +350,13 @@ where
     }
 }
 
-impl<'a, S> HandleEvent<crossterm::event::Event, &'a S::Context<'a>, EditOutcome>
+impl<'a, S> HandleEvent<Event, &'a S::Context<'a>, EditOutcome>
     for EditableTableState<S>
 where
-    S: HandleEvent<crossterm::event::Event, &'a S::Context<'a>, EditOutcome>,
+    S: HandleEvent<Event, &'a S::Context<'a>, EditOutcome>,
     S: TableEditorState,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, ctx: &'a S::Context<'a>) -> EditOutcome {
+    fn handle(&mut self, event: &Event, ctx: &'a S::Context<'a>) -> EditOutcome {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
             if self.table.is_focused() {
                 flow!(match self.editor.handle(event, ctx) {

@@ -1,6 +1,6 @@
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Position, Rect};
+use ratatui_core::widgets::StatefulWidget;
 
 /// Render a hover.
 ///

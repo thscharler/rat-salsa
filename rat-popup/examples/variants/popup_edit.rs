@@ -9,10 +9,12 @@ use rat_event::{HandleEvent, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::{Block, BorderType};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 #[derive(Debug, Default)]
 pub struct PopEditGreen;
@@ -150,8 +152,8 @@ impl PopEditGreenState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopEditGreenState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
+impl HandleEvent<Event, Regular, PopupOutcome> for PopEditGreenState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> PopupOutcome {
         if self.container.lost_focus() {
             self.popup.set_active(false);
         }

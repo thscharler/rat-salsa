@@ -9,7 +9,7 @@ use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
-use ratatui::buffer::Buffer;
+use ratatui_core::buffer::Buffer;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
@@ -386,9 +386,12 @@ where
     #[inline]
     fn spawn_ext(
         &self,
-        task: impl FnOnce(Cancel, &Sender<Result<Control<Event>, Error>>) -> Result<Control<Event>, Error>
-            + Send
-            + 'static,
+        task: impl FnOnce(
+            Cancel,
+            &Sender<Result<Control<Event>, Error>>,
+        ) -> Result<Control<Event>, Error>
+        + Send
+        + 'static,
     ) -> Result<(Cancel, Liveness), SendError<()>>
     where
         Event: 'static + Send,

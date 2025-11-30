@@ -18,11 +18,14 @@ use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
 use rat_text::number_input::{NumberInput, NumberInputState};
 use rat_text::text_input::{TextInput, TextInputState};
-use ratatui::Frame;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget, block};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 mod data {
     pub(crate) static TINY_DATA: [&str; 10] = [
@@ -208,7 +211,7 @@ fn render(
             .column_spacing(1)
             .block(
                 Block::bordered()
-                    .border_type(block::BorderType::Rounded)
+                    .border_type(BorderType::Rounded)
                     .border_style(istate.theme.container_border())
                     .title("tabledata"),
             )
@@ -232,7 +235,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,
@@ -252,7 +255,7 @@ fn event(
 }
 
 fn handle_table(
-    event: &crossterm::event::Event,
+    event: &Event,
     data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,
@@ -484,10 +487,8 @@ impl HasScreenCursor for SampleEditorState {
     }
 }
 
-impl<'a> HandleEvent<crossterm::event::Event, &'a MiniSalsaState, EditOutcome>
-    for SampleEditorState
-{
-    fn handle(&mut self, event: &crossterm::event::Event, ctx: &'a MiniSalsaState) -> EditOutcome {
+impl<'a> HandleEvent<Event, &'a MiniSalsaState, EditOutcome> for SampleEditorState {
+    fn handle(&mut self, event: &Event, ctx: &'a MiniSalsaState) -> EditOutcome {
         ctx.focus_outcome_cell
             .set(FocusBuilder::build_for(self).handle(event, Regular));
 

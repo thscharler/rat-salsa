@@ -13,10 +13,12 @@ use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::{HasScreenCursor, TextPosition, upos_type};
 use rat_vim::VI;
 use rat_vim::vi_status_line::VIStatusLine;
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Paragraph, StatefulWidget, Widget};
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::terminal::Frame;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::paragraph::Paragraph;
 use ropey::Rope;
 use std::cell::RefCell;
 use std::fs::File;
@@ -241,7 +243,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,

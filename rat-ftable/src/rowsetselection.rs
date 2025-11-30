@@ -1,6 +1,5 @@
 use crate::event::TableOutcome;
 use crate::{TableSelection, TableState};
-use crossterm::event::KeyModifiers;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::HasFocus;
 use rat_scrolled::ScrollAreaState;
@@ -8,6 +7,7 @@ use rat_scrolled::event::ScrollOutcome;
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::mem;
+use ratatui_crossterm::crossterm::event::{Event, KeyModifiers};
 
 /// Allows selection an active range of rows.
 ///
@@ -207,8 +207,8 @@ impl RowSetSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, TableOutcome> for TableState<RowSetSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _: Regular) -> TableOutcome {
+impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSetSelection> {
+    fn handle(&mut self, event: &Event, _: Regular) -> TableOutcome {
         let res = if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => {
@@ -345,8 +345,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TableOutcome> for TableState<
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableState<RowSetSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> TableOutcome {
+impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSetSelection> {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> TableOutcome {
         flow!(match event {
             ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)
                 if self.mouse.drag(self.table_area, m)
@@ -473,7 +473,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableStat
 pub fn handle_events(
     state: &mut TableState<RowSetSelection>,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TableOutcome {
     state.focus.set(focus);
     state.handle(event, Regular)
@@ -482,7 +482,7 @@ pub fn handle_events(
 /// Handle only mouse-events.
 pub fn handle_mouse_events(
     state: &mut TableState<RowSetSelection>,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TableOutcome {
     state.handle(event, MouseOnly)
 }

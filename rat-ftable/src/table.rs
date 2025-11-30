@@ -13,10 +13,12 @@ use rat_event::{HandleEvent, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_areas};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -80,9 +82,9 @@ mod data {
     use crate::{TableContext, TableData, TableDataIter};
     #[cfg(debug_assertions)]
     use log::warn;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::style::{Style, Stylize};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::Rect;
+    use ratatui_core::style::Style;
     use std::fmt::{Debug, Formatter};
 
     #[derive(Default)]
@@ -404,11 +406,11 @@ impl<'a, Selection> Table<'a, Selection> {
     /// reference to your data. Then implement TableData for this struct.
     ///
     /// ```rust
-    /// use ratatui::buffer::Buffer;
-    /// use ratatui::layout::Rect;
-    /// use ratatui::style::Style;
-    /// use ratatui::text::Span;
-    /// use ratatui::widgets::{StatefulWidget, Widget};
+    /// use ratatui_core::buffer::Buffer;
+    /// use ratatui_core::layout::Rect;
+    /// use ratatui_core::style::Style;
+    /// use ratatui_core::text::Span;
+    /// use ratatui_core::widgets::{StatefulWidget, Widget};
     /// use rat_ftable::{Table, TableContext, TableState, TableData};    ///
     /// #
     /// use rat_ftable::selection::RowSelection;
@@ -487,12 +489,12 @@ impl<'a, Selection> Table<'a, Selection> {
     /// use std::iter::{Enumerate};
     /// use std::slice::Iter;
     /// use format_num_pattern::NumberFormat;
-    /// use ratatui::buffer::Buffer;
-    /// use ratatui::layout::{Constraint, Rect};
-    /// use ratatui::style::Color;
-    /// use ratatui::style::{Style, Stylize};
-    /// use ratatui::text::Span;
-    /// use ratatui::widgets::{Widget, StatefulWidget};
+    /// use ratatui_core::buffer::Buffer;
+    /// use ratatui_core::layout::{Constraint, Rect};
+    /// use ratatui_core::style::Color;
+    /// use ratatui_core::style::{Style, Stylize};
+    /// use ratatui_core::text::Span;
+    /// use ratatui_core::widgets::{Widget, StatefulWidget};
     /// use rat_ftable::{Table, TableContext, TableState, TableDataIter};
     /// use rat_ftable::selection::RowSelection;
     ///
@@ -1395,8 +1397,8 @@ where
             }
             if !msg.is_empty() {
                 use log::warn;
-                use ratatui::style::Stylize;
-                use ratatui::text::Text;
+                use ratatui_core::style::Stylize;
+                use ratatui_core::text::Text;
 
                 warn!("{}", &msg);
                 Text::from(msg)
@@ -2357,15 +2359,9 @@ impl TableState<CellSelection> {
     }
 }
 
-impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome>
-    for TableState<Selection>
-{
+impl<Selection> HandleEvent<Event, DoubleClick, DoubleClickOutcome> for TableState<Selection> {
     /// Handles double-click events on the table.
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        _keymap: DoubleClick,
-    ) -> DoubleClickOutcome {
+    fn handle(&mut self, event: &Event, _keymap: DoubleClick) -> DoubleClickOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.table_area, m) => {
                 if let Some((col, row)) = self.cell_at_clicked((m.column, m.row)) {
@@ -2382,7 +2378,7 @@ impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOut
 /// Handle all events for recognizing double-clicks.
 pub fn handle_doubleclick_events<Selection: TableSelection>(
     state: &mut TableState<Selection>,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> DoubleClickOutcome {
     state.handle(event, DoubleClick)
 }

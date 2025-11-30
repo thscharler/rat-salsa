@@ -1,10 +1,10 @@
 use crate::{Control, SalsaContext};
-use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
+use rat_event::{Dialog, HandleEvent, Outcome, try_flow};
 use rat_widget::layout::LayoutOuter;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::StatefulWidget;
 use std::any::Any;
 use try_as_traits::TryAsRef;
 
@@ -36,7 +36,7 @@ pub fn msg_dialog_event<Event, Error, Context: SalsaContext<Event, Error>>(
     map: impl Fn() -> Event,
 ) -> impl Fn(&Event, &mut dyn Any, &mut Context) -> Result<Control<Event>, Error>
 where
-    Event: TryAsRef<crossterm::event::Event> + 'static,
+    Event: TryAsRef<ratatui_crossterm::crossterm::event::Event> + 'static,
     Error: 'static,
 {
     move |event: &Event, state: &mut dyn Any, ctx: &mut Context| -> Result<Control<Event>, Error> {

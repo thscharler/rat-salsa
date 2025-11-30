@@ -11,9 +11,10 @@ use rat_text::HasScreenCursor;
 use rat_widget::event::{FormOutcome, Outcome};
 use rat_widget::form::{Form, FormState};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use ratatui::Frame;
-use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
-use ratatui::widgets::{Block, Padding};
+use ratatui_core::layout::{Alignment, Constraint, Flex, Layout, Rect};
+use ratatui_core::terminal::Frame;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, Padding};
 use std::array;
 
 mod mini_salsa;
@@ -166,7 +167,7 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,
@@ -223,7 +224,8 @@ fn flip_flex(state: &mut State) -> Outcome {
         Flex::End => Flex::Center,
         Flex::Center => Flex::SpaceBetween,
         Flex::SpaceBetween => Flex::SpaceAround,
-        Flex::SpaceAround => Flex::Legacy,
+        Flex::SpaceAround => Flex::SpaceEvenly,
+        Flex::SpaceEvenly => Flex::Legacy,
     };
     Outcome::Changed
 }

@@ -5,7 +5,7 @@
 //!
 //! ```rust ignore
 //! use rat_widget::checkbox::{Checkbox, CheckboxState};
-//! use ratatui::widgets::StatefulWidget;
+//! use ratatui_core::widgets::StatefulWidget;
 //!
 //! Checkbox::new()
 //!     .text("Carrots 🥕")
@@ -28,15 +28,15 @@ use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::text::Text;
-use ratatui::widgets::Block;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::text::Text;
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::cmp::max;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Enum controling the behaviour of the Checkbox.
@@ -497,8 +497,8 @@ impl CheckboxState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, CheckOutcome> for CheckboxState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CheckOutcome {
+impl HandleEvent<Event, Regular, CheckOutcome> for CheckboxState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> CheckOutcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Enter) | ct_event!(key press ' ') => {
@@ -523,8 +523,8 @@ impl HandleEvent<crossterm::event::Event, Regular, CheckOutcome> for CheckboxSta
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, CheckOutcome> for CheckboxState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> CheckOutcome {
+impl HandleEvent<Event, MouseOnly, CheckOutcome> for CheckboxState {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> CheckOutcome {
         match event {
             ct_event!(mouse any for m)
                 if self.behave_check == CheckboxCheck::DoubleClick
@@ -551,7 +551,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CheckOutcome> for CheckboxS
 pub fn handle_events(
     state: &mut CheckboxState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> CheckOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
@@ -560,7 +560,7 @@ pub fn handle_events(
 /// Handle only mouse-events.
 pub fn handle_mouse_events(
     state: &mut CheckboxState,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> CheckOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }
