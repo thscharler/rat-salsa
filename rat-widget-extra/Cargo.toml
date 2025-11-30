@@ -12,6 +12,7 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "textarea.gif"]
 
 [features]
+iban = []
 
 [dependencies]
 ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
