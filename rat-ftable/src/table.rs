@@ -2117,6 +2117,14 @@ impl TableState<RowSelection> {
         }
     }
 
+    /// Set the selection to None and set the offset to 0
+    #[inline]
+    pub fn move_deselect(&mut self) -> bool {
+        let r = self.selection.select(None);
+        let s = self.set_row_offset(0);
+        r || s
+    }
+
     /// Move the selection to the given row.
     /// Ensures the row is visible afterward.
     #[inline]
