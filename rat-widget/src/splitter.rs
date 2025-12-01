@@ -110,10 +110,6 @@ pub struct LayoutWidget<'a> {
 #[derive(Debug, Clone)]
 pub struct SplitWidget<'a> {
     split: Split<'a>,
-    // internal mode:
-    // 0 - legacy
-    // 1 - used for into_widgets()
-    mode: u8,
 }
 
 ///
@@ -472,10 +468,7 @@ impl<'a> Split<'a> {
     pub fn into_widget(self, area: Rect, state: &mut SplitState) -> SplitWidget<'a> {
         self.layout_split(area, state);
 
-        SplitWidget {
-            split: self,
-            mode: 1,
-        }
+        SplitWidget { split: self }
     }
 
     /// Constructs the widgets for rendering.
@@ -494,13 +487,7 @@ impl<'a> Split<'a> {
     ) -> (SplitWidget<'a>, Vec<Rect>) {
         self.layout_split(area, state);
 
-        (
-            SplitWidget {
-                split: self,
-                mode: 1,
-            },
-            state.widget_areas.clone(),
-        )
+        (SplitWidget { split: self }, state.widget_areas.clone())
     }
 
     /// Constructs the widgets for rendering.
@@ -520,8 +507,7 @@ impl<'a> Split<'a> {
                 split: self.clone(),
             },
             SplitWidget {
-                split: self,
-                mode: 1,
+                split: self//
             },
         )
     }
@@ -970,14 +956,8 @@ impl<'a> StatefulWidget for LayoutWidget<'a> {
 impl<'a> StatefulWidget for &SplitWidget<'a> {
     type State = SplitState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if self.mode == 0 {
-            self.split.layout_split(area, state);
-        } else if self.mode == 1 {
-            // done before
-        } else {
-            unreachable!()
-        }
+    fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let area = state.area;
 
         if state.is_focused() {
             if state.focus_marker.is_none() {
@@ -987,44 +967,20 @@ impl<'a> StatefulWidget for &SplitWidget<'a> {
             state.focus_marker = None;
         }
 
-        if self.mode == 0 {
-            if let Some(block) = &self.split.block {
-                block.render(area, buf);
-            } else {
-                buf.set_style(area, self.split.style);
-            }
-        } else if self.mode == 1 {
-            if let Some(mut block) = self.split.block.clone() {
-                block = block.style(Style::default());
-                block.render(area, buf);
-            }
-        } else {
-            unreachable!()
+        if let Some(mut block) = self.split.block.clone() {
+            block = block.style(Style::default());
+            block.render(area, buf);
         }
 
-        if self.mode == 0 {
-            if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
-                render_split(&self.split, buf, state);
-            }
-        } else if self.mode == 1 {
-            render_split(&self.split, buf, state);
-        } else {
-            unreachable!()
-        }
+        render_split(&self.split, buf, state);
     }
 }
 
 impl StatefulWidget for SplitWidget<'_> {
     type State = SplitState;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if self.mode == 0 {
-            self.split.layout_split(area, state);
-        } else if self.mode == 1 {
-            // done before
-        } else {
-            unreachable!()
-        }
+    fn render(mut self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let area = state.area;
 
         if state.is_focused() {
             if state.focus_marker.is_none() {
@@ -1034,31 +990,13 @@ impl StatefulWidget for SplitWidget<'_> {
             state.focus_marker = None;
         }
 
-        if self.mode == 0 {
-            if let Some(block) = &self.split.block {
-                block.render(area, buf);
-            } else {
-                buf.set_style(area, self.split.style);
-            }
-        } else if self.mode == 1 {
-            if let Some(mut block) = mem::take(&mut self.split.block) {
-                // can't have the block overwrite all content styles.
-                block = block.style(Style::default());
-                block.render(area, buf);
-            }
-        } else {
-            unreachable!()
+        if let Some(mut block) = mem::take(&mut self.split.block) {
+            // can't have the block overwrite all content styles.
+            block = block.style(Style::default());
+            block.render(area, buf);
         }
 
-        if self.mode == 0 {
-            if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
-                render_split(&self.split, buf, state);
-            }
-        } else if self.mode == 1 {
-            render_split(&self.split, buf, state);
-        } else {
-            unreachable!()
-        }
+        render_split(&self.split, buf, state);
     }
 }
 
