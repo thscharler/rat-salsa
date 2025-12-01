@@ -990,8 +990,8 @@ where
 {
     type State = ChoiceState<T>;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_popup(self, area, buf, state);
+    fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_popup(self, buf, state);
     }
 }
 
@@ -1001,14 +1001,13 @@ where
 {
     type State = ChoiceState<T>;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_popup(&self, area, buf, state);
+    fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_popup(&self, buf, state);
     }
 }
 
 fn render_popup<T: PartialEq + Clone + Default>(
     widget: &ChoicePopup<'_, T>,
-    area: Rect,
     buf: &mut Buffer,
     state: &mut ChoiceState<T>,
 ) {
@@ -1017,6 +1016,8 @@ fn render_popup<T: PartialEq + Clone + Default>(
         let select_style = widget.select_style.unwrap_or(revert_style(widget.style));
 
         {
+            let area = state.area;
+
             let len = min(
                 widget.popup_len.unwrap_or(5),
                 widget.items.borrow().len() as u16,

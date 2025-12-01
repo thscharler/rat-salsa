@@ -253,7 +253,7 @@ impl<'a> StatefulWidget for Menubar<'a> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let (menu, popup) = self.into_widgets();
         menu.render(area, buf, state);
-        popup.render(area, buf, state);
+        popup.render(Rect::default(), buf, state);
     }
 }
 
@@ -282,17 +282,12 @@ fn render_menubar(
 impl StatefulWidget for MenubarPopup<'_> {
     type State = MenubarState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_menu_popup(self, area, buf, state);
+    fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_menu_popup(self, buf, state);
     }
 }
 
-fn render_menu_popup(
-    mut widget: MenubarPopup<'_>,
-    _area: Rect,
-    buf: &mut Buffer,
-    state: &mut MenubarState,
-) {
+fn render_menu_popup(mut widget: MenubarPopup<'_>, buf: &mut Buffer, state: &mut MenubarState) {
     let Some(selected) = state.bar.selected() else {
         return;
     };

@@ -406,11 +406,11 @@ impl StatefulWidget for ComboboxPopup<'_> {
 
 fn render_popup(
     widget: &ComboboxPopup<'_>,
-    area: Rect,
+    _area: Rect,
     buf: &mut Buffer,
     state: &mut ComboboxState,
 ) {
-    (&widget.choice).render(area, buf, &mut state.choice);
+    (&widget.choice).render(Rect::default(), buf, &mut state.choice);
 }
 
 impl Clone for ComboboxState {
