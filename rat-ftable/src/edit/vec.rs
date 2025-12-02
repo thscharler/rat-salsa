@@ -260,9 +260,22 @@ where
         self.data = data;
     }
 
-    /// Get the edit data.
-    pub fn value(&mut self) -> Vec<S::Value> {
-        mem::take(&mut self.data)
+    /// Get a clone of the edit data.
+    ///
+    /// This will not contain the data of the currently
+    /// editing row. Instead, it will contain a default value
+    /// at the current edit position.
+    pub fn value(&self) -> Vec<S::Value> {
+        self.data.clone()
+    }
+
+    /// Clear the widget.
+    pub fn clear(&mut self) {
+        self.mode = Mode::View;
+        self.table.clear_offset();
+        self.table.clear_selection();
+        self.data.clear();
+        // todo: self.editor.clear() is missing?
     }
 
     /// Editing is active?
