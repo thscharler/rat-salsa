@@ -304,6 +304,12 @@ where
         self
     }
 
+    /// Set the layout. If no layout is set here the layout is
+    /// taken from the state.
+    pub fn set_layout(&mut self, layout: GenericLayout<W>) {
+        self.layout = Some(layout);
+    }
+
     /// Render the label automatically when rendering the widget.
     ///
     /// Default: true
