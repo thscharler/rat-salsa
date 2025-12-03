@@ -1617,7 +1617,7 @@ fn handle_dirs(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome
 
 fn handle_files(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome, io::Error> {
     if state.file_state.is_focused() {
-        event_flow!(log f0: match event {
+        event_flow!(match event {
             ct_event!(mouse any for m) if state.file_state.is_double_click(m) => {
                 state.choose_selected()
             }
@@ -1626,7 +1626,7 @@ fn handle_files(state: &mut FileDialogState, event: &Event) -> Result<FileOutcom
             }
             _ => FileOutcome::Continue,
         });
-        event_flow!(log f1: {
+        event_flow!({
             match &mut state.file_state {
                 FileStateMode::Open(st) => handle_nav(st, &state.files, event)?,
                 FileStateMode::OpenMany(st) => handle_nav_many(st, &state.files, event)?,
@@ -1689,6 +1689,11 @@ fn handle_nav_many(
             } else {
                 FileOutcome::Unchanged
             }
+        }
+        ct_event!(key press CONTROL-'a') => {
+            list.set_lead(Some(0), false);
+            list.set_lead(Some(list.rows().saturating_sub(1)), true);
+            FileOutcome::Changed
         }
         _ => FileOutcome::Continue,
     });
