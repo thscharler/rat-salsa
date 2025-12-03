@@ -681,6 +681,15 @@ impl HasFocus for ViewState {
     }
 }
 
+impl RelocatableState for ViewState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.widget_area.relocate(shift, clip);
+        self.hscroll.relocate(shift, clip);
+        self.vscroll.relocate(shift, clip);
+    }
+}
+
 impl ViewState {
     pub fn new() -> Self {
         Self::default()

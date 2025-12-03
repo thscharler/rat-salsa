@@ -893,6 +893,18 @@ where
     }
 }
 
+impl<W> RelocatableState for ClipperState<W>
+where
+    W: Eq + Clone + Hash,
+{
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.widget_area.relocate(shift, clip);
+        self.hscroll.relocate(shift, clip);
+        self.vscroll.relocate(shift, clip);
+    }
+}
+
 impl<W> ClipperState<W>
 where
     W: Eq + Clone + Hash,

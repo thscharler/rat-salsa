@@ -867,6 +867,18 @@ where
     }
 }
 
+impl<W> RelocatableState for FormState<W>
+where
+    W: Eq + Hash + Clone,
+{
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area.relocate(shift, clip);
+        self.widget_area.relocate(shift, clip);
+        self.prev_area.relocate(shift, clip);
+        self.next_area.relocate(shift, clip);
+    }
+}
+
 impl<W> FormState<W>
 where
     W: Eq + Hash + Clone,
