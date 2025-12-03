@@ -49,9 +49,9 @@ pub fn create_shell(name: &str, p: Palette) -> SalsaTheme {
     th.define_style(Style::DISABLED, th.p.style_alias(Color::DISABLED_BG));
     th.define_style(Style::INVALID, th.p.style_alias(Color::INVALID_BG));
     th.define_style(Style::HOVER, th.p.fg_style_alias(Color::HOVER_BG));
-    th.define_style(Style::TITLE, th.p.fg_style_alias(Color::TITLE_FG));
-    th.define_style(Style::HEADER, th.p.fg_style_alias(Color::HEADER_FG));
-    th.define_style(Style::FOOTER, th.p.fg_style_alias(Color::FOOTER_FG));
+    th.define_style(Style::TITLE, th.p.fg_style_alias(Color::TITLE_BG));
+    th.define_style(Style::HEADER, th.p.fg_style_alias(Color::HEADER_BG));
+    th.define_style(Style::FOOTER, th.p.fg_style_alias(Color::FOOTER_BG));
     th.define_style(
         Style::WEEK_HEADER_FG,
         th.p.fg_style_alias(Color::WEEK_HEADER_FG),

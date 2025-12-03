@@ -1,14 +1,14 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// Monochrome
 const DARKNESS: u8 = 63;
 
 pub const MONOCHROME: Palette = Palette {
-    name: Cow::Borrowed("Monochrome"), 
+    name: Cow::Borrowed("Monochrome"),
 
     color: [
-        Palette::interpolate2(0xd8dee9, 0xd8dee9, 0x0, 0x0),
+        Palette::interpolate2(0xc0c5ce, 0xd8dee9, 0x0, 0x0),
         Palette::interpolate2(0x101010, 0x202020, 0x0, 0x0),
         Palette::interpolate(0x708187, 0x9ab2ba, DARKNESS),
         Palette::interpolate(0x424242, 0x677777, DARKNESS),
@@ -42,17 +42,17 @@ pub const MONOCHROME: Palette = Palette {
         define_alias("document-base.bg", Colors::Black, 1),
         define_alias("document-border.fg", Colors::None, 0),
         define_alias("focus.bg", Colors::Primary, 1),
-        define_alias("footer.bg", Colors::None, 0),
-        define_alias("footer.fg", Colors::DeepBlue, 0),
-        define_alias("header.bg", Colors::None, 0),
-        define_alias("header.fg", Colors::DeepBlue, 0),
+        define_alias("footer.bg", Colors::DeepBlue, 0),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::DeepBlue, 0),
+        define_alias("header.fg", Colors::TextDark, 0),
         define_alias("hover.bg", Colors::Secondary, 2),
         define_alias("input-focus.bg", Colors::Primary, 1),
         define_alias("input-select.bg", Colors::Secondary, 0),
         define_alias("input.bg", Colors::Gray, 0),
         define_alias("invalid.bg", Colors::Red, 1),
         define_alias("key-binding.bg", Colors::BlueGreen, 0),
-        define_alias("label.fg", Colors::White, 0),
+        define_alias("label.fg", Colors::TextLight, 0),
         define_alias("menu-base.bg", Colors::Black, 1),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::None, 0),
@@ -61,9 +61,8 @@ pub const MONOCHROME: Palette = Palette {
         define_alias("select.bg", Colors::Gray, 2),
         define_alias("shadow.bg", Colors::None, 0),
         define_alias("status-base.bg", Colors::Black, 1),
-        define_alias("title.bg", Colors::LimeGreen, 0),
-        define_alias("title.fg", Colors::TextDark, 3),
+        define_alias("title.bg", Colors::Gray, 2),
+        define_alias("title.fg", Colors::TextLight, 2),
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

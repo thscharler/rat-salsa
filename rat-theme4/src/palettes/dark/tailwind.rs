@@ -1,11 +1,11 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// Tailwind
 const DARKNESS: u8 = 92;
 
 pub const TAILWIND: Palette = Palette {
-    name: Cow::Borrowed("Tailwind"), 
+    name: Cow::Borrowed("Tailwind"),
 
     color: [
         Palette::interpolate2(0xccc9c7, 0xeaeaff, 0x0, 0x0),
@@ -42,10 +42,10 @@ pub const TAILWIND: Palette = Palette {
         define_alias("document-base.bg", Colors::Secondary, 6),
         define_alias("document-border.fg", Colors::Gray, 4),
         define_alias("focus.bg", Colors::Primary, 0),
-        define_alias("footer.bg", Colors::None, 0),
-        define_alias("footer.fg", Colors::Secondary, 2),
-        define_alias("header.bg", Colors::None, 0),
-        define_alias("header.fg", Colors::Secondary, 2),
+        define_alias("footer.bg", Colors::Secondary, 1),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::Secondary, 1),
+        define_alias("header.fg", Colors::TextDark, 0),
         define_alias("hover.bg", Colors::Secondary, 3),
         define_alias("input-focus.bg", Colors::Primary, 0),
         define_alias("input-select.bg", Colors::Primary, 2),
@@ -61,9 +61,8 @@ pub const TAILWIND: Palette = Palette {
         define_alias("select.bg", Colors::Primary, 2),
         define_alias("shadow.bg", Colors::Black, 0),
         define_alias("status-base.bg", Colors::Secondary, 6),
-        define_alias("title.bg", Colors::None, 0),
-        define_alias("title.fg", Colors::Secondary, 0),
+        define_alias("title.bg", Colors::Secondary, 0),
+        define_alias("title.fg", Colors::TextDark, 0),
         define_alias("week-header.fg", Colors::Secondary, 2),
     ]),
 };
-

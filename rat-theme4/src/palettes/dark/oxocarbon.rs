@@ -1,11 +1,11 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// OxoCarbon
 const DARKNESS: u8 = 63;
 
 pub const OXOCARBON: Palette = Palette {
-    name: Cow::Borrowed("OxoCarbon"), 
+    name: Cow::Borrowed("OxoCarbon"),
 
     color: [
         Palette::interpolate2(0xf2f4f8, 0xf9fbff, 0x0, 0x0),
@@ -42,11 +42,11 @@ pub const OXOCARBON: Palette = Palette {
         define_alias("document-base.bg", Colors::Black, 2),
         define_alias("document-border.fg", Colors::None, 0),
         define_alias("focus.bg", Colors::Primary, 0),
-        define_alias("footer.bg", Colors::None, 0),
-        define_alias("footer.fg", Colors::DeepBlue, 0),
-        define_alias("header.bg", Colors::None, 0),
-        define_alias("header.fg", Colors::DeepBlue, 0),
-        define_alias("hover.bg", Colors::Secondary, 0),
+        define_alias("footer.bg", Colors::LimeGreen, 0),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::LimeGreen, 0),
+        define_alias("header.fg", Colors::TextDark, 0),
+        define_alias("hover.bg", Colors::Gray, 0),
         define_alias("input-focus.bg", Colors::Primary, 1),
         define_alias("input-select.bg", Colors::Secondary, 1),
         define_alias("input.bg", Colors::Gray, 3),
@@ -61,9 +61,8 @@ pub const OXOCARBON: Palette = Palette {
         define_alias("select.bg", Colors::Secondary, 0),
         define_alias("shadow.bg", Colors::Black, 0),
         define_alias("status-base.bg", Colors::Black, 0),
-        define_alias("title.bg", Colors::Red, 0),
-        define_alias("title.fg", Colors::TextLight, 0),
+        define_alias("title.bg", Colors::LimeGreen, 0),
+        define_alias("title.fg", Colors::TextDark, 0),
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
-

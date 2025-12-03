@@ -1,11 +1,11 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// EverForest
 const DARKNESS: u8 = 63;
 
 pub const EVERFOREST: Palette = Palette {
-    name: Cow::Borrowed("EverForest"), 
+    name: Cow::Borrowed("EverForest"),
 
     color: [
         Palette::interpolate2(0xd8d4cb, 0xfcf8ef, 0x0, 0x0),
@@ -42,10 +42,10 @@ pub const EVERFOREST: Palette = Palette {
         define_alias("document-base.bg", Colors::Black, 1),
         define_alias("document-border.fg", Colors::None, 0),
         define_alias("focus.bg", Colors::Primary, 1),
-        define_alias("footer.bg", Colors::None, 0),
-        define_alias("footer.fg", Colors::DeepBlue, 0),
-        define_alias("header.bg", Colors::None, 0),
-        define_alias("header.fg", Colors::DeepBlue, 0),
+        define_alias("footer.bg", Colors::DeepBlue, 0),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::DeepBlue, 0),
+        define_alias("header.fg", Colors::TextDark, 0),
         define_alias("hover.bg", Colors::DeepBlue, 2),
         define_alias("input-focus.bg", Colors::Primary, 1),
         define_alias("input-select.bg", Colors::Secondary, 1),
@@ -61,9 +61,8 @@ pub const EVERFOREST: Palette = Palette {
         define_alias("select.bg", Colors::Secondary, 1),
         define_alias("shadow.bg", Colors::Black, 0),
         define_alias("status-base.bg", Colors::Black, 1),
-        define_alias("title.bg", Colors::None, 0),
-        define_alias("title.fg", Colors::Magenta, 0),
+        define_alias("title.bg", Colors::Green, 0),
+        define_alias("title.fg", Colors::TextDark, 0),
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

@@ -1,11 +1,11 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// VSCode
 const DARKNESS: u8 = 63;
 
 pub const VSCODE: Palette = Palette {
-    name: Cow::Borrowed("VSCode"), 
+    name: Cow::Borrowed("VSCode"),
 
     color: [
         Palette::interpolate2(0xd4d4d4, 0xffffff, 0x0, 0x0),
@@ -42,10 +42,10 @@ pub const VSCODE: Palette = Palette {
         define_alias("document-base.bg", Colors::Black, 1),
         define_alias("document-border.fg", Colors::Gray, 1),
         define_alias("focus.bg", Colors::Primary, 1),
-        define_alias("footer.bg", Colors::None, 0),
-        define_alias("footer.fg", Colors::Cyan, 0),
-        define_alias("header.bg", Colors::None, 0),
-        define_alias("header.fg", Colors::Cyan, 0),
+        define_alias("footer.bg", Colors::Cyan, 0),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::Cyan, 0),
+        define_alias("header.fg", Colors::TextDark, 0),
         define_alias("hover.bg", Colors::Black, 0),
         define_alias("input-focus.bg", Colors::Primary, 1),
         define_alias("input-select.bg", Colors::Secondary, 1),
@@ -66,4 +66,3 @@ pub const VSCODE: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

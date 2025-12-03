@@ -1,13 +1,13 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// Nord
 /// Credits to original https://github.com/arcticicestudio/nord-vim
-/// 
+///
 const DARKNESS: u8 = 63;
 
 pub const NORD: Palette = Palette {
-    name: Cow::Borrowed("Nord"), 
+    name: Cow::Borrowed("Nord"),
 
     color: [
         Palette::interpolate2(0xe5e9f0, 0xe5e9f0, 0x0, 0x0),
@@ -44,10 +44,10 @@ pub const NORD: Palette = Palette {
         define_alias("document-base.bg", Colors::Black, 1),
         define_alias("document-border.fg", Colors::None, 0),
         define_alias("focus.bg", Colors::Primary, 0),
-        define_alias("footer.bg", Colors::None, 0),
-        define_alias("footer.fg", Colors::Blue, 0),
-        define_alias("header.bg", Colors::None, 0),
-        define_alias("header.fg", Colors::Blue, 0),
+        define_alias("footer.bg", Colors::Blue, 0),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::Blue, 0),
+        define_alias("header.fg", Colors::TextDark, 0),
         define_alias("hover.bg", Colors::Primary, 0),
         define_alias("input-focus.bg", Colors::Primary, 0),
         define_alias("input-select.bg", Colors::Secondary, 0),
@@ -68,4 +68,3 @@ pub const NORD: Palette = Palette {
         define_alias("week-header.fg", Colors::Yellow, 0),
     ]),
 };
-

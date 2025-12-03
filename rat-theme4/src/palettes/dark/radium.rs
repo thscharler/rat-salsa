@@ -1,13 +1,13 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// Radium
 /// An adaption of nvchad's radium theme.
 /// -- credits to original radium theme from <https://github.com/dharmx>
-const DARKNESS: u8 = 63;
+const DARKNESS: u8 = 128;
 
 pub const RADIUM: Palette = Palette {
-    name: Cow::Borrowed("Radium"), 
+    name: Cow::Borrowed("Radium"),
 
     color: [
         Palette::interpolate2(0xd4d4d5, 0xffffff, 0x0, 0x0),
@@ -44,10 +44,10 @@ pub const RADIUM: Palette = Palette {
         define_alias("document-base.bg", Colors::None, 0),
         define_alias("document-border.fg", Colors::None, 0),
         define_alias("focus.bg", Colors::Primary, 3),
-        define_alias("footer.bg", Colors::Black, 0),
-        define_alias("footer.fg", Colors::LimeGreen, 0),
-        define_alias("header.bg", Colors::Black, 0),
-        define_alias("header.fg", Colors::LimeGreen, 0),
+        define_alias("footer.bg", Colors::LimeGreen, 0),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::LimeGreen, 0),
+        define_alias("header.fg", Colors::TextDark, 0),
         define_alias("hover.bg", Colors::Green, 3),
         define_alias("input-focus.bg", Colors::Primary, 3),
         define_alias("input-select.bg", Colors::Secondary, 3),
@@ -68,4 +68,3 @@ pub const RADIUM: Palette = Palette {
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
-

@@ -1,12 +1,12 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// Rust
 /// Rusty theme.
 const DARKNESS: u8 = 63;
 
 pub const RUST: Palette = Palette {
-    name: Cow::Borrowed("Rust"), 
+    name: Cow::Borrowed("Rust"),
 
     color: [
         Palette::interpolate2(0xd1ccc8, 0xefe6e6, 0x0, 0x0),
@@ -43,10 +43,10 @@ pub const RUST: Palette = Palette {
         define_alias("document-base.bg", Colors::Black, 0),
         define_alias("document-border.fg", Colors::None, 0),
         define_alias("focus.bg", Colors::Primary, 1),
-        define_alias("footer.bg", Colors::None, 0),
-        define_alias("footer.fg", Colors::Blue, 0),
-        define_alias("header.bg", Colors::None, 0),
-        define_alias("header.fg", Colors::Blue, 0),
+        define_alias("footer.bg", Colors::Blue, 0),
+        define_alias("footer.fg", Colors::TextLight, 0),
+        define_alias("header.bg", Colors::Blue, 0),
+        define_alias("header.fg", Colors::TextLight, 0),
         define_alias("hover.bg", Colors::Blue, 0),
         define_alias("input-focus.bg", Colors::Primary, 1),
         define_alias("input-select.bg", Colors::Secondary, 1),
@@ -67,4 +67,3 @@ pub const RUST: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 1),
     ]),
 };
-

@@ -1,5 +1,5 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// Imperial
 /// Uses purple and gold for primary/secondary.
@@ -7,7 +7,7 @@ use crate::palette::{Colors, Palette, define_alias};
 const DARKNESS: u8 = 63;
 
 pub const IMPERIAL: Palette = Palette {
-    name: Cow::Borrowed("Imperial"), 
+    name: Cow::Borrowed("Imperial"),
 
     color: [
         Palette::interpolate2(0xdedfe3, 0xf6f6f3, 0x0, 0x0),
@@ -44,10 +44,10 @@ pub const IMPERIAL: Palette = Palette {
         define_alias("document-base.bg", Colors::Black, 3),
         define_alias("document-border.fg", Colors::Gray, 2),
         define_alias("focus.bg", Colors::Primary, 1),
-        define_alias("footer.bg", Colors::None, 0),
-        define_alias("footer.fg", Colors::BlueGreen, 2),
-        define_alias("header.bg", Colors::None, 0),
-        define_alias("header.fg", Colors::BlueGreen, 2),
+        define_alias("footer.bg", Colors::Yellow, 2),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::Yellow, 1),
+        define_alias("header.fg", Colors::TextDark, 0),
         define_alias("hover.bg", Colors::Gray, 1),
         define_alias("input-focus.bg", Colors::Primary, 1),
         define_alias("input-select.bg", Colors::Secondary, 1),
@@ -63,9 +63,8 @@ pub const IMPERIAL: Palette = Palette {
         define_alias("select.bg", Colors::Secondary, 1),
         define_alias("shadow.bg", Colors::TextDark, 0),
         define_alias("status-base.bg", Colors::Black, 1),
-        define_alias("title.bg", Colors::Red, 0),
-        define_alias("title.fg", Colors::TextLight, 0),
+        define_alias("title.bg", Colors::Yellow, 0),
+        define_alias("title.fg", Colors::TextLight, 3),
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

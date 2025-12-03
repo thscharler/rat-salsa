@@ -1,5 +1,5 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// Tundra
 /// An adaption of nvchad's tundra theme.
@@ -7,7 +7,7 @@ use crate::palette::{Colors, Palette, define_alias};
 const DARKNESS: u8 = 63;
 
 pub const TUNDRA: Palette = Palette {
-    name: Cow::Borrowed("Tundra"), 
+    name: Cow::Borrowed("Tundra"),
 
     color: [
         Palette::interpolate2(0xe6eaf2, 0xffffff, 0x0, 0x0),
@@ -15,20 +15,20 @@ pub const TUNDRA: Palette = Palette {
         Palette::interpolate(0xe6eaf2, 0xffffff, DARKNESS),
         Palette::interpolate(0xa8bbd4, 0x719bd3, DARKNESS),
         Palette::interpolate(0xe6eaf2, 0xffffff, DARKNESS),
-        Palette::interpolate(0x0b1221, 0x1a2130, DARKNESS),
-        Palette::interpolate(0x3e4554, 0x5f6675, DARKNESS),
-        Palette::interpolate(0xfccaca, 0xfca5a5, DARKNESS),
-        Palette::interpolate(0xfad9c5, 0xfbc19d, DARKNESS),
-        Palette::interpolate(0xe8d7b7, 0xe8d4b0, DARKNESS),
-        Palette::interpolate(0xbce8b7, 0xb5e8b0, DARKNESS),
-        Palette::interpolate(0xbce8b7, 0xb5e8b0, DARKNESS),
-        Palette::interpolate(0xa8bbd4, 0x719bd3, DARKNESS),
-        Palette::interpolate(0xc8eafc, 0xbae6fd, DARKNESS),
-        Palette::interpolate(0xc7d0fc, 0xa5b4fc, DARKNESS),
-        Palette::interpolate(0xbfcaf2, 0x9baaf2, DARKNESS),
-        Palette::interpolate(0xb7abd9, 0xb3a6da, DARKNESS),
-        Palette::interpolate(0xffc9c9, 0xf98b8b, DARKNESS),
-        Palette::interpolate(0xfffcad, 0xfecdd3, DARKNESS),
+        Palette::interpolate(0x10151e, 0x1d2535, DARKNESS),
+        Palette::interpolate(0x424751, 0x6c7484, DARKNESS),
+        Palette::interpolate(0xf9c7c7, 0xfca5a5, DARKNESS),
+        Palette::interpolate(0xf9dac7, 0xfbc19d, DARKNESS),
+        Palette::interpolate(0xe5d5b7, 0xe5c690, DARKNESS),
+        Palette::interpolate(0xbce5b7, 0x99e590, DARKNESS),
+        Palette::interpolate(0xbce5b7, 0x99e590, DARKNESS),
+        Palette::interpolate(0xa8bbd4, 0x83a5d1, DARKNESS),
+        Palette::interpolate(0xc8eafc, 0x9fddfc, DARKNESS),
+        Palette::interpolate(0xc7d1f9, 0x9daef9, DARKNESS),
+        Palette::interpolate(0xbfcaef, 0x97a7ef, DARKNESS),
+        Palette::interpolate(0xb8add8, 0x9c88d8, DARKNESS),
+        Palette::interpolate(0xffcccc, 0xf79b9b, DARKNESS),
+        Palette::interpolate(0xf9c7ce, 0xfc9fab, DARKNESS),
     ],
     // must be sorted!
     aliased: Cow::Borrowed(&[
@@ -44,10 +44,10 @@ pub const TUNDRA: Palette = Palette {
         define_alias("document-base.bg", Colors::Black, 2),
         define_alias("document-border.fg", Colors::None, 0),
         define_alias("focus.bg", Colors::Primary, 1),
-        define_alias("footer.bg", Colors::None, 0),
-        define_alias("footer.fg", Colors::Blue, 3),
-        define_alias("header.bg", Colors::None, 0),
-        define_alias("header.fg", Colors::Blue, 3),
+        define_alias("footer.bg", Colors::BlueGreen, 2),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::BlueGreen, 3),
+        define_alias("header.fg", Colors::TextDark, 0),
         define_alias("hover.bg", Colors::Secondary, 0),
         define_alias("input-focus.bg", Colors::Primary, 1),
         define_alias("input-select.bg", Colors::Secondary, 1),
@@ -63,9 +63,8 @@ pub const TUNDRA: Palette = Palette {
         define_alias("select.bg", Colors::Secondary, 1),
         define_alias("shadow.bg", Colors::TextDark, 0),
         define_alias("status-base.bg", Colors::Black, 1),
-        define_alias("title.bg", Colors::Red, 0),
-        define_alias("title.fg", Colors::TextDark, 3),
+        define_alias("title.bg", Colors::BlueGreen, 3),
+        define_alias("title.fg", Colors::TextDark, 0),
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
-
