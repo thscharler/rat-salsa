@@ -214,112 +214,118 @@ fn layout<'a>(
     }
 
     if let Some(hscroll) = hscroll {
-        if let Some(hscroll_state) = hscroll_state {
-            let show = match hscroll.get_policy() {
-                ScrollbarPolicy::Always => true,
-                ScrollbarPolicy::Minimize => true,
-                ScrollbarPolicy::Collapse => hscroll_state.max_offset > 0,
-            };
-            if show {
-                match hscroll.get_orientation() {
-                    ScrollbarOrientation::VerticalRight => {
-                        unimplemented!(
-                            "ScrollbarOrientation::VerticalRight not supported for horizontal scrolling."
-                        );
+        let show = match hscroll.get_policy() {
+            ScrollbarPolicy::Always => true,
+            ScrollbarPolicy::Minimize => true,
+            ScrollbarPolicy::Collapse => {
+                if let Some(hscroll_state) = hscroll_state {
+                    hscroll_state.max_offset > 0
+                } else {
+                    true
+                }
+            }
+        };
+        if show {
+            match hscroll.get_orientation() {
+                ScrollbarOrientation::VerticalRight => {
+                    unimplemented!(
+                        "ScrollbarOrientation::VerticalRight not supported for horizontal scrolling."
+                    );
+                }
+                ScrollbarOrientation::VerticalLeft => {
+                    unimplemented!(
+                        "ScrollbarOrientation::VerticalLeft not supported for horizontal scrolling."
+                    );
+                }
+                ScrollbarOrientation::HorizontalBottom => {
+                    if inner.bottom() == area.bottom() {
+                        inner.height = inner.height.saturating_sub(1);
                     }
-                    ScrollbarOrientation::VerticalLeft => {
-                        unimplemented!(
-                            "ScrollbarOrientation::VerticalLeft not supported for horizontal scrolling."
-                        );
-                    }
-                    ScrollbarOrientation::HorizontalBottom => {
-                        if inner.bottom() == area.bottom() {
-                            inner.height = inner.height.saturating_sub(1);
-                        }
-                    }
-                    ScrollbarOrientation::HorizontalTop => {
-                        if inner.top() == area.top() {
-                            inner.y += 1;
-                            inner.height = inner.height.saturating_sub(1);
-                        }
+                }
+                ScrollbarOrientation::HorizontalTop => {
+                    if inner.top() == area.top() {
+                        inner.y += 1;
+                        inner.height = inner.height.saturating_sub(1);
                     }
                 }
             }
-        } else {
-            panic!("no horizontal scroll state");
         }
     }
 
     if let Some(vscroll) = vscroll {
-        if let Some(vscroll_state) = vscroll_state {
-            let show = match vscroll.get_policy() {
-                ScrollbarPolicy::Always => true,
-                ScrollbarPolicy::Minimize => true,
-                ScrollbarPolicy::Collapse => vscroll_state.max_offset > 0,
-            };
-            if show {
-                match vscroll.get_orientation() {
-                    ScrollbarOrientation::VerticalRight => {
-                        if inner.right() == area.right() {
-                            inner.width = inner.width.saturating_sub(1);
-                        }
-                    }
-                    ScrollbarOrientation::VerticalLeft => {
-                        if inner.left() == area.left() {
-                            inner.x += 1;
-                            inner.width = inner.width.saturating_sub(1);
-                        }
-                    }
-                    ScrollbarOrientation::HorizontalBottom => {
-                        unimplemented!(
-                            "ScrollbarOrientation::HorizontalBottom not supported for vertical scrolling."
-                        );
-                    }
-                    ScrollbarOrientation::HorizontalTop => {
-                        unimplemented!(
-                            "ScrollbarOrientation::HorizontalTop not supported for vertical scrolling."
-                        );
-                    }
+        let show = match vscroll.get_policy() {
+            ScrollbarPolicy::Always => true,
+            ScrollbarPolicy::Minimize => true,
+            ScrollbarPolicy::Collapse => {
+                if let Some(vscroll_state) = vscroll_state {
+                    vscroll_state.max_offset > 0
+                } else {
+                    true
                 }
             }
-        } else {
-            panic!("no horizontal scroll state");
+        };
+        if show {
+            match vscroll.get_orientation() {
+                ScrollbarOrientation::VerticalRight => {
+                    if inner.right() == area.right() {
+                        inner.width = inner.width.saturating_sub(1);
+                    }
+                }
+                ScrollbarOrientation::VerticalLeft => {
+                    if inner.left() == area.left() {
+                        inner.x += 1;
+                        inner.width = inner.width.saturating_sub(1);
+                    }
+                }
+                ScrollbarOrientation::HorizontalBottom => {
+                    unimplemented!(
+                        "ScrollbarOrientation::HorizontalBottom not supported for vertical scrolling."
+                    );
+                }
+                ScrollbarOrientation::HorizontalTop => {
+                    unimplemented!(
+                        "ScrollbarOrientation::HorizontalTop not supported for vertical scrolling."
+                    );
+                }
+            }
         }
     }
 
     // horizontal
     let h_area = if let Some(hscroll) = hscroll {
-        if let Some(hscroll_state) = hscroll_state {
-            let show = match hscroll.get_policy() {
-                ScrollbarPolicy::Always => true,
-                ScrollbarPolicy::Minimize => true,
-                ScrollbarPolicy::Collapse => hscroll_state.max_offset > 0,
-            };
-            if show {
-                match hscroll.get_orientation() {
-                    ScrollbarOrientation::HorizontalBottom => Rect::new(
-                        inner.x + hscroll.get_start_margin(),
-                        area.bottom().saturating_sub(1),
-                        inner
-                            .width
-                            .saturating_sub(hscroll.get_start_margin() + hscroll.get_end_margin()),
-                        if area.height > 0 { 1 } else { 0 },
-                    ),
-                    ScrollbarOrientation::HorizontalTop => Rect::new(
-                        inner.x + hscroll.get_start_margin(),
-                        area.y,
-                        inner
-                            .width
-                            .saturating_sub(hscroll.get_start_margin() + hscroll.get_end_margin()),
-                        if area.height > 0 { 1 } else { 0 },
-                    ),
-                    _ => unreachable!(),
+        let show = match hscroll.get_policy() {
+            ScrollbarPolicy::Always => true,
+            ScrollbarPolicy::Minimize => true,
+            ScrollbarPolicy::Collapse => {
+                if let Some(hscroll_state) = hscroll_state {
+                    hscroll_state.max_offset > 0
+                } else {
+                    true
                 }
-            } else {
-                Rect::new(area.x, area.y, 0, 0)
+            }
+        };
+        if show {
+            match hscroll.get_orientation() {
+                ScrollbarOrientation::HorizontalBottom => Rect::new(
+                    inner.x + hscroll.get_start_margin(),
+                    area.bottom().saturating_sub(1),
+                    inner
+                        .width
+                        .saturating_sub(hscroll.get_start_margin() + hscroll.get_end_margin()),
+                    if area.height > 0 { 1 } else { 0 },
+                ),
+                ScrollbarOrientation::HorizontalTop => Rect::new(
+                    inner.x + hscroll.get_start_margin(),
+                    area.y,
+                    inner
+                        .width
+                        .saturating_sub(hscroll.get_start_margin() + hscroll.get_end_margin()),
+                    if area.height > 0 { 1 } else { 0 },
+                ),
+                _ => unreachable!(),
             }
         } else {
-            panic!("no horizontal scroll state");
+            Rect::new(area.x, area.y, 0, 0)
         }
     } else {
         Rect::new(area.x, area.y, 0, 0)
@@ -327,37 +333,39 @@ fn layout<'a>(
 
     // vertical
     let v_area = if let Some(vscroll) = vscroll {
-        if let Some(vscroll_state) = vscroll_state {
-            let show = match vscroll.get_policy() {
-                ScrollbarPolicy::Always => true,
-                ScrollbarPolicy::Minimize => true,
-                ScrollbarPolicy::Collapse => vscroll_state.max_offset > 0,
-            };
-            if show {
-                match vscroll.get_orientation() {
-                    ScrollbarOrientation::VerticalRight => Rect::new(
-                        area.right().saturating_sub(1),
-                        inner.y + vscroll.get_start_margin(),
-                        if area.width > 0 { 1 } else { 0 },
-                        inner
-                            .height
-                            .saturating_sub(vscroll.get_start_margin() + vscroll.get_end_margin()),
-                    ),
-                    ScrollbarOrientation::VerticalLeft => Rect::new(
-                        area.x,
-                        inner.y + vscroll.get_start_margin(),
-                        if area.width > 0 { 1 } else { 0 },
-                        inner
-                            .height
-                            .saturating_sub(vscroll.get_start_margin() + vscroll.get_end_margin()),
-                    ),
-                    _ => unreachable!(),
+        let show = match vscroll.get_policy() {
+            ScrollbarPolicy::Always => true,
+            ScrollbarPolicy::Minimize => true,
+            ScrollbarPolicy::Collapse => {
+                if let Some(vscroll_state) = vscroll_state {
+                    vscroll_state.max_offset > 0
+                } else {
+                    true
                 }
-            } else {
-                Rect::new(area.x, area.y, 0, 0)
+            }
+        };
+        if show {
+            match vscroll.get_orientation() {
+                ScrollbarOrientation::VerticalRight => Rect::new(
+                    area.right().saturating_sub(1),
+                    inner.y + vscroll.get_start_margin(),
+                    if area.width > 0 { 1 } else { 0 },
+                    inner
+                        .height
+                        .saturating_sub(vscroll.get_start_margin() + vscroll.get_end_margin()),
+                ),
+                ScrollbarOrientation::VerticalLeft => Rect::new(
+                    area.x,
+                    inner.y + vscroll.get_start_margin(),
+                    if area.width > 0 { 1 } else { 0 },
+                    inner
+                        .height
+                        .saturating_sub(vscroll.get_start_margin() + vscroll.get_end_margin()),
+                ),
+                _ => unreachable!(),
             }
         } else {
-            panic!("no horizontal scroll state");
+            Rect::new(area.x, area.y, 0, 0)
         }
     } else {
         Rect::new(area.x, area.y, 0, 0)
