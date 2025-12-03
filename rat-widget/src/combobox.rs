@@ -492,13 +492,14 @@ impl HasFocus for ComboboxState {
 
 impl RelocatableState for ComboboxState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        // relocate after the popup is rendered.
+    }
+
+    fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {
         self.area.relocate(shift, clip);
         self.inner.relocate(shift, clip);
         self.choice.relocate(shift, clip);
         self.text.relocate(shift, clip);
-    }
-
-    fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {
         self.choice.relocate_popup(shift, clip);
     }
 }

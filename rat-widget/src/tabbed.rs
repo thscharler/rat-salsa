@@ -58,8 +58,10 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::cmp::min;
 use std::fmt::Debug;
+use std::rc::Rc;
 
 mod attached;
+pub(crate) mod event;
 mod glued;
 
 /// Placement relative to the Rect given to render.
@@ -123,6 +125,18 @@ pub struct Tabbed<'a> {
     focus_style: Option<Style>,
 }
 
+/// Widget for the Layout of the tabs.
+#[derive(Debug, Clone)]
+pub struct LayoutWidget<'a> {
+    tab: Rc<Tabbed<'a>>,
+}
+
+/// Primary widget for rendering the Tabbed.
+#[derive(Debug, Clone)]
+pub struct TabbedWidget<'a> {
+    tab: Rc<Tabbed<'a>>,
+}
+
 /// Combined Styles
 #[derive(Debug, Clone)]
 pub struct TabbedStyle {
@@ -142,7 +156,7 @@ pub struct TabbedStyle {
 }
 
 /// State & event-handling.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TabbedState {
     /// Total area.
     /// __readonly__. renewed for each render.
@@ -176,68 +190,12 @@ pub struct TabbedState {
     /// Mouse flags
     /// __read+write__
     pub mouse: MouseFlagsN,
-}
 
-pub(crate) mod event {
-    use rat_event::{ConsumedEvent, Outcome};
+    /// Rendering is split into base-widget and menu-popup.
+    /// Relocate after rendering the popup.
+    relocate_popup: bool,
 
-    /// Result of event handling.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-    pub enum TabbedOutcome {
-        /// The given event has not been used at all.
-        Continue,
-        /// The event has been recognized, but the result was nil.
-        /// Further processing for this event may stop.
-        Unchanged,
-        /// The event has been recognized and there is some change
-        /// due to it.
-        /// Further processing for this event may stop.
-        /// Rendering the ui is advised.
-        Changed,
-        /// Tab selection changed.
-        Select(usize),
-        /// Selected tab should be closed.
-        Close(usize),
-    }
-
-    impl ConsumedEvent for TabbedOutcome {
-        fn is_consumed(&self) -> bool {
-            *self != TabbedOutcome::Continue
-        }
-    }
-
-    // Useful for converting most navigation/edit results.
-    impl From<bool> for TabbedOutcome {
-        fn from(value: bool) -> Self {
-            if value {
-                TabbedOutcome::Changed
-            } else {
-                TabbedOutcome::Unchanged
-            }
-        }
-    }
-
-    impl From<Outcome> for TabbedOutcome {
-        fn from(value: Outcome) -> Self {
-            match value {
-                Outcome::Continue => TabbedOutcome::Continue,
-                Outcome::Unchanged => TabbedOutcome::Unchanged,
-                Outcome::Changed => TabbedOutcome::Changed,
-            }
-        }
-    }
-
-    impl From<TabbedOutcome> for Outcome {
-        fn from(value: TabbedOutcome) -> Self {
-            match value {
-                TabbedOutcome::Continue => Outcome::Continue,
-                TabbedOutcome::Unchanged => Outcome::Unchanged,
-                TabbedOutcome::Changed => Outcome::Changed,
-                TabbedOutcome::Select(_) => Outcome::Changed,
-                TabbedOutcome::Close(_) => Outcome::Changed,
-            }
-        }
-    }
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a> Tabbed<'a> {
@@ -342,6 +300,28 @@ impl<'a> Tabbed<'a> {
         self.focus_style = Some(style);
         self
     }
+
+    /// Constructs the widgets for rendering.
+    ///
+    /// Returns the LayoutWidget that must run first. It
+    /// doesn't actually render anything, it just calculates
+    /// the layout for the tab regions.
+    ///
+    /// Use [TabbedState::widget_area] to render the selected tab.
+    ///
+    /// The TabbedWidget actually renders the tabs.
+    /// Render it after you finished with the content.
+    pub fn into_widgets(self) -> (LayoutWidget<'a>, TabbedWidget<'a>) {
+        let rc = Rc::new(self);
+        (
+            LayoutWidget {
+                tab: rc.clone(), //
+            },
+            TabbedWidget {
+                tab:rc, //
+            },
+        )
+    }
 }
 
 impl Default for TabbedStyle {
@@ -362,23 +342,44 @@ impl Default for TabbedStyle {
     }
 }
 
+impl StatefulWidget for &Tabbed<'_> {
+    type State = TabbedState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        layout(self, area, state);
+        render(self, buf, state);
+        state.relocate_popup = false;
+    }
+}
+
 impl StatefulWidget for Tabbed<'_> {
     type State = TabbedState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(&self, area, buf, state);
+        layout(&self, area, state);
+        render(&self, buf, state);
+        state.relocate_popup = false;
     }
 }
 
-impl<'a> StatefulWidget for &Tabbed<'a> {
+impl<'a> StatefulWidget for &LayoutWidget<'a> {
     type State = TabbedState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
+    fn render(self, area: Rect, _buf: &mut Buffer, state: &mut Self::State) {
+        layout(self.tab.as_ref(), area, state);
     }
 }
 
-fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut TabbedState) {
+impl<'a> StatefulWidget for LayoutWidget<'a> {
+    type State = TabbedState;
+
+    fn render(self, area: Rect, _buf: &mut Buffer, state: &mut Self::State) {
+        layout(self.tab.as_ref(), area, state);
+    }
+}
+
+fn layout(tabbed: &Tabbed<'_>, area: Rect, state: &mut TabbedState) {
+    state.relocate_popup = true;
     if tabbed.tabs.is_empty() {
         state.selected = None;
     } else {
@@ -390,11 +391,62 @@ fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut Tab
     match tabbed.tab_type {
         TabType::Glued => {
             GluedTabs.layout(area, tabbed, state);
-            GluedTabs.render(buf, tabbed, state);
         }
         TabType::Attached => {
             AttachedTabs.layout(area, tabbed, state);
+        }
+    }
+}
+
+impl<'a> StatefulWidget for &TabbedWidget<'a> {
+    type State = TabbedState;
+
+    fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render(self.tab.as_ref(), buf, state);
+    }
+}
+
+impl<'a> StatefulWidget for TabbedWidget<'a> {
+    type State = TabbedState;
+
+    fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render(self.tab.as_ref(), buf, state);
+    }
+}
+
+fn render(tabbed: &Tabbed<'_>, buf: &mut Buffer, state: &mut TabbedState) {
+    if tabbed.tabs.is_empty() {
+        state.selected = None;
+    } else {
+        if state.selected.is_none() {
+            state.selected = Some(0);
+        }
+    }
+
+    match tabbed.tab_type {
+        TabType::Glued => {
+            GluedTabs.render(buf, tabbed, state);
+        }
+        TabType::Attached => {
             AttachedTabs.render(buf, tabbed, state);
+        }
+    }
+}
+
+impl Default for TabbedState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            block_area: Default::default(),
+            widget_area: Default::default(),
+            tab_title_area: Default::default(),
+            tab_title_areas: Default::default(),
+            tab_title_close_areas: Default::default(),
+            selected: Default::default(),
+            focus: Default::default(),
+            mouse: Default::default(),
+            relocate_popup: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -411,6 +463,8 @@ impl Clone for TabbedState {
             selected: self.selected,
             focus: self.focus.new_instance(),
             mouse: Default::default(),
+            relocate_popup: self.relocate_popup,
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -435,12 +489,26 @@ impl HasFocus for TabbedState {
 
 impl RelocatableState for TabbedState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-        self.area = relocate_area(self.area, shift, clip);
-        self.block_area = relocate_area(self.block_area, shift, clip);
-        self.widget_area = relocate_area(self.widget_area, shift, clip);
-        self.tab_title_area = relocate_area(self.tab_title_area, shift, clip);
-        relocate_areas(self.tab_title_areas.as_mut(), shift, clip);
-        relocate_areas(self.tab_title_close_areas.as_mut(), shift, clip);
+        if !self.relocate_popup {
+            self.area = relocate_area(self.area, shift, clip);
+            self.block_area = relocate_area(self.block_area, shift, clip);
+            self.widget_area = relocate_area(self.widget_area, shift, clip);
+            self.tab_title_area = relocate_area(self.tab_title_area, shift, clip);
+            relocate_areas(self.tab_title_areas.as_mut(), shift, clip);
+            relocate_areas(self.tab_title_close_areas.as_mut(), shift, clip);
+        }
+    }
+
+    fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {
+        if self.relocate_popup {
+            self.relocate_popup = false;
+            self.area = relocate_area(self.area, shift, clip);
+            self.block_area = relocate_area(self.block_area, shift, clip);
+            self.widget_area = relocate_area(self.widget_area, shift, clip);
+            self.tab_title_area = relocate_area(self.tab_title_area, shift, clip);
+            relocate_areas(self.tab_title_areas.as_mut(), shift, clip);
+            relocate_areas(self.tab_title_close_areas.as_mut(), shift, clip);
+        }
     }
 }
 

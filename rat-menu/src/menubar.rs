@@ -82,6 +82,10 @@ pub struct MenubarState {
     /// State for the last rendered popup menu.
     pub popup: PopupMenuState,
 
+    /// Rendering is split into base-widget and menu-popup.
+    /// Relocate after rendering the popup.
+    relocate_popup: bool,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -254,6 +258,9 @@ impl<'a> StatefulWidget for Menubar<'a> {
         let (menu, popup) = self.into_widgets();
         menu.render(area, buf, state);
         popup.render(Rect::default(), buf, state);
+        // direct rendering of menubar + popup.
+        // relocate() will be called, not relocate_popup()
+        state.relocate_popup = false;
     }
 }
 
@@ -277,6 +284,7 @@ fn render_menubar(
     widget.menu.render(area, buf, &mut state.bar);
     // Area of the main bar.
     state.area = state.bar.area;
+    state.relocate_popup = true;
 }
 
 impl StatefulWidget for MenubarPopup<'_> {
@@ -375,6 +383,7 @@ impl Default for MenubarState {
             area: Default::default(),
             bar: Default::default(),
             popup: Default::default(),
+            relocate_popup: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -408,13 +417,22 @@ impl HasScreenCursor for MenubarState {
 
 impl RelocatableState for MenubarState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-        self.area.relocate(shift, clip);
-        self.bar.relocate(shift, clip);
-        self.popup.relocate(shift, clip);
+        if !self.relocate_popup {
+            self.area.relocate(shift, clip);
+            self.bar.relocate(shift, clip);
+            self.popup.relocate(shift, clip);
+            self.popup.relocate_popup(shift, clip);
+        }
     }
 
     fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {
-        self.popup.relocate_popup(shift, clip);
+        if self.relocate_popup {
+            self.relocate_popup = false;
+            self.area.relocate(shift, clip);
+            self.bar.relocate(shift, clip);
+            self.popup.relocate(shift, clip);
+            self.popup.relocate_popup(shift, clip);
+        }
     }
 }
 
