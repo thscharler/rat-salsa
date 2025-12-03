@@ -1515,29 +1515,6 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputSta
             state.overwrite.set(false);
         }
 
-        // // focus behaviour
-        // if self.lost_focus() {
-        //     match self.on_focus_lost {
-        //         TextFocusLost::None => {}
-        //         TextFocusLost::Position0 => {
-        //             self.move_to_line_start(false);
-        //             // repaint is triggered by focus-change
-        //         }
-        //     }
-        // }
-        // if self.gained_focus() {
-        //     match self.on_focus_gained {
-        //         TextFocusGained::None => {}
-        //         TextFocusGained::Overwrite => {
-        //             self.overwrite = true;
-        //         }
-        //         TextFocusGained::SelectAll => {
-        //             self.select_all();
-        //             // repaint is triggered by focus-change
-        //         }
-        //     }
-        // }
-
         let mut r = if self.is_focused() {
             match event {
                 ct_event!(key press c)
