@@ -203,7 +203,7 @@ mod data {
                 DataReprIter::None => {}
                 DataReprIter::Invalid(_) => {
                     if column == 0 {
-                        #[cfg(debug_assertions)]
+                        #[cfg(feature = "perf_warnings")]
                         warn!(
                             "Table::render_ref - TableDataIter must implement a valid cloned() for this to work."
                         );
@@ -583,7 +583,7 @@ impl<'a, Selection> Table<'a, Selection> {
     ///
     #[inline]
     pub fn iter(mut self, data: impl TableDataIter<'a> + 'a) -> Self {
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "perf_warnings")]
         if data.rows().is_none() {
             use log::warn;
             warn!("Table::iter - rows is None, this will be slower");
@@ -1372,7 +1372,7 @@ where
                     .v_scroll(&mut state.vscroll),
             );
 
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "perf_warnings")]
         {
             use std::fmt::Write;
             let mut msg = String::new();

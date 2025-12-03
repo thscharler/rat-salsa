@@ -22,7 +22,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::StatefulWidget;
 use std::fmt::{Debug, Formatter};
-use std::mem;
 
 /// Widget that supports row-wise editing of a table.
 ///
@@ -125,7 +124,7 @@ where
                         .render(row_area, &cell_areas, buf, &mut state.editor);
                 }
             } else {
-                if cfg!(debug_assertions) {
+                if cfg!(feature = "perf_warnings") {
                     warn!("no row selection, not rendering editor");
                 }
             }
@@ -427,13 +426,16 @@ where
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
             if self.is_focused() {
                 try_flow!(match self.editor.handle(event, ctx)? {
-                    Outcome::Continue => Outcome::Continue,
-                    Outcome::Unchanged => Outcome::Unchanged,
                     r => {
                         if let Some(col) = self.editor.focused_col() {
-                            self.table.scroll_to_col(col);
+                            if self.table.scroll_to_col(col) {
+                                Outcome::Changed
+                            } else {
+                                r
+                            }
+                        } else {
+                            r
                         }
-                        r
                     }
                 });
 

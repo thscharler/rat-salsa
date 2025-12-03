@@ -14,7 +14,9 @@ exclude = [".idea/*", ".gitignore", "ftable.gif"]
 collapsible_else_if = "allow"
 
 [features]
-unstable-widget-ref = []
+# Show some runtime warnings.
+# Table can detect some acceptable but maybe not optimal paramters.
+perf_warnings = []
 
 [dependencies]
 crossterm = "0.28"

@@ -15,7 +15,7 @@ use crate::{Table, TableSelection, TableState};
 use log::warn;
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, HandleEvent, Regular};
+use rat_event::{HandleEvent, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
@@ -82,7 +82,7 @@ where
                         .render(row_area, &cell_areas, buf, &mut state.editor);
                 }
             } else {
-                if cfg!(debug_assertions) {
+                if cfg!(feature = "perf_warnings") {
                     warn!("no row selection, not rendering editor");
                 }
             }
@@ -108,7 +108,7 @@ where
                         .render(row_area, &cell_areas, buf, &mut state.editor);
                 }
             } else {
-                if cfg!(debug_assertions) {
+                if cfg!(feature = "perf_warnings") {
                     warn!("no row selection, not rendering editor");
                 }
             }
