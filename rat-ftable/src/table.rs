@@ -898,6 +898,35 @@ impl<'a, Selection> Table<'a, Selection> {
         self
     }
 
+    /// Inherent width.
+    pub fn width(&self) -> u16 {
+        let sa = ScrollArea::new()
+            .style(self.style)
+            .block(self.block.as_ref())
+            .h_scroll(self.hscroll.as_ref())
+            .v_scroll(self.vscroll.as_ref())
+            .ignore_scroll();
+        let padding = sa.padding();
+        let width = self.total_width(0);
+
+        width + padding.left + padding.right
+    }
+
+    /// Inherent height.
+    pub fn heigth(&self) -> u16 {
+        let sa = ScrollArea::new()
+            .style(self.style)
+            .block(self.block.as_ref())
+            .h_scroll(self.hscroll.as_ref())
+            .v_scroll(self.vscroll.as_ref())
+            .ignore_scroll();
+        let padding = sa.padding();
+        let header = self.header.as_ref().map(|v| v.height).unwrap_or(0);
+        let footer = self.footer.as_ref().map(|v| v.height).unwrap_or(0);
+
+        1 + header + footer + padding.top + padding.bottom
+    }
+
     #[deprecated(since = "1.1.1", note = "not in use")]
     pub fn debug(self, _: bool) -> Self {
         self
