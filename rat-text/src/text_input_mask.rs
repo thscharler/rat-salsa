@@ -462,7 +462,7 @@ fn render_ref(
     let ox = state.offset() as u16;
     // this is just a guess at the display-width
     let show_range = {
-        let start = ox as upos_type;
+        let start = min(ox as upos_type, state.len());
         let end = min(start + state.inner.width as upos_type, state.len());
         state.bytes_at_range(start..end)
     };
