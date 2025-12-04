@@ -107,13 +107,13 @@ pub struct ColorInputState {
     pub label_area: Rect,
 
     /// value as RGB with 0.0..1.0 ranges.
-    pub value: (f32, f32, f32),
+    value: (f32, f32, f32),
 
     /// Disable keys for mode switching.
     /// __read only__
-    pub disable_modes: bool,
+    disable_modes: bool,
     /// __read only__
-    pub mode: Mode,
+    mode: Mode,
     /// __read only__
     pub widget: MaskedInputState,
 
@@ -129,7 +129,6 @@ impl<'a> Default for ColorInput<'a> {
             block: Default::default(),
             widget: MaskedInput::default(),
         };
-        // z.widget = z.widget.on_tab(TextTab::MoveToNextWidget);
         z.widget = z.widget.on_focus_lost(TextFocusLost::Position0);
         z
     }
@@ -494,6 +493,11 @@ impl ColorInputState {
         )
     }
 
+    /// Get the value as f32 triple
+    pub fn value_f32(&self) -> (f32, f32, f32) {
+        self.value
+    }
+
     /// Get the value as u32
     pub fn value_u32(&self) -> u32 {
         (((self.value.0 * 255f32) as u32) << 16)
@@ -540,6 +544,12 @@ impl ColorInputState {
     #[inline]
     pub fn clear(&mut self) {
         self.widget.clear();
+    }
+
+    /// Set the color as f32 triple
+    pub fn set_value_f32(&mut self, color: (f32, f32, f32)) {
+        self.value = color;
+        self.value_to_text();
     }
 
     /// Set the color as u32
