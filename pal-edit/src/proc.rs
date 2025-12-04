@@ -274,6 +274,9 @@ pub fn save_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<()
 }
 
 pub fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
+    state.files.clear();
+    state.file_slider.set_value(0);
+    state.file_slider.set_range((0, 0));
     state.file_path = None;
 
     state.edit.name.set_value("pal.name");
