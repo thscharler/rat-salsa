@@ -78,7 +78,7 @@ pub struct Table<'a, Selection = RowSelection> {
 mod data {
     use crate::textdata::TextTableData;
     use crate::{TableContext, TableData, TableDataIter};
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "perf_warnings")]
     use log::warn;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
@@ -1091,7 +1091,7 @@ where
         let mut row = None;
         let mut row_y = state.table_area.y;
         let mut row_heights = Vec::new();
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "perf_warnings")]
         let mut insane_offset = false;
 
         let mut ctx = TableContext {
@@ -1246,7 +1246,7 @@ where
             if data.rows().is_none() || data.rows() == Some(0) {
                 // this is ok
             } else {
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "perf_warnings")]
                 {
                     insane_offset = true;
                 }
