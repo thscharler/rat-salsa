@@ -13,7 +13,6 @@ use crate::util::{block_padding2, reset_buf_area};
 use crossterm::event::{Event, MouseEvent};
 #[cfg(feature = "user_directories")]
 use dirs::{document_dir, home_dir};
-use log::debug;
 use rat_event::{Dialog, HandleEvent, MouseOnly, Outcome, Regular, ct_event, event_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation, on_lost};
 use rat_ftable::event::EditOutcome;
