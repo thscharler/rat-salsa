@@ -1,11 +1,12 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// An adaption of nvchad's monochrome theme.
 ///
 /// -- Credits to original theme <https://monokai.pro/>
 /// -- This is modified version of it
 pub const MONEKAI: Palette = Palette {
-    name: "Monekai",
+    name: Cow::Borrowed("Monekai"),
 
     text_light: Palette::color32(0xc9c9c0),
     text_bright: Palette::color32(0xf5f4f1),

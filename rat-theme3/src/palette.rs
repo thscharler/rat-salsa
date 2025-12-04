@@ -1,4 +1,12 @@
 use ratatui::style::{Color, Style};
+#[cfg(feature = "serde")]
+use serde::de::{Error, MapAccess, SeqAccess, Visitor};
+#[cfg(feature = "serde")]
+use serde::ser::SerializeStruct;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Cow;
+use std::fmt::Formatter;
 
 /// Color palette.
 ///
@@ -12,9 +20,9 @@ use ratatui::style::{Color, Style};
 ///   hit pretty much anything interesting.
 /// * Just one variant of each color is not enough, make it 4.
 /// * Background colors need extra considerations. Extend to 8.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Palette {
-    pub name: &'static str,
+    pub name: Cow<'static, str>,
 
     pub text_light: Color,
     pub text_bright: Color,
@@ -40,6 +48,194 @@ pub struct Palette {
 
     pub primary: [Color; 8],
     pub secondary: [Color; 8],
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for Palette {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut pal = ser.serialize_struct("Palette", 22)?;
+        pal.serialize_field("name", &self.name)?;
+        pal.serialize_field("text_light", &self.text_light)?;
+        pal.serialize_field("text_bright", &self.text_bright)?;
+        pal.serialize_field("text_dark", &self.text_dark)?;
+        pal.serialize_field("text_black", &self.text_black)?;
+        pal.serialize_field("white", &self.white)?;
+        pal.serialize_field("black", &self.black)?;
+        pal.serialize_field("gray", &self.gray)?;
+        pal.serialize_field("red", &self.red)?;
+        pal.serialize_field("orange", &self.orange)?;
+        pal.serialize_field("yellow", &self.yellow)?;
+        pal.serialize_field("limegreen", &self.limegreen)?;
+        pal.serialize_field("green", &self.green)?;
+        pal.serialize_field("bluegreen", &self.bluegreen)?;
+        pal.serialize_field("cyan", &self.cyan)?;
+        pal.serialize_field("blue", &self.blue)?;
+        pal.serialize_field("deepblue", &self.deepblue)?;
+        pal.serialize_field("purple", &self.purple)?;
+        pal.serialize_field("magenta", &self.magenta)?;
+        pal.serialize_field("redpink", &self.redpink)?;
+        pal.serialize_field("primary", &self.primary)?;
+        pal.serialize_field("secondary", &self.secondary)?;
+        pal.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+struct PaletteVisitor;
+
+#[cfg(feature = "serde")]
+impl<'de> Visitor<'de> for PaletteVisitor {
+    type Value = Palette;
+
+    fn expecting(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "struct Palette")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut pal = Palette::default();
+        pal.name = seq
+            .next_element::<Cow<'static, str>>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.name"))?;
+        pal.text_light = seq
+            .next_element::<Color>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.text_light"))?;
+        pal.text_bright = seq
+            .next_element::<Color>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.text_bright"))?;
+        pal.text_dark = seq
+            .next_element::<Color>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.text_dark"))?;
+        pal.text_black = seq
+            .next_element::<Color>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.text_black"))?;
+        pal.white = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.white"))?;
+        pal.black = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.black"))?;
+        pal.gray = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.gray"))?;
+        pal.red = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.red"))?;
+        pal.orange = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.orange"))?;
+        pal.yellow = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.yellow"))?;
+        pal.limegreen = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.limegreen"))?;
+        pal.green = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.green"))?;
+        pal.bluegreen = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.bluegreen"))?;
+        pal.cyan = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.cyan"))?;
+        pal.blue = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.blue"))?;
+        pal.deepblue = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.deepblue"))?;
+        pal.purple = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.purple"))?;
+        pal.magenta = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.magenta"))?;
+        pal.redpink = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.redpink"))?;
+        pal.primary = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.primary"))?;
+        pal.secondary = seq
+            .next_element::<[Color; 8]>()?
+            .ok_or(A::Error::invalid_length(0, &"Palette.secondary"))?;
+        Ok(pal)
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut pal = Palette::default();
+        while let Some(key) = map.next_key::<&str>()? {
+            match key {
+                "name" => pal.name = map.next_value::<Cow<'static, str>>()?,
+                "text_light" => pal.text_light = map.next_value::<Color>()?,
+                "text_bright" => pal.text_bright = map.next_value::<Color>()?,
+                "text_dark" => pal.text_dark = map.next_value::<Color>()?,
+                "text_black" => pal.text_black = map.next_value::<Color>()?,
+                "white" => pal.white = map.next_value::<[Color; 8]>()?,
+                "black" => pal.black = map.next_value::<[Color; 8]>()?,
+                "gray" => pal.gray = map.next_value::<[Color; 8]>()?,
+                "red" => pal.red = map.next_value::<[Color; 8]>()?,
+                "orange" => pal.orange = map.next_value::<[Color; 8]>()?,
+                "yellow" => pal.yellow = map.next_value::<[Color; 8]>()?,
+                "limegreen" => pal.limegreen = map.next_value::<[Color; 8]>()?,
+                "green" => pal.green = map.next_value::<[Color; 8]>()?,
+                "bluegreen" => pal.bluegreen = map.next_value::<[Color; 8]>()?,
+                "cyan" => pal.cyan = map.next_value::<[Color; 8]>()?,
+                "blue" => pal.blue = map.next_value::<[Color; 8]>()?,
+                "deepblue" => pal.deepblue = map.next_value::<[Color; 8]>()?,
+                "purple" => pal.purple = map.next_value::<[Color; 8]>()?,
+                "magenta" => pal.magenta = map.next_value::<[Color; 8]>()?,
+                "redpink" => pal.redpink = map.next_value::<[Color; 8]>()?,
+                "primary" => pal.primary = map.next_value::<[Color; 8]>()?,
+                "secondary" => pal.secondary = map.next_value::<[Color; 8]>()?,
+                _ => {}
+            }
+        }
+        Ok(pal)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for Palette {
+    fn deserialize<D>(des: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        const FIELDS: &'static [&'static str] = &[
+            "name",
+            "text_light",
+            "text_bright",
+            "text_dark",
+            "text_black",
+            "white",
+            "black",
+            "gray",
+            "red",
+            "orange",
+            "yellow",
+            "limegreen",
+            "green",
+            "bluegreen",
+            "cyan",
+            "blue",
+            "deepblue",
+            "purple",
+            "magenta",
+            "redpink",
+            "primary",
+            "secondary",
+        ];
+        des.deserialize_struct("Palette", FIELDS, PaletteVisitor)
+    }
 }
 
 /// Contrast rating for the text-color that should be used.

@@ -1,5 +1,6 @@
 use crate::Palette;
 use ratatui::style::Color;
+use std::borrow::Cow;
 
 /// Base 16
 ///
@@ -8,7 +9,7 @@ use ratatui::style::Color;
 const DARKNESS: u8 = 63;
 
 pub const BASE16: Palette = Palette {
-    name: "Base16",
+    name: Cow::Borrowed("Base16"),
 
     text_light: Palette::color32(0xaaaaaa),
     text_bright: Palette::color32(0xffffff),

@@ -1,11 +1,12 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// An adaption of nvchad's tundra theme.
 ///
 /// -- Thanks to original theme for existing <https://github.com/sam4llis/nvim-tundra>
 /// -- this is a modified version of it
 pub const SOLARIZED: Palette = Palette {
-    name: "Solarized",
+    name: Cow::Borrowed("Solarized"),
 
     text_light: Palette::color32(0xeee8d5),
     text_bright: Palette::color32(0xfdf6e3),

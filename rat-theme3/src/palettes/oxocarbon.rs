@@ -1,4 +1,5 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// Imperial palette.
 ///
@@ -6,7 +7,7 @@ use crate::Palette;
 /// Other colors are bright, strong and slightly smudged.
 ///
 pub const OXOCARBON: Palette = Palette {
-    name: "OxoCarbon",
+    name: Cow::Borrowed("OxoCarbon"),
 
     text_light: Palette::color32(0xdde1e6),
     text_bright: Palette::color32(0xffffff),

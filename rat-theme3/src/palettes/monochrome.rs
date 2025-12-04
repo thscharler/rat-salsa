@@ -1,4 +1,5 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// An adaption of nvchad's monochrome theme.
 ///
@@ -7,7 +8,7 @@ use crate::Palette;
 const DARKNESS: u8 = 48;
 
 pub const MONOCHROME: Palette = Palette {
-    name: "Monochrome",
+    name: Cow::Borrowed("Monochrome"),
 
     text_light: Palette::color32(0xb4b4b4),
     text_bright: Palette::color32(0xf0f0f0),

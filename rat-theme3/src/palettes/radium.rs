@@ -1,10 +1,11 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// An adaption of nvchad's radium theme.
 ///
 /// -- credits to original radium theme from <https://github.com/dharmx>
 pub const RADIUM: Palette = Palette {
-    name: "Radium",
+    name: Cow::Borrowed("Radium"),
 
     text_light: Palette::color32(0xc4c4c5),
     text_bright: Palette::color32(0xd4d4d5),

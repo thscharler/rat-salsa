@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme3"
-version = "2.4.0"
+version = "3.0.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "dark theme and color-schemes"
@@ -11,8 +11,22 @@ keywords = ["ratatui", "widget", "theme"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[features]
+default = []
+serde = ["dep:serde", "ratatui/serde"]
+
 [dependencies]
 ratatui = { version = "0.29" }
 log = "0.4"
+serde = { version = "1", features = ["derive"], optional = true }
 
 rat-widget = { version = "2.6", path = "../rat-widget" }
+
+[dev-dependencies]
+serde_json = { version = "1.0", features = ["std"] }
+anyhow = "1.0"
+
+[[test]]
+name = "serde"
+path = "tests/test_serde.rs"
+required-features = ["serde"]

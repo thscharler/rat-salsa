@@ -1,11 +1,12 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// An adaption of nvchad's vscode_dark theme.
 ///
 /// -- Thanks to original theme for existing <https://github.com/microsoft/vscode/blob/main/extensions/theme-defaults/themes/dark_plus.json>
 /// -- this is a modified version of it
 pub const VSCODE_DARK: Palette = Palette {
-    name: "VSCodeDark",
+    name: Cow::Borrowed("VSCodeDark"),
 
     text_light: Palette::color32(0xd4d4d4),
     text_bright: Palette::color32(0xffffff),

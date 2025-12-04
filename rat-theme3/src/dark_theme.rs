@@ -29,6 +29,13 @@ use ratatui::layout::Alignment;
 use ratatui::style::Color;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Borders};
+#[cfg(feature = "serde")]
+use serde::de::{Error, MapAccess, SeqAccess, Visitor};
+#[cfg(feature = "serde")]
+use serde::ser::SerializeStruct;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt::Formatter;
 use std::time::Duration;
 
 /// One sample theme which prefers dark colors from the color-palette
@@ -38,17 +45,86 @@ use std::time::Duration;
 /// [rat-widget](https://www.docs.rs/rat-widget), for other needs
 /// take it as an idea for your own implementation.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DarkTheme {
-    p: Palette,
     name: Box<str>,
+    p: Palette,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for DarkTheme {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut theme = ser.serialize_struct("DarkTheme", 2)?;
+        theme.serialize_field("name", &self.name)?;
+        theme.serialize_field("p", &self.p)?;
+        theme.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+struct DarkThemeVisitor;
+
+#[cfg(feature = "serde")]
+impl<'de> Visitor<'de> for DarkThemeVisitor {
+    type Value = DarkTheme;
+
+    fn expecting(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "struct DarkTheme")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let name = seq
+            .next_element::<Box<str>>()?
+            .ok_or(A::Error::invalid_length(0, &"DarkTheme.name"))?;
+        let p = seq
+            .next_element::<Palette>()?
+            .ok_or(A::Error::invalid_length(0, &"DarkTheme.p"))?;
+        Ok(DarkTheme { name, p })
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut name = None;
+        let mut p = None;
+
+        while let Some(key) = map.next_key::<&str>()? {
+            match key {
+                "name" => name = Some(map.next_value::<Box<str>>()?),
+                "p" => p = Some(map.next_value::<Palette>()?),
+                _ => {}
+            }
+        }
+        let name = name.ok_or(A::Error::missing_field("name"))?;
+        let p = p.ok_or(A::Error::missing_field("p"))?;
+
+        Ok(DarkTheme { name, p })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for DarkTheme {
+    fn deserialize<D>(des: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        const FIELDS: &'static [&'static str] = &["name", "p"];
+        des.deserialize_struct("DarkTheme", FIELDS, DarkThemeVisitor)
+    }
 }
 
 impl DarkTheme {
     pub fn new(name: &str, s: Palette) -> Self {
         Self {
-            p: s,
             name: Box::from(name),
+            p: s,
         }
     }
 

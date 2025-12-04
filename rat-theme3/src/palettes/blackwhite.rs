@@ -1,5 +1,6 @@
 use crate::Palette;
 use ratatui::style::Color;
+use std::borrow::Cow;
 
 ///
 /// Almost genuine black&white color-palette.
@@ -9,7 +10,7 @@ use ratatui::style::Color;
 /// to make it work like the other color-palettes.
 ///
 pub const BLACKWHITE: Palette = Palette {
-    name: "Black&White",
+    name: Cow::Borrowed("Black&White"),
 
     text_light: Palette::color32(0xffffff),
     text_bright: Palette::color32(0xffffff),

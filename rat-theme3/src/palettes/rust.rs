@@ -1,8 +1,9 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// Some rust colored palette.
 pub const RUST: Palette = Palette {
-    name: "Rust",
+    name: Cow::Borrowed("Rust"),
 
     text_light: Palette::color32(0xc4bfbb),
     text_bright: Palette::color32(0xede3e3),

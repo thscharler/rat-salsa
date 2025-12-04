@@ -1,11 +1,12 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// Base 16 colors as a Palette.
 ///
 /// A bit relaxed though, providing a gradient for each color.
 ///
 pub const BASE16_RELAX: Palette = Palette {
-    name: "Base16 Relax",
+    name: Cow::Borrowed("Base16 Relax"),
 
     text_light: Palette::color32(0xaaaaaa),
     text_bright: Palette::color32(0xffffff),

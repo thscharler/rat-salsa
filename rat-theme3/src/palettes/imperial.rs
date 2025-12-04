@@ -1,4 +1,5 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// Imperial palette.
 ///
@@ -6,7 +7,7 @@ use crate::Palette;
 /// Other colors are bright, strong and slightly smudged.
 ///
 pub const IMPERIAL: Palette = Palette {
-    name: "Imperial",
+    name: Cow::Borrowed("Imperial"),
 
     text_light: Palette::color32(0xdedfe3),
     text_bright: Palette::color32(0xf6f6f3),

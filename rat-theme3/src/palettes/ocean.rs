@@ -1,4 +1,5 @@
 use crate::Palette;
+use std::borrow::Cow;
 
 /// My take on an ocean theme.
 ///
@@ -9,7 +10,7 @@ use crate::Palette;
 /// Overall it's not very dark, more of a sunny day than
 /// a foggy, rainy night.
 pub const OCEAN: Palette = Palette {
-    name: "Ocean",
+    name: Cow::Borrowed("Ocean"),
 
     text_light: Palette::color32(0xe5e5dd),
     text_bright: Palette::color32(0xf2f2ee),
