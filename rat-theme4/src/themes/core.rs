@@ -1,7 +1,7 @@
 use crate::RatWidgetColor;
 use crate::palette::Colors;
 use crate::palettes::core::SHELL;
-use crate::theme::{Category, SalsaTheme};
+use crate::theme::SalsaTheme;
 use crate::{StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -44,7 +44,7 @@ use std::time::Duration;
 /// As a shell theme it uses no backgrounds.
 pub fn create_core(name: &str) -> SalsaTheme {
     let p = SHELL;
-    let mut th = SalsaTheme::new(name, Category::Shell, p);
+    let mut th = SalsaTheme::new(name, "Core", p);
 
     th.define_style(Style::LABEL_FG, th.p.fg_style_alias(Color::LABEL_FG));
     th.define_style(Style::INPUT, th.p.style_alias(Color::INPUT_BG));

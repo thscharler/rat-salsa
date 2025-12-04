@@ -1,6 +1,6 @@
 use crate::RatWidgetColor;
 use crate::palette::{Colors, Palette};
-use crate::theme::{Category, SalsaTheme};
+use crate::theme::SalsaTheme;
 use crate::{StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -36,7 +36,7 @@ use std::time::Duration;
 
 /// A dark theme.
 pub fn create_dark(name: &str, p: Palette) -> SalsaTheme {
-    let mut th = SalsaTheme::new(name, Category::Dark, p);
+    let mut th = SalsaTheme::new(name, "Dark", p);
 
     th.define_style(Style::LABEL_FG, th.p.fg_style_alias(Color::LABEL_FG));
     th.define_style(Style::INPUT, th.p.style_alias(Color::INPUT_BG));

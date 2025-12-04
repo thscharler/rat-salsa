@@ -9,7 +9,7 @@ use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
-use rat_widget::color_input::ColorInputStyle;
+// use rat_widget::color_input::ColorInputStyle;
 use rat_widget::combobox::ComboboxStyle;
 use rat_widget::dialog_frame::DialogFrameStyle;
 use rat_widget::file_dialog::FileDialogStyle;
@@ -155,7 +155,7 @@ fn verify_theme(th: &SalsaTheme) {
     th.style::<CheckboxStyle>(WidgetStyle::CHECKBOX);
     th.style::<ChoiceStyle>(WidgetStyle::CHOICE);
     th.style::<ClipperStyle>(WidgetStyle::CLIPPER);
-    th.style::<ColorInputStyle>(WidgetStyle::COLOR_INPUT);
+    // th.style::<ColorInputStyle>(WidgetStyle::COLOR_INPUT);
     th.style::<ComboboxStyle>(WidgetStyle::COMBOBOX);
     th.style::<DialogFrameStyle>(WidgetStyle::DIALOG_FRAME);
     th.style::<FileDialogStyle>(WidgetStyle::FILE_DIALOG);

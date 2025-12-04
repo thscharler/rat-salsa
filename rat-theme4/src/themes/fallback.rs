@@ -1,5 +1,5 @@
 use crate::palette::{ColorIdx, Palette};
-use crate::theme::{Category, SalsaTheme};
+use crate::theme::SalsaTheme;
 use crate::{RatWidgetColor, StyleName, WidgetStyle};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
@@ -31,7 +31,7 @@ use ratatui::style::{Color, Style};
 
 /// A theme to test the fallback-styles of each widget.
 pub fn create_fallback(name: &str, p: Palette) -> SalsaTheme {
-    let mut th = SalsaTheme::new(name, Category::Other, p);
+    let mut th = SalsaTheme::new(name, "Fallback", p);
 
     th.p.add_aliased(Color::LABEL_FG, ColorIdx::default());
     th.p.add_aliased(Color::INPUT_BG, ColorIdx::default());

@@ -44,15 +44,12 @@
 //!     .render(area, buf, &mut state);
 //! ```
 
-use crate::theme::Category;
 use ratatui::style::{Color, Style};
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::io::ErrorKind;
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub mod palette;
@@ -69,6 +66,7 @@ pub mod themes {
     mod core;
     mod dark;
     mod fallback;
+    mod light;
     mod shell;
 
     /// Create a `core` theme that acts as a fallback.
@@ -82,6 +80,8 @@ pub mod themes {
     /// This helps to check if a widget is still functional
     /// if no styling is applied.
     pub use fallback::create_fallback;
+    /// Creates a 'light' theme.
+    pub use light::create_light;
     /// Creates a `shell` theme. This uses the dark palettes,
     /// but sets almost no backgrounds. Instead, it lets the
     /// terminal background shine.
@@ -281,66 +281,59 @@ fn is_log_style_define() -> bool {
     LOG_DEFINES.load(Ordering::Acquire)
 }
 
-const PALETTE_DEF: &str = include_str!("themes.ini");
-
-#[derive(Debug)]
-struct Def {
-    palette: Vec<&'static str>,
-    theme: Vec<&'static str>,
-    theme_init: HashMap<&'static str, (&'static str, &'static str)>,
-}
-
-static THEMES: OnceLock<Def> = OnceLock::new();
-
-fn init_themes() -> Def {
-    let mut palette = Vec::new();
-    let mut theme = Vec::new();
-    let mut theme_init = HashMap::new();
-
-    for l in PALETTE_DEF.lines() {
-        if !l.contains('=') {
-            continue;
-        }
-
-        let mut it = l.split(['=', ',']);
-        let Some(name) = it.next() else {
-            continue;
-        };
-        let Some(cat) = it.next() else {
-            continue;
-        };
-        let Some(pal) = it.next() else {
-            continue;
-        };
-        let name = name.trim();
-        let cat = cat.trim();
-        let pal = pal.trim();
-
-        if pal != "None" {
-            if !palette.contains(&pal) {
-                palette.push(pal);
-            }
-        }
-        if name != "Blackout" && name != "Fallback" {
-            if !theme.contains(&name) {
-                theme.push(name);
-            }
-        }
-        theme_init.insert(name, (cat, pal));
-    }
-
-    let d = Def {
-        palette,
-        theme,
-        theme_init,
-    };
-    d
-}
+static THEMES: &'static [(&'static str, &'static str, &'static str)] = &[
+    ("Imperial Dark", "Dark", "Imperial"),
+    ("Radium Dark", "Dark", "Radium"),
+    ("Tundra Dark", "Dark", "Tundra"),
+    ("Ocean Dark", "Dark", "Ocean"),
+    ("Monochrome Dark", "Dark", "Monochrome"),
+    ("Black&White Dark", "Dark", "Black&White"),
+    ("Monekai Dark", "Dark", "Monekai"),
+    ("Solarized Dark", "Dark", "Solarized"),
+    ("OxoCarbon Dark", "Dark", "OxoCarbon"),
+    ("EverForest Dark", "Dark", "EverForest"),
+    ("Nord Dark", "Dark", "Nord"),
+    ("Rust Dark", "Dark", "Rust"),
+    ("Material Dark", "Dark", "Material"),
+    ("Tailwind Dark", "Dark", "Tailwind"),
+    ("VSCode Dark", "Dark", "VSCode"),
+    ("Imperial Light", "Light", "Imperial Light"),
+    ("EverForest Light", "Light", "EverForest Light"),
+    ("Tailwind Light", "Light", "Tailwind Light"),
+    ("Rust Light", "Light", "Rust Light"),
+    ("SunriseBreeze Light", "Light", "SunriseBreeze Light"),
+    ("Imperial Shell", "Shell", "Imperial"),
+    ("Radium Shell", "Shell", "Radium"),
+    ("Tundra Shell", "Shell", "Tundra"),
+    ("Ocean Shell", "Shell", "Ocean"),
+    ("Monochrome Shell", "Shell", "Monochrome"),
+    ("Black&White Shell", "Shell", "Black&White"),
+    ("Monekai Shell", "Shell", "Monekai"),
+    ("Solarized Shell", "Shell", "Solarized"),
+    ("OxoCarbon Shell", "Shell", "OxoCarbon"),
+    ("EverForest Shell", "Shell", "EverForest"),
+    ("Nord Shell", "Shell", "Nord"),
+    ("Rust Shell", "Shell", "Rust"),
+    ("Material Shell", "Shell", "Material"),
+    ("Tailwind Shell", "Shell", "Tailwind"),
+    ("VSCode Shell", "Shell", "VSCode"),
+    //  use only named colors. the terminal can override these.
+    ("Shell", "Shell", "Shell"),
+    // testing. every themed color ends in black.
+    ("Blackout", "Blackout", "Blackout"),
+    // testing. uses only Default::default() styles.
+    ("Fallback", "Fallback", "Reds"),
+];
 
 /// All defined color palettes.
 pub fn salsa_palettes() -> Vec<&'static str> {
-    let themes = THEMES.get_or_init(init_themes);
-    themes.palette.clone()
+    let mut r = Vec::new();
+    for (_, _, v) in THEMES {
+        if !r.contains(v) {
+            r.push(v);
+        }
+    }
+    r
 }
 
 #[derive(Debug)]
@@ -543,8 +536,11 @@ pub fn create_palette(name: &str) -> Option<palette::Palette> {
 
 /// All defined rat-salsa themes.
 pub fn salsa_themes() -> Vec<&'static str> {
-    let themes = THEMES.get_or_init(init_themes);
-    themes.theme.clone()
+    let mut r = Vec::new();
+    for (v, _, _) in THEMES {
+        r.push(*v);
+    }
+    r
 }
 
 /// Create one of the defined themes.
@@ -561,53 +557,60 @@ pub fn salsa_themes() -> Vec<&'static str> {
 /// Solarized Shell, OxoCarbon Shell, EverForest Shell, Nord Shell,
 /// Rust Shell, Material Shell, Tailwind Shell, VSCode Shell,
 /// Shell, Blackout and Fallback.
-pub fn create_theme(theme: &str) -> theme::SalsaTheme {
-    let themes = THEMES.get_or_init(init_themes);
-    let Some(def) = themes.theme_init.get(&theme) else {
-        if cfg!(debug_assertions) {
-            panic!("no theme {:?}", theme);
-        } else {
-            return themes::create_core(theme);
+pub fn create_theme(theme_name: &str) -> theme::SalsaTheme {
+    let theme;
+    let palette;
+    'f: {
+        for (n, t, p) in THEMES {
+            if *n == theme_name {
+                theme = *t;
+                palette = *p;
+                break 'f;
+            }
         }
-    };
-    match def {
-        ("dark", p) => {
-            let Some(pal) = create_palette(*p) else {
+
+        if cfg!(debug_assertions) {
+            panic!("no theme {:?}", theme_name);
+        } else {
+            theme = "Core";
+            palette = "Core";
+        }
+    }
+
+    match (theme, palette) {
+        ("Dark", p) => {
+            let Some(pal) = create_palette(p) else {
                 if cfg!(debug_assertions) {
-                    panic!("no palette {:?}", *p);
+                    panic!("no palette {:?}", p);
                 } else {
                     return themes::create_core(theme);
                 }
             };
             themes::create_dark(theme, pal)
         }
-        ("light", p) => {
-            let Some(pal) = create_palette(*p) else {
+        ("Light", p) => {
+            let Some(pal) = create_palette(p) else {
                 if cfg!(debug_assertions) {
-                    panic!("no palette {:?}", *p);
+                    panic!("no palette {:?}", p);
                 } else {
                     return themes::create_core(theme);
                 }
             };
-            // currently no difference, just a different
-            // set of color palettes
-            let mut theme = themes::create_dark(theme, pal);
-            theme.cat = Category::Light;
-            theme
+            themes::create_light(theme, pal)
         }
-        ("shell", p) => {
-            let Some(pal) = create_palette(*p) else {
+        ("Shell", p) => {
+            let Some(pal) = create_palette(p) else {
                 if cfg!(debug_assertions) {
-                    panic!("no palette {:?}", *p);
+                    panic!("no palette {:?}", p);
                 } else {
                     return themes::create_core(theme);
                 }
             };
             themes::create_shell(theme, pal)
         }
-        ("core", _) => themes::create_core(theme),
-        ("blackout", _) => themes::create_dark(theme, palettes::dark::BLACKOUT),
-        ("fallback", _) => themes::create_fallback(theme, palettes::dark::REDS),
+        ("Core", _) => themes::create_core(theme),
+        ("Blackout", _) => themes::create_dark(theme, palettes::dark::BLACKOUT),
+        ("Fallback", _) => themes::create_fallback(theme, palettes::dark::REDS),
         _ => {
             if cfg!(debug_assertions) {
                 panic!("no theme {:?}", theme);

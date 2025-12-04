@@ -43,21 +43,21 @@ use std::any::{Any, type_name};
 use std::collections::{HashMap, hash_map};
 use std::fmt::{Debug, Formatter};
 
-/// Categorization of themes.
-/// Helpful when extending an existing theme.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum Category {
-    #[default]
-    Other,
-    /// Dark theme.
-    Dark,
-    /// Light theme.
-    Light,
-    /// Shell theme. Themes of this category rely on background colors sparingly
-    /// and use any default the terminal itself provides.
-    Shell,
-}
+// /// Categorization of themes.
+// /// Helpful when extending an existing theme.
+// #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+// #[non_exhaustive]
+// pub enum Category {
+//     #[default]
+//     Other,
+//     /// Dark theme.
+//     Dark,
+//     /// Light theme.
+//     Light,
+//     /// Shell theme. Themes of this category rely on background colors sparingly
+//     /// and use any default the terminal itself provides.
+//     Shell,
+// }
 
 trait StyleValue: Any + Debug {}
 impl<T> StyleValue for T where T: Any + Debug {}
@@ -75,7 +75,7 @@ type Modify = Box<dyn Fn(Box<dyn Any>, &SalsaTheme) -> Box<dyn StyleValue> + 'st
 /// It uses a flat naming scheme and doesn't cascade upwards at all.
 pub struct SalsaTheme {
     pub name: String,
-    pub cat: Category,
+    pub theme: String,
     pub p: Palette,
     styles: HashMap<&'static str, Entry>,
     modify: HashMap<&'static str, Modify>,
@@ -91,7 +91,7 @@ impl Debug for SalsaTheme {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Theme")
             .field("name", &self.name)
-            .field("cat", &self.cat)
+            .field("theme", &self.theme)
             .field("palette", &self.p)
             .field("styles", &self.styles.keys().collect::<Vec<_>>())
             .field("modify", &self.modify.keys().collect::<Vec<_>>())
@@ -101,10 +101,10 @@ impl Debug for SalsaTheme {
 
 impl SalsaTheme {
     /// Create an empty theme with a given color palette.
-    pub fn new(name: impl Into<String>, cat: Category, p: Palette) -> Self {
+    pub fn new(name: impl Into<String>, theme: impl Into<String>, p: Palette) -> Self {
         Self {
             name: name.into(),
-            cat,
+            theme: theme.into(),
             p,
             styles: Default::default(),
             modify: Default::default(),
