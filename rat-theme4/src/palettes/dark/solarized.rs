@@ -1,17 +1,19 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
-/// Solarized
+/// Solarized.
 /// Credits to original https://github.com/altercation/solarized
 pub const SOLARIZED: Palette = Palette {
-    theme_name: Cow::Borrowed("Solarized"), 
-    theme: Cow::Borrowed("Dark"), 
-    name: Cow::Borrowed("Solarized"), 
-    doc: Cow::Borrowed("Credits to original https://github.com/altercation/solarized
-"), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Solarized"),
+    theme: Cow::Borrowed("Dark"),
+    name: Cow::Borrowed("Solarized"),
+    doc: Cow::Borrowed(
+        "Credits to original https://github.com/altercation/solarized
+",
+    ),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xeee8d5, 0xfdf6e3, 0x0, 0x0),
@@ -73,4 +75,3 @@ pub const SOLARIZED: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

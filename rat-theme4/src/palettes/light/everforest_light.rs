@@ -1,16 +1,16 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 63;
 
-/// EverForest
+/// EverForest.
 /// Credits to original https://github.com/sainnhe/everforest
 pub const EVERFOREST_LIGHT: Palette = Palette {
-    theme_name: Cow::Borrowed("EverForest Light"), 
-    theme: Cow::Borrowed("Light"), 
-    name: Cow::Borrowed("EverForest"), 
-    doc: Cow::Borrowed("Credits to original https://github.com/sainnhe/everforest"), 
-    generator: Cow::Borrowed("light-dark:63"), 
+    theme_name: Cow::Borrowed("EverForest Light"),
+    theme: Cow::Borrowed("Light"),
+    name: Cow::Borrowed("EverForest"),
+    doc: Cow::Borrowed("Credits to original https://github.com/sainnhe/everforest"),
+    generator: Cow::Borrowed("light-dark:63"),
 
     color: [
         Palette::interpolate2(0xd8d4cb, 0xfcf8ef, 0x0, 0x0),
@@ -72,4 +72,3 @@ pub const EVERFOREST_LIGHT: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 0),
     ]),
 };
-

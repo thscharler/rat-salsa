@@ -1,14 +1,15 @@
 use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
 
-/// Blackout
 const DARKNESS: u8 = 63;
 
+/// Blackout.
+/// Blackout simulation.
 pub const BLACKOUT: Palette = Palette {
     theme_name: Cow::Borrowed("Blackout"),
     theme: Cow::Borrowed("Dark"),
     name: Cow::Borrowed("Blackout"),
-    doc: Cow::Borrowed(""),
+    doc: Cow::Borrowed("Blackout simulation."),
     generator: Cow::Borrowed("light-dark:63"),
 
     color: [

@@ -1,17 +1,19 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
-/// Monekai
+/// Monekai.
 /// Credits to original theme https://monokai.pro/
 pub const MONEKAI: Palette = Palette {
-    theme_name: Cow::Borrowed("Monekai"), 
-    theme: Cow::Borrowed("Dark"), 
-    name: Cow::Borrowed("Monekai"), 
-    doc: Cow::Borrowed("Credits to original theme https://monokai.pro/
-"), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Monekai"),
+    theme: Cow::Borrowed("Dark"),
+    name: Cow::Borrowed("Monekai"),
+    doc: Cow::Borrowed(
+        "Credits to original theme https://monokai.pro/
+",
+    ),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xf5f4f1, 0xfffefc, 0x0, 0x0),
@@ -73,4 +75,3 @@ pub const MONEKAI: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

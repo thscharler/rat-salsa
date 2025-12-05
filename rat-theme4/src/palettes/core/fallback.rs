@@ -1,9 +1,10 @@
 use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
 
-/// Reds
 const DARKNESS: u8 = 63;
 
+/// Fallback.
+/// Doesn't do any themes, relies on the fallbacks of each widget.
 pub const FALLBACK: Palette = Palette {
     theme_name: Cow::Borrowed("Fallback"),
     theme: Cow::Borrowed("Fallback"),

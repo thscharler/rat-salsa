@@ -1,16 +1,16 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
-/// VSCode
+/// VSCode.
 /// VSCode color palette.
 pub const VSCODE: Palette = Palette {
-    theme_name: Cow::Borrowed("VSCode"), 
-    theme: Cow::Borrowed("Dark"), 
-    name: Cow::Borrowed("VSCode"), 
-    doc: Cow::Borrowed("VSCode color palette."), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("VSCode"),
+    theme: Cow::Borrowed("Dark"),
+    name: Cow::Borrowed("VSCode"),
+    doc: Cow::Borrowed("VSCode color palette."),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xd4d4d4, 0xffffff, 0x0, 0x0),
@@ -72,4 +72,3 @@ pub const VSCODE: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

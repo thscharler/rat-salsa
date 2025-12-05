@@ -1,16 +1,18 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
-/// OxoCarbon
+/// OxoCarbon.
 /// Credits to original theme for existing https://github.com/shaunsingh/oxocarbon.nvim
 pub const OXOCARBON_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("OxoCarbon Shell"), 
-    theme: Cow::Borrowed("Shell"), 
-    name: Cow::Borrowed("OxoCarbon"), 
-    doc: Cow::Borrowed("Credits to original theme for existing https://github.com/shaunsingh/oxocarbon.nvim"), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("OxoCarbon Shell"),
+    theme: Cow::Borrowed("Shell"),
+    name: Cow::Borrowed("OxoCarbon"),
+    doc: Cow::Borrowed(
+        "Credits to original theme for existing https://github.com/shaunsingh/oxocarbon.nvim",
+    ),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xf2f4f8, 0xf9fbff, 0x0, 0x0),
@@ -72,4 +74,3 @@ pub const OXOCARBON_SHELL: Palette = Palette {
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
-

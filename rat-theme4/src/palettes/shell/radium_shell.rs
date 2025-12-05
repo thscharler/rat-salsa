@@ -1,16 +1,16 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
-/// Radium
+/// Radium.
 /// credits to original radium theme from https://github.com/dharmx
 pub const RADIUM_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Radium Shell"), 
-    theme: Cow::Borrowed("Shell"), 
-    name: Cow::Borrowed("Radium"), 
-    doc: Cow::Borrowed("credits to original radium theme from https://github.com/dharmx"), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Radium Shell"),
+    theme: Cow::Borrowed("Shell"),
+    name: Cow::Borrowed("Radium"),
+    doc: Cow::Borrowed("credits to original radium theme from https://github.com/dharmx"),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xd4d4d5, 0xffffff, 0x0, 0x0),
@@ -72,4 +72,3 @@ pub const RADIUM_SHELL: Palette = Palette {
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
-

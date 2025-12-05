@@ -1,16 +1,16 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
-/// Monochrome
+/// Monochrome.
 /// credit to original theme: https://github.com/kdheepak/monochrome.nvim
 pub const MONOCHROME_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Monochrome Shell"), 
-    theme: Cow::Borrowed("Shell"), 
-    name: Cow::Borrowed("Monochrome"), 
-    doc: Cow::Borrowed("credit to original theme: https://github.com/kdheepak/monochrome.nvim"), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Monochrome Shell"),
+    theme: Cow::Borrowed("Shell"),
+    name: Cow::Borrowed("Monochrome"),
+    doc: Cow::Borrowed("credit to original theme: https://github.com/kdheepak/monochrome.nvim"),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xc0c5ce, 0xd8dee9, 0x0, 0x0),
@@ -72,4 +72,3 @@ pub const MONOCHROME_SHELL: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

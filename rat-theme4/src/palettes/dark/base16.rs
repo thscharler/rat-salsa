@@ -1,16 +1,16 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
-/// Base16
+/// Base16.
 /// Theme using the CGA 16-color palette.
 pub const BASE16: Palette = Palette {
-    theme_name: Cow::Borrowed("Base16"), 
-    theme: Cow::Borrowed("Dark"), 
-    name: Cow::Borrowed("Base16"), 
-    doc: Cow::Borrowed("Theme using the CGA 16-color palette."), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Base16"),
+    theme: Cow::Borrowed("Dark"),
+    name: Cow::Borrowed("Base16"),
+    doc: Cow::Borrowed("Theme using the CGA 16-color palette."),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xaaaaaa, 0xffffff, 0x0, 0x0),
@@ -72,4 +72,3 @@ pub const BASE16: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 0),
     ]),
 };
-

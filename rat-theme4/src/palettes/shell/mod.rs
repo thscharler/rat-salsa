@@ -1,3 +1,6 @@
+//! Shell themes. These use almost no background color, letting
+//! the shell shine through.
+
 mod base16_shell;
 mod black_white_shell;
 mod everforest_shell;
