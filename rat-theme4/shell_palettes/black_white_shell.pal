@@ -4,7 +4,7 @@ theme=Shell
 
 [palette]
 name=Black&White
-docs=
+docs=Theme with only black, white and two grayscales.
 generator=light-dark:64
 
 [color]

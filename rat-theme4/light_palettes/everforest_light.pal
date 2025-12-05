@@ -4,7 +4,7 @@ theme=Light
 
 [palette]
 name=EverForest
-docs=
+docs=Credits to original https://github.com/sainnhe/everforest
 generator=light-dark:63
 
 [color]

@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Radium
 const DARKNESS: u8 = 64;
 
+/// Radium
+/// credits to original radium theme from https://github.com/dharmx
 pub const RADIUM_SHELL: Palette = Palette {
     theme_name: Cow::Borrowed("Radium Shell"), 
     theme: Cow::Borrowed("Shell"), 
     name: Cow::Borrowed("Radium"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("credits to original radium theme from https://github.com/dharmx"), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

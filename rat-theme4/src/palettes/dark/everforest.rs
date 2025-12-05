@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// EverForest
 const DARKNESS: u8 = 64;
 
+/// EverForest
+/// Credits to original https://github.com/sainnhe/everforest
 pub const EVERFOREST: Palette = Palette {
     theme_name: Cow::Borrowed("EverForest"), 
     theme: Cow::Borrowed("Dark"), 
     name: Cow::Borrowed("EverForest"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Credits to original https://github.com/sainnhe/everforest"), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

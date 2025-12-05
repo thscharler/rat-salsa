@@ -4,7 +4,7 @@ theme=Dark
 
 [palette]
 name=Monochrome
-docs=
+docs=credit to original theme: https://github.com/kdheepak/monochrome.nvim
 generator=light-dark:64
 
 [color]

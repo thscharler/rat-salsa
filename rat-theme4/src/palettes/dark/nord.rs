@@ -1,14 +1,16 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Nord
 const DARKNESS: u8 = 64;
 
+/// Nord
+/// Credits to original https://github.com/arcticicestudio/nord-vim
 pub const NORD: Palette = Palette {
     theme_name: Cow::Borrowed("Nord"), 
     theme: Cow::Borrowed("Dark"), 
     name: Cow::Borrowed("Nord"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Credits to original https://github.com/arcticicestudio/nord-vim
+"), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

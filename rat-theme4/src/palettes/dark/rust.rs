@@ -1,14 +1,17 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Rust
 const DARKNESS: u8 = 64;
 
+/// Rust
+/// A rusty theme. Iron-oxide, Copper-oxide, 
+/// Cobald-oxide and some Chromium-oxide too.
 pub const RUST: Palette = Palette {
     theme_name: Cow::Borrowed("Rust"), 
     theme: Cow::Borrowed("Dark"), 
     name: Cow::Borrowed("Rust"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("A rusty theme. Iron-oxide, Copper-oxide, 
+Cobald-oxide and some Chromium-oxide too."), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

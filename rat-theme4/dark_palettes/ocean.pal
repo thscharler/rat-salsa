@@ -4,7 +4,7 @@ theme=Dark
 
 [palette]
 name=Ocean
-docs=
+docs=Ocean theme.
 generator=light-dark:64
 
 [color]

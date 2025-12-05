@@ -4,7 +4,7 @@ theme=Light
 
 [palette]
 name=Tailwind
-docs=
+docs=Uses a subset of tailwind colors.
 generator=light-dark:63
 
 [color]

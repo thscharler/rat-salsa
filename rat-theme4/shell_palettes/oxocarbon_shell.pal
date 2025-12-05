@@ -4,7 +4,7 @@ theme=Shell
 
 [palette]
 name=OxoCarbon
-docs=
+docs=Credits to original theme for existing https://github.com/shaunsingh/oxocarbon.nvim
 generator=light-dark:64
 
 [color]

@@ -1,14 +1,16 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Monekai
 const DARKNESS: u8 = 64;
 
+/// Monekai
+/// Credits to original theme https://monokai.pro/
 pub const MONEKAI: Palette = Palette {
     theme_name: Cow::Borrowed("Monekai"), 
     theme: Cow::Borrowed("Dark"), 
     name: Cow::Borrowed("Monekai"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Credits to original theme https://monokai.pro/
+"), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

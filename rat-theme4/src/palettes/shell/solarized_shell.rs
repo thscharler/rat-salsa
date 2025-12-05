@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Solarized
 const DARKNESS: u8 = 64;
 
+/// Solarized
+/// Credits to original https://github.com/altercation/solarized
 pub const SOLARIZED_SHELL: Palette = Palette {
     theme_name: Cow::Borrowed("Solarized Shell"), 
     theme: Cow::Borrowed("Shell"), 
     name: Cow::Borrowed("Solarized"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Credits to original https://github.com/altercation/solarized"), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

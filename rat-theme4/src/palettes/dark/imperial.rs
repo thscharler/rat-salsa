@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Imperial
 const DARKNESS: u8 = 64;
 
+/// Imperial
+/// Purple and gold.
 pub const IMPERIAL: Palette = Palette {
     theme_name: Cow::Borrowed("Imperial"), 
     theme: Cow::Borrowed("Dark"), 
     name: Cow::Borrowed("Imperial"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Purple and gold."), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

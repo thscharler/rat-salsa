@@ -1,15 +1,16 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
-/// Tailwind Light
 const DARKNESS: u8 = 63;
 
+/// Tailwind
+/// Uses a subset of tailwind colors.
 pub const TAILWIND_LIGHT: Palette = Palette {
-    theme_name: Cow::Borrowed("Tailwind Light"),
-    theme: Cow::Borrowed("Light"),
-    name: Cow::Borrowed("Tailwind"),
-    doc: Cow::Borrowed(""),
-    generator: Cow::Borrowed("light-dark:63"),
+    theme_name: Cow::Borrowed("Tailwind Light"), 
+    theme: Cow::Borrowed("Light"), 
+    name: Cow::Borrowed("Tailwind"), 
+    doc: Cow::Borrowed("Uses a subset of tailwind colors."), 
+    generator: Cow::Borrowed("light-dark:63"), 
 
     color: [
         Palette::interpolate2(0xccc9c7, 0xeaeaff, 0x0, 0x0),
@@ -71,3 +72,4 @@ pub const TAILWIND_LIGHT: Palette = Palette {
         define_alias("week-header.fg", Colors::Blue, 4),
     ]),
 };
+

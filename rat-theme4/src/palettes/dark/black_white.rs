@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Black&White
 const DARKNESS: u8 = 64;
 
+/// Black&White
+/// Theme with only black, white and two grayscales.
 pub const BLACK_WHITE: Palette = Palette {
     theme_name: Cow::Borrowed("Black&White"), 
     theme: Cow::Borrowed("Dark"), 
     name: Cow::Borrowed("Black&White"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Theme with only black, white and two grayscales."), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

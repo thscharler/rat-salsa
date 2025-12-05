@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Tundra
 const DARKNESS: u8 = 64;
 
+/// Tundra
+/// A frozen theme. Long exposure causes snow-blindness.
 pub const TUNDRA_SHELL: Palette = Palette {
     theme_name: Cow::Borrowed("Tundra Shell"), 
     theme: Cow::Borrowed("Shell"), 
     name: Cow::Borrowed("Tundra"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("A frozen theme. Long exposure causes snow-blindness."), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

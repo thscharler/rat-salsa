@@ -34,7 +34,7 @@ pub struct PaletteEdit {
     pub theme_name: TextInputState,
     pub theme: ComboboxState,
     pub name: TextInputState,
-    pub docs: TextAreaState,
+    pub doc: TextAreaState,
     pub dark: NumberInputState,
 
     pub color: [(ColorInputState, (), (), ColorInputState); Colors::LEN],
@@ -49,7 +49,7 @@ impl PaletteEdit {
             theme_name: TextInputState::named("theme_name"),
             theme: ComboboxState::named("theme"),
             name: TextInputState::named("name"),
-            docs: TextAreaState::named("docs"),
+            doc: TextAreaState::named("docs"),
             dark: NumberInputState::named("dark"),
             color: array::from_fn(|i| {
                 (
@@ -89,7 +89,7 @@ impl PaletteEdit {
     }
 
     pub fn doc(&self) -> String {
-        self.docs.text()
+        self.doc.text()
     }
 
     pub fn generator(&self) -> String {
@@ -157,6 +157,7 @@ impl PaletteEdit {
         self.theme_name.set_value(p.theme_name.as_ref());
         self.theme.set_value(p.theme.as_ref());
         self.name.set_value(p.name.as_ref());
+        self.doc.set_value(p.doc.as_ref());
         if p.generator.starts_with("light-dark") {
             if p.generator.starts_with("light-dark") {
                 if let Some(s) = p.generator.split(':').nth(1) {
@@ -186,6 +187,7 @@ impl PaletteEdit {
         palette.theme_name = Cow::Owned(self.theme_name.value());
         palette.theme = Cow::Owned(self.theme.value());
         palette.name = Cow::Owned(self.name.value());
+        palette.doc = Cow::Owned(self.doc.value());
         let dark = self.dark.value().unwrap_or(64);
         palette.generator = Cow::Owned(format!("light-dark:{}", dark));
 
@@ -219,7 +221,7 @@ impl HasFocus for PaletteEdit {
         builder.widget(&self.theme_name);
         builder.widget(&self.theme);
         builder.widget(&self.name);
-        builder.widget_navigate(&self.docs, Navigation::Regular);
+        builder.widget_navigate(&self.doc, Navigation::Regular);
         builder.widget(&self.dark);
         for c in color_array() {
             builder.widget(&self.color[c as usize].0);
@@ -243,7 +245,7 @@ impl HasScreenCursor for PaletteEdit {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         None.or(self.theme_name.screen_cursor())
             .or(self.name.screen_cursor())
-            .or(self.docs.screen_cursor())
+            .or(self.doc.screen_cursor())
             .or(self.dark.screen_cursor())
             .or_else(|| {
                 for c in color_array() {
@@ -281,7 +283,7 @@ pub fn render(
         layout.widget(state.theme_name.id(), L::Str("Theme Name"), W::Width(20));
         layout.widget(state.theme.id(), L::Str("Theme"), W::Width(20));
         layout.widget(state.name.id(), L::Str("Name"), W::Width(20));
-        layout.widget(state.docs.id(), L::Str("Doc"), W::StretchX(20, 3));
+        layout.widget(state.doc.id(), L::Str("Doc"), W::StretchX(20, 3));
         layout.widget(state.dark.id(), L::Str("Dark"), W::Width(4));
         layout.gap(1);
         for c in color_array() {
@@ -337,13 +339,13 @@ pub fn render(
         &mut state.name,
     );
     form.render(
-        state.docs.id(),
+        state.doc.id(),
         || {
             TextArea::new()
                 .vscroll(Scroll::new())
                 .styles(ctx.theme.style(WidgetStyle::TEXTAREA))
         },
-        &mut state.docs,
+        &mut state.doc,
     );
     form.render(
         state.dark.id(),
@@ -459,7 +461,7 @@ pub fn event(
 
         event_flow!(break 'f state.theme_name.handle(event, Regular));
         event_flow!(break 'f state.name.handle(event, Regular));
-        event_flow!(break 'f state.docs.handle(event, Regular));
+        event_flow!(break 'f state.doc.handle(event, Regular));
         event_flow!(
             break 'f match state.dark.handle(event, Regular) {
                 TextOutcome::TextChanged => {

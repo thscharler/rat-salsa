@@ -4,7 +4,7 @@ theme=Shell
 
 [palette]
 name=Solarized
-docs=
+docs=Credits to original https://github.com/altercation/solarized
 generator=light-dark:64
 
 [color]

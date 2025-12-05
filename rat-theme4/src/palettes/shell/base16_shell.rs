@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Base16
 const DARKNESS: u8 = 64;
 
+/// Base16
+/// Theme using the CGA 16-color palette.
 pub const BASE16_SHELL: Palette = Palette {
     theme_name: Cow::Borrowed("Base16 Shell"), 
     theme: Cow::Borrowed("Shell"), 
     name: Cow::Borrowed("Base16"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Theme using the CGA 16-color palette."), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

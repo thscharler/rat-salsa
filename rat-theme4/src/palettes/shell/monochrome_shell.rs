@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Monochrome
 const DARKNESS: u8 = 64;
 
+/// Monochrome
+/// credit to original theme: https://github.com/kdheepak/monochrome.nvim
 pub const MONOCHROME_SHELL: Palette = Palette {
     theme_name: Cow::Borrowed("Monochrome Shell"), 
     theme: Cow::Borrowed("Shell"), 
     name: Cow::Borrowed("Monochrome"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("credit to original theme: https://github.com/kdheepak/monochrome.nvim"), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

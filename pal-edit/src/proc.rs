@@ -102,7 +102,7 @@ pub const fn color_array() -> [Colors; Colors::LEN] {
 pub fn save_patch(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     let mut ff = Ini::new_std();
     ff.set_text("palette-patch", "name", state.edit.name());
-    ff.set_text("palette-patch", "docs", state.edit.docs.text());
+    ff.set_text("palette-patch", "docs", state.edit.doc.text());
 
     let aliased = state.edit.aliased_for(ctx.cfg.extra_aliased_vec());
     for (c, c_idx) in aliased {
@@ -152,7 +152,7 @@ pub fn export_pal_to_patch(
     )?;
     writeln!(wr, "")?;
     writeln!(wr, "/// Patch for {}", state.edit.name())?;
-    for l in state.edit.docs.text().lines() {
+    for l in state.edit.doc.text().lines() {
         writeln!(wr, "/// {}", l)?;
     }
     writeln!(wr, "")?;
@@ -187,16 +187,16 @@ pub fn export_pal_to_rs(path: &Path, state: &mut Scenery, ctx: &mut Global) -> R
     writeln!(wr, "use std::borrow::Cow;")?;
     writeln!(wr, "use crate::palette::{{Colors, Palette, define_alias}};")?;
     writeln!(wr, "")?;
-    writeln!(wr, "/// {}", state.edit.name())?;
-    for l in state.edit.docs.text().lines() {
-        writeln!(wr, "/// {}", l)?;
-    }
     writeln!(
         wr,
         "const DARKNESS: u8 = {};",
         state.edit.dark.value::<u8>().unwrap_or(64)
     )?;
     writeln!(wr, "")?;
+    writeln!(wr, "/// {}", state.edit.name())?;
+    for l in state.edit.doc.text().lines() {
+        writeln!(wr, "/// {}", l)?;
+    }
     writeln!(
         wr,
         "pub const {}: Palette = Palette {{",

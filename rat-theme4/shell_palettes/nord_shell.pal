@@ -4,7 +4,7 @@ theme=Shell
 
 [palette]
 name=Nord
-docs=
+docs=Credits to original https://github.com/arcticicestudio/nord-vim
 generator=light-dark:64
 
 [color]

@@ -4,7 +4,7 @@ theme=Shell
 
 [palette]
 name=EverForest
-docs=
+docs=Credits to original https://github.com/sainnhe/everforest
 generator=light-dark:64
 
 [color]

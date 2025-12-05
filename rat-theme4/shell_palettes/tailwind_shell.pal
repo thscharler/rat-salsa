@@ -4,7 +4,7 @@ theme=Shell
 
 [palette]
 name=Tailwind
-docs=
+docs=Uses a subset of tailwind colors.
 generator=light-dark:64
 
 [color]

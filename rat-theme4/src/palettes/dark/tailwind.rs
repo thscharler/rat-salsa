@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Tailwind
 const DARKNESS: u8 = 64;
 
+/// Tailwind
+/// Uses a subset of tailwind colors.
 pub const TAILWIND: Palette = Palette {
     theme_name: Cow::Borrowed("Tailwind"), 
     theme: Cow::Borrowed("Dark"), 
     name: Cow::Borrowed("Tailwind"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Uses a subset of tailwind colors."), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

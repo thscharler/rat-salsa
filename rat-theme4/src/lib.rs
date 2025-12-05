@@ -310,7 +310,7 @@ pub fn store_palette(pal: &Palette, mut buf: impl io::Write) -> Result<(), io::E
     writeln!(buf, "")?;
     writeln!(buf, "[palette]")?;
     writeln!(buf, "name={}", pal.name)?;
-    writeln!(buf, "docs={}", pal.doc.replace('\n', "\\\n"))?;
+    writeln!(buf, "docs={}", pal.doc.replace('\n', "\\n"))?;
     writeln!(buf, "generator={}", pal.generator)?;
     writeln!(buf, "")?;
     writeln!(buf, "[color]")?;
@@ -389,7 +389,8 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                     }
                 } else if l.starts_with("docs") {
                     if let Some(s) = l.split('=').nth(1) {
-                        pal.doc = Cow::Owned(s.trim().to_string());
+                        let doc = s.trim().replace("\\n", "\n");
+                        pal.doc = Cow::Owned(doc);
                     }
                 } else if l.starts_with("generator") {
                     if let Some(s) = l.split('=').nth(1) {

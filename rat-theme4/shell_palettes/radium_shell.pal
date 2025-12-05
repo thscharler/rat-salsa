@@ -4,7 +4,7 @@ theme=Shell
 
 [palette]
 name=Radium
-docs=
+docs=credits to original radium theme from https://github.com/dharmx
 generator=light-dark:64
 
 [color]

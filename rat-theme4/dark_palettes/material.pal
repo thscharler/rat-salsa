@@ -4,7 +4,7 @@ theme=Dark
 
 [palette]
 name=Material
-docs=
+docs=Credits to original theme https://github.com/marko-cerovac/material.nvim
 generator=light-dark:64
 
 [color]

@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Ocean
 const DARKNESS: u8 = 64;
 
+/// Ocean
+/// Ocean theme.
 pub const OCEAN: Palette = Palette {
     theme_name: Cow::Borrowed("Ocean"), 
     theme: Cow::Borrowed("Dark"), 
     name: Cow::Borrowed("Ocean"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Ocean theme."), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [

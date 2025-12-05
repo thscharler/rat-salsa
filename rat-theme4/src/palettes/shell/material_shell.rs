@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
-/// Material
 const DARKNESS: u8 = 64;
 
+/// Material
+/// Credits to original theme https://github.com/marko-cerovac/material.nvim
 pub const MATERIAL_SHELL: Palette = Palette {
     theme_name: Cow::Borrowed("Material Shell"), 
     theme: Cow::Borrowed("Shell"), 
     name: Cow::Borrowed("Material"), 
-    doc: Cow::Borrowed(""), 
+    doc: Cow::Borrowed("Credits to original theme https://github.com/marko-cerovac/material.nvim"), 
     generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
