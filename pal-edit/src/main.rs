@@ -22,7 +22,8 @@ use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palette::{ColorIdx, Colors};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{RatWidgetColor, StyleName, WidgetStyle, create_theme};
+use rat_theme4::themes::create_fallback;
+use rat_theme4::{RatWidgetColor, StyleName, WidgetStyle, create_palette_theme, create_theme};
 use rat_widget::event::{
     FileOutcome, HandleEvent, MenuOutcome, Outcome, Popup, Regular, SliderOutcome, ct_event,
     event_flow,
@@ -496,7 +497,8 @@ pub fn init(state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     // ctx.focus().enable_log();
     ctx.focus().first();
 
-    ctx.show_theme = proc::create_edit_theme(state);
+    let pal = state.edit.palette();
+    ctx.show_theme = create_palette_theme(pal).unwrap_or_else(|p| create_fallback(p));
 
     let open_path = mem::take(&mut ctx.cfg.open_path);
     if !open_path.is_empty() {
@@ -571,7 +573,8 @@ pub fn event(
 
         event_flow!(match palette_edit::event(event, &mut state.edit, ctx)? {
             Outcome::Changed => {
-                ctx.show_theme = proc::create_edit_theme(state);
+                let pal = state.edit.palette();
+                ctx.show_theme = create_palette_theme(pal).unwrap_or_else(|p| create_fallback(p));
                 Outcome::Changed
             }
             r => r.into(),
@@ -638,7 +641,7 @@ pub fn event(
             if state.patch_path.is_some() {
                 _ = load_pal_patch(state, ctx)?;
             }
-            if let Some(c) = state.edit.color_ext.get(Color::CONTAINER_BASE_BG) {
+            if let Some(c) = state.edit.aliased.get(Color::CONTAINER_BASE_BG) {
                 state.detail.show.readability.bg_color.set_value(c.value());
             }
             Ok(Control::Changed)

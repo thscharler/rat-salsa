@@ -154,7 +154,7 @@ pub mod app {
     use rat_event::{Dialog, Outcome, break_flow, try_flow};
     use rat_focus::HasFocus;
     use rat_salsa::{Control, SalsaContext};
-    use rat_theme4::{create_palette, salsa_palettes};
+    use rat_theme4::{create_salsa_palette, salsa_themes};
     use rat_widget::event::{HandleEvent, ct_event};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::layout::layout_middle;
@@ -344,7 +344,7 @@ pub mod app {
                     Ok(Control::Changed)
                 }
                 ct_event!(keycode press F(8)) => {
-                    let pal = salsa_palettes();
+                    let pal = salsa_themes();
 
                     let current = ctx.theme.name();
                     let idx = pal
@@ -356,7 +356,7 @@ pub mod app {
 
                     ctx.theme = TurboTheme::new(
                         pal[idx].to_string(),
-                        create_palette(pal[idx]).expect("palette"),
+                        create_salsa_palette(pal[idx]).expect("palette"),
                     );
                     state.status.status(0, pal[idx].to_string());
 

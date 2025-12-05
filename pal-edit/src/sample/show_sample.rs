@@ -11,10 +11,8 @@ use crate::sample::{
 };
 use anyhow::Error;
 use pure_rust_locales::Locale;
-use rat_theme4::themes::{create_dark, create_fallback, create_shell};
 use rat_theme4::{StyleName, WidgetStyle};
-use rat_widget::choice::{Choice, ChoiceState};
-use rat_widget::event::{ChoiceOutcome, HandleEvent, Outcome, Popup, Regular, event_flow};
+use rat_widget::event::{HandleEvent, Outcome, Popup, Regular, event_flow};
 use rat_widget::focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
 use rat_widget::popup::Placement;
@@ -26,11 +24,9 @@ use ratatui::layout::{Alignment, Constraint, Layout, Position, Rect};
 use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
-use std::iter::once;
 
 #[derive(Debug)]
 pub struct ShowSample {
-    pub themes: ChoiceState<String>,
     pub menu: MenubarState,
     pub status: StatusLineState,
 
@@ -48,7 +44,6 @@ pub struct ShowSample {
 impl ShowSample {
     pub fn new(loc: Locale) -> Self {
         let mut z = Self {
-            themes: ChoiceState::named("themes"),
             menu: Default::default(),
             status: Default::default(),
             tabs: Default::default(),
@@ -87,7 +82,6 @@ impl ShowSample {
 
 impl HasFocus for ShowSample {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget(&self.themes);
         builder.widget(&self.menu);
         builder.widget_navigate(&self.tabs, Navigation::Regular);
         match self.tabs.selected() {
@@ -176,26 +170,6 @@ pub fn render(
         .style(ctx.show_theme.style_style(Style::TITLE))
         .render(l0[1], buf);
 
-    let l_function = Layout::horizontal([
-        Constraint::Length(2), //
-        Constraint::Length(12),
-    ])
-    .spacing(1)
-    .split(l0[2]);
-    let (choice, choice_theme) = Choice::new()
-        .items(
-            once("")
-                .chain([
-                    "Dark",     //
-                    "Shell",    //
-                    "Fallback", //
-                ])
-                .map(|v| (v.to_string(), v.to_string())),
-        )
-        .styles(ctx.show_theme.style(WidgetStyle::CHOICE))
-        .into_widgets();
-    choice.render(l_function[1], buf, &mut state.themes);
-
     let (menu, menu_popup) = Menubar::new(&StaticMenu {
         menu: &[
             ("_File", &["_Open", "_Save", "\\___", "_Quit"]),
@@ -264,7 +238,6 @@ pub fn render(
         .styles_ext(ctx.show_theme.style(WidgetStyle::STATUSLINE))
         .render(l0[5], buf, &mut state.status);
 
-    choice_theme.render(l_function[1], buf, &mut state.themes);
     menu_popup.render(l0[3], buf, &mut state.menu);
 
     Ok(())
@@ -275,18 +248,6 @@ pub fn event(
     state: &mut ShowSample,
     ctx: &mut Global,
 ) -> Result<Outcome, Error> {
-    event_flow!(match state.themes.handle(event, Popup) {
-        ChoiceOutcome::Value => {
-            let pal = ctx.show_theme.p.clone();
-            ctx.show_theme = match state.themes.value().as_str() {
-                "Shell" => create_shell("Shell", pal),
-                "Fallback" => create_fallback("Fallback", pal),
-                _ => create_dark("Dark", pal),
-            };
-            Outcome::Changed
-        }
-        r => r.into(),
-    });
     event_flow!(state.menu.handle(event, Popup));
 
     event_flow!(match state.tabs.selected() {

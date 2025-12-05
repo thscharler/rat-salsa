@@ -3,10 +3,11 @@ use crate::{Global, Scenery};
 use anyhow::{Error, anyhow};
 use configparser::ini::Ini;
 use rat_theme4::palette::{ColorIdx, Colors, Palette};
-use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{RatWidgetColor, themes};
+use rat_theme4::themes::create_fallback;
+use rat_theme4::{RatWidgetColor, create_palette_theme, load_palette, store_palette};
 use ratatui::prelude::{Color, Line};
 use std::array;
+use std::fs::File;
 use std::path::Path;
 
 pub fn pal_aliases(pal: Palette) -> Vec<(Option<String>, String)> {
@@ -121,14 +122,15 @@ pub fn load_patch(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<
     };
 
     let extra = ctx.cfg.extra_aliased_vec();
-    for (n, s) in state.edit.color_ext.iter_mut() {
+    for (n, s) in state.edit.aliased.iter_mut() {
         if extra.contains(n) {
             let c_idx = ff.parse_val("reference", n, ColorIdx::default());
             s.set_value(c_idx);
         }
     }
 
-    ctx.show_theme = create_edit_theme(state);
+    let pal = state.edit.palette();
+    ctx.show_theme = create_palette_theme(pal).unwrap_or_else(|p| create_fallback(p));
 
     Ok(())
 }
@@ -200,7 +202,19 @@ pub fn export_pal_to_rs(path: &Path, state: &mut Scenery, ctx: &mut Global) -> R
         "pub const {}: Palette = Palette {{",
         state.edit.const_name(),
     )?;
+    writeln!(
+        wr,
+        "    theme_name: Cow::Borrowed(\"{}\"), ",
+        state.edit.theme_name()
+    )?;
+    writeln!(wr, "    theme: Cow::Borrowed(\"{}\"), ", state.edit.theme())?;
     writeln!(wr, "    name: Cow::Borrowed(\"{}\"), ", state.edit.name())?;
+    writeln!(wr, "    doc: Cow::Borrowed(\"{}\"), ", state.edit.doc())?;
+    writeln!(
+        wr,
+        "    generator: Cow::Borrowed(\"{}\"), ",
+        state.edit.generator()
+    )?;
     writeln!(wr, "")?;
     writeln!(wr, "    color: [")?;
     for c in [Colors::TextLight, Colors::TextDark] {
@@ -241,38 +255,6 @@ pub fn export_pal_to_rs(path: &Path, state: &mut Scenery, ctx: &mut Global) -> R
     Ok(())
 }
 
-pub fn save_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
-    state.file_path = Some(path.into());
-
-    let mut ff = Ini::new_std();
-    ff.set_text("palette", "name", state.edit.name());
-    ff.set_text("palette", "docs", state.edit.docs.text());
-    ff.set_val(
-        "palette",
-        "dark",
-        state.edit.dark.value::<u8>().unwrap_or(63),
-    );
-    for c in color_array() {
-        ff.set_array(
-            "color",
-            &c.to_string(),
-            [
-                state.edit.color[c as usize].0.value(),
-                state.edit.color[c as usize].3.value(),
-            ],
-        );
-    }
-
-    let aliased = state.edit.aliased_for(ctx.cfg.aliased_vec());
-    for (c, c_idx) in aliased {
-        ff.set_val("reference", c.as_ref(), c_idx);
-    }
-
-    ff.write_std(path)?;
-
-    Ok(())
-}
-
 pub fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
     state.files.clear();
     state.file_slider.set_value(0);
@@ -286,7 +268,7 @@ pub fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
         state.edit.color[c as usize].0.set_value(Color::default());
         state.edit.color[c as usize].3.set_value(Color::default());
     }
-    for (_, s) in state.edit.color_ext.iter_mut() {
+    for (_, s) in state.edit.aliased.iter_mut() {
         s.set_value(ColorIdx(Colors::default(), 0));
     }
 
@@ -380,44 +362,21 @@ pub fn use_base46(state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
 pub fn load_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     state.file_path = Some(path.into());
 
-    let mut ff = Ini::new_std();
-    match ff.load(path) {
-        Ok(_) => {}
-        Err(e) => return Err(anyhow!(e)),
-    };
+    let f = File::open(path)?;
+    let pal = load_palette(f)?;
+    state.edit.set_palette(pal.clone());
 
-    state
-        .edit
-        .name
-        .set_value(ff.get_text("palette", "name", ""));
-    state
-        .edit
-        .docs
-        .set_value(ff.get_text("palette", "docs", ""));
-    _ = state
-        .edit
-        .dark
-        .set_value(ff.parse_val::<u8, _>("palette", "dark", 63));
-    for c in color_array() {
-        let ccc = ff.parse_array::<2, _, _>("color", &c.to_string(), Color::default());
-        state.edit.color[c as usize].0.set_value(ccc[0]);
-        state.edit.color[c as usize].3.set_value(ccc[1]);
-    }
-    for (n, s) in state.edit.color_ext.iter_mut() {
-        let c_idx = ff.parse_val("reference", n, ColorIdx::default());
-        s.set_value(c_idx);
-    }
-
-    ctx.show_theme = create_edit_theme(state);
+    ctx.show_theme = create_palette_theme(pal).unwrap_or_else(|p| create_fallback(p));
 
     Ok(())
 }
 
-pub fn create_edit_theme(state: &Scenery) -> SalsaTheme {
-    let palette = state.edit.palette();
-    match state.detail.show.themes.value().as_str() {
-        "Shell" => themes::create_shell("Shell", palette),
-        "Fallback" => themes::create_fallback("Fallback", palette),
-        _ => themes::create_dark("Dark", palette),
-    }
+pub fn save_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
+    state.file_path = Some(path.into());
+
+    let pal = state.edit.palette();
+    let f = File::create(path)?;
+    store_palette(&pal, f)?;
+
+    Ok(())
 }

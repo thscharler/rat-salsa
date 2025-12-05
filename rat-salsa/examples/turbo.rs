@@ -596,7 +596,7 @@ pub mod theme {
     impl TurboStyle for Style {}
 
     pub fn turbo_theme(p: Palette) -> SalsaTheme {
-        let mut th = create_dark("turbo", p.clone());
+        let mut th = create_dark(p.clone());
 
         th.define_style(Style::INPUT, th.p.high_contrast(p.color(Colors::Gray, 3)));
         th.define_style(

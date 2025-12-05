@@ -30,7 +30,7 @@ type AppDialogResult = Result<WindowControl<AppEvent>, Error>;
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let theme = create_dark("Imperial Dark", IMPERIAL);
+    let theme = create_dark(IMPERIAL);
     let mut global = Global::new(theme);
     let mut state = Scenery::default();
 

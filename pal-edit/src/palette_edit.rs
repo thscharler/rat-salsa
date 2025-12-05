@@ -9,6 +9,7 @@ use rat_theme4::{RatWidgetColor, WidgetStyle};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::clipper::{Clipper, ClipperState};
 use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
+use rat_widget::combobox::{Combobox, ComboboxState};
 use rat_widget::event::{
     ChoiceOutcome, HandleEvent, MouseOnly, Outcome, Popup, Regular, TextOutcome, event_flow,
 };
@@ -26,26 +27,27 @@ use ratatui::style::Color;
 use ratatui::widgets::{Block, BorderType};
 use std::array;
 use std::borrow::Cow;
-use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct PaletteEdit {
-    pub palette: Palette,
-
     pub form: ClipperState,
+    pub theme_name: TextInputState,
+    pub theme: ComboboxState,
     pub name: TextInputState,
     pub docs: TextAreaState,
     pub dark: NumberInputState,
 
     pub color: [(ColorInputState, (), (), ColorInputState); Colors::LEN],
-    pub color_ext: IndexMap<String, ChoiceState<ColorIdx>>,
+    pub aliased: IndexMap<String, ChoiceState<ColorIdx>>,
+    pub unknown: IndexMap<String, ColorIdx>,
 }
 
 impl PaletteEdit {
     pub fn new(cfg: &Config) -> Self {
         let mut z = Self {
-            palette: Default::default(),
             form: ClipperState::named("form"),
+            theme_name: TextInputState::named("theme_name"),
+            theme: ComboboxState::named("theme"),
             name: TextInputState::named("name"),
             docs: TextAreaState::named("docs"),
             dark: NumberInputState::named("dark"),
@@ -57,31 +59,46 @@ impl PaletteEdit {
                     ColorInputState::named(format!("{}-3", color_array()[i]).as_str()),
                 )
             }),
-            color_ext: {
+            aliased: {
                 let mut map = IndexMap::new();
                 for n in cfg.aliased_vec() {
                     map.insert(n.clone(), ChoiceState::named(&n));
                 }
                 map
             },
+            unknown: Default::default(),
         };
         z.dark.set_format_loc("999", cfg.loc).expect("format");
         z
     }
 
     pub fn width(_cfg: &Config) -> u16 {
-        // let max_label = cfg.aliases().iter().map(|v| v.len()).max().unwrap_or(10) as u16;
-        // max_label + 52
         64
+    }
+
+    pub fn theme_name(&self) -> String {
+        self.theme_name.text().into()
+    }
+
+    pub fn theme(&self) -> String {
+        self.theme.value()
     }
 
     pub fn name(&self) -> String {
         self.name.text().into()
     }
 
+    pub fn doc(&self) -> String {
+        self.docs.text()
+    }
+
+    pub fn generator(&self) -> String {
+        format!("light-dark:{}", self.dark.value().unwrap_or(63))
+    }
+
     pub fn file_name(&self) -> String {
         let name = self
-            .name
+            .theme_name
             .text()
             .chars()
             .filter_map(|v| {
@@ -97,7 +114,7 @@ impl PaletteEdit {
 
     pub fn const_name(&self) -> String {
         let name = self
-            .name
+            .theme_name
             .text()
             .chars()
             .filter_map(|v| {
@@ -115,7 +132,7 @@ impl PaletteEdit {
 impl PaletteEdit {
     pub fn aliased_for(&self, names: Vec<String>) -> Vec<(Cow<'static, str>, ColorIdx)> {
         let mut aliased = Vec::new();
-        for (n, s) in self.color_ext.iter() {
+        for (n, s) in self.aliased.iter() {
             if names.contains(n) {
                 aliased.push((Cow::Owned(n.to_string()), s.value()))
             }
@@ -126,17 +143,51 @@ impl PaletteEdit {
 
     pub fn aliased(&self) -> Vec<(Cow<'static, str>, ColorIdx)> {
         let mut aliased = Vec::new();
-        for (n, s) in self.color_ext.iter() {
-            aliased.push((Cow::Owned(n.to_string()), s.value()))
+        for (n, s) in self.aliased.iter() {
+            aliased.push((Cow::Owned(n.clone()), s.value()))
+        }
+        for (n, c) in self.unknown.iter() {
+            aliased.push((Cow::Owned(n.clone()), *c));
         }
         aliased.sort();
         aliased
     }
 
+    pub fn set_palette(&mut self, p: Palette) {
+        self.theme_name.set_value(p.theme_name.as_ref());
+        self.theme.set_value(p.theme.as_ref());
+        self.name.set_value(p.name.as_ref());
+        if p.generator.starts_with("light-dark") {
+            if p.generator.starts_with("light-dark") {
+                if let Some(s) = p.generator.split(':').nth(1) {
+                    let dark = s.trim().parse::<u8>().unwrap_or(63);
+                    _ = self.dark.set_value(dark);
+                }
+            }
+        }
+        for c in color_array() {
+            self.color[c as usize].0.set_value(p.color[c as usize][0]);
+            self.color[c as usize].3.set_value(p.color[c as usize][3]);
+        }
+        for (n, s) in self.aliased.iter_mut() {
+            if let Some(c_idx) = p.try_aliased(n) {
+                s.set_value(c_idx);
+            }
+        }
+        for (n, c) in p.aliased.as_ref() {
+            if !self.aliased.contains_key(n.as_ref()) {
+                self.unknown.insert(n.to_string(), *c);
+            }
+        }
+    }
+
     pub fn palette(&self) -> Palette {
         let mut palette = Palette::default();
+        palette.theme_name = Cow::Owned(self.theme_name.value());
+        palette.theme = Cow::Owned(self.theme.value());
         palette.name = Cow::Owned(self.name.value());
         let dark = self.dark.value().unwrap_or(64);
+        palette.generator = Cow::Owned(format!("light-dark:{}", dark));
 
         palette.color[Colors::TextLight as usize] = Palette::interpolatec2(
             self.color[Colors::TextLight as usize].0.value(),
@@ -165,6 +216,8 @@ impl PaletteEdit {
 
 impl HasFocus for PaletteEdit {
     fn build(&self, builder: &mut FocusBuilder) {
+        builder.widget(&self.theme_name);
+        builder.widget(&self.theme);
         builder.widget(&self.name);
         builder.widget_navigate(&self.docs, Navigation::Regular);
         builder.widget(&self.dark);
@@ -172,7 +225,7 @@ impl HasFocus for PaletteEdit {
             builder.widget(&self.color[c as usize].0);
             builder.widget(&self.color[c as usize].3);
         }
-        for (_, s) in self.color_ext.iter() {
+        for (_, s) in self.aliased.iter() {
             builder.widget(s);
         }
     }
@@ -188,9 +241,10 @@ impl HasFocus for PaletteEdit {
 
 impl HasScreenCursor for PaletteEdit {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
-        self.name
-            .screen_cursor()
+        None.or(self.theme_name.screen_cursor())
+            .or(self.name.screen_cursor())
             .or(self.docs.screen_cursor())
+            .or(self.dark.screen_cursor())
             .or_else(|| {
                 for c in color_array() {
                     if let Some(s) = self.color[c as usize].0.screen_cursor() {
@@ -224,6 +278,8 @@ pub fn render(
         let mut layout = LayoutForm::<usize>::new() //
             .spacing(1)
             .flex(Flex::Start);
+        layout.widget(state.theme_name.id(), L::Str("Theme Name"), W::Width(20));
+        layout.widget(state.theme.id(), L::Str("Theme"), W::Width(20));
         layout.widget(state.name.id(), L::Str("Name"), W::Width(20));
         layout.widget(state.docs.id(), L::Str("Doc"), W::StretchX(20, 3));
         layout.widget(state.dark.id(), L::Str("Dark"), W::Width(4));
@@ -245,7 +301,7 @@ pub fn render(
             .spacing(1)
             .columns(2)
             .flex(Flex::Legacy);
-        for (n, s) in state.color_ext.iter() {
+        for (n, s) in state.aliased.iter() {
             if Some(n.as_str()) == first_extra {
                 layout2.column_break();
             }
@@ -258,6 +314,23 @@ pub fn render(
     }
     let mut form = form.into_buffer(area, &mut state.form);
 
+    form.render(
+        state.theme_name.id(),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
+        &mut state.theme_name,
+    );
+    let theme_popup = form.render2(
+        state.theme.id(),
+        || {
+            Combobox::new()
+                .item("Dark", "Dark")
+                .item("Light", "Light")
+                .item("Shell", "Shell")
+                .styles(ctx.theme.style(WidgetStyle::CHOICE))
+                .into_widgets()
+        },
+        &mut state.theme,
+    );
     form.render(
         state.name.id(),
         || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
@@ -328,7 +401,7 @@ pub fn render(
     let mut popup_ext = Vec::new();
     let mut popup_place = Placement::Right;
     let first_extra = ctx.cfg.extra_alias.get(0).map(|v| v.as_str());
-    for (n, s) in state.color_ext.iter_mut() {
+    for (n, s) in state.aliased.iter_mut() {
         if Some(n.as_str()) == first_extra {
             popup_place = Placement::Left;
         }
@@ -348,8 +421,10 @@ pub fn render(
         );
         popup_ext.push((n.clone(), popup));
     }
+
+    form.render_popup(state.theme.id(), || theme_popup, &mut state.theme);
     for (n, popup) in popup_ext {
-        let s = state.color_ext.get_mut(&n).expect("state");
+        let s = state.aliased.get_mut(&n).expect("state");
         form.render_popup(s.id(), || popup, s);
     }
 
@@ -367,7 +442,7 @@ pub fn event(
     let mut mode_change = None;
 
     let r = 'f: {
-        for (n, s) in state.color_ext.iter_mut() {
+        for (n, s) in state.aliased.iter_mut() {
             event_flow!(
                 break 'f match s.handle(event, Popup) {
                     ChoiceOutcome::Value => {
@@ -380,7 +455,9 @@ pub fn event(
                 }
             )
         }
+        event_flow!(break 'f state.theme.handle(event, Popup));
 
+        event_flow!(break 'f state.theme_name.handle(event, Regular));
         event_flow!(break 'f state.name.handle(event, Regular));
         event_flow!(break 'f state.docs.handle(event, Regular));
         event_flow!(
