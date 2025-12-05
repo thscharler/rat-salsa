@@ -1,13 +1,15 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Tundra
-/// An adaption of nvchad's tundra theme.
-/// -- Thanks to original theme for existing <https://github.com/sam4llis/nvim-tundra>
-const DARKNESS: u8 = 63;
+const DARKNESS: u8 = 64;
 
 pub const TUNDRA: Palette = Palette {
-    name: Cow::Borrowed("Tundra"),
+    theme_name: Cow::Borrowed("Tundra"), 
+    theme: Cow::Borrowed("Dark"), 
+    name: Cow::Borrowed("Tundra"), 
+    doc: Cow::Borrowed(""), 
+    generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
         Palette::interpolate2(0xe6eaf2, 0xffffff, 0x0, 0x0),
@@ -55,6 +57,7 @@ pub const TUNDRA: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 3),
         define_alias("key-binding.bg", Colors::BlueGreen, 0),
         define_alias("label.fg", Colors::White, 0),
+        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 1),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::None, 0),
@@ -68,3 +71,4 @@ pub const TUNDRA: Palette = Palette {
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
+

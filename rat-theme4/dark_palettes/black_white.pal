@@ -1,7 +1,11 @@
+[theme]
+name=Black&White
+theme=Dark
+
 [palette]
 name=Black&White
 docs=
-dark=63
+generator=light-dark:64
 
 [color]
 text-light=#FFFFFF, #FFFFFF

@@ -1,11 +1,15 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Monochrome
-const DARKNESS: u8 = 63;
+const DARKNESS: u8 = 64;
 
 pub const MONOCHROME: Palette = Palette {
-    name: Cow::Borrowed("Monochrome"),
+    theme_name: Cow::Borrowed("Monochrome"), 
+    theme: Cow::Borrowed("Dark"), 
+    name: Cow::Borrowed("Monochrome"), 
+    doc: Cow::Borrowed(""), 
+    generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
         Palette::interpolate2(0xc0c5ce, 0xd8dee9, 0x0, 0x0),
@@ -53,6 +57,7 @@ pub const MONOCHROME: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 1),
         define_alias("key-binding.bg", Colors::BlueGreen, 0),
         define_alias("label.fg", Colors::TextLight, 0),
+        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 1),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::None, 0),
@@ -66,3 +71,4 @@ pub const MONOCHROME: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
+

@@ -1,7 +1,11 @@
-[palette]
+[theme]
 name=SunriseBreeze Light
+theme=Light
+
+[palette]
+name=SunriseBreeze
 docs=
-dark=128
+generator=light-dark:63
 
 [color]
 text-light=#EBEBEB, #FFFFFF

@@ -1,0 +1,66 @@
+[theme]
+name=Reds Shell
+theme=Shell
+
+[palette]
+name=Reds
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#CFAFAF, #E2CFCF
+text-dark=#160D0D, #3A2323
+primary=#A50000, #A55454
+secondary=#A52300, #A56654
+white=#CFAFAF, #E2CFCF
+black=#160D0D, #3A2323
+gray=#6F4343, #BD8F8F
+red=#FF7F7F, #FFCCCC
+orange=#FF7F7F, #FFCCCC
+yellow=#FF7F7F, #FFCCCC
+lime-green=#FF7F7F, #FFCCCC
+green=#FF7F7F, #FFCCCC
+blue-green=#FF7F7F, #FFCCCC
+cyan=#FF7F7F, #FFCCCC
+blue=#FF7F7F, #FFCCCC
+deep-blue=#FF7F7F, #FFCCCC
+purple=#FF7F7F, #FFCCCC
+magenta=#FF7F7F, #FFCCCC
+red-pink=#FF7F7F, #FFCCCC
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:2
+container-base.bg=none:0
+container-border.fg=gray:2
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:3
+document-arrow.fg=gray:2
+document-base.bg=black:0
+document-border.fg=gray:2
+focus.bg=primary:1
+footer.bg=none:0
+footer.fg=text-light:0
+header.bg=none:0
+header.fg=text-light:0
+hover.bg=secondary:1
+input-focus.bg=primary:1
+input-select.bg=secondary:1
+input.bg=gray:2
+invalid.bg=red:1
+key-binding.bg=secondary:3
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=black:0
+month-header.fg=none:0
+popup-arrow.fg=primary:1
+popup-base.bg=gray:2
+popup-border.fg=primary:1
+select.bg=secondary:3
+shadow.bg=none:0
+status-base.bg=black:0
+title.bg=red:0
+title.fg=text-dark:0
+week-header.fg=none:0

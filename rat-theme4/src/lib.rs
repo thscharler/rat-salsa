@@ -36,14 +36,26 @@
 //! # let mut state = CheckboxState::default();
 //!
 //! // ratatui Style
-//! let s = theme.style::<Style>(Style::SELECT);
+//! let s: Style = theme.style(Style::SELECT);
 //!
 //! // composite style
 //! Checkbox::new()
 //!     .styles(theme.style(WidgetStyle::CHECKBOX))
 //!     .render(area, buf, &mut state);
 //! ```
+//!
+//! ## Palette
+//!
+//! Palette holds the color definitions and aliases for the
+//! colors. This is the part of the theme that can be persisted.
+//! It can be stored/loaded from file or put into a `static`.
+//!
+//! With [create_palette_theme] the theme can be reconstructed.
+//!
 
+use crate::palette::{Colors, Palette};
+use crate::palettes::shell;
+use crate::theme::SalsaTheme;
 use ratatui::style::{Color, Style};
 use std::borrow::Cow;
 use std::error::Error;
@@ -60,32 +72,30 @@ pub mod palettes {
     pub mod core;
     pub mod dark;
     pub mod light;
+    pub mod shell;
 }
 
 pub mod themes {
-    mod core;
     mod dark;
     mod fallback;
     mod light;
     mod shell;
 
-    /// Create a `core` theme that acts as a fallback.
-    /// It uses the SHELL palette and set almost no backgrounds.
-    pub use core::create_core;
     /// Creates a `dark` theme.
     pub use dark::create_dark;
-    /// Create the `fallback` theme.
-    /// This is more for testing widgets than anything else.
-    /// It just uses `Default::default()` for any style.
-    /// This helps to check if a widget is still functional
-    /// if no styling is applied.
-    pub use fallback::create_fallback;
     /// Creates a 'light' theme.
     pub use light::create_light;
     /// Creates a `shell` theme. This uses the dark palettes,
     /// but sets almost no backgrounds. Instead, it lets the
     /// terminal background shine.
     pub use shell::create_shell;
+
+    /// Create the `fallback` theme.
+    /// This is more for testing widgets than anything else.
+    /// It just uses `Default::default()` for any style.
+    /// This helps to check if a widget is still functional
+    /// if no styling is applied.
+    pub use fallback::create_fallback;
 }
 
 /// Anchor struct for the names of composite styles used
@@ -281,61 +291,6 @@ fn is_log_style_define() -> bool {
     LOG_DEFINES.load(Ordering::Acquire)
 }
 
-static THEMES: &'static [(&'static str, &'static str, &'static str)] = &[
-    ("Imperial Dark", "Dark", "Imperial"),
-    ("Radium Dark", "Dark", "Radium"),
-    ("Tundra Dark", "Dark", "Tundra"),
-    ("Ocean Dark", "Dark", "Ocean"),
-    ("Monochrome Dark", "Dark", "Monochrome"),
-    ("Black&White Dark", "Dark", "Black&White"),
-    ("Monekai Dark", "Dark", "Monekai"),
-    ("Solarized Dark", "Dark", "Solarized"),
-    ("OxoCarbon Dark", "Dark", "OxoCarbon"),
-    ("EverForest Dark", "Dark", "EverForest"),
-    ("Nord Dark", "Dark", "Nord"),
-    ("Rust Dark", "Dark", "Rust"),
-    ("Material Dark", "Dark", "Material"),
-    ("Tailwind Dark", "Dark", "Tailwind"),
-    ("VSCode Dark", "Dark", "VSCode"),
-    ("Imperial Light", "Light", "Imperial Light"),
-    ("EverForest Light", "Light", "EverForest Light"),
-    ("Tailwind Light", "Light", "Tailwind Light"),
-    ("Rust Light", "Light", "Rust Light"),
-    ("SunriseBreeze Light", "Light", "SunriseBreeze Light"),
-    ("Imperial Shell", "Shell", "Imperial"),
-    ("Radium Shell", "Shell", "Radium"),
-    ("Tundra Shell", "Shell", "Tundra"),
-    ("Ocean Shell", "Shell", "Ocean"),
-    ("Monochrome Shell", "Shell", "Monochrome"),
-    ("Black&White Shell", "Shell", "Black&White"),
-    ("Monekai Shell", "Shell", "Monekai"),
-    ("Solarized Shell", "Shell", "Solarized"),
-    ("OxoCarbon Shell", "Shell", "OxoCarbon"),
-    ("EverForest Shell", "Shell", "EverForest"),
-    ("Nord Shell", "Shell", "Nord"),
-    ("Rust Shell", "Shell", "Rust"),
-    ("Material Shell", "Shell", "Material"),
-    ("Tailwind Shell", "Shell", "Tailwind"),
-    ("VSCode Shell", "Shell", "VSCode"),
-    //  use only named colors. the terminal can override these.
-    ("Shell", "Shell", "Shell"),
-    // testing. every themed color ends in black.
-    ("Blackout", "Blackout", "Blackout"),
-    // testing. uses only Default::default() styles.
-    ("Fallback", "Fallback", "Reds"),
-];
-
-/// All defined color palettes.
-pub fn salsa_palettes() -> Vec<&'static str> {
-    let mut r = Vec::new();
-    for (_, _, v) in THEMES {
-        if !r.contains(v) {
-            r.push(v);
-        }
-    }
-    r
-}
-
 #[derive(Debug)]
 pub struct LoadPaletteErr(u8);
 
@@ -347,20 +302,48 @@ impl Display for LoadPaletteErr {
 
 impl Error for LoadPaletteErr {}
 
+/// Stora a Palette as a .pal file.
+pub fn store_palette(pal: &Palette, mut buf: impl io::Write) -> Result<(), io::Error> {
+    writeln!(buf, "[theme]")?;
+    writeln!(buf, "name={}", pal.theme_name)?;
+    writeln!(buf, "theme={}", pal.theme)?;
+    writeln!(buf, "")?;
+    writeln!(buf, "[palette]")?;
+    writeln!(buf, "name={}", pal.name)?;
+    writeln!(buf, "docs={}", pal.doc.replace('\n', "\\\n"))?;
+    writeln!(buf, "generator={}", pal.generator)?;
+    writeln!(buf, "")?;
+    writeln!(buf, "[color]")?;
+    for c in Colors::array() {
+        writeln!(
+            buf,
+            "{}={}, {}",
+            *c, pal.color[*c as usize][0], pal.color[*c as usize][3]
+        )?;
+    }
+    writeln!(buf, "")?;
+    writeln!(buf, "[reference]")?;
+    for (r, i) in pal.aliased.as_ref() {
+        writeln!(buf, "{}={}", r, i)?;
+    }
+    Ok(())
+}
+
 /// Load a .pal file as a Palette.
-pub fn load_palette(mut r: impl std::io::Read) -> Result<palette::Palette, std::io::Error> {
+pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
     let mut buf = String::new();
     r.read_to_string(&mut buf)?;
 
     enum S {
         Start,
-        Recognize,
+        Theme,
+        Palette,
         Color,
         Reference,
         Fail(u8),
     }
 
-    let mut pal = palette::Palette::default();
+    let mut pal = Palette::default();
     let mut dark = 63u8;
 
     let mut state = S::Start;
@@ -368,34 +351,65 @@ pub fn load_palette(mut r: impl std::io::Read) -> Result<palette::Palette, std::
         let l = l.trim();
         match state {
             S::Start => {
-                if l.trim() == "[palette]" {
-                    state = S::Recognize;
+                if l == "[theme]" {
+                    state = S::Theme;
+                } else if l == "[palette]" {
+                    state = S::Palette;
                 } else {
                     state = S::Fail(1);
                     break 'm;
                 }
             }
-            S::Recognize => {
+            S::Theme => {
+                if l == "[palette]" {
+                    state = S::Palette;
+                } else if l.is_empty() || l.starts_with("#") {
+                    // ok
+                } else if l.starts_with("name") {
+                    if let Some(s) = l.split('=').nth(1) {
+                        pal.theme_name = Cow::Owned(s.trim().to_string());
+                    }
+                } else if l.starts_with("theme") {
+                    if let Some(s) = l.split('=').nth(1) {
+                        pal.theme = Cow::Owned(s.trim().to_string());
+                    }
+                } else {
+                    state = S::Fail(2);
+                    break 'm;
+                }
+            }
+            S::Palette => {
                 if l == "[color]" {
                     state = S::Color;
                 } else if l.is_empty() || l.starts_with("#") {
                     // ok
-                } else if l.starts_with("name=") {
-                    if let Some(name_str) = l.split('=').nth(1) {
-                        pal.name = Cow::Owned(name_str.to_string());
+                } else if l.starts_with("name") {
+                    if let Some(s) = l.split('=').nth(1) {
+                        pal.name = Cow::Owned(s.trim().to_string());
                     }
-                } else if l.starts_with("docs=") {
-                    // ok
+                } else if l.starts_with("docs") {
+                    if let Some(s) = l.split('=').nth(1) {
+                        pal.doc = Cow::Owned(s.trim().to_string());
+                    }
+                } else if l.starts_with("generator") {
+                    if let Some(s) = l.split('=').nth(1) {
+                        pal.generator = Cow::Owned(s.trim().to_string());
+                        if s.starts_with("light-dark") {
+                            if let Some(s) = l.split(':').nth(1) {
+                                dark = s.trim().parse::<u8>().unwrap_or(63);
+                            }
+                        }
+                    }
                 } else if l.starts_with("dark") {
-                    if let Some(dark_str) = l.split('=').nth(1) {
-                        if let Ok(v) = dark_str.parse::<u8>() {
+                    if let Some(s) = l.split('=').nth(1) {
+                        if let Ok(v) = s.trim().parse::<u8>() {
                             dark = v;
                         } else {
                             // skip
                         }
                     }
                 } else {
-                    state = S::Fail(2);
+                    state = S::Fail(3);
                     break 'm;
                 }
             }
@@ -408,51 +422,47 @@ pub fn load_palette(mut r: impl std::io::Read) -> Result<palette::Palette, std::
                     let mut kv = l.split('=');
                     let cn = if let Some(v) = kv.next() {
                         let Ok(c) = v.trim().parse::<palette::Colors>() else {
-                            state = S::Fail(3);
+                            state = S::Fail(4);
                             break 'm;
                         };
                         c
                     } else {
-                        state = S::Fail(4);
+                        state = S::Fail(5);
                         break 'm;
                     };
                     let (c0, c3) = if let Some(v) = kv.next() {
                         let mut vv = v.split(',');
                         let c0 = if let Some(v) = vv.next() {
                             let Ok(v) = v.trim().parse::<Color>() else {
-                                state = S::Fail(5);
+                                state = S::Fail(6);
                                 break 'm;
                             };
                             v
                         } else {
-                            state = S::Fail(6);
+                            state = S::Fail(7);
                             break 'm;
                         };
                         let c3 = if let Some(v) = vv.next() {
                             let Ok(v) = v.trim().parse::<Color>() else {
-                                state = S::Fail(7);
+                                state = S::Fail(8);
                                 break 'm;
                             };
                             v
                         } else {
-                            state = S::Fail(8);
+                            state = S::Fail(9);
                             break 'm;
                         };
                         (c0, c3)
                     } else {
-                        state = S::Fail(9);
+                        state = S::Fail(10);
                         break 'm;
                     };
 
-                    if cn == palette::Colors::TextLight || cn == palette::Colors::TextDark {
-                        pal.color[cn as usize] = palette::Palette::interpolatec2(
-                            c0,
-                            c3,
-                            Color::default(),
-                            Color::default(),
-                        )
+                    if cn == Colors::TextLight || cn == Colors::TextDark {
+                        pal.color[cn as usize] =
+                            Palette::interpolatec2(c0, c3, Color::default(), Color::default())
                     } else {
-                        pal.color[cn as usize] = palette::Palette::interpolatec(c0, c3, dark);
+                        pal.color[cn as usize] = Palette::interpolatec(c0, c3, dark);
                     }
                 }
             }
@@ -461,18 +471,18 @@ pub fn load_palette(mut r: impl std::io::Read) -> Result<palette::Palette, std::
                 let rn = if let Some(v) = kv.next() {
                     v
                 } else {
-                    state = S::Fail(9);
+                    state = S::Fail(11);
                     break 'm;
                 };
                 let ci = if let Some(v) = kv.next() {
                     if let Ok(ci) = v.parse::<palette::ColorIdx>() {
                         ci
                     } else {
-                        state = S::Fail(10);
+                        state = S::Fail(12);
                         break 'm;
                     }
                 } else {
-                    state = S::Fail(11);
+                    state = S::Fail(13);
                     break 'm;
                 };
                 pal.add_aliased(rn, ci);
@@ -486,21 +496,78 @@ pub fn load_palette(mut r: impl std::io::Read) -> Result<palette::Palette, std::
     match state {
         S::Fail(n) => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(n))),
         S::Start => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(100))),
-        S::Recognize => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(101))),
+        S::Theme => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(101))),
+        S::Palette => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(102))),
         S::Color | S::Reference => Ok(pal),
     }
 }
 
-/// Create one of the defined palettes.
+/// Create the Theme based on the given Palette.
+pub fn create_palette_theme(pal: Palette) -> Result<SalsaTheme, Palette> {
+    match pal.theme.as_ref() {
+        "Dark" => Ok(themes::create_dark(pal)),
+        "Light" => Ok(themes::create_light(pal)),
+        "Shell" => Ok(themes::create_shell(pal)),
+        _ => Err(pal),
+    }
+}
+
+static THEMES: &'static [&'static str] = &[
+    "Imperial",
+    "Radium",
+    "Tundra",
+    "Ocean",
+    "Monochrome",
+    "Black&White",
+    "Monekai",
+    "Solarized",
+    "OxoCarbon",
+    "EverForest",
+    "Nord",
+    "Rust",
+    "Material",
+    "Tailwind",
+    "VSCode",
+    "Reds",
+    //
+    "Imperial Light",
+    "EverForest Light",
+    "Tailwind Light",
+    "Rust Light",
+    "SunriseBreeze Light",
+    //
+    "Imperial Shell",
+    "Radium Shell",
+    "Tundra Shell",
+    "Ocean Shell",
+    "Monochrome Shell",
+    "Black&White Shell",
+    "Monekai Shell",
+    "Solarized Shell",
+    "OxoCarbon Shell",
+    "EverForest Shell",
+    "Nord Shell",
+    "Rust Shell",
+    "Material Shell",
+    "Tailwind Shell",
+    "VSCode Shell",
+    "Reds Shell",
+    //
+    "Shell",
+    "Blackout",
+    "Fallback",
+];
+
+/// Create one of the predefined themes as a Palette.
 ///
-/// The available palettes can be queried by [salsa_palettes].
+/// The available themes can be queried by [salsa_themes].
 ///
-/// Currently known: Imperial, Radium, Tundra, Ocean, Monochrome,
+/// Known palettes: Imperial, Radium, Tundra, Ocean, Monochrome,
 /// Black&White, Monekai, Solarized, OxoCarbon, EverForest,
 /// Nord, Rust, Material, Tailwind, VSCode, Reds, Blackout,
 /// Shell, Imperial Light, EverForest Light, Tailwind Light,
 /// Rust Light.
-pub fn create_palette(name: &str) -> Option<palette::Palette> {
+pub fn create_salsa_palette(name: &str) -> Option<Palette> {
     use crate::palettes::core;
     use crate::palettes::dark;
     use crate::palettes::light;
@@ -520,34 +587,57 @@ pub fn create_palette(name: &str) -> Option<palette::Palette> {
         "Material" => Some(dark::MATERIAL),
         "Tailwind" => Some(dark::TAILWIND),
         "VSCode" => Some(dark::VSCODE),
-
         "Reds" => Some(dark::REDS),
-        "Blackout" => Some(dark::BLACKOUT),
-        "Shell" => Some(core::SHELL),
 
         "Imperial Light" => Some(light::IMPERIAL_LIGHT),
         "EverForest Light" => Some(light::EVERFOREST_LIGHT),
         "Tailwind Light" => Some(light::TAILWIND_LIGHT),
         "Rust Light" => Some(light::RUST_LIGHT),
         "SunriseBreeze Light" => Some(light::SUNRISEBREEZE_LIGHT),
+
+        "Imperial Shell" => Some(shell::IMPERIAL_SHELL),
+        "Radium Shell" => Some(shell::RADIUM_SHELL),
+        "Tundra Shell" => Some(shell::TUNDRA_SHELL),
+        "Ocean Shell" => Some(shell::OCEAN_SHELL),
+        "Monochrome Shell" => Some(shell::MONOCHROME_SHELL),
+        "Black&White Shell" => Some(shell::BLACK_WHITE_SHELL),
+        "Monekai Shell" => Some(shell::MONEKAI_SHELL),
+        "Solarized Shell" => Some(shell::SOLARIZED_SHELL),
+        "OxoCarbon Shell" => Some(shell::OXOCARBON_SHELL),
+        "EverForest Shell" => Some(shell::EVERFOREST_SHELL),
+        "Nord Shell" => Some(shell::NORD_SHELL),
+        "Rust Shell" => Some(shell::RUST_SHELL),
+        "Material Shell" => Some(shell::MATERIAL_SHELL),
+        "Tailwind Shell" => Some(shell::TAILWIND_SHELL),
+        "VSCode Shell" => Some(shell::VSCODE_SHELL),
+        "Reds Shell" => Some(shell::REDS_SHELL),
+
+        "Shell" => Some(core::SHELL),
+        "Blackout" => Some(core::BLACKOUT),
+        "Fallback" => Some(core::FALLBACK),
         _ => None,
     }
 }
 
-/// All defined rat-salsa themes.
+/// All predefined rat-salsa themes.
 pub fn salsa_themes() -> Vec<&'static str> {
     let mut r = Vec::new();
-    for (v, _, _) in THEMES {
+    for v in THEMES {
         r.push(*v);
     }
     r
 }
 
-/// Create one of the defined themes.
+#[deprecated(since = "4.0.4", note = "use create_salsa_theme() instead")]
+pub fn create_theme(theme_name: &str) -> SalsaTheme {
+    create_salsa_theme(theme_name)
+}
+
+/// Create one of the predefined themes.
 ///
 /// The available themes can be queried by [salsa_themes].
 ///
-/// Currently known: Imperial Dark, Radium Dark, Tundra Dark,
+/// Known themes: Imperial Dark, Radium Dark, Tundra Dark,
 /// Ocean Dark, Monochrome Dark, Black&White Dark, Monekai Dark,
 /// Solarized Dark, OxoCarbon Dark, EverForest Dark, Nord Dark,
 /// Rust Dark, Material Dark, Tailwind Dark, VSCode Dark,
@@ -557,66 +647,16 @@ pub fn salsa_themes() -> Vec<&'static str> {
 /// Solarized Shell, OxoCarbon Shell, EverForest Shell, Nord Shell,
 /// Rust Shell, Material Shell, Tailwind Shell, VSCode Shell,
 /// Shell, Blackout and Fallback.
-pub fn create_theme(theme_name: &str) -> theme::SalsaTheme {
-    let theme;
-    let palette;
-    'f: {
-        for (n, t, p) in THEMES {
-            if *n == theme_name {
-                theme = *t;
-                palette = *p;
-                break 'f;
-            }
+pub fn create_salsa_theme(theme_name: &str) -> SalsaTheme {
+    if let Some(pal) = create_salsa_palette(theme_name) {
+        match pal.theme.as_ref() {
+            "Dark" => themes::create_dark(pal),
+            "Light" => themes::create_light(pal),
+            "Shell" => themes::create_shell(pal),
+            "Fallback" => themes::create_fallback(pal),
+            _ => themes::create_shell(palettes::core::SHELL),
         }
-
-        if cfg!(debug_assertions) {
-            panic!("no theme {:?}", theme_name);
-        } else {
-            theme = "Core";
-            palette = "Core";
-        }
-    }
-
-    match (theme, palette) {
-        ("Dark", p) => {
-            let Some(pal) = create_palette(p) else {
-                if cfg!(debug_assertions) {
-                    panic!("no palette {:?}", p);
-                } else {
-                    return themes::create_core(theme);
-                }
-            };
-            themes::create_dark(theme, pal)
-        }
-        ("Light", p) => {
-            let Some(pal) = create_palette(p) else {
-                if cfg!(debug_assertions) {
-                    panic!("no palette {:?}", p);
-                } else {
-                    return themes::create_core(theme);
-                }
-            };
-            themes::create_light(theme, pal)
-        }
-        ("Shell", p) => {
-            let Some(pal) = create_palette(p) else {
-                if cfg!(debug_assertions) {
-                    panic!("no palette {:?}", p);
-                } else {
-                    return themes::create_core(theme);
-                }
-            };
-            themes::create_shell(theme, pal)
-        }
-        ("Core", _) => themes::create_core(theme),
-        ("Blackout", _) => themes::create_dark(theme, palettes::dark::BLACKOUT),
-        ("Fallback", _) => themes::create_fallback(theme, palettes::dark::REDS),
-        _ => {
-            if cfg!(debug_assertions) {
-                panic!("no theme {:?}", theme);
-            } else {
-                themes::create_core(theme)
-            }
-        }
+    } else {
+        themes::create_shell(palettes::core::SHELL)
     }
 }

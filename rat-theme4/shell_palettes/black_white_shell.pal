@@ -1,0 +1,66 @@
+[theme]
+name=Black&White Shell
+theme=Shell
+
+[palette]
+name=Black&White
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#FFFFFF, #FFFFFF
+text-dark=#000000, #000000
+primary=#FFFFFF, #000000
+secondary=#FFFFFF, #000000
+white=#FFFFFF, #FFFFFF
+black=#000000, #000000
+gray=#FFFFFF, #000000
+red=#FFFFFF, #7F7F7F
+orange=#FFFFFF, #7F7F7F
+yellow=#FFFFFF, #7F7F7F
+lime-green=#FFFFFF, #7F7F7F
+green=#FFFFFF, #7F7F7F
+blue-green=#FFFFFF, #7F7F7F
+cyan=#FFFFFF, #7F7F7F
+blue=#FFFFFF, #7F7F7F
+deep-blue=#FFFFFF, #7F7F7F
+purple=#FFFFFF, #7F7F7F
+magenta=#FFFFFF, #7F7F7F
+red-pink=#FFFFFF, #7F7F7F
+
+[reference]
+button-base.bg=gray:1
+container-arrow.fg=gray:1
+container-base.bg=none:0
+container-border.fg=gray:1
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:2
+document-arrow.fg=gray:1
+document-base.bg=black:0
+document-border.fg=gray:1
+focus.bg=primary:0
+footer.bg=none:0
+footer.fg=blue:3
+header.bg=none:0
+header.fg=blue:3
+hover.bg=gray:0
+input-focus.bg=primary:0
+input-select.bg=secondary:1
+input.bg=gray:1
+invalid.bg=red:1
+key-binding.bg=cyan:0
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=gray:2
+month-header.fg=none:0
+popup-arrow.fg=primary:0
+popup-base.bg=gray:1
+popup-border.fg=primary:0
+select.bg=secondary:2
+shadow.bg=black:0
+status-base.bg=gray:2
+title.bg=red:3
+title.fg=text-light:0
+week-header.fg=gray:1

@@ -39,19 +39,28 @@ use std::time::Duration;
 ///
 /// It uses almost no background colors and lets your shell
 /// bleed through.
-pub fn create_shell(name: &str, p: Palette) -> SalsaTheme {
-    let mut th = SalsaTheme::new(name, "Shell", p);
+pub fn create_shell(p: Palette) -> SalsaTheme {
+    let mut th = SalsaTheme::new(p);
 
     th.define_style(Style::LABEL_FG, th.p.fg_style_alias(Color::LABEL_FG));
     th.define_style(Style::INPUT, th.p.style_alias(Color::INPUT_BG));
-    th.define_style(Style::FOCUS, th.p.style_alias(Color::FOCUS_BG));
+    th.define_style(Style::FOCUS, th.p.high_style_alias(Color::FOCUS_BG));
     th.define_style(Style::SELECT, th.p.style_alias(Color::SELECT_BG));
     th.define_style(Style::DISABLED, th.p.style_alias(Color::DISABLED_BG));
     th.define_style(Style::INVALID, th.p.style_alias(Color::INVALID_BG));
-    th.define_style(Style::HOVER, th.p.fg_style_alias(Color::HOVER_BG));
-    th.define_style(Style::TITLE, th.p.fg_style_alias(Color::TITLE_BG));
-    th.define_style(Style::HEADER, th.p.fg_style_alias(Color::HEADER_BG));
-    th.define_style(Style::FOOTER, th.p.fg_style_alias(Color::FOOTER_BG));
+    th.define_style(Style::HOVER, th.p.style_alias(Color::HOVER_BG));
+    th.define_style(
+        Style::TITLE,
+        th.p.fg_bg_style_alias(Color::TITLE_FG, Color::TITLE_BG),
+    );
+    th.define_style(
+        Style::HEADER,
+        th.p.fg_bg_style_alias(Color::HEADER_FG, Color::HEADER_BG),
+    );
+    th.define_style(
+        Style::FOOTER,
+        th.p.fg_bg_style_alias(Color::FOOTER_FG, Color::HEADER_BG),
+    );
     th.define_style(
         Style::WEEK_HEADER_FG,
         th.p.fg_style_alias(Color::WEEK_HEADER_FG),
@@ -61,15 +70,21 @@ pub fn create_shell(name: &str, p: Palette) -> SalsaTheme {
         th.p.fg_style_alias(Color::MONTH_HEADER_FG),
     );
     th.define_style(Style::SHADOWS, th.p.style_alias(Color::SHADOW_BG));
-    th.define_style(Style::INPUT_FOCUS, th.p.style_alias(Color::INPUT_FOCUS_BG));
+    th.define_style(
+        Style::INPUT_FOCUS,
+        th.p.high_style_alias(Color::INPUT_FOCUS_BG),
+    );
     th.define_style(Style::INPUT_SELECT, th.p.style_alias(Color::SELECT_BG));
     th.define_style(Style::KEY_BINDING, th.p.style_alias(Color::KEY_BINDING_BG));
 
     th.define_style(Style::BUTTON_BASE, th.p.style_alias(Color::BUTTON_BASE_BG));
-    th.define_style(Style::MENU_BASE, th.p.fg_style(Colors::TextLight, 0));
-    th.define_style(Style::STATUS_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(Style::MENU_BASE, th.p.style_alias(Color::MENU_BASE_BG));
+    th.define_style(Style::STATUS_BASE, th.p.style_alias(Color::STATUS_BASE_BG));
 
-    th.define_style(Style::CONTAINER_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(
+        Style::CONTAINER_BASE,
+        th.p.style_alias(Color::CONTAINER_BASE_BG),
+    );
     th.define_style(
         Style::CONTAINER_BORDER_FG,
         th.p.fg_style_alias(Color::CONTAINER_BORDER_FG),
@@ -79,7 +94,10 @@ pub fn create_shell(name: &str, p: Palette) -> SalsaTheme {
         th.p.fg_style_alias(Color::CONTAINER_ARROW_FG),
     );
 
-    th.define_style(Style::DOCUMENT_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(
+        Style::DOCUMENT_BASE,
+        th.p.style_alias(Color::DOCUMENT_BASE_BG),
+    );
     th.define_style(
         Style::DOCUMENT_BORDER_FG,
         th.p.fg_style_alias(Color::DOCUMENT_BORDER_FG),
@@ -89,7 +107,7 @@ pub fn create_shell(name: &str, p: Palette) -> SalsaTheme {
         th.p.fg_style_alias(Color::DOCUMENT_ARROW_FG),
     );
 
-    th.define_style(Style::POPUP_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(Style::POPUP_BASE, th.p.style_alias(Color::POPUP_BASE_BG));
     th.define_style(
         Style::POPUP_BORDER_FG,
         th.p.fg_style_alias(Color::POPUP_BORDER_FG),
@@ -99,7 +117,7 @@ pub fn create_shell(name: &str, p: Palette) -> SalsaTheme {
         th.p.fg_style_alias(Color::POPUP_ARROW_FG),
     );
 
-    th.define_style(Style::DIALOG_BASE, th.p.fg_style(Colors::TextLight, 0));
+    th.define_style(Style::DIALOG_BASE, th.p.style_alias(Color::DIALOG_BASE_BG));
     th.define_style(
         Style::DIALOG_BORDER_FG,
         th.p.fg_style_alias(Color::DIALOG_BORDER_FG),
@@ -445,7 +463,7 @@ fn tabbed(th: &SalsaTheme) -> TabbedStyle {
     TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        tab: Some(th.style(Style::INPUT)),
+        tab: Some(th.style(Style::CONTAINER_BASE)),
         hover: Some(th.style(Style::HOVER)),
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),

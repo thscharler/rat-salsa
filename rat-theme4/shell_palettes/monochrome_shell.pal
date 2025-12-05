@@ -1,0 +1,66 @@
+[theme]
+name=Monochrome Shell
+theme=Shell
+
+[palette]
+name=Monochrome
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#C0C5CE, #D8DEE9
+text-dark=#101010, #202020
+primary=#708187, #9AB2BA
+secondary=#424242, #677777
+white=#D8DEE9, #D7DDE8
+black=#1A1A1A, #262626
+gray=#424242, #677777
+red=#EC8989, #EC8989
+orange=#EFB6A0, #EFB6A0
+yellow=#FFE6B5, #FFE6B5
+lime-green=#EFF6AB, #EFF6AB
+green=#C9D36A, #C9D36A
+blue-green=#6484A4, #6484A4
+cyan=#9AAFE6, #9AAFE6
+blue=#8ABAE1, #8ABAE1
+deep-blue=#A5C6E1, #A5C6E1
+purple=#DB9FE9, #DB9FE9
+magenta=#DA838B, #DA838B
+red-pink=#ECA8A8, #ECA8A8
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:2
+container-base.bg=none:0
+container-border.fg=gray:2
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:3
+document-arrow.fg=gray:2
+document-base.bg=black:0
+document-border.fg=gray:2
+focus.bg=primary:1
+footer.bg=none:0
+footer.fg=deep-blue:0
+header.bg=none:0
+header.fg=deep-blue:0
+hover.bg=secondary:2
+input-focus.bg=primary:1
+input-select.bg=secondary:0
+input.bg=gray:0
+invalid.bg=red:1
+key-binding.bg=gray:2
+label.fg=text-light:0
+md+hidden=none:0
+menu-base.bg=black:1
+month-header.fg=none:0
+popup-arrow.fg=primary:1
+popup-base.bg=gray:1
+popup-border.fg=primary:1
+select.bg=gray:2
+shadow.bg=none:0
+status-base.bg=black:1
+title.bg=gray:2
+title.fg=text-light:2
+week-header.fg=gray:3

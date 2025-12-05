@@ -1,7 +1,11 @@
+[theme]
+name=OxoCarbon
+theme=Dark
+
 [palette]
 name=OxoCarbon
 docs=
-dark=63
+generator=light-dark:64
 
 [color]
 text-light=#F2F4F8, #F9FBFF

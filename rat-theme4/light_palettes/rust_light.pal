@@ -1,7 +1,11 @@
-[palette]
+[theme]
 name=Rust Light
-docs=Rusty theme.
-dark=85
+theme=Light
+
+[palette]
+name=Rust
+docs=
+generator=light-dark:63
 
 [color]
 text-light=#CEC9C6, #EFE6E6

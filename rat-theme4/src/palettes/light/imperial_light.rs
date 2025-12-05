@@ -1,13 +1,15 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// Imperial Light
-/// Uses purple and gold for primary/secondary.
-/// Other colors are bright, strong and slightly smudged.
 const DARKNESS: u8 = 63;
 
 pub const IMPERIAL_LIGHT: Palette = Palette {
-    name: Cow::Borrowed("Imperial Light"), 
+    theme_name: Cow::Borrowed("Imperial Light"),
+    theme: Cow::Borrowed("Light"),
+    name: Cow::Borrowed("Imperial"),
+    doc: Cow::Borrowed(""),
+    generator: Cow::Borrowed("light-dark:63"),
 
     color: [
         Palette::interpolate2(0xdedfe3, 0xf6f6f3, 0x0, 0x0),
@@ -69,4 +71,3 @@ pub const IMPERIAL_LIGHT: Palette = Palette {
         define_alias("week-header.fg", Colors::Black, 0),
     ]),
 };
-

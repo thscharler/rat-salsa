@@ -1,11 +1,15 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 /// SunriseBreeze Light
-const DARKNESS: u8 = 128;
+const DARKNESS: u8 = 63;
 
 pub const SUNRISEBREEZE_LIGHT: Palette = Palette {
-    name: Cow::Borrowed("SunriseBreeze Light"), 
+    theme_name: Cow::Borrowed("SunriseBreeze Light"),
+    theme: Cow::Borrowed("Light"),
+    name: Cow::Borrowed("SunriseBreeze"),
+    doc: Cow::Borrowed(""),
+    generator: Cow::Borrowed("light-dark:63"),
 
     color: [
         Palette::interpolate2(0xebebeb, 0xffffff, 0x0, 0x0),
@@ -67,4 +71,3 @@ pub const SUNRISEBREEZE_LIGHT: Palette = Palette {
         define_alias("week-header.fg", Colors::Secondary, 7),
     ]),
 };
-

@@ -1,0 +1,66 @@
+[theme]
+name=Tundra Shell
+theme=Shell
+
+[palette]
+name=Tundra
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#E6EAF2, #FFFFFF
+text-dark=#0B1221, #1A2130
+primary=#E6EAF2, #FFFFFF
+secondary=#A8BBD4, #719BD3
+white=#E6EAF2, #FFFFFF
+black=#10151E, #1D2535
+gray=#424751, #6C7484
+red=#F9C7C7, #FCA5A5
+orange=#F9DAC7, #FBC19D
+yellow=#E5D5B7, #E5C690
+lime-green=#BCE5B7, #99E590
+green=#BCE5B7, #99E590
+blue-green=#A8BBD4, #83A5D1
+cyan=#C8EAFC, #9FDDFC
+blue=#C7D1F9, #9DAEF9
+deep-blue=#BFCAEF, #97A7EF
+purple=#B8ADD8, #9C88D8
+magenta=#FFCCCC, #F79B9B
+red-pink=#F9C7CE, #FC9FAB
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:3
+container-base.bg=none:0
+container-border.fg=gray:3
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:3
+document-arrow.fg=gray:3
+document-base.bg=black:2
+document-border.fg=gray:3
+focus.bg=primary:1
+footer.bg=none:0
+footer.fg=blue-green:2
+header.bg=none:0
+header.fg=blue-green:2
+hover.bg=secondary:0
+input-focus.bg=primary:1
+input-select.bg=secondary:1
+input.bg=gray:3
+invalid.bg=red:3
+key-binding.bg=secondary:1
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=black:1
+month-header.fg=none:0
+popup-arrow.fg=primary:1
+popup-base.bg=gray:2
+popup-border.fg=primary:1
+select.bg=secondary:1
+shadow.bg=text-dark:0
+status-base.bg=black:1
+title.bg=blue-green:3
+title.fg=text-dark:0
+week-header.fg=blue-green:0

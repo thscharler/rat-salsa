@@ -1,13 +1,15 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Radium
-/// An adaption of nvchad's radium theme.
-/// -- credits to original radium theme from <https://github.com/dharmx>
-const DARKNESS: u8 = 128;
+const DARKNESS: u8 = 64;
 
 pub const RADIUM: Palette = Palette {
-    name: Cow::Borrowed("Radium"),
+    theme_name: Cow::Borrowed("Radium"), 
+    theme: Cow::Borrowed("Dark"), 
+    name: Cow::Borrowed("Radium"), 
+    doc: Cow::Borrowed(""), 
+    generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
         Palette::interpolate2(0xd4d4d5, 0xffffff, 0x0, 0x0),
@@ -55,6 +57,7 @@ pub const RADIUM: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 0),
         define_alias("key-binding.bg", Colors::BlueGreen, 0),
         define_alias("label.fg", Colors::TextLight, 0),
+        define_alias("md+hidden", Colors::White, 0),
         define_alias("menu-base.bg", Colors::Black, 1),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::White, 0),
@@ -68,3 +71,4 @@ pub const RADIUM: Palette = Palette {
         define_alias("week-header.fg", Colors::BlueGreen, 0),
     ]),
 };
+

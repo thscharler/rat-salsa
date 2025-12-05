@@ -1,0 +1,66 @@
+[theme]
+name=VSCode Shell
+theme=Shell
+
+[palette]
+name=VSCode
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#D4D4D4, #FFFFFF
+text-dark=#1A1A1A, #3A3A3A
+primary=#D4D4D4, #FFFFFF
+secondary=#444444, #878787
+white=#D4D4D4, #FFFFFF
+black=#1A1A1A, #3A3A3A
+gray=#444444, #878787
+red=#D16969, #D16969
+orange=#D57E62, #D3967D
+yellow=#D7BA7D, #D7BA7D
+lime-green=#9CDA80, #9CDA80
+green=#80DABA, #80DABA
+blue-green=#B5CEA8, #B5CEA8
+cyan=#9CDCFE, #9CDCFE
+blue=#89BEEC, #89BEEC
+deep-blue=#85BAE6, #85BAE6
+purple=#BD88ED, #BD88ED
+magenta=#BB7CB6, #BB7CB6
+red-pink=#E98691, #E98691
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:1
+container-base.bg=none:0
+container-border.fg=gray:1
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:3
+document-arrow.fg=gray:1
+document-base.bg=black:1
+document-border.fg=gray:1
+focus.bg=primary:1
+footer.bg=none:0
+footer.fg=cyan:0
+header.bg=none:0
+header.fg=cyan:0
+hover.bg=black:0
+input-focus.bg=primary:1
+input-select.bg=secondary:1
+input.bg=gray:3
+invalid.bg=red:1
+key-binding.bg=secondary:1
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=black:1
+month-header.fg=none:0
+popup-arrow.fg=primary:1
+popup-base.bg=gray:3
+popup-border.fg=primary:1
+select.bg=secondary:1
+shadow.bg=black:0
+status-base.bg=black:1
+title.bg=red:0
+title.fg=text-light:0
+week-header.fg=gray:3

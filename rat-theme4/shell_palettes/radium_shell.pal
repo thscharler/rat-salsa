@@ -1,0 +1,66 @@
+[theme]
+name=Radium Shell
+theme=Shell
+
+[palette]
+name=Radium
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#D4D4D5, #FFFFFF
+text-dark=#101317, #191D22
+primary=#2BA578, #37D99E
+secondary=#866696, #B68ACB
+white=#C4C4C5, #AAAAAA
+black=#101317, #191D22
+gray=#3E4145, #525559
+red=#F87070, #F87070
+orange=#F0A988, #F0A988
+yellow=#FFE59E, #FFE59E
+lime-green=#79DCAA, #79DCAA
+green=#37D99E, #37D99E
+blue-green=#63B3AD, #63B3AD
+cyan=#50CAD2, #50CAD2
+blue=#7AB0DF, #7AB0DF
+deep-blue=#87BDEC, #87BDEC
+purple=#B68ACB, #B284C9
+magenta=#FFA7A7, #FFB7B7
+red-pink=#FF8E8E, #FF8E8E
+
+[reference]
+button-base.bg=white:3
+container-arrow.fg=white:3
+container-base.bg=none:0
+container-border.fg=white:3
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:0
+document-arrow.fg=white:3
+document-base.bg=black:0
+document-border.fg=white:3
+focus.bg=primary:3
+footer.bg=none:0
+footer.fg=lime-green:0
+header.bg=none:0
+header.fg=lime-green:0
+hover.bg=green:3
+input-focus.bg=primary:3
+input-select.bg=secondary:3
+input.bg=gray:1
+invalid.bg=red:0
+key-binding.bg=secondary:3
+label.fg=text-light:0
+md+hidden=white:0
+menu-base.bg=black:1
+month-header.fg=none:0
+popup-arrow.fg=primary:3
+popup-base.bg=gray:2
+popup-border.fg=primary:3
+select.bg=secondary:3
+shadow.bg=black:0
+status-base.bg=black:1
+title.bg=secondary:0
+title.fg=text-light:0
+week-header.fg=blue-green:0

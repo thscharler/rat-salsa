@@ -1,7 +1,11 @@
+[theme]
+name=Tundra
+theme=Dark
+
 [palette]
 name=Tundra
-docs=An adaption of nvchad's tundra theme.\n-- Thanks to original theme for existing <https://github.com/sam4llis/nvim-tundra>\n
-dark=63
+docs=
+generator=light-dark:64
 
 [color]
 text-light=#E6EAF2, #FFFFFF

@@ -1,7 +1,11 @@
+[theme]
+name=Solarized
+theme=Dark
+
 [palette]
 name=Solarized
-docs=credit https://github.com/altercation/solarized/tree/master/vim-colors-solarized
-dark=63
+docs=
+generator=light-dark:64
 
 [color]
 text-light=#EEE8D5, #FDF6E3

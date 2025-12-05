@@ -1,12 +1,15 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 /// Solarized
-/// credit https://github.com/altercation/solarized/tree/master/vim-colors-solarized
-const DARKNESS: u8 = 63;
+const DARKNESS: u8 = 64;
 
 pub const SOLARIZED: Palette = Palette {
-    name: Cow::Borrowed("Solarized"),
+    theme_name: Cow::Borrowed("Solarized"), 
+    theme: Cow::Borrowed("Dark"), 
+    name: Cow::Borrowed("Solarized"), 
+    doc: Cow::Borrowed(""), 
+    generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
         Palette::interpolate2(0xeee8d5, 0xfdf6e3, 0x0, 0x0),
@@ -54,6 +57,7 @@ pub const SOLARIZED: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 0),
         define_alias("key-binding.bg", Colors::Gray, 0),
         define_alias("label.fg", Colors::TextLight, 0),
+        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 2),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::None, 0),
@@ -67,3 +71,4 @@ pub const SOLARIZED: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
+

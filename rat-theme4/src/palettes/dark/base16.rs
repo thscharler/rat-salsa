@@ -2,10 +2,14 @@ use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
 
 /// Base16
-const DARKNESS: u8 = 63;
+const DARKNESS: u8 = 64;
 
 pub const BASE16: Palette = Palette {
+    theme_name: Cow::Borrowed("Base16"), 
+    theme: Cow::Borrowed("Dark"), 
     name: Cow::Borrowed("Base16"), 
+    doc: Cow::Borrowed(""), 
+    generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
         Palette::interpolate2(0xaaaaaa, 0xffffff, 0x0, 0x0),
@@ -53,6 +57,7 @@ pub const BASE16: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 0),
         define_alias("key-binding.bg", Colors::Orange, 0),
         define_alias("label.fg", Colors::White, 0),
+        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 0),
         define_alias("month-header.fg", Colors::Gray, 0),
         define_alias("popup-arrow.fg", Colors::None, 0),

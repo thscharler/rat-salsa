@@ -1,0 +1,66 @@
+[theme]
+name=Rust Shell
+theme=Shell
+
+[palette]
+name=Rust
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#D1CCC8, #EFE6E6
+text-dark=#161514, #0F0E0D
+primary=#75311A, #D25A32
+secondary=#77551D, #CD9537
+white=#C4BFBB, #EDE3E3
+black=#101011, #464251
+gray=#726E6B, #A39D99
+red=#75311A, #D25A32
+orange=#75431A, #D27A32
+yellow=#77551D, #CD9537
+lime-green=#44664D, #699B76
+green=#44664D, #699B76
+blue-green=#1A7574, #32D2D1
+cyan=#1A7574, #32D2D1
+blue=#005D94, #38B6FF
+deep-blue=#005D94, #38B6FF
+purple=#722234, #C63F5D
+magenta=#7B1964, #C62FA3
+red-pink=#7B1964, #D332AD
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:0
+container-base.bg=none:0
+container-border.fg=gray:0
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:3
+document-arrow.fg=gray:0
+document-base.bg=black:0
+document-border.fg=gray:0
+focus.bg=primary:1
+footer.bg=none:0
+footer.fg=blue:1
+header.bg=none:0
+header.fg=blue:1
+hover.bg=blue:0
+input-focus.bg=primary:1
+input-select.bg=secondary:1
+input.bg=gray:3
+invalid.bg=purple:1
+key-binding.bg=secondary:1
+label.fg=white:2
+md+hidden=none:0
+menu-base.bg=black:0
+month-header.fg=none:0
+popup-arrow.fg=primary:1
+popup-base.bg=white:0
+popup-border.fg=primary:1
+select.bg=secondary:1
+shadow.bg=text-dark:0
+status-base.bg=black:0
+title.bg=primary:1
+title.fg=text-light:0
+week-header.fg=gray:1

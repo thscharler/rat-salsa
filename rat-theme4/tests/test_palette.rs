@@ -1,12 +1,16 @@
-use rat_theme4::RatWidgetColor;
 use rat_theme4::palette::{Colors, Palette, define_alias, define_rt_alias};
+use rat_theme4::{RatWidgetColor, create_salsa_palette, salsa_themes};
 use ratatui::style::Color;
 use std::borrow::Cow;
 
 #[test]
 fn test_static() {
     static PAL0: Palette = Palette {
+        theme_name: Cow::Borrowed("Shell"),
+        theme: Cow::Borrowed("Shell"),
         name: Cow::Borrowed("Shell"),
+        doc: Cow::Borrowed(""),
+        generator: Cow::Borrowed(""),
         color: [
             [
                 Color::Gray,
@@ -134,7 +138,11 @@ fn test_runtime() {
     // let aliased = aliased.into_boxed_slice();
 
     let pal_0 = Palette {
+        theme_name: Cow::Borrowed("Shell"),
+        theme: Cow::Borrowed("Shell"),
         name: Cow::Borrowed("Shell"),
+        doc: Cow::Borrowed(""),
+        generator: Cow::Borrowed(""),
         color: [
             [
                 Color::Gray,
@@ -187,4 +195,15 @@ fn test_runtime() {
     };
 
     _ = pal_0;
+}
+
+#[test]
+fn test_palettes() {
+    for pal in salsa_themes() {
+        if let Some(p) = create_salsa_palette(pal) {
+            assert_eq!(pal, p.theme_name);
+        } else {
+            panic!()
+        }
+    }
 }

@@ -35,8 +35,8 @@ use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
 /// A dark theme.
-pub fn create_dark(name: &str, p: Palette) -> SalsaTheme {
-    let mut th = SalsaTheme::new(name, "Dark", p);
+pub fn create_dark(p: Palette) -> SalsaTheme {
+    let mut th = SalsaTheme::new(p);
 
     th.define_style(Style::LABEL_FG, th.p.fg_style_alias(Color::LABEL_FG));
     th.define_style(Style::INPUT, th.p.style_alias(Color::INPUT_BG));

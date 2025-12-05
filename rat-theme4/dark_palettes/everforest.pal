@@ -1,7 +1,11 @@
+[theme]
+name=EverForest
+theme=Dark
+
 [palette]
 name=EverForest
 docs=
-dark=63
+generator=light-dark:64
 
 [color]
 text-light=#D8D4CB, #FCF8EF

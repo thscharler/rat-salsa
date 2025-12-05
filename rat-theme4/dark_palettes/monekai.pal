@@ -1,7 +1,11 @@
+[theme]
+name=Monekai
+theme=Dark
+
 [palette]
 name=Monekai
 docs=
-dark=128
+generator=light-dark:64
 
 [color]
 text-light=#F5F4F1, #FFFEFC

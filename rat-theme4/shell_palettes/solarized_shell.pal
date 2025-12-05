@@ -1,0 +1,66 @@
+[theme]
+name=Solarized Shell
+theme=Shell
+
+[palette]
+name=Solarized
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#EEE8D5, #FDF6E3
+text-dark=#002B36, #073642
+primary=#CB4B16, #CB4B16
+secondary=#586E75, #839496
+white=#EEE8D5, #FDF6E3
+black=#002B36, #073642
+gray=#586E75, #839496
+red=#DC322F, #DC322F
+orange=#CB4B16, #CB4B16
+yellow=#B58900, #B58900
+lime-green=#859900, #859900
+green=#859900, #859900
+blue-green=#2AA198, #2AA198
+cyan=#2AA198, #2AA198
+blue=#268BD2, #268BD2
+deep-blue=#268BD2, #268BD2
+purple=#6C71C4, #6C71C4
+magenta=#D33682, #D33682
+red-pink=#D33682, #D33C82
+
+[reference]
+button-base.bg=secondary:3
+container-arrow.fg=gray:0
+container-base.bg=none:0
+container-border.fg=gray:0
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:0
+document-arrow.fg=gray:0
+document-base.bg=black:0
+document-border.fg=gray:0
+focus.bg=primary:1
+footer.bg=none:0
+footer.fg=cyan:0
+header.bg=none:0
+header.fg=cyan:0
+hover.bg=primary:0
+input-focus.bg=primary:1
+input-select.bg=secondary:0
+input.bg=gray:3
+invalid.bg=red:0
+key-binding.bg=gray:0
+label.fg=text-light:0
+md+hidden=none:0
+menu-base.bg=black:2
+month-header.fg=none:0
+popup-arrow.fg=primary:1
+popup-base.bg=gray:3
+popup-border.fg=primary:1
+select.bg=gray:0
+shadow.bg=black:0
+status-base.bg=black:2
+title.bg=cyan:0
+title.fg=text-dark:0
+week-header.fg=gray:3

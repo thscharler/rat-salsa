@@ -1,0 +1,66 @@
+[theme]
+name=Base16 Shell
+theme=Shell
+
+[palette]
+name=Base16
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#AAAAAA, #FFFFFF
+text-dark=#000000, #555555
+primary=#00AAAA, #00AAAA
+secondary=#00AA00, #00AA00
+white=#AAAAAA, #FFFFFF
+black=#000000, #555555
+gray=#555555, #AAAAAA
+red=#AA0000, #AA0000
+orange=#AA5500, #AA5500
+yellow=#FFFF55, #FFFF55
+lime-green=#55FF55, #55FF55
+green=#00AA00, #00AA00
+blue-green=#55FFFF, #55FFFF
+cyan=#00AAAA, #00AAAA
+blue=#5555FF, #5555FF
+deep-blue=#0000AF, #0000AF
+purple=#AA00AA, #AA00AA
+magenta=#FF55FF, #FF55FF
+red-pink=#FF5555, #FF5A55
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:3
+container-base.bg=none:0
+container-border.fg=gray:3
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:3
+document-arrow.fg=gray:3
+document-base.bg=black:0
+document-border.fg=gray:3
+focus.bg=primary:0
+footer.bg=none:0
+footer.fg=cyan:0
+header.bg=none:0
+header.fg=cyan:0
+hover.bg=secondary:0
+input-focus.bg=primary:0
+input-select.bg=secondary:0
+input.bg=gray:3
+invalid.bg=red:0
+key-binding.bg=cyan:0
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=black:0
+month-header.fg=gray:3
+popup-arrow.fg=primary:0
+popup-base.bg=white:0
+popup-border.fg=primary:0
+select.bg=secondary:0
+shadow.bg=black:0
+status-base.bg=black:0
+title.bg=red:0
+title.fg=text-light:0
+week-header.fg=gray:3

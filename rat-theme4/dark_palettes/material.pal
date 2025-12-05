@@ -1,7 +1,11 @@
+[theme]
+name=Material
+theme=Dark
+
 [palette]
 name=Material
-docs=Credits to original theme https://github.com/marko-cerovac/material.nvim for existing\n-
-dark=63
+docs=
+generator=light-dark:64
 
 [color]
 text-light=#EEFFFF, #EEFFFF

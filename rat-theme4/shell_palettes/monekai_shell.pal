@@ -1,0 +1,66 @@
+[theme]
+name=Monekai Shell
+theme=Shell
+
+[palette]
+name=Monekai
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#F5F4F1, #FFFEFC
+text-dark=#272822, #464741
+primary=#A81C4F, #F92672
+secondary=#5C7289, #81A1C1
+white=#F5F4F1, #F5F4F1
+black=#22231D, #2F302A
+gray=#4D4E48, #64655F
+red=#E36D76, #E36D76
+orange=#D39467, #D39467
+yellow=#E6C181, #E6C181
+lime-green=#96C367, #96C367
+green=#96C367, #96C367
+blue-green=#34BFD0, #34BFD0
+cyan=#41AFEF, #41AFEF
+blue=#51AFEF, #51AFEF
+deep-blue=#81A1C1, #81A1C1
+purple=#AE81FF, #AE81FF
+magenta=#F92672, #F72270
+red-pink=#F98385, #F98381
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:2
+container-base.bg=none:0
+container-border.fg=gray:2
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:0
+document-arrow.fg=none:0
+document-base.bg=black:0
+document-border.fg=none:0
+focus.bg=primary:0
+footer.bg=none:0
+footer.fg=deep-blue:0
+header.bg=none:0
+header.fg=deep-blue:0
+hover.bg=purple:0
+input-focus.bg=primary:1
+input-select.bg=secondary:3
+input.bg=gray:0
+invalid.bg=red-pink:0
+key-binding.bg=secondary:3
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=black:1
+month-header.fg=none:0
+popup-arrow.fg=primary:1
+popup-base.bg=gray:1
+popup-border.fg=primary:1
+select.bg=secondary:3
+shadow.bg=black:0
+status-base.bg=black:1
+title.bg=magenta:4
+title.fg=text-light:0
+week-header.fg=gray:3

@@ -1,7 +1,11 @@
+[theme]
+name=Base16
+theme=Dark
+
 [palette]
 name=Base16
 docs=
-dark=63
+generator=light-dark:64
 
 [color]
 text-light=#AAAAAA, #FFFFFF

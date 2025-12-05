@@ -1,7 +1,11 @@
+[theme]
+name=Ocean
+theme=Dark
+
 [palette]
 name=Ocean
-docs=My take on an ocean theme.
-dark=85
+docs=
+generator=light-dark:64
 
 [color]
 text-light=#E5E5DD, #F2F2EE

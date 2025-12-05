@@ -1,0 +1,66 @@
+[theme]
+name=Material Shell
+theme=Shell
+
+[palette]
+name=Material
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#EEFFFF, #EEFFFF
+text-dark=#191919, #191919
+primary=#CCA055, #FFCB6B
+secondary=#96B26C, #C3E88D
+white=#EEFFFF, #EEFFFF
+black=#191919, #292929
+gray=#4A4A4A, #6B6B6B
+red=#F07178, #F07178
+orange=#F78C6C, #F78C6C
+yellow=#FFCB6B, #FFCB6B
+lime-green=#C3E88D, #C3E88D
+green=#C3E88D, #C3E88D
+blue-green=#ABCF76, #ABCF76
+cyan=#89DDFF, #89DDFF
+blue=#82AAFF, #82AAFF
+deep-blue=#6E98EB, #6E98EB
+purple=#B480D6, #B480D6
+magenta=#DA70CA, #DA70CA
+red-pink=#FFADFF, #FFADFF
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:1
+container-base.bg=none:0
+container-border.fg=gray:1
+dialog-arrow.fg=white:0
+dialog-base.bg=magenta:7
+dialog-border.fg=white:0
+disabled.bg=gray:3
+document-arrow.fg=gray:1
+document-base.bg=black:0
+document-border.fg=gray:1
+focus.bg=primary:1
+footer.bg=none:0
+footer.fg=blue:0
+header.bg=none:0
+header.fg=blue:0
+hover.bg=gray:2
+input-focus.bg=primary:1
+input-select.bg=secondary:1
+input.bg=gray:2
+invalid.bg=red:1
+key-binding.bg=secondary:0
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=black:0
+month-header.fg=none:0
+popup-arrow.fg=primary:0
+popup-base.bg=gray:0
+popup-border.fg=primary:0
+select.bg=secondary:1
+shadow.bg=black:0
+status-base.bg=black:0
+title.bg=secondary:0
+title.fg=text-dark:0
+week-header.fg=gray:3

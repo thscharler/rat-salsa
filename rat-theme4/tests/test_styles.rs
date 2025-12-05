@@ -1,9 +1,6 @@
-use log::debug;
-use rat_theme4::RatWidgetColor;
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{
-    StyleName, WidgetStyle, create_palette, create_theme, salsa_palettes, salsa_themes,
-};
+use rat_theme4::{RatWidgetColor, create_salsa_theme};
+use rat_theme4::{StyleName, WidgetStyle, create_salsa_palette, salsa_themes};
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
@@ -34,12 +31,12 @@ use std::io::Write;
 
 #[test]
 fn test_palette() {
-    let palettes = salsa_palettes();
+    let palettes = salsa_themes();
     for pal in palettes {
         eprintln!();
         eprintln!("PALETTE {:?}", pal);
         eprintln!();
-        let pal = create_palette(pal).expect("pal");
+        let pal = create_salsa_palette(pal).expect("pal");
 
         if !pal.aliased.iter().is_sorted() {
             dbg!(&pal.aliased);
@@ -105,14 +102,14 @@ fn test_styles() {
         eprintln!("THEME {:?}", theme);
         eprintln!();
         _ = std::io::stderr().flush();
-        let th = create_theme(theme);
+        let th = create_salsa_theme(theme);
         verify_theme(&th);
     }
 }
 
 #[test]
 fn test_fallback() {
-    let th = create_theme("Fallback");
+    let th = create_salsa_theme("Fallback");
     verify_theme(&th);
 }
 

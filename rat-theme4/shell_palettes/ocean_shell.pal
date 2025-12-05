@@ -1,0 +1,66 @@
+[theme]
+name=Ocean Shell
+theme=Shell
+
+[palette]
+name=Ocean
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#E5E5DD, #F2F2EE
+text-dark=#030305, #0C092C
+primary=#EA7F38, #FFBF3C
+secondary=#2B4779, #6688CC
+white=#E5E5DD, #F2F2EE
+black=#181828, #25233A
+gray=#4F6167, #BCC7CC
+red=#FF5E7F, #FF9276
+orange=#FF9F5B, #FFDC94
+yellow=#FFDA5D, #FFF675
+lime-green=#7D8447, #E1E5B9
+green=#658362, #99C794
+blue-green=#3A615C, #5B9C90
+cyan=#24ADBC, #B8DADE
+blue=#4F86CA, #BFDCFF
+deep-blue=#2B4779, #6688CC
+purple=#5068D7, #C7C4FF
+magenta=#7952D6, #C9BDE4
+red-pink=#9752D6, #CEBDE7
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:1
+container-base.bg=none:0
+container-border.fg=gray:1
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:3
+document-arrow.fg=gray:1
+document-base.bg=black:0
+document-border.fg=gray:1
+focus.bg=primary:1
+footer.bg=none:0
+footer.fg=blue:0
+header.bg=none:0
+header.fg=blue:0
+hover.bg=primary:2
+input-focus.bg=primary:1
+input-select.bg=secondary:1
+input.bg=gray:3
+invalid.bg=red:0
+key-binding.bg=secondary:1
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=black:1
+month-header.fg=none:0
+popup-arrow.fg=primary:1
+popup-base.bg=gray:2
+popup-border.fg=primary:1
+select.bg=secondary:1
+shadow.bg=black:3
+status-base.bg=black:1
+title.bg=blue-green:0
+title.fg=text-light:1
+week-header.fg=gray:2

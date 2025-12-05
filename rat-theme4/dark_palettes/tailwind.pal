@@ -1,7 +1,11 @@
+[theme]
+name=Tailwind
+theme=Dark
+
 [palette]
 name=Tailwind
 docs=
-dark=92
+generator=light-dark:64
 
 [color]
 text-light=#CCC9C7, #EAEAFF

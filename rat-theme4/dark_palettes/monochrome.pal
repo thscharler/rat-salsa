@@ -1,7 +1,11 @@
+[theme]
+name=Monochrome
+theme=Dark
+
 [palette]
 name=Monochrome
 docs=
-dark=63
+generator=light-dark:64
 
 [color]
 text-light=#C0C5CE, #D8DEE9

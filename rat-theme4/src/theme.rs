@@ -43,22 +43,6 @@ use std::any::{Any, type_name};
 use std::collections::{HashMap, hash_map};
 use std::fmt::{Debug, Formatter};
 
-// /// Categorization of themes.
-// /// Helpful when extending an existing theme.
-// #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-// #[non_exhaustive]
-// pub enum Category {
-//     #[default]
-//     Other,
-//     /// Dark theme.
-//     Dark,
-//     /// Light theme.
-//     Light,
-//     /// Shell theme. Themes of this category rely on background colors sparingly
-//     /// and use any default the terminal itself provides.
-//     Shell,
-// }
-
 trait StyleValue: Any + Debug {}
 impl<T> StyleValue for T where T: Any + Debug {}
 
@@ -83,7 +67,7 @@ pub struct SalsaTheme {
 
 impl Default for SalsaTheme {
     fn default() -> Self {
-        create_fallback("Fallback", Palette::default())
+        create_fallback(Palette::default())
     }
 }
 
@@ -100,11 +84,11 @@ impl Debug for SalsaTheme {
 }
 
 impl SalsaTheme {
-    /// Create an empty theme with a given color palette.
-    pub fn new(name: impl Into<String>, theme: impl Into<String>, p: Palette) -> Self {
+    /// Create an empty theme with the given color palette.
+    pub fn new(p: Palette) -> Self {
         Self {
-            name: name.into(),
-            theme: theme.into(),
+            name: p.theme_name.as_ref().into(),
+            theme: p.theme.as_ref().into(),
             p,
             styles: Default::default(),
             modify: Default::default(),

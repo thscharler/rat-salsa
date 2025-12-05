@@ -30,8 +30,10 @@ use rat_widget::view::ViewStyle;
 use ratatui::style::{Color, Style};
 
 /// A theme to test the fallback-styles of each widget.
-pub fn create_fallback(name: &str, p: Palette) -> SalsaTheme {
-    let mut th = SalsaTheme::new(name, "Fallback", p);
+pub fn create_fallback(p: Palette) -> SalsaTheme {
+    let mut th = SalsaTheme::new(p);
+    th.name = "Fallback".to_string();
+    th.theme = "Fallback".to_string();
 
     th.p.add_aliased(Color::LABEL_FG, ColorIdx::default());
     th.p.add_aliased(Color::INPUT_BG, ColorIdx::default());

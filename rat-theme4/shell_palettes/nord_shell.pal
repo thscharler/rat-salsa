@@ -1,0 +1,66 @@
+[theme]
+name=Nord Shell
+theme=Shell
+
+[palette]
+name=Nord
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#E5E9F0, #E5E9F0
+text-dark=#2E3440, #2E3440
+primary=#D8DEE9, #D8DEE9
+secondary=#9AB3D3, #9AB3D3
+white=#D8DEE9, #D8DEE9
+black=#1B1F26, #2E3440
+gray=#434C5E, #66748E
+red=#BF616A, #BF616A
+orange=#D08770, #D08770
+yellow=#EADBBE, #EADBBE
+lime-green=#A3BE8C, #A3BE8C
+green=#8FBCBB, #8FBCBB
+blue-green=#88C0D0, #88C0D0
+cyan=#88C0D0, #88C0D0
+blue=#81A1C1, #81A1C1
+deep-blue=#5E81AC, #5E81AC
+purple=#B48EAD, #B48EAD
+magenta=#BF616A, #BF616A
+red-pink=#BF616A, #BF616A
+
+[reference]
+button-base.bg=gray:1
+container-arrow.fg=gray:1
+container-base.bg=none:0
+container-border.fg=gray:1
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:0
+document-arrow.fg=gray:1
+document-base.bg=black:0
+document-border.fg=gray:1
+focus.bg=primary:0
+footer.bg=none:0
+footer.fg=blue:0
+header.bg=none:0
+header.fg=blue:0
+hover.bg=primary:0
+input-focus.bg=primary:0
+input-select.bg=secondary:0
+input.bg=gray:2
+invalid.bg=red:1
+key-binding.bg=secondary:0
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=gray:0
+month-header.fg=none:0
+popup-arrow.fg=primary:0
+popup-base.bg=blue:0
+popup-border.fg=primary:0
+select.bg=secondary:0
+shadow.bg=text-dark:0
+status-base.bg=gray:0
+title.bg=red:0
+title.fg=text-light:0
+week-header.fg=yellow:0

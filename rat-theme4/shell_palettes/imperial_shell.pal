@@ -1,0 +1,66 @@
+[theme]
+name=Imperial Shell
+theme=Shell
+
+[palette]
+name=Imperial
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#DEDFE3, #F6F6F3
+text-dark=#0F1014, #2A2B37
+primary=#3D0070, #8900F9
+secondary=#5B5E77, #8388AD
+white=#DEDFE3, #F6F6F3
+black=#0F1014, #2A2B37
+gray=#3B3D4E, #6E7291
+red=#601414, #D22D2D
+orange=#5E3913, #D3802C
+yellow=#756600, #D6B900
+lime-green=#3C5E17, #80CE31
+green=#186218, #32C932
+blue-green=#1B5944, #3ABC93
+cyan=#1B5184, #2BCECE
+blue=#234668, #2B81D4
+deep-blue=#202083, #3232CC
+purple=#4B0089, #8C00FD
+magenta=#4F1B4F, #BD44BD
+red-pink=#47101D, #C3425B
+
+[reference]
+button-base.bg=gray:2
+container-arrow.fg=gray:2
+container-base.bg=none:0
+container-border.fg=gray:2
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=gray:3
+document-arrow.fg=gray:2
+document-base.bg=black:0
+document-border.fg=gray:2
+focus.bg=primary:1
+footer.bg=none:0
+footer.fg=yellow:2
+header.bg=none:0
+header.fg=yellow:2
+hover.bg=gray:1
+input-focus.bg=primary:1
+input-select.bg=secondary:1
+input.bg=gray:2
+invalid.bg=red:1
+key-binding.bg=yellow:0
+label.fg=white:0
+md+hidden=none:0
+menu-base.bg=black:1
+month-header.fg=white:0
+popup-arrow.fg=primary:1
+popup-base.bg=gray:1
+popup-border.fg=primary:1
+select.bg=secondary:1
+shadow.bg=text-dark:0
+status-base.bg=black:1
+title.bg=yellow:0
+title.fg=text-light:3
+week-header.fg=gray:3

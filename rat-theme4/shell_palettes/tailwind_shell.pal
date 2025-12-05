@@ -1,0 +1,66 @@
+[theme]
+name=Tailwind Shell
+theme=Shell
+
+[palette]
+name=Tailwind
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#CCC9C7, #EAEAFF
+text-dark=#202021, #1C1C1C
+primary=#FFB86A, #A07343
+secondary=#CAD5E2, #62748E
+white=#C2C2D3, #FFFBF9
+black=#252526, #111111
+gray=#D6D3D1, #79716B
+red=#FFA2A2, #FB2C36
+orange=#FFB86A, #FF6900
+yellow=#FFDF20, #F0B100
+lime-green=#BBF451, #7CCF00
+green=#7BF1A8, #00C950
+blue-green=#5EE9B5, #00BBA7
+cyan=#46ECD5, #00B8DB
+blue=#74D4FF, #2B7FFF
+deep-blue=#8EC5FF, #615FFF
+purple=#C4B4FF, #8E51FF
+magenta=#F4A8FF, #E12AFB
+red-pink=#FDA5D5, #FF2056
+
+[reference]
+button-base.bg=secondary:1
+container-arrow.fg=gray:3
+container-base.bg=none:0
+container-border.fg=gray:3
+dialog-arrow.fg=white:0
+dialog-base.bg=none:0
+dialog-border.fg=white:0
+disabled.bg=secondary:3
+document-arrow.fg=gray:3
+document-base.bg=black:0
+document-border.fg=gray:3
+focus.bg=primary:0
+footer.bg=none:0
+footer.fg=primary:1
+header.bg=none:0
+header.fg=primary:1
+hover.bg=secondary:3
+input-focus.bg=primary:0
+input-select.bg=primary:2
+input.bg=secondary:1
+invalid.bg=red:1
+key-binding.bg=primary:2
+label.fg=text-light:0
+md+hidden=none:0
+menu-base.bg=secondary:6
+month-header.fg=secondary:2
+popup-arrow.fg=primary:0
+popup-base.bg=secondary:6
+popup-border.fg=primary:0
+select.bg=primary:2
+shadow.bg=black:0
+status-base.bg=secondary:6
+title.bg=secondary:0
+title.fg=text-dark:0
+week-header.fg=secondary:2
