@@ -164,8 +164,8 @@ impl<'a> Combobox<'a> {
     }
 
     /// Add an item.
-    pub fn item(mut self, value: String, item: impl Into<Line<'a>>) -> Self {
-        self.choice = self.choice.item(value, item);
+    pub fn item(mut self, value: impl Into<String>, item: impl Into<Line<'a>>) -> Self {
+        self.choice = self.choice.item(value.into(), item);
         self
     }
 
