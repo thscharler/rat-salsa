@@ -14,7 +14,7 @@ use rat_salsa::poll::{PollCrossterm, PollEvents};
 use rat_salsa::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{WidgetStyle, create_theme};
+use rat_theme4::{WidgetStyle, create_salsa_theme};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -35,7 +35,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = LifeConfig::default();
-    let theme = create_theme("Imperial Dark");
+    let theme = create_salsa_theme("Imperial Dark");
     let mut global = GlobalState::new(config, theme);
 
     let mut state = Scenery::new();

@@ -7,7 +7,7 @@ use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{StyleName, WidgetStyle, create_theme};
+use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::ButtonOutcome;
 use rat_widget::layout::simple_grid;
@@ -26,7 +26,7 @@ use ratatui::widgets::{Block, BorderType, ListItem, StatefulWidget, Widget};
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let theme = create_theme("Imperial Dark");
+    let theme = create_salsa_theme("Imperial Dark");
     let mut global = Global::new(theme);
     let mut state = Todos::default();
 

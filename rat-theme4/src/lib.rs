@@ -27,7 +27,7 @@
 //! # use ratatui::widgets::StatefulWidget;
 //! # use rat_theme4::theme::{SalsaTheme};
 //! # use rat_theme4::{StyleName, WidgetStyle};
-//! # use rat_theme4::palettes::dark::BLACKOUT;
+//! # use rat_theme4::palettes::core::BLACKOUT;
 //! # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
 //! # let theme = SalsaTheme::default();
 //! # let area = Rect::default();
@@ -106,7 +106,7 @@ pub mod themes {
 /// # use ratatui::style::Style;
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::{ StyleName, WidgetStyle};
-/// # use rat_theme4::palettes::dark::BLACKOUT;
+/// # use rat_theme4::palettes::core::BLACKOUT;
 /// # use rat_widget::checkbox::CheckboxStyle;
 /// # let theme = SalsaTheme::default();
 ///
@@ -120,7 +120,7 @@ pub mod themes {
 /// # use ratatui::widgets::StatefulWidget;
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::{ StyleName, WidgetStyle};
-/// # use rat_theme4::palettes::dark::BLACKOUT;
+/// # use rat_theme4::palettes::core::BLACKOUT;
 /// # use rat_widget::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
 /// # let theme = SalsaTheme::default();
 /// # let area = Rect::default();
@@ -176,7 +176,7 @@ impl WidgetStyle {
 /// # use ratatui::style::Style;
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::{ StyleName, WidgetStyle};
-/// # use rat_theme4::palettes::dark::BLACKOUT;
+/// # use rat_theme4::palettes::core::BLACKOUT;
 /// # let theme = SalsaTheme::default();
 ///
 /// let s: Style = theme.style(Style::INPUT);

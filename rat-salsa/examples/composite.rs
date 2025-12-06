@@ -6,7 +6,7 @@ use rat_focus::impl_has_focus;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{WidgetStyle, create_theme};
+use rat_theme4::{WidgetStyle, create_salsa_theme};
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::{ButtonOutcome, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
@@ -16,7 +16,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget};
 
 fn main() -> Result<(), Error> {
-    let theme = create_theme("Monochrome Dark");
+    let theme = create_salsa_theme("Monochrome Dark");
     let mut global = Global::new(theme);
 
     let mut state = BasicText::default();

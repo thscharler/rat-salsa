@@ -7,7 +7,7 @@ use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{WidgetStyle, create_theme};
+use rat_theme4::{WidgetStyle, create_salsa_theme};
 use rat_widget::event::{Dialog, HandleEvent, MenuOutcome, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
@@ -24,7 +24,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_theme("Imperial Shell");
+    let theme = create_salsa_theme("Imperial Shell");
     let mut global = Global::new(config, theme);
     let mut state = Minimal::default();
 

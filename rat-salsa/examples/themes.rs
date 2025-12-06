@@ -9,7 +9,7 @@ use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{WidgetStyle, create_theme};
+use rat_theme4::{WidgetStyle, create_salsa_theme};
 use rat_widget::event::{Dialog, HandleEvent, ct_event, try_flow};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -25,7 +25,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_theme("Imperial Dark");
+    let theme = create_salsa_theme("Imperial Dark");
     let mut global = GlobalState::new(config, theme);
     let mut state = Scenery::default();
 
@@ -214,7 +214,7 @@ pub mod themes {
     use anyhow::Error;
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_salsa::Control;
-    use rat_theme4::{WidgetStyle, create_theme, salsa_themes};
+    use rat_theme4::{WidgetStyle, create_salsa_theme, salsa_themes};
     use rat_widget::checkbox::{Checkbox, CheckboxState};
     use rat_widget::event::{HandleEvent, MenuOutcome, Popup, Regular, TableOutcome, try_flow};
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
@@ -402,7 +402,7 @@ pub mod themes {
                 TableOutcome::Selected => {
                     if let Some(idx) = state.themes.selected_checked() {
                         let theme = salsa_themes()[idx];
-                        ctx.theme = create_theme(theme);
+                        ctx.theme = create_salsa_theme(theme);
                     }
                     Control::Changed
                 }

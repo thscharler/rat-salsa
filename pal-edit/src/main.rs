@@ -23,7 +23,9 @@ use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palette::{ColorIdx, Colors};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::themes::create_fallback;
-use rat_theme4::{RatWidgetColor, StyleName, WidgetStyle, create_palette_theme, create_theme};
+use rat_theme4::{
+    RatWidgetColor, StyleName, WidgetStyle, create_palette_theme, create_salsa_theme,
+};
 use rat_widget::event::{
     FileOutcome, HandleEvent, MenuOutcome, Outcome, Popup, Regular, SliderOutcome, ct_event,
     event_flow,
@@ -42,7 +44,6 @@ use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::env::args;
 use std::fs::{File, create_dir_all};
 use std::io::Write;
@@ -61,7 +62,7 @@ fn main() -> Result<(), Error> {
     set_global_clipboard(CliClipboard::default());
 
     let config = Config::load(arg.0, arg.1)?;
-    let theme = create_theme("Shell");
+    let theme = create_salsa_theme("Shell");
     let mut global = Global::new(config, theme);
     let mut state = Scenery::new(&global.cfg);
 

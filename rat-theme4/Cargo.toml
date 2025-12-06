@@ -12,7 +12,7 @@ categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
 [features]
-default = ["serde"]
+default = []
 color_input = ["rat-widget/color_input"]
 serde = ["dep:serde", "ratatui/serde"]
 

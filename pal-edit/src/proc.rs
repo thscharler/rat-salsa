@@ -388,7 +388,7 @@ pub fn load_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<()
     Ok(())
 }
 
-pub fn save_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
+pub fn save_pal(path: &Path, state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
     state.file_path = Some(path.into());
 
     let mut fmt = 0;

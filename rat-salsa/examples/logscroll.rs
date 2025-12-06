@@ -8,7 +8,7 @@ use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{StyleName, WidgetStyle, create_theme};
+use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::layout_middle;
@@ -89,7 +89,7 @@ pub struct LogScrollConfig {
 }
 
 fn config_theme(config: &LogScrollConfig) -> SalsaTheme {
-    create_theme(&config.theme)
+    create_salsa_theme(&config.theme)
 }
 
 fn load_config() -> Result<LogScrollConfig, Error> {
@@ -370,7 +370,7 @@ mod logscroll {
     use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{Control, SalsaContext};
     use rat_theme4::theme::SalsaTheme;
-    use rat_theme4::{StyleName, WidgetStyle, create_theme, salsa_themes};
+    use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
     use rat_widget::event::{
         HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome, ct_event, try_flow,
     };
@@ -927,7 +927,7 @@ mod logscroll {
                             .position(|v| *v == ctx.theme.name())
                             .unwrap_or(0);
                         let pos = (pos + 1) % themes.len();
-                        ctx.theme = create_theme(&themes[pos]);
+                        ctx.theme = create_salsa_theme(&themes[pos]);
                         ctx.cfg.theme = themes[pos].to_string();
                         ctx.queue_event(LogScrollEvent::StoreCfg);
                         ctx.queue_event(LogScrollEvent::Status(0, ctx.theme.name().into()));

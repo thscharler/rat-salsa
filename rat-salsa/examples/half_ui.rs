@@ -10,7 +10,7 @@ use rat_salsa::terminal::{CrosstermTerminal, SalsaOptions};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{StyleName, WidgetStyle, create_theme};
+use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, MenuOutcome, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
@@ -31,7 +31,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_theme("Imperial Dark");
+    let theme = create_salsa_theme("Imperial Dark");
     let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 

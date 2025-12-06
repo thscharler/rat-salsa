@@ -6,6 +6,7 @@ use serde::ser::SerializeStruct;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
+#[cfg(feature = "serde")]
 use std::fmt::Formatter;
 
 /// Color palette.

@@ -35,6 +35,7 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::ser::SerializeStruct;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(feature = "serde")]
 use std::fmt::Formatter;
 use std::time::Duration;
 

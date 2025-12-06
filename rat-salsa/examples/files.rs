@@ -9,7 +9,7 @@ use rat_salsa::tasks::Cancel;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{StyleName, WidgetStyle, create_theme, salsa_themes};
+use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
 use rat_widget::event::{
     Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup, ReadOnly, Regular,
     TableOutcome, ct_event, try_flow,
@@ -44,7 +44,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = FilesConfig::default();
-    let theme = create_theme("Imperial Dark");
+    let theme = create_salsa_theme("Imperial Dark");
     let mut global = GlobalState::new(config, theme);
     let mut state = Files::default();
 
@@ -555,12 +555,12 @@ fn crossterm(
         }
         MenuOutcome::MenuSelected(1, n) => {
             let theme = salsa_themes()[n];
-            ctx.theme = create_theme(theme);
+            ctx.theme = create_salsa_theme(theme);
             Control::Changed
         }
         MenuOutcome::MenuActivated(1, n) => {
             let theme = salsa_themes()[n];
-            ctx.theme = create_theme(theme);
+            ctx.theme = create_salsa_theme(theme);
             Control::Changed
         }
         MenuOutcome::Activated(2) => {

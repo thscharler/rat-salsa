@@ -3,7 +3,7 @@ use log::error;
 use rat_event::try_flow;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-use rat_theme4::create_theme;
+use rat_theme4::create_salsa_theme;
 use rat_theme4::theme::SalsaTheme;
 use rat_widget::event::{HandleEvent, Regular, ct_event};
 use rat_widget::scrolled::Scroll;
@@ -18,7 +18,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_theme("Imperial Dark");
+    let theme = create_salsa_theme("Imperial Dark");
     let mut global = Global::new(config, theme);
     let mut state = Minimal::default();
 
