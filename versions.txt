@@ -1,24 +1,24 @@
 Reference of crate-versions that work together:
 
-pal-edit: 1.3.0
+pal-edit: 1.4.0
 
 rat-cursor: 1.2.1
 rat-dialog: 0.8.0
 rat-event: 1.4.0
-rat-focus: 1.5.0
-rat-ftable: 1.3.0
+rat-focus: 1.5.1
+rat-ftable: 1.4.0
 rat-markdown: 0.6.2
-rat-menu: 2.3.0
+rat-menu: 2.4.0
 rat-popup: 2.2.0
 rat-reloc: 1.4.0
 rat-salsa: 2.6.0
-rat-scrolled: 1.3.1
-rat-text: 2.5.0
+rat-scrolled: 1.4.0
+rat-text: 2.6.0
 rat-theme: 0.30.0
 rat-theme2: 1.5.0
-rat-theme3: 2.3.3
-rat-theme4: 4.0.3
+rat-theme3: 2.5.0
+rat-theme4: 4.1.0
 rat-vim: 0.1.2
-rat-widget: 2.6.0
+rat-widget: 2.7.0
 
 

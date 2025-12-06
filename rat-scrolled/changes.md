@@ -1,3 +1,9 @@
+# 1.4.0
+
+* feature: add policy to ScrollStyle
+* fix: ScrollArea no longer panics if no scrollbar state is set.
+  uses a fallback now.
+
 # 1.3.0
 
 * fix: scroll_to_range off by one at the end.

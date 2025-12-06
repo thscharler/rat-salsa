@@ -1,3 +1,13 @@
+# 2.6.0
+
+* fix: TextInput, TextInputMask: selection was not shown when the invalid flag is set.
+* feature: add a derive_text_widget! macro to generate most
+  of the function forwarding when implementing a specialized text-input.
+  can be used wholesale or for groups of functions.
+* fix: oob
+* break: make a few fields in ColorInputState private that should only
+  be changed by an api call.
+
 # 2.5.0
 
 * fix: rename feature palette to color_input

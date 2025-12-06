@@ -1,3 +1,39 @@
+# 2.7.0
+
+* refactor: Splitter, Choice, Combobox: ignore are given to popup.
+  use state-area instead.
+* feature: Form: add set_layout()
+* feature: FileDialog: Ctrl+A to select all files.
+* fix: FileDialog: don't replace manual extension.
+* fix: relocation for Split, Choice, Combobox and Tabbed
+* fix: relocation for Clipper, Form and View
+* fix: reexport of TextTab
+
+* fix: TextInput, TextInputMask: selection was not shown when the invalid flag is set.
+* feature: add a derive_text_widget! macro to generate most
+  of the function forwarding when implementing a specialized text-input.
+  can be used wholesale or for groups of functions.
+* fix: oob in TextInputMask
+* break: make a few fields in ColorInputState private that should only
+  be changed by an api call.
+
+* feature: add policy to ScrollStyle
+* fix: ScrollArea no longer panics if no scrollbar state is set.
+  uses a fallback now.
+
+* refactor: Menubar: when rendering the menu-popup the given area is ignored
+  and the area is taken from the state.
+* fix: Menubar had some problems with relocations.
+
+* feature: Table: add move_deselect(). deselects and resets the offset.
+* feature: Table: add width() and height() for a minimum size of the table.
+* fix: Table: show some warnings only when activated by a feature flag.
+* refactor: Table: EditableTableVecState returns a clone of the Vec now
+  instead of moving the Vec.
+
+* feature: Focus: add flip_focus() to switch between menubar and
+  some selected widget.
+
 # 2.6.0
 
 * fix: List event-handling.

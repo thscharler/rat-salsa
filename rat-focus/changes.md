@@ -1,3 +1,8 @@
+# 1.5.1
+
+* feature: add flip_focus() to switch between menubar and
+  some selected widget.
+
 # 1.5.0
 
 These changes are related to the introduction of on_gained()

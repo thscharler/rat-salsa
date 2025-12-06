@@ -1,3 +1,8 @@
+# 1.4.0
+
+* keep up with rat-theme4
+* supports storing a json format of the palette.
+
 # 1.3.0
 
 * load multiple files and switch

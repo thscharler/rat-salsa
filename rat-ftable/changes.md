@@ -1,3 +1,11 @@
+# 1.4.0
+
+* feature: add move_deselect(). deselects and resets the offset.
+* feature: add width() and height() for a minimum size of the table.
+* fix: show some warnings only when activated by a feature flag.
+* refactor: EditableTableVecState returns a clone of the Vec now
+  instead of moving the Vec.
+
 # 1.3.0
 
 * feature: add layout_column_widths() to calculate the table-width

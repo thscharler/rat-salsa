@@ -1,3 +1,7 @@
+# 2.5.0
+
+* add serde for Palette
+
 # 2.4.0
 
 * fix upstream changes for MenuStyle.

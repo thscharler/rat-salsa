@@ -1,3 +1,9 @@
+# 2.4.0
+
+* refactor: when rendering the menu-popup the given area is ignored
+  and the area is taken from the state.
+* fix: Menubar had some problems with relocations.
+
 # 2.3.0
 
 * allow direct rendering of Menubar

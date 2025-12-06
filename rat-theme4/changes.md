@@ -1,3 +1,30 @@
+# 5.0.0
+
+* Unify Theme and Palette.
+    * Palette contains all the parts that can be const/serialized.
+    * Theme adds the procedural parts.
+    * Palette now holds enough information to directly create the
+      Theme.
+
+* feature: load_palette/store_palette work with an ini-file format.
+* feature: Palette now supports serde.
+
+* feature: Palette now has theme_name, theme (Dark, Light, Shell),
+  doc, and generator (=storage format)
+
+* refactor: themes and palettes modules reorg.
+* refactor: create_palette()->create_salsa_palette()
+* refactor: create_theme()->create_salsa_theme()
+
+* feature: create_palette_theme() - create the Theme for the
+  theme stored in the palette.
+
+* break: Palette.category has been replaced with Palette.theme
+* break: create_shell(), create_dark() and create_fallback() now
+  only take the palette as parameter.
+    * added create_light()
+    * removed create_core(), use create_shell() instead.
+
 # 4.0.3
 
 * fix: report palette-name when panicking.
