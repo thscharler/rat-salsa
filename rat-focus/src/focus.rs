@@ -63,6 +63,48 @@ impl Focus {
         self.last.insta_panic.set(false);
     }
 
+    /// Sets the focus to the given widget and remembers
+    /// the previous focused widget. If the focus is
+    /// currently set to the given widget it sets the
+    /// focus back to the previous widget.
+    pub fn flip_focus(
+        &self,
+        widget_state: &'_ dyn HasFocus,
+        flip_focus: &'_ mut Option<FocusFlag>,
+    ) {
+        focus_debug!(
+            self.core,
+            "flip-focus {:?} {:?}",
+            widget_state.focus().name(),
+            flip_focus
+        );
+        let flag = widget_state.focus();
+        if self.core.is_widget(&flag) {
+            if flag.is_focused() {
+                if let Some(flip_focus) = flip_focus {
+                    self.focus(flip_focus);
+                } else {
+                    focus_fail!(self.core, "    => no previous widget");
+                }
+            } else {
+                *flip_focus = self.focused();
+                self.focus(&flag);
+            }
+        } else if self.core.is_container(&flag) {
+            if flag.is_focused() {
+                if let Some(flip_focus) = flip_focus {
+                    self.focus(flip_focus);
+                } else {
+                    focus_fail!(self.core, "    => no previous widget");
+                }
+            } else {
+                self.core.first_container(&flag);
+            }
+        } else {
+            focus_fail!(self.core, "    => not a valid widget");
+        }
+    }
+
     /// Sets the focus to the given widget.
     ///
     /// This changes the focus and the gained/lost flags.
