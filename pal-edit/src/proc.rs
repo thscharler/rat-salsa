@@ -8,6 +8,7 @@ use rat_theme4::{RatWidgetColor, create_palette_theme, load_palette, store_palet
 use ratatui::prelude::{Color, Line};
 use std::array;
 use std::fs::File;
+use std::io::{Read, Write};
 use std::path::Path;
 
 pub fn pal_aliases(pal: Palette) -> Vec<(Option<String>, String)> {
@@ -362,10 +363,26 @@ pub fn use_base46(state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
 pub fn load_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     state.file_path = Some(path.into());
 
-    let f = File::open(path)?;
-    let pal = load_palette(f)?;
-    state.edit.set_palette(pal.clone());
+    let mut fmt = 0;
+    if let Some(ext) = path.extension() {
+        match ext.to_string_lossy().as_ref() {
+            "pal" => fmt = 1,
+            "json" => fmt = 2,
+            _ => return Err(anyhow!("unknown file format")),
+        }
+    }
 
+    let pal = if fmt == 1 {
+        let f = File::open(path)?;
+        load_palette(f)?
+    } else {
+        let mut f = File::open(path)?;
+        let mut buf = String::new();
+        f.read_to_string(&mut buf)?;
+        serde_json::de::from_str(&buf)?
+    };
+
+    state.edit.set_palette(pal.clone());
     ctx.show_theme = create_palette_theme(pal).unwrap_or_else(|p| create_fallback(p));
 
     Ok(())
@@ -374,9 +391,24 @@ pub fn load_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<()
 pub fn save_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<(), Error> {
     state.file_path = Some(path.into());
 
+    let mut fmt = 0;
+    if let Some(ext) = path.extension() {
+        match ext.to_string_lossy().as_ref() {
+            "pal" => fmt = 1,
+            "json" => fmt = 2,
+            _ => return Err(anyhow!("unknown file format")),
+        }
+    }
+
     let pal = state.edit.palette();
-    let f = File::create(path)?;
-    store_palette(&pal, f)?;
+    if fmt == 1 {
+        let f = File::create(path)?;
+        store_palette(&pal, f)?;
+    } else {
+        let buf = serde_json::ser::to_string_pretty(&pal)?;
+        let mut f = File::create(path)?;
+        f.write_all(buf.as_bytes())?;
+    }
 
     Ok(())
 }

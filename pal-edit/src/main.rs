@@ -11,7 +11,7 @@ use crate::sample_or_base46::ShowOrBase46;
 use anyhow::{Error, anyhow};
 use configparser::ini::Ini;
 use dirs::config_dir;
-use log::error;
+use log::{debug, error};
 use pure_rust_locales::Locale;
 use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::dialog_stack::file_dialog::{
@@ -614,6 +614,7 @@ pub fn event(
             Ok(Control::Changed)
         }
         PalEvent::Save(p) => {
+            debug!("save_pal {:?}", p);
             proc::save_pal(&p, state, ctx)?;
             Ok(Control::Changed)
         }
