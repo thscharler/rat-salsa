@@ -1,3 +1,7 @@
+# 1.6.0
+
+ratatui 0.30
+
 # 1.5.1
 
 * fix dependencies

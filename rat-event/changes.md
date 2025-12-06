@@ -1,3 +1,7 @@
+# 2.0.0
+
+ratatui 0.30
+
 # 1.4.0
 
 * add experimental event_flow! macro that unifies the existing ones.

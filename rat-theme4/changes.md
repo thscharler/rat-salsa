@@ -1,3 +1,14 @@
+# 4.5.0
+
+ratatui 0.30
+
+# 4.4.0
+
+* feat: add Toolbar styles
+* feat: add Table::show_empty styles
+* feat: add Palette::normal_bg_style(), Palette::high_bg_style()
+  Creates a style with some bg and fg chosen from some other color.
+
 # 4.3.0
 
 * add more storage formats

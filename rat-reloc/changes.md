@@ -1,3 +1,7 @@
+# 2.0.0
+
+ratatui 0.30
+
 # 1.4.0
 
 * feature: add relocate_popup() and relocate_popup_hidden()

@@ -1,3 +1,7 @@
+# 2.6.0
+
+ratatui 0.30
+
 # 2.5.1
 
 * fix: small fixes for serde feature

@@ -1,3 +1,7 @@
+# 0.31.0
+
+ratatui 0.30
+
 # 0.30.1
 
 * fix dependencies

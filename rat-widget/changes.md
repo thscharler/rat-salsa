@@ -1,3 +1,24 @@
+# 3.0.0
+
+ratatui 0.30
+
+# 2.11.0
+
+* feat: add Choice::unknown_item() as placeholder for unknown values.
+* refactor: move color_input to rat-widget-extra.
+* fix: PairedWidget missed Debug impl
+* feat: new widget Toolbar
+* fix: Tabbed rendering bug.
+* feat: Split: add scaling behavior for each split area.
+
+## rat-text
+
+* add support for a rendered cursor.
+
+## rat-ftable
+
+* feat: add Table::show_empty()
+
 # 2.10.0
 
 * break: rename styles_ext() to styles() and the current styles() to

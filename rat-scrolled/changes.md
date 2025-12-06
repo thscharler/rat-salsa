@@ -1,3 +1,7 @@
+# 2.0.0
+
+ratatui 0.30
+
 # 1.5.0
 
 * feature: add render_block() and render_scrollbars() as separate functions.

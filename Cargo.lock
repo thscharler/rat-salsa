@@ -1026,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "pal-edit"
-version = "1.6.0"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1300,7 +1300,7 @@ version = "2.0.0"
 
 [[package]]
 name = "rat-dialog"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "crossterm 0.28.1",
@@ -1427,7 +1427,7 @@ dependencies = [
 
 [[package]]
 name = "rat-salsa"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1517,7 +1517,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme2"
-version = "1.5.1"
+version = "1.6.0"
 dependencies = [
  "log",
  "rat-widget",
@@ -1528,7 +1528,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme3"
-version = "2.5.1"
+version = "2.6.0"
 dependencies = [
  "anyhow",
  "log",
@@ -1542,7 +1542,7 @@ dependencies = [
 
 [[package]]
 name = "rat-theme4"
-version = "5.0.0"
+version = "4.5.0"
 dependencies = [
  "anyhow",
  "log",
@@ -1557,7 +1557,7 @@ dependencies = [
 
 [[package]]
 name = "rat-vim"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1618,7 +1618,7 @@ dependencies = [
 
 [[package]]
 name = "rat-widget-extra"
-version = "1.0.2"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "cli-clipboard",

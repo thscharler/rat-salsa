@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget-extra"
-version = "1.0.2"
+version = "2.0.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -42,4 +42,4 @@ fern = "0.7"
 anyhow = "1.0"
 cli-clipboard = "0.4.0"
 
-rat-theme4 = { version = "5.0", default-features = false, features = ["color-input"], path = "../rat-theme4" }
+rat-theme4 = { version = "4", default-features = false, features = ["color-input"], path = "../rat-theme4" }

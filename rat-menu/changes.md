@@ -1,3 +1,11 @@
+# 3.0.0
+
+ratatui 0.30
+
+# 2.5.0
+
+* feat: add MenuLine::width()
+
 # 2.4.1
 
 * fix dependencies

@@ -1,3 +1,7 @@
+# 2.0.0
+
+ratatui 0.30
+
 # 1.6.0
 
 * minor fixes

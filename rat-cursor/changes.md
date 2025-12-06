@@ -1,5 +1,7 @@
 # 2.0.0
 
+ratatui 0.30
+
 # 1.2.1
 
 * fix docs

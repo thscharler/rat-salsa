@@ -1,9 +1,23 @@
+# 2.0.0
+
+ratatui 0.30
+
+# 1.6.1
+
+* fix dependencies
+* make examples work with rat-theme4
+
 # 1.6.0
 
 * feature: add flip_focus() to switch between menubar and
   some selected widget.
 * feature: add HasFocus::build_nav(). This is called when the
   default Navigation is overridden when adding the widget to FocusBuilder.
+
+# 1.5.1
+
+* feature: add flip_focus() to switch between menubar and
+  some selected widget.
 
 # 1.5.0
 

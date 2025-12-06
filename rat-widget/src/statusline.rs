@@ -25,7 +25,7 @@
 //!         Constraint::Length(8),
 //!         Constraint::Length(8)
 //!     ])
-//!     .styles([
+//!     .section_styles([
 //!         Style::new().white().on_dark_gray(),
 //!         Style::new().white().on_cyan(),
 //!         Style::new().white().on_blue()

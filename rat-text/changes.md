@@ -1,3 +1,12 @@
+# 3.0.0
+
+ratatui 0.30
+
+# 2.8.0
+
+* feat: add support for a rendered cursor. this is an application wide setting, not per widget.
+* feat: add styling for rendered cursor.
+
 # 2.7.1
 
 * fix dependencies
