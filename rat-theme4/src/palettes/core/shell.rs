@@ -1,7 +1,6 @@
 //!
 //! Defines the SHELL palette.
 //!
-use crate::RatWidgetColor;
 use crate::palette::{Colors, Palette, define_alias};
 use ratatui::style::Color;
 use std::borrow::Cow;
