@@ -559,6 +559,33 @@ static THEMES: &'static [&'static str] = &[
     "Fallback",
 ];
 
+/// All predefined rat-salsa themes.
+#[deprecated(
+    since = "4.1.0",
+    note = "there is no separation between themes and palettes any more. use salsa_themes()"
+)]
+pub fn salsa_palettes() -> Vec<&'static str> {
+    let mut r = Vec::new();
+    for v in THEMES {
+        r.push(*v);
+    }
+    r
+}
+
+/// Create one of the predefined themes as a Palette.
+///
+/// The available themes can be queried by [salsa_themes].
+///
+/// Known palettes: Imperial, Radium, Tundra, Ocean, Monochrome,
+/// Black&White, Monekai, Solarized, OxoCarbon, EverForest,
+/// Nord, Rust, Material, Tailwind, VSCode, Reds, Blackout,
+/// Shell, Imperial Light, EverForest Light, Tailwind Light,
+/// Rust Light.
+#[deprecated(since = "4.1.0", note = "use create_salsa_palette() instead")]
+pub fn create_palette(name: &str) -> Option<Palette> {
+    create_salsa_palette(name)
+}
+
 /// Create one of the predefined themes as a Palette.
 ///
 /// The available themes can be queried by [salsa_themes].
@@ -629,7 +656,7 @@ pub fn salsa_themes() -> Vec<&'static str> {
     r
 }
 
-#[deprecated(since = "4.0.4", note = "use create_salsa_theme() instead")]
+#[deprecated(since = "4.1.0", note = "use create_salsa_theme() instead")]
 pub fn create_theme(theme_name: &str) -> SalsaTheme {
     create_salsa_theme(theme_name)
 }
