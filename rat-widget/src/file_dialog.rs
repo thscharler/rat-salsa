@@ -1377,9 +1377,11 @@ impl FileDialogState {
             }
             Mode::Save => {
                 let mut path = self.path.join(self.save_name_state.text().trim());
-                if let Some(ext) = &self.save_ext {
-                    if !ext.is_empty() {
-                        path.set_extension(ext);
+                if path.extension().is_none() {
+                    if let Some(ext) = &self.save_ext {
+                        if !ext.is_empty() {
+                            path.set_extension(ext);
+                        }
                     }
                 }
                 self.active = false;
