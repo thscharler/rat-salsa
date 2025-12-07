@@ -61,16 +61,16 @@ pub fn scroll_down(mul: u32, state: &mut TextAreaState) {
 }
 
 pub fn scroll_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
-    if vi.page.0 != state.vertical_page() as u32 {
-        vi.page = (state.vertical_page() as u32, (state.vertical_page() / 2));
+    if vi.page.0 != state.vertical_page() {
+        vi.page = (state.vertical_page(), state.vertical_page() / 2);
     }
 
     state.scroll_up((vi.page.0 * mul).saturating_sub(2));
 }
 
 pub fn scroll_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) {
-    if vi.page.0 != state.vertical_page() as u32 {
-        vi.page = (state.vertical_page() as u32, (state.vertical_page() / 2));
+    if vi.page.0 != state.vertical_page() {
+        vi.page = (state.vertical_page(), state.vertical_page() / 2);
     }
 
     state.scroll_down((vi.page.0 * mul).saturating_sub(2));

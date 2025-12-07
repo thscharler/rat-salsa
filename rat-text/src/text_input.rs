@@ -169,7 +169,7 @@ impl<'a> TextInput<'a> {
     #[inline]
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         let style = style.into();
-        self.style = style.clone();
+        self.style = style;
         self.block = self.block.map(|v| v.style(style));
         self
     }

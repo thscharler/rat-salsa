@@ -418,16 +418,16 @@ impl Palette {
 
     /// Pick a color from the choice with a good contrast to the
     /// given background.
-    pub fn normal_contrast_color(&self, bg: Color, text: &[Color]) -> Style {
-        let mut color0 = text[0];
-        let mut color1 = text[0];
+    pub fn normal_contrast_color(&self, bg: Color, text_colors: &[Color]) -> Style {
+        let mut color0 = text_colors[0];
+        let mut color1 = text_colors[0];
         let mut contrast1 = Self::contrast_bt_srgb(color1, bg);
 
-        for i in 0..text.len() {
-            let test = Self::contrast_bt_srgb(text[i], bg);
+        for text_color in text_colors {
+            let test = Self::contrast_bt_srgb(*text_color, bg);
             if test > contrast1 {
                 color0 = color1;
-                color1 = text[i];
+                color1 = *text_color;
                 contrast1 = test;
             }
         }
@@ -437,16 +437,16 @@ impl Palette {
 
     /// Pick a color from the choice with the best contrast to the
     /// given background.
-    pub fn high_contrast_color(&self, bg: Color, text: &[Color]) -> Style {
-        let mut color0 = text[0];
-        let mut color1 = text[0];
+    pub fn high_contrast_color(&self, bg: Color, text_colors: &[Color]) -> Style {
+        let mut color0 = text_colors[0];
+        let mut color1 = text_colors[0];
         let mut contrast1 = Self::contrast_bt_srgb(color1, bg);
 
-        for i in 0..text.len() {
-            let test = Self::contrast_bt_srgb(text[i], bg);
+        for text_color in text_colors {
+            let test = Self::contrast_bt_srgb(*text_color, bg);
             if test > contrast1 {
                 color0 = color1;
-                color1 = text[i];
+                color1 = *text_color;
                 contrast1 = test;
             }
         }

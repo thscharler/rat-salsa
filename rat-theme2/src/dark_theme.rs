@@ -53,7 +53,7 @@ impl DarkTheme {
 impl DarkTheme {
     /// Some display name.
     pub fn name(&self) -> &str {
-        &self.name
+        self.name
     }
 
     /// Hint at dark.

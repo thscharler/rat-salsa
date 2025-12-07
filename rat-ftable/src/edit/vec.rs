@@ -15,7 +15,7 @@ use crate::{Table, TableState};
 use log::warn;
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
-use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
+use rat_event::{HandleEvent, Outcome, Regular, ct_event, event_flow, try_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
@@ -425,17 +425,16 @@ where
     ) -> Result<Outcome, S::Err> {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
             if self.is_focused() {
-                try_flow!(match self.editor.handle(event, ctx)? {
-                    r => {
-                        if let Some(col) = self.editor.focused_col() {
-                            if self.table.scroll_to_col(col) {
-                                Outcome::Changed
-                            } else {
-                                r
-                            }
+                event_flow!({
+                    let r = self.editor.handle(event, ctx)?;
+                    if let Some(col) = self.editor.focused_col() {
+                        if self.table.scroll_to_col(col) {
+                            Outcome::Changed
                         } else {
                             r
                         }
+                    } else {
+                        r
                     }
                 });
 

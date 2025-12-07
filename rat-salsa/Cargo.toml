@@ -11,6 +11,9 @@ keywords = ["ratatui", "input", "event-loop"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
 
+[lints]
+workspace = true
+
 [features]
 default = []
 async = ["dep:tokio"]

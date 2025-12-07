@@ -11,6 +11,9 @@ keywords = ["tui", "ratatui", "input", "widget"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "textarea.gif"]
 
+[lints]
+workspace = true
+
 [features]
 default = []
 color_input = ["rat-text/color_input"]

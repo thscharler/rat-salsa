@@ -401,7 +401,7 @@ impl From<Outcome> for DialogOutcome {
     }
 }
 
-impl<'a> HandleEvent<Event, Dialog, DialogOutcome> for DialogFrameState {
+impl HandleEvent<Event, Dialog, DialogOutcome> for DialogFrameState {
     fn handle(&mut self, event: &Event, _: Dialog) -> DialogOutcome {
         flow!({
             if !self.no_cancel {
@@ -434,7 +434,7 @@ impl<'a> HandleEvent<Event, Dialog, DialogOutcome> for DialogFrameState {
     }
 }
 
-impl<'a> HandleEvent<Event, MouseOnly, DialogOutcome> for DialogFrameState {
+impl HandleEvent<Event, MouseOnly, DialogOutcome> for DialogFrameState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> DialogOutcome {
         flow!({
             if !self.no_cancel {

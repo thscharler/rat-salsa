@@ -40,8 +40,12 @@ application.
 
 ## Application specific palettes.
 
-It's not too complicated, I just had no time to make an example yet.
-Mostly it boils down to mapping a theme-name to a SalsaTheme+Palette.
+`pal-edit` can manage additional aliases for colors.
+You can use that to generate palettes directly or to generate
+a patch.rs which adds the aliases to a Palette.
+
+From there you go on to create your own SalsaTheme or you can
+patch an existing one.
 
 ## Loadable palettes.
 

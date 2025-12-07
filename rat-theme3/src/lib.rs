@@ -288,7 +288,7 @@ pub fn create_palette(name: &str) -> Option<Palette> {
         "OxoCarbon" => Some(OXOCARBON),
         "Rust" => Some(RUST),
         "VSCode" => Some(VSCODE_DARK),
-        _ => return None,
+        _ => None,
     }
 }
 

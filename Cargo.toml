@@ -1,6 +1,5 @@
 [workspace]
 resolver = "2"
-
 members = [
     "pal-edit",
     "rat-cursor",
@@ -23,3 +22,9 @@ members = [
     "rat-widget",
     "rat-widget-extra",
 ]
+
+[workspace.lints.clippy]
+collapsible_else_if = "allow"
+collapsible_if = "allow"
+if_same_then_else = "allow"
+comparison_chain = "allow"

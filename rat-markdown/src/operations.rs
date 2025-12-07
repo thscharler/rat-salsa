@@ -420,35 +420,6 @@ fn md_prev_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
     }
 }
 
-/// Extract the list item after the one at the cursor position.
-fn md_next_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
-    let cursor = state.cursor();
-    let cursor_byte = state.byte_at(cursor).start;
-
-    let item_byte = state.styles_at_match(cursor_byte, MDStyle::Item as usize);
-    let list_byte = state.styles_at_match(cursor_byte, MDStyle::List as usize);
-
-    if let Some(list_byte) = list_byte {
-        if let Some(item_byte) = item_byte {
-            let mut sty = Vec::new();
-            state.styles_in(item_byte.end..list_byte.end, &mut sty);
-
-            let next = sty.iter().find(|v| v.1 == MDStyle::Item as usize);
-
-            if let Some((next_bytes, _)) = next {
-                let next = state.byte_range(next_bytes.clone());
-                Some((next_bytes.clone(), next))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
-
 /// Add a prefix and a suffix around the current selection.
 /// Allows to set the cursor somewhere within either.
 pub fn md_surround(

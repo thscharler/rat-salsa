@@ -11,6 +11,9 @@ keywords = ["ratatui", "widget", "theme"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints]
+workspace = true
+
 [features]
 default = []
 color_input = ["rat-widget/color_input"]

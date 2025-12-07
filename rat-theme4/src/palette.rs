@@ -224,20 +224,24 @@ impl Colors {
 /// Color palette.
 ///
 /// This provides the palette used for a theme.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Palette {
     /// Name of the theme.
     pub theme_name: Cow<'static, str>,
     /// Which theme should be created.
+    ///
     /// Known themes:
     /// * Dark
     /// * Light
     /// * Shell
+    ///
     /// There are 3 more special cased themes for fallback/testing
     /// purposes.
+    ///
     /// * Core - Fallback theme if something fails.
     /// * Blackout - Testing theme that blacks everything.
     /// * Fallback - Testing theme that relies on each widget's own defaults.
+    ///
     pub theme: Cow<'static, str>,
     /// Name of the color palette.
     pub name: Cow<'static, str>,
@@ -433,20 +437,6 @@ impl<'de> Deserialize<'de> for Palette {
             "aliased",
         ];
         des.deserialize_struct("Palette", FIELDS, PaletteVisitor)
-    }
-}
-
-impl Default for Palette {
-    fn default() -> Self {
-        Self {
-            theme_name: Default::default(),
-            theme: Default::default(),
-            name: Default::default(),
-            doc: Default::default(),
-            generator: Default::default(),
-            color: Default::default(),
-            aliased: Default::default(),
-        }
     }
 }
 

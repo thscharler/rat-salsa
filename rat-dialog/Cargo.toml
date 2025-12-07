@@ -11,6 +11,9 @@ keywords = ["ratatui", "dialog", "window"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints]
+workspace = true
+
 [features]
 default = []
 

@@ -236,6 +236,7 @@ impl FileStateMode {
 
 /// State & event-handling.
 #[expect(clippy::type_complexity)]
+#[derive(Default)]
 pub struct FileDialogState {
     /// Area
     /// __read only__ renewed with each render.
@@ -285,7 +286,7 @@ pub(crate) mod event {
         Cancel,
         /// Ok
         Ok(PathBuf),
-        ///
+        /// Ok, when started as [open_many_dialog].
         OkList(Vec<PathBuf>),
     }
 
@@ -391,32 +392,6 @@ impl Default for FileDialogStyle {
             text: Default::default(),
             non_exhaustive: NonExhaustive,
             title_style: Default::default(),
-        }
-    }
-}
-
-impl Default for FileDialogState {
-    fn default() -> Self {
-        Self {
-            area: Default::default(),
-            active: Default::default(),
-            mode: Default::default(),
-            path: Default::default(),
-            save_name: Default::default(),
-            save_ext: Default::default(),
-            dirs: Default::default(),
-            filter: Default::default(),
-            files: Default::default(),
-            no_default_roots: Default::default(),
-            roots: Default::default(),
-            path_state: Default::default(),
-            root_state: Default::default(),
-            dir_state: Default::default(),
-            file_state: Default::default(),
-            save_name_state: Default::default(),
-            new_state: Default::default(),
-            cancel_state: Default::default(),
-            ok_state: Default::default(),
         }
     }
 }
@@ -1648,7 +1623,7 @@ fn handle_files(state: &mut FileDialogState, event: &Event) -> Result<FileOutcom
         }
         FileStateMode::Save(st) => {
             match st.handle(event, Regular) {
-                Outcome::Changed => state.name_selected()?.into(),
+                Outcome::Changed => state.name_selected()?,
                 r => r.into(),
             }
         }

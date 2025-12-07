@@ -1253,7 +1253,7 @@ impl MaskedInputState {
     pub fn section_id(&self, cursor: upos_type) -> u16 {
         let mask = &self.mask[cursor as usize];
         if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
-            return self.mask[cursor.saturating_sub(1) as usize].sec_id;
+            self.mask[cursor.saturating_sub(1) as usize].sec_id
         } else {
             mask.sec_id
         }
@@ -1457,11 +1457,7 @@ impl MaskedInputState {
         for mask in &self.mask {
             if mask.sec_id == section {
                 len = Some((mask.sec_end - mask.sec_start) as usize);
-                if mask.right.is_rtol() {
-                    align_left = false;
-                } else {
-                    align_left = true;
-                }
+                align_left = !mask.right.is_rtol();
                 break;
             }
         }

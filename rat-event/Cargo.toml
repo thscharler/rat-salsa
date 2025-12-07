@@ -10,6 +10,9 @@ keywords = ["ratatui", "input", "event"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints]
+workspace = true
+
 [dependencies]
 crossterm = "0.28"
 ratatui = { version = "0.29" }

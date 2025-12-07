@@ -95,21 +95,16 @@ impl<'a> Glyph2<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub(crate) enum TextWrap2 {
     /// shift glyphs to the left and clip at right margin.
+    #[default]
     Shift,
     /// hard break text at right margin.
     Hard,
     /// word break the text.
     Word,
-}
-
-impl Default for TextWrap2 {
-    fn default() -> Self {
-        Self::Shift
-    }
 }
 
 pub(crate) struct GlyphIter2<'a, Graphemes> {

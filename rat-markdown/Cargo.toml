@@ -11,14 +11,8 @@ keywords = ["ratatui", "text", "markdown"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
-[lints.clippy]
-collapsible_else_if = "allow"
-collapsible_if = "allow"
-if_same_then_else = "allow"
-comparison_chain = "allow"
-
-[lints.rust]
-dead-code = "allow"
+[lints]
+workspace = true
 
 [dependencies]
 log = "0.4"

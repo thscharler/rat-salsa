@@ -10,4 +10,7 @@ keywords = ["ratatui", "input", "cursor"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints]
+workspace = true
+
 [dependencies]

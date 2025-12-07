@@ -11,6 +11,9 @@ keywords = ["ratatui", "themes", "color"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints]
+workspace = true
+
 [dependencies]
 anyhow = "1.0"
 cli-clipboard = "0.4"

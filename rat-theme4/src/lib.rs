@@ -61,7 +61,6 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::io;
-use std::io::ErrorKind;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub mod palette;
@@ -307,12 +306,12 @@ pub fn store_palette(pal: &Palette, mut buf: impl io::Write) -> Result<(), io::E
     writeln!(buf, "[theme]")?;
     writeln!(buf, "name={}", pal.theme_name)?;
     writeln!(buf, "theme={}", pal.theme)?;
-    writeln!(buf, "")?;
+    writeln!(buf)?;
     writeln!(buf, "[palette]")?;
     writeln!(buf, "name={}", pal.name)?;
     writeln!(buf, "docs={}", pal.doc.replace('\n', "\\n"))?;
     writeln!(buf, "generator={}", pal.generator)?;
-    writeln!(buf, "")?;
+    writeln!(buf,)?;
     writeln!(buf, "[color]")?;
     for c in Colors::array() {
         writeln!(
@@ -321,7 +320,7 @@ pub fn store_palette(pal: &Palette, mut buf: impl io::Write) -> Result<(), io::E
             *c, pal.color[*c as usize][0], pal.color[*c as usize][3]
         )?;
     }
-    writeln!(buf, "")?;
+    writeln!(buf,)?;
     writeln!(buf, "[reference]")?;
     for (r, i) in pal.aliased.as_ref() {
         writeln!(buf, "{}={}", r, i)?;
@@ -495,15 +494,16 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
     }
 
     match state {
-        S::Fail(n) => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(n))),
-        S::Start => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(100))),
-        S::Theme => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(101))),
-        S::Palette => Err(io::Error::new(ErrorKind::Other, LoadPaletteErr(102))),
+        S::Fail(n) => Err(io::Error::other(LoadPaletteErr(n))),
+        S::Start => Err(io::Error::other(LoadPaletteErr(100))),
+        S::Theme => Err(io::Error::other(LoadPaletteErr(101))),
+        S::Palette => Err(io::Error::other(LoadPaletteErr(102))),
         S::Color | S::Reference => Ok(pal),
     }
 }
 
 /// Create the Theme based on the given Palette.
+#[allow(clippy::result_large_err)]
 pub fn create_palette_theme(pal: Palette) -> Result<SalsaTheme, Palette> {
     match pal.theme.as_ref() {
         "Dark" => Ok(themes::create_dark(pal)),
@@ -513,7 +513,7 @@ pub fn create_palette_theme(pal: Palette) -> Result<SalsaTheme, Palette> {
     }
 }
 
-static THEMES: &'static [&'static str] = &[
+static THEMES: &[&str] = &[
     "Imperial",
     "Radium",
     "Tundra",

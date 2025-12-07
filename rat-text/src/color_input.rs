@@ -66,7 +66,7 @@ pub struct ColorInputStyle {
     pub disable_modes: Option<bool>,
     /// Define default mode.
     pub mode: Option<Mode>,
-    ///
+    /// ...
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -425,9 +425,8 @@ impl ColorInputState {
             let b = (self.value.2 * 255f32) as u32;
             let value_str = format!("{:06x}", (r << 16) + (g << 8) + b);
 
-            match clip.set_string(&value_str) {
-                Ok(_) => self.clear(),
-                Err(_) => {}
+            if clip.set_string(&value_str).is_ok() {
+                self.clear()
             }
             true
         }
@@ -506,7 +505,7 @@ impl ColorInputState {
     }
 
     fn parse_value(&self) -> (f32, f32, f32) {
-        let r = match self.mode {
+        match self.mode {
             Mode::RGB => {
                 let r = self.widget.section_value::<f32>(SEC_R).unwrap_or_default();
                 let g = self.widget.section_value::<f32>(SEC_G).unwrap_or_default();
@@ -534,8 +533,7 @@ impl ColorInputState {
 
                 rgb.into_components()
             }
-        };
-        r
+        }
     }
 }
 
@@ -630,16 +628,16 @@ impl ColorInputState {
     }
 }
 
-const PAT_RGB: &'static str = "##0 ##0 ##0";
+const PAT_RGB: &str = "##0 ##0 ##0";
 const SEC_R: u16 = 1;
 const SEC_G: u16 = 3;
 const SEC_B: u16 = 5;
 
-const PAT_HEX: &'static str = "HHHHHH";
+const PAT_HEX: &str = "HHHHHH";
 #[allow(dead_code)]
 const SEC_X: u16 = 1;
 
-const PAT_HSV: &'static str = "##0 ##0 ##0";
+const PAT_HSV: &str = "##0 ##0 ##0";
 const SEC_H: u16 = 1;
 const SEC_S: u16 = 3;
 const SEC_V: u16 = 5;

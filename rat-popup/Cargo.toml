@@ -11,6 +11,9 @@ keywords = ["ratatui", "popup"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints]
+workspace = true
+
 [features]
 unstable-widget-ref = []
 

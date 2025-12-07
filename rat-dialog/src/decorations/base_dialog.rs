@@ -56,7 +56,7 @@ impl Default for BaseDialogStyle {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct BaseDialogState {
     /// Area for the dialog.
     /// __read only__ set with each render.
@@ -207,17 +207,6 @@ impl<'a> StatefulWidget for BaseDialog<'a> {
     }
 }
 
-impl Default for BaseDialogState {
-    fn default() -> Self {
-        Self {
-            area: Default::default(),
-            widget_area: Default::default(),
-            ok: Default::default(),
-            cancel: Default::default(),
-        }
-    }
-}
-
 impl HasFocus for BaseDialogState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.ok);
@@ -284,7 +273,7 @@ impl From<Outcome> for DialogOutcome {
     }
 }
 
-impl<'a> HandleEvent<Event, Dialog, DialogOutcome> for BaseDialogState {
+impl HandleEvent<Event, Dialog, DialogOutcome> for BaseDialogState {
     fn handle(&mut self, event: &Event, _: Dialog) -> DialogOutcome {
         flow!(match self.cancel.handle(event, Regular) {
             ButtonOutcome::Pressed => {

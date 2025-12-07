@@ -378,7 +378,7 @@ impl FocusFlag {
     /// Get the field-name.
     #[inline]
     pub fn name(&self) -> Box<str> {
-        self.0.name.borrow().clone().unwrap_or(Default::default())
+        self.0.name.borrow().clone().unwrap_or_default()
     }
 
     /// Set the field-name.

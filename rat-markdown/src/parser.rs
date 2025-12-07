@@ -489,7 +489,6 @@ pub fn parse_md_block_quote(relocate: usize, txt: &str) -> Option<MDBlockQuote<'
         Leading,
         TextLeading,
         Text,
-        NewLine,
         End,
         Fail,
     }

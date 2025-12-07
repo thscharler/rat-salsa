@@ -63,11 +63,8 @@ pub fn q_move_down(mul: u32, state: &mut TextAreaState) -> TextPosition {
 }
 
 pub fn q_half_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextPosition {
-    if vi.page.0 != state.vertical_page() as u32 {
-        vi.page = (
-            state.vertical_page() as u32,
-            (state.vertical_page() / 2) as u32,
-        );
+    if vi.page.0 != state.vertical_page() {
+        vi.page = (state.vertical_page(), state.vertical_page() / 2);
     }
     if mul != 0 {
         vi.page.1 = mul;
@@ -77,11 +74,8 @@ pub fn q_half_page_up(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextP
 }
 
 pub fn q_half_page_down(mul: u32, state: &mut TextAreaState, vi: &mut VI) -> TextPosition {
-    if vi.page.0 != state.vertical_page() as u32 {
-        vi.page = (
-            state.vertical_page() as u32,
-            (state.vertical_page() / 2) as u32,
-        );
+    if vi.page.0 != state.vertical_page() {
+        vi.page = (state.vertical_page(), state.vertical_page() / 2);
     }
     if mul != 0 {
         vi.page.1 = mul;

@@ -99,21 +99,6 @@ pub fn md_format(
     TextOutcome::TextChanged
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum MDFormat {
-    None,
-    Heading,
-    Paragraph,
-    Footnote,
-    DefinitionList,
-    ReferenceDefs,
-    Table,
-    BlockQuote,
-    CodeBlock,
-    List,
-    Item,
-}
-
 #[derive(Debug)]
 struct Reformat<'a> {
     txt: &'a str,

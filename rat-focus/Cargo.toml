@@ -11,6 +11,9 @@ keywords = ["ratatui", "focus"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints]
+workspace = true
+
 [dependencies]
 ratatui = { version = "0.29" }
 crossterm = "0.28"

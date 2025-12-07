@@ -11,6 +11,9 @@ keywords = ["ratatui", "widget"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints]
+workspace = true
+
 [dependencies]
 ratatui = { version = "0.29" }
 log = "0.4"

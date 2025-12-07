@@ -497,14 +497,13 @@ where
                     WindowControl::Changed => {
                         return Ok(max(r, r_front));
                     }
-                    WindowControl::Continue => match event.try_as_ref() {
-                        Some(event) => {
+                    WindowControl::Continue => {
+                        if let Some(event) = event.try_as_ref() {
                             if mouse_trap(event, area).is_consumed() {
                                 return Ok(max(WindowControl::Unchanged, r_front));
                             }
                         }
-                        _ => {}
-                    },
+                    }
                 },
                 Err(e) => return Err(e),
             }
