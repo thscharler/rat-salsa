@@ -17,6 +17,7 @@ use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::dialog_stack::file_dialog::{
     file_dialog_event, file_dialog_event2, file_dialog_render,
 };
+use rat_salsa::dialog_stack::msgdialog::msg_dialog_event;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
@@ -26,6 +27,7 @@ use rat_theme4::themes::create_fallback;
 use rat_theme4::{
     RatWidgetColor, StyleName, WidgetStyle, create_palette_theme, create_salsa_theme,
 };
+use rat_widget::dialog_frame::DialogFrame;
 use rat_widget::event::{
     FileOutcome, HandleEvent, MenuOutcome, Outcome, Popup, Regular, SliderOutcome, ct_event,
     event_flow,
@@ -34,6 +36,8 @@ use rat_widget::file_dialog::FileDialogState;
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_widget::layout::LayoutOuter;
 use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::paragraph::Paragraph;
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::text::HasScreenCursor;
@@ -904,7 +908,24 @@ pub fn show_error(txt: &str, ctx: &mut Global) {
 
 fn help(ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
     let doc_str = include_str!("../doc.md");
-    show_error(doc_str, ctx);
+    let state = MsgDialogState::new_active("Docs", doc_str);
+    ctx.dlg.push(
+        |area, buf, state, ctx| {
+            let state = state.downcast_mut::<MsgDialogState>().expect("msg-dialog");
+            MsgDialog::new()
+                .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
+                .left(Constraint::Percentage(19))
+                .right(Constraint::Percentage(19))
+                .top(Constraint::Length(4))
+                .bottom(Constraint::Length(4))
+                .markdown(true)
+                .hide_paragraph_focus(true)
+                .render(area, buf, state);
+        },
+        msg_dialog_event(|| PalEvent::NoOp),
+        state,
+    );
+
     Ok(Control::Changed)
 }
 
