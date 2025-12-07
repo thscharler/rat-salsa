@@ -296,6 +296,19 @@ pub fn use_base46(state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
         state.edit.color[Colors::TextDark as usize].3.set_value(v);
     }
 
+    state.edit.color[Colors::Primary as usize]
+        .0
+        .set_value(Color::default());
+    state.edit.color[Colors::Primary as usize]
+        .3
+        .set_value(Color::default());
+    state.edit.color[Colors::Secondary as usize]
+        .0
+        .set_value(Color::default());
+    state.edit.color[Colors::Secondary as usize]
+        .3
+        .set_value(Color::default());
+
     if let Some(v) = state.detail.foreign.color("white") {
         state.edit.color[Colors::White as usize].0.set_value(v);
         state.edit.color[Colors::White as usize].3.set_value(v);
@@ -393,6 +406,10 @@ pub fn load_pal(path: &Path, state: &mut Scenery, ctx: &mut Global) -> Result<()
 
 pub fn save_pal(path: &Path, state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
     state.file_path = Some(path.into());
+    let idx = state.file_slider.value();
+    if idx < state.files.len() {
+        state.files[idx] = path.into();
+    }
 
     let mut fmt = 0;
     if let Some(ext) = path.extension() {

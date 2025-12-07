@@ -82,7 +82,10 @@ pub fn render(
     ctx: &mut Global,
 ) -> Result<(), Error> {
     Tabbed::new()
-        .tabs(["Preview", "Foreign"])
+        .tabs([
+            "Preview".to_string(),
+            format!("Foreign {}", state.foreign.name),
+        ])
         .block(Block::bordered().border_type(BorderType::Rounded))
         .styles(ctx.theme.style(WidgetStyle::TABBED))
         .render(area, buf, &mut state.tabs);

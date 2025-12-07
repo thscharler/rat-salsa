@@ -21,6 +21,7 @@ use std::str::FromStr;
 #[derive(Debug, Default)]
 pub struct Foreign {
     pub form: ClipperState,
+    pub name: String,
     pub color: Vec<ColorInputState>,
 }
 
@@ -41,6 +42,11 @@ impl Foreign {
             f.read_to_string(&mut buf)?;
         }
 
+        self.name = path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         self.form.set_layout(Default::default());
         self.color.clear();
         if buf.contains("M.base_30") {
