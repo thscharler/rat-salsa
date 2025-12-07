@@ -31,14 +31,14 @@ red-pink=#FFFFFF, #7F7F7F
 [reference]
 button-base.bg=gray:1
 container-arrow.fg=none:0
-container-base.bg=black:0
+container-base.bg=none:0
 container-border.fg=none:0
 dialog-arrow.fg=none:0
-dialog-base.bg=black:0
+dialog-base.bg=none:0
 dialog-border.fg=none:0
 disabled.bg=gray:2
 document-arrow.fg=none:0
-document-base.bg=black:0
+document-base.bg=none:0
 document-border.fg=none:0
 focus.bg=primary:0
 footer.bg=none:0

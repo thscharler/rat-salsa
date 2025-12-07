@@ -1,16 +1,16 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
-const DARKNESS: u8 = 63;
+const DARKNESS: u8 = 172;
 
-/// EverForest.
+/// EverForest
 /// Credits to original https://github.com/sainnhe/everforest
 pub const EVERFOREST_LIGHT: Palette = Palette {
-    theme_name: Cow::Borrowed("EverForest Light"),
-    theme: Cow::Borrowed("Light"),
-    name: Cow::Borrowed("EverForest"),
-    doc: Cow::Borrowed("Credits to original https://github.com/sainnhe/everforest"),
-    generator: Cow::Borrowed("light-dark:63"),
+    theme_name: Cow::Borrowed("EverForest Light"), 
+    theme: Cow::Borrowed("Light"), 
+    name: Cow::Borrowed("EverForest"), 
+    doc: Cow::Borrowed("Credits to original https://github.com/sainnhe/everforest"), 
+    generator: Cow::Borrowed("light-dark:172"), 
 
     color: [
         Palette::interpolate2(0xd8d4cb, 0xfcf8ef, 0x0, 0x0),
@@ -36,39 +36,39 @@ pub const EVERFOREST_LIGHT: Palette = Palette {
     // must be sorted!
     aliased: Cow::Borrowed(&[
         define_alias("button-base.bg", Colors::White, 2),
-        define_alias("container-arrow.fg", Colors::Gray, 1),
-        define_alias("container-base.bg", Colors::BlueGreen, 0),
-        define_alias("container-border.fg", Colors::Gray, 1),
-        define_alias("dialog-arrow.fg", Colors::Gray, 1),
-        define_alias("dialog-base.bg", Colors::Cyan, 0),
-        define_alias("dialog-border.fg", Colors::Gray, 1),
-        define_alias("disabled.bg", Colors::Gray, 2),
-        define_alias("document-arrow.fg", Colors::Gray, 1),
-        define_alias("document-base.bg", Colors::BlueGreen, 2),
-        define_alias("document-border.fg", Colors::Gray, 1),
-        define_alias("focus.bg", Colors::Primary, 1),
-        define_alias("footer.bg", Colors::DeepBlue, 1),
-        define_alias("footer.fg", Colors::DeepBlue, 7),
-        define_alias("header.bg", Colors::DeepBlue, 1),
-        define_alias("header.fg", Colors::DeepBlue, 7),
+        define_alias("container-arrow.fg", Colors::TextLight, 0),
+        define_alias("container-base.bg", Colors::BlueGreen, 6),
+        define_alias("container-border.fg", Colors::TextLight, 0),
+        define_alias("dialog-arrow.fg", Colors::TextLight, 0),
+        define_alias("dialog-base.bg", Colors::BlueGreen, 4),
+        define_alias("dialog-border.fg", Colors::TextLight, 0),
+        define_alias("disabled.bg", Colors::Gray, 4),
+        define_alias("document-arrow.fg", Colors::TextLight, 0),
+        define_alias("document-base.bg", Colors::BlueGreen, 5),
+        define_alias("document-border.fg", Colors::TextLight, 0),
+        define_alias("focus.bg", Colors::Primary, 2),
+        define_alias("footer.bg", Colors::DeepBlue, 7),
+        define_alias("footer.fg", Colors::TextLight, 0),
+        define_alias("header.bg", Colors::DeepBlue, 7),
+        define_alias("header.fg", Colors::TextLight, 0),
         define_alias("hover.bg", Colors::DeepBlue, 3),
         define_alias("input-focus.bg", Colors::Primary, 2),
         define_alias("input-select.bg", Colors::Secondary, 1),
         define_alias("input.bg", Colors::White, 0),
         define_alias("invalid.bg", Colors::Red, 1),
-        define_alias("key-binding.bg", Colors::White, 3),
+        define_alias("key-binding.bg", Colors::White, 4),
         define_alias("label.fg", Colors::TextDark, 1),
-        define_alias("md+hidden", Colors::None, 0),
-        define_alias("menu-base.bg", Colors::DeepBlue, 1),
+        define_alias("menu-base.bg", Colors::DeepBlue, 6),
         define_alias("month-header.fg", Colors::TextDark, 0),
         define_alias("popup-arrow.fg", Colors::Gray, 2),
-        define_alias("popup-base.bg", Colors::White, 2),
+        define_alias("popup-base.bg", Colors::Primary, 2),
         define_alias("popup-border.fg", Colors::Gray, 2),
         define_alias("select.bg", Colors::Secondary, 1),
         define_alias("shadow.bg", Colors::Black, 0),
-        define_alias("status-base.bg", Colors::DeepBlue, 1),
+        define_alias("status-base.bg", Colors::DeepBlue, 6),
         define_alias("title.bg", Colors::Green, 1),
-        define_alias("title.fg", Colors::Green, 4),
-        define_alias("week-header.fg", Colors::Gray, 0),
+        define_alias("title.fg", Colors::TextDark, 0),
+        define_alias("week-header.fg", Colors::TextDark, 0),
     ]),
 };
+

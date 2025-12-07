@@ -1,6 +1,6 @@
 [theme]
 name=Base16
-theme=Dark
+theme=Shell
 
 [palette]
 name=Base16
@@ -31,14 +31,14 @@ red-pink=#FF5555, #FF5A55
 [reference]
 button-base.bg=gray:0
 container-arrow.fg=none:0
-container-base.bg=black:0
+container-base.bg=none:0
 container-border.fg=none:0
 dialog-arrow.fg=none:0
-dialog-base.bg=gray:0
+dialog-base.bg=none:0
 dialog-border.fg=none:0
 disabled.bg=gray:3
 document-arrow.fg=none:0
-document-base.bg=gray:0
+document-base.bg=none:0
 document-border.fg=none:0
 focus.bg=primary:0
 footer.bg=deep-blue:0
