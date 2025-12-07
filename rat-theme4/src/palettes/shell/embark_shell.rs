@@ -39,7 +39,7 @@ pub const EMBARK_SHELL: Palette = Palette {
         define_alias("container-base.bg", Colors::None, 0),
         define_alias("container-border.fg", Colors::Gray, 3),
         define_alias("dialog-arrow.fg", Colors::White, 0),
-        define_alias("dialog-base.bg", Colors::Black, 3),
+        define_alias("dialog-base.bg", Colors::None, 0),
         define_alias("dialog-border.fg", Colors::White, 0),
         define_alias("disabled.bg", Colors::Gray, 0),
         define_alias("document-arrow.fg", Colors::Gray, 2),

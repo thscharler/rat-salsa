@@ -1,16 +1,16 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 const DARKNESS: u8 = 64;
 
-/// Base16.
+/// Base16
 /// Theme using the CGA 16-color palette.
 pub const BASE16_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Base16 Shell"),
-    theme: Cow::Borrowed("Shell"),
-    name: Cow::Borrowed("Base16"),
-    doc: Cow::Borrowed("Theme using the CGA 16-color palette."),
-    generator: Cow::Borrowed("light-dark:64"),
+    theme_name: Cow::Borrowed("Base16 Shell"), 
+    theme: Cow::Borrowed("Shell"), 
+    name: Cow::Borrowed("Base16"), 
+    doc: Cow::Borrowed("Theme using the CGA 16-color palette."), 
+    generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
         Palette::interpolate2(0xaaaaaa, 0xffffff, 0x0, 0x0),
@@ -44,7 +44,7 @@ pub const BASE16_SHELL: Palette = Palette {
         define_alias("dialog-border.fg", Colors::White, 0),
         define_alias("disabled.bg", Colors::Gray, 3),
         define_alias("document-arrow.fg", Colors::Gray, 3),
-        define_alias("document-base.bg", Colors::Black, 0),
+        define_alias("document-base.bg", Colors::None, 0),
         define_alias("document-border.fg", Colors::Gray, 3),
         define_alias("focus.bg", Colors::Primary, 0),
         define_alias("footer.bg", Colors::None, 0),
@@ -58,7 +58,6 @@ pub const BASE16_SHELL: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 0),
         define_alias("key-binding.bg", Colors::Cyan, 0),
         define_alias("label.fg", Colors::White, 0),
-        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 0),
         define_alias("month-header.fg", Colors::Gray, 3),
         define_alias("popup-arrow.fg", Colors::Primary, 0),
@@ -72,3 +71,4 @@ pub const BASE16_SHELL: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
+

@@ -1,16 +1,16 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 const DARKNESS: u8 = 64;
 
-/// Monochrome.
+/// Monochrome
 /// credit to original theme: https://github.com/kdheepak/monochrome.nvim
 pub const MONOCHROME_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Monochrome Shell"),
-    theme: Cow::Borrowed("Shell"),
-    name: Cow::Borrowed("Monochrome"),
-    doc: Cow::Borrowed("credit to original theme: https://github.com/kdheepak/monochrome.nvim"),
-    generator: Cow::Borrowed("light-dark:64"),
+    theme_name: Cow::Borrowed("Monochrome Shell"), 
+    theme: Cow::Borrowed("Shell"), 
+    name: Cow::Borrowed("Monochrome"), 
+    doc: Cow::Borrowed("credit to original theme: https://github.com/kdheepak/monochrome.nvim"), 
+    generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
         Palette::interpolate2(0xc0c5ce, 0xd8dee9, 0x0, 0x0),
@@ -44,7 +44,7 @@ pub const MONOCHROME_SHELL: Palette = Palette {
         define_alias("dialog-border.fg", Colors::White, 0),
         define_alias("disabled.bg", Colors::Gray, 3),
         define_alias("document-arrow.fg", Colors::Gray, 2),
-        define_alias("document-base.bg", Colors::Black, 0),
+        define_alias("document-base.bg", Colors::None, 0),
         define_alias("document-border.fg", Colors::Gray, 2),
         define_alias("focus.bg", Colors::Primary, 1),
         define_alias("footer.bg", Colors::None, 0),
@@ -58,7 +58,6 @@ pub const MONOCHROME_SHELL: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 1),
         define_alias("key-binding.bg", Colors::Gray, 2),
         define_alias("label.fg", Colors::TextLight, 0),
-        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 1),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::Primary, 1),
@@ -72,3 +71,4 @@ pub const MONOCHROME_SHELL: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
+

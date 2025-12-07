@@ -1,16 +1,16 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 const DARKNESS: u8 = 64;
 
-/// Solarized.
+/// Solarized
 /// Credits to original https://github.com/altercation/solarized
 pub const SOLARIZED_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Solarized Shell"),
-    theme: Cow::Borrowed("Shell"),
-    name: Cow::Borrowed("Solarized"),
-    doc: Cow::Borrowed("Credits to original https://github.com/altercation/solarized"),
-    generator: Cow::Borrowed("light-dark:64"),
+    theme_name: Cow::Borrowed("Solarized Shell"), 
+    theme: Cow::Borrowed("Shell"), 
+    name: Cow::Borrowed("Solarized"), 
+    doc: Cow::Borrowed("Credits to original https://github.com/altercation/solarized"), 
+    generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
         Palette::interpolate2(0xeee8d5, 0xfdf6e3, 0x0, 0x0),
@@ -44,7 +44,7 @@ pub const SOLARIZED_SHELL: Palette = Palette {
         define_alias("dialog-border.fg", Colors::White, 0),
         define_alias("disabled.bg", Colors::Gray, 0),
         define_alias("document-arrow.fg", Colors::Gray, 0),
-        define_alias("document-base.bg", Colors::Black, 0),
+        define_alias("document-base.bg", Colors::None, 0),
         define_alias("document-border.fg", Colors::Gray, 0),
         define_alias("focus.bg", Colors::Primary, 1),
         define_alias("footer.bg", Colors::None, 0),
@@ -58,7 +58,6 @@ pub const SOLARIZED_SHELL: Palette = Palette {
         define_alias("invalid.bg", Colors::Red, 0),
         define_alias("key-binding.bg", Colors::Gray, 0),
         define_alias("label.fg", Colors::TextLight, 0),
-        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 2),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::Primary, 1),
@@ -72,3 +71,4 @@ pub const SOLARIZED_SHELL: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
+

@@ -654,10 +654,6 @@ pub fn event(
                     proc::save_pal(&p, state, ctx)?;
                 }
             }
-            state.file_slider.set_value(0);
-            state.file_slider.set_range((0, 0));
-            state.files.clear();
-            state.files.push(p.into());
 
             proc::load_pal(p, state, ctx)?;
             if state.patch_path.is_some() {

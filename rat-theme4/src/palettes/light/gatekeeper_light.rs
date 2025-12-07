@@ -18,7 +18,7 @@ pub const GATEKEEPER_LIGHT: Palette = Palette {
         Palette::interpolate(0x636363, 0x939393, DARKNESS),
         Palette::interpolate(0xcccdd1, 0xeff0f4, DARKNESS),
         Palette::interpolate(0x0a0a0a, 0x181818, DARKNESS),
-        Palette::interpolate(0x777777, 0xb7b7b7, DARKNESS),
+        Palette::interpolate(0x777777, 0xadadad, DARKNESS),
         Palette::interpolate(0xff1a67, 0xff1a67, DARKNESS),
         Palette::interpolate(0xffa300, 0xffa300, DARKNESS),
         Palette::interpolate(0xfff024, 0xfff024, DARKNESS),
@@ -35,9 +35,9 @@ pub const GATEKEEPER_LIGHT: Palette = Palette {
     // must be sorted!
     aliased: Cow::Borrowed(&[
         define_alias("button-base.bg", Colors::Gray, 0),
-        define_alias("container-arrow.fg", Colors::Gray, 2),
+        define_alias("container-arrow.fg", Colors::Gray, 3),
         define_alias("container-base.bg", Colors::Gray, 0),
-        define_alias("container-border.fg", Colors::Gray, 2),
+        define_alias("container-border.fg", Colors::Gray, 3),
         define_alias("dialog-arrow.fg", Colors::TextDark, 3),
         define_alias("dialog-base.bg", Colors::Gray, 3),
         define_alias("dialog-border.fg", Colors::TextDark, 3),

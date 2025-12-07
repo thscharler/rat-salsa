@@ -43,7 +43,7 @@ pub const EMBARK: Palette = Palette {
         define_alias("dialog-border.fg", Colors::White, 0),
         define_alias("disabled.bg", Colors::Gray, 0),
         define_alias("document-arrow.fg", Colors::Gray, 2),
-        define_alias("document-base.bg", Colors::Gray, 2),
+        define_alias("document-base.bg", Colors::Black, 1),
         define_alias("document-border.fg", Colors::Gray, 2),
         define_alias("focus.bg", Colors::Primary, 0),
         define_alias("footer.bg", Colors::BlueGreen, 0),

@@ -61,6 +61,6 @@ popup-border.fg=none:0
 select.bg=secondary:1
 shadow.bg=text-dark:0
 status-base.bg=black:0
-title.bg=primary:1
+title.bg=primary:2
 title.fg=text-light:0
 week-header.fg=gray:1

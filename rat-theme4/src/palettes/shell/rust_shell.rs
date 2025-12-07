@@ -1,20 +1,18 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 const DARKNESS: u8 = 64;
 
-/// Rust.
+/// Rust
 /// A rusty theme. Iron-oxide, Copper-oxide,
 /// Cobald-oxide and some Chromium-oxide too.
 pub const RUST_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Rust Shell"),
-    theme: Cow::Borrowed("Shell"),
-    name: Cow::Borrowed("Rust"),
-    doc: Cow::Borrowed(
-        "A rusty theme. Iron-oxide, Copper-oxide,
-Cobald-oxide and some Chromium-oxide too.",
-    ),
-    generator: Cow::Borrowed("light-dark:64"),
+    theme_name: Cow::Borrowed("Rust Shell"), 
+    theme: Cow::Borrowed("Shell"), 
+    name: Cow::Borrowed("Rust"), 
+    doc: Cow::Borrowed("A rusty theme. Iron-oxide, Copper-oxide,
+Cobald-oxide and some Chromium-oxide too."), 
+    generator: Cow::Borrowed("light-dark:64"), 
 
     color: [
         Palette::interpolate2(0xd1ccc8, 0xefe6e6, 0x0, 0x0),
@@ -48,7 +46,7 @@ Cobald-oxide and some Chromium-oxide too.",
         define_alias("dialog-border.fg", Colors::White, 0),
         define_alias("disabled.bg", Colors::Gray, 3),
         define_alias("document-arrow.fg", Colors::Gray, 0),
-        define_alias("document-base.bg", Colors::Black, 0),
+        define_alias("document-base.bg", Colors::None, 0),
         define_alias("document-border.fg", Colors::Gray, 0),
         define_alias("focus.bg", Colors::Primary, 1),
         define_alias("footer.bg", Colors::None, 0),
@@ -62,7 +60,6 @@ Cobald-oxide and some Chromium-oxide too.",
         define_alias("invalid.bg", Colors::Purple, 1),
         define_alias("key-binding.bg", Colors::Secondary, 1),
         define_alias("label.fg", Colors::White, 2),
-        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Black, 0),
         define_alias("month-header.fg", Colors::None, 0),
         define_alias("popup-arrow.fg", Colors::Primary, 1),
@@ -76,3 +73,4 @@ Cobald-oxide and some Chromium-oxide too.",
         define_alias("week-header.fg", Colors::Gray, 1),
     ]),
 };
+
