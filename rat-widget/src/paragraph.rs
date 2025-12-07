@@ -31,6 +31,7 @@ pub struct Paragraph<'a> {
     vscroll: Option<Scroll<'a>>,
     hscroll: Option<Scroll<'a>>,
 
+    hide_focus: bool,
     focus_style: Option<Style>,
 
     wrap: Option<Wrap>,
@@ -45,6 +46,7 @@ pub struct ParagraphStyle {
     pub title_style: Option<Style>,
     pub scroll: Option<ScrollStyle>,
 
+    pub hide_focus: Option<bool>,
     pub focus: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
@@ -85,6 +87,7 @@ impl Default for ParagraphStyle {
             border_style: Default::default(),
             title_style: Default::default(),
             scroll: Default::default(),
+            hide_focus: Default::default(),
             focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -100,6 +103,12 @@ impl<'a> Paragraph<'a> {
             para: RefCell::new(ratatui::widgets::Paragraph::new(text)),
             ..Default::default()
         }
+    }
+
+    /// Hide focus markings
+    pub fn hide_focus(mut self, show: bool) -> Self {
+        self.hide_focus = show;
+        self
     }
 
     /// Text
@@ -143,6 +152,9 @@ impl<'a> Paragraph<'a> {
         self.style = styles.style;
         if styles.block.is_some() {
             self.block = styles.block;
+        }
+        if let Some(hide_focus) = styles.hide_focus {
+            self.hide_focus = hide_focus;
         }
         if let Some(border_style) = styles.border_style {
             self.block = self.block.map(|v| v.border_style(border_style));
@@ -299,7 +311,7 @@ fn render_paragraph(
     para = para.scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16));
     (&para).render(state.inner, buf);
 
-    if state.is_focused() {
+    if !widget.hide_focus && state.is_focused() {
         let mut tag = None;
         for x in state.inner.left()..state.inner.right() {
             if let Some(cell) = buf.cell_mut(Position::new(x, state.inner.y)) {

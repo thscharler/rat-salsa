@@ -68,6 +68,10 @@ pub struct MsgDialog<'a> {
     block: Option<Block<'a>>,
     scroll_style: Option<ScrollStyle>,
     button_style: Option<ButtonStyle>,
+    markdown: bool,
+    markdown_header_1: Option<Style>,
+    markdown_header_n: Option<Style>,
+    hide_paragraph_focus: bool,
 
     layout: LayoutOuter,
 }
@@ -79,6 +83,10 @@ pub struct MsgDialogStyle {
     pub block: Option<Block<'static>>,
     pub border_style: Option<Style>,
     pub title_style: Option<Style>,
+    pub markdown: Option<bool>,
+    pub markdown_header_1: Option<Style>,
+    pub markdown_header_n: Option<Style>,
+    pub hide_paragraph_focus: Option<bool>,
     pub scroll: Option<ScrollStyle>,
 
     pub button: Option<ButtonStyle>,
@@ -116,6 +124,30 @@ impl<'a> MsgDialog<'a> {
     /// New widget
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Enable some markdown formatting.
+    pub fn markdown(mut self, md: bool) -> Self {
+        self.markdown = md;
+        self
+    }
+
+    /// Header 1 style
+    pub fn markdown_header_1(mut self, style: impl Into<Style>) -> Self {
+        self.markdown_header_1 = Some(style.into());
+        self
+    }
+
+    /// Other headers style
+    pub fn markdown_header_n(mut self, style: impl Into<Style>) -> Self {
+        self.markdown_header_n = Some(style.into());
+        self
+    }
+
+    /// Show the focus markers for the paragraph.
+    pub fn hide_paragraph_focus(mut self, hide: bool) -> Self {
+        self.hide_paragraph_focus = hide;
+        self
     }
 
     /// Block
@@ -176,6 +208,18 @@ impl<'a> MsgDialog<'a> {
     /// Combined style
     pub fn styles(mut self, styles: MsgDialogStyle) -> Self {
         self.style = styles.style;
+        if let Some(markdown) = styles.markdown {
+            self.markdown = markdown;
+        }
+        if let Some(markdown_header_1) = styles.markdown_header_1 {
+            self.markdown_header_1 = Some(markdown_header_1);
+        }
+        if let Some(markdown_header_n) = styles.markdown_header_n {
+            self.markdown_header_n = Some(markdown_header_n);
+        }
+        if let Some(hide_paragraph_focus) = styles.hide_paragraph_focus {
+            self.hide_paragraph_focus = hide_paragraph_focus;
+        }
         if styles.block.is_some() {
             self.block = styles.block;
         }
@@ -225,6 +269,10 @@ impl Default for MsgDialogStyle {
             block: Default::default(),
             border_style: Default::default(),
             title_style: Default::default(),
+            markdown: Default::default(),
+            markdown_header_1: Default::default(),
+            markdown_header_n: Default::default(),
+            hide_paragraph_focus: Default::default(),
             scroll: Default::default(),
             button: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -387,6 +435,9 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     state.area = l_dlg.area();
     state.inner = l_dlg.widget_for(DialogItem::Inner);
 
+    let header_1 = widget.markdown_header_1.unwrap_or_default();
+    let header_n = widget.markdown_header_n.unwrap_or_default();
+
     reset_buf_area(state.area, buf);
     block.render(state.area, buf);
 
@@ -399,15 +450,32 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
         let message = state.message.borrow();
         let mut lines = Vec::new();
-        for t in message.split('\n') {
-            lines.push(Line::from(t));
+        if widget.markdown {
+            for t in message.lines() {
+                if t.starts_with("##") {
+                    lines.push(Line::from(t).style(header_n));
+                } else if t.starts_with("#") {
+                    lines.push(Line::from(t).style(header_1));
+                } else {
+                    lines.push(Line::from(t));
+                }
+            }
+        } else {
+            for t in message.lines() {
+                lines.push(Line::from(t));
+            }
         }
+
         let text = Text::from(lines).alignment(Alignment::Center);
-        Paragraph::new(text).scroll(scroll).render(
-            l_dlg.widget_for(DialogItem::Content),
-            buf,
-            &mut state.paragraph.borrow_mut(),
-        );
+
+        Paragraph::new(text)
+            .scroll(scroll)
+            .hide_focus(widget.hide_paragraph_focus)
+            .render(
+                l_dlg.widget_for(DialogItem::Content),
+                buf,
+                &mut state.paragraph.borrow_mut(),
+            );
     }
 
     Button::new("Ok")
