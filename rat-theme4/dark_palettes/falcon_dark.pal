@@ -1,0 +1,66 @@
+[theme]
+name=FalconDark
+theme=Dark
+
+[palette]
+name=Falcon
+docs=
+generator=light-dark:63
+
+[color]
+text-light=#DBDBE0, #F8F8FF
+text-dark=#040411, #0C0C2D
+primary=#D17849, #FF9359
+secondary=#6B6BA5, #8282AD
+white=#F8F8FF, #F8F8FF
+black=#0C0C2D, #1A1A3A
+gray=#393959, #5C5C7C
+red=#FF761A, #FF761A
+orange=#F99157, #F99157
+yellow=#FFC552, #FFC552
+lime-green=#B9E75B, #B9E75B
+green=#9BCCBF, #9BCCBF
+blue-green=#34BFA4, #34BFA4
+cyan=#BFDAFF, #BFDAFF
+blue=#6699CC, #6699CC
+deep-blue=#A1BCE1, #A1BCE1
+purple=#635196, #635196
+magenta=#FFAFB7, #FFAFB7
+red-pink=#FF8E78, #FF8E78
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:1
+container-base.bg=black:0
+container-border.fg=gray:1
+dialog-arrow.fg=white:0
+dialog-base.bg=black:3
+dialog-border.fg=white:0
+disabled.bg=gray:2
+document-arrow.fg=gray:1
+document-base.bg=black:2
+document-border.fg=gray:1
+focus.bg=primary:0
+footer.bg=cyan:0
+footer.fg=deep-blue:7
+header.bg=cyan:0
+header.fg=deep-blue:7
+hover.bg=primary:3
+input-focus.bg=primary:0
+input-select.bg=gray:3
+input.bg=gray:0
+invalid.bg=red:1
+key-binding.bg=white:3
+label.fg=text-light:0
+md+hidden=none:0
+menu-base.bg=black:3
+month-header.fg=text-light:0
+popup-arrow.fg=white:0
+popup-base.bg=primary:1
+popup-border.fg=white:0
+select.bg=gray:3
+shadow.bg=white:0
+status-base.bg=black:3
+title.bg=blue-green:1
+title.fg=green:4
+week-header.fg=text-light:3

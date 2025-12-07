@@ -1,0 +1,66 @@
+[theme]
+name=Gatekeeper
+theme=Dark
+
+[palette]
+name=Gatekeeper
+docs=
+generator=light-dark:63
+
+[color]
+text-light=#CCCDD1, #F9FAFF
+text-dark=#0A0A0A, #000000
+primary=#0B925C, #0FC47C
+secondary=#636363, #939393
+white=#CCCDD1, #EFF0F4
+black=#0A0A0A, #181818
+gray=#363636, #4D4D4D
+red=#FF1A67, #FF1A67
+orange=#FFA300, #FFA300
+yellow=#FFF024, #FFF024
+lime-green=#10F766, #10F766
+green=#00E756, #00E756
+blue-green=#0C965F, #0B925C
+cyan=#29ADFF, #29ADFF
+blue=#29ADFF, #29ADFF
+deep-blue=#5C6AB2, #5C6AB2
+purple=#998CB2, #998CB2
+magenta=#FF77A8, #FF77A8
+red-pink=#FF86B7, #FF86B7
+
+[reference]
+button-base.bg=gray:0
+container-arrow.fg=gray:1
+container-base.bg=black:0
+container-border.fg=gray:1
+dialog-arrow.fg=white:0
+dialog-base.bg=black:3
+dialog-border.fg=white:0
+disabled.bg=gray:2
+document-arrow.fg=gray:1
+document-base.bg=black:2
+document-border.fg=gray:1
+focus.bg=primary:2
+footer.bg=blue-green:0
+footer.fg=text-light:2
+header.bg=blue-green:0
+header.fg=text-light:2
+hover.bg=primary:3
+input-focus.bg=primary:2
+input-select.bg=gray:3
+input.bg=gray:0
+invalid.bg=red:1
+key-binding.bg=deep-blue:0
+label.fg=text-light:0
+md+hidden=none:0
+menu-base.bg=black:3
+month-header.fg=text-light:0
+popup-arrow.fg=white:0
+popup-base.bg=primary:1
+popup-border.fg=white:0
+select.bg=gray:3
+shadow.bg=white:0
+status-base.bg=black:3
+title.bg=blue-green:0
+title.fg=green:4
+week-header.fg=text-light:3

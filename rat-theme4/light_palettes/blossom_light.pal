@@ -1,0 +1,66 @@
+[theme]
+name=Blossom Light
+theme=Light
+
+[palette]
+name=Blossom Light
+docs=
+generator=light-dark:63
+
+[color]
+text-light=#DFD8D5, #FFF7F4
+text-dark=#1E1B19, #544A45
+primary=#6C805C, #4D5B42
+secondary=#B9B2AF, #87817F
+white=#695D57, #4F4641
+black=#DFD8D5, #FFF7F4
+gray=#B9B2AF, #A09996
+red=#B28069, #B28069
+orange=#CC836C, #CC836C
+yellow=#A9A29F, #A9A29F
+lime-green=#899D79, #899D79
+green=#6C805C, #6C805C
+blue-green=#4B6987, #4B6987
+cyan=#75998E, #75998E
+blue=#5F7D9B, #5F7D9B
+deep-blue=#5E5F65, #5E5F65
+purple=#9C7B9C, #9C7B9C
+magenta=#C18F78, #C18F78
+red-pink=#B7856E, #B7856E
+
+[reference]
+button-base.bg=white:2
+container-arrow.fg=gray:1
+container-base.bg=blue-green:0
+container-border.fg=gray:1
+dialog-arrow.fg=text-light:0
+dialog-base.bg=cyan:0
+dialog-border.fg=text-light:0
+disabled.bg=gray:2
+document-arrow.fg=gray:1
+document-base.bg=blue-green:0
+document-border.fg=gray:1
+focus.bg=primary:0
+footer.bg=lime-green:0
+footer.fg=deep-blue:7
+header.bg=lime-green:0
+header.fg=deep-blue:7
+hover.bg=green:0
+input-focus.bg=primary:0
+input-select.bg=gray:3
+input.bg=gray:0
+invalid.bg=red:1
+key-binding.bg=white:3
+label.fg=text-light:0
+md+hidden=none:0
+menu-base.bg=deep-blue:1
+month-header.fg=text-light:0
+popup-arrow.fg=gray:2
+popup-base.bg=green:0
+popup-border.fg=gray:2
+select.bg=gray:3
+shadow.bg=white:0
+status-base.bg=deep-blue:1
+title.bg=green:1
+title.fg=green:4
+week-header.fg=gray:0
