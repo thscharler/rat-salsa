@@ -867,7 +867,7 @@ mod core {
             widget: &dyn HasFocus,
             navigation: Navigation,
         ) -> &mut Self {
-            widget.build(self);
+            widget.build_nav(navigation, self);
 
             let widget_flag = widget.focus();
             // override navigation for the widget

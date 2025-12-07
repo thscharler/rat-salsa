@@ -255,8 +255,21 @@ pub enum Navigation {
 /// navigable() is ignored for containers, leave it at the default.
 ///
 pub trait HasFocus {
-    /// Build the focus-structure for the container.
+    /// Build the focus-structure for the container/widget.
     fn build(&self, builder: &mut FocusBuilder);
+
+    /// Build the focus-structure for the container/widget.
+    /// This is called when the default navigation will be
+    /// overridden by the builder.
+    ///
+    /// It defaults to calling build and ignoring the navigable flag.
+    ///
+    /// You still have to implement build() for the baseline functionality.
+    /// This is just an extra.
+    #[allow(unused_variables)]
+    fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {
+        self.build(builder);
+    }
 
     /// Access to the flag for the rest.
     fn focus(&self) -> FocusFlag;

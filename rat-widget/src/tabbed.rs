@@ -43,6 +43,7 @@
 //!
 //! ```
 //!
+
 use crate::_private::NonExhaustive;
 use crate::event::TabbedOutcome;
 use crate::tabbed::attached::AttachedTabs;
@@ -472,6 +473,23 @@ impl Clone for TabbedState {
 impl HasFocus for TabbedState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.leaf_widget(self);
+    }
+
+    fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {
+        if !matches!(navigable, Navigation::None | Navigation::Leave) {
+            let mut area = Rect::default();
+            for a in self.tab_title_areas.iter() {
+                area = area.union(*a);
+            }
+            builder.widget_with_flags(
+                self.focus(), //
+                area,
+                self.area_z(),
+                navigable,
+            );
+        } else {
+            self.build(builder);
+        }
     }
 
     fn focus(&self) -> FocusFlag {
