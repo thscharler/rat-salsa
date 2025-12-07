@@ -436,7 +436,16 @@ impl<'de> Deserialize<'de> for Palette {
             RedPink.str(),
             "aliased",
         ];
-        des.deserialize_struct("Palette", FIELDS, PaletteVisitor)
+        let mut pal = des.deserialize_struct("Palette", FIELDS, PaletteVisitor)?;
+
+        // need this sorted.
+        if !pal.aliased.is_sorted() {
+            let mut aliased = pal.aliased.into_owned();
+            aliased.sort();
+            pal.aliased = Cow::Owned(aliased);
+        }
+
+        Ok(pal)
     }
 }
 
@@ -642,10 +651,10 @@ impl Palette {
             Cow::Borrowed(_) => {
                 unreachable!()
             }
-            Cow::Owned(aliased) => {
-                aliased.push((Cow::Owned(id.to_string()), color_idx));
-                aliased.sort();
-            }
+            Cow::Owned(aliased) => match aliased.binary_search_by_key(&id, |v| v.0.as_ref()) {
+                Ok(n) => aliased[n] = (Cow::Owned(id.to_string()), color_idx),
+                Err(n) => aliased.insert(n, (Cow::Owned(id.to_string()), color_idx)),
+            },
         }
     }
 
