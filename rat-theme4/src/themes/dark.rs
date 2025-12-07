@@ -305,6 +305,8 @@ fn msg_dialog(th: &SalsaTheme) -> MsgDialogStyle {
     MsgDialogStyle {
         style: th.style(Style::DIALOG_BASE),
         button: Some(th.style(WidgetStyle::BUTTON)),
+        markdown_header_1: Some(th.style_style(Style::TITLE)),
+        markdown_header_n: Some(th.style_style(Style::HEADER)),
         ..Default::default()
     }
 }
