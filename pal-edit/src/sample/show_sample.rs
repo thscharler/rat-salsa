@@ -44,17 +44,17 @@ pub struct ShowSample {
 impl ShowSample {
     pub fn new(loc: Locale) -> Self {
         let mut z = Self {
-            menu: Default::default(),
-            status: Default::default(),
-            tabs: Default::default(),
+            menu: MenubarState::named("sample-menubar"),
+            status: StatusLineState::named("sample-status"),
+            tabs: TabbedState::named("sample-tabbed"),
             input: SampleDataInput::new(loc),
             readability: SampleReadability::default(),
-            dialog: Default::default(),
-            split: Default::default(),
-            table: Default::default(),
-            doc_table: Default::default(),
-            list: Default::default(),
-            custom: Default::default(),
+            dialog: SampleDialogState::default(),
+            split: SampleSplit::default(),
+            table: SampleTable::default(),
+            doc_table: SampleTable::default(),
+            list: SampleList::default(),
+            custom: SampleCustom::default(),
         };
         z.status.status(0, "... something ...");
         z.status.status(1, "[join]");

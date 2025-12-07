@@ -614,6 +614,7 @@ pub fn event(
     match event {
         PalEvent::Rendered => {
             ctx.set_focus(FocusBuilder::rebuild_for(state, ctx.take_focus()));
+            // ctx.focus().enable_log();
             Ok(Control::Continue)
         }
         PalEvent::Message(s) => {
