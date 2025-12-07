@@ -262,7 +262,10 @@ pub fn new_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<(), Error> {
     state.file_slider.set_range((0, 0));
     state.file_path = None;
 
-    state.edit.name.set_value("pal.name");
+    state.edit.theme_name.set_value("");
+    state.edit.theme.set_value("");
+    state.edit.doc.set_value("");
+    state.edit.name.set_value("");
     _ = state.edit.dark.set_value(64);
 
     for c in color_array() {

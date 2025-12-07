@@ -99,6 +99,13 @@ fn parse_arg() -> (Vec<PathBuf>, Option<PathBuf>) {
             S::Start => {
                 if arg == "--alias" {
                     s = S::Alias
+                } else if arg == "--help" {
+                    eprintln!("pal-edit [pal-file] [--alias aliases.ini]");
+                    eprintln!();
+                    eprintln!("pal-file can be .pal or .json files");
+                    eprintln!();
+                    eprintln!("aliases are a list of additional color-aliases.");
+                    exit(0);
                 } else {
                     open_pal_path.push(arg.into());
                 }
@@ -378,6 +385,8 @@ pub fn render(
         Slider::new()
             .styles(ctx.theme.style(WidgetStyle::SLIDER))
             .direction(Direction::Horizontal)
+            .lower_bound("[")
+            .upper_bound("]")
             .render(l_tool[1], buf, &mut state.file_slider);
 
         let current = state.files[state.file_slider.value()]
@@ -561,6 +570,7 @@ pub fn event(
             ct_event!(key press CONTROL-'p') => export_patch_dlg(state, ctx)?,
             ct_event!(keycode press F(7)) => open_prev_pal(state, ctx)?,
             ct_event!(keycode press F(8)) => open_next_pal(state, ctx)?,
+            ct_event!(keycode press F(1)) => help(ctx)?,
             _ => Control::Continue,
         });
 
@@ -889,6 +899,12 @@ pub fn show_error(txt: &str, ctx: &mut Global) {
             message: txt.to_string(),
         },
     );
+}
+
+fn help(ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    let doc_str = include_str!("../doc.md");
+    show_error(doc_str, ctx);
+    Ok(Control::Changed)
 }
 
 fn setup_logging() -> Result<(), Error> {
