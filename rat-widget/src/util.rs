@@ -24,6 +24,25 @@ pub fn union_non_empty(area1: Rect, area2: Rect) -> Rect {
     }
 }
 
+/// Union the areas, but regard only non-empty ones.
+///
+/// This can help if you want to union two non-adjacent areas.
+pub fn union_all_non_empty(areas: &[Rect]) -> Rect {
+    let mut area = Rect::default();
+    for a in areas {
+        if area.is_empty() {
+            if !a.is_empty() {
+                area = *a;
+            }
+        } else {
+            if !a.is_empty() {
+                area = area.union(*a);
+            }
+        }
+    }
+    area
+}
+
 /// Returns a new style with fg and bg swapped.
 ///
 /// This is not the same as setting Style::reversed().

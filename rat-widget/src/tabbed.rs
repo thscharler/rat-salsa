@@ -48,6 +48,8 @@ use crate::_private::NonExhaustive;
 use crate::event::TabbedOutcome;
 use crate::tabbed::attached::AttachedTabs;
 use crate::tabbed::glued::GluedTabs;
+use crate::util::union_all_non_empty;
+use log::debug;
 use rat_event::util::MouseFlagsN;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, event_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -477,13 +479,9 @@ impl HasFocus for TabbedState {
 
     fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {
         if !matches!(navigable, Navigation::None | Navigation::Leave) {
-            let mut area = Rect::default();
-            for a in self.tab_title_areas.iter() {
-                area = area.union(*a);
-            }
             builder.widget_with_flags(
-                self.focus(), //
-                area,
+                self.focus(),
+                union_all_non_empty(&self.tab_title_areas),
                 self.area_z(),
                 navigable,
             );

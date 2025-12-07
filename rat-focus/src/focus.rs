@@ -1513,8 +1513,9 @@ mod core {
                 if sub.area.0.contains(pos) {
                     focus_debug!(
                         self,
-                        "    container area-match {:?}",
-                        sub.container_flag.name()
+                        "    container area-match {:?} {:?}",
+                        sub.container_flag.name(),
+                        sub.area.0
                     );
 
                     z_order = if let Some(zz) = z_order {
@@ -1531,7 +1532,12 @@ mod core {
             // search widgets
             for (idx, area) in self.areas.iter().enumerate() {
                 if area.0.contains(pos) {
-                    focus_debug!(self, "    area-match {:?}", self.focus_flags[idx].name());
+                    focus_debug!(
+                        self,
+                        "    area-match {:?} {:?}",
+                        self.focus_flags[idx].name(),
+                        area.0
+                    );
 
                     z_order = if let Some(zz) = z_order {
                         if zz.1 <= area.1 {
