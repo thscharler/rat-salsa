@@ -3,6 +3,7 @@
 //!
 mod base16;
 mod black_white;
+mod embark;
 mod everforest;
 mod imperial;
 mod material;
@@ -21,6 +22,7 @@ mod vscode;
 
 pub use base16::BASE16;
 pub use black_white::BLACK_WHITE;
+pub use embark::EMBARK;
 pub use everforest::EVERFOREST;
 pub use imperial::IMPERIAL;
 pub use material::MATERIAL;

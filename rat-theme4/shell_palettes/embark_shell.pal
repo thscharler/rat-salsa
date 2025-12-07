@@ -1,0 +1,66 @@
+[theme]
+name=Embark Shell
+theme=Shell
+
+[palette]
+name=Embark
+docs=
+generator=light-dark:64
+
+[color]
+text-light=#C9E1E5, #E0FAFF
+text-dark=#181627, #23213A
+primary=#62D196, #46966B
+secondary=#A1EFD3, #75AD99
+white=#CBE3E7, #E0FAFF
+black=#181627, #23213A
+gray=#413F70, #555394
+red=#F48FB1, #F48FB1
+orange=#FFB378, #FFB378
+yellow=#FFB378, #FFB378
+lime-green=#62D196, #62D196
+green=#A1EFD3, #A1EFD3
+blue-green=#AAFFE4, #AAFFE4
+cyan=#AAFFE4, #AAFFE4
+blue=#91DDFF, #91DDFF
+deep-blue=#78A8FF, #78A8FF
+purple=#A87FFC, #A87FFC
+magenta=#D4BFFF, #D4BFFF
+red-pink=#FF5458, #FF5458
+
+[reference]
+button-base.bg=primary:0
+container-arrow.fg=gray:3
+container-base.bg=none:0
+container-border.fg=gray:3
+dialog-arrow.fg=white:0
+dialog-base.bg=black:3
+dialog-border.fg=white:0
+disabled.bg=gray:0
+document-arrow.fg=gray:2
+document-base.bg=none:0
+document-border.fg=gray:2
+focus.bg=primary:0
+footer.bg=none:0
+footer.fg=blue:0
+header.bg=none:0
+header.fg=blue:0
+hover.bg=primary:2
+input-focus.bg=primary:0
+input-select.bg=secondary:0
+input.bg=gray:3
+invalid.bg=red:0
+key-binding.bg=secondary:0
+label.fg=text-light:0
+md+hidden=none:0
+menu-base.bg=black:3
+month-header.fg=none:0
+popup-arrow.fg=primary:0
+popup-base.bg=gray:1
+popup-border.fg=primary:0
+select.bg=secondary:0
+shadow.bg=black:0
+status-base.bg=black:3
+title.bg=blue:0
+title.fg=text-dark:0
+week-header.fg=text-light:3

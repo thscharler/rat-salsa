@@ -28,5 +28,8 @@ rat-widget = { version = "2.6", path = "../rat-widget" }
 
 [dev-dependencies]
 serde_json = { version = "1.0", features = ["std"] }
-serde_ini = "0.2"
 anyhow = "1.0"
+
+[[test]]
+name = "test_serde"
+required-features = ["serde"]

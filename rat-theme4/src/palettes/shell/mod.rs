@@ -3,6 +3,7 @@
 
 mod base16_shell;
 mod black_white_shell;
+mod embark_shell;
 mod everforest_shell;
 mod imperial_shell;
 mod material_shell;
@@ -21,6 +22,7 @@ mod vscode_shell;
 
 pub use base16_shell::BASE16_SHELL;
 pub use black_white_shell::BLACK_WHITE_SHELL;
+pub use embark_shell::EMBARK_SHELL;
 pub use everforest_shell::EVERFOREST_SHELL;
 pub use imperial_shell::IMPERIAL_SHELL;
 pub use material_shell::MATERIAL_SHELL;

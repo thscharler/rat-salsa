@@ -7,12 +7,14 @@
 //! Or maybe they differ a bit to better accomodate light themes.
 //!
 
+mod embark_light;
 mod everforest_light;
 mod imperial_light;
 mod rust_light;
 mod sunrisebreeze_light;
 mod tailwind_light;
 
+pub use embark_light::EMBARK_LIGHT;
 pub use everforest_light::EVERFOREST_LIGHT;
 pub use imperial_light::IMPERIAL_LIGHT;
 pub use rust_light::RUST_LIGHT;

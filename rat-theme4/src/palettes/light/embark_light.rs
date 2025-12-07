@@ -1,0 +1,73 @@
+use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
+
+const DARKNESS: u8 = 128;
+
+/// Embark
+pub const EMBARK_LIGHT: Palette = Palette {
+    theme_name: Cow::Borrowed("Embark Light"), 
+    theme: Cow::Borrowed("Dark"), 
+    name: Cow::Borrowed("Embark"), 
+    doc: Cow::Borrowed(""), 
+    generator: Cow::Borrowed("light-dark:128"), 
+
+    color: [
+        Palette::interpolate2(0xc9e1e5, 0xe0faff, 0x0, 0x0),
+        Palette::interpolate2(0x181627, 0x23213a, 0x0, 0x0),
+        Palette::interpolate(0x62d196, 0x46966b, DARKNESS),
+        Palette::interpolate(0xa1efd3, 0x75ad99, DARKNESS),
+        Palette::interpolate(0xcbe3e7, 0xe0faff, DARKNESS),
+        Palette::interpolate(0x181627, 0x23213a, DARKNESS),
+        Palette::interpolate(0x504e89, 0x9391ff, DARKNESS),
+        Palette::interpolate(0xf48fb1, 0xf48fb1, DARKNESS),
+        Palette::interpolate(0xffb378, 0xffb378, DARKNESS),
+        Palette::interpolate(0xffb378, 0xffb378, DARKNESS),
+        Palette::interpolate(0x62d196, 0x62d196, DARKNESS),
+        Palette::interpolate(0xa1efd3, 0xa1efd3, DARKNESS),
+        Palette::interpolate(0xaaffe4, 0xaaffe4, DARKNESS),
+        Palette::interpolate(0xaaffe4, 0xaaffe4, DARKNESS),
+        Palette::interpolate(0x91ddff, 0x91ddff, DARKNESS),
+        Palette::interpolate(0x78a8ff, 0x78a8ff, DARKNESS),
+        Palette::interpolate(0xa87ffc, 0xa87ffc, DARKNESS),
+        Palette::interpolate(0xd4bfff, 0xd4bfff, DARKNESS),
+        Palette::interpolate(0xff5458, 0xff5458, DARKNESS),
+    ],
+    // must be sorted!
+    aliased: Cow::Borrowed(&[
+        define_alias("button-base.bg", Colors::Primary, 2),
+        define_alias("container-arrow.fg", Colors::White, 0),
+        define_alias("container-base.bg", Colors::Gray, 1),
+        define_alias("container-border.fg", Colors::White, 0),
+        define_alias("dialog-arrow.fg", Colors::TextDark, 0),
+        define_alias("dialog-base.bg", Colors::White, 0),
+        define_alias("dialog-border.fg", Colors::TextDark, 0),
+        define_alias("disabled.bg", Colors::Gray, 0),
+        define_alias("document-arrow.fg", Colors::White, 0),
+        define_alias("document-base.bg", Colors::Gray, 2),
+        define_alias("document-border.fg", Colors::White, 0),
+        define_alias("focus.bg", Colors::Primary, 0),
+        define_alias("footer.bg", Colors::Blue, 0),
+        define_alias("footer.fg", Colors::TextDark, 0),
+        define_alias("header.bg", Colors::Blue, 0),
+        define_alias("header.fg", Colors::TextDark, 0),
+        define_alias("hover.bg", Colors::Primary, 3),
+        define_alias("input-focus.bg", Colors::Primary, 0),
+        define_alias("input-select.bg", Colors::Secondary, 0),
+        define_alias("input.bg", Colors::Gray, 3),
+        define_alias("invalid.bg", Colors::Red, 0),
+        define_alias("key-binding.bg", Colors::Secondary, 0),
+        define_alias("label.fg", Colors::TextLight, 0),
+        define_alias("menu-base.bg", Colors::White, 0),
+        define_alias("month-header.fg", Colors::TextLight, 0),
+        define_alias("popup-arrow.fg", Colors::White, 0),
+        define_alias("popup-base.bg", Colors::Gray, 3),
+        define_alias("popup-border.fg", Colors::White, 0),
+        define_alias("select.bg", Colors::Secondary, 0),
+        define_alias("shadow.bg", Colors::Black, 0),
+        define_alias("status-base.bg", Colors::White, 0),
+        define_alias("title.bg", Colors::Blue, 0),
+        define_alias("title.fg", Colors::TextDark, 0),
+        define_alias("week-header.fg", Colors::TextLight, 3),
+    ]),
+};
+
