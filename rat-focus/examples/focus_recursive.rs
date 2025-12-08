@@ -2,9 +2,9 @@ use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use crate::substratum1::{Substratum, SubstratumState};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::Block;
+use ratatui::widgets::{Block, StatefulWidget};
 use std::cmp::max;
 
 mod adapter;
@@ -12,8 +12,6 @@ mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         sub1: Default::default(),
@@ -23,17 +21,8 @@ fn main() -> Result<(), anyhow::Error> {
     };
     focus_input(&mut state).next();
 
-    run_ui(
-        "focus_recursive",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("focus_recursive", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     pub(crate) sub1: SubstratumState,
@@ -43,10 +32,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([
@@ -58,17 +46,21 @@ fn render(
 
     let l00 = Layout::vertical([Constraint::Length(8), Constraint::Length(8)]).split(l0[0]);
 
-    let w1 = Substratum::new().block(Block::bordered().title("First"));
-    frame.render_stateful_widget(w1, l00[0], &mut state.sub1);
-    let w2 = Substratum::new().block(Block::bordered().title("Second"));
-    frame.render_stateful_widget(w2, l00[1], &mut state.sub2);
+    Substratum::new(&ctx.theme)
+        .block(Block::bordered().title("First"))
+        .render(l00[0], buf, &mut state.sub1);
+    Substratum::new(&ctx.theme)
+        .block(Block::bordered().title("Second"))
+        .render(l00[1], buf, &mut state.sub2);
 
     let l11 = Layout::vertical([Constraint::Length(8), Constraint::Length(8)]).split(l0[1]);
 
-    let w3 = Substratum::new().block(Block::bordered().title("Third"));
-    frame.render_stateful_widget(w3, l11[0], &mut state.sub3);
-    let w4 = Substratum::new().block(Block::bordered().title("Forth"));
-    frame.render_stateful_widget(w4, l11[1], &mut state.sub4);
+    Substratum::new(&ctx.theme)
+        .block(Block::bordered().title("Third"))
+        .render(l11[0], buf, &mut state.sub3);
+    Substratum::new(&ctx.theme)
+        .block(Block::bordered().title("Forth"))
+        .render(l11[1], buf, &mut state.sub4);
 
     let cursor = state.sub1.screen_cursor().or_else(|| {
         state.sub2.screen_cursor().or_else(|| {
@@ -79,7 +71,7 @@ fn render(
         })
     });
     if let Some((x, y)) = cursor {
-        frame.set_cursor_position((x, y));
+        ctx.cursor = Some((x, y));
     }
 
     Ok(())
@@ -96,8 +88,7 @@ fn focus_input(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus_input(state).handle(event, Regular);
@@ -112,25 +103,28 @@ fn event(
 
 pub mod substratum1 {
     use crate::adapter::textinputf::{TextInputF, TextInputFState};
-    use crate::mini_salsa::THEME;
     use crate::mini_salsa::layout_grid;
     use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+    use rat_theme4::theme::SalsaTheme;
+    use rat_theme4::{RatWidgetColor, StyleName};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::BlockExt;
-    use ratatui::style::Style;
+    use ratatui::style::{Color, Style};
     use ratatui::text::Span;
     use ratatui::widgets::{Block, StatefulWidget, Widget};
 
-    #[derive(Debug, Default)]
+    #[derive(Debug)]
     pub struct Substratum<'a> {
+        theme: &'a SalsaTheme,
         block: Option<Block<'a>>,
     }
 
     impl<'a> Substratum<'a> {
-        pub fn new() -> Self {
+        pub fn new(theme: &'a SalsaTheme) -> Self {
             Self {
+                theme,
                 block: Default::default(),
             }
         }
@@ -158,17 +152,17 @@ pub mod substratum1 {
             let inner = self.block.inner_if_some(area);
             state.area = area;
 
-            self.block = if state.container_focus.get() {
-                if let Some(block) = self.block {
-                    Some(block.border_style(Style::default().fg(THEME.palette().secondary[3])))
-                } else {
-                    self.block
-                }
+            let mut block = if let Some(block) = self.block {
+                block
             } else {
-                self.block
-            };
-
-            self.block.render(area, buf);
+                Block::bordered()
+            }
+            .style(self.theme.style_style(Style::CONTAINER_BASE))
+            .border_style(self.theme.style_style(Style::CONTAINER_BORDER_FG));
+            if state.container_focus.get() {
+                block = block.border_style(self.theme.p.fg_style_alias(Color::FOCUS_BG))
+            }
+            block.render(area, buf);
 
             let l_grid = layout_grid::<2, 4>(
                 inner,
@@ -182,28 +176,28 @@ pub mod substratum1 {
             );
 
             Span::from("Text 1").render(l_grid[0][0], buf);
-            let input1 = TextInputF::default()
-                .style(THEME.text_input())
-                .focus_style(THEME.text_focus());
-            input1.render(l_grid[1][0], buf, &mut state.input1);
+            TextInputF::default()
+                .style(self.theme.style_style(Style::INPUT))
+                .focus_style(self.theme.style_style(Style::FOCUS))
+                .render(l_grid[1][0], buf, &mut state.input1);
 
             Span::from("Text 2").render(l_grid[0][1], buf);
-            let input2 = TextInputF::default()
-                .style(THEME.text_input())
-                .focus_style(THEME.text_focus());
-            input2.render(l_grid[1][1], buf, &mut state.input2);
+            TextInputF::default()
+                .style(self.theme.style_style(Style::INPUT))
+                .focus_style(self.theme.style_style(Style::FOCUS))
+                .render(l_grid[1][1], buf, &mut state.input2);
 
             Span::from("Text 3").render(l_grid[0][2], buf);
-            let input3 = TextInputF::default()
-                .style(THEME.text_input())
-                .focus_style(THEME.text_focus());
-            input3.render(l_grid[1][2], buf, &mut state.input3);
+            TextInputF::default()
+                .style(self.theme.style_style(Style::INPUT))
+                .focus_style(self.theme.style_style(Style::FOCUS))
+                .render(l_grid[1][2], buf, &mut state.input3);
 
             Span::from("Text 4").render(l_grid[0][3], buf);
-            let input4 = TextInputF::default()
-                .style(THEME.text_input())
-                .focus_style(THEME.text_focus());
-            input4.render(l_grid[1][3], buf, &mut state.input4);
+            TextInputF::default()
+                .style(self.theme.style_style(Style::INPUT))
+                .focus_style(self.theme.style_style(Style::FOCUS))
+                .render(l_grid[1][3], buf, &mut state.input4);
         }
     }
 

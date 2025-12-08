@@ -2,8 +2,8 @@
 //! Example for [TableDataIter] used with [StatefulWidget]
 //!
 
+use crate::mini_salsa::mock_init;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
-use crate::mini_salsa::{THEME, mock_init};
 use format_num_pattern::NumberFormat;
 use rat_event::{HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
@@ -11,10 +11,12 @@ use rat_ftable::event::Outcome;
 use rat_ftable::selection::RowSelection;
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableDataIter, TableState};
-use rat_scrolled::Scroll;
-use ratatui::Frame;
+use rat_scrolled::{Scroll, ScrollStyle};
+use rat_theme4::StyleName;
+use rat_theme4::theme::SalsaTheme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget, Widget, block};
 use std::iter::Enumerate;
@@ -26,7 +28,7 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {
+    let mut state = State {
         table_data: data::DATA
             .iter()
             .map(|v| Sample {
@@ -37,13 +39,10 @@ fn main() -> Result<(), anyhow::Error> {
             })
             .take(100_000)
             .collect(),
-    };
-
-    let mut state = State {
         table: Default::default(),
     };
 
-    run_ui("iter", mock_init, event, render, &mut data, &mut state)
+    run_ui("iter", mock_init, event, render, &mut state)
 }
 
 struct Sample {
@@ -53,19 +52,15 @@ struct Sample {
     check: bool,
 }
 
-struct Data {
-    table_data: Vec<Sample>,
-}
-
 struct State {
+    table_data: Vec<Sample>,
     table: TableState<RowSelection>,
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([Constraint::Percentage(61)])
@@ -122,8 +117,8 @@ fn render(
 
     Table::default()
         .iter(DataIter {
-            size: data.table_data.len(),
-            iter: data.table_data.iter().enumerate(),
+            size: state.table_data.len(),
+            iter: state.table_data.iter().enumerate(),
             item: None,
         })
         .widths([
@@ -145,14 +140,37 @@ fn render(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.container_border())
-                .title_style(THEME.container_border())
                 .title("tabledata-iter (no row-count)"),
         )
         .vscroll(Scroll::new())
-        .styles(THEME.table_style())
-        .render(l0[0], frame.buffer_mut(), &mut state.table);
+        .styles(table(&ctx.theme))
+        .render(l0[0], buf, &mut state.table);
     Ok(())
+}
+
+fn table(th: &SalsaTheme) -> rat_ftable::TableStyle {
+    rat_ftable::TableStyle {
+        style: th.style(Style::CONTAINER_BASE),
+        select_row: Some(th.style(Style::SELECT)),
+        show_row_focus: true,
+        focus_style: Some(th.style(Style::FOCUS)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        scroll: Some(scroll(th)),
+        header: Some(th.style(Style::HEADER)),
+        footer: Some(th.style(Style::FOOTER)),
+        ..Default::default()
+    }
+}
+
+fn scroll(th: &SalsaTheme) -> ScrollStyle {
+    ScrollStyle {
+        thumb_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        track_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        min_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        begin_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        end_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        ..Default::default()
+    }
 }
 
 fn focus(state: &mut State) -> Focus {
@@ -164,11 +182,10 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    istate.focus_outcome = focus(state).handle(event, Regular);
+    ctx.focus_outcome = focus(state).handle(event, Regular);
 
     let r = state.table.handle(event, Regular);
 

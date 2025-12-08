@@ -4,8 +4,8 @@
 //!
 
 use crate::data::render_tablestate::render_tablestate;
+use crate::mini_salsa::mock_init;
 use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
-use crate::mini_salsa::{THEME, mock_init};
 use format_num_pattern::NumberFormat;
 use rat_event::ct_event;
 use rat_event::util::item_at;
@@ -13,10 +13,13 @@ use rat_ftable::event::Outcome;
 use rat_ftable::selection::{RowSelection, rowselection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableDataIter, TableState};
-use rat_scrolled::Scroll;
-use ratatui::Frame;
+use rat_scrolled::{Scroll, ScrollStyle};
+use rat_theme4::StyleName;
+use rat_theme4::palette::Colors;
+use rat_theme4::theme::SalsaTheme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget, Widget, block};
 use std::cmp::max;
@@ -34,7 +37,7 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {
+    let mut state = State {
         table_data: data::SMALL_DATA
             .iter()
             .map(|v| Sample {
@@ -44,23 +47,13 @@ fn main() -> Result<(), anyhow::Error> {
                 check: rand::random(),
             })
             .collect(),
-    };
-
-    let mut state = State {
         table: Default::default(),
         report_rows: None,
         no_row_count: false,
         edit: Default::default(),
     };
 
-    run_ui(
-        "insane_offset",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("insane_offset", mock_init, event, render, &mut state)
 }
 
 struct Sample {
@@ -70,22 +63,18 @@ struct Sample {
     pub(crate) check: bool,
 }
 
-struct Data {
-    pub(crate) table_data: Vec<Sample>,
-}
-
 struct State {
-    pub(crate) table: TableState<RowSelection>,
-    pub(crate) report_rows: Option<usize>,
-    pub(crate) no_row_count: bool,
-    pub(crate) edit: [[Rect; 10]; 1],
+    table_data: Vec<Sample>,
+    table: TableState<RowSelection>,
+    report_rows: Option<usize>,
+    no_row_count: bool,
+    edit: [[Rect; 10]; 1],
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([
@@ -119,41 +108,46 @@ fn render(
         ]),
     );
 
-    "rows() reports".render(state.edit[0][0], frame.buffer_mut());
-    let mut b_none = Span::from("None").style(THEME.deepblue(0));
+    "rows() reports".render(state.edit[0][0], buf);
+    let mut b_none = Span::from("None").style(ctx.theme.p.deepblue(0));
     if state.report_rows == None {
-        b_none = b_none.style(THEME.deepblue(3));
+        b_none = b_none.style(ctx.theme.p.deepblue(3));
     }
-    frame.render_widget(b_none, state.edit[0][1]);
-    let mut b_none = Span::from("Too few").style(THEME.deepblue(0));
+    b_none.render(state.edit[0][1], buf);
+    let mut b_none = Span::from("Too few").style(ctx.theme.p.deepblue(0));
     if state.report_rows == Some(SMALLER) {
-        b_none = b_none.style(THEME.deepblue(3));
+        b_none = b_none.style(ctx.theme.p.deepblue(3));
     }
-    frame.render_widget(b_none, state.edit[0][2]);
-    let mut b_none = Span::from("Circa").style(THEME.deepblue(0));
+    b_none.render(state.edit[0][2], buf);
+    let mut b_none = Span::from("Circa").style(ctx.theme.p.deepblue(0));
     if state.report_rows == Some(CIRCA) {
-        b_none = b_none.style(THEME.deepblue(3));
+        b_none = b_none.style(ctx.theme.p.deepblue(3));
     }
-    frame.render_widget(b_none, state.edit[0][3]);
-    let mut b_none = Span::from("Exact").style(THEME.deepblue(0));
+    b_none.render(state.edit[0][3], buf);
+    let mut b_none = Span::from("Exact").style(ctx.theme.p.deepblue(0));
     if state.report_rows == Some(EXACT) {
-        b_none = b_none.style(THEME.deepblue(3));
+        b_none = b_none.style(ctx.theme.p.deepblue(3));
     }
-    frame.render_widget(b_none, state.edit[0][4]);
-    let mut b_none = Span::from("Too many").style(THEME.deepblue(0));
+    b_none.render(state.edit[0][4], buf);
+    let mut b_none = Span::from("Too many").style(ctx.theme.p.deepblue(0));
     if state.report_rows == Some(GREATER) {
-        b_none = b_none.style(THEME.deepblue(3));
+        b_none = b_none.style(ctx.theme.p.deepblue(3));
     }
-    frame.render_widget(b_none, state.edit[0][5]);
+    b_none.render(state.edit[0][5], buf);
 
-    let mut nocount = Span::from("no_row_count").style(THEME.deepblue(0));
+    let mut nocount = Span::from("no_row_count").style(ctx.theme.p.deepblue(0));
     if state.no_row_count {
-        nocount = nocount.style(THEME.deepblue(0).fg(THEME.palette().red[3]));
+        nocount = nocount.style(
+            ctx.theme
+                .p
+                .deepblue(0)
+                .fg(ctx.theme.p.color(Colors::Red, 3)),
+        );
     }
-    frame.render_widget(nocount, state.edit[0][7]);
+    nocount.render(state.edit[0][7], buf);
 
-    let goto = Span::from("GOTO 1_000_000").style(THEME.deepblue(0));
-    frame.render_widget(goto, state.edit[0][9]);
+    let goto = Span::from("GOTO 1_000_000").style(ctx.theme.p.deepblue(0));
+    goto.render(state.edit[0][9], buf);
 
     // table
     struct RowIter1<'a> {
@@ -207,7 +201,7 @@ fn render(
     Table::default()
         .iter(RowIter1 {
             report_rows: state.report_rows,
-            iter: data.table_data.iter().enumerate(),
+            iter: state.table_data.iter().enumerate(),
             item: None,
         })
         .no_row_count(state.no_row_count)
@@ -219,38 +213,58 @@ fn render(
             Constraint::Length(3),
         ])
         .column_spacing(1)
-        .header(
-            Row::new([
-                Cell::from("Nr"),
-                Cell::from("Text"),
-                Cell::from("Val1"),
-                Cell::from("Val2"),
-                Cell::from("State"),
-            ])
-            .style(Some(THEME.table_header())),
-        )
-        .footer(Row::new(["a", "b", "c", "d", "e"]).style(Some(THEME.table_footer())))
+        .header(Row::new([
+            Cell::from("Nr"),
+            Cell::from("Text"),
+            Cell::from("Val1"),
+            Cell::from("Val2"),
+            Cell::from("State"),
+        ]))
+        .footer(Row::new(["a", "b", "c", "d", "e"]))
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.container_border())
                 .title("offsets"),
         )
-        .vscroll(Scroll::new().style(THEME.container_border()))
+        .vscroll(Scroll::new())
         .flex(Flex::End)
-        .styles(THEME.table_style())
-        .select_row_style(Some(THEME.gray(3)))
-        .render(l0[1], frame.buffer_mut(), &mut state.table);
+        .styles(table(&ctx.theme))
+        .select_row_style(Some(ctx.theme.p.gray(3)))
+        .render(l0[1], buf, &mut state.table);
 
-    render_tablestate(&state.table, l1[2], frame.buffer_mut());
+    render_tablestate(&state.table, l1[2], buf);
 
     Ok(())
 }
 
+fn table(th: &SalsaTheme) -> rat_ftable::TableStyle {
+    rat_ftable::TableStyle {
+        style: th.style(Style::CONTAINER_BASE),
+        select_row: Some(th.style(Style::SELECT)),
+        show_row_focus: true,
+        focus_style: Some(th.style(Style::FOCUS)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        scroll: Some(scroll(th)),
+        header: Some(th.style(Style::HEADER)),
+        footer: Some(th.style(Style::FOOTER)),
+        ..Default::default()
+    }
+}
+
+fn scroll(th: &SalsaTheme) -> ScrollStyle {
+    ScrollStyle {
+        thumb_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        track_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        min_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        begin_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        end_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        ..Default::default()
+    }
+}
+
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let r0 = 'f: {

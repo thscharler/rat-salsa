@@ -1,11 +1,14 @@
 use crate::adapter::textinputf::{TextInputF, TextInputFState};
+use crate::mini_salsa::mock_init;
 use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
-use crate::mini_salsa::{THEME, mock_init};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
-use ratatui::Frame;
+use rat_theme4::StyleName;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Span;
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::cmp::max;
 
 mod adapter;
@@ -13,8 +16,6 @@ mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         input1: Default::default(),
@@ -24,17 +25,8 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.input1.focus.set(true);
 
-    run_ui(
-        "focus_input1",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("focus_input1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     pub(crate) input1: TextInputFState,
@@ -44,10 +36,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([Constraint::Length(25), Constraint::Fill(1)]).split(area);
@@ -63,29 +54,29 @@ fn render(
         ]),
     );
 
-    frame.render_widget(Span::from("Text 1"), l_grid[0][0]);
-    let input1 = TextInputF::default()
-        .style(THEME.text_input())
-        .focus_style(THEME.text_focus());
-    frame.render_stateful_widget(input1, l_grid[1][0], &mut state.input1);
+    Span::from("Text 1").render(l_grid[0][0], buf);
+    TextInputF::default()
+        .style(ctx.theme.style_style(Style::INPUT))
+        .focus_style(ctx.theme.style_style(Style::FOCUS))
+        .render(l_grid[1][0], buf, &mut state.input1);
 
-    frame.render_widget(Span::from("Text 2"), l_grid[0][1]);
-    let input2 = TextInputF::default()
-        .style(THEME.text_input())
-        .focus_style(THEME.text_focus());
-    frame.render_stateful_widget(input2, l_grid[1][1], &mut state.input2);
+    Span::from("Text 2").render(l_grid[0][1], buf);
+    TextInputF::default()
+        .style(ctx.theme.style_style(Style::INPUT))
+        .focus_style(ctx.theme.style_style(Style::FOCUS))
+        .render(l_grid[1][1], buf, &mut state.input2);
 
-    frame.render_widget(Span::from("Text 3"), l_grid[0][2]);
-    let input3 = TextInputF::default()
-        .style(THEME.text_input())
-        .focus_style(THEME.text_focus());
-    frame.render_stateful_widget(input3, l_grid[1][2], &mut state.input3);
+    Span::from("Text 3").render(l_grid[0][2], buf);
+    TextInputF::default()
+        .style(ctx.theme.style_style(Style::INPUT))
+        .focus_style(ctx.theme.style_style(Style::FOCUS))
+        .render(l_grid[1][2], buf, &mut state.input3);
 
-    frame.render_widget(Span::from("Text 4"), l_grid[0][3]);
-    let input4 = TextInputF::default()
-        .style(THEME.text_input())
-        .focus_style(THEME.text_focus());
-    frame.render_stateful_widget(input4, l_grid[1][3], &mut state.input4);
+    Span::from("Text 4").render(l_grid[0][3], buf);
+    TextInputF::default()
+        .style(ctx.theme.style_style(Style::INPUT))
+        .focus_style(ctx.theme.style_style(Style::FOCUS))
+        .render(l_grid[1][3], buf, &mut state.input4);
 
     let cursor = if state.input1.is_focused() {
         state.input1.screen_cursor()
@@ -99,7 +90,7 @@ fn render(
         None
     };
     if let Some(cursor) = cursor {
-        frame.set_cursor_position((cursor.0, cursor.1));
+        ctx.cursor = Some((cursor.0, cursor.1));
     }
 
     Ok(())
@@ -116,7 +107,6 @@ fn focus_input(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

@@ -4,17 +4,19 @@
 
 use crate::data::SMALL_DATA;
 use crate::data::render_tablestate::render_tablestate_row;
+use crate::mini_salsa::mock_init;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
-use crate::mini_salsa::{THEME, mock_init};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{RowSelection, rowselection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableDataIter, TableState};
-use rat_scrolled::Scroll;
-use ratatui::Frame;
+use rat_scrolled::{Scroll, ScrollStyle};
+use rat_theme4::StyleName;
+use rat_theme4::theme::SalsaTheme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget, Widget, block};
 use std::cell::RefCell;
@@ -27,7 +29,7 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {
+    let mut state = State {
         table_data: data::DATA
             .iter()
             .map(|v| Sample {
@@ -39,13 +41,10 @@ fn main() -> Result<(), anyhow::Error> {
             })
             .take(100_000)
             .collect(),
-    };
-
-    let mut state = State {
         table: Default::default(),
     };
 
-    run_ui("0_height", mock_init, event, render, &mut data, &mut state)
+    run_ui("0_height", mock_init, event, render, &mut state)
 }
 
 struct Sample {
@@ -56,19 +55,15 @@ struct Sample {
     pub(crate) row_height: u16,
 }
 
-struct Data {
-    pub(crate) table_data: Vec<Sample>,
-}
-
 struct State {
-    pub(crate) table: TableState<RowSelection>,
+    table_data: Vec<Sample>,
+    table: TableState<RowSelection>,
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
@@ -148,8 +143,8 @@ fn render(
 
     Table::default()
         .iter(DataIter {
-            rows: data.table_data.len(),
-            iter: data.table_data.iter().enumerate(),
+            rows: state.table_data.len(),
+            iter: state.table_data.iter().enumerate(),
             item: None,
             fmt1: NumberFormat::new("000000").expect("fmt"),
             fmt2: NumberFormat::new("####0.00").expect("fmt"),
@@ -163,38 +158,57 @@ fn render(
             Constraint::Length(3),
         ])
         .column_spacing(1)
-        .header(
-            Row::new([
-                Cell::from("Nr"),
-                Cell::from("Text"),
-                Cell::from("Val1"),
-                Cell::from("Val2"),
-                Cell::from("State"),
-            ])
-            .style(Some(THEME.table_header())),
-        )
-        .footer(Row::new(["a", "b", "c", "d", "e"]).style(Some(THEME.table_footer())))
+        .header(Row::new([
+            Cell::from("Nr"),
+            Cell::from("Text"),
+            Cell::from("Val1"),
+            Cell::from("Val2"),
+            Cell::from("State"),
+        ]))
+        .footer(Row::new(["a", "b", "c", "d", "e"]))
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.container_border())
                 .title("0-height rows"),
         )
-        .vscroll(Scroll::new().style(THEME.container_border()))
+        .vscroll(Scroll::new())
         .flex(Flex::End)
-        .styles(THEME.table_style())
-        .select_row_style(Some(THEME.gray(3)))
-        .render(l0[0], frame.buffer_mut(), &mut state.table);
+        .styles(table(&ctx.theme))
+        .render(l0[0], buf, &mut state.table);
 
-    render_tablestate_row(&state.table, l0[1], frame.buffer_mut());
+    render_tablestate_row(&state.table, l0[1], buf);
 
     Ok(())
 }
 
+fn table(th: &SalsaTheme) -> rat_ftable::TableStyle {
+    rat_ftable::TableStyle {
+        style: th.style(Style::CONTAINER_BASE),
+        select_row: Some(th.style(Style::SELECT)),
+        show_row_focus: true,
+        focus_style: Some(th.style(Style::FOCUS)),
+        border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        scroll: Some(scroll(th)),
+        header: Some(th.style(Style::HEADER)),
+        footer: Some(th.style(Style::FOOTER)),
+        ..Default::default()
+    }
+}
+
+fn scroll(th: &SalsaTheme) -> ScrollStyle {
+    ScrollStyle {
+        thumb_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        track_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        min_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
+        begin_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        end_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        ..Default::default()
+    }
+}
+
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let r = rowselection::handle_events(&mut state.table, true, event);
