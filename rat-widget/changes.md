@@ -1,3 +1,18 @@
+# 2.8.0
+
+* break: move ColorInput to rat-widget-extra. Optional widgets are
+  a better fit there.
+* feature: Tabbed uses FocusBuilder::build_nav() to allow navigation
+  to the tabs.
+* feature: add a bit of markdown to MsgDialog. Can now set a
+  background-color for headers.
+* feature: Paragraph: allow hiding the focus marker.
+
+* feature: Focus: add flip_focus() to switch between menubar and
+  some selected widget.
+* feature: Focus: add HasFocus::build_nav(). This is called when the
+  default Navigation is overridden when adding the widget to FocusBuilder.
+
 # 2.7.0
 
 * refactor: Splitter, Choice, Combobox: ignore are given to popup.

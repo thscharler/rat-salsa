@@ -1,3 +1,7 @@
+# 2.4.1
+
+* fix dependencies
+
 # 2.4.0
 
 * refactor: when rendering the menu-popup the given area is ignored

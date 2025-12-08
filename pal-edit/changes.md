@@ -1,3 +1,7 @@
+# 1.5.0
+
+* minor fixes
+
 # 1.4.0
 
 * keep up with rat-theme4

@@ -1,3 +1,7 @@
+# 2.2.1
+
+* fix dependencies
+
 # 2.2.0
 
 * refactor: changes to RelocatableState

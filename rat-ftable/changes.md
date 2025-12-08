@@ -1,3 +1,7 @@
+# 1.4.1
+
+* fix dependencies
+
 # 1.4.0
 
 * feature: add move_deselect(). deselects and resets the offset.

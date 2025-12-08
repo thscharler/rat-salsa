@@ -1,3 +1,7 @@
+# 0.30.1
+
+* fix dependencies
+
 # 0.30.0
 
 * fix upstream changes for MenuStyle.

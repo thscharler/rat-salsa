@@ -1,3 +1,7 @@
+# 2.5.1
+
+* fix: small fixes for serde feature
+
 # 2.5.0
 
 * add serde for Palette

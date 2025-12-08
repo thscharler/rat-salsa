@@ -1,3 +1,8 @@
+# 2.7.0
+
+* break: move ColorInput to new rat-widget-extra. Optional widgets
+  are a better fit there.
+
 # 2.6.0
 
 * fix: TextInput, TextInputMask: selection was not shown when the invalid flag is set.

@@ -1,7 +1,9 @@
-# 1.5.1
+# 1.6.0
 
 * feature: add flip_focus() to switch between menubar and
   some selected widget.
+* feature: add HasFocus::build_nav(). This is called when the
+  default Navigation is overridden when adding the widget to FocusBuilder.
 
 # 1.5.0
 

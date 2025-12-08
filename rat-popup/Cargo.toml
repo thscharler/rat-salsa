@@ -1,6 +1,6 @@
 [package]
 name = "rat-popup"
-version = "2.2.0"
+version = "2.2.1"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui popup semi-window widget"
@@ -24,7 +24,7 @@ log = "0.4"
 
 rat-event = { version = "1.4", path = "../rat-event" }
 rat-reloc = { version = "1.4", path = "../rat-reloc" }
-rat-focus = { version = "1.5", path = "../rat-focus" }
+rat-focus = { version = "1.6", path = "../rat-focus" }
 rat-cursor = { version = "1.2", path = "../rat-cursor" }
 
 [dev-dependencies]

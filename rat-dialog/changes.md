@@ -1,3 +1,7 @@
+# 0.8.1
+
+* fix dependencies
+
 # 0.8.0
 
 * move examples to rat-theme4

@@ -1,3 +1,7 @@
+# 1.5.1
+
+* fix dependencies
+
 # 1.5.0
 
 * fix upstream changes for MenuStyle.

@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme2"
-version = "1.5.0"
+version = "1.5.1"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "dark theme and color-schemes"
@@ -18,4 +18,4 @@ workspace = true
 ratatui = { version = "0.29" }
 log = "0.4"
 
-rat-widget = { version = "2.6", path = "../rat-widget" }
+rat-widget = { version = "2.8", path = "../rat-widget" }

@@ -1,4 +1,10 @@
-# 5.0.0
+# 4.2.0
+
+* fix: aliases must be sorted. Was missing when loading through serde.
+
+* feature: add themes Embark, Falcon, Gatekeeper, Blossom Light,
+
+# 4.1.0
 
 * Unify Theme and Palette.
     * Palette contains all the parts that can be const/serialized.

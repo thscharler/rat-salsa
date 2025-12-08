@@ -1,3 +1,7 @@
+# 0.1.3
+
+* fix dependencies
+
 # experimental VI mode for rat-text TextArea.
 
 There is a basic subset working but I got stuck with the parser
