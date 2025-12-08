@@ -15,7 +15,7 @@ exclude = [".idea/*", ".gitignore", "textarea.gif"]
 workspace = true
 
 [features]
-default = ["iban", "color-input"]
+default = []
 iban = []
 color-input = ["palette"]
 
