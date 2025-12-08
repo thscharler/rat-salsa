@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, layout_grid, mock_init, run_ui, setup_logging};
 use rat_event::try_flow;
 use rat_text::HasScreenCursor;
 use rat_theme4::WidgetStyle;
@@ -32,39 +32,33 @@ fn render(
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l0 = Layout::horizontal([
-        Constraint::Length(25),
-        Constraint::Length(20),
-        Constraint::Fill(1),
-        Constraint::Fill(1),
-    ])
-    .split(area);
-
-    let l1 = Layout::vertical([
-        Constraint::Length(7),
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Fill(1),
-    ])
-    .split(l0[0]);
-
-    let l2 = Layout::vertical([
-        Constraint::Length(7),
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Fill(1),
-    ])
-    .split(l0[1]);
+    let l = layout_grid::<5, 4>(
+        area,
+        Layout::horizontal([
+            Constraint::Fill(1),
+            Constraint::Length(15),
+            Constraint::Length(25),
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+        ])
+        .spacing(1),
+        Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+        ]),
+    );
 
     DateInput::new() //
         .styles(ctx.theme.style(WidgetStyle::TEXT))
-        .render(l1[1], buf, &mut state.input);
+        .render(l[1][1], buf, &mut state.input);
     if let Some((x, y)) = state.input.screen_cursor() {
         ctx.cursor = Some((x, y));
     }
 
     Span::from(format!("{:?}", state.input.value())) //
-        .render(l2[1], buf);
+        .render(l[2][1], buf);
 
     Ok(())
 }

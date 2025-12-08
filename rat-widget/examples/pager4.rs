@@ -256,7 +256,7 @@ fn event(
         MenuOutcome::Activated(0) => flip_flex(state),
         MenuOutcome::Activated(1) => flip_spacing(state),
         MenuOutcome::Activated(2) => flip_columns(state),
-        MenuOutcome::Activated(4) => {
+        MenuOutcome::Activated(3) => {
             ctx.quit = true;
             Outcome::Changed
         }

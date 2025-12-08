@@ -8,13 +8,14 @@ use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
-use rat_theme4::WidgetStyle;
+use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::event::{FormOutcome, Outcome};
 use rat_widget::form::{Form, FormState};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::prelude::StatefulWidget;
+use ratatui::style::Style;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, Widget};
 use std::array;
@@ -126,8 +127,8 @@ fn render(
             || {
                 TextInputMock::default()
                     .sample(format!("text {:?}", i))
-                    .style(ctx.theme.p.limegreen(0))
-                    .focus_style(ctx.theme.p.limegreen(2))
+                    .style(ctx.theme.style_style(Style::INPUT))
+                    .focus_style(ctx.theme.style_style(Style::FOCUS))
             },
             &mut state.hundred[i],
         );
@@ -138,8 +139,8 @@ fn render(
         .item_parsed("_Flex|F2")
         .item_parsed("_Spacing|F3")
         .item_parsed("_Columns|F4")
-        .item_parsed("_Next|F8")
-        .item_parsed("_Prev|F9")
+        .item_parsed("_Next|F9")
+        .item_parsed("_Prev|F10")
         .item_parsed("_Quit")
         .styles(ctx.theme.style(WidgetStyle::MENU))
         .render(l1[3], buf, &mut state.menu);
@@ -188,8 +189,8 @@ fn event(
         ct_event!(keycode press F(2)) => flip_flex(state),
         ct_event!(keycode press F(3)) => flip_spacing(state),
         ct_event!(keycode press F(4)) => flip_columns(state),
-        ct_event!(keycode press F(8)) => prev_page(state, &focus),
-        ct_event!(keycode press F(9)) => next_page(state, &focus),
+        ct_event!(keycode press F(9)) => prev_page(state, &focus),
+        ct_event!(keycode press F(10)) => next_page(state, &focus),
         _ => Outcome::Continue,
     });
 

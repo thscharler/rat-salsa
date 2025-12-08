@@ -8,13 +8,14 @@ use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
-use rat_theme4::WidgetStyle;
+use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::event::{FormOutcome, Outcome};
 use rat_widget::form::{Form, FormState};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::StatefulWidget;
+use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{Padding, Widget};
 use std::array;
@@ -124,8 +125,8 @@ fn render(
             || {
                 TextInputMock::default()
                     .sample(format!("{:?}", i))
-                    .style(ctx.theme.p.limegreen(0))
-                    .focus_style(ctx.theme.p.limegreen(2))
+                    .style(ctx.theme.style_style(Style::INPUT))
+                    .focus_style(ctx.theme.style_style(Style::FOCUS))
             },
             &mut state.hundred[i],
         );

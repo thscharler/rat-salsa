@@ -179,8 +179,8 @@ fn render(
         .item_parsed("_Flex|F2")
         .item_parsed("_Spacing|F3")
         .item_parsed("_Columns|F4")
-        .item_parsed("_Next|F8")
-        .item_parsed("_Prev|F9")
+        .item_parsed("_Next|F9")
+        .item_parsed("_Prev|F10")
         .item_parsed("_Quit")
         .styles(ctx.theme.style(WidgetStyle::MENU));
     menu1.render(l1[3], buf, &mut state.menu);
@@ -242,8 +242,8 @@ fn event(
         ct_event!(keycode press F(2)) => flip_flex(state),
         ct_event!(keycode press F(3)) => flip_spacing(state),
         ct_event!(keycode press F(4)) => flip_columns(state),
-        ct_event!(keycode press F(8)) => prev_page(state, &focus),
-        ct_event!(keycode press F(9)) => next_page(state, &focus),
+        ct_event!(keycode press F(9)) => prev_page(state, &focus),
+        ct_event!(keycode press F(10)) => next_page(state, &focus),
         _ => Outcome::Continue,
     });
 
