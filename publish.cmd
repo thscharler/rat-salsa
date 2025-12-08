@@ -22,4 +22,4 @@ cargo publish -p rat-theme4
 cargo publish -p rat-salsa
 cargo publish -p rat-dialog
 
-
+cargo publish -p pal-edit
