@@ -8,7 +8,6 @@ use rat_menu::menubar::{Menubar, MenubarState};
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_menu::popup_menu::{PopupMenu, PopupMenuState};
 use rat_text::TextStyle;
-use rat_text::color_input::{ColorInput, ColorInputState, ColorInputStyle};
 use rat_text::date_input::{DateInput, DateInputState};
 use rat_text::event::TextOutcome;
 use rat_text::line_number::{LineNumberState, LineNumberStyle, LineNumbers};
@@ -294,17 +293,6 @@ fn conform() {
     conform_widget!(CONTAINER : Clipper, ClipperState, ClipperStyle);
     conform_widget!(VIEW: Clipper, ClipperState, ClipperStyle);
     conform_view_buffer!(VIEW : ClipperBuffer<usize>, ClipperState, ClipperStyle);
-
-    // color-input
-    conform_style!(CORE: TextStyle);
-    conform_style!(BLOCK: TextStyle);
-    conform_state!(CORE : ColorInputState, Regular, TextOutcome);
-    conform_state!(BASE : ColorInputState, Regular, TextOutcome);
-    conform_state!(VALUE : ColorInputState, Regular, ColorInputOutcome);
-    conform_event_fn!(rat_widget::color_input : ColorInputState, TextOutcome);
-    conform_widget!(CORE : ColorInput, ColorInputState, ColorInputStyle);
-    conform_widget!(BASE : ColorInput, ColorInputState, ColorInputStyle);
-    conform_widget!(VALUE : ColorInput, ColorInputState, ColorInputStyle);
 
     // choice
     conform_style!(CORE: ComboboxStyle);

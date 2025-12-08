@@ -1,3 +1,5 @@
+#[cfg(feature = "color-input")]
+pub mod color_input;
 #[cfg(feature = "iban")]
 pub mod iban;
 

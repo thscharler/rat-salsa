@@ -27,7 +27,6 @@ use rat_theme4::themes::create_fallback;
 use rat_theme4::{
     RatWidgetColor, StyleName, WidgetStyle, create_palette_theme, create_salsa_theme,
 };
-use rat_widget::dialog_frame::DialogFrame;
 use rat_widget::event::{
     FileOutcome, HandleEvent, MenuOutcome, Outcome, Popup, Regular, SliderOutcome, ct_event,
     event_flow,
@@ -37,7 +36,6 @@ use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_widget::layout::LayoutOuter;
 use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-use rat_widget::paragraph::Paragraph;
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::text::HasScreenCursor;

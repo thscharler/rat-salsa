@@ -6,8 +6,6 @@ use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
-#[cfg(feature = "color_input")]
-use rat_widget::color_input::ColorInputStyle;
 use rat_widget::combobox::ComboboxStyle;
 use rat_widget::dialog_frame::DialogFrameStyle;
 use rat_widget::file_dialog::FileDialogStyle;
@@ -27,6 +25,8 @@ use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
+#[cfg(feature = "color-input")]
+use rat_widget_extra::color_input::ColorInputStyle;
 use ratatui::style::{Color, Style};
 
 /// A theme to test the fallback-styles of each widget.
@@ -113,7 +113,7 @@ pub fn create_fallback(p: Palette) -> SalsaTheme {
     th.define_fn0(WidgetStyle::CHOICE, ChoiceStyle::default);
     th.define_fn0(WidgetStyle::CLIPPER, ClipperStyle::default);
     th.define_fn0(WidgetStyle::COMBOBOX, ComboboxStyle::default);
-    #[cfg(feature = "color_input")]
+    #[cfg(feature = "color-input")]
     th.define_fn0(WidgetStyle::COLOR_INPUT, ColorInputStyle::default);
     th.define_fn0(WidgetStyle::DIALOG_FRAME, DialogFrameStyle::default);
     th.define_fn0(WidgetStyle::FILE_DIALOG, FileDialogStyle::default);

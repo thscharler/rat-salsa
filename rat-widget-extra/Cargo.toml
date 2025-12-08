@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget-extra"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -15,20 +15,25 @@ exclude = [".idea/*", ".gitignore", "textarea.gif"]
 workspace = true
 
 [features]
+default = ["iban", "color-input"]
 iban = []
+color-input = ["palette"]
 
 [dependencies]
 ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
 crossterm = "0.28"
 unicode-segmentation = "1.11"
-unicode-display-width = "0.3"
 log = "0.4"
+
+palette = { version = "0.7", optional = true }
 
 rat-event = { version = "1.4", path = "../rat-event" }
 rat-reloc = { version = "1.2", path = "../rat-reloc" }
 rat-focus = { version = "1.5", path = "../rat-focus" }
-rat-text = { version = "2.6", path = "../rat-text", features = ["color_input"] }
+rat-text = { version = "2.6", path = "../rat-text" }
+
 
 [dev-dependencies]
 fern = "0.7"
 anyhow = "1.0"
+cli-clipboard = "0.4.0"

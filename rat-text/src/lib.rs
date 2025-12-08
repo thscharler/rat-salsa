@@ -5,8 +5,6 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 
 pub mod clipboard;
-#[cfg(feature = "palette")]
-pub mod color_input;
 pub mod date_input;
 pub mod line_number;
 pub mod number_input;

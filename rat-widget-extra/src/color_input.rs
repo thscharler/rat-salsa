@@ -1,3 +1,8 @@
+use crate::_private::NonExhaustive;
+use palette::{FromColor, Hsv, Srgb};
+use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+use rat_reloc::RelocatableState;
 /// Widget for color input.
 ///
 /// Currently, supports
@@ -19,18 +24,13 @@
 /// * 0x000000 and 0x00000000
 /// * 000000 and 00000000
 ///
-use crate::_private::NonExhaustive;
-use crate::clipboard::Clipboard;
-use crate::event::{ReadOnly, TextOutcome};
-use crate::text_input_mask::{MaskedInput, MaskedInputState};
-use crate::{
+use rat_text::clipboard::Clipboard;
+use rat_text::event::{ReadOnly, TextOutcome};
+use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
+use rat_text::{
     TextError, TextFocusGained, TextFocusLost, TextStyle, TextTab, derive_text_widget_state,
     upos_type,
 };
-use palette::{FromColor, Hsv, Srgb};
-use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
-use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
@@ -375,14 +375,14 @@ impl ColorInputState {
 
 impl ColorInputState {
     /// Clipboard used.
-    /// Default is to use the [global_clipboard](crate::clipboard::global_clipboard).
+    /// Default is to use the [global_clipboard](rat_text::clipboard::global_clipboard).
     #[inline]
     pub fn set_clipboard(&mut self, clip: Option<impl Clipboard + 'static>) {
         self.widget.set_clipboard(clip);
     }
 
     /// Clipboard used.
-    /// Default is to use the [global_clipboard](crate::clipboard::global_clipboard).
+    /// Default is to use the [global_clipboard](rat_text::clipboard::global_clipboard).
     #[inline]
     pub fn clipboard(&self) -> Option<&dyn Clipboard> {
         self.widget.clipboard()

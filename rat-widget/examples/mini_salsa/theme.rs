@@ -1,6 +1,4 @@
 use crate::mini_salsa::palette::{Contrast, Palette};
-#[cfg(feature = "color_input")]
-use rat_text::color_input::ColorInputStyle;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::CalendarStyle;
 use rat_widget::checkbox::CheckboxStyle;
@@ -314,22 +312,6 @@ impl ShellTheme {
             select: Some(self.text_select()),
             invalid: Some(self.fg_style(self.p.red[Palette::BRIGHT_3])),
             ..TextStyle::default()
-        }
-    }
-
-    /// Complete TextInputStyle
-    #[cfg(feature = "color_input")]
-    pub fn color_input_style(&self) -> ColorInputStyle {
-        ColorInputStyle {
-            text: TextStyle {
-                style: self.text_input(),
-                focus: Some(self.text_focus()),
-                select: Some(self.text_select()),
-                invalid: Some(self.fg_style(self.p.red[Palette::BRIGHT_3])),
-                ..TextStyle::default()
-            },
-            // field_style: Some(self.p.gray(0, Contrast::Normal)),
-            ..Default::default()
         }
     }
 

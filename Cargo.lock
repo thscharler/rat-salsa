@@ -935,6 +935,7 @@ dependencies = [
  "rat-salsa",
  "rat-theme4",
  "rat-widget",
+ "rat-widget-extra",
  "ratatui",
  "serde_json",
  "sys-locale",
@@ -1359,7 +1360,6 @@ dependencies = [
  "lipsum",
  "log",
  "lorem-rustum",
- "palette",
  "pure-rust-locales",
  "rat-cursor",
  "rat-event",
@@ -1412,6 +1412,7 @@ dependencies = [
  "anyhow",
  "log",
  "rat-widget",
+ "rat-widget-extra",
  "ratatui",
  "serde",
  "serde_json",
@@ -1476,18 +1477,19 @@ dependencies = [
 
 [[package]]
 name = "rat-widget-extra"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
+ "cli-clipboard",
  "crossterm",
  "fern",
  "log",
+ "palette",
  "rat-event",
  "rat-focus",
  "rat-reloc",
  "rat-text",
  "ratatui",
- "unicode-display-width",
  "unicode-segmentation",
 ]
 

@@ -20,6 +20,7 @@ in the main rat-widget crate.
 Each widget will be behind a feature gate too.
 
 * IBANInput - Text input and validation for IBAN bank account numbers.
+* ColorInput - Color input widget.
 
 [refRatWidget]: https://docs.rs/rat-widget
 

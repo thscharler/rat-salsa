@@ -1,10 +1,10 @@
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use log::warn;
-use rat_event::try_flow;
+use rat_event::{Outcome, try_flow};
+use rat_text::HasScreenCursor;
 use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
-use rat_text::color_input::{ColorInput, ColorInputState};
-use rat_text::{HasScreenCursor, color_input};
-use rat_widget::event::Outcome;
+use rat_widget_extra::color_input;
+use rat_widget_extra::color_input::{ColorInput, ColorInputState};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;

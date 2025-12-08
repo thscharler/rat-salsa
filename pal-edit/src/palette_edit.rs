@@ -8,7 +8,6 @@ use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::{RatWidgetColor, WidgetStyle};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::clipper::{Clipper, ClipperState};
-use rat_widget::color_input::{ColorInput, ColorInputState, Mode};
 use rat_widget::combobox::{Combobox, ComboboxState};
 use rat_widget::event::{
     ChoiceOutcome, HandleEvent, MouseOnly, Outcome, Popup, Regular, TextOutcome, event_flow,
@@ -21,6 +20,7 @@ use rat_widget::scrolled::Scroll;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
 use rat_widget::textarea::{TextArea, TextAreaState};
+use rat_widget_extra::color_input::{ColorInput, ColorInputState, Mode};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Flex, Rect};
 use ratatui::style::Color;

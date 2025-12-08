@@ -16,7 +16,6 @@ workspace = true
 
 [features]
 default = []
-color_input = ["rat-text/color_input"]
 user_directories = ["dep:dirs", "dep:sysinfo"]
 
 [dependencies]
@@ -27,6 +26,7 @@ unicode-display-width = "0.3"
 log = "0.4"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 map_range_int = { version = "1.0" }
+
 dirs = { version = "6.0.0", optional = true }
 sysinfo = { version = "0.33", optional = true }
 

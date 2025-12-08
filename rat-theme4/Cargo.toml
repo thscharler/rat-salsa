@@ -15,16 +15,17 @@ exclude = [".idea/*", ".gitignore"]
 workspace = true
 
 [features]
-default = []
-color_input = ["rat-widget/color_input"]
+default = ["rat-widget", "color-input", "serde"]
+rat-widget = ["dep:rat-widget"]
+color-input = ["dep:rat-widget-extra", "rat-widget-extra/color-input"]
 serde = ["dep:serde", "ratatui/serde"]
 
 [dependencies]
 ratatui = { version = "0.29" }
 log = "0.4"
 serde = { version = "1", optional = true }
-
-rat-widget = { version = "2.6", path = "../rat-widget" }
+rat-widget = { version = "2.6", path = "../rat-widget", optional = true }
+rat-widget-extra = { version = "1.0", path = "../rat-widget-extra", optional = true }
 
 [dev-dependencies]
 serde_json = { version = "1.0", features = ["std"] }

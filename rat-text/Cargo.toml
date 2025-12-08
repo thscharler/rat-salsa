@@ -16,7 +16,6 @@ workspace = true
 
 [features]
 default = []
-color_input = ["palette"]
 cr_lines = ["ropey/cr_lines"]
 unicode_lines = ["ropey/unicode_lines"]
 
@@ -34,7 +33,6 @@ log = "0.4"
 dyn-clone = "1.0.17"
 rustc-hash = "2.1"
 regex-cursor = "0.1.5"
-palette = { version = "0.7", optional = true }
 
 rat-event = { version = "1.4", path = "../rat-event" }
 rat-reloc = { version = "1.4", path = "../rat-reloc" }

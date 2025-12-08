@@ -1,6 +1,6 @@
 use rat_theme4::palette::Palette;
-use rat_widget::color_input::{ColorInput, ColorInputState};
 use rat_widget::reloc::RelocatableState;
+use rat_widget_extra::color_input::{ColorInput, ColorInputState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
