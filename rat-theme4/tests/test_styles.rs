@@ -1,31 +1,10 @@
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{RatWidgetColor, create_salsa_theme};
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_palette, salsa_themes};
-use rat_widget::button::ButtonStyle;
-use rat_widget::calendar::CalendarStyle;
-use rat_widget::checkbox::CheckboxStyle;
-use rat_widget::choice::ChoiceStyle;
-use rat_widget::clipper::ClipperStyle;
-// use rat_widget::color_input::ColorInputStyle;
-use rat_widget::combobox::ComboboxStyle;
-use rat_widget::dialog_frame::DialogFrameStyle;
-use rat_widget::file_dialog::FileDialogStyle;
-use rat_widget::form::FormStyle;
-use rat_widget::line_number::LineNumberStyle;
-use rat_widget::list::ListStyle;
-use rat_widget::menu::MenuStyle;
-use rat_widget::msgdialog::MsgDialogStyle;
-use rat_widget::paragraph::ParagraphStyle;
-use rat_widget::radio::RadioStyle;
-use rat_widget::scrolled::ScrollStyle;
-use rat_widget::shadow::ShadowStyle;
-use rat_widget::slider::SliderStyle;
-use rat_widget::splitter::SplitStyle;
-use rat_widget::statusline::StatusLineStyle;
-use rat_widget::tabbed::TabbedStyle;
-use rat_widget::table::TableStyle;
-use rat_widget::text::TextStyle;
-use rat_widget::view::ViewStyle;
+#[cfg(feature = "rat-widget")]
+use rat_widget;
+#[cfg(feature = "color-input")]
+use rat_widget_extra::color_input::ColorInputStyle;
 use ratatui::style::{Color, Style};
 use std::io::Write;
 
@@ -147,34 +126,64 @@ fn verify_theme(th: &SalsaTheme) {
     th.style_style(Style::DIALOG_ARROW_FG);
     th.style_style(Style::STATUS_BASE);
 
-    th.style::<ButtonStyle>(WidgetStyle::BUTTON);
-    th.style::<CalendarStyle>(WidgetStyle::CALENDAR);
-    th.style::<CheckboxStyle>(WidgetStyle::CHECKBOX);
-    th.style::<ChoiceStyle>(WidgetStyle::CHOICE);
-    th.style::<ClipperStyle>(WidgetStyle::CLIPPER);
-    // th.style::<ColorInputStyle>(WidgetStyle::COLOR_INPUT);
-    th.style::<ComboboxStyle>(WidgetStyle::COMBOBOX);
-    th.style::<DialogFrameStyle>(WidgetStyle::DIALOG_FRAME);
-    th.style::<FileDialogStyle>(WidgetStyle::FILE_DIALOG);
-    th.style::<FormStyle>(WidgetStyle::FORM);
-    th.style::<LineNumberStyle>(WidgetStyle::LINE_NR);
-    th.style::<ListStyle>(WidgetStyle::LIST);
-    th.style::<MenuStyle>(WidgetStyle::MENU);
-    th.style::<CalendarStyle>(WidgetStyle::MONTH);
-    th.style::<MsgDialogStyle>(WidgetStyle::MSG_DIALOG);
-    th.style::<ParagraphStyle>(WidgetStyle::PARAGRAPH);
-    th.style::<RadioStyle>(WidgetStyle::RADIO);
-    th.style::<ScrollStyle>(WidgetStyle::SCROLL);
-    th.style::<ScrollStyle>(WidgetStyle::SCROLL_DIALOG);
-    th.style::<ScrollStyle>(WidgetStyle::SCROLL_POPUP);
-    th.style::<ShadowStyle>(WidgetStyle::SHADOW);
-    th.style::<SliderStyle>(WidgetStyle::SLIDER);
-    th.style::<SplitStyle>(WidgetStyle::SPLIT);
-    th.style::<StatusLineStyle>(WidgetStyle::STATUSLINE);
-    th.style::<TabbedStyle>(WidgetStyle::TABBED);
-    th.style::<TableStyle>(WidgetStyle::TABLE);
-    th.style::<TextStyle>(WidgetStyle::TEXT);
-    th.style::<TextStyle>(WidgetStyle::TEXTAREA);
-    th.style::<TextStyle>(WidgetStyle::TEXTVIEW);
-    th.style::<ViewStyle>(WidgetStyle::VIEW);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::button::ButtonStyle>(WidgetStyle::BUTTON);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::calendar::CalendarStyle>(WidgetStyle::CALENDAR);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::checkbox::CheckboxStyle>(WidgetStyle::CHECKBOX);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::choice::ChoiceStyle>(WidgetStyle::CHOICE);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::clipper::ClipperStyle>(WidgetStyle::CLIPPER);
+    #[cfg(feature = "color-input")]
+    th.style::<ColorInputStyle>(WidgetStyle::COLOR_INPUT);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::combobox::ComboboxStyle>(WidgetStyle::COMBOBOX);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::dialog_frame::DialogFrameStyle>(WidgetStyle::DIALOG_FRAME);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::file_dialog::FileDialogStyle>(WidgetStyle::FILE_DIALOG);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::form::FormStyle>(WidgetStyle::FORM);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::line_number::LineNumberStyle>(WidgetStyle::LINE_NR);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::list::ListStyle>(WidgetStyle::LIST);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::menu::MenuStyle>(WidgetStyle::MENU);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::calendar::CalendarStyle>(WidgetStyle::MONTH);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::msgdialog::MsgDialogStyle>(WidgetStyle::MSG_DIALOG);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::paragraph::ParagraphStyle>(WidgetStyle::PARAGRAPH);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::radio::RadioStyle>(WidgetStyle::RADIO);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::scrolled::ScrollStyle>(WidgetStyle::SCROLL);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::scrolled::ScrollStyle>(WidgetStyle::SCROLL_DIALOG);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::scrolled::ScrollStyle>(WidgetStyle::SCROLL_POPUP);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::shadow::ShadowStyle>(WidgetStyle::SHADOW);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::slider::SliderStyle>(WidgetStyle::SLIDER);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::splitter::SplitStyle>(WidgetStyle::SPLIT);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::statusline::StatusLineStyle>(WidgetStyle::STATUSLINE);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::tabbed::TabbedStyle>(WidgetStyle::TABBED);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::table::TableStyle>(WidgetStyle::TABLE);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::text::TextStyle>(WidgetStyle::TEXT);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::text::TextStyle>(WidgetStyle::TEXTAREA);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::text::TextStyle>(WidgetStyle::TEXTVIEW);
+    #[cfg(feature = "rat-widget")]
+    th.style::<rat_widget::view::ViewStyle>(WidgetStyle::VIEW);
 }

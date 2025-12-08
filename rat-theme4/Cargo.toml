@@ -15,9 +15,13 @@ exclude = [".idea/*", ".gitignore"]
 workspace = true
 
 [features]
+# Defaults to 'rat-widget'
 default = ["rat-widget"]
+# Include styles for rat-widget's
 rat-widget = ["dep:rat-widget"]
-color-input = ["dep:rat-widget-extra", "rat-widget-extra/color-input"]
+# Include styles for color-input.
+color-input = ["dep:rat-widget-extra", "dep:rat-widget", "rat-widget-extra/color-input"]
+# Serde
 serde = ["dep:serde", "ratatui/serde"]
 
 [dependencies]

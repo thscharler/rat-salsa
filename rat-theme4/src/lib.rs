@@ -134,36 +134,65 @@ pub mod themes {
 pub struct WidgetStyle;
 
 impl WidgetStyle {
+    #[cfg(feature = "rat-widget")]
     pub const BUTTON: &'static str = "button";
+    #[cfg(feature = "rat-widget")]
     pub const CALENDAR: &'static str = "calendar";
+    #[cfg(feature = "rat-widget")]
     pub const CHECKBOX: &'static str = "checkbox";
+    #[cfg(feature = "rat-widget")]
     pub const CHOICE: &'static str = "choice";
+    #[cfg(feature = "rat-widget")]
     pub const CLIPPER: &'static str = "clipper";
     #[cfg(feature = "color-input")]
     pub const COLOR_INPUT: &'static str = "color-input";
+    #[cfg(feature = "rat-widget")]
     pub const COMBOBOX: &'static str = "combobox";
+    #[cfg(feature = "rat-widget")]
     pub const DIALOG_FRAME: &'static str = "dialog-frame";
+    #[cfg(feature = "rat-widget")]
     pub const FILE_DIALOG: &'static str = "file-dialog";
+    #[cfg(feature = "rat-widget")]
     pub const FORM: &'static str = "form";
+    #[cfg(feature = "rat-widget")]
     pub const LINE_NR: &'static str = "line-nr";
+    #[cfg(feature = "rat-widget")]
     pub const LIST: &'static str = "list";
+    #[cfg(feature = "rat-widget")]
     pub const MENU: &'static str = "menu";
+    #[cfg(feature = "rat-widget")]
     pub const MONTH: &'static str = "month";
+    #[cfg(feature = "rat-widget")]
     pub const MSG_DIALOG: &'static str = "msg-dialog";
+    #[cfg(feature = "rat-widget")]
     pub const PARAGRAPH: &'static str = "paragraph";
+    #[cfg(feature = "rat-widget")]
     pub const RADIO: &'static str = "radio";
+    #[cfg(feature = "rat-widget")]
     pub const SCROLL: &'static str = "scroll";
+    #[cfg(feature = "rat-widget")]
     pub const SCROLL_DIALOG: &'static str = "scroll.dialog";
+    #[cfg(feature = "rat-widget")]
     pub const SCROLL_POPUP: &'static str = "scroll.popup";
+    #[cfg(feature = "rat-widget")]
     pub const SHADOW: &'static str = "shadow";
+    #[cfg(feature = "rat-widget")]
     pub const SLIDER: &'static str = "slider";
+    #[cfg(feature = "rat-widget")]
     pub const SPLIT: &'static str = "split";
+    #[cfg(feature = "rat-widget")]
     pub const STATUSLINE: &'static str = "statusline";
+    #[cfg(feature = "rat-widget")]
     pub const TABBED: &'static str = "tabbed";
+    #[cfg(feature = "rat-widget")]
     pub const TABLE: &'static str = "table";
+    #[cfg(feature = "rat-widget")]
     pub const TEXT: &'static str = "text";
+    #[cfg(feature = "rat-widget")]
     pub const TEXTAREA: &'static str = "textarea";
+    #[cfg(feature = "rat-widget")]
     pub const TEXTVIEW: &'static str = "textview";
+    #[cfg(feature = "rat-widget")]
     pub const VIEW: &'static str = "view";
 }
 

@@ -1,30 +1,8 @@
 use crate::palette::{ColorIdx, Palette};
 use crate::theme::SalsaTheme;
 use crate::{RatWidgetColor, StyleName, WidgetStyle};
-use rat_widget::button::ButtonStyle;
-use rat_widget::calendar::CalendarStyle;
-use rat_widget::checkbox::CheckboxStyle;
-use rat_widget::choice::ChoiceStyle;
-use rat_widget::clipper::ClipperStyle;
-use rat_widget::combobox::ComboboxStyle;
-use rat_widget::dialog_frame::DialogFrameStyle;
-use rat_widget::file_dialog::FileDialogStyle;
-use rat_widget::form::FormStyle;
-use rat_widget::line_number::LineNumberStyle;
-use rat_widget::list::ListStyle;
-use rat_widget::menu::MenuStyle;
-use rat_widget::msgdialog::MsgDialogStyle;
-use rat_widget::paragraph::ParagraphStyle;
-use rat_widget::radio::RadioStyle;
-use rat_widget::scrolled::ScrollStyle;
-use rat_widget::shadow::ShadowStyle;
-use rat_widget::slider::SliderStyle;
-use rat_widget::splitter::SplitStyle;
-use rat_widget::statusline::StatusLineStyle;
-use rat_widget::tabbed::TabbedStyle;
-use rat_widget::table::TableStyle;
-use rat_widget::text::TextStyle;
-use rat_widget::view::ViewStyle;
+#[cfg(feature = "rat-widget")]
+use rat_widget;
 #[cfg(feature = "color-input")]
 use rat_widget_extra::color_input::ColorInputStyle;
 use ratatui::style::{Color, Style};
@@ -107,37 +85,126 @@ pub fn create_fallback(p: Palette) -> SalsaTheme {
     th.define_style(Style::DIALOG_BORDER_FG, Style::default());
     th.define_style(Style::DIALOG_ARROW_FG, Style::default());
 
-    th.define_fn0(WidgetStyle::BUTTON, ButtonStyle::default);
-    th.define_fn0(WidgetStyle::CALENDAR, CalendarStyle::default);
-    th.define_fn0(WidgetStyle::CHECKBOX, CheckboxStyle::default);
-    th.define_fn0(WidgetStyle::CHOICE, ChoiceStyle::default);
-    th.define_fn0(WidgetStyle::CLIPPER, ClipperStyle::default);
-    th.define_fn0(WidgetStyle::COMBOBOX, ComboboxStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::BUTTON,
+        rat_widget::button::ButtonStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::CALENDAR,
+        rat_widget::calendar::CalendarStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::CHECKBOX,
+        rat_widget::checkbox::CheckboxStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::CHOICE,
+        rat_widget::choice::ChoiceStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::CLIPPER,
+        rat_widget::clipper::ClipperStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::COMBOBOX,
+        rat_widget::combobox::ComboboxStyle::default,
+    );
     #[cfg(feature = "color-input")]
     th.define_fn0(WidgetStyle::COLOR_INPUT, ColorInputStyle::default);
-    th.define_fn0(WidgetStyle::DIALOG_FRAME, DialogFrameStyle::default);
-    th.define_fn0(WidgetStyle::FILE_DIALOG, FileDialogStyle::default);
-    th.define_fn0(WidgetStyle::FORM, FormStyle::default);
-    th.define_fn0(WidgetStyle::LINE_NR, LineNumberStyle::default);
-    th.define_fn0(WidgetStyle::LIST, ListStyle::default);
-    th.define_fn0(WidgetStyle::MENU, MenuStyle::default);
-    th.define_fn0(WidgetStyle::MONTH, CalendarStyle::default);
-    th.define_fn0(WidgetStyle::MSG_DIALOG, MsgDialogStyle::default);
-    th.define_fn0(WidgetStyle::PARAGRAPH, ParagraphStyle::default);
-    th.define_fn0(WidgetStyle::RADIO, RadioStyle::default);
-    th.define_fn0(WidgetStyle::SCROLL, ScrollStyle::default);
-    th.define_fn0(WidgetStyle::SCROLL_DIALOG, ScrollStyle::default);
-    th.define_fn0(WidgetStyle::SCROLL_POPUP, ScrollStyle::default);
-    th.define_fn0(WidgetStyle::SHADOW, ShadowStyle::default);
-    th.define_fn0(WidgetStyle::SLIDER, SliderStyle::default);
-    th.define_fn0(WidgetStyle::SPLIT, SplitStyle::default);
-    th.define_fn0(WidgetStyle::STATUSLINE, StatusLineStyle::default);
-    th.define_fn0(WidgetStyle::TABBED, TabbedStyle::default);
-    th.define_fn0(WidgetStyle::TABLE, TableStyle::default);
-    th.define_fn0(WidgetStyle::TEXT, TextStyle::default);
-    th.define_fn0(WidgetStyle::TEXTAREA, TextStyle::default);
-    th.define_fn0(WidgetStyle::TEXTVIEW, TextStyle::default);
-    th.define_fn0(WidgetStyle::VIEW, ViewStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::DIALOG_FRAME,
+        rat_widget::dialog_frame::DialogFrameStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::FILE_DIALOG,
+        rat_widget::file_dialog::FileDialogStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(WidgetStyle::FORM, rat_widget::form::FormStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::LINE_NR,
+        rat_widget::line_number::LineNumberStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(WidgetStyle::LIST, rat_widget::list::ListStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(WidgetStyle::MENU, rat_widget::menu::MenuStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::MONTH,
+        rat_widget::calendar::CalendarStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::MSG_DIALOG,
+        rat_widget::msgdialog::MsgDialogStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::PARAGRAPH,
+        rat_widget::paragraph::ParagraphStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(WidgetStyle::RADIO, rat_widget::radio::RadioStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::SCROLL,
+        rat_widget::scrolled::ScrollStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::SCROLL_DIALOG,
+        rat_widget::scrolled::ScrollStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::SCROLL_POPUP,
+        rat_widget::scrolled::ScrollStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::SHADOW,
+        rat_widget::shadow::ShadowStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::SLIDER,
+        rat_widget::slider::SliderStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::SPLIT,
+        rat_widget::splitter::SplitStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::STATUSLINE,
+        rat_widget::statusline::StatusLineStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::TABBED,
+        rat_widget::tabbed::TabbedStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(WidgetStyle::TABLE, rat_widget::table::TableStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(WidgetStyle::TEXT, rat_widget::text::TextStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(WidgetStyle::TEXTAREA, rat_widget::text::TextStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(WidgetStyle::TEXTVIEW, rat_widget::text::TextStyle::default);
+    #[cfg(feature = "rat-widget")]
+    th.define_fn0(WidgetStyle::VIEW, rat_widget::view::ViewStyle::default);
 
     th
 }

@@ -1,31 +1,10 @@
+#![allow(unused_imports)]
 use crate::RatWidgetColor;
 use crate::palette::{Colors, Palette};
 use crate::theme::SalsaTheme;
 use crate::{StyleName, WidgetStyle};
-use rat_widget::button::ButtonStyle;
-use rat_widget::calendar::CalendarStyle;
-use rat_widget::checkbox::CheckboxStyle;
-use rat_widget::choice::ChoiceStyle;
-use rat_widget::clipper::ClipperStyle;
-use rat_widget::combobox::ComboboxStyle;
-use rat_widget::dialog_frame::DialogFrameStyle;
-use rat_widget::file_dialog::FileDialogStyle;
-use rat_widget::form::FormStyle;
-use rat_widget::line_number::LineNumberStyle;
-use rat_widget::list::ListStyle;
-use rat_widget::menu::MenuStyle;
-use rat_widget::msgdialog::MsgDialogStyle;
-use rat_widget::paragraph::ParagraphStyle;
-use rat_widget::radio::{RadioLayout, RadioStyle};
-use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
-use rat_widget::shadow::{ShadowDirection, ShadowStyle};
-use rat_widget::slider::SliderStyle;
-use rat_widget::splitter::SplitStyle;
-use rat_widget::statusline::StatusLineStyle;
-use rat_widget::tabbed::TabbedStyle;
-use rat_widget::table::TableStyle;
-use rat_widget::text::TextStyle;
-use rat_widget::view::ViewStyle;
+#[cfg(feature = "rat-widget")]
+use rat_widget;
 #[cfg(feature = "color-input")]
 use rat_widget_extra::color_input::ColorInputStyle;
 use ratatui::layout::Alignment;
@@ -121,43 +100,73 @@ pub fn create_dark(p: Palette) -> SalsaTheme {
         th.p.fg_bg_style_alias(Color::DIALOG_ARROW_FG, Color::DIALOG_BASE_BG),
     );
 
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::BUTTON, button);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::CALENDAR, month);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::CHECKBOX, checkbox);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::CHOICE, choice);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::CLIPPER, clipper);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::COMBOBOX, combobox);
     #[cfg(feature = "color-input")]
     th.define_fn(WidgetStyle::COLOR_INPUT, color_input);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::DIALOG_FRAME, dialog_frame);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::FILE_DIALOG, file_dialog);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::FORM, form);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::LINE_NR, line_nr);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::LIST, list);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::MENU, menu);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::MONTH, month);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::MSG_DIALOG, msg_dialog);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::PARAGRAPH, paragraph);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::RADIO, radio);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::SCROLL, scroll);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::SCROLL_DIALOG, dialog_scroll);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::SCROLL_POPUP, popup_scroll);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::SHADOW, shadow);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::SLIDER, slider);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::SPLIT, split);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::STATUSLINE, statusline);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::TABBED, tabbed);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::TABLE, table);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::TEXT, text);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::TEXTAREA, textarea);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::TEXTVIEW, textview);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::VIEW, view);
 
     th
 }
 
-fn button(th: &SalsaTheme) -> ButtonStyle {
-    ButtonStyle {
+#[cfg(feature = "rat-widget")]
+fn button(th: &SalsaTheme) -> rat_widget::button::ButtonStyle {
+    rat_widget::button::ButtonStyle {
         style: th.style(Style::BUTTON_BASE),
         focus: Some(th.style(Style::FOCUS)),
         armed: Some(th.style(Style::SELECT)),
@@ -167,24 +176,27 @@ fn button(th: &SalsaTheme) -> ButtonStyle {
     }
 }
 
-fn checkbox(th: &SalsaTheme) -> CheckboxStyle {
-    CheckboxStyle {
+#[cfg(feature = "rat-widget")]
+fn checkbox(th: &SalsaTheme) -> rat_widget::checkbox::CheckboxStyle {
+    rat_widget::checkbox::CheckboxStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::INPUT_FOCUS)),
         ..Default::default()
     }
 }
 
-fn combobox(th: &SalsaTheme) -> ComboboxStyle {
-    ComboboxStyle {
+#[cfg(feature = "rat-widget")]
+fn combobox(th: &SalsaTheme) -> rat_widget::combobox::ComboboxStyle {
+    rat_widget::combobox::ComboboxStyle {
         choice: th.style(WidgetStyle::CHOICE),
         text: th.style(WidgetStyle::TEXT),
         ..Default::default()
     }
 }
 
-fn choice(th: &SalsaTheme) -> ChoiceStyle {
-    ChoiceStyle {
+#[cfg(feature = "rat-widget")]
+fn choice(th: &SalsaTheme) -> rat_widget::choice::ChoiceStyle {
+    rat_widget::choice::ChoiceStyle {
         style: th.style(Style::INPUT),
         select: Some(th.style(Style::INPUT_SELECT)),
         focus: Some(th.style(Style::INPUT_FOCUS)),
@@ -200,8 +212,9 @@ fn choice(th: &SalsaTheme) -> ChoiceStyle {
     }
 }
 
-fn clipper(th: &SalsaTheme) -> ClipperStyle {
-    ClipperStyle {
+#[cfg(feature = "rat-widget")]
+fn clipper(th: &SalsaTheme) -> rat_widget::clipper::ClipperStyle {
+    rat_widget::clipper::ClipperStyle {
         style: th.style(Style::CONTAINER_BASE),
         label_style: Some(th.style(Style::LABEL_FG)),
         scroll: Some(th.style(WidgetStyle::SCROLL)),
@@ -209,20 +222,22 @@ fn clipper(th: &SalsaTheme) -> ClipperStyle {
     }
 }
 
-fn dialog_frame(th: &SalsaTheme) -> DialogFrameStyle {
-    DialogFrameStyle {
+#[cfg(feature = "rat-widget")]
+fn dialog_frame(th: &SalsaTheme) -> rat_widget::dialog_frame::DialogFrameStyle {
+    rat_widget::dialog_frame::DialogFrameStyle {
         style: th.style(Style::DIALOG_BASE),
         border_style: Some(th.style::<Style>(Style::DIALOG_BORDER_FG)),
         button_style: Some(th.style(WidgetStyle::BUTTON)),
-        ..DialogFrameStyle::default()
+        ..rat_widget::dialog_frame::DialogFrameStyle::default()
     }
 }
 
-fn file_dialog(th: &SalsaTheme) -> FileDialogStyle {
-    FileDialogStyle {
+#[cfg(feature = "rat-widget")]
+fn file_dialog(th: &SalsaTheme) -> rat_widget::file_dialog::FileDialogStyle {
+    rat_widget::file_dialog::FileDialogStyle {
         style: th.style(Style::DIALOG_BASE),
         list: Some(th.style(WidgetStyle::LIST)),
-        roots: Some(ListStyle {
+        roots: Some(rat_widget::list::ListStyle {
             style: th.style(Style::DIALOG_BASE),
             ..th.style(WidgetStyle::LIST)
         }),
@@ -233,8 +248,9 @@ fn file_dialog(th: &SalsaTheme) -> FileDialogStyle {
     }
 }
 
-fn form(th: &SalsaTheme) -> FormStyle {
-    FormStyle {
+#[cfg(feature = "rat-widget")]
+fn form(th: &SalsaTheme) -> rat_widget::form::FormStyle {
+    rat_widget::form::FormStyle {
         style: th.style(Style::CONTAINER_BASE),
         label_style: Some(th.style(Style::LABEL_FG)),
         navigation: Some(th.style(Style::CONTAINER_ARROW_FG)),
@@ -250,16 +266,18 @@ fn form(th: &SalsaTheme) -> FormStyle {
     }
 }
 
-fn line_nr(th: &SalsaTheme) -> LineNumberStyle {
-    LineNumberStyle {
+#[cfg(feature = "rat-widget")]
+fn line_nr(th: &SalsaTheme) -> rat_widget::line_number::LineNumberStyle {
+    rat_widget::line_number::LineNumberStyle {
         style: th.style(Style::CONTAINER_BORDER_FG),
         cursor: Some(th.style(Style::INPUT_SELECT)),
-        ..LineNumberStyle::default()
+        ..rat_widget::line_number::LineNumberStyle::default()
     }
 }
 
-fn list(th: &SalsaTheme) -> ListStyle {
-    ListStyle {
+#[cfg(feature = "rat-widget")]
+fn list(th: &SalsaTheme) -> rat_widget::list::ListStyle {
+    rat_widget::list::ListStyle {
         style: th.style(Style::CONTAINER_BASE),
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
@@ -268,8 +286,9 @@ fn list(th: &SalsaTheme) -> ListStyle {
     }
 }
 
-fn menu(th: &SalsaTheme) -> MenuStyle {
-    MenuStyle {
+#[cfg(feature = "rat-widget")]
+fn menu(th: &SalsaTheme) -> rat_widget::menu::MenuStyle {
+    rat_widget::menu::MenuStyle {
         style: th.style(Style::MENU_BASE),
         title: Some(th.style(Style::TITLE)),
         focus: Some(th.style(Style::FOCUS)),
@@ -288,8 +307,9 @@ fn menu(th: &SalsaTheme) -> MenuStyle {
     }
 }
 
-fn month(th: &SalsaTheme) -> CalendarStyle {
-    CalendarStyle {
+#[cfg(feature = "rat-widget")]
+fn month(th: &SalsaTheme) -> rat_widget::calendar::CalendarStyle {
+    rat_widget::calendar::CalendarStyle {
         style: th.style(Style::CONTAINER_BASE),
         title: Some(th.style(Style::MONTH_HEADER_FG)),
         weeknum: Some(th.style(Style::WEEK_HEADER_FG)),
@@ -297,12 +317,13 @@ fn month(th: &SalsaTheme) -> CalendarStyle {
         day: None,
         select: Some(th.style(Style::SELECT)),
         focus: Some(th.style(Style::FOCUS)),
-        ..CalendarStyle::default()
+        ..rat_widget::calendar::CalendarStyle::default()
     }
 }
 
-fn msg_dialog(th: &SalsaTheme) -> MsgDialogStyle {
-    MsgDialogStyle {
+#[cfg(feature = "rat-widget")]
+fn msg_dialog(th: &SalsaTheme) -> rat_widget::msgdialog::MsgDialogStyle {
+    rat_widget::msgdialog::MsgDialogStyle {
         style: th.style(Style::DIALOG_BASE),
         button: Some(th.style(WidgetStyle::BUTTON)),
         markdown_header_1: Some(th.style_style(Style::TITLE)),
@@ -311,8 +332,9 @@ fn msg_dialog(th: &SalsaTheme) -> MsgDialogStyle {
     }
 }
 
-fn paragraph(th: &SalsaTheme) -> ParagraphStyle {
-    ParagraphStyle {
+#[cfg(feature = "rat-widget")]
+fn paragraph(th: &SalsaTheme) -> rat_widget::paragraph::ParagraphStyle {
+    rat_widget::paragraph::ParagraphStyle {
         style: th.style(Style::CONTAINER_BASE),
         focus: Some(th.style(Style::FOCUS)),
         scroll: Some(th.style(WidgetStyle::SCROLL)),
@@ -320,9 +342,10 @@ fn paragraph(th: &SalsaTheme) -> ParagraphStyle {
     }
 }
 
-fn radio(th: &SalsaTheme) -> RadioStyle {
-    RadioStyle {
-        layout: Some(RadioLayout::Stacked),
+#[cfg(feature = "rat-widget")]
+fn radio(th: &SalsaTheme) -> rat_widget::radio::RadioStyle {
+    rat_widget::radio::RadioStyle {
+        layout: Some(rat_widget::radio::RadioLayout::Stacked),
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::INPUT_FOCUS)),
         ..Default::default()
@@ -330,8 +353,9 @@ fn radio(th: &SalsaTheme) -> RadioStyle {
 }
 
 /// Scroll style
-fn scroll(th: &SalsaTheme) -> ScrollStyle {
-    ScrollStyle {
+#[cfg(feature = "rat-widget")]
+fn scroll(th: &SalsaTheme) -> rat_widget::scrolled::ScrollStyle {
+    rat_widget::scrolled::ScrollStyle {
         thumb_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         track_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         min_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
@@ -341,21 +365,22 @@ fn scroll(th: &SalsaTheme) -> ScrollStyle {
     }
 }
 
-fn popup_scroll(th: &SalsaTheme) -> ScrollStyle {
-    ScrollStyle {
+#[cfg(feature = "rat-widget")]
+fn popup_scroll(th: &SalsaTheme) -> rat_widget::scrolled::ScrollStyle {
+    rat_widget::scrolled::ScrollStyle {
         thumb_style: Some(th.style(Style::POPUP_BORDER_FG)),
         track_style: Some(th.style(Style::POPUP_BORDER_FG)),
         min_style: Some(th.style(Style::POPUP_BORDER_FG)),
         begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
         end_style: Some(th.style(Style::POPUP_ARROW_FG)),
-        horizontal: Some(ScrollSymbols {
+        horizontal: Some(rat_widget::scrolled::ScrollSymbols {
             track: "",
             thumb: "▄",
             begin: "▗",
             end: "▖",
             min: " ",
         }),
-        vertical: Some(ScrollSymbols {
+        vertical: Some(rat_widget::scrolled::ScrollSymbols {
             track: " ",
             thumb: "█",
             begin: "▄",
@@ -366,21 +391,22 @@ fn popup_scroll(th: &SalsaTheme) -> ScrollStyle {
     }
 }
 
-fn dialog_scroll(th: &SalsaTheme) -> ScrollStyle {
-    ScrollStyle {
+#[cfg(feature = "rat-widget")]
+fn dialog_scroll(th: &SalsaTheme) -> rat_widget::scrolled::ScrollStyle {
+    rat_widget::scrolled::ScrollStyle {
         thumb_style: Some(th.style(Style::DIALOG_BORDER_FG)),
         track_style: Some(th.style(Style::DIALOG_BORDER_FG)),
         min_style: Some(th.style(Style::DIALOG_BORDER_FG)),
         begin_style: Some(th.style(Style::POPUP_ARROW_FG)),
         end_style: Some(th.style(Style::POPUP_ARROW_FG)),
-        horizontal: Some(ScrollSymbols {
+        horizontal: Some(rat_widget::scrolled::ScrollSymbols {
             track: "",
             thumb: "▄",
             begin: "▗",
             end: "▖",
             min: " ",
         }),
-        vertical: Some(ScrollSymbols {
+        vertical: Some(rat_widget::scrolled::ScrollSymbols {
             track: " ",
             thumb: "█",
             begin: "▄",
@@ -391,16 +417,18 @@ fn dialog_scroll(th: &SalsaTheme) -> ScrollStyle {
     }
 }
 
-fn shadow(th: &SalsaTheme) -> ShadowStyle {
-    ShadowStyle {
+#[cfg(feature = "rat-widget")]
+fn shadow(th: &SalsaTheme) -> rat_widget::shadow::ShadowStyle {
+    rat_widget::shadow::ShadowStyle {
         style: th.style(Style::SHADOWS),
-        dir: ShadowDirection::BottomRight,
-        ..ShadowStyle::default()
+        dir: rat_widget::shadow::ShadowDirection::BottomRight,
+        ..rat_widget::shadow::ShadowStyle::default()
     }
 }
 
-fn slider(th: &SalsaTheme) -> SliderStyle {
-    SliderStyle {
+#[cfg(feature = "rat-widget")]
+fn slider(th: &SalsaTheme) -> rat_widget::slider::SliderStyle {
+    rat_widget::slider::SliderStyle {
         style: th.style(Style::INPUT),
         bounds: Some(th.style(Style::INPUT)),
         knob: Some(th.style(Style::INPUT_SELECT)),
@@ -410,8 +438,9 @@ fn slider(th: &SalsaTheme) -> SliderStyle {
     }
 }
 
-fn split(th: &SalsaTheme) -> SplitStyle {
-    SplitStyle {
+#[cfg(feature = "rat-widget")]
+fn split(th: &SalsaTheme) -> rat_widget::splitter::SplitStyle {
+    rat_widget::splitter::SplitStyle {
         style: th.style(Style::CONTAINER_BORDER_FG),
         arrow_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
         drag_style: Some(th.style(Style::HOVER)),
@@ -419,8 +448,9 @@ fn split(th: &SalsaTheme) -> SplitStyle {
     }
 }
 
-fn statusline(th: &SalsaTheme) -> StatusLineStyle {
-    StatusLineStyle {
+#[cfg(feature = "rat-widget")]
+fn statusline(th: &SalsaTheme) -> rat_widget::statusline::StatusLineStyle {
+    rat_widget::statusline::StatusLineStyle {
         styles: vec![
             th.style(Style::STATUS_BASE),
             th.p.style(Colors::Blue, 3),
@@ -431,8 +461,9 @@ fn statusline(th: &SalsaTheme) -> StatusLineStyle {
     }
 }
 
-fn tabbed(th: &SalsaTheme) -> TabbedStyle {
-    TabbedStyle {
+#[cfg(feature = "rat-widget")]
+fn tabbed(th: &SalsaTheme) -> rat_widget::tabbed::TabbedStyle {
+    rat_widget::tabbed::TabbedStyle {
         style: th.style(Style::CONTAINER_BASE),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         tab: Some(th.style(Style::INPUT)),
@@ -443,8 +474,9 @@ fn tabbed(th: &SalsaTheme) -> TabbedStyle {
     }
 }
 
-fn table(th: &SalsaTheme) -> TableStyle {
-    TableStyle {
+#[cfg(feature = "rat-widget")]
+fn table(th: &SalsaTheme) -> rat_widget::table::TableStyle {
+    rat_widget::table::TableStyle {
         style: th.style(Style::CONTAINER_BASE),
         select_row: Some(th.style(Style::SELECT)),
         show_row_focus: true,
@@ -460,51 +492,55 @@ fn table(th: &SalsaTheme) -> TableStyle {
 #[cfg(feature = "color-input")]
 fn color_input(th: &SalsaTheme) -> ColorInputStyle {
     ColorInputStyle {
-        text: TextStyle {
+        text: rat_widget::text::TextStyle {
             style: th.style(Style::INPUT),
             focus: Some(th.style(Style::INPUT_FOCUS)),
             select: Some(th.style(Style::INPUT_SELECT)),
             invalid: Some(th.style(Style::INVALID)),
-            ..TextStyle::default()
+            ..rat_widget::text::TextStyle::default()
         },
         ..Default::default()
     }
 }
 
-fn text(th: &SalsaTheme) -> TextStyle {
-    TextStyle {
+#[cfg(feature = "rat-widget")]
+fn text(th: &SalsaTheme) -> rat_widget::text::TextStyle {
+    rat_widget::text::TextStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::INPUT_FOCUS)),
         select: Some(th.style(Style::INPUT_SELECT)),
         invalid: Some(th.style(Style::INVALID)),
-        ..TextStyle::default()
+        ..rat_widget::text::TextStyle::default()
     }
 }
 
-fn textarea(th: &SalsaTheme) -> TextStyle {
-    TextStyle {
+#[cfg(feature = "rat-widget")]
+fn textarea(th: &SalsaTheme) -> rat_widget::text::TextStyle {
+    rat_widget::text::TextStyle {
         style: th.style(Style::INPUT),
         focus: Some(th.style(Style::INPUT)),
         select: Some(th.style(Style::INPUT_SELECT)),
         scroll: Some(th.style(WidgetStyle::SCROLL)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        ..TextStyle::default()
+        ..rat_widget::text::TextStyle::default()
     }
 }
 
-fn textview(th: &SalsaTheme) -> TextStyle {
-    TextStyle {
+#[cfg(feature = "rat-widget")]
+fn textview(th: &SalsaTheme) -> rat_widget::text::TextStyle {
+    rat_widget::text::TextStyle {
         style: th.style(Style::CONTAINER_BASE),
         focus: Some(th.style(Style::CONTAINER_BASE)),
         select: Some(th.style(Style::INPUT_SELECT)),
         scroll: Some(th.style(WidgetStyle::SCROLL)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
-        ..TextStyle::default()
+        ..rat_widget::text::TextStyle::default()
     }
 }
 
-fn view(th: &SalsaTheme) -> ViewStyle {
-    ViewStyle {
+#[cfg(feature = "rat-widget")]
+fn view(th: &SalsaTheme) -> rat_widget::view::ViewStyle {
+    rat_widget::view::ViewStyle {
         scroll: Some(th.style(WidgetStyle::SCROLL)),
         ..Default::default()
     }
