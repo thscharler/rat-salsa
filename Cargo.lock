@@ -1468,6 +1468,7 @@ dependencies = [
  "rat-reloc",
  "rat-scrolled",
  "rat-text",
+ "rat-theme4",
  "ratatui",
  "sys-locale",
  "sysinfo 0.33.1",
@@ -1489,6 +1490,7 @@ dependencies = [
  "rat-focus",
  "rat-reloc",
  "rat-text",
+ "rat-theme4",
  "ratatui",
  "unicode-segmentation",
 ]

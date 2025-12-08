@@ -37,3 +37,5 @@ rat-text = { version = "2.7", path = "../rat-text" }
 fern = "0.7"
 anyhow = "1.0"
 cli-clipboard = "0.4.0"
+
+rat-theme4 = { version = "4.1", default-features = false, features = ["color-input"], path = "../rat-theme4" }
