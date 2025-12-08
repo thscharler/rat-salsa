@@ -2,16 +2,18 @@
 
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use chrono::{Datelike, Local, Months, NaiveDate};
+use crossterm::event::{Event, KeyCode, KeyEvent, MediaKeyCode};
 use pure_rust_locales::Locale;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_theme4::WidgetStyle;
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::calendar::selection::RangeSelection;
 use rat_widget::calendar::{Calendar3, CalendarState, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, CalOutcome, Outcome};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
@@ -27,7 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::new();
     state.menu.focus.set(true);
 
-    run_ui("calendar3", init, event, render, &mut (), &mut state)
+    run_ui("calendar3", init, event, render, &mut state)
 }
 
 struct State {
@@ -81,20 +83,15 @@ impl State {
     }
 }
 
-fn init(
-    _data: &mut (),
-    istate: &mut MiniSalsaState,
-    state: &mut State,
-) -> Result<(), anyhow::Error> {
-    rebuild_cal_style(state, istate);
+fn init(ctx: &mut MiniSalsaState, state: &mut State) -> Result<(), anyhow::Error> {
+    rebuild_cal_style(state, ctx);
     Ok(())
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut (),
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let vertical_areas = Layout::vertical([
@@ -139,34 +136,34 @@ fn render(
     }
 
     Button::new("<<<")
-        .styles(istate.theme.button_style())
-        .render(button_areas[1], frame.buffer_mut(), &mut state.prev);
+        .styles(ctx.theme.style(WidgetStyle::BUTTON))
+        .render(button_areas[1], buf, &mut state.prev);
 
     Line::from(year_title(state))
         .alignment(Alignment::Center)
-        .style(istate.theme.limegreen(2))
-        .render(button_areas[2], frame.buffer_mut());
+        .style(ctx.theme.p.limegreen(2))
+        .render(button_areas[2], buf);
 
     Button::new(">>>")
-        .styles(istate.theme.button_style())
-        .render(button_areas[3], frame.buffer_mut(), &mut state.next);
+        .styles(ctx.theme.style(WidgetStyle::BUTTON))
+        .render(button_areas[3], buf, &mut state.next);
 
     Calendar3::new()
         .direction(state.direction)
         .locale(state.locale)
-        .styles(istate.theme.month_style())
+        .styles(ctx.theme.style(WidgetStyle::MONTH))
         .title_align(Alignment::Left)
         .day_styles(&state.cal_style)
         .show_weekdays()
         .block(Block::bordered())
-        .render(main_area, frame.buffer_mut(), &mut state.calendar);
+        .render(main_area, buf, &mut state.calendar);
 
     MenuLine::new()
         .title("|/\\|")
         .item_parsed("_Quit")
         .title_style(Style::default().black().on_yellow())
         .style(Style::default().black().on_dark_gray())
-        .render(vertical_areas[2], frame.buffer_mut(), &mut state.menu);
+        .render(vertical_areas[2], buf, &mut state.menu);
 
     Ok(())
 }
@@ -201,19 +198,29 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
-    _data: &mut (),
-    istate: &mut MiniSalsaState,
+    event: &Event,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    istate.status[0] = "Ctrl+Q to quit. F1 horizontal | F2 vertical".into();
+    ctx.status[0] = "Ctrl+Q to quit. F1 horizontal | F2 vertical".into();
 
     let mut focus = focus(state);
-    istate.focus_outcome = focus.handle(event, Regular);
+    ctx.focus_outcome = focus.handle(event, Regular);
+
+    // hack in mini_salsa to get notification for a theme-change.
+    if matches!(
+        event,
+        Event::Key(KeyEvent {
+            code: KeyCode::Media(MediaKeyCode::Play),
+            ..
+        })
+    ) {
+        rebuild_cal_style(state, ctx);
+    }
 
     try_flow!(match state.calendar.handle(event, Regular) {
         CalOutcome::Selected | CalOutcome::Changed => {
-            rebuild_cal_style(state, istate);
+            rebuild_cal_style(state, ctx);
             Outcome::Changed
         }
         r => r.into(),
@@ -221,7 +228,7 @@ fn event(
 
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
-            istate.quit = true;
+            ctx.quit = true;
             Outcome::Changed
         }
         _ => Outcome::Continue,
@@ -230,7 +237,7 @@ fn event(
     try_flow!(match state.prev.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.prev_month();
-            rebuild_cal_style(state, istate);
+            rebuild_cal_style(state, ctx);
             Outcome::Changed
         }
         r => r.into(),
@@ -238,7 +245,7 @@ fn event(
     try_flow!(match state.next.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.next_month();
-            rebuild_cal_style(state, istate);
+            rebuild_cal_style(state, ctx);
             Outcome::Changed
         }
         r => r.into(),
@@ -259,23 +266,23 @@ fn event(
     Ok(Outcome::Continue)
 }
 
-fn rebuild_cal_style(state: &mut State, istate: &mut MiniSalsaState) {
+fn rebuild_cal_style(state: &mut State, ctx: &mut MiniSalsaState) {
     state.cal_style.clear();
 
     let mut date = state.calendar.start_date();
     for _ in 0..3 {
         state
             .cal_style
-            .insert(date.with_day(10).expect("date"), istate.theme.redpink(0));
+            .insert(date.with_day(10).expect("date"), ctx.theme.p.redpink(0));
         state
             .cal_style
-            .insert(date.with_day(20).expect("date"), istate.theme.redpink(0));
+            .insert(date.with_day(20).expect("date"), ctx.theme.p.redpink(0));
         if let Some(d30) = date.with_day(30) {
-            state.cal_style.insert(d30, istate.theme.redpink(0));
+            state.cal_style.insert(d30, ctx.theme.p.redpink(0));
         } else {
             state
                 .cal_style
-                .insert(state.calendar.end_date(), istate.theme.redpink(0));
+                .insert(state.calendar.end_date(), ctx.theme.p.redpink(0));
         }
 
         date = date + Months::new(1);

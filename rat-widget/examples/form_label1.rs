@@ -11,6 +11,7 @@ use rat_text::impl_screen_cursor;
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
+use rat_theme4::WidgetStyle;
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{FormOutcome, Outcome};
 use rat_widget::form::{Form, FormState};
@@ -18,10 +19,10 @@ use rat_widget::layout::LayoutForm;
 use rat_widget::paired::{Paired, PairedState, PairedWidget};
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::text::HasScreenCursor;
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
-use ratatui::widgets::Padding;
+use ratatui::widgets::{Padding, StatefulWidget};
 use std::cell::RefCell;
 
 mod mini_salsa;
@@ -31,21 +32,12 @@ fn main() -> Result<(), anyhow::Error> {
 
     set_global_clipboard(CliClipboard::default());
 
-    let mut data = Data {};
-
     let mut state = State::default();
     state.edition.set_value(2024);
     state.descr.set_text_wrap(TextWrap::Word(4));
     state.menu.focus.set(true);
 
-    run_ui(
-        "label_and_form",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("label_and_form", mock_init, event, render, &mut state)
 }
 
 struct Data {}
@@ -104,10 +96,9 @@ impl Default for State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -115,7 +106,7 @@ fn render(
 
     // set up form
     let form = Form::new() //
-        .styles(istate.theme.form_style());
+        .styles(ctx.theme.style(WidgetStyle::FORM));
 
     // maybe rebuild layout
 
@@ -153,19 +144,19 @@ fn render(
             .set_layout(lf.build_paged(form.layout_size(l2[0])));
     }
     // set current layout and prepare rendering.
-    let mut form = form.into_buffer(l2[0], frame.buffer_mut(), &mut state.form);
+    let mut form = form.into_buffer(l2[0], buf, &mut state.form);
 
     // render the input fields.
     form.render(
         state.name.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.name,
     );
     form.render(
         state.version.id(),
         || {
             MaskedInput::new()
-                .styles(istate.theme.text_style())
+                .styles(ctx.theme.style(WidgetStyle::TEXT))
                 .compact(true)
         },
         &mut state.version,
@@ -176,7 +167,7 @@ fn render(
         || {
             Paired::new(
                 Slider::new()
-                    .styles(istate.theme.slider_style())
+                    .styles(ctx.theme.style(WidgetStyle::SLIDER))
                     .range((2015, 2024))
                     .step(3),
                 PairedWidget::new(Line::from(value)),
@@ -186,19 +177,19 @@ fn render(
     );
     form.render(
         state.author.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.author,
     );
     form.render(
         state.descr.id(),
-        || TextArea::new().styles(istate.theme.text_style()),
+        || TextArea::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.descr,
     );
     let license_popup = form.render2(
         state.license.id(),
         || {
             Choice::new()
-                .styles(istate.theme.choice_style())
+                .styles(ctx.theme.style(WidgetStyle::CHOICE))
                 .items([(String::from("MIT/Apache-2.0"), "MIT/Apache-2.0")])
                 .into_widgets()
         },
@@ -206,42 +197,42 @@ fn render(
     );
     form.render(
         state.repository.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.repository,
     );
     form.render(
         state.readme.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.readme,
     );
     form.render(
         state.keywords.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.keywords,
     );
     form.render(
         state.category1.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.category1,
     );
     form.render(
         state.category2.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.category2,
     );
     form.render(
         state.category3.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.category3,
     );
     form.render(
         state.category4.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.category4,
     );
     form.render(
         state.category5.id(),
-        || TextInput::new().styles(istate.theme.text_style()),
+        || TextInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
         &mut state.category5,
     );
 
@@ -249,10 +240,10 @@ fn render(
     form.render_popup(state.license.id(), || license_popup, &mut state.license);
 
     if let Some(cursor) = state.screen_cursor() {
-        frame.set_cursor_position(cursor);
+        ctx.cursor = Some(cursor);
     }
 
-    let menu1 = MenuLine::new()
+    MenuLine::new()
         .title("#.#")
         .item_parsed("_Flex|F2")
         .item_parsed("_Spacing|F3")
@@ -260,8 +251,8 @@ fn render(
         .item_parsed("_Next|F8")
         .item_parsed("_Prev|F9")
         .item_parsed("_Quit")
-        .styles(istate.theme.menu_style());
-    frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
+        .styles(ctx.theme.style(WidgetStyle::MENU))
+        .render(l1[1], buf, &mut state.menu);
 
     Ok(())
 }
@@ -303,14 +294,13 @@ fn focus(state: &State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
 
-    istate.focus_outcome = focus.handle(event, Regular);
-    if istate.focus_outcome == Outcome::Changed {
+    ctx.focus_outcome = focus.handle(event, Regular);
+    if ctx.focus_outcome == Outcome::Changed {
         state.form.show_focused(&focus);
     }
 
@@ -334,7 +324,7 @@ fn event(
         MenuOutcome::Activated(3) => next_page(state, &focus),
         MenuOutcome::Activated(4) => prev_page(state, &focus),
         MenuOutcome::Activated(5) => {
-            istate.quit = true;
+            ctx.quit = true;
             Outcome::Changed
         }
         r => r.into(),

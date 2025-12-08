@@ -7,12 +7,13 @@ use rat_event::{HandleEvent, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_theme4::WidgetStyle;
 use rat_widget::button::{Button, ButtonState};
 use rat_widget::calendar::selection::RangeSelection;
 use rat_widget::calendar::{CalendarState, Month, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, Outcome};
 use rat_widget::statusline::StatusLineState;
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
@@ -27,7 +28,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::new();
     state.menu.focus.set(true);
 
-    run_ui("calendar1", mock_init, event, render, &mut (), &mut state)
+    run_ui("calendar1", mock_init, event, render, &mut state)
 }
 
 struct State {
@@ -72,10 +73,9 @@ impl State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut (),
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -113,7 +113,7 @@ fn render(
         NaiveDate::from_ymd_opt(2024, 9, 1).expect("some"),
         Style::default().red(),
     );
-    date_styles.insert(Local::now().date_naive(), istate.theme.redpink(3));
+    date_styles.insert(Local::now().date_naive(), ctx.theme.p.redpink(3));
 
     let title = if state.calendar.months[0].start_date().year()
         != state.calendar.months[2].start_date().year()
@@ -138,50 +138,50 @@ fn render(
 
     Line::from(title)
         .alignment(Alignment::Center)
-        .style(istate.theme.limegreen(2))
-        .render(l4[2], frame.buffer_mut());
+        .style(ctx.theme.p.limegreen(2))
+        .render(l4[2], buf);
 
     Month::new()
         .locale(Locale::de_AT_euro)
-        .styles(istate.theme.month_style())
+        .styles(ctx.theme.style(WidgetStyle::MONTH))
         .title_align(Alignment::Left)
         .day_styles(&date_styles)
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[1], frame.buffer_mut(), &mut state.calendar.months[0]);
+        .render(l2[1], buf, &mut state.calendar.months[0]);
 
     Month::new()
         .locale(Locale::de_AT_euro)
-        .styles(istate.theme.month_style())
+        .styles(ctx.theme.style(WidgetStyle::MONTH))
         .title_align(Alignment::Left)
         .day_styles(&date_styles)
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[2], frame.buffer_mut(), &mut state.calendar.months[1]);
+        .render(l2[2], buf, &mut state.calendar.months[1]);
 
     Month::new()
         .locale(Locale::de_AT_euro)
-        .styles(istate.theme.month_style())
+        .styles(ctx.theme.style(WidgetStyle::MONTH))
         .title_align(Alignment::Left)
         .day_styles(&date_styles)
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[3], frame.buffer_mut(), &mut state.calendar.months[2]);
+        .render(l2[3], buf, &mut state.calendar.months[2]);
 
     Button::new("<<<")
-        .styles(istate.theme.button_style())
-        .render(l4[1], frame.buffer_mut(), &mut state.prev);
+        .styles(ctx.theme.style(WidgetStyle::BUTTON))
+        .render(l4[1], buf, &mut state.prev);
 
     Button::new(">>>")
-        .styles(istate.theme.button_style())
-        .render(l4[3], frame.buffer_mut(), &mut state.next);
+        .styles(ctx.theme.style(WidgetStyle::BUTTON))
+        .render(l4[3], buf, &mut state.next);
 
     MenuLine::new()
         .title("|/\\|")
         .item_parsed("_Quit")
         .title_style(Style::default().black().on_yellow())
         .style(Style::default().black().on_dark_gray())
-        .render(l1[5], frame.buffer_mut(), &mut state.menu);
+        .render(l1[5], buf, &mut state.menu);
 
     Ok(())
 }
@@ -197,19 +197,18 @@ fn focus(state: &State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut (),
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
 
-    istate.focus_outcome = focus.handle(event, Regular);
+    ctx.focus_outcome = focus.handle(event, Regular);
 
     try_flow!(state.calendar.handle(event, Regular));
 
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
-            istate.quit = true;
+            ctx.quit = true;
             Outcome::Changed
         }
         _ => Outcome::Continue,

@@ -3,9 +3,10 @@ use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_theme4::WidgetStyle;
 use rat_widget::event::Outcome;
 use rat_widget::radio::{Radio, RadioLayout, RadioState};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
 
@@ -13,8 +14,6 @@ mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         layout: Default::default(),
@@ -25,10 +24,8 @@ fn main() -> Result<(), anyhow::Error> {
         menu: MenuLineState::named("menu"),
     };
 
-    run_ui("radio1", mock_init, event, render, &mut data, &mut state)
+    run_ui("radio1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     layout: RadioLayout,
@@ -41,14 +38,13 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    if istate.status[0] == "Ctrl-Q to quit." {
-        istate.status[0] = "Ctrl-Q to quit. F2/F3 change style/align.".into();
+    if ctx.status[0] == "Ctrl-Q to quit." {
+        ctx.status[0] = "Ctrl-Q to quit. F2/F3 change style/align.".into();
     }
 
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -78,26 +74,26 @@ fn render(
     );
 
     Radio::new()
-        .styles(istate.theme.radio_style())
+        .styles(ctx.theme.style(WidgetStyle::RADIO))
         .direction(state.direction)
         .layout(state.layout)
         .item("C", "🥕Carrots")
         .item("P", "🥔Potatoes")
         .item("O", "🧅Onions")
         .default_value("C")
-        .render(lg[1][1], frame.buffer_mut(), &mut state.c1);
+        .render(lg[1][1], buf, &mut state.c1);
 
     Radio::new()
-        .styles(istate.theme.radio_style())
+        .styles(ctx.theme.style(WidgetStyle::RADIO))
         .direction(state.direction)
         .layout(state.layout)
         .item(0, "wine")
         .item(1, "beer")
         .item(2, "water")
-        .render(lg[1][2], frame.buffer_mut(), &mut state.c2);
+        .render(lg[1][2], buf, &mut state.c2);
 
     Radio::new()
-        .styles(istate.theme.radio_style())
+        .styles(ctx.theme.style(WidgetStyle::RADIO))
         .direction(state.direction)
         .layout(state.layout)
         .item(0, "red")
@@ -105,13 +101,13 @@ fn render(
         .item(2, "green")
         .item(3, "pink")
         .block(Block::bordered().border_type(BorderType::Rounded))
-        .render(lg[1][3], frame.buffer_mut(), &mut state.c3);
+        .render(lg[1][3], buf, &mut state.c3);
 
-    let menu1 = MenuLine::new()
+    MenuLine::new()
         .title(":-0")
         .item_parsed("_Quit")
-        .styles(istate.theme.menu_style());
-    frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
+        .styles(ctx.theme.style(WidgetStyle::MENU))
+        .render(l1[1], buf, &mut state.menu);
 
     Ok(())
 }
@@ -129,13 +125,12 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
 
-    istate.focus_outcome = focus.handle(event, Regular);
+    ctx.focus_outcome = focus.handle(event, Regular);
 
     try_flow!(match event {
         ct_event!(keycode press SHIFT-F(2)) | ct_event!(keycode press F(2)) => {
@@ -162,7 +157,7 @@ fn event(
         MenuOutcome::Activated(v) => {
             match v {
                 0 => {
-                    istate.quit = true;
+                    ctx.quit = true;
                     Outcome::Changed
                 }
                 _ => Outcome::Changed,

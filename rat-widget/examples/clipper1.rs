@@ -8,12 +8,14 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
+use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::clipper::{Clipper, ClipperState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::GenericLayout;
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::Block;
+use ratatui::style::Style;
+use ratatui::widgets::{Block, StatefulWidget};
 use std::array;
 
 mod mini_salsa;
@@ -23,8 +25,6 @@ const HUN: usize = 66;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {};
-
     let mut state = State {
         clipper: ClipperState::default(),
         hundred: array::from_fn(|_| Default::default()),
@@ -32,10 +32,8 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui("clipper1", mock_init, event, render, &mut data, &mut state)
+    run_ui("clipper1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     clipper: ClipperState<FocusFlag>,
@@ -44,16 +42,11 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    if istate.status[0] == "Ctrl-Q to quit." {
-        istate.status[0] = "Ctrl-Q to quit.".into();
-    }
-
     let l1 = Layout::vertical([
         Constraint::Length(1),
         Constraint::Fill(1),
@@ -72,7 +65,8 @@ fn render(
     let clipper = Clipper::new()
         .block(Block::bordered())
         .hscroll(Scroll::new().scroll_by(1))
-        .vscroll(Scroll::new().scroll_by(1));
+        .vscroll(Scroll::new().scroll_by(1))
+        .styles(ctx.theme.style(WidgetStyle::CLIPPER));
 
     if state.clipper.layout.borrow().is_empty() {
         // the inner layout is fixed, need to init only once.
@@ -91,34 +85,32 @@ fn render(
 
         state.clipper.set_layout(gen_layout);
     }
-
-    let mut clip_buf = clipper.into_buffer(l2[1], &mut state.clipper);
-
+    let mut clipper = clipper.into_buffer(l2[1], &mut state.clipper);
     // render the input fields.
     for i in 0..state.hundred.len() {
-        clip_buf.render(
+        clipper.render(
             state.hundred[i].focus.clone(),
             || {
                 TextInputMock::default()
                     .sample(format!("{:?}", i))
-                    .style(istate.theme.limegreen(0))
-                    .focus_style(istate.theme.limegreen(2))
+                    .style(ctx.theme.style_style(Style::INPUT))
+                    .focus_style(ctx.theme.style_style(Style::FOCUS))
             },
             &mut state.hundred[i],
         );
     }
 
-    clip_buf.finish(frame.buffer_mut(), &mut state.clipper);
+    clipper.finish(buf, &mut state.clipper);
 
-    let menu1 = MenuLine::new()
+    MenuLine::new()
         .title("#.#")
         .item_parsed("_Quit")
-        .styles(istate.theme.menu_style());
-    frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
+        .styles(ctx.theme.style(WidgetStyle::MENU))
+        .render(l1[3], buf, &mut state.menu);
 
     for i in 0..state.hundred.len() {
         if let Some(cursor) = state.hundred[i].screen_cursor() {
-            frame.set_cursor_position(cursor);
+            ctx.cursor = Some(cursor);
         }
     }
 
@@ -139,14 +131,13 @@ fn focus(state: &State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
 
-    istate.focus_outcome = focus.handle(event, Regular);
-    if istate.focus_outcome == Outcome::Changed {
+    ctx.focus_outcome = focus.handle(event, Regular);
+    if ctx.focus_outcome == Outcome::Changed {
         state.clipper.show_focused(&focus);
     }
 
@@ -154,7 +145,7 @@ fn event(
 
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
-            istate.quit = true;
+            ctx.quit = true;
             Outcome::Changed
         }
         _ => Outcome::Continue,

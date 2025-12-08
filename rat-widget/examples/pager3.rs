@@ -8,10 +8,11 @@ use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
+use rat_theme4::WidgetStyle;
 use rat_widget::event::{FormOutcome, Outcome};
 use rat_widget::form::{Form, FormState};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget};
@@ -24,8 +25,6 @@ const HUN: usize = 52;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         t_focus: 0.0,
@@ -40,7 +39,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui("pager3", mock_init, event, render, &mut data, &mut state)
+    run_ui("pager3", mock_init, event, render, &mut state)
 }
 
 struct Data {}
@@ -58,10 +57,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -86,7 +84,7 @@ fn render(
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top(Line::from(format!("{:?}", state.flex)).alignment(Alignment::Center)),
         )
-        .styles(istate.theme.form_style());
+        .styles(ctx.theme.style(WidgetStyle::FORM));
 
     let layout_size = form.layout_size(l2[1]);
 
@@ -121,7 +119,7 @@ fn render(
                     form_layout.start(Some(
                         Block::bordered()
                             .border_type(BorderType::Double)
-                            .style(istate.theme.bluegreen(0)),
+                            .style(ctx.theme.p.bluegreen(0)),
                     ));
                 }
                 if (i - 8) % 17 == 0 {
@@ -160,7 +158,7 @@ fn render(
         state.form.set_layout(form_layout.build_paged(layout_size));
     }
 
-    let mut form = form.into_buffer(l2[1], frame.buffer_mut(), &mut state.form);
+    let mut form = form.into_buffer(l2[1], buf, &mut state.form);
 
     // render the fields.
     for i in 0..state.hundred.len() {
@@ -169,8 +167,8 @@ fn render(
             || {
                 // lazy render
                 TextInputMock::default()
-                    .style(istate.theme.limegreen(0))
-                    .focus_style(istate.theme.limegreen(2))
+                    .style(ctx.theme.p.limegreen(0))
+                    .focus_style(ctx.theme.p.limegreen(2))
             },
             &mut state.hundred[i],
         );
@@ -184,12 +182,12 @@ fn render(
         .item_parsed("_Next|F8")
         .item_parsed("_Prev|F9")
         .item_parsed("_Quit")
-        .styles(istate.theme.menu_style());
-    menu1.render(l1[3], frame.buffer_mut(), &mut state.menu);
+        .styles(ctx.theme.style(WidgetStyle::MENU));
+    menu1.render(l1[3], buf, &mut state.menu);
 
     for i in 0..state.hundred.len() {
         if let Some(cursor) = state.hundred[i].screen_cursor() {
-            frame.set_cursor_position(cursor);
+            ctx.cursor = Some(cursor);
         }
     }
 
@@ -212,8 +210,7 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let et = SystemTime::now();
@@ -223,9 +220,9 @@ fn event(
     state.t_focus += tt.as_secs_f64();
     state.n_focus += 1f64;
 
-    istate.focus_outcome = focus.handle(event, Regular);
+    ctx.focus_outcome = focus.handle(event, Regular);
     // set the page from focus.
-    if istate.focus_outcome == Outcome::Changed {
+    if ctx.focus_outcome == Outcome::Changed {
         state.form.show_focused(&focus);
     }
 
@@ -257,7 +254,7 @@ fn event(
         MenuOutcome::Activated(3) => next_page(state, &focus),
         MenuOutcome::Activated(4) => prev_page(state, &focus),
         MenuOutcome::Activated(5) => {
-            istate.quit = true;
+            ctx.quit = true;
             Outcome::Changed
         }
         r => r.into(),

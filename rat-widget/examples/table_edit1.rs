@@ -2,7 +2,7 @@
 //! Example for [TableData]
 //!
 
-use crate::mini_salsa::{MiniSalsaState, THEME, mock_init, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use anyhow::Error;
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
@@ -18,9 +18,11 @@ use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
 use rat_text::number_input::{NumberInput, NumberInputState};
 use rat_text::text_input::{TextInput, TextInputState};
-use ratatui::Frame;
+use rat_theme4::theme::SalsaTheme;
+use rat_theme4::{StyleName, WidgetStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget, Widget, block};
 
@@ -44,7 +46,8 @@ mod mini_salsa;
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let mut data = Data {
+    let mut state = State {
+        loc: de_AT_euro,
         table_data: data::TINY_DATA
             .iter()
             .map(|v| Sample {
@@ -54,24 +57,13 @@ fn main() -> Result<(), Error> {
                 num3: rand::random(),
             })
             .collect(),
-    };
-
-    let mut state = State {
-        loc: de_AT_euro,
         table: EditableTableState::new(SampleEditorState::new(de_AT_euro)?),
         text1: Default::default(),
         text2: Default::default(),
     };
     state.table.table.select(Some(0));
 
-    run_ui(
-        "table_edit1",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("table_edit1", mock_init, event, render, &mut state)
 }
 
 #[derive(Debug, Clone, Default)]
@@ -82,13 +74,10 @@ struct Sample {
     pub(crate) num3: u32,
 }
 
-struct Data {
-    table_data: Vec<Sample>,
-}
-
 struct State {
     loc: Locale,
 
+    table_data: Vec<Sample>,
     table: EditableTableState<SampleEditorState>,
     text1: TextInputState,
     text2: TextInputState,
@@ -121,6 +110,7 @@ impl HasScreenCursor for State {
 }
 
 struct TableData1<'a> {
+    theme: &'a SalsaTheme,
     data: &'a [Sample],
     fmt1: NumberFormat,
     fmt2: NumberFormat,
@@ -139,7 +129,7 @@ impl<'a> TableData<'a> for TableData1<'a> {
                 Cell::from("Int"),
                 Cell::from("Int"),
             ])
-            .style(Some(THEME.table_header())),
+            .style(Some(self.theme.style(Style::HEADER))),
         )
     }
 
@@ -173,10 +163,9 @@ impl<'a> TableData<'a> for TableData1<'a> {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), Error> {
     let l0 = Layout::horizontal([
@@ -192,16 +181,19 @@ fn render(
         .flex(Flex::Center)
         .split(area);
 
-    TextInput::new().styles(istate.theme.text_style()).render(
-        Rect::new(l0[0].x, l1[0].y, l0[0].width, l1[0].height),
-        frame.buffer_mut(),
-        &mut state.text1,
-    );
+    TextInput::new()
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
+        .render(
+            Rect::new(l0[0].x, l1[0].y, l0[0].width, l1[0].height),
+            buf,
+            &mut state.text1,
+        );
 
     EditableTable::new(
         Table::default()
             .data(TableData1 {
-                data: &data.table_data,
+                theme: &ctx.theme,
+                data: &state.table_data,
                 fmt1: NumberFormat::news("###,##0.0", NumberSymbols::numeric(state.loc))?,
                 fmt2: NumberFormat::news("##########", NumberSymbols::numeric(state.loc))?,
             })
@@ -209,23 +201,25 @@ fn render(
             .block(
                 Block::bordered()
                     .border_type(block::BorderType::Rounded)
-                    .border_style(istate.theme.container_border())
+                    .border_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG))
                     .title("tabledata"),
             )
-            .vscroll(Scroll::new().style(istate.theme.container_arrow()))
-            .styles(istate.theme.table_style()),
-        SampleEditor,
+            .vscroll(Scroll::new().style(ctx.theme.style_style(Style::CONTAINER_ARROW_FG)))
+            .styles(ctx.theme.style(WidgetStyle::TABLE)),
+        SampleEditor { theme: &ctx.theme },
     )
-    .render(l0[1], frame.buffer_mut(), &mut state.table);
+    .render(l0[1], buf, &mut state.table);
 
-    TextInput::new().styles(istate.theme.text_style()).render(
-        Rect::new(l0[2].x, l1[0].y, l0[2].width, l1[0].height),
-        frame.buffer_mut(),
-        &mut state.text2,
-    );
+    TextInput::new()
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
+        .render(
+            Rect::new(l0[2].x, l1[0].y, l0[2].width, l1[0].height),
+            buf,
+            &mut state.text2,
+        );
 
     if let Some(cursor) = state.screen_cursor() {
-        frame.set_cursor_position(cursor);
+        ctx.cursor = Some(cursor);
     }
 
     Ok(())
@@ -233,16 +227,15 @@ fn render(
 
 fn event(
     event: &crossterm::event::Event,
-    data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    istate.focus_outcome = FocusBuilder::build_for(state).handle(event, Regular);
+    ctx.focus_outcome = FocusBuilder::build_for(state).handle(event, Regular);
 
     try_flow!(state.text1.handle(event, Regular));
     try_flow!({
-        handle_table(event, data, istate, state).unwrap_or_else(|e| {
-            istate.status[0] = format!("{}", e);
+        handle_table(event, ctx, state).unwrap_or_else(|e| {
+            ctx.status[0] = format!("{}", e);
             Outcome::Changed
         })
     });
@@ -253,24 +246,23 @@ fn event(
 
 fn handle_table(
     event: &crossterm::event::Event,
-    data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    try_flow!(match state.table.handle(event, istate) {
+    try_flow!(match state.table.handle(event, ctx) {
         EditOutcome::Edit => {
             if let Some(sel_row) = state.table.table.selected_checked() {
                 state
                     .table
                     .editor
-                    .set_value(data.table_data[sel_row].clone(), istate)?;
+                    .set_value(state.table_data[sel_row].clone(), ctx)?;
                 state.table.edit(0, sel_row);
             }
             Outcome::Changed
         }
         EditOutcome::Cancel => {
             if let Some(sel) = state.table.table.selected_checked() {
-                cancel_edit(data, sel, istate, state)?;
+                cancel_edit(sel, ctx, state)?;
                 Outcome::Changed
             } else {
                 Outcome::Continue
@@ -278,7 +270,7 @@ fn handle_table(
         }
         EditOutcome::Commit => {
             if let Some(sel) = state.table.table.selected_checked() {
-                commit_edit(data, sel, istate, state)?;
+                commit_edit(sel, ctx, state)?;
                 Outcome::Changed
             } else {
                 Outcome::Continue
@@ -286,47 +278,47 @@ fn handle_table(
         }
         EditOutcome::CommitAndAppend => {
             if let Some(sel) = state.table.table.selected_checked() {
-                commit_edit(data, sel, istate, state)?;
+                commit_edit(sel, ctx, state)?;
             }
             if let Some(sel) = state.table.table.selected_checked() {
-                let value = state.table.editor.create_value(istate)?;
-                state.table.editor.set_value(value.clone(), istate)?;
-                data.table_data.insert(sel + 1, value);
+                let value = state.table.editor.create_value(ctx)?;
+                state.table.editor.set_value(value.clone(), ctx)?;
+                state.table_data.insert(sel + 1, value);
                 state.table.edit_new(sel + 1);
             }
             Outcome::Changed
         }
         EditOutcome::CommitAndEdit => {
             if let Some(sel_row) = state.table.table.selected_checked() {
-                commit_edit(data, sel_row, istate, state)?;
+                commit_edit(sel_row, ctx, state)?;
                 state
                     .table
                     .editor
-                    .set_value(data.table_data[sel_row + 1].clone(), istate)?;
+                    .set_value(state.table_data[sel_row + 1].clone(), ctx)?;
                 state.table.edit(0, sel_row + 1);
             }
             Outcome::Changed
         }
         EditOutcome::Insert => {
             if let Some(sel) = state.table.table.selected_checked() {
-                let value = state.table.editor.create_value(istate)?;
-                state.table.editor.set_value(value.clone(), istate)?;
-                data.table_data.insert(sel, value);
+                let value = state.table.editor.create_value(ctx)?;
+                state.table.editor.set_value(value.clone(), ctx)?;
+                state.table_data.insert(sel, value);
                 state.table.edit_new(sel);
             }
             Outcome::Changed
         }
         EditOutcome::Append => {
-            let value = state.table.editor.create_value(istate)?;
-            state.table.editor.set_value(value.clone(), istate)?;
-            data.table_data.push(value);
-            state.table.edit_new(data.table_data.len() - 1);
+            let value = state.table.editor.create_value(ctx)?;
+            state.table.editor.set_value(value.clone(), ctx)?;
+            state.table_data.push(value);
+            state.table.edit_new(state.table_data.len() - 1);
             Outcome::Changed
         }
         EditOutcome::Remove => {
             if let Some(sel) = state.table.table.selected_checked() {
-                if sel < data.table_data.len() {
-                    data.table_data.remove(sel);
+                if sel < state.table_data.len() {
+                    state.table_data.remove(sel);
                     state.table.remove(sel);
                 }
             }
@@ -339,39 +331,31 @@ fn handle_table(
     Ok(Outcome::Continue)
 }
 
-fn cancel_edit(
-    data: &mut Data,
-    sel: usize,
-    _istate: &mut MiniSalsaState,
-    state: &mut State,
-) -> Result<(), Error> {
+fn cancel_edit(sel: usize, _ctx: &mut MiniSalsaState, state: &mut State) -> Result<(), Error> {
     if state.table.is_insert() {
-        data.table_data.remove(sel);
+        state.table_data.remove(sel);
     }
     state.table.cancel();
     Ok(())
 }
 
-fn commit_edit(
-    data: &mut Data,
-    sel: usize,
-    istate: &mut MiniSalsaState,
-    state: &mut State,
-) -> Result<(), Error> {
-    if let Some(value) = state.table.editor.value(istate)? {
-        data.table_data[sel] = value;
+fn commit_edit(sel: usize, ctx: &mut MiniSalsaState, state: &mut State) -> Result<(), Error> {
+    if let Some(value) = state.table.editor.value(ctx)? {
+        state.table_data[sel] = value;
         state.table.commit();
         Ok(())
     } else {
-        cancel_edit(data, sel, istate, state)?;
+        cancel_edit(sel, ctx, state)?;
         Ok(())
     }
 }
 
 // -------------------------------------------------------------
 
-#[derive(Debug, Default)]
-struct SampleEditor;
+#[derive(Debug)]
+struct SampleEditor<'a> {
+    theme: &'a SalsaTheme,
+}
 
 #[derive(Debug)]
 struct SampleEditorState {
@@ -381,21 +365,21 @@ struct SampleEditorState {
     num3: NumberInputState,
 }
 
-impl TableEditor for SampleEditor {
+impl<'a> TableEditor for SampleEditor<'a> {
     type State = SampleEditorState;
 
     fn render(&self, _area: Rect, cell_areas: &[Rect], buf: &mut Buffer, state: &mut Self::State) {
         TextInput::new()
-            .styles(THEME.text_style())
+            .styles(self.theme.style(WidgetStyle::TEXT))
             .render(cell_areas[0], buf, &mut state.text);
         NumberInput::new()
-            .styles(THEME.text_style())
+            .styles(self.theme.style(WidgetStyle::TEXT))
             .render(cell_areas[1], buf, &mut state.num1);
         NumberInput::new()
-            .styles(THEME.text_style())
+            .styles(self.theme.style(WidgetStyle::TEXT))
             .render(cell_areas[2], buf, &mut state.num2);
         NumberInput::new()
-            .styles(THEME.text_style())
+            .styles(self.theme.style(WidgetStyle::TEXT))
             .render(cell_areas[3], buf, &mut state.num3);
     }
 }

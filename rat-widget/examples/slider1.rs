@@ -4,10 +4,11 @@ use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_theme4::WidgetStyle;
 use rat_widget::event::Outcome;
 use rat_widget::range_op::RangeOp;
 use rat_widget::slider::{Slider, SliderState};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
@@ -16,8 +17,6 @@ mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         direction: Direction::Vertical,
@@ -34,10 +33,8 @@ fn main() -> Result<(), anyhow::Error> {
     state.c1.set_long_step(10);
     state.c2.set_value(EnumSlide::C);
 
-    run_ui("slider1", mock_init, event, render, &mut data, &mut state)
+    run_ui("slider1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
 enum EnumSlide {
@@ -142,10 +139,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -183,61 +179,60 @@ fn render(
         }
     }
     Slider::new()
-        .styles(istate.theme.slider_style())
+        .styles(ctx.theme.style(WidgetStyle::SLIDER))
         .lower_bound(a)
         .upper_bound(b)
         .direction(state.direction)
         .text_align(state.alignment)
-        .render(slider_area, frame.buffer_mut(), &mut state.c1);
+        .render(slider_area, buf, &mut state.c1);
 
     let mut slider_area = lg[2][1];
     slider_area.height = 3;
     let knob = format!("||{:?}||", state.c2.value);
     Slider::new()
-        .styles(istate.theme.slider_style())
+        .styles(ctx.theme.style(WidgetStyle::SLIDER))
         .track_char("-")
         .horizontal_knob(knob)
         .block(Block::bordered().border_type(BorderType::Rounded))
         .direction(Direction::Horizontal)
-        .render(slider_area, frame.buffer_mut(), &mut state.c2);
+        .render(slider_area, buf, &mut state.c2);
 
-    Span::from(format!("{:?} of {:?}", state.c1.value, state.c1.range))
-        .render(lg[0][1], frame.buffer_mut());
+    Span::from(format!("{:?} of {:?}", state.c1.value, state.c1.range)).render(lg[0][1], buf);
 
     let mut slider_area = lg[3][1];
     slider_area.height = 1;
     Slider::new()
-        .styles(istate.theme.slider_style())
+        .styles(ctx.theme.style(WidgetStyle::SLIDER))
         .direction(Direction::Horizontal)
         .horizontal_knob("|")
         .long_step(16)
         .lower_bound(format!("R {:02x} ", state.r.value()))
         .upper_bound("")
-        .render(slider_area, frame.buffer_mut(), &mut state.r);
+        .render(slider_area, buf, &mut state.r);
     slider_area.y += 1;
     Slider::new()
-        .styles(istate.theme.slider_style())
+        .styles(ctx.theme.style(WidgetStyle::SLIDER))
         .direction(Direction::Horizontal)
         .horizontal_knob("|")
         .long_step(16)
         .lower_bound(format!("G {:02x} ", state.g.value()))
         .upper_bound("")
-        .render(slider_area, frame.buffer_mut(), &mut state.g);
+        .render(slider_area, buf, &mut state.g);
     slider_area.y += 1;
     Slider::new()
-        .styles(istate.theme.slider_style())
+        .styles(ctx.theme.style(WidgetStyle::SLIDER))
         .direction(Direction::Horizontal)
         .horizontal_knob("|")
         .long_step(16)
         .lower_bound(format!("B {:02x} ", state.b.value()))
         .upper_bound("")
-        .render(slider_area, frame.buffer_mut(), &mut state.b);
+        .render(slider_area, buf, &mut state.b);
 
-    let menu1 = MenuLine::new()
+    MenuLine::new()
         .title("~~~ swoosh ~~~")
         .item_parsed("_Quit")
-        .styles(istate.theme.menu_style());
-    frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
+        .styles(ctx.theme.style(WidgetStyle::MENU))
+        .render(l1[1], buf, &mut state.menu);
 
     Ok(())
 }
@@ -257,13 +252,12 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
 
-    istate.focus_outcome = focus.handle(event, Regular);
+    ctx.focus_outcome = focus.handle(event, Regular);
 
     try_flow!(state.c1.handle(event, Regular));
     try_flow!(state.c2.handle(event, Regular));
@@ -301,7 +295,7 @@ fn event(
         MenuOutcome::Activated(v) => {
             match v {
                 0 => {
-                    istate.quit = true;
+                    ctx.quit = true;
                     Outcome::Changed
                 }
                 _ => Outcome::Changed,

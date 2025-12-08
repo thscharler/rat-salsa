@@ -48,3 +48,4 @@ format_num_pattern = "0.9"
 pure-rust-locales = "0.8"
 sys-locale = "0.3.2"
 cli-clipboard = "0.4"
+rat-theme4 = { version = "4.1", default-features = false, features = ["rat-widget"], path = "../rat-theme4" }

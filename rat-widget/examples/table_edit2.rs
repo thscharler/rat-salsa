@@ -2,7 +2,7 @@
 //! Example for [TableData]
 //!
 
-use crate::mini_salsa::{MiniSalsaState, THEME, mock_init, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use anyhow::Error;
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
@@ -17,11 +17,14 @@ use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
 use rat_text::number_input::{NumberInput, NumberInputState};
 use rat_text::text_input::{TextInput, TextInputState};
-use ratatui::Frame;
+use rat_theme4::theme::SalsaTheme;
+use rat_theme4::{StyleName, WidgetStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget, Widget, block};
+use std::mem;
 
 mod data {
     pub(crate) static TINY_DATA: [&str; 10] = [
@@ -43,8 +46,6 @@ mod mini_salsa;
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let mut data = Data {};
-
     let mut state = State {
         loc: de_AT_euro,
         table: EditableTableVecState::new(SampleEditorState::new(de_AT_euro)?),
@@ -65,14 +66,7 @@ fn main() -> Result<(), Error> {
     );
     state.table.table.select(Some(0));
 
-    run_ui(
-        "table_edit2",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("table_edit2", init, event, render, &mut state)
 }
 
 #[derive(Debug, Default, Clone)]
@@ -82,8 +76,6 @@ struct Sample {
     pub(crate) num2: u32,
     pub(crate) num3: u32,
 }
-
-struct Data {}
 
 struct State {
     loc: Locale,
@@ -120,6 +112,7 @@ impl HasScreenCursor for State {
 }
 
 struct TableData1<'a> {
+    theme: &'a SalsaTheme,
     data: &'a [Sample],
     fmt1: NumberFormat,
     fmt2: NumberFormat,
@@ -138,7 +131,7 @@ impl<'a> TableData<'a> for TableData1<'a> {
                 Cell::from("Int"),
                 Cell::from("Int"),
             ])
-            .style(Some(THEME.table_header())),
+            .style(Some(self.theme.style(Style::HEADER))),
         )
     }
 
@@ -171,11 +164,14 @@ impl<'a> TableData<'a> for TableData1<'a> {
     }
 }
 
+fn init(_ctx: &mut MiniSalsaState, _state: &mut State) -> Result<(), Error> {
+    Ok(())
+}
+
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), Error> {
     let l0 = Layout::horizontal([
@@ -191,17 +187,22 @@ fn render(
         .flex(Flex::Center)
         .split(area);
 
-    TextInput::new().styles(istate.theme.text_style()).render(
-        Rect::new(l0[0].x, l1[0].y, l0[0].width, l1[0].height),
-        frame.buffer_mut(),
-        &mut state.text1,
-    );
+    TextInput::new()
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
+        .render(
+            Rect::new(l0[0].x, l1[0].y, l0[0].width, l1[0].height),
+            buf,
+            &mut state.text1,
+        );
 
+    // hack:
+    let theme: &'static SalsaTheme = unsafe { mem::transmute(&ctx.theme) };
     EditableTableVec::new(
-        |_: &[Sample]| {
+        |data: &[Sample]| {
             Table::default()
                 .data(TableData1 {
-                    data: Default::default(),
+                    theme,
+                    data,
                     fmt1: NumberFormat::news("###,##0.0", NumberSymbols::numeric(state.loc))
                         .expect("fmt"),
                     fmt2: NumberFormat::news("##########", NumberSymbols::numeric(state.loc))
@@ -211,24 +212,26 @@ fn render(
                 .block(
                     Block::bordered()
                         .border_type(block::BorderType::Rounded)
-                        .border_style(istate.theme.container_border())
+                        .border_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG))
                         .title("tabledata"),
                 )
-                .vscroll(Scroll::new().style(istate.theme.container_border()))
-                .styles(istate.theme.table_style())
+                .vscroll(Scroll::new().style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG)))
+                .styles(ctx.theme.style(WidgetStyle::TABLE))
         },
-        SampleEditor,
+        SampleEditor { theme: &ctx.theme },
     )
-    .render(l0[1], frame.buffer_mut(), &mut state.table);
+    .render(l0[1], buf, &mut state.table);
 
-    TextInput::new().styles(istate.theme.text_style()).render(
-        Rect::new(l0[2].x, l1[0].y, l0[2].width, l1[0].height),
-        frame.buffer_mut(),
-        &mut state.text2,
-    );
+    TextInput::new()
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
+        .render(
+            Rect::new(l0[2].x, l1[0].y, l0[2].width, l1[0].height),
+            buf,
+            &mut state.text2,
+        );
 
     if let Some(cursor) = state.screen_cursor() {
-        frame.set_cursor_position(cursor);
+        ctx.cursor = Some(cursor);
     }
 
     Ok(())
@@ -236,16 +239,15 @@ fn render(
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    istate.focus_outcome = FocusBuilder::build_for(state).handle(event, Regular);
+    ctx.focus_outcome = FocusBuilder::build_for(state).handle(event, Regular);
 
     try_flow!(state.text1.handle(event, Regular));
     try_flow!({
-        state.table.handle(event, istate).unwrap_or_else(|e| {
-            istate.status[0] = format!("{}", e);
+        state.table.handle(event, ctx).unwrap_or_else(|e| {
+            ctx.status[0] = format!("{}", e);
             Outcome::Changed
         })
     });
@@ -256,8 +258,10 @@ fn event(
 
 // -------------------------------------------------------------
 
-#[derive(Debug, Default)]
-struct SampleEditor;
+#[derive(Debug)]
+struct SampleEditor<'a> {
+    theme: &'a SalsaTheme,
+}
 
 #[derive(Debug)]
 struct SampleEditorState {
@@ -267,21 +271,21 @@ struct SampleEditorState {
     num3: NumberInputState,
 }
 
-impl TableEditor for SampleEditor {
+impl TableEditor for SampleEditor<'_> {
     type State = SampleEditorState;
 
     fn render(&self, _area: Rect, cell_areas: &[Rect], buf: &mut Buffer, state: &mut Self::State) {
         TextInput::new()
-            .styles(THEME.text_style())
+            .styles(self.theme.style(WidgetStyle::TEXT))
             .render(cell_areas[0], buf, &mut state.text);
         NumberInput::new()
-            .styles(THEME.text_style())
+            .styles(self.theme.style(WidgetStyle::TEXT))
             .render(cell_areas[1], buf, &mut state.num1);
         NumberInput::new()
-            .styles(THEME.text_style())
+            .styles(self.theme.style(WidgetStyle::TEXT))
             .render(cell_areas[2], buf, &mut state.num2);
         NumberInput::new()
-            .styles(THEME.text_style())
+            .styles(self.theme.style(WidgetStyle::TEXT))
             .render(cell_areas[3], buf, &mut state.num3);
     }
 }

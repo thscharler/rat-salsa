@@ -5,9 +5,11 @@ use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::line_number::{LineNumberState, LineNumbers};
+use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidget, Wrap};
 
 mod mini_salsa;
@@ -15,43 +17,29 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {
-        sample: SAMPLE1.to_string(),
-    };
-
     let mut state = State {
-        sample: 0,
+        sample_idx: 0,
+        sample: SAMPLE1.to_string(),
         wrap: true,
         line_numbers: Default::default(),
         para: Default::default(),
     };
 
-    run_ui(
-        "paragraph1",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
-}
-
-struct Data {
-    pub(crate) sample: String,
+    run_ui("paragraph1", mock_init, event, render, &mut state)
 }
 
 struct State {
-    sample: u32,
+    sample_idx: u32,
+    sample: String,
     wrap: bool,
     line_numbers: LineNumberState,
     para: ParagraphState,
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = layout_grid::<3, 4>(
@@ -78,22 +66,22 @@ fn render(
     );
     LineNumbers::new()
         .start(state.para.vscroll.offset as u32)
-        .render(lln, frame.buffer_mut(), &mut state.line_numbers);
+        .render(lln, buf, &mut state.line_numbers);
 
-    let mut para = Paragraph::new(data.sample.clone())
+    let mut para = Paragraph::new(state.sample.clone())
         .vscroll(Scroll::new().policy(ScrollbarPolicy::Collapse))
         .hscroll(Scroll::new().policy(ScrollbarPolicy::Collapse))
         .block(
             Block::bordered()
                 .title("Excerpt")
-                .border_style(istate.theme.container_border())
-                .title_style(istate.theme.container_border()),
+                .border_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG))
+                .title_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG)),
         )
-        .styles(istate.theme.paragraph_style());
+        .styles(ctx.theme.style(WidgetStyle::PARAGRAPH));
     if state.wrap {
         para = para.wrap(Wrap::default());
     }
-    para.render(l0[2][1], frame.buffer_mut(), &mut state.para);
+    para.render(l0[2][1], buf, &mut state.para);
 
     Ok(())
 }
@@ -107,11 +95,10 @@ fn focus(state: &State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    istate.focus_outcome = focus(state).handle(event, Regular);
+    ctx.focus_outcome = focus(state).handle(event, Regular);
 
     try_flow!(state.para.handle(event, Regular));
 
@@ -121,13 +108,13 @@ fn event(
             Outcome::Changed
         }
         ct_event!(keycode press F(3)) => {
-            state.sample += 1;
-            if state.sample > 1 {
-                state.sample = 0;
+            state.sample_idx += 1;
+            if state.sample_idx > 1 {
+                state.sample_idx = 0;
             }
-            match state.sample {
-                0 => data.sample = SAMPLE1.to_string(),
-                1 => data.sample = SAMPLE2.to_string(),
+            match state.sample_idx {
+                0 => state.sample = SAMPLE1.to_string(),
+                1 => state.sample = SAMPLE2.to_string(),
                 _ => {}
             }
             state.para.set_line_offset(0);

@@ -1,13 +1,19 @@
-use crate::mini_salsa::{MiniSalsaState, mock_init};
+use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui};
 use rat_event::{Outcome, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
 use rat_menu::{MenuStyle, StaticMenu, menubar};
 use rat_popup::{Placement, PopupStyle};
-use ratatui::Frame;
+use rat_theme4::StyleName;
+use rat_theme4::palette::Colors;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Style, Stylize};
+use ratatui::style::{Style, Stylize};
 use ratatui::symbols::border;
+use ratatui::symbols::border::{
+    QUADRANT_BOTTOM_HALF, QUADRANT_LEFT_HALF, QUADRANT_RIGHT_HALF, QUADRANT_TOP_HALF,
+    QUADRANT_TOP_LEFT_BOTTOM_LEFT_BOTTOM_RIGHT, QUADRANT_TOP_RIGHT_BOTTOM_LEFT_BOTTOM_RIGHT,
+};
 use ratatui::widgets::{Block, Borders, Padding, StatefulWidget};
 
 mod mini_salsa;
@@ -15,15 +21,11 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     mini_salsa::setup_logging()?;
 
-    let mut data = Data::default();
     let mut state = State::new();
     state.menu.bar.focus.set(true);
 
-    mini_salsa::run_ui("menubar1", mock_init, event, render, &mut data, &mut state)
+    run_ui("menubar1", mock_init, event, render, &mut state)
 }
-
-#[derive(Default)]
-struct Data {}
 
 struct State {
     pub menu: MenubarState,
@@ -73,10 +75,9 @@ static MENU: StaticMenu = StaticMenu {
 };
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -85,20 +86,20 @@ fn render(
     ])
     .split(area);
 
-    let theme = &istate.theme;
+    let theme = &ctx.theme;
     let st = MenuStyle {
-        title: Some(theme.fg_style(theme.p.black[0])),
-        style: Style::new().fg(theme.p.text_black).bg(theme.p.gray[1]),
-        focus: Some(Style::new().fg(theme.p.text_light).bg(theme.p.gray[1])),
-        right: Some(istate.theme.fg_style(theme.p.bluegreen[2])),
-        disabled: Some(theme.fg_style(theme.p.gray[2])),
+        title: Some(theme.p.fg_style(Colors::Black, 0)),
+        style: theme.p.fg_bg_style(Colors::TextDark, 0, Colors::Gray, 2),
+        focus: Some(theme.p.fg_bg_style(Colors::TextLight, 0, Colors::Gray, 0)),
+        right: Some(theme.p.fg_style(Colors::BlueGreen, 2)),
+        disabled: Some(theme.p.fg_style(Colors::Gray, 2)),
         highlight: Some(Style::default().underlined()),
         menu_block: Some(
             Block::bordered()
                 .borders(Borders::BOTTOM)
                 .border_set(border::QUADRANT_INSIDE),
         ),
-        border_style: Some(Style::new().fg(theme.p.gray[0]).bg(Color::Reset)),
+        border_style: Some(theme.p.fg_bg_style(Colors::Gray, 0, Colors::None, 0)),
         title_style: None,
 
         popup: PopupStyle {
@@ -107,19 +108,28 @@ fn render(
             offset: Some((0, 0)),
             ..Default::default()
         },
-        popup_style: Some(Style::new().fg(theme.p.white[0]).bg(theme.p.gray[1])),
-        popup_separator: Some(theme.fg_style(theme.p.text_dark)),
-        popup_focus: Some(theme.focus()),
+        popup_style: Some(theme.p.fg_bg_style(Colors::White, 0, Colors::Gray, 2)),
+        popup_separator: Some(theme.p.fg_style(Colors::TextDark, 0)),
+        popup_focus: Some(theme.style(Style::FOCUS)),
         popup_highlight: Some(Style::default().underlined()),
-        popup_disabled: Some(theme.fg_style(theme.p.gray[2])),
-        popup_right: Some(istate.theme.fg_style(theme.p.bluegreen[2])),
+        popup_disabled: Some(theme.p.fg_style(Colors::Gray, 2)),
+        popup_right: Some(theme.p.fg_style(Colors::BlueGreen, 2)),
         popup_block: Some(
             Block::bordered()
                 .padding(Padding::new(0, 0, 0, 0))
                 .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM | Borders::TOP)
-                .border_set(border::QUADRANT_INSIDE),
+                .border_set(border::Set {
+                    top_left: QUADRANT_TOP_RIGHT_BOTTOM_LEFT_BOTTOM_RIGHT,
+                    top_right: QUADRANT_TOP_LEFT_BOTTOM_LEFT_BOTTOM_RIGHT,
+                    bottom_left: QUADRANT_TOP_LEFT_BOTTOM_LEFT_BOTTOM_RIGHT,
+                    bottom_right: QUADRANT_TOP_RIGHT_BOTTOM_LEFT_BOTTOM_RIGHT,
+                    vertical_left: QUADRANT_LEFT_HALF,
+                    vertical_right: QUADRANT_RIGHT_HALF,
+                    horizontal_top: QUADRANT_TOP_HALF,
+                    horizontal_bottom: QUADRANT_BOTTOM_HALF,
+                }),
         ),
-        popup_border: Some(Style::new().fg(theme.p.gray[0]).bg(Color::Reset)),
+        popup_border: Some(theme.p.fg_bg_style(Colors::Gray, 0, Colors::None, 0)),
         popup_title: None,
 
         ..Default::default()
@@ -129,42 +139,41 @@ fn render(
         .styles(st)
         .title("⋱⋰⋱⋰⋱")
         .into_widgets();
-    menu.render(l1[0], frame.buffer_mut(), &mut state.menu);
+    menu.render(l1[0], buf, &mut state.menu);
 
     // todo: render something for the background ...
 
-    menu_popup.render(l1[0], frame.buffer_mut(), &mut state.menu);
+    menu_popup.render(l1[0], buf, &mut state.menu);
 
     Ok(())
 }
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(
         match menubar::handle_popup_events(&mut state.menu, true, event) {
             MenuOutcome::MenuSelected(v, w) => {
-                istate.status[0] = format!("Selected {}-{}", v, w);
+                ctx.status[0] = format!("Selected {}-{}", v, w);
                 Outcome::Changed
             }
             MenuOutcome::MenuActivated(0, 3) => {
-                istate.quit = true;
+                ctx.quit = true;
                 Outcome::Changed
             }
             MenuOutcome::MenuActivated(v, w) => {
-                istate.status[0] = format!("Activated {}-{}", v, w);
+                ctx.status[0] = format!("Activated {}-{}", v, w);
                 state.menu.set_popup_active(false);
                 Outcome::Changed
             }
             MenuOutcome::Selected(v) => {
-                istate.status[0] = format!("Selected {}", v);
+                ctx.status[0] = format!("Selected {}", v);
                 Outcome::Changed
             }
             MenuOutcome::Activated(v) => {
-                istate.status[0] = format!("Activated {}", v);
+                ctx.status[0] = format!("Activated {}", v);
                 Outcome::Changed
             }
             r => r.into(),

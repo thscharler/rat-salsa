@@ -1,15 +1,16 @@
-use crate::mini_salsa::theme::ShellTheme;
-use crate::mini_salsa::{MiniSalsaState, RADIUM, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use rat_event::{ct_event, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_theme4::palette::Colors;
+use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline_stacked::{SLANT_BL_TR, SLANT_TL_BR, StatusLineStacked};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
@@ -20,8 +21,6 @@ mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         menu: Default::default(),
@@ -36,12 +35,9 @@ fn main() -> Result<(), anyhow::Error> {
         init,
         event,
         render,
-        &mut data,
         &mut state,
     )
 }
-
-struct Data {}
 
 struct State {
     menu: MenuLineState,
@@ -52,22 +48,16 @@ struct State {
     status_styling: i32,
 }
 
-fn init(
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
-    _state: &mut State,
-) -> Result<(), anyhow::Error> {
-    static THEME: ShellTheme = ShellTheme::new(RADIUM.name, RADIUM);
-    istate.theme = &THEME;
-    istate.hide_status = true;
+fn init(ctx: &mut MiniSalsaState, _state: &mut State) -> Result<(), anyhow::Error> {
+    ctx.theme = create_salsa_theme("Radium Shell");
+    ctx.hide_status = true;
     Ok(())
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -84,13 +74,13 @@ fn render(
         .item_parsed(mtxt2("_MESSAGE|F1", "_MESSAGE", 3, state).as_str())
         .item_parsed(mtxt("_STYLE", 4, state).as_str())
         .item_parsed(mtxt("_QUIT", 5, state).as_str())
-        .styles(istate.theme.menu_style())
-        .focus_style(istate.theme.primary(7))
-        .render(l1[0], frame.buffer_mut(), &mut state.menu);
+        .styles(ctx.theme.style(WidgetStyle::MENU))
+        .focus_style(ctx.theme.p.primary(7))
+        .render(l1[0], buf, &mut state.menu);
 
     match state.status_styling {
-        0 => stacked_1(frame, l1[2], _data, istate, state),
-        1 => stacked_2(frame, l1[2], _data, istate, state),
+        0 => stacked_1(buf, l1[2], ctx, state),
+        1 => stacked_2(buf, l1[2], ctx, state),
         _ => unreachable!(),
     }
 
@@ -103,8 +93,8 @@ fn render(
             Constraint::Percentage(19),
         );
         MsgDialog::new()
-            .styles(istate.theme.msg_dialog_style())
-            .render(l_msg, frame.buffer_mut(), &mut state.msg);
+            .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
+            .render(l_msg, buf, &mut state.msg);
     }
 
     Ok(())
@@ -126,23 +116,17 @@ fn mtxt2(txt: &str, txt_sel: &str, idx: usize, state: &mut State) -> String {
     }
 }
 
-fn stacked_1(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
-    state: &mut State,
-) {
-    let pal = istate.theme.palette();
-    let color_0 = pal.gray[3];
+fn stacked_1(buf: &mut Buffer, area: Rect, ctx: &mut MiniSalsaState, state: &mut State) {
+    let pal = &ctx.theme.p;
+    let color_0 = pal.color(Colors::Gray, 3);
     let color_1 = match state.mode {
-        0 => pal.green[3],
-        1 => pal.yellow[3],
-        2 => pal.red[3],
+        0 => pal.color(Colors::Green, 3),
+        1 => pal.color(Colors::Yellow, 3),
+        2 => pal.color(Colors::Red, 3),
         _ => unreachable!(),
     };
-    let color_3 = pal.cyan[0];
-    let color_4 = pal.cyan[7];
+    let color_3 = pal.color(Colors::Cyan, 0);
+    let color_4 = pal.color(Colors::Cyan, 7);
 
     let mode_str = match state.mode {
         0 => " OPERATIONAL ",
@@ -152,21 +136,21 @@ fn stacked_1(
     };
 
     StatusLineStacked::new()
-        .style(istate.theme.status_base())
+        .style(ctx.theme.style(Style::STATUS_BASE))
         .start(
             Span::from(" WESTINGHOUSE[STATUS]2 ")
-                .style(Style::new().fg(pal.text_black).bg(color_0)),
+                .style(Style::new().fg(pal.color(Colors::TextDark, 3)).bg(color_0)),
             Span::from(SLANT_TL_BR).style(Style::new().fg(color_0).bg(color_1)),
         )
         .start(
-            Span::from(mode_str).style(Style::new().fg(pal.text_black).bg(color_1)),
+            Span::from(mode_str).style(Style::new().fg(pal.color(Colors::TextDark, 3)).bg(color_1)),
             Span::from(SLANT_TL_BR).style(Style::new().fg(color_1)),
         )
         .center_margin(1)
-        .center(istate.status[0].as_str())
+        .center(ctx.status[0].as_str())
         .end(
-            Span::from(format!("R[{}][{:.0?} ", istate.frame, istate.last_render))
-                .style(Style::new().fg(pal.text_black).bg(color_3)),
+            Span::from(format!("R[{}][{:.0?} ", ctx.frame, ctx.last_render))
+                .style(Style::new().fg(pal.color(Colors::TextDark, 3)).bg(color_3)),
             Span::from(SLANT_BL_TR).style(Style::new().fg(color_3).bg(color_4)),
         )
         .end(
@@ -174,8 +158,8 @@ fn stacked_1(
             Span::from(SLANT_BL_TR).style(Style::new().fg(color_4).bg(color_3)),
         )
         .end(
-            Span::from(format!("E[{}][{:.0?}", istate.event_cnt, istate.last_event))
-                .style(Style::new().fg(pal.text_black).bg(color_3)),
+            Span::from(format!("E[{}][{:.0?}", ctx.event_cnt, ctx.last_event))
+                .style(Style::new().fg(pal.color(Colors::TextDark, 3)).bg(color_3)),
             Span::from(SLANT_BL_TR).style(Style::new().fg(color_3).bg(color_4)),
         )
         .end(
@@ -184,30 +168,24 @@ fn stacked_1(
         )
         .end(
             Span::from(format!("MSG[{}", state.msg_count))
-                .style(Style::new().fg(pal.text_black).bg(color_3)),
+                .style(Style::new().fg(pal.color(Colors::TextDark, 3)).bg(color_3)),
             Span::from(SLANT_BL_TR).style(Style::new().fg(color_3).bg(color_4)),
         )
         .end("", Span::from(SLANT_BL_TR).style(Style::new().fg(color_4)))
-        .render(area, frame.buffer_mut());
+        .render(area, buf);
 }
 
-fn stacked_2(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
-    state: &mut State,
-) {
-    let pal = istate.theme.palette();
-    let color_0 = pal.gray[3];
+fn stacked_2(buf: &mut Buffer, area: Rect, ctx: &mut MiniSalsaState, state: &mut State) {
+    let pal = &ctx.theme.p;
+    let color_0 = pal.color(Colors::Gray, 3);
     let color_1 = match state.mode {
-        0 => pal.green[3],
-        1 => pal.yellow[3],
-        2 => pal.red[3],
+        0 => pal.color(Colors::Green, 3),
+        1 => pal.color(Colors::Yellow, 3),
+        2 => pal.color(Colors::Red, 3),
         _ => unreachable!(),
     };
-    let color_3 = pal.cyan[0];
-    let color_4 = pal.gray[6];
+    let color_3 = pal.color(Colors::Cyan, 0);
+    let color_4 = pal.color(Colors::Gray, 6);
 
     let mode_str = match state.mode {
         0 => " [OPERATIONAL] ",
@@ -217,36 +195,34 @@ fn stacked_2(
     };
 
     StatusLineStacked::new()
-        .style(Style::new().fg(pal.text_light).bg(color_4))
+        .style(Style::new().fg(pal.color(Colors::TextLight, 0)).bg(color_4))
         .start_bare(
             Span::from(" WESTINGHOUSE[STATUS]2 ")
-                .style(Style::new().fg(pal.text_light).bg(color_0)),
+                .style(Style::new().fg(pal.color(Colors::TextLight, 0)).bg(color_0)),
         )
-        .start_bare(Span::from(mode_str).style(Style::new().fg(pal.text_black).bg(color_1)))
+        .start_bare(
+            Span::from(mode_str).style(Style::new().fg(pal.color(Colors::TextDark, 3)).bg(color_1)),
+        )
         .center_margin(1)
-        .center(istate.status[0].as_str())
+        .center(ctx.status[0].as_str())
         .end_bare(
-            Span::from(format!("R[{}][{:.0?}] ", istate.frame, istate.last_render))
-                .style(Style::new().fg(pal.text_black).bg(color_3)),
+            Span::from(format!("R[{}][{:.0?}] ", ctx.frame, ctx.last_render))
+                .style(Style::new().fg(pal.color(Colors::TextDark, 3)).bg(color_3)),
         )
         .end_bare(
-            Span::from(format!(
-                "E[{}][{:.0?}] ",
-                istate.event_cnt, istate.last_event
-            ))
-            .style(Style::new().fg(pal.text_black).bg(color_3)),
+            Span::from(format!("E[{}][{:.0?}] ", ctx.event_cnt, ctx.last_event))
+                .style(Style::new().fg(pal.color(Colors::TextDark, 3)).bg(color_3)),
         )
         .end_bare(
             Span::from(format!(" MSG[{}] ", state.msg_count))
-                .style(Style::new().fg(pal.text_black).bg(color_3)),
+                .style(Style::new().fg(pal.color(Colors::TextDark, 3)).bg(color_3)),
         )
-        .render(area, frame.buffer_mut());
+        .render(area, buf);
 }
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(msgdialog::handle_dialog_events(&mut state.msg, event));
@@ -268,7 +244,7 @@ fn event(
     try_flow!(
         match menuline::handle_events(&mut state.menu, true, event) {
             MenuOutcome::Selected(v) => {
-                istate.status[0] = format!("SELECT {}", v);
+                ctx.status[0] = format!("SELECT {}", v);
                 Outcome::Changed
             }
             MenuOutcome::Activated(0) => {
@@ -284,7 +260,7 @@ fn event(
                 Outcome::Changed
             }
             MenuOutcome::Activated(v) => {
-                istate.status[0] = format!("ACTIVATE {}", v);
+                ctx.status[0] = format!("ACTIVATE {}", v);
                 match v {
                     3 => {
                         state.msg.append(
@@ -300,7 +276,7 @@ fn event(
                         state.status_styling = (state.status_styling + 1) % 2;
                     }
                     5 => {
-                        istate.quit = true;
+                        ctx.quit = true;
                         return Ok(Outcome::Changed);
                     }
                     _ => {}

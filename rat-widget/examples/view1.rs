@@ -4,10 +4,12 @@ use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, Outcome, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::Scroll;
+use rat_theme4::StyleName;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::view::{View, ViewState};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect, Size};
+use ratatui::style::Style;
 use ratatui::widgets::{Block, BorderType, Wrap};
 
 mod mini_salsa;
@@ -15,26 +17,21 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {
+    let mut state = State {
         sample1: SAMPLE1.to_string(),
         sample2: SAMPLE2.to_string(),
-    };
-
-    let mut state = State {
         view_state: Default::default(),
         first: Default::default(),
         second: Default::default(),
     };
 
-    run_ui("view1", mock_init, event, render, &mut data, &mut state)
-}
-
-struct Data {
-    pub(crate) sample1: String,
-    pub(crate) sample2: String,
+    run_ui("view1", mock_init, event, render, &mut state)
 }
 
 struct State {
+    sample1: String,
+    sample2: String,
+
     view_state: ViewState,
 
     first: ParagraphState,
@@ -42,10 +39,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l = Layout::horizontal([
@@ -61,34 +57,34 @@ fn render(
     let mut view_buf = View::new()
         .layout(Rect::new(10, 10, 44, 47))
         .view_size(Size::new(100, 100))
-        .vscroll(Scroll::new().style(istate.theme.container_border()))
-        .hscroll(Scroll::new().style(istate.theme.container_border()))
+        .vscroll(Scroll::new().style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG)))
+        .hscroll(Scroll::new().style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG)))
         .block(Block::bordered().border_type(BorderType::Rounded))
         .into_buffer(l[1], &mut state.view_state);
 
     // render a widget using View coordinates.
     view_buf.render(
-        Paragraph::new(data.sample1.clone())
+        Paragraph::new(state.sample1.clone())
             .wrap(Wrap::default())
-            .style(istate.theme.limegreen(0))
-            .block(Block::bordered().style(istate.theme.container_border()))
-            .scroll(Scroll::new().style(istate.theme.container_border())),
+            .style(ctx.theme.p.limegreen(0))
+            .block(Block::bordered().style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG)))
+            .scroll(Scroll::new().style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG))),
         Rect::new(10, 10, 40, 18),
         &mut state.first,
     );
     view_buf.render(
-        Paragraph::new(data.sample2.clone())
+        Paragraph::new(state.sample2.clone())
             .wrap(Wrap::default())
-            .style(istate.theme.bluegreen(0))
-            .block(Block::bordered().style(istate.theme.container_border()))
-            .scroll(Scroll::new().style(istate.theme.container_border())),
+            .style(ctx.theme.p.bluegreen(0))
+            .block(Block::bordered().style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG)))
+            .scroll(Scroll::new().style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG))),
         Rect::new(14, 29, 40, 18),
         &mut state.second,
     );
 
     // view content is done, now convert to the output widget and
     // render it.
-    view_buf.finish(frame.buffer_mut(), &mut state.view_state);
+    view_buf.finish(buf, &mut state.view_state);
 
     Ok(())
 }
@@ -102,11 +98,10 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    istate.focus_outcome = focus(state).handle(event, Regular);
+    ctx.focus_outcome = focus(state).handle(event, Regular);
 
     // handle inner first.
     try_flow!(state.first.handle(event, Regular));

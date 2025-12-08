@@ -11,7 +11,7 @@ use rat_menu::popup_menu;
 use rat_menu::popup_menu::{PopupConstraint, PopupMenu, PopupMenuState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_as_grid;
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
@@ -20,8 +20,6 @@ mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         left: Default::default(),
@@ -34,17 +32,8 @@ fn main() -> Result<(), anyhow::Error> {
         popup: PopupMenuState::default(),
     };
 
-    run_ui(
-        "popup_menu1",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("popup_menu1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     left: Rect,
@@ -60,10 +49,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l = layout_as_grid(
@@ -90,18 +78,14 @@ fn render(
     Blue::new()
         .style(Style::new().on_blue())
         .focus_style(Style::new().on_light_blue())
-        .render(l.widget_for((1, 1)), frame.buffer_mut(), &mut state.blue);
+        .render(l.widget_for((1, 1)), buf, &mut state.blue);
     Blue::new()
         .style(Style::new().on_yellow())
         .focus_style(Style::new().on_light_yellow())
-        .render(
-            l.widget_for((0, 1)),
-            frame.buffer_mut(),
-            &mut state.not_blue,
-        );
+        .render(l.widget_for((0, 1)), buf, &mut state.not_blue);
 
     // for placement near the mouse cursor.
-    frame.buffer_mut().set_style(
+    buf.set_style(
         l.widget_for((3, 0)).union(l.widget_for((3, 2))),
         Style::new().on_dark_gray(),
     );
@@ -117,11 +101,11 @@ fn render(
             .block(
                 Block::bordered()
                     .style(Style::new().black().on_cyan())
-                    .title(frame.count().to_string()),
+                    .title(ctx.frame.to_string()),
             )
             .constraint(state.placement)
             .offset(state.offset)
-            .render(state.popup_area, frame.buffer_mut(), &mut state.popup);
+            .render(state.popup_area, buf, &mut state.popup);
     }
 
     Ok(())
@@ -136,12 +120,11 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    istate.focus_outcome = focus(state).handle(event, Regular);
-    if istate.focus_outcome == Outcome::Changed {
+    ctx.focus_outcome = focus(state).handle(event, Regular);
+    if ctx.focus_outcome == Outcome::Changed {
         state.popup.set_active(false);
     }
 
@@ -160,7 +143,7 @@ fn event(
                 }
             }
             MenuOutcome::Activated(n) => {
-                istate.status[0] = format!("Activated {}", n);
+                ctx.status[0] = format!("Activated {}", n);
                 Outcome::Changed
             }
             r => r.into(),

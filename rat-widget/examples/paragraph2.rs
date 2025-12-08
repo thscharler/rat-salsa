@@ -7,9 +7,11 @@ use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_text::HasScreenCursor;
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
+use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::paragraph::{Paragraph, ParagraphState};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidget, Wrap};
 
 mod mini_salsa;
@@ -17,12 +19,9 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {
-        sample: SAMPLE1.to_string(),
-    };
-
     let mut state = State {
-        sample: 0,
+        sample_idx: 0,
+        sample: SAMPLE1.to_string(),
         wrap: true,
         line_numbers: Default::default(),
         para: Default::default(),
@@ -31,22 +30,12 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.text.set_text(SAMPLE1);
 
-    run_ui(
-        "paragraph1",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
-}
-
-struct Data {
-    pub(crate) sample: String,
+    run_ui("paragraph1", mock_init, event, render, &mut state)
 }
 
 struct State {
-    sample: u32,
+    sample_idx: u32,
+    sample: String,
     wrap: bool,
     line_numbers: LineNumberState,
     para: ParagraphState,
@@ -55,10 +44,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = layout_grid::<6, 4>(
@@ -87,22 +75,22 @@ fn render(
     );
     LineNumbers::new()
         .start(state.para.vscroll.offset as u32)
-        .render(lln, frame.buffer_mut(), &mut state.line_numbers);
+        .render(lln, buf, &mut state.line_numbers);
 
-    let mut para = Paragraph::new(data.sample.clone())
+    let mut para = Paragraph::new(state.sample.clone())
         .vscroll(Scroll::new().policy(ScrollbarPolicy::Collapse))
         .hscroll(Scroll::new().policy(ScrollbarPolicy::Collapse))
         .block(
             Block::bordered()
                 .title("Excerpt")
-                .border_style(istate.theme.container_border())
-                .title_style(istate.theme.container_border()),
+                .border_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG))
+                .title_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG)),
         )
-        .styles(istate.theme.paragraph_style());
+        .styles(ctx.theme.style(WidgetStyle::PARAGRAPH));
     if state.wrap {
         para = para.wrap(Wrap::default());
     }
-    para.render(l0[2][1], frame.buffer_mut(), &mut state.para);
+    para.render(l0[2][1], buf, &mut state.para);
 
     let lln = Rect::new(
         l0[3][1].x,
@@ -110,20 +98,18 @@ fn render(
         l0[3][1].width,
         l0[3][1].height - 2,
     );
-    LineNumbers::new().with_textarea(&state.text).render(
-        lln,
-        frame.buffer_mut(),
-        &mut state.line_numbers2,
-    );
+    LineNumbers::new()
+        .with_textarea(&state.text)
+        .render(lln, buf, &mut state.line_numbers2);
 
     let mut text = TextArea::new()
-        .styles(istate.theme.textview_style())
+        .styles(ctx.theme.style(WidgetStyle::TEXTVIEW))
         .vscroll(Scroll::new().policy(ScrollbarPolicy::Collapse))
         .block(
             Block::bordered()
                 .title("Excerpt")
-                .border_style(istate.theme.container_border())
-                .title_style(istate.theme.container_border()),
+                .border_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG))
+                .title_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG)),
         );
     if state.wrap {
         text = text.text_wrap(TextWrap::Word(0));
@@ -132,10 +118,10 @@ fn render(
             .text_wrap(TextWrap::Shift)
             .hscroll(Scroll::new().policy(ScrollbarPolicy::Collapse));
     }
-    text.render(l0[4][1], frame.buffer_mut(), &mut state.text);
+    text.render(l0[4][1], buf, &mut state.text);
 
     if let Some(c) = state.text.screen_cursor() {
-        frame.set_cursor_position(c);
+        ctx.cursor = Some(c);
     }
 
     Ok(())
@@ -150,11 +136,10 @@ fn focus(state: &State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    istate.focus_outcome = focus(state).handle(event, Regular);
+    ctx.focus_outcome = focus(state).handle(event, Regular);
 
     try_flow!(state.para.handle(event, Regular));
     try_flow!(state.text.handle(event, Regular));
@@ -165,17 +150,17 @@ fn event(
             Outcome::Changed
         }
         ct_event!(keycode press F(3)) => {
-            state.sample += 1;
-            if state.sample > 1 {
-                state.sample = 0;
+            state.sample_idx += 1;
+            if state.sample_idx > 1 {
+                state.sample_idx = 0;
             }
-            match state.sample {
+            match state.sample_idx {
                 0 => {
-                    data.sample = SAMPLE1.to_string();
+                    state.sample = SAMPLE1.to_string();
                     state.text.set_text(SAMPLE1);
                 }
                 1 => {
-                    data.sample = SAMPLE2.to_string();
+                    state.sample = SAMPLE2.to_string();
                     state.text.set_text(SAMPLE2);
                 }
                 _ => {}

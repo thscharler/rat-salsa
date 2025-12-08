@@ -7,12 +7,13 @@ use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;
+use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::event::Outcome;
 use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
 use rat_widget::statusline::StatusLineState;
 use rat_widget::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::symbols::border;
@@ -23,8 +24,6 @@ mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         border_type: None,
@@ -40,7 +39,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui("tabbed1", mock_init, event, render, &mut data, &mut state)
+    run_ui("tabbed1", mock_init, event, render, &mut state)
 }
 
 struct Data {}
@@ -62,10 +61,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -84,7 +82,7 @@ fn render(
     .split(l1[1]);
 
     let mut tab = Tabbed::new()
-        .styles(istate.theme.tabbed_style())
+        .styles(ctx.theme.style(WidgetStyle::TABBED))
         .tab_type(state.style)
         .placement(state.placement);
     if state.close {
@@ -98,75 +96,47 @@ fn render(
         );
     }
     tab = tab.tabs(["Issues", "Numbers", "More numbers"]);
-    tab.render(l2[1], frame.buffer_mut(), &mut state.tabbed);
+    tab.render(l2[1], buf, &mut state.tabbed);
 
     match state.tabbed.selected().expect("tab") {
         0 => List::<RowSelection>::new(LIST)
-            .styles(istate.theme.list_style())
-            .scroll(Scroll::new().styles(istate.theme.scroll_style()))
-            .render(
-                state.tabbed.widget_area,
-                frame.buffer_mut(),
-                &mut state.tabs_0,
-            ),
+            .scroll(Scroll::new())
+            .styles(ctx.theme.style(WidgetStyle::LIST))
+            .render(state.tabbed.widget_area, buf, &mut state.tabs_0),
         1 => EndlessScroll::new()
-            .max(2024) //
-            .style(istate.theme.bluegreen(0))
-            .focus_style(istate.theme.focus())
-            .v_scroll(
-                Scroll::new() //
-                    .styles(istate.theme.scroll_style()),
-            )
-            .render(
-                state.tabbed.widget_area,
-                frame.buffer_mut(),
-                &mut state.tabs_1,
-            ),
+            .max(2024)
+            .style(ctx.theme.p.bluegreen(0))
+            .focus_style(ctx.theme.style_style(Style::FOCUS))
+            .v_scroll(Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL)))
+            .render(state.tabbed.widget_area, buf, &mut state.tabs_1),
         2 => EndlessScroll::new()
-            .max(2024) //
-            .style(istate.theme.cyan(0))
-            .focus_style(istate.theme.focus())
-            .v_scroll(
-                Scroll::new() //
-                    .styles(istate.theme.scroll_style()),
-            )
-            .render(
-                state.tabbed.widget_area,
-                frame.buffer_mut(),
-                &mut state.tabs_2,
-            ),
+            .max(2024)
+            .style(ctx.theme.p.cyan(0))
+            .focus_style(ctx.theme.style_style(Style::FOCUS))
+            .v_scroll(Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL)))
+            .render(state.tabbed.widget_area, buf, &mut state.tabs_2),
         _ => {}
     }
 
     let mut area = Rect::new(l2[0].x, l2[0].y, l2[0].width, 1);
 
-    Line::from("F1: close")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F1: close").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F2: type")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F2: type").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F3: alignment")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F3: alignment").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F5: border")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F5: border").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F12: key-nav")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F12: key-nav").yellow().render(area, buf);
     area.y += 1;
 
-    let menu1 = MenuLine::new()
+    MenuLine::new()
         .title("||||")
         .item_parsed("_Quit")
         .title_style(Style::default().black().on_yellow())
-        .style(Style::default().black().on_dark_gray());
-    frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
+        .style(Style::default().black().on_dark_gray())
+        .render(l1[3], buf, &mut state.menu);
 
     Ok(())
 }
@@ -190,11 +160,10 @@ fn focus(state: &State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    istate.focus_outcome = focus(state).handle(event, Regular);
+    ctx.focus_outcome = focus(state).handle(event, Regular);
 
     try_flow!(match event {
         ct_event!(keycode press F(1)) => {
@@ -329,7 +298,7 @@ fn event(
 
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
-            istate.quit = true;
+            ctx.quit = true;
             Outcome::Changed
         }
         _ => Outcome::Continue,

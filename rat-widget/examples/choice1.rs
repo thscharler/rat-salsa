@@ -4,9 +4,10 @@ use rat_event::{HandleEvent, Popup, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_theme4::WidgetStyle;
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, Outcome};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
@@ -17,8 +18,6 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {};
-
     let mut state = State {
         c1: ChoiceState::named("c1"),
         c2: ChoiceState::named("c2"),
@@ -26,10 +25,8 @@ fn main() -> Result<(), anyhow::Error> {
         menu: MenuLineState::named("menu"),
     };
 
-    run_ui("choice1", mock_init, event, render, &mut data, &mut state)
+    run_ui("choice1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     c1: ChoiceState,
@@ -39,10 +36,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -82,18 +78,18 @@ fn render(
         .auto_item("Äpfel 🍎")
         .auto_item("...")
         .popup_boundary(l1[0])
-        .styles(istate.theme.choice_style())
+        .styles(ctx.theme.style(WidgetStyle::CHOICE))
         .into_widgets();
-    w.render(lg[1][1], frame.buffer_mut(), &mut state.c1);
+    w.render(lg[1][1], buf, &mut state.c1);
 
     let (w, p2) = Choice::new()
         .auto_item("wine")
         .auto_item("beer")
         .auto_item("water")
         .popup_boundary(l1[0])
-        .styles(istate.theme.choice_style())
+        .styles(ctx.theme.style(WidgetStyle::CHOICE))
         .into_widgets();
-    w.render(lg[1][2], frame.buffer_mut(), &mut state.c2);
+    w.render(lg[1][2], buf, &mut state.c2);
 
     let (w, p3) = Choice::<Option<usize>>::new()
         .item(None, "red")
@@ -101,20 +97,20 @@ fn render(
         .item(Some(1), "green")
         .block(Block::bordered().border_type(BorderType::Rounded))
         .popup_boundary(l1[0])
-        .styles(istate.theme.choice_style())
+        .styles(ctx.theme.style(WidgetStyle::CHOICE))
         .popup_block(Block::bordered().border_type(BorderType::Rounded))
         .into_widgets();
-    w.render(lg[1][3], frame.buffer_mut(), &mut state.c3);
+    w.render(lg[1][3], buf, &mut state.c3);
 
-    p1.render(lg[1][1], frame.buffer_mut(), &mut state.c1);
-    p2.render(lg[1][2], frame.buffer_mut(), &mut state.c2);
-    p3.render(lg[1][3], frame.buffer_mut(), &mut state.c3);
+    p1.render(lg[1][1], buf, &mut state.c1);
+    p2.render(lg[1][2], buf, &mut state.c2);
+    p3.render(lg[1][3], buf, &mut state.c3);
 
-    let menu1 = MenuLine::new()
+    MenuLine::new()
         .title("a|b|c")
         .item_parsed("_Quit")
-        .styles(istate.theme.menu_style());
-    frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
+        .styles(ctx.theme.style(WidgetStyle::MENU))
+        .render(l1[1], buf, &mut state.menu);
 
     Ok(())
 }
@@ -131,12 +127,11 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
-    istate.focus_outcome = focus.handle(event, Regular);
+    ctx.focus_outcome = focus.handle(event, Regular);
 
     // popup handling first
     try_flow!(state.c1.handle(event, Popup));
@@ -153,7 +148,7 @@ fn event(
         MenuOutcome::Activated(v) => {
             match v {
                 0 => {
-                    istate.quit = true;
+                    ctx.quit = true;
                     Outcome::Changed
                 }
                 _ => Outcome::Changed,

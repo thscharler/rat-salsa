@@ -9,13 +9,14 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
+use rat_theme4::WidgetStyle;
 use rat_widget::clipper::{Clipper, ClipperBuffer, ClipperState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders};
+use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget};
 use std::array;
 use std::time::SystemTime;
 
@@ -25,8 +26,6 @@ const HUN: usize = 4448;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         t_focus: 0.0,
@@ -41,10 +40,8 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui("pager4", mock_init, event, render, &mut data, &mut state)
+    run_ui("pager4", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     t_focus: f64,
@@ -59,10 +56,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -82,13 +78,13 @@ fn render(
 
     // Prepare navigation.
     let pager = Clipper::new()
-        .vscroll(Scroll::new().styles(istate.theme.scroll_style()))
+        .vscroll(Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL)))
         .block(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top(Line::from(format!("{:?}", state.flex)).alignment(Alignment::Center)),
         )
-        .styles(istate.theme.clipper_style());
+        .styles(ctx.theme.style(WidgetStyle::CLIPPER));
 
     let layout_size = pager.layout_size(l2[1], &state.pager);
     // rebuild layout
@@ -123,7 +119,7 @@ fn render(
                 tag17 = form_layout.start(Some(
                     Block::bordered()
                         .border_type(BorderType::Double)
-                        .style(istate.theme.bluegreen(0)),
+                        .style(ctx.theme.p.bluegreen(0)),
                 ));
             }
             if i == 20 {
@@ -164,21 +160,21 @@ fn render(
 
     // Render
     let mut pager = pager.into_buffer(l2[1], &mut state.pager);
-    render_page(&mut pager, istate, state)?;
-    pager.finish(frame.buffer_mut(), &mut state.pager);
+    render_page(&mut pager, ctx, state)?;
+    pager.finish(buf, &mut state.pager);
 
-    let menu1 = MenuLine::new()
+    MenuLine::new()
         .title("#.#")
         .item_parsed("_Flex|F2")
         .item_parsed("_Spacing|F3")
         .item_parsed("_Columns|F4")
         .item_parsed("_Quit")
-        .styles(istate.theme.menu_style());
-    frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
+        .styles(ctx.theme.style(WidgetStyle::MENU))
+        .render(l1[3], buf, &mut state.menu);
 
     for i in 0..state.hundred.len() {
         if let Some(cursor) = state.hundred[i].screen_cursor() {
-            frame.set_cursor_position(cursor);
+            ctx.cursor = Some(cursor);
         }
     }
 
@@ -187,7 +183,7 @@ fn render(
 
 fn render_page(
     pager: &mut ClipperBuffer<'_, FocusFlag>,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     // render the fields.
@@ -197,8 +193,8 @@ fn render_page(
             || {
                 // lazy construction
                 TextInputMock::default()
-                    .style(istate.theme.limegreen(0))
-                    .focus_style(istate.theme.limegreen(2))
+                    .style(ctx.theme.p.limegreen(0))
+                    .focus_style(ctx.theme.p.limegreen(2))
             },
             &mut state.hundred[i],
         );
@@ -223,8 +219,7 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let et = SystemTime::now();
@@ -234,9 +229,9 @@ fn event(
     state.t_focus += tt.as_secs_f64();
     state.n_focus += 1f64;
 
-    istate.focus_outcome = focus.handle(event, Regular);
+    ctx.focus_outcome = focus.handle(event, Regular);
     // set the page from focus.
-    if istate.focus_outcome == Outcome::Changed {
+    if ctx.focus_outcome == Outcome::Changed {
         if let Some(ff) = focus.focused() {
             state.pager.show(ff);
         }
@@ -262,7 +257,7 @@ fn event(
         MenuOutcome::Activated(1) => flip_spacing(state),
         MenuOutcome::Activated(2) => flip_columns(state),
         MenuOutcome::Activated(4) => {
-            istate.quit = true;
+            ctx.quit = true;
             Outcome::Changed
         }
         r => r.into(),

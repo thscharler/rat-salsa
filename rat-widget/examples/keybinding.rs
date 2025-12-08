@@ -3,7 +3,7 @@ use chrono::{Local, NaiveTime};
 use crossterm::event::{Event, KeyEvent};
 use format_num_pattern::NumberFormat;
 use rat_event::{Outcome, try_flow};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::text::Span;
 use ratatui::widgets::Widget;
@@ -13,43 +13,31 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {
+    let mut state = State {
         journal: Default::default(),
     };
 
-    let mut state = State {};
-
-    run_ui(
-        "keybinding",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("keybinding", mock_init, event, render, &mut state)
 }
 
-struct Data {
+struct State {
     pub(crate) journal: Vec<(NaiveTime, KeyEvent)>,
 }
 
-struct State {}
-
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    data: &mut Data,
-    _istate: &mut MiniSalsaState,
-    _state: &mut State,
+    _ctx: &mut MiniSalsaState,
+    state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    if data.journal.len() > 0 {
+    if state.journal.len() > 0 {
         let numf = NumberFormat::new("##,###,###")?;
 
-        let off = data.journal.len().saturating_sub(area.height as usize);
-        let journal = &data.journal[off..];
+        let off = state.journal.len().saturating_sub(area.height as usize);
+        let journal = &state.journal[off..];
 
         let zero = off.saturating_sub(1);
-        let mut prev_time = data.journal[zero].0.clone();
+        let mut prev_time = state.journal[zero].0.clone();
 
         for (n, (time, event)) in journal.iter().enumerate() {
             let row_area = Rect::new(area.x, area.y + n as u16, area.width, 1);
@@ -67,7 +55,7 @@ fn render(
                 )
                 .to_string(),
             );
-            msg.render(row_area, frame.buffer_mut());
+            msg.render(row_area, buf);
 
             prev_time = time.clone();
         }
@@ -78,13 +66,12 @@ fn render(
 
 fn event(
     event: &Event,
-    data: &mut Data,
-    _istate: &mut MiniSalsaState,
-    _state: &mut State,
+    _ctx: &mut MiniSalsaState,
+    state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(match event {
         Event::Key(k) => {
-            data.journal.push((Local::now().time(), k.clone()));
+            state.journal.push((Local::now().time(), k.clone()));
             Outcome::Changed
         }
         _ => Outcome::Continue,

@@ -4,7 +4,7 @@ use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_scrolled::Scroll;
 use rat_widget::view;
 use rat_widget::view::{View, ViewState};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Bar, BarChart, BorderType};
@@ -15,33 +15,21 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {};
-
     let mut state = State {
         view_state: Default::default(),
     };
 
-    run_ui(
-        "view-barchart1",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("view-barchart1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     view_state: ViewState,
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l = Layout::horizontal([
@@ -76,7 +64,7 @@ fn render(
         Rect::new(0, 0, 100, 15),
     );
 
-    view_buf.finish(frame.buffer_mut(), &mut state.view_state);
+    view_buf.finish(buf, &mut state.view_state);
 
     Ok(())
 }
@@ -89,11 +77,10 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    istate.focus_outcome = focus(state).handle(event, Regular);
+    ctx.focus_outcome = focus(state).handle(event, Regular);
 
     // handle inner first.
     let view_focused = state.view_state.is_focused();
@@ -102,7 +89,6 @@ fn event(
         view_focused,
         event
     ));
-    // try_flow!(state.view_state.handle(event, Regular));
 
     Ok(Outcome::Continue)
 }

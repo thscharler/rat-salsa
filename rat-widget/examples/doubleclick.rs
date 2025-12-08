@@ -5,7 +5,7 @@ use format_num_pattern::NumberFormat;
 use rat_event::util::{Clicks, MouseFlags, set_double_click_timeout};
 use rat_event::{Outcome, ct_event, try_flow};
 use rat_widget::layout::layout_as_grid;
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
@@ -17,37 +17,24 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {
-        journal: Default::default(),
-    };
-
     let mut state = State {
         area: Default::default(),
         mouse: Default::default(),
         flip: false,
         flip2: false,
         drag_pos: None,
+
+        journal: Default::default(),
     };
 
     set_double_click_timeout(350);
 
-    run_ui(
-        "doubleclick",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("doubleclick", mock_init, event, render, &mut state)
 }
 
 enum Journal {
     Mouse(MouseEvent, Option<SystemTime>, Clicks),
     DoubleClick(),
-}
-
-struct Data {
-    journal: Vec<(NaiveTime, Journal)>,
 }
 
 struct State {
@@ -56,13 +43,13 @@ struct State {
     flip: bool,
     flip2: bool,
     drag_pos: Option<(u16, u16)>,
+    journal: Vec<(NaiveTime, Journal)>,
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l = layout_as_grid(
@@ -84,23 +71,15 @@ fn render(
 
     if state.flip2 {
         if state.flip {
-            frame
-                .buffer_mut()
-                .set_style(l.widget_for((1, 2)), Style::new().on_white());
+            buf.set_style(l.widget_for((1, 2)), Style::new().on_white());
         } else {
-            frame
-                .buffer_mut()
-                .set_style(l.widget_for((1, 2)), Style::new().on_red());
+            buf.set_style(l.widget_for((1, 2)), Style::new().on_red());
         }
     } else {
         if state.flip {
-            frame
-                .buffer_mut()
-                .set_style(l.widget_for((1, 2)), Style::new().on_green());
+            buf.set_style(l.widget_for((1, 2)), Style::new().on_green());
         } else {
-            frame
-                .buffer_mut()
-                .set_style(l.widget_for((1, 2)), Style::new().on_blue());
+            buf.set_style(l.widget_for((1, 2)), Style::new().on_blue());
         }
     }
     state.area = l.widget_for((1, 2));
@@ -116,21 +95,21 @@ fn render(
                 )
                 .to_string(),
             );
-            drag.render(l.widget_for((3, 2)), frame.buffer_mut());
+            drag.render(l.widget_for((3, 2)), buf);
         }
     }
 
-    if data.journal.len() > 0 {
+    if state.journal.len() > 0 {
         let numf = NumberFormat::new("##,###,###")?;
 
-        let off = data
+        let off = state
             .journal
             .len()
             .saturating_sub(l.widget_for((2, 2)).height as usize);
-        let journal = &data.journal[off..];
+        let journal = &state.journal[off..];
 
         let zero = off.saturating_sub(1);
-        let mut prev_time = data.journal[zero].0.clone();
+        let mut prev_time = state.journal[zero].0.clone();
 
         for (n, (time, event)) in journal.iter().enumerate() {
             let journal_area = l.widget_for((2, 2));
@@ -174,7 +153,7 @@ fn render(
                     .to_string(),
                 ),
             };
-            msg.render(row_area, frame.buffer_mut());
+            msg.render(row_area, buf);
 
             prev_time = time.clone();
         }
@@ -185,13 +164,13 @@ fn render(
 
 fn event(
     event: &Event,
-    data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(match event {
         ct_event!(mouse any for m) if state.mouse.doubleclick(state.area, m) => {
-            data.journal
+            state
+                .journal
                 .push((Local::now().time(), Journal::DoubleClick()));
             state.flip = !state.flip;
             Outcome::Changed
@@ -201,7 +180,8 @@ fn event(
                 .mouse
                 .doubleclick2(state.area, m, KeyModifiers::CONTROL) =>
         {
-            data.journal
+            state
+                .journal
                 .push((Local::now().time(), Journal::DoubleClick()));
             state.flip2 = !state.flip2;
             Outcome::Changed
@@ -221,7 +201,7 @@ fn event(
             },
         ) => {
             if state.area.contains((m.column, m.row).into()) {
-                data.journal.push((
+                state.journal.push((
                     Local::now().time(),
                     Journal::Mouse(m.clone(), state.mouse.time.get(), state.mouse.click.get()),
                 ));

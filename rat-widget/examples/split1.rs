@@ -7,11 +7,12 @@ use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;
+use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::event::Outcome;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::splitter::{Split, SplitResize, SplitState, SplitType};
 use rat_widget::statusline::StatusLineState;
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
@@ -21,8 +22,6 @@ mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         dir: Direction::Horizontal,
@@ -40,10 +39,8 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui("split1", mock_init, event, render, &mut data, &mut state)
+    run_ui("split1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     dir: Direction,
@@ -63,10 +60,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -86,7 +82,7 @@ fn render(
 
     // create split widget.
     let mut split = Split::new()
-        .styles(istate.theme.split_style())
+        .styles(ctx.theme.style(WidgetStyle::SPLIT))
         .direction(state.dir)
         .split_type(state.split_type)
         .resize(state.resize)
@@ -101,105 +97,79 @@ fn render(
             .block(
                 Block::bordered()
                     .border_type(blk) //
-                    .border_style(istate.theme.container_border()),
+                    .border_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG)),
             )
             .join_1(blk)
             .join_0(blk);
     }
     let (split_layout, split) = split.into_widgets();
-    split_layout.render(l2[1], frame.buffer_mut(), &mut state.split);
+    split_layout.render(l2[1], buf, &mut state.split);
 
     // First split widget. Show some TEXT.
     if !state.split.is_hidden(0) {
         let mut w_left = Paragraph::new(TEXT)
-            .styles(istate.theme.paragraph_style())
+            .styles(ctx.theme.style(WidgetStyle::PARAGRAPH))
             .wrap(Wrap::default());
         if let Some(inner_border) = state.inner_border_type {
             // configurable border
             w_left = w_left.block(
                 Block::bordered()
                     .title("inner block")
-                    .border_style(istate.theme.magenta(0))
+                    .border_style(ctx.theme.p.magenta(0))
                     .border_type(inner_border),
             );
         }
-        let mut scroll_left = Scroll::new().styles(istate.theme.scroll_style());
+        let mut scroll_left = Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL));
         if state.dir == Direction::Horizontal {
             // don't start the scrollbar at the top of the area, start it 2 below.
             // leaves some space for the split handles.
             scroll_left = scroll_left.start_margin(2);
         }
         w_left = w_left.vscroll(scroll_left);
-        w_left.render(
-            state.split.widget_areas[0],
-            frame.buffer_mut(),
-            &mut state.left,
-        );
+        w_left.render(state.split.widget_areas[0], buf, &mut state.left);
     }
 
     // some dummy widget
     EndlessScroll::new()
         .max(100000) //
-        .style(istate.theme.deepblue(0))
-        .focus_style(istate.theme.focus())
+        .style(ctx.theme.p.deepblue(0))
+        .focus_style(ctx.theme.style_style(Style::FOCUS))
         .v_scroll(
             Scroll::new()
                 .start_margin(2) //
-                .styles(istate.theme.scroll_style()),
+                .styles(ctx.theme.style(WidgetStyle::SCROLL)),
         )
-        .render(
-            state.split.widget_areas[1],
-            frame.buffer_mut(),
-            &mut state.right,
-        );
+        .render(state.split.widget_areas[1], buf, &mut state.right);
 
     // some dummy widget
     EndlessScroll::new()
         .max(2024) //
-        .style(istate.theme.bluegreen(0))
-        .focus_style(istate.theme.focus())
+        .style(ctx.theme.p.bluegreen(0))
+        .focus_style(ctx.theme.style_style(Style::FOCUS))
         .v_scroll(
             Scroll::new() //
-                .styles(istate.theme.scroll_style()),
+                .styles(ctx.theme.style(WidgetStyle::SCROLL)),
         )
-        .render(
-            state.split.widget_areas[2],
-            frame.buffer_mut(),
-            &mut state.right_right,
-        );
+        .render(state.split.widget_areas[2], buf, &mut state.right_right);
 
     // Render split after all the content.
-    split.render(l2[1], frame.buffer_mut(), &mut state.split);
+    split.render(l2[1], buf, &mut state.split);
 
     // render layout detail info
     let mut area = Rect::new(l2[0].x, l2[0].y, l2[0].width, 1);
-    Line::from("F1: hide first")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F1: hide first").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F3: toggle")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F3: toggle").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F4: type")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F4: type").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F5: border")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F5: border").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F6: left border")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F6: left border").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F7: resize")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F7: resize").yellow().render(area, buf);
     area.y += 1;
-    Line::from("F12: key-nav")
-        .yellow()
-        .render(area, frame.buffer_mut());
+    Line::from("F12: key-nav").yellow().render(area, buf);
     area.y += 1;
     area.y += 1;
 
@@ -207,13 +177,12 @@ fn render(
         "area {},{}+{}+{}",
         state.split.inner.x, state.split.inner.y, state.split.inner.width, state.split.inner.height
     ))
-    .render(area, frame.buffer_mut());
+    .render(area, buf);
     area.y += 1;
-    Line::from("areas").render(area, frame.buffer_mut());
+    Line::from("areas").render(area, buf);
     area.y += 1;
     for a in &state.split.widget_areas {
-        Line::from(format!("{},{}+{}+{}", a.x, a.y, a.width, a.height))
-            .render(area, frame.buffer_mut());
+        Line::from(format!("{},{}+{}+{}", a.x, a.y, a.width, a.height)).render(area, buf);
         area.y += 1;
     }
 
@@ -226,21 +195,21 @@ fn render(
             _ = write!(v, "{}, ", *w);
             v
         });
-    Line::from(txt).render(area, frame.buffer_mut());
+    Line::from(txt).render(area, buf);
     area.y += 1;
-    Line::from(format!("Drag {:?}", state.split.mouse.drag.get())).render(area, frame.buffer_mut());
+    Line::from(format!("Drag {:?}", state.split.mouse.drag.get())).render(area, buf);
     area.y += 1;
-    Line::from(format!("Mark {:?}", state.split.focus_marker)).render(area, frame.buffer_mut());
+    Line::from(format!("Mark {:?}", state.split.focus_marker)).render(area, buf);
     area.y += 1;
-    Line::from(format!("{:?}", state.split.split_type)).render(area, frame.buffer_mut());
+    Line::from(format!("{:?}", state.split.split_type)).render(area, buf);
     area.y += 1;
 
-    let menu1 = MenuLine::new()
+    MenuLine::new()
         .title("||||")
         .item_parsed("_Quit")
         .title_style(Style::default().black().on_yellow())
-        .style(Style::default().black().on_dark_gray());
-    frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
+        .style(Style::default().black().on_dark_gray())
+        .render(l1[3], buf, &mut state.menu);
 
     Ok(())
 }
@@ -262,14 +231,13 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     state.focus = focus(state);
 
     // handle focus events
-    istate.focus_outcome = state.focus.handle(event, Regular);
+    ctx.focus_outcome = state.focus.handle(event, Regular);
 
     try_flow!(match event {
         ct_event!(keycode press F(1)) => {
@@ -389,7 +357,7 @@ fn event(
     try_flow!(state.right_right.handle(event, Regular));
     try_flow!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
-            istate.quit = true;
+            ctx.quit = true;
             Outcome::Changed
         }
         _ => Outcome::Continue,

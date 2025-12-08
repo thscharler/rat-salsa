@@ -1,10 +1,11 @@
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::try_flow;
 use rat_text::HasScreenCursor;
+use rat_theme4::WidgetStyle;
 use rat_widget::date_input;
 use rat_widget::date_input::{DateInput, DateInputState};
 use rat_widget::event::Outcome;
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{StatefulWidget, Widget};
@@ -14,33 +15,21 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {};
-
     let mut state = State {
         input: DateInputState::new().with_pattern("%x")?,
     };
 
-    run_ui(
-        "dateinput1",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("dateinput1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     pub(crate) input: DateInputState,
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([
@@ -68,22 +57,21 @@ fn render(
     .split(l0[1]);
 
     DateInput::new() //
-        .styles(istate.theme.text_style())
-        .render(l1[1], frame.buffer_mut(), &mut state.input);
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
+        .render(l1[1], buf, &mut state.input);
     if let Some((x, y)) = state.input.screen_cursor() {
-        frame.set_cursor_position((x, y));
+        ctx.cursor = Some((x, y));
     }
 
     Span::from(format!("{:?}", state.input.value())) //
-        .render(l2[1], frame.buffer_mut());
+        .render(l2[1], buf);
 
     Ok(())
 }
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(date_input::handle_events(&mut state.input, true, event));

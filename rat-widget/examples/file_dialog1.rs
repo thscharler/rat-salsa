@@ -5,10 +5,11 @@ use rat_menu::menubar::{Menubar, MenubarState};
 use rat_menu::{StaticMenu, menubar};
 use rat_popup::Placement;
 use rat_text::HasScreenCursor;
+use rat_theme4::WidgetStyle;
 use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileDialog, FileDialogState};
 use rat_widget::layout::layout_middle;
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::path::PathBuf;
@@ -21,7 +22,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::default();
     state.menu.bar.focus.set(true);
 
-    mini_salsa::run_ui("filedialog1", mock_init, event, render, &mut (), &mut state)
+    mini_salsa::run_ui("filedialog1", mock_init, event, render, &mut state)
 }
 
 #[derive(Debug, Default)]
@@ -38,10 +39,9 @@ static MENU: StaticMenu = StaticMenu {
 };
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut (),
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
@@ -50,9 +50,9 @@ fn render(
         .title("Wha!")
         .popup_block(Block::bordered())
         .popup_placement(Placement::Above)
-        .styles(istate.theme.menu_style())
+        .styles(ctx.theme.style(WidgetStyle::MENU))
         .into_widgets();
-    menu.render(l1[1], frame.buffer_mut(), &mut state.menu);
+    menu.render(l1[1], buf, &mut state.menu);
 
     if state.file_open.active {
         let l = layout_middle(
@@ -64,39 +64,38 @@ fn render(
         );
 
         FileDialog::new()
-            .styles(istate.theme.file_dialog_style()) //
-            .render(l, frame.buffer_mut(), &mut state.file_open);
+            .styles(ctx.theme.style(WidgetStyle::FILE_DIALOG)) //
+            .render(l, buf, &mut state.file_open);
 
         if let Some(cursor) = state.file_open.screen_cursor() {
-            frame.set_cursor_position((cursor.0, cursor.1));
+            ctx.cursor = Some((cursor.0, cursor.1));
         }
     }
 
-    menu_popup.render(l1[1], frame.buffer_mut(), &mut state.menu);
+    menu_popup.render(l1[1], buf, &mut state.menu);
 
     Ok(())
 }
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut (),
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(match state.file_open.handle(event, Dialog)? {
         FileOutcome::Ok(path) => {
             state.file_open = Default::default();
-            istate.status[0] = format!("Selected file {:?}", path);
+            ctx.status[0] = format!("Selected file {:?}", path);
             Outcome::Changed
         }
         FileOutcome::OkList(paths) => {
             state.file_open = Default::default();
-            istate.status[0] = format!("Selected {} files", paths.len());
+            ctx.status[0] = format!("Selected {} files", paths.len());
             Outcome::Changed
         }
         FileOutcome::Cancel => {
             state.file_open = Default::default();
-            istate.status[0] = "Select file cancelled.".to_string();
+            ctx.status[0] = "Select file cancelled.".to_string();
             Outcome::Changed
         }
         r => r.into(),
@@ -121,7 +120,7 @@ fn event(
                 Outcome::Changed
             }
             MenuOutcome::Activated(1) => {
-                istate.quit = true;
+                ctx.quit = true;
                 Outcome::Changed
             }
             r => r.into(),
