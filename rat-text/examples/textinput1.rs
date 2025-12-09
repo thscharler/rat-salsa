@@ -1,13 +1,12 @@
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{Outcome, ct_event, try_flow};
-use rat_reloc::RelocatableState;
-use rat_text::event::TextOutcome;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{HasScreenCursor, text_input};
-use ratatui::Frame;
+use rat_theme4::StyleName;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget};
+use ratatui::style::Style;
+use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
 use std::fmt;
 
 mod mini_salsa;
@@ -15,36 +14,24 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {};
-
     let mut state = State {
         info: true,
         textinput: Default::default(),
     };
     insert_text_1(&mut state);
 
-    run_ui(
-        "textinput1",
-        mock_init,
-        event,
-        render,
-        &mut data,
-        &mut state,
-    )
+    run_ui("textinput1", mock_init, event, render, &mut state)
 }
 
-struct Data {}
-
 struct State {
-    pub(crate) info: bool,
-    pub(crate) textinput: TextInputState,
+    info: bool,
+    textinput: TextInputState,
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -64,44 +51,14 @@ fn render(
     ])
     .split(l1[1]);
 
-    frame.buffer_mut().set_style(
-        Rect::new(
-            l2[0].x,
-            l1[0].y,
-            l2[0].width,
-            l1[0].height + l1[1].height + l1[2].height,
-        ),
-        Style::new().on_cyan(),
-    );
-
-    let mut txt_area = l2[1];
-    txt_area.x -= 10;
-
     TextInput::new()
-        .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
-        .style(Style::default().white().on_dark_gray())
-        .select_style(Style::default().black().on_yellow())
-        .text_style([
-            Style::new().red(),
-            Style::new().underlined(),
-            Style::new().green(),
-            Style::new().on_yellow(),
-        ])
-        .render(txt_area, frame.buffer_mut(), &mut state.textinput);
-
-    let clip = l2[1];
-    state.textinput.relocate((0, 0), clip);
-
-    for y in txt_area.top()..txt_area.bottom() {
-        for x in txt_area.x..txt_area.x + 10 {
-            if let Some(cell) = frame.buffer_mut().cell_mut((x, y)) {
-                cell.set_style(Style::new().on_red());
-            }
-        }
-    }
+        .block(Block::bordered().style(ctx.theme.style_style(Style::INPUT)))
+        .style(ctx.theme.style_style(Style::INPUT))
+        .select_style(ctx.theme.style_style(Style::SELECT))
+        .render(l2[1], buf, &mut state.textinput);
 
     if let Some((cx, cy)) = state.textinput.screen_cursor() {
-        frame.set_cursor_position((cx, cy));
+        ctx.cursor = Some((cx, cy));
     }
 
     if state.info {
@@ -147,29 +104,20 @@ fn render(
                 _ = writeln!(&mut stats, "    {:?}", r);
             }
         }
-        let dbg = Paragraph::new(stats);
-        frame.render_widget(dbg, l2[3]);
+        Paragraph::new(stats).render(l2[3], buf);
     }
 
     let ccursor = state.textinput.selection();
-    istate.status[0] = format!("{}-{}", ccursor.start, ccursor.end);
+    ctx.status[0] = format!("{}-{}", ccursor.start, ccursor.end);
 
     Ok(())
 }
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    match text_input::handle_events(&mut state.textinput, true, event) {
-        TextOutcome::Continue => {}
-        TextOutcome::Unchanged => {}
-        TextOutcome::Changed => {}
-        TextOutcome::TextChanged => {}
-    }
-
     try_flow!(text_input::handle_events(&mut state.textinput, true, event));
 
     try_flow!(match event {

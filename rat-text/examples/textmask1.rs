@@ -1,18 +1,16 @@
 use crate::mini_salsa::{MiniSalsaState, layout_grid, mock_init, run_ui, setup_logging};
 use log::warn;
-use rat_event::{ConsumedEvent, HandleEvent, Regular};
+use rat_event::{HandleEvent, Regular, event_flow};
 use rat_event::{Outcome, ct_event};
 use rat_focus::{FocusBuilder, HasFocus};
-use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
-use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
-use ratatui::Frame;
+use rat_theme4::StyleName;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
-use std::cmp::max;
 use std::fmt;
 
 mod mini_salsa;
@@ -20,34 +18,25 @@ mod mini_salsa;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {};
-
     let mut state = State {
         info: true,
-        sample1: Default::default(),
-        sample2: Default::default(),
         masked: Default::default(),
         mask_idx: 0,
     };
 
-    run_ui("textmask1", mock_init, event, render, &mut data, &mut state)
+    run_ui("textmask1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     pub(crate) info: bool,
-    pub(crate) sample1: TextInputState,
-    pub(crate) sample2: TextInputState,
     pub(crate) masked: MaskedInputState,
     pub(crate) mask_idx: usize,
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let ll: [[Rect; 6]; 4] = layout_grid(
@@ -68,61 +57,30 @@ fn render(
         ]),
     );
 
-    TextInput::new()
-        .style(Style::default().white().on_dark_gray())
-        .select_style(Style::default().black().on_yellow())
-        .focus_style(Style::default().black().on_cyan())
-        .render(ll[1][1], frame.buffer_mut(), &mut state.sample1);
-
-    let mut txt_area = ll[1][2];
-    txt_area.x -= 10;
-
     MaskedInput::new()
-        .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
-        .style(Style::default().white().on_dark_gray())
-        .focus_style(Style::default().black().on_cyan())
-        .select_style(Style::default().black().on_yellow())
+        .block(Block::bordered().style(ctx.theme.style_style(Style::INPUT)))
+        .style(ctx.theme.style_style(Style::INPUT))
+        .focus_style(ctx.theme.style_style(Style::INPUT_FOCUS))
+        .select_style(ctx.theme.style_style(Style::INPUT_SELECT))
         .text_style([
             Style::new().red(),
             Style::new().underlined(),
             Style::new().green(),
             Style::new().on_yellow(),
         ])
-        .render(txt_area, frame.buffer_mut(), &mut state.masked);
+        .render(ll[1][2], buf, &mut state.masked);
 
-    let clip = ll[1][2];
-    state.masked.relocate((0, 0), clip);
-
-    for y in txt_area.top()..txt_area.bottom() {
-        for x in txt_area.x..txt_area.x + 10 {
-            if let Some(cell) = frame.buffer_mut().cell_mut((x, y)) {
-                cell.set_style(Style::new().on_red());
-            }
-        }
-    }
-
-    TextInput::new()
-        .style(Style::default().white().on_dark_gray())
-        .select_style(Style::default().black().on_yellow())
-        .focus_style(Style::default().black().on_cyan())
-        .render(ll[1][3], frame.buffer_mut(), &mut state.sample2);
-
-    if let Some((cx, cy)) = state
-        .masked
-        .screen_cursor()
-        .or_else(|| state.sample1.screen_cursor())
-        .or_else(|| state.sample2.screen_cursor())
-    {
-        frame.set_cursor_position((cx, cy));
+    if let Some((cx, cy)) = state.masked.screen_cursor() {
+        ctx.cursor = Some((cx, cy));
     }
 
     let info_area = Rect::new(ll[0][1].x + 1, ll[0][1].y + 1, ll[0][1].width - 2, 1);
     let info = Line::from("F2 next mask").black().on_cyan();
-    info.render(info_area, frame.buffer_mut());
+    info.render(info_area, buf);
 
     let mask_area = Rect::new(ll[0][2].x + 1, ll[0][2].y + 2, ll[0][2].width - 2, 1);
     let mask = Line::from(state.masked.mask()).black().on_cyan();
-    mask.render(mask_area, frame.buffer_mut());
+    mask.render(mask_area, buf);
 
     if state.info {
         use fmt::Write;
@@ -178,46 +136,42 @@ fn render(
                 _ = writeln!(&mut stats, "    {:?}", r);
             }
         }
-        let dbg = Paragraph::new(stats);
+
         let lx = ll[3][1].union(ll[3][2]).union(ll[3][3]).union(ll[3][4]);
-        frame.render_widget(dbg, lx);
+        Paragraph::new(stats).render(lx, buf);
     }
 
     let ccursor = state.masked.selection();
-    istate.status[0] = format!("{}-{}", ccursor.start, ccursor.end);
+    ctx.status[0] = format!("{}-{}", ccursor.start, ccursor.end);
 
     Ok(())
 }
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = {
         let mut fb = FocusBuilder::default();
-        fb.widget(&state.sample1)
-            .widget(&state.masked)
-            .widget(&state.sample2);
+        fb.widget(&state.masked);
         fb.build()
     };
+    ctx.focus_outcome = focus.handle(event, Regular);
 
-    let f = focus.handle(event, Regular);
-    let mut r: Outcome = state.sample1.handle(event, Regular).into();
-    r = r.or_else(|| state.masked.handle(event, Regular).into());
-    r = r.or_else(|| state.sample2.handle(event, Regular).into());
-    r = r.or_else(|| match event {
-        ct_event!(key press ALT-'0') => {
+    event_flow!(state.masked.handle(event, Regular));
+
+    match event {
+        ct_event!(key press ALT-'0') => event_flow!({
             state.info = !state.info;
             Outcome::Changed
-        }
-        ct_event!(keycode press F(2)) => next_mask(state),
-        ct_event!(keycode press SHIFT-F(2)) => prev_mask(state),
-        _ => Outcome::Continue,
-    });
+        }),
+        ct_event!(keycode press F(2)) => event_flow!(next_mask(state)),
+        ct_event!(keycode press SHIFT-F(2)) => event_flow!(prev_mask(state)),
+        _ => {}
+    }
 
-    Ok(max(f, r))
+    Ok(Outcome::Continue)
 }
 
 static MASKS: [&str; 39] = [

@@ -3,14 +3,14 @@ use crate::text_samples::{
     add_range_styles, sample_emoji, sample_lorem_rustum, sample_scott_0, sample_tabs,
 };
 use rat_event::{Outcome, ct_event, try_flow};
-use rat_reloc::RelocatableState;
 use rat_scrolled::Scroll;
 use rat_text::text_area::{TextArea, TextAreaState};
 use rat_text::{HasScreenCursor, text_area};
-use ratatui::Frame;
+use rat_theme4::StyleName;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget};
+use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
 use std::fmt;
 
 mod mini_salsa;
@@ -19,18 +19,14 @@ mod text_samples;
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
-    let mut data = Data {};
-
     let mut state = State {
         info: true,
         textarea: Default::default(),
     };
     state.textarea.set_auto_indent(false);
 
-    run_ui("textarea1", mock_init, event, render, &mut data, &mut state)
+    run_ui("textarea1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     pub(crate) info: bool,
@@ -38,10 +34,9 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
@@ -60,48 +55,26 @@ fn render(
     ])
     .split(l1[1]);
 
-    let mut txt_area = l2[1];
-    txt_area.x -= 5;
-    txt_area.y -= 5;
-
     TextArea::new()
-        .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
+        .block(Block::bordered().style(ctx.theme.style_style(Style::DOCUMENT_BASE)))
         .scroll(
             Scroll::new()
                 .scroll_by(1)
-                .style(Style::default().gray().on_dark_gray()),
+                .style(ctx.theme.style_style(Style::DOCUMENT_BASE)),
         )
         .set_horizontal_max_offset(256)
-        .style(Style::default().white().on_dark_gray())
-        .select_style(Style::default().black().on_yellow())
+        .style(ctx.theme.style_style(Style::DOCUMENT_BASE))
+        .select_style(ctx.theme.style_style(Style::INPUT_SELECT))
         .text_style([
             Style::new().red(),
             Style::new().underlined(),
             Style::new().green(),
             Style::new().on_yellow(),
         ])
-        .render(txt_area, frame.buffer_mut(), &mut state.textarea);
-
-    let clip = l2[1];
-    state.textarea.relocate((0, 0), clip);
-
-    for y in txt_area.top()..txt_area.bottom() {
-        for x in txt_area.x..txt_area.x + 5 {
-            if let Some(cell) = frame.buffer_mut().cell_mut((x, y)) {
-                cell.set_style(Style::new().on_red());
-            }
-        }
-    }
-    for y in txt_area.top()..txt_area.top() + 5 {
-        for x in txt_area.left()..txt_area.right() {
-            if let Some(cell) = frame.buffer_mut().cell_mut((x, y)) {
-                cell.set_style(Style::new().on_red());
-            }
-        }
-    }
+        .render(l2[1], buf, &mut state.textarea);
 
     if let Some((cx, cy)) = state.textarea.screen_cursor() {
-        frame.set_cursor_position((cx, cy));
+        ctx.cursor = Some((cx, cy));
     }
 
     if state.info {
@@ -150,12 +123,11 @@ fn render(
                 _ = writeln!(&mut stats, "    {:?}", r);
             }
         }
-        let dbg = Paragraph::new(stats);
-        frame.render_widget(dbg, l2[3]);
+        Paragraph::new(stats).render(l2[3], buf);
     }
 
     let ccursor = state.textarea.selection();
-    istate.status[0] = format!(
+    ctx.status[0] = format!(
         "{}:{} - {}:{}",
         ccursor.start.y, ccursor.start.x, ccursor.end.y, ccursor.end.x,
     );
@@ -165,8 +137,7 @@ fn render(
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(text_area::handle_events(&mut state.textarea, true, event));
