@@ -13,7 +13,7 @@ use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_popup::PopupConstraint;
 use rat_popup::event::PopupOutcome;
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::StatefulWidget;
@@ -24,8 +24,6 @@ mod variants;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
-
-    let mut data = Data {};
 
     let mut state = State {
         area: Default::default(),
@@ -42,10 +40,8 @@ fn main() -> Result<(), anyhow::Error> {
         poplock: PopLockMagentaState::default(),
     };
 
-    run_ui("popup1", mock_init, event, render, &mut data, &mut state)
+    run_ui("popup1", mock_init, event, render, &mut state)
 }
-
-struct Data {}
 
 struct State {
     area: Rect,
@@ -63,13 +59,12 @@ struct State {
 }
 
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    istate.status[0] = "Ctrl-Q to Quit; F1 chg pop; F2 chg place".into();
+    ctx.status[0] = "Ctrl-Q to Quit; F1 chg pop; F2 chg place".into();
 
     let l = layout_grid::<4, 3>(
         area,
@@ -116,39 +111,23 @@ fn render(
         }
         _ => {}
     }
-    blue.render(l[1][1], frame.buffer_mut(), &mut state.blue);
+    blue.render(l[1][1], buf, &mut state.blue);
 
     Blue::new()
         .style(Style::new().on_dark_gray())
         .focus_style(Style::new().on_gray())
-        .render(l[0][0], frame.buffer_mut(), &mut state.not_blue);
+        .render(l[0][0], buf, &mut state.not_blue);
 
     // for placement near the mouse cursor.
-    frame
-        .buffer_mut()
-        .set_style(l[3][0].union(l[3][2]), Style::new().on_dark_gray());
+    buf.set_style(l[3][0].union(l[3][2]), Style::new().on_dark_gray());
 
     match state.which_blue {
-        0 => PopFocusBlue.render(
-            Rect::new(0, 0, 13, 5),
-            frame.buffer_mut(),
-            &mut state.popfoc,
-        ),
-        1 => PopNonFocusRed.render(
-            Rect::new(0, 0, 11, 5),
-            frame.buffer_mut(),
-            &mut state.popact,
-        ),
-        2 => PopEditGreen.render(
-            Rect::new(0, 0, 11, 5),
-            frame.buffer_mut(),
-            &mut state.popedit,
-        ),
-        3 => PopLockMagenta.render(
-            Rect::new(0, 0, 11, 5),
-            frame.buffer_mut(),
-            &mut state.poplock,
-        ),
+        0 => PopFocusBlue.render(Rect::new(0, 0, 13, 5), buf, &mut state.popfoc),
+        1 => PopNonFocusRed.render(Rect::new(0, 0, 11, 5), buf, &mut state.popact),
+        2 => PopEditGreen::new(&ctx.theme).render(Rect::new(0, 0, 11, 5), buf, &mut state.popedit),
+        3 => {
+            PopLockMagenta::new(&ctx.theme).render(Rect::new(0, 0, 11, 5), buf, &mut state.poplock)
+        }
         _ => {}
     }
 
@@ -159,7 +138,7 @@ fn render(
         3 => state.poplock.screen_cursor(),
         _ => None,
     }
-    .map(|p| frame.set_cursor_position(p));
+    .map(|p| ctx.cursor = Some(p));
 
     Ok(())
 }
@@ -196,13 +175,12 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
 
-    istate.focus_outcome = focus.handle(event, Regular);
+    ctx.focus_outcome = focus.handle(event, Regular);
 
     try_flow!(match state.popfoc.handle(event, Regular) {
         PopupOutcome::Hide => {
@@ -304,6 +282,7 @@ fn event(
             } else {
                 unreachable!()
             };
+            debug!("{:?}", placement);
             match state.which_blue {
                 0 => {
                     state.popfoc.show(placement, &focus);
@@ -327,6 +306,7 @@ fn event(
         ct_event!(mouse down Right for x,y) if state.right.contains((*x, *y).into()) => {
             // relative to mouse
             let placement = PopupConstraint::Position(*x, *y);
+            debug!("{:?}", placement);
             match state.which_blue {
                 0 => {
                     state.popfoc.show(placement, &mut focus);

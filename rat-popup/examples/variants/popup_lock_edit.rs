@@ -1,5 +1,4 @@
-use crate::mini_salsa::THEME;
-use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
+use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState, textinput_mock_style};
 /// Popup acts as a container. Has its own focus cycle.
 use crate::variants::calc_dxy;
 use rat_cursor::HasScreenCursor;
@@ -7,16 +6,19 @@ use rat_event::{HandleEvent, Outcome, Popup, Regular, ct_event};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
+use rat_theme4::StyleName;
+use rat_theme4::theme::SalsaTheme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::style::Stylize;
 use ratatui::widgets::{Block, BorderType};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cmp::max;
 
-#[derive(Debug, Default)]
-pub struct PopLockMagenta;
+#[derive(Debug)]
+pub struct PopLockMagenta<'a> {
+    theme: &'a SalsaTheme,
+}
 
 #[derive(Debug)]
 pub struct PopLockMagentaState {
@@ -33,7 +35,13 @@ pub struct PopLockMagentaState {
     pub edit3: TextInputMockState,
 }
 
-impl StatefulWidget for PopLockMagenta {
+impl<'a> PopLockMagenta<'a> {
+    pub fn new(theme: &'a SalsaTheme) -> Self {
+        Self { theme }
+    }
+}
+
+impl StatefulWidget for PopLockMagenta<'_> {
     type State = PopLockMagentaState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -45,31 +53,28 @@ impl StatefulWidget for PopLockMagenta {
 
             let block = Block::bordered()
                 .border_type(BorderType::Rounded)
-                .style(Style::new().black().on_dark_gray());
+                .style(self.theme.style_style(Style::CONTAINER_BORDER_FG));
             let widget_area = block.inner(area);
             block.render(area, buf);
 
             let mut a1 = widget_area;
             a1.height = 1;
             TextInputMock::default()
-                .style(THEME.text_input())
-                .focus_style(THEME.text_focus())
+                .styles(textinput_mock_style(self.theme))
                 .render(a1, buf, &mut state.edit1);
 
             let mut a2 = widget_area;
             a2.y += 1;
             a2.height = 1;
             TextInputMock::default()
-                .style(THEME.text_input())
-                .focus_style(THEME.text_focus())
+                .styles(textinput_mock_style(self.theme))
                 .render(a2, buf, &mut state.edit2);
 
             let mut a3 = widget_area;
             a3.y += 2;
             a3.height = 1;
             TextInputMock::default()
-                .style(THEME.text_input())
-                .focus_style(THEME.text_focus())
+                .styles(textinput_mock_style(self.theme))
                 .render(a3, buf, &mut state.edit3);
         }
     }

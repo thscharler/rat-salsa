@@ -1225,6 +1225,7 @@ dependencies = [
  "log",
  "rat-event",
  "rat-reloc",
+ "rat-theme4",
  "ratatui",
  "unicode-segmentation",
 ]
@@ -1244,6 +1245,7 @@ dependencies = [
  "rat-focus",
  "rat-reloc",
  "rat-scrolled",
+ "rat-theme4",
  "ratatui",
  "unicode-segmentation",
 ]
@@ -1291,6 +1293,8 @@ dependencies = [
  "rat-event",
  "rat-focus",
  "rat-reloc",
+ "rat-text",
+ "rat-theme4",
  "ratatui",
  "unicode-segmentation",
 ]
