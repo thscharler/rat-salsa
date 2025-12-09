@@ -7,7 +7,7 @@ use rat_salsa::poll::{PollCrossterm, PollRendered};
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{WidgetStyle, create_salsa_theme};
+use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_widget::event::{Dialog, HandleEvent, MenuOutcome, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{MenuLine, MenuLineState};
@@ -15,6 +15,7 @@ use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
@@ -142,6 +143,7 @@ pub fn render(
     let status_color_2 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 2);
 
     StatusLineStacked::new()
+        .style(ctx.theme.style(Style::STATUS_BASE))
         .center_margin(1)
         .center(Line::from(ctx.status.as_str()))
         .end(
