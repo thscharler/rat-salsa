@@ -102,7 +102,6 @@ impl From<crossterm::event::Event> for AppEvent {
 #[derive(Debug, Default)]
 pub struct Minimal {
     pub menu: MenuLineState,
-
     pub error_dlg: MsgDialogState,
 }
 
@@ -139,25 +138,25 @@ pub fn render(
     }
 
     // Status
-    let palette = &ctx.theme.p;
-    let status_color_1 = palette.fg_bg_style(Colors::White, 0, Colors::Blue, 3);
-    let status_color_2 = palette.fg_bg_style(Colors::White, 0, Colors::Blue, 2);
-    let last_render = format!(
-        " R({:03}){:05} ",
-        ctx.count(),
-        format!("{:.0?}", ctx.last_render())
-    )
-    .to_string();
-    let last_event = format!(" E{:05} ", format!("{:.0?}", ctx.last_event())).to_string();
+    let status_color_1 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 3);
+    let status_color_2 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 2);
 
     StatusLineStacked::new()
         .center_margin(1)
         .center(Line::from(ctx.status.as_str()))
         .end(
-            Span::from(last_render).style(status_color_1),
+            Span::from(format!(
+                " R({:03}){:05} ",
+                ctx.count(),
+                format!("{:.0?}", ctx.last_render())
+            ))
+            .style(status_color_1),
             Span::from(" "),
         )
-        .end_bare(Span::from(last_event).style(status_color_2))
+        .end_bare(
+            Span::from(format!(" E{:05} ", format!("{:.0?}", ctx.last_event())))
+                .style(status_color_2),
+        )
         .render(status_layout[1], buf);
 
     Ok(())

@@ -60,7 +60,8 @@ state tree.
 pub struct Global {
     ctx: SalsaAppContext<AppEvent, Error>,
     pub cfg: Config,
-    pub theme: DarkTheme,
+    pub theme: SalsaTheme,
+    pub status: String,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -80,6 +81,7 @@ impl Global {
             ctx: Default::default(),
             cfg,
             theme,
+            status: Default::default()
         }
     }
 }
@@ -120,7 +122,6 @@ pub enum AppEvent {
     Event(crossterm::event::Event),
     Rendered,
     Message(String),
-    Status(usize, String),
 }
 
 impl From<RenderedEvent> for AppEvent {
@@ -145,7 +146,6 @@ And everything else that is needed.
 #[derive(Debug, Default)]
 pub struct Minimal {
     pub menu: MenuLineState,
-    pub status: StatusLineState,
     pub error_dlg: MsgDialogState,
 }
 ```
@@ -174,27 +174,11 @@ pub fn render(
     state: &mut Minimal,
     ctx: &mut Global,
 ) -> Result<(), Error> {
-    let t0 = SystemTime::now();
-
-    let layout = Layout::vertical([
+let layout = Layout::vertical([
         Constraint::Fill(1), //
         Constraint::Length(1),
     ])
     .split(area);
-
-    MenuLine::new()
-        .styles(ctx.theme.menu_style())
-        .item_parsed("_Quit")
-        .render(layout[1], buf, &mut state.menu);
-
-    if state.error_dlg.active() {
-        MsgDialog::new()
-            .styles(ctx.theme.msg_dialog_style())
-            .render(layout[0], buf, &mut state.error_dlg);
-    }
-
-    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    state.status.status(1, format!("R {:.0?}", el).to_string());
 
     let status_layout = Layout::horizontal([
         Constraint::Fill(61), //
@@ -202,16 +186,41 @@ pub fn render(
     ])
     .split(layout[1]);
 
-    StatusLine::new()
-        .layout([
-            Constraint::Fill(1),
-            Constraint::Length(8),
-            Constraint::Length(8),
-        ])
-        .styles(ctx.theme.statusline_style())
-        .render(status_layout[1], buf, &mut state.status);
+    MenuLine::new()
+        .styles(ctx.theme.style(WidgetStyle::MENU))
+        .title("-!-")
+        .item_parsed("_Quit")
+        .render(status_layout[0], buf, &mut state.menu);
 
-    Ok(())
+    if state.error_dlg.active() {
+        MsgDialog::new()
+            .styles(ctx.theme.style(WidgetStyle::MSG_DIALOG))
+            .render(layout[0], buf, &mut state.error_dlg);
+    }
+
+    // Status
+    let status_color_1 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 3);
+    let status_color_2 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 2);
+
+    StatusLineStacked::new()
+        .center_margin(1)
+        .center(Line::from(ctx.status.as_str()))
+        .end(
+            Span::from(format!(
+                " R({:03}){:05} ",
+                ctx.count(),
+                format!("{:.0?}", ctx.last_render())
+            ))
+            .style(status_color_1),
+            Span::from(" "),
+        )
+        .end_bare(
+            Span::from(format!(" E{:05} ", format!("{:.0?}", ctx.last_event())))
+                .style(status_color_2),
+        )
+        .render(status_layout[1], buf);
+
+    Ok(())    
 }
 ```
 
@@ -334,10 +343,6 @@ react at one point.
 ```        
         AppEvent::Message(s) => {
             state.error_dlg.append(s.as_str());
-            Ok(Control::Changed)
-        }
-        AppEvent::Status(n, s) => {
-            state.status.status(*n, s);
             Ok(Control::Changed)
         }
     }
