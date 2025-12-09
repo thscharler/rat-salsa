@@ -444,5 +444,10 @@ pub fn next_theme(ctx: &mut MiniSalsaState) {
     ctx.theme = create_salsa_theme(themes[pos]);
 }
 
+mod _private {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct NonExhaustive;
+}
+
 pub mod endless_scroll;
 pub mod text_input_mock;

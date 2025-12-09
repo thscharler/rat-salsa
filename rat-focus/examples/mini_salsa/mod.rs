@@ -22,12 +22,12 @@ use rat_event::Outcome;
 use rat_event::util::set_have_keyboard_enhancement;
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{StyleName, create_salsa_theme, salsa_themes};
+use rat_theme4::{RatWidgetColor, StyleName, create_salsa_theme, salsa_themes};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::Widget;
 use std::cell::Cell;
@@ -252,6 +252,10 @@ fn repaint_tui<State>(
         .split(area)
     };
 
+    if !ctx.hide_status {
+        buf.set_style(l1[1], ctx.theme.style_style(Style::STATUS_BASE));
+    }
+
     let t0 = SystemTime::now();
 
     repaint(buf, l1[0], ctx, state)?;
@@ -271,20 +275,19 @@ fn repaint_tui<State>(
         ])
         .split(l1[1]);
 
-        Line::from_iter(["[", ctx.name.as_str(), "]"])
-            .style(ctx.theme.style_style(Style::STATUS_BASE))
-            .render(l_status[0], buf);
-        Line::from(" ")
-            .style(ctx.theme.style_style(Style::STATUS_BASE))
-            .render(l_status[1], buf);
-        Line::from(ctx.status[0].as_str())
-            .style(ctx.theme.p.color(Colors::Blue, 1))
-            .render(l_status[2], buf);
+        let blue_text = ctx.theme.p.high_contrast_color(
+            ctx.theme.p.color_alias(Color::STATUS_BASE_BG),
+            &ctx.theme.p.color[Colors::Blue as usize],
+        );
+
+        Line::from_iter(["[", ctx.name.as_str(), "]"]).render(l_status[0], buf);
+        Line::from(" ").render(l_status[1], buf);
+        Line::from(ctx.status[0].as_str()).render(l_status[2], buf);
         Line::from(ctx.status[1].as_str())
-            .style(ctx.theme.p.color(Colors::Blue, 2))
+            .style(blue_text)
             .render(l_status[3], buf);
         Line::from(ctx.status[2].as_str())
-            .style(ctx.theme.p.color(Colors::Blue, 3))
+            .style(blue_text)
             .render(l_status[4], buf);
     }
 
@@ -442,6 +445,11 @@ pub fn next_theme(ctx: &mut MiniSalsaState) {
 
     ctx.status[0] = format!("Ctrl-Q to quit. F8 Theme [{}]", themes[pos]);
     ctx.theme = create_salsa_theme(themes[pos]);
+}
+
+mod _private {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct NonExhaustive;
 }
 
 // pub mod endless_scroll;

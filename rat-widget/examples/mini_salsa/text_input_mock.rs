@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 
+use crate::mini_salsa::_private::NonExhaustive;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area};
 use rat_text::HasScreenCursor;
+use rat_theme4::StyleName;
+use rat_theme4::theme::SalsaTheme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -24,6 +27,12 @@ pub struct TextInputMockState {
     pub area: Rect,
 }
 
+pub struct TextInputMockStyle {
+    pub style: Option<Style>,
+    pub focus: Option<Style>,
+    pub non_exhaustive: NonExhaustive,
+}
+
 impl<'a> TextInputMock<'a> {
     /// Sample text
     pub fn sample(mut self, text: impl Into<String>) -> Self {
@@ -41,6 +50,34 @@ impl<'a> TextInputMock<'a> {
     pub fn focus_style(mut self, style: impl Into<Style>) -> Self {
         self.focus_style = style.into();
         self
+    }
+
+    pub fn styles(mut self, styles: TextInputMockStyle) -> Self {
+        if let Some(style) = styles.style {
+            self.style = style;
+        }
+        if let Some(focus) = styles.focus {
+            self.focus_style = focus;
+        }
+        self
+    }
+}
+
+impl Default for TextInputMockStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            focus: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+pub fn textinput_mock_style(theme: &SalsaTheme) -> TextInputMockStyle {
+    TextInputMockStyle {
+        style: Some(theme.style(Style::INPUT)),
+        focus: Some(theme.style(Style::INPUT_FOCUS)),
+        non_exhaustive: NonExhaustive,
     }
 }
 
