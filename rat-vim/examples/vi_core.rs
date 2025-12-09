@@ -1,4 +1,4 @@
-use crate::mini_salsa::{MiniSalsaState, STATUS, fill_buf_area, run_ui, setup_logging};
+use crate::mini_salsa::{MiniSalsaState, fill_buf_area, run_ui, setup_logging};
 use crate::text_samples::{
     add_range_styles, sample_bosworth_1, sample_irish, sample_long, sample_lorem_ipsum,
     sample_medium, sample_rust, sample_scott_1,
@@ -11,9 +11,12 @@ use rat_text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_text::text_area::{TextArea, TextAreaState, TextWrap};
 use rat_text::{HasScreenCursor, TextPosition, upos_type};
+use rat_theme4::StyleName;
+use rat_theme4::palette::Colors;
 use rat_vim::VI;
 use rat_vim::vi_status_line::VIStatusLine;
 use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Paragraph, StatefulWidget, Widget};
@@ -32,8 +35,6 @@ fn main() -> Result<(), anyhow::Error> {
 
     set_global_clipboard(CliClipboard::default());
 
-    let mut data = Data {};
-
     let mut state = State {
         line_nr: true,
         relative_line_nr: false,
@@ -49,21 +50,17 @@ fn main() -> Result<(), anyhow::Error> {
     state.textarea.set_text_wrap(TextWrap::Word(2));
     state.textarea.clear();
 
-    STATUS.store(false, Ordering::Release);
-
     run_ui(
         "vi core",
-        |_, istate, _| {
-            istate.timing = false;
+        |ctx, _| {
+            ctx.hide_timing = true;
+            Ok(())
         },
         event,
         render,
-        &mut data,
         &mut state,
     )
 }
-
-struct Data {}
 
 struct State {
     pub line_nr: bool,
@@ -80,14 +77,11 @@ struct State {
 
 #[allow(dead_code)]
 fn render(
-    frame: &mut Frame<'_>,
+    buf: &mut Buffer,
     area: Rect,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    const BARE: bool = false;
-
     let l1 = Layout::vertical([
         Constraint::Length(1),
         Constraint::Fill(1),
@@ -116,8 +110,6 @@ fn render(
     ])
     .split(l1[2]);
 
-    let pal = istate.theme.palette();
-
     let h_scroll = Scroll::horizontal()
         .begin_symbol(Some("◀"))
         .end_symbol(Some("▶"))
@@ -134,7 +126,7 @@ fn render(
     let textarea = TextArea::new()
         .vscroll(v_scroll.scroll_by(1).policy(ScrollbarPolicy::Always))
         .hscroll(h_scroll.policy(ScrollbarPolicy::Collapse))
-        .styles(istate.theme.textview_style())
+        .style(ctx.theme.style_style(Style::DOCUMENT_BASE))
         .set_horizontal_max_offset(256)
         .text_style([
             Style::new().red(),
@@ -142,24 +134,59 @@ fn render(
             Style::new().green(),
             Style::new().on_yellow(),
         ])
-        .text_style_idx(999, pal.normal_contrast(pal.bluegreen[1]))
-        .text_style_idx(998, pal.normal_contrast(pal.green[1]))
-        .text_style_idx(997, pal.normal_contrast(pal.limegreen[1]));
+        .text_style_idx(
+            999,
+            ctx.theme
+                .p
+                .normal_contrast(ctx.theme.p.color(Colors::BlueGreen, 1)),
+        )
+        .text_style_idx(
+            998,
+            ctx.theme
+                .p
+                .normal_contrast(ctx.theme.p.color(Colors::Green, 1)),
+        )
+        .text_style_idx(
+            997,
+            ctx.theme
+                .p
+                .normal_contrast(ctx.theme.p.color(Colors::LimeGreen, 1)),
+        );
     let t = SystemTime::now();
-    textarea.render(l22[2], frame.buffer_mut(), &mut state.textarea);
+    textarea.render(l22[2], buf, &mut state.textarea);
     state.render_dur = t.elapsed().expect("timinig");
 
     VIStatusLine::new()
-        .style(istate.theme.status_base())
+        .style(ctx.theme.style(Style::STATUS_BASE))
         .name(" ≡vi-core≡ ")
-        .name_style(pal.high_contrast(pal.blue[1]))
-        .normal_style(pal.high_contrast(pal.limegreen[2]))
-        .insert_style(pal.high_contrast(pal.orange[2]))
-        .visual_style(pal.high_contrast(pal.yellow[2]))
-        .pos_style(pal.high_contrast(pal.gray[0]))
+        .name_style(
+            ctx.theme
+                .p
+                .high_contrast(ctx.theme.p.color(Colors::Blue, 1)),
+        )
+        .normal_style(
+            ctx.theme
+                .p
+                .high_contrast(ctx.theme.p.color(Colors::LimeGreen, 1)),
+        )
+        .insert_style(
+            ctx.theme
+                .p
+                .high_contrast(ctx.theme.p.color(Colors::Orange, 2)),
+        )
+        .visual_style(
+            ctx.theme
+                .p
+                .high_contrast(ctx.theme.p.color(Colors::Yellow, 2)),
+        )
+        .pos_style(
+            ctx.theme
+                .p
+                .high_contrast(ctx.theme.p.color(Colors::Gray, 2)),
+        )
         .render(
             l23[1],
-            frame.buffer_mut(),
+            buf,
             &mut (&mut state.textarea, &mut state.textarea_vim),
         );
 
@@ -171,27 +198,26 @@ fn render(
         }
         LineNumbers::new()
             .margin((0, 1))
-            .styles(istate.theme.line_nr_style())
-            .style(istate.theme.gray(5))
+            .style(ctx.theme.style(Style::CONTAINER_BASE))
             .with_textarea(&state.textarea)
             .relative(state.relative_line_nr)
-            .render(l_line, frame.buffer_mut(), &mut state.line_numbers);
+            .render(l_line, buf, &mut state.line_numbers);
     }
 
     fill_buf_area(
-        frame.buffer_mut(),
+        buf,
         l1[0],
         " ",
-        pal.normal_contrast(pal.blue[7]),
+        ctx.theme
+            .p
+            .normal_contrast(ctx.theme.p.color(Colors::Blue, 7)),
     );
     format!(
         "F1 toggle help | Ctrl+Q quit | R{} | R{:.0?} | E{:.0?}",
-        frame.count(),
-        state.render_dur,
-        state.event_dur
+        ctx.frame, state.render_dur, state.event_dur
     )
     .to_string()
-    .render(l1[0], frame.buffer_mut());
+    .render(l1[0], buf);
 
     let screen_cursor = if !state.help {
         state.textarea.screen_cursor()
@@ -199,15 +225,17 @@ fn render(
         None
     };
     if let Some((cx, cy)) = screen_cursor {
-        frame.set_cursor_position((cx, cy));
+        ctx.cursor = Some((cx, cy));
     }
 
     if state.help {
         fill_buf_area(
-            frame.buffer_mut(),
+            buf,
             l22[2],
             " ",
-            pal.normal_contrast(pal.bluegreen[0]),
+            ctx.theme
+                .p
+                .normal_contrast(ctx.theme.p.color(Colors::BlueGreen, 0)),
         );
         Paragraph::new(
             r#"
@@ -225,11 +253,15 @@ fn render(
     Alt-m    toggle absolute/relative line nr
 "#,
         )
-        .style(pal.normal_contrast(pal.bluegreen[0]))
-        .render(l22[2], frame.buffer_mut());
+        .style(
+            ctx.theme
+                .p
+                .normal_contrast(ctx.theme.p.color(Colors::BlueGreen, 0)),
+        )
+        .render(l22[2], buf);
     }
 
-    istate.status[0] = format!("wrap {:?}", state.textarea.text_wrap());
+    ctx.status[0] = format!("wrap {:?}", state.textarea.text_wrap());
 
     Ok(())
 }
@@ -242,14 +274,12 @@ fn focus(state: &mut State) -> Focus {
 
 fn event(
     event: &crossterm::event::Event,
-    _data: &mut Data,
-    istate: &mut MiniSalsaState,
+    ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut focus = focus(state);
-    // focus.enable_log();
 
-    istate.focus_outcome = focus.handle(event, Regular);
+    ctx.focus_outcome = focus.handle(event, Regular);
 
     if !state.help {
         try_flow!({
