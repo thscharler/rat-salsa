@@ -8,7 +8,7 @@ use crate::palette;
 use crate::palette::{Colors, Palette};
 use ratatui::style::Color;
 use std::borrow::Cow;
-use std::io;
+use std::{array, io};
 
 /// Stora a Palette as a .pal file.
 pub fn store_palette(pal: &Palette, mut buf: impl io::Write) -> Result<(), io::Error> {
@@ -28,6 +28,58 @@ pub fn store_palette(pal: &Palette, mut buf: impl io::Write) -> Result<(), io::E
                 buf,
                 "{}={}, {}",
                 *c, pal.color[*c as usize][0], pal.color[*c as usize][3]
+            )?;
+        }
+    } else if pal.generator.starts_with("color-1") {
+        for c in Colors::array() {
+            writeln!(buf, "{}={}", *c, pal.color[*c as usize][0])?;
+        }
+    } else if pal.generator.starts_with("color-2") {
+        for c in Colors::array() {
+            writeln!(
+                buf,
+                "{}={}, {}",
+                *c, pal.color[*c as usize][0], pal.color[*c as usize][4]
+            )?;
+        }
+    } else if pal.generator.starts_with("color-4") {
+        for c in Colors::array() {
+            writeln!(
+                buf,
+                "{}={}, {}, {}, {}",
+                *c,
+                pal.color[*c as usize][0],
+                pal.color[*c as usize][1],
+                pal.color[*c as usize][2],
+                pal.color[*c as usize][3]
+            )?;
+        }
+    } else if pal.generator.starts_with("color-4-dark") {
+        for c in Colors::array() {
+            writeln!(
+                buf,
+                "{}={}, {}, {}, {}",
+                *c,
+                pal.color[*c as usize][0],
+                pal.color[*c as usize][1],
+                pal.color[*c as usize][2],
+                pal.color[*c as usize][3]
+            )?;
+        }
+    } else if pal.generator.starts_with("color-8") {
+        for c in Colors::array() {
+            writeln!(
+                buf,
+                "{}={}, {}, {}, {}, {}, {}, {}, {}",
+                *c,
+                pal.color[*c as usize][0],
+                pal.color[*c as usize][1],
+                pal.color[*c as usize][2],
+                pal.color[*c as usize][3],
+                pal.color[*c as usize][4],
+                pal.color[*c as usize][5],
+                pal.color[*c as usize][6],
+                pal.color[*c as usize][7],
             )?;
         }
     } else {
@@ -114,6 +166,14 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                             if let Some(s) = l.split(':').nth(1) {
                                 dark = s.trim().parse::<u8>().unwrap_or(63);
                             }
+                        } else if s.starts_with("color-1") {
+                        } else if s.starts_with("color-2") {
+                        } else if s.starts_with("color-4") {
+                        } else if s.starts_with("color-4-dark") {
+                            if let Some(s) = l.split(':').nth(1) {
+                                dark = s.trim().parse::<u8>().unwrap_or(63);
+                            }
+                        } else if s.starts_with("color-8") {
                         } else {
                             state = S::Fail(format!("Unknown generator format {:?}", s));
                             break 'm;
@@ -137,7 +197,7 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                     state = S::Reference;
                 } else if l.is_empty() || l.starts_with("#") {
                     // ok
-                } else if pal.generator.starts_with("light-dark") {
+                } else {
                     let mut kv = l.split('=');
                     let cn = if let Some(v) = kv.next() {
                         let Ok(c) = v.trim().parse::<Colors>() else {
@@ -149,43 +209,52 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                         state = S::Fail(format!("Invalid property format {:?}", l));
                         break 'm;
                     };
-                    let (c0, c3) = if let Some(v) = kv.next() {
-                        let mut vv = v.split(',');
-                        let c0 = if let Some(v) = vv.next() {
-                            let Ok(v) = v.trim().parse::<Color>() else {
-                                state = S::Fail(format!("Invalid color 0 {:?}", l));
-                                break 'm;
-                            };
-                            v
-                        } else {
-                            state = S::Fail(format!("Invalid color 0 {:?}", l));
-                            break 'm;
-                        };
-                        let c3 = if let Some(v) = vv.next() {
-                            let Ok(v) = v.trim().parse::<Color>() else {
-                                state = S::Fail(format!("Invalid color 1 {:?}", l));
-                                break 'm;
-                            };
-                            v
-                        } else {
-                            state = S::Fail(format!("Invalid color 1 {:?}", l));
-                            break 'm;
-                        };
-                        (c0, c3)
+                    if let Some(v) = kv.next() {
+                        if pal.generator.starts_with("light-dark") {
+                            let color = split_comma::<2>(v)?;
+                            if cn == Colors::TextLight || cn == Colors::TextDark {
+                                pal.color[cn as usize] = Palette::interpolatec2(
+                                    color[0],
+                                    color[1],
+                                    Color::default(),
+                                    Color::default(),
+                                )
+                            } else {
+                                pal.color[cn as usize] =
+                                    Palette::interpolatec(color[0], color[1], dark);
+                            }
+                        } else if pal.generator.starts_with("color-1") {
+                            let color = split_comma::<1>(v)?;
+                            pal.color[cn as usize] = array::from_fn(|_| color[0]);
+                        } else if pal.generator.starts_with("color-2") {
+                            let color = split_comma::<2>(v)?;
+                            pal.color[cn as usize][0..=3]
+                                .copy_from_slice(&array::from_fn::<_, 4, _>(|_| color[0]));
+                            pal.color[cn as usize][4..=7]
+                                .copy_from_slice(&array::from_fn::<_, 4, _>(|_| color[0]));
+                        } else if pal.generator.starts_with("color-4") {
+                            let color = split_comma::<4>(v)?;
+                            pal.color[cn as usize][0..=3].copy_from_slice(&color);
+                            pal.color[cn as usize][4..=7].copy_from_slice(&color);
+                        } else if pal.generator.starts_with("color-4-dark") {
+                            let color = split_comma::<4>(v)?;
+                            pal.color[cn as usize][0..=3].copy_from_slice(&color);
+                            pal.color[cn as usize][4] =
+                                Palette::scale_color_to(pal.color[cn as usize][0], dark);
+                            pal.color[cn as usize][5] =
+                                Palette::scale_color_to(pal.color[cn as usize][1], dark);
+                            pal.color[cn as usize][6] =
+                                Palette::scale_color_to(pal.color[cn as usize][2], dark);
+                            pal.color[cn as usize][7] =
+                                Palette::scale_color_to(pal.color[cn as usize][3], dark);
+                        } else if pal.generator.starts_with("color-8") {
+                            let color = split_comma::<8>(v)?;
+                            pal.color[cn as usize] = color;
+                        }
                     } else {
                         state = S::Fail(format!("Invalid property format {:?}", l));
                         break 'm;
                     };
-
-                    if cn == Colors::TextLight || cn == Colors::TextDark {
-                        pal.color[cn as usize] =
-                            Palette::interpolatec2(c0, c3, Color::default(), Color::default())
-                    } else {
-                        pal.color[cn as usize] = Palette::interpolatec(c0, c3, dark);
-                    }
-                } else {
-                    state = S::Fail(format!("Unknown generator format {:?}", l));
-                    break 'm;
                 }
             }
             S::Reference => {
@@ -228,4 +297,33 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
         ))),
         S::Color | S::Reference => Ok(pal),
     }
+}
+
+fn split_comma<const N: usize>(s: &str) -> Result<[Color; N], io::Error> {
+    let mut r: [Color; N] = array::from_fn(|_| Color::default());
+    let mut vv = s.split(',');
+    for i in 0..N {
+        r[i] = if let Some(v) = vv.next() {
+            let Ok(v) = v.trim().parse::<Color>() else {
+                return Err(io::Error::other(LoadPaletteErr(
+                    format!("Invalid color[{}] {:?}", i, s).to_string(),
+                )));
+            };
+            v
+        } else {
+            return Err(io::Error::other(LoadPaletteErr(
+                format!("Invalid color[{}] {:?}", i, s).to_string(),
+            )));
+        }
+    }
+
+    if let Some(v) = vv.next()
+        && !v.trim().is_empty()
+    {
+        return Err(io::Error::other(LoadPaletteErr(
+            format!("Too many colors (max {}) {:?}", N, s).to_string(),
+        )));
+    }
+
+    Ok(r)
 }

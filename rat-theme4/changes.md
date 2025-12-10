@@ -1,3 +1,8 @@
+# 4.3.0
+
+* add more storage formats
+    * color-1, color-2, color-4, color-4-dark and color-8
+
 # 4.2.1
 
 * doc: add some
