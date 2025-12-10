@@ -1,29 +1,30 @@
+//! Widget for color input.
+//!
+//! Currently, supports
+//! * RGB
+//! * HSV
+//! * hexdigits
+//!
+//! __Keybindings__
+//!
+//! * Switch between color-mode with Up/Down. (or m/M)
+//! * '+' and Alt-'+' increase the value
+//! * '-' and Alt-'-' decrease the value
+//! * 'r', 'h', 'x' switch mode
+//!
+//! __Clipboard__
+//!
+//! Recognizes common formats when pasted from the clipboard.
+//! * #000000 and #00000000
+//! * 0x000000 and 0x00000000
+//! * 000000 and 00000000
+//!
+
 use crate::_private::NonExhaustive;
 use palette::{FromColor, Hsv, Srgb};
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
-/// Widget for color input.
-///
-/// Currently, supports
-/// * RGB
-/// * HSV
-/// * hexdigits
-///
-/// __Keybindings__
-///
-/// * Switch between color-mode with Up/Down. (or m/M)
-/// * '+' and Alt-'+' increase the value
-/// * '-' and Alt-'-' decrease the value
-/// * 'r', 'h', 'x' switch mode
-///
-/// __Clipboard__
-///
-/// Recognizes common formats when pasted from the clipboard.
-/// * #000000 and #00000000
-/// * 0x000000 and 0x00000000
-/// * 000000 and 00000000
-///
 use rat_text::clipboard::Clipboard;
 use rat_text::event::{ReadOnly, TextOutcome};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};

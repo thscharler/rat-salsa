@@ -1,3 +1,7 @@
+# 1.0.1
+
+* fix docs
+
 # 1.0.0
 
 Start this crate. It is intended to contain widgets that are

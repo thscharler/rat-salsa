@@ -1,3 +1,7 @@
+# 2.9.1
+
+* mention rat-widget-extra
+
 # 2.9.0
 
 * feature: ScrollArea: add render_block() and render_scrollbars() as separate functions.

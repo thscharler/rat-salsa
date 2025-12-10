@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget-extra"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -10,6 +10,10 @@ readme = "readme.md"
 keywords = ["tui", "ratatui", "input", "widget"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "textarea.gif"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [lints]
 workspace = true

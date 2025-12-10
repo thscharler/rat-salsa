@@ -70,6 +70,13 @@ rendering. This breaks any areas stored in the widget-states.
 
 See [rat-reloc][refRatReloc]
 
+## Extras
+
+A collections of uncommon widgets
+
+[rat-widget-extra][refRatWidgetExtra]
+
+
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
 [refRatEvent]: https://docs.rs/rat-event
@@ -89,3 +96,5 @@ See [rat-reloc][refRatReloc]
 [refRatTextArea]: textarea/index.html
 
 [refGitHubWidget]: https://github.com/thscharler/rat-salsa/blob/master/rat-widget/examples
+
+[refRatWidgetExtra]: https://docs.rs/rat-widget-extra
