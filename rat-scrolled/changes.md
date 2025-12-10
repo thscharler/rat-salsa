@@ -1,3 +1,8 @@
+# 1.5.0
+
+* feature: add render_block() and render_scrollbars() as separate functions.
+* break: remove corresponding flags
+
 # 1.4.0
 
 * feature: add policy to ScrollStyle

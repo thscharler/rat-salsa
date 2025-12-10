@@ -1,3 +1,8 @@
+# 2.9.0
+
+* feature: ScrollArea: add render_block() and render_scrollbars() as separate functions.
+    * break: ScrollArea: remove corresponding flags
+
 # 2.8.0
 
 * break: move ColorInput to rat-widget-extra. Optional widgets are

@@ -1188,7 +1188,7 @@ version = "1.2.1"
 
 [[package]]
 name = "rat-dialog"
-version = "0.8.1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "rat-event"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "crossterm",
  "log",
@@ -1232,7 +1232,7 @@ dependencies = [
 
 [[package]]
 name = "rat-ftable"
-version = "1.4.1"
+version = "1.4.2"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1308,7 +1308,7 @@ dependencies = [
 
 [[package]]
 name = "rat-salsa"
-version = "2.6.1"
+version = "2.6.2"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1337,7 +1337,7 @@ dependencies = [
 
 [[package]]
 name = "rat-scrolled"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1345,13 +1345,14 @@ dependencies = [
  "log",
  "rat-event",
  "rat-reloc",
+ "rat-theme4",
  "ratatui",
  "unicode-segmentation",
 ]
 
 [[package]]
 name = "rat-text"
-version = "2.7.0"
+version = "2.7.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1370,6 +1371,7 @@ dependencies = [
  "rat-focus",
  "rat-reloc",
  "rat-scrolled",
+ "rat-theme4",
  "ratatui",
  "regex-cursor",
  "ropey",
@@ -1424,7 +1426,7 @@ dependencies = [
 
 [[package]]
 name = "rat-vim"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1441,6 +1443,7 @@ dependencies = [
  "rat-reloc",
  "rat-scrolled",
  "rat-text",
+ "rat-theme4",
  "rat-widget",
  "ratatui",
  "regex-cursor",
@@ -1451,7 +1454,7 @@ dependencies = [
 
 [[package]]
 name = "rat-widget"
-version = "2.8.0"
+version = "2.9.0"
 dependencies = [
  "anyhow",
  "chrono",

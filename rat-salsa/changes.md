@@ -1,3 +1,7 @@
+# 2.6.2
+
+* fix docs
+
 # 2.6.1
 
 * fix dependencies

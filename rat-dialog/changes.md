@@ -1,3 +1,7 @@
+# 1.0.0
+
+* good enough now
+
 # 0.8.1
 
 * fix dependencies

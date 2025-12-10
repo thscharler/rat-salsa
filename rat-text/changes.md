@@ -1,3 +1,7 @@
+# 2.7.1
+
+* fix dependencies
+
 # 2.7.0
 
 * break: move ColorInput to new rat-widget-extra. Optional widgets

@@ -1,3 +1,7 @@
+# 1.4.2
+
+* fix dependencies
+
 # 1.4.1
 
 * fix dependencies
