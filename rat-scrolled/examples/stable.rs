@@ -5,7 +5,6 @@ use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, MouseOnly, Outcome, try_flow};
 use rat_scrolled::Scroll;
 use rat_theme4::StyleName;
-use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;

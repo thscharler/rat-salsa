@@ -167,7 +167,7 @@ fn scroll(th: &SalsaTheme) -> ScrollStyle {
 
 fn event(
     event: &crossterm::event::Event,
-    ctx: &mut MiniSalsaState,
+    _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let r = rowsetselection::handle_events(&mut state.table, true, event);

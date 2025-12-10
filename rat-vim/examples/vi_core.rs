@@ -15,7 +15,6 @@ use rat_theme4::StyleName;
 use rat_theme4::palette::Colors;
 use rat_vim::VI;
 use rat_vim::vi_status_line::VIStatusLine;
-use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -24,7 +23,6 @@ use ropey::Rope;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::BufReader;
-use std::sync::atomic::Ordering;
 use std::time::{Duration, SystemTime};
 
 mod mini_salsa;

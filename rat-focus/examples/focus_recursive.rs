@@ -148,7 +148,7 @@ pub mod substratum1 {
     impl<'a> StatefulWidget for Substratum<'a> {
         type State = SubstratumState;
 
-        fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
             let inner = self.block.inner_if_some(area);
             state.area = area;
 
