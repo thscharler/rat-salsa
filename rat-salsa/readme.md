@@ -103,7 +103,7 @@ There are some templates too
 - [dialog.rs][refDialog]: Minimal application, using dialog windows.
 
 ![image][refFilesGif]
-
+![image][refMDEditGif]
 
 [refFilesGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/files.gif?raw=true
 

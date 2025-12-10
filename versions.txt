@@ -11,7 +11,7 @@ rat-markdown: 0.6.3
 rat-menu: 2.4.1
 rat-popup: 2.2.1
 rat-reloc: 1.4.0
-rat-salsa: 2.6.2
+rat-salsa: 2.6.3
 rat-scrolled: 1.5.0
 rat-text: 2.7.0
 rat-theme: 0.30.1
