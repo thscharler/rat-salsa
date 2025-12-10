@@ -22,12 +22,19 @@ pub fn store_palette(pal: &Palette, mut buf: impl io::Write) -> Result<(), io::E
     writeln!(buf, "generator={}", pal.generator)?;
     writeln!(buf,)?;
     writeln!(buf, "[color]")?;
-    for c in Colors::array() {
-        writeln!(
-            buf,
-            "{}={}, {}",
-            *c, pal.color[*c as usize][0], pal.color[*c as usize][3]
-        )?;
+    if pal.generator.starts_with("light-dark") {
+        for c in Colors::array() {
+            writeln!(
+                buf,
+                "{}={}, {}",
+                *c, pal.color[*c as usize][0], pal.color[*c as usize][3]
+            )?;
+        }
+    } else {
+        return Err(io::Error::other(LoadPaletteErr(format!(
+            "Invalid generator format {:?}",
+            pal.generator
+        ))));
     }
     writeln!(buf,)?;
     writeln!(buf, "[reference]")?;
@@ -48,7 +55,7 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
         Palette,
         Color,
         Reference,
-        Fail(u8),
+        Fail(String),
     }
 
     let mut pal = Palette::default();
@@ -64,7 +71,7 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                 } else if l == "[palette]" {
                     state = S::Palette;
                 } else {
-                    state = S::Fail(1);
+                    state = S::Fail("No a valid pal-file".to_string());
                     break 'm;
                 }
             }
@@ -82,7 +89,7 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                         pal.theme = Cow::Owned(s.trim().to_string());
                     }
                 } else {
-                    state = S::Fail(2);
+                    state = S::Fail(format!("Invalid theme property {:?}", l));
                     break 'm;
                 }
             }
@@ -107,6 +114,9 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                             if let Some(s) = l.split(':').nth(1) {
                                 dark = s.trim().parse::<u8>().unwrap_or(63);
                             }
+                        } else {
+                            state = S::Fail(format!("Unknown generator format {:?}", s));
+                            break 'm;
                         }
                     }
                 } else if l.starts_with("dark") {
@@ -118,7 +128,7 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                         }
                     }
                 } else {
-                    state = S::Fail(3);
+                    state = S::Fail(format!("Invalid palette property {:?}", l));
                     break 'm;
                 }
             }
@@ -127,43 +137,43 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                     state = S::Reference;
                 } else if l.is_empty() || l.starts_with("#") {
                     // ok
-                } else {
+                } else if pal.generator.starts_with("light-dark") {
                     let mut kv = l.split('=');
                     let cn = if let Some(v) = kv.next() {
                         let Ok(c) = v.trim().parse::<Colors>() else {
-                            state = S::Fail(4);
+                            state = S::Fail(format!("Invalid property format {:?}", l));
                             break 'm;
                         };
                         c
                     } else {
-                        state = S::Fail(5);
+                        state = S::Fail(format!("Invalid property format {:?}", l));
                         break 'm;
                     };
                     let (c0, c3) = if let Some(v) = kv.next() {
                         let mut vv = v.split(',');
                         let c0 = if let Some(v) = vv.next() {
                             let Ok(v) = v.trim().parse::<Color>() else {
-                                state = S::Fail(6);
+                                state = S::Fail(format!("Invalid color 0 {:?}", l));
                                 break 'm;
                             };
                             v
                         } else {
-                            state = S::Fail(7);
+                            state = S::Fail(format!("Invalid color 0 {:?}", l));
                             break 'm;
                         };
                         let c3 = if let Some(v) = vv.next() {
                             let Ok(v) = v.trim().parse::<Color>() else {
-                                state = S::Fail(8);
+                                state = S::Fail(format!("Invalid color 1 {:?}", l));
                                 break 'm;
                             };
                             v
                         } else {
-                            state = S::Fail(9);
+                            state = S::Fail(format!("Invalid color 1 {:?}", l));
                             break 'm;
                         };
                         (c0, c3)
                     } else {
-                        state = S::Fail(10);
+                        state = S::Fail(format!("Invalid property format {:?}", l));
                         break 'm;
                     };
 
@@ -173,6 +183,9 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                     } else {
                         pal.color[cn as usize] = Palette::interpolatec(c0, c3, dark);
                     }
+                } else {
+                    state = S::Fail(format!("Unknown generator format {:?}", l));
+                    break 'm;
                 }
             }
             S::Reference => {
@@ -180,18 +193,18 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
                 let rn = if let Some(v) = kv.next() {
                     v
                 } else {
-                    state = S::Fail(11);
+                    state = S::Fail(format!("Invalid property format {:?}", l));
                     break 'm;
                 };
                 let ci = if let Some(v) = kv.next() {
                     if let Ok(ci) = v.parse::<palette::ColorIdx>() {
                         ci
                     } else {
-                        state = S::Fail(12);
+                        state = S::Fail(format!("Invalid color reference {:?}", l));
                         break 'm;
                     }
                 } else {
-                    state = S::Fail(13);
+                    state = S::Fail(format!("Invalid property format {:?}", l));
                     break 'm;
                 };
                 pal.add_aliased(rn, ci);
@@ -204,9 +217,15 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
 
     match state {
         S::Fail(n) => Err(io::Error::other(LoadPaletteErr(n))),
-        S::Start => Err(io::Error::other(LoadPaletteErr(100))),
-        S::Theme => Err(io::Error::other(LoadPaletteErr(101))),
-        S::Palette => Err(io::Error::other(LoadPaletteErr(102))),
+        S::Start => Err(io::Error::other(LoadPaletteErr(
+            "Missing [theme]. Invalid format or truncated.".to_string(),
+        ))),
+        S::Theme => Err(io::Error::other(LoadPaletteErr(
+            "Missing [palette]. Invalid format or truncated.".to_string(),
+        ))),
+        S::Palette => Err(io::Error::other(LoadPaletteErr(
+            "Missing [reference]. Invalid format or truncated.".to_string(),
+        ))),
         S::Color | S::Reference => Ok(pal),
     }
 }

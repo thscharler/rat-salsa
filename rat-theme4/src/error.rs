@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
-pub struct LoadPaletteErr(pub u8);
+pub struct LoadPaletteErr(pub String);
 
 impl Display for LoadPaletteErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
