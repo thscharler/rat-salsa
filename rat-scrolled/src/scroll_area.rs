@@ -12,9 +12,7 @@ use std::cmp::max;
 #[derive(Debug, Default, Clone)]
 pub struct ScrollArea<'a> {
     style: Style,
-    ignore_block: bool,
     block: Option<&'a Block<'a>>,
-    ignore_scroll: bool,
     h_scroll: Option<&'a Scroll<'a>>,
     v_scroll: Option<&'a Scroll<'a>>,
 }
@@ -51,13 +49,6 @@ impl<'a> ScrollArea<'a> {
         self
     }
 
-    /// Ignores the block when rendering and renders only the scrollbars.
-    /// The block is still considered when calculating everything.
-    pub fn ignore_block(mut self) -> Self {
-        self.ignore_block = true;
-        self
-    }
-
     /// Sets the horizontal scroll.
     pub fn h_scroll(mut self, scroll: Option<&'a Scroll<'a>>) -> Self {
         self.h_scroll = scroll;
@@ -67,13 +58,6 @@ impl<'a> ScrollArea<'a> {
     /// Sets the vertical scroll.
     pub fn v_scroll(mut self, scroll: Option<&'a Scroll<'a>>) -> Self {
         self.v_scroll = scroll;
-        self
-    }
-
-    /// Ignores the scrollbars when rendering and renders only the block.
-    /// The scrollbars are still considered when calculating everything.
-    pub fn ignore_scroll(mut self) -> Self {
-        self.ignore_scroll = true;
         self
     }
 
@@ -132,7 +116,8 @@ impl<'a> StatefulWidget for ScrollArea<'a> {
     type State = ScrollAreaState<'a>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_scroll_area(&self, area, buf, state);
+        self.render_block(area, buf);
+        self.render_scrollbars(area, buf, state);
     }
 }
 
@@ -140,41 +125,40 @@ impl<'a> StatefulWidget for &ScrollArea<'a> {
     type State = ScrollAreaState<'a>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_scroll_area(self, area, buf, state);
+        self.render_block(area, buf);
+        self.render_scrollbars(area, buf, state);
     }
 }
 
-fn render_scroll_area(
-    widget: &ScrollArea<'_>,
-    area: Rect,
-    buf: &mut Buffer,
-    state: &mut ScrollAreaState<'_>,
-) {
-    let (_, hscroll_area, vscroll_area) = layout(
-        widget.block,
-        widget.h_scroll,
-        widget.v_scroll,
-        area,
-        state.h_scroll.as_deref(),
-        state.v_scroll.as_deref(),
-    );
-
-    if !widget.ignore_block {
-        if let Some(block) = widget.block {
+impl<'a> ScrollArea<'a> {
+    /// Only render the Block.
+    pub fn render_block(&self, area: Rect, buf: &mut Buffer) {
+        if let Some(block) = self.block {
             block.render(area, buf);
         } else {
-            buf.set_style(area, widget.style);
+            buf.set_style(area, self.style);
         }
     }
-    if !widget.ignore_scroll {
-        if let Some(h) = widget.h_scroll {
+
+    /// Only render the scrollbars.
+    pub fn render_scrollbars(&self, area: Rect, buf: &mut Buffer, state: &mut ScrollAreaState<'_>) {
+        let (_, hscroll_area, vscroll_area) = layout(
+            self.block,
+            self.h_scroll,
+            self.v_scroll,
+            area,
+            state.h_scroll.as_deref(),
+            state.v_scroll.as_deref(),
+        );
+
+        if let Some(h) = self.h_scroll {
             if let Some(hstate) = &mut state.h_scroll {
                 h.render(hscroll_area, buf, hstate);
             } else {
                 panic!("no horizontal scroll state");
             }
         }
-        if let Some(v) = widget.v_scroll {
+        if let Some(v) = self.v_scroll {
             if let Some(vstate) = &mut state.v_scroll {
                 v.render(vscroll_area, buf, vstate)
             } else {

@@ -904,8 +904,7 @@ impl<'a, Selection> Table<'a, Selection> {
             .style(self.style)
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
-            .v_scroll(self.vscroll.as_ref())
-            .ignore_scroll();
+            .v_scroll(self.vscroll.as_ref());
         let padding = sa.padding();
         let width = self.total_width(0);
 
@@ -918,8 +917,7 @@ impl<'a, Selection> Table<'a, Selection> {
             .style(self.style)
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
-            .v_scroll(self.vscroll.as_ref())
-            .ignore_scroll();
+            .v_scroll(self.vscroll.as_ref());
         let padding = sa.padding();
         let header = self.header.as_ref().map(|v| v.height).unwrap_or(0);
         let footer = self.footer.as_ref().map(|v| v.height).unwrap_or(0);
@@ -1040,8 +1038,7 @@ where
             .style(self.style)
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
-            .v_scroll(self.vscroll.as_ref())
-            .ignore_scroll();
+            .v_scroll(self.vscroll.as_ref());
         state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
         let l_rows = self.layout_areas(state.inner);
@@ -1054,13 +1051,7 @@ where
         self.calculate_column_areas(state.columns, l_columns.as_ref(), l_spacers.as_ref(), state);
 
         // render block only
-        sa.render(
-            area,
-            buf,
-            &mut ScrollAreaState::new()
-                .h_scroll(&mut state.hscroll)
-                .v_scroll(&mut state.vscroll),
-        );
+        sa.render_block(area, buf);
 
         // render header & footer
         self.render_header(
@@ -1390,10 +1381,9 @@ where
         ScrollArea::new()
             .style(self.style)
             .block(self.block.as_ref())
-            .ignore_block()
             .h_scroll(self.hscroll.as_ref())
             .v_scroll(self.vscroll.as_ref())
-            .render(
+            .render_scrollbars(
                 area,
                 buf,
                 &mut ScrollAreaState::new()

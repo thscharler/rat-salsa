@@ -291,7 +291,7 @@ pub mod app {
 
     fn show_message(msg: &str, ctx: &mut Global) -> TurboResult {
         if let Some(n) = ctx.dialogs.top::<MsgDialogState>() {
-            let v = ctx.dialogs.get::<MsgDialogState>(n);
+            let v = ctx.dialogs.get::<MsgDialogState>(n).expect("msg-dialog");
             v.append(msg);
         } else {
             let state = MsgDialogState::new_active("Information", msg);

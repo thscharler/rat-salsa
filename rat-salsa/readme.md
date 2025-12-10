@@ -45,15 +45,16 @@ returns a [control-flow](Control) which dictates further actions.
     * [rat-cursor](https://docs.rs/rat-cursor)
       Defines just one trait to propagate the required screen cursor position.
     * [rat-focus](https://docs.rs/rat-focus)
-      Primitives for focus-handling.
+      Focus-handling for widgets.
     * [rat-reloc](https://docs.rs/rat-reloc)
-      Relocate widgets after rendering. Needed support for view-like widgets.
+      Relocate a widgets state after rendering.
+      This is needed to support view-like widgets.
     * [rat-scrolled](https://docs.rs/rat-scrolled)
       Utility widgets for scrolling.
     * [rat-popup](https://docs.rs/rat-popup)
       Utility widget to help with popups.
     * [rat-dialog](https:://docs.rs/rat-dialog)
-      Stacks windows/dialogs above the main application. *experimental*
+      Stacks windows/dialogs above the main application.
 
   Crates for specific widgets
 

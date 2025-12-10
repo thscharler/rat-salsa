@@ -191,7 +191,7 @@ pub mod app {
             if let ct_event!(keycode press Esc) | ct_event!(keycode press F(10)) = event {
                 if state.menu.is_focused() {
                     if let Some(idx) = ctx.windows.top::<EditorState>() {
-                        let editor = ctx.windows.get::<EditorState>(idx);
+                        let editor = ctx.windows.get::<EditorState>(idx).expect("editor");
                         ctx.focus().focus(&*editor);
                     }
                 } else {
@@ -209,7 +209,7 @@ pub mod app {
         builder.widget(&state.menu);
 
         for i in 0..ctx.windows.len() {
-            if let Some(editor) = ctx.windows.try_get::<EditorState>(i) {
+            if let Some(editor) = ctx.windows.get::<EditorState>(i) {
                 builder.widget(&*editor);
             }
         }
@@ -392,7 +392,7 @@ pub mod app {
 
     fn show_message(msg: &str, ctx: &mut Global) -> TurboResult {
         if let Some(n) = ctx.dialogs.top::<MsgDialogState>() {
-            let v = ctx.dialogs.get::<MsgDialogState>(n);
+            let v = ctx.dialogs.get::<MsgDialogState>(n).expect("msg-dialog");
             v.append(msg);
         } else {
             let state = MsgDialogState::new_active("Information", msg);
@@ -795,7 +795,7 @@ pub mod turbo {
                 }
                 ct_event!(keycode press CONTROL-F(5)) => {
                     if let Some(top) = ctx.windows.top::<EditorState>() {
-                        let editor = ctx.windows.get_mut::<EditorState>(top);
+                        let editor = ctx.windows.get_mut::<EditorState>(top).expect("editor");
                         ctx.focus().focus(&editor.window);
                         return Ok(Control::Changed);
                     }
@@ -819,7 +819,7 @@ pub mod turbo {
             TurboEvent::SaveAsDialog => try_flow!(show_save_as(ctx)?),
             TurboEvent::WindowMaximize => {
                 try_flow!(if let Some(idx) = ctx.windows.top::<EditorState>() {
-                    let mut editor = ctx.windows.get_mut::<EditorState>(idx);
+                    let mut editor = ctx.windows.get_mut::<EditorState>(idx).expect("editor");
                     editor.window.flip_maximize();
                     Control::Changed
                 } else {
@@ -831,7 +831,7 @@ pub mod turbo {
                     let len = ctx.windows.len();
                     if len > 0 {
                         ctx.windows.clone().to_front(0, ctx);
-                        let editor = ctx.windows.get::<EditorState>(len - 1);
+                        let editor = ctx.windows.get::<EditorState>(len - 1).expect("editor");
                         ctx.focus().focus(&*editor);
                         Control::Changed
                     } else {
@@ -844,7 +844,7 @@ pub mod turbo {
                     let len = ctx.windows.len();
                     if len > 0 {
                         ctx.windows.clone().to_back(len - 1, ctx);
-                        let editor = ctx.windows.get::<EditorState>(len - 1);
+                        let editor = ctx.windows.get::<EditorState>(len - 1).expect("editor");
                         ctx.focus().focus(&*editor);
                         Control::Changed
                     } else {
@@ -1143,7 +1143,7 @@ pub mod editor {
 
     fn cascade_window(ctx: &mut Global) -> Rect {
         if let Some(idx) = ctx.windows.top::<EditorState>() {
-            let editor = ctx.windows.get::<EditorState>(idx);
+            let editor = ctx.windows.get::<EditorState>(idx).expect("editor");
             let area = editor.window.area;
 
             Rect::new(area.x + 1, area.y + 1, area.width, area.height)
@@ -1159,7 +1159,7 @@ pub mod editor {
 
     pub fn screen_cursor(_state: &mut Turbo, ctx: &mut Global) -> Option<(u16, u16)> {
         for i in (0..ctx.windows.len()).rev() {
-            if let Some(editor) = ctx.windows.try_get::<EditorState>(i) {
+            if let Some(editor) = ctx.windows.get::<EditorState>(i) {
                 if let Some(cur) = editor.text.screen_cursor() {
                     return Some(cur);
                 }

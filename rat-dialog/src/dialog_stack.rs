@@ -13,9 +13,9 @@ use std::mem;
 use std::rc::Rc;
 use try_as::traits::TryAsRef;
 
-/// Hold a stack of widgets.
+/// Hold a stack of dialog-widgets.
 ///
-/// Renders the widgets and can handle events.
+/// Renders them and integrates them into event-handling.
 ///
 /// Hold the dialog-stack in your global state,
 /// call render() at the very end of rendering and
@@ -221,30 +221,6 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
             .collect()
     }
 
-    /// Get a reference to the state at index n.
-    ///
-    /// Panic
-    ///
-    /// Panics when out-of-bounds.
-    /// Panics when recursively accessing the same state. Accessing a
-    /// *different* window-state is fine.
-    /// Panics when the types don't match.
-    pub fn get<'a, S: 'static>(&'a self, n: usize) -> Ref<'a, S> {
-        self.try_get(n).expect("recursion or wrong type")
-    }
-
-    /// Get a mutable reference to the state at index n.
-    ///
-    /// Panic
-    ///
-    /// Panics when out-of-bounds.
-    /// Panics when recursively accessing the same state. Accessing a
-    /// *different* window-state is fine.
-    /// Panics when the types don't match.
-    pub fn get_mut<'a, S: 'static>(&'a self, n: usize) -> RefMut<'a, S> {
-        self.try_get_mut(n).expect("recursion or wrong type")
-    }
-
     /// Get a mutable reference to the state at index n.
     ///
     /// Panic
@@ -256,7 +232,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     /// Fails when recursively accessing the same state. Accessing a
     /// *different* window-state is fine.
     /// Fails when the types don't match.
-    pub fn try_get_mut<'a, S: 'static>(&'a self, n: usize) -> Option<RefMut<'a, S>> {
+    pub fn get_mut<'a, S: 'static>(&'a self, n: usize) -> Option<RefMut<'a, S>> {
         let state = self.core.state.borrow_mut();
 
         RefMut::filter_map(state, |v| {
@@ -285,7 +261,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     /// Fails when recursively accessing the same state. Accessing a
     /// *different* window-state is fine.
     /// Fails when the types don't match.
-    pub fn try_get<'a, S: 'static>(&'a self, n: usize) -> Option<Ref<'a, S>> {
+    pub fn get<'a, S: 'static>(&'a self, n: usize) -> Option<Ref<'a, S>> {
         let state = self.core.state.borrow();
 
         Ref::filter_map(state, |v| {

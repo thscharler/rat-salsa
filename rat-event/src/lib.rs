@@ -252,13 +252,11 @@ impl From<bool> for Outcome {
     }
 }
 
-/// # experimental #
-///
 /// Tries to unify the currently 3 flow! constructs.
 ///
 /// * `flow!(expr) -> event_flow!(return expr)`
 ///   The non Result case stays gets a `return`. It's rather uncommon
-///   to __not__ have a Result during event-handling, so this should be fin.
+///   to __not__ have a Result during event-handling, so this should be fine.
 /// * `try_flow!(expr) -> event_flow!(expr)`
 ///   This becomes the main branch.
 /// * `break_flow!('x: expr) -> event_flow!(break 'x expr)`
@@ -332,6 +330,8 @@ macro_rules! event_flow {
 
 }
 
+/// Use `event_flow!` instead.
+///
 /// Returns from the current function if the block returns
 /// a value for which `[ConsumedEvent::is_consumed] == true`.
 ///
@@ -367,6 +367,8 @@ macro_rules! flow {
     }};
 }
 
+/// Use `event_flow!` instead.
+///
 /// Returns from the current function if the block returns
 /// a value for which `[ConsumedEvent::is_consumed] == true`.
 ///
@@ -402,6 +404,8 @@ macro_rules! try_flow {
     }};
 }
 
+/// Use `event_flow!` instead.
+///
 /// This macro doesn't return from the current function, but
 /// does a labeled break if the block returns a value for
 /// which `[ConsumedEvent::is_consumed] == true`.
