@@ -4,7 +4,7 @@
 //! It holds one [Palette] that has the color-table
 //! and a list of aliases for colors in the color-table.
 //! These aliases allow the palette to give a bit more
-//! semantics to it plain color-array.
+//! semantics to its plain color-array.
 //!
 //! SalsaTheme is on the other end and has a hashmap
 //! of style-names that map to
@@ -23,8 +23,9 @@
 //! - Colors are separated from styles. There is an editor `pal-edit`
 //!   to create a palette + aliases. It can generate rust code
 //!   that can be used as `statíc` data.
-//! - There is a `.pal` file-format for this. **todo: add a function
-//!   to load a .pal**
+//! - There is a `.pal` file-format for this. This format could
+//!   be used to load the palette from some configuration.
+//! - If you prefer something else, Palette supports serde too.
 //!
 //! - Themes and xxxStyle structs can contain other things than
 //!   colors. `Block` is used often. Alignment and related flags
@@ -130,7 +131,7 @@ impl SalsaTheme {
 
     /// Define a style as a call to a constructor fn.
     ///
-    /// This one takes no arguments, this is nice to set Widget::default
+    /// This one takes no arguments, this is nice to set WidgetStyle::default
     /// as the style-fn.
     pub fn define_fn0<O: Any + Debug>(
         &mut self,

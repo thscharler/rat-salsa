@@ -1,3 +1,7 @@
+# 4.2.1
+
+* doc: add some
+
 # 4.2.0
 
 * fix: aliases must be sorted. Was missing when loading through serde.

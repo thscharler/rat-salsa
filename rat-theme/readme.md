@@ -9,9 +9,11 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 * [Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-theme/changes.md)
 
-# Theming support for rat-salsa
+# Discontinued
 
-This is discontinued. Switch to rat-theme2.
+This is discontinued. Switch to [rat-theme4](https://docs.rs/rat-theme4).
+
+# Theming support for rat-salsa
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
