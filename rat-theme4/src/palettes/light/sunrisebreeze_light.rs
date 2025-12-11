@@ -1,16 +1,16 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 const DARKNESS: u8 = 63;
 
-/// SunriseBreeze.
+/// SunriseBreeze
 /// A theme adapted from Neovim.
 pub const SUNRISEBREEZE_LIGHT: Palette = Palette {
-    theme_name: Cow::Borrowed("SunriseBreeze Light"),
-    theme: Cow::Borrowed("Light"),
-    name: Cow::Borrowed("SunriseBreeze"),
-    doc: Cow::Borrowed("A theme adapted from Neovim."),
-    generator: Cow::Borrowed("light-dark:63"),
+    theme_name: Cow::Borrowed("SunriseBreeze Light"), 
+    theme: Cow::Borrowed("Light"), 
+    name: Cow::Borrowed("SunriseBreeze"), 
+    doc: Cow::Borrowed("A theme adapted from Neovim."), 
+    generator: Cow::Borrowed("light-dark:63"), 
 
     color: [
         Palette::interpolate2(0xebebeb, 0xffffff, 0x0, 0x0),
@@ -54,11 +54,10 @@ pub const SUNRISEBREEZE_LIGHT: Palette = Palette {
         define_alias("hover.bg", Colors::Primary, 3),
         define_alias("input-focus.bg", Colors::Primary, 1),
         define_alias("input-select.bg", Colors::Secondary, 1),
-        define_alias("input.bg", Colors::Gray, 3),
+        define_alias("input.bg", Colors::Gray, 2),
         define_alias("invalid.bg", Colors::Red, 0),
         define_alias("key-binding.bg", Colors::BlueGreen, 1),
         define_alias("label.fg", Colors::TextDark, 0),
-        define_alias("md+hidden", Colors::None, 0),
         define_alias("menu-base.bg", Colors::Gray, 0),
         define_alias("month-header.fg", Colors::Primary, 7),
         define_alias("popup-arrow.fg", Colors::Gray, 1),
@@ -67,8 +66,10 @@ pub const SUNRISEBREEZE_LIGHT: Palette = Palette {
         define_alias("select.bg", Colors::Secondary, 0),
         define_alias("shadow.bg", Colors::TextDark, 0),
         define_alias("status-base.bg", Colors::Gray, 0),
+        define_alias("sub-form.bg", Colors::Secondary, 1),
         define_alias("title.bg", Colors::Blue, 4),
         define_alias("title.fg", Colors::TextLight, 0),
         define_alias("week-header.fg", Colors::Secondary, 7),
     ]),
 };
+

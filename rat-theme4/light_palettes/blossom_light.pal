@@ -61,6 +61,7 @@ popup-border.fg=gray:2
 select.bg=gray:3
 shadow.bg=white:0
 status-base.bg=deep-blue:1
+sub-form.bg=secondary:1
 title.bg=lime-green:0
 title.fg=green:4
 week-header.fg=gray:0
