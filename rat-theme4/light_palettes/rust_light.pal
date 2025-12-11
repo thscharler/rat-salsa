@@ -4,7 +4,8 @@ theme=Light
 
 [palette]
 name=Rust
-docs=A rusty theme. Iron-oxide, Copper-oxide, \nCobald-oxide and some Chromium-oxide too.
+docs=A rusty theme. Iron-oxide, Copper-oxide, 
+\nCobald-oxide and some Chromium-oxide too.
 generator=light-dark:63
 
 [color]
