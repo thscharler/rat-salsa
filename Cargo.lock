@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "pal-edit"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1308,7 +1308,7 @@ dependencies = [
 
 [[package]]
 name = "rat-salsa"
-version = "2.6.3"
+version = "2.6.4"
 dependencies = [
  "anyhow",
  "cli-clipboard",
@@ -1454,7 +1454,7 @@ dependencies = [
 
 [[package]]
 name = "rat-widget"
-version = "2.9.1"
+version = "2.10.0"
 dependencies = [
  "anyhow",
  "chrono",

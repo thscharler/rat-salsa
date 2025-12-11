@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget"
-version = "2.9.1"
+version = "2.10.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"

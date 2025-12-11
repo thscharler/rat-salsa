@@ -1,3 +1,7 @@
+# 1.0.1
+
+* fix examples
+
 # 1.0.0
 
 * good enough now

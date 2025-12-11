@@ -1,6 +1,6 @@
 [package]
 name = "pal-edit"
-version = "1.5.0"
+version = "1.6.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "edit and preview for rat-theme4 color palettes."

@@ -1,3 +1,8 @@
+# 2.10.0
+
+* break: rename styles_ext() to styles() and the current styles() to
+  section_styles(). Then it fits in with the rest.
+
 # 2.9.1
 
 * mention rat-widget-extra
