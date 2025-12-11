@@ -28,7 +28,7 @@ serde = ["dep:serde", "ratatui/serde"]
 ratatui = { version = "0.29" }
 log = "0.4"
 serde = { version = "1", optional = true }
-rat-widget = { version = "2.8", path = "../rat-widget", optional = true }
+rat-widget = { version = "2.10", path = "../rat-widget", optional = true }
 rat-widget-extra = { version = "1.0", path = "../rat-widget-extra", optional = true }
 
 [dev-dependencies]

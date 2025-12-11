@@ -1,3 +1,7 @@
+# 1.0.2
+
+* fix dependencies
+
 # 1.0.1
 
 * fix docs

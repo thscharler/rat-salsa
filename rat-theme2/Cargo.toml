@@ -18,4 +18,4 @@ workspace = true
 ratatui = { version = "0.29" }
 log = "0.4"
 
-rat-widget = { version = "2.8", path = "../rat-widget" }
+rat-widget = { version = "2.10", path = "../rat-widget" }

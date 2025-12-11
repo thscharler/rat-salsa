@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget-extra"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -32,7 +32,7 @@ log = "0.4"
 palette = { version = "0.7", optional = true }
 
 rat-event = { version = "1.4", path = "../rat-event" }
-rat-reloc = { version = "1.2", path = "../rat-reloc" }
+rat-reloc = { version = "1.4", path = "../rat-reloc" }
 rat-focus = { version = "1.6", path = "../rat-focus" }
 rat-text = { version = "2.7", path = "../rat-text" }
 
@@ -42,4 +42,4 @@ fern = "0.7"
 anyhow = "1.0"
 cli-clipboard = "0.4.0"
 
-rat-theme4 = { version = "4.1", default-features = false, features = ["color-input"], path = "../rat-theme4" }
+rat-theme4 = { version = "4.3", default-features = false, features = ["color-input"], path = "../rat-theme4" }
