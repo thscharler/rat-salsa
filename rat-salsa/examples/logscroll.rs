@@ -257,7 +257,7 @@ pub fn render(
             Constraint::Length(12),
             Constraint::Length(12),
         ])
-        .styles(vec![
+        .section_styles(vec![
             ctx.theme.style::<Style>(Style::STATUS_BASE),
             ctx.theme.style::<Style>(Style::STATUS_BASE),
             ctx.theme.style::<Style>(Style::STATUS_BASE),

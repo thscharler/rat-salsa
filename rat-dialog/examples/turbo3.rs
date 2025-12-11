@@ -268,7 +268,7 @@ pub mod app {
                 Constraint::Length(8),
                 Constraint::Length(8),
             ])
-            .styles(ctx.theme.statusline_style());
+            .section_styles(ctx.theme.statusline_style());
         status.render(area, buf, &mut state.status);
     }
 

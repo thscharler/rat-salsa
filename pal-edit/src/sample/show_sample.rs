@@ -235,7 +235,7 @@ pub fn render(
             Constraint::Length(6),
             Constraint::Length(6),
         ])
-        .styles_ext(ctx.show_theme.style(WidgetStyle::STATUSLINE))
+        .styles(ctx.show_theme.style(WidgetStyle::STATUSLINE))
         .render(l0[5], buf, &mut state.status);
 
     menu_popup.render(l0[3], buf, &mut state.menu);

@@ -162,7 +162,7 @@ pub fn render(
             Constraint::Length(8),
             Constraint::Length(8),
         ])
-        .styles_ext(ctx.theme.style(WidgetStyle::STATUSLINE))
+        .styles(ctx.theme.style(WidgetStyle::STATUSLINE))
         .render(status_layout[1], buf, &mut state.status);
 
     Ok(())

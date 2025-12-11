@@ -114,13 +114,13 @@ impl StatusLine {
     }
 
     /// Styles for each section.
-    pub fn styles(mut self, style: impl IntoIterator<Item = impl Into<Style>>) -> Self {
+    pub fn section_styles(mut self, style: impl IntoIterator<Item = impl Into<Style>>) -> Self {
         self.style = style.into_iter().map(|v| v.into()).collect();
         self
     }
 
     /// Set all styles.
-    pub fn styles_ext(mut self, styles: StatusLineStyle) -> Self {
+    pub fn styles(mut self, styles: StatusLineStyle) -> Self {
         self.sep = styles.sep;
         self.style = styles.styles;
         self

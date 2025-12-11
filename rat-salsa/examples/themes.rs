@@ -139,7 +139,7 @@ pub fn render(
             Constraint::Length(12),
             Constraint::Length(12),
         ])
-        .styles_ext(ctx.theme.style(WidgetStyle::STATUSLINE))
+        .styles(ctx.theme.style(WidgetStyle::STATUSLINE))
         .render(layout_status[1], buf, &mut state.status);
 
     Ok(())
