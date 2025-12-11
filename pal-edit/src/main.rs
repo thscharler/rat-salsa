@@ -372,7 +372,7 @@ pub fn render(
     let l_tool = Layout::horizontal([
         Constraint::Length(5),
         Constraint::Length(15), //
-        Constraint::Length(20),
+        Constraint::Fill(1),
     ])
     .horizontal_margin(1)
     .spacing(1)
@@ -387,14 +387,18 @@ pub fn render(
         Slider::new()
             .styles(ctx.theme.style(WidgetStyle::SLIDER))
             .direction(Direction::Horizontal)
-            .lower_bound("[")
+            .lower_bound(format!(
+                "{}/{} [",
+                state.file_slider.value(),
+                state.files.len().saturating_sub(1),
+            ))
             .upper_bound("]")
             .render(l_tool[1], buf, &mut state.file_slider);
 
-        let current = state.files[state.file_slider.value()]
-            .file_name()
-            .unwrap_or_default();
-        Span::from(current.to_string_lossy()).render(l_tool[2], buf);
+        if let Some(file_path) = &state.file_path {
+            let current = file_path.file_name().unwrap_or_default();
+            Span::from(current.to_string_lossy()).render(l_tool[2], buf);
+        }
     }
 
     // main
@@ -713,6 +717,7 @@ fn load_pal_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEv
 }
 
 fn open_prev_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
+    // mark
     let n = state.file_slider.value();
     if n > 0 {
         state.file_slider.set_value(n - 1);
