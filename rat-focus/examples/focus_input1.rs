@@ -18,6 +18,7 @@ fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
     let mut state = State {
+        focus: None,
         input1: Default::default(),
         input2: Default::default(),
         input3: Default::default(),
@@ -29,10 +30,12 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 struct State {
-    pub(crate) input1: TextInputFState,
-    pub(crate) input2: TextInputFState,
-    pub(crate) input3: TextInputFState,
-    pub(crate) input4: TextInputFState,
+    focus: Option<Focus>,
+
+    input1: TextInputFState,
+    input2: TextInputFState,
+    input3: TextInputFState,
+    input4: TextInputFState,
 }
 
 fn render(
@@ -96,13 +99,14 @@ fn render(
     Ok(())
 }
 
-fn focus_input(state: &mut State) -> Focus {
-    let mut fb = FocusBuilder::default();
+fn focus_input(state: &mut State) -> &mut Focus {
+    let mut fb = FocusBuilder::new(state.focus.take());
     fb.widget(&state.input1)
         .widget(&state.input2)
         .widget(&state.input3)
         .widget(&state.input4);
-    fb.build()
+    state.focus = Some(fb.build());
+    state.focus.as_mut().expect("focus")
 }
 
 fn event(
