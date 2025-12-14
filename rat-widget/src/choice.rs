@@ -102,6 +102,7 @@ where
 {
     values: Rc<RefCell<Vec<T>>>,
     default_value: Option<T>,
+    unknown_item: Option<Line<'a>>,
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
@@ -133,6 +134,7 @@ where
 {
     values: Rc<RefCell<Vec<T>>>,
     default_value: Option<T>,
+    unknown_item: Option<Line<'a>>,
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
@@ -462,6 +464,7 @@ where
         Self {
             values: Default::default(),
             default_value: Default::default(),
+            unknown_item: Default::default(),
             items: Default::default(),
             style: Default::default(),
             button_style: Default::default(),
@@ -519,6 +522,12 @@ where
 {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[inline]
+    pub fn unknown_item(mut self, unknown: impl Into<Line<'a>>) -> Self {
+        self.unknown_item = Some(unknown.into());
+        self
     }
 
     /// Button text.
@@ -763,7 +772,7 @@ where
             .max()
             .unwrap_or_default();
 
-        w as u16 + block_size(&self.block).width
+        w as u16 + block_size(&self.block).width + 3
     }
 
     /// Inherent height.
@@ -779,6 +788,7 @@ where
             ChoiceWidget {
                 values: self.values,
                 default_value: self.default_value,
+                unknown_item: self.unknown_item,
                 items: self.items.clone(),
                 style: self.style,
                 button_style: self.button_style,
@@ -937,6 +947,8 @@ fn render_choice<T: PartialEq + Clone + Default>(
             if let Some(item) = widget.items.borrow().get(selected) {
                 item.render(state.item_area, buf);
             }
+        } else if let Some(unknown) = widget.unknown_item.as_ref() {
+            unknown.render(state.item_area, buf);
         }
     }
 
