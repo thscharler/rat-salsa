@@ -109,6 +109,7 @@ pub mod table;
 pub mod text_input;
 pub mod text_input_mask;
 pub mod textarea;
+pub mod toolbar;
 pub mod util;
 pub mod view;
 
