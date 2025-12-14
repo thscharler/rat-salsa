@@ -562,20 +562,20 @@ pub mod game {
                         let pos_1 = ((2 * y + 1) * area.width + x) as usize;
                         match (state.world[pos_0], state.world[pos_1]) {
                             (0, 0) => {
-                                cell.fg = state.style0.bg.expect("bg");
-                                cell.bg = state.style0.bg.expect("bg");
+                                cell.fg = state.style0.bg.unwrap_or_default();
+                                cell.bg = state.style0.bg.unwrap_or_default();
                             }
                             (0, 1) => {
-                                cell.fg = state.style0.bg.expect("bg");
-                                cell.bg = state.style1.bg.expect("bg");
+                                cell.fg = state.style0.bg.unwrap_or_default();
+                                cell.bg = state.style1.bg.unwrap_or_default();
                             }
                             (1, 0) => {
-                                cell.fg = state.style1.bg.expect("bg");
-                                cell.bg = state.style0.bg.expect("bg");
+                                cell.fg = state.style1.bg.unwrap_or_default();
+                                cell.bg = state.style0.bg.unwrap_or_default();
                             }
                             (1, 1) => {
-                                cell.fg = state.style1.bg.expect("bg");
-                                cell.bg = state.style1.bg.expect("bg");
+                                cell.fg = state.style1.bg.unwrap_or_default();
+                                cell.bg = state.style1.bg.unwrap_or_default();
                             }
                             _ => unreachable!(),
                         }
@@ -589,8 +589,8 @@ pub mod game {
         pub fn new(name: &str, rule: &str, size: (u16, u16), mut data: Vec<u8>) -> Self {
             data.resize_with((size.0 * size.1) as usize, Default::default);
             let mut s = Self {
-                style1: Style::default().on_green(),
-                style0: Style::default(),
+                style1: Style::new().black().on_green(),
+                style0: Style::new().green().on_black(),
                 name: Default::default(),
                 live: 0,
                 birth: 0,
