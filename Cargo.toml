@@ -22,6 +22,9 @@ members = [
     "rat-widget",
     "rat-widget-extra",
 ]
+exclude = [
+    "explore"
+]
 
 [workspace.lints.clippy]
 collapsible_else_if = "allow"
