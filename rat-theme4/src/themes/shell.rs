@@ -166,6 +166,8 @@ pub fn create_shell(p: Palette) -> SalsaTheme {
     #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::TEXTVIEW, textview);
     #[cfg(feature = "rat-widget")]
+    th.define_fn(WidgetStyle::TOOLBAR, toolbar);
+    #[cfg(feature = "rat-widget")]
     th.define_fn(WidgetStyle::VIEW, view);
 
     th
@@ -566,6 +568,42 @@ fn textview(th: &SalsaTheme) -> rat_widget::text::TextStyle {
         scroll: Some(th.style(WidgetStyle::SCROLL)),
         border_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         ..rat_widget::text::TextStyle::default()
+    }
+}
+
+#[cfg(feature = "rat-widget")]
+fn toolbar(th: &SalsaTheme) -> rat_widget::toolbar::ToolbarStyle {
+    rat_widget::toolbar::ToolbarStyle {
+        style: th.style_style(Style::MENU_BASE),
+        key_style: Some(th.style_style(Style::KEY_BINDING)),
+        button: Some(rat_widget::button::ButtonStyle {
+            style: th.style_style(Style::BUTTON_BASE),
+            armed: Some(th.style_style(Style::SELECT)),
+            hover: Some(th.style_style(Style::HOVER)),
+            ..Default::default()
+        }),
+        checkbox: Some(rat_widget::checkbox::CheckboxStyle {
+            style: th.style_style(Style::BUTTON_BASE),
+            behave_check: Some(rat_widget::checkbox::CheckboxCheck::SingleClick),
+            ..Default::default()
+        }),
+        choice: Some(rat_widget::choice::ChoiceStyle {
+            style: th.style_style(Style::BUTTON_BASE),
+            button: Some(th.style_style(Style::BUTTON_BASE)),
+            select: Some(th.style_style(Style::SELECT)),
+            focus: Some(th.style_style(Style::BUTTON_BASE)),
+            popup: rat_widget::popup::PopupStyle {
+                placement: Some(rat_widget::popup::Placement::BelowOrAbove),
+                ..Default::default()
+            },
+            popup_style: Some(th.style_style(Style::POPUP_BASE)),
+            popup_border: Some(th.style_style(Style::POPUP_BORDER_FG)),
+            behave_focus: Some(rat_widget::choice::ChoiceFocus::OpenOnFocusGained),
+            behave_select: Some(rat_widget::choice::ChoiceSelect::MouseClick),
+            behave_close: Some(rat_widget::choice::ChoiceClose::SingleClick),
+            ..Default::default()
+        }),
+        ..Default::default()
     }
 }
 

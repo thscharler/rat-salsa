@@ -208,6 +208,8 @@ impl WidgetStyle {
     #[cfg(feature = "rat-widget")]
     pub const TEXTVIEW: &'static str = "textview";
     #[cfg(feature = "rat-widget")]
+    pub const TOOLBAR: &'static str = "toolbar";
+    #[cfg(feature = "rat-widget")]
     pub const VIEW: &'static str = "view";
 }
 

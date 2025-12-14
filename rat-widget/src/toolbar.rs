@@ -7,7 +7,6 @@ use crate::choice::{Choice, ChoicePopup, ChoiceSelect, ChoiceState, ChoiceStyle,
 use crate::event::{ButtonOutcome, CheckOutcome, ChoiceOutcome};
 use crate::paired::{PairSplit, Paired, PairedState, PairedWidget};
 use crossterm::event::{Event, KeyEvent};
-use log::debug;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
@@ -67,7 +66,7 @@ pub struct ToolbarPopup<'a> {
 
 /// Comprehensive styles.
 #[derive(Debug, Clone)]
-pub struct ToolbarStyles {
+pub struct ToolbarStyle {
     pub style: Style,
     pub block: Option<Block<'static>>,
     pub border_style: Option<Style>,
@@ -108,7 +107,7 @@ pub struct ToolbarState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl Default for ToolbarStyles {
+impl Default for ToolbarStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
@@ -206,7 +205,7 @@ impl<'a> Toolbar<'a> {
     }
 
     /// Set combined styles.
-    pub fn styles(mut self, styles: ToolbarStyles) -> Self {
+    pub fn styles(mut self, styles: ToolbarStyle) -> Self {
         self.style = styles.style;
         if styles.block.is_some() {
             self.block = styles.block;
@@ -572,6 +571,8 @@ fn render_ref(widget: ToolbarWidget, area: Rect, buf: &mut Buffer, state: &mut T
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
 
+    widget.block.render(area, buf);
+
     for w in widget.tools {
         match w {
             ToolWidget1::CollapsedButton(widget_area, w) => {
@@ -764,7 +765,6 @@ impl<const N: usize> HandleEvent<Event, ToolbarKeys<'_, N>, ToolbarOutcome> for 
                 if let Some(key) = key.as_ref()
                     && event == key
                 {
-                    debug!("n {} {:?}", n, self.tools[n]);
                     match &mut self.tools[n] {
                         Some(ToolState::BasicButton(_, _)) => {
                             return ToolbarOutcome::Pressed(n);
@@ -796,11 +796,6 @@ impl<const N: usize> HandleEvent<Event, ToolbarKeys<'_, N>, ToolbarOutcome> for 
             match self.collapsed.handle(event, Popup) {
                 ChoiceOutcome::Value | ChoiceOutcome::Changed => {
                     if !self.collapsed.is_popup_active() {
-                        if let Some(focus_before) = self.focus_before.as_ref() {
-                            qualifier.focus.focus(focus_before);
-                        } else {
-                            qualifier.focus.next();
-                        }
                         if let Some(value) = self.collapsed.value() {
                             self.collapsed.set_value(None);
                             return ToolbarOutcome::Pressed(value);

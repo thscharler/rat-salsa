@@ -204,6 +204,11 @@ pub fn create_fallback(p: Palette) -> SalsaTheme {
     #[cfg(feature = "rat-widget")]
     th.define_fn0(WidgetStyle::TEXTVIEW, rat_widget::text::TextStyle::default);
     #[cfg(feature = "rat-widget")]
+    th.define_fn0(
+        WidgetStyle::TOOLBAR,
+        rat_widget::toolbar::ToolbarStyle::default,
+    );
+    #[cfg(feature = "rat-widget")]
     th.define_fn0(WidgetStyle::VIEW, rat_widget::view::ViewStyle::default);
 
     th
