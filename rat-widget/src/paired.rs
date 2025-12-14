@@ -204,6 +204,7 @@ impl<'a, TS, US> PairedState<'a, TS, US> {
 
 /// If you want to pair up a StatefulWidget and a Widget you
 /// need this adapter for the widget.
+#[derive(Debug)]
 pub struct PairedWidget<'a, T> {
     widget: T,
     phantom: PhantomData<&'a ()>,
