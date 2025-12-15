@@ -518,6 +518,7 @@ fn table(th: &SalsaTheme) -> rat_widget::table::TableStyle {
         scroll: Some(th.style(WidgetStyle::SCROLL)),
         header: Some(th.style(Style::HEADER)),
         footer: Some(th.style(Style::FOOTER)),
+        show_empty: true,
         ..Default::default()
     }
 }
