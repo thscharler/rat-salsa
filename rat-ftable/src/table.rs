@@ -16,7 +16,9 @@ use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
+use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
+use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -71,6 +73,9 @@ pub struct Table<'a, Selection = RowSelection> {
     show_header_focus: bool,
     select_footer_style: Option<Style>,
     show_footer_focus: bool,
+
+    show_empty: bool,
+    empty_str: Cow<'a, str>,
 
     _phantom: PhantomData<Selection>,
 }
@@ -254,6 +259,8 @@ pub struct TableStyle {
     pub show_cell_focus: bool,
     pub show_header_focus: bool,
     pub show_footer_focus: bool,
+    pub show_empty: bool,
+    pub empty_str: Option<Cow<'static, str>>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -350,6 +357,8 @@ impl<Selection> Default for Table<'_, Selection> {
             show_footer_focus: Default::default(),
             focus_style: Default::default(),
             _phantom: Default::default(),
+            show_empty: Default::default(),
+            empty_str: Cow::Borrowed(" \u{2205} "),
         }
     }
 }
@@ -776,6 +785,10 @@ impl<'a, Selection> Table<'a, Selection> {
         if styles.focus_style.is_some() {
             self.focus_style = styles.focus_style;
         }
+        self.show_empty = styles.show_empty;
+        if let Some(empty_str) = styles.empty_str {
+            self.empty_str = empty_str;
+        }
         self
     }
 
@@ -895,6 +908,19 @@ impl<'a, Selection> Table<'a, Selection> {
     #[inline]
     pub fn focus_style(mut self, focus_style: Option<Style>) -> Self {
         self.focus_style = focus_style;
+        self
+    }
+
+    /// Show an indicator if the table is empty.
+    #[inline]
+    pub fn show_empty(mut self, show: bool) -> Self {
+        self.show_empty = show;
+        self
+    }
+
+    #[inline]
+    pub fn show_empty_str(mut self, str: impl Into<Cow<'a, str>>) -> Self {
+        self.empty_str = str.into();
         self
     }
 
@@ -1377,6 +1403,18 @@ where
                 .set_max_offset(width.saturating_sub(state.table_area.width) as usize);
         }
 
+        if state.rows == 0 && self.show_empty {
+            let area = Rect::new(state.inner.x, state.inner.y, 3, 1);
+            let style = if state.is_focused() {
+                self.focus_style.unwrap_or_default()
+            } else {
+                self.style
+            };
+            Span::from(self.empty_str.as_ref())
+                .style(style)
+                .render(area, buf);
+        }
+
         // render only the scrollbars.
         ScrollArea::new()
             .style(self.style)
@@ -1636,23 +1674,25 @@ impl Default for TableStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            header: None,
-            footer: None,
-            select_row: None,
-            select_column: None,
-            select_cell: None,
-            select_header: None,
-            select_footer: None,
-            show_row_focus: true, // non standard
-            show_column_focus: false,
-            show_cell_focus: false,
-            show_header_focus: false,
-            show_footer_focus: false,
-            focus_style: None,
-            block: None,
-            border_style: None,
-            title_style: None,
-            scroll: None,
+            header: Default::default(),
+            footer: Default::default(),
+            select_row: Default::default(),
+            select_column: Default::default(),
+            select_cell: Default::default(),
+            select_header: Default::default(),
+            select_footer: Default::default(),
+            show_row_focus: true,
+            show_column_focus: Default::default(),
+            show_cell_focus: Default::default(),
+            show_header_focus: Default::default(),
+            show_footer_focus: Default::default(),
+            show_empty: Default::default(),
+            empty_str: Default::default(),
+            focus_style: Default::default(),
+            block: Default::default(),
+            border_style: Default::default(),
+            title_style: Default::default(),
+            scroll: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
