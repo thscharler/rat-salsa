@@ -603,6 +603,22 @@ fn toolbar(th: &SalsaTheme) -> rat_widget::toolbar::ToolbarStyle {
             behave_close: Some(rat_widget::choice::ChoiceClose::SingleClick),
             ..Default::default()
         }),
+        collapsed: Some(rat_widget::choice::ChoiceStyle {
+            style: th.style_style(Style::BUTTON_BASE),
+            button: Some(th.style_style(Style::BUTTON_BASE)),
+            select: Some(th.style_style(Style::SELECT)),
+            focus: Some(th.style_style(Style::BUTTON_BASE)),
+            popup: rat_widget::popup::PopupStyle {
+                placement: Some(rat_widget::popup::Placement::BelowOrAbove),
+                ..Default::default()
+            },
+            popup_style: Some(th.style_style(Style::POPUP_BASE)),
+            popup_border: Some(th.style_style(Style::POPUP_BORDER_FG)),
+            behave_focus: Some(rat_widget::choice::ChoiceFocus::OpenOnFocusGained),
+            behave_select: Some(rat_widget::choice::ChoiceSelect::MouseClick),
+            behave_close: Some(rat_widget::choice::ChoiceClose::SingleClick),
+            ..Default::default()
+        }),
         ..Default::default()
     }
 }

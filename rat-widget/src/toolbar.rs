@@ -49,6 +49,7 @@ pub struct Toolbar<'a> {
     button_style: ButtonStyle,
     checkbox_style: CheckboxStyle,
     choice_style: ChoiceStyle,
+    collapsed_style: ChoiceStyle,
 }
 
 /// Widget for the toolbar.
@@ -77,6 +78,7 @@ pub struct ToolbarStyle {
     pub button: Option<ButtonStyle>,
     pub checkbox: Option<CheckboxStyle>,
     pub choice: Option<ChoiceStyle>,
+    pub collapsed: Option<ChoiceStyle>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -118,6 +120,7 @@ impl Default for ToolbarStyle {
             button: Default::default(),
             checkbox: Default::default(),
             choice: Default::default(),
+            collapsed: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -134,6 +137,7 @@ impl<'a> Default for Toolbar<'a> {
             button_style: Default::default(),
             checkbox_style: Default::default(),
             choice_style: Default::default(),
+            collapsed_style: Default::default(),
         }
     }
 }
@@ -230,6 +234,9 @@ impl<'a> Toolbar<'a> {
         if let Some(choice) = styles.choice {
             self.choice_style = choice;
         }
+        if let Some(collapsed) = styles.collapsed {
+            self.collapsed_style = collapsed;
+        }
         self
     }
 
@@ -268,6 +275,12 @@ impl<'a> Toolbar<'a> {
     /// Choice style.
     pub fn choice_style(mut self, style: ChoiceStyle) -> Self {
         self.choice_style = style;
+        self
+    }
+
+    /// Collapsed style.
+    pub fn collapsed_style(mut self, style: ChoiceStyle) -> Self {
+        self.collapsed_style = style;
         self
     }
 
@@ -394,7 +407,7 @@ fn layout<'a>(
     if total_width > inner.width && have_collapsed {
         let mut collapsed_width = 0;
         let mut collapsed = Choice::<Option<usize>>::new()
-            .styles(widget.choice_style.clone())
+            .styles(widget.collapsed_style.clone())
             .behave_select(ChoiceSelect::MouseMove);
 
         let mut n = 0;
