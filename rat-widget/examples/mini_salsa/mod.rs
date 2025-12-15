@@ -18,16 +18,17 @@ use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use log::error;
-use rat_event::Outcome;
 use rat_event::util::set_have_keyboard_enhancement;
+use rat_event::{HandleEvent, Outcome, Regular};
+use rat_focus::Focus;
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{StyleName, create_salsa_theme, salsa_themes};
+use rat_theme4::{RatWidgetColor, StyleName, create_salsa_theme, salsa_themes};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::Widget;
 use std::cell::Cell;
@@ -51,6 +52,7 @@ pub struct MiniSalsaState {
     pub hide_status: bool,
     pub status: [String; 3],
 
+    pub focus: Option<Focus>,
     pub focus_outcome: Outcome,
     pub focus_outcome_cell: Cell<Outcome>,
 
@@ -71,6 +73,7 @@ impl MiniSalsaState {
             last_event: Default::default(),
             hide_status: Default::default(),
             status: Default::default(),
+            focus: Default::default(),
             focus_outcome: Default::default(),
             focus_outcome_cell: Default::default(),
             cursor: Default::default(),
@@ -78,6 +81,15 @@ impl MiniSalsaState {
         };
         s.status[0] = "Ctrl-Q to quit. F8 Theme ".into();
         s
+    }
+
+    pub fn focus(&self) -> &Focus {
+        self.focus.as_ref().expect("focus")
+    }
+
+    pub fn handle_focus(&mut self, event: &crossterm::event::Event) -> Outcome {
+        self.focus_outcome = self.focus.as_mut().expect("focus").handle(event, Regular);
+        self.focus_outcome
     }
 }
 
@@ -254,6 +266,8 @@ fn repaint_tui<State>(
 
     let t0 = SystemTime::now();
 
+    buf.set_style(l1[0], ctx.theme.style_style(Style::CONTAINER_BASE));
+
     repaint(buf, l1[0], ctx, state)?;
 
     ctx.last_render = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -271,6 +285,9 @@ fn repaint_tui<State>(
         ])
         .split(l1[1]);
 
+        let base = ctx.theme.p.aliased(Color::STATUS_BASE_BG);
+        let c0 = if ctx.theme.theme == "dark" { 0 } else { 4 };
+
         Line::from_iter(["[", ctx.name.as_str(), "]"])
             .style(ctx.theme.style_style(Style::STATUS_BASE))
             .render(l_status[0], buf);
@@ -278,13 +295,13 @@ fn repaint_tui<State>(
             .style(ctx.theme.style_style(Style::STATUS_BASE))
             .render(l_status[1], buf);
         Line::from(ctx.status[0].as_str())
-            .style(ctx.theme.p.color(Colors::Blue, 1))
+            .style(ctx.theme.p.high_bg_style(Colors::Blue, base.0, base.1))
             .render(l_status[2], buf);
         Line::from(ctx.status[1].as_str())
-            .style(ctx.theme.p.color(Colors::Blue, 2))
+            .style(ctx.theme.p.high_bg_style(Colors::Blue, base.0, base.1))
             .render(l_status[3], buf);
         Line::from(ctx.status[2].as_str())
-            .style(ctx.theme.p.color(Colors::Blue, 3))
+            .style(ctx.theme.p.high_bg_style(Colors::Blue, base.0, base.1))
             .render(l_status[4], buf);
     }
 

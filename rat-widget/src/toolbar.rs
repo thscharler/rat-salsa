@@ -6,8 +6,8 @@ use crate::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
 use crate::choice::{Choice, ChoicePopup, ChoiceSelect, ChoiceState, ChoiceStyle, ChoiceWidget};
 use crate::event::{ButtonOutcome, CheckOutcome, ChoiceOutcome};
 use crate::paired::{PairSplit, Paired, PairedState, PairedWidget};
-use crossterm::event::{Event, KeyEvent};
-use rat_event::{ConsumedEvent, HandleEvent, Outcome, Popup, Regular};
+use crossterm::event::{Event, KeyEvent, KeyEventKind};
+use rat_event::{ConsumedEvent, HandleEvent, Outcome, Popup, Regular, event_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
@@ -56,6 +56,7 @@ pub struct Toolbar<'a> {
 #[derive(Debug)]
 pub struct ToolbarWidget<'a> {
     tools: Vec<ToolWidget1<'a>>,
+    style: Style,
     block: Option<Block<'a>>,
 }
 
@@ -295,10 +296,15 @@ impl<'a> Toolbar<'a> {
         state: &mut ToolbarState,
     ) -> (ToolbarWidget<'a>, ToolbarPopup<'a>) {
         let block = self.block.clone();
+        let style = self.style.clone();
 
         let (t1, t2) = layout(self, area, state);
         (
-            ToolbarWidget { tools: t1, block },
+            ToolbarWidget {
+                tools: t1,
+                style,
+                block,
+            },
             ToolbarPopup { tools: t2 },
         )
     }
@@ -531,7 +537,9 @@ fn layout<'a>(
                 let Some(ToolState::BasicChoice(s)) = &mut state.tools[n] else {
                     unreachable!("invalid_state");
                 };
-                s.set_value(selected);
+                if !s.is_popup_active() {
+                    s.set_value(selected);
+                }
 
                 let key_len = key.width() as u16;
                 widget_area.width = key_len + w.width();
@@ -590,7 +598,11 @@ fn render_ref(widget: ToolbarWidget, area: Rect, buf: &mut Buffer, state: &mut T
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
 
-    widget.block.render(area, buf);
+    if widget.block.is_some() {
+        widget.block.render(area, buf);
+    } else {
+        buf.set_style(area, widget.style);
+    }
 
     for w in widget.tools {
         match w {
@@ -782,29 +794,47 @@ impl<const N: usize> HandleEvent<Event, ToolbarKeys<'_, N>, ToolbarOutcome> for 
         if let Event::Key(event) = event {
             for (n, key) in qualifier.keys.iter().enumerate() {
                 if let Some(key) = key.as_ref()
-                    && event == key
+                    && event.code == key.code
+                    && event.modifiers == key.modifiers
                 {
                     match &mut self.tools[n] {
-                        Some(ToolState::BasicButton(_, _)) => {
-                            return ToolbarOutcome::Pressed(n);
-                        }
-                        Some(ToolState::BasicCheckbox(w)) => {
-                            w.flip_checked();
-                            return ToolbarOutcome::Checked(n, w.value());
-                        }
-                        Some(ToolState::BasicChoice(w)) => {
-                            if w.is_focused() {
-                                if let Some(focus_before) = self.focus_before.as_ref() {
-                                    qualifier.focus.focus(focus_before);
-                                } else {
-                                    qualifier.focus.next();
+                        Some(ToolState::BasicButton(w, _)) => event_flow!(
+                            return {
+                                match w.pressed(event.kind == KeyEventKind::Press) {
+                                    ButtonOutcome::Pressed => ToolbarOutcome::Pressed(n),
+                                    r => ToolbarOutcome::from(Outcome::from(r)),
                                 }
-                            } else {
-                                qualifier.focus.focus(w);
-                                self.focus_before = qualifier.focus.lost_focus();
                             }
-                            return ToolbarOutcome::Changed;
-                        }
+                        ),
+                        Some(ToolState::BasicCheckbox(w)) => event_flow!(
+                            return {
+                                if event.kind == KeyEventKind::Press {
+                                    w.flip_checked();
+                                    ToolbarOutcome::Checked(n, w.value())
+                                } else {
+                                    ToolbarOutcome::Unchanged
+                                }
+                            }
+                        ),
+                        Some(ToolState::BasicChoice(w)) => event_flow!(
+                            return {
+                                if event.kind == KeyEventKind::Press {
+                                    if w.is_focused() {
+                                        if let Some(focus_before) = self.focus_before.as_ref() {
+                                            qualifier.focus.focus(focus_before);
+                                        } else {
+                                            qualifier.focus.next();
+                                        }
+                                    } else {
+                                        qualifier.focus.focus(w);
+                                        self.focus_before = qualifier.focus.lost_focus();
+                                    }
+                                    ToolbarOutcome::Changed
+                                } else {
+                                    ToolbarOutcome::Unchanged
+                                }
+                            }
+                        ),
                         None => {}
                     }
                 }
@@ -813,60 +843,65 @@ impl<const N: usize> HandleEvent<Event, ToolbarKeys<'_, N>, ToolbarOutcome> for 
 
         if self.collapsed_active {
             match self.collapsed.handle(event, Popup) {
-                ChoiceOutcome::Value | ChoiceOutcome::Changed => {
-                    if !self.collapsed.is_popup_active() {
-                        if let Some(value) = self.collapsed.value() {
-                            self.collapsed.set_value(None);
-                            return ToolbarOutcome::Pressed(value);
+                ChoiceOutcome::Value | ChoiceOutcome::Changed => event_flow!(
+                    return {
+                        if !self.collapsed.is_popup_active() {
+                            if let Some(value) = self.collapsed.value() {
+                                self.collapsed.set_value(None);
+                                ToolbarOutcome::Pressed(value)
+                            } else {
+                                ToolbarOutcome::Changed
+                            }
                         } else {
-                            return ToolbarOutcome::Changed;
+                            ToolbarOutcome::Changed
                         }
-                    } else {
-                        return ToolbarOutcome::Changed;
                     }
-                }
+                ),
                 ChoiceOutcome::Continue => {
                     if self.collapsed.lost_focus() {
                         self.collapsed.set_value(None);
                     }
                 }
-                r => return ToolbarOutcome::from(Outcome::from(r)),
+                r => event_flow!(return ToolbarOutcome::from(Outcome::from(r))),
             }
         }
 
         for (n, w) in self.tools.iter_mut().enumerate() {
             match w {
-                Some(ToolState::BasicButton(w, active)) => {
-                    if !*active {
-                        continue;
-                    }
-                    match w.handle(event, Regular) {
-                        ButtonOutcome::Pressed => return ToolbarOutcome::Pressed(n),
-                        ButtonOutcome::Continue => {}
-                        r => return ToolbarOutcome::from(Outcome::from(r)),
-                    }
-                }
-                Some(ToolState::BasicCheckbox(w)) => match w.handle(event, Regular) {
-                    CheckOutcome::Value => return ToolbarOutcome::Checked(n, w.value()),
-                    CheckOutcome::Continue => {}
-                    r => return ToolbarOutcome::from(Outcome::from(r)),
-                },
-                Some(ToolState::BasicChoice(w)) => match w.handle(event, Popup) {
-                    ChoiceOutcome::Value | ChoiceOutcome::Changed => {
-                        if !w.is_popup_active() {
-                            if let Some(focus_before) = self.focus_before.as_ref() {
-                                qualifier.focus.focus(focus_before);
-                            } else {
-                                qualifier.focus.next();
-                            }
-                            return ToolbarOutcome::Selected(n, w.value());
-                        } else {
-                            return ToolbarOutcome::Changed;
+                Some(ToolState::BasicButton(w, active)) => event_flow!(
+                    return {
+                        if !*active {
+                            continue;
+                        }
+                        match w.handle(event, Regular) {
+                            ButtonOutcome::Pressed => ToolbarOutcome::Pressed(n),
+                            r => ToolbarOutcome::from(Outcome::from(r)),
                         }
                     }
-                    ChoiceOutcome::Continue => {}
-                    r => return ToolbarOutcome::from(Outcome::from(r)),
-                },
+                ),
+                Some(ToolState::BasicCheckbox(w)) => event_flow!(
+                    return match w.handle(event, Regular) {
+                        CheckOutcome::Value => ToolbarOutcome::Checked(n, w.value()),
+                        r => ToolbarOutcome::from(Outcome::from(r)),
+                    }
+                ),
+                Some(ToolState::BasicChoice(w)) => event_flow!(
+                    return match w.handle(event, Popup) {
+                        ChoiceOutcome::Value | ChoiceOutcome::Changed => {
+                            if !w.is_popup_active() {
+                                if let Some(focus_before) = self.focus_before.as_ref() {
+                                    qualifier.focus.focus(focus_before);
+                                } else {
+                                    qualifier.focus.next();
+                                }
+                                ToolbarOutcome::Selected(n, w.value())
+                            } else {
+                                ToolbarOutcome::Changed
+                            }
+                        }
+                        r => ToolbarOutcome::from(Outcome::from(r)),
+                    }
+                ),
                 None => {}
             }
         }
