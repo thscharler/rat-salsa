@@ -800,6 +800,22 @@ impl Palette {
         self.high_contrast(color)
     }
 
+    /// Create a style with the given bg and fg chosen from all variants of a color.
+    /// This creates a colored-text style with the fg chosen for good contrast.
+    pub fn normal_bg_style(&self, fg: Colors, bg: Colors, m: usize) -> Style {
+        let colors_fg = &self.color[fg as usize];
+        let color_bg = self.color(bg, m);
+        self.normal_contrast_color(color_bg, colors_fg)
+    }
+
+    /// Create a style with the given bg and fg chosen from all variants of a color.
+    /// /// This creates a colored-text style with the fg chosen for high contrast.
+    pub fn high_bg_style(&self, fg: Colors, bg: Colors, m: usize) -> Style {
+        let colors_fg = &self.color[fg as usize];
+        let color_bg = self.color(bg, m);
+        self.high_contrast_color(color_bg, colors_fg)
+    }
+
     /// Create a style with the given fg/bg.
     pub fn fg_bg_style(&self, fg: Colors, n: usize, bg: Colors, m: usize) -> Style {
         let color = self.color(fg, n);
