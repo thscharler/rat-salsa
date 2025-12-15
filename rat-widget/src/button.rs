@@ -355,6 +355,38 @@ impl ButtonState {
     }
 }
 
+impl ButtonState {
+    /// Simulates the button-press event.
+    pub fn pressed(&mut self, is_pressed: bool) -> ButtonOutcome {
+        // Release keys may not be available.
+        if have_keyboard_enhancement() {
+            if is_pressed {
+                self.armed = true;
+                ButtonOutcome::Changed
+            } else if !is_pressed {
+                if self.armed {
+                    if let Some(delay) = self.armed_delay {
+                        thread::sleep(delay);
+                    }
+                    self.armed = false;
+                    ButtonOutcome::Pressed
+                } else {
+                    // single key release happen more often than not.
+                    ButtonOutcome::Unchanged
+                }
+            } else {
+                ButtonOutcome::Continue
+            }
+        } else {
+            if is_pressed {
+                ButtonOutcome::Pressed
+            } else {
+                ButtonOutcome::Continue
+            }
+        }
+    }
+}
+
 impl HasFocus for ButtonState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.leaf_widget(self);
@@ -511,39 +543,10 @@ impl HandleEvent<crossterm::event::Event, crossterm::event::KeyEvent, ButtonOutc
 
         let r = match event {
             Event::Key(key) => {
-                // Release keys may not be available.
-                if have_keyboard_enhancement() {
-                    if hotkey.code == key.code && hotkey.modifiers == key.modifiers {
-                        if key.kind == crossterm::event::KeyEventKind::Press {
-                            self.armed = true;
-                            ButtonOutcome::Changed
-                        } else if key.kind == crossterm::event::KeyEventKind::Release {
-                            if self.armed {
-                                if let Some(delay) = self.armed_delay {
-                                    thread::sleep(delay);
-                                }
-                                self.armed = false;
-                                ButtonOutcome::Pressed
-                            } else {
-                                // single key release happen more often than not.
-                                ButtonOutcome::Unchanged
-                            }
-                        } else {
-                            ButtonOutcome::Continue
-                        }
-                    } else {
-                        ButtonOutcome::Continue
-                    }
+                if hotkey.code == key.code && hotkey.modifiers == key.modifiers {
+                    self.pressed(key.kind == crossterm::event::KeyEventKind::Press)
                 } else {
-                    if hotkey.code == key.code && hotkey.modifiers == key.modifiers {
-                        if key.kind == crossterm::event::KeyEventKind::Press {
-                            ButtonOutcome::Pressed
-                        } else {
-                            ButtonOutcome::Continue
-                        }
-                    } else {
-                        ButtonOutcome::Continue
-                    }
+                    ButtonOutcome::Continue
                 }
             }
             _ => ButtonOutcome::Continue,
