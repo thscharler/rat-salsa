@@ -23,7 +23,7 @@ enum Tool<'a> {
     CollapsedButtons(Cow<'a, str>),
     BasicButton(Cow<'a, str>, Cow<'a, str>, bool),
     BasicCheckbox(Cow<'a, str>, Cow<'a, str>, bool),
-    BasicChoice(Cow<'a, str>, Vec<Line<'a>>),
+    BasicChoice(Cow<'a, str>, Vec<Line<'a>>, usize),
     Text(Line<'a>),
 }
 
@@ -194,10 +194,12 @@ impl<'a> Toolbar<'a> {
         mut self,
         key: impl Into<Cow<'a, str>>,
         items: impl IntoIterator<Item = V>,
+        selected: usize,
     ) -> Self {
         self.tools.push(Tool::BasicChoice(
             key.into(),
             items.into_iter().map(|v| v.into()).collect(),
+            selected,
         ));
         self
     }
@@ -306,7 +308,7 @@ enum ToolLayout<'a> {
     CollapsedButton(Line<'a>),
     BasicButton(u16, Button<'a>, Line<'a>, bool),
     BasicCheckbox(Checkbox<'a>),
-    BasicChoice(Line<'a>, Choice<'a, usize>),
+    BasicChoice(Line<'a>, Choice<'a, usize>, usize),
     Text(Line<'a>),
 }
 
@@ -315,7 +317,7 @@ enum ToolLayout2<'a> {
     CollapsedButton(Choice<'a, Option<usize>>),
     BasicButton(usize, Button<'a>),
     BasicCheckbox(usize, Checkbox<'a>),
-    BasicChoice(usize, Line<'a>, Choice<'a, usize>),
+    BasicChoice(usize, Line<'a>, Choice<'a, usize>, usize),
     Text(Line<'a>),
 }
 
@@ -377,14 +379,14 @@ fn layout<'a>(
                 total_width += w_width;
                 layout1.push(ToolLayout::BasicCheckbox(c));
             }
-            Tool::BasicChoice(key, items) => {
+            Tool::BasicChoice(key, items, selected) => {
                 let key = Line::from(key).style(key_style.clone());
                 let c = Choice::new()
                     .items(items.into_iter().enumerate())
                     .styles(widget.choice_style.clone());
                 let w_width = key.width() as u16 + c.width() + widget.spacing;
                 total_width += w_width;
-                layout1.push(ToolLayout::BasicChoice(key, c));
+                layout1.push(ToolLayout::BasicChoice(key, c, selected));
             }
             Tool::Text(txt) => {
                 let w_width = txt.width() as u16 + widget.spacing;
@@ -435,8 +437,8 @@ fn layout<'a>(
                     layout2.push(ToolLayout2::BasicCheckbox(n, c));
                     n += 1;
                 }
-                ToolLayout::BasicChoice(t, c) => {
-                    layout2.push(ToolLayout2::BasicChoice(n, t, c));
+                ToolLayout::BasicChoice(t, c, selected) => {
+                    layout2.push(ToolLayout2::BasicChoice(n, t, c, selected));
                     n += 1;
                 }
                 ToolLayout::Text(t) => {
@@ -466,8 +468,8 @@ fn layout<'a>(
                     layout2.push(ToolLayout2::BasicCheckbox(n, c));
                     n += 1;
                 }
-                ToolLayout::BasicChoice(t, c) => {
-                    layout2.push(ToolLayout2::BasicChoice(n, t, c));
+                ToolLayout::BasicChoice(t, c, selected) => {
+                    layout2.push(ToolLayout2::BasicChoice(n, t, c, selected));
                     n += 1;
                 }
                 ToolLayout::Text(t) => {
@@ -519,13 +521,17 @@ fn layout<'a>(
                 widget_area.width = w.width();
                 widgets1.push(ToolWidget1::BasicCheckbox(n, widget_area, w));
             }
-            ToolLayout2::BasicChoice(n, key, w) => {
+            ToolLayout2::BasicChoice(n, key, w, selected) => {
                 while state.tools.len() <= n {
                     state.tools.push(None);
                 }
                 if state.tools[n].is_none() {
                     state.tools[n] = Some(ToolState::BasicChoice(ChoiceState::default()));
                 }
+                let Some(ToolState::BasicChoice(s)) = &mut state.tools[n] else {
+                    unreachable!("invalid_state");
+                };
+                s.set_value(selected);
 
                 let key_len = key.width() as u16;
                 widget_area.width = key_len + w.width();
