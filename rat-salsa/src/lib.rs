@@ -86,6 +86,7 @@ pub mod poll {
         fn read(&mut self) -> Result<crate::Control<Event>, Error>;
     }
 
+    #[cfg(feature = "crossterm")]
     mod crossterm;
     mod quit;
     mod rendered;
@@ -94,6 +95,7 @@ pub mod poll {
     #[cfg(feature = "async")]
     mod tokio_tasks;
 
+    #[cfg(feature = "crossterm")]
     pub use crossterm::PollCrossterm;
     pub use quit::PollQuit;
     pub use rendered::PollRendered;
@@ -386,9 +388,12 @@ where
     #[inline]
     fn spawn_ext(
         &self,
-        task: impl FnOnce(Cancel, &Sender<Result<Control<Event>, Error>>) -> Result<Control<Event>, Error>
-            + Send
-            + 'static,
+        task: impl FnOnce(
+            Cancel,
+            &Sender<Result<Control<Event>, Error>>,
+        ) -> Result<Control<Event>, Error>
+        + Send
+        + 'static,
     ) -> Result<(Cancel, Liveness), SendError<()>>
     where
         Event: 'static + Send,

@@ -1,5 +1,9 @@
-use crate::{Control, SalsaContext};
+#[cfg(feature = "crossterm")]
+use crate::Control;
+use crate::SalsaContext;
+#[cfg(feature = "crossterm")]
 use rat_event::{Dialog, HandleEvent, try_flow};
+#[cfg(feature = "crossterm")]
 use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileDialog, FileDialogState, FileDialogStyle};
 use rat_widget::layout::LayoutOuter;
@@ -9,8 +13,10 @@ use ratatui::layout::Rect;
 use ratatui::widgets::StatefulWidget;
 use std::any::Any;
 use std::cell::RefCell;
+#[cfg(feature = "crossterm")]
 use std::path::PathBuf;
 use std::rc::Rc;
+#[cfg(feature = "crossterm")]
 use try_as_traits::TryAsRef;
 
 /// Create a render-fn for FileDialog to be used with DialogStack.
@@ -45,6 +51,7 @@ where
 
 /// Create an event-fn for FileDialog to be used with DialogStack.
 #[allow(unused_variables)]
+#[cfg(feature = "crossterm")]
 pub fn file_dialog_event<Event, Error, Context: SalsaContext<Event, Error>>(
     map: impl Fn(Result<PathBuf, ()>) -> Event,
 ) -> impl Fn(&Event, &mut dyn Any, &mut Context) -> Result<Control<Event>, Error>
@@ -88,6 +95,7 @@ where
 
 /// Create an event-fn for FileDialog to be used with DialogStack.
 #[allow(unused_variables)]
+#[cfg(feature = "crossterm")]
 pub fn file_dialog_event2<Event, Error, Context: SalsaContext<Event, Error>>(
     map: impl Fn(FileOutcome) -> Event,
 ) -> impl Fn(&Event, &mut dyn Any, &mut Context) -> Result<Control<Event>, Error>

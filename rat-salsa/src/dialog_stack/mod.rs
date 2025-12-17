@@ -265,6 +265,7 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
 /// Panic
 ///
 /// This function is not reentrant, it will panic when called from within it's call-stack.
+#[cfg(feature = "crossterm")]
 impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<Control<Event>, Error>>
     for DialogStack<Event, Context, Error>
 where
@@ -328,6 +329,7 @@ where
 /// Panic
 ///
 /// This function is not reentrant, it will panic when called from within it's call-stack.
+#[cfg(feature = "crossterm")]
 pub fn handle_dialog_stack<Event, Context, Error>(
     mut dialog_stack: DialogStack<Event, Context, Error>,
     event: &Event,

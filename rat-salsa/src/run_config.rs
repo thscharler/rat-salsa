@@ -1,5 +1,7 @@
 use crate::poll::PollEvents;
-use crate::terminal::{CrosstermTerminal, Terminal};
+#[cfg(feature = "crossterm")]
+use crate::terminal::CrosstermTerminal;
+use crate::terminal::Terminal;
 use crossbeam::channel::TryRecvError;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
@@ -45,6 +47,7 @@ where
 {
     /// New configuration with some defaults.
     #[allow(clippy::should_implement_trait)]
+    #[cfg(feature = "crossterm")]
     pub fn default() -> Result<Self, Error> {
         Ok(Self {
             manual: Default::default(),
