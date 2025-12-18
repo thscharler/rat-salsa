@@ -2,14 +2,26 @@ use crate::framework::control_queue::ControlQueue;
 #[cfg(feature = "async")]
 use crate::poll::PollTokio;
 use crate::poll::{PollQuit, PollRendered, PollTasks, PollTimers};
-use crate::run_config::RunConfig;
+use crate::run_config::{RunConfig, TermInit};
 use crate::{Control, SalsaAppContext, SalsaContext};
+use crossterm::ExecutableCommand;
+use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
+use crossterm::event::{
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+};
+use crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
+use log::debug;
 use poll_queue::PollQueue;
+use rat_event::util::set_have_keyboard_enhancement;
+use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::any::TypeId;
 use std::cmp::min;
-use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::io::stdout;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::time::{Duration, SystemTime};
 use std::{io, thread};
 
@@ -100,28 +112,32 @@ where
     init(state, global)?;
 
     // initial render
-
-    let ib = global.salsa_ctx().insert_before.take();
-    if ib.height > 0 {
-        term.borrow_mut().insert_before(ib.height, ib.draw_fn)?;
-    }
-    term.borrow_mut().render(&mut |frame| {
-        let frame_area = frame.area();
-        let ttt = SystemTime::now();
-        render(frame_area, frame.buffer_mut(), state, global)?;
-        global
-            .salsa_ctx()
-            .last_render
-            .set(ttt.elapsed().unwrap_or_default());
-        if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
-            frame.set_cursor_position((cursor_x, cursor_y));
+    {
+        let ib = global.salsa_ctx().insert_before.take();
+        if ib.height > 0 {
+            term.borrow_mut().insert_before(ib.height, ib.draw_fn)?;
         }
-        global.salsa_ctx().count.set(frame.count());
-        global.salsa_ctx().cursor.set(None);
-        Ok(())
-    })?;
-    if let Some(idx) = rendered_event {
-        global.salsa_ctx().queue.push(poll[idx].read());
+        let mut r = Ok(());
+        term.borrow_mut().draw(&mut |frame: &mut Frame| -> () {
+            let frame_area = frame.area();
+            let ttt = SystemTime::now();
+
+            r = render(frame_area, frame.buffer_mut(), state, global);
+
+            global
+                .salsa_ctx()
+                .last_render
+                .set(ttt.elapsed().unwrap_or_default());
+            if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
+                frame.set_cursor_position((cursor_x, cursor_y));
+            }
+            global.salsa_ctx().count.set(frame.count());
+            global.salsa_ctx().cursor.set(None);
+        })?;
+        r?;
+        if let Some(idx) = rendered_event {
+            global.salsa_ctx().queue.push(poll[idx].read());
+        }
     }
 
     'ui: loop {
@@ -212,10 +228,13 @@ where
                     if ib.height > 0 {
                         term.borrow_mut().insert_before(ib.height, ib.draw_fn)?;
                     }
-                    let r = term.borrow_mut().render(&mut |frame| {
+                    let mut r = Ok(());
+                    term.borrow_mut().draw(&mut |frame: &mut Frame| -> () {
                         let frame_area = frame.area();
                         let ttt = SystemTime::now();
-                        render(frame_area, frame.buffer_mut(), state, global)?;
+
+                        r = render(frame_area, frame.buffer_mut(), state, global);
+
                         global
                             .salsa_ctx()
                             .last_render
@@ -225,9 +244,7 @@ where
                         }
                         global.salsa_ctx().count.set(frame.count());
                         global.salsa_ctx().cursor.set(None);
-                        Ok(())
-                    });
-
+                    })?;
                     match r {
                         Ok(_) => {
                             if let Some(h) = rendered_event {
@@ -276,7 +293,9 @@ where
         }
     }
 
-    // state.shutdown(&mut appctx)?;
+    if cfg.term_init.clear_area {
+        term.borrow_mut().clear()?;
+    }
 
     Ok(())
 }
@@ -419,11 +438,10 @@ where
     Event: 'static,
     Error: 'static + From<io::Error>,
 {
-    let manual = cfg.manual;
-    let term = cfg.term.clone();
+    let t = cfg.term_init;
 
-    if !manual {
-        term.borrow_mut().init()?;
+    if !t.manual {
+        init_terminal(t)?;
     }
 
     let r = match catch_unwind(AssertUnwindSafe(|| {
@@ -431,16 +449,69 @@ where
     })) {
         Ok(v) => v,
         Err(e) => {
-            if !manual {
-                _ = term.borrow_mut().shutdown();
+            if !t.manual {
+                _ = shutdown_terminal(t);
             }
             resume_unwind(e);
         }
     };
 
-    if !manual {
-        term.borrow_mut().shutdown()?;
+    if !t.manual {
+        shutdown_terminal(t)?;
     }
 
     r
+}
+
+fn init_terminal(cfg: TermInit) -> io::Result<()> {
+    if cfg.alternate_screen {
+        debug!("enter alternate screen");
+        stdout().execute(EnterAlternateScreen)?;
+    }
+    if cfg.mouse_capture {
+        stdout().execute(EnableMouseCapture)?;
+    }
+    if cfg.bracketed_paste {
+        stdout().execute(EnableBracketedPaste)?;
+    }
+    if cfg.cursor_blinking {
+        stdout().execute(EnableBlinking)?;
+    }
+    stdout().execute(cfg.cursor)?;
+    #[cfg(not(windows))]
+    {
+        stdout().execute(PushKeyboardEnhancementFlags(cfg.keyboard_enhancements))?;
+        let enhanced = supports_keyboard_enhancement().unwrap_or_default();
+        set_have_keyboard_enhancement(enhanced);
+    }
+    #[cfg(windows)]
+    {
+        set_have_keyboard_enhancement(true);
+    }
+
+    enable_raw_mode()?;
+
+    Ok(())
+}
+
+fn shutdown_terminal(cfg: TermInit) -> io::Result<()> {
+    disable_raw_mode()?;
+
+    #[cfg(not(windows))]
+    stdout().execute(PopKeyboardEnhancementFlags)?;
+    stdout().execute(SetCursorStyle::DefaultUserShape)?;
+    if cfg.cursor_blinking {
+        stdout().execute(DisableBlinking)?;
+    }
+    if cfg.bracketed_paste {
+        stdout().execute(DisableBracketedPaste)?;
+    }
+    if cfg.mouse_capture {
+        stdout().execute(DisableMouseCapture)?;
+    }
+    if cfg.alternate_screen {
+        stdout().execute(LeaveAlternateScreen)?;
+    }
+
+    Ok(())
 }

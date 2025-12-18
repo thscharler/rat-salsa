@@ -1,3 +1,20 @@
+# 3.0.0
+
+* BREAK: Removed my own Terminal trait.
+
+Rat-salsa now only supports crossterm, which more or less has always been the
+case. With the removal of my own Terminal wrapper trait it throws away
+the pretense that it could do differently. 
+
+On the plus side this removes a bit of unnecessary complexity as well.
+
+Most of the current functionality is moved to RunConfig:
+
+    - `CrosstermTerminal::inline(..)` and `CrosstermTerminal::fixed(..)` moved to RunConfig.
+    - `RunConfig::term_init(..)` is added for terminal flags. 
+    - `SalsaOptions` renamed to `TermInit`.
+    - Use `Terminal<CrosstermBackend<Stdout>>` instead of the trait. 
+
 # 2.6.4
 
 * fix docs

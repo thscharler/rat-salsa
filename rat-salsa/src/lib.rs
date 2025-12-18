@@ -9,12 +9,15 @@ use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
+use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 #[cfg(feature = "async")]
 use std::future::Future;
+use std::io::Stdout;
 use std::mem;
 use std::rc::Rc;
 use std::time::Duration;
@@ -29,15 +32,13 @@ pub mod dialog_stack;
 mod framework;
 mod run_config;
 pub mod tasks;
-pub mod terminal;
 mod thread_pool;
 pub mod timer;
 #[cfg(feature = "async")]
 mod tokio_tasks;
 
-use crate::terminal::Terminal;
 pub use framework::run_tui;
-pub use run_config::RunConfig;
+pub use run_config::{RunConfig, TermInit};
 
 /// Event types.
 pub mod event {
@@ -386,9 +387,12 @@ where
     #[inline]
     fn spawn_ext(
         &self,
-        task: impl FnOnce(Cancel, &Sender<Result<Control<Event>, Error>>) -> Result<Control<Event>, Error>
-            + Send
-            + 'static,
+        task: impl FnOnce(
+            Cancel,
+            &Sender<Result<Control<Event>, Error>>,
+        ) -> Result<Control<Event>, Error>
+        + Send
+        + 'static,
     ) -> Result<(Cancel, Liveness), SendError<()>>
     where
         Event: 'static + Send,
@@ -567,7 +571,7 @@ where
 
     /// Access the terminal.
     #[inline]
-    fn terminal(&mut self) -> Rc<RefCell<dyn Terminal<Error>>> {
+    fn terminal(&mut self) -> Rc<RefCell<Terminal<CrosstermBackend<Stdout>>>> {
         self.salsa_ctx().term.clone().expect("terminal")
     }
 
@@ -607,7 +611,7 @@ where
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
-    pub(crate) term: Option<Rc<RefCell<dyn Terminal<Error>>>>,
+    pub(crate) term: Option<Rc<RefCell<Terminal<CrosstermBackend<Stdout>>>>>,
     /// Clear terminal before next draw.
     pub(crate) clear_terminal: Cell<bool>,
     /// Call insert_before before the next draw.

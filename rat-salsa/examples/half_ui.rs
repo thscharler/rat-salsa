@@ -6,7 +6,6 @@ use anyhow::Error;
 use rat_focus::impl_has_focus;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered};
-use rat_salsa::terminal::{CrosstermTerminal, SalsaOptions};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
@@ -22,7 +21,6 @@ use ratatui::prelude::Widget;
 use ratatui::style::Style;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::StatefulWidget;
-use ratatui::{TerminalOptions, Viewport};
 use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -35,8 +33,13 @@ fn main() -> Result<(), Error> {
     let mut global = Global::new(config, theme);
     let mut state = Scenery::default();
 
-    #[allow(unused_variables)]
     let term_size = crossterm::terminal::size()?;
+    let area = Rect::new(
+        term_size.0.saturating_sub(30),
+        term_size.1.saturating_sub(2),
+        30,
+        2,
+    );
 
     run_tui(
         init,
@@ -45,17 +48,9 @@ fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(CrosstermTerminal::with_options(SalsaOptions {
-            alternate_screen: false,
-            shutdown_clear: true,
-            ratatui_options: TerminalOptions {
-                // viewport: Viewport::Fixed(Rect::new(term_size.0 - 30, term_size.1 - 10, 30, 10)),
-                viewport: Viewport::Inline(4),
-            },
-            ..Default::default()
-        })?)
-        .poll(PollCrossterm)
-        .poll(PollRendered),
+        RunConfig::fixed(area, true)?
+            .poll(PollCrossterm)
+            .poll(PollRendered),
     )?;
 
     Ok(())

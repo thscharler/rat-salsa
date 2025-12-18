@@ -6,7 +6,6 @@ use crate::minimal::Minimal;
 use anyhow::Error;
 use rat_salsa::event::RenderedEvent;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa::terminal::CrosstermTerminal;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::create_salsa_theme;
@@ -37,7 +36,7 @@ fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(CrosstermTerminal::inline(10, true)?)
+        RunConfig::inline(10, true)?
             .poll(PollCrossterm)
             .poll(PollTimers::default())
             .poll(PollTasks::default())
