@@ -15,22 +15,16 @@ exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
 workspace = true
 
 [features]
-default = ["dep:crossterm"]
-# Include crossterm support. Default enabled.
-crossterm = ["dep:crossterm"]
-# Include tokio support.
+default = []
 async = ["dep:tokio"]
-# Add scrolling-regions. See ratatui/scrolling-regions
 scrolling-regions = ["ratatui/scrolling-regions"]
-# Add support for dialog windows.
 dialog = ["try_as_traits"]
-# Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
 dialog_widgets = ["dialog", "rat-widget"]
 
 [dependencies]
 log = "0.4"
 crossbeam = "0.8"
-crossterm = { version = "0.28", optional = true }
+crossterm = "0.28"
 try_as_traits = { version = "0.1", optional = true }
 ratatui = { version = "0.29", features = [] }
 tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
@@ -58,81 +52,18 @@ rat-widget = { version = "2.10", path = "../rat-widget", features = ["user_direc
 rat-theme4 = { version = "4.3", path = "../rat-theme4" }
 
 [[example]]
+name = "async1"
+required-features = ["async", "scrolling-regions"]
+
+[[example]]
 name = "minimal"
 path = "templates/minimal.rs"
-required-features = ["crossterm"]
 
 [[example]]
 name = "nominal"
 path = "templates/nominal.rs"
-required-features = ["crossterm"]
 
 [[example]]
 name = "dialog"
 path = "templates/dialog.rs"
-required-features = ["dialog", "crossterm"]
-
-[[example]]
-name = "async1"
-required-features = ["async", "crossterm", "scrolling-regions"]
-
-[[example]]
-name = "composite"
-path = "examples/composite.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "files"
-path = "examples/files.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "half_ui"
-path = "examples/half_ui.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "inline"
-path = "examples/inline.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "life"
-path = "examples/life.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "links"
-path = "examples/links.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "logscroll"
-path = "examples/logscroll.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "textinput"
-path = "examples/textinput.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "themes"
-path = "examples/themes.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "todo"
-path = "examples/todo.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "turbo"
-path = "examples/turbo.rs"
-required-features = ["crossterm"]
-
-[[example]]
-name = "ultra"
-path = "examples/ultra.rs"
-required-features = ["crossterm"]
-
+required-features = ["dialog"]

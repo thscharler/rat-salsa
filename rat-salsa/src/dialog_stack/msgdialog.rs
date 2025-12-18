@@ -1,15 +1,11 @@
-#[cfg(feature = "crossterm")]
-use crate::Control;
-use crate::SalsaContext;
-#[cfg(feature = "crossterm")]
-use rat_event::{Dialog, HandleEvent, Outcome, try_flow};
+use crate::{Control, SalsaContext};
+use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
 use rat_widget::layout::LayoutOuter;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::StatefulWidget;
 use std::any::Any;
-#[cfg(feature = "crossterm")]
 use try_as_traits::TryAsRef;
 
 /// Create a render-fn for MsgDialog to be used with DialogStack.
@@ -35,7 +31,6 @@ where
 }
 
 /// Create an event-fn for MsgDialog to be used with DialogStack.
-#[cfg(feature = "crossterm")]
 #[allow(unused_variables)]
 pub fn msg_dialog_event<Event, Error, Context: SalsaContext<Event, Error>>(
     map: impl Fn() -> Event,
