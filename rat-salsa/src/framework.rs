@@ -173,7 +173,7 @@ where
                 for p in poll.iter_mut() {
                     if let Some(timer_sleep) = p.sleep_time() {
                         t = min(timer_sleep, t);
-                    } 
+                    }
                 }
                 thread::sleep(t);
                 if poll_sleep < Duration::from_micros(SLEEP) {
@@ -254,15 +254,8 @@ where
                 #[cfg(feature = "dialog")]
                 Ok(Control::Close(a)) => {
                     // close probably demands a repaint.
+                    global.salsa_ctx().queue.push(Ok(Control::Event(a)));
                     global.salsa_ctx().queue.push(Ok(Control::Changed));
-                    // forward event.
-                    let ttt = SystemTime::now();
-                    let r = event(&a, state, global);
-                    global
-                        .salsa_ctx()
-                        .last_event
-                        .set(ttt.elapsed().unwrap_or_default());
-                    global.salsa_ctx().queue.push(r);
                 }
                 Ok(Control::Event(a)) => {
                     let ttt = SystemTime::now();
@@ -275,14 +268,19 @@ where
                 }
                 Ok(Control::Quit) => {
                     if let Some(quit) = quit {
-                        let Control::Event(a) = poll[quit].read().unwrap_or(Control::Quit) else {
-                            unreachable!();
-                        };
-                        match event(&a, state, global) {
-                            Ok(Control::Quit) => { /* really quit now */ }
-                            Ok(v) => global.salsa_ctx().queue.push(Ok(v)),
-                            Err(e) => global.salsa_ctx().queue.push(Err(e)),
-                        };
+                        match poll[quit].read() {
+                            Ok(Control::Event(a)) => {
+                                match event(&a, state, global) {
+                                    Ok(Control::Quit) => { /* really quit now */ }
+                                    v => {
+                                        global.salsa_ctx().queue.push(v);
+                                        continue;
+                                    }
+                                }
+                            }
+                            Err(_) => unreachable!(),
+                            Ok(_) => unreachable!(),
+                        }
                     }
                     break 'ui;
                 }
