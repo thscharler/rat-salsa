@@ -13,12 +13,10 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use std::cell::{Cell, Ref, RefCell, RefMut};
-use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 #[cfg(feature = "async")]
 use std::future::Future;
 use std::io::Stdout;
-use std::mem;
 use std::rc::Rc;
 use std::time::Duration;
 #[cfg(feature = "async")]
@@ -27,246 +25,29 @@ use tokio::task::AbortHandle;
 #[cfg(feature = "dialog")]
 pub use try_as_traits::{TryAsMut, TryAsRef, TypedContainer};
 
-#[cfg(feature = "dialog")]
-pub mod dialog_stack;
+mod control;
 mod framework;
 mod run_config;
-pub mod tasks;
 mod thread_pool;
-pub mod timer;
 #[cfg(feature = "async")]
 mod tokio_tasks;
 
+pub use control::Control;
 pub use framework::run_tui;
 pub use run_config::{RunConfig, TermInit};
 
+#[cfg(feature = "dialog")]
+pub mod dialog_stack;
 /// Event types.
-pub mod event {
-    /// Timer event.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct TimerEvent(pub crate::timer::TimeOut);
-
-    /// Event sent immediately after rendering.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct RenderedEvent;
-
-    /// Event sent immediately before quitting the application.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct QuitEvent;
-}
-
+pub mod event;
 /// Event sources.
-pub mod poll {
-    /// Trait for an event-source.
-    ///
-    /// If you need to add your own do the following:
-    ///
-    /// * Implement this trait for a struct that fits.
-    ///
-    pub trait PollEvents<Event, Error>: std::any::Any
-    where
-        Event: 'static,
-        Error: 'static,
-    {
-        fn as_any(&self) -> &dyn std::any::Any;
-
-        /// Poll for a new event.
-        ///
-        /// Events are not processed immediately when they occur. Instead,
-        /// all event sources are polled, the poll state is put into a queue.
-        /// Then the queue is emptied one by one and `read_execute()` is called.
-        ///
-        /// This prevents issues with poll-ordering of multiple sources, and
-        /// one source cannot just flood the app with events.
-        fn poll(&mut self) -> Result<bool, Error>;
-
-        /// Read the event and distribute it.
-        ///
-        /// If you add a new event, that doesn't fit into AppEvents, you'll
-        /// have to define a new trait for your AppState and use that.
-        fn read(&mut self) -> Result<crate::Control<Event>, Error>;
-    }
-
-    mod crossterm;
-    mod quit;
-    mod rendered;
-    mod thread_pool;
-    mod timer;
-    #[cfg(feature = "async")]
-    mod tokio_tasks;
-
-    pub use crossterm::PollCrossterm;
-    pub use quit::PollQuit;
-    pub use rendered::PollRendered;
-    pub use thread_pool::PollTasks;
-    pub use timer::PollTimers;
-    #[cfg(feature = "async")]
-    pub use tokio_tasks::PollTokio;
-}
-
-pub mod mock {
-    //! Provides dummy implementations for some functions.
-
-    /// Empty placeholder for [run_tui](crate::run_tui).
-    pub fn init<State, Global, Error>(
-        _state: &mut State, //
-        _ctx: &mut Global,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
-
-    /// Empty placeholder for [run_tui](crate::run_tui).
-    pub fn error<Global, State, Event, Error>(
-        _error: Error,
-        _state: &mut State,
-        _ctx: &mut Global,
-    ) -> Result<crate::Control<Event>, Error> {
-        Ok(crate::Control::Continue)
-    }
-}
-
-/// Result enum for event handling.
-///
-/// The result of an event is processed immediately after the
-/// function returns, before polling new events. This way an action
-/// can trigger another action which triggers the repaint without
-/// other events intervening.
-///
-/// If you ever need to return more than one result from event-handling,
-/// you can hand it to AppContext/RenderContext::queue(). Events
-/// in the queue are processed in order, and the return value of
-/// the event-handler comes last. If an error is returned, everything
-/// send to the queue will be executed nonetheless.
-///
-/// __See__
-///
-/// - [flow!](rat_event::flow)
-/// - [try_flow!](rat_event::try_flow)
-/// - [ConsumedEvent]
-#[derive(Debug, Clone, Copy)]
-#[must_use]
-#[non_exhaustive]
-pub enum Control<Event> {
-    /// Continue with event-handling.
-    /// In the event-loop this waits for the next event.
-    Continue,
-    /// Break event-handling without repaint.
-    /// In the event-loop this waits for the next event.
-    Unchanged,
-    /// Break event-handling and repaints/renders the application.
-    /// In the event-loop this calls `render`.
-    Changed,
-    /// Eventhandling can cause secondary application specific events.
-    /// One common way is to return this `Control::Message(my_event)`
-    /// to reenter the event-loop with your own secondary event.
-    ///
-    /// This acts quite like a message-queue to communicate between
-    /// disconnected parts of your application. And indeed there is
-    /// a hidden message-queue as part of the event-loop.
-    ///
-    /// The other way is to call [SalsaAppContext::queue] to initiate such
-    /// events.
-    Event(Event),
-    /// A dialog close event. In the main loop it will be handled
-    /// just like [Control::Event]. But the DialogStack can react
-    /// separately and close the window.
-    #[cfg(feature = "dialog")]
-    Close(Event),
-    /// Quit the application.
-    Quit,
-}
-
-impl<Event> Eq for Control<Event> {}
-
-impl<Event> PartialEq for Control<Event> {
-    fn eq(&self, other: &Self) -> bool {
-        mem::discriminant(self) == mem::discriminant(other)
-    }
-}
-
-impl<Event> Ord for Control<Event> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self {
-            Control::Continue => match other {
-                Control::Continue => Ordering::Equal,
-                Control::Unchanged => Ordering::Less,
-                Control::Changed => Ordering::Less,
-                Control::Event(_) => Ordering::Less,
-                #[cfg(feature = "dialog")]
-                Control::Close(_) => Ordering::Less,
-                Control::Quit => Ordering::Less,
-            },
-            Control::Unchanged => match other {
-                Control::Continue => Ordering::Greater,
-                Control::Unchanged => Ordering::Equal,
-                Control::Changed => Ordering::Less,
-                Control::Event(_) => Ordering::Less,
-                #[cfg(feature = "dialog")]
-                Control::Close(_) => Ordering::Less,
-                Control::Quit => Ordering::Less,
-            },
-            Control::Changed => match other {
-                Control::Continue => Ordering::Greater,
-                Control::Unchanged => Ordering::Greater,
-                Control::Changed => Ordering::Equal,
-                Control::Event(_) => Ordering::Less,
-                #[cfg(feature = "dialog")]
-                Control::Close(_) => Ordering::Less,
-                Control::Quit => Ordering::Less,
-            },
-            Control::Event(_) => match other {
-                Control::Continue => Ordering::Greater,
-                Control::Unchanged => Ordering::Greater,
-                Control::Changed => Ordering::Greater,
-                Control::Event(_) => Ordering::Equal,
-                #[cfg(feature = "dialog")]
-                Control::Close(_) => Ordering::Less,
-                Control::Quit => Ordering::Less,
-            },
-            #[cfg(feature = "dialog")]
-            Control::Close(_) => match other {
-                Control::Continue => Ordering::Greater,
-                Control::Unchanged => Ordering::Greater,
-                Control::Changed => Ordering::Greater,
-                Control::Event(_) => Ordering::Greater,
-                Control::Close(_) => Ordering::Equal,
-                Control::Quit => Ordering::Less,
-            },
-            Control::Quit => match other {
-                Control::Continue => Ordering::Greater,
-                Control::Unchanged => Ordering::Greater,
-                Control::Changed => Ordering::Greater,
-                Control::Event(_) => Ordering::Greater,
-                #[cfg(feature = "dialog")]
-                Control::Close(_) => Ordering::Greater,
-                Control::Quit => Ordering::Equal,
-            },
-        }
-    }
-}
-
-impl<Event> PartialOrd for Control<Event> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<Event> ConsumedEvent for Control<Event> {
-    fn is_consumed(&self) -> bool {
-        !matches!(self, Control::Continue)
-    }
-}
-
-impl<Event, T: Into<Outcome>> From<T> for Control<Event> {
-    fn from(value: T) -> Self {
-        let r = value.into();
-        match r {
-            Outcome::Continue => Control::Continue,
-            Outcome::Unchanged => Control::Unchanged,
-            Outcome::Changed => Control::Changed,
-        }
-    }
-}
+pub mod poll;
+/// Provides dummy implementations for some functions.
+pub mod mock;
+/// Types used for both future tasks and thread tasks.
+pub mod tasks;
+/// Support for timers.
+pub mod timer;
 
 /// This trait gives access to all facilities built into rat-salsa.
 ///

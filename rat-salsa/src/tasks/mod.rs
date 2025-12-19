@@ -1,6 +1,3 @@
-//!
-//! Types used for both future tasks and thread tasks.
-//!
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 

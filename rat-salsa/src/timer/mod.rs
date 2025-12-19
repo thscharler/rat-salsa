@@ -1,6 +1,3 @@
-//!
-//! Support for timers.
-//!
 use crate::event::TimerEvent;
 use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
