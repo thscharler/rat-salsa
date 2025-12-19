@@ -9,9 +9,7 @@ use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
 };
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
+use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode, SetTitle};
 use log::debug;
 use poll_queue::PollQueue;
 use rat_event::util::set_have_keyboard_enhancement;
@@ -93,6 +91,7 @@ where
         count: Default::default(),
         cursor: Default::default(),
         term: Some(term.clone()),
+        window_title: Default::default(),
         clear_terminal: Default::default(),
         insert_before: Default::default(),
         last_render: Default::default(),
@@ -109,6 +108,7 @@ where
     let mut was_changed = false;
 
     // init state
+    debug!("call init");
     init(state, global)?;
 
     // initial render
@@ -137,6 +137,10 @@ where
         r?;
         if let Some(idx) = rendered_event {
             global.salsa_ctx().queue.push(poll[idx].read());
+        }
+        if let Some(title) = global.salsa_ctx().window_title.replace(None) {
+            debug!("set_window_title");
+            stdout().execute(SetTitle(title))?;
         }
     }
 
@@ -224,6 +228,9 @@ where
                     let ib = global.salsa_ctx().insert_before.take();
                     if ib.height > 0 {
                         term.borrow_mut().insert_before(ib.height, ib.draw_fn)?;
+                    }
+                    if let Some(title) = global.salsa_ctx().window_title.replace(None) {
+                        stdout().execute(SetTitle(title))?;
                     }
                     let mut r = Ok(());
                     term.borrow_mut().draw(&mut |frame: &mut Frame| -> () {

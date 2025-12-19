@@ -38,6 +38,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
+use log::debug;
 use sysinfo::Disks;
 
 fn main() -> Result<(), Error> {
@@ -451,6 +452,9 @@ fn render(
 }
 
 fn init(state: &mut Files, ctx: &mut GlobalState) -> Result<(), Error> {
+    debug!("set_window_titeeel");
+    ctx.set_window_title("Files ...".to_string());
+
     state.main_dir = if let Ok(dot) = PathBuf::from(".").canonicalize() {
         dot
     } else {

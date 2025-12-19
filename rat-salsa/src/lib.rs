@@ -85,6 +85,10 @@ where
         self.salsa_ctx().last_event.get()
     }
 
+    fn set_window_title(&self, title: String) {
+        self.salsa_ctx().window_title.set(Some(title));
+    }
+
     /// Set the cursor, if the given value is something,
     /// hides it otherwise.
     ///
@@ -393,6 +397,8 @@ where
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
     pub(crate) term: Option<Rc<RefCell<Terminal<CrosstermBackend<Stdout>>>>>,
+    /// Set the window title.
+    pub(crate) window_title: Cell<Option<String>>,
     /// Clear terminal before next draw.
     pub(crate) clear_terminal: Cell<bool>,
     /// Call insert_before before the next draw.
@@ -466,6 +472,7 @@ where
             count: Default::default(),
             cursor: Default::default(),
             term: Default::default(),
+            window_title: Default::default(),
             clear_terminal: Default::default(),
             insert_before: Default::default(),
             last_render: Default::default(),
