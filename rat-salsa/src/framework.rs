@@ -9,8 +9,9 @@ use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
 };
-use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode, SetTitle};
-use log::debug;
+use crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, SetTitle, disable_raw_mode, enable_raw_mode,
+};
 use poll_queue::PollQueue;
 use rat_event::util::set_have_keyboard_enhancement;
 use ratatui::Frame;
@@ -108,7 +109,6 @@ where
     let mut was_changed = false;
 
     // init state
-    debug!("call init");
     init(state, global)?;
 
     // initial render
@@ -116,6 +116,9 @@ where
         let ib = global.salsa_ctx().insert_before.take();
         if ib.height > 0 {
             term.borrow_mut().insert_before(ib.height, ib.draw_fn)?;
+        }
+        if let Some(title) = global.salsa_ctx().window_title.replace(None) {
+            stdout().execute(SetTitle(title))?;
         }
         let mut r = Ok(());
         term.borrow_mut().draw(&mut |frame: &mut Frame| -> () {
@@ -137,10 +140,6 @@ where
         r?;
         if let Some(idx) = rendered_event {
             global.salsa_ctx().queue.push(poll[idx].read());
-        }
-        if let Some(title) = global.salsa_ctx().window_title.replace(None) {
-            debug!("set_window_title");
-            stdout().execute(SetTitle(title))?;
         }
     }
 
@@ -467,7 +466,6 @@ where
 
 fn init_terminal(cfg: TermInit) -> io::Result<()> {
     if cfg.alternate_screen {
-        debug!("enter alternate screen");
         stdout().execute(EnterAlternateScreen)?;
     }
     if cfg.mouse_capture {

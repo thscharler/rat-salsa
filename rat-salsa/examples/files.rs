@@ -4,6 +4,7 @@
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
+use log::debug;
 use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::tasks::Cancel;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
@@ -38,7 +39,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
-use log::debug;
 use sysinfo::Disks;
 
 fn main() -> Result<(), Error> {
@@ -452,7 +452,6 @@ fn render(
 }
 
 fn init(state: &mut Files, ctx: &mut GlobalState) -> Result<(), Error> {
-    debug!("set_window_titeeel");
     ctx.set_window_title("Files ...".to_string());
 
     state.main_dir = if let Ok(dot) = PathBuf::from(".").canonicalize() {
