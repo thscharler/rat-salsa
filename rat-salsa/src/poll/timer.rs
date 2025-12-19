@@ -1,8 +1,9 @@
+use crate::Control;
 use crate::poll::PollEvents;
 use crate::timer::{TimeOut, Timers};
-use crate::Control;
 use std::any::Any;
 use std::rc::Rc;
+use std::time::Duration;
 
 /// Processes timers.
 #[derive(Debug, Default)]
@@ -29,6 +30,10 @@ where
 {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn sleep_time(&self) -> Option<Duration> {
+        self.timers.sleep_time()
     }
 
     fn poll(&mut self) -> Result<bool, Error> {

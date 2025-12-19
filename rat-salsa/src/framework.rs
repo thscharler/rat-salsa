@@ -169,15 +169,12 @@ where
 
             // Sleep regime.
             if poll_queue.is_empty() {
-                let t = if let Some(timers) = &global.salsa_ctx().timers {
-                    if let Some(timer_sleep) = timers.sleep_time() {
-                        min(timer_sleep, poll_sleep)
-                    } else {
-                        poll_sleep
-                    }
-                } else {
-                    poll_sleep
-                };
+                let mut t = poll_sleep;
+                for p in poll.iter_mut() {
+                    if let Some(timer_sleep) = p.sleep_time() {
+                        t = min(timer_sleep, t);
+                    } 
+                }
                 thread::sleep(t);
                 if poll_sleep < Duration::from_micros(SLEEP) {
                     // Back off slowly.
