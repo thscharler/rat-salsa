@@ -15,7 +15,7 @@ exclude = [".idea/*", ".gitignore"]
 workspace = true
 
 [features]
-default = []
+default = ["crossterm"]
 wgpu = ["dep:rat-salsa-wgpu"]
 crossterm = ["dep:rat-salsa"]
 
