@@ -10,6 +10,7 @@ use rat_focus::HasFocus;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
 use ratatui::symbols::line;
+use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, Borders, Widget};
 
 /// Embedded tabs in the Block.
@@ -301,9 +302,7 @@ impl TabWidget for AttachedTabs {
                 if state.mouse.hover.get() == Some(i) {
                     buf.set_style(state.tab_title_close_areas[i], hover_style);
                 }
-                if let Some(cell) = buf.cell_mut(state.tab_title_close_areas[i].as_position()) {
-                    cell.set_symbol(" \u{2A2F} ");
-                }
+                Span::from(" \u{2A2F} ").render(state.tab_title_close_areas[i], buf);
             }
         }
     }

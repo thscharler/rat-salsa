@@ -4,6 +4,7 @@ use crate::tabbed::{TabPlacement, TabWidget, Tabbed, TabbedState};
 use crate::util::revert_style;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
+use ratatui::text::Span;
 use ratatui::widgets::Widget;
 
 /// Renders simple tabs at the given placement and renders
@@ -232,9 +233,7 @@ impl TabWidget for GluedTabs {
                 if state.mouse.hover.get() == Some(i) {
                     buf.set_style(state.tab_title_close_areas[i], hover_style);
                 }
-                if let Some(cell) = buf.cell_mut(state.tab_title_close_areas[i].as_position()) {
-                    cell.set_symbol(" \u{2A2F} ");
-                }
+                Span::from(" \u{2A2F} ").render(state.tab_title_close_areas[i], buf);
             }
         }
     }
