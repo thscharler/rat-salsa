@@ -432,11 +432,58 @@ pub fn create_palette(name: &str) -> Option<Palette> {
 ///
 /// The available themes can be queried by [salsa_themes].
 ///
-/// Known palettes: Imperial, Radium, Tundra, Ocean, Monochrome,
-/// Black&White, Monekai, Solarized, OxoCarbon, EverForest,
-/// Nord, Rust, Material, Tailwind, VSCode, Reds, Blackout,
-/// Shell, Imperial Light, EverForest Light, Tailwind Light,
-/// Rust Light.
+/// Known palettes:
+/// * Imperial
+/// * Black&White
+/// * EverForest
+/// * FalconDark
+/// * Gatekeeper
+/// * Embark
+/// * Material
+/// * Monekai
+/// * Monochrome
+/// * Nord
+/// * Ocean
+/// * OxoCarbon
+/// * Radium
+/// * Reds
+/// * Rust
+/// * Solarized
+/// * Tailwind
+/// * Tundra
+/// * VSCode
+///
+/// * Imperial Light
+/// * Blossom Light
+/// * Embark Light
+/// * EverForest Light
+/// * Gatekeeper Light
+/// * Rust Light
+/// * SunriseBreeze Light
+/// * Tailwind Light
+///
+/// * Imperial Shell
+/// * Black&White Shell
+/// * Embark Shell
+/// * EverForest Shell
+/// * Gatekeeper Shell
+/// * Material Shell
+/// * Monekai Shell
+/// * Monochrome Shell
+/// * Nord Shell
+/// * Ocean Shell
+/// * OxoCarbon Shell
+/// * Radium Shell
+/// * Reds Shell
+/// * Rust Shell
+/// * Solarized Shell
+/// * Tailwind Shell
+/// * Tundra Shell
+/// * VSCode Shell
+///
+/// * Shell
+/// * Blackout
+/// * Fallback
 pub fn create_salsa_palette(name: &str) -> Option<Palette> {
     use crate::palettes::core;
     use crate::palettes::dark;
@@ -515,16 +562,58 @@ pub fn create_theme(theme_name: &str) -> SalsaTheme {
 ///
 /// The available themes can be queried by [salsa_themes].
 ///
-/// Known themes: Imperial Dark, Radium Dark, Tundra Dark,
-/// Ocean Dark, Monochrome Dark, Black&White Dark, Monekai Dark,
-/// Solarized Dark, OxoCarbon Dark, EverForest Dark, Nord Dark,
-/// Rust Dark, Material Dark, Tailwind Dark, VSCode Dark,
-/// Imperial Light, EverForest Light, Tailwind Light, Rust Light,
-/// Imperial Shell, Radium Shell, Tundra Shell, Ocean Shell,
-/// Monochrome Shell, Black&White Shell, Monekai Shell,
-/// Solarized Shell, OxoCarbon Shell, EverForest Shell, Nord Shell,
-/// Rust Shell, Material Shell, Tailwind Shell, VSCode Shell,
-/// Shell, Blackout and Fallback.
+/// Known themes:
+/// * Imperial
+/// * Black&White
+/// * EverForest
+/// * FalconDark
+/// * Gatekeeper
+/// * Embark
+/// * Material
+/// * Monekai
+/// * Monochrome
+/// * Nord
+/// * Ocean
+/// * OxoCarbon
+/// * Radium
+/// * Reds
+/// * Rust
+/// * Solarized
+/// * Tailwind
+/// * Tundra
+/// * VSCode
+///
+/// * Imperial Light
+/// * Blossom Light
+/// * Embark Light
+/// * EverForest Light
+/// * Gatekeeper Light
+/// * Rust Light
+/// * SunriseBreeze Light
+/// * Tailwind Light
+///
+/// * Imperial Shell
+/// * Black&White Shell
+/// * Embark Shell
+/// * EverForest Shell
+/// * Gatekeeper Shell
+/// * Material Shell
+/// * Monekai Shell
+/// * Monochrome Shell
+/// * Nord Shell
+/// * Ocean Shell
+/// * OxoCarbon Shell
+/// * Radium Shell
+/// * Reds Shell
+/// * Rust Shell
+/// * Solarized Shell
+/// * Tailwind Shell
+/// * Tundra Shell
+/// * VSCode Shell
+///
+/// * Shell
+/// * Blackout
+/// * Fallback
 pub fn create_salsa_theme(theme_name: &str) -> SalsaTheme {
     if let Some(pal) = create_salsa_palette(theme_name) {
         match pal.theme.as_ref() {
