@@ -37,6 +37,7 @@ mod crossterm;
 mod quit;
 mod rendered;
 mod thread_pool;
+mod tick;
 mod timer;
 #[cfg(feature = "async")]
 mod tokio_tasks;
@@ -46,6 +47,7 @@ pub use crossterm::PollCrossterm;
 pub use quit::PollQuit;
 pub use rendered::PollRendered;
 pub use thread_pool::PollTasks;
+pub use tick::PollTick;
 pub use timer::PollTimers;
 #[cfg(feature = "async")]
 pub use tokio_tasks::PollTokio;
