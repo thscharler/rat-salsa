@@ -68,6 +68,7 @@ pub mod scrolled {
 pub mod text {
     pub use rat_text::clipboard;
     pub use rat_text::core;
+    pub use rat_text::cursor;
     pub use rat_text::undo_buffer;
     pub use rat_text::{
         Cursor, Grapheme, HasScreenCursor, Locale, TextError, TextFocusGained, TextFocusLost,

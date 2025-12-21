@@ -76,6 +76,7 @@ pub(crate) mod masked_graphemes;
 use crate::_private::NonExhaustive;
 use crate::clipboard::{Clipboard, global_clipboard};
 use crate::core::{TextCore, TextString};
+use crate::cursor::{CursorType, cursor_type};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::glyph2::{Glyph2, GlyphIter2, TextWrap2};
 use crate::text_input::TextInputState;
@@ -404,6 +405,7 @@ fn render_ref(
         state.set_offset(no);
     }
 
+    let focused = state.is_focused();
     let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -421,7 +423,7 @@ fn render_ref(
         Style::default().red()
     };
 
-    let (style, select_style) = if state.focus.get() {
+    let (style, select_style) = if focused {
         if state.invalid {
             (
                 style.patch(focus_style).patch(invalid_style),
@@ -467,8 +469,11 @@ fn render_ref(
         state.bytes_at_range(start..end)
     };
     let selection = state.selection();
+    let cursor = state.cursor();
+    let cursor_type = cursor_type();
     let mut styles = Vec::new();
 
+    let mut screen_pos = (0, 0);
     for g in state.glyphs2() {
         if g.screen_width() > 0 {
             let mut style = style;
@@ -481,13 +486,18 @@ fn render_ref(
                     style = style.patch(*s);
                 }
             }
+            if cursor_type == CursorType::RenderedCursor {
+                if focused && selection.is_empty() && g.pos().x == cursor {
+                    style = Style::new().white().on_red();
+                }
+            }
             // selection
             if selection.contains(&g.pos().x) {
                 style = style.patch(select_style);
             };
 
             // relative screen-pos of the glyph
-            let screen_pos = g.screen_pos();
+            screen_pos = g.screen_pos();
 
             // render glyph
             if let Some(cell) =
@@ -505,6 +515,20 @@ fn render_ref(
                     cell.reset();
                     cell.set_style(style);
                 }
+            }
+        }
+    }
+
+    if cursor_type == CursorType::RenderedCursor {
+        if focused && selection.is_empty() && cursor == state.line_width() {
+            let style = Style::new().white().on_red();
+            let xx = if state.mask().is_empty() { 0 } else { 1 };
+            if let Some(cell) = buf.cell_mut((
+                state.inner.x + screen_pos.0 + xx,
+                state.inner.y + screen_pos.1,
+            )) {
+                cell.set_symbol(" ");
+                cell.set_style(style);
             }
         }
     }

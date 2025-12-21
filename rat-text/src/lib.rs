@@ -4,6 +4,7 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 
+pub mod cursor;
 pub mod clipboard;
 pub mod date_input;
 pub mod line_number;

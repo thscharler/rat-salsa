@@ -5,6 +5,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::clipboard::{Clipboard, global_clipboard};
+use crate::cursor::{CursorType, cursor_type};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::glyph2::{GlyphIter2, TextWrap2};
 use crate::text_core::TextCore;
@@ -101,9 +102,11 @@ pub struct TextAreaState {
     /// Rendered dimension. This may differ from (inner.width, inner.height)
     /// if the text area has been relocated/clipped. This holds the
     /// original rendered dimension before any relocation/clipping.
+    /// __read only__ renewed with each render.
     pub rendered: Size,
     /// Cursor position on the screen.
-    pub screen_cursor: Option<(u16, u16)>,
+    /// __read only__ renewed with each render.
+    screen_cursor: Option<(u16, u16)>,
 
     /// Horizontal scroll.
     /// When text-break is active this value is ignored.
@@ -416,6 +419,7 @@ fn render_text_area(
         state.text_wrap = text_wrap;
     }
 
+    let focused = state.is_focused();
     let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -427,7 +431,7 @@ fn render_text_area(
     } else {
         Style::default().black().on_yellow()
     };
-    let (style, select_style) = if state.is_focused() {
+    let (style, select_style) = if focused {
         (
             style.patch(focus_style),
             style.patch(focus_style).patch(select_style),
@@ -513,14 +517,17 @@ fn render_text_area(
         .expect("valid_rows");
     // let mut screen_cursor = None;
     let selection = state.selection();
+    let cursor = state.cursor();
+    let cursor_type = cursor_type();
     let mut styles = Vec::new();
 
+    let mut screen_pos = (0, 0);
     for g in state
         .glyphs2(shift_left, sub_row_offset, page_rows)
         .expect("valid_offset")
     {
         // relative screen-pos of the glyph
-        let screen_pos = g.screen_pos();
+        screen_pos = g.screen_pos();
 
         if screen_pos.1 >= state.inner.height {
             break;
@@ -535,6 +542,11 @@ fn render_text_area(
             for style_nr in &styles {
                 if let Some(s) = widget.text_style.get(style_nr) {
                     style = style.patch(*s);
+                }
+            }
+            if cursor_type == CursorType::RenderedCursor {
+                if focused && selection.is_empty() && g.pos() == cursor {
+                    style = Style::new().white().on_red();
                 }
             }
             // selection
@@ -559,10 +571,37 @@ fn render_text_area(
                     cell.set_style(style);
                 }
             }
+        } else {
+            if cursor_type == CursorType::RenderedCursor {
+                if focused && selection.is_empty() && g.line_break() && g.pos() == cursor {
+                    let style = Style::new().white().on_red();
+                    if let Some(cell) =
+                        buf.cell_mut((state.inner.x + screen_pos.0, state.inner.y + screen_pos.1))
+                    {
+                        cell.set_symbol(" ");
+                        cell.set_style(style);
+                    }
+                }
+            }
         }
     }
 
-    state.screen_cursor = state.pos_to_screen(state.cursor());
+    if cursor_type == CursorType::RenderedCursor {
+        if focused
+            && selection.is_empty()
+            && cursor == TextPosition::new(0, state.len_lines().saturating_sub(1))
+        {
+            let style = Style::new().white().on_red();
+            if let Some(cell) = buf.cell_mut((state.inner.x, state.inner.y + screen_pos.1 + 1)) {
+                cell.set_symbol(" ");
+                cell.set_style(style);
+            }
+        }
+    } else if cursor_type == CursorType::TerminalCursor {
+        state.screen_cursor = state.pos_to_screen(state.cursor());
+    } else {
+        state.screen_cursor = None;
+    }
 }
 
 impl Default for TextAreaState {
