@@ -6,6 +6,11 @@ mod sample_or_base46;
 mod util;
 mod widget;
 
+#[cfg(feature = "crossterm")]
+pub(crate) use rat_salsa;
+#[cfg(feature = "wgpu")]
+pub(crate) use rat_salsa_wgpu as rat_salsa;
+
 use crate::palette_edit::PaletteEdit;
 use crate::sample_or_base46::ShowOrBase46;
 use anyhow::{Error, anyhow};
@@ -19,7 +24,11 @@ use rat_salsa::dialog_stack::file_dialog::{
 };
 use rat_salsa::dialog_stack::msgdialog::msg_dialog_event;
 use rat_salsa::event::RenderedEvent;
-use rat_salsa::poll::{PollCrossterm, PollRendered};
+#[cfg(feature = "wgpu")]
+use rat_salsa::event_type::convert_crossterm::ConvertCrossterm;
+#[cfg(feature = "crossterm")]
+use rat_salsa::poll::PollCrossterm;
+use rat_salsa::poll::PollRendered;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palette::{ColorIdx, Colors};
 use rat_theme4::theme::SalsaTheme;
@@ -75,9 +84,13 @@ fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::default()?
-            .poll(PollCrossterm) //
+        #[cfg(feature = "wgpu")]
+        RunConfig::new(ConvertCrossterm::new())?
+            .font_family("FiraCode Nerd Font Mono")
+            .font_size(20.)
             .poll(PollRendered),
+        #[cfg(feature = "crossterm")]
+        RunConfig::default()?.poll(PollCrossterm).poll(PollRendered),
     )?;
 
     Ok(())

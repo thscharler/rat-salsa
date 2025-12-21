@@ -14,6 +14,11 @@ exclude = [".idea/*", ".gitignore"]
 [lints]
 workspace = true
 
+[features]
+default = []
+wgpu = ["dep:rat-salsa-wgpu"]
+crossterm = ["dep:rat-salsa"]
+
 [dependencies]
 anyhow = "1.0"
 cli-clipboard = "0.4"
@@ -31,7 +36,8 @@ crossterm = "0.28"
 ratatui = { version = "0.29", features = [] }
 serde_json = "1.0"
 
-rat-salsa = { version = "3.0", path = "../rat-salsa", features = ["dialog_widgets"] }
+rat-salsa = { version = "3.0", path = "../rat-salsa", features = ["dialog_widgets"], optional = true }
+rat-salsa-wgpu = { version = "0.1", path = "../../rat-salsa-wgpu", features = ["dialog_widgets"], optional = true }
 rat-widget = { version = "2.10", path = "../rat-widget", features = ["user_directories"] }
 rat-widget-extra = { version = "1.0", path = "../rat-widget-extra", features = ["color-input"] }
 rat-theme4 = { version = "4.3", path = "../rat-theme4", features = ["serde", "color-input"] }

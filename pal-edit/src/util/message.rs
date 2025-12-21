@@ -1,6 +1,6 @@
 use crate::{Global, PalEvent};
 use anyhow::Error;
-use rat_salsa::{Control, SalsaContext};
+use crate::rat_salsa::{Control, SalsaContext};
 use rat_theme4::WidgetStyle;
 use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
 use rat_widget::event::{Dialog, HandleEvent, Regular, event_flow};

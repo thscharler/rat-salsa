@@ -1,7 +1,7 @@
 use crate::{Global, PalEvent};
 use anyhow::Error;
 use log::debug;
-use rat_salsa::Control;
+use crate::rat_salsa::Control;
 use rat_theme4::WidgetStyle;
 use rat_widget::clipper::{Clipper, ClipperState};
 use rat_widget::event::{HandleEvent, Outcome, Regular, event_flow};

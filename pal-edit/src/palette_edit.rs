@@ -3,7 +3,7 @@ use crate::widget::color_span::{ColorSpan, ColorSpanState};
 use crate::{Config, Global, PalEvent};
 use anyhow::Error;
 use indexmap::IndexMap;
-use rat_salsa::SalsaContext;
+use crate::rat_salsa::SalsaContext;
 use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::{RatWidgetColor, WidgetStyle};
 use rat_widget::choice::{Choice, ChoiceState};
@@ -328,7 +328,7 @@ pub fn render(
                 .item("Dark", "Dark")
                 .item("Light", "Light")
                 .item("Shell", "Shell")
-                .styles(ctx.theme.style(WidgetStyle::CHOICE))
+                .styles(ctx.theme.style(WidgetStyle::COMBOBOX))
                 .into_widgets()
         },
         &mut state.theme,
