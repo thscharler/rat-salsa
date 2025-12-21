@@ -55,6 +55,7 @@ pub struct TextInput<'a> {
     focus_style: Option<Style>,
     select_style: Option<Style>,
     invalid_style: Option<Style>,
+    cursor_style: Option<Style>,
 
     on_focus_gained: TextFocusGained,
     on_focus_lost: TextFocusLost,
@@ -157,6 +158,9 @@ impl<'a> TextInput<'a> {
         if styles.invalid.is_some() {
             self.invalid_style = styles.invalid;
         }
+        if styles.cursor.is_some() {
+            self.cursor_style = styles.cursor;
+        }
         if let Some(of) = styles.on_focus_gained {
             self.on_focus_gained = of;
         }
@@ -194,6 +198,14 @@ impl<'a> TextInput<'a> {
     #[inline]
     pub fn invalid_style(mut self, style: impl Into<Style>) -> Self {
         self.invalid_style = Some(style.into());
+        self
+    }
+
+    /// Style for a rendered cursor.
+    /// Only used if [cursor_type](crate::cursor::cursor_type) is `RenderedCursor`.
+    #[inline]
+    pub fn cursor_style(mut self, style: impl Into<Style>) -> Self {
+        self.cursor_style = Some(style.into());
         self
     }
 
@@ -315,6 +327,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     }
 
     let focused = state.is_focused();
+    let cursor_type = cursor_type();
     let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -330,6 +343,13 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         invalid_style
     } else {
         Style::default().red()
+    };
+    let cursor_style = if cursor_type == CursorType::RenderedCursor {
+        widget
+            .cursor_style
+            .unwrap_or_else(|| Style::default().white().on_red())
+    } else {
+        Style::default()
     };
 
     let (style, select_style) = if focused {
@@ -378,7 +398,6 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     };
     let selection = state.selection();
     let cursor = state.cursor();
-    let cursor_type = cursor_type();
     let mut styles = Vec::new();
 
     let mut screen_pos = (0, 0);
@@ -397,7 +416,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 }
                 if cursor_type == CursorType::RenderedCursor {
                     if focused && selection.is_empty() && g.pos().x == cursor {
-                        style = Style::new().white().on_red();
+                        style = cursor_style;
                     }
                 }
                 // selection
@@ -441,7 +460,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 }
                 if cursor_type == CursorType::RenderedCursor {
                     if focused && selection.is_empty() && g.pos().x == cursor {
-                        style = Style::new().white().on_red();
+                        style = cursor_style;
                     }
                 }
                 // selection
@@ -475,14 +494,13 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
     if cursor_type == CursorType::RenderedCursor {
         if focused && selection.is_empty() && cursor == state.line_width() {
-            let style = Style::new().white().on_red();
             let xx = if state.is_empty() { 0 } else { 1 };
             if let Some(cell) = buf.cell_mut((
                 state.inner.x + screen_pos.0 + xx,
                 state.inner.y + screen_pos.1,
             )) {
                 cell.set_symbol(" ");
-                cell.set_style(style);
+                cell.set_style(cursor_style);
             }
         }
     }

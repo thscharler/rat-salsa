@@ -85,6 +85,7 @@ pub struct TextArea<'a> {
 
     focus_style: Option<Style>,
     select_style: Option<Style>,
+    cursor_style: Option<Style>,
     text_style: HashMap<usize, Style>,
 
     text_wrap: Option<TextWrap>,
@@ -261,6 +262,9 @@ impl<'a> TextArea<'a> {
         if styles.select.is_some() {
             self.select_style = styles.select;
         }
+        if styles.cursor.is_some() {
+            self.cursor_style = styles.cursor;
+        }
 
         self
     }
@@ -282,6 +286,14 @@ impl<'a> TextArea<'a> {
     /// Selection style.
     pub fn select_style(mut self, style: Style) -> Self {
         self.select_style = Some(style);
+        self
+    }
+
+    /// Style for a rendered cursor.
+    /// Only used if [cursor_type](crate::cursor::cursor_type) is `RenderedCursor`.
+    #[inline]
+    pub fn cursor_style(mut self, style: impl Into<Style>) -> Self {
+        self.cursor_style = Some(style.into());
         self
     }
 
@@ -420,6 +432,7 @@ fn render_text_area(
     }
 
     let focused = state.is_focused();
+    let cursor_type = cursor_type();
     let style = widget.style;
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -438,6 +451,13 @@ fn render_text_area(
         )
     } else {
         (style, style.patch(select_style))
+    };
+    let cursor_style = if cursor_type == CursorType::RenderedCursor {
+        widget
+            .cursor_style
+            .unwrap_or_else(|| Style::default().white().on_red())
+    } else {
+        Style::default()
     };
 
     // sync scroll and cursor
@@ -518,7 +538,6 @@ fn render_text_area(
     // let mut screen_cursor = None;
     let selection = state.selection();
     let cursor = state.cursor();
-    let cursor_type = cursor_type();
     let mut styles = Vec::new();
 
     let mut screen_pos = (0, 0);
@@ -546,7 +565,7 @@ fn render_text_area(
             }
             if cursor_type == CursorType::RenderedCursor {
                 if focused && selection.is_empty() && g.pos() == cursor {
-                    style = Style::new().white().on_red();
+                    style = cursor_style;
                 }
             }
             // selection
@@ -574,12 +593,11 @@ fn render_text_area(
         } else {
             if cursor_type == CursorType::RenderedCursor {
                 if focused && selection.is_empty() && g.line_break() && g.pos() == cursor {
-                    let style = Style::new().white().on_red();
                     if let Some(cell) =
                         buf.cell_mut((state.inner.x + screen_pos.0, state.inner.y + screen_pos.1))
                     {
                         cell.set_symbol(" ");
-                        cell.set_style(style);
+                        cell.set_style(cursor_style);
                     }
                 }
             }
@@ -591,10 +609,8 @@ fn render_text_area(
             && selection.is_empty()
             && cursor == TextPosition::new(0, state.len_lines().saturating_sub(1))
         {
-            let style = Style::new().white().on_red();
             if let Some(cell) = buf.cell_mut((state.inner.x, state.inner.y + screen_pos.1 + 1)) {
-                cell.set_symbol(" ");
-                cell.set_style(style);
+                cell.set_style(cursor_style);
             }
         }
     } else if cursor_type == CursorType::TerminalCursor {

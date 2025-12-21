@@ -4,8 +4,8 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 
-pub mod cursor;
 pub mod clipboard;
+pub mod cursor;
 pub mod date_input;
 pub mod line_number;
 pub mod number_input;
@@ -145,14 +145,24 @@ pub enum TextTab {
 /// Combined style for the widget.
 #[derive(Debug, Clone)]
 pub struct TextStyle {
+    /// Base style
     pub style: Style,
+    /// Scrollbars.
     pub scroll: Option<ScrollStyle>,
+    /// Block widget.
     pub block: Option<Block<'static>>,
+    /// Adjust an existing block widget.
     pub border_style: Option<Style>,
+    /// Adjust an existing block widget.
     pub title_style: Option<Style>,
+    /// Focused style.
     pub focus: Option<Style>,
+    /// Selection style.
     pub select: Option<Style>,
+    /// Invalid value style.
     pub invalid: Option<Style>,
+    /// Only used if [cursor_type](crate::cursor::cursor_type) is `RenderedCursor`.
+    pub cursor: Option<Style>,
 
     /// Focus behaviour.
     pub on_focus_gained: Option<TextFocusGained>,
@@ -175,6 +185,7 @@ impl Default for TextStyle {
             focus: Default::default(),
             select: Default::default(),
             invalid: Default::default(),
+            cursor: Default::default(),
             on_focus_gained: Default::default(),
             on_focus_lost: Default::default(),
             on_tab: Default::default(),
