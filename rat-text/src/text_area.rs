@@ -609,7 +609,8 @@ fn render_text_area(
             && selection.is_empty()
             && cursor == TextPosition::new(0, state.len_lines().saturating_sub(1))
         {
-            if let Some(cell) = buf.cell_mut((state.inner.x, state.inner.y + screen_pos.1 + 1)) {
+            let yy = if state.is_empty() { 0 } else { 1 };
+            if let Some(cell) = buf.cell_mut((state.inner.x, state.inner.y + screen_pos.1 + yy)) {
                 cell.set_style(cursor_style);
             }
         }
