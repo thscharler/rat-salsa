@@ -1,4 +1,5 @@
-use crate::splitter::{SPLIT_WIDTH, Split, SplitState, SplitType};
+use crate::splitter::{ResizeConstraint, SPLIT_WIDTH, Split, SplitState, SplitType};
+use log::debug;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
 use std::cmp::min;
@@ -44,11 +45,28 @@ pub(super) fn layout_split<'a>(widget: &Split<'a>, area: Rect, state: &mut Split
     } else {
         let old_length: u16 = state.area_length.iter().sum();
         if meta_change || old_len(&inner) != old_length {
-            let mut constraints = Vec::new();
-            for i in 0..state.area_length.len() {
-                constraints.push(Constraint::Fill(state.area_length[i]));
+            // use cached constraints. avoids cumulative errors.
+            if state.area_constraint.is_empty() {
+                for i in 0..state.area_length.len() {
+                    match widget.resize_constraints[i] {
+                        ResizeConstraint::Fixed => {
+                            state
+                                .area_constraint
+                                .push(Constraint::Length(state.area_length[i]));
+                        }
+                        ResizeConstraint::ScaleProportional => {
+                            state
+                                .area_constraint
+                                .push(Constraint::Fill(state.area_length[i]));
+                        }
+                        ResizeConstraint::ScaleEqual => {
+                            state.area_constraint.push(Constraint::Fill(1));
+                        }
+                    }
+                }
             }
-            let new_areas = Layout::new(widget.direction, constraints).split(inner);
+            let new_areas =
+                Layout::new(widget.direction, state.area_constraint.clone()).split(inner);
             Some(new_areas)
         } else {
             None

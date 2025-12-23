@@ -47,6 +47,7 @@ use ratatui::layout::{Constraint, Direction, Position, Rect};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use std::cmp::{max, min};
+use std::iter;
 use std::rc::Rc;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -81,6 +82,8 @@ pub struct Split<'a> {
     // start constraints. used when
     // there are no widths in the state.
     constraints: Vec<Constraint>,
+    // resize constraints for each area.
+    resize_constraints: Vec<ResizeConstraint>,
     // resize options
     resize: SplitResize,
 
@@ -199,6 +202,23 @@ pub enum SplitResize {
     Full,
 }
 
+/// How will one split area be resized when resizing the whole split-widget.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ResizeConstraint {
+    /// The length of the split-area will stay fixed, if possible.
+    Fixed,
+    /// The length of the split-area will scale with the widget.
+    /// Each area will get a proportional part according to its current length.  
+    #[default]
+    ScaleProportional,
+    /// The length of the split-area will scale with the widget.
+    /// Each area will get the same proportion of the change.
+    ///
+    /// If you mix this with ScaleProportional this will not work,
+    /// because I don't know what you would expect to happen.
+    ScaleEqual,
+}
+
 const SPLIT_WIDTH: u16 = 1;
 
 /// State & event handling.
@@ -238,6 +258,7 @@ pub struct SplitState {
     /// This information is used after the initial render to
     /// lay out the splitter.
     area_length: Vec<u16>,
+    area_constraint: Vec<Constraint>,
     /// Saved lengths for hidden splits.
     hidden_length: Vec<u16>,
 
@@ -327,6 +348,15 @@ impl<'a> Split<'a> {
     /// The number of constraints determines the number of areas.
     pub fn constraints(mut self, constraints: impl IntoIterator<Item = Constraint>) -> Self {
         self.constraints = constraints.into_iter().collect();
+        self.resize_constraints = iter::from_fn(|| Some(ResizeConstraint::ScaleProportional))
+            .take(self.constraints.len())
+            .collect();
+        self
+    }
+
+    /// Set the behaviour for each area when resizing the split-widget itself.
+    pub fn resize_constraint(mut self, n: usize, constraint: ResizeConstraint) -> Self {
+        self.resize_constraints[n] = constraint;
         self
     }
 
@@ -677,6 +707,7 @@ impl Default for SplitState {
             split_type: Default::default(),
             resize: Default::default(),
             area_length: Default::default(),
+            area_constraint: Default::default(),
             hidden_length: Default::default(),
             focus: Default::default(),
             focus_marker: Default::default(),
@@ -700,6 +731,7 @@ impl Clone for SplitState {
             split_type: self.split_type,
             resize: self.resize,
             area_length: self.area_length.clone(),
+            area_constraint: self.area_constraint.clone(),
             hidden_length: self.hidden_length.clone(),
             focus: self.focus.new_instance(),
             focus_marker: self.focus_marker,
@@ -892,6 +924,7 @@ impl SplitState {
     /// If a length is 0 it will not display the split at all.
     pub fn set_area_lengths(&mut self, lengths: Vec<u16>) {
         self.area_length = lengths;
+        self.area_constraint.clear();
         while self.hidden_length.len() < self.area_length.len() {
             self.hidden_length.push(0);
         }
@@ -977,6 +1010,7 @@ impl SplitState {
             return;
         }
         self.area_length[n] = len;
+        self.area_constraint.clear();
         self.hidden_length[n] = 0;
     }
 
@@ -1065,6 +1099,7 @@ impl SplitState {
                 self.area_length[i] = pos_vec[i];
             }
         }
+        self.area_constraint.clear();
     }
 
     /// Allows the full range for the split-pos.
@@ -1152,6 +1187,7 @@ impl SplitState {
             }
         }
         self.area_length[pos_count] = total_len - pos_vec[pos_count - 1];
+        self.area_constraint.clear();
     }
 
     /// Is the split hidden?
@@ -1164,6 +1200,8 @@ impl SplitState {
     /// Leaves enough space to render the splitter.
     pub fn hide_split(&mut self, n: usize) -> bool {
         if self.hidden_length[n] == 0 {
+            self.area_constraint.clear();
+
             let mut hide = if n + 1 == self.area_length.len() {
                 self.area_length[n]
             } else {
@@ -1245,6 +1283,7 @@ impl SplitState {
 
             self.area_length[n] += self.hidden_length[n] - show;
             self.hidden_length[n] = 0;
+            self.area_constraint.clear();
             true
         } else {
             false
