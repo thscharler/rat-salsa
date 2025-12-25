@@ -27,7 +27,7 @@
 //! ```
 use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
-use crate::util::revert_style;
+use crate::util::{get_block_size, revert_style};
 use crate::{MenuBuilder, MenuItem, MenuStyle};
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
@@ -254,6 +254,23 @@ impl<'a> MenuLine<'a> {
     pub fn focus_style_opt(mut self, style: Option<Style>) -> Self {
         self.focus_style = style;
         self
+    }
+
+    /// Preferred width
+    pub fn width(&self) -> u16 {
+        let block = get_block_size(&self.block);
+
+        let mut width = block.width;
+        if self.title.width() > 0 {
+            width += self.title.width() as u16 + 1;
+        }
+        for item in self.menu.items.iter() {
+            width += item.item_width() // _ 
+                + item.right_width()
+                + if item.right.is_empty() { 0 } else { 2 }
+                + 1;
+        }
+        width
     }
 }
 
@@ -638,7 +655,7 @@ impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuLineStat
             match event {
                 ct_event!(key press ' ') => {
                     self
-                        .selected//
+                        .selected //
                         .map_or(MenuOutcome::Continue, |v| MenuOutcome::Selected(v))
                 }
                 ct_event!(key press ANY-c) => {
