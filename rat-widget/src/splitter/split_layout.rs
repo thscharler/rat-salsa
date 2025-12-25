@@ -1,5 +1,4 @@
 use crate::splitter::{ResizeConstraint, SPLIT_WIDTH, Split, SplitState, SplitType};
-use log::debug;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
 use std::cmp::min;
