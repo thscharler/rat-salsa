@@ -52,7 +52,7 @@ pub mod timer;
 /// This trait gives access to all facilities built into rat-salsa.
 ///
 /// Your global state struct has to implement this trait. This allows
-/// rat-salsa to add its facilities to it.  
+/// rat-salsa to add its facilities to it.
 ///
 /// [run_tui] sets it during initialization, it will be up and
 /// running by the time init() is called.
@@ -85,6 +85,7 @@ where
         self.salsa_ctx().last_event.get()
     }
 
+    /// Set a window title.
     fn set_window_title(&self, title: String) {
         self.salsa_ctx().window_title.set(Some(title));
     }
@@ -269,7 +270,7 @@ where
         Error: 'static + Send,
     {
         let rt = self
-            .salsa_ctx()//
+            .salsa_ctx() //
             .tokio
             .as_ref()
             .expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");

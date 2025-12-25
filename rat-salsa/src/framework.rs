@@ -407,7 +407,7 @@ where
 /// }
 /// ```
 ///
-/// Maybe `examples/minimal.rs` is more useful.
+/// Maybe `templates/minimal.rs` is more useful.
 ///
 pub fn run_tui<Global, State, Event, Error>(
     init: fn(
