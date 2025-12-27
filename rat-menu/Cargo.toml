@@ -18,7 +18,7 @@ workspace = true
 unstable-widget-ref = []
 
 [dependencies]
-log = "0.4.25"
+log = "0.4.29"
 unicode-segmentation = "1.11"
 unicode-display-width = "0.3"
 
