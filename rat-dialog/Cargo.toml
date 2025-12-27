@@ -1,6 +1,6 @@
 [package]
 name = "rat-dialog"
-version = "2.0.0"
+version = "2.0.1"
 authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2024"
 description = "stacked dialog windows and application windows"
@@ -18,13 +18,12 @@ workspace = true
 default = []
 
 [dependencies]
-crossterm = "0.28"
 log = "0.4"
 try_as = "0.1.0"
 
-ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache"] }
-ratatui-widgets = { version = "0.3.0-beta.0", features = ["std", "unstable-rendered-line-info"] }
-ratatui-crossterm = { version = "0.1.0-beta.0" }
+ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
+ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
+ratatui-crossterm = { version = "0.1" }
 
 rat-event = { version = "2.0", path = "../rat-event" }
 rat-focus = { version = "2.0", path = "../rat-focus" }

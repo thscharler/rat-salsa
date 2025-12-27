@@ -1,6 +1,6 @@
 [package]
 name = "rat-ftable"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2024"
 description = "ratatui table widget for large data"
 license = "MIT/Apache-2.0"
@@ -21,9 +21,9 @@ perf_warnings = []
 [dependencies]
 log = "0.4"
 
-ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache"] }
-ratatui-widgets = { version = "0.3.0-beta.0", features = ["std", "unstable-rendered-line-info"] }
-ratatui-crossterm = { version = "0.1.0-beta.0" }
+ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
+ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
+ratatui-crossterm = { version = "0.1" }
 
 rat-event = { version = "2.0", path = "../rat-event" }
 rat-reloc = { version = "2.0", path = "../rat-reloc" }
@@ -37,4 +37,5 @@ rand = "0.8.5"
 anyhow = "1.0"
 format_num_pattern = "0.9.2"
 unicode-segmentation = "1.11"
+
 rat-theme4 = { version = "4", default-features = false, features = [], path = "../rat-theme4" }

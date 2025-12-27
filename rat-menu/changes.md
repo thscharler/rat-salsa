@@ -1,3 +1,7 @@
+# 3.0.1
+
+the real deal ...
+
 # 3.0.0
 
 ratatui 0.30

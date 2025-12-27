@@ -1,6 +1,6 @@
 [package]
 name = "rat-markdown"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "markdown support for rat-text"
@@ -20,9 +20,7 @@ pulldown-cmark = "0.12"
 textwrap = "0.16"
 unicode-segmentation = "1.11"
 
-ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache"] }
-ratatui-widgets = { version = "0.3.0-beta.0", features = ["std", "unstable-rendered-line-info"] }
-ratatui-crossterm = { version = "0.1.0-beta.0" }
+ratatui-crossterm = { version = "0.1" }
 
 rat-event = { version = "2.0", path = "../rat-event" }
 rat-focus = { version = "2.0", path = "../rat-focus" }

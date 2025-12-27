@@ -1,6 +1,6 @@
 [package]
 name = "rat-focus"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "focus handling for ratatui widgets"
@@ -17,17 +17,16 @@ workspace = true
 [dependencies]
 log = "0.4"
 fxhash = "0.2"
-dyn-clone = "1.0"
 
-ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache"] }
-ratatui-crossterm = { version = "0.1.0-beta.0" }
+ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
+ratatui-crossterm = { version = "0.1" }
 
 rat-event = { version = "2.0", path = "../rat-event" }
-rat-reloc = { version = "2.0", path = "../rat-reloc" }
 
 [dev-dependencies]
 fern = "0.7"
 anyhow = "1.0"
 unicode-segmentation = "1.11"
-ratatui-widgets = { version = "0.3.0-beta.0", features = ["std"] }
+ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
+
 rat-theme4 = { version = "4", default-features = false, features = [], path = "../rat-theme4" }

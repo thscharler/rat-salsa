@@ -1,6 +1,6 @@
 [package]
 name = "rat-reloc"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2024"
 description = "relocate widgets after rendering"
 license = "MIT/Apache-2.0"
@@ -14,4 +14,5 @@ exclude = [".idea/*", ".gitignore"]
 workspace = true
 
 [dependencies]
-ratatui-core = { version = "0.1.0-beta.0", features = ["std"] }
+ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
+

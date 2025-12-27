@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme2"
-version = "1.6.0"
+version = "1.6.1"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "dark theme and color-schemes"
@@ -17,8 +17,7 @@ workspace = true
 [dependencies]
 log = "0.4"
 
-ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache", "scrolling-regions"] }
-ratatui-widgets = { version = "0.3.0-beta.0", features = ["std", "unstable-rendered-line-info"] }
-ratatui-crossterm = { version = "0.1.0-beta.0", features = ["scrolling-regions"] }
+ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
+ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
 
 rat-widget = { version = "3.0", path = "../rat-widget" }

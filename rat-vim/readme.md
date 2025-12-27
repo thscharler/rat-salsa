@@ -1,3 +1,7 @@
+# 0.2.1
+
+the real deal ...
+
 # 0.2.0
 
 ratatui 0.30
