@@ -5,7 +5,7 @@ use rat_theme4::{StyleName, WidgetStyle, create_salsa_palette, salsa_themes};
 use rat_widget;
 #[cfg(feature = "color-input")]
 use rat_widget_extra::color_input::ColorInputStyle;
-use ratatui::style::{Color, Style};
+use ratatui_core::style::{Color, Style};
 use std::io::Write;
 
 #[test]

@@ -1,10 +1,11 @@
 #![doc = include_str!("../readme.md")]
 
 use crate::op::{md_backtab, md_line_break, md_make_header, md_strong, md_surround, md_tab};
-use rat_event::{ct_event, flow, HandleEvent, Regular};
+use rat_event::{HandleEvent, Regular, ct_event, flow};
 use rat_focus::HasFocus;
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
+use ratatui_crossterm::crossterm::event::Event;
 
 pub mod dump;
 mod format;
@@ -43,8 +44,8 @@ impl MarkDown {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MarkDown) -> TextOutcome {
+impl HandleEvent<Event, MarkDown, TextOutcome> for TextAreaState {
+    fn handle(&mut self, event: &Event, _qualifier: MarkDown) -> TextOutcome {
         if self.is_focused() {
             flow!(match event {
                 ct_event!(key press ALT-'1') => md_make_header(self, 1),

@@ -1,10 +1,13 @@
 use crate::event::ScrollOutcome;
 use crate::{Scroll, ScrollState, ScrollbarPolicy};
 use rat_event::{HandleEvent, MouseOnly, ct_event, flow};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
-use ratatui::style::Style;
-use ratatui::widgets::{Block, Padding, ScrollbarOrientation, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Position, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, Padding};
+use ratatui_widgets::scrollbar::ScrollbarOrientation;
 use std::cmp::max;
 
 /// Utility widget for rendering a combination of a Block and
@@ -392,8 +395,8 @@ impl<'a> ScrollAreaState<'a> {
 ///
 /// Handle scrolling for the whole area spanned by the two scroll-states.
 ///
-impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollAreaState<'_> {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ScrollOutcome {
+impl HandleEvent<Event, MouseOnly, ScrollOutcome> for ScrollAreaState<'_> {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> ScrollOutcome {
         if let Some(h_scroll) = &mut self.h_scroll {
             flow!(match event {
                 // right scroll with ALT down. shift doesn't work?

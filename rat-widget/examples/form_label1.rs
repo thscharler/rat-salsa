@@ -19,10 +19,12 @@ use rat_widget::layout::LayoutForm;
 use rat_widget::paired::{Paired, PairedState, PairedWidget};
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::text::Line;
-use ratatui::widgets::{Padding, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::text::Line;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Padding;
 use std::cell::RefCell;
 
 mod mini_salsa;
@@ -293,7 +295,7 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
@@ -380,7 +382,8 @@ fn flip_flex(state: &mut State) -> Outcome {
         Flex::End => Flex::Center,
         Flex::Center => Flex::SpaceBetween,
         Flex::SpaceBetween => Flex::SpaceAround,
-        Flex::SpaceAround => Flex::Legacy,
+        Flex::SpaceAround => Flex::SpaceEvenly,
+        Flex::SpaceEvenly => Flex::Legacy,
     };
     Outcome::Changed
 }

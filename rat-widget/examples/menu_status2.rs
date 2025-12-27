@@ -10,11 +10,12 @@ use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline_stacked::{SLANT_BL_TR, SLANT_TL_BR, StatusLineStacked};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
 use std::iter::repeat_with;
 
 mod mini_salsa;
@@ -221,7 +222,7 @@ fn stacked_2(buf: &mut Buffer, area: Rect, ctx: &mut MiniSalsaState, state: &mut
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

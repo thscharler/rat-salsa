@@ -4,7 +4,7 @@
 
 /// A copy of the crossterm-KeyModifiers. Plus a few combinations of modifiers.
 pub mod modifiers {
-    use crossterm::event::KeyModifiers;
+    use ratatui_crossterm::crossterm::event::KeyModifiers;
 
     pub const NONE: KeyModifiers = KeyModifiers::NONE;
     pub const CONTROL: KeyModifiers = KeyModifiers::CONTROL;
@@ -85,160 +85,160 @@ pub mod modifiers {
 #[macro_export]
 macro_rules! ct_event {
     (key press $keychar:pat) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($keychar),
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::crossterm::modifiers::NONE,
-            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Repeat,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Press|ratatui_crossterm::crossterm::event::KeyEventKind::Repeat,
             ..
         })
     };
     (key press ANY-$keychar:pat) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($keychar),
-            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Repeat,
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::Char($keychar),
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Press|ratatui_crossterm::crossterm::event::KeyEventKind::Repeat,
             ..
         })
     };
     (key press $mod:ident-$keychar:pat) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($keychar),
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::crossterm::modifiers::$mod,
-            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Repeat,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Press|ratatui_crossterm::crossterm::event::KeyEventKind::Repeat,
             ..
         })
     };
     (key release $keychar:pat) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($keychar),
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::crossterm::modifiers::NONE,
-            kind: crossterm::event::KeyEventKind::Release,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Release,
             ..
         })
     };
     (key release ANY-$keychar:pat) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($keychar),
-            kind: crossterm::event::KeyEventKind::Release,
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::Char($keychar),
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Release,
             ..
         })
     };
     (key release $mod:ident-$keychar:pat) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($keychar),
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::crossterm::modifiers::$mod,
-            kind: crossterm::event::KeyEventKind::Release,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Release,
             ..
         })
     };
 
     (keycode press F($code:literal)) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::F($code),
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::F($code),
             modifiers: $crate::crossterm::modifiers::NONE,
-            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Repeat,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Press|ratatui_crossterm::crossterm::event::KeyEventKind::Repeat,
             ..
         })
     };
     (keycode press $mod:ident-F($code:literal)) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::F($code),
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::F($code),
             modifiers: $crate::crossterm::modifiers::$mod,
-            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Repeat,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Press|ratatui_crossterm::crossterm::event::KeyEventKind::Repeat,
             ..
         })
     };
     (keycode press $code:ident) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::$code,
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::$code,
             modifiers: $crate::crossterm::modifiers::NONE,
-            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Repeat,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Press|ratatui_crossterm::crossterm::event::KeyEventKind::Repeat,
             ..
         })
     };
     (keycode press $mod:ident-$code:ident) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::$code,
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::$code,
             modifiers: $crate::crossterm::modifiers::$mod,
-            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Repeat,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Press|ratatui_crossterm::crossterm::event::KeyEventKind::Repeat,
             ..
         })
     };
     (keycode release F($code:literal)) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::F($code),
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::F($code),
             modifiers: $crate::crossterm::modifiers::NONE,
-            kind: crossterm::event::KeyEventKind::Release,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Release,
             ..
         })
     };
     (keycode release $mod:ident-F($code:literal)) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::F($code),
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::F($code),
             modifiers: $crate::crossterm::modifiers::$mod,
-            kind: crossterm::event::KeyEventKind::Release,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Release,
             ..
         })
     };
     (keycode release $code:ident) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::$code,
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::$code,
             modifiers: $crate::crossterm::modifiers::NONE,
-            kind: crossterm::event::KeyEventKind::Release,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Release,
             ..
         })
     };
     (keycode release $mod:ident-$code:ident) => {
-        crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::$code,
+        ratatui_crossterm::crossterm::event::Event::Key(ratatui_crossterm::crossterm::event::KeyEvent {
+            code: ratatui_crossterm::crossterm::event::KeyCode::$code,
             modifiers: $crate::crossterm::modifiers::$mod,
-            kind: crossterm::event::KeyEventKind::Release,
+            kind: ratatui_crossterm::crossterm::event::KeyEventKind::Release,
             ..
         })
     };
 
     (mouse down $button:ident for $col:ident, $row:ident ) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::$button),
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::Down(ratatui_crossterm::crossterm::event::MouseButton::$button),
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
     (mouse down $mod:ident-$button:ident for $col:ident, $row:ident ) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::$button),
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::Down(ratatui_crossterm::crossterm::event::MouseButton::$button),
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::$mod,
         })
     };
     (mouse up $button:ident for $col:ident, $row:ident ) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::Up(crossterm::event::MouseButton::$button),
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::Up(ratatui_crossterm::crossterm::event::MouseButton::$button),
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
     (mouse up $mod:ident-$button:ident for $col:ident, $row:ident ) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::Up(crossterm::event::MouseButton::$button),
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::Up(ratatui_crossterm::crossterm::event::MouseButton::$button),
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::$mod,
         })
     };
     (mouse drag $button:ident for $col:ident, $row:ident ) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::Drag(crossterm::event::MouseButton::$button),
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::Drag(ratatui_crossterm::crossterm::event::MouseButton::$button),
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
     (mouse drag $mod:ident-$button:ident for $col:ident, $row:ident ) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::Drag(crossterm::event::MouseButton::$button),
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::Drag(ratatui_crossterm::crossterm::event::MouseButton::$button),
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::$mod,
@@ -247,25 +247,25 @@ macro_rules! ct_event {
 
 
     (mouse any for $mouse:ident) => {
-        crossterm::event::Event::Mouse($mouse)
+        ratatui_crossterm::crossterm::event::Event::Mouse($mouse)
     };
     (mouse any $mod:ident for $mouse:ident ) => {
-        crossterm::event::Event::Mouse($mouse @ crossterm::event::MouseEvent {
+        ratatui_crossterm::crossterm::event::Event::Mouse($mouse @ ratatui_crossterm::crossterm::event::MouseEvent {
             modifiers: $crate::crossterm::modifiers::$mod,
             ..
         })
     };
 
     (mouse moved ) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::Moved,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::Moved,
             modifiers: $crate::crossterm::modifiers::NONE,
             ..
         })
     };
     (mouse moved for $col:ident, $row:ident) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::Moved,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::Moved,
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::NONE,
@@ -273,47 +273,47 @@ macro_rules! ct_event {
     };
 
     (scroll $mod:ident down for $col:ident, $row:ident) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollDown,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollDown,
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::$mod,
         })
     };
     (scroll down for $col:ident, $row:ident) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollDown,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollDown,
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
     (scroll down) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollDown,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollDown,
             modifiers: $crate::crossterm::modifiers::NONE,
             ..
         })
     };
     (scroll $mod:ident up for $col:ident, $row:ident) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollUp,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollUp,
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::$mod,
         })
     };
     (scroll up for $col:ident, $row:ident) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollUp,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollUp,
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
     (scroll up) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollUp,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollUp,
             modifiers: $crate::crossterm::modifiers::NONE,
             ..
         })
@@ -321,50 +321,50 @@ macro_rules! ct_event {
 
     //??
     (scroll left for $col:ident, $row:ident) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollLeft,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollLeft,
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
     (scroll left) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollLeft,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollLeft,
             modifiers: $crate::crossterm::modifiers::NONE,
             ..
         })
     };
     //??
     (scroll right for $col:ident, $row:ident) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollRight,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollRight,
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
     (scroll right) => {
-        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
-            kind: crossterm::event::MouseEventKind::ScrollRight,
+        ratatui_crossterm::crossterm::event::Event::Mouse(ratatui_crossterm::crossterm::event::MouseEvent {
+            kind: ratatui_crossterm::crossterm::event::MouseEventKind::ScrollRight,
             modifiers: $crate::crossterm::modifiers::NONE,
             ..
         })
     };
 
     (resized) => {
-        crossterm::event::Event::Resize(_, _)
+        ratatui_crossterm::crossterm::event::Event::Resize(_, _)
     };
     (resized for $cols:ident, $rows:ident ) => {
-        crossterm::event::Event::Resize($cols, $rows)
+        ratatui_crossterm::crossterm::event::Event::Resize($cols, $rows)
     };
     (focus_gained) => {
-        crossterm::event::Event::FocusGained
+        ratatui_crossterm::crossterm::event::Event::FocusGained
     };
     (focus_lost) => {
-        crossterm::event::Event::FocusLost
+        ratatui_crossterm::crossterm::event::Event::FocusLost
     };
     (paste $value:ident) => {
-        crossterm::event::Event::Paste($value)
+        ratatui_crossterm::crossterm::event::Event::Paste($value)
     };
 }

@@ -4,10 +4,11 @@
 //! Use [TabbedState::widget_area] to render the selected tab.
 //!
 //! ```
-//! use ratatui::buffer::Buffer;
-//! use ratatui::layout::Rect;
-//! use ratatui::text::Text;
-//! use ratatui::widgets::{Block, StatefulWidget, Widget};
+//! use ratatui_core::buffer::Buffer;
+//! use ratatui_core::layout::Rect;
+//! use ratatui_core::text::Text;
+//! use ratatui_core::widgets::{StatefulWidget, Widget};
+//! use ratatui_widgets::block::{Block};
 //! use rat_widget::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
 //! # struct State { tabbed: TabbedState }
 //! # let mut state = State { tabbed: Default::default() };
@@ -53,11 +54,13 @@ use rat_event::util::MouseFlagsN;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, event_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{RelocatableState, relocate_area, relocate_areas};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::cmp::min;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -577,8 +580,8 @@ impl TabbedState {
 }
 
 /// Handle the regular events for Tabbed.
-impl HandleEvent<crossterm::event::Event, Regular, TabbedOutcome> for TabbedState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> TabbedOutcome {
+impl HandleEvent<Event, Regular, TabbedOutcome> for TabbedState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> TabbedOutcome {
         if self.is_focused() {
             event_flow!(
                 return match event {
@@ -595,8 +598,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TabbedOutcome> for TabbedStat
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TabbedOutcome> for TabbedState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> TabbedOutcome {
+impl HandleEvent<Event, MouseOnly, TabbedOutcome> for TabbedState {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> TabbedOutcome {
         match event {
             ct_event!(mouse any for e) if self.mouse.hover(&self.tab_title_close_areas, e) => {
                 TabbedOutcome::Changed
@@ -652,19 +655,12 @@ trait TabWidget: Debug {
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    state: &mut TabbedState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> TabbedOutcome {
+pub fn handle_events(state: &mut TabbedState, focus: bool, event: &Event) -> TabbedOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut TabbedState,
-    event: &crossterm::event::Event,
-) -> TabbedOutcome {
+pub fn handle_mouse_events(state: &mut TabbedState, event: &Event) -> TabbedOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

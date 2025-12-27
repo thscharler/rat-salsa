@@ -9,13 +9,12 @@ use chrono::{Datelike, Days, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::style::Stylize;
-use ratatui::style::{Style, Styled};
-use ratatui::text::Span;
-use ratatui::widgets::block::Title;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect};
+use ratatui_core::style::{Style, Styled};
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::Block;
 use std::cell::RefCell;
 use std::cmp::max;
 use std::collections::HashMap;
@@ -430,7 +429,7 @@ fn render_ref<Selection: CalendarSelection>(
     };
     if !title_format.is_empty() {
         block = block
-            .title(Title::from(
+            .title(Line::from(
                 day.format_localized(title_format, widget.loc).to_string(),
             ))
             .title_style(title_style)

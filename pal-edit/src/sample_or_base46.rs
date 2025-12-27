@@ -8,9 +8,12 @@ use rat_widget::event::{HandleEvent, Outcome, Regular, event_flow};
 use rat_widget::focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_widget::tabbed::{Tabbed, TabbedState};
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::{Block, BorderType, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 // mark tabs
 #[derive(Debug)]
@@ -104,11 +107,7 @@ pub fn render(
     Ok(())
 }
 
-pub fn event(
-    event: &crossterm::event::Event,
-    state: &mut ShowOrBase46,
-    ctx: &mut Global,
-) -> Result<Outcome, Error> {
+pub fn event(event: &Event, state: &mut ShowOrBase46, ctx: &mut Global) -> Result<Outcome, Error> {
     event_flow!(match state.tabs.selected() {
         Some(0) => {
             show_sample::event(event, &mut state.show, ctx)?

@@ -5,10 +5,13 @@ use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use rat_event::{HandleEvent, MouseOnly, Outcome, try_flow};
 use rat_scrolled::Scroll;
 use rat_theme4::StyleName;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::widgets::{Block, ListDirection, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::list::ListDirection;
 use std::iter::repeat_with;
 
 mod adapter;
@@ -93,7 +96,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

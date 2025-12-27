@@ -16,10 +16,11 @@ use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 use ropey::Rope;
 use std::cell::RefCell;
 use std::env::args;
@@ -183,7 +184,7 @@ impl GlobalState {
 
 #[derive(Debug)]
 pub enum LogScrollEvent {
-    Event(crossterm::event::Event),
+    Event(Event),
     TimeOut(TimeOut),
     Message(String),
     Status(usize, String),
@@ -196,8 +197,8 @@ pub enum LogScrollEvent {
     StoreCfg,
 }
 
-impl From<crossterm::event::Event> for LogScrollEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for LogScrollEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }
@@ -383,11 +384,13 @@ mod logscroll {
     use rat_widget::text::{TextPosition, impl_screen_cursor, upos_type};
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState, TextWrap};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
-    use ratatui::style::Style;
-    use ratatui::text::{Line, Span};
-    use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui_core::style::Style;
+    use ratatui_core::text::{Line, Span};
+    use ratatui_core::widgets::{StatefulWidget, Widget};
+    use ratatui_widgets::block::Block;
+    use ratatui_widgets::borders::BorderType;
     use regex_cursor::engines::dfa::{Regex, find_iter};
     use regex_cursor::{Input, RopeyCursor};
     use ropey::{Rope, RopeBuilder};

@@ -1,11 +1,11 @@
-use crate::tasks::Liveness;
 use crate::Control;
+use crate::tasks::Liveness;
 use log::error;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use tokio::runtime::Runtime;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::{AbortHandle, JoinHandle};
 
 pub(crate) struct TokioTasks<Event, Error> {

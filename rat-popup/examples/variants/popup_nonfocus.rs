@@ -4,11 +4,14 @@ use crate::variants::calc_dxy;
 use rat_event::{HandleEvent, Popup, Regular};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Span;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 #[derive(Debug, Default)]
 pub struct PopNonFocusRed;
@@ -67,8 +70,8 @@ impl PopNonFocusRedState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopNonFocusRedState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
+impl HandleEvent<Event, Regular, PopupOutcome> for PopNonFocusRedState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> PopupOutcome {
         let r0 = self.popup.handle(event, Popup);
         // questionable whether we should do anything else here
         // as this widget doesn't have the focus

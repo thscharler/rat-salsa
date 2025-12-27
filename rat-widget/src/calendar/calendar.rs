@@ -7,7 +7,7 @@ use chrono::{Datelike, Days, Local, Months, NaiveDate, Weekday};
 use rat_event::ConsumedEvent;
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
-use ratatui::layout::Rect;
+use ratatui_core::layout::Rect;
 use std::array;
 use std::cell::RefCell;
 use std::ops::RangeInclusive;

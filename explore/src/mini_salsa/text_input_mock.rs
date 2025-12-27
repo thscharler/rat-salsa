@@ -7,11 +7,12 @@ use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_widget::reloc::{RelocatableState, relocate_area};
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
 use std::marker::PhantomData;
+use ratatui_crossterm::crossterm::event::Event;
 
 #[derive(Debug, Default)]
 pub struct TextInputMock<'a> {
@@ -157,14 +158,14 @@ impl TextInputMockState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TextInputMockState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+impl HandleEvent<Event, Regular, Outcome> for TextInputMockState {
+    fn handle(&mut self, _event: &Event, _keymap: Regular) -> Outcome {
         Outcome::Continue
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TextInputMockState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+impl HandleEvent<Event, MouseOnly, Outcome> for TextInputMockState {
+    fn handle(&mut self, _event: &Event, _keymap: MouseOnly) -> Outcome {
         Outcome::Continue
     }
 }

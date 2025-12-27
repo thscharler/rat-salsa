@@ -1,4 +1,3 @@
-use crossterm::event::Event;
 use rat_theme4::WidgetStyle;
 use rat_theme4::theme::SalsaTheme;
 use rat_widget::dialog_frame::{DialogFrame, DialogFrameState, DialogOutcome};
@@ -7,10 +6,11 @@ use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_widget::reloc::RelocatableState;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Rect};
-use ratatui::prelude::StatefulWidget;
-use ratatui::widgets::Block;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Rect};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::cmp::min;
 
 #[derive(Debug)]

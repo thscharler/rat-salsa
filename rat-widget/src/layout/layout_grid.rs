@@ -1,11 +1,11 @@
 use crate::layout::GenericLayout;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui_core::layout::{Constraint, Layout, Rect};
 
 ///
 /// Calculates a full grid of rects from the horizontal and vertical components.
 ///
 /// ```
-/// use ratatui::layout::{Constraint, Layout, Rect};
+/// use ratatui_core::layout::{Constraint, Layout, Rect};
 /// use rat_widget::layout::layout_as_grid;
 ///
 /// let area = Rect::new(0,0,100,100);

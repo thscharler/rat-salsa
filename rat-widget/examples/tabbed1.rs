@@ -13,12 +13,15 @@ use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
 use rat_widget::statusline::StatusLineState;
 use rat_widget::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::symbols::border;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::symbols::border;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 mod mini_salsa;
 
@@ -45,7 +48,7 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    border_type: Option<(BorderType, border::Set)>,
+    border_type: Option<(BorderType, border::Set<'static>)>,
     placement: TabPlacement,
     style: TabType,
     close: bool,
@@ -129,7 +132,6 @@ fn render(
     Line::from("F5: border").yellow().render(area, buf);
     area.y += 1;
     Line::from("F12: key-nav").yellow().render(area, buf);
-    area.y += 1;
 
     MenuLine::new()
         .title("||||")
@@ -159,7 +161,7 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

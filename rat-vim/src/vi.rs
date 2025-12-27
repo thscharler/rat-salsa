@@ -15,6 +15,7 @@ use rat_event::{HandleEvent, ct_event};
 use rat_text::event::TextOutcome;
 use rat_text::text_area::TextAreaState;
 use rat_text::{TextPosition, upos_type};
+use ratatui_crossterm::crossterm::event::Event;
 use std::cell::RefCell;
 use std::mem;
 use std::ops::Range;
@@ -725,14 +726,8 @@ fn execute_normal(
     Ok(r)
 }
 
-impl HandleEvent<crossterm::event::Event, &mut VI, Result<TextOutcome, SearchError>>
-    for TextAreaState
-{
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        vi: &mut VI,
-    ) -> Result<TextOutcome, SearchError> {
+impl HandleEvent<Event, &mut VI, Result<TextOutcome, SearchError>> for TextAreaState {
+    fn handle(&mut self, event: &Event, vi: &mut VI) -> Result<TextOutcome, SearchError> {
         if self.focus.gained() && matches!(event, ct_event!(keycode press Tab)) {
             return Ok(TextOutcome::Unchanged);
         }

@@ -8,9 +8,10 @@ use rat_theme4::theme::SalsaTheme;
 use rat_widget::event::{HandleEvent, Regular, ct_event};
 use rat_widget::scrolled::Scroll;
 use rat_widget::view::{View, ViewState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Position, Rect};
-use ratatui::widgets::Block;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Position, Rect};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::fs;
 use std::path::PathBuf;
 
@@ -70,11 +71,11 @@ pub struct Config {}
 /// Application wide messages.
 #[derive(Debug)]
 pub enum AppEvent {
-    Event(crossterm::event::Event),
+    Event(Event),
 }
 
-impl From<crossterm::event::Event> for AppEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for AppEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }

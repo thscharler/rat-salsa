@@ -9,7 +9,7 @@
 //!
 
 use crate::TextError;
-use dyn_clone::{clone_box, DynClone};
+use dyn_clone::{DynClone, clone_box};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::{Arc, Mutex, OnceLock};

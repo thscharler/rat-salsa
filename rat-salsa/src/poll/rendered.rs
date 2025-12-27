@@ -1,6 +1,6 @@
+use crate::Control;
 use crate::event::RenderedEvent;
 use crate::poll::PollEvents;
-use crate::Control;
 use std::any::Any;
 
 /// Sends an event after a render of the UI.

@@ -14,7 +14,8 @@
 //! ```rust no_run
 //!     # use rat_widget::clipper::{Clipper, ClipperState};
 //!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
-//!     # use ratatui::prelude::*;
+//!     # use ratatui_core::layout::Rect;
+//!     # use ratatui_core::buffer::Buffer;
 //!     # use rat_focus::{FocusFlag, HasFocus};
 //!     # use rat_widget::layout::GenericLayout;
 //!     #
@@ -104,12 +105,14 @@ use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Position, Rect, Size};
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::Widget;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Position, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
 use std::cmp::{max, min};
@@ -1110,11 +1113,11 @@ impl ClipperState<FocusFlag> {
     }
 }
 
-impl<W> HandleEvent<crossterm::event::Event, Regular, Outcome> for ClipperState<W>
+impl<W> HandleEvent<Event, Regular, Outcome> for ClipperState<W>
 where
     W: Eq + Clone + Hash,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> Outcome {
         let r = if self.container.is_focused() {
             match event {
                 ct_event!(keycode press PageUp) => self.scroll_up(self.vscroll.page_len()).into(),
@@ -1135,11 +1138,11 @@ where
     }
 }
 
-impl<W> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ClipperState<W>
+impl<W> HandleEvent<Event, MouseOnly, Outcome> for ClipperState<W>
 where
     W: Eq + Clone + Hash,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
         let mut sas = ScrollAreaState::new()
             .area(self.widget_area)
             .h_scroll(&mut self.hscroll)
@@ -1159,11 +1162,7 @@ where
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events<W>(
-    state: &mut ClipperState<W>,
-    _focus: bool,
-    event: &crossterm::event::Event,
-) -> Outcome
+pub fn handle_events<W>(state: &mut ClipperState<W>, _focus: bool, event: &Event) -> Outcome
 where
     W: Eq + Clone + Hash,
 {
@@ -1171,10 +1170,7 @@ where
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events<W>(
-    state: &mut ClipperState<W>,
-    event: &crossterm::event::Event,
-) -> Outcome
+pub fn handle_mouse_events<W>(state: &mut ClipperState<W>, event: &Event) -> Outcome
 where
     W: Eq + Clone + Hash,
 {

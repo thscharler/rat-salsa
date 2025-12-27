@@ -16,9 +16,10 @@ use rat_widget::focus::FocusBuilder;
 use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -84,7 +85,7 @@ impl Global {
 #[derive(Debug)]
 pub enum AppEvent {
     Timer(TimeOut),
-    Event(crossterm::event::Event),
+    Event(Event),
     Rendered,
     Message(String),
     Status(usize, String),
@@ -103,8 +104,8 @@ impl From<TimeOut> for AppEvent {
     }
 }
 
-impl TryAsRef<crossterm::event::Event> for AppEvent {
-    fn try_as_ref(&self) -> Option<&crossterm::event::Event> {
+impl TryAsRef<Event> for AppEvent {
+    fn try_as_ref(&self) -> Option<&Event> {
         match self {
             AppEvent::Event(e) => Some(e),
             _ => None,
@@ -112,8 +113,8 @@ impl TryAsRef<crossterm::event::Event> for AppEvent {
     }
 }
 
-impl From<crossterm::event::Event> for AppEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for AppEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }
@@ -322,8 +323,8 @@ pub mod moving {
     use rat_dialog::decorations::WindowFrameState;
     use rat_salsa::Control;
     use rat_widget::file_dialog::FileDialogState;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::Rect;
     use std::path::PathBuf;
 
     pub struct Moving;
@@ -386,9 +387,9 @@ pub mod file_dlg_fixed {
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::layout::layout_middle;
     use rat_widget::text::HasScreenCursor;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Rect};
-    use ratatui::widgets::StatefulWidget;
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Rect};
+    use ratatui_core::widgets::StatefulWidget;
     use std::any::Any;
 
     pub fn file_dialog_render(area: Rect, buf: &mut Buffer, state: &mut dyn Any, ctx: &mut Global) {
@@ -446,10 +447,10 @@ pub mod file_dlg_moveable {
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::layout::layout_middle;
     use rat_widget::text::HasScreenCursor;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Rect};
-    use ratatui::style::Style;
-    use ratatui::widgets::StatefulWidget;
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Rect};
+    use ratatui_core::style::Style;
+    use ratatui_core::widgets::StatefulWidget;
     use std::any::Any;
 
     pub struct FileDlgState {

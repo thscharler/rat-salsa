@@ -3,12 +3,14 @@
 //! Just some small utility ...
 //!
 
-use crossterm::cursor::{DisableBlinking, SetCursorStyle};
-use crossterm::event::DisableBracketedPaste;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, LeaveAlternateScreen};
-use crossterm::ExecutableCommand;
-use ratatui::backend::CrosstermBackend;
-use ratatui::Terminal;
+use ratatui_core::terminal::Terminal;
+use ratatui_crossterm::CrosstermBackend;
+use ratatui_crossterm::crossterm::ExecutableCommand;
+use ratatui_crossterm::crossterm::cursor::{DisableBlinking, SetCursorStyle};
+use ratatui_crossterm::crossterm::event::DisableBracketedPaste;
+use ratatui_crossterm::crossterm::terminal::{
+    LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
 use std::io::stdout;
 
 fn main() -> Result<(), anyhow::Error> {

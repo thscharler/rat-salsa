@@ -2,7 +2,6 @@
 
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use chrono::{Datelike, Local, Months, NaiveDate};
-use crossterm::event::{Event, KeyCode, KeyEvent, MediaKeyCode};
 use pure_rust_locales::Locale;
 use rat_event::{HandleEvent, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder};
@@ -13,11 +12,13 @@ use rat_widget::button::{Button, ButtonState};
 use rat_widget::calendar::selection::RangeSelection;
 use rat_widget::calendar::{Calendar3, CalendarState, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, CalOutcome, Outcome};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::{Event, KeyCode, KeyEvent, MediaKeyCode};
+use ratatui_widgets::block::Block;
 use std::collections::HashMap;
 use std::str::FromStr;
 

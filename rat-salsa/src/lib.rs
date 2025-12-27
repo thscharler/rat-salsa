@@ -9,9 +9,9 @@ use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
-use ratatui::Terminal;
-use ratatui::backend::CrosstermBackend;
-use ratatui::buffer::Buffer;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::terminal::Terminal;
+use ratatui_crossterm::CrosstermBackend;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 #[cfg(feature = "async")]
@@ -40,10 +40,10 @@ pub use run_config::{RunConfig, TermInit};
 pub mod dialog_stack;
 /// Event types.
 pub mod event;
-/// Event sources.
-pub mod poll;
 /// Provides dummy implementations for some functions.
 pub mod mock;
+/// Event sources.
+pub mod poll;
 /// Types used for both future tasks and thread tasks.
 pub mod tasks;
 /// Support for timers.

@@ -8,7 +8,6 @@
 use crate::theme::{TurboStyle, turbo_theme};
 use crate::turbo::Turbo;
 use anyhow::Error;
-use crossterm::event::Event;
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::WidgetStyle;
@@ -19,10 +18,11 @@ use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::util::fill_buf_area;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -254,10 +254,11 @@ pub mod turbo {
     };
     use rat_widget::popup::Placement;
     use rat_widget::shadow::{Shadow, ShadowDirection};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-    use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::{Block, StatefulWidget};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Alignment, Constraint, Direction, Layout, Rect};
+    use ratatui_core::style::Style;
+    use ratatui_core::widgets::StatefulWidget;
+    use ratatui_widgets::block::Block;
 
     #[derive(Debug)]
     pub struct Turbo {
@@ -587,8 +588,7 @@ pub mod theme {
     use rat_widget::popup::PopupStyle;
     use rat_widget::scrolled::{ScrollStyle, ScrollSymbols};
     use rat_widget::text::TextStyle;
-    use ratatui::style::Style;
-    use ratatui::style::Stylize;
+    use ratatui_core::style::Style;
 
     pub trait TurboStyle {
         const DATA: &'static str = "data";

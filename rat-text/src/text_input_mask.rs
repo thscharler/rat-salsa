@@ -33,7 +33,7 @@
 //! * Accepts a display overlay used instead of the default chars of the input mask.
 //!
 //! ```rust ignore
-//! use ratatui::widgets::StatefulWidget;
+//! use ratatui_core::widgets::StatefulWidget;
 //! use rat_input::masked_input::{MaskedInput, MaskedInputState};
 //!
 //! let date_focused = false;
@@ -88,17 +88,17 @@ use crate::{
     Grapheme, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextPosition, TextRange,
     TextStyle, TextTab, ipos_type, upos_type,
 };
-use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{RelocatableState, relocate_dark_offset};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Rect, Size};
-use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::{Event, KeyModifiers};
+use ratatui_widgets::block::{Block, BlockExt};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::cmp::min;
@@ -2162,8 +2162,8 @@ impl MaskedInputState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
+impl HandleEvent<Event, Regular, TextOutcome> for MaskedInputState {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> TextOutcome {
         // small helper ...
         fn tc(r: bool) -> TextOutcome {
             if r {
@@ -2289,8 +2289,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
+impl HandleEvent<Event, ReadOnly, TextOutcome> for MaskedInputState {
+    fn handle(&mut self, event: &Event, _keymap: ReadOnly) -> TextOutcome {
         fn clear_overwrite(state: &mut MaskedInputState) {
             state.overwrite.set(false);
         }
@@ -2382,8 +2382,8 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
+impl HandleEvent<Event, MouseOnly, TextOutcome> for MaskedInputState {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TextOutcome {
         fn clear_overwrite(state: &mut MaskedInputState) {
             state.overwrite.set(false);
         }
@@ -2447,11 +2447,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    state: &mut MaskedInputState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_events(state: &mut MaskedInputState, focus: bool, event: &Event) -> TextOutcome {
     state.focus.set(focus);
     state.handle(event, Regular)
 }
@@ -2462,16 +2458,13 @@ pub fn handle_events(
 pub fn handle_readonly_events(
     state: &mut TextInputState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TextOutcome {
     state.focus.set(focus);
     state.handle(event, ReadOnly)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut MaskedInputState,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_mouse_events(state: &mut MaskedInputState, event: &Event) -> TextOutcome {
     state.handle(event, MouseOnly)
 }

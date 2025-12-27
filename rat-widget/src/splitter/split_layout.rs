@@ -1,6 +1,6 @@
 use crate::splitter::{ResizeConstraint, SPLIT_WIDTH, Split, SplitState, SplitType};
-use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
-use ratatui::prelude::BlockExt;
+use ratatui_core::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
+use ratatui_widgets::block::BlockExt;
 use std::cmp::min;
 
 /// Calculates the first layout according to the constraints.

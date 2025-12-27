@@ -24,22 +24,22 @@ iban = []
 color-input = ["palette"]
 
 [dependencies]
-ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
-crossterm = "0.28"
 unicode-segmentation = "1.11"
 log = "0.4"
-
 palette = { version = "0.7", optional = true }
 
-rat-event = { version = "1.4", path = "../rat-event" }
-rat-reloc = { version = "1.4", path = "../rat-reloc" }
-rat-focus = { version = "1.6", path = "../rat-focus" }
-rat-text = { version = "2.7", path = "../rat-text" }
+ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache"] }
+ratatui-widgets = { version = "0.3.0-beta.0", features = ["std", "unstable-rendered-line-info"] }
+ratatui-crossterm = { version = "0.1.0-beta.0" }
 
+rat-event = { version = "2.0", path = "../rat-event" }
+rat-reloc = { version = "2.0", path = "../rat-reloc" }
+rat-focus = { version = "2.0", path = "../rat-focus" }
+rat-text = { version = "3.0", path = "../rat-text" }
 
 [dev-dependencies]
 fern = "0.7"
 anyhow = "1.0"
 cli-clipboard = "0.4.0"
 
-rat-theme4 = { version = "4.3", default-features = false, features = ["color-input"], path = "../rat-theme4" }
+rat-theme4 = { version = "5.0", default-features = false, features = ["color-input"], path = "../rat-theme4" }

@@ -4,11 +4,13 @@ use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_scrolled::Scroll;
 use rat_widget::view;
 use rat_widget::view::{View, ViewState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Bar, BarChart, BorderType};
-use ratatui::widgets::{BarGroup, Block};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Direction, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::barchart::{Bar, BarChart, BarGroup};
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 mod mini_salsa;
 
@@ -76,7 +78,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

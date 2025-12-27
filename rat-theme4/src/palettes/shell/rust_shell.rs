@@ -1,5 +1,5 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
@@ -7,12 +7,14 @@ const DARKNESS: u8 = 64;
 /// A rusty theme. Iron-oxide, Copper-oxide,
 /// Cobald-oxide and some Chromium-oxide too.
 pub const RUST_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Rust Shell"), 
-    theme: Cow::Borrowed("Shell"), 
-    name: Cow::Borrowed("Rust"), 
-    doc: Cow::Borrowed("A rusty theme. Iron-oxide, Copper-oxide,
-Cobald-oxide and some Chromium-oxide too."), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Rust Shell"),
+    theme: Cow::Borrowed("Shell"),
+    name: Cow::Borrowed("Rust"),
+    doc: Cow::Borrowed(
+        "A rusty theme. Iron-oxide, Copper-oxide,
+Cobald-oxide and some Chromium-oxide too.",
+    ),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xd1ccc8, 0xefe6e6, 0x0, 0x0),
@@ -73,4 +75,3 @@ Cobald-oxide and some Chromium-oxide too."),
         define_alias("week-header.fg", Colors::Gray, 1),
     ]),
 };
-

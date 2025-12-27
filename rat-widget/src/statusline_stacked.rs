@@ -7,11 +7,11 @@
 //! ```
 //!
 //! # use std::time::Duration;
-//! use ratatui::buffer::Buffer;
-//! # use ratatui::prelude::Rect;
-//! # use ratatui::style::{Color, Style, Stylize};
-//! # use ratatui::text::Span;
-//! # use ratatui::widgets::Widget;
+//! use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::Rect;
+//! # use ratatui_core::style::{Color, Style, Stylize};
+//! # use ratatui_core::text::Span;
+//! # use ratatui_core::widgets::Widget;
 //! use rat_widget::statusline_stacked::{StatusLineStacked, SLANT_BL_TR, SLANT_TL_BR};
 //!
 //! # let area = Rect::default();
@@ -58,11 +58,11 @@
 //!
 //! ```
 //!
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::Widget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::Widget;
 use std::marker::PhantomData;
 
 /// Block cut at the diagonal.

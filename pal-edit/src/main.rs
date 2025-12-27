@@ -6,7 +6,7 @@ mod sample_or_base46;
 mod util;
 mod widget;
 
-#[cfg(feature = "crossterm")]
+#[cfg(feature = "term")]
 pub(crate) use rat_salsa;
 #[cfg(feature = "wgpu")]
 pub(crate) use rat_salsa_wgpu as rat_salsa;
@@ -26,7 +26,7 @@ use rat_salsa::dialog_stack::msgdialog::msg_dialog_event;
 use rat_salsa::event::RenderedEvent;
 #[cfg(feature = "wgpu")]
 use rat_salsa::event_type::convert_crossterm::ConvertCrossterm;
-#[cfg(feature = "crossterm")]
+#[cfg(feature = "term")]
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::poll::PollRendered;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
@@ -49,11 +49,12 @@ use rat_widget::slider::{Slider, SliderState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text::clipboard::set_global_clipboard;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
-use ratatui::style::{Color, Style, Stylize};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Direction, Flex, Layout, Rect};
+use ratatui_core::style::{Color, Style, Stylize};
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
 use std::cell::RefCell;
 use std::env::args;
 use std::fs::{File, create_dir_all};
@@ -89,7 +90,7 @@ fn main() -> Result<(), Error> {
             .font_family("FiraCode Nerd Font Mono")
             .font_size(20.)
             .poll(PollRendered),
-        #[cfg(feature = "crossterm")]
+        #[cfg(feature = "term")]
         RunConfig::default()?.poll(PollCrossterm).poll(PollRendered),
     )?;
 
@@ -274,7 +275,7 @@ impl Config {
 #[derive(Debug)]
 pub enum PalEvent {
     NoOp,
-    Event(crossterm::event::Event),
+    Event(Event),
     Rendered,
     Message(String),
     Save(PathBuf),
@@ -293,8 +294,8 @@ impl From<RenderedEvent> for PalEvent {
     }
 }
 
-impl TryAsRef<crossterm::event::Event> for PalEvent {
-    fn try_as_ref(&self) -> Option<&crossterm::event::Event> {
+impl TryAsRef<Event> for PalEvent {
+    fn try_as_ref(&self) -> Option<&Event> {
         match self {
             PalEvent::Event(e) => Some(e),
             _ => None,
@@ -302,8 +303,8 @@ impl TryAsRef<crossterm::event::Event> for PalEvent {
     }
 }
 
-impl From<crossterm::event::Event> for PalEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for PalEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }

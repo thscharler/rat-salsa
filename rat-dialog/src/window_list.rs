@@ -4,8 +4,8 @@
 use crate::WindowControl;
 use rat_event::util::mouse_trap;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, ct_event};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
 use std::any::{Any, TypeId};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
@@ -418,7 +418,7 @@ where
 impl<Event, Context, Error> HandleEvent<Event, &mut Context, Result<WindowControl<Event>, Error>>
     for WindowList<Event, Context, Error>
 where
-    Event: TryAsRef<crossterm::event::Event>,
+    Event: TryAsRef<ratatui_crossterm::crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
     Context: 'static,
@@ -521,7 +521,7 @@ pub fn handle_window_list<Event, Context, Error>(
     ctx: &mut Context,
 ) -> Result<WindowControl<Event>, Error>
 where
-    Event: TryAsRef<crossterm::event::Event>,
+    Event: TryAsRef<ratatui_crossterm::crossterm::event::Event>,
     Error: 'static,
     Event: 'static,
     Error: Debug,

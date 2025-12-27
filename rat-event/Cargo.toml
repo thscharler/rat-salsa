@@ -1,6 +1,6 @@
 [package]
 name = "rat-event"
-version = "1.4.1"
+version = "2.0.0"
 edition = "2024"
 description = "ratatui event handler trait for widgets"
 license = "MIT/Apache-2.0"
@@ -14,6 +14,6 @@ exclude = [".idea/*", ".gitignore"]
 workspace = true
 
 [dependencies]
-crossterm = "0.28"
-ratatui = { version = "0.29" }
 log = "0.4"
+ratatui-crossterm = { version = "0.1.0-beta.0"}
+ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache"]}

@@ -15,9 +15,9 @@ exclude = [".idea/*", ".gitignore"]
 workspace = true
 
 [features]
-default = ["crossterm"]
-wgpu = ["dep:rat-salsa-wgpu"]
-crossterm = ["dep:rat-salsa"]
+default = ["term"]
+wgpu = []
+term = ["dep:rat-salsa"]
 
 [dependencies]
 anyhow = "1.0"
@@ -30,15 +30,18 @@ pure-rust-locales = "0.8"
 sys-locale = "0.3"
 try_as_traits = { version = "0.1" }
 configparser = { version = "3.1", features = ["indexmap"] }
-crossterm = "0.28"
-ratatui = { version = "0.29", features = [] }
 serde_json = "1.0"
 
+ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache"] }
+ratatui-widgets = { version = "0.3.0-beta.0", features = ["std", "unstable-rendered-line-info"] }
+ratatui-crossterm = { version = "0.1.0-beta.0" }
+
 rat-salsa = { version = "3.0", path = "../rat-salsa", features = ["dialog_widgets"], optional = true }
-rat-salsa-wgpu = { version = "0.1", path = "../../rat-salsa-wgpu", features = ["dialog_widgets"], optional = true }
-rat-widget = { version = "2.10", path = "../rat-widget", features = ["user_directories"] }
+# waiting ...
+# rat-salsa-wgpu = { version = "0.1", path = "../../rat-salsa-wgpu", features = ["dialog_widgets"], optional = true }
+rat-widget = { version = "3.0", path = "../rat-widget", features = ["user_directories"] }
 rat-widget-extra = { version = "1.0", path = "../rat-widget-extra", features = ["color-input"] }
-rat-theme4 = { version = "4.3", path = "../rat-theme4", features = ["serde", "color-input"] }
+rat-theme4 = { version = "5.0", path = "../rat-theme4", features = ["serde", "color-input"] }
 
 
 

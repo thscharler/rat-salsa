@@ -1,7 +1,6 @@
-use ratatui::layout::{Rect, Size};
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::widgets::{Block, Padding};
+use ratatui_core::layout::{Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_widgets::block::{Block, BlockExt, Padding};
 use std::mem;
 
 /// Returns a new style with fg and bg swapped.

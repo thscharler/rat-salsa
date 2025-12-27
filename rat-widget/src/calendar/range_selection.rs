@@ -9,6 +9,7 @@ use rat_event::util::item_at;
 use rat_event::{ConsumedEvent, event_flow};
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
+use ratatui_crossterm::crossterm::event::Event;
 use std::ops::RangeInclusive;
 
 /// Can select a date range.
@@ -295,8 +296,8 @@ impl RangeSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<RangeSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
+impl HandleEvent<Event, Regular, CalOutcome> for MonthState<RangeSelection> {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> CalOutcome {
         if self.is_focused() {
             event_flow!(
                 return match event {
@@ -327,8 +328,8 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState<Ra
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState<RangeSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
+impl HandleEvent<Event, MouseOnly, CalOutcome> for MonthState<RangeSelection> {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> CalOutcome {
         let mut r = match event {
             ct_event!(mouse any for m)
                 if self.mouse.drag(
@@ -411,10 +412,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState<
     }
 }
 
-impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
-    for CalendarState<N, RangeSelection>
-{
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
+impl<const N: usize> HandleEvent<Event, Regular, CalOutcome> for CalendarState<N, RangeSelection> {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> CalOutcome {
         let mut r = 'f: {
             for month in &mut self.months {
                 let r = month.handle(event, Regular);
@@ -486,10 +485,10 @@ impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
     }
 }
 
-impl<const N: usize> HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome>
+impl<const N: usize> HandleEvent<Event, MouseOnly, CalOutcome>
     for CalendarState<N, RangeSelection>
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> CalOutcome {
         for i in 0..self.months.len() {
             if self.months[i].gained_focus() {
                 self.set_primary_idx(i);

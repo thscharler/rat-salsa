@@ -13,10 +13,11 @@ use rat_event::{HandleEvent, Outcome, Regular, ct_event, try_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_popup::PopupConstraint;
 use rat_popup::event::PopupOutcome;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 
 mod adapter;
 mod mini_salsa;
@@ -174,7 +175,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

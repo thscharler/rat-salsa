@@ -13,11 +13,14 @@ use rat_widget::calendar::selection::RangeSelection;
 use rat_widget::calendar::{CalendarState, Month, TodayPolicy};
 use rat_widget::event::{ButtonOutcome, Outcome};
 use rat_widget::statusline::StatusLineState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::Borders;
 use std::collections::HashMap;
 
 mod mini_salsa;
@@ -196,7 +199,7 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

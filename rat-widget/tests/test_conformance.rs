@@ -1,4 +1,3 @@
-use crossterm::event::Event;
 use rat_event::{Dialog, Popup};
 use rat_ftable::event::TableOutcome;
 use rat_ftable::{Table, TableState, TableStyle};
@@ -44,11 +43,12 @@ use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::tabbed::{Tabbed, TabbedState, TabbedStyle};
 use rat_widget::text::HasScreenCursor;
 use rat_widget::view::{View, ViewBuffer, ViewState, ViewStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::Block;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::fmt::Debug;
 
 macro_rules! conform_widget {

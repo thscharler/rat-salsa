@@ -1,16 +1,17 @@
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, RelocatableState};
+use rat_reloc::{RelocatableState, relocate_area};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use rat_text::line_number::{LineNumberState, LineNumbers};
 use rat_widget::util::revert_style;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::Block;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 
 #[derive(Debug, Default)]
 pub struct EndlessScroll<'a> {
@@ -150,8 +151,8 @@ impl EndlessScrollState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for EndlessScrollState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl HandleEvent<Event, Regular, Outcome> for EndlessScrollState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> Outcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => self.vscroll.scroll_up(1).into(),
@@ -180,8 +181,8 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for EndlessScrollSta
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for EndlessScrollState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
+impl HandleEvent<Event, MouseOnly, Outcome> for EndlessScrollState {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> Outcome {
         match ScrollAreaState::new()
             .area(self.area)
             .v_scroll(&mut self.vscroll)

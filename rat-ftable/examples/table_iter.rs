@@ -14,11 +14,14 @@ use rat_ftable::{Table, TableContext, TableDataIter, TableState};
 use rat_scrolled::{Scroll, ScrollStyle};
 use rat_theme4::StyleName;
 use rat_theme4::theme::SalsaTheme;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget, block};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 use std::iter::Enumerate;
 use std::slice::Iter;
 
@@ -139,7 +142,7 @@ fn render(
         .footer(Row::new(["a", "b", "c", "d", "e"]))
         .block(
             Block::bordered()
-                .border_type(block::BorderType::Rounded)
+                .border_type(BorderType::Rounded)
                 .title("tabledata-iter (no row-count)"),
         )
         .vscroll(Scroll::new())
@@ -181,7 +184,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

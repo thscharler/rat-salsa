@@ -1,6 +1,6 @@
 use rat_theme4::palette::{Colors, Palette, define_alias, define_rt_alias};
 use rat_theme4::{RatWidgetColor, create_salsa_palette, salsa_themes};
-use ratatui::style::Color;
+use ratatui_core::style::Color;
 use std::borrow::Cow;
 
 #[test]

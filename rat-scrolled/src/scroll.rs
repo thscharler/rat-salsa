@@ -4,11 +4,14 @@ use crate::event::ScrollOutcome;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, ct_event};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::symbols;
-use ratatui::widgets::{Padding, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::symbols;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Padding;
+use ratatui_widgets::scrollbar::{Scrollbar, ScrollbarOrientation, ScrollbarState};
 use std::cmp::{max, min};
 use std::mem;
 use std::ops::Range;
@@ -175,8 +178,8 @@ pub const SCROLLBAR_HORIZONTAL: ScrollSymbols = ScrollSymbols {
     min: symbols::line::HORIZONTAL,
 };
 
-impl From<&ScrollSymbols> for symbols::scrollbar::Set {
-    fn from(value: &ScrollSymbols) -> Self {
+impl From<&'_ ScrollSymbols> for symbols::scrollbar::Set<'_> {
+    fn from(value: &'_ ScrollSymbols) -> Self {
         symbols::scrollbar::Set {
             track: value.track,
             thumb: value.thumb,
@@ -805,8 +808,8 @@ impl ScrollState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ScrollOutcome {
+impl HandleEvent<Event, MouseOnly, ScrollOutcome> for ScrollState {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> ScrollOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
                 if self.is_vertical() {

@@ -1,5 +1,5 @@
 use rat_popup::PopupConstraint;
-use ratatui::layout::Alignment;
+use ratatui_core::layout::Alignment;
 
 pub mod popup_edit;
 pub mod popup_focus;

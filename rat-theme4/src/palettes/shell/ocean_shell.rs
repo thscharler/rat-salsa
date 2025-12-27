@@ -1,16 +1,16 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
 /// Ocean
 /// Ocean theme.
 pub const OCEAN_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Ocean Shell"), 
-    theme: Cow::Borrowed("Shell"), 
-    name: Cow::Borrowed("Ocean"), 
-    doc: Cow::Borrowed("Ocean theme."), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Ocean Shell"),
+    theme: Cow::Borrowed("Shell"),
+    name: Cow::Borrowed("Ocean"),
+    doc: Cow::Borrowed("Ocean theme."),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xe5e5dd, 0xf2f2ee, 0x0, 0x0),
@@ -71,4 +71,3 @@ pub const OCEAN_SHELL: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 2),
     ]),
 };
-

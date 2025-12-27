@@ -1,5 +1,5 @@
 use crate::Palette;
-use ratatui::style::Color;
+use ratatui_core::style::Color;
 use std::borrow::Cow;
 
 /// Base 16

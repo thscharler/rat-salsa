@@ -1,6 +1,6 @@
 use crate::splitter::{Split, SplitState};
-use ratatui::layout::{Direction, Position, Rect};
-use ratatui::widgets::BorderType;
+use ratatui_core::layout::{Direction, Position, Rect};
+use ratatui_widgets::borders::BorderType;
 
 pub(super) fn get_mark_0<'a>(widget: &Split<'a>) -> &'a str {
     if let Some(mark) = widget.mark_0_char {

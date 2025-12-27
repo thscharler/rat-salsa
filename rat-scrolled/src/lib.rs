@@ -6,8 +6,8 @@ mod scroll;
 mod scroll_area;
 
 pub use scroll::{
-    Scroll, ScrollState, ScrollStyle, ScrollSymbols, SCROLLBAR_DOUBLE_HORIZONTAL,
-    SCROLLBAR_DOUBLE_VERTICAL, SCROLLBAR_HORIZONTAL, SCROLLBAR_VERTICAL,
+    SCROLLBAR_DOUBLE_HORIZONTAL, SCROLLBAR_DOUBLE_VERTICAL, SCROLLBAR_HORIZONTAL,
+    SCROLLBAR_VERTICAL, Scroll, ScrollState, ScrollStyle, ScrollSymbols,
 };
 pub use scroll_area::{ScrollArea, ScrollAreaState};
 

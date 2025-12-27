@@ -11,10 +11,12 @@ use rat_menu::popup_menu;
 use rat_menu::popup_menu::{PopupConstraint, PopupMenu, PopupMenuState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_as_grid;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 
 mod mini_salsa;
 
@@ -119,7 +121,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
@@ -191,10 +193,10 @@ fn event(
 
 mod blue {
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::StatefulWidget;
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::Rect;
+    use ratatui_core::style::Style;
+    use ratatui_core::widgets::StatefulWidget;
 
     #[derive(Debug)]
     pub struct Blue {

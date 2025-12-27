@@ -5,11 +5,11 @@
 
 use crate::_private::NonExhaustive;
 use crate::{TableContext, TableData};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::{Style, Styled};
-use ratatui::text::Text;
-use ratatui::widgets::Widget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::{Style, Styled};
+use ratatui_core::text::Text;
+use ratatui_core::widgets::Widget;
 
 /// Internal impl for TableData using pre-rendered Cells.
 #[derive(Debug, Default, Clone)]

@@ -1,4 +1,4 @@
-use ratatui::style::{Color, Style};
+use ratatui_core::style::{Color, Style};
 #[cfg(feature = "serde")]
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 #[cfg(feature = "serde")]

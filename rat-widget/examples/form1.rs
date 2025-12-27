@@ -12,12 +12,13 @@ use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::event::{FormOutcome, Outcome};
 use rat_widget::form::{Form, FormState};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::prelude::StatefulWidget;
-use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::widgets::{Padding, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Padding;
 use std::array;
 
 mod mini_salsa;
@@ -161,7 +162,7 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
@@ -212,7 +213,8 @@ fn flip_flex(state: &mut State) -> Outcome {
         Flex::End => Flex::Center,
         Flex::Center => Flex::SpaceBetween,
         Flex::SpaceBetween => Flex::SpaceAround,
-        Flex::SpaceAround => Flex::Legacy,
+        Flex::SpaceAround => Flex::SpaceEvenly,
+        Flex::SpaceEvenly => Flex::Legacy,
     };
     Outcome::Changed
 }

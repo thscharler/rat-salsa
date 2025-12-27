@@ -4,10 +4,12 @@
 //!
 //! Render line numbers in sync with a text area.
 //! ```
-//! # use ratatui::buffer::Buffer;
-//! # use ratatui::layout::Rect;
-//! # use ratatui::symbols::border::EMPTY;
-//! # use ratatui::widgets::{Block, Borders, StatefulWidget};
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::Rect;
+//! # use ratatui_core::symbols::border::EMPTY;
+//! # use ratatui_core::widgets::{StatefulWidget};
+//! # use ratatui_widgets::block::{Block};
+//! # use ratatui_widgets::borders::{Borders};
 //! use rat_text::line_number::{LineNumberState, LineNumbers};
 //! # use rat_text::text_area::TextAreaState;
 //!

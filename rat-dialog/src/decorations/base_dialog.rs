@@ -3,7 +3,6 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crossterm::event::Event;
 use rat_widget::button::{Button, ButtonState, ButtonStyle};
 use rat_widget::event::{
     ButtonOutcome, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular, ct_event, flow,
@@ -11,10 +10,13 @@ use rat_widget::event::{
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_widget::layout::{DialogItem, LayoutOuter, layout_dialog};
 use rat_widget::util::{block_padding2, fill_buf_area};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Position, Rect, Size};
-use ratatui::style::Style;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Position, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 /// Renders the frame and the Ok/Cancel buttons for a dialog window.
 ///

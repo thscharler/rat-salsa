@@ -6,16 +6,16 @@ use crate::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
 use crate::choice::{Choice, ChoicePopup, ChoiceSelect, ChoiceState, ChoiceStyle, ChoiceWidget};
 use crate::event::{ButtonOutcome, CheckOutcome, ChoiceOutcome};
 use crate::paired::{PairSplit, Paired, PairedState, PairedWidget};
-use crossterm::event::{Event, KeyEvent, KeyEventKind};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Popup, Regular, event_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::{Event, KeyEvent, KeyEventKind};
+use ratatui_widgets::block::{Block, BlockExt};
 use std::borrow::Cow;
 
 #[derive(Debug)]

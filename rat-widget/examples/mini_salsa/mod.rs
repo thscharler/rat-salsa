@@ -2,21 +2,12 @@
 #![allow(dead_code)]
 
 use anyhow::anyhow;
-use crossterm::ExecutableCommand;
-use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
-use crossterm::event::{
-    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, KeyCode,
-    KeyEvent, KeyEventKind, KeyModifiers, MediaKeyCode,
-};
 #[cfg(not(windows))]
 use crossterm::event::{
     KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 #[cfg(not(windows))]
 use crossterm::terminal::supports_keyboard_enhancement;
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
 use log::error;
 use rat_event::util::set_have_keyboard_enhancement;
 use rat_event::{HandleEvent, Outcome, Regular};
@@ -24,13 +15,22 @@ use rat_focus::Focus;
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{RatWidgetColor, StyleName, create_salsa_theme, salsa_themes};
-use ratatui::Terminal;
-use ratatui::backend::CrosstermBackend;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Style};
-use ratatui::text::Line;
-use ratatui::widgets::Widget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::{Color, Style};
+use ratatui_core::terminal::Terminal;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::ExecutableCommand;
+use ratatui_crossterm::crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
+use ratatui_crossterm::crossterm::event::{
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
+    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MediaKeyCode,
+};
+use ratatui_crossterm::crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
+use ratatui_crossterm::{CrosstermBackend, crossterm};
 use std::cell::Cell;
 use std::cmp::max;
 use std::fs;
@@ -99,11 +99,7 @@ pub fn run_ui<State>(
         &mut MiniSalsaState, //
         &mut State,
     ) -> Result<(), anyhow::Error>,
-    handle: fn(
-        &crossterm::event::Event,
-        &mut MiniSalsaState,
-        state: &mut State,
-    ) -> Result<Outcome, anyhow::Error>,
+    handle: fn(&Event, &mut MiniSalsaState, state: &mut State) -> Result<Outcome, anyhow::Error>,
     repaint: fn(
         &mut Buffer, //
         Rect,
@@ -264,9 +260,11 @@ fn repaint_tui<State>(
         .split(area)
     };
 
-    let t0 = SystemTime::now();
+    if !ctx.hide_status {
+        buf.set_style(l1[1], ctx.theme.style_style(Style::STATUS_BASE));
+    }
 
-    buf.set_style(l1[0], ctx.theme.style_style(Style::CONTAINER_BASE));
+    let t0 = SystemTime::now();
 
     repaint(buf, l1[0], ctx, state)?;
 
@@ -285,23 +283,19 @@ fn repaint_tui<State>(
         ])
         .split(l1[1]);
 
-        let base = ctx.theme.p.aliased(Color::STATUS_BASE_BG);
-        let c0 = if ctx.theme.theme == "dark" { 0 } else { 4 };
+        let blue_text = ctx.theme.p.high_contrast_color(
+            ctx.theme.p.color_alias(Color::STATUS_BASE_BG),
+            &ctx.theme.p.color[Colors::Blue as usize],
+        );
 
-        Line::from_iter(["[", ctx.name.as_str(), "]"])
-            .style(ctx.theme.style_style(Style::STATUS_BASE))
-            .render(l_status[0], buf);
-        Line::from(" ")
-            .style(ctx.theme.style_style(Style::STATUS_BASE))
-            .render(l_status[1], buf);
-        Line::from(ctx.status[0].as_str())
-            .style(ctx.theme.p.high_bg_style(Colors::Blue, base.0, base.1))
-            .render(l_status[2], buf);
+        Line::from_iter(["[", ctx.name.as_str(), "]"]).render(l_status[0], buf);
+        Line::from(" ").render(l_status[1], buf);
+        Line::from(ctx.status[0].as_str()).render(l_status[2], buf);
         Line::from(ctx.status[1].as_str())
-            .style(ctx.theme.p.high_bg_style(Colors::Blue, base.0, base.1))
+            .style(blue_text)
             .render(l_status[3], buf);
         Line::from(ctx.status[2].as_str())
-            .style(ctx.theme.p.high_bg_style(Colors::Blue, base.0, base.1))
+            .style(blue_text)
             .render(l_status[4], buf);
     }
 

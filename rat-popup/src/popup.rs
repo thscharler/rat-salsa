@@ -4,10 +4,11 @@ use crate::{Placement, PopupConstraint};
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, Popup, ct_event};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 use std::cell::Cell;
 use std::cmp::max;
 use std::rc::Rc;
@@ -535,8 +536,8 @@ impl PopupCoreState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Popup, PopupOutcome> for PopupCoreState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> PopupOutcome {
+impl HandleEvent<Event, Popup, PopupOutcome> for PopupCoreState {
+    fn handle(&mut self, event: &Event, _qualifier: Popup) -> PopupOutcome {
         if self.is_active() {
             match event {
                 ct_event!(mouse down Left for x,y)

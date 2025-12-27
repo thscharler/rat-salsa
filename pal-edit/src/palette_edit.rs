@@ -1,9 +1,9 @@
 use crate::proc::{color_array, color_array_no_text};
+use crate::rat_salsa::SalsaContext;
 use crate::widget::color_span::{ColorSpan, ColorSpanState};
 use crate::{Config, Global, PalEvent};
 use anyhow::Error;
 use indexmap::IndexMap;
-use crate::rat_salsa::SalsaContext;
 use rat_theme4::palette::{ColorIdx, Colors, Palette};
 use rat_theme4::{RatWidgetColor, WidgetStyle};
 use rat_widget::choice::{Choice, ChoiceState};
@@ -21,10 +21,12 @@ use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
 use rat_widget::textarea::{TextArea, TextAreaState};
 use rat_widget_extra::color_input::{ColorInput, ColorInputState, Mode};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Flex, Rect};
-use ratatui::style::Color;
-use ratatui::widgets::{Block, BorderType};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Flex, Rect};
+use ratatui_core::style::Color;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 use std::array;
 use std::borrow::Cow;
 
@@ -436,11 +438,7 @@ pub fn render(
 }
 
 #[allow(unused_variables)]
-pub fn event(
-    event: &crossterm::event::Event,
-    state: &mut PaletteEdit,
-    ctx: &mut Global,
-) -> Result<Outcome, Error> {
+pub fn event(event: &Event, state: &mut PaletteEdit, ctx: &mut Global) -> Result<Outcome, Error> {
     let mut mode_change = None;
 
     let r = 'f: {
@@ -500,7 +498,7 @@ pub fn event(
 }
 
 fn handle_color(
-    event: &crossterm::event::Event,
+    event: &Event,
     color: &mut ColorInputState,
     mode_change: &mut Option<Mode>,
 ) -> TextOutcome {

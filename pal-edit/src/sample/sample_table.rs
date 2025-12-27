@@ -1,6 +1,5 @@
 use crate::Global;
 use anyhow::Error;
-use crossterm::event::Event;
 use rat_theme4::{StyleName, WidgetStyle};
 use rat_widget::event::{HandleEvent, Outcome, Regular, event_flow};
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
@@ -8,10 +7,11 @@ use rat_widget::scrolled::Scroll;
 use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{Table, TableState, TableStyle};
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Rect};
-use ratatui::prelude::StatefulWidget;
-use ratatui::style::Style;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 
 #[derive(Debug)]
 pub struct SampleTable {

@@ -18,10 +18,10 @@
 //! ## Usage
 //!
 //! ```rust
-//! # use ratatui::buffer::Buffer;
-//! # use ratatui::layout::Rect;
-//! # use ratatui::style::Style;
-//! # use ratatui::widgets::StatefulWidget;
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::Rect;
+//! # use ratatui_core::style::Style;
+//! # use ratatui_core::widgets::StatefulWidget;
 //! # use rat_theme4::theme::{SalsaTheme};
 //! # use rat_theme4::{StyleName, WidgetStyle};
 //! # use rat_theme4::palettes::core::BLACKOUT;
@@ -52,7 +52,7 @@
 //! ```rust
 //! # use std::fs::File;
 //! # use rat_theme4::{load_palette, create_palette_theme};
-//! # use ratatui::style::Style;
+//! # use ratatui_core::style::Style;
 //! # use rat_theme4::StyleName;
 //!
 //! let mut f = File::open("dark_palettes/base16.pal").expect("pal-file");
@@ -70,7 +70,7 @@
 use crate::palette::Palette;
 use crate::palettes::shell;
 use crate::theme::SalsaTheme;
-use ratatui::style::{Color, Style};
+use ratatui_core::style::{Color, Style};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 mod error;
@@ -117,7 +117,7 @@ pub mod themes {
 ///
 /// Use as
 /// ```rust
-/// # use ratatui::style::Style;
+/// # use ratatui_core::style::Style;
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::{ StyleName, WidgetStyle};
 /// # use rat_theme4::palettes::core::BLACKOUT;
@@ -128,10 +128,10 @@ pub mod themes {
 /// ```
 /// or more likely
 /// ```rust
-/// # use ratatui::buffer::Buffer;
-/// # use ratatui::layout::Rect;
-/// # use ratatui::style::Style;
-/// # use ratatui::widgets::StatefulWidget;
+/// # use ratatui_core::buffer::Buffer;
+/// # use ratatui_core::layout::Rect;
+/// # use ratatui_core::style::Style;
+/// # use ratatui_core::widgets::StatefulWidget;
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::{ StyleName, WidgetStyle};
 /// # use rat_theme4::palettes::core::BLACKOUT;
@@ -218,7 +218,7 @@ impl WidgetStyle {
 ///
 /// Use as
 /// ```rust
-/// # use ratatui::style::Style;
+/// # use ratatui_core::style::Style;
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::{ StyleName, WidgetStyle};
 /// # use rat_theme4::palettes::core::BLACKOUT;
@@ -275,7 +275,7 @@ impl StyleName for Style {}
 ///
 /// Use as
 /// ```rust
-/// # use ratatui::style::{Style, Color};
+/// # use ratatui_core::style::{Style, Color};
 /// # use rat_theme4::theme::{SalsaTheme};
 /// # use rat_theme4::RatWidgetColor;
 /// # let theme = SalsaTheme::default();

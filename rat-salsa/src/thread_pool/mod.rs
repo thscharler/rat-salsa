@@ -1,10 +1,10 @@
 //! Thread pool.
-use crate::tasks::{Cancel, Liveness};
 use crate::Control;
-use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
+use crate::tasks::{Cancel, Liveness};
+use crossbeam::channel::{Receiver, SendError, Sender, TryRecvError, bounded, unbounded};
 use log::error;
 use std::fmt::{Debug, Formatter};
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::thread::JoinHandle;
 use std::{mem, thread};
 

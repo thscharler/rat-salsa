@@ -5,8 +5,10 @@
 //! use rat_popup::Placement;
 //! use rat_scrolled::Scroll;
 //! use rat_widget::choice::{Choice, ChoiceState};
-//! # use ratatui::prelude::*;
-//! # use ratatui::widgets::Block;
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::Rect;
+//! # use ratatui_core::widgets::StatefulWidget;
+//! # use ratatui_widgets::block::Block;
 //! # let mut buf = Buffer::default();
 //! # let mut cstate = ChoiceState::default();
 //! # let mut max_bounds: Rect = Rect::default();
@@ -44,12 +46,13 @@ use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle, fallback_popup
 use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt};
 use std::cell::{Cell, RefCell};
 use std::cmp::{max, min};
 use std::marker::PhantomData;
@@ -1553,10 +1556,8 @@ where
     }
 }
 
-impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup, ChoiceOutcome>
-    for ChoiceState<T>
-{
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> ChoiceOutcome {
+impl<T: PartialEq + Clone + Default> HandleEvent<Event, Popup, ChoiceOutcome> for ChoiceState<T> {
+    fn handle(&mut self, event: &Event, _qualifier: Popup) -> ChoiceOutcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(key press ' ') | ct_event!(keycode press Enter) => {
@@ -1613,10 +1614,10 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, Popup,
     }
 }
 
-impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, MouseOnly, ChoiceOutcome>
+impl<T: PartialEq + Clone + Default> HandleEvent<Event, MouseOnly, ChoiceOutcome>
     for ChoiceState<T>
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ChoiceOutcome {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> ChoiceOutcome {
         let r0 = handle_mouse(self, event);
         let r1 = handle_select(self, event);
         let r2 = handle_close(self, event);
@@ -1630,7 +1631,7 @@ impl<T: PartialEq + Clone + Default> HandleEvent<crossterm::event::Event, MouseO
 
 fn handle_mouse<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> ChoiceOutcome {
     match event {
         ct_event!(mouse down Left for x,y)
@@ -1666,7 +1667,7 @@ fn handle_mouse<T: PartialEq + Clone + Default>(
 
 fn handle_select<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> ChoiceOutcome {
     match state.behave_select {
         ChoiceSelect::MouseScroll => {
@@ -1810,7 +1811,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
 
 fn handle_close<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> ChoiceOutcome {
     match state.behave_close {
         ChoiceClose::SingleClick => match event {
@@ -1854,7 +1855,7 @@ fn handle_close<T: PartialEq + Clone + Default>(
 pub fn handle_events<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> ChoiceOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Popup)
@@ -1863,7 +1864,7 @@ pub fn handle_events<T: PartialEq + Clone + Default>(
 /// Handle only mouse-events.
 pub fn handle_mouse_events<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> ChoiceOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

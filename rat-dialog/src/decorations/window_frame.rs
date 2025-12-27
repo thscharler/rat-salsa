@@ -3,12 +3,12 @@
 //!
 use crate::decorations::frame_state::{WindowFrameState, WindowFrameStyle};
 use rat_focus::HasFocus;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::{Block, BlockExt};
 
 /// Widget for a moveable window.
 ///

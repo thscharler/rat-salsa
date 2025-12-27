@@ -7,10 +7,13 @@ use rat_scrolled::Scroll;
 use rat_theme4::StyleName;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::view::{View, ViewState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect, Size};
-use ratatui::style::Style;
-use ratatui::widgets::{Block, BorderType, Wrap};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
+use ratatui_widgets::paragraph::Wrap;
 
 mod mini_salsa;
 
@@ -97,7 +100,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

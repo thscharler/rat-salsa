@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme4"
-version = "4.3.0"
+version = "5.0.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "dark theme and color-schemes"
@@ -22,13 +22,17 @@ rat-widget = ["dep:rat-widget"]
 # Include styles for color-input.
 color-input = ["dep:rat-widget-extra", "dep:rat-widget", "rat-widget-extra/color-input"]
 # Serde
-serde = ["dep:serde", "ratatui/serde"]
+serde = ["dep:serde", "ratatui-core/serde", "ratatui-widgets/serde"]
 
 [dependencies]
-ratatui = { version = "0.29" }
 log = "0.4"
 serde = { version = "1", optional = true }
-rat-widget = { version = "2.10", path = "../rat-widget", optional = true }
+
+ratatui-core = { version = "0.1.0-beta.0", features = ["std", "layout-cache", "scrolling-regions"] }
+ratatui-widgets = { version = "0.3.0-beta.0", features = ["std", "unstable-rendered-line-info"] }
+ratatui-crossterm = { version = "0.1.0-beta.0", features = ["scrolling-regions"] }
+
+rat-widget = { version = "3.0", path = "../rat-widget", optional = true }
 rat-widget-extra = { version = "1.0", path = "../rat-widget-extra", optional = true }
 
 [dev-dependencies]

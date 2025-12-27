@@ -6,9 +6,12 @@ use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_theme4::WidgetStyle;
 use rat_widget::checkbox::{Checkbox, CheckboxState};
 use rat_widget::event::Outcome;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::widgets::{Block, BorderType, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 mod mini_salsa;
 
@@ -95,7 +98,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

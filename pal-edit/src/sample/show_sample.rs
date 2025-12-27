@@ -19,11 +19,14 @@ use rat_widget::popup::Placement;
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::tabbed::{TabPlacement, Tabbed, TabbedState};
 use rat_widget::text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Layout, Position, Rect};
-use ratatui::style::Style;
-use ratatui::text::Text;
-use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Constraint, Layout, Position, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Text;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::{BorderType, Borders};
 
 #[derive(Debug)]
 pub struct ShowSample {
@@ -243,11 +246,7 @@ pub fn render(
     Ok(())
 }
 
-pub fn event(
-    event: &crossterm::event::Event,
-    state: &mut ShowSample,
-    ctx: &mut Global,
-) -> Result<Outcome, Error> {
+pub fn event(event: &Event, state: &mut ShowSample, ctx: &mut Global) -> Result<Outcome, Error> {
     event_flow!(state.menu.handle(event, Popup));
 
     event_flow!(match state.tabs.selected() {

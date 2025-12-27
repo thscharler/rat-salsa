@@ -10,10 +10,11 @@
 //! through the pages.
 //!
 //! ```
-//! # use ratatui::buffer::Buffer;
-//! # use ratatui::layout::{Flex, Rect};
-//! # use ratatui::text::Span;
-//! # use ratatui::widgets::{Padding, Widget, StatefulWidget, Block};
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::{Flex, Rect};
+//! # use ratatui_core::text::Span;
+//! # use ratatui_core::widgets::{Widget, StatefulWidget};
+//! # use ratatui_widgets::block::{Padding, Block};
 //! # use rat_focus::{FocusFlag, HasFocus};
 //! # use rat_text::text_input::{TextInput, TextInputState};
 //! # use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
@@ -84,12 +85,13 @@ use rat_event::util::MouseFlagsN;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect, Size};
-use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt};
 use std::borrow::Cow;
 use std::cmp::min;
 use std::hash::Hash;
@@ -1035,11 +1037,11 @@ impl FormState<FocusFlag> {
     }
 }
 
-impl<W> HandleEvent<crossterm::event::Event, Regular, FormOutcome> for FormState<W>
+impl<W> HandleEvent<Event, Regular, FormOutcome> for FormState<W>
 where
     W: Eq + Hash + Clone,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> FormOutcome {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> FormOutcome {
         let r = if self.container.is_focused() && !self.layout.is_endless() {
             match event {
                 ct_event!(keycode press ALT-PageUp) => {
@@ -1066,11 +1068,11 @@ where
     }
 }
 
-impl<W> HandleEvent<crossterm::event::Event, MouseOnly, FormOutcome> for FormState<W>
+impl<W> HandleEvent<Event, MouseOnly, FormOutcome> for FormState<W>
 where
     W: Eq + Hash + Clone,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> FormOutcome {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> FormOutcome {
         if !self.layout.is_endless() {
             match event {
                 ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {
@@ -1125,11 +1127,7 @@ where
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events<W>(
-    state: &mut FormState<W>,
-    _focus: bool,
-    event: &crossterm::event::Event,
-) -> FormOutcome
+pub fn handle_events<W>(state: &mut FormState<W>, _focus: bool, event: &Event) -> FormOutcome
 where
     W: Eq + Clone + Hash,
 {
@@ -1137,10 +1135,7 @@ where
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events<W>(
-    state: &mut FormState<W>,
-    event: &crossterm::event::Event,
-) -> FormOutcome
+pub fn handle_mouse_events<W>(state: &mut FormState<W>, event: &Event) -> FormOutcome
 where
     W: Eq + Clone + Hash,
 {

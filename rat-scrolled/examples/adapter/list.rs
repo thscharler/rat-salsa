@@ -1,14 +1,17 @@
 use crate::adapter::_private::NonExhaustive;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event, flow};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
-use ratatui::style::Style;
-use ratatui::widgets::ListDirection::BottomToTop;
-use ratatui::widgets::StatefulWidget;
-use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Position, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::list::ListDirection::BottomToTop;
+use ratatui_widgets::list::{List, ListDirection, ListItem, ListState};
+use ratatui_widgets::table::HighlightSpacing;
 use std::cmp::{max, min};
 
 ///
@@ -371,8 +374,8 @@ impl ListSState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListSState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+impl HandleEvent<Event, Regular, Outcome> for ListSState {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> Outcome {
         let r = match event {
             ct_event!(keycode press Down) => {
                 self.select_next(1);
@@ -414,8 +417,8 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListSState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+impl HandleEvent<Event, MouseOnly, Outcome> for ListSState {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
         flow!(match event {
             ct_event!(mouse down Left for column, row) => {
                 let pos = Position::new(*column, *row);

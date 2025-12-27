@@ -7,10 +7,13 @@ use rat_scrolled::Scroll;
 use rat_text::text_area::{TextArea, TextAreaState};
 use rat_text::{HasScreenCursor, text_area};
 use rat_theme4::StyleName;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::paragraph::Paragraph;
 use std::fmt;
 
 mod mini_salsa;
@@ -136,7 +139,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

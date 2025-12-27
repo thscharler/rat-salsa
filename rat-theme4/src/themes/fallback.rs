@@ -5,7 +5,7 @@ use crate::{RatWidgetColor, StyleName, WidgetStyle};
 use rat_widget;
 #[cfg(feature = "color-input")]
 use rat_widget_extra::color_input::ColorInputStyle;
-use ratatui::style::{Color, Style};
+use ratatui_core::style::{Color, Style};
 
 /// A theme to test the fallback-styles of each widget.
 pub fn create_fallback(p: Palette) -> SalsaTheme {

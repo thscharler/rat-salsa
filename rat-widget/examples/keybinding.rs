@@ -1,12 +1,12 @@
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
 use chrono::{Local, NaiveTime};
-use crossterm::event::{Event, KeyEvent};
 use format_num_pattern::NumberFormat;
 use rat_event::{Outcome, try_flow};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::text::Span;
-use ratatui::widgets::Widget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::event::{Event, KeyEvent};
 
 mod mini_salsa;
 

@@ -13,7 +13,8 @@ use rat_dialog::{DialogStack, WindowControl};
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palettes::dark::BASE16;
-use ratatui::layout::Rect;
+use ratatui_core::layout::Rect;
+use ratatui_crossterm::crossterm::event::Event;
 use std::fs;
 use std::path::PathBuf;
 use try_as::traits::TryAsRef;
@@ -82,7 +83,7 @@ pub struct TurboConfig {}
 /// Application wide messages.
 #[derive(Debug)]
 pub enum TurboEvent {
-    Event(crossterm::event::Event),
+    Event(Event),
     Message(String),
     Status(usize, String),
     NoOp,
@@ -92,14 +93,14 @@ pub enum TurboEvent {
     SaveAsDialog,
 }
 
-impl From<crossterm::event::Event> for TurboEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for TurboEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }
 
-impl TryAsRef<crossterm::event::Event> for TurboEvent {
-    fn try_as_ref(&self) -> Option<&crossterm::event::Event> {
+impl TryAsRef<Event> for TurboEvent {
+    fn try_as_ref(&self) -> Option<&Event> {
         match self {
             TurboEvent::Event(e) => Some(e),
             _ => None,
@@ -107,7 +108,7 @@ impl TryAsRef<crossterm::event::Event> for TurboEvent {
     }
 }
 
-impl<'a> TryFrom<&'a TurboEvent> for &'a crossterm::event::Event {
+impl<'a> TryFrom<&'a TurboEvent> for &'a Event {
     type Error = ();
 
     fn try_from(value: &'a TurboEvent) -> Result<Self, Self::Error> {
@@ -132,9 +133,9 @@ pub mod app {
     use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
     use rat_widget::statusline::{StatusLine, StatusLineState};
     use rat_widget::util::fill_buf_area;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::widgets::StatefulWidget;
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Layout, Rect};
+    use ratatui_core::widgets::StatefulWidget;
     use std::any::Any;
     use std::time::{Duration, SystemTime};
 
@@ -355,10 +356,11 @@ pub mod menu {
     };
     use rat_widget::popup::Placement;
     use rat_widget::shadow::{Shadow, ShadowDirection};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Alignment, Rect};
-    use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::{Block, StatefulWidget};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Alignment, Rect};
+    use ratatui_core::style::Style;
+    use ratatui_core::widgets::StatefulWidget;
+    use ratatui_widgets::block::Block;
 
     #[derive(Debug)]
     pub struct Menu;
@@ -652,9 +654,9 @@ pub mod turbo {
     use rat_widget::file_dialog::{FileDialog, FileDialogState};
     use rat_widget::layout::layout_middle;
     use rat_widget::text::HasScreenCursor;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Rect};
-    use ratatui::widgets::StatefulWidget;
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Rect};
+    use ratatui_core::widgets::StatefulWidget;
     use std::any::Any;
     use std::path::PathBuf;
 
@@ -903,7 +905,7 @@ pub mod theme {
     use rat_widget::tabbed::TabbedStyle;
     use rat_widget::table::TableStyle;
     use rat_widget::text::TextStyle;
-    use ratatui::style::{Style, Stylize};
+    use ratatui_core::style::Style;
 
     #[derive(Debug, Clone)]
     pub struct TurboTheme {

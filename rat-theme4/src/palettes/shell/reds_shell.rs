@@ -1,16 +1,16 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
 /// Reds
 /// Only red.
 pub const REDS_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Reds Shell"), 
-    theme: Cow::Borrowed("Shell"), 
-    name: Cow::Borrowed("Reds"), 
-    doc: Cow::Borrowed("Only red."), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Reds Shell"),
+    theme: Cow::Borrowed("Shell"),
+    name: Cow::Borrowed("Reds"),
+    doc: Cow::Borrowed("Only red."),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xcfafaf, 0xe2cfcf, 0x0, 0x0),
@@ -71,4 +71,3 @@ pub const REDS_SHELL: Palette = Palette {
         define_alias("week-header.fg", Colors::None, 0),
     ]),
 };
-

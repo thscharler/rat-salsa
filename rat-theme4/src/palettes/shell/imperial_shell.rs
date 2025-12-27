@@ -1,16 +1,16 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
 /// Imperial
 /// Purple and gold.
 pub const IMPERIAL_SHELL: Palette = Palette {
-    theme_name: Cow::Borrowed("Imperial Shell"), 
-    theme: Cow::Borrowed("Shell"), 
-    name: Cow::Borrowed("Imperial"), 
-    doc: Cow::Borrowed("Purple and gold."), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Imperial Shell"),
+    theme: Cow::Borrowed("Shell"),
+    name: Cow::Borrowed("Imperial"),
+    doc: Cow::Borrowed("Purple and gold."),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xdedfe3, 0xf6f6f3, 0x0, 0x0),
@@ -71,4 +71,3 @@ pub const IMPERIAL_SHELL: Palette = Palette {
         define_alias("week-header.fg", Colors::Gray, 3),
     ]),
 };
-

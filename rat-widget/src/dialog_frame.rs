@@ -10,13 +10,15 @@ use crate::focus::{FocusBuilder, FocusFlag, HasFocus};
 use crate::layout::{DialogItem, LayoutOuter};
 use crate::text::HasScreenCursor;
 use crate::util::{block_padding2, reset_buf_area};
-use crossterm::event::Event;
 use rat_event::MouseOnly;
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Position, Rect, Size};
-use ratatui::style::Style;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Position, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 /// Renders the frame and the Ok/Cancel buttons for a dialog window.
 ///

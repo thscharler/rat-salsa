@@ -7,7 +7,7 @@ use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{TextError, TextPosition, TextRange, upos_type};
 use dyn_clone::clone_box;
-use ratatui::layout::Size;
+use ratatui_core::layout::Size;
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::cmp::min;

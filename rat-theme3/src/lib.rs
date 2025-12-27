@@ -23,7 +23,7 @@ use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
-use ratatui::prelude::Style;
+use ratatui_core::style::Style;
 
 mod dark_theme;
 mod palette;

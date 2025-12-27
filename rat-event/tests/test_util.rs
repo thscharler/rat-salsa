@@ -1,5 +1,5 @@
 use rat_event::util::{column_at, column_at_drag, row_at, row_at_drag};
-use ratatui::layout::Rect;
+use ratatui_core::layout::Rect;
 
 #[test]
 fn test_rows0() {

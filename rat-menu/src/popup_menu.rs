@@ -8,9 +8,10 @@
 //! menu-items.
 //!
 //! ```
-//! use ratatui::buffer::Buffer;
-//! use ratatui::layout::{Alignment, Rect};
-//! use ratatui::widgets::{Block, StatefulWidget};
+//! use ratatui_core::buffer::Buffer;
+//! use ratatui_core::layout::{Alignment, Rect};
+//! use ratatui_core::widgets::{ StatefulWidget};
+//! use ratatui_widgets::block::Block;
 //! use rat_menu::menuitem::Separator;
 //! use rat_menu::popup_menu::{PopupMenu, PopupMenuState};
 //! use rat_popup::PopupConstraint;
@@ -45,13 +46,14 @@ pub use rat_popup::PopupConstraint;
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupCore, PopupCoreState};
 use rat_reloc::RelocatableState;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Rect, Size};
-use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::StatefulWidget;
-use ratatui::widgets::{Block, Padding, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt, Padding};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -442,7 +444,7 @@ fn render_popup_menu(
     state.area = state.popup.area;
 
     if widget.block.is_some() {
-        widget.block.render(state.popup.area, buf);
+        widget.block.clone().render(state.popup.area, buf);
     } else {
         buf.set_style(state.popup.area, widget.style);
     }
@@ -753,7 +755,7 @@ impl PopupMenuState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState {
+impl HandleEvent<Event, Popup, MenuOutcome> for PopupMenuState {
     /// Handle all events.
     ///
     /// Key-events are only handled when the popup menu
@@ -763,7 +765,7 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
     /// The popup menu will return MenuOutcome::Hide if it
     /// thinks it should be hidden.
     ///
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
+    fn handle(&mut self, event: &Event, _qualifier: Popup) -> MenuOutcome {
         let r0 = match self.popup.handle(event, Popup) {
             PopupOutcome::Hide => MenuOutcome::Hide,
             r => r.into(),
@@ -851,8 +853,8 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuState {
-    fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> MenuOutcome {
+impl HandleEvent<Event, MouseOnly, MenuOutcome> for PopupMenuState {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> MenuOutcome {
         if self.is_active() {
             let r = match event {
                 ct_event!(mouse moved for col, row)
@@ -885,11 +887,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
 }
 
 /// Same as handle_popup_events.
-pub fn handle_events(
-    state: &mut PopupMenuState,
-    _focus: bool,
-    event: &crossterm::event::Event,
-) -> MenuOutcome {
+pub fn handle_events(state: &mut PopupMenuState, _focus: bool, event: &Event) -> MenuOutcome {
     state.handle(event, Popup)
 }
 
@@ -902,17 +900,11 @@ pub fn handle_events(
 /// The popup menu will return MenuOutcome::Hide if it
 /// thinks it should be hidden.
 ///
-pub fn handle_popup_events(
-    state: &mut PopupMenuState,
-    event: &crossterm::event::Event,
-) -> MenuOutcome {
+pub fn handle_popup_events(state: &mut PopupMenuState, event: &Event) -> MenuOutcome {
     state.handle(event, Popup)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut PopupMenuState,
-    event: &crossterm::event::Event,
-) -> MenuOutcome {
+pub fn handle_mouse_events(state: &mut PopupMenuState, event: &Event) -> MenuOutcome {
     state.handle(event, MouseOnly)
 }

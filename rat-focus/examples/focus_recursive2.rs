@@ -3,9 +3,11 @@ use crate::substratum1::{Substratum, SubstratumState};
 use crate::substratum2::{Substratum2, Substratum2State};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::cmp::max;
 
 mod adapter;
@@ -76,7 +78,7 @@ fn focus_input(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
@@ -95,11 +97,12 @@ pub mod substratum2 {
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_theme4::theme::SalsaTheme;
     use rat_theme4::{RatWidgetColor, StyleName};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::prelude::BlockExt;
-    use ratatui::style::{Color, Style};
-    use ratatui::widgets::{Block, StatefulWidget, Widget};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Layout, Rect};
+    use ratatui_core::style::{Color, Style};
+    use ratatui_core::widgets::{StatefulWidget, Widget};
+    use ratatui_crossterm::crossterm::event::Event;
+    use ratatui_widgets::block::{Block, BlockExt};
 
     #[derive(Debug)]
     pub struct Substratum2<'a> {
@@ -199,8 +202,8 @@ pub mod substratum2 {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Substratum2State {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+    impl HandleEvent<Event, Regular, Outcome> for Substratum2State {
+        fn handle(&mut self, event: &Event, _keymap: Regular) -> Outcome {
             self.stratum1
                 .handle(event, Regular) //
                 .or_else(|| self.stratum2.handle(event, Regular))
@@ -215,13 +218,13 @@ pub mod substratum1 {
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_theme4::theme::SalsaTheme;
     use rat_theme4::{RatWidgetColor, StyleName};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::prelude::BlockExt;
-    use ratatui::style::{Color, Style};
-    use ratatui::text::Span;
-    use ratatui::widgets::StatefulWidget;
-    use ratatui::widgets::{Block, Widget};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Layout, Rect};
+    use ratatui_core::style::{Color, Style};
+    use ratatui_core::text::Span;
+    use ratatui_core::widgets::{StatefulWidget, Widget};
+    use ratatui_crossterm::crossterm::event::Event;
+    use ratatui_widgets::block::{Block, BlockExt};
 
     #[derive(Debug)]
     pub struct Substratum<'a> {
@@ -359,8 +362,8 @@ pub mod substratum1 {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SubstratumState {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+    impl HandleEvent<Event, Regular, Outcome> for SubstratumState {
+        fn handle(&mut self, event: &Event, _keymap: Regular) -> Outcome {
             self.input1
                 .handle(event, Regular) //
                 .or_else(|| self.input2.handle(event, Regular))

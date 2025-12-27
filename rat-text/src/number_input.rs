@@ -10,11 +10,11 @@ use crate::{
 };
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use rat_event::{HandleEvent, MouseOnly, Regular};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::Block;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
 use std::fmt::{Debug, Display, LowerExp};
 use std::str::FromStr;
 
@@ -230,20 +230,20 @@ impl NumberInputState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for NumberInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
+impl HandleEvent<Event, Regular, TextOutcome> for NumberInputState {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> TextOutcome {
         self.widget.handle(event, Regular)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for NumberInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
+impl HandleEvent<Event, ReadOnly, TextOutcome> for NumberInputState {
+    fn handle(&mut self, event: &Event, _keymap: ReadOnly) -> TextOutcome {
         self.widget.handle(event, ReadOnly)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for NumberInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
+impl HandleEvent<Event, MouseOnly, TextOutcome> for NumberInputState {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TextOutcome {
         self.widget.handle(event, MouseOnly)
     }
 }
@@ -251,11 +251,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for NumberInpu
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    state: &mut NumberInputState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_events(state: &mut NumberInputState, focus: bool, event: &Event) -> TextOutcome {
     state.widget.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
@@ -266,16 +262,13 @@ pub fn handle_events(
 pub fn handle_readonly_events(
     state: &mut NumberInputState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TextOutcome {
     state.widget.focus.set(focus);
     state.handle(event, ReadOnly)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut NumberInputState,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_mouse_events(state: &mut NumberInputState, event: &Event) -> TextOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

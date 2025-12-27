@@ -1,12 +1,13 @@
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use rat_salsa::poll::PollCrossterm;
-use rat_salsa::{mock, run_tui, Control, RunConfig, SalsaAppContext};
+use rat_salsa::{Control, RunConfig, SalsaAppContext, mock, run_tui};
 use rat_widget::event::ct_event;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Stylize;
-use ratatui::text::{Line, Span};
-use ratatui::widgets::Widget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Stylize;
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::event::Event;
 
 type Global = SalsaAppContext<UltraEvent, Error>;
 
@@ -24,11 +25,11 @@ fn main() -> Result<(), Error> {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum UltraEvent {
-    Event(crossterm::event::Event),
+    Event(Event),
 }
 
-impl From<crossterm::event::Event> for UltraEvent {
-    fn from(value: crossterm::event::Event) -> Self {
+impl From<Event> for UltraEvent {
+    fn from(value: Event) -> Self {
         Self::Event(value)
     }
 }

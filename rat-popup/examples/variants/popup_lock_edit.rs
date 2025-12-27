@@ -8,11 +8,13 @@ use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use rat_theme4::StyleName;
 use rat_theme4::theme::SalsaTheme;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::{Block, BorderType};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 use std::cmp::max;
 
 #[derive(Debug)]
@@ -173,8 +175,8 @@ impl PopLockMagentaState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopLockMagentaState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
+impl HandleEvent<Event, Regular, PopupOutcome> for PopLockMagentaState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> PopupOutcome {
         let r0 = match self.popup.handle(event, Popup) {
             // don't auto hide
             PopupOutcome::Hide => PopupOutcome::Continue,

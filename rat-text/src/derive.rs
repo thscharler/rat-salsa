@@ -42,7 +42,7 @@ macro_rules! derive_text_widget {
 
             /// Block
             #[inline]
-            pub fn block(mut self, block: Block<'a>) -> Self {
+            pub fn block(mut self, block: ratatui_widgets::block::Block<'a>) -> Self {
                 self.widget = self.widget.block(block);
                 self
             }

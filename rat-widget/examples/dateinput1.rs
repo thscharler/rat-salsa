@@ -5,10 +5,11 @@ use rat_theme4::WidgetStyle;
 use rat_widget::date_input;
 use rat_widget::date_input::{DateInput, DateInputState};
 use rat_widget::event::Outcome;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::Span;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
 
 mod mini_salsa;
 
@@ -64,7 +65,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

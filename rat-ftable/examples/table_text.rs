@@ -8,11 +8,14 @@ use rat_ftable::{Table, TableState};
 use rat_scrolled::{Scroll, ScrollStyle};
 use rat_theme4::StyleName;
 use rat_theme4::theme::SalsaTheme;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::Text;
-use ratatui::widgets::{Block, StatefulWidget, block};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Text;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 
 mod data;
 mod mini_salsa;
@@ -97,7 +100,7 @@ fn render(
         .footer(Row::new(["a", "b", "c", "d", "e"]))
         .block(
             Block::bordered()
-                .border_type(block::BorderType::Rounded)
+                .border_type(BorderType::Rounded)
                 .title("text-tabledata"),
         )
         .vscroll(Scroll::new())
@@ -134,7 +137,7 @@ fn scroll(th: &SalsaTheme) -> ScrollStyle {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

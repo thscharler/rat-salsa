@@ -1,6 +1,6 @@
 #![doc = include_str!("../readme.md")]
 
-use ratatui::layout::{Position, Rect};
+use ratatui_core::layout::{Position, Rect};
 
 /// Widgets can be rendered to a temporary Buffer that will
 /// be dumped to the main render Buffer at a later point.

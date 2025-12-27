@@ -6,7 +6,7 @@
 use crate::error::LoadPaletteErr;
 use crate::palette;
 use crate::palette::{Colors, Palette};
-use ratatui::style::Color;
+use ratatui_core::style::Color;
 use std::borrow::Cow;
 use std::{array, io};
 

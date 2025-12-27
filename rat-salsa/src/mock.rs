@@ -1,4 +1,3 @@
-
 /// Empty placeholder for [run_tui](crate::run_tui).
 pub fn init<State, Global, Error>(
     _state: &mut State, //

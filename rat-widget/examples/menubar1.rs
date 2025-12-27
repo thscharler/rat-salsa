@@ -6,15 +6,18 @@ use rat_menu::{MenuStyle, StaticMenu, menubar};
 use rat_popup::{Placement, PopupStyle};
 use rat_theme4::StyleName;
 use rat_theme4::palette::Colors;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::symbols::border;
-use ratatui::symbols::border::{
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::symbols::border;
+use ratatui_core::symbols::border::{
     QUADRANT_BOTTOM_HALF, QUADRANT_LEFT_HALF, QUADRANT_RIGHT_HALF, QUADRANT_TOP_HALF,
     QUADRANT_TOP_LEFT_BOTTOM_LEFT_BOTTOM_RIGHT, QUADRANT_TOP_RIGHT_BOTTOM_LEFT_BOTTOM_RIGHT,
 };
-use ratatui::widgets::{Block, Borders, Padding, StatefulWidget};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, Padding};
+use ratatui_widgets::borders::Borders;
 
 mod mini_salsa;
 
@@ -149,7 +152,7 @@ fn render(
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

@@ -7,11 +7,13 @@ use crate::tabbed::{TabPlacement, TabWidget, Tabbed, TabbedState};
 use crate::util;
 use crate::util::{block_left, block_right, fill_buf_area, revert_style};
 use rat_focus::HasFocus;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
-use ratatui::symbols::line;
-use ratatui::text::Span;
-use ratatui::widgets::{Block, BorderType, Borders, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Margin, Rect};
+use ratatui_core::symbols::line;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::Widget;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::{BorderType, Borders};
 
 /// Embedded tabs in the Block.
 ///

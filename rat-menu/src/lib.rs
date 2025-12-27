@@ -3,8 +3,8 @@
 use crate::_private::NonExhaustive;
 use crate::menuitem::{MenuItem, Separator};
 use rat_popup::PopupStyle;
-use ratatui::style::Style;
-use ratatui::widgets::Block;
+use ratatui_core::style::Style;
+use ratatui_widgets::block::Block;
 use std::fmt::Debug;
 use std::ops::Range;
 

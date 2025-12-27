@@ -1,6 +1,6 @@
+use crate::Control;
 use crate::poll::PollEvents;
 use crate::thread_pool::ThreadPool;
-use crate::Control;
 use crossbeam::channel::TryRecvError;
 use std::any::Any;
 use std::rc::Rc;

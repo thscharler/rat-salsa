@@ -1,15 +1,15 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 64;
 
 /// Embark
 pub const EMBARK: Palette = Palette {
-    theme_name: Cow::Borrowed("Embark"), 
-    theme: Cow::Borrowed("Dark"), 
-    name: Cow::Borrowed("Embark"), 
-    doc: Cow::Borrowed(""), 
-    generator: Cow::Borrowed("light-dark:64"), 
+    theme_name: Cow::Borrowed("Embark"),
+    theme: Cow::Borrowed("Dark"),
+    name: Cow::Borrowed("Embark"),
+    doc: Cow::Borrowed(""),
+    generator: Cow::Borrowed("light-dark:64"),
 
     color: [
         Palette::interpolate2(0xc9e1e5, 0xe0faff, 0x0, 0x0),
@@ -70,4 +70,3 @@ pub const EMBARK: Palette = Palette {
         define_alias("week-header.fg", Colors::None, 0),
     ]),
 };
-

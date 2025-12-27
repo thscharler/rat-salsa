@@ -1,6 +1,6 @@
+use crate::Control;
 use crate::poll::PollEvents;
 use crate::tokio_tasks::TokioTasks;
-use crate::Control;
 use std::any::Any;
 use std::rc::Rc;
 use tokio::runtime::Runtime;

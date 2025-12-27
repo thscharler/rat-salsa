@@ -1,6 +1,6 @@
+use crate::Control;
 use crate::event::QuitEvent;
 use crate::poll::PollEvents;
-use crate::Control;
 use std::any::Any;
 
 ///

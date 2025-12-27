@@ -17,11 +17,13 @@ use rat_scrolled::{Scroll, ScrollAreaState};
 use rat_text::TextStyle;
 use rat_text::event::TextOutcome;
 use rat_text::text_input::{TextInput, TextInputState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::cmp::max;
 
 #[derive(Debug, Clone)]
@@ -720,8 +722,8 @@ impl ComboboxState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Popup, ComboboxOutcome> for ComboboxState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> ComboboxOutcome {
+impl HandleEvent<Event, Popup, ComboboxOutcome> for ComboboxState {
+    fn handle(&mut self, event: &Event, _qualifier: Popup) -> ComboboxOutcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Enter) => {
@@ -741,7 +743,7 @@ impl HandleEvent<crossterm::event::Event, Popup, ComboboxOutcome> for ComboboxSt
                 ct_event!(keycode press PageDown) => self.move_down(self.page_len()),
                 ct_event!(keycode press ALT-Home) => self.move_to(0),
                 ct_event!(keycode press ALT-End) => self.move_to(self.len().saturating_sub(1)),
-                crossterm::event::Event::Key(_) => match self.text.handle(event, Regular) {
+                Event::Key(_) => match self.text.handle(event, Regular) {
                     TextOutcome::Continue => ComboboxOutcome::Continue,
                     TextOutcome::Unchanged => ComboboxOutcome::Unchanged,
                     TextOutcome::Changed => ComboboxOutcome::Changed,
@@ -761,12 +763,8 @@ impl HandleEvent<crossterm::event::Event, Popup, ComboboxOutcome> for ComboboxSt
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, ComboboxOutcome> for ComboboxState {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        _qualifier: MouseOnly,
-    ) -> ComboboxOutcome {
+impl HandleEvent<Event, MouseOnly, ComboboxOutcome> for ComboboxState {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> ComboboxOutcome {
         let r0 = handle_mouse(self, event);
         let r1 = handle_select(self, event);
         let r2 = handle_close(self, event);
@@ -784,7 +782,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ComboboxOutcome> for Combob
     }
 }
 
-fn handle_mouse(state: &mut ComboboxState, event: &crossterm::event::Event) -> ComboboxOutcome {
+fn handle_mouse(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
     match event {
         ct_event!(mouse down Left for x,y)
             if state.choice.button_area.contains((*x, *y).into()) =>
@@ -816,7 +814,7 @@ fn handle_mouse(state: &mut ComboboxState, event: &crossterm::event::Event) -> C
     }
 }
 
-fn handle_select(state: &mut ComboboxState, event: &crossterm::event::Event) -> ComboboxOutcome {
+fn handle_select(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
     match state.choice.behave_select {
         ChoiceSelect::MouseScroll => {
             let mut sas = ScrollAreaState::new()
@@ -959,7 +957,7 @@ fn handle_select(state: &mut ComboboxState, event: &crossterm::event::Event) -> 
     }
 }
 
-fn handle_close(state: &mut ComboboxState, event: &crossterm::event::Event) -> ComboboxOutcome {
+fn handle_close(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
     match state.choice.behave_close {
         ChoiceClose::SingleClick => match event {
             ct_event!(mouse down Left for x,y)
@@ -1001,19 +999,12 @@ fn handle_close(state: &mut ComboboxState, event: &crossterm::event::Event) -> C
 /// Handle events for the popup.
 /// Call before other handlers to deal with intersections
 /// with other widgets.
-pub fn handle_events(
-    state: &mut ComboboxState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> ComboboxOutcome {
+pub fn handle_events(state: &mut ComboboxState, focus: bool, event: &Event) -> ComboboxOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Popup)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut ComboboxState,
-    event: &crossterm::event::Event,
-) -> ComboboxOutcome {
+pub fn handle_mouse_events(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

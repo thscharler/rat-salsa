@@ -13,10 +13,13 @@ use rat_theme4::WidgetStyle;
 use rat_widget::clipper::{Clipper, ClipperBuffer, ClipperState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Alignment, Constraint, Flex, Layout, Rect};
+use ratatui_core::text::Line;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::{BorderType, Borders};
 use std::array;
 use std::time::SystemTime;
 
@@ -218,7 +221,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
@@ -276,7 +279,8 @@ fn flip_flex(state: &mut State) -> Outcome {
         Flex::End => Flex::Center,
         Flex::Center => Flex::SpaceBetween,
         Flex::SpaceBetween => Flex::SpaceAround,
-        Flex::SpaceAround => Flex::Legacy,
+        Flex::SpaceAround => Flex::SpaceEvenly,
+        Flex::SpaceEvenly => Flex::Legacy,
     };
     Outcome::Changed
 }

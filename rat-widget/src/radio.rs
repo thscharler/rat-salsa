@@ -2,9 +2,9 @@
 //! Radiobutton widget.
 //!
 //! ```
-//! # use ratatui::buffer::Buffer;
-//! # use ratatui::layout::{Direction, Rect};
-//! # use ratatui::widgets::StatefulWidget;
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::{Direction, Rect};
+//! # use ratatui_core::widgets::StatefulWidget;
 //! use rat_event::{HandleEvent, Regular};
 //! use rat_widget::event::RadioOutcome;
 //! use rat_widget::radio::{Radio, RadioLayout, RadioState};
@@ -25,7 +25,8 @@
 //!
 //!  // ...
 //!
-//!  # let event = crossterm::event::Event::FocusGained;
+//!  # use ratatui_crossterm::crossterm::event::Event;
+//!  # let event = Event::FocusGained;
 //!  # let event = &event;
 //!  match state.radio1.handle(event, Regular){
 //!      RadioOutcome::Value => {
@@ -45,13 +46,14 @@ use rat_event::util::{MouseFlags, item_at};
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_areas};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Direction, Rect, Size};
-use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Span, Text};
-use ratatui::widgets::StatefulWidget;
-use ratatui::widgets::{Block, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Direction, Rect, Size};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::text::{Span, Text};
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::{Block, BlockExt};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -1019,11 +1021,11 @@ where
     }
 }
 
-impl<T> HandleEvent<crossterm::event::Event, Regular, RadioOutcome> for RadioState<T>
+impl<T> HandleEvent<Event, Regular, RadioOutcome> for RadioState<T>
 where
     T: PartialEq + Clone + Default,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> RadioOutcome {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> RadioOutcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Left) => {
@@ -1093,11 +1095,11 @@ where
     }
 }
 
-impl<T> HandleEvent<crossterm::event::Event, MouseOnly, RadioOutcome> for RadioState<T>
+impl<T> HandleEvent<Event, MouseOnly, RadioOutcome> for RadioState<T>
 where
     T: PartialEq + Clone + Default,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> RadioOutcome {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> RadioOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
                 if let Some(sel) = item_at(self.text_areas.as_slice(), m.column, m.row)
@@ -1136,7 +1138,7 @@ where
 pub fn handle_events<T: PartialEq + Clone + Default>(
     state: &mut RadioState<T>,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> RadioOutcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
@@ -1145,7 +1147,7 @@ pub fn handle_events<T: PartialEq + Clone + Default>(
 /// Handle only mouse-events.
 pub fn handle_mouse_events<T: PartialEq + Clone + Default>(
     state: &mut RadioState<T>,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> RadioOutcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

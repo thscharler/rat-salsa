@@ -4,11 +4,12 @@ use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_theme4::StyleName;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
 use std::cmp::max;
 
 mod adapter;
@@ -110,7 +111,7 @@ fn focus_input(state: &mut State) -> &mut Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

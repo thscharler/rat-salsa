@@ -15,10 +15,12 @@ use rat_theme4::StyleName;
 use rat_theme4::palette::Colors;
 use rat_vim::VI;
 use rat_vim::vi_status_line::VIStatusLine;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Paragraph, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::paragraph::Paragraph;
 use ropey::Rope;
 use std::cell::RefCell;
 use std::fs::File;
@@ -271,7 +273,7 @@ fn focus(state: &mut State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

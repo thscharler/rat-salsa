@@ -5,7 +5,8 @@
 //! # use rat_scrolled::Scroll;
 //! use rat_widget::paragraph::{Paragraph, ParagraphState};
 //! # use rat_widget::view::{View, ViewState};
-//! # use ratatui::prelude::*;
+//! # use ratatui_core::layout::Rect;
+//! # use ratatui_core::buffer::Buffer;
 //! #
 //! # let l2 = [Rect::ZERO, Rect::ZERO];
 //! # struct State {
@@ -41,9 +42,7 @@
 //! ///
 //! /// Render the finished buffer.
 //! ///
-//! view_buf
-//!     .into_widget()
-//!     .render(l2[1], &mut buf, &mut state.view);
+//! view_buf.finish(&mut buf, &mut state.view);
 //!
 //! ```
 
@@ -53,11 +52,12 @@ use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular, ct_even
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect, Size};
-use ratatui::style::Style;
-use ratatui::widgets::Block;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Position, Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
 use std::cmp::min;
 use std::mem;
 
@@ -756,8 +756,8 @@ impl ViewState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ViewState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl HandleEvent<Event, Regular, Outcome> for ViewState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> Outcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Left) => self.scroll_left(self.hscroll.scroll_by()).into(),
@@ -796,8 +796,8 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ViewState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
+impl HandleEvent<Event, MouseOnly, Outcome> for ViewState {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> Outcome {
         let mut sas = ScrollAreaState::new()
             .area(self.widget_area)
             .h_scroll(&mut self.hscroll)
@@ -817,16 +817,12 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewState {
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    state: &mut ViewState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> Outcome {
+pub fn handle_events(state: &mut ViewState, focus: bool, event: &Event) -> Outcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(state: &mut ViewState, event: &crossterm::event::Event) -> Outcome {
+pub fn handle_mouse_events(state: &mut ViewState, event: &Event) -> Outcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

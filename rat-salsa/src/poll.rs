@@ -42,10 +42,10 @@ mod timer;
 #[cfg(feature = "async")]
 mod tokio_tasks;
 
-use std::time::Duration;
 pub use crossterm::PollCrossterm;
 pub use quit::PollQuit;
 pub use rendered::PollRendered;
+use std::time::Duration;
 pub use thread_pool::PollTasks;
 pub use tick::PollTick;
 pub use timer::PollTimers;

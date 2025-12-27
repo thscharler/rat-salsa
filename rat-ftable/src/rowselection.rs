@@ -4,6 +4,7 @@ use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
 use rat_scrolled::ScrollAreaState;
 use rat_scrolled::event::ScrollOutcome;
+use ratatui_crossterm::crossterm::event::Event;
 use std::cmp::{max, min};
 
 /// Allows selecting a single row of the table.
@@ -127,8 +128,8 @@ impl RowSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, TableOutcome> for TableState<RowSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TableOutcome {
+impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSelection> {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> TableOutcome {
         let res = if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => {
@@ -219,8 +220,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TableOutcome> for TableState<
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableState<RowSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TableOutcome {
+impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSelection> {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TableOutcome {
         let mut r = match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
                 if self.move_to(self.row_at_drag((m.column, m.row))) {
@@ -337,16 +338,13 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TableOutcome> for TableStat
 pub fn handle_events(
     state: &mut TableState<RowSelection>,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TableOutcome {
     state.focus.set(focus);
     state.handle(event, Regular)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut TableState<RowSelection>,
-    event: &crossterm::event::Event,
-) -> TableOutcome {
+pub fn handle_mouse_events(state: &mut TableState<RowSelection>, event: &Event) -> TableOutcome {
     state.handle(event, MouseOnly)
 }

@@ -11,10 +11,14 @@ use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_areas};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Style;
-use ratatui::widgets::{Block, HighlightSpacing, ListDirection, ListItem, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::list::{ListDirection, ListItem};
+use ratatui_widgets::table::HighlightSpacing;
 use std::cmp::min;
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -377,9 +381,10 @@ fn render_list<Selection: ListSelection>(
         })
         .collect::<Vec<_>>();
 
-    let mut list_state = ratatui::widgets::ListState::default().with_offset(state.scroll.offset());
+    let mut list_state =
+        ratatui_widgets::list::ListState::default().with_offset(state.scroll.offset());
 
-    let mut list = ratatui::widgets::List::default()
+    let mut list = ratatui_widgets::list::List::default()
         .items(items)
         .style(widget.style)
         .direction(widget.direction)
@@ -784,12 +789,12 @@ pub mod selection {
 
     use crate::event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event};
     use crate::list::{ListSelection, ListState};
-    use crossterm::event::KeyModifiers;
     use rat_event::event_flow;
     use rat_focus::HasFocus;
     use rat_ftable::TableSelection;
     use rat_scrolled::ScrollAreaState;
     use rat_scrolled::event::ScrollOutcome;
+    use ratatui_crossterm::crossterm::event::{Event, KeyModifiers};
     use std::mem;
 
     /// No selection
@@ -811,8 +816,8 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListState<NoSelection> {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+    impl HandleEvent<Event, Regular, Outcome> for ListState<NoSelection> {
+        fn handle(&mut self, event: &Event, _keymap: Regular) -> Outcome {
             let res = if self.is_focused() {
                 match event {
                     ct_event!(keycode press Down) => self.scroll_down(1).into(),
@@ -843,8 +848,8 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<NoSelection> {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+    impl HandleEvent<Event, MouseOnly, Outcome> for ListState<NoSelection> {
+        fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
             let mut sas = ScrollAreaState::new()
                 .area(self.inner)
                 .v_scroll(&mut self.scroll);
@@ -891,8 +896,8 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListState<RowSelection> {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+    impl HandleEvent<Event, Regular, Outcome> for ListState<RowSelection> {
+        fn handle(&mut self, event: &Event, _keymap: Regular) -> Outcome {
             let res = if self.is_focused() {
                 match event {
                     ct_event!(keycode press Down) => self.move_down(1).into(),
@@ -923,8 +928,8 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<RowSelection> {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+    impl HandleEvent<Event, MouseOnly, Outcome> for ListState<RowSelection> {
+        fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
             event_flow!(
                 return match event {
                     ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
@@ -1031,8 +1036,8 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListState<RowSetSelection> {
-        fn handle(&mut self, event: &crossterm::event::Event, _: Regular) -> Outcome {
+    impl HandleEvent<Event, Regular, Outcome> for ListState<RowSetSelection> {
+        fn handle(&mut self, event: &Event, _: Regular) -> Outcome {
             let res = if self.is_focused() {
                 match event {
                     ct_event!(keycode press Down) => self.move_down(1, false).into(),
@@ -1076,8 +1081,8 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<RowSetSelection> {
-        fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> Outcome {
+    impl HandleEvent<Event, MouseOnly, Outcome> for ListState<RowSetSelection> {
+        fn handle(&mut self, event: &Event, _: MouseOnly) -> Outcome {
             event_flow!(
                 return match event {
                     ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)
@@ -1160,16 +1165,12 @@ pub mod selection {
 /// Handle events for the popup.
 /// Call before other handlers to deal with intersections
 /// with other widgets.
-pub fn handle_events(
-    state: &mut ListState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> Outcome {
+pub fn handle_events(state: &mut ListState, focus: bool, event: &Event) -> Outcome {
     state.focus.set(focus);
     HandleEvent::handle(state, event, Regular)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(state: &mut ListState, event: &crossterm::event::Event) -> Outcome {
+pub fn handle_mouse_events(state: &mut ListState, event: &Event) -> Outcome {
     HandleEvent::handle(state, event, MouseOnly)
 }

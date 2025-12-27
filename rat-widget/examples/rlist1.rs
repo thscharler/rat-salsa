@@ -13,10 +13,13 @@ use rat_theme4::WidgetStyle;
 use rat_theme4::theme::SalsaTheme;
 use rat_widget::list::List;
 use rat_widget::list::edit::{EditList, EditListState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::{Line, Text};
-use ratatui::widgets::{Block, ListItem, StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::text::{Line, Text};
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::list::ListItem;
 use std::cmp::min;
 
 mod mini_salsa;
@@ -122,14 +125,14 @@ impl HasScreenCursor for EditEntryState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for EditEntryState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> EditOutcome {
+impl HandleEvent<Event, Regular, EditOutcome> for EditEntryState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> EditOutcome {
         Outcome::from(self.text_input.handle(event, Regular)).into()
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome> for EditEntryState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> EditOutcome {
+impl HandleEvent<Event, MouseOnly, EditOutcome> for EditEntryState {
+    fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> EditOutcome {
         Outcome::from(self.text_input.handle(event, MouseOnly)).into()
     }
 }
@@ -200,7 +203,7 @@ fn focus(state: &State) -> Focus {
 }
 
 fn event(
-    event: &crossterm::event::Event,
+    event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {

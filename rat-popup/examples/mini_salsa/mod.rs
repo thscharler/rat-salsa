@@ -2,34 +2,35 @@
 #![allow(dead_code)]
 
 use anyhow::anyhow;
-use crossterm::ExecutableCommand;
-use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
-use crossterm::event::{
-    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, KeyCode,
-    KeyEvent, KeyEventKind, KeyModifiers, MediaKeyCode,
-};
 #[cfg(not(windows))]
 use crossterm::event::{
     KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 #[cfg(not(windows))]
 use crossterm::terminal::supports_keyboard_enhancement;
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
 use log::error;
-use rat_event::Outcome;
 use rat_event::util::set_have_keyboard_enhancement;
+use rat_event::{HandleEvent, Outcome, Regular};
+use rat_focus::Focus;
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{RatWidgetColor, StyleName, create_salsa_theme, salsa_themes};
-use ratatui::Terminal;
-use ratatui::backend::CrosstermBackend;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Style};
-use ratatui::text::Line;
-use ratatui::widgets::Widget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::{Color, Style};
+use ratatui_core::terminal::Terminal;
+use ratatui_core::text::Line;
+use ratatui_core::widgets::Widget;
+use ratatui_crossterm::crossterm::ExecutableCommand;
+use ratatui_crossterm::crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
+use ratatui_crossterm::crossterm::event::{
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
+    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MediaKeyCode,
+};
+use ratatui_crossterm::crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
+use ratatui_crossterm::{CrosstermBackend, crossterm};
 use std::cell::Cell;
 use std::cmp::max;
 use std::fs;
@@ -51,6 +52,7 @@ pub struct MiniSalsaState {
     pub hide_status: bool,
     pub status: [String; 3],
 
+    pub focus: Option<Focus>,
     pub focus_outcome: Outcome,
     pub focus_outcome_cell: Cell<Outcome>,
 
@@ -71,6 +73,7 @@ impl MiniSalsaState {
             last_event: Default::default(),
             hide_status: Default::default(),
             status: Default::default(),
+            focus: Default::default(),
             focus_outcome: Default::default(),
             focus_outcome_cell: Default::default(),
             cursor: Default::default(),
@@ -78,6 +81,15 @@ impl MiniSalsaState {
         };
         s.status[0] = "Ctrl-Q to quit. F8 Theme ".into();
         s
+    }
+
+    pub fn focus(&self) -> &Focus {
+        self.focus.as_ref().expect("focus")
+    }
+
+    pub fn handle_focus(&mut self, event: &crossterm::event::Event) -> Outcome {
+        self.focus_outcome = self.focus.as_mut().expect("focus").handle(event, Regular);
+        self.focus_outcome
     }
 }
 
@@ -87,11 +99,7 @@ pub fn run_ui<State>(
         &mut MiniSalsaState, //
         &mut State,
     ) -> Result<(), anyhow::Error>,
-    handle: fn(
-        &crossterm::event::Event,
-        &mut MiniSalsaState,
-        state: &mut State,
-    ) -> Result<Outcome, anyhow::Error>,
+    handle: fn(&Event, &mut MiniSalsaState, state: &mut State) -> Result<Outcome, anyhow::Error>,
     repaint: fn(
         &mut Buffer, //
         Rect,

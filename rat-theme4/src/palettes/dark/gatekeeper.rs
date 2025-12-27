@@ -1,15 +1,15 @@
-use std::borrow::Cow;
 use crate::palette::{Colors, Palette, define_alias};
+use std::borrow::Cow;
 
 const DARKNESS: u8 = 63;
 
 /// Gatekeeper
 pub const GATEKEEPER: Palette = Palette {
-    theme_name: Cow::Borrowed("Gatekeeper"), 
-    theme: Cow::Borrowed("Dark"), 
-    name: Cow::Borrowed("Gatekeeper"), 
-    doc: Cow::Borrowed(""), 
-    generator: Cow::Borrowed("light-dark:63"), 
+    theme_name: Cow::Borrowed("Gatekeeper"),
+    theme: Cow::Borrowed("Dark"),
+    name: Cow::Borrowed("Gatekeeper"),
+    doc: Cow::Borrowed(""),
+    generator: Cow::Borrowed("light-dark:63"),
 
     color: [
         Palette::interpolate2(0xcccdd1, 0xf9faff, 0x0, 0x0),
@@ -70,4 +70,3 @@ pub const GATEKEEPER: Palette = Palette {
         define_alias("week-header.fg", Colors::TextLight, 3),
     ]),
 };
-

@@ -19,11 +19,14 @@ use rat_text::number_input::{NumberInput, NumberInputState};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget, block};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
+use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_crossterm::crossterm::event::Event;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 use std::mem;
 
 mod data {
@@ -211,7 +214,7 @@ fn render(
                 .column_spacing(1)
                 .block(
                     Block::bordered()
-                        .border_type(block::BorderType::Rounded)
+                        .border_type(BorderType::Rounded)
                         .border_style(ctx.theme.style_style(Style::CONTAINER_BORDER_FG))
                         .title("tabledata"),
                 )
@@ -237,11 +240,7 @@ fn render(
     Ok(())
 }
 
-fn event(
-    event: &crossterm::event::Event,
-    ctx: &mut MiniSalsaState,
-    state: &mut State,
-) -> Result<Outcome, Error> {
+fn event(event: &Event, ctx: &mut MiniSalsaState, state: &mut State) -> Result<Outcome, Error> {
     ctx.focus_outcome = FocusBuilder::build_for(state).handle(event, Regular);
 
     try_flow!(state.text1.handle(event, Regular));
@@ -386,14 +385,8 @@ impl HasScreenCursor for SampleEditorState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, &MiniSalsaState, Result<Outcome, Error>>
-    for SampleEditorState
-{
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        ctx: &MiniSalsaState,
-    ) -> Result<Outcome, Error> {
+impl HandleEvent<Event, &MiniSalsaState, Result<Outcome, Error>> for SampleEditorState {
+    fn handle(&mut self, event: &Event, ctx: &MiniSalsaState) -> Result<Outcome, Error> {
         ctx.focus_outcome_cell
             .set(FocusBuilder::build_for(self).handle(event, Regular));
 

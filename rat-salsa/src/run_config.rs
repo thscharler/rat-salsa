@@ -1,11 +1,11 @@
 use crate::_private::NonExhaustive;
 use crate::poll::PollEvents;
 use crossbeam::channel::TryRecvError;
-use crossterm::cursor::SetCursorStyle;
-use crossterm::event::KeyboardEnhancementFlags;
-use ratatui::backend::CrosstermBackend;
-use ratatui::layout::Rect;
-use ratatui::{Terminal, TerminalOptions, Viewport};
+use ratatui_core::layout::Rect;
+use ratatui_core::terminal::{Terminal, TerminalOptions, Viewport};
+use ratatui_crossterm::CrosstermBackend;
+use ratatui_crossterm::crossterm::cursor::SetCursorStyle;
+use ratatui_crossterm::crossterm::event::KeyboardEnhancementFlags;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::io;

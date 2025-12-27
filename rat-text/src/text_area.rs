@@ -14,17 +14,18 @@ use crate::text_store::TextStore;
 use crate::text_store::text_rope::TextRope;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{HasScreenCursor, TextError, TextPosition, TextRange, TextStyle, ipos_type, upos_type};
-use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{RelocatableState, relocate_dark_offset, relocate_pos_tuple};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Rect, Size};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Rect, Size};
+use ratatui_core::style::Style;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_crossterm::crossterm::event::{Event, KeyModifiers};
+use ratatui_widgets::block::Block;
 use ropey::Rope;
 use std::borrow::Cow;
 use std::cell::Cell;
@@ -2687,8 +2688,8 @@ impl TextAreaState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
+impl HandleEvent<Event, Regular, TextOutcome> for TextAreaState {
+    fn handle(&mut self, event: &Event, _keymap: Regular) -> TextOutcome {
         // small helper ...
         fn tc(r: bool) -> TextOutcome {
             if r {
@@ -2768,8 +2769,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
 /// Style-id for search matches.
 pub const MATCH_STYLE: usize = 100_001;
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
+impl HandleEvent<Event, ReadOnly, TextOutcome> for TextAreaState {
+    fn handle(&mut self, event: &Event, _keymap: ReadOnly) -> TextOutcome {
         let mut r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Left) => self.move_left(1, false).into(),
@@ -2883,8 +2884,8 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
+impl HandleEvent<Event, MouseOnly, TextOutcome> for TextAreaState {
+    fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TextOutcome {
         flow!(match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
                 let cx = m.column as i16 - self.inner.x as i16;
@@ -2968,11 +2969,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    state: &mut TextAreaState,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_events(state: &mut TextAreaState, focus: bool, event: &Event) -> TextOutcome {
     state.focus.set(focus);
     state.handle(event, Regular)
 }
@@ -2983,16 +2980,13 @@ pub fn handle_events(
 pub fn handle_readonly_events(
     state: &mut TextAreaState,
     focus: bool,
-    event: &crossterm::event::Event,
+    event: &Event,
 ) -> TextOutcome {
     state.focus.set(focus);
     state.handle(event, ReadOnly)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    state: &mut TextAreaState,
-    event: &crossterm::event::Event,
-) -> TextOutcome {
+pub fn handle_mouse_events(state: &mut TextAreaState, event: &Event) -> TextOutcome {
     state.handle(event, MouseOnly)
 }

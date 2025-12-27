@@ -6,10 +6,10 @@
 //! two widgets in one layout-area.
 //!
 //! ```
-//! use ratatui::buffer::Buffer;
-//! use ratatui::layout::Rect;
-//! use ratatui::text::Line;
-//! use ratatui::widgets::StatefulWidget;
+//! use ratatui_core::buffer::Buffer;
+//! use ratatui_core::layout::Rect;
+//! use ratatui_core::text::Line;
+//! use ratatui_core::widgets::StatefulWidget;
 //! use rat_widget::paired::{PairSplit, Paired, PairedState, PairedWidget};
 //! use rat_widget::slider::{Slider, SliderState};
 //!
@@ -39,9 +39,9 @@
 //!
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::marker::PhantomData;
 use std::rc::Rc;
 

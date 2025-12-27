@@ -11,9 +11,9 @@ use rat_widget::event::{ButtonOutcome, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::widgets::StatefulWidget;
 
 fn main() -> Result<(), Error> {
     let theme = create_salsa_theme("Monochrome Dark");
@@ -74,10 +74,11 @@ impl Global {
 /// Application wide messages.
 pub mod event {
     use rat_salsa::event::RenderedEvent;
+    use ratatui_crossterm::crossterm::event::Event;
 
     #[derive(Debug)]
     pub enum AppEvent {
-        Event(crossterm::event::Event),
+        Event(Event),
         Rendered,
     }
 
@@ -87,8 +88,8 @@ pub mod event {
         }
     }
 
-    impl From<crossterm::event::Event> for AppEvent {
-        fn from(value: crossterm::event::Event) -> Self {
+    impl From<Event> for AppEvent {
+        fn from(value: Event) -> Self {
             Self::Event(value)
         }
     }

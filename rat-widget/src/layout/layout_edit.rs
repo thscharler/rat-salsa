@@ -4,7 +4,7 @@
 //! This is the progenitor of [LayoutForm].
 //!
 use crate::layout::GenericLayout;
-use ratatui::layout::{Flex, Rect, Size};
+use ratatui_core::layout::{Flex, Rect, Size};
 use std::borrow::Cow;
 use std::cmp::{max, min};
 
@@ -160,7 +160,7 @@ pub fn layout_edit(
             label_x = rest / 2;
             widget_x = label_x + spacing + max_label;
         }
-        Flex::SpaceAround => {
+        Flex::SpaceAround | Flex::SpaceEvenly => {
             let rest = area.width - max_label - max_widget - spacing;
             label_x = rest / 2;
             widget_x = label_x + spacing + max_label;
