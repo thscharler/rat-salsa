@@ -48,7 +48,7 @@ sysinfo = "0.37"
 unicode-segmentation = "1.11"
 
 rat-widget = { version = "2.11", path = "../rat-widget", features = ["user_directories"] }
-rat-theme4 = { version = "4.4", path = "../rat-theme4" }
+rat-theme4 = { version = "4", path = "../rat-theme4" }
 
 [[example]]
 name = "async1"

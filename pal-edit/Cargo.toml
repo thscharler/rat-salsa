@@ -38,7 +38,7 @@ rat-salsa = { version = "3.1", path = "../rat-salsa", features = ["dialog_widget
 rat-salsa-wgpu = { version = "0.1", path = "../../rat-salsa-wgpu", features = ["dialog_widgets"], optional = true }
 rat-widget = { version = "2.11", path = "../rat-widget", features = ["user_directories"] }
 rat-widget-extra = { version = "1.0", path = "../rat-widget-extra", features = ["color-input"] }
-rat-theme4 = { version = "4.4", path = "../rat-theme4", features = ["serde", "color-input"] }
+rat-theme4 = { version = "4", path = "../rat-theme4", features = ["serde", "color-input"] }
 
 
 

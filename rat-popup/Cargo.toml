@@ -31,5 +31,5 @@ rat-cursor = { version = "1.2", path = "../rat-cursor" }
 fern = "0.7"
 anyhow = "1.0"
 unicode-segmentation = "1.11"
-rat-theme4 = { version = "4.4", default-features = false, features = [], path = "../rat-theme4" }
+rat-theme4 = { version = "4", default-features = false, features = [], path = "../rat-theme4" }
 rat-text = { version = "2.8", features = [], path = "../rat-text" }

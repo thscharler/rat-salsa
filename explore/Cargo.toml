@@ -21,5 +21,5 @@ fern = "0.7"
 anyhow = "1.0"
 
 rat-widget = { version = "2.11", path = "../rat-widget" }
-rat-theme4 = { version = "4.4", default-features = false, features = ["rat-widget"], path = "../rat-theme4" }
+rat-theme4 = { version = "4", default-features = false, features = ["rat-widget"], path = "../rat-theme4" }
 
