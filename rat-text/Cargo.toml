@@ -1,6 +1,6 @@
 [package]
 name = "rat-text"
-version = "2.7.1"
+version = "2.8.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui text input widgets"
@@ -46,7 +46,7 @@ anyhow = "1.0"
 lorem-rustum = "0.0.5"
 lipsum = "0.9.1"
 cli-clipboard = "0.4"
-rat-theme4 = { version = "4.3", default-features = false, features = [], path = "../rat-theme4" }
+rat-theme4 = { version = "4.4", default-features = false, features = [], path = "../rat-theme4" }
 
 
 

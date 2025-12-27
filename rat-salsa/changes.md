@@ -1,10 +1,23 @@
+# 3.1.0
+
+* feat: make crossterm an optional dependency.
+* break: remove Terminal trait and use ratatui::Terminal directly.
+  Rat-salsa now only supports crossterm, which more or less has always been the
+  case. With the removal of my own Terminal wrapper trait it throws away
+  the pretense that it could do differently.
+* feat: add sleep_time() to PollEvents. Don't need to special case Timers with this change.
+  refactor: split off modules as separate files. makes it easier to sync with rat-salsa-wgpu
+* fix: duplicate code in Close. make Quit more robust.
+* feat: window title
+* feat: add PollTick for timed render.
+
 # 3.0.0
 
 * BREAK: Removed my own Terminal trait.
 
 Rat-salsa now only supports crossterm, which more or less has always been the
 case. With the removal of my own Terminal wrapper trait it throws away
-the pretense that it could do differently. 
+the pretense that it could do differently.
 
 On the plus side this removes a bit of unnecessary complexity as well.
 

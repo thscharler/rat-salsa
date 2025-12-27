@@ -1,3 +1,8 @@
+# 1.6.1
+
+* fix dependencies
+* make examples work with rat-theme4
+
 # 1.6.0
 
 * feature: add flip_focus() to switch between menubar and

@@ -6,9 +6,9 @@ mod sample_or_base46;
 mod util;
 mod widget;
 
-#[cfg(feature = "crossterm")]
+#[cfg(feature = "term")]
 pub(crate) use rat_salsa;
-#[cfg(feature = "wgpu")]
+#[cfg(all(feature = "wgpu", not(feature = "term")))]
 pub(crate) use rat_salsa_wgpu as rat_salsa;
 
 use crate::palette_edit::PaletteEdit;
@@ -24,9 +24,9 @@ use rat_salsa::dialog_stack::file_dialog::{
 };
 use rat_salsa::dialog_stack::msgdialog::msg_dialog_event;
 use rat_salsa::event::RenderedEvent;
-#[cfg(feature = "wgpu")]
+#[cfg(all(feature = "wgpu", not(feature = "term")))]
 use rat_salsa::event_type::convert_crossterm::ConvertCrossterm;
-#[cfg(feature = "crossterm")]
+#[cfg(feature = "term")]
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::poll::PollRendered;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
@@ -84,12 +84,12 @@ fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        #[cfg(feature = "wgpu")]
+        #[cfg(all(feature = "wgpu", not(feature = "term")))]
         RunConfig::new(ConvertCrossterm::new())?
             .font_family("FiraCode Nerd Font Mono")
             .font_size(20.)
             .poll(PollRendered),
-        #[cfg(feature = "crossterm")]
+        #[cfg(feature = "term")]
         RunConfig::default()?.poll(PollCrossterm).poll(PollRendered),
     )?;
 

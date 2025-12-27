@@ -1,3 +1,7 @@
+# 2.5.0
+
+* feat: add MenuLine::width()
+
 # 2.4.1
 
 * fix dependencies

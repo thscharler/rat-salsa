@@ -1,3 +1,9 @@
+# 1.7.0
+
+* upgrade to rat-salsa 3.0
+* minor ui fixes.
+* trying out ratatui-wgpu
+
 # 1.6.0
 
 * minor fixes

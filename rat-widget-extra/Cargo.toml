@@ -34,7 +34,7 @@ palette = { version = "0.7", optional = true }
 rat-event = { version = "1.4", path = "../rat-event" }
 rat-reloc = { version = "1.4", path = "../rat-reloc" }
 rat-focus = { version = "1.6", path = "../rat-focus" }
-rat-text = { version = "2.7", path = "../rat-text" }
+rat-text = { version = "2.8", path = "../rat-text" }
 
 
 [dev-dependencies]
@@ -42,4 +42,4 @@ fern = "0.7"
 anyhow = "1.0"
 cli-clipboard = "0.4.0"
 
-rat-theme4 = { version = "4.3", default-features = false, features = ["color-input"], path = "../rat-theme4" }
+rat-theme4 = { version = "4.4", default-features = false, features = ["color-input"], path = "../rat-theme4" }

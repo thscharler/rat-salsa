@@ -23,7 +23,7 @@ ratatui = { version = "0.29" }
 log = "0.4"
 serde = { version = "1", features = ["derive"], optional = true }
 
-rat-widget = { version = "2.10", path = "../rat-widget" }
+rat-widget = { version = "2.11", path = "../rat-widget" }
 
 [dev-dependencies]
 serde_json = { version = "1.0", features = ["std"] }

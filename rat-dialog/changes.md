@@ -1,3 +1,8 @@
+# 1.1.0
+
+* upgrade examples to rat-salsa 3.0
+* fix dependencies.
+
 # 1.0.1
 
 * fix examples

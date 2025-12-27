@@ -1,6 +1,6 @@
 [package]
 name = "rat-focus"
-version = "1.6.0"
+version = "1.6.1"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "focus handling for ratatui widgets"
@@ -28,4 +28,4 @@ rat-reloc = { version = "1.4", path = "../rat-reloc" }
 fern = "0.7"
 anyhow = "1.0"
 unicode-segmentation = "1.11"
-rat-theme4 = { version = "4.3", default-features = false, features = [], path = "../rat-theme4" }
+rat-theme4 = { version = "4.4", default-features = false, features = [], path = "../rat-theme4" }

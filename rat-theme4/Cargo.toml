@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme4"
-version = "4.3.0"
+version = "4.4.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "dark theme and color-schemes"
@@ -28,7 +28,7 @@ serde = ["dep:serde", "ratatui/serde"]
 ratatui = { version = "0.29" }
 log = "0.4"
 serde = { version = "1", optional = true }
-rat-widget = { version = "2.10", path = "../rat-widget", optional = true }
+rat-widget = { version = "2.11", path = "../rat-widget", optional = true }
 rat-widget-extra = { version = "1.0", path = "../rat-widget-extra", optional = true }
 
 [dev-dependencies]

@@ -1,6 +1,6 @@
 [package]
 name = "rat-salsa"
-version = "3.0.0"
+version = "3.1.0"
 authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2024"
 description = "ratatui widgets and a crossterm event-loop"
@@ -17,7 +17,6 @@ workspace = true
 [features]
 default = []
 async = ["dep:tokio"]
-scrolling-regions = ["ratatui/scrolling-regions"]
 dialog = ["try_as_traits"]
 dialog_widgets = ["dialog", "rat-widget"]
 
@@ -31,7 +30,7 @@ tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"]
 
 rat-event = { version = "1.4", path = "../rat-event" }
 rat-focus = { version = "1.6", path = "../rat-focus" }
-rat-widget = { version = "2.10", optional = true, path = "../rat-widget", features = ["user_directories"] }
+rat-widget = { version = "2.11", optional = true, path = "../rat-widget", features = ["user_directories"] }
 
 [dev-dependencies]
 anyhow = "1.0"
@@ -48,12 +47,12 @@ sys-locale = "0.3"
 sysinfo = "0.37"
 unicode-segmentation = "1.11"
 
-rat-widget = { version = "2.10", path = "../rat-widget", features = ["user_directories"] }
-rat-theme4 = { version = "4.3", path = "../rat-theme4" }
+rat-widget = { version = "2.11", path = "../rat-widget", features = ["user_directories"] }
+rat-theme4 = { version = "4.4", path = "../rat-theme4" }
 
 [[example]]
 name = "async1"
-required-features = ["async", "scrolling-regions"]
+required-features = ["async"]
 
 [[example]]
 name = "minimal"

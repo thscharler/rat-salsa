@@ -1,3 +1,8 @@
+# 1.5.0
+
+* fix dependencies
+* feat: add Table::show_empty()
+
 # 1.4.2
 
 * fix dependencies
