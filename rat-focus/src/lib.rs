@@ -2,8 +2,14 @@
 
 mod focus;
 
+/// Reexport of types used by a macro.
+pub mod ratatui {
+    pub mod layout {
+        pub use ratatui_core::layout::Rect;
+    }
+}
+
 pub use crate::focus::{Focus, FocusBuilder, handle_focus};
-use ratatui_core::layout::Rect;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -68,8 +74,8 @@ impl HasFocus for FocusFlag {
         self.clone()
     }
 
-    fn area(&self) -> Rect {
-        Rect::default()
+    fn area(&self) -> ratatui::layout::Rect {
+        ratatui::layout::Rect::default()
     }
 
     fn area_z(&self) -> u16 {
@@ -151,7 +157,7 @@ pub enum Navigation {
 /// - area_z() and navigable()
 ///
 /// ```rust no_run
-/// use ratatui_core::layout::Rect;
+/// use rat_focus::ratatui::layout::Rect;
 /// use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 ///
 /// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
@@ -175,7 +181,7 @@ pub enum Navigation {
 /// When used for a container widget implement
 /// - build()
 /// ```rust no_run
-/// use ratatui_core::layout::Rect;
+/// use rat_focus::ratatui::layout::Rect;
 /// use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 ///
 /// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
@@ -215,7 +221,7 @@ pub enum Navigation {
 ///
 /// Or
 /// ```rust no_run
-/// use ratatui_core::layout::Rect;
+/// use rat_focus::ratatui::layout::Rect;
 /// use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 ///
 /// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
@@ -284,7 +290,7 @@ pub trait HasFocus {
     /// This area shouldn't overlap with areas returned by other widgets.
     /// If it does, the widget should use `area_z()` for clarification.
     /// Otherwise, the areas are searched in order of addition.
-    fn area(&self) -> Rect;
+    fn area(&self) -> ratatui::layout::Rect;
 
     /// Z value for the area.
     ///
@@ -600,7 +606,7 @@ macro_rules! match_focus {
 ///
 /// Create a container with an identity and an area that will react to mouse clicks.
 /// ```
-/// # use ratatui_core::layout::Rect;
+/// # use rat_focus::ratatui::layout::Rect;
 /// # use rat_focus::{impl_has_focus, FocusFlag};
 /// # struct MyState { container: FocusFlag, area: Rect, field1: FocusFlag, field2: FocusFlag, field3: FocusFlag }
 /// impl_has_focus!(container:area: field1, field2, field3 for MyState);
@@ -619,7 +625,7 @@ macro_rules! impl_has_focus {
                 self.$cc.clone()
             }
 
-            fn area(&self) -> ratatui_core::layout::Rect {
+            fn area(&self) -> $crate::ratatui::layout::Rect {
                 self.$area
             }
         }
@@ -636,8 +642,8 @@ macro_rules! impl_has_focus {
                 self.$cc.clone()
             }
 
-            fn area(&self) -> ratatui_core::layout::Rect {
-                ratatui_core::layout::Rect::default()
+            fn area(&self) -> $crate::ratatui::layout::Rect {
+                $crate::ratatui::layout::Rect::default()
             }
         }
     };
@@ -651,7 +657,7 @@ macro_rules! impl_has_focus {
                 unimplemented!("not defined")
             }
 
-            fn area(&self) -> ratatui_core::layout::Rect {
+            fn area(&self) -> $crate::ratatui::layout::Rect {
                 unimplemented!("not defined")
             }
         }

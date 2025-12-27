@@ -1297,7 +1297,7 @@ dependencies = [
 
 [[package]]
 name = "rat-event"
-version = "2.0.1"
+version = "2.0.2"
 dependencies = [
  "log",
  "ratatui-core",
@@ -1306,7 +1306,7 @@ dependencies = [
 
 [[package]]
 name = "rat-focus"
-version = "2.0.1"
+version = "2.0.2"
 dependencies = [
  "anyhow",
  "fern",

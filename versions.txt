@@ -4,8 +4,8 @@ pal-edit: 2.0.1
 
 rat-cursor: 2.0.0
 rat-dialog: 2.0.1
-rat-event: 2.0.1
-rat-focus: 2.0.1
+rat-event: 2.0.2
+rat-focus: 2.0.2
 rat-ftable: 2.0.1
 rat-markdown: 0.7.1
 rat-menu: 3.0.1

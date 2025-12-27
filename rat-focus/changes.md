@@ -1,3 +1,8 @@
+# 2.0.2
+
+fix: reexport types used in macros. they will not be available if
+the user imports ratatui instead of ratatui_core. 
+
 # 2.0.1
 
 the real deal ...
