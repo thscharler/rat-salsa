@@ -401,6 +401,8 @@ pub fn reformat(
             Event::Start(Tag::Emphasis)
             | Event::Start(Tag::Strong)
             | Event::Start(Tag::Strikethrough)
+            | Event::Start(Tag::Superscript)
+            | Event::Start(Tag::Subscript)
             | Event::Start(Tag::Link { .. })
             | Event::Start(Tag::Image { .. })
             | Event::Text(_)
@@ -1114,7 +1116,11 @@ fn collect_inline<'a>(
         Event::Start(Tag::Strong)
         | Event::End(TagEnd::Strong)
         | Event::Start(Tag::Strikethrough)
-        | Event::End(TagEnd::Strikethrough) => {
+        | Event::End(TagEnd::Strikethrough)
+        | Event::Start(Tag::Subscript)
+        | Event::End(TagEnd::Subscript)
+        | Event::Start(Tag::Superscript)
+        | Event::End(TagEnd::Superscript) => {
             let word = Word::from(&arg.txt[range.start..range.start + 2]);
             arg.words.push(word);
             true

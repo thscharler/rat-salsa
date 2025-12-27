@@ -241,6 +241,12 @@ fn dump_md(txt: &str) {
                             &txt[r.clone()]
                         );
                     }
+                    Tag::Superscript => {
+                        info!("{}Superscript {:?}", " ".repeat(ind), r.clone(),);
+                    }
+                    Tag::Subscript => {
+                        info!("{}Subscript {:?}", " ".repeat(ind), r.clone(),);
+                    }
                 };
                 ind += 4;
             }
@@ -359,6 +365,12 @@ fn dump_md(txt: &str) {
                             r.clone(),
                             &txt[r.clone()]
                         );
+                    }
+                    TagEnd::Superscript => {
+                        info!("{}/Superscript {:?}", " ".repeat(ind), r.clone(),);
+                    }
+                    TagEnd::Subscript => {
+                        info!("{}/Subscript {:?}", " ".repeat(ind), r.clone(),);
                     }
                 }
             }

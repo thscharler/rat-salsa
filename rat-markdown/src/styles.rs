@@ -208,6 +208,12 @@ pub fn parse_md_styles(txt: &str) -> Vec<(Range<usize>, usize)> {
             Event::Start(Tag::DefinitionListDefinition) => {
                 styles.push((r, MDStyle::DefinitionListDefinition as usize));
             }
+            Event::Start(Tag::Superscript) => {
+                styles.push((r, MDStyle::Paragraph as usize));
+            }
+            Event::Start(Tag::Subscript) => {
+                styles.push((r, MDStyle::Paragraph as usize));
+            }
 
             Event::Code(_) => {
                 styles.push((r, MDStyle::CodeInline as usize));

@@ -1,6 +1,6 @@
 [package]
 name = "rat-markdown"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "markdown support for rat-text"
@@ -16,7 +16,7 @@ workspace = true
 
 [dependencies]
 log = "0.4"
-pulldown-cmark = "0.12"
+pulldown-cmark = "0.13"
 textwrap = "0.16"
 unicode-segmentation = "1.11"
 
