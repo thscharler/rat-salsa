@@ -14,6 +14,12 @@ use ratatui_crossterm::crossterm::cursor::{DisableBlinking, EnableBlinking, SetC
 use ratatui_crossterm::crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
 };
+#[cfg(not(windows))]
+use ratatui_crossterm::crossterm::event::{
+    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
+#[cfg(not(windows))]
+use ratatui_crossterm::crossterm::terminal::supports_keyboard_enhancement;
 use ratatui_crossterm::crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, SetTitle, disable_raw_mode, enable_raw_mode,
 };

@@ -1316,6 +1316,7 @@ dependencies = [
  "rat-theme4",
  "ratatui-core",
  "ratatui-crossterm",
+ "ratatui-widgets",
  "unicode-segmentation",
 ]
 
@@ -1516,7 +1517,6 @@ dependencies = [
  "rat-widget",
  "rat-widget-extra",
  "ratatui-core",
- "ratatui-crossterm",
  "ratatui-widgets",
  "serde",
  "serde_json",

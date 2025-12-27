@@ -23,7 +23,6 @@ members = [
     "rat-widget-extra",
 ]
 exclude = [
-    "explore"
 ]
 
 [workspace.lints.clippy]
