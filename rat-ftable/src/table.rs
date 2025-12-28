@@ -1405,7 +1405,7 @@ where
                 .set_max_offset(width.saturating_sub(state.table_area.width) as usize);
         }
 
-        if state.rows == 0 && self.show_empty {
+        if state.rows == 0 && self.show_empty && !state.inner.is_empty() {
             let area = Rect::new(state.inner.x, state.inner.y, 3, 1);
             let style = if state.is_focused() {
                 self.focus_style.unwrap_or_default()
