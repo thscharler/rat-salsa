@@ -135,3 +135,38 @@ impl Clipboard for Box<dyn Clipboard> {
         self.as_ref().set_string(s)
     }
 }
+
+#[cfg(feature = "cli-clipboard")]
+pub mod cli {
+    use crate::clipboard::{set_global_clipboard, Clipboard, ClipboardError};
+    use std::cell::RefCell;
+
+    /// Init the cli_clipboard crate and set it as global clipboard.
+    pub fn setup_cli_clipboard() {
+        set_global_clipboard(CliClipboard::default());
+    }
+
+    #[derive(Debug, Default, Clone)]
+    pub struct CliClipboard {
+        clip: RefCell<String>,
+    }
+
+    impl Clipboard for CliClipboard {
+        fn get_string(&self) -> Result<String, ClipboardError> {
+            match cli_clipboard::get_contents() {
+                Ok(v) => Ok(v),
+                Err(_) => Ok(self.clip.borrow().clone()),
+            }
+        }
+
+        fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+            let mut clip = self.clip.borrow_mut();
+            *clip = s.to_string();
+
+            match cli_clipboard::set_contents(s.to_string()) {
+                Ok(_) => Ok(()),
+                Err(_) => Err(ClipboardError),
+            }
+        }
+    }
+}
