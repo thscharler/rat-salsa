@@ -16,7 +16,10 @@ workspace = true
 
 [features]
 default = []
+# set user-directories for file-dialog
 user_directories = ["dep:dirs", "dep:sysinfo"]
+# setup cli-clipboard.
+cli-clipboard = ["rat-text/cli-clipboard"]
 
 [dependencies]
 log = "0.4"
