@@ -125,6 +125,8 @@ pub struct TermInit {
     /// Don't do any init/shutdown.
     /// Will be done by main().
     pub manual: bool,
+    /// Switch to raw-mode.
+    pub raw_mode: bool,
     /// Switch to alternate screen.
     pub alternate_screen: bool,
     /// Enable mouse.
@@ -147,6 +149,7 @@ impl Debug for TermInit {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TermInit")
             .field("manual", &self.manual)
+            .field("raw_mode", &self.raw_mode)
             .field("alternate_screen", &self.alternate_screen)
             .field("mouse_capture", &self.mouse_capture)
             .field("bracketed_paste", &self.bracketed_paste)
@@ -172,6 +175,7 @@ impl Default for TermInit {
     fn default() -> Self {
         Self {
             manual: false,
+            raw_mode: true,
             alternate_screen: true,
             mouse_capture: true,
             bracketed_paste: true,

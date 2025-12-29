@@ -496,13 +496,17 @@ fn init_terminal(cfg: TermInit) -> io::Result<()> {
         set_have_keyboard_enhancement(true);
     }
 
-    enable_raw_mode()?;
+    if cfg.raw_mode {
+        enable_raw_mode()?;
+    }
 
     Ok(())
 }
 
 fn shutdown_terminal(cfg: TermInit) -> io::Result<()> {
-    disable_raw_mode()?;
+    if cfg.raw_mode {
+        disable_raw_mode()?;
+    }
 
     #[cfg(not(windows))]
     stdout().execute(PopKeyboardEnhancementFlags)?;
