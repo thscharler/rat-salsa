@@ -610,6 +610,13 @@ impl TextInputState {
         Self::default()
     }
 
+    /// New textinput state with focus=true
+    pub fn new_focused() -> Self {
+        let s = Self::default();
+        s.focus.set(true);
+        s
+    }
+
     pub fn named(name: &str) -> Self {
         let mut z = Self::default();
         z.focus = z.focus.with_name(name);
