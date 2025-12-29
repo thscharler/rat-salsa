@@ -16,9 +16,11 @@ workspace = true
 
 [features]
 default = []
+# enable tokio support for async tasks.
 async = ["dep:tokio"]
-scrolling-regions = []
+# enable support for dialog windows
 dialog = ["try_as_traits"]
+# add functions to use rat_widget::MsgDialog and rat_widget::FileDialog as dialog windows.
 dialog_widgets = ["dialog", "rat-widget"]
 
 [dependencies]
@@ -47,12 +49,12 @@ ropey = "1.6.1"
 sysinfo = "0.37"
 unicode-segmentation = "1.11"
 
-rat-widget = { version = "3.0", path = "../rat-widget", features = ["user_directories"] }
+rat-widget = { version = "3.0", path = "../rat-widget", features = ["user_directories", "cli-clipboard"] }
 rat-theme4 = { version = "4", path = "../rat-theme4" }
 
 [[example]]
 name = "async1"
-required-features = ["async", "scrolling-regions"]
+required-features = ["async"]
 
 [[example]]
 name = "minimal"

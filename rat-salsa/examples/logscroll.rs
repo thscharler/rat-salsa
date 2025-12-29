@@ -29,6 +29,7 @@ use std::fs::create_dir_all;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
+use rat_widget::text::clipboard::cli::setup_cli_clipboard;
 
 fn main() -> Result<(), Error> {
     let mut args = args();
@@ -56,7 +57,7 @@ fn main() -> Result<(), Error> {
     }
 
     setup_logging(test)?;
-    set_global_clipboard(CliClipboard::default());
+    setup_cli_clipboard();
 
     let config = load_config()?;
     let theme = config_theme(&config);
@@ -1080,36 +1081,6 @@ fn setup_logging(test: bool) -> Result<(), Error> {
             .apply()?;
     }
     Ok(())
-}
-
-#[derive(Debug, Default, Clone)]
-struct CliClipboard {
-    clip: RefCell<String>,
-}
-
-impl Clipboard for CliClipboard {
-    fn get_string(&self) -> Result<String, ClipboardError> {
-        match cli_clipboard::get_contents() {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                warn!("{:?}", e);
-                Ok(self.clip.borrow().clone())
-            }
-        }
-    }
-
-    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
-        let mut clip = self.clip.borrow_mut();
-        *clip = s.to_string();
-
-        match cli_clipboard::set_contents(s.to_string()) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                warn!("{:?}", e);
-                Err(ClipboardError)
-            }
-        }
-    }
 }
 
 static HELP_TEXT: &str = r#"
