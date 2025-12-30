@@ -252,6 +252,54 @@ impl From<bool> for Outcome {
     }
 }
 
+/// __Experimental__
+///
+/// Convert to Outcome from bool.
+///
+/// The problem is that there are two possible combinations
+/// * true/false -> Changed/Unchanged
+/// * true/false -> Changed/Continue
+///
+/// Which one, depends on the use-case. Do you want the event
+/// to be handled finally or do you want to give a parent widget
+/// the chance to react to an event unless your widget really
+/// does something worth-wile.
+///
+/// This occurs for navigation keys.
+/// - Left navigates backwards in your widget.
+///   - When the start is reached the widget is done.
+///     - There may be a super widget that can do it's super navigation
+///       if it knows that fact.
+///       => return Outcome::Changed as long as you change your location
+///          and Outcome::Continue otherwise.
+///
+/// For the Changed/Unchanged pair I don't have a good example, so
+/// maybe that was the wrong default anyway. But I can't change the
+/// `From<bool>` behavior as that would *really* break things.
+///
+/// Hence, this trait.  
+///
+pub trait FromBool {
+    fn as_changed_unchanged(self) -> Outcome;
+    fn as_changed_continue(self) -> Outcome;
+}
+
+impl FromBool for bool {
+    fn as_changed_unchanged(self) -> Outcome {
+        match self {
+            true => Outcome::Changed,
+            false => Outcome::Unchanged,
+        }
+    }
+
+    fn as_changed_continue(self) -> Outcome {
+        match self {
+            true => Outcome::Changed,
+            false => Outcome::Continue,
+        }
+    }
+}
+
 /// Tries to unify the currently 3 flow! constructs.
 ///
 /// * `flow!(expr) -> event_flow!(return expr)`
