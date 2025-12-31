@@ -41,6 +41,7 @@ use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::text::Span;
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -79,7 +80,29 @@ pub struct PairedState<'a, TS, US> {
     pub second: &'a mut US,
 }
 
-impl<T, U> Paired<'_, T, U> {
+/// New-type for Span without Widget trait.
+/// Used for [new_labeled].
+pub struct NSpan<'a> {
+    pub span: Span<'a>,
+}
+
+impl<'a, U> Paired<'a, NSpan<'a>, U> {
+    /// Create a pair of a label + a stateful widget.
+    pub fn new_labeled(label: impl Into<Span<'a>>, second: U) -> Self {
+        let label = label.into();
+        let width = label.width();
+        Self {
+            first: NSpan { span: label },
+            second,
+            split: PairSplit::Fix1(width as u16),
+            spacing: 1,
+            flex: Default::default(),
+            phantom: Default::default(),
+        }
+    }
+}
+
+impl<'a, T, U> Paired<'a, T, U> {
     pub fn new(first: T, second: U) -> Self {
         Self {
             first,
@@ -144,6 +167,20 @@ impl<T, U> Paired<'_, T, U> {
     }
 }
 
+impl<'a, U, US> StatefulWidget for Paired<'a, NSpan<'a>, U>
+where
+    U: StatefulWidget<State = US>,
+    US: 'a,
+{
+    type State = US;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let l = self.layout(area);
+        self.first.span.render(l[0], buf);
+        self.second.render(l[1], buf, state);
+    }
+}
+
 impl<'a, T, U, TS, US> StatefulWidget for Paired<'a, T, U>
 where
     T: StatefulWidget<State = TS>,
@@ -157,6 +194,17 @@ where
         let l = self.layout(area);
         self.first.render(l[0], buf, state.first);
         self.second.render(l[1], buf, state.second);
+    }
+}
+
+impl<'a, U> Widget for Paired<'a, NSpan<'a>, U>
+where
+    U: Widget,
+{
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let l = self.layout(area);
+        self.first.span.render(l[0], buf);
+        self.second.render(l[1], buf);
     }
 }
 
