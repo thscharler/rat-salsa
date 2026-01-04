@@ -121,6 +121,17 @@ pub fn relocate_pos_tuple(pos: (u16, u16), shift: (i16, i16), clip: Rect) -> Opt
     }
 }
 
+/// Shift the position by offset and clip it.
+/// Returns None if the position is clipped.
+pub fn relocate_pos_tuple_opt(
+    pos: Option<(u16, u16)>,
+    shift: (i16, i16),
+    clip: Rect,
+) -> Option<(u16, u16)> {
+    let Some(pos) = pos else { return None };
+    relocate_pos_tuple(pos, shift, clip)
+}
+
 /// Clipping might introduce another offset by cutting away
 /// part of an area that a widgets internal offset refers to.
 ///
