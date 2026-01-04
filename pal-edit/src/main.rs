@@ -64,6 +64,7 @@ use std::process::exit;
 use std::rc::Rc;
 use std::{fs, mem};
 use try_as_traits::TryAsRef;
+use rat_salsa_wgpu::poll::PollBlink;
 use util::clipboard::CliClipboard;
 use util::message::{MsgState, msg_event, msg_render};
 
@@ -87,8 +88,10 @@ fn main() -> Result<(), Error> {
         &mut state,
         #[cfg(all(feature = "wgpu", not(feature = "term")))]
         RunConfig::new(ConvertCrossterm::new())?
+            .window_title("paledit")
             .font_family("FiraCode Nerd Font Mono")
-            .font_size(20.)
+            .font_size(22.)
+            .poll(PollBlink::default())
             .poll(PollRendered),
         #[cfg(feature = "term")]
         RunConfig::default()?.poll(PollCrossterm).poll(PollRendered),

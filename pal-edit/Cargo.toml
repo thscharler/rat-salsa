@@ -15,8 +15,8 @@ exclude = [".idea/*", ".gitignore"]
 workspace = true
 
 [features]
-default = ["term"]
-wgpu = []
+default = ["wgpu"]
+wgpu = ["dep:rat-salsa-wgpu"]
 term = ["dep:rat-salsa"]
 
 [dependencies]
@@ -37,11 +37,19 @@ ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-
 ratatui-crossterm = { version = "0.1" }
 
 rat-salsa = { version = "4.0", path = "../rat-salsa", features = ["dialog_widgets"], optional = true }
-# waiting ...
-# rat-salsa-wgpu = { version = "0.1", path = "../../rat-salsa-wgpu", features = ["dialog_widgets"], optional = true }
+#rat-salsa-wgpu = { version = "0.1", path = "../../rat-salsa-wgpu", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
+rat-salsa-wgpu = { version = "0.1", git = "https://github.com/thscharler/rat-salsa-wgpu", branch = "remastered", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
 rat-widget = { version = "3.0", path = "../rat-widget", features = ["user_directories"] }
 rat-widget-extra = { version = "2.0", path = "../rat-widget-extra", features = ["color-input"] }
 rat-theme4 = { version = "4", path = "../rat-theme4", features = ["serde", "color-input"] }
 
+[[bin]]
+name = "paledit-wgpu"
+path = "src/main.rs"
+required-features = ["wgpu"]
 
+[[bin]]
+name = "paledit"
+path = "src/main.rs"
+required-features = ["term"]
 
