@@ -49,8 +49,8 @@ pub mod layout;
 /// See also [rat-reloc](https://docs.rs/rat-reloc/latest/rat_reloc/)
 pub mod reloc {
     pub use rat_reloc::{
-        RelocatableState, impl_relocatable_state, relocate_area, relocate_areas, relocate_position,
-        relocate_positions,
+        RelocatableState, impl_relocatable_state, relocate_area, relocate_areas,
+        relocate_pos_tuple, relocate_pos_tuple_opt, relocate_position, relocate_positions,
     };
 }
 
