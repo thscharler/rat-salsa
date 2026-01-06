@@ -364,6 +364,20 @@ fn scroll(th: &SalsaTheme) -> rat_widget::scrolled::ScrollStyle {
         min_style: Some(th.style(Style::CONTAINER_BORDER_FG)),
         begin_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
         end_style: Some(th.style(Style::CONTAINER_ARROW_FG)),
+        horizontal: Some(rat_widget::scrolled::ScrollSymbols {
+            track: "",
+            thumb: "▄",
+            begin: "▗",
+            end: "▖",
+            min: " ",
+        }),
+        vertical: Some(rat_widget::scrolled::ScrollSymbols {
+            track: "",
+            thumb: "█",
+            begin: "▄",
+            end: "▀",
+            min: " ",
+        }),
         ..Default::default()
     }
 }
@@ -384,7 +398,7 @@ fn popup_scroll(th: &SalsaTheme) -> rat_widget::scrolled::ScrollStyle {
             min: " ",
         }),
         vertical: Some(rat_widget::scrolled::ScrollSymbols {
-            track: " ",
+            track: "",
             thumb: "█",
             begin: "▄",
             end: "▀",
@@ -410,7 +424,7 @@ fn dialog_scroll(th: &SalsaTheme) -> rat_widget::scrolled::ScrollStyle {
             min: " ",
         }),
         vertical: Some(rat_widget::scrolled::ScrollSymbols {
-            track: " ",
+            track: "",
             thumb: "█",
             begin: "▄",
             end: "▀",
