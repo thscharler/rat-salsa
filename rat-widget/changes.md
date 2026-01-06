@@ -1,3 +1,8 @@
+# 3.0.3
+
+* feat: add cli-clipboard feature
+* feat: Paired: add support for label+widget.
+
 # 3.0.2
 
 update dependencies

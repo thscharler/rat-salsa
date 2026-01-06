@@ -1,3 +1,7 @@
+# 2.0.3
+
+* feat: add better conversion from bool for Outcome. experimental for now.
+
 # 2.0.2
 
 fix: reexport types used in macros. they will not be available if

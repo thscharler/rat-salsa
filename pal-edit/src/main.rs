@@ -13,32 +13,34 @@ pub(crate) use rat_salsa_wgpu as rat_salsa;
 
 use crate::palette_edit::PaletteEdit;
 use crate::sample_or_base46::ShowOrBase46;
-use anyhow::{Error, anyhow};
+use anyhow::{anyhow, Error};
 use configparser::ini::Ini;
 use dirs::config_dir;
 use log::{debug, error};
 use pure_rust_locales::Locale;
-use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::dialog_stack::file_dialog::{
     file_dialog_event, file_dialog_event2, file_dialog_render,
 };
 use rat_salsa::dialog_stack::msgdialog::msg_dialog_event;
+use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
 use rat_salsa::event_type::convert_crossterm::ConvertCrossterm;
 #[cfg(feature = "term")]
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::poll::PollRendered;
-use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
+use rat_salsa::{run_tui, Control, RunConfig, SalsaAppContext, SalsaContext};
+#[cfg(all(feature = "wgpu", not(feature = "term")))]
+use rat_salsa_wgpu::poll::PollBlink;
 use rat_theme4::palette::{ColorIdx, Colors};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::themes::create_fallback;
 use rat_theme4::{
-    RatWidgetColor, StyleName, WidgetStyle, create_palette_theme, create_salsa_theme,
+    create_palette_theme, create_salsa_theme, RatWidgetColor, StyleName, WidgetStyle,
 };
 use rat_widget::event::{
-    FileOutcome, HandleEvent, MenuOutcome, Outcome, Popup, Regular, SliderOutcome, ct_event,
-    event_flow,
+    ct_event, event_flow, FileOutcome, HandleEvent, MenuOutcome, Outcome, Popup, Regular,
+    SliderOutcome,
 };
 use rat_widget::file_dialog::FileDialogState;
 use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -47,8 +49,8 @@ use rat_widget::menu::{Menubar, MenubarState, StaticMenu};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::statusline_stacked::StatusLineStacked;
-use rat_widget::text::HasScreenCursor;
 use rat_widget::text::clipboard::set_global_clipboard;
+use rat_widget::text::HasScreenCursor;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Direction, Flex, Layout, Rect};
 use ratatui_core::style::{Color, Style, Stylize};
@@ -57,16 +59,15 @@ use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm::event::Event;
 use std::cell::RefCell;
 use std::env::args;
-use std::fs::{File, create_dir_all};
+use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::exit;
 use std::rc::Rc;
 use std::{fs, mem};
 use try_as_traits::TryAsRef;
-use rat_salsa_wgpu::poll::PollBlink;
 use util::clipboard::CliClipboard;
-use util::message::{MsgState, msg_event, msg_render};
+use util::message::{msg_event, msg_render, MsgState};
 
 fn main() -> Result<(), Error> {
     let arg = parse_arg();
@@ -734,7 +735,6 @@ fn load_pal_patch(state: &mut Scenery, ctx: &mut Global) -> Result<Control<PalEv
 }
 
 fn open_prev_pal(state: &mut Scenery, _ctx: &mut Global) -> Result<Control<PalEvent>, Error> {
-    // mark
     let n = state.file_slider.value();
     if n > 0 {
         state.file_slider.set_value(n - 1);

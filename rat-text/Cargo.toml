@@ -1,6 +1,6 @@
 [package]
 name = "rat-text"
-version = "3.0.1"
+version = "3.0.2"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui text input widgets"

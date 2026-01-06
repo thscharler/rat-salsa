@@ -1,3 +1,7 @@
+# 2.0.2
+
+* feat: add relocate_pos_tuple_opt() to relocate a stored cursor.
+
 # 2.0.1
 
 the real deal ...

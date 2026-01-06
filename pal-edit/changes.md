@@ -1,3 +1,7 @@
+# 2.0.2
+
+* do some rat-salsa-wgpu. all commented out to be able to publish to crates.io
+
 # 2.0.1
 
 the real deal ...

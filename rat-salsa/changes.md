@@ -1,3 +1,7 @@
+# 4.0.2
+
+* feat: allow disabling raw-mode
+
 # 4.0.1
 
 the real deal ...

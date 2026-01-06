@@ -1,3 +1,8 @@
+# 2.0.3
+
+* fix: empty table rendered even if the inner rect is_empty(). 
+  happened when being used in a Split.
+
 # 2.0.2
 
 update dependencies

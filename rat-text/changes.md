@@ -1,3 +1,9 @@
+# 3.0.2
+
+* feat: add cli_clipboard as optional dependency and add a function to set it up.
+* feat: TextInputState::new_focused() initializes the state as focused widget. 
+  Useful for minimal, one-widget ui's. Don't need to set up the full focus system.
+
 # 3.0.1
 
 the real deal ...
