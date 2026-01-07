@@ -60,6 +60,7 @@ pub struct TextInput<'a> {
     on_focus_gained: TextFocusGained,
     on_focus_lost: TextFocusLost,
     passwd: bool,
+    bidi: bool,
 
     text_style: HashMap<usize, Style>,
 }
@@ -244,6 +245,16 @@ impl<'a> TextInput<'a> {
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self
+    }
+
+    /// Surrounds the text widget with and FSI (U+2068) and a PDI (U+2069) marker.
+    /// This might help with bidi text.
+    ///
+    /// It will not help with mouse positioning the cursor correctly. This is wip.
+    #[inline]
+    pub fn bidi(mut self) -> Self {
+        self.bidi = true;
         self
     }
 
@@ -447,6 +458,8 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             }
         }
     } else {
+        let mut first = true;
+        let mut last_x = state.inner.x;
         for g in state.glyphs2() {
             if g.screen_width() > 0 {
                 let mut style = style;
@@ -475,7 +488,12 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 if let Some(cell) =
                     buf.cell_mut((state.inner.x + screen_pos.0, state.inner.y + screen_pos.1))
                 {
-                    cell.set_symbol(g.glyph());
+                    last_x = state.inner.x + screen_pos.0;
+                    if widget.bidi && first {
+                        cell.set_symbol(format!("\u{2068}{}", g.glyph()).as_str());
+                    } else {
+                        cell.set_symbol(g.glyph());
+                    }
                     cell.set_style(style);
                 }
                 // clear the reset of the cells to avoid interferences.
@@ -488,6 +506,15 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                         cell.set_style(style);
                     }
                 }
+            }
+
+            first = false;
+        }
+
+        if widget.bidi {
+            if let Some(cell) = buf.cell_mut((last_x, state.inner.y + screen_pos.1)) {
+                let sym = format!("{}\u{2069}", cell.symbol());
+                cell.set_symbol(&sym);
             }
         }
     }
