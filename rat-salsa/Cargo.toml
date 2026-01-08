@@ -48,6 +48,9 @@ regex-cursor = "0.1.5"
 ropey = "1.6.1"
 sysinfo = "0.37"
 unicode-segmentation = "1.11"
+unicode-width = "0.2.0"
+unic-ucd = "0.9"
+unicode-script = "0.5"
 
 rat-widget = { version = "3.0", path = "../rat-widget", features = ["user_directories", "cli-clipboard"] }
 rat-theme4 = { version = "4", path = "../rat-theme4" }
