@@ -459,6 +459,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         }
     } else {
         let mut first = true;
+        let mut bidi = false;
         let mut last_x = state.inner.x;
         for g in state.glyphs2() {
             if g.screen_width() > 0 {
@@ -490,6 +491,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 {
                     last_x = state.inner.x + screen_pos.0;
                     if widget.bidi && first {
+                        bidi = true;
                         cell.set_symbol(format!("\u{2068}{}", g.glyph()).as_str());
                     } else {
                         cell.set_symbol(g.glyph());
@@ -511,7 +513,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             first = false;
         }
 
-        if widget.bidi {
+        if bidi {
             if let Some(cell) = buf.cell_mut((last_x, state.inner.y + screen_pos.1)) {
                 let sym = format!("{}\u{2069}", cell.symbol());
                 cell.set_symbol(&sym);
