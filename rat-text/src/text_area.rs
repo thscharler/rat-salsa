@@ -672,7 +672,7 @@ impl HasFocus for TextAreaState {
     }
 
     fn navigable(&self) -> Navigation {
-        Navigation::Reach
+        Navigation::Regular
     }
 }
 
