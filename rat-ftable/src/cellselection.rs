@@ -36,6 +36,46 @@ impl TableSelection for CellSelection {
     fn lead_selection(&self) -> Option<(usize, usize)> {
         self.lead_cell
     }
+
+    fn validate_rows(&mut self, rows: usize) {
+        if let Some(lead_cell) = self.lead_cell {
+            if lead_cell.1 >= rows {
+                self.lead_cell = None;
+            }
+        }
+    }
+
+    fn validate_cols(&mut self, cols: usize) {
+        if let Some(lead_cell) = self.lead_cell {
+            if cols > 0 {
+                if lead_cell.0 >= cols {
+                    self.lead_cell = Some((cols - 1, lead_cell.1));
+                }
+            } else {
+                self.lead_cell = None;
+            }
+        }
+    }
+
+    fn items_added(&mut self, pos: usize, n: usize) {
+        if let Some(lead_cell) = self.lead_cell {
+            if lead_cell.1 > pos {
+                self.lead_cell = Some((lead_cell.0, lead_cell.1 + n));
+            }
+        }
+    }
+
+    fn items_removed(&mut self, pos: usize, n: usize, rows: usize) {
+        if let Some(lead_cell) = self.lead_cell {
+            if rows == 0 {
+                self.lead_cell = None;
+            } else if lead_cell.1 == pos && lead_cell.1 + n >= rows {
+                self.lead_cell = Some((lead_cell.0, rows.saturating_sub(1)));
+            } else if lead_cell.1 > pos {
+                self.lead_cell = Some((lead_cell.0, lead_cell.1.saturating_sub(n).min(pos)));
+            }
+        }
+    }
 }
 
 impl CellSelection {

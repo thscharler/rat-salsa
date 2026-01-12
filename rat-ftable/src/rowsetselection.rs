@@ -80,6 +80,76 @@ impl TableSelection for RowSetSelection {
     fn lead_selection(&self) -> Option<(usize, usize)> {
         self.lead_row.map(|srow| (0, srow))
     }
+
+    fn validate_rows(&mut self, rows: usize) {
+        if rows == 0 {
+            self.lead_row = None;
+            self.anchor_row = None;
+            self.selected.clear();
+        } else {
+            if let Some(lead_row) = self.lead_row {
+                if lead_row >= rows {
+                    self.lead_row = Some(rows - 1);
+                }
+            }
+            if let Some(anchor_row) = self.anchor_row {
+                if anchor_row >= rows {
+                    self.anchor_row = Some(rows - 1);
+                }
+            }
+            self.selected.retain(|v| *v < rows);
+        }
+    }
+
+    fn validate_cols(&mut self, _cols: usize) {}
+
+    fn items_added(&mut self, pos: usize, n: usize) {
+        if let Some(lead_row) = self.lead_row {
+            if lead_row > pos {
+                self.lead_row = Some(lead_row + n);
+            }
+        }
+        if let Some(anchor_row) = self.anchor_row {
+            if anchor_row > pos {
+                self.anchor_row = Some(anchor_row + n);
+            }
+        }
+        let corr = self.selected.extract_if(|v| *v > pos).collect::<Vec<_>>();
+        for v in corr {
+            self.selected.insert(v + n);
+        }
+    }
+
+    fn items_removed(&mut self, pos: usize, n: usize, rows: usize) {
+        if let Some(lead_row) = self.lead_row {
+            if rows == 0 {
+                self.lead_row = None;
+            } else if lead_row == pos && lead_row + n >= rows {
+                self.lead_row = Some(rows.saturating_sub(1))
+            } else if lead_row > pos {
+                self.lead_row = Some(lead_row.saturating_sub(n).min(pos));
+            }
+        }
+        if let Some(anchor_row) = self.anchor_row {
+            if rows == 0 {
+                self.anchor_row = None;
+            } else if anchor_row == pos && anchor_row + n >= rows {
+                self.anchor_row = Some(rows.saturating_sub(1))
+            } else if anchor_row > pos {
+                self.anchor_row = Some(anchor_row.saturating_sub(n).min(pos));
+            }
+        }
+        let corr = self.selected.extract_if(|v| *v > pos).collect::<Vec<_>>();
+        for v in corr {
+            if rows == 0 {
+                // removed
+            } else if v == pos && v + n >= rows {
+                self.selected.insert(rows.saturating_sub(1));
+            } else if v > pos {
+                self.selected.insert(v.saturating_sub(n).min(pos));
+            }
+        }
+    }
 }
 
 impl RowSetSelection {

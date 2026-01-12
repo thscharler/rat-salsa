@@ -1331,7 +1331,6 @@ where
 
                 state.rows = rows;
                 state._counted_rows = row.map_or(0, |v| v + 1);
-
                 // have we got a page worth of data?
                 if let Some(last_page) = state.calc_last_page(row_heights) {
                     state.vscroll.set_max_offset(state.rows - last_page);
@@ -1343,6 +1342,8 @@ where
                         state.rows.saturating_sub(state.table_area.height as usize),
                     );
                 }
+                state.selection.validate_rows(state.rows);
+                state.selection.validate_cols(state.columns);
             } else if self.no_row_count {
                 algorithm = 1;
 
@@ -1367,6 +1368,8 @@ where
                 if state.vscroll.page_len() == 0 {
                     state.vscroll.set_page_len(state.table_area.height as usize);
                 }
+                state.selection.validate_rows(state.rows);
+                state.selection.validate_cols(state.columns);
             } else {
                 algorithm = 2;
 
@@ -1390,13 +1393,14 @@ where
 
                 state.rows = row.map_or(0, |v| v + 1);
                 state._counted_rows = row.map_or(0, |v| v + 1);
-
                 // have we got a page worth of data?
                 if let Some(last_page) = state.calc_last_page(row_heights) {
                     state.vscroll.set_max_offset(state.rows - last_page);
                 } else {
                     state.vscroll.set_max_offset(0);
                 }
+                state.selection.validate_rows(state.rows);
+                state.selection.validate_cols(state.columns);
             }
         }
         {
@@ -1406,7 +1410,7 @@ where
         }
 
         if state.rows == 0 && self.show_empty && !state.inner.is_empty() {
-            let area = Rect::new(state.inner.x, state.inner.y, 3, 1);
+            let area = Rect::new(state.table_area.x, state.table_area.y, 3, 1);
             let style = if state.is_focused() {
                 self.focus_style.unwrap_or_default()
             } else {
@@ -1830,23 +1834,6 @@ impl<Selection> TableState<Selection> {
         self.rows
     }
 
-    /// Update the number of rows.
-    /// This corrects the number of rows *during* event-handling.
-    /// A number of functions depend on the number of rows,
-    /// but this value is only updated during render.
-    ///
-    /// If you encounter such a case, manually changing the number of rows
-    /// will fix it.
-    ///
-    /// This will *not* change any selection. If you know which items
-    /// have changed you can use [items_added](TableState::items_added) or
-    /// [items_removed](TableState::items_removed).
-    pub fn rows_changed(&mut self, rows: usize) {
-        self.rows = rows;
-        self.vscroll
-            .set_max_offset(self.rows.saturating_sub(self.table_area.height as usize))
-    }
-
     /// Number of columns.
     #[inline]
     pub fn columns(&self) -> usize {
@@ -1942,6 +1929,39 @@ impl<Selection> TableState<Selection> {
 
 // Offset related.
 impl<Selection: TableSelection> TableState<Selection> {
+    /// Update the state to match adding items.
+    /// This corrects the number of rows, offset and selection.
+    pub fn items_added(&mut self, pos: usize, n: usize) {
+        self.rows = self.rows.saturating_add(n);
+        self.vscroll.items_added(pos, n);
+        self.selection.items_added(pos, n);
+    }
+
+    /// Update the state to match removing items.
+    /// This corrects the number of rows, offset and selection.
+    pub fn items_removed(&mut self, pos: usize, n: usize) {
+        self.rows = self.rows.saturating_sub(n);
+        self.vscroll.items_removed(pos, n);
+        self.selection.items_removed(pos, n, self.rows);
+    }
+
+    /// Update the number of rows.
+    /// This corrects the number of rows *during* event-handling.
+    /// A number of functions depend on the number of rows,
+    /// but this value is only updated during render.
+    ///
+    /// If you encounter such a case, manually changing the number of rows
+    /// will fix it.
+    ///
+    /// This corrects the number of rows, offset and selection.
+    pub fn rows_changed(&mut self, rows: usize) {
+        self.selection.validate_rows(rows);
+        self.vscroll
+            .set_max_offset(self.rows.saturating_sub(self.table_area.height as usize));
+        self.vscroll.offset = self.vscroll.limited_offset(self.vscroll.offset);
+        self.rows = rows;
+    }
+
     /// Sets both offsets to 0.
     pub fn clear_offset(&mut self) {
         self.vscroll.set_offset(0);
@@ -2099,25 +2119,6 @@ impl<Selection: TableSelection> TableState<Selection> {
 }
 
 impl TableState<RowSelection> {
-    /// Update the state to match adding items.
-    /// This corrects the number of rows, offset and selection.
-    // todo: add for other selection
-    pub fn items_added(&mut self, pos: usize, n: usize) {
-        self.vscroll.items_added(pos, n);
-        self.selection.items_added(pos, n);
-        self.rows += n;
-    }
-
-    /// Update the state to match removing items.
-    /// This corrects the number of rows, offset and selection.
-    // todo: add for other selection
-    pub fn items_removed(&mut self, pos: usize, n: usize) {
-        self.vscroll.items_removed(pos, n);
-        self.selection
-            .items_removed(pos, n, self.rows.saturating_sub(1));
-        self.rows -= n;
-    }
-
     /// When scrolling the table, change the selection instead of the offset.
     // todo: add for other selection
     #[inline]

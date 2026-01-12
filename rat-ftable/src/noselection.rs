@@ -33,6 +33,14 @@ impl TableSelection for NoSelection {
     fn lead_selection(&self) -> Option<(usize, usize)> {
         None
     }
+
+    fn validate_rows(&mut self, _rows: usize) {}
+
+    fn validate_cols(&mut self, _cols: usize) {}
+
+    fn items_added(&mut self, _pos: usize, _n: usize) {}
+
+    fn items_removed(&mut self, _pos: usize, _n: usize, _rows: usize) {}
 }
 
 impl HandleEvent<Event, Regular, TableOutcome> for TableState<NoSelection> {

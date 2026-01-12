@@ -41,6 +41,39 @@ impl TableSelection for RowSelection {
     fn lead_selection(&self) -> Option<(usize, usize)> {
         self.lead_row.map(|v| (0, v))
     }
+
+    fn validate_rows(&mut self, rows: usize) {
+        if let Some(lead_row) = self.lead_row {
+            if lead_row >= rows {
+                self.lead_row = None;
+            }
+        }
+    }
+
+    fn validate_cols(&mut self, _cols: usize) {}
+
+    /// Update the state to match adding items.
+    #[allow(clippy::collapsible_if)]
+    fn items_added(&mut self, pos: usize, n: usize) {
+        if let Some(lead_row) = self.lead_row {
+            if lead_row > pos {
+                self.lead_row = Some(lead_row.saturating_add(n));
+            }
+        }
+    }
+
+    /// Update the state to match removing items.
+    fn items_removed(&mut self, pos: usize, n: usize, rows: usize) {
+        if let Some(lead_row) = self.lead_row {
+            if rows == 0 {
+                self.lead_row = None;
+            } else if lead_row == pos && lead_row + n >= rows {
+                self.lead_row = Some(rows.saturating_sub(1))
+            } else if lead_row > pos {
+                self.lead_row = Some(lead_row.saturating_sub(n).min(pos));
+            }
+        }
+    }
 }
 
 impl RowSelection {
@@ -80,30 +113,6 @@ impl RowSelection {
         let old_row = self.lead_row;
         self.lead_row = select;
         old_row != self.lead_row
-    }
-
-    /// Update the state to match adding items.
-    #[allow(clippy::collapsible_if)]
-    pub fn items_added(&mut self, pos: usize, n: usize) {
-        if let Some(lead_row) = self.lead_row {
-            if lead_row > pos {
-                self.lead_row = Some(lead_row + n);
-            }
-        }
-    }
-
-    /// Update the state to match removing items.
-    ///
-    /// This will leave the selection at 0 after the
-    /// last item has been removed.
-    pub fn items_removed(&mut self, pos: usize, n: usize, maximum: usize) {
-        if let Some(lead_row) = self.lead_row {
-            if lead_row > pos {
-                self.lead_row = Some(lead_row.saturating_sub(n));
-            } else if lead_row == pos && lead_row == maximum {
-                self.lead_row = Some(lead_row.saturating_sub(1));
-            }
-        }
     }
 
     /// Select the given row, limit between 0 and maximum.

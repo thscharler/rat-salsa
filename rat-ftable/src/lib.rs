@@ -189,7 +189,7 @@ pub trait TableDataIter<'a> {
 
 /// Trait for the different selection models used by Table.
 pub trait TableSelection {
-    /// Number of rowss selected.
+    /// Number of rows selected.
     fn count(&self) -> usize;
 
     /// Row is selected. This can be separate from `is_selected_cell`.
@@ -203,6 +203,18 @@ pub trait TableSelection {
 
     /// Selection lead, or the sole selected index.
     fn lead_selection(&self) -> Option<(usize, usize)>;
+
+    /// Validate the selected row against the number of rows.
+    fn validate_rows(&mut self, rows: usize);
+
+    /// Validate the selected column against the number of columns.
+    fn validate_cols(&mut self, cols: usize);
+
+    /// Correct the selection for added items.
+    fn items_added(&mut self, pos: usize, n: usize);
+
+    /// Correct the selection for removed items.
+    fn items_removed(&mut self, pos: usize, n: usize, rows: usize);
 }
 
 use crate::_private::NonExhaustive;

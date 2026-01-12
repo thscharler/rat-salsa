@@ -40,6 +40,15 @@ pub trait ListSelection {
     fn scroll_selected(&self) -> bool {
         false
     }
+
+    /// Validate the selected row against the number of rows.
+    fn validate_rows(&mut self, rows: usize);
+
+    /// Correct the selection for added items.
+    fn items_added(&mut self, pos: usize, n: usize);
+
+    /// Correct the selection for removed items.
+    fn items_removed(&mut self, pos: usize, n: usize, rows: usize);
 }
 
 /// List widget.
@@ -309,6 +318,7 @@ fn render_list<Selection: ListSelection>(
 ) {
     state.area = area;
     state.rows = widget.items.len();
+    state.selection.validate_rows(state.rows);
 
     let sa = ScrollArea::new()
         .block(widget.block.as_ref())
@@ -484,6 +494,41 @@ impl<Selection: ListSelection> ListState<Selection> {
         self.rows
     }
 
+    /// Update the state to match adding items.
+    ///
+    /// This corrects the number of rows, offset and selection.
+    pub fn items_added(&mut self, pos: usize, n: usize) {
+        self.rows = self.rows.saturating_add(n);
+        self.scroll.items_added(pos, n);
+        self.selection.items_added(pos, n);
+    }
+
+    /// Update the state to match removing items.
+    ///
+    /// This corrects the number of rows, offset and selection.
+    pub fn items_removed(&mut self, pos: usize, n: usize) {
+        self.rows = self.rows.saturating_sub(n);
+        self.scroll.items_removed(pos, n);
+        self.selection.items_removed(pos, n, self.rows);
+    }
+
+    /// Update the number of rows.
+    /// This corrects the number of rows *during* event-handling.
+    /// A number of functions depend on the number of rows,
+    /// but this value is only updated during render.
+    ///
+    /// If you encounter such a case, manually changing the number of rows
+    /// will fix it.
+    ///
+    /// This corrects the number of rows, offset and selection.
+    pub fn rows_changed(&mut self, rows: usize) {
+        self.selection.validate_rows(rows);
+        self.scroll
+            .set_max_offset(self.rows.saturating_sub(self.inner.height as usize));
+        self.scroll.offset = self.scroll.limited_offset(self.scroll.offset);
+        self.rows = rows;
+    }
+
     #[inline]
     pub fn clear_offset(&mut self) {
         self.scroll.set_offset(0);
@@ -582,25 +627,6 @@ impl<Selection: ListSelection> ListState<Selection> {
 }
 
 impl ListState<RowSelection> {
-    /// Update the state to match adding items.
-    ///
-    /// This corrects the number of rows, offset and selection.
-    pub fn items_added(&mut self, pos: usize, n: usize) {
-        self.scroll.items_added(pos, n);
-        self.selection.items_added(pos, n);
-        self.rows += n;
-    }
-
-    /// Update the state to match removing items.
-    ///
-    /// This corrects the number of rows, offset and selection.
-    pub fn items_removed(&mut self, pos: usize, n: usize) {
-        self.scroll.items_removed(pos, n);
-        self.selection
-            .items_removed(pos, n, self.rows.saturating_sub(1));
-        self.rows -= n;
-    }
-
     /// When scrolling the table, change the selection instead of the offset.
     #[inline]
     pub fn set_scroll_selection(&mut self, scroll: bool) {
@@ -795,7 +821,6 @@ pub mod selection {
     use rat_scrolled::ScrollAreaState;
     use rat_scrolled::event::ScrollOutcome;
     use ratatui_crossterm::crossterm::event::{Event, KeyModifiers};
-    use std::mem;
 
     /// No selection
     pub type NoSelection = rat_ftable::selection::NoSelection;
@@ -814,6 +839,12 @@ pub mod selection {
         fn lead_selection(&self) -> Option<usize> {
             None
         }
+
+        fn validate_rows(&mut self, _rows: usize) {}
+
+        fn items_added(&mut self, _pos: usize, _n: usize) {}
+
+        fn items_removed(&mut self, _pos: usize, _n: usize, _rows: usize) {}
     }
 
     impl HandleEvent<Event, Regular, Outcome> for ListState<NoSelection> {
@@ -878,21 +909,33 @@ pub mod selection {
 
     impl ListSelection for RowSelection {
         fn count(&self) -> usize {
-            if self.lead_row.is_some() { 1 } else { 0 }
+            <Self as TableSelection>::count(self)
         }
 
         #[inline]
         fn is_selected(&self, n: usize) -> bool {
-            self.lead_row == Some(n)
+            <Self as TableSelection>::is_selected_row(self, n)
         }
 
         #[inline]
         fn lead_selection(&self) -> Option<usize> {
-            self.lead_row
+            <Self as TableSelection>::lead_selection(self).map(|(_, y)| y)
         }
 
         fn scroll_selected(&self) -> bool {
-            self.scroll_selected
+            RowSelection::scroll_selected(self)
+        }
+
+        fn validate_rows(&mut self, rows: usize) {
+            <Self as TableSelection>::validate_rows(self, rows);
+        }
+
+        fn items_added(&mut self, pos: usize, n: usize) {
+            <Self as TableSelection>::items_added(self, pos, n);
+        }
+
+        fn items_removed(&mut self, pos: usize, n: usize, rows: usize) {
+            <Self as TableSelection>::items_removed(self, pos, n, rows);
         }
     }
 
@@ -996,43 +1039,27 @@ pub mod selection {
 
     impl ListSelection for RowSetSelection {
         fn count(&self) -> usize {
-            let n = if let Some(anchor) = self.anchor_row {
-                if let Some(lead) = self.lead_row {
-                    anchor.abs_diff(lead) + 1
-                } else {
-                    0
-                }
-            } else {
-                0
-            };
-
-            n + self.selected.len()
+            <Self as TableSelection>::count(self)
         }
 
         fn is_selected(&self, n: usize) -> bool {
-            if let Some(mut anchor) = self.anchor_row {
-                if let Some(mut lead) = self.lead_row {
-                    if lead < anchor {
-                        mem::swap(&mut lead, &mut anchor);
-                    }
-
-                    if n >= anchor && n <= lead {
-                        return true;
-                    }
-                }
-            } else {
-                if let Some(lead) = self.lead_row {
-                    if n == lead {
-                        return true;
-                    }
-                }
-            }
-
-            self.selected.contains(&n)
+            <Self as TableSelection>::is_selected_row(self, n)
         }
 
         fn lead_selection(&self) -> Option<usize> {
-            self.lead_row
+            <Self as TableSelection>::lead_selection(self).map(|(_, y)| y)
+        }
+
+        fn validate_rows(&mut self, rows: usize) {
+            <Self as TableSelection>::validate_rows(self, rows);
+        }
+
+        fn items_added(&mut self, pos: usize, n: usize) {
+            <Self as TableSelection>::items_added(self, pos, n);
+        }
+
+        fn items_removed(&mut self, pos: usize, n: usize, rows: usize) {
+            <Self as TableSelection>::items_removed(self, pos, n, rows);
         }
     }
 
