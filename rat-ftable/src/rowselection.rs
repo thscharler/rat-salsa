@@ -44,8 +44,10 @@ impl TableSelection for RowSelection {
 
     fn validate_rows(&mut self, rows: usize) {
         if let Some(lead_row) = self.lead_row {
-            if lead_row >= rows {
+            if rows == 0 {
                 self.lead_row = None;
+            } else if lead_row >= rows {
+                self.lead_row = Some(rows - 1);
             }
         }
     }

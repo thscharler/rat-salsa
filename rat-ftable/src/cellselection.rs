@@ -39,20 +39,20 @@ impl TableSelection for CellSelection {
 
     fn validate_rows(&mut self, rows: usize) {
         if let Some(lead_cell) = self.lead_cell {
-            if lead_cell.1 >= rows {
+            if rows == 0 {
                 self.lead_cell = None;
+            } else if lead_cell.1 >= rows {
+                self.lead_cell = Some((lead_cell.0, rows - 1));
             }
         }
     }
 
     fn validate_cols(&mut self, cols: usize) {
         if let Some(lead_cell) = self.lead_cell {
-            if cols > 0 {
-                if lead_cell.0 >= cols {
-                    self.lead_cell = Some((cols - 1, lead_cell.1));
-                }
-            } else {
+            if cols == 0 {
                 self.lead_cell = None;
+            } else if lead_cell.0 >= cols {
+                self.lead_cell = Some((cols - 1, lead_cell.1));
             }
         }
     }

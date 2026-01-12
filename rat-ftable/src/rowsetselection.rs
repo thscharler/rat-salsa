@@ -82,23 +82,21 @@ impl TableSelection for RowSetSelection {
     }
 
     fn validate_rows(&mut self, rows: usize) {
-        if rows == 0 {
-            self.lead_row = None;
-            self.anchor_row = None;
-            self.selected.clear();
-        } else {
-            if let Some(lead_row) = self.lead_row {
-                if lead_row >= rows {
-                    self.lead_row = Some(rows - 1);
-                }
+        if let Some(lead_row) = self.lead_row {
+            if rows == 0 {
+                self.lead_row = None;
+            } else if lead_row >= rows {
+                self.lead_row = Some(rows - 1);
             }
-            if let Some(anchor_row) = self.anchor_row {
-                if anchor_row >= rows {
-                    self.anchor_row = Some(rows - 1);
-                }
-            }
-            self.selected.retain(|v| *v < rows);
         }
+        if let Some(anchor_row) = self.anchor_row {
+            if rows == 0 {
+                self.anchor_row = None;
+            } else if anchor_row >= rows {
+                self.anchor_row = Some(rows - 1);
+            }
+        }
+        self.selected.retain(|v| *v < rows);
     }
 
     fn validate_cols(&mut self, _cols: usize) {}
