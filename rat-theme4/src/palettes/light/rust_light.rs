@@ -1,20 +1,18 @@
-use crate::palette::{Colors, Palette, define_alias};
 use std::borrow::Cow;
+use crate::palette::{Colors, Palette, define_alias};
 
 const DARKNESS: u8 = 63;
 
-/// Rust.
+/// Rust
 /// A rusty theme. Iron-oxide, Copper-oxide,
 /// Cobald-oxide and some Chromium-oxide too.
 pub const RUST_LIGHT: Palette = Palette {
-    theme_name: Cow::Borrowed("Rust Light"),
-    theme: Cow::Borrowed("Light"),
-    name: Cow::Borrowed("Rust"),
-    doc: Cow::Borrowed(
-        "A rusty theme. Iron-oxide, Copper-oxide, 
-Cobald-oxide and some Chromium-oxide too.",
-    ),
-    generator: Cow::Borrowed("light-dark:63"),
+    theme_name: Cow::Borrowed("Rust Light"), 
+    theme: Cow::Borrowed("Light"), 
+    name: Cow::Borrowed("Rust"), 
+    doc: Cow::Borrowed("A rusty theme. Iron-oxide, Copper-oxide,
+Cobald-oxide and some Chromium-oxide too."), 
+    generator: Cow::Borrowed("light-dark:63"), 
 
     color: [
         Palette::interpolate2(0xcec9c6, 0xefe6e6, 0x0, 0x0),
@@ -23,7 +21,7 @@ Cobald-oxide and some Chromium-oxide too.",
         Palette::interpolate(0x75654c, 0xccab76, DARKNESS),
         Palette::interpolate(0xc4bfbb, 0xede3e3, DARKNESS),
         Palette::interpolate(0x101011, 0x464251, DARKNESS),
-        Palette::interpolate(0x726e6b, 0xa39d99, DARKNESS),
+        Palette::interpolate(0x706e6c, 0xa09d9b, DARKNESS),
         Palette::interpolate(0x75311a, 0xd25a32, DARKNESS),
         Palette::interpolate(0x75431a, 0xd27a32, DARKNESS),
         Palette::interpolate(0x77551d, 0xcd9537, DARKNESS),
@@ -76,3 +74,4 @@ Cobald-oxide and some Chromium-oxide too.",
         define_alias("week-header.fg", Colors::Secondary, 7),
     ]),
 };
+
