@@ -27,7 +27,7 @@ dialog_widgets = ["dialog", "rat-widget"]
 log = "0.4"
 crossbeam = "0.8"
 try_as_traits = { version = "0.1", optional = true }
-tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
+tokio = { version = "1.49", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
 
 ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
 ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
