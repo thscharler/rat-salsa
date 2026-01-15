@@ -42,13 +42,16 @@ pub trait ListSelection {
     }
 
     /// Validate the selected row against the number of rows.
-    fn validate_rows(&mut self, rows: usize);
+    #[allow(unused_variables)]
+    fn validate_rows(&mut self, rows: usize) {}
 
     /// Correct the selection for added items.
-    fn items_added(&mut self, pos: usize, n: usize);
+    #[allow(unused_variables)]
+    fn items_added(&mut self, pos: usize, n: usize) {}
 
     /// Correct the selection for removed items.
-    fn items_removed(&mut self, pos: usize, n: usize, rows: usize);
+    #[allow(unused_variables)]
+    fn items_removed(&mut self, pos: usize, n: usize, rows: usize) {}
 }
 
 /// List widget.
