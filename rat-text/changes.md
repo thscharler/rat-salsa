@@ -1,3 +1,9 @@
+# 3.0.3
+
+* feat: TextInput: add bidi(). This renders bidi isolates for the text-field.
+  This allows for proper bidi rendering with ratatui-wgpu. 
+  I'm not aware of any terminal supporting this.
+
 # 3.0.2
 
 * feat: add cli_clipboard as optional dependency and add a function to set it up.

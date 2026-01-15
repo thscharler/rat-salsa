@@ -1,3 +1,11 @@
+# 3.1.0
+
+* feat: ListSelection::validate_rows(), items_added() and items_removed()
+  validate_rows/cols() is called after rendering and clips the selection
+  to the number of rows.
+  items_added() and items_removed() is called from the same functions of Table
+  and allows updating the selection.
+
 # 3.0.3
 
 * feat: add cli-clipboard feature

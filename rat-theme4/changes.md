@@ -1,3 +1,8 @@
+# 4.5.2
+
+* fix dark scrollbars
+* fix rust palette
+
 # 4.5.1
 
 the real deal ...

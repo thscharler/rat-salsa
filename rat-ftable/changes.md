@@ -1,3 +1,11 @@
+# 2.1.0
+
+* feat: TableSelection::validate_rows(), validate_cols(), items_added() and items_removed() 
+  validate_rows/cols() is called after rendering and clips the selection 
+  to the number of rows.
+  items_added() and items_removed() is called from the same functions of Table
+  and allows updating the selection.  
+
 # 2.0.3
 
 * fix: empty table rendered even if the inner rect is_empty(). 

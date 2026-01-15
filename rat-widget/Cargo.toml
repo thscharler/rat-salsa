@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget"
-version = "3.0.3"
+version = "3.1.0"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -37,7 +37,7 @@ ratatui-crossterm = { version = "0.1" }
 rat-event = { version = "2.0", path = "../rat-event" }
 rat-reloc = { version = "2.0", path = "../rat-reloc" }
 rat-focus = { version = "2.0", path = "../rat-focus" }
-rat-ftable = { version = "2.0", path = "../rat-ftable" }
+rat-ftable = { version = "2.1", path = "../rat-ftable" }
 rat-text = { version = "3.0", path = "../rat-text" }
 rat-menu = { version = "3.0", path = "../rat-menu" }
 rat-scrolled = { version = "2.0", path = "../rat-scrolled" }

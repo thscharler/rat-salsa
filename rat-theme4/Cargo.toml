@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme4"
-version = "4.5.1"
+version = "4.5.2"
 edition = "2024"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "dark theme and color-schemes"

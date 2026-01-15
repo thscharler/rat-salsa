@@ -1,3 +1,7 @@
+# 4.0.3
+
+* example: uni_blocks_term
+
 # 4.0.2
 
 * feat: allow disabling raw-mode
