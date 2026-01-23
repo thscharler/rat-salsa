@@ -300,17 +300,20 @@ impl<'a> View<'a> {
 
         state
             .hscroll
-            .set_max_offset(state.layout.width.saturating_sub(state.widget_area.width) as usize);
+            .set_max_offset(state.layout.right().saturating_sub(state.widget_area.width) as usize);
         state.hscroll.set_page_len(state.widget_area.width as usize);
+
+        state.vscroll.set_max_offset(
+            state
+                .layout
+                .right()
+                .saturating_sub(state.widget_area.height) as usize,
+        );
         state
             .vscroll
             .set_page_len(state.widget_area.height as usize);
-        state
-            .vscroll
-            .set_max_offset(state.layout.height.saturating_sub(state.widget_area.height) as usize);
 
         // offset is in layout coordinates.
-        // internal buffer starts at (view.x,view.y)
         let offset = Position::new(state.hscroll.offset as u16, state.vscroll.offset as u16);
 
         // resize buffer to fit the layout.
@@ -414,15 +417,19 @@ impl<'a> ViewBuffer<'a> {
     }
 
     /// Calculate the necessary shift from view to screen.
-    #[deprecated(
-        since = "2.0.0",
-        note = "should not be public. use relocate2() instead."
-    )]
+    ///
+    /// __Note__
+    ///
     pub fn shift(&self) -> (i16, i16) {
         (
             self.widget_area.x as i16 - self.offset.x as i16,
             self.widget_area.y as i16 - self.offset.y as i16,
         )
+    }
+
+    /// Experimental.
+    pub fn clip(&self) -> Rect {
+        self.widget_area
     }
 
     /// Does nothing for view.
@@ -455,7 +462,7 @@ impl<'a> ViewBuffer<'a> {
     where
         S: RelocatableState,
     {
-        state.relocate(self.shift(), self.widget_area);
+        state.relocate(self.shift(), self.clip());
     }
 
     /// After rendering the widget to the buffer it may have
@@ -463,6 +470,9 @@ impl<'a> ViewBuffer<'a> {
     /// coordinates instead of screen coordinates.
     ///
     /// Call this function to correct this after rendering.
+    ///
+    /// It needs the render-area of the widget to find out
+    /// if the widget will be display
     #[allow(deprecated)]
     pub fn relocate2<S>(&self, area: Rect, state: &mut S)
     where
@@ -530,48 +540,44 @@ impl<'a> ViewBuffer<'a> {
                     .v_scroll(&mut state.vscroll),
             );
 
-        let src_area = self.buffer.area;
-        let tgt_area = state.widget_area;
-        let offset = self.offset;
+        let v_src = Rect::new(
+            self.offset.x,
+            self.offset.y,
+            state.widget_area.width,
+            state.widget_area.height,
+        );
+        if !v_src.intersects(self.buffer.area) {
+            return;
+        }
+        let mut src = self.buffer.area.intersection(v_src);
 
-        // extra offset due to buffer starts right of offset.
-        let off_x0 = src_area.x.saturating_sub(offset.x);
-        let off_y0 = src_area.y.saturating_sub(offset.y);
-        // cut source buffer due to start left of offset.
-        let cut_x0 = offset.x.saturating_sub(src_area.x);
-        let cut_y0 = offset.y.saturating_sub(src_area.y);
+        let mut view = state.widget_area;
+        if src.x > self.offset.x {
+            view.x += src.x - self.offset.x;
+            view.width -= src.x - self.offset.x;
+        }
+        if src.y > self.offset.y {
+            view.y += src.y - self.offset.y;
+            view.height -= src.y - self.offset.y;
+        }
 
-        // length to copy
-        let len_src = src_area.width.saturating_sub(cut_x0);
-        let len_tgt = tgt_area.width.saturating_sub(off_x0);
-        let len = min(len_src, len_tgt);
+        let width = min(view.width, src.width);
+        let height = min(view.height, src.height);
 
-        // area height to copy
-        let height_src = src_area.height.saturating_sub(cut_y0);
-        let height_tgt = tgt_area.height.saturating_sub(off_y0);
-        let height = min(height_src, height_tgt);
+        src.width = width;
+        view.width = width;
+        src.height = height;
+        view.height = height;
 
-        // ** slow version **
-        // for y in 0..height {
-        //     for x in 0..len {
-        //         let src_pos = Position::new(src_area.x + cut_x0 + x, src_area.y + cut_y0 + y);
-        //         let src_cell = self.buffer.cell(src_pos).expect("src-cell");
-        //
-        //         let tgt_pos = Position::new(tgt_area.x + off_x0 + x, tgt_area.y + off_y0 + y);
-        //         let tgt_cell = buf.cell_mut(tgt_pos).expect("tgt_cell");
-        //
-        //         *tgt_cell = src_cell.clone();
-        //     }
-        // }
+        for y in 0..src.height {
+            let src_0 = self.buffer.index_of(src.x, src.y + y);
+            let src_len = src.width as usize;
+            let view_0 = tgt_buf.index_of(view.x, view.y + y);
+            let view_len = view.width as usize;
+            assert_eq!(src_len, view_len);
 
-        for y in 0..height {
-            let src_0 = self
-                .buffer
-                .index_of(src_area.x + cut_x0, src_area.y + cut_y0 + y);
-            let tgt_0 = tgt_buf.index_of(tgt_area.x + off_x0, tgt_area.y + off_y0 + y);
-
-            let src = &self.buffer.content[src_0..src_0 + len as usize];
-            let tgt = &mut tgt_buf.content[tgt_0..tgt_0 + len as usize];
+            let src = &self.buffer.content[src_0..src_0 + src_len];
+            let tgt = &mut tgt_buf.content[view_0..view_0 + view_len];
             tgt.clone_from_slice(src);
         }
 
@@ -583,7 +589,7 @@ impl<'a> ViewBuffer<'a> {
 impl StatefulWidget for ViewWidget<'_> {
     type State = ViewState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(mut self, area: Rect, tgt_buf: &mut Buffer, state: &mut Self::State) {
         if cfg!(debug_assertions) {
             if area != state.area {
                 panic!(
@@ -591,6 +597,7 @@ impl StatefulWidget for ViewWidget<'_> {
                 )
             }
         }
+
         ScrollArea::new()
             .style(self.style)
             .block(self.block.as_ref())
@@ -598,59 +605,55 @@ impl StatefulWidget for ViewWidget<'_> {
             .v_scroll(self.vscroll.as_ref())
             .render(
                 state.area,
-                buf,
+                tgt_buf,
                 &mut ScrollAreaState::new()
                     .h_scroll(&mut state.hscroll)
                     .v_scroll(&mut state.vscroll),
             );
 
-        let src_area = self.buffer.area;
-        let tgt_area = state.widget_area;
-        let offset = self.offset;
+        let v_src = Rect::new(
+            self.offset.x,
+            self.offset.y,
+            state.widget_area.width,
+            state.widget_area.height,
+        );
+        if !v_src.intersects(self.buffer.area) {
+            return;
+        }
+        let mut src = self.buffer.area.intersection(v_src);
 
-        // extra offset due to buffer starts right of offset.
-        let off_x0 = src_area.x.saturating_sub(offset.x);
-        let off_y0 = src_area.y.saturating_sub(offset.y);
-        // cut source buffer due to start left of offset.
-        let cut_x0 = offset.x.saturating_sub(src_area.x);
-        let cut_y0 = offset.y.saturating_sub(src_area.y);
+        let mut view = state.widget_area;
+        if src.x > self.offset.x {
+            view.x += src.x - self.offset.x;
+            view.width -= src.x - self.offset.x;
+        }
+        if src.y > self.offset.y {
+            view.y += src.y - self.offset.y;
+            view.height -= src.y - self.offset.y;
+        }
 
-        // length to copy
-        let len_src = src_area.width.saturating_sub(cut_x0);
-        let len_tgt = tgt_area.width.saturating_sub(off_x0);
-        let len = min(len_src, len_tgt);
+        let width = min(view.width, src.width);
+        let height = min(view.height, src.height);
 
-        // area height to copy
-        let height_src = src_area.height.saturating_sub(cut_y0);
-        let height_tgt = tgt_area.height.saturating_sub(off_y0);
-        let height = min(height_src, height_tgt);
+        src.width = width;
+        view.width = width;
+        src.height = height;
+        view.height = height;
 
-        // ** slow version **
-        // for y in 0..height {
-        //     for x in 0..len {
-        //         let src_pos = Position::new(src_area.x + cut_x0 + x, src_area.y + cut_y0 + y);
-        //         let src_cell = self.buffer.cell(src_pos).expect("src-cell");
-        //
-        //         let tgt_pos = Position::new(tgt_area.x + off_x0 + x, tgt_area.y + off_y0 + y);
-        //         let tgt_cell = buf.cell_mut(tgt_pos).expect("tgt_cell");
-        //
-        //         *tgt_cell = src_cell.clone();
-        //     }
-        // }
+        for y in 0..src.height {
+            let src_0 = self.buffer.index_of(src.x, src.y + y);
+            let src_len = src.width as usize;
+            let view_0 = tgt_buf.index_of(view.x, view.y + y);
+            let view_len = view.width as usize;
+            assert_eq!(src_len, view_len);
 
-        for y in 0..height {
-            let src_0 = self
-                .buffer
-                .index_of(src_area.x + cut_x0, src_area.y + cut_y0 + y);
-            let tgt_0 = buf.index_of(tgt_area.x + off_x0, tgt_area.y + off_y0 + y);
-
-            let src = &self.buffer.content[src_0..src_0 + len as usize];
-            let tgt = &mut buf.content[tgt_0..tgt_0 + len as usize];
+            let src = &self.buffer.content[src_0..src_0 + src_len];
+            let tgt = &mut tgt_buf.content[view_0..view_0 + view_len];
             tgt.clone_from_slice(src);
         }
 
         // keep buffer
-        state.buffer = Some(self.buffer);
+        state.buffer = Some(mem::take(&mut self.buffer));
     }
 }
 
