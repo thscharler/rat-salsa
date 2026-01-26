@@ -25,7 +25,7 @@ use rat_salsa::dialog_stack::msgdialog::msg_dialog_event;
 use rat_salsa::dialog_stack::DialogStack;
 use rat_salsa::event::RenderedEvent;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
-use rat_salsa::event_type::convert_crossterm::ConvertCrossterm;
+use rat_salsa::events::ConvertCrossterm;
 #[cfg(feature = "term")]
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::poll::PollRendered;

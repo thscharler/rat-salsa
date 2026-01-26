@@ -16,8 +16,8 @@ workspace = true
 
 [features]
 default = ["term"]
-wgpu = []
-#wgpu = ["dep:rat-salsa-wgpu"]
+#wgpu = []
+wgpu = ["dep:rat-salsa-wgpu"]
 term = ["dep:rat-salsa"]
 
 [dependencies]
@@ -38,7 +38,7 @@ ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-
 ratatui-crossterm = { version = "0.1" }
 
 rat-salsa = { version = "4.0", path = "../rat-salsa", features = ["dialog_widgets"], optional = true }
-#rat-salsa-wgpu = { version = "1.0", path = "../../rat-salsa-wgpu", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
+rat-salsa-wgpu = { version = "1.0", path = "../../rat-salsa-wgpu", features = ["dialog_widgets", "fallback_symbol_font", "fallback_emoji_font"], optional = true }
 #rat-salsa-wgpu = { version = "1.0", git = "https://github.com/thscharler/rat-salsa-wgpu", branch = "remastered", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
 rat-widget = { version = "3.0", path = "../rat-widget", features = ["user_directories"] }
 rat-widget-extra = { version = "2.0", path = "../rat-widget-extra", features = ["color-input"] }
