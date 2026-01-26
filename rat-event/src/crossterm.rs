@@ -158,6 +158,24 @@ macro_rules! ct_event {
             ..
         })
     };
+
+    (keycode press Media($code:ident)) => {
+        $crate::crossterm::event::Event::Key($crate::crossterm::event::KeyEvent {
+            code: $crate::crossterm::event::KeyCode::Media($code),
+            modifiers: $crate::crossterm::modifiers::NONE,
+            kind: $crate::crossterm::event::KeyEventKind::Press|$crate::crossterm::event::KeyEventKind::Repeat,
+            ..
+        })
+    };
+    (keycode press $mod:ident-Media($code:ident)) => {
+        $crate::crossterm::event::Event::Key($crate::crossterm::event::KeyEvent {
+            code: $crate::crossterm::event::KeyCode::Media($code),
+            modifiers: $crate::crossterm::modifiers::$mod,
+            kind: $crate::crossterm::event::KeyEventKind::Press|$crate::crossterm::event::KeyEventKind::Repeat,
+            ..
+        })
+    };
+
     (keycode press $code:ident) => {
         $crate::crossterm::event::Event::Key($crate::crossterm::event::KeyEvent {
             code: $crate::crossterm::event::KeyCode::$code,
@@ -174,6 +192,7 @@ macro_rules! ct_event {
             ..
         })
     };
+
     (keycode release F($code:literal)) => {
         $crate::crossterm::event::Event::Key($crate::crossterm::event::KeyEvent {
             code: $crate::crossterm::event::KeyCode::F($code),
@@ -190,6 +209,23 @@ macro_rules! ct_event {
             ..
         })
     };
+    (keycode release Media($code:ident)) => {
+        $crate::crossterm::event::Event::Key($crate::crossterm::event::KeyEvent {
+            code: $crate::crossterm::event::KeyCode::Media($code),
+            modifiers: $crate::crossterm::modifiers::NONE,
+            kind: $crate::crossterm::event::KeyEventKind::Release,
+            ..
+        })
+    };
+    (keycode release $mod:ident-Media($code:ident)) => {
+        $crate::crossterm::event::Event::Key($crate::crossterm::event::KeyEvent {
+            code: $crate::crossterm::event::KeyCode::Media($code),
+            modifiers: $crate::crossterm::modifiers::$mod,
+            kind: $crate::crossterm::event::KeyEventKind::Release,
+            ..
+        })
+    };
+
     (keycode release $code:ident) => {
         $crate::crossterm::event::Event::Key($crate::crossterm::event::KeyEvent {
             code: $crate::crossterm::event::KeyCode::$code,
