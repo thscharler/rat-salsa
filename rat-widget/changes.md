@@ -1,3 +1,8 @@
+# 3.1.1
+
+* fix: Media matching with ct_event!
+* fix: panic! in View
+
 # 3.1.0
 
 * feat: ListSelection::validate_rows(), items_added() and items_removed()
