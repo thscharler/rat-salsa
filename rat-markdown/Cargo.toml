@@ -22,6 +22,6 @@ unicode-segmentation = "1.11"
 
 ratatui-crossterm = { version = "0.1" }
 
-rat-event = { version = "2.0", path = "../rat-event" }
-rat-focus = { version = "2.0", path = "../rat-focus" }
-rat-text = { version = "3.0", path = "../rat-text" }
+rat-event = { version = "2.0" }
+rat-focus = { version = "2.0" }
+rat-text = { version = "3.0" }

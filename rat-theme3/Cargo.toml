@@ -25,7 +25,7 @@ serde = { version = "1", features = ["derive"], optional = true }
 ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
 ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
 
-rat-widget = { version = "3.0", path = "../rat-widget" }
+rat-widget = { version = "3.0" }
 
 [dev-dependencies]
 serde_json = { version = "1.0", features = ["std"] }

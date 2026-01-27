@@ -28,20 +28,20 @@ unicode-display-width = "0.3"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 map_range_int = { version = "1.0" }
 dirs = { version = "6.0.0", optional = true }
-sysinfo = { version = "0.37", optional = true }
+sysinfo = { version = "0.38", optional = true }
 
 ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
 ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
 ratatui-crossterm = { version = "0.1" }
 
-rat-event = { version = "2.0", path = "../rat-event" }
-rat-reloc = { version = "2.0", path = "../rat-reloc" }
-rat-focus = { version = "2.0", path = "../rat-focus" }
-rat-ftable = { version = "2.1", path = "../rat-ftable" }
-rat-text = { version = "3.0", path = "../rat-text" }
-rat-menu = { version = "3.0", path = "../rat-menu" }
-rat-scrolled = { version = "2.0", path = "../rat-scrolled" }
-rat-popup = { version = "3.0", path = "../rat-popup" }
+rat-event = { version = "2.0" }
+rat-reloc = { version = "2.0" }
+rat-focus = { version = "2.0" }
+rat-ftable = { version = "2.1" }
+rat-text = { version = "3.0" }
+rat-menu = { version = "3.0" }
+rat-scrolled = { version = "2.0" }
+rat-popup = { version = "3.0" }
 
 [dev-dependencies]
 fern = "0.7"
@@ -53,4 +53,4 @@ pure-rust-locales = "0.8"
 sys-locale = "0.3"
 cli-clipboard = "0.4"
 
-rat-theme4 = { version = "4", default-features = false, features = ["rat-widget"], path = "../rat-theme4" }
+rat-theme4 = { version = "4", default-features = false, features = ["rat-widget"] }

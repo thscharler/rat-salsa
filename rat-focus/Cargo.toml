@@ -21,7 +21,7 @@ fxhash = "0.2"
 ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
 ratatui-crossterm = { version = "0.1" }
 
-rat-event = { version = "2.0", path = "../rat-event" }
+rat-event = { version = "2.0" }
 
 [dev-dependencies]
 fern = "0.7"
@@ -29,4 +29,4 @@ anyhow = "1.0"
 unicode-segmentation = "1.11"
 ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
 
-rat-theme4 = { version = "4", default-features = false, features = [], path = "../rat-theme4" }
+rat-theme4 = { version = "4", default-features = false, features = [] }
