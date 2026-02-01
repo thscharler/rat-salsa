@@ -393,13 +393,17 @@ impl Default for MenubarState {
 
 impl HasFocus for MenubarState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget_with_flags(self.focus(), self.area(), self.area_z(), self.navigable());
+        MenubarState::build_nav(&self, self.navigable(), builder);
+    }
+
+    fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {
+        builder.widget_with_flags(self.focus(), self.area(), self.area_z(), navigable);
         builder.widget_with_flags(
             self.focus(),
             self.popup.popup.area,
             self.popup.popup.area_z,
             Navigation::Mouse,
-        );
+        )
     }
 
     fn focus(&self) -> FocusFlag {
