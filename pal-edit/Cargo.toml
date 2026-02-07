@@ -37,11 +37,11 @@ ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
 ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
 ratatui-crossterm = { version = "0.1" }
 
-rat-salsa = { version = "4.0", features = ["dialog_widgets"], optional = true }
-rat-salsa-wgpu = { version = "0.10", git = "https://github.com/thscharler/rat-salsa-wgpu", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
-rat-widget = { version = "3.0", features = ["user_directories"] }
-rat-widget-extra = { version = "2.0", features = ["color-input"] }
-rat-theme4 = { version = "4", features = ["serde", "color-input"] }
+rat-salsa = { workspace = true, features = ["dialog_widgets"], optional = true }
+rat-salsa-wgpu = { workspace = true, features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
+rat-widget = { workspace = true, features = ["user_directories"] }
+rat-widget-extra = { workspace = true, features = ["color-input"] }
+rat-theme4 = { workspace = true, features = ["serde", "color-input"] }
 
 [[bin]]
 name = "paledit-wgpu"

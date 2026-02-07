@@ -21,4 +21,4 @@ map_range_int = "1.1.0"
 ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
 ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
 
-rat-widget = { version = "3.0" }
+rat-widget = { workspace = true }
