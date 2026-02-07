@@ -38,4 +38,4 @@ anyhow = "1.0"
 format_num_pattern = "0.9"
 unicode-segmentation = "1.11"
 
-rat-theme4 = { workspace = true, default-features = false }
+rat-theme4 = { workspace = true }

@@ -33,5 +33,5 @@ anyhow = "1.0"
 unicode-segmentation = "1.11"
 
 rat-focus = { workspace = true }
-rat-theme4 = { workspace = true, default-features = false }
+rat-theme4 = { workspace = true }
 

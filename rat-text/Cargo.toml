@@ -51,7 +51,7 @@ anyhow = "1.0"
 lorem-rustum = "0.0.5"
 lipsum = "0.9.1"
 
-rat-theme4 = { workspace = true, default-features = false }
+rat-theme4 = { workspace = true }
 
 
 

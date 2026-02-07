@@ -34,5 +34,5 @@ fern = "0.7"
 anyhow = "1.0"
 unicode-segmentation = "1.11"
 
-rat-theme4 = { workspace = true, default-features = false }
+rat-theme4 = { workspace = true }
 rat-text = { workspace = true }

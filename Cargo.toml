@@ -42,7 +42,7 @@ rat-widget-extra = { path = "rat-widget-extra", version = "2.0.1" }
 rat-theme = { path = "rat-theme", version = "0.31.2" }
 rat-theme2 = { path = "rat-theme2", version = "1.6.1" }
 rat-theme3 = { path = "rat-theme3", version = "2.6.1" }
-rat-theme4 = { path = "rat-theme4", version = "4.5.2" }
+rat-theme4 = { path = "rat-theme4", version = "4.5.2", default-features = false }
 rat-vim = { path = "rat-vim", version = "0.2.1" }
 pal-edit = { path = "pal-edit", version = "2.0.2" }
 

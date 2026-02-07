@@ -53,4 +53,4 @@ pure-rust-locales = "0.8"
 sys-locale = "0.3"
 cli-clipboard = "0.4"
 
-rat-theme4 = { workspace = true, default-features = false, features = ["rat-widget"] }
+rat-theme4 = { workspace = true, features = ["rat-widget"] }

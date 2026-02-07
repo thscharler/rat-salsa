@@ -42,4 +42,4 @@ fern = "0.7"
 anyhow = "1.0"
 cli-clipboard = "0.4.0"
 
-rat-theme4 = { workspace = true, default-features = false, features = ["color-input"] }
+rat-theme4 = { workspace = true, features = ["color-input"] }
