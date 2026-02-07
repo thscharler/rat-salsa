@@ -1,27 +1,50 @@
 [workspace]
 resolver = "2"
 members = [
-    "pal-edit",
-    "rat-cursor",
-    "rat-dialog",
-    "rat-event",
-    "rat-focus",
-    "rat-ftable",
-    "rat-markdown",
-    "rat-menu",
-    "rat-popup",
-    "rat-reloc",
-    "rat-salsa",
-    "rat-scrolled",
-    "rat-text",
-    "rat-theme",
-    "rat-theme2",
-    "rat-theme3",
-    "rat-theme4",
-    "rat-vim",
-    "rat-widget",
-    "rat-widget-extra",
+  "pal-edit",
+  "rat-cursor",
+  "rat-dialog",
+  "rat-event",
+  "rat-focus",
+  "rat-ftable",
+  "rat-markdown",
+  "rat-menu",
+  "rat-popup",
+  "rat-reloc",
+  "rat-salsa",
+  "rat-scrolled",
+  "rat-text",
+  "rat-theme",
+  "rat-theme2",
+  "rat-theme3",
+  "rat-theme4",
+  "rat-vim",
+  "rat-widget",
+  "rat-widget-extra",
 ]
+
+[workspace.dependencies]
+rat-salsa = { path = "rat-salsa", version = "4.0.2" }
+rat-salsa-wgpu = { git = "https://github.com/thscharler/rat-salsa-wgpu", version = "0.10" }
+rat-event = { path = "rat-event", version = "2.0.4" }
+rat-cursor = { path = "rat-cursor", version = "2.0.0" }
+rat-focus = { path = "rat-focus", version = "2.0.2" }
+rat-reloc = { path = "rat-reloc", version = "2.0.2" }
+rat-scrolled = { path = "rat-scrolled", version = "2.0.1" }
+rat-popup = { path = "rat-popup", version = "3.0.1" }
+rat-dialog = { path = "rat-dialog", version = "2.0.1" }
+rat-ftable = { path = "rat-ftable", version = "2.1.0" }
+rat-menu = { path = "rat-menu", version = "3.0.1" }
+rat-text = { path = "rat-text", version = "3.0.3" }
+rat-markdown = { path = "rat-markdown", version = "0.7.2" }
+rat-widget = { path = "rat-widget", version = "3.1.1" }
+rat-widget-extra = { path = "rat-widget-extra", version = "2.0.1" }
+rat-theme = { path = "rat-theme", version = "0.31.2" }
+rat-theme2 = { path = "rat-theme2", version = "1.6.1" }
+rat-theme3 = { path = "rat-theme3", version = "2.6.1" }
+rat-theme4 = { path = "rat-theme4", version = "4.5.2" }
+rat-vim = { path = "rat-vim", version = "0.2.1" }
+pal-edit = { path = "pal-edit", version = "2.0.2" }
 
 [workspace.lints.clippy]
 collapsible_else_if = "allow"
