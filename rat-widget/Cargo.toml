@@ -47,7 +47,7 @@ rat-popup = { version = "3.0" }
 fern = "0.7"
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["clock"] }
-rand = "0.9"
+rand = "0.10"
 format_num_pattern = "0.9"
 pure-rust-locales = "0.8"
 sys-locale = "0.3"
