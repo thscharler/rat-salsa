@@ -25,11 +25,11 @@ ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
 ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
 ratatui-crossterm = { version = "0.1" }
 
-rat-event = { version = "2.0" }
-rat-reloc = { version = "2.0" }
-rat-cursor = { version = "2.0" }
-rat-focus = { version = "2.0" }
-rat-scrolled = { version = "2.0" }
+rat-event = { workspace = true }
+rat-reloc = { workspace = true }
+rat-cursor = { workspace = true }
+rat-focus = { workspace = true }
+rat-scrolled = { workspace = true }
 
 [dev-dependencies]
 fern = "0.7"
@@ -38,4 +38,4 @@ anyhow = "1.0"
 format_num_pattern = "0.9"
 unicode-segmentation = "1.11"
 
-rat-theme4 = { version = "4", default-features = false, features = [] }
+rat-theme4 = { workspace = true }
