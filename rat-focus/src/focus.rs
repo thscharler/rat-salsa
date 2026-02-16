@@ -1133,14 +1133,13 @@ mod core {
         /// Contains the area and a z-value for the area.
         areas: Vec<(Rect, u16)>,
         /// Keyboard navigable
-        // TODO: use FocusFlag.navigation() too. this is the override.
         navigable: Vec<Navigation>,
         /// List of focus-ids.
         container_ids: HashSet<usize, FxBuildHasher>,
         /// List of containers and their dependencies.
         /// Range here is a range in the vecs above. The ranges are
         /// all disjoint or completely contained within one other.
-        /// No criss-cross intersections.
+        /// No crossing intersections.
         containers: Vec<(Container, Range<usize>)>,
     }
 
