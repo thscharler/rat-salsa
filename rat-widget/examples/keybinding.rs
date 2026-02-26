@@ -6,7 +6,7 @@ use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::text::Span;
 use ratatui_core::widgets::Widget;
-use ratatui_crossterm::crossterm::event::{Event, KeyEvent};
+use ratatui_crossterm::crossterm::event::Event;
 
 mod mini_salsa;
 
@@ -21,7 +21,7 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 struct State {
-    pub(crate) journal: Vec<(NaiveTime, KeyEvent)>,
+    pub(crate) journal: Vec<(NaiveTime, Event)>,
 }
 
 fn render(
@@ -44,17 +44,28 @@ fn render(
 
             let dur = time.signed_duration_since(prev_time);
 
-            let msg = Span::from(
-                format!(
-                    "{:>20} {:?} {:?} {:?} {:?}",
-                    numf.fmt_u(dur.num_microseconds().expect("duration")),
-                    event.kind,
-                    event.code,
-                    event.modifiers,
-                    event.state
-                )
-                .to_string(),
-            );
+            let msg = match &event {
+                Event::Key(event) => Span::from(
+                    format!(
+                        "{:>20} {:?} {:?} {:?} {:?}",
+                        numf.fmt_u(dur.num_microseconds().expect("duration")),
+                        event.kind,
+                        event.code,
+                        event.modifiers,
+                        event.state
+                    )
+                    .to_string(),
+                ),
+                Event::Paste(event) => Span::from(
+                    format!(
+                        "{:>20} paste {:?}",
+                        numf.fmt_u(dur.num_microseconds().expect("duration")),
+                        event,
+                    )
+                    .to_string(),
+                ),
+                _ => Span::from(""),
+            };
             msg.render(row_area, buf);
 
             prev_time = time.clone();
@@ -70,8 +81,12 @@ fn event(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(match event {
-        Event::Key(k) => {
-            state.journal.push((Local::now().time(), k.clone()));
+        Event::Key(_) => {
+            state.journal.push((Local::now().time(), event.clone()));
+            Outcome::Changed
+        }
+        Event::Paste(_) => {
+            state.journal.push((Local::now().time(), event.clone()));
             Outcome::Changed
         }
         _ => Outcome::Continue,

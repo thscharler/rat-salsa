@@ -1213,7 +1213,7 @@ impl TextAreaState {
 
     /// Set the text value.
     ///
-    /// Resets all internal state.
+    /// Clears the undo-buffer and sets the cursor to the default cursor-position.
     #[inline]
     pub fn set_text<S: AsRef<str>>(&mut self, s: S) {
         self.scroll_to_cursor.set(false);
@@ -1252,7 +1252,7 @@ impl TextAreaState {
 
     /// Set the text value.
     ///
-    /// Resets all internal state.
+    /// Clears the undo-buffer and sets the cursor to the default cursor-position.
     #[inline]
     pub fn set_value<S: AsRef<str>>(&mut self, s: S) {
         self.set_text(s);
@@ -2733,6 +2733,7 @@ impl HandleEvent<Event, Regular, TextOutcome> for TextAreaState {
                     | ct_event!(keycode press ALT-Delete) => tc(self.delete_next_word()),
                     ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
                     ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
+                    ct_event!(paste v) => tc(self.insert_str(&v)),
                     ct_event!(key press CONTROL-'d') => tc(self.duplicate_text()),
                     ct_event!(key press CONTROL-'y') => tc(self.delete_line()),
                     ct_event!(key press CONTROL-'z') => tc(self.undo()),

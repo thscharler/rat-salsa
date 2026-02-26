@@ -1139,7 +1139,7 @@ impl TextInputState {
 }
 
 impl TextInputState {
-    /// Reset to empty.
+    /// Clear the text, any styles and the undo buffer.
     #[inline]
     pub fn clear(&mut self) -> bool {
         if self.is_empty() {
@@ -1152,8 +1152,7 @@ impl TextInputState {
     }
 
     /// Set text.
-    ///
-    /// Returns an error if the text contains line-breaks.
+    /// Clears the undo-buffer and sets the cursor to 0.
     #[inline]
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
         self.offset = 0;
@@ -1161,8 +1160,7 @@ impl TextInputState {
     }
 
     /// Set text.
-    ///
-    /// Returns an error if the text contains line-breaks.
+    /// Clears the undo-buffer and sets the cursor to 0.
     #[inline]
     pub fn set_text<S: Into<String>>(&mut self, s: S) {
         self.offset = 0;
@@ -1591,7 +1589,7 @@ impl HandleEvent<Event, Regular, TextOutcome> for TextInputState {
         fn overwrite(state: &mut TextInputState) {
             if state.overwrite.get() {
                 state.overwrite.set(false);
-                state.clear();
+                state.delete_range(0..state.len());
             }
         }
         fn clear_overwrite(state: &mut TextInputState) {
@@ -1630,6 +1628,10 @@ impl HandleEvent<Event, Regular, TextOutcome> for TextInputState {
                 ct_event!(key press CONTROL-'v') => {
                     overwrite(self);
                     tc(self.paste_from_clip())
+                }
+                ct_event!(paste v) => {
+                    overwrite(self);
+                    tc(self.insert_str(v))
                 }
                 ct_event!(key press CONTROL-'d') => {
                     clear_overwrite(self);

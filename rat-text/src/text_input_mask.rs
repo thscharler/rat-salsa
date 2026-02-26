@@ -1731,14 +1731,15 @@ impl MaskedInputState {
     }
 
     /// Set text.
-    ///
-    /// Returns an error if the text contains line-breaks.
+    /// Clears the undo-buffer and sets the cursor to the default cursor-position.
     #[inline]
     pub fn set_value<S: ToString>(&mut self, s: S) {
         self.set_text(s.to_string());
     }
 
     /// Set the value.
+    ///
+    /// Clears the undo-buffer and sets the cursor to the default cursor-position.
     ///
     /// No checks if the value conforms to the mask.
     /// If the value is too short it will be filled with space.
@@ -2175,7 +2176,7 @@ impl HandleEvent<Event, Regular, TextOutcome> for MaskedInputState {
         fn overwrite(state: &mut MaskedInputState) {
             if state.overwrite.get() {
                 state.overwrite.set(false);
-                state.clear();
+                state.delete_range(0..state.len());
             }
         }
         fn clear_overwrite(state: &mut MaskedInputState) {
@@ -2212,8 +2213,15 @@ impl HandleEvent<Event, Regular, TextOutcome> for MaskedInputState {
                     tc(self.cut_to_clip())
                 }
                 ct_event!(key press CONTROL-'v') => {
-                    clear_overwrite(self);
+                    overwrite(self);
                     tc(self.paste_from_clip())
+                }
+                ct_event!(paste v) => {
+                    overwrite(self);
+                    for c in v.chars() {
+                        self.insert_char(c);
+                    }
+                    TextOutcome::TextChanged
                 }
                 ct_event!(key press CONTROL-'d') => {
                     clear_overwrite(self);
