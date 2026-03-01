@@ -51,10 +51,6 @@ where
     Event: 'static + Send,
     Error: 'static + Send,
 {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn poll(&mut self) -> Result<bool, Error> {
         self.tasks.poll_finished()?;
         Ok(!self.recv_queue.is_empty())

@@ -1,7 +1,6 @@
 use crate::Control;
 use crate::event::QuitEvent;
 use crate::poll::PollEvents;
-use std::any::Any;
 
 ///
 /// Sends an event before finally terminating the app.
@@ -14,10 +13,6 @@ where
     Event: 'static + From<QuitEvent>,
     Error: 'static,
 {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn poll(&mut self) -> Result<bool, Error> {
         Ok(false)
     }
