@@ -72,7 +72,7 @@ returns a [control-flow](Control) which dictates further actions.
 
     * [rat-theme2](https://docs.rs/rat-theme2)
       Color-palettes and widget styles.
-    * [rat-theme4](https://docs.rs/rat-theme2)
+    * [rat-theme4](https://docs.rs/rat-theme4)
       Latest iteration. Move to a map of things.
         + better text-color support
         + support for deriving themes by modifying existing ones.
