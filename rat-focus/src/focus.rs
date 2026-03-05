@@ -4,6 +4,7 @@ pub use core::FocusBuilder;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event};
 use ratatui_core::layout::Rect;
 use ratatui_crossterm::crossterm::event::Event;
+use std::cmp::max;
 use std::ops::Range;
 
 /// Focus deals with all focus-related issues.
@@ -259,6 +260,17 @@ impl Focus {
             }
             _ => self.core.focus_at(col, row),
         }
+    }
+
+    /// Set the mouse-focus to the given position.  
+    ///
+    /// The top-most widget with a matching area will have
+    /// its mouse_focus flag set. Any containers
+    /// with an associated area that matches, will get
+    /// their mouse_focus flag set too.
+    pub fn mouse_focus(&self, col: u16, row: u16) -> bool {
+        focus_debug!(self.core, "mouse-focus {} {}", col, row);
+        self.core.mouse_focus(col, row)
     }
 
     /// Focus the next widget in the cycle.
@@ -1494,6 +1506,92 @@ mod core {
             self.__accumulate();
         }
 
+        /// Set the mouse-focus flag.
+        pub(super) fn mouse_focus(&self, col: u16, row: u16) -> bool {
+            let pos = (col, row).into();
+
+            let mut z_container: Vec<(usize, u16)> = Vec::new();
+            let mut z_widget: Option<(usize, u16)> = None;
+            for (idx, (sub, _)) in self.containers.iter().enumerate() {
+                if sub.area.0.contains(pos) {
+                    focus_debug!(
+                        self,
+                        "    container area-match {:?} {:?} z={}",
+                        sub.container_flag.name(),
+                        sub.area.0,
+                        sub.area.1
+                    );
+
+                    if let Some(zz) = z_container.last() {
+                        if zz.1 < sub.area.1 {
+                            z_container.clear();
+                            z_container.push((idx, sub.area.1));
+                        } else if zz.1 == sub.area.1 {
+                            z_container.push((idx, sub.area.1));
+                        }
+                    } else {
+                        z_container.push((idx, sub.area.1));
+                    }
+                }
+            }
+            let min_z = z_container.last().map(|v| v.1).unwrap_or(0);
+            for (idx, area) in self.areas.iter().enumerate() {
+                if area.1 < min_z {
+                    continue;
+                }
+                if area.0.contains(pos) {
+                    focus_debug!(
+                        self,
+                        "    area-match {:?} {:?} z={}",
+                        self.focus_flags[idx].name(),
+                        area.0,
+                        area.1
+                    );
+
+                    if let Some(zz) = z_widget {
+                        if zz.1 <= area.1 {
+                            z_widget = Some((idx, area.1));
+                        }
+                    } else {
+                        z_widget = Some((idx, area.1));
+                    }
+                }
+            }
+
+            // now we have possibly multiple containers and a single widget.
+            for (c, _) in self.containers.iter() {
+                c.container_flag.set_mouse_focus(false);
+            }
+            for w in self.focus_flags.iter() {
+                w.set_mouse_focus(false);
+            }
+            let mut r = false;
+            for (idx, _) in z_container {
+                focus_debug!(
+                    self,
+                    "    => mouse-focus {:?} {:?} z={}",
+                    self.containers[idx].0.container_flag.name(),
+                    self.containers[idx].0.area.0,
+                    self.containers[idx].0.area.1
+                );
+                self.containers[idx].0.container_flag.set_mouse_focus(true);
+                r = true;
+            }
+            if let Some((idx, _)) = z_widget {
+                focus_debug!(
+                    self,
+                    "    => mouse-focus {:?} {:?} z={}",
+                    self.focus_flags[idx].name(),
+                    self.areas[idx].0,
+                    self.areas[idx].1,
+                );
+                self.focus_flags[idx].set_mouse_focus(true);
+                r = true;
+            }
+
+            r
+        }
+
         /// Set the focus at the given screen position.
         /// Traverses the list to find the matching widget.
         /// Checks the area and the z-areas.
@@ -1989,15 +2087,19 @@ impl HandleEvent<Event, Regular, Outcome> for Focus {
 impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
     #[inline(always)]
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
-        match event {
+        let r0 = match event {
+            ct_event!(mouse any for m) => {
+                if self.mouse_focus(m.column, m.row) {
+                    Outcome::Changed
+                } else {
+                    Outcome::Continue
+                }
+            }
+            _ => Outcome::Continue,
+        };
+        let r1 = match event {
             ct_event!(mouse down Left for column, row) => {
-                focus_debug!(self.core, "mouse down {},{}", column, row);
                 if self.focus_at(*column, *row) {
-                    focus_debug!(
-                        self.core,
-                        "    -> {:?}",
-                        self.focused().map(|v| v.name().to_string())
-                    );
                     Outcome::Changed
                 } else {
                     self.reset_lost_gained();
@@ -2008,7 +2110,9 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
                 self.reset_lost_gained();
                 Outcome::Continue
             }
-        }
+        };
+
+        max(r0, r1)
     }
 }
 

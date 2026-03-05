@@ -100,6 +100,15 @@ struct FocusFlagCore {
     /// See [on_gained!](crate::on_gained!)
     gained: Cell<bool>,
     /// Callback for set of gained.
+    ///
+    /// A widget can set this callback and will be notified
+    /// by Focus whenever it gains the focus.
+    ///
+    /// It's a bit crude, as you have set up any widget-state
+    /// you want to change as shared state with the callback-closure.
+    /// But it's still preferable to relying on the fact that
+    /// the `handle` event for a widget will be called while
+    /// the gained flag is still set.
     on_gained: RefCell<Option<Box<dyn Fn()>>>,
     /// This widget just lost the focus. This flag is set by [Focus::handle]
     /// if there is a focus transfer, and will be reset by the next
@@ -108,7 +117,37 @@ struct FocusFlagCore {
     /// See [on_lost!](crate::on_lost!)
     lost: Cell<bool>,
     /// Callback for set of lost.
+    ///
+    /// A widget can set this callback and will be notified
+    /// by Focus whenever it looses the focus.
+    ///
+    /// It's a bit crude, as you have set up any widget-state
+    /// you want to change as shared state with the callback-closure.
+    /// But it's still preferable to relying on the fact that
+    /// the `handle` event for a widget will be called while
+    /// the lost flag is still set.
     on_lost: RefCell<Option<Box<dyn Fn()>>>,
+    /// This flag is set by [Focus::handle], if a mouse-event
+    /// matches one of the areas associated with a widget.
+    ///
+    /// > It searches all containers for an area-match. All
+    /// matching areas will have the flag set.
+    /// If an area with a higher z is found, all previously
+    /// found areas are discarded.
+    ///
+    /// > The z value for the last container is taken as a baseline.
+    /// Only widgets with a z greater or equal are considered.
+    /// If multiple widget areas are matching, the last one
+    /// will get the flag set.
+    ///
+    /// This rules enable popup-windows with complex ui's.
+    /// The popup-container starts with a z=1 and all widgets
+    /// within also get the same z. With the given rules, all
+    /// widgets underneath the popup are ignored.
+    ///
+    /// This flag starts with a default `true`. This allows
+    /// widgets to work, even if Focus is not used.
+    mouse_focus: Cell<bool>,
 }
 
 /// Focus navigation for widgets.
@@ -321,6 +360,17 @@ pub trait HasFocus {
     fn gained_focus(&self) -> bool {
         self.focus().gained()
     }
+
+    /// Can this widget process mouse-events.
+    ///
+    /// This flag will be set if you call Focus::handle() with
+    /// a mouse-event and the mouse-event's position is inside
+    /// the widget-area.
+    ///
+    /// If you don't use Focus, this will always return true.
+    fn has_mouse_focus(&self) -> bool {
+        self.focus().mouse_focus()
+    }
 }
 
 impl Debug for FocusFlag {
@@ -470,12 +520,29 @@ impl FocusFlag {
         }
     }
 
+    /// Set the mouse-focus for this widget.
+    #[inline]
+    pub fn set_mouse_focus(&self, mf: bool) {
+        self.0.mouse_focus.set(mf);
+    }
+
+    /// Is the mouse-focus set for this widget.
+    ///
+    /// This function will return true, if [Focus::handle] is never called.
+    ///
+    /// See [HasFocus::has_mouse_focus()]
+    #[inline]
+    pub fn mouse_focus(&self) -> bool {
+        self.0.mouse_focus.get()
+    }
+
     /// Reset all flags to false.
     #[inline]
     pub fn clear(&self) {
         self.0.focus.set(false);
         self.0.lost.set(false);
         self.0.gained.set(false);
+        self.0.mouse_focus.set(true);
     }
 }
 
@@ -494,6 +561,7 @@ impl FocusFlagCore {
             on_gained: RefCell::new(None),
             lost: Cell::new(self.lost.get()),
             on_lost: RefCell::new(None),
+            mouse_focus: Cell::new(self.mouse_focus.get()),
         }
     }
 }
