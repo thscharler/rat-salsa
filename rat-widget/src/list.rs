@@ -884,6 +884,10 @@ pub mod selection {
 
     impl HandleEvent<Event, MouseOnly, Outcome> for ListState<NoSelection> {
         fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
+            if !self.has_mouse_focus() {
+                return Outcome::Continue
+            }
+
             let mut sas = ScrollAreaState::new()
                 .area(self.inner)
                 .v_scroll(&mut self.scroll);
@@ -976,6 +980,10 @@ pub mod selection {
 
     impl HandleEvent<Event, MouseOnly, Outcome> for ListState<RowSelection> {
         fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
+            if !self.has_mouse_focus() {
+                return Outcome::Continue
+            }
+
             event_flow!(
                 return match event {
                     ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
@@ -1113,6 +1121,10 @@ pub mod selection {
 
     impl HandleEvent<Event, MouseOnly, Outcome> for ListState<RowSetSelection> {
         fn handle(&mut self, event: &Event, _: MouseOnly) -> Outcome {
+            if !self.has_mouse_focus() {
+                return Outcome::Continue
+            }
+
             event_flow!(
                 return match event {
                     ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)

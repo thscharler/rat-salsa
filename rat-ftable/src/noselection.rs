@@ -137,6 +137,10 @@ impl HandleEvent<Event, Regular, TableOutcome> for TableState<NoSelection> {
 
 impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<NoSelection> {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TableOutcome {
+        if !self.has_mouse_focus() {
+            return TableOutcome::Continue;
+        }
+        
         let mut sas = ScrollAreaState::new()
             .area(self.inner)
             .h_scroll(&mut self.hscroll)

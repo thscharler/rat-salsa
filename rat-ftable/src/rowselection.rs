@@ -233,6 +233,10 @@ impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSelection> {
 
 impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSelection> {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TableOutcome {
+        if !self.has_mouse_focus() {
+            return TableOutcome::Continue;
+        }
+        
         let mut r = match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
                 if self.move_to(self.row_at_drag((m.column, m.row))) {

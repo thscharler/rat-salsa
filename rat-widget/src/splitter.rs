@@ -1327,6 +1327,10 @@ impl HandleEvent<Event, Regular, Outcome> for SplitState {
 
 impl HandleEvent<Event, MouseOnly, Outcome> for SplitState {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> Outcome {
+        if !self.has_mouse_focus() {
+            return Outcome::Continue;
+        }
+
         match event {
             ct_event!(mouse any for m) if self.mouse.hover(&self.splitline_areas, m) => {
                 Outcome::Changed

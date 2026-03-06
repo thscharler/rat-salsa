@@ -679,8 +679,12 @@ impl HasFocus for ToolbarState {
     fn build(&self, builder: &mut FocusBuilder) {
         for w in self.tools.iter().flatten() {
             match w {
-                ToolState::BasicButton(_, _) => {}
-                ToolState::BasicCheckbox(_) => {}
+                ToolState::BasicButton(w, _) => {
+                    builder.widget_navigate(w, Navigation::None);
+                }
+                ToolState::BasicCheckbox(w) => {
+                    builder.widget_navigate(w, Navigation::None);
+                }
                 ToolState::BasicChoice(w) => {
                     builder.widget_navigate(w, Navigation::Leave);
                 }

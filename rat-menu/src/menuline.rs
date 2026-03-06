@@ -729,6 +729,10 @@ impl HandleEvent<Event, Regular, MenuOutcome> for MenuLineState {
 
 impl HandleEvent<Event, MouseOnly, MenuOutcome> for MenuLineState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> MenuOutcome {
+        if !self.has_mouse_focus() {
+            return MenuOutcome::Continue
+        }
+
         match event {
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.area, m) => {
                 let idx = self.item_at(self.mouse.pos_of(m));

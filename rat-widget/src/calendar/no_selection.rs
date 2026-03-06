@@ -73,6 +73,10 @@ impl<const N: usize> HandleEvent<Event, Regular, CalOutcome> for CalendarState<N
 
 impl<const N: usize> HandleEvent<Event, MouseOnly, CalOutcome> for CalendarState<N, NoSelection> {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> CalOutcome {
+        if !self.has_mouse_focus() {
+            return CalOutcome::Continue
+        }
+
         for i in 0..self.months.len() {
             if self.months[i].gained_focus() {
                 self.set_primary_idx(i);

@@ -1143,6 +1143,10 @@ where
     W: Eq + Clone + Hash,
 {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
+        if !self.has_mouse_focus() {
+            return Outcome::Continue
+        }
+
         let mut sas = ScrollAreaState::new()
             .area(self.widget_area)
             .h_scroll(&mut self.hscroll)

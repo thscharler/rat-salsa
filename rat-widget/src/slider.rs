@@ -1190,6 +1190,10 @@ where
     u16: MapRange<T>,
 {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> SliderOutcome {
+        if !self.has_mouse_focus() {
+            return SliderOutcome::Continue;
+        }
+
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
                 if self.inner.contains(Position::new(m.column, m.row)) {

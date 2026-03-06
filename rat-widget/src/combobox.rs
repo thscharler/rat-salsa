@@ -765,6 +765,10 @@ impl HandleEvent<Event, Popup, ComboboxOutcome> for ComboboxState {
 
 impl HandleEvent<Event, MouseOnly, ComboboxOutcome> for ComboboxState {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> ComboboxOutcome {
+        if !self.has_mouse_focus() {
+            return ComboboxOutcome::Continue
+        }
+
         let r0 = handle_mouse(self, event);
         let r1 = handle_select(self, event);
         let r2 = handle_close(self, event);

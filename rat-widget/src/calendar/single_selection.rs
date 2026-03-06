@@ -68,6 +68,10 @@ impl HandleEvent<Event, Regular, CalOutcome> for MonthState<SingleSelection> {
 
 impl HandleEvent<Event, MouseOnly, CalOutcome> for MonthState<SingleSelection> {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> CalOutcome {
+        if !self.has_mouse_focus() {
+            return CalOutcome::Continue;
+        }
+
         match event {
             ct_event!(mouse drag Left for x, y) | ct_event!(mouse down Left for x, y) => {
                 if let Some(sel) = item_at(&self.area_days, *x, *y) {
@@ -121,6 +125,10 @@ impl<const N: usize> HandleEvent<Event, MouseOnly, CalOutcome>
     for CalendarState<N, SingleSelection>
 {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> CalOutcome {
+        if !self.has_mouse_focus() {
+            return CalOutcome::Continue;
+        }
+
         for i in 0..self.months.len() {
             if self.months[i].gained_focus() {
                 self.set_primary_idx(i);

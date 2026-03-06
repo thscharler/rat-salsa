@@ -2887,6 +2887,10 @@ impl HandleEvent<Event, ReadOnly, TextOutcome> for TextAreaState {
 
 impl HandleEvent<Event, MouseOnly, TextOutcome> for TextAreaState {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TextOutcome {
+        if !self.has_mouse_focus() {
+            return TextOutcome::Continue;
+        }
+
         flow!(match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
                 let cx = m.column as i16 - self.inner.x as i16;

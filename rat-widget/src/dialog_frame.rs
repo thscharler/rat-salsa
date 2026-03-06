@@ -438,6 +438,10 @@ impl HandleEvent<Event, Dialog, DialogOutcome> for DialogFrameState {
 
 impl HandleEvent<Event, MouseOnly, DialogOutcome> for DialogFrameState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> DialogOutcome {
+        if !self.has_mouse_focus() {
+            return DialogOutcome::Continue
+        }
+        
         flow!({
             if !self.no_cancel {
                 match self.cancel.handle(event, MouseOnly) {

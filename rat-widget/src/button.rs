@@ -499,6 +499,9 @@ impl HandleEvent<Event, Regular, ButtonOutcome> for ButtonState {
 
 impl HandleEvent<Event, MouseOnly, ButtonOutcome> for ButtonState {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> ButtonOutcome {
+        if !self.has_mouse_focus() {
+            return ButtonOutcome::Continue
+        }
         match event {
             ct_event!(mouse down Left for column, row) => {
                 if self.area.contains((*column, *row).into()) {

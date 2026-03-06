@@ -525,6 +525,9 @@ impl HandleEvent<Event, Regular, CheckOutcome> for CheckboxState {
 
 impl HandleEvent<Event, MouseOnly, CheckOutcome> for CheckboxState {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> CheckOutcome {
+        if !self.has_mouse_focus() {
+            return CheckOutcome::Continue
+        }
         match event {
             ct_event!(mouse any for m)
                 if self.behave_check == CheckboxCheck::DoubleClick

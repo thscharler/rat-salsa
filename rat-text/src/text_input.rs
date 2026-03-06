@@ -1777,6 +1777,10 @@ impl HandleEvent<Event, ReadOnly, TextOutcome> for TextInputState {
 
 impl HandleEvent<Event, MouseOnly, TextOutcome> for TextInputState {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TextOutcome {
+        if !self.has_mouse_focus() {
+            return TextOutcome::Continue;
+        }
+
         fn clear_overwrite(state: &mut TextInputState) {
             state.overwrite.set(false);
         }

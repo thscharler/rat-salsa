@@ -1073,6 +1073,10 @@ where
     W: Eq + Hash + Clone,
 {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> FormOutcome {
+        if !self.has_mouse_focus() {
+            return FormOutcome::Continue
+        }
+
         if !self.layout.is_endless() {
             match event {
                 ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {

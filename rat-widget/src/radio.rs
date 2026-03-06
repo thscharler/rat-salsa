@@ -1100,6 +1100,10 @@ where
     T: PartialEq + Clone + Default,
 {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> RadioOutcome {
+        if !self.has_mouse_focus() {
+            return RadioOutcome::Continue;
+        }
+
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
                 if let Some(sel) = item_at(self.text_areas.as_slice(), m.column, m.row)

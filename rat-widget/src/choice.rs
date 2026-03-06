@@ -1618,14 +1618,16 @@ impl<T: PartialEq + Clone + Default> HandleEvent<Event, MouseOnly, ChoiceOutcome
     for ChoiceState<T>
 {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> ChoiceOutcome {
+        if !self.has_mouse_focus() {
+            return ChoiceOutcome::Continue;
+        }
+
         let r0 = handle_mouse(self, event);
         let r1 = handle_select(self, event);
         let r2 = handle_close(self, event);
-        let mut r = max(r0, max(r1, r2));
 
-        r = r.or_else(|| mouse_trap(event, self.popup.area).into());
-
-        r
+        let r = max(r0, max(r1, r2));
+        r.or_else(|| mouse_trap(event, self.popup.area).into())
     }
 }
 

@@ -415,6 +415,10 @@ impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSetSelection> {
 
 impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSetSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> TableOutcome {
+        if !self.has_mouse_focus() {
+            return TableOutcome::Continue;
+        }
+
         flow!(match event {
             ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)
                 if self.mouse.drag(self.table_area, m)

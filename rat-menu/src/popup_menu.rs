@@ -856,6 +856,10 @@ impl HandleEvent<Event, Popup, MenuOutcome> for PopupMenuState {
 impl HandleEvent<Event, MouseOnly, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> MenuOutcome {
         if self.is_active() {
+            if !self.has_mouse_focus() {
+                return MenuOutcome::Continue
+            }
+
             let r = match event {
                 ct_event!(mouse moved for col, row)
                     if self.popup.area.contains((*col, *row).into()) =>

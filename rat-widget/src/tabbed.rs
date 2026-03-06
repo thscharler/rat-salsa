@@ -600,6 +600,10 @@ impl HandleEvent<Event, Regular, TabbedOutcome> for TabbedState {
 
 impl HandleEvent<Event, MouseOnly, TabbedOutcome> for TabbedState {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> TabbedOutcome {
+        if !self.has_mouse_focus() {
+            return TabbedOutcome::Continue;
+        }
+
         match event {
             ct_event!(mouse any for e) if self.mouse.hover(&self.tab_title_close_areas, e) => {
                 TabbedOutcome::Changed
