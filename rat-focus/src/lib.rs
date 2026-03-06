@@ -91,7 +91,11 @@ impl HasFocus for FocusFlag {
 struct FocusFlagCore {
     /// Field name for debugging purposes.
     name: RefCell<Option<Box<str>>>,
-    /// Focus.
+    /// Does this widget have the focus.
+    /// Or, if the flag is used for a container, does any of
+    /// widget inside the container have the focus.
+    ///
+    /// This flag is set by [Focus::handle].
     focus: Cell<bool>,
     /// This widget just gained the focus. This flag is set by [Focus::handle]
     /// if there is a focus transfer, and will be reset by the next
@@ -145,8 +149,11 @@ struct FocusFlagCore {
     /// within also get the same z. With the given rules, all
     /// widgets underneath the popup are ignored.
     ///
-    /// This flag starts with a default `true`. This allows
-    /// widgets to work, even if Focus is not used.
+    /// * This flag starts with a default `true`. This allows
+    ///   widgets to work, even if Focus is not used.
+    /// * Mouse drag events are not bound to any area.
+    ///   Instead, they set the mouse-focus to true for all
+    ///   widgets and containers.
     mouse_focus: Cell<bool>,
 }
 
@@ -179,7 +186,7 @@ pub enum Navigation {
     /// forward navigation.
     /// (e.g. some widget with internal structure)
     ReachLeaveBack,
-    /// Widget can be reached and left with normal keyboard navigation.
+    /// Widget can be reached and left with normal keyboard and mouse navigation.
     #[default]
     Regular,
 }
@@ -304,19 +311,27 @@ pub trait HasFocus {
     fn build(&self, builder: &mut FocusBuilder);
 
     /// Build the focus-structure for the container/widget.
-    /// This is called when the default navigation will be
-    /// overridden by the builder.
     ///
-    /// It defaults to calling build and ignoring the navigable flag.
+    /// This function is called when the default navigation is
+    /// overridden by calling [FocusBuilder::widget_navigate].
+    /// You only need to implement this function, if you have
+    /// a container-widget, that wants to react to an
+    /// alternate navigation.
     ///
-    /// You still have to implement build() for the baseline functionality.
-    /// This is just an extra.
+    /// For regular widgets this will be called too, but
+    /// the overridden flag will be used by Focus, regardless
+    /// of what you do. It's only useful to get a notification
+    /// of an alternate navigation.
+    ///
+    /// It defaults to calling build. If you don't have very
+    /// specific requirements, you need not concern with this;
+    /// just implement [HasFocus::build].
     #[allow(unused_variables)]
     fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {
         self.build(builder);
     }
 
-    /// Access to the flag for the rest.
+    /// Access to the focus flag.
     fn focus(&self) -> FocusFlag;
 
     /// Provide a unique id for the widget.
@@ -326,15 +341,17 @@ pub trait HasFocus {
 
     /// Area for mouse focus.
     ///
-    /// This area shouldn't overlap with areas returned by other widgets.
-    /// If it does, the widget should use `area_z()` for clarification.
-    /// Otherwise, the areas are searched in order of addition.
+    /// Generally, this area shouldn't overlap with other areas.
+    /// If it does, you can use `area_z()` to give an extra z-value
+    /// for mouse interactions. Default is 0, higher values mean
+    /// `above`.
+    /// If two areas with the same z overlap, the last one will
+    /// be used.
     fn area(&self) -> ratatui::layout::Rect;
 
-    /// Z value for the area.
+    /// Z-value for the area.
     ///
-    /// When testing for mouse interactions the z-value is taken into
-    /// account too.
+    /// When testing for mouse interactions the z-value is taken into account.
     fn area_z(&self) -> u16 {
         0
     }
@@ -346,28 +363,56 @@ pub trait HasFocus {
         Navigation::Regular
     }
 
-    /// Focused?
+    /// Does this widget have the focus.
+    /// Or, if the flag is used for a container, does any of
+    /// widget inside the container have the focus.
+    ///
+    /// This flag is set by [Focus::handle].
     fn is_focused(&self) -> bool {
         self.focus().get()
     }
 
-    /// Just lost focus.
+    /// This widget just lost the focus. This flag is set by [Focus::handle]
+    /// if there is a focus transfer, and will be reset by the next
+    /// call to [Focus::handle].
+    ///
+    /// See [on_lost!](crate::on_lost!)
     fn lost_focus(&self) -> bool {
         self.focus().lost()
     }
 
-    /// Just gained focus.
+    /// This widget just gained the focus. This flag is set by [Focus::handle]
+    /// if there is a focus transfer, and will be reset by the next
+    /// call to [Focus::handle].
+    ///
+    /// See [on_gained!](crate::on_gained!)
     fn gained_focus(&self) -> bool {
         self.focus().gained()
     }
 
-    /// Can this widget process mouse-events.
+    /// This flag is set by [Focus::handle], if a mouse-event
+    /// matches one of the areas associated with a widget.
     ///
-    /// This flag will be set if you call Focus::handle() with
-    /// a mouse-event and the mouse-event's position is inside
-    /// the widget-area.
+    /// > It searches all containers for an area-match. All
+    /// matching areas will have the flag set.
+    /// If an area with a higher z is found, all previously
+    /// found areas are discarded.
     ///
-    /// If you don't use Focus, this will always return true.
+    /// > The z value for the last container is taken as a baseline.
+    /// Only widgets with a z greater or equal are considered.
+    /// If multiple widget areas are matching, the last one
+    /// will get the flag set.
+    ///
+    /// This rules enable popup-windows with complex ui's.
+    /// The popup-container starts with a z=1 and all widgets
+    /// within also get the same z. With the given rules, all
+    /// widgets underneath the popup are ignored.
+    ///
+    /// * This flag starts with a default `true`. This allows
+    ///   widgets to work, even if Focus is not used.
+    /// * Mouse drag events are not bound to any area.
+    ///   Instead, they set the mouse-focus to true for all
+    ///   widgets and containers.
     fn has_mouse_focus(&self) -> bool {
         self.focus().mouse_focus()
     }

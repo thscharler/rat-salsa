@@ -1,7 +1,7 @@
 use crate::focus::core::FocusCore;
 use crate::{FocusFlag, HasFocus, Navigation};
 pub use core::FocusBuilder;
-use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, crossterm, ct_event};
 use ratatui_core::layout::Rect;
 use ratatui_crossterm::crossterm::event::Event;
 use std::cmp::max;
@@ -262,12 +262,19 @@ impl Focus {
         }
     }
 
+    /// Reset the mouse-focus flag to __true__.
+    #[inline(always)]
+    pub fn clear_mouse_focus(&self) -> bool {
+        self.core.clear_mouse_focus()
+    }
+
     /// Set the mouse-focus to the given position.  
     ///
     /// The top-most widget with a matching area will have
     /// its mouse_focus flag set. Any containers
     /// with an associated area that matches, will get
     /// their mouse_focus flag set too.
+    #[inline(always)]
     pub fn mouse_focus(&self, col: u16, row: u16) -> bool {
         focus_debug!(self.core, "mouse-focus {} {}", col, row);
         self.core.mouse_focus(col, row)
@@ -1506,6 +1513,21 @@ mod core {
             self.__accumulate();
         }
 
+        /// Clear the mouse-focus flag and set it to true for
+        /// all widgets and containers.
+        pub(super) fn clear_mouse_focus(&self) -> bool {
+            let mut r = false;
+            for (sub, _) in self.containers.iter() {
+                r |= sub.container_flag.mouse_focus();
+                sub.container_flag.set_mouse_focus(true);
+            }
+            for w in self.focus_flags.iter() {
+                r |= w.mouse_focus();
+                w.set_mouse_focus(true);
+            }
+            r
+        }
+
         /// Set the mouse-focus flag.
         pub(super) fn mouse_focus(&self, col: u16, row: u16) -> bool {
             let pos = (col, row).into();
@@ -2088,8 +2110,30 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
     #[inline(always)]
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
         let r0 = match event {
-            ct_event!(mouse any for m) => {
-                if self.mouse_focus(m.column, m.row) {
+            Event::Mouse(crossterm::event::MouseEvent {
+                kind: crossterm::event::MouseEventKind::Drag(_),
+                ..
+            }) => {
+                if self.clear_mouse_focus() {
+                    Outcome::Changed
+                } else {
+                    Outcome::Continue
+                }
+            }
+            Event::Mouse(crossterm::event::MouseEvent {
+                kind:
+                    crossterm::event::MouseEventKind::Moved
+                    | crossterm::event::MouseEventKind::Down(_)
+                    | crossterm::event::MouseEventKind::Up(_)
+                    | crossterm::event::MouseEventKind::ScrollDown
+                    | crossterm::event::MouseEventKind::ScrollUp
+                    | crossterm::event::MouseEventKind::ScrollLeft
+                    | crossterm::event::MouseEventKind::ScrollRight,
+                column: c,
+                row: r,
+                ..
+            }) => {
+                if self.mouse_focus(*c, *r) {
                     Outcome::Changed
                 } else {
                     Outcome::Continue
