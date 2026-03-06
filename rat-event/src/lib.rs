@@ -17,20 +17,32 @@ pub struct Regular;
 #[derive(Debug, Default, Clone, Copy)]
 pub struct MouseOnly;
 
+/// With the latest enhancement of `Focus` this is obsolete.
+///
+/// Focus collects all the areas of widgets and containers and can set a z-index
+/// for each area. With this information it runs a hit-test for each mouse event
+/// and sets and sets the `mouse-focus` flag for each widget and container.
+/// This works well with popups and overlapping widgets. This makes the
+/// differentiation between regular widgets and widgets that might show a popup
+/// that overlaps other widgets obsolete.
+///
+/// If you don't use Focus you will still have to consider the information below.
+///
+/// __Obsoleted__
+///
 /// Popup/Overlays are a bit difficult to handle, as there is no z-order/area tree,
 /// which would direct mouse interactions. We can simulate a z-order in the
 /// event-handler by trying the things with a higher z-order first.
 ///
-/// If a widget should be seen as pure overlay, it would define only a Popup
-/// event-handler. In the event-handling functions you would call all Popup
-/// event-handlers before the regular ones.
+/// If a widget might show a popup, you have to call its event-handling
+/// before any other widgets that might be (partially) hidden behind the
+/// widget. This applies for e.g. Menubar, Choice and ComboBox.
+/// To make this difference visible in the application code, these widgets
+/// use `Popup` as marker for their event-handling instead of `Regular`.
 ///
-/// Example:
-/// * Context menu. If the context-menu is active, it can consume all mouse-events
-///   that fall into its range, and the widgets behind it only get the rest.
-/// * Menubar. Would define _two_ event-handlers, a regular one for all events
-///   on the main menu bar, and a popup event-handler for the menus. The event-handling
-///   function calls the popup handler first and the regular one at some time later.
+/// If you implement a widget with a popup, you must make sure to consume __all__
+/// mouse-events within the widget area to prevent any interaction with
+/// a hidden widget.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Popup;
 

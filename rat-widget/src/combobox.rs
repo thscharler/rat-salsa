@@ -722,6 +722,12 @@ impl ComboboxState {
     }
 }
 
+impl HandleEvent<Event, Regular, ComboboxOutcome> for ComboboxState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> ComboboxOutcome {
+        self.handle(event, Popup)
+    }
+}
+
 impl HandleEvent<Event, Popup, ComboboxOutcome> for ComboboxState {
     fn handle(&mut self, event: &Event, _qualifier: Popup) -> ComboboxOutcome {
         let r = if self.is_focused() {
@@ -765,10 +771,6 @@ impl HandleEvent<Event, Popup, ComboboxOutcome> for ComboboxState {
 
 impl HandleEvent<Event, MouseOnly, ComboboxOutcome> for ComboboxState {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> ComboboxOutcome {
-        if !self.has_mouse_focus() {
-            return ComboboxOutcome::Continue
-        }
-
         let r0 = handle_mouse(self, event);
         let r1 = handle_select(self, event);
         let r2 = handle_close(self, event);
@@ -789,6 +791,28 @@ impl HandleEvent<Event, MouseOnly, ComboboxOutcome> for ComboboxState {
 fn handle_mouse(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
     match event {
         ct_event!(mouse down Left for x,y)
+        | ct_event!(mouse down Right for x,y)
+        | ct_event!(mouse down Middle for x,y)
+            if !state.choice.item_area.contains((*x, *y).into())
+                && !state.choice.button_area.contains((*x, *y).into()) =>
+        {
+            match state.choice.popup.handle(event, Popup) {
+                PopupOutcome::Hide => {
+                    state.set_popup_active(false);
+                    return ComboboxOutcome::Changed;
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+
+    if !state.has_mouse_focus() {
+        return ComboboxOutcome::Continue;
+    }
+
+    match event {
+        ct_event!(mouse down Left for x,y)
             if state.choice.button_area.contains((*x, *y).into()) =>
         {
             if !state.gained_focus() {
@@ -800,25 +824,15 @@ fn handle_mouse(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
                 ComboboxOutcome::Continue
             }
         }
-        ct_event!(mouse down Left for x,y)
-        | ct_event!(mouse down Right for x,y)
-        | ct_event!(mouse down Middle for x,y)
-            if !state.choice.item_area.contains((*x, *y).into())
-                && !state.choice.button_area.contains((*x, *y).into()) =>
-        {
-            match state.choice.popup.handle(event, Popup) {
-                PopupOutcome::Hide => {
-                    state.set_popup_active(false);
-                    ComboboxOutcome::Changed
-                }
-                r => r.into(),
-            }
-        }
         _ => ComboboxOutcome::Continue,
     }
 }
 
 fn handle_select(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
+    if !state.has_mouse_focus() {
+        return ComboboxOutcome::Continue;
+    }
+
     match state.choice.behave_select {
         ChoiceSelect::MouseScroll => {
             let mut sas = ScrollAreaState::new()
@@ -962,6 +976,10 @@ fn handle_select(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
 }
 
 fn handle_close(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
+    if !state.has_mouse_focus() {
+        return ComboboxOutcome::Continue;
+    }
+
     match state.choice.behave_close {
         ChoiceClose::SingleClick => match event {
             ct_event!(mouse down Left for x,y)

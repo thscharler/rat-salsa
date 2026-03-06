@@ -40,7 +40,7 @@ use crate::util::{get_block_padding, get_block_size, revert_style};
 use crate::{MenuBuilder, MenuItem, MenuStyle, Separator};
 use rat_cursor::HasScreenCursor;
 use rat_event::util::{MouseFlags, mouse_trap};
-use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, ct_event};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 pub use rat_popup::PopupConstraint;
 use rat_popup::event::PopupOutcome;
@@ -755,6 +755,12 @@ impl PopupMenuState {
     }
 }
 
+impl HandleEvent<Event, Regular, MenuOutcome> for PopupMenuState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> MenuOutcome {
+        self.handle(event, Popup)
+    }
+}
+
 impl HandleEvent<Event, Popup, MenuOutcome> for PopupMenuState {
     /// Handle all events.
     ///
@@ -857,7 +863,7 @@ impl HandleEvent<Event, MouseOnly, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> MenuOutcome {
         if self.is_active() {
             if !self.has_mouse_focus() {
-                return MenuOutcome::Continue
+                return MenuOutcome::Continue;
             }
 
             let r = match event {

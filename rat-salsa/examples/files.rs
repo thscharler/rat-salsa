@@ -11,7 +11,7 @@ use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
 use rat_widget::event::{
-    Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup, ReadOnly, Regular,
+    Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, ReadOnly, Regular,
     TableOutcome, ct_event, try_flow,
 };
 use rat_widget::focus::{FocusBuilder, HasFocus, Navigation, match_focus};
@@ -542,7 +542,7 @@ fn crossterm(
         _ => Control::Continue,
     });
 
-    try_flow!(match state.w_menu.handle(event, Popup) {
+    try_flow!(match state.w_menu.handle(event, Regular) {
         MenuOutcome::MenuSelected(0, n) => {
             Control::Changed
         }

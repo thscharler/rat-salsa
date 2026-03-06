@@ -39,7 +39,7 @@ use crate::event::ChoiceOutcome;
 use crate::text::HasScreenCursor;
 use crate::util::{block_padding, block_size, revert_style};
 use rat_event::util::{MouseFlags, item_at, mouse_trap};
-use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, ct_event};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle, fallback_popup_style};
@@ -1556,6 +1556,12 @@ where
     }
 }
 
+impl<T: PartialEq + Clone + Default> HandleEvent<Event, Regular, ChoiceOutcome> for ChoiceState<T> {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> ChoiceOutcome {
+        self.handle(event, Popup)
+    }
+}
+
 impl<T: PartialEq + Clone + Default> HandleEvent<Event, Popup, ChoiceOutcome> for ChoiceState<T> {
     fn handle(&mut self, event: &Event, _qualifier: Popup) -> ChoiceOutcome {
         let r = if self.is_focused() {
@@ -1618,10 +1624,6 @@ impl<T: PartialEq + Clone + Default> HandleEvent<Event, MouseOnly, ChoiceOutcome
     for ChoiceState<T>
 {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> ChoiceOutcome {
-        if !self.has_mouse_focus() {
-            return ChoiceOutcome::Continue;
-        }
-
         let r0 = handle_mouse(self, event);
         let r1 = handle_select(self, event);
         let r2 = handle_close(self, event);
@@ -1637,6 +1639,28 @@ fn handle_mouse<T: PartialEq + Clone + Default>(
 ) -> ChoiceOutcome {
     match event {
         ct_event!(mouse down Left for x,y)
+        | ct_event!(mouse down Right for x,y)
+        | ct_event!(mouse down Middle for x,y)
+            if !state.item_area.contains((*x, *y).into())
+                && !state.button_area.contains((*x, *y).into()) =>
+        {
+            match state.popup.handle(event, Popup) {
+                PopupOutcome::Hide => {
+                    state.set_popup_active(false);
+                    return ChoiceOutcome::Changed;
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+
+    if !state.has_mouse_focus() {
+        return ChoiceOutcome::Continue;
+    }
+
+    match event {
+        ct_event!(mouse down Left for x,y)
             if state.item_area.contains((*x, *y).into())
                 || state.button_area.contains((*x, *y).into()) =>
         {
@@ -1649,20 +1673,6 @@ fn handle_mouse<T: PartialEq + Clone + Default>(
                 ChoiceOutcome::Continue
             }
         }
-        ct_event!(mouse down Left for x,y)
-        | ct_event!(mouse down Right for x,y)
-        | ct_event!(mouse down Middle for x,y)
-            if !state.item_area.contains((*x, *y).into())
-                && !state.button_area.contains((*x, *y).into()) =>
-        {
-            match state.popup.handle(event, Popup) {
-                PopupOutcome::Hide => {
-                    state.set_popup_active(false);
-                    ChoiceOutcome::Changed
-                }
-                r => r.into(),
-            }
-        }
         _ => ChoiceOutcome::Continue,
     }
 }
@@ -1671,6 +1681,10 @@ fn handle_select<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
     event: &Event,
 ) -> ChoiceOutcome {
+    if !state.has_mouse_focus() {
+        return ChoiceOutcome::Continue;
+    }
+
     match state.behave_select {
         ChoiceSelect::MouseScroll => {
             let mut sas = ScrollAreaState::new()
@@ -1815,6 +1829,10 @@ fn handle_close<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
     event: &Event,
 ) -> ChoiceOutcome {
+    if !state.has_mouse_focus() {
+        return ChoiceOutcome::Continue;
+    }
+
     match state.behave_close {
         ChoiceClose::SingleClick => match event {
             ct_event!(mouse down Left for x,y) if state.popup.area.contains((*x, *y).into()) => {

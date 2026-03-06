@@ -56,8 +56,8 @@ impl StatefulWidget for PopLockMagenta<'_> {
             let block = Block::bordered()
                 .border_type(BorderType::Rounded)
                 .style(self.theme.style_style(Style::CONTAINER_BORDER_FG));
-            let widget_area = block.inner(area);
-            block.render(area, buf);
+            let widget_area = block.inner(state.popup.area);
+            block.render(state.popup.area, buf);
 
             let mut a1 = widget_area;
             a1.height = 1;

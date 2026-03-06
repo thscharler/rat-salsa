@@ -14,11 +14,11 @@ use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
 use rat_widget::checkbox::{Checkbox, CheckboxState};
 use rat_widget::choice::{Choice, ChoiceState};
-use rat_widget::event::{ChoiceOutcome, SliderOutcome, TextOutcome};
+use rat_widget::event::{SliderOutcome, TextOutcome};
 use rat_widget::paired::Paired;
 use rat_widget::popup::Placement;
 use rat_widget::scrolled::{Scroll, ScrollbarPolicy};
-use rat_widget::slider::{Slider, SliderState};
+use rat_widget::slider::SliderState;
 use rat_widget::text::clipboard::cli::setup_cli_clipboard;
 use rat_widget::text::{HasScreenCursor, TextStyle};
 use rat_widget::text_input::{TextInput, TextInputState};
@@ -27,7 +27,7 @@ use rat_widget::view::{View, ViewState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::Style;
-use ratatui_core::text::{Line, Span};
+use ratatui_core::text::Span;
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm;
 use ratatui_widgets::block::Block;
@@ -261,11 +261,9 @@ pub fn render(
     if state.italic.checked() {
         free_text_style.style = free_text_style.style.italic();
     }
-    TextInput::new().styles(free_text_style).render(
-        free_text_area,
-        buf,
-        &mut state.free_text,
-    );
+    TextInput::new()
+        .styles(free_text_style)
+        .render(free_text_area, buf, &mut state.free_text);
 
     let sample_area = Rect::new(area.x + 6, area.y + 4, 55, 1);
     Span::from(SAMPLE_SPAN).render(sample_area, buf);

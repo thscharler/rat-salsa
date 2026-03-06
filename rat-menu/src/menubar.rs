@@ -442,6 +442,12 @@ impl RelocatableState for MenubarState {
     }
 }
 
+impl HandleEvent<Event, Regular, MenuOutcome> for MenubarState {
+    fn handle(&mut self, event: &Event, _qualifier: Regular) -> MenuOutcome {
+        handle_menubar(self, event, Regular, Regular)
+    }
+}
+
 impl HandleEvent<Event, Popup, MenuOutcome> for MenubarState {
     fn handle(&mut self, event: &Event, _qualifier: Popup) -> MenuOutcome {
         handle_menubar(self, event, Popup, Regular)
