@@ -346,7 +346,7 @@ impl Default for ColorInputState {
 
 impl HasFocus for ColorInputState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget_with_flags(
+        builder.leaf_with_flags(
             self.widget.focus(),
             self.area,
             self.widget.area_z(),
@@ -1245,6 +1245,10 @@ impl HandleEvent<Event, MouseOnly, TextOutcome> for ColorInputState {
 
 fn handle_mouse(state: &mut ColorInputState, event: &Event) -> TextOutcome {
     if state.is_focused() {
+        if !state.has_mouse_focus() {
+            return TextOutcome::Continue;
+        }
+
         match event {
             ct_event!(scroll ALT down for x,y) if state.mode_area.contains((*x, *y).into()) => {
                 state.next_mode().into()

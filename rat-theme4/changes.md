@@ -1,3 +1,7 @@
+# 4.5.3
+
+* move to workspace dependencies
+
 # 4.5.2
 
 * fix dark scrollbars

@@ -1,3 +1,7 @@
+# 2.1.0
+
+* feat: use mouse-focus
+
 # 2.0.1
 
 the real deal ...

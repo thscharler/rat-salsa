@@ -1,3 +1,7 @@
+# 3.0.2
+
+use workspace dependencies
+
 # 3.0.1
 
 the real deal ...

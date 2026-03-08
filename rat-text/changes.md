@@ -1,3 +1,9 @@
+# 3.1.0
+
+* feat: support for mouse-focus.
+* feat: add Paste event handling. Doesn't seem to work with any terminal 
+  I could find on Windows, but otherwise ...
+
 # 3.0.3
 
 * feat: TextInput: add bidi(). This renders bidi isolates for the text-field.

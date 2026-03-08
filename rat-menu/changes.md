@@ -1,3 +1,8 @@
+# 3.1.0
+
+* Navigation for Menubar can be overridden now.
+* feat: use mouse-focus
+
 # 3.0.1
 
 the real deal ...

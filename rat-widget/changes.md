@@ -1,3 +1,26 @@
+# 3.2.0
+
+* feat: Add the concept of `mouse-focus` to focus-handling. 
+  This will be set for every mouse-event to find the widget-areas
+  that pass the hit-test. Handles z-indexes and overlapping areas
+  correctly. 
+
+  This makes the special event-handling for Choice and ComboBox obsolete. 
+  They can be used just as any other widget during event-handling now. 
+  
+  Any widget that is hidden underneath the popup will see that its 
+  mouse-focus is `false` even if the mouse-position is within its bounds.
+  This requires, that _every_ widget needs to check this flag. But 
+  moving this check from the widget _user_ to the widget _implementor_
+  is still a nice win.
+
+* refactor: all widgets use mouse-focus now.
+
+# rat-event
+
+* Popup is now obsolete. There should no longer be a need to differentiate
+  between Regular and Popup event-handlers with mouse-focus now. 
+
 # 3.1.1
 
 * fix: Media matching with ct_event!

@@ -1,3 +1,13 @@
+# 2.1.0
+
+feat: Add the new feature 'mouse-focus' to FocusFlag.
+When event-handling a mouse-event, Focus will run a hit-test for widgets
+and container areas and set the flag accordingly. This will consider any
+overlapping areas and the z-index of the area. Thus giving the widget a 
+clear marker whether a mouse-event is meant for it or some other widget.
+
+refactor: rename widget_with_flags() to leaf_with_flags() 
+
 # 2.0.2
 
 fix: reexport types used in macros. they will not be available if

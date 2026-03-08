@@ -1,5 +1,12 @@
 # 4.0.3
 
+* move old theme crates from the main repo to rat-experimental.
+  rat-theme4 is the only actively supported theme crate now. 
+* move rat-vim to rat-experimental repo.
+* move pal-edit to its own repo.
+
+* #23: reorg dependencies to workspace dependencies. 
+
 * example: uni_blocks_term
 
 # 4.0.2

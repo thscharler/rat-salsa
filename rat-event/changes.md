@@ -1,3 +1,12 @@
+
+# 2.1.0
+
+* feat: The `Popup` event-marker is now considered obsolete. 
+  The new focus-feature `mouse-focus` makes this redundant. 
+
+  It is still left as is and not even marked deprecated for now,
+  as it might still be worthwhile if an application doesn't use Focus. 
+
 # 2.0.4
 
 * fix: Media matching with ct_event!

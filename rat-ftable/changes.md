@@ -1,3 +1,7 @@
+# 2.2.0
+
+* feat: use mouse-focus
+
 # 2.1.0
 
 * feat: TableSelection::validate_rows(), validate_cols(), items_added() and items_removed() 

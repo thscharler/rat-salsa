@@ -1,7 +1,10 @@
+# 0.7.3
+
+use workspace dependencies
+
 # 0.7.2
 
 update dependencies
-
 
 # 0.7.1
 
