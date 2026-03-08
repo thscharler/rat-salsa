@@ -381,13 +381,15 @@ impl MenubarState {
 
 impl Default for MenubarState {
     fn default() -> Self {
-        Self {
+        let mut z = Self {
             area: Default::default(),
-            bar: Default::default(),
-            popup: Default::default(),
+            bar: MenuLineState::new(),
+            popup: PopupMenuState::new(),
             relocate_popup: Default::default(),
             non_exhaustive: NonExhaustive,
-        }
+        };
+        z.popup.focus = z.bar.focus.clone();
+        z
     }
 }
 

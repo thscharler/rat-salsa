@@ -41,7 +41,7 @@ use crate::{MenuBuilder, MenuItem, MenuStyle, Separator};
 use rat_cursor::HasScreenCursor;
 use rat_event::util::{MouseFlags, mouse_trap};
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular, ct_event};
-use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 pub use rat_popup::PopupConstraint;
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupCore, PopupCoreState};
@@ -96,6 +96,10 @@ pub struct PopupMenuState {
     /// __read+write__
     pub selected: Option<usize>,
 
+    /// Current focus state.
+    /// __read+write__
+    pub focus: FocusFlag,
+
     /// Mouse flags
     /// __used for mouse interaction__
     pub mouse: MouseFlags,
@@ -113,6 +117,7 @@ impl Default for PopupMenuState {
             navchar: Default::default(),
             disabled: Default::default(),
             selected: Default::default(),
+            focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -528,16 +533,28 @@ fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuS
 }
 
 impl HasFocus for PopupMenuState {
-    fn build(&self, _builder: &mut FocusBuilder) {
-        // none
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.leaf_widget(self);
     }
 
     fn focus(&self) -> FocusFlag {
-        unimplemented!("not available")
+        self.focus.clone()
     }
 
     fn area(&self) -> Rect {
-        unimplemented!("not available")
+        self.popup.area
+    }
+
+    fn area_z(&self) -> u16 {
+        self.popup.area_z
+    }
+
+    fn navigable(&self) -> Navigation {
+        if self.is_active() {
+            Navigation::Leave
+        } else {
+            Navigation::None
+        }
     }
 }
 
@@ -565,10 +582,11 @@ impl PopupMenuState {
         Default::default()
     }
 
-    /// New
-    #[inline]
-    pub fn named(_name: &str) -> Self {
-        Default::default()
+    /// New with a focus name.
+    pub fn named(name: &str) -> Self {
+        let mut z = Self::default();
+        z.focus = z.focus.with_name(name);
+        z
     }
 
     /// Set the z-index for the popup-menu.
