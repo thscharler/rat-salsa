@@ -1,21 +1,21 @@
 [workspace]
 resolver = "2"
 members = [
-  "rat-cursor",
-  "rat-dialog",
-  "rat-event",
-  "rat-focus",
-  "rat-ftable",
-  "rat-markdown",
-  "rat-menu",
-  "rat-popup",
-  "rat-reloc",
-  "rat-salsa",
-  "rat-scrolled",
-  "rat-text",
-  "rat-theme4",
-  "rat-widget",
-  "rat-widget-extra",
+    "rat-cursor",
+    "rat-dialog",
+    "rat-event",
+    "rat-focus",
+    "rat-ftable",
+    "rat-markdown",
+    "rat-menu",
+    "rat-popup",
+    "rat-reloc",
+    "rat-salsa",
+    "rat-scrolled",
+    "rat-text",
+    "rat-theme4",
+    "rat-widget",
+    "rat-widget-extra",
 ]
 
 [workspace.dependencies]
@@ -31,7 +31,7 @@ rat-reloc = { path = "rat-reloc", version = "2.0.2" }
 rat-salsa = { path = "rat-salsa", version = "4.0.3" }
 rat-scrolled = { path = "rat-scrolled", version = "2.0.2" }
 rat-text = { path = "rat-text", version = "3.1.0" }
-rat-theme4 = { path = "rat-theme4", version = "4.5.3" }
+rat-theme4 = { path = "rat-theme4", version = "4.5.2" }
 rat-widget = { path = "rat-widget", version = "3.2.0" }
 rat-widget-extra = { path = "rat-widget-extra", version = "2.1.0" }
 
