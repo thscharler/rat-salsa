@@ -479,8 +479,8 @@ impl HasScreenCursor for ComboboxState {
 
 impl HasFocus for ComboboxState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget_with_flags(self.focus(), self.area(), 0, self.navigable());
-        builder.widget_with_flags(self.focus(), self.choice.popup.area, 1, Navigation::Mouse);
+        builder.leaf_with_flags(self.focus(), self.area(), 0, self.navigable());
+        builder.leaf_with_flags(self.focus(), self.choice.popup.area, 1, Navigation::Mouse);
     }
 
     fn focus(&self) -> FocusFlag {

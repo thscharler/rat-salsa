@@ -481,7 +481,7 @@ impl HasFocus for TabbedState {
 
     fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {
         if !matches!(navigable, Navigation::None | Navigation::Leave) {
-            builder.widget_with_flags(
+            builder.leaf_with_flags(
                 self.focus(),
                 union_all_non_empty(&self.tab_title_areas),
                 self.area_z(),

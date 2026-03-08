@@ -97,7 +97,7 @@ impl PopFocusBlueState {
 
 impl HasFocus for PopFocusBlueState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget_with_flags(self.focus.clone(), self.area, 0, Navigation::Leave);
+        builder.leaf_with_flags(self.focus.clone(), self.area, 0, Navigation::Leave);
     }
 
     fn focus(&self) -> FocusFlag {

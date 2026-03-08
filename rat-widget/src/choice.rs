@@ -39,7 +39,7 @@ use crate::event::ChoiceOutcome;
 use crate::text::HasScreenCursor;
 use crate::util::{block_padding, block_size, revert_style};
 use rat_event::util::{MouseFlags, item_at, mouse_trap};
-use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular, ct_event, flow};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Popup, Regular, ct_event};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle, fallback_popup_style};
@@ -1225,8 +1225,8 @@ where
     T: PartialEq + Clone + Default,
 {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.widget_with_flags(self.focus(), self.area(), 0, self.navigable());
-        builder.widget_with_flags(self.focus(), self.popup.area, 1, Navigation::Mouse);
+        builder.leaf_with_flags(self.focus(), self.area(), 0, self.navigable());
+        builder.leaf_with_flags(self.focus(), self.popup.area, 1, Navigation::Mouse);
     }
 
     fn focus(&self) -> FocusFlag {

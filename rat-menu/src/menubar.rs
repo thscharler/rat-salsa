@@ -397,8 +397,8 @@ impl HasFocus for MenubarState {
     }
 
     fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {
-        builder.widget_with_flags(self.focus(), self.area(), self.area_z(), navigable);
-        builder.widget_with_flags(
+        builder.leaf_with_flags(self.focus(), self.area(), self.area_z(), navigable);
+        builder.leaf_with_flags(
             self.focus(),
             self.popup.popup.area,
             self.popup.popup.area_z,

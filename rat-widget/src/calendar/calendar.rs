@@ -117,7 +117,7 @@ impl<const N: usize, Selection> HasFocus for CalendarState<N, Selection> {
             if i == self.primary_idx {
                 builder.widget(v); // regular widget
             } else {
-                builder.widget_with_flags(v.focus(), v.area(), v.area_z(), Navigation::Leave)
+                builder.leaf_with_flags(v.focus(), v.area(), v.area_z(), Navigation::Leave)
             }
         }
         builder.end(tag);

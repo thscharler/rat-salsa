@@ -3,7 +3,7 @@
 use anyhow::{Error, anyhow};
 use configparser::ini::Ini;
 use dirs::config_dir;
-use log::{debug, warn};
+use log::debug;
 use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
@@ -15,21 +15,19 @@ use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::text::HasScreenCursor;
-use rat_widget::text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
+use rat_widget::text::clipboard::cli::setup_cli_clipboard;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::Style;
 use ratatui_core::widgets::StatefulWidget;
 use ratatui_crossterm::crossterm::event::Event;
 use ropey::Rope;
-use std::cell::RefCell;
 use std::env::args;
 use std::fs;
 use std::fs::create_dir_all;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
-use rat_widget::text::clipboard::cli::setup_cli_clipboard;
 
 fn main() -> Result<(), Error> {
     let mut args = args();
