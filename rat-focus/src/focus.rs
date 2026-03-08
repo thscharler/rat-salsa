@@ -4,7 +4,6 @@ pub use core::FocusBuilder;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, crossterm, ct_event};
 use ratatui_core::layout::Rect;
 use ratatui_crossterm::crossterm::event::Event;
-use std::cmp::max;
 use std::ops::Range;
 
 /// Focus deals with all focus-related issues.
@@ -2109,16 +2108,12 @@ impl HandleEvent<Event, Regular, Outcome> for Focus {
 impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
     #[inline(always)]
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
-        let r0 = match event {
+        match event {
             Event::Mouse(crossterm::event::MouseEvent {
                 kind: crossterm::event::MouseEventKind::Drag(_),
                 ..
             }) => {
-                if self.clear_mouse_focus() {
-                    Outcome::Changed
-                } else {
-                    Outcome::Continue
-                }
+                self.clear_mouse_focus();
             }
             Event::Mouse(crossterm::event::MouseEvent {
                 kind:
@@ -2133,15 +2128,12 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
                 row: r,
                 ..
             }) => {
-                if self.mouse_focus(*c, *r) {
-                    Outcome::Changed
-                } else {
-                    Outcome::Continue
-                }
+                self.mouse_focus(*c, *r);
             }
-            _ => Outcome::Continue,
+            _ => {}
         };
-        let r1 = match event {
+
+        match event {
             ct_event!(mouse down Left for column, row) => {
                 if self.focus_at(*column, *row) {
                     Outcome::Changed
@@ -2154,9 +2146,7 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
                 self.reset_lost_gained();
                 Outcome::Continue
             }
-        };
-
-        max(r0, r1)
+        }
     }
 }
 
