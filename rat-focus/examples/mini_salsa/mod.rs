@@ -12,9 +12,6 @@ use log::error;
 use rat_event::util::set_have_keyboard_enhancement;
 use rat_event::{HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
-use rat_theme4::palette::Colors;
-use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{RatWidgetColor, StyleName, create_salsa_theme, salsa_themes};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::{Color, Style};
@@ -41,7 +38,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 pub struct MiniSalsaState {
     pub name: String,
-    pub theme: SalsaTheme,
     pub frame: usize,
     pub event_cnt: usize,
 
@@ -62,10 +58,9 @@ pub struct MiniSalsaState {
 }
 
 impl MiniSalsaState {
-    fn new(name: &str, theme: SalsaTheme) -> Self {
+    fn new(name: &str) -> Self {
         let mut s = Self {
             name: name.to_string(),
-            theme,
             frame: Default::default(),
             event_cnt: Default::default(),
             hide_timing: Default::default(),
@@ -135,9 +130,7 @@ pub fn run_ui<State>(
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
 
-    let pal = rat_theme4::palettes::dark::IMPERIAL;
-    let theme = rat_theme4::create_palette_theme(pal).expect("valid_palette");
-    let mut istate = MiniSalsaState::new(name, theme);
+    let mut istate = MiniSalsaState::new(name);
 
     init(&mut istate, state)?;
 
@@ -261,7 +254,7 @@ fn repaint_tui<State>(
     };
 
     if !ctx.hide_status {
-        buf.set_style(l1[1], ctx.theme.style_style(Style::STATUS_BASE));
+        buf.set_style(l1[1], Style::new().bg(Color::Gray));
     }
 
     let t0 = SystemTime::now();
@@ -283,11 +276,7 @@ fn repaint_tui<State>(
         ])
         .split(l1[1]);
 
-        let blue_text = ctx.theme.p.high_contrast_color(
-            ctx.theme.p.color_alias(Color::STATUS_BASE_BG),
-            &ctx.theme.p.color[Colors::Blue as usize],
-        );
-
+        let blue_text = Style::new().bg(Color::LightBlue);
         Line::from_iter(["[", ctx.name.as_str(), "]"]).render(l_status[0], buf);
         Line::from(" ").render(l_status[1], buf);
         Line::from(ctx.status[0].as_str()).render(l_status[2], buf);
@@ -326,38 +315,6 @@ fn handle_event<State>(
                 ..
             }) => {
                 ctx.quit = true;
-                return Ok(Outcome::Changed);
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::F(8),
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                next_theme(ctx);
-
-                // hack to have some way to notify the app
-                let event = Event::Key(KeyEvent::new(
-                    KeyCode::Media(MediaKeyCode::Play),
-                    KeyModifiers::NONE,
-                ));
-                handle(&event, ctx, state)?;
-                return Ok(Outcome::Changed);
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::F(8),
-                modifiers: KeyModifiers::SHIFT,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                prev_theme(ctx);
-
-                // hack to have some way to notify the app
-                let event = Event::Key(KeyEvent::new(
-                    KeyCode::Media(MediaKeyCode::Play),
-                    KeyModifiers::NONE,
-                ));
-                handle(&event, ctx, state)?;
                 return Ok(Outcome::Changed);
             }
             Event::Resize(_, _) => return Ok(Outcome::Changed),
@@ -423,36 +380,6 @@ pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Int
             }
         }
     }
-}
-
-pub fn prev_theme(ctx: &mut MiniSalsaState) {
-    let themes = salsa_themes();
-
-    let name = ctx.theme.name();
-    let mut pos = themes.iter().position(|n| *n == name).unwrap_or(0);
-    if pos == 0 {
-        pos = themes.len().saturating_sub(1);
-    } else {
-        pos = pos - 1;
-    }
-
-    ctx.status[0] = format!("Ctrl-Q to quit. F8 Theme [{}]", themes[pos]);
-    ctx.theme = create_salsa_theme(themes[pos]);
-}
-
-pub fn next_theme(ctx: &mut MiniSalsaState) {
-    let themes = salsa_themes();
-
-    let name = ctx.theme.name();
-    let mut pos = themes.iter().position(|n| *n == name).unwrap_or(0);
-    if pos + 1 == themes.len() {
-        pos = 0;
-    } else {
-        pos = pos + 1;
-    }
-
-    ctx.status[0] = format!("Ctrl-Q to quit. F8 Theme [{}]", themes[pos]);
-    ctx.theme = create_salsa_theme(themes[pos]);
 }
 
 mod _private {

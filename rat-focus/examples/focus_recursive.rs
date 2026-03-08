@@ -48,19 +48,19 @@ fn render(
 
     let l00 = Layout::vertical([Constraint::Length(8), Constraint::Length(8)]).split(l0[0]);
 
-    Substratum::new(&ctx.theme)
+    Substratum::new()
         .block(Block::bordered().title("First"))
         .render(l00[0], buf, &mut state.sub1);
-    Substratum::new(&ctx.theme)
+    Substratum::new()
         .block(Block::bordered().title("Second"))
         .render(l00[1], buf, &mut state.sub2);
 
     let l11 = Layout::vertical([Constraint::Length(8), Constraint::Length(8)]).split(l0[1]);
 
-    Substratum::new(&ctx.theme)
+    Substratum::new()
         .block(Block::bordered().title("Third"))
         .render(l11[0], buf, &mut state.sub3);
-    Substratum::new(&ctx.theme)
+    Substratum::new()
         .block(Block::bordered().title("Forth"))
         .render(l11[1], buf, &mut state.sub4);
 
@@ -108,8 +108,6 @@ pub mod substratum1 {
     use crate::mini_salsa::layout_grid;
     use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-    use rat_theme4::theme::SalsaTheme;
-    use rat_theme4::{RatWidgetColor, StyleName};
     use ratatui_core::buffer::Buffer;
     use ratatui_core::layout::{Constraint, Layout, Rect};
     use ratatui_core::style::{Color, Style};
@@ -120,14 +118,12 @@ pub mod substratum1 {
 
     #[derive(Debug)]
     pub struct Substratum<'a> {
-        theme: &'a SalsaTheme,
         block: Option<Block<'a>>,
     }
 
     impl<'a> Substratum<'a> {
-        pub fn new(theme: &'a SalsaTheme) -> Self {
+        pub fn new() -> Self {
             Self {
-                theme,
                 block: Default::default(),
             }
         }
@@ -159,11 +155,9 @@ pub mod substratum1 {
                 block
             } else {
                 Block::bordered()
-            }
-            .style(self.theme.style_style(Style::CONTAINER_BASE))
-            .border_style(self.theme.style_style(Style::CONTAINER_BORDER_FG));
+            };
             if state.container_focus.get() {
-                block = block.border_style(self.theme.p.fg_style_alias(Color::FOCUS_BG))
+                block = block.border_style(Style::new().bg(Color::LightCyan))
             }
             block.render(area, buf);
 
@@ -180,26 +174,22 @@ pub mod substratum1 {
 
             Span::from("Text 1").render(l_grid[0][0], buf);
             TextInputF::default()
-                .style(self.theme.style_style(Style::INPUT))
-                .focus_style(self.theme.style_style(Style::FOCUS))
+                .focus_style(Style::new().bg(Color::LightCyan))
                 .render(l_grid[1][0], buf, &mut state.input1);
 
             Span::from("Text 2").render(l_grid[0][1], buf);
             TextInputF::default()
-                .style(self.theme.style_style(Style::INPUT))
-                .focus_style(self.theme.style_style(Style::FOCUS))
+                .focus_style(Style::new().bg(Color::LightCyan))
                 .render(l_grid[1][1], buf, &mut state.input2);
 
             Span::from("Text 3").render(l_grid[0][2], buf);
             TextInputF::default()
-                .style(self.theme.style_style(Style::INPUT))
-                .focus_style(self.theme.style_style(Style::FOCUS))
+                .focus_style(Style::new().bg(Color::LightCyan))
                 .render(l_grid[1][2], buf, &mut state.input3);
 
             Span::from("Text 4").render(l_grid[0][3], buf);
             TextInputF::default()
-                .style(self.theme.style_style(Style::INPUT))
-                .focus_style(self.theme.style_style(Style::FOCUS))
+                .focus_style(Style::new().bg(Color::LightCyan))
                 .render(l_grid[1][3], buf, &mut state.input4);
         }
     }
