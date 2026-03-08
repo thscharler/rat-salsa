@@ -1,5 +1,8 @@
 #![doc = include_str!("../readme.md")]
 
+pub mod doc {
+    #![doc = include_str!("../doc.md")]
+}
 mod builder;
 mod core;
 mod flag;

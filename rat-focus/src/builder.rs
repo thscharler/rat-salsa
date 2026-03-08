@@ -264,13 +264,14 @@ impl FocusBuilder {
     /// This is intended to be used when __implementing__
     /// HasFocus::build() for a widget.
     ///
-    /// In all other situations it's better to use [widget()](FocusBuilder::widget).
+    /// In all other situations it's better to use [widget](FocusBuilder::widget)
+    /// or [widget_navigate](FocusBuilder::widget_navigate)
     ///
     /// __Panic__
     ///
     /// Panics if the same focus-flag is added twice.
     pub fn leaf_widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
-        self.widget_with_flags(
+        self.leaf_with_flags(
             widget.focus(),
             widget.area(),
             widget.area_z(),
@@ -279,19 +280,31 @@ impl FocusBuilder {
         self
     }
 
+    #[deprecated(since = "2.0.2", note = "use leaf_with_flags instead")]
+    pub fn widget_with_flags(
+        &mut self,
+        focus: FocusFlag,
+        area: Rect,
+        area_z: u16,
+        navigable: Navigation,
+    ) {
+        self.leaf_with_flags(focus, area, area_z, navigable)
+    }
+
     /// Manually add a widgets flags.
     ///
     /// This is intended to be used when __implementing__
     /// HasFocus::build() for a widget.
     ///
-    /// In all other situations it's better to use [widget()](FocusBuilder::widget).
+    /// In all other situations it's better to use [widget](FocusBuilder::widget)
+    /// or [widget_navigate](FocusBuilder::widget_navigate)
     ///
     /// __Panic__
     ///
     /// Panics if the same focus-flag is added twice.
     /// Except it is allowable to add the flag a second time with
     /// Navigation::Mouse or Navigation::None
-    pub fn widget_with_flags(
+    pub fn leaf_with_flags(
         &mut self,
         focus: FocusFlag,
         area: Rect,

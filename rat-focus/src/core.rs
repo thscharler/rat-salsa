@@ -347,11 +347,13 @@ impl FocusCore {
             f.set(false);
             f.set_lost(false);
             f.set_gained(false);
+            f.set_mouse_focus(true);
         }
         for (f, _) in self.containers.iter() {
             f.container_flag.set(false);
             f.container_flag.set_gained(false);
             f.container_flag.set_lost(false);
+            f.container_flag.set_mouse_focus(true);
         }
     }
 
@@ -365,6 +367,21 @@ impl FocusCore {
             f.container_flag.set_gained(false);
             f.container_flag.set_lost(false);
         }
+    }
+
+    /// Clear the mouse-focus flag and set it to true for
+    /// all widgets and containers.
+    pub(crate) fn reset_mouse_focus(&self) -> bool {
+        let mut r = false;
+        for (sub, _) in self.containers.iter() {
+            r |= sub.container_flag.mouse_focus();
+            sub.container_flag.set_mouse_focus(true);
+        }
+        for w in self.focus_flags.iter() {
+            r |= w.mouse_focus();
+            w.set_mouse_focus(true);
+        }
+        r
     }
 
     /// Set the initial focus.
@@ -408,21 +425,6 @@ impl FocusCore {
         self.__start_change(set_lost);
         self.__focus(n, set_lost);
         self.__accumulate();
-    }
-
-    /// Clear the mouse-focus flag and set it to true for
-    /// all widgets and containers.
-    pub(crate) fn clear_mouse_focus(&self) -> bool {
-        let mut r = false;
-        for (sub, _) in self.containers.iter() {
-            r |= sub.container_flag.mouse_focus();
-            sub.container_flag.set_mouse_focus(true);
-        }
-        for w in self.focus_flags.iter() {
-            r |= w.mouse_focus();
-            w.set_mouse_focus(true);
-        }
-        r
     }
 
     /// Set the mouse-focus flag.

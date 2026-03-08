@@ -262,8 +262,8 @@ impl Focus {
 
     /// Reset the mouse-focus flag to __true__.
     #[inline(always)]
-    pub fn clear_mouse_focus(&self) -> bool {
-        self.core.clear_mouse_focus()
+    pub fn reset_mouse_focus(&self) -> bool {
+        self.core.reset_mouse_focus()
     }
 
     /// Set the mouse-focus to the given position.  
@@ -776,7 +776,7 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
                 kind: crossterm::event::MouseEventKind::Drag(_),
                 ..
             }) => {
-                self.clear_mouse_focus();
+                self.reset_mouse_focus();
             }
             Event::Mouse(crossterm::event::MouseEvent {
                 kind:
