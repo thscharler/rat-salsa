@@ -1,0 +1,17 @@
+Reference of crate-versions that work together:
+
+rat-cursor: 2.0.0
+rat-dialog: 2.0.1
+rat-event: 2.1.0
+rat-focus: 2.1.0
+rat-ftable: 2.2.0
+rat-markdown: 0.7.3
+rat-menu: 3.1.0
+rat-popup: 3.0.2
+rat-reloc: 2.0.2
+rat-salsa: 4.0.3
+rat-scrolled: 2.0.2
+rat-text: 3.1.0
+rat-theme4: 4.5.3
+rat-widget: 3.2.0
+rat-widget-extra: 2.1.0
