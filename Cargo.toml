@@ -25,7 +25,7 @@ rat-event = { path = "rat-event", version = "2.1.0" }
 rat-focus = { path = "rat-focus", version = "2.1.0" }
 rat-ftable = { path = "rat-ftable", version = "2.2.0" }
 rat-markdown = { path = "rat-markdown", version = "0.7.3" }
-rat-menu = { path = "rat-menu", version = "3.1.0" }
+rat-menu = { path = "rat-menu", version = "3.1.1" }
 rat-popup = { path = "rat-popup", version = "3.0.2" }
 rat-reloc = { path = "rat-reloc", version = "2.0.2" }
 rat-salsa = { path = "rat-salsa", version = "4.0.3" }

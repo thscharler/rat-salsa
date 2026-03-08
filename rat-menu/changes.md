@@ -1,3 +1,9 @@
+# 3.1.1
+
+* fix: PopupMenu doesn't work as widget. fixed.
+* fix: Menubar should operate as a single widget, not a container.
+       Distribute the single FocusFlag correctly.
+
 # 3.1.0
 
 * Navigation for Menubar can be overridden now.
