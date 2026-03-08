@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
 use crate::mini_salsa::_private::NonExhaustive;
+use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area};
-use rat_text::HasScreenCursor;
 use rat_theme4::StyleName;
 use rat_theme4::theme::SalsaTheme;
 use ratatui_core::buffer::Buffer;

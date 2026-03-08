@@ -35,4 +35,3 @@ anyhow = "1.0"
 unicode-segmentation = "1.11"
 
 rat-theme4 = { workspace = true }
-rat-text = { workspace = true }

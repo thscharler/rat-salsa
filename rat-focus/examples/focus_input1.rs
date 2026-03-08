@@ -3,7 +3,6 @@ use crate::mini_salsa::mock_init;
 use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
-use rat_theme4::StyleName;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::{Color, Style};

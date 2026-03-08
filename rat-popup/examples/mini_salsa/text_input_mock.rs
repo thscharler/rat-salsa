@@ -4,7 +4,6 @@ use crate::mini_salsa::_private::NonExhaustive;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{RelocatableState, relocate_area};
-use rat_text::HasScreenCursor;
 use rat_theme4::StyleName;
 use rat_theme4::theme::SalsaTheme;
 use ratatui_core::buffer::Buffer;
@@ -13,6 +12,7 @@ use ratatui_core::style::Style;
 use ratatui_core::widgets::StatefulWidget;
 use ratatui_crossterm::crossterm::event::Event;
 use std::marker::PhantomData;
+use rat_cursor::HasScreenCursor;
 
 #[derive(Debug, Default)]
 pub struct TextInputMock<'a> {
