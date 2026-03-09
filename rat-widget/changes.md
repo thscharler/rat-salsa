@@ -1,3 +1,7 @@
+# 3.2.1
+
+* fix: Menubar and PopupMenu didn't work correctly with mouse-focus.
+
 # 3.2.0
 
 * feat: Add the concept of `mouse-focus` to focus-handling. 
