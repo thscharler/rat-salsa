@@ -76,7 +76,6 @@ impl HasFocus for FocusFlag {
     }
 }
 
-#[derive(Default)]
 struct FocusFlagCore {
     /// Field name for debugging purposes.
     name: RefCell<Option<Box<str>>>,
@@ -322,6 +321,20 @@ impl FocusFlag {
         self.0.lost.set(false);
         self.0.gained.set(false);
         self.0.mouse_focus.set(true);
+    }
+}
+
+impl Default for FocusFlagCore {
+    fn default() -> Self {
+        Self {
+            name: RefCell::new(None),
+            focus: Cell::new(false),
+            gained: Cell::new(false),
+            on_gained: RefCell::new(None),
+            lost: Cell::new(false),
+            on_lost: RefCell::new(None),
+            mouse_focus: Cell::new(true),
+        }
     }
 }
 
