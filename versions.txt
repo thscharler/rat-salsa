@@ -3,7 +3,7 @@ Reference of crate-versions that work together:
 rat-cursor: 2.0.0
 rat-dialog: 2.0.1
 rat-event: 2.1.0
-rat-focus: 2.1.0
+rat-focus: 2.1.1
 rat-ftable: 2.2.0
 rat-markdown: 0.7.3
 rat-menu: 3.1.1
