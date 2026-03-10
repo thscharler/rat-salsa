@@ -212,13 +212,15 @@ pub enum TextWrap {
     Hard,
     /// Wraps the text at word boundaries.
     ///
-    /// The parameter gives an area before the right border where
-    /// breaks are preferred. The first space that falls in this
-    /// region will break. Otherwise, the last space before will be
-    /// used, or the word will be hard-wrapped.
+    /// The parameter sets a right margin area. If a space is encountered
+    /// in this area a line-break is inserted. If the last word is starts
+    /// before this margin it will be broken at a hyphen, soft-hyphen,
+    /// a zero-width space or the space before the start. If this fails
+    /// a hard break is inserted.
     ///
-    /// Space is the word-separator. Words will be broken if they
-    /// contain a hyphen, a soft-hyphen or a zero-width-space.
+    /// A value of 8 gives a good overall layout for most text. There
+    /// will be no lines with very short words clinging to a line, that
+    /// stand out excessively.
     Word(u16),
 }
 
