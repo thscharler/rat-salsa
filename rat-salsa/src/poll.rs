@@ -9,8 +9,6 @@ where
     Event: 'static,
     Error: 'static,
 {
-    fn as_any(&self) -> &dyn std::any::Any;
-
     /// Preferred sleep time for this event-source.
     fn sleep_time(&self) -> Option<Duration> {
         None

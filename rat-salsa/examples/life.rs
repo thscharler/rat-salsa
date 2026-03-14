@@ -117,10 +117,6 @@ impl<Error> PollEvents<LifeEvent, Error> for PollTick
 where
     Error: 'static,
 {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn poll(&mut self) -> Result<bool, Error> {
         Ok(self.next <= SystemTime::now())
     }
