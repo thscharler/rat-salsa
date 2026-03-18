@@ -1730,7 +1730,7 @@ impl TextAreaState {
 
     /// Search for a regex.
     ///
-    /// Uses match_style for highlighting the matches.
+    /// Uses MATCH_STYLE for highlighting the matches.
     /// This doesn't change the cursor/selection, use [move_to_next_match] or
     /// [move_to_prev_match] for this.
     ///
