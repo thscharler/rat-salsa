@@ -3,7 +3,7 @@ use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
 
 /// Holds all the timers.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct Timers {
     tags: Cell<usize>,
     timers: RefCell<Vec<TimerImpl>>,
@@ -20,6 +20,15 @@ struct TimerImpl {
     repeat: Option<usize>,
     next: Instant,
     timer: Duration,
+}
+
+impl Default for Timers {
+    fn default() -> Self {
+        Self {
+            tags: Cell::new(1),
+            timers: Default::default(),
+        }
+    }
 }
 
 impl Timers {
