@@ -10,7 +10,7 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-ftable GitHub][refGitHubFTable].
 
-* [Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-focus/changes.md)
+* [Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-ftable/changes.md)
 
 # Table widget for ratatui
 
