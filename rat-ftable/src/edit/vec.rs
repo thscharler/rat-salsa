@@ -141,8 +141,8 @@ where
         Self {
             mode: Mode::View,
             table: Default::default(),
-            editor: S::default(),
-            data: Vec::default(),
+            editor: Default::default(),
+            data: Default::default(),
             mouse: Default::default(),
         }
     }
@@ -186,18 +186,6 @@ where
             Mode::Edit | Mode::Insert => Navigation::Lock,
         }
     }
-
-    fn is_focused(&self) -> bool {
-        self.table.is_focused()
-    }
-
-    fn lost_focus(&self) -> bool {
-        self.table.lost_focus()
-    }
-
-    fn gained_focus(&self) -> bool {
-        self.table.gained_focus()
-    }
 }
 
 impl<S> HasScreenCursor for EditableTableVecState<S>
@@ -233,7 +221,7 @@ where
     pub fn new(editor: S) -> Self {
         Self {
             mode: Mode::View,
-            table: TableState::new(),
+            table: Default::default(),
             editor,
             data: Default::default(),
             mouse: Default::default(),
@@ -435,7 +423,7 @@ where
                     }
                 });
 
-                try_flow!(match event {
+                event_flow!(match event {
                     ct_event!(keycode press Esc) => {
                         self.cancel();
                         Outcome::Changed
@@ -484,7 +472,7 @@ where
                 }
             }
 
-            try_flow!(match event {
+            event_flow!(match event {
                 ct_event!(mouse any for m) if self.mouse.doubleclick(self.table.table_area, m) => {
                     if let Some((col, row)) = self.table.cell_at_clicked((m.column, m.row)) {
                         self.edit(col, row, ctx)?;
@@ -497,7 +485,7 @@ where
             });
 
             if self.is_focused() {
-                try_flow!(match event {
+                event_flow!(match event {
                     ct_event!(keycode press Insert) => {
                         if let Some(row) = self.table.selected_checked() {
                             self.edit_new(row, ctx)?;
