@@ -23,7 +23,7 @@ use ratatui_crossterm::crossterm::terminal::supports_keyboard_enhancement;
 use ratatui_crossterm::crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, SetTitle, disable_raw_mode, enable_raw_mode,
 };
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::cmp::min;
 use std::io::stdout;
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
@@ -71,12 +71,12 @@ where
     let mut poll = cfg.poll;
 
     let timers = poll.iter().find_map(|v| {
-        v.as_any()
+        (v as &dyn Any)
             .downcast_ref::<PollTimers>()
             .map(|t| t.get_timers())
     });
     let tasks = poll.iter().find_map(|v| {
-        v.as_any()
+        (v as &dyn Any)
             .downcast_ref::<PollTasks<Event, Error>>()
             .map(|t| t.get_tasks())
     });
@@ -88,7 +88,7 @@ where
         .position(|v| v.as_ref().type_id() == TypeId::of::<PollQuit>());
     #[cfg(feature = "async")]
     let tokio = poll.iter().find_map(|v| {
-        v.as_any()
+        (v as &dyn Any)
             .downcast_ref::<PollTokio<Event, Error>>()
             .map(|t| t.get_tasks())
     });
