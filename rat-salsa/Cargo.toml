@@ -43,7 +43,7 @@ cli-clipboard = "0.4"
 configparser = { version = "3.1", features = ["indexmap"] }
 dirs = "6.0"
 fern = "0.7"
-rand = "0.9"
+rand = "0.10"
 regex-cursor = "0.1.5"
 ropey = "1.6.1"
 sysinfo = "0.38"
