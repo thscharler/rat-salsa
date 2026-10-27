@@ -124,7 +124,7 @@ impl<E, Q> HandleEvent<E, Q, Outcome> for () {
 /// 'consuming the event'. But this is tricky, non-obvious and frowned upon.
 /// The caller **may** also just ignore the fact.
 ///
-/// See also [flow] and [try_flow] and the extra [break_flow].
+/// See [event_flow].
 pub trait ConsumedEvent {
     /// Is this the 'consumed' result.
     fn is_consumed(&self) -> bool;
@@ -312,25 +312,28 @@ impl FromBool for bool {
     }
 }
 
-/// Tries to unify the currently 3 flow! constructs.
+/// Unifies the 3 other macros, and is now the preferred way to
+/// do this.
 ///
-/// * `flow!(expr) -> event_flow!(return expr)`
-///   The non Result case stays gets a `return`. It's rather uncommon
-///   to __not__ have a Result during event-handling, so this should be fine.
-/// * `try_flow!(expr) -> event_flow!(expr)`
-///   This becomes the main branch.
-/// * `break_flow!('x: expr) -> event_flow!(break 'x expr)`
-///   This now matches actual rust syntax, which is good for rustfmt.
-///   The `break 'x` is stripped and reapplied after result-conversion.
+/// * `event_flow!(expr)`
 ///
-/// __...___
+/// Returns from the current function if `{expr}.is_consumed() == true`.
+/// This *does* Ok-wrap the result of `expr`.
 ///
-/// I'll try this out... If it's fine I'll leave the other macros
-/// with a discouraging remark and promote this variant.
+/// * `event_flow!(return expr)`
 ///
-/// note: of course the default is diametrical when you write
-/// library code for a new widget. as usual :-|. stick with it
-/// though as libraries should be used more often than written.
+/// Returns from the current function if `{expr}.is_consumed() == true`.
+/// This *does not* Ok-wrap the result of `expr`.
+///
+/// * `event_flow!(break 'x expr)`
+///
+/// This doesn't return from the current function but does
+/// a labeled break if `{expr}.is_consumed() == true`.
+/// This does *not* Ok-wrap the result of `expr`.
+///
+/// In any case the resulting value gets an `into()` conversion
+/// to match `?` behavior.
+///
 #[macro_export]
 macro_rules! event_flow {
     (log $n:ident: return $x:expr) => {{
