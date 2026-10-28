@@ -2,7 +2,6 @@ use crate::Control;
 use crate::poll::PollEvents;
 use crate::thread_pool::ThreadPool;
 use crossbeam::channel::TryRecvError;
-use std::any::Any;
 use std::rc::Rc;
 
 /// Processes results from background tasks.
@@ -52,10 +51,6 @@ where
     Event: 'static + Send,
     Error: 'static + Send + From<TryRecvError>,
 {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn poll(&mut self) -> Result<bool, Error> {
         Ok(!self.tasks.is_empty())
     }

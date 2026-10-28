@@ -3,7 +3,6 @@
 //!
 use crate::Control;
 use crate::poll::PollEvents;
-use std::any::Any;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
@@ -50,10 +49,6 @@ where
     Event: 'static,
     Error: 'static,
 {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn poll(&mut self) -> Result<bool, Error> {
         Ok(self.next <= SystemTime::now())
     }
