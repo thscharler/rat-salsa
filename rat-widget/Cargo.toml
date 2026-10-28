@@ -27,7 +27,7 @@ unicode-segmentation = "1.11"
 unicode-display-width = "0.3"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 map_range_int = { version = "1.0" }
-dirs = { version = "6.0.0", optional = true }
+dirs = { version = "7.0.0", optional = true }
 sysinfo = { version = "0.38", optional = true }
 
 ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
