@@ -885,7 +885,7 @@ pub mod selection {
     impl HandleEvent<Event, MouseOnly, Outcome> for ListState<NoSelection> {
         fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
             if !self.has_mouse_focus() {
-                return Outcome::Continue
+                return Outcome::Continue;
             }
 
             let mut sas = ScrollAreaState::new()
@@ -981,7 +981,7 @@ pub mod selection {
     impl HandleEvent<Event, MouseOnly, Outcome> for ListState<RowSelection> {
         fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
             if !self.has_mouse_focus() {
-                return Outcome::Continue
+                return Outcome::Continue;
             }
 
             event_flow!(
@@ -1122,7 +1122,7 @@ pub mod selection {
     impl HandleEvent<Event, MouseOnly, Outcome> for ListState<RowSetSelection> {
         fn handle(&mut self, event: &Event, _: MouseOnly) -> Outcome {
             if !self.has_mouse_focus() {
-                return Outcome::Continue
+                return Outcome::Continue;
             }
 
             event_flow!(
