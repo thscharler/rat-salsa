@@ -93,8 +93,11 @@ pub struct ListStyle {
     /// Style for selection when focused.
     pub focus: Option<Style>,
 
+    /// Unsupported (for now)
     pub highlight_spacing: Option<HighlightSpacing>,
+    /// Unsupported (for now)
     pub highlight_symbol: Option<&'static str>,
+    /// Unsupported (for now)
     pub repeat_highlight_symbol: Option<bool>,
 
     pub non_exhaustive: NonExhaustive,
