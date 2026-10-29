@@ -170,10 +170,9 @@ impl FocusFlag {
     /// Caution
     ///
     /// It will lose the on_gained() and on_lost() callbacks.
-    /// Those can not be replicated/cloned as they will
-    /// most probably hold some Rc's to somewhere.
-    ///
-    /// You will need to set them anew.
+    /// Those can not be replicated/cloned as they
+    /// might hold some Rc's to somewhere.
+    /// You need to set them anew.
     pub fn new_instance(&self) -> Self {
         Self(Rc::new(self.0.fake_clone()))
     }
