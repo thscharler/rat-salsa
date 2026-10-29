@@ -673,7 +673,7 @@ impl ListState<RowSelection> {
     }
 
     /// Move the selection to the given row. Limits the movement to the row-count.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_to(&mut self, row: usize) -> bool {
         let r = self.selection.move_to(row, self.rows.saturating_sub(1));
@@ -682,7 +682,7 @@ impl ListState<RowSelection> {
     }
 
     /// Move the selection up n rows.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_up(&mut self, n: usize) -> bool {
         let r = self.selection.move_up(n, self.rows.saturating_sub(1));
@@ -691,7 +691,7 @@ impl ListState<RowSelection> {
     }
 
     /// Move the selection down n rows.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_down(&mut self, n: usize) -> bool {
         let r = self.selection.move_down(n, self.rows.saturating_sub(1));
@@ -773,7 +773,7 @@ impl ListState<RowSetSelection> {
     }
 
     /// Move the selection to the given row.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_to(&mut self, row: usize, extend: bool) -> bool {
         let r = self
@@ -784,7 +784,7 @@ impl ListState<RowSetSelection> {
     }
 
     /// Move the selection up n rows.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_up(&mut self, n: usize, extend: bool) -> bool {
         let r = self
@@ -795,7 +795,7 @@ impl ListState<RowSetSelection> {
     }
 
     /// Move the selection down n rows.
-    /// Ensures the row is visible afterwards.
+    /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_down(&mut self, n: usize, extend: bool) -> bool {
         let r = self
