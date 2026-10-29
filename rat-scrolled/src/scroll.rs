@@ -638,42 +638,70 @@ impl ScrollState {
         old != self.offset
     }
 
+    /// Changes the max_offset to the given number of rows
+    /// minus the page_len. Then it corrects the offset
+    /// with `limited_offset`.
+    #[inline]
+    pub fn rows_changed(&mut self, rows: usize) {
+        self.max_offset = rows.saturating_sub(self.page_len);
+        self.offset = self.limited_offset(self.offset);
+    }
+
     /// Scroll to make the given pos visible. Adjusts the
     /// offset just enough to make this happen. Does nothing if
     /// the position is already visible.
+    ///
+    /// Additionally, the offset is limited by max_offset + overscroll_by.
+    ///
     #[inline]
     pub fn scroll_to_pos(&mut self, pos: usize) -> bool {
         let old = self.offset;
-        if pos >= self.offset + self.page_len {
-            self.offset = pos - self.page_len + 1;
+
+        let new = if self.page_len == 0 {
+            pos
+        } else if pos >= self.offset + self.page_len {
+            pos - self.page_len + 1
         } else if pos < self.offset {
-            self.offset = pos;
-        }
+            pos
+        } else {
+            old
+        };
+        self.offset = self.limited_offset(new);
+
         old != self.offset
     }
 
     /// Scroll to make the given range visible.Adjusts the
     /// offset just enough to make this happen. Does nothing if
     /// the range is already visible.
+    ///
+    /// Additionally, the offset is limited by max_offset + overscroll_by.
     #[inline]
     pub fn scroll_to_range(&mut self, range: Range<usize>) -> bool {
         let old = self.offset;
-        // start of range first
-        if range.start >= self.offset + self.page_len {
+
+        // prefer the visibility of the start of the range
+        let new = if self.page_len == 0 {
+            range.start
+        } else if range.start >= self.offset + self.page_len {
             if range.end - range.start < self.page_len {
-                self.offset = range.end - self.page_len;
+                range.end - self.page_len
             } else {
-                self.offset = range.start;
+                range.start
             }
         } else if range.start < self.offset {
-            self.offset = range.start;
+            range.start
         } else if range.end >= self.offset + self.page_len {
             if range.end - range.start < self.page_len {
-                self.offset = range.end - self.page_len;
+                range.end - self.page_len
             } else {
-                self.offset = range.start;
+                range.start
             }
-        }
+        } else {
+            old
+        };
+        self.offset = self.limited_offset(new);
+
         old != self.offset
     }
 

@@ -1956,9 +1956,7 @@ impl<Selection: TableSelection> TableState<Selection> {
     /// This corrects the number of rows, offset and selection.
     pub fn rows_changed(&mut self, rows: usize) {
         self.selection.validate_rows(rows);
-        self.vscroll
-            .set_max_offset(self.rows.saturating_sub(self.table_area.height as usize));
-        self.vscroll.offset = self.vscroll.limited_offset(self.vscroll.offset);
+        self.vscroll.rows_changed(rows);
         self.rows = rows;
     }
 
@@ -1982,9 +1980,7 @@ impl<Selection: TableSelection> TableState<Selection> {
     }
 
     /// Change the vertical offset.
-    ///
-    /// Due to overscroll it's possible that this is an invalid offset for the widget.
-    /// The widget must deal with this situation.
+    /// The vertical offset may be beyond the number of rows.
     ///
     /// The widget returns true if the offset changed at all.
     pub fn set_row_offset(&mut self, offset: usize) -> bool {
@@ -2054,6 +2050,8 @@ impl<Selection: TableSelection> TableState<Selection> {
     pub fn scroll_to_row(&mut self, pos: usize) -> bool {
         if pos >= self.rows {
             false
+        } else if self.page_len() == 0 {
+            self.set_row_offset(pos)
         } else if pos == self.row_offset().saturating_add(self.page_len()) {
             // the page might not fill the full area.
             let heights = self.row_areas.iter().map(|v| v.height).sum::<u16>();
@@ -2074,27 +2072,16 @@ impl<Selection: TableSelection> TableState<Selection> {
     /// Ensures that the given column is completely visible.
     pub fn scroll_to_col(&mut self, pos: usize) -> bool {
         if let Some(col) = self.column_layout.get(pos) {
-            if (col.left() as usize) < self.x_offset() {
-                self.set_x_offset(col.x as usize)
-            } else if (col.right() as usize) >= self.x_offset().saturating_add(self.page_width()) {
-                self.set_x_offset((col.right() as usize).saturating_sub(self.page_width()))
-            } else {
-                false
-            }
+            self.hscroll
+                .scroll_to_range(col.x as usize..col.right() as usize)
         } else {
             false
         }
     }
 
-    /// Ensures that the given position is visible.
+    /// Ensures that the given cell position is visible.
     pub fn scroll_to_x(&mut self, pos: usize) -> bool {
-        if pos >= self.x_offset().saturating_add(self.page_width()) {
-            self.set_x_offset(pos.saturating_sub(self.page_width()).saturating_add(1))
-        } else if pos < self.x_offset() {
-            self.set_x_offset(pos)
-        } else {
-            false
-        }
+        self.hscroll.scroll_to_pos(pos)
     }
 
     /// Reduce the row-offset by n.

@@ -526,9 +526,7 @@ impl<Selection: ListSelection> ListState<Selection> {
     /// This corrects the number of rows, offset and selection.
     pub fn rows_changed(&mut self, rows: usize) {
         self.selection.validate_rows(rows);
-        self.scroll
-            .set_max_offset(self.rows.saturating_sub(self.inner.height as usize));
-        self.scroll.offset = self.scroll.limited_offset(self.scroll.offset);
+        self.scroll.rows_changed(rows);
         self.rows = rows;
     }
 
@@ -570,7 +568,7 @@ impl<Selection: ListSelection> ListState<Selection> {
     #[inline]
     pub fn scroll_to_selected(&mut self) -> bool {
         if let Some(selected) = self.selection.lead_selection() {
-            self.scroll_to(selected)
+            self.scroll.scroll_to_pos(selected)
         } else {
             false
         }
@@ -578,13 +576,7 @@ impl<Selection: ListSelection> ListState<Selection> {
 
     #[inline]
     pub fn scroll_to(&mut self, pos: usize) -> bool {
-        if pos >= self.offset() + self.page_len() {
-            self.set_offset(pos - self.page_len() + 1)
-        } else if pos < self.offset() {
-            self.set_offset(pos)
-        } else {
-            false
-        }
+        self.scroll.scroll_to_pos(pos)
     }
 
     #[inline]
