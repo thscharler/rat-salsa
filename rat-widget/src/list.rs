@@ -323,39 +323,6 @@ fn render_list<Selection: ListSelection>(
     state.rows = widget.items.len();
     state.selection.validate_rows(state.rows);
 
-    let sa = ScrollArea::new()
-        .block(widget.block.as_ref())
-        .v_scroll(widget.scroll.as_ref());
-    state.inner = sa.inner(area, None, Some(&state.scroll));
-
-    // area for each item
-    state.row_areas.clear();
-    let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
-    let mut total_height = 0;
-    for item in widget.items.iter().skip(state.offset()) {
-        item_area.height = item.height() as u16;
-
-        state.row_areas.push(item_area);
-
-        item_area.y += item_area.height;
-        total_height += item_area.height;
-        if total_height >= state.inner.height {
-            break;
-        }
-    }
-    if total_height < state.inner.height {
-        state.scroll.set_page_len(
-            state.row_areas.len() + state.inner.height as usize - total_height as usize,
-        );
-    } else {
-        state.scroll.set_page_len(state.row_areas.len());
-    }
-
-    let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
-    let select_style = widget
-        .select_style
-        .unwrap_or(fallback_select_style(widget.style));
-
     // max_v_offset
     let mut n = 0;
     let mut height = 0;
@@ -367,6 +334,42 @@ fn render_list<Selection: ListSelection>(
         n += 1;
     }
     state.scroll.set_max_offset(state.rows.saturating_sub(n));
+
+    // list max's out the offset
+    state
+        .scroll
+        .set_offset(min(state.rows.saturating_sub(1), state.scroll.offset()));
+
+    let sa = ScrollArea::new()
+        .block(widget.block.as_ref())
+        .v_scroll(widget.scroll.as_ref());
+    state.inner = sa.inner(area, None, Some(&state.scroll));
+
+    // find area for each item
+    state.row_areas.clear();
+    state.scroll.set_page_len(0);
+    let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
+    for item in widget.items.iter().skip(state.offset()) {
+        item_area.height = item.height() as u16;
+        let visible_item_area = item_area.intersection(state.inner);
+        // only fully visible list-items are rendered by list.
+        // count only these.
+        if item_area == visible_item_area {
+            state.row_areas.push(visible_item_area);
+            state.scroll.set_page_len(state.scroll.page_len() + 1);
+        }
+
+        if item_area.bottom() >= state.inner.height {
+            break;
+        }
+
+        item_area.y += item_area.height;
+    }
+
+    let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
+    let select_style = widget
+        .select_style
+        .unwrap_or(fallback_select_style(widget.style));
 
     let (style, select_style) = if state.is_focused() {
         (widget.style, focus_style)
@@ -816,6 +819,7 @@ pub mod selection {
     use rat_scrolled::ScrollAreaState;
     use rat_scrolled::event::ScrollOutcome;
     use ratatui_crossterm::crossterm::event::{Event, KeyModifiers};
+    use std::cmp::max;
 
     /// No selection
     pub type NoSelection = rat_ftable::selection::NoSelection;
@@ -950,12 +954,12 @@ pub mod selection {
                     ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
                         self.move_to(0).into()
                     }
-                    ct_event!(keycode press PageUp) => {
-                        self.move_up(self.page_len().saturating_sub(1)).into()
-                    }
-                    ct_event!(keycode press PageDown) => {
-                        self.move_down(self.page_len().saturating_sub(1)).into()
-                    }
+                    ct_event!(keycode press PageUp) => self
+                        .move_up(max(1, self.page_len().saturating_sub(1)))
+                        .into(),
+                    ct_event!(keycode press PageDown) => self
+                        .move_down(max(1, self.page_len().saturating_sub(1)))
+                        .into(),
                     _ => Outcome::Continue,
                 }
             } else {
@@ -1086,16 +1090,16 @@ pub mod selection {
                     ct_event!(keycode press SHIFT-Home) => self.move_to(0, true).into(),
 
                     ct_event!(keycode press PageUp) => self
-                        .move_up(self.page_len().saturating_sub(1), false)
+                        .move_up(max(1, self.page_len().saturating_sub(1)), false)
                         .into(),
-                    ct_event!(keycode press SHIFT-PageUp) => {
-                        self.move_up(self.page_len().saturating_sub(1), true).into()
-                    }
+                    ct_event!(keycode press SHIFT-PageUp) => self
+                        .move_up(max(1, self.page_len().saturating_sub(1)), true)
+                        .into(),
                     ct_event!(keycode press PageDown) => self
-                        .move_down(self.page_len().saturating_sub(1), false)
+                        .move_down(max(1, self.page_len().saturating_sub(1)), false)
                         .into(),
                     ct_event!(keycode press SHIFT-PageDown) => self
-                        .move_down(self.page_len().saturating_sub(1), true)
+                        .move_down(max(1, self.page_len().saturating_sub(1)), true)
                         .into(),
                     _ => Outcome::Continue,
                 }
