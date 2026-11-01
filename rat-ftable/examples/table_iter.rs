@@ -86,6 +86,10 @@ fn render(
             self.item.is_some()
         }
 
+        fn row_height(&self) -> u16 {
+            2
+        }
+
         fn render_cell(&self, _ctx: &TableContext, column: usize, area: Rect, buf: &mut Buffer) {
             let row = self.item.expect("data");
             match column {

@@ -89,10 +89,11 @@ pub fn render_tablestate<Selection: Debug>(
 }
 
 pub fn render_tablestate_row(state: &TableState<RowSelection>, area: Rect, buf: &mut Buffer) {
-    let l_grid = layout_grid::<2, 12>(
+    let l_grid = layout_grid::<2, 13>(
         area,
         Layout::horizontal([Constraint::Length(15), Constraint::Length(20)]),
         Layout::vertical([
+            Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Length(1),
@@ -167,4 +168,9 @@ pub fn render_tablestate_row(state: &TableState<RowSelection>, area: Rect, buf: 
     format!("{:?}", state.selection.lead_row)
         .to_string()
         .render(l_grid[1][11], buf);
+
+    "row_heights".render(l_grid[0][12], buf);
+    format!("{}", state.row_heights.len())
+        .to_string()
+        .render(l_grid[1][12], buf);
 }

@@ -40,7 +40,7 @@ fn main() -> Result<(), anyhow::Error> {
                 num1: rand::random(),
                 num2: rand::random(),
                 check: rand::random(),
-                row_height: rand::random::<u16>() % 3,
+                row_height: rand::random::<u16>() % 4,
             })
             .take(100_000)
             .collect(),
@@ -160,6 +160,7 @@ fn render(
             Constraint::Length(15),
             Constraint::Length(3),
         ])
+        .varying_heights(true)
         .column_spacing(1)
         .header(Row::new([
             Cell::from("Nr"),
