@@ -1,3 +1,7 @@
+# 2.1.2
+
+* docs for macros
+
 # 2.1.1
 
 * fix: Default impl for FocusFlagCore.

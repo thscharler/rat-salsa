@@ -1,3 +1,10 @@
+# 3.1.1
+
+* fix: cloning the state for the text-widgets cloned 
+the Rc for the cursor position, this is wrong.  
+* fix: cloning the state rebuilt the focus callbacks
+for the wrong instance. 
+
 # 3.1.0
 
 * feat: support for mouse-focus.

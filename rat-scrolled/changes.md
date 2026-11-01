@@ -1,3 +1,10 @@
+# 2.0.3
+
+* fix: ScrollState::scroll_to_pos(): if the page_len is 0 uses the given 
+position as the new offset.
+* fix: ScrollState::scroll_to_range() works similarly. and it now limits
+the new offset. 
+
 # 2.0.2
 
 * use workspace dependencies

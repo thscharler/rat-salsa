@@ -1,3 +1,7 @@
+# 4.0.4
+
+* fix TimerHandle default
+
 # 4.0.3
 
 * move old theme crates from the main repo to rat-experimental.

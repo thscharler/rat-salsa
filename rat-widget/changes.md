@@ -1,3 +1,9 @@
+# 3.2.2
+
+* fix: page_len now matches the observed behavior of the underlying List.
+scroll_to_selected() and scroll_to_pos() now work correctly. 
+* fix: mark highlight_xxx functions and styles as unsupported. 
+
 # 3.2.1
 
 * fix: Menubar and PopupMenu didn't work correctly with mouse-focus.

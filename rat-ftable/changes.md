@@ -1,3 +1,24 @@
+# 2.2.1
+
+* fix scrolling behavior for scroll_to_pos().
+If the page_len is 0 it uses the given position as offset.
+This helps when setting the offset before the first render.
+* add Table::varying_heights().
+If this is set, then the individual row-heights for all the 
+rows are stored as part of the state. If this flag is not used, 
+the height of the last rendered row is stored in the state.
+
+This information is used in scroll_to_row() to ensure that the 
+row is made fully visible.
+
+TableState::items_removed() fixes the row_height vec too.
+TableState::rows_changed() clears the row-heights and sets 
+the page-len to 0. Any call to scroll_to_row() will display
+the given row on the top of the table.
+TableState::items_added() will fill in the row_height vec 
+with rowheights of 1. If this is not good enough there 
+is the new items_added_with_heigths() function.
+
 # 2.2.0
 
 * feat: use mouse-focus
