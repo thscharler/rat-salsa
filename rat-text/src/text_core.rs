@@ -55,7 +55,7 @@ impl<Store: Clone> Clone for TextCore<Store> {
     fn clone(&self) -> Self {
         Self {
             text: self.text.clone(),
-            cursor: self.cursor.clone(),
+            cursor: Rc::new(self.cursor.as_ref().clone()),
             styles: self.styles.clone(),
             undo: self.undo.as_ref().map(|v| clone_box(v.as_ref())),
             clip: self.clip.as_ref().map(|v| clone_box(v.as_ref())),

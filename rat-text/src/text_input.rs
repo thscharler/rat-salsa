@@ -537,7 +537,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
 impl Clone for TextInputState {
     fn clone(&self) -> Self {
-        Self {
+        let mut z = Self {
             area: self.area,
             inner: self.inner,
             rendered: self.rendered,
@@ -550,10 +550,12 @@ impl Clone for TextInputState {
             overwrite: Rc::new(Cell::new(self.overwrite.get())),
             on_focus_gained: Rc::new(Cell::new(self.on_focus_gained.get())),
             on_focus_lost: Rc::new(Cell::new(self.on_focus_lost.get())),
-            focus: self.focus_cb(self.focus.new_instance()),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
-        }
+        };
+        z.focus = z.focus_cb(z.focus.clone());
+        z
     }
 }
 

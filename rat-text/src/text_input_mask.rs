@@ -553,7 +553,7 @@ fn render_ref(
 
 impl Clone for MaskedInputState {
     fn clone(&self) -> Self {
-        Self {
+        let mut z = Self {
             area: self.area,
             inner: self.inner,
             rendered: self.rendered,
@@ -569,10 +569,12 @@ impl Clone for MaskedInputState {
             on_focus_gained: Rc::new(Cell::new(self.on_focus_gained.get())),
             on_focus_lost: Rc::new(Cell::new(self.on_focus_lost.get())),
             on_tab: self.on_tab,
-            focus: self.focus_cb(self.focus.new_instance()),
+            focus: self.focus.new_instance(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
-        }
+        };
+        z.focus = z.focus_cb(z.focus.clone());
+        z
     }
 }
 
@@ -2393,7 +2395,7 @@ impl HandleEvent<Event, ReadOnly, TextOutcome> for MaskedInputState {
 impl HandleEvent<Event, MouseOnly, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TextOutcome {
         if !self.has_mouse_focus() {
-            return TextOutcome::Continue
+            return TextOutcome::Continue;
         }
 
         fn clear_overwrite(state: &mut MaskedInputState) {
