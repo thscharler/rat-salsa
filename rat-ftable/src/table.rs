@@ -1130,20 +1130,13 @@ where
             row = Some(state.vscroll.offset());
             loop {
                 ctx.row_style = data.row_style();
-                // We render each row to a temporary buffer.
-                // For ease of use we start each row at 0,0.
-                // We still only render at least partially visible cells.
+
+                // Each row is rendered to a temporary buffer first,
+                // and the complete row is then copied to the target
+                // buffer. This enables the column offset and any
+                // clipping needed. Still only at least partially
+                // visible cells are rendered.
                 let render_row_area = Rect::new(0, 0, width, data.row_height());
-                ctx.row_area = render_row_area;
-                row_buf.resize(render_row_area);
-                if self.auto_styles {
-                    if let Some(row_style) = ctx.row_style {
-                        row_buf.set_style(render_row_area, row_style);
-                    } else {
-                        row_buf.set_style(render_row_area, self.style);
-                    }
-                }
-                row_heights.push(render_row_area.height);
 
                 // Target area for the finished row.
                 let visible_row_area = Rect::new(
@@ -1153,14 +1146,23 @@ where
                     render_row_area.height,
                 )
                 .intersection(state.table_area);
-                state.row_areas.push(visible_row_area);
-                // only count fully visible rows.
-                if render_row_area.height == visible_row_area.height {
-                    state.vscroll.set_page_len(state.vscroll.page_len() + 1);
-                }
 
-                // can skip this entirely
+                row_heights.push(render_row_area.height);
+                ctx.row_area = render_row_area;
+                state.row_areas.push(visible_row_area);
+                state.vscroll.page_len += 1;
+
                 if render_row_area.height > 0 {
+                    row_buf.resize(render_row_area);
+
+                    if self.auto_styles {
+                        if let Some(row_style) = ctx.row_style {
+                            row_buf.set_style(render_row_area, row_style);
+                        } else {
+                            row_buf.set_style(render_row_area, self.style);
+                        }
+                    }
+
                     let mut col = 0;
                     loop {
                         if col >= state.columns {
@@ -1173,6 +1175,15 @@ where
                             l_columns[col].width,
                             render_row_area.height,
                         );
+
+                        if render_cell_area.right() <= state.hscroll.offset as u16
+                            || render_cell_area.left() >= state.hscroll.offset as u16 + area.width
+                        {
+                            // skip invisible cells.
+                            col += 1;
+                            continue;
+                        }
+
                         ctx.space_area = Rect::new(
                             l_spacers[col + 1].x,
                             0,
@@ -1223,18 +1234,13 @@ where
                             ctx.select_style = None;
                         }
 
-                        // partially visible?
-                        if render_cell_area.right() > state.hscroll.offset as u16
-                            || render_cell_area.left() < state.hscroll.offset as u16 + area.width
-                        {
-                            if self.auto_styles {
-                                if let Some(select_style) = ctx.select_style {
-                                    row_buf.set_style(render_cell_area, select_style);
-                                    row_buf.set_style(ctx.space_area, select_style);
-                                }
+                        if self.auto_styles {
+                            if let Some(select_style) = ctx.select_style {
+                                row_buf.set_style(render_cell_area, select_style);
+                                row_buf.set_style(ctx.space_area, select_style);
                             }
-                            data.render_cell(&ctx, col, render_cell_area, &mut row_buf);
                         }
+                        data.render_cell(&ctx, col, render_cell_area, &mut row_buf);
 
                         col += 1;
                     }
