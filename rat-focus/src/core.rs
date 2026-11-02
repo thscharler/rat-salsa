@@ -432,7 +432,7 @@ impl FocusCore {
         let pos = (col, row).into();
 
         let mut z_container: Vec<(usize, u16)> = Vec::new();
-        let mut z_widget: Option<(usize, u16)> = None;
+        let mut z_widget: Vec<(usize, u16)> = Vec::new();
         for (idx, (sub, _)) in self.containers.iter().enumerate() {
             if sub.area.0.contains(pos) {
                 focus_debug!(
@@ -469,12 +469,15 @@ impl FocusCore {
                     area.1
                 );
 
-                if let Some(zz) = z_widget {
-                    if zz.1 <= area.1 {
-                        z_widget = Some((idx, area.1));
+                if let Some(zz) = z_widget.last() {
+                    if zz.1 < area.1 {
+                        z_widget.clear();
+                        z_widget.push((idx, area.1));
+                    } else if zz.1 == area.1 {
+                        z_widget.push((idx, area.1));
                     }
                 } else {
-                    z_widget = Some((idx, area.1));
+                    z_widget.push((idx, area.1));
                 }
             }
         }
@@ -498,7 +501,7 @@ impl FocusCore {
             self.containers[idx].0.container_flag.set_mouse_focus(true);
             r = true;
         }
-        if let Some((idx, _)) = z_widget {
+        for (idx, _) in z_widget {
             focus_debug!(
                 self,
                 "    => mouse-focus {:?} {:?} z={}",

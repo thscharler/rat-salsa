@@ -252,29 +252,22 @@ pub trait HasFocus {
         self.focus().gained()
     }
 
-    /// This flag is set by [Focus::handle], if a mouse-event
-    /// matches one of the areas associated with a widget.
+    /// This flag indicates which widgets are obscured by
+    /// other widgets/containers. true indicates an unobscured
+    /// widget.
     ///
-    /// > It searches all containers for an area-match. All
-    /// matching areas will have the flag set.
-    /// If an area with a higher z is found, all previously
-    /// found areas are discarded.
+    /// The flag is set by [Focus::handle] for each mouse-event.
     ///
-    /// > The z value for the last container is taken as a baseline.
-    /// Only widgets with a z greater or equal are considered.
-    /// If multiple widget areas are matching, the last one
-    /// will get the flag set.
+    /// It does a hit-test for all container areas, and the
+    /// container with the highest z-index wins. There may
+    /// be multiple containers with the same z-index, and
+    /// all of them have the flag set.
     ///
-    /// This rules enable popup-windows with complex ui's.
-    /// The popup-container starts with a z=1 and all widgets
-    /// within also get the same z. With the given rules, all
-    /// widgets underneath the popup are ignored.
-    ///
-    /// * This flag starts with a default `true`. This allows
-    ///   widgets to work, even if Focus is not used.
-    /// * Mouse drag events are not bound to any area.
-    ///   Instead, they set the mouse-focus to true for all
-    ///   widgets and containers.
+    /// Second is a hit-test for all widgets areas. Only
+    /// widgets with at least the same z-index as the
+    /// container are considered. There may be multiple
+    /// widgets with the same z-index, and all of them
+    /// have the flag set.
     fn has_mouse_focus(&self) -> bool {
         self.focus().mouse_focus()
     }

@@ -305,6 +305,12 @@ impl FocusFlag {
 
     /// Is the mouse-focus set for this widget.
     ///
+    /// This will be false if a widget-area with a higher
+    /// z-value than this one is found for the current
+    /// mouse position.
+    ///
+    /// This allows obscuring widgets underneath a popup window.
+    ///
     /// This function will return true, if [Focus::handle] is never called.
     ///
     /// See [HasFocus::has_mouse_focus()]
