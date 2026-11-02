@@ -149,6 +149,13 @@ impl EndlessScrollState {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn named(name: &str) -> Self {
+        Self {
+            focus: FocusFlag::new().with_name(name),
+            ..Default::default()
+        }
+    }
 }
 
 impl HandleEvent<Event, Regular, Outcome> for EndlessScrollState {

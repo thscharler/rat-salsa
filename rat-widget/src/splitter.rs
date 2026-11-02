@@ -755,8 +755,7 @@ impl HasFocus for SplitState {
     }
 
     fn area(&self) -> Rect {
-        // not mouse focusable
-        Rect::default()
+        self.inner
     }
 
     fn navigable(&self) -> Navigation {

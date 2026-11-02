@@ -34,12 +34,12 @@ fn main() -> Result<(), anyhow::Error> {
         inner_border_type: None,
         resize: Default::default(),
         focus: Default::default(),
-        split: Default::default(),
-        left: Default::default(),
-        right: Default::default(),
-        right_right: Default::default(),
-        menu: Default::default(),
-        status: Default::default(),
+        split: SplitState::named("split"),
+        left: ParagraphState::named("left"),
+        right: EndlessScrollState::named("right"),
+        right_right: EndlessScrollState::named("right_right"),
+        menu: MenuLineState::named("menu"),
+        status: StatusLineState::named("status"),
     };
     state.menu.focus.set(true);
 
