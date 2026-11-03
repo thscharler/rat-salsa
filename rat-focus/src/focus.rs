@@ -276,9 +276,9 @@ impl Focus {
     /// and there are no containers/widgets with a *higher*
     /// z-index.
     #[inline(always)]
-    pub fn test_obscured(&self, col: u16, row: u16) -> bool {
-        focus_debug!(self.core, "mouse-focus {} {}", col, row);
-        self.core.test_obscured(col, row)
+    pub fn find_obscured(&self, col: u16, row: u16) -> bool {
+        focus_debug!(self.core, "find_obscured {} {}", col, row);
+        self.core.find_obscured(col, row)
     }
 
     /// Focus the next widget in the cycle.
@@ -794,7 +794,7 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
                 row: r,
                 ..
             }) => {
-                self.test_obscured(*c, *r);
+                self.find_obscured(*c, *r);
             }
             _ => {}
         };

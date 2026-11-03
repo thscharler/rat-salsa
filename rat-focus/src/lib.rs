@@ -254,12 +254,9 @@ pub trait HasFocus {
 
     /// Is the widget area hit by the current mouse-position
     /// and is there no other widget/container with a
-    /// higher z-index.
+    /// higher z-index. Then this widget is *not* obscured.
     ///
-    /// This flag is only set when handling a mouse-event,
-    /// otherwise it will be always false.
-    ///
-    /// See [HasFocus::is_obscured()]
+    /// This flag is set when handling a mouse-event.
     fn is_obscured(&self) -> bool {
         self.focus().obscured()
     }

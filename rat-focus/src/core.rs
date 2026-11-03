@@ -379,7 +379,7 @@ impl FocusCore {
         }
     }
 
-    /// Reset all lost+gained+focus flags.
+    /// Reset all flags.
     pub(crate) fn reset(&self) {
         for f in self.focus_flags.iter() {
             f.set(false);
@@ -391,7 +391,7 @@ impl FocusCore {
             f.container_flag.set(false);
             f.container_flag.set_gained(false);
             f.container_flag.set_lost(false);
-            f.container_flag.set_obscured(true);
+            f.container_flag.set_obscured(false);
         }
     }
 
@@ -466,7 +466,7 @@ impl FocusCore {
     }
 
     /// Set the obscured flag.
-    pub(crate) fn test_obscured(&self, col: u16, row: u16) -> bool {
+    pub(crate) fn find_obscured(&self, col: u16, row: u16) -> bool {
         let pos = (col, row).into();
 
         let mut z_container = self.tmp_container.take();
@@ -521,7 +521,8 @@ impl FocusCore {
             }
         }
 
-        // now we have possibly multiple containers and widgets.
+        // set the obscured flag for all widgets and containers
+        // and reset for the known good ones.
         for (c, _) in self.containers.iter() {
             c.container_flag.set_obscured(true);
         }
@@ -532,7 +533,7 @@ impl FocusCore {
         for (idx, _) in z_container.iter().copied() {
             focus_debug!(
                 self,
-                "    => obscured {:?} {:?} z={}",
+                "    => unobscured {:?} {:?} z={}",
                 self.containers[idx].0.container_flag.name(),
                 self.containers[idx].0.area.0,
                 self.containers[idx].0.area.1
@@ -543,7 +544,7 @@ impl FocusCore {
         for (idx, _) in z_widget.iter().copied() {
             focus_debug!(
                 self,
-                "    => mouse-focus {:?} {:?} z={}",
+                "    => unobscured {:?} {:?} z={}",
                 self.focus_flags[idx].name(),
                 self.areas[idx].0,
                 self.areas[idx].1,

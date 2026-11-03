@@ -119,29 +119,15 @@ struct FocusFlagCore {
     /// the `handle` event for a widget will be called while
     /// the lost flag is still set.
     on_lost: RefCell<Option<Box<dyn Fn()>>>,
-    /// This flag is set by [Focus::handle], if a mouse-event
-    /// matches one of the areas associated with a widget.
+    /// Hit-tests all widgets for the given position.
+    /// Obscured is set to false if the widget-area is hit
+    /// and there are no containers/widgets with a *higher*
+    /// z-index.
     ///
-    /// > It searches all containers for an area-match. All
-    /// matching areas will have the flag set.
-    /// If an area with a higher z is found, all previously
-    /// found areas are discarded.
+    /// This flag is set by [Focus::handle] for every mouse-event.
     ///
-    /// > The z value for the last container is taken as a baseline.
-    /// Only widgets with a z greater or equal are considered.
-    /// If multiple widget areas are matching, the last one
-    /// will get the flag set.
-    ///
-    /// This rules enable popup-windows with complex ui's.
-    /// The popup-container starts with a z=1 and all widgets
-    /// within also get the same z. With the given rules, all
-    /// widgets underneath the popup are ignored.
-    ///
-    /// * This flag starts with a default `true`. This allows
-    ///   widgets to work, even if Focus is not used.
-    /// * Mouse drag events are not bound to any area.
-    ///   Instead, they set the mouse-focus to true for all
-    ///   widgets and containers.
+    /// The purpose is to disable mouse-event handling where a
+    /// popup is covering some widget.
     obscured: Cell<bool>,
 }
 
@@ -297,7 +283,7 @@ impl FocusFlag {
         }
     }
 
-    /// Set the mouse-focus for this widget.
+    /// Set the obscured flag.
     #[inline]
     pub fn set_obscured(&self, mf: bool) {
         self.0.obscured.set(mf);
@@ -305,10 +291,9 @@ impl FocusFlag {
 
     /// Is the widget area hit by the current mouse-position
     /// and is there no other widget/container with a
-    /// higher z-index.
+    /// higher z-index. Then this widget is *not* obscured.
     ///
-    /// This flag is only set when handling a mouse-event,
-    /// otherwise it will be always false.
+    /// This flag is set when handling a mouse-event.
     ///
     /// See [HasFocus::is_obscured()]
     #[inline]
