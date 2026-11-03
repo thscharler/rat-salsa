@@ -1655,7 +1655,7 @@ fn handle_mouse<T: PartialEq + Clone + Default>(
         _ => {}
     }
 
-    if !state.has_mouse_focus() {
+    if state.is_obscured() {
         return ChoiceOutcome::Continue;
     }
 
@@ -1681,7 +1681,7 @@ fn handle_select<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
     event: &Event,
 ) -> ChoiceOutcome {
-    if !state.has_mouse_focus() {
+    if state.is_obscured() {
         return ChoiceOutcome::Continue;
     }
 
@@ -1829,7 +1829,7 @@ fn handle_close<T: PartialEq + Clone + Default>(
     state: &mut ChoiceState<T>,
     event: &Event,
 ) -> ChoiceOutcome {
-    if !state.has_mouse_focus() {
+    if state.is_obscured() {
         return ChoiceOutcome::Continue;
     }
 

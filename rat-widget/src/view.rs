@@ -801,7 +801,7 @@ impl HandleEvent<Event, Regular, Outcome> for ViewState {
 
 impl HandleEvent<Event, MouseOnly, Outcome> for ViewState {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> Outcome {
-        if !self.has_mouse_focus() {
+        if self.is_obscured() {
             return Outcome::Continue;
         }
 

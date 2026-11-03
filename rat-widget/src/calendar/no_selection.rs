@@ -80,10 +80,10 @@ impl<const N: usize> HandleEvent<Event, MouseOnly, CalOutcome> for CalendarState
             }
         }
 
-        if !self.has_mouse_focus() {
-            return CalOutcome::Continue
-        }        
-        
+        if self.is_obscured() {
+            return CalOutcome::Continue;
+        }
+
         let all_areas = self
             .months
             .iter()

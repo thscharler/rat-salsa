@@ -729,8 +729,8 @@ impl HandleEvent<Event, Regular, MenuOutcome> for MenuLineState {
 
 impl HandleEvent<Event, MouseOnly, MenuOutcome> for MenuLineState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> MenuOutcome {
-        if !self.has_mouse_focus() {
-            return MenuOutcome::Continue
+        if self.is_obscured() {
+            return MenuOutcome::Continue;
         }
 
         match event {

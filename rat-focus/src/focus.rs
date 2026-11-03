@@ -233,9 +233,12 @@ impl Focus {
         } else {
             focus_debug!(self.core, "future focus");
             self.core.none();
+            let had_focus = flag.get();
             flag.set(true);
-            flag.set_gained(true);
-            flag.call_on_gained();
+            if !had_focus {
+                flag.set_gained(true);
+                flag.call_on_gained();
+            }
             focus_debug!(self.core, "    -> done");
         }
     }
@@ -260,22 +263,22 @@ impl Focus {
         }
     }
 
-    /// Reset the mouse-focus flag to __true__.
+    /// Reset the obscured flag to __false__.
     #[inline(always)]
-    pub fn reset_mouse_focus(&self) -> bool {
-        self.core.reset_mouse_focus()
+    pub fn clear_obscured(&self) -> bool {
+        self.core.clear_obscured()
     }
 
-    /// Set the mouse-focus to the given position.  
+    /// Sets the obscured state for the given position.
     ///
-    /// The top-most widget with a matching area will have
-    /// its mouse_focus flag set. Any containers
-    /// with an associated area that matches, will get
-    /// their mouse_focus flag set too.
+    /// Hit-tests all widgets for the given position and
+    /// sets obscured to false if the widget-area is hit
+    /// and there are no containers/widgets with a *higher*
+    /// z-index.
     #[inline(always)]
-    pub fn mouse_focus(&self, col: u16, row: u16) -> bool {
+    pub fn test_obscured(&self, col: u16, row: u16) -> bool {
         focus_debug!(self.core, "mouse-focus {} {}", col, row);
-        self.core.mouse_focus(col, row)
+        self.core.test_obscured(col, row)
     }
 
     /// Focus the next widget in the cycle.
@@ -776,7 +779,7 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
                 kind: crossterm::event::MouseEventKind::Drag(_),
                 ..
             }) => {
-                self.reset_mouse_focus();
+                self.clear_obscured();
             }
             Event::Mouse(crossterm::event::MouseEvent {
                 kind:
@@ -791,7 +794,7 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
                 row: r,
                 ..
             }) => {
-                self.mouse_focus(*c, *r);
+                self.test_obscured(*c, *r);
             }
             _ => {}
         };

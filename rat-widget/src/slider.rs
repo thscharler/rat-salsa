@@ -1190,7 +1190,7 @@ where
     u16: MapRange<T>,
 {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> SliderOutcome {
-        if !self.has_mouse_focus() {
+        if self.is_obscured() {
             return SliderOutcome::Continue;
         }
 

@@ -252,24 +252,16 @@ pub trait HasFocus {
         self.focus().gained()
     }
 
-    /// This flag indicates which widgets are obscured by
-    /// other widgets/containers. true indicates an unobscured
-    /// widget.
+    /// Is the widget area hit by the current mouse-position
+    /// and is there no other widget/container with a
+    /// higher z-index.
     ///
-    /// The flag is set by [Focus::handle] for each mouse-event.
+    /// This flag is only set when handling a mouse-event,
+    /// otherwise it will be always false.
     ///
-    /// It does a hit-test for all container areas, and the
-    /// container with the highest z-index wins. There may
-    /// be multiple containers with the same z-index, and
-    /// all of them have the flag set.
-    ///
-    /// Second is a hit-test for all widgets areas. Only
-    /// widgets with at least the same z-index as the
-    /// container are considered. There may be multiple
-    /// widgets with the same z-index, and all of them
-    /// have the flag set.
-    fn has_mouse_focus(&self) -> bool {
-        self.focus().mouse_focus()
+    /// See [HasFocus::is_obscured()]
+    fn is_obscured(&self) -> bool {
+        self.focus().obscured()
     }
 }
 

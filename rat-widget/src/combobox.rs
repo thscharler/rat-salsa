@@ -807,7 +807,7 @@ fn handle_mouse(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
         _ => {}
     }
 
-    if !state.has_mouse_focus() {
+    if state.is_obscured() {
         return ComboboxOutcome::Continue;
     }
 
@@ -829,7 +829,7 @@ fn handle_mouse(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
 }
 
 fn handle_select(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
-    if !state.has_mouse_focus() {
+    if state.is_obscured() {
         return ComboboxOutcome::Continue;
     }
 
@@ -976,7 +976,7 @@ fn handle_select(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
 }
 
 fn handle_close(state: &mut ComboboxState, event: &Event) -> ComboboxOutcome {
-    if !state.has_mouse_focus() {
+    if state.is_obscured() {
         return ComboboxOutcome::Continue;
     }
 

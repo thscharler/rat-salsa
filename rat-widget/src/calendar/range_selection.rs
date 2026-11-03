@@ -330,8 +330,8 @@ impl HandleEvent<Event, Regular, CalOutcome> for MonthState<RangeSelection> {
 
 impl HandleEvent<Event, MouseOnly, CalOutcome> for MonthState<RangeSelection> {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> CalOutcome {
-        if !self.has_mouse_focus() {
-            return CalOutcome::Continue
+        if self.is_obscured() {
+            return CalOutcome::Continue;
         }
         let mut r = match event {
             ct_event!(mouse any for m)
@@ -492,10 +492,10 @@ impl<const N: usize> HandleEvent<Event, MouseOnly, CalOutcome>
     for CalendarState<N, RangeSelection>
 {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> CalOutcome {
-        if !self.has_mouse_focus() {
-            return CalOutcome::Continue
+        if self.is_obscured() {
+            return CalOutcome::Continue;
         }
-        
+
         for i in 0..self.months.len() {
             if self.months[i].gained_focus() {
                 self.set_primary_idx(i);

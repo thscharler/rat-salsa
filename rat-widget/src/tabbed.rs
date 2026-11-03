@@ -600,7 +600,7 @@ impl HandleEvent<Event, Regular, TabbedOutcome> for TabbedState {
 
 impl HandleEvent<Event, MouseOnly, TabbedOutcome> for TabbedState {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> TabbedOutcome {
-        if !self.has_mouse_focus() {
+        if self.is_obscured() {
             return TabbedOutcome::Continue;
         }
 

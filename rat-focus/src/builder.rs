@@ -416,6 +416,8 @@ impl FocusBuilder {
                 navigable: self.navigable,
                 container_ids: self.container_ids,
                 containers: self.containers,
+                tmp_widget: Default::default(),
+                tmp_container: Default::default(),
             },
         }
     }

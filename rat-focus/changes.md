@@ -1,3 +1,9 @@
+# 2.2.0
+
+* break: rename the 'mouse_focus' features to 'obscured'. 
+the previous name is too confusing. It can now be described
+with a single sentence instead of 4 paragraphs.
+
 # 2.1.2
 
 * docs for macros

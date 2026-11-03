@@ -2889,7 +2889,7 @@ impl HandleEvent<Event, ReadOnly, TextOutcome> for TextAreaState {
 
 impl HandleEvent<Event, MouseOnly, TextOutcome> for TextAreaState {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TextOutcome {
-        if !self.has_mouse_focus() {
+        if self.is_obscured() {
             return TextOutcome::Continue;
         }
 

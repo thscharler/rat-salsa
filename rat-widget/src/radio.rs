@@ -1100,7 +1100,7 @@ where
     T: PartialEq + Clone + Default,
 {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> RadioOutcome {
-        if !self.has_mouse_focus() {
+        if self.is_obscured() {
             return RadioOutcome::Continue;
         }
 

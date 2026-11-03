@@ -1143,8 +1143,8 @@ where
     W: Eq + Clone + Hash,
 {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
-        if !self.has_mouse_focus() {
-            return Outcome::Continue
+        if self.is_obscured() {
+            return Outcome::Continue;
         }
 
         let mut sas = ScrollAreaState::new()

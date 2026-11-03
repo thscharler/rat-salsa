@@ -500,10 +500,10 @@ impl HandleEvent<Event, Regular, Outcome> for ParagraphState {
 
 impl HandleEvent<Event, MouseOnly, Outcome> for ParagraphState {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
-        if !self.has_mouse_focus() {
-            return Outcome::Continue
+        if self.is_obscured() {
+            return Outcome::Continue;
         }
-        
+
         let mut sas = ScrollAreaState::new()
             .area(self.inner)
             .h_scroll(&mut self.hscroll)

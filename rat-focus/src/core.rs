@@ -3,6 +3,7 @@ use fxhash::FxBuildHasher;
 use ratatui_core::layout::Rect;
 use std::cell::Cell;
 use std::collections::HashSet;
+use std::fmt::{Debug, Formatter};
 use std::ops::Range;
 
 macro_rules! focus_debug {
@@ -41,7 +42,7 @@ pub(crate) struct Container {
 }
 
 /// Focus core.
-#[derive(Debug, Default, Clone)]
+#[derive(Default)]
 pub(crate) struct FocusCore {
     /// Focus logging
     pub(crate) log: Cell<bool>,
@@ -66,6 +67,41 @@ pub(crate) struct FocusCore {
     /// all disjoint or completely contained within one other.
     /// No crossing intersections.
     pub(crate) containers: Vec<(Container, Range<usize>)>,
+
+    // scratch space for hit-testing
+    pub(crate) tmp_widget: Cell<Vec<(usize, u16)>>,
+    // scratch space for hit-testing
+    pub(crate) tmp_container: Cell<Vec<(usize, u16)>>,
+}
+
+impl Debug for FocusCore {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FocusCore")
+            .field("focus_flags", &self.focus_flags)
+            .field("duplicate", &self.duplicate)
+            .field("areas", &self.areas)
+            .field("navigable", &self.navigable)
+            .field("containers", &self.containers)
+            .finish()
+    }
+}
+
+impl Clone for FocusCore {
+    fn clone(&self) -> Self {
+        Self {
+            log: self.log.clone(),
+            insta_panic: self.insta_panic.clone(),
+            focus_ids: self.focus_ids.clone(),
+            focus_flags: self.focus_flags.clone(),
+            duplicate: self.duplicate.clone(),
+            areas: self.areas.clone(),
+            navigable: self.navigable.clone(),
+            container_ids: self.container_ids.clone(),
+            containers: self.containers.clone(),
+            tmp_widget: Cell::new(vec![]),
+            tmp_container: Cell::new(vec![]),
+        }
+    }
 }
 
 impl FocusCore {
@@ -203,6 +239,8 @@ impl FocusCore {
             navigable,
             container_ids: sub_container_ids,
             containers: sub_containers,
+            tmp_widget: Default::default(),
+            tmp_container: Default::default(),
         }
     }
 
@@ -347,13 +385,13 @@ impl FocusCore {
             f.set(false);
             f.set_lost(false);
             f.set_gained(false);
-            f.set_mouse_focus(true);
+            f.set_obscured(false);
         }
         for (f, _) in self.containers.iter() {
             f.container_flag.set(false);
             f.container_flag.set_gained(false);
             f.container_flag.set_lost(false);
-            f.container_flag.set_mouse_focus(true);
+            f.container_flag.set_obscured(true);
         }
     }
 
@@ -369,17 +407,17 @@ impl FocusCore {
         }
     }
 
-    /// Clear the mouse-focus flag and set it to true for
+    /// Clear the obscured flag and set it to false for
     /// all widgets and containers.
-    pub(crate) fn reset_mouse_focus(&self) -> bool {
+    pub(crate) fn clear_obscured(&self) -> bool {
         let mut r = false;
         for (sub, _) in self.containers.iter() {
-            r |= sub.container_flag.mouse_focus();
-            sub.container_flag.set_mouse_focus(true);
+            r |= sub.container_flag.obscured();
+            sub.container_flag.set_obscured(false);
         }
         for w in self.focus_flags.iter() {
-            r |= w.mouse_focus();
-            w.set_mouse_focus(true);
+            r |= w.obscured();
+            w.set_obscured(false);
         }
         r
     }
@@ -427,12 +465,13 @@ impl FocusCore {
         self.__accumulate();
     }
 
-    /// Set the mouse-focus flag.
-    pub(crate) fn mouse_focus(&self, col: u16, row: u16) -> bool {
+    /// Set the obscured flag.
+    pub(crate) fn test_obscured(&self, col: u16, row: u16) -> bool {
         let pos = (col, row).into();
 
-        let mut z_container: Vec<(usize, u16)> = Vec::new();
-        let mut z_widget: Vec<(usize, u16)> = Vec::new();
+        let mut z_container = self.tmp_container.take();
+        let mut z_widget = self.tmp_widget.take();
+
         for (idx, (sub, _)) in self.containers.iter().enumerate() {
             if sub.area.0.contains(pos) {
                 focus_debug!(
@@ -482,26 +521,26 @@ impl FocusCore {
             }
         }
 
-        // now we have possibly multiple containers and a single widget.
+        // now we have possibly multiple containers and widgets.
         for (c, _) in self.containers.iter() {
-            c.container_flag.set_mouse_focus(false);
+            c.container_flag.set_obscured(true);
         }
         for w in self.focus_flags.iter() {
-            w.set_mouse_focus(false);
+            w.set_obscured(true);
         }
         let mut r = false;
-        for (idx, _) in z_container {
+        for (idx, _) in z_container.iter().copied() {
             focus_debug!(
                 self,
-                "    => mouse-focus {:?} {:?} z={}",
+                "    => obscured {:?} {:?} z={}",
                 self.containers[idx].0.container_flag.name(),
                 self.containers[idx].0.area.0,
                 self.containers[idx].0.area.1
             );
-            self.containers[idx].0.container_flag.set_mouse_focus(true);
+            self.containers[idx].0.container_flag.set_obscured(false);
             r = true;
         }
-        for (idx, _) in z_widget {
+        for (idx, _) in z_widget.iter().copied() {
             focus_debug!(
                 self,
                 "    => mouse-focus {:?} {:?} z={}",
@@ -509,9 +548,12 @@ impl FocusCore {
                 self.areas[idx].0,
                 self.areas[idx].1,
             );
-            self.focus_flags[idx].set_mouse_focus(true);
+            self.focus_flags[idx].set_obscured(false);
             r = true;
         }
+
+        self.tmp_container.set(z_container);
+        self.tmp_container.set(z_widget);
 
         r
     }

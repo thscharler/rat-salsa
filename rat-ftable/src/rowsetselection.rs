@@ -415,7 +415,7 @@ impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSetSelection> {
 
 impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSetSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> TableOutcome {
-        if !self.has_mouse_focus() {
+        if self.is_obscured() {
             return TableOutcome::Continue;
         }
 

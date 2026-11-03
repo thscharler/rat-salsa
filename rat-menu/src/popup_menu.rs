@@ -880,7 +880,7 @@ impl HandleEvent<Event, Popup, MenuOutcome> for PopupMenuState {
 impl HandleEvent<Event, MouseOnly, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> MenuOutcome {
         if self.is_active() {
-            if !self.has_mouse_focus() {
+            if self.is_obscured() {
                 return MenuOutcome::Continue;
             }
 

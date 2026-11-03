@@ -1326,7 +1326,7 @@ impl HandleEvent<Event, Regular, Outcome> for SplitState {
 
 impl HandleEvent<Event, MouseOnly, Outcome> for SplitState {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> Outcome {
-        if !self.has_mouse_focus() {
+        if self.is_obscured() {
             return Outcome::Continue;
         }
 

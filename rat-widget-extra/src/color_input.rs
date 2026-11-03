@@ -1245,7 +1245,7 @@ impl HandleEvent<Event, MouseOnly, TextOutcome> for ColorInputState {
 
 fn handle_mouse(state: &mut ColorInputState, event: &Event) -> TextOutcome {
     if state.is_focused() {
-        if !state.has_mouse_focus() {
+        if state.is_obscured() {
             return TextOutcome::Continue;
         }
 

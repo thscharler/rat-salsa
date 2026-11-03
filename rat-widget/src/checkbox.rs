@@ -525,8 +525,8 @@ impl HandleEvent<Event, Regular, CheckOutcome> for CheckboxState {
 
 impl HandleEvent<Event, MouseOnly, CheckOutcome> for CheckboxState {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> CheckOutcome {
-        if !self.has_mouse_focus() {
-            return CheckOutcome::Continue
+        if self.is_obscured() {
+            return CheckOutcome::Continue;
         }
         match event {
             ct_event!(mouse any for m)

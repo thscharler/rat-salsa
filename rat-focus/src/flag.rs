@@ -142,7 +142,7 @@ struct FocusFlagCore {
     /// * Mouse drag events are not bound to any area.
     ///   Instead, they set the mouse-focus to true for all
     ///   widgets and containers.
-    mouse_focus: Cell<bool>,
+    obscured: Cell<bool>,
 }
 
 impl Debug for FocusFlag {
@@ -174,7 +174,7 @@ impl FocusFlag {
     /// might hold some Rc's to somewhere.
     /// You need to set them anew.
     pub fn new_instance(&self) -> Self {
-        Self(Rc::new(self.0.fake_clone()))
+        Self(Rc::new(self.0.new_instance()))
     }
 
     /// Return an identity value.
@@ -299,24 +299,21 @@ impl FocusFlag {
 
     /// Set the mouse-focus for this widget.
     #[inline]
-    pub fn set_mouse_focus(&self, mf: bool) {
-        self.0.mouse_focus.set(mf);
+    pub fn set_obscured(&self, mf: bool) {
+        self.0.obscured.set(mf);
     }
 
-    /// Is the mouse-focus set for this widget.
+    /// Is the widget area hit by the current mouse-position
+    /// and is there no other widget/container with a
+    /// higher z-index.
     ///
-    /// This will be false if a widget-area with a higher
-    /// z-value than this one is found for the current
-    /// mouse position.
+    /// This flag is only set when handling a mouse-event,
+    /// otherwise it will be always false.
     ///
-    /// This allows obscuring widgets underneath a popup window.
-    ///
-    /// This function will return true, if [Focus::handle] is never called.
-    ///
-    /// See [HasFocus::has_mouse_focus()]
+    /// See [HasFocus::is_obscured()]
     #[inline]
-    pub fn mouse_focus(&self) -> bool {
-        self.0.mouse_focus.get()
+    pub fn obscured(&self) -> bool {
+        self.0.obscured.get()
     }
 
     /// Reset all flags to false.
@@ -325,7 +322,7 @@ impl FocusFlag {
         self.0.focus.set(false);
         self.0.lost.set(false);
         self.0.gained.set(false);
-        self.0.mouse_focus.set(true);
+        self.0.obscured.set(false);
     }
 }
 
@@ -338,7 +335,7 @@ impl Default for FocusFlagCore {
             on_gained: RefCell::new(None),
             lost: Cell::new(false),
             on_lost: RefCell::new(None),
-            mouse_focus: Cell::new(true),
+            obscured: Cell::new(false),
         }
     }
 }
@@ -350,7 +347,8 @@ impl FocusFlagCore {
         self
     }
 
-    pub(crate) fn fake_clone(&self) -> Self {
+    /// Create a deep clone.
+    pub(crate) fn new_instance(&self) -> Self {
         Self {
             name: self.name.clone(),
             focus: Cell::new(self.focus.get()),
@@ -358,7 +356,7 @@ impl FocusFlagCore {
             on_gained: RefCell::new(None),
             lost: Cell::new(self.lost.get()),
             on_lost: RefCell::new(None),
-            mouse_focus: Cell::new(self.mouse_focus.get()),
+            obscured: Cell::new(self.obscured.get()),
         }
     }
 }
