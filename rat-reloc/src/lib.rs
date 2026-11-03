@@ -1,6 +1,7 @@
 #![doc = include_str!("../readme.md")]
 
 use ratatui_core::layout::{Position, Rect};
+use std::cmp::max;
 
 /// Widgets can be rendered to a temporary Buffer that will
 /// be dumped to the main render Buffer at a later point.
@@ -132,17 +133,30 @@ pub fn relocate_pos_tuple_opt(
     relocate_pos_tuple(pos, shift, clip)
 }
 
-/// Clipping might introduce another offset by cutting away
-/// part of an area that a widgets internal offset refers to.
+/// Calculates an offset even if the widget is shifted
+/// beyond the top-left corner.
 ///
-/// This calculates this dark, extra offset.
+/// Needed when you want to convert screen-coordinates to
+/// some widget-internal coordinate system.
+///
+/// Caveat: This is still limited to the range of i16.
 pub fn relocate_dark_offset(area: Rect, shift: (i16, i16), clip: Rect) -> (u16, u16) {
-    let relocated = relocate(area, shift);
-    let clipped = clipped(relocated, clip);
+    let rel_x0 = area.x as i16 + shift.0;
+    let rel_y0 = area.y as i16 + shift.1;
+    let clp_x0 = max(rel_x0, clip.x as i16);
+    let clp_y0 = max(rel_y0, clip.y as i16);
 
-    (clipped.x - relocated.x, clipped.y - relocated.y)
+    debug_assert!(clp_x0 - rel_x0 >= 0);
+    debug_assert!(clp_y0 - rel_y0 >= 0);
+
+    ((clp_x0 - rel_x0) as u16, (clp_y0 - rel_y0) as u16)
 }
 
+/// Relocates the given area by `shift`.
+/// This stops at (0,0) areas will not be moved further.
+///
+/// This is fine for hit-testing, but if you need a true
+/// relocation for other calculations use relocate_dark_offset.
 #[inline]
 fn relocate(area: Rect, shift: (i16, i16)) -> Rect {
     let x0 = area.left().saturating_add_signed(shift.0);
