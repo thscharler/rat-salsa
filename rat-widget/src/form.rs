@@ -857,7 +857,7 @@ where
     W: Eq + Hash + Clone,
 {
     fn build(&self, _builder: &mut FocusBuilder) {
-        // no content.
+        // not a widget, just a container.
     }
 
     fn focus(&self) -> FocusFlag {

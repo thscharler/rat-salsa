@@ -157,10 +157,12 @@ fn render(
 fn focus(state: &State) -> Focus {
     let mut fb = FocusBuilder::default();
     fb.widget(&state.menu);
+    let tag = fb.start(&state.form);
     for i in 0..state.hundred.len() {
         // Focus wants __all__ areas.
         fb.widget(&state.hundred[i]);
     }
+    fb.end(tag);
     fb.build()
 }
 
