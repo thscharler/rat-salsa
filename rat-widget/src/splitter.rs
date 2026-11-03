@@ -759,7 +759,11 @@ impl HasFocus for SplitState {
     }
 
     fn navigable(&self) -> Navigation {
-        Navigation::Leave
+        if self.is_focused() {
+            Navigation::Leave
+        } else {
+            Navigation::None
+        }
     }
 }
 

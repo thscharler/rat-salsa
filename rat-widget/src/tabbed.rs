@@ -497,11 +497,15 @@ impl HasFocus for TabbedState {
     }
 
     fn area(&self) -> Rect {
-        Rect::default()
+        self.area
     }
 
     fn navigable(&self) -> Navigation {
-        Navigation::Leave
+        if self.is_focused() {
+            Navigation::Leave
+        } else {
+            Navigation::None
+        }
     }
 }
 
