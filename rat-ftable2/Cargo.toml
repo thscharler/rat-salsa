@@ -22,6 +22,7 @@ rat-reloc = { workspace = true }
 rat-cursor = { workspace = true }
 rat-focus = { workspace = true }
 rat-scrolled = { workspace = true }
+rat-ftable = { workspace = true }
 
 [lints]
 workspace = true
