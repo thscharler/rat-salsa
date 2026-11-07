@@ -3,268 +3,15 @@ use crate::event::TableOutcome;
 use crate::table::TableState;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::HasFocus;
+use rat_ftable::selection::RowSetSelection;
 use rat_scrolled::ScrollAreaState;
 use rat_scrolled::event::ScrollOutcome;
 use ratatui_crossterm::crossterm::event::{Event, KeyModifiers};
-use std::cmp::{max, min};
-use std::collections::HashSet;
-use std::mem;
-
-/// Allows selection an active range of rows.
-///
-/// The current range can be retired to a set of selected rows,
-/// and a new range be started. This allows multiple interval
-/// selection and deselection of certain rows.
-///
-/// This one only supports row-selection.
-#[derive(Debug, Default, Clone)]
-pub struct RowSetSelection {
-    /// Start of the active selection.
-    pub anchor_row: Option<usize>,
-    /// Current end of the active selection.
-    pub lead_row: Option<usize>,
-    /// Retired rows. This doesn't contain the rows
-    /// between anchor and lead.
-    ///
-    /// You can call [RowSetSelection::retire_selection] to
-    /// add the anchor-lead range. This resets anchor and lead though.
-    /// Or iterate the complete range and call [RowSetSelection::is_selected_row].
-    pub selected: HashSet<usize>,
-}
-
-impl TableSelection for RowSetSelection {
-    /// Clear the selection.
-    fn clear(&mut self) {
-        self.anchor_row = None;
-        self.lead_row = None;
-        self.selected.clear();
-    }
-
-    #[allow(clippy::collapsible_else_if)]
-    #[allow(clippy::collapsible_if)]
-    fn is_selected_row(&self, row: usize) -> bool {
-        if let Some(mut anchor) = self.anchor_row {
-            if let Some(mut lead) = self.lead_row {
-                if lead < anchor {
-                    mem::swap(&mut lead, &mut anchor);
-                }
-                if row >= anchor && row <= lead {
-                    return true;
-                }
-            }
-        } else {
-            if let Some(lead) = self.lead_row {
-                if row == lead {
-                    return true;
-                }
-            }
-        }
-
-        self.selected.contains(&row)
-    }
-
-    fn is_selected_column(&self, _column: usize) -> bool {
-        false
-    }
-
-    fn is_selected_cell(&self, _column: usize, _row: usize) -> bool {
-        false
-    }
-
-    fn lead_selection(&self) -> Option<(usize, usize)> {
-        self.lead_row.map(|srow| (0, srow))
-    }
-
-    fn validate_rows(&mut self, rows: usize) {
-        if let Some(lead_row) = self.lead_row {
-            if rows == 0 {
-                self.lead_row = None;
-            } else if lead_row >= rows {
-                self.lead_row = Some(rows - 1);
-            }
-        }
-        if let Some(anchor_row) = self.anchor_row {
-            if rows == 0 {
-                self.anchor_row = None;
-            } else if anchor_row >= rows {
-                self.anchor_row = Some(rows - 1);
-            }
-        }
-        self.selected.retain(|v| *v < rows);
-    }
-
-    fn validate_cols(&mut self, _cols: usize) {}
-
-    fn items_added(&mut self, pos: usize, n: usize) {
-        if let Some(lead_row) = self.lead_row {
-            if lead_row > pos {
-                self.lead_row = Some(lead_row + n);
-            }
-        }
-        if let Some(anchor_row) = self.anchor_row {
-            if anchor_row > pos {
-                self.anchor_row = Some(anchor_row + n);
-            }
-        }
-        let corr = self.selected.extract_if(|v| *v > pos).collect::<Vec<_>>();
-        for v in corr {
-            self.selected.insert(v + n);
-        }
-    }
-
-    fn items_removed(&mut self, pos: usize, n: usize, rows: usize) {
-        if let Some(lead_row) = self.lead_row {
-            if rows == 0 {
-                self.lead_row = None;
-            } else if lead_row == pos && lead_row + n >= rows {
-                self.lead_row = Some(rows.saturating_sub(1))
-            } else if lead_row > pos {
-                self.lead_row = Some(lead_row.saturating_sub(n).min(pos));
-            }
-        }
-        if let Some(anchor_row) = self.anchor_row {
-            if rows == 0 {
-                self.anchor_row = None;
-            } else if anchor_row == pos && anchor_row + n >= rows {
-                self.anchor_row = Some(rows.saturating_sub(1))
-            } else if anchor_row > pos {
-                self.anchor_row = Some(anchor_row.saturating_sub(n).min(pos));
-            }
-        }
-        let corr = self.selected.extract_if(|v| *v > pos).collect::<Vec<_>>();
-        for v in corr {
-            if rows == 0 {
-                // removed
-            } else if v == pos && v + n >= rows {
-                self.selected.insert(rows.saturating_sub(1));
-            } else if v > pos {
-                self.selected.insert(v.saturating_sub(n).min(pos));
-            }
-        }
-    }
-}
-
-impl RowSetSelection {
-    /// New selection.
-    pub fn new() -> RowSetSelection {
-        RowSetSelection {
-            anchor_row: None,
-            lead_row: None,
-            selected: HashSet::new(),
-        }
-    }
-
-    /// Current lead.
-    pub fn lead(&self) -> Option<usize> {
-        self.lead_row
-    }
-
-    /// Current anchor.
-    pub fn anchor(&self) -> Option<usize> {
-        self.anchor_row
-    }
-
-    /// Set of all selected rows. Clones the retired set and adds the current anchor..lead range.
-    pub fn selected(&self) -> HashSet<usize> {
-        let mut selected = self.selected.clone();
-        Self::fill(self.anchor_row, self.lead_row, &mut selected);
-        selected
-    }
-
-    /// Has some selection.
-    pub fn has_selection(&self) -> bool {
-        self.lead_row.is_some() || !self.selected.is_empty()
-    }
-
-    /// Set a new lead. Maybe extend the range.
-    pub fn set_lead(&mut self, lead: Option<usize>, extend: bool) -> bool {
-        let old_selection = (self.anchor_row, self.lead_row);
-        self.extend(extend);
-        self.lead_row = lead;
-        old_selection != (self.anchor_row, self.lead_row)
-    }
-
-    /// Transfers the range anchor to lead to the selection set and reset both.
-    pub fn retire_selection(&mut self) {
-        Self::fill(self.anchor_row, self.lead_row, &mut self.selected);
-        self.anchor_row = None;
-        self.lead_row = None;
-    }
-
-    /// Add to selection. Only works for retired selections, not for the
-    /// active anchor-lead range.
-    pub fn add(&mut self, idx: usize) {
-        self.selected.insert(idx);
-    }
-
-    /// Remove from selection. Only works for retired selections, not for the
-    /// active anchor-lead range.
-    pub fn remove(&mut self, idx: usize) {
-        self.selected.remove(&idx);
-    }
-
-    /// Set a new lead, at the same time limit the lead to max.
-    pub fn move_to(&mut self, lead: usize, max: usize, extend: bool) -> bool {
-        let old_selection = (self.anchor_row, self.lead_row);
-        self.extend(extend);
-        if lead <= max {
-            self.lead_row = Some(lead);
-        } else {
-            self.lead_row = Some(max);
-        }
-        old_selection != (self.anchor_row, self.lead_row)
-    }
-
-    /// Select next. Maybe extend the range.
-    pub fn move_down(&mut self, n: usize, maximum: usize, extend: bool) -> bool {
-        let old_selection = (self.anchor_row, self.lead_row);
-        self.extend(extend);
-        self.lead_row = Some(self.lead_row.map_or(0, |v| min(v + n, maximum)));
-        old_selection != (self.anchor_row, self.lead_row)
-    }
-
-    /// Select next. Maybe extend the range.
-    pub fn move_up(&mut self, n: usize, maximum: usize, extend: bool) -> bool {
-        let old_selection = (self.anchor_row, self.lead_row);
-        self.extend(extend);
-        self.lead_row = Some(self.lead_row.map_or(maximum, |v| v.saturating_sub(n)));
-        old_selection != (self.anchor_row, self.lead_row)
-    }
-
-    fn extend(&mut self, extend: bool) {
-        if extend {
-            if self.anchor_row.is_none() {
-                self.anchor_row = self.lead_row;
-            }
-        } else {
-            self.anchor_row = None;
-            self.selected.clear();
-        }
-    }
-
-    #[allow(clippy::collapsible_else_if)]
-    fn fill(anchor: Option<usize>, lead: Option<usize>, selection: &mut HashSet<usize>) {
-        if let Some(mut anchor) = anchor {
-            if let Some(mut lead) = lead {
-                if lead < anchor {
-                    mem::swap(&mut lead, &mut anchor);
-                }
-
-                for n in anchor..=lead {
-                    selection.insert(n);
-                }
-            }
-        } else {
-            if let Some(lead) = lead {
-                selection.insert(lead);
-            }
-        }
-    }
-}
+use std::cmp::max;
 
 impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSetSelection> {
     fn handle(&mut self, event: &Event, _: Regular) -> TableOutcome {
-        let res = if self.focus.is_focused() {
+        let res = if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => {
                     if self.move_up(1, false) {
@@ -402,7 +149,7 @@ impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSetSelection> {
 
 impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSetSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> TableOutcome {
-        if self.focus.is_obscured() {
+        if self.is_obscured() {
             return TableOutcome::Continue;
         }
 
@@ -432,6 +179,12 @@ impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSetSelection>
                 } else if self.header_area.contains((*column, *row).into()) {
                     if let Some(col) = self.column_at_clicked((*column, *row)) {
                         TableOutcome::Header(col)
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else if self.footer_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Footer(col)
                     } else {
                         TableOutcome::Continue
                     }

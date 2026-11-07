@@ -1,6 +1,6 @@
 use crate::_private::NonExhaustive;
+use crate::TableStyle;
 use crate::selection::RowSelection;
-use crate::style::TableStyle;
 use crate::table::TableState;
 use crate::util::{fallback_select_style, revert_style, transfer_buffer};
 use crate::{LayoutWidth, TableContext, TableSelection};

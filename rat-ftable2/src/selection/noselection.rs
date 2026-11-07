@@ -1,50 +1,16 @@
-use crate::TableSelection;
 use crate::event::TableOutcome;
 use crate::table::TableState;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
+use rat_ftable::selection::NoSelection;
 use rat_scrolled::ScrollAreaState;
 use rat_scrolled::event::ScrollOutcome;
 use ratatui_crossterm::crossterm::event::Event;
 use std::cmp::max;
 
-/// Doesn't do any selection for the table.
-///
-/// But it implements scrolling via mouse and keyboard.
-#[derive(Debug, Default, Clone)]
-pub struct NoSelection;
-
-impl TableSelection for NoSelection {
-    fn clear(&mut self) {}
-
-    fn is_selected_row(&self, _row: usize) -> bool {
-        false
-    }
-
-    fn is_selected_column(&self, _column: usize) -> bool {
-        false
-    }
-
-    fn is_selected_cell(&self, _column: usize, _row: usize) -> bool {
-        false
-    }
-
-    fn lead_selection(&self) -> Option<(usize, usize)> {
-        None
-    }
-
-    fn validate_rows(&mut self, _rows: usize) {}
-
-    fn validate_cols(&mut self, _cols: usize) {}
-
-    fn items_added(&mut self, _pos: usize, _n: usize) {}
-
-    fn items_removed(&mut self, _pos: usize, _n: usize, _rows: usize) {}
-}
-
 impl HandleEvent<Event, Regular, TableOutcome> for TableState<NoSelection> {
     fn handle(&mut self, event: &Event, _keymap: Regular) -> TableOutcome {
-        let res = if self.focus.is_focused() {
+        let res = if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => {
                     if self.scroll_up(1) {
@@ -136,7 +102,7 @@ impl HandleEvent<Event, Regular, TableOutcome> for TableState<NoSelection> {
 
 impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<NoSelection> {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TableOutcome {
-        if self.focus.is_obscured() {
+        if self.is_obscured() {
             return TableOutcome::Continue;
         }
 
@@ -145,6 +111,12 @@ impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<NoSelection> {
                 if self.header_area.contains((*column, *row).into()) {
                     if let Some(col) = self.column_at_clicked((*column, *row)) {
                         TableOutcome::Header(col)
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else if self.footer_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Footer(col)
                     } else {
                         TableOutcome::Continue
                     }

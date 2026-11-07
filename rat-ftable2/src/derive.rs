@@ -117,7 +117,7 @@ macro_rules! derive_table_widget {
 
         /// Set all styles as a bundle.
         #[inline]
-        pub fn styles(mut self, styles: $crate::style::TableStyle) -> Self {
+        pub fn styles(mut self, styles: $crate::TableStyle) -> Self {
             self.core = self.core.styles(styles);
             self
         }

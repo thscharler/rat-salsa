@@ -1,140 +1,12 @@
-use crate::TableSelection;
 use crate::event::TableOutcome;
 use crate::table::TableState;
 use rat_event::crossterm::event::Event;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
+use rat_ftable::selection::RowSelection;
 use rat_scrolled::ScrollAreaState;
 use rat_scrolled::event::ScrollOutcome;
-use std::cmp::{max, min};
-
-/// Allows selecting a single row of the table.
-///
-/// This is the right one if you want a list-style selection
-/// for your table.
-///
-/// This one only supports row-selection.
-#[derive(Debug, Default, Clone)]
-pub struct RowSelection {
-    /// Selected row.
-    pub lead_row: Option<usize>,
-    /// Scrolls the selection instead of the offset.
-    pub scroll_selected: bool,
-}
-
-impl TableSelection for RowSelection {
-    /// Clear the selection.
-    fn clear(&mut self) {
-        self.lead_row = None;
-    }
-
-    fn is_selected_row(&self, row: usize) -> bool {
-        self.lead_row == Some(row)
-    }
-
-    fn is_selected_column(&self, _column: usize) -> bool {
-        false
-    }
-
-    fn is_selected_cell(&self, _column: usize, _row: usize) -> bool {
-        false
-    }
-
-    fn lead_selection(&self) -> Option<(usize, usize)> {
-        self.lead_row.map(|v| (0, v))
-    }
-
-    fn validate_rows(&mut self, rows: usize) {
-        if let Some(lead_row) = self.lead_row {
-            if rows == 0 {
-                self.lead_row = None;
-            } else if lead_row >= rows {
-                self.lead_row = Some(rows - 1);
-            }
-        }
-    }
-
-    fn validate_cols(&mut self, _cols: usize) {}
-
-    /// Update the state to match adding items.
-    #[allow(clippy::collapsible_if)]
-    fn items_added(&mut self, pos: usize, n: usize) {
-        if let Some(lead_row) = self.lead_row {
-            if lead_row > pos {
-                self.lead_row = Some(lead_row.saturating_add(n));
-            }
-        }
-    }
-
-    /// Update the state to match removing items.
-    fn items_removed(&mut self, pos: usize, n: usize, rows: usize) {
-        if let Some(lead_row) = self.lead_row {
-            if rows == 0 {
-                self.lead_row = None;
-            } else if lead_row == pos && lead_row + n >= rows {
-                self.lead_row = Some(rows.saturating_sub(1))
-            } else if lead_row > pos {
-                self.lead_row = Some(lead_row.saturating_sub(n).min(pos));
-            }
-        }
-    }
-}
-
-impl RowSelection {
-    /// New selection.
-    pub fn new() -> RowSelection {
-        Self::default()
-    }
-
-    /// Scroll selection instead of offset.
-    pub fn scroll_selected(&self) -> bool {
-        self.scroll_selected
-    }
-
-    /// Scroll selection instead of offset.
-    pub fn set_scroll_selected(&mut self, scroll: bool) {
-        self.scroll_selected = scroll;
-    }
-
-    /// The current selected row.
-    pub fn selected(&self) -> Option<usize> {
-        self.lead_row
-    }
-
-    /// Has some selection.
-    pub fn has_selection(&self) -> bool {
-        self.lead_row.is_some()
-    }
-
-    /// Select a row.
-    /// This function doesn't care if the given row actually exists in the table.
-    pub fn select(&mut self, select: Option<usize>) -> bool {
-        let old_row = self.lead_row;
-        self.lead_row = select;
-        old_row != self.lead_row
-    }
-
-    /// Select the given row, limit between 0 and maximum.
-    pub fn move_to(&mut self, select: usize, maximum: usize) -> bool {
-        let old_row = self.lead_row;
-        self.lead_row = Some(min(select, maximum));
-        old_row != self.lead_row
-    }
-
-    /// Select the next row, cap at maximum.
-    pub fn move_down(&mut self, n: usize, maximum: usize) -> bool {
-        let old_row = self.lead_row;
-        self.lead_row = Some(self.lead_row.map_or(0, |v| min(v + n, maximum)));
-        old_row != self.lead_row
-    }
-
-    /// Select the previous row.
-    pub fn move_up(&mut self, n: usize, maximum: usize) -> bool {
-        let old_row = self.lead_row;
-        self.lead_row = Some(self.lead_row.map_or(maximum, |v| v.saturating_sub(n)));
-        old_row != self.lead_row
-    }
-}
+use std::cmp::max;
 
 impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSelection> {
     fn handle(&mut self, event: &Event, _keymap: Regular) -> TableOutcome {
@@ -250,12 +122,18 @@ impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSelection> {
                         } else {
                             TableOutcome::Unchanged
                         }
-                    } else if self.header_area.contains((*column, *row).into()) {
-                        if let Some(col) = self.column_at_clicked((*column, *row)) {
-                            TableOutcome::Header(col)
-                        } else {
-                            TableOutcome::Continue
-                        }
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else if self.header_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Header(col)
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else if self.footer_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Footer(col)
                     } else {
                         TableOutcome::Continue
                     }

@@ -5,7 +5,7 @@ mod noselection;
 mod rowselection;
 mod rowsetselection;
 
-pub use cellselection::CellSelection;
-pub use noselection::NoSelection;
-pub use rowselection::RowSelection;
-pub use rowsetselection::RowSetSelection;
+pub use rat_ftable::selection::CellSelection;
+pub use rat_ftable::selection::NoSelection;
+pub use rat_ftable::selection::RowSelection;
+pub use rat_ftable::selection::RowSetSelection;
