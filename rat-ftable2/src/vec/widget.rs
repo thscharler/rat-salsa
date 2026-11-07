@@ -69,15 +69,16 @@ impl<'a, T, Selection> TableVec<'a, T, Selection> {
     derive_table_widget!();
 }
 
-impl<'a, T, Selection> TableVec<'a, T, Selection>
+impl<'a, 'b, T, Selection> TableVec<'a, T, Selection>
 where
     Selection: TableSelection + Default,
+    'b: 'a,
 {
     pub fn render(
         mut self,
         area: Rect,
         buf: &mut Buffer,
-        state: &'a mut TableVecState<T, Selection>,
+        state: &'b mut TableVecState<T, Selection>,
     ) {
         self.core = self.core.data(state.data.iter());
         self.core.render(area, buf, &mut state.table);

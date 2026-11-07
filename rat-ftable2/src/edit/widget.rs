@@ -38,15 +38,16 @@ where
     derive_table_widget!(REF_T);
 }
 
-impl<'a, T, E> TableEdit<'a, T, E>
+impl<'a, 'b, T, E> TableEdit<'a, T, E>
 where
     E: TableEditor<T> + 'a,
+    'b: 'a,
 {
     pub fn render(
         mut self,
         area: Rect,
         buf: &mut Buffer,
-        state: &'a mut TableEditState<T, E::State>,
+        state: &'b mut TableEditState<T, E::State>,
     ) {
         self.core = self.core.data(state.data.iter());
         self.core.render(area, buf, &mut state.table);

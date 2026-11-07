@@ -564,25 +564,6 @@ where
     }
 }
 
-// impl<'a, T: Copy, Selection> TableCore<'a, T, Selection>
-// where
-//     Selection: TableSelection,
-// {
-//     pub fn render(
-//         self,
-//         data: Option<&mut dyn Iterator<Item = T>>,
-//         area: Rect,
-//         buf: &mut Buffer,
-//         state: &mut TableCoreState<Selection>,
-//     ) {
-//         if let Some(data) = data {
-//             render_table(self, Some(data), area, buf, state);
-//         } else {
-//             render_table(self, None, area, buf, state);
-//         }
-//     }
-// }
-
 fn render_table<'a, T: Copy, Selection: TableSelection>(
     mut widget: Table<'a, T, Selection>,
     mut data: Option<&mut dyn Iterator<Item = T>>,
