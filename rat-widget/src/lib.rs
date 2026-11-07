@@ -27,6 +27,9 @@ pub mod event {
     pub use crate::slider::event::SliderOutcome;
     pub use crate::tabbed::event::TabbedOutcome;
     pub use rat_ftable::event::{DoubleClickOutcome, EditOutcome, TableOutcome};
+    pub use rat_ftable2::event::{
+        DoubleClickOutcome as DoubleClickOutcome2, TableOutcome as TableOutcome2,
+    };
     pub use rat_menu::event::MenuOutcome;
     pub use rat_popup::event::PopupOutcome;
     pub use rat_scrolled::event::ScrollOutcome;
@@ -107,6 +110,7 @@ pub mod statusline;
 pub mod statusline_stacked;
 pub mod tabbed;
 pub mod table;
+pub mod table2;
 pub mod text_input;
 pub mod text_input_mask;
 pub mod textarea;

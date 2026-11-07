@@ -39,6 +39,7 @@ rat-event = { workspace = true }
 rat-reloc = { workspace = true }
 rat-focus = { workspace = true }
 rat-ftable = { workspace = true }
+rat-ftable2 = { workspace = true }
 rat-text = { workspace = true }
 rat-menu = { workspace = true }
 rat-scrolled = { workspace = true }
