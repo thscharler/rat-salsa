@@ -16,7 +16,7 @@ use rat_theme4::theme::SalsaTheme;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
 use ratatui_core::style::Style;
-use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_core::widgets::Widget;
 use ratatui_crossterm::crossterm::event::Event;
 use ratatui_widgets::block::Block;
 use ratatui_widgets::borders::BorderType;
