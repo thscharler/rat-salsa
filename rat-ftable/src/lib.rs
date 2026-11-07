@@ -192,6 +192,9 @@ pub trait TableSelection {
     /// Number of rows selected.
     fn count(&self) -> usize;
 
+    /// Clear the selection.
+    fn clear(&mut self) {}
+
     /// Row is selected. This can be separate from `is_selected_cell`.
     fn is_selected_row(&self, row: usize) -> bool;
 
@@ -257,6 +260,10 @@ pub mod event {
         Continue,
         /// The event was handled, no repaint necessary.
         Unchanged,
+        /// Header column clicked.
+        Header(usize),
+        /// Footer column clicked.
+        Footer(usize),
         /// The event was handled, repaint necessary.
         Changed,
         /// The selection has changed.
@@ -274,6 +281,8 @@ pub mod event {
             match value {
                 TableOutcome::Continue => Outcome::Continue,
                 TableOutcome::Unchanged => Outcome::Unchanged,
+                TableOutcome::Header(_) => Outcome::Unchanged,
+                TableOutcome::Footer(_) => Outcome::Unchanged,
                 TableOutcome::Changed => Outcome::Changed,
                 TableOutcome::Selected => Outcome::Changed,
             }

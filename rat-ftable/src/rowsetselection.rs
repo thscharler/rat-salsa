@@ -46,6 +46,13 @@ impl TableSelection for RowSetSelection {
         n + self.selected.len()
     }
 
+    /// Clear the selection.
+    fn clear(&mut self) {
+        self.anchor_row = None;
+        self.lead_row = None;
+        self.selected.clear();
+    }
+
     #[allow(clippy::collapsible_else_if)]
     #[allow(clippy::collapsible_if)]
     fn is_selected_row(&self, row: usize) -> bool {
@@ -439,6 +446,18 @@ impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSetSelection>
                         } else {
                             TableOutcome::Unchanged
                         }
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else if self.header_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Header(col)
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else if self.footer_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Footer(col)
                     } else {
                         TableOutcome::Continue
                     }

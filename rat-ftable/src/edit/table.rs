@@ -434,6 +434,8 @@ where
             match self.table.handle(event, Regular) {
                 TableOutcome::Continue => EditOutcome::Continue,
                 TableOutcome::Unchanged => EditOutcome::Unchanged,
+                TableOutcome::Header(_) => EditOutcome::Unchanged,
+                TableOutcome::Footer(_) => EditOutcome::Unchanged,
                 TableOutcome::Changed => EditOutcome::Changed,
                 TableOutcome::Selected => EditOutcome::Changed,
             }

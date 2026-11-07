@@ -26,6 +26,10 @@ impl TableSelection for RowSelection {
         if self.lead_row.is_some() { 1 } else { 0 }
     }
 
+    fn clear(&mut self) {
+        self.lead_row = None;
+    }
+
     fn is_selected_row(&self, row: usize) -> bool {
         self.lead_row == Some(row)
     }
@@ -141,7 +145,7 @@ impl RowSelection {
 
 impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSelection> {
     fn handle(&mut self, event: &Event, _keymap: Regular) -> TableOutcome {
-        let res = if self.is_focused() {
+        let res = if self.focus.is_focused() {
             match event {
                 ct_event!(keycode press Up) => {
                     if self.move_up(1) {
@@ -233,7 +237,7 @@ impl HandleEvent<Event, Regular, TableOutcome> for TableState<RowSelection> {
 
 impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSelection> {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TableOutcome {
-        if self.is_obscured() {
+        if self.focus.is_obscured() {
             return TableOutcome::Continue;
         }
 
@@ -253,6 +257,18 @@ impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<RowSelection> {
                         } else {
                             TableOutcome::Unchanged
                         }
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else if self.header_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Header(col)
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else if self.footer_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Footer(col)
                     } else {
                         TableOutcome::Continue
                     }

@@ -1,6 +1,6 @@
 use crate::event::TableOutcome;
 use crate::{TableSelection, TableState};
-use rat_event::{HandleEvent, MouseOnly, Regular, ct_event};
+use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
 use rat_scrolled::ScrollAreaState;
 use rat_scrolled::event::ScrollOutcome;
@@ -141,58 +141,83 @@ impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<NoSelection> {
             return TableOutcome::Continue;
         }
 
-        let mut sas = ScrollAreaState::new()
-            .area(self.inner)
-            .h_scroll(&mut self.hscroll)
-            .v_scroll(&mut self.vscroll);
+        let mut r = match event {
+            ct_event!(mouse down Left for column, row) => {
+                if self.header_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Header(col)
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else if self.footer_area.contains((*column, *row).into()) {
+                    if let Some(col) = self.column_at_clicked((*column, *row)) {
+                        TableOutcome::Footer(col)
+                    } else {
+                        TableOutcome::Continue
+                    }
+                } else {
+                    TableOutcome::Continue
+                }
+            }
+            _ => TableOutcome::Continue,
+        };
 
-        match sas.handle(event, MouseOnly) {
-            ScrollOutcome::Up(v) => {
-                if self.scroll_up(v) {
-                    TableOutcome::Changed
-                } else {
-                    TableOutcome::Unchanged
+        r = r.or_else(|| {
+            let mut sas = ScrollAreaState::new()
+                .area(self.inner)
+                .h_scroll(&mut self.hscroll)
+                .v_scroll(&mut self.vscroll);
+
+            match sas.handle(event, MouseOnly) {
+                ScrollOutcome::Up(v) => {
+                    if self.scroll_up(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
-            }
-            ScrollOutcome::Down(v) => {
-                if self.scroll_down(v) {
-                    TableOutcome::Changed
-                } else {
-                    TableOutcome::Unchanged
+                ScrollOutcome::Down(v) => {
+                    if self.scroll_down(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
-            }
-            ScrollOutcome::VPos(v) => {
-                if self.set_row_offset(v) {
-                    TableOutcome::Changed
-                } else {
-                    TableOutcome::Unchanged
+                ScrollOutcome::VPos(v) => {
+                    if self.set_row_offset(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
-            }
-            ScrollOutcome::Left(v) => {
-                if self.scroll_left(v) {
-                    TableOutcome::Changed
-                } else {
-                    TableOutcome::Unchanged
+                ScrollOutcome::Left(v) => {
+                    if self.scroll_left(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
-            }
-            ScrollOutcome::Right(v) => {
-                if self.scroll_right(v) {
-                    TableOutcome::Changed
-                } else {
-                    TableOutcome::Unchanged
+                ScrollOutcome::Right(v) => {
+                    if self.scroll_right(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
-            }
-            ScrollOutcome::HPos(v) => {
-                if self.set_x_offset(v) {
-                    TableOutcome::Changed
-                } else {
-                    TableOutcome::Unchanged
+                ScrollOutcome::HPos(v) => {
+                    if self.set_x_offset(v) {
+                        TableOutcome::Changed
+                    } else {
+                        TableOutcome::Unchanged
+                    }
                 }
+                ScrollOutcome::Continue => TableOutcome::Continue,
+                ScrollOutcome::Unchanged => TableOutcome::Unchanged,
+                ScrollOutcome::Changed => TableOutcome::Changed,
             }
-            ScrollOutcome::Continue => TableOutcome::Continue,
-            ScrollOutcome::Unchanged => TableOutcome::Unchanged,
-            ScrollOutcome::Changed => TableOutcome::Changed,
-        }
+        });
+
+        r
     }
 }
 
