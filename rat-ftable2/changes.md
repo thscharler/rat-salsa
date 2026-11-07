@@ -1,3 +1,12 @@
+# 0.3
+
+Moved to rat-salsa and add to rat-widget as table2.
+
+Merge Table and TableCore. Reduces the surface and looks ok. 
+Found a clean definition for the lifetimes in TableVec and 
+TableEdit, they still can't implement StatefulWidget but 
+that's ok. 
+
 # 0.2
 
 Replaced the trait with separated closures for row-height, 

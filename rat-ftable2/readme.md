@@ -17,7 +17,10 @@ For examples see [rat-ftable2 GitHub][refGitHubTable].
 Improves over ratatui-Table by rendering only the visible parts of 
 the data instead of building Row/Cell structs with the table data.
 
-> 
+> This is an iteration of the table design, it doesn't need
+> a data trait and can use plain old Iterator. Moves all 
+> table-cell rendering into closures. This keeps all of 
+> the table rendering in one place. Plus some API cleanup.
 
 * Table data is set as an Iterator.
   * Rendering a cell is done in a closure for each column.
