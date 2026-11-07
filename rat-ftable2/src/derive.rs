@@ -259,7 +259,7 @@ macro_rules! derive_table_widget {
     (T) => {
         /// Calculate the row-height from the data.
         #[inline]
-        pub fn row_height(mut self, row_height_fn: fn(T, &$crate::RenderContext) -> u16) -> Self {
+        pub fn row_height(mut self, row_height_fn: fn(T, &$crate::TableContext) -> u16) -> Self {
             self.core = self.core.row_height(row_height_fn);
             self
         }
@@ -269,7 +269,7 @@ macro_rules! derive_table_widget {
         #[inline]
         pub fn render_row(
             mut self,
-            render_row_fn: impl FnMut(T, Rect, &mut Buffer, &$crate::RenderContext) -> bool + 'a,
+            render_row_fn: impl FnMut(T, Rect, &mut Buffer, &$crate::TableContext) -> bool + 'a,
         ) -> Self {
             self.core = self.core.render_row(render_row_fn);
             self
@@ -280,7 +280,7 @@ macro_rules! derive_table_widget {
         pub fn render_cell(
             mut self,
             column: usize,
-            render_cell_fn: impl FnMut(T, Rect, &mut Buffer, &$crate::RenderContext) + 'a,
+            render_cell_fn: impl FnMut(T, Rect, &mut Buffer, &$crate::TableContext) + 'a,
         ) -> Self {
             self.core = self.core.render_cell(column, render_cell_fn);
             self
@@ -289,7 +289,7 @@ macro_rules! derive_table_widget {
     (REF_T) => {
         /// Calculate the row-height from the data.
         #[inline]
-        pub fn row_height(mut self, row_height_fn: fn(&T, &$crate::RenderContext) -> u16) -> Self {
+        pub fn row_height(mut self, row_height_fn: fn(&T, &$crate::TableContext) -> u16) -> Self {
             self.core = self.core.row_height(row_height_fn);
             self
         }
@@ -299,7 +299,7 @@ macro_rules! derive_table_widget {
         #[inline]
         pub fn render_row(
             mut self,
-            render_row_fn: impl FnMut(&T, Rect, &mut Buffer, &$crate::RenderContext) -> bool + 'a,
+            render_row_fn: impl FnMut(&T, Rect, &mut Buffer, &$crate::TableContext) -> bool + 'a,
         ) -> Self {
             self.core = self.core.render_row(render_row_fn);
             self
@@ -310,7 +310,7 @@ macro_rules! derive_table_widget {
         pub fn render_cell(
             mut self,
             column: usize,
-            render_cell_fn: impl FnMut(&T, Rect, &mut Buffer, &$crate::RenderContext) + 'a,
+            render_cell_fn: impl FnMut(&T, Rect, &mut Buffer, &$crate::TableContext) + 'a,
         ) -> Self {
             self.core = self.core.render_cell(column, render_cell_fn);
             self

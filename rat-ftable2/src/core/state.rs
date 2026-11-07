@@ -1,10 +1,7 @@
 use crate::_private::NonExhaustive;
+use crate::TableSelection;
 use crate::event::{DoubleClickOutcome, TableOutcome};
-use crate::selection::TableSelection;
-use crate::selection::cell::CellSelection;
-use crate::selection::none::NoSelection;
-use crate::selection::row::RowSelection;
-use crate::selection::rowset::RowSetSelection;
+use crate::selection::{CellSelection, NoSelection, RowSelection, RowSetSelection};
 use rat_event::crossterm::event::Event;
 use rat_event::util::MouseFlags;
 use rat_event::{DoubleClick, HandleEvent, MouseOnly, Regular, ct_event};

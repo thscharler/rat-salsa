@@ -2,7 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::core::TableCoreState;
 use crate::derive::derive_table_widget_state;
 use crate::edit::{Mode, TableEditorState};
-use crate::selection::row::RowSelection;
+use crate::selection::RowSelection;
 use rat_cursor::HasScreenCursor;
 use rat_event::crossterm::event::Event;
 use rat_event::util::MouseFlags;

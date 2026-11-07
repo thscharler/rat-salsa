@@ -1,12 +1,12 @@
 use crate::_private::NonExhaustive;
+use crate::TableSelection;
 use crate::core::TableCoreState;
 use crate::derive::derive_table_widget_state;
 use crate::event::{DoubleClickOutcome, TableOutcome};
-use crate::selection::TableSelection;
-use crate::selection::cell::CellSelection;
-use crate::selection::none::NoSelection;
-use crate::selection::row::RowSelection;
-use crate::selection::rowset::RowSetSelection;
+use crate::selection::CellSelection;
+use crate::selection::NoSelection;
+use crate::selection::RowSelection;
+use crate::selection::RowSetSelection;
 use rat_cursor::HasScreenCursor;
 use rat_event::crossterm::event::Event;
 use rat_event::{DoubleClick, HandleEvent, MouseOnly, Regular};

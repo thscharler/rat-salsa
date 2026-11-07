@@ -1,7 +1,7 @@
 use crate::core::TableCore;
 use crate::derive::derive_table_widget;
 use crate::edit::{Mode, TableEditState, TableEditor};
-use crate::selection::row::RowSelection;
+use crate::selection::RowSelection;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 

@@ -8,7 +8,7 @@ use format_num_pattern::NumberFormat;
 use rat_event::{HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_ftable2::event::Outcome;
-use rat_ftable2::selection::row::RowSelection;
+use rat_ftable2::selection::RowSelection;
 use rat_ftable2::{TableVec, TableVecState};
 use rat_scrolled::{Scroll, ScrollStyle};
 use rat_theme4::StyleName;

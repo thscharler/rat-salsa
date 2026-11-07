@@ -11,7 +11,7 @@ use rat_event::util::item_at;
 use rat_event::{HandleEvent, Regular, ct_event, event_flow};
 use rat_focus::HasFocus;
 use rat_ftable2::event::Outcome;
-use rat_ftable2::selection::row::RowSelection;
+use rat_ftable2::selection::RowSelection;
 use rat_ftable2::{Table, TableState};
 use rat_scrolled::{Scroll, ScrollStyle};
 use rat_theme4::StyleName;

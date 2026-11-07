@@ -1,6 +1,6 @@
+use crate::TableSelection;
 use crate::core::TableCoreState;
 use crate::event::TableOutcome;
-use crate::selection::TableSelection;
 use rat_event::crossterm::event::Event;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;

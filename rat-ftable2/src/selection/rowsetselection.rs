@@ -1,6 +1,6 @@
+use crate::TableSelection;
 use crate::core::TableCoreState;
 use crate::event::TableOutcome;
-use crate::selection::TableSelection;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::HasFocus;
 use rat_scrolled::ScrollAreaState;

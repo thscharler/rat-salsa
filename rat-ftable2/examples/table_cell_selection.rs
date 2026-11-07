@@ -7,7 +7,7 @@ use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use format_num_pattern::NumberFormat;
 use rat_event::{HandleEvent, Outcome, Regular, event_flow};
 use rat_focus::HasFocus;
-use rat_ftable2::selection::cell::CellSelection;
+use rat_ftable2::selection::CellSelection;
 use rat_ftable2::{Table, TableState};
 use rat_scrolled::{Scroll, ScrollStyle};
 use rat_theme4::theme::SalsaTheme;

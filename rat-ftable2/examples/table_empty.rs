@@ -8,7 +8,7 @@ use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use rat_event::{HandleEvent, Regular, event_flow};
 use rat_focus::HasFocus;
 use rat_ftable2::event::Outcome;
-use rat_ftable2::selection::none::NoSelection;
+use rat_ftable2::selection::NoSelection;
 use rat_ftable2::{Table, TableState};
 use rat_scrolled::{Scroll, ScrollStyle};
 use rat_theme4::StyleName;

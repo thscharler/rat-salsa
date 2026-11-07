@@ -1,10 +1,9 @@
 use crate::_private::NonExhaustive;
 use crate::core::TableCoreState;
-use crate::selection::TableSelection;
-use crate::selection::row::RowSelection;
+use crate::selection::RowSelection;
 use crate::style::TableStyle;
 use crate::util::{fallback_select_style, revert_style, transfer_buffer};
-use crate::{LayoutWidth, RenderContext};
+use crate::{LayoutWidth, TableContext, TableSelection};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
@@ -25,9 +24,9 @@ use std::rc::Rc;
 pub struct TableCore<'a, T: Copy, Selection = RowSelection> {
     header: Vec<Text<'a>>,
     footer: Vec<Text<'a>>,
-    row_height_fn: Option<Box<dyn FnMut(T, &RenderContext) -> u16 + 'a>>,
-    render_row_fn: Option<Box<dyn FnMut(T, Rect, &mut Buffer, &RenderContext) -> bool + 'a>>,
-    render_cell_fn: Vec<Option<Box<dyn FnMut(T, Rect, &mut Buffer, &RenderContext) + 'a>>>,
+    row_height_fn: Option<Box<dyn FnMut(T, &TableContext) -> u16 + 'a>>,
+    render_row_fn: Option<Box<dyn FnMut(T, Rect, &mut Buffer, &TableContext) -> bool + 'a>>,
+    render_cell_fn: Vec<Option<Box<dyn FnMut(T, Rect, &mut Buffer, &TableContext) + 'a>>>,
 
     widths: Vec<Constraint>,
     varying_heights: bool,
@@ -103,7 +102,7 @@ impl<'a, T: Copy, Selection> TableCore<'a, T, Selection> {
 
     /// Set the closure that calculates the row-height for a value.
     #[inline]
-    pub fn row_height(mut self, row_height_fn: impl FnMut(T, &RenderContext) -> u16 + 'a) -> Self {
+    pub fn row_height(mut self, row_height_fn: impl FnMut(T, &TableContext) -> u16 + 'a) -> Self {
         self.row_height_fn = Some(Box::new(row_height_fn));
         self
     }
@@ -112,7 +111,7 @@ impl<'a, T: Copy, Selection> TableCore<'a, T, Selection> {
     #[inline]
     pub fn render_row(
         mut self,
-        render_row_fn: impl FnMut(T, Rect, &mut Buffer, &RenderContext) -> bool + 'a,
+        render_row_fn: impl FnMut(T, Rect, &mut Buffer, &TableContext) -> bool + 'a,
     ) -> Self {
         self.render_row_fn = Some(Box::new(render_row_fn));
         self
@@ -123,7 +122,7 @@ impl<'a, T: Copy, Selection> TableCore<'a, T, Selection> {
     pub fn render_cell(
         mut self,
         column: usize,
-        render_cell_fn: impl FnMut(T, Rect, &mut Buffer, &RenderContext) + 'a,
+        render_cell_fn: impl FnMut(T, Rect, &mut Buffer, &TableContext) + 'a,
     ) -> Self {
         while self.render_cell_fn.len() <= column {
             self.render_cell_fn.push(None);
@@ -584,7 +583,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
     state.vscroll.set_page_len(0);
     state.hscroll.set_page_len(area.width as usize);
 
-    let mut ctx = RenderContext {
+    let mut ctx = TableContext {
         row: 0,
         focus: state.focus.get(),
         selected_cell: false,
