@@ -253,7 +253,7 @@ fn event(
                 Outcome::Changed
             }),
             Some(9) => event_flow!({
-                state.table.core.vscroll.offset = 1_000_000; // 1_000_000;
+                state.table.vscroll.offset = 1_000_000; // 1_000_000;
                 Outcome::Changed
             }),
             _ => {}

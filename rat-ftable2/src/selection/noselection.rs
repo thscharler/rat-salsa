@@ -1,6 +1,6 @@
 use crate::TableSelection;
-use crate::core::TableCoreState;
 use crate::event::TableOutcome;
+use crate::table::TableState;
 use rat_event::{ConsumedEvent, HandleEvent, MouseOnly, Regular, ct_event};
 use rat_focus::HasFocus;
 use rat_scrolled::ScrollAreaState;
@@ -42,7 +42,7 @@ impl TableSelection for NoSelection {
     fn items_removed(&mut self, _pos: usize, _n: usize, _rows: usize) {}
 }
 
-impl HandleEvent<Event, Regular, TableOutcome> for TableCoreState<NoSelection> {
+impl HandleEvent<Event, Regular, TableOutcome> for TableState<NoSelection> {
     fn handle(&mut self, event: &Event, _keymap: Regular) -> TableOutcome {
         let res = if self.focus.is_focused() {
             match event {
@@ -134,7 +134,7 @@ impl HandleEvent<Event, Regular, TableOutcome> for TableCoreState<NoSelection> {
     }
 }
 
-impl HandleEvent<Event, MouseOnly, TableOutcome> for TableCoreState<NoSelection> {
+impl HandleEvent<Event, MouseOnly, TableOutcome> for TableState<NoSelection> {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> TableOutcome {
         if self.focus.is_obscured() {
             return TableOutcome::Continue;

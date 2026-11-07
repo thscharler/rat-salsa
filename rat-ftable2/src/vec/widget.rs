@@ -1,10 +1,11 @@
 use crate::TableSelection;
-use crate::core::TableCore;
 use crate::derive::derive_table_widget;
 use crate::selection::RowSelection;
+use crate::table::Table;
 use crate::vec::TableVecState;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
+use ratatui_core::widgets::StatefulWidget;
 
 ///
 /// A table that holds a Vec of the data in its state.
@@ -45,7 +46,7 @@ use ratatui_core::layout::Rect;
 ///         .render(l0[0], buf, &mut state.table);
 /// ```
 pub struct TableVec<'a, T, Selection = RowSelection> {
-    core: TableCore<'a, &'a T, Selection>,
+    core: Table<'a, &'a T, Selection>,
 }
 
 impl<'a, T, Selection> Default for TableVec<'a, T, Selection> {
@@ -72,9 +73,13 @@ impl<'a, T, Selection> TableVec<'a, T, Selection>
 where
     Selection: TableSelection + Default,
 {
-    pub fn render(self, area: Rect, buf: &mut Buffer, state: &'a mut TableVecState<T, Selection>) {
-        let mut iter = state.data.iter();
-        let data = Some((&mut iter) as &mut dyn Iterator<Item = &T>);
-        self.core.render(data, area, buf, &mut state.core);
+    pub fn render(
+        mut self,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &'a mut TableVecState<T, Selection>,
+    ) {
+        self.core = self.core.data(state.data.iter());
+        self.core.render(area, buf, &mut state.table);
     }
 }

@@ -8,6 +8,6 @@
 //! See [rat-ftable2](https://docs.rs/rat-ftable2/)
 
 pub use rat_ftable2::{
-    LayoutWidth, Table, TableContext, TableState, TableStyle, TableVec, TableVecState, core, edit,
+    LayoutWidth, Table, TableContext, TableState, TableStyle, TableVec, TableVecState, edit,
     selection,
 };

@@ -1,8 +1,8 @@
 use crate::_private::NonExhaustive;
-use crate::core::TableCoreState;
 use crate::derive::derive_table_widget_state;
 use crate::edit::{Mode, TableEditorState};
 use crate::selection::RowSelection;
+use crate::table::TableState;
 use rat_cursor::HasScreenCursor;
 use rat_event::crossterm::event::Event;
 use rat_event::util::MouseFlags;
@@ -30,7 +30,7 @@ pub struct TableEditState<T, E> {
     /// Editing mode.
     pub mode: Mode,
     /// Backing table.
-    pub core: TableCoreState<RowSelection>,
+    pub table: TableState<RowSelection>,
     /// Editor
     pub editor: E,
     /// Data store
@@ -48,7 +48,7 @@ where
     fn default() -> Self {
         Self {
             mode: Default::default(),
-            core: Default::default(),
+            table: Default::default(),
             editor: Default::default(),
             data: Default::default(),
             mouse: Default::default(),
@@ -63,16 +63,16 @@ impl<T, E> HasFocus for TableEditState<T, E> {
     }
 
     fn focus(&self) -> FocusFlag {
-        self.core.focus.clone()
+        self.table.focus.clone()
     }
 
     fn area(&self) -> Rect {
-        self.core.area
+        self.table.area
     }
 
     fn navigable(&self) -> Navigation {
         match self.mode {
-            Mode::View => self.core.focus.navigable(),
+            Mode::View => self.table.focus.navigable(),
             Mode::Edit | Mode::Insert => Navigation::Lock,
         }
     }
@@ -95,6 +95,7 @@ where
     E: RelocatableState,
 {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.table.relocate(shift, clip);
         match self.mode {
             Mode::View => {}
             Mode::Edit | Mode::Insert => {
@@ -108,7 +109,7 @@ impl<T, E> TableEditState<T, E> {
     pub fn new(editor: E) -> Self {
         Self {
             mode: Mode::View,
-            core: Default::default(),
+            table: Default::default(),
             editor,
             data: Default::default(),
             mouse: Default::default(),
@@ -119,7 +120,7 @@ impl<T, E> TableEditState<T, E> {
     pub fn named(name: &str, editor: E) -> Self {
         Self {
             mode: Mode::View,
-            core: TableCoreState::named(name),
+            table: TableState::named(name),
             editor,
             data: Default::default(),
             mouse: Default::default(),
@@ -162,7 +163,7 @@ where
     /// Set the data.
     pub fn set_value(&mut self, data: Vec<T>) {
         self.data = data;
-        self.core.rows_changed(self.data.len());
+        self.table.rows_changed(self.data.len());
     }
 
     /// Get the data.
@@ -177,8 +178,8 @@ where
     /// Clear the widget.
     pub fn clear(&mut self) {
         self.mode = Mode::View;
-        self.core.clear_offset();
-        self.core.clear_selection();
+        self.table.clear_offset();
+        self.table.clear_selection();
         self.data.clear();
     }
 
@@ -199,9 +200,9 @@ where
         }
         if row < self.data.len() {
             self.data.remove(row);
-            self.core.items_removed(row, 1);
-            if !self.core.scroll_to_row(row) {
-                self.core.scroll_to_row(row.saturating_sub(1));
+            self.table.items_removed(row, 1);
+            if !self.table.scroll_to_row(row) {
+                self.table.scroll_to_row(row.saturating_sub(1));
             }
         }
     }
@@ -217,7 +218,7 @@ where
         self._start(None, row, Mode::Insert, ctx)?;
 
         self.data.insert(row, value);
-        self.core.items_added(row, 1);
+        self.table.items_added(row, 1);
 
         Ok(())
     }
@@ -247,7 +248,7 @@ where
         if self.mode == Mode::View {
             return Ok(());
         }
-        let Some(row) = self.core.selected_checked() else {
+        let Some(row) = self.table.selected_checked() else {
             return Ok(());
         };
 
@@ -255,7 +256,7 @@ where
 
         if self.mode == Mode::Insert {
             self.data.remove(row);
-            self.core.items_removed(row, 1);
+            self.table.items_removed(row, 1);
         }
 
         Ok(())
@@ -266,7 +267,7 @@ where
         if self.mode == Mode::View {
             return Ok(());
         }
-        let Some(row) = self.core.selected_checked() else {
+        let Some(row) = self.table.selected_checked() else {
             return Ok(());
         };
 
@@ -277,7 +278,7 @@ where
             self.data[row] = value;
         } else {
             self.data.remove(row);
-            self.core.items_removed(row, 1);
+            self.table.items_removed(row, 1);
         }
 
         Ok(())
@@ -288,7 +289,7 @@ where
     /// a row will be appended.
     pub fn commit_and_append<'a>(&mut self, ctx: &'a E::Context<'a>) -> Result<(), E::Err> {
         self.commit(ctx)?;
-        if let Some(row) = self.core.selected_checked() {
+        if let Some(row) = self.table.selected_checked() {
             self.edit_new(row + 1, ctx)?;
         }
         Ok(())
@@ -298,13 +299,13 @@ where
     /// the next row. Does not append at the end of the
     /// table.
     pub fn commit_and_edit<'a>(&mut self, ctx: &'a E::Context<'a>) -> Result<(), E::Err> {
-        let Some(row) = self.core.selected_checked() else {
+        let Some(row) = self.table.selected_checked() else {
             return Ok(());
         };
 
         self.commit(ctx)?;
         if row + 1 < self.data.len() {
-            self.core.select(Some(row + 1));
+            self.table.select(Some(row + 1));
             self.edit(None, row + 1, ctx)?;
         }
         Ok(())
@@ -318,12 +319,12 @@ where
         ctx: &'a E::Context<'a>,
     ) -> Result<(), E::Err> {
         self.mode = mode;
-        self.core.move_to(row);
+        self.table.move_to(row);
         self.editor.start(col, ctx)?;
         if let Some(col) = self.editor.focused_col() {
-            self.core.scroll_to_col(col);
+            self.table.scroll_to_col(col);
         } else {
-            self.core.scroll_to_col(0);
+            self.table.scroll_to_col(0);
         }
         Ok(())
     }
@@ -331,7 +332,7 @@ where
     fn _stop<'a>(&mut self, ctx: &'a E::Context<'a>) -> Result<(), E::Err> {
         self.mode = Mode::View;
         self.editor.stop(ctx)?;
-        self.core.scroll_to_col(0);
+        self.table.scroll_to_col(0);
         Ok(())
     }
 }
@@ -350,7 +351,7 @@ where
                 event_flow!({
                     let r = self.editor.handle(event, ctx)?;
                     if let Some(col) = self.editor.focused_col() {
-                        if self.core.scroll_to_col(col) {
+                        if self.table.scroll_to_col(col) {
                             Outcome::Changed
                         } else {
                             r
@@ -366,7 +367,8 @@ where
                         Outcome::Changed
                     }
                     ct_event!(keycode press Enter) => {
-                        if self.core.selected_checked() < Some(self.core.rows().saturating_sub(1)) {
+                        if self.table.selected_checked() < Some(self.table.rows().saturating_sub(1))
+                        {
                             self.commit_and_edit(ctx)?;
                             Outcome::Changed
                         } else {
@@ -378,10 +380,10 @@ where
                         self.commit(ctx)?;
                         if self.data.is_empty() {
                             self.edit_new(0, ctx)?;
-                        } else if let Some(row) = self.core.selected_checked()
+                        } else if let Some(row) = self.table.selected_checked()
                             && row > 0
                         {
-                            self.core.select(Some(row - 1));
+                            self.table.select(Some(row - 1));
                         }
                         Outcome::Changed
                     }
@@ -389,10 +391,10 @@ where
                         self.commit(ctx)?;
                         if self.data.is_empty() {
                             self.edit_new(0, ctx)?;
-                        } else if let Some(row) = self.core.selected_checked()
+                        } else if let Some(row) = self.table.selected_checked()
                             && row + 1 < self.data.len()
                         {
-                            self.core.select(Some(row + 1));
+                            self.table.select(Some(row + 1));
                         }
                         Outcome::Changed
                     }
@@ -402,15 +404,15 @@ where
 
             Ok(Outcome::Continue)
         } else {
-            if self.core.focus.gained_focus() {
+            if self.table.focus.gained_focus() {
                 if self.data.is_empty() {
                     self.edit_new(0, ctx)?;
                 }
             }
 
             event_flow!(match event {
-                ct_event!(mouse any for m) if self.mouse.doubleclick(self.core.table_area, m) => {
-                    if let Some((col, row)) = self.core.cell_at_clicked((m.column, m.row)) {
+                ct_event!(mouse any for m) if self.mouse.doubleclick(self.table.table_area, m) => {
+                    if let Some((col, row)) = self.table.cell_at_clicked((m.column, m.row)) {
                         self.edit(Some(col), row, ctx)?;
                         Outcome::Changed
                     } else {
@@ -423,13 +425,13 @@ where
             if self.is_focused() {
                 event_flow!(match event {
                     ct_event!(keycode press Insert) => {
-                        if let Some(row) = self.core.selected() {
+                        if let Some(row) = self.table.selected() {
                             self.edit_new(row, ctx)?;
                         }
                         Outcome::Changed
                     }
                     ct_event!(keycode press Delete) => {
-                        if let Some(row) = self.core.selected_checked() {
+                        if let Some(row) = self.table.selected_checked() {
                             self.remove(row);
                             if self.data.is_empty() {
                                 self.edit_new(0, ctx)?;
@@ -438,10 +440,10 @@ where
                         Outcome::Changed
                     }
                     ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
-                        if let Some(row) = self.core.selected_checked() {
+                        if let Some(row) = self.table.selected_checked() {
                             self.edit(None, row, ctx)?;
                             Outcome::Changed
-                        } else if self.core.rows() == 0 {
+                        } else if self.table.rows() == 0 {
                             self.edit_new(0, ctx)?;
                             Outcome::Changed
                         } else {
@@ -449,14 +451,14 @@ where
                         }
                     }
                     ct_event!(keycode press Down) => {
-                        if let Some(row) = self.core.selected() {
-                            if row == self.core.rows().saturating_sub(1) {
+                        if let Some(row) = self.table.selected() {
+                            if row == self.table.rows().saturating_sub(1) {
                                 self.edit_new(row + 1, ctx)?;
                                 Outcome::Changed
                             } else {
                                 Outcome::Continue
                             }
-                        } else if self.core.rows() == 0 {
+                        } else if self.table.rows() == 0 {
                             self.edit_new(0, ctx)?;
                             Outcome::Changed
                         } else {
@@ -469,7 +471,7 @@ where
                 });
             }
 
-            event_flow!(self.core.handle(event, Regular));
+            event_flow!(self.table.handle(event, Regular));
 
             Ok(Outcome::Continue)
         }

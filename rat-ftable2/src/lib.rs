@@ -4,7 +4,6 @@ use crate::_private::NonExhaustive;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Style;
 
-pub mod core;
 mod derive;
 pub mod edit;
 pub mod event;

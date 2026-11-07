@@ -41,7 +41,7 @@ fn main() -> Result<(), anyhow::Error> {
             .collect(),
         table: Default::default(),
     };
-    state.table.core.hscroll.set_scroll_by(Some(1));
+    state.table.hscroll.set_scroll_by(Some(1));
 
     run_ui("layoutwidth", mock_init, event, render, &mut state)
 }

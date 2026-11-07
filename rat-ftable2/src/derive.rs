@@ -1,4 +1,4 @@
-/// Implements forward calls to core for a Table widget.
+/// Implements forward calls to table for a Table widget.
 ///
 /// __Only useful if you want to implement a new Table widget__
 macro_rules! derive_table_widget {
@@ -318,7 +318,7 @@ macro_rules! derive_table_widget {
     };
 }
 
-/// Implements forward calls to core for a Table widget state struct.
+/// Implements forward calls to table for a Table widget state struct.
 /// The functions come in groups. See [TableState][crate::TableState]
 /// for usage.
 ///
@@ -328,13 +328,13 @@ macro_rules! derive_table_widget_state {
         /// Number of rows.
         #[inline]
         pub fn rows(&self) -> usize {
-            self.core.rows()
+            self.table.rows()
         }
 
         /// Number of columns.
         #[inline]
         pub fn columns(&self) -> usize {
-            self.core.columns()
+            self.table.columns()
         }
     };
     (AREAS) => {
@@ -345,32 +345,32 @@ macro_rules! derive_table_widget_state {
         /// beyond the table-area.
         #[inline]
         pub fn row_cells(&self, row: usize) -> Option<(Rect, Vec<Rect>)> {
-            self.core.row_cells(row)
+            self.table.row_cells(row)
         }
 
         /// Cell at given position.
         #[inline]
         pub fn cell_at_clicked(&self, pos: (u16, u16)) -> Option<(usize, usize)> {
-            self.core.cell_at_clicked(pos)
+            self.table.cell_at_clicked(pos)
         }
 
         /// Column at given position.
         #[inline]
         pub fn column_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
-            self.core.column_at_clicked(pos)
+            self.table.column_at_clicked(pos)
         }
 
         /// Row at given position.
         #[inline]
         pub fn row_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
-            self.core.row_at_clicked(pos)
+            self.table.row_at_clicked(pos)
         }
 
         /// Cell when dragging. Position can be outside the table area.
         /// See [row_at_drag](Self::row_at_drag), [col_at_drag](Self::column_at_drag)
         #[inline]
         pub fn cell_at_drag(&self, pos: (u16, u16)) -> (usize, usize) {
-            self.core.cell_at_drag(pos)
+            self.table.cell_at_drag(pos)
         }
 
         /// Row when dragging. Position can be outside the table area.
@@ -381,7 +381,7 @@ macro_rules! derive_table_widget_state {
         /// the table area, just assumes '1'.
         #[inline]
         pub fn row_at_drag(&self, pos: (u16, u16)) -> usize {
-            self.core.row_at_drag(pos)
+            self.table.row_at_drag(pos)
         }
 
         /// Column when dragging. Position can be outside the table area.
@@ -389,14 +389,14 @@ macro_rules! derive_table_widget_state {
         /// If the position is right of the table area this returns offset + page_width + 1.
         #[inline]
         pub fn column_at_drag(&self, pos: (u16, u16)) -> usize {
-            self.core.column_at_drag(pos)
+            self.table.column_at_drag(pos)
         }
     };
     (OFFSET) => {
         /// Sets both offsets to 0.
         #[inline]
         pub fn clear_offset(&mut self) {
-            self.core.clear_offset()
+            self.table.clear_offset()
         }
 
         /// Maximum offset that is accessible with scrolling.
@@ -405,13 +405,13 @@ macro_rules! derive_table_widget_state {
         /// This is the base for the scrollbar content_length.
         #[inline]
         pub fn row_max_offset(&self) -> usize {
-            self.core.row_max_offset()
+            self.table.row_max_offset()
         }
 
         /// Current vertical offset.
         #[inline]
         pub fn row_offset(&self) -> usize {
-            self.core.row_offset()
+            self.table.row_offset()
         }
 
         /// Change the vertical offset.
@@ -420,19 +420,19 @@ macro_rules! derive_table_widget_state {
         /// The widget returns true if the offset changed at all.
         #[inline]
         pub fn set_row_offset(&mut self, offset: usize) -> bool {
-            self.core.set_row_offset(offset)
+            self.table.set_row_offset(offset)
         }
 
         /// Vertical page-size at the current offset.
         #[inline]
         pub fn page_len(&self) -> usize {
-            self.core.page_len()
+            self.table.page_len()
         }
 
         /// Suggested scroll per scroll-event.
         #[inline]
         pub fn row_scroll_by(&self) -> usize {
-            self.core.row_scroll_by()
+            self.table.row_scroll_by()
         }
 
         /// Maximum offset that is accessible with scrolling.
@@ -441,13 +441,13 @@ macro_rules! derive_table_widget_state {
         /// This is the base for the scrollbar content_length.
         #[inline]
         pub fn x_max_offset(&self) -> usize {
-            self.core.x_max_offset()
+            self.table.x_max_offset()
         }
 
         /// Current horizontal offset.
         #[inline]
         pub fn x_offset(&self) -> usize {
-            self.core.x_offset()
+            self.table.x_offset()
         }
 
         /// Change the horizontal offset.
@@ -456,19 +456,19 @@ macro_rules! derive_table_widget_state {
         /// Returns true if the offset changed at all.
         #[inline]
         pub fn set_x_offset(&mut self, offset: usize) -> bool {
-            self.core.set_x_offset(offset)
+            self.table.set_x_offset(offset)
         }
 
         /// Horizontal page-size at the current offset.
         #[inline]
         pub fn page_width(&self) -> usize {
-            self.core.page_width()
+            self.table.page_width()
         }
 
         /// Suggested scroll per scroll-event.
         #[inline]
         pub fn x_scroll_by(&self) -> usize {
-            self.core.x_scroll_by()
+            self.table.x_scroll_by()
         }
 
         /// Ensures that the selected item is visible.
@@ -476,7 +476,7 @@ macro_rules! derive_table_widget_state {
         /// Caveat: Number of rows needs to be correct.
         #[inline]
         pub fn scroll_to_selected(&mut self) -> bool {
-            self.core.scroll_to_selected()
+            self.table.scroll_to_selected()
         }
 
         /// Ensures that the given row is visible.
@@ -484,124 +484,124 @@ macro_rules! derive_table_widget_state {
         /// Caveat: Number of rows needs to be correct.
         #[inline]
         pub fn scroll_to_row(&mut self, pos: usize) -> bool {
-            self.core.scroll_to_row(pos)
+            self.table.scroll_to_row(pos)
         }
 
         /// Ensures that the given column is completely visible.
         #[inline]
         pub fn scroll_to_col(&mut self, pos: usize) -> bool {
-            self.core.scroll_to_col(pos)
+            self.table.scroll_to_col(pos)
         }
 
         /// Ensures that the given position is visible.
         #[inline]
         pub fn scroll_to_x(&mut self, pos: usize) -> bool {
-            self.core.scroll_to_x(pos)
+            self.table.scroll_to_x(pos)
         }
 
         /// Reduce the row-offset by n.
         #[inline]
         pub fn scroll_up(&mut self, n: usize) -> bool {
-            self.core.scroll_up(n)
+            self.table.scroll_up(n)
         }
 
         /// Increase the row-offset by n.
         #[inline]
         pub fn scroll_down(&mut self, n: usize) -> bool {
-            self.core.scroll_down(n)
+            self.table.scroll_down(n)
         }
 
         /// Reduce the col-offset by n.
         #[inline]
         pub fn scroll_left(&mut self, n: usize) -> bool {
-            self.core.scroll_left(n)
+            self.table.scroll_left(n)
         }
 
         /// Increase the col-offset by n.
         #[inline]
         pub fn scroll_right(&mut self, n: usize) -> bool {
-            self.core.scroll_right(n)
+            self.table.scroll_right(n)
         }
     };
     (SELECTION) => {
         /// Clear the selection.
         #[inline]
         pub fn clear_selection(&mut self) {
-            self.core.clear_selection()
+            self.table.clear_selection()
         }
     };
     (ROWSELECTION) => {
         /// When scrolling the table, change the selection instead of the offset.
         #[inline]
         pub fn set_scroll_selection(&mut self, scroll: bool) {
-            self.core.set_scroll_selection(scroll)
+            self.table.set_scroll_selection(scroll)
         }
 
         /// Anything selected?
         #[inline]
         pub fn has_selection(&mut self) -> bool {
-            self.core.has_selection()
+            self.table.has_selection()
         }
 
         /// Selected row.
         /// The selected row is not constrained by the row-count.
         #[inline]
         pub fn selected(&self) -> Option<usize> {
-            self.core.selected()
+            self.table.selected()
         }
 
         /// Return the selected row and ensure it is in the
         /// range `0..rows`.
         #[inline]
         pub fn selected_checked(&self) -> Option<usize> {
-            self.core.selected_checked()
+            self.table.selected_checked()
         }
 
         /// Select the row.
         /// The selection is not constrained by the row-count.
         #[inline]
         pub fn select(&mut self, row: Option<usize>) -> bool {
-            self.core.select(row)
+            self.table.select(row)
         }
 
         /// Set the selection to None and set the offset to 0
         #[inline]
         pub fn move_deselect(&mut self) -> bool {
-            self.core.move_deselect()
+            self.table.move_deselect()
         }
 
         /// Move the selection to the given row.
         /// Ensures the row is visible afterward.
         #[inline]
         pub fn move_to(&mut self, row: usize) -> bool {
-            self.core.move_to(row)
+            self.table.move_to(row)
         }
 
         /// Move the selection up n rows.
         /// Ensures the row is visible afterward.
         #[inline]
         pub fn move_up(&mut self, n: usize) -> bool {
-            self.core.move_up(n)
+            self.table.move_up(n)
         }
 
         /// Move the selection down n rows.
         /// Ensures the row is visible afterward.
         #[inline]
         pub fn move_down(&mut self, n: usize) -> bool {
-            self.core.move_down(n)
+            self.table.move_down(n)
         }
     };
     (ROWSETSELECTION) => {
         /// Anything selected?
         #[inline]
         pub fn has_selection(&mut self) -> bool {
-            self.core.has_selection()
+            self.table.has_selection()
         }
 
         /// Selected rows.
         #[inline]
         pub fn selected(&self) -> HashSet<usize> {
-            self.core.selected()
+            self.table.selected()
         }
 
         /// Change the lead-selection. Limits the value to the number of rows.
@@ -612,26 +612,26 @@ macro_rules! derive_table_widget_state {
         /// if anchor < lead.
         #[inline]
         pub fn set_lead(&mut self, row: Option<usize>, extend: bool) -> bool {
-            self.core.set_lead(row, extend)
+            self.table.set_lead(row, extend)
         }
 
         /// Current lead.
         #[inline]
         pub fn lead(&self) -> Option<usize> {
-            self.core.lead()
+            self.table.lead()
         }
 
         /// Current anchor.
         #[inline]
         pub fn anchor(&self) -> Option<usize> {
-            self.core.anchor()
+            self.table.anchor()
         }
 
         /// Retire the current anchor/lead selection to the set of selected rows.
         /// Resets lead and anchor and starts a new selection round.
         #[inline]
         pub fn retire_selection(&mut self) {
-            self.core.retire_selection()
+            self.table.retire_selection()
         }
 
         /// Add to selection. Only works for retired selections, not for the
@@ -640,7 +640,7 @@ macro_rules! derive_table_widget_state {
         /// To be sure call [retire_selection][Self::retire_selection] first.
         #[inline]
         pub fn add_selected(&mut self, idx: usize) {
-            self.core.add_selected(idx)
+            self.table.add_selected(idx)
         }
 
         /// Remove from selection. Only works for retired selections, not for the
@@ -649,104 +649,104 @@ macro_rules! derive_table_widget_state {
         /// To be sure call [retire_selection][Self::retire_selection] first.
         #[inline]
         pub fn remove_selected(&mut self, idx: usize) {
-            self.core.remove_selected(idx)
+            self.table.remove_selected(idx)
         }
 
         /// Move the selection to the given row.
         /// Ensures the row is visible afterward.
         #[inline]
         pub fn move_to(&mut self, row: usize, extend: bool) -> bool {
-            self.core.move_to(row, extend)
+            self.table.move_to(row, extend)
         }
 
         /// Move the selection up n rows.
         /// Ensures the row is visible afterward.
         #[inline]
         pub fn move_up(&mut self, n: usize, extend: bool) -> bool {
-            self.core.move_up(n, extend)
+            self.table.move_up(n, extend)
         }
 
         /// Move the selection down n rows.
         /// Ensures the row is visible afterwards.
         #[inline]
         pub fn move_down(&mut self, n: usize, extend: bool) -> bool {
-            self.core.move_down(n, extend)
+            self.table.move_down(n, extend)
         }
     };
     (CELLSELECTION) => {
         #[inline]
         pub fn has_selection(&mut self) -> bool {
-            self.core.has_selection()
+            self.table.has_selection()
         }
 
         /// Selected cell.
         #[inline]
         pub fn selected(&self) -> Option<(usize, usize)> {
-            self.core.selected()
+            self.table.selected()
         }
 
         /// Select a cell.
         #[inline]
         pub fn select_cell(&mut self, select: Option<(usize, usize)>) -> bool {
-            self.core.select_cell(select)
+            self.table.select_cell(select)
         }
 
         /// Select a row. Column stays the same.
         #[inline]
         pub fn select_row(&mut self, row: Option<usize>) -> bool {
-            self.core.select_row(row)
+            self.table.select_row(row)
         }
 
         /// Select a column, row stays the same.
         #[inline]
         pub fn select_column(&mut self, column: Option<usize>) -> bool {
-            self.core.select_column(column)
+            self.table.select_column(column)
         }
 
         /// Select a cell, limit to maximum.
         #[inline]
         pub fn move_to(&mut self, select: (usize, usize)) -> bool {
-            self.core.move_to(select)
+            self.table.move_to(select)
         }
 
         /// Select a row, limit to maximum.
         #[inline]
         pub fn move_to_row(&mut self, row: usize) -> bool {
-            self.core.move_to_row(row)
+            self.table.move_to_row(row)
         }
 
         /// Select a cell, clamp between 0 and maximum.
         #[inline]
         pub fn move_to_col(&mut self, col: usize) -> bool {
-            self.core.move_to_col(col)
+            self.table.move_to_col(col)
         }
 
         /// Move the selection up n rows.
         /// Ensures the row is visible afterwards.
         #[inline]
         pub fn move_up(&mut self, n: usize) -> bool {
-            self.core.move_up(n)
+            self.table.move_up(n)
         }
 
         /// Move the selection down n rows.
         /// Ensures the row is visible afterwards.
         #[inline]
         pub fn move_down(&mut self, n: usize) -> bool {
-            self.core.move_down(n)
+            self.table.move_down(n)
         }
 
         /// Move the selection left n columns.
         /// Ensures the row is visible afterwards.
         #[inline]
         pub fn move_left(&mut self, n: usize) -> bool {
-            self.core.move_left(n)
+            self.table.move_left(n)
         }
 
         /// Move the selection right n columns.
         /// Ensures the row is visible afterwards.
         #[inline]
         pub fn move_right(&mut self, n: usize) -> bool {
-            self.core.move_right(n)
+            self.table.move_right(n)
         }
     };
     (ITEMS) => {
@@ -758,7 +758,7 @@ macro_rules! derive_table_widget_state {
         /// This corrects the number of rows, offset and selection.
         #[inline]
         pub fn items_added(&mut self, pos: usize, n: usize) {
-            self.core.items_added(pos, n)
+            self.table.items_added(pos, n)
         }
 
         /// Update the state to match removing items *during* event-handling.
@@ -769,7 +769,7 @@ macro_rules! derive_table_widget_state {
         /// This corrects the number of rows, offset and selection.
         #[inline]
         pub fn items_removed(&mut self, pos: usize, n: usize) {
-            self.core.items_removed(pos, n)
+            self.table.items_removed(pos, n)
         }
 
         /// Update the number of rows *during* event-handling.
@@ -780,7 +780,7 @@ macro_rules! derive_table_widget_state {
         /// This corrects the number of rows, offset and selection.
         #[inline]
         pub fn rows_changed(&mut self, rows: usize) {
-            self.core.rows_changed(rows)
+            self.table.rows_changed(rows)
         }
     };
 }
