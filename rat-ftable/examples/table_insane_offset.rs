@@ -3,7 +3,7 @@
 //! More to test things than an example.
 //!
 
-use crate::data::render_tablestate::render_tablestate;
+use crate::data::render_tablestate::render_tablestate_row;
 use crate::mini_salsa::mock_init;
 use crate::mini_salsa::{MiniSalsaState, layout_grid, run_ui, setup_logging};
 use format_num_pattern::NumberFormat;
@@ -235,7 +235,7 @@ fn render(
         .select_row_style(Some(ctx.theme.p.gray(3)))
         .render(l0[1], buf, &mut state.table);
 
-    render_tablestate(&state.table, l1[2], buf);
+    render_tablestate_row(&state.table, l1[2], buf);
 
     Ok(())
 }
