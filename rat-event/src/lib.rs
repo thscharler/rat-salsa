@@ -21,8 +21,8 @@ pub struct MouseOnly;
 ///
 /// Focus collects all the areas of widgets and containers and can set a z-index
 /// for each area. With this information it runs a hit-test for each mouse event
-/// and sets and sets the `mouse-focus` flag for each widget and container.
-/// This works well with popups and overlapping widgets. This makes the
+/// and sets and sets the `obscured` flag for each widget and container that is
+/// not hit. This works well with popups and overlapping widgets. This makes the
 /// differentiation between regular widgets and widgets that might show a popup
 /// that overlaps other widgets obsolete.
 ///
