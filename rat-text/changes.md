@@ -1,5 +1,8 @@
 # 3.1.1
 
+* fix: #39
+  relocate_dark_offset needs to use the original value of self.inner.
+* fix: Focus breaking change.
 * fix: cloning the state for the text-widgets cloned 
 the Rc for the cursor position, this is wrong.  
 * fix: cloning the state rebuilt the focus callbacks

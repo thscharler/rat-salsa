@@ -5,13 +5,75 @@
   *This necessitates a copy of ListItem.* 
   So your list rendering might fail if you import the ratatui-ListItem.
   Changing the import is good enough, but it breaks.
-* feature: List now supports highlight markers.
+  
+  * feat: supports highlight markers.
+  * feat: supports scroll-padding.
+  * feat: navigation with variable row-heights.
+  * feat: supports ListDirection.
 
-# 3.2.2
+* fix Splitter and Tabbed focus problems with new 'obscured' feature.
 
-* fix: page_len now matches the observed behavior of the underlying List.
-scroll_to_selected() and scroll_to_pos() now work correctly. 
-* fix: mark highlight_xxx functions and styles as unsupported. 
+* fix: #34
+  ListState::scroll_to_pos() now scrolls to the given
+  position if the area is empty. This occurs before the
+  first render. 
+
+* fix: break from rat-focus.
+* fix: focus issues from new 'obscured' feature.
+
+## rat-focus
+
+Adds a new 'obscured' feature that marks widgets as obscured/not obscured.
+A widget is not obscured if it succeeds a hit-test with the current 
+mouse position and there are no widgets/containers with a higher z-index
+that are hit first.
+
+Works fine for all popup/dialog like widgets.
+
+## rat-ftable2
+
+* feat: add *rat-ftable2* with a new, easier API.
+
+  * Will keep both until the next major release. 
+
+  * Table data is a regular Iterator.
+  * Rendering is done with specific closures per Cell
+    and for the full row.  
+  * Remove unused parameters.
+  * Merge layout_width and layout_column_widths
+  * Better support for varying row-heights.
+
+  It reuses some types and traits from rat-ftable and
+  is included as the table2 module.
+  
+## rat-ftable
+
+* Adds TableOutcome::Header and TableOutcome::Footer
+* Adds TableSelection::clear()
+
+* fix scrolling behavior for scroll_to_pos().
+
+  * If the inner area is empty it uses the given position as offset.
+    This helps when setting the offset before the first render.
+
+  * add Table::varying_heights().
+    If this is set, then the individual row-heights for all the
+    rows are stored as part of the state. If this flag is not used,
+    the height of the last rendered row is stored in the state.
+
+  This information is used in scroll_to_row() to ensure that the
+  row is made fully visible.
+
+  TableState::items_removed(), items_added() and rows_changed()
+  fix the row-height data too.
+
+## rat-reloc
+
+* Fix issues with TextAreas inside of view widgets.
+
+## rat-text
+
+* Fix cloning issues. 
 
 # 3.2.1
 

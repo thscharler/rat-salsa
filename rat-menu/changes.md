@@ -1,3 +1,8 @@
+# 3.1.2
+
+* fix: Focus: rename mouse-focus to 'obscured', makes the 
+intention clearer and more describable.
+
 # 3.1.1
 
 * fix: PopupMenu doesn't work as widget. fixed.

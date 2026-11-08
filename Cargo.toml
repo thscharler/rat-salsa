@@ -23,9 +23,9 @@ members = [
 rat-cursor = { path = "rat-cursor", version = "2.0" }
 rat-dialog = { path = "rat-dialog", version = "2.0" }
 rat-event = { path = "rat-event", version = "2.1" }
-rat-focus = { path = "rat-focus", version = "2.1" }
-rat-ftable = { path = "rat-ftable", version = "2.2" }
-rat-ftable2 = { path = "rat-ftable2", version = "0.3" }
+rat-focus = { path = "rat-focus", version = "2.2" }
+rat-ftable = { path = "rat-ftable", version = "2.3" }
+rat-ftable2 = { path = "rat-ftable2", version = "0.4" }
 rat-markdown = { path = "rat-markdown", version = "0.7" }
 rat-menu = { path = "rat-menu", version = "3.1" }
 rat-popup = { path = "rat-popup", version = "3.0" }

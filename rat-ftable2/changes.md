@@ -1,4 +1,12 @@
-# 0.3
+# 0.4
+
+* first released version.
+
+* refactor: reuse types from rat-ftable where possible.
+  makes their coexistence inside rat-widget feasible.
+* fix: add RowHeights for storing all row-heights.
+
+# 0.3 (never released)
 
 Moved to rat-salsa and add to rat-widget as table2.
 
@@ -7,7 +15,7 @@ Found a clean definition for the lifetimes in TableVec and
 TableEdit, they still can't implement StatefulWidget but 
 that's ok. 
 
-# 0.2
+# 0.2 (never released)
 
 Replaced the trait with separated closures for row-height, 
 row-render and cell-render. 
@@ -15,7 +23,7 @@ row-render and cell-render.
 Removed more dubiously useless functions.
 Added proper support for varying row-heights.
 
-# 0.1
+# 0.1 (never released)
 
 Initial version. Reused the rendering logic from rat-ftable but
 removed a bit of cruft.

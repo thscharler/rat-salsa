@@ -1,3 +1,7 @@
+# 2.0.3
+
+* fix: relocate_dark_offset must account for the origin going to negative screen-coordinates.
+
 # 2.0.2
 
 * feat: add relocate_pos_tuple_opt() to relocate a stored cursor.

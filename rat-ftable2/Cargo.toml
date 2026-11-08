@@ -1,6 +1,6 @@
 [package]
 name = "rat-ftable2"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "ratatui table widget for large data"
 license = "MIT/Apache-2.0"

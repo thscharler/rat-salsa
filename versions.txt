@@ -1,14 +1,15 @@
 Reference of crate-versions that work together:
 
 rat-cursor: 2.0.0
-rat-dialog: 2.0.1
-rat-event: 2.1.0
-rat-focus: 2.1.2
-rat-ftable: 2.2.1
+rat-dialog: 2.0.2
+rat-event: 2.1.1
+rat-focus: 2.2.0
+rat-ftable: 2.3.0
+rat-ftable2: 0.4.0
 rat-markdown: 0.7.3
-rat-menu: 3.1.1
+rat-menu: 3.1.2
 rat-popup: 3.0.2
-rat-reloc: 2.0.2
+rat-reloc: 2.0.3
 rat-salsa: 4.0.4
 rat-scrolled: 2.0.3
 rat-text: 3.1.1

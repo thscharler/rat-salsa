@@ -3,8 +3,10 @@
 * break: rename the 'mouse_focus' features to 'obscured'. 
 the previous name is too confusing. It can now be described
 with a single sentence instead of 4 paragraphs.
-
-# 2.1.2
+* feat: obscured needs to work with multiple widgets in the 
+same location. Widgets like Split and Tabbed occupy the same 
+space as their content and should not be inhibited to act 
+on mouse-events.
 
 * docs for macros
 

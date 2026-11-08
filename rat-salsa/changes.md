@@ -1,6 +1,7 @@
 # 4.0.4
 
 * fix TimerHandle default
+* fix docs
 
 # 4.0.3
 
