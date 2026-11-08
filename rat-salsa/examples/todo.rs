@@ -11,7 +11,7 @@ use rat_widget::button::{Button, ButtonState};
 use rat_widget::event::ButtonOutcome;
 use rat_widget::layout::simple_grid;
 use rat_widget::list::selection::RowSelection;
-use rat_widget::list::{List, ListState};
+use rat_widget::list::{List, ListItem, ListState};
 use rat_widget::reloc::RelocatableState;
 use rat_widget::scrolled::Scroll;
 use rat_widget::text::HasScreenCursor;
@@ -24,7 +24,6 @@ use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm::event::Event as CrosstermEvent;
 use ratatui_widgets::block::Block;
 use ratatui_widgets::borders::BorderType;
-use ratatui_widgets::list::ListItem;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
