@@ -1,5 +1,4 @@
 use crate::mini_salsa::{MiniSalsaState, layout_grid};
-use log::debug;
 use rat_event::{HandleEvent, Outcome, Popup, Regular, try_flow};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::StaticMenu;
@@ -121,13 +120,10 @@ fn render(
         .highlight_style(Style::new().cyan())
         .repeat_highlight_symbol(true)
         .highlight_spacing(HighlightSpacing::WhenSelected)
-        .scroll_padding(11)
         .styles(ctx.theme.style(WidgetStyle::LIST))
         .block(Block::bordered())
         .scroll(Scroll::new())
         .render(l_grid[1][0], buf, &mut state.list1);
-
-    debug!("{:#?}", state.list1);
 
     Text::from(vec![
         Line::from(format!("page-len {}", state.list1.scroll.page_len)),

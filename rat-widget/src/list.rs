@@ -126,6 +126,9 @@ pub struct ListState<Selection = RowSelection> {
     /// Scroll padding.
     /// __readonly__. renewed for each render.
     pub scroll_padding: usize,
+    /// Widget direction.
+    /// __readonly__. renewed for each render.
+    pub direction: ListDirection,
 
     /// Length in items.
     /// __mostly readonly__. renewed for each render.
@@ -429,6 +432,7 @@ fn render_list<Selection: ListSelection>(
     state.area = area;
     state.selection.validate_rows(state.rows);
     state.scroll_padding = widget.scroll_padding;
+    state.direction = widget.direction;
 
     let sa = ScrollArea::new()
         .style(widget.style)
@@ -479,54 +483,116 @@ fn render_list<Selection: ListSelection>(
     state.row_heights.clear();
     state.scroll.page_len = 0;
 
-    let mut row_y = state.inner.y;
-    for (row, item) in widget.items.iter().enumerate() {
-        let row_height = item.height() as u8;
-        state.row_heights.push(row_height);
+    if widget.direction == ListDirection::TopToBottom {
+        let mut row_y = state.inner.y;
+        for (row, item) in widget.items.into_iter().enumerate() {
+            let row_height = item.height() as u8;
+            state.row_heights.push(row_height);
 
-        if row < state.offset() || row_y >= state.inner.bottom() {
-            continue;
-        }
+            if row < state.offset() || row_y >= state.inner.bottom() {
+                continue;
+            }
 
-        let row_area = Rect::new(state.inner.x, row_y, state.inner.width, row_height as u16);
-        let vis_area = row_area.intersection(state.inner);
+            let row_area = Rect::new(state.inner.x, row_y, state.inner.width, row_height as u16)
+                .intersection(state.inner);
 
-        state.row_areas.push(vis_area);
-        state.scroll.page_len += 1;
+            state.row_areas.push(row_area);
+            state.scroll.page_len += 1;
 
-        let style = if state.selection.is_selected(row) {
-            style.patch(select_style).patch(item.style)
-        } else {
-            style.patch(item.style)
-        };
-        buf.set_style(vis_area, style);
+            let style = if state.selection.is_selected(row) {
+                style.patch(select_style).patch(item.style)
+            } else {
+                style.patch(item.style)
+            };
+            buf.set_style(row_area, style);
+            buf.set_style(row_area, item.content.style);
 
-        (&item.content).render(
-            Rect::new(
-                vis_area.x + item_area.x,
-                vis_area.y,
-                item_area.width,
-                vis_area.height,
-            ),
-            buf,
-        );
+            for mut line in item.content.lines.into_iter() {
+                if row_y >= state.inner.bottom() {
+                    break;
+                }
+                row_y += 1;
 
-        if state.selection.is_selected(row) {
-            for yy in vis_area.y..vis_area.bottom() {
-                let high_area = Rect::new(
-                    vis_area.x + high_area.x, //
-                    yy,
-                    high_area.width,
-                    1,
+                line.alignment = line.alignment.or(item.content.alignment);
+                line.render(
+                    Rect::new(row_area.x + item_area.x, row_y, item_area.width, 1),
+                    buf,
                 );
-                buf.set_style(high_area, high_style);
-                if widget.repeat_highlight_symbol || yy == vis_area.y {
-                    (&high_sym).render(high_area, buf);
+            }
+
+            if state.selection.is_selected(row) {
+                for yy in row_area.y..row_area.bottom() {
+                    let high_area = Rect::new(
+                        row_area.x + high_area.x, //
+                        yy,
+                        high_area.width,
+                        1,
+                    );
+                    buf.set_style(high_area, high_style);
+                    if widget.repeat_highlight_symbol || yy == row_area.y {
+                        (&high_sym).render(high_area, buf);
+                    }
                 }
             }
         }
+    } else if widget.direction == ListDirection::BottomToTop {
+        let mut row_y = state.inner.bottom();
+        for (row, item) in widget.items.into_iter().enumerate() {
+            let row_height = item.height() as u8;
+            state.row_heights.push(row_height);
 
-        row_y = row_area.bottom();
+            if row < state.offset() || row_y <= state.inner.y {
+                continue;
+            }
+
+            let row_area = Rect::new(
+                state.inner.x,
+                row_y.saturating_sub(row_height as u16),
+                state.inner.width,
+                row_height as u16,
+            )
+            .intersection(state.inner);
+
+            state.row_areas.push(row_area);
+            state.scroll.page_len += 1;
+
+            let style = if state.selection.is_selected(row) {
+                style.patch(select_style).patch(item.style)
+            } else {
+                style.patch(item.style)
+            };
+            buf.set_style(row_area, style);
+            buf.set_style(row_area, item.content.style);
+
+            // render line-wise from bottom to top and clip at the top.
+            for mut line in item.content.lines.into_iter().rev() {
+                if row_y <= state.inner.y {
+                    break;
+                }
+                row_y -= 1;
+
+                line.alignment = line.alignment.or(item.content.alignment);
+                line.render(
+                    Rect::new(row_area.x + item_area.x, row_y, item_area.width, 1),
+                    buf,
+                );
+            }
+
+            if state.selection.is_selected(row) {
+                for yy in row_area.y..row_area.bottom() {
+                    let high_area = Rect::new(
+                        row_area.x + high_area.x, //
+                        yy,
+                        high_area.width,
+                        1,
+                    );
+                    buf.set_style(high_area, high_style);
+                    if widget.repeat_highlight_symbol || yy == row_area.y {
+                        (&high_sym).render(high_area, buf);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -589,6 +655,7 @@ impl<Selection: Default> Default for ListState<Selection> {
             row_areas: Default::default(),
             row_heights: Default::default(),
             scroll_padding: Default::default(),
+            direction: Default::default(),
             rows: Default::default(),
             scroll: Default::default(),
             focus: Default::default(),
@@ -607,6 +674,7 @@ impl<Selection: Clone> Clone for ListState<Selection> {
             row_areas: self.row_areas.clone(),
             row_heights: self.row_heights.clone(),
             scroll_padding: self.scroll_padding,
+            direction: self.direction,
             rows: self.rows,
             scroll: self.scroll.clone(),
             focus: self.focus.new_instance(),
@@ -773,12 +841,20 @@ impl<Selection: ListSelection> ListState<Selection> {
 
     #[inline]
     pub fn scroll_up(&mut self, n: usize) -> bool {
-        self.scroll.scroll_up(n)
+        if self.direction == ListDirection::TopToBottom {
+            self.scroll.scroll_up(n)
+        } else {
+            self.scroll.scroll_down(n)
+        }
     }
 
     #[inline]
     pub fn scroll_down(&mut self, n: usize) -> bool {
-        self.scroll.scroll_down(n)
+        if self.direction == ListDirection::TopToBottom {
+            self.scroll.scroll_down(n)
+        } else {
+            self.scroll.scroll_up(n)
+        }
     }
 }
 
@@ -874,7 +950,11 @@ impl ListState<RowSelection> {
     /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_up(&mut self, n: usize) -> bool {
-        let r = self.selection.move_up(n, self.rows.saturating_sub(1));
+        let r = if self.direction == ListDirection::TopToBottom {
+            self.selection.move_up(n, self.rows.saturating_sub(1))
+        } else {
+            self.selection.move_down(n, self.rows.saturating_sub(1))
+        };
         let s = self.scroll_to(self.selection.selected().expect("row"));
         r || s
     }
@@ -883,7 +963,11 @@ impl ListState<RowSelection> {
     /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_down(&mut self, n: usize) -> bool {
-        let r = self.selection.move_down(n, self.rows.saturating_sub(1));
+        let r = if self.direction == ListDirection::TopToBottom {
+            self.selection.move_down(n, self.rows.saturating_sub(1))
+        } else {
+            self.selection.move_up(n, self.rows.saturating_sub(1))
+        };
         let s = self.scroll_to(self.selection.selected().expect("row"));
         r || s
     }
@@ -976,9 +1060,13 @@ impl ListState<RowSetSelection> {
     /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_up(&mut self, n: usize, extend: bool) -> bool {
-        let r = self
-            .selection
-            .move_up(n, self.rows.saturating_sub(1), extend);
+        let r = if self.direction == ListDirection::TopToBottom {
+            self.selection
+                .move_up(n, self.rows.saturating_sub(1), extend)
+        } else {
+            self.selection
+                .move_down(n, self.rows.saturating_sub(1), extend)
+        };
         let s = self.scroll_to(self.selection.lead().expect("row"));
         r || s
     }
@@ -987,9 +1075,13 @@ impl ListState<RowSetSelection> {
     /// Ensures the row is visible afterward.
     #[inline]
     pub fn move_down(&mut self, n: usize, extend: bool) -> bool {
-        let r = self
-            .selection
-            .move_down(n, self.rows.saturating_sub(1), extend);
+        let r = if self.direction == ListDirection::TopToBottom {
+            self.selection
+                .move_down(n, self.rows.saturating_sub(1), extend)
+        } else {
+            self.selection
+                .move_up(n, self.rows.saturating_sub(1), extend)
+        };
         let s = self.scroll_to(self.selection.lead().expect("row"));
         r || s
     }
@@ -1002,7 +1094,6 @@ pub mod selection {
 
     use crate::event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event};
     use crate::list::{ListSelection, ListState};
-    use log::debug;
     use rat_event::event_flow;
     use rat_focus::HasFocus;
     use rat_ftable::TableSelection;
@@ -1196,7 +1287,6 @@ pub mod selection {
                 .v_scroll(&mut self.scroll);
             let r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => {
-                    debug!("scroll_up {}", v);
                     if ListSelection::scroll_selected(&self.selection) {
                         self.move_up(1)
                     } else {
@@ -1204,7 +1294,6 @@ pub mod selection {
                     }
                 }
                 ScrollOutcome::Down(v) => {
-                    debug!("scroll_down {}", v);
                     if ListSelection::scroll_selected(&self.selection) {
                         self.move_down(1)
                     } else {
