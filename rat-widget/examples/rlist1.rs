@@ -13,8 +13,10 @@ use rat_theme4::WidgetStyle;
 use rat_theme4::theme::SalsaTheme;
 use rat_widget::list::edit::{EditList, EditListState};
 use rat_widget::list::{List, ListItem};
+use rat_widget::util::reset_buf_area;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
 use ratatui_core::text::{Line, Text};
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm::event::Event;
@@ -88,8 +90,10 @@ impl<'a> StatefulWidget for EditEntry<'a> {
     type State = EditEntryState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        reset_buf_area(area, buf);
         TextInput::new()
             .styles(self.theme.style(WidgetStyle::TEXT))
+            .focus_style(Style::new().on_dark_gray())
             .render(area, buf, &mut state.text_input);
     }
 }

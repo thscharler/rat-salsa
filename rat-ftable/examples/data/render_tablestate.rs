@@ -168,9 +168,4 @@ pub fn render_tablestate_row(state: &TableState<RowSelection>, area: Rect, buf: 
     format!("{:?}", state.selection.lead_row)
         .to_string()
         .render(l_grid[1][11], buf);
-
-    "row_heights".render(l_grid[0][12], buf);
-    format!("{}", state.row_heights.len())
-        .to_string()
-        .render(l_grid[1][12], buf);
 }

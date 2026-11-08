@@ -114,14 +114,13 @@ fn render(
                 .data
                 .iter()
                 .enumerate()
-                .map(|(i, v)| ListItem::new(format!("{} {}\n ", i, v))),
+                .map(|(i, v)| ListItem::new(format!("{:2} {}", i, v))),
         )
         .highlight_symbol("[x]")
         .highlight_style(Style::new().cyan())
         .repeat_highlight_symbol(true)
         .highlight_spacing(HighlightSpacing::WhenSelected)
         .styles(ctx.theme.style(WidgetStyle::LIST))
-        .block(Block::bordered())
         .scroll(Scroll::new())
         .render(l_grid[1][0], buf, &mut state.list1);
 

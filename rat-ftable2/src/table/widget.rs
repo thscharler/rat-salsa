@@ -619,7 +619,6 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
     // render table
     state.row_areas.clear();
     state.row_heights.clear();
-    state.row_height = 0;
     state.vscroll.set_page_len(0);
     state.hscroll.set_page_len(area.width as usize);
 
@@ -665,7 +664,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                             .row_height_fn
                             .as_mut()
                             .map_or(1, |f| (*f)(value, &ctx));
-                        state.row_heights.push(row_height as u8)
+                        state.row_heights.push(row_height, true)
                     }
                     row = Some(rr + 1);
                 } else {
@@ -675,7 +674,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                             .row_height_fn
                             .as_mut()
                             .map_or(1, |f| (*f)(value, &ctx));
-                        state.row_heights.push(row_height as u8)
+                        state.row_heights.push(row_height, true)
                     }
                     row = Some(0);
                 }
@@ -713,11 +712,9 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
             ctx.row_area = render_row_area;
             row_buf.resize(render_row_area);
             row_heights.push(row_height);
-            if widget.varying_heights {
-                state.row_heights.push(row_height as u8);
-            } else {
-                state.row_height = row_height;
-            }
+            state
+                .row_heights
+                .push(row_height as u8, widget.varying_heights);
             // Target area for the finished row.
             let visible_row_area = Rect::new(
                 state.table_area.x,
@@ -868,9 +865,9 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                 .row_height_fn
                 .as_mut()
                 .map_or(1, |f| (*f)(value, &ctx)) as u16;
-            if widget.varying_heights {
-                state.row_heights.push(row_height as u8);
-            }
+            state
+                .row_heights
+                .push(row_height as u8, widget.varying_heights);
             row_heights.push(row_height);
 
             // Keep a rolling sum of the heights and drop unnecessary info.

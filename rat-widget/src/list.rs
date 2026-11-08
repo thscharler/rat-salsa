@@ -67,6 +67,7 @@ pub struct List<'a, Selection = RowSelection> {
     block: Option<Block<'a>>,
     scroll: Option<Scroll<'a>>,
     scroll_padding: usize,
+    varying_heights: bool,
 
     select_style: Option<Style>,
     focus_style: Option<Style>,
@@ -109,8 +110,81 @@ pub struct ListStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
+#[derive(Debug, Clone)]
+pub enum RowHeights {
+    Uniform(u8),
+    Varying(Vec<u8>),
+}
+
+impl Default for RowHeights {
+    fn default() -> Self {
+        RowHeights::Uniform(1)
+    }
+}
+
+impl RowHeights {
+    pub(crate) fn clear(&mut self) {
+        match self {
+            RowHeights::Uniform(_) => {}
+            RowHeights::Varying(h) => h.clear(),
+        }
+    }
+
+    pub(crate) fn push(&mut self, row_height: u8, varying: bool) {
+        if varying {
+            match self {
+                RowHeights::Uniform(_) => {
+                    *self = RowHeights::Varying(vec![row_height]);
+                }
+                RowHeights::Varying(h) => h.push(row_height),
+            }
+        } else {
+            *self = RowHeights::Uniform(row_height);
+        }
+    }
+
+    pub(crate) fn items_added(&mut self, pos: usize, n: usize) {
+        match self {
+            RowHeights::Uniform(_) => {}
+            RowHeights::Varying(h) => {
+                if pos <= h.len() {
+                    for _ in 0..n {
+                        h.insert(pos, 1);
+                    }
+                }
+            }
+        }
+    }
+
+    pub(crate) fn items_added_with_heights(&mut self, pos: usize, height: &[u8]) {
+        match self {
+            RowHeights::Uniform(_) => {}
+            RowHeights::Varying(h) => {
+                if pos <= h.len() {
+                    h.splice(pos..pos, height.into_iter().copied());
+                }
+            }
+        }
+    }
+
+    pub(crate) fn items_removed(&mut self, pos: usize, n: usize) {
+        match self {
+            RowHeights::Uniform(_) => {}
+            RowHeights::Varying(h) => {
+                if pos < h.len() {
+                    if pos + n < h.len() {
+                        h.drain(pos..pos + n);
+                    } else {
+                        h.drain(pos..);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// State & event handling.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct ListState<Selection = RowSelection> {
     /// Total area
     /// __readonly__. renewed for each render.
@@ -122,7 +196,7 @@ pub struct ListState<Selection = RowSelection> {
     /// __readonly__. renewed for each render.
     pub row_areas: Vec<Rect>,
     /// Row heights for all list rows.
-    pub row_heights: Vec<u8>,
+    pub row_heights: RowHeights,
     /// Scroll padding.
     /// __readonly__. renewed for each render.
     pub scroll_padding: usize,
@@ -232,6 +306,7 @@ impl<'a, Selection> List<'a, Selection> {
             repeat_highlight_symbol: Default::default(),
             highlight_style: Default::default(),
             scroll_padding: 0,
+            varying_heights: Default::default(),
             _phantom: Default::default(),
         }
     }
@@ -334,6 +409,16 @@ impl<'a, Selection> List<'a, Selection> {
     #[inline]
     pub fn focus_style<S: Into<Style>>(mut self, focus_style: S) -> Self {
         self.focus_style = Some(focus_style.into());
+        self
+    }
+
+    /// If your list uses varying row-heights for each row
+    /// all page calculations will fail (somewhat).
+    /// If you enable this flag, the row-heights for
+    /// each row will be stored in the state to allow
+    /// accurate page-calculations.
+    pub fn varying_heights(mut self, varying: bool) -> Self {
+        self.varying_heights = varying;
         self
     }
 
@@ -487,7 +572,7 @@ fn render_list<Selection: ListSelection>(
         let mut row_y = state.inner.y;
         for (row, item) in widget.items.into_iter().enumerate() {
             let row_height = item.height() as u8;
-            state.row_heights.push(row_height);
+            state.row_heights.push(row_height, widget.varying_heights);
 
             if row < state.offset() || row_y >= state.inner.bottom() {
                 continue;
@@ -511,13 +596,14 @@ fn render_list<Selection: ListSelection>(
                 if row_y >= state.inner.bottom() {
                     break;
                 }
-                row_y += 1;
 
                 line.alignment = line.alignment.or(item.content.alignment);
                 line.render(
                     Rect::new(row_area.x + item_area.x, row_y, item_area.width, 1),
                     buf,
                 );
+
+                row_y += 1;
             }
 
             if state.selection.is_selected(row) {
@@ -539,7 +625,7 @@ fn render_list<Selection: ListSelection>(
         let mut row_y = state.inner.bottom();
         for (row, item) in widget.items.into_iter().enumerate() {
             let row_height = item.height() as u8;
-            state.row_heights.push(row_height);
+            state.row_heights.push(row_height, widget.varying_heights);
 
             if row < state.offset() || row_y <= state.inner.y {
                 continue;
@@ -724,7 +810,21 @@ impl<Selection: ListSelection> ListState<Selection> {
     pub fn items_added(&mut self, pos: usize, n: usize) {
         self.rows = self.rows.saturating_add(n);
         self.scroll.items_added(pos, n);
+        self.row_heights.items_added(pos, n);
         self.selection.items_added(pos, n);
+    }
+
+    /// Update the state to match adding items.
+    /// Use this function if you have varying row-heights.
+    ///
+    /// This corrects the number of rows, offset and selection.
+    /// This also corrects the stored row-heights with the
+    /// given heights.
+    pub fn items_added_with_heights(&mut self, pos: usize, height: &[u8]) {
+        self.rows = self.rows.saturating_add(height.len());
+        self.scroll.items_added(pos, height.len());
+        self.row_heights.items_added_with_heights(pos, height);
+        self.selection.items_added(pos, height.len());
     }
 
     /// Update the state to match removing items.
@@ -733,6 +833,7 @@ impl<Selection: ListSelection> ListState<Selection> {
     pub fn items_removed(&mut self, pos: usize, n: usize) {
         self.rows = self.rows.saturating_sub(n);
         self.scroll.items_removed(pos, n);
+        self.row_heights.items_removed(pos, n);
         self.selection.items_removed(pos, n, self.rows);
     }
 
@@ -748,6 +849,7 @@ impl<Selection: ListSelection> ListState<Selection> {
     pub fn rows_changed(&mut self, rows: usize) {
         self.selection.validate_rows(rows);
         self.scroll.rows_changed(rows);
+        self.row_heights.clear();
         self.rows = rows;
     }
 
@@ -799,9 +901,29 @@ impl<Selection: ListSelection> ListState<Selection> {
     pub fn scroll_to(&mut self, mut pos: usize) -> bool {
         if pos >= self.rows {
             false
-        } else if self.page_len() == 0 {
+        } else if self.inner.is_empty() {
+            // area is empty before first render too.
             self.set_offset(pos)
-        } else {
+        } else if let RowHeights::Uniform(row_height) = &self.row_heights {
+            let page_len = self.inner.height.div_ceil(*row_height as u16) as usize;
+            let scroll_padding = min((page_len - 1) / 2, self.scroll_padding);
+            if pos
+                >= self
+                    .offset()
+                    .saturating_add(page_len - 1)
+                    .saturating_sub(scroll_padding)
+            {
+                if page_len as u16 * (*row_height) as u16 > self.inner.height {
+                    self.set_offset(pos.saturating_sub(page_len - 2))
+                } else {
+                    self.set_offset(pos.saturating_sub(page_len - 1))
+                }
+            } else if pos < self.offset() {
+                self.set_offset(pos.saturating_sub(scroll_padding))
+            } else {
+                false
+            }
+        } else if let RowHeights::Varying(row_heights) = &self.row_heights {
             let scroll_padding = min((self.page_len() - 1) / 2, self.scroll_padding);
             if pos
                 >= self
@@ -809,20 +931,17 @@ impl<Selection: ListSelection> ListState<Selection> {
                     .saturating_add(self.page_len() - 1)
                     .saturating_sub(scroll_padding)
             {
-                if pos >= self.row_heights.len() {
+                if pos >= row_heights.len() {
                     self.set_offset(pos)
                 } else {
-                    pos = min(
-                        pos + scroll_padding,
-                        self.row_heights.len().saturating_sub(1),
-                    );
-                    let mut sum_height = self.row_heights[pos] as u16;
+                    pos = min(pos + scroll_padding, row_heights.len().saturating_sub(1));
+                    let mut sum_height = row_heights[pos] as u16;
                     if sum_height < self.inner.height {
                         loop {
                             if pos < 1 {
                                 break;
                             }
-                            sum_height += self.row_heights[pos - 1] as u16;
+                            sum_height += row_heights[pos - 1] as u16;
                             if sum_height > self.inner.height {
                                 break;
                             }
@@ -836,6 +955,8 @@ impl<Selection: ListSelection> ListState<Selection> {
             } else {
                 false
             }
+        } else {
+            false
         }
     }
 
@@ -866,9 +987,10 @@ impl<Selection: ListSelection> ListState<Selection> {
         }
         let row = row - self.scroll.offset;
         if row >= self.row_areas.len() {
-            return None;
+            None
+        } else {
+            Some(self.row_areas[row])
         }
-        Some(self.row_areas[row - self.scroll.offset])
     }
 
     #[inline]
