@@ -1,6 +1,7 @@
 use crate::mini_salsa::{MiniSalsaState, layout_grid};
+use log::debug;
 use rat_event::{HandleEvent, Outcome, Popup, Regular, try_flow};
-use rat_focus::{Focus, FocusBuilder, HasFocus};
+use rat_focus::{Focus, FocusBuilder};
 use rat_menu::StaticMenu;
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
@@ -8,15 +9,16 @@ use rat_popup::Placement;
 use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
 use rat_theme4::WidgetStyle;
-use rat_widget::list::selection::RowSelection;
-use rat_widget::list::{List, ListSelection, ListState};
+use rat_widget::list::selection::{RowSelection, RowSetSelection};
+use rat_widget::list::{List, ListItem, ListSelection, ListState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
+use ratatui_core::style::Style;
 use ratatui_core::text::{Line, Text};
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm::event::Event;
 use ratatui_widgets::block::Block;
-use ratatui_widgets::list::ListItem;
+use ratatui_widgets::table::HighlightSpacing;
 
 mod mini_salsa;
 
@@ -54,7 +56,8 @@ fn main() -> Result<(), anyhow::Error> {
         list1: ListState::named("list1"),
         menu: MenubarState::named("menu"),
     };
-    state.list1.scroll.set_overscroll_by(Some(10));
+    // state.list1.scroll.set_overscroll_by(Some(10));
+    state.list1.set_scroll_selection(true);
 
     mini_salsa::run_ui("rlist1", init, event, render, &mut state)
 }
@@ -107,20 +110,32 @@ fn render(
     );
 
     List::default()
-        .items(state.data.iter().map(|v| {
-            let mut ll = v.clone();
-            ll.push('\n');
-            ll.push_str(v);
-            ListItem::new(ll)
-        }))
+        .items(
+            state
+                .data
+                .iter()
+                .enumerate()
+                .map(|(i, v)| ListItem::new(format!("{} {}\n ", i, v))),
+        )
+        .highlight_symbol("[x]")
+        .highlight_style(Style::new().cyan())
+        .repeat_highlight_symbol(true)
+        .highlight_spacing(HighlightSpacing::WhenSelected)
+        .scroll_padding(11)
         .styles(ctx.theme.style(WidgetStyle::LIST))
+        .block(Block::bordered())
         .scroll(Scroll::new())
         .render(l_grid[1][0], buf, &mut state.list1);
+
+    debug!("{:#?}", state.list1);
 
     Text::from(vec![
         Line::from(format!("page-len {}", state.list1.scroll.page_len)),
         Line::from(format!("max_offset {}", state.list1.scroll.max_offset)),
         Line::from(format!("offset {}", state.list1.scroll.offset)),
+        Line::from(format!("page-len {}", state.list1.scroll.page_len)),
+        Line::from(format!("scroll-by {:?}", state.list1.scroll.scroll_by)),
+        Line::from(format!("os-by {:?}", state.list1.scroll.overscroll_by)),
         Line::from(format!(
             "selection {}",
             state.list1.selection.lead_selection().unwrap_or_default()

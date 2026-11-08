@@ -8,7 +8,7 @@ use crate::event::{ButtonOutcome, FileOutcome, TextOutcome};
 use crate::layout::{DialogItem, LayoutOuter, layout_as_grid};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::{RowSelection, RowSetSelection};
-use crate::list::{List, ListState, ListStyle};
+use crate::list::{List, ListItem, ListState, ListStyle};
 use crate::util::{block_padding2, reset_buf_area};
 #[cfg(feature = "user_directories")]
 use dirs::{document_dir, home_dir};
@@ -26,7 +26,6 @@ use ratatui_core::text::Text;
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm::event::{Event, MouseEvent};
 use ratatui_widgets::block::Block;
-use ratatui_widgets::list::ListItem;
 use std::cmp::max;
 use std::collections::HashSet;
 use std::ffi::OsString;

@@ -11,15 +11,14 @@ use rat_text::HasScreenCursor;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_theme4::WidgetStyle;
 use rat_theme4::theme::SalsaTheme;
-use rat_widget::list::List;
 use rat_widget::list::edit::{EditList, EditListState};
+use rat_widget::list::{List, ListItem};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::text::{Line, Text};
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm::event::Event;
 use ratatui_widgets::block::Block;
-use ratatui_widgets::list::ListItem;
 use std::cmp::min;
 
 mod mini_salsa;

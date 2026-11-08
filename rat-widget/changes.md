@@ -1,3 +1,12 @@
+# 3.3.0
+
+* break: List was quite broken. Replicating the ratatui List 
+  behavior is not trivial, rebuilt rendering from scratch.
+  *This necessitates a copy of ListItem.* 
+  So your list rendering might fail if you import the ratatui-ListItem.
+  Changing the import is good enough, but it breaks.
+* feature: List now supports highlight markers.
+
 # 3.2.2
 
 * fix: page_len now matches the observed behavior of the underlying List.

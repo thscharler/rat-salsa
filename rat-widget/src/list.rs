@@ -14,12 +14,13 @@ use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Style;
-use ratatui_core::widgets::StatefulWidget;
+use ratatui_core::text::{Line, Text};
+use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm::event::Event;
 use ratatui_widgets::block::Block;
-use ratatui_widgets::list::{ListDirection, ListItem};
+use ratatui_widgets::list::ListDirection;
 use ratatui_widgets::table::HighlightSpacing;
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
@@ -71,10 +72,17 @@ pub struct List<'a, Selection = RowSelection> {
     focus_style: Option<Style>,
     direction: ListDirection,
     highlight_spacing: HighlightSpacing,
-    highlight_symbol: Option<&'static str>,
+    highlight_symbol: Option<Line<'a>>,
     repeat_highlight_symbol: bool,
+    highlight_style: Option<Style>,
 
     _phantom: PhantomData<Selection>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ListItem<'a> {
+    pub(crate) content: Text<'a>,
+    pub(crate) style: Style,
 }
 
 /// Collected styles.
@@ -93,12 +101,10 @@ pub struct ListStyle {
     /// Style for selection when focused.
     pub focus: Option<Style>,
 
-    /// Unsupported (for now)
     pub highlight_spacing: Option<HighlightSpacing>,
-    /// Unsupported (for now)
     pub highlight_symbol: Option<&'static str>,
-    /// Unsupported (for now)
     pub repeat_highlight_symbol: Option<bool>,
+    pub highlight_style: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -115,6 +121,11 @@ pub struct ListState<Selection = RowSelection> {
     /// Areas for the rendered items.
     /// __readonly__. renewed for each render.
     pub row_areas: Vec<Rect>,
+    /// Row heights for all list rows.
+    pub row_heights: Vec<u8>,
+    /// Scroll padding.
+    /// __readonly__. renewed for each render.
+    pub scroll_padding: usize,
 
     /// Length in items.
     /// __mostly readonly__. renewed for each render.
@@ -141,18 +152,58 @@ impl Default for ListStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            select: Default::default(),
-            focus: Default::default(),
             block: Default::default(),
             border_style: Default::default(),
             title_style: Default::default(),
             scroll: Default::default(),
+            scroll_padding: Default::default(),
+            select: Default::default(),
+            focus: Default::default(),
             highlight_spacing: Default::default(),
             highlight_symbol: Default::default(),
             repeat_highlight_symbol: Default::default(),
-            scroll_padding: Default::default(),
+            highlight_style: Default::default(),
             non_exhaustive: NonExhaustive,
         }
+    }
+}
+
+impl<'a> ListItem<'a> {
+    /// Creates a new [`ListItem`]
+    /// The `content` parameter accepts any value that can be converted into [`Text`].
+    pub fn new<T>(content: T) -> Self
+    where
+        T: Into<Text<'a>>,
+    {
+        Self {
+            content: content.into(),
+            style: Style::default(),
+        }
+    }
+
+    /// Sets the item style.
+    pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
+        self.style = style.into();
+        self
+    }
+
+    /// Returns the item height.
+    pub fn height(&self) -> usize {
+        self.content.height()
+    }
+
+    /// Returns the max width of all the lines
+    pub fn width(&self) -> usize {
+        self.content.width()
+    }
+}
+
+impl<'a, T> From<T> for ListItem<'a>
+where
+    T: Into<Text<'a>>,
+{
+    fn from(value: T) -> Self {
+        Self::new(value)
     }
 }
 
@@ -175,7 +226,8 @@ impl<'a, Selection> List<'a, Selection> {
             direction: Default::default(),
             highlight_spacing: Default::default(),
             highlight_symbol: Default::default(),
-            repeat_highlight_symbol: false,
+            repeat_highlight_symbol: Default::default(),
+            highlight_style: Default::default(),
             scroll_padding: 0,
             _phantom: Default::default(),
         }
@@ -249,10 +301,13 @@ impl<'a, Selection> List<'a, Selection> {
             self.highlight_spacing = highlight_spacing;
         }
         if let Some(highlight_symbol) = styles.highlight_symbol {
-            self.highlight_symbol = Some(highlight_symbol);
+            self.highlight_symbol = Some(highlight_symbol.into());
         }
         if let Some(repeat_highlight_symbol) = styles.repeat_highlight_symbol {
             self.repeat_highlight_symbol = repeat_highlight_symbol;
+        }
+        if let Some(highlight_style) = styles.highlight_style {
+            self.highlight_style = Some(highlight_style);
         }
         self
     }
@@ -286,6 +341,36 @@ impl<'a, Selection> List<'a, Selection> {
         self
     }
 
+    #[inline]
+    pub fn highlight_symbol<L: Into<Line<'a>>>(mut self, highlight_symbol: L) -> Self {
+        self.highlight_symbol = Some(highlight_symbol.into());
+        self
+    }
+
+    #[inline]
+    pub fn highlight_style<S: Into<Style>>(mut self, style: S) -> Self {
+        self.highlight_style = Some(style.into());
+        self
+    }
+
+    #[inline]
+    pub fn repeat_highlight_symbol(mut self, repeat: bool) -> Self {
+        self.repeat_highlight_symbol = repeat;
+        self
+    }
+
+    pub fn highlight_spacing(mut self, value: HighlightSpacing) -> Self {
+        self.highlight_spacing = value;
+        self
+    }
+
+    /// Sets the number of items around the currently selected item
+    /// that should be kept visible.
+    pub fn scroll_padding(mut self, padding: usize) -> Self {
+        self.scroll_padding = padding;
+        self
+    }
+
     /// Number of items.
     #[inline]
     pub fn len(&self) -> usize {
@@ -296,6 +381,24 @@ impl<'a, Selection> List<'a, Selection> {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
+    }
+
+    /// Inherent width
+    pub fn width(&self) -> u16 {
+        let mut width = 0;
+        for item in &self.items {
+            width = max(width, item.width() as u16);
+        }
+        width
+    }
+
+    /// Inherent height
+    pub fn height(&self) -> u16 {
+        let mut height = 0u16;
+        for item in &self.items {
+            height += height.saturating_add(item.height() as u16);
+        }
+        height
     }
 }
 
@@ -322,11 +425,23 @@ fn render_list<Selection: ListSelection>(
     buf: &mut Buffer,
     state: &mut ListState<Selection>,
 ) {
-    state.area = area;
     state.rows = widget.items.len();
+    state.area = area;
     state.selection.validate_rows(state.rows);
+    state.scroll_padding = widget.scroll_padding;
 
-    // max_v_offset
+    let sa = ScrollArea::new()
+        .style(widget.style)
+        .block(widget.block.as_ref())
+        .v_scroll(widget.scroll.as_ref());
+    state.inner = sa.inner(area, None, Some(&state.scroll));
+    sa.render(
+        area,
+        buf,
+        &mut ScrollAreaState::new().v_scroll(&mut state.scroll),
+    );
+
+    // max_offset
     let mut n = 0;
     let mut height = 0;
     for item in widget.items.iter().rev() {
@@ -338,82 +453,110 @@ fn render_list<Selection: ListSelection>(
     }
     state.scroll.set_max_offset(state.rows.saturating_sub(n));
 
-    // list max's out the offset
-    state
-        .scroll
-        .set_offset(min(state.rows.saturating_sub(1), state.scroll.offset()));
-
-    let sa = ScrollArea::new()
-        .block(widget.block.as_ref())
-        .v_scroll(widget.scroll.as_ref());
-    state.inner = sa.inner(area, None, Some(&state.scroll));
-
-    // find area for each item
-    state.row_areas.clear();
-    state.scroll.set_page_len(0);
-    let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
-    for item in widget.items.iter().skip(state.offset()) {
-        item_area.height = item.height() as u16;
-        let visible_item_area = item_area.intersection(state.inner);
-        // only fully visible list-items are rendered by list.
-        // count only these.
-        if item_area == visible_item_area {
-            state.row_areas.push(visible_item_area);
-            state.scroll.set_page_len(state.scroll.page_len() + 1);
-        }
-
-        if item_area.bottom() >= state.inner.height {
-            break;
-        }
-
-        item_area.y += item_area.height;
-    }
+    let (high_area, item_area) = layout_columns(&widget, area, state);
 
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
     let select_style = widget
         .select_style
         .unwrap_or(fallback_select_style(widget.style));
-
     let (style, select_style) = if state.is_focused() {
         (widget.style, focus_style)
     } else {
         (widget.style, select_style)
     };
+    let high_style = if let Some(highlight_style) = widget.highlight_style {
+        style.patch(highlight_style)
+    } else {
+        style
+    };
+    let high_sym = if let Some(high_sym) = widget.highlight_symbol {
+        high_sym
+    } else {
+        Line::default()
+    };
 
-    sa.render(
-        area,
-        buf,
-        &mut ScrollAreaState::new().v_scroll(&mut state.scroll),
+    state.row_areas.clear();
+    state.row_heights.clear();
+    state.scroll.page_len = 0;
+
+    let mut row_y = state.inner.y;
+    for (row, item) in widget.items.iter().enumerate() {
+        let row_height = item.height() as u8;
+        state.row_heights.push(row_height);
+
+        if row < state.offset() || row_y >= state.inner.bottom() {
+            continue;
+        }
+
+        let row_area = Rect::new(state.inner.x, row_y, state.inner.width, row_height as u16);
+        let vis_area = row_area.intersection(state.inner);
+
+        state.row_areas.push(vis_area);
+        state.scroll.page_len += 1;
+
+        let style = if state.selection.is_selected(row) {
+            style.patch(select_style).patch(item.style)
+        } else {
+            style.patch(item.style)
+        };
+        buf.set_style(vis_area, style);
+
+        (&item.content).render(
+            Rect::new(
+                vis_area.x + item_area.x,
+                vis_area.y,
+                item_area.width,
+                vis_area.height,
+            ),
+            buf,
+        );
+
+        if state.selection.is_selected(row) {
+            for yy in vis_area.y..vis_area.bottom() {
+                let high_area = Rect::new(
+                    vis_area.x + high_area.x, //
+                    yy,
+                    high_area.width,
+                    1,
+                );
+                buf.set_style(high_area, high_style);
+                if widget.repeat_highlight_symbol || yy == vis_area.y {
+                    (&high_sym).render(high_area, buf);
+                }
+            }
+        }
+
+        row_y = row_area.bottom();
+    }
+}
+
+fn layout_columns<Selection: ListSelection>(
+    widget: &List<'_, Selection>,
+    area: Rect,
+    state: &ListState<Selection>,
+) -> (Rect, Rect) {
+    let is_highlight = match widget.highlight_spacing {
+        HighlightSpacing::Always => true,
+        HighlightSpacing::WhenSelected => state.selection.lead_selection().is_some(),
+        HighlightSpacing::Never => false,
+    };
+
+    let highlight_area = if let Some(highlight_symbol) = &widget.highlight_symbol
+        && is_highlight
+    {
+        Rect::new(0, 0, highlight_symbol.width() as u16, 0)
+    } else {
+        Rect::new(0, 0, 0, 0)
+    };
+
+    let item_area = Rect::new(
+        highlight_area.right(),
+        0,
+        area.width.saturating_sub(highlight_area.right()),
+        0,
     );
 
-    // rendering
-    let items = widget
-        .items
-        .into_iter()
-        .enumerate()
-        .map(|(i, v)| {
-            if state.selection.is_selected(i) {
-                v.style(style.patch(select_style))
-            } else {
-                v.style(style)
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let mut list_state =
-        ratatui_widgets::list::ListState::default().with_offset(state.scroll.offset());
-
-    let mut list = ratatui_widgets::list::List::default()
-        .items(items)
-        .style(widget.style)
-        .direction(widget.direction)
-        .highlight_spacing(widget.highlight_spacing)
-        .repeat_highlight_symbol(widget.repeat_highlight_symbol)
-        .scroll_padding(widget.scroll_padding);
-    if let Some(highlight_symbol) = widget.highlight_symbol {
-        list = list.highlight_symbol(highlight_symbol);
-    }
-    list.render(state.inner, buf, &mut list_state);
+    (highlight_area, item_area)
 }
 
 impl<Selection> HasFocus for ListState<Selection> {
@@ -444,6 +587,8 @@ impl<Selection: Default> Default for ListState<Selection> {
             area: Default::default(),
             inner: Default::default(),
             row_areas: Default::default(),
+            row_heights: Default::default(),
+            scroll_padding: Default::default(),
             rows: Default::default(),
             scroll: Default::default(),
             focus: Default::default(),
@@ -460,6 +605,8 @@ impl<Selection: Clone> Clone for ListState<Selection> {
             area: self.area,
             inner: self.inner,
             row_areas: self.row_areas.clone(),
+            row_heights: self.row_heights.clone(),
+            scroll_padding: self.scroll_padding,
             rows: self.rows,
             scroll: self.scroll.clone(),
             focus: self.focus.new_instance(),
@@ -574,15 +721,54 @@ impl<Selection: ListSelection> ListState<Selection> {
     #[inline]
     pub fn scroll_to_selected(&mut self) -> bool {
         if let Some(selected) = self.selection.lead_selection() {
-            self.scroll.scroll_to_pos(selected)
+            self.scroll_to(selected)
         } else {
             false
         }
     }
 
     #[inline]
-    pub fn scroll_to(&mut self, pos: usize) -> bool {
-        self.scroll.scroll_to_pos(pos)
+    pub fn scroll_to(&mut self, mut pos: usize) -> bool {
+        if pos >= self.rows {
+            false
+        } else if self.page_len() == 0 {
+            self.set_offset(pos)
+        } else {
+            let scroll_padding = min((self.page_len() - 1) / 2, self.scroll_padding);
+            if pos
+                >= self
+                    .offset()
+                    .saturating_add(self.page_len() - 1)
+                    .saturating_sub(scroll_padding)
+            {
+                if pos >= self.row_heights.len() {
+                    self.set_offset(pos)
+                } else {
+                    pos = min(
+                        pos + scroll_padding,
+                        self.row_heights.len().saturating_sub(1),
+                    );
+                    let mut sum_height = self.row_heights[pos] as u16;
+                    if sum_height < self.inner.height {
+                        loop {
+                            if pos < 1 {
+                                break;
+                            }
+                            sum_height += self.row_heights[pos - 1] as u16;
+                            if sum_height > self.inner.height {
+                                break;
+                            }
+                            pos -= 1;
+                        }
+                    }
+                    self.set_offset(pos)
+                }
+            } else if pos < self.offset().saturating_add(scroll_padding) {
+                self.set_offset(pos.saturating_sub(scroll_padding))
+            } else {
+                false
+            }
+        }
     }
 
     #[inline]
@@ -816,6 +1002,7 @@ pub mod selection {
 
     use crate::event::{HandleEvent, MouseOnly, Outcome, Regular, ct_event};
     use crate::list::{ListSelection, ListState};
+    use log::debug;
     use rat_event::event_flow;
     use rat_focus::HasFocus;
     use rat_ftable::TableSelection;
@@ -1009,6 +1196,7 @@ pub mod selection {
                 .v_scroll(&mut self.scroll);
             let r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => {
+                    debug!("scroll_up {}", v);
                     if ListSelection::scroll_selected(&self.selection) {
                         self.move_up(1)
                     } else {
@@ -1016,6 +1204,7 @@ pub mod selection {
                     }
                 }
                 ScrollOutcome::Down(v) => {
+                    debug!("scroll_down {}", v);
                     if ListSelection::scroll_selected(&self.selection) {
                         self.move_down(1)
                     } else {
