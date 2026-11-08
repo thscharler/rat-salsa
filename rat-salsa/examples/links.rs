@@ -8,7 +8,7 @@ use rat_theme4::theme::SalsaTheme;
 use rat_widget::event::{HandleEvent, Regular, ct_event};
 use rat_widget::scrolled::Scroll;
 use rat_widget::view::{View, ViewState};
-use ratatui_core::buffer::Buffer;
+use ratatui_core::buffer::{Buffer, CellDiffOption};
 use ratatui_core::layout::{Constraint, Layout, Position, Rect};
 use ratatui_crossterm::crossterm::event::Event;
 use ratatui_widgets::block::Block;
@@ -116,7 +116,7 @@ pub fn render(
         vbuf.buffer()
             .cell_mut(Position::new(c, 5))
             .expect("cell")
-            .skip = true;
+            .set_diff_option(CellDiffOption::Skip);
     }
 
     vbuf.finish(buf, &mut state.view);

@@ -22,7 +22,7 @@ use ratatui_crossterm::crossterm::ExecutableCommand;
 use ratatui_crossterm::crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use ratatui_crossterm::crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
-    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MediaKeyCode,
+    KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
 };
 use ratatui_crossterm::crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,

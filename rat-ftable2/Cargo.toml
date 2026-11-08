@@ -29,7 +29,7 @@ workspace = true
 
 [dev-dependencies]
 fern = "0.7"
-rand = "0.9"
+rand = "0.10"
 anyhow = "1.0"
 format_num_pattern = "0.9"
 unicode-segmentation = "1.11"

@@ -20,7 +20,7 @@ use std::rc::Rc;
 /// This will do minimal rendering of the visible rows/cells
 /// of the table.
 ///
-/// ```
+/// ```rust, ignore
 /// Table::default()
 ///         .data(state.table_data.iter())
 ///         .widths([

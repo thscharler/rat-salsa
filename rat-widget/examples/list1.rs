@@ -8,7 +8,7 @@ use rat_popup::Placement;
 use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
 use rat_theme4::WidgetStyle;
-use rat_widget::list::selection::{RowSelection, RowSetSelection};
+use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListItem, ListSelection, ListState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
@@ -26,43 +26,55 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         data: vec![
-            "1962 Dr. No".into(),
-            "1963 From Russia with Love".into(),
-            "1964 Goldfinger".into(),
-            "1965 Thunderball".into(),
-            "1967 You Only Live Twice".into(),
-            "1969 On Her Majesty's Secret Service".into(),
-            "1971 Diamonds Are Forever".into(),
-            "1973 Live and Let Die".into(),
-            "1974 The Man with the Golden Gun".into(),
-            "1977 The Spy Who Loved Me".into(),
-            "1979 Moonraker".into(),
-            "1981 For Your Eyes Only".into(),
-            "1983 Octopussy".into(),
-            "1985 A View to a Kill".into(),
-            "1987 The Living Daylights".into(),
-            "1989 Licence to Kill".into(),
-            "1995 GoldenEye".into(),
-            "1997 Tomorrow Never Dies".into(),
-            "1999 The World Is Not Enough".into(),
-            "2002 Die Another Day".into(),
-            "2006 Casino Royale".into(),
-            "2008 Quantum of Solace".into(),
-            "2012 Skyfall".into(),
-            "2015 Spectre".into(),
-            "2021 No Time to Die".into(),
+            ("1962 Dr. No".into(), rand::random::<u8>() % 3),
+            (
+                "1963 From Russia with Love".into(),
+                rand::random::<u8>() % 3,
+            ),
+            ("1964 Goldfinger".into(), rand::random::<u8>() % 3),
+            ("1965 Thunderball".into(), rand::random::<u8>() % 3),
+            ("1967 You Only Live Twice".into(), rand::random::<u8>() % 3),
+            (
+                "1969 On Her Majesty's Secret Service".into(),
+                rand::random::<u8>() % 3,
+            ),
+            ("1971 Diamonds Are Forever".into(), rand::random::<u8>() % 3),
+            ("1973 Live and Let Die".into(), rand::random::<u8>() % 3),
+            (
+                "1974 The Man with the Golden Gun".into(),
+                rand::random::<u8>() % 3,
+            ),
+            ("1977 The Spy Who Loved Me".into(), rand::random::<u8>() % 3),
+            ("1979 Moonraker".into(), rand::random::<u8>() % 3),
+            ("1981 For Your Eyes Only".into(), rand::random::<u8>() % 3),
+            ("1983 Octopussy".into(), rand::random::<u8>() % 3),
+            ("1985 A View to a Kill".into(), rand::random::<u8>() % 3),
+            ("1987 The Living Daylights".into(), rand::random::<u8>() % 3),
+            ("1989 Licence to Kill".into(), rand::random::<u8>() % 3),
+            ("1995 GoldenEye".into(), rand::random::<u8>() % 3),
+            ("1997 Tomorrow Never Dies".into(), rand::random::<u8>() % 3),
+            (
+                "1999 The World Is Not Enough".into(),
+                rand::random::<u8>() % 3,
+            ),
+            ("2002 Die Another Day".into(), rand::random::<u8>() % 3),
+            ("2006 Casino Royale".into(), rand::random::<u8>() % 3),
+            ("2008 Quantum of Solace".into(), rand::random::<u8>() % 3),
+            ("2012 Skyfall".into(), rand::random::<u8>() % 3),
+            ("2015 Spectre".into(), rand::random::<u8>() % 3),
+            ("2021 No Time to Die".into(), rand::random::<u8>() % 3),
         ],
         list1: ListState::named("list1"),
         menu: MenubarState::named("menu"),
     };
     // state.list1.scroll.set_overscroll_by(Some(10));
-    state.list1.set_scroll_selection(true);
+    // state.list1.set_scroll_selection(true);
 
     mini_salsa::run_ui("rlist1", init, event, render, &mut state)
 }
 
 struct State {
-    pub(crate) data: Vec<String>,
+    pub(crate) data: Vec<(String, u8)>,
     pub(crate) list1: ListState<RowSelection>,
     pub(crate) menu: MenubarState,
 }
@@ -109,13 +121,15 @@ fn render(
     );
 
     List::default()
-        .items(
-            state
-                .data
-                .iter()
-                .enumerate()
-                .map(|(i, v)| ListItem::new(format!("{:2} {}", i, v))),
-        )
+        .items(state.data.iter().enumerate().map(|(i, (v, n))| {
+            let mut item = Text::default();
+            item.lines.push(format!("{:2} {}", i, v).into());
+            for _ in 0..*n {
+                item.lines.push("".into());
+            }
+            ListItem::new(item)
+        }))
+        .varying_heights(true)
         .highlight_symbol("[x]")
         .highlight_style(Style::new().cyan())
         .repeat_highlight_symbol(true)

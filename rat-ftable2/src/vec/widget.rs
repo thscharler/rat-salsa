@@ -10,7 +10,7 @@ use ratatui_core::widgets::StatefulWidget;
 ///
 /// A table that holds a Vec of the data in its state.
 ///
-/// ```
+/// ```rust, ignore
 /// TableVec::default()
 ///         .widths([
 ///             Constraint::Length(6),

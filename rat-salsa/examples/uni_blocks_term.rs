@@ -567,7 +567,7 @@ mod glyphs {
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::reloc::{RelocatableState, relocate_area, relocate_pos_tuple_opt};
     use rat_widget::text::HasScreenCursor;
-    use ratatui_core::buffer::Buffer;
+    use ratatui_core::buffer::{Buffer, CellDiffOption};
     use ratatui_core::layout::Rect;
     use ratatui_core::style::Style;
     use ratatui_core::text::Span;
@@ -792,7 +792,11 @@ mod glyphs {
 
                 // need to skip. span et al. do this automatically.
                 if let Some(cell) = buf.cell_mut((cp_area.x + 1, cp_area.y)) {
-                    cell.skip = cc.width().unwrap_or(1) > 1;
+                    cell.set_diff_option(if cc.width().unwrap_or(1) > 1 {
+                        CellDiffOption::Skip
+                    } else {
+                        CellDiffOption::None
+                    });
                 }
 
                 state.codepoint.push(cc);

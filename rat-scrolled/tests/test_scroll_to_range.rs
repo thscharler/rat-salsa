@@ -5,6 +5,7 @@ fn test_1() {
     let mut s = ScrollState::new();
 
     s.page_len = 10;
+    s.max_offset = 999;
 
     s.scroll_to_range(0..10);
     assert_eq!(s.offset, 0);
@@ -36,6 +37,7 @@ fn test_2() {
     let mut s = ScrollState::new();
 
     s.page_len = 0;
+    s.max_offset = 999;
 
     s.scroll_to_range(0..10);
     assert_eq!(s.offset, 0);
