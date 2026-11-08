@@ -38,7 +38,7 @@ pub struct TableState<Selection = RowSelection> {
     pub row_areas: Vec<Rect>,
     /// If your table uses varying row-heights the height
     /// for each row is stored here.
-    pub row_heights: Vec<u16>,
+    pub row_heights: Vec<u8>,
     /// If your table doesn't use varying row-heights, the
     /// row-height is stored here.
     pub row_height: u16,
@@ -316,7 +316,7 @@ impl<Selection: TableSelection> TableState<Selection> {
     /// This corrects the number of rows, offset and selection.
     /// This also corrects the stored row-heights with the
     /// given heights.
-    pub fn items_added_with_heigths(&mut self, pos: usize, height: &[u16]) {
+    pub fn items_added_with_heigths(&mut self, pos: usize, height: &[u8]) {
         self.rows = self.rows.saturating_add(height.len());
         self.vscroll.items_added(pos, height.len());
         if pos <= self.row_heights.len() {
@@ -470,13 +470,13 @@ impl<Selection: TableSelection> TableState<Selection> {
                 if pos >= self.row_heights.len() {
                     self.set_row_offset(pos)
                 } else {
-                    let mut sum_height = self.row_heights[pos];
+                    let mut sum_height = self.row_heights[pos] as u16;
                     if sum_height < self.table_area.height {
                         loop {
                             if pos < 1 {
                                 break;
                             }
-                            sum_height += self.row_heights[pos - 1];
+                            sum_height += self.row_heights[pos - 1] as u16;
                             if sum_height > self.table_area.height {
                                 break;
                             }

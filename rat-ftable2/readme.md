@@ -1,14 +1,14 @@
 ![semver](https://img.shields.io/badge/semver-☑-FFD700)
 ![stable](https://img.shields.io/badge/stability-stable-8A2BE2)
-[![crates.io](https://img.shields.io/crates/v/rat-table.svg)](https://crates.io/crates/rat-ftable2)
-[![Documentation](https://docs.rs/rat-ftable/badge.svg)](https://docs.rs/rat-ftable2)
+[![crates.io](https://img.shields.io/crates/v/rat-ftable2.svg)](https://crates.io/crates/rat-ftable2)
+[![Documentation](https://docs.rs/rat-ftable2/badge.svg)](https://docs.rs/rat-ftable2)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ![](https://tokei.rs/b1/github/thscharler/rat-salsa)
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
-For examples see [rat-ftable2 GitHub][refGitHubTable].
+For examples see [rat-ftable2 GitHub][refGitHubFTable2].
 
 * [Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-ftable2/changes.md)
 
@@ -17,10 +17,10 @@ For examples see [rat-ftable2 GitHub][refGitHubTable].
 Improves over ratatui-Table by rendering only the visible parts of 
 the data instead of building Row/Cell structs with the table data.
 
-> This is an iteration of the table design, it doesn't need
-> a data trait and can use plain old Iterator. Moves all 
-> table-cell rendering into closures. This keeps all of 
-> the table rendering in one place. Plus some API cleanup.
+> This is an iteration of the API design from [rat-ftable][refFTable].
+> It doesn't need a data trait and can use a plain old Iterator
+> and all the cell-rendering is done with closures.  
+> This keeps the table rendering nicely in one place.
 
 * Table data is set as an Iterator.
   * Rendering a cell is done in a closure for each column.
@@ -36,7 +36,7 @@ the data instead of building Row/Cell structs with the table data.
 
 There are two table widgets 
 
-* Table - Uses an Iterator for its data.
+* Table - Uses an Iterator for the row-data.
 * TableVec - Keeps a Vec of the data in its state. 
 
 And one more widget
@@ -45,12 +45,5 @@ And one more widget
   * Use any widget to edit the cell-value.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
-
-[refGitHubTable]: https://github.com/thscharler/rat-salsa/blob/master/rat-ftable2/examples
-
-
-
-
-
-
-
+[refFTable]: https://docs.rs/rat-ftable/latest/rat_ftable/
+[refGitHubFTable2]: https://github.com/thscharler/rat-salsa/blob/master/rat-ftable2/examples

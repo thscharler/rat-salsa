@@ -62,7 +62,7 @@ pub struct Table<'a, T: Copy, Selection = RowSelection> {
 
     data: Option<Box<dyn Iterator<Item = T> + 'a>>,
 
-    row_height_fn: Option<Box<dyn FnMut(T, &TableContext) -> u16 + 'a>>,
+    row_height_fn: Option<Box<dyn FnMut(T, &TableContext) -> u8 + 'a>>,
     render_row_fn: Option<Box<dyn FnMut(T, Rect, &mut Buffer, &TableContext) -> bool + 'a>>,
     render_cell_fn: Vec<Option<Box<dyn FnMut(T, Rect, &mut Buffer, &TableContext) + 'a>>>,
 
@@ -147,7 +147,7 @@ impl<'a, T: Copy, Selection> Table<'a, T, Selection> {
 
     /// Set the closure that calculates the row-height for a value.
     #[inline]
-    pub fn row_height(mut self, row_height_fn: impl FnMut(T, &TableContext) -> u16 + 'a) -> Self {
+    pub fn row_height(mut self, row_height_fn: impl FnMut(T, &TableContext) -> u8 + 'a) -> Self {
         self.row_height_fn = Some(Box::new(row_height_fn));
         self
     }
@@ -665,7 +665,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                             .row_height_fn
                             .as_mut()
                             .map_or(1, |f| (*f)(value, &ctx));
-                        state.row_heights.push(row_height)
+                        state.row_heights.push(row_height as u8)
                     }
                     row = Some(rr + 1);
                 } else {
@@ -675,7 +675,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                             .row_height_fn
                             .as_mut()
                             .map_or(1, |f| (*f)(value, &ctx));
-                        state.row_heights.push(row_height)
+                        state.row_heights.push(row_height as u8)
                     }
                     row = Some(0);
                 }
@@ -708,13 +708,13 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
             let row_height = widget
                 .row_height_fn
                 .as_mut()
-                .map_or(1, |f| (*f)(value, &ctx));
+                .map_or(1, |f| (*f)(value, &ctx)) as u16;
             let render_row_area = Rect::new(0, 0, width, row_height);
             ctx.row_area = render_row_area;
             row_buf.resize(render_row_area);
             row_heights.push(row_height);
             if widget.varying_heights {
-                state.row_heights.push(row_height);
+                state.row_heights.push(row_height as u8);
             } else {
                 state.row_height = row_height;
             }
@@ -867,9 +867,9 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
             let row_height = widget
                 .row_height_fn
                 .as_mut()
-                .map_or(1, |f| (*f)(value, &ctx));
+                .map_or(1, |f| (*f)(value, &ctx)) as u16;
             if widget.varying_heights {
-                state.row_heights.push(row_height);
+                state.row_heights.push(row_height as u8);
             }
             row_heights.push(row_height);
 

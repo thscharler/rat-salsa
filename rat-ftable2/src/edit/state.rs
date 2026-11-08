@@ -11,7 +11,7 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui_core::layout::Rect;
 
-/// State for [TableEdit][crate::TableEdit].
+/// State for [TableEdit][crate::edit::TableEdit].
 ///
 /// It has a mode-field for insert/edit/view.
 ///
@@ -23,8 +23,6 @@ use ratatui_core::layout::Rect;
 /// It is intended that the editor-widget sets up a separate
 /// Focus for all the widgets and navigates independently of
 /// the main application Focus.
-///
-///
 ///
 pub struct TableEditState<T, E> {
     /// Editing mode.

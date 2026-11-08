@@ -38,7 +38,7 @@ fn main() -> Result<(), anyhow::Error> {
                 num1: rand::random(),
                 num2: rand::random(),
                 check: rand::random(),
-                row_height: rand::random::<u16>() % 3 + 1,
+                row_height: rand::random::<u8>() % 3 + 1,
             })
             .take(100_000)
             .collect(),
@@ -53,7 +53,7 @@ struct Sample {
     pub(crate) num1: f32,
     pub(crate) num2: f32,
     pub(crate) check: bool,
-    pub(crate) row_height: u16,
+    pub(crate) row_height: u8,
 }
 
 struct State {
