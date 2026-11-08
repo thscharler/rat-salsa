@@ -77,23 +77,23 @@ fn test_number3() {
     mask_op::advance_cursor(&mut m, '1');
     assert_eq!(m.cursor(), 3);
     m.insert_char('1');
-    assert_eq!(m.text(), "  1");
+    assert_eq!(m.text(), " 01");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
     mask_op::advance_cursor(&mut m, '2');
-    assert_eq!(m.cursor(), 2);
+    assert_eq!(m.cursor(), 1);
     m.insert_char('2');
-    assert_eq!(m.text(), " 21");
-    assert_eq!(m.cursor(), 2);
+    assert_eq!(m.text(), "201");
+    assert_eq!(m.cursor(), 1);
 
     mask_op::remove_prev(&mut m);
+    assert_eq!(m.text(), " 01");
+    assert_eq!(m.cursor(), 1);
+    mask_op::remove_next(&mut m);
     assert_eq!(m.text(), "  1");
     assert_eq!(m.cursor(), 2);
-    mask_op::remove_next(&mut m);
-    assert_eq!(m.text(), "  0");
-    assert_eq!(m.cursor(), 3);
     mask_op::remove_prev(&mut m);
-    assert_eq!(m.cursor(), 0);
+    assert_eq!(m.cursor(), 2);
 }
 
 #[test]
