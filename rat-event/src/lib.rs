@@ -283,7 +283,7 @@ impl From<bool> for Outcome {
 ///     - There may be a super widget that can do it's super navigation
 ///       if it knows that fact.
 ///       => return Outcome::Changed as long as you change your location
-///          and Outcome::Continue otherwise.
+///       and Outcome::Continue otherwise.
 ///
 /// For the Changed/Unchanged pair I don't have a good example, so
 /// maybe that was the wrong default anyway. But I can't change the
@@ -291,6 +291,7 @@ impl From<bool> for Outcome {
 ///
 /// Hence, this trait.  
 ///
+#[allow(clippy::wrong_self_convention)]
 pub trait FromBool {
     fn as_changed_unchanged(self) -> Outcome;
     fn as_changed_continue(self) -> Outcome;

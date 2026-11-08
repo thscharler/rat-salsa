@@ -41,7 +41,7 @@ pub enum Control<Event> {
     /// disconnected parts of your application. And indeed there is
     /// a hidden message-queue as part of the event-loop.
     ///
-    /// The other way is to call [SalsaAppContext::queue] to initiate such
+    /// The other way is to call [SalsaContext::queue](crate::SalsaContext::queue) to initiate such
     /// events.
     Event(Event),
     /// A dialog close event. In the main loop it will be handled

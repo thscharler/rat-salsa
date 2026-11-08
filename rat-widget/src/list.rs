@@ -542,7 +542,7 @@ fn render_list<Selection: ListSelection>(
     }
     state.scroll.set_max_offset(state.rows.saturating_sub(n));
 
-    let (high_area, item_area) = layout_columns(&widget, area, state);
+    let (high_area, item_area) = layout_columns(&widget, state.inner, state);
 
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
     let select_style = widget
