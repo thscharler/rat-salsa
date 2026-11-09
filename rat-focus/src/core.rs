@@ -553,7 +553,9 @@ impl FocusCore {
             r = true;
         }
 
+        z_container.clear();
         self.tmp_container.set(z_container);
+        z_widget.clear();
         self.tmp_container.set(z_widget);
 
         r
