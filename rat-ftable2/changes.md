@@ -1,3 +1,7 @@
+# 0.4.1
+
+* fix: scroll_to_pos used the wrong area.
+
 # 0.4
 
 * first released version.

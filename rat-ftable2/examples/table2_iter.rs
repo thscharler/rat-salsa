@@ -82,7 +82,9 @@ fn render(
         .render_cell(0, |_v, area, buf, ctx| {
             row_fmt.fmt_u(ctx.row).render(area, buf)
         })
-        .render_cell(1, |v, area, buf, _ctx| v.text.render(area, buf))
+        .render_cell(1, |v, area, buf, _ctx| {
+            v.text.render(area, buf) //
+        })
         .render_cell(2, |v, area, buf, _ctx| {
             num1_fmt.fmt_u(v.num1).render(area, buf)
         })

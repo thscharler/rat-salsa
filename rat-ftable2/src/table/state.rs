@@ -2,6 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::TableSelection;
 use crate::event::{DoubleClickOutcome, TableOutcome};
 use crate::selection::{CellSelection, NoSelection, RowSelection, RowSetSelection};
+use log::debug;
 use rat_cursor::HasScreenCursor;
 use rat_event::crossterm::event::Event;
 use rat_event::util::MouseFlags;
@@ -13,7 +14,7 @@ use ratatui_core::layout::Rect;
 use std::cmp::min;
 use std::collections::HashSet;
 
-/// State for the table table.
+/// State for the table.
 #[derive(Debug)]
 pub struct TableState<Selection = RowSelection> {
     /// Current focus state.
@@ -498,10 +499,14 @@ impl<Selection: TableSelection> TableState<Selection> {
     pub fn scroll_to_row(&mut self, mut pos: usize) -> bool {
         if pos >= self.rows {
             false
-        } else if self.inner.is_empty() {
+        } else if self.table_area.is_empty() {
             self.set_row_offset(pos)
         } else if let RowHeights::Uniform(row_height) = &self.row_heights {
-            let page_len = self.inner.height.div_ceil(*row_height as u16) as usize;
+            let page_len = self.table_area.height.div_ceil(*row_height as u16) as usize;
+            debug!(
+                "scroll_to_row {} page_len {} inner.height {}",
+                pos, page_len, self.table_area.height
+            );
             if pos >= self.row_offset().saturating_add(page_len - 1) {
                 if page_len as u16 * (*row_height) as u16 > self.table_area.height {
                     self.set_row_offset(pos.saturating_sub(page_len - 2))

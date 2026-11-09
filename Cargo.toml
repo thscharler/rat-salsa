@@ -34,7 +34,7 @@ rat-salsa = { path = "rat-salsa", version = "4.0" }
 rat-scrolled = { path = "rat-scrolled", version = "2.0" }
 rat-text = { path = "rat-text", version = "3.1" }
 rat-theme4 = { path = "rat-theme4", version = "4.5" }
-rat-widget = { path = "rat-widget", version = "3.2" }
+rat-widget = { path = "rat-widget", version = "3.3" }
 rat-widget-extra = { path = "rat-widget-extra", version = "2.1" }
 
 [workspace.lints.clippy]

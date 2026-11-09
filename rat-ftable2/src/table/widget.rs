@@ -31,14 +31,16 @@ use std::rc::Rc;
 ///             Constraint::Length(3),
 ///         ])
 ///         .render_cell(0, |_v, area, buf, ctx| {
-///             row_fmt.fmt_u(ctx.row).render(area, buf)
+///             format!("{:>5}", ctx.row).render(area, buf)
 ///         })
-///         .render_cell(1, |v, area, buf, _ctx| v.text.render(area, buf))
+///         .render_cell(1, |v, area, buf, _ctx| {
+///             v.text.render(area, buf)
+///         })
 ///         .render_cell(2, |v, area, buf, _ctx| {
-///             num1_fmt.fmt_u(v.num1).render(area, buf)
+///             format!("{:5.2}", v.num1).render(area, buf)
 ///         })
 ///         .render_cell(3, |v, area, buf, _ctx| {
-///             num2_fmt.fmt_u(v.num2).render(area, buf)
+///             format!("{:5.2}", v.num2).render(area, buf)
 ///         })
 ///         .render_cell(4, |v, area, buf, _ctx| {
 ///             let cc = if v.check { "\u{2622}" } else { "\u{2623}" };
@@ -139,20 +141,27 @@ impl<'a, T: Copy, Selection> Table<'a, T, Selection> {
         Self::default()
     }
 
+    /// Set the table-data as an iterator over the row-values.
     #[inline]
     pub fn data(mut self, data: impl IntoIterator<Item = T> + 'a) -> Self {
         self.data = Some(Box::new(data.into_iter()));
         self
     }
 
-    /// Set the closure that calculates the row-height for a value.
+    /// A closure that calculates the row-height for a given row-value.
     #[inline]
     pub fn row_height(mut self, row_height_fn: impl FnMut(T, &TableContext) -> u8 + 'a) -> Self {
         self.row_height_fn = Some(Box::new(row_height_fn));
         self
     }
 
-    /// Set a closure for row-level rendering.
+    /// A closure for row-level rendering.
+    /// The area covers the full row.
+    ///
+    /// Return
+    ///
+    /// Returns true if the individual cells should be rendered too.
+    ///
     #[inline]
     pub fn render_row(
         mut self,
@@ -162,7 +171,14 @@ impl<'a, T: Copy, Selection> Table<'a, T, Selection> {
         self
     }
 
-    /// Set a closure for rendering one column.
+    /// A closure for rendering a single column.
+    ///
+    /// The area covers the exact column. Extra information is
+    /// available in the TableContext.
+    ///
+    /// The given Buffer covers the full row so you could
+    /// render something outside the cells bounds. Cells for a
+    /// given row are always rendered in ascending order.
     #[inline]
     pub fn render_cell(
         mut self,
@@ -199,6 +215,8 @@ impl<'a, T: Copy, Selection> Table<'a, T, Selection> {
     }
 
     /// Column widths as Constraints.
+    ///
+    /// The constraints work in tandem with [Table::layout_width].
     #[inline]
     pub fn widths<I>(mut self, widths: I) -> Self
     where
@@ -210,16 +228,17 @@ impl<'a, T: Copy, Selection> Table<'a, T, Selection> {
     }
 
     /// If your table uses varying row-heights for each row
-    /// all page calculations will fail (somewhat).
-    /// If you enable this flag, the row-heights for
-    /// each row will be stored in the state to allow
-    /// accurate page-calculations.
+    /// calculating visible positions and offsets will fail.
+    ///
+    /// If you set this flag the row-height for each row is
+    /// stored in the state and will be used for positioning
+    /// and offset.
     pub fn varying_heights(mut self, varying: bool) -> Self {
         self.varying_heights = varying;
         self
     }
 
-    /// Flex for layout.
+    /// Flex for the column layout.
     #[inline]
     pub fn flex(mut self, flex: Flex) -> Self {
         self.flex = flex;
@@ -234,7 +253,9 @@ impl<'a, T: Copy, Selection> Table<'a, T, Selection> {
     }
 
     /// Set the display width of the table.
-    /// If this is not set, the width of the rendered area is used.
+    ///
+    /// Default
+    /// The width of the rendered area is used.
     #[inline]
     pub fn layout_width(mut self, width: LayoutWidth) -> Self {
         self.layout_width = width;

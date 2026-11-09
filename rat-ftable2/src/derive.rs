@@ -3,16 +3,6 @@
 /// __Only useful if you want to implement a new Table widget__
 macro_rules! derive_table_widget {
     () => {
-        /// If your table uses varying row-heights for each row
-        /// all page calculations will fail (somewhat).
-        /// If you enable this flag, the row-heights for
-        /// each row will be stored in the state to allow
-        /// accurate page-calculations.
-        pub fn varying_heights(mut self, varying: bool) -> Self {
-            self.core = self.core.varying_heights(varying);
-            self
-        }
-
         /// Set the table-header.
         #[inline]
         pub fn header<I>(mut self, header: I) -> Self
@@ -37,8 +27,7 @@ macro_rules! derive_table_widget {
 
         /// Column widths as Constraints.
         ///
-        /// The table-width that is used for these constraints
-        /// is influenced by [layout_width][Self::layout_width].
+        /// The constraints work in tandem with [Table::layout_width].
         #[inline]
         pub fn widths<I>(mut self, widths: I) -> Self
         where
@@ -49,7 +38,17 @@ macro_rules! derive_table_widget {
             self
         }
 
-        /// Flex-value for layout calculation.
+        /// If your table uses varying row-heights for each row
+        /// all page calculations will fail (somewhat).
+        /// If you enable this flag, the row-heights for
+        /// each row will be stored in the state to allow
+        /// accurate page-calculations.
+        pub fn varying_heights(mut self, varying: bool) -> Self {
+            self.core = self.core.varying_heights(varying);
+            self
+        }
+
+        /// Flex-value for column layout.
         #[inline]
         pub fn flex(mut self, flex: ratatui_core::layout::Flex) -> Self {
             self.core = self.core.flex(flex);
@@ -63,10 +62,10 @@ macro_rules! derive_table_widget {
             self
         }
 
-        /// Set the width used for the table-layout.
+        /// Set the display width of the table.
         ///
-        /// If the width is wider than the area, horizontal scrolling
-        /// is used.
+        /// Default
+        /// The width of the rendered area is used.
         #[inline]
         pub fn layout_width(mut self, width: $crate::LayoutWidth) -> Self {
             self.core = self.core.layout_width(width);
@@ -256,46 +255,21 @@ macro_rules! derive_table_widget {
             self.core.height()
         }
     };
-    // (T) => {
-    //     /// Calculate the row-height from the data.
-    //     #[inline]
-    //     pub fn row_height(mut self, row_height_fn: fn(T, &$crate::TableContext) -> u16) -> Self {
-    //         self.core = self.core.row_height(row_height_fn);
-    //         self
-    //     }
-    //
-    //     /// Render the full row-area.
-    //     /// The closure returns true if individual cells should be rendered.
-    //     #[inline]
-    //     pub fn render_row(
-    //         mut self,
-    //         render_row_fn: impl FnMut(T, Rect, &mut Buffer, &$crate::TableContext) -> bool + 'a,
-    //     ) -> Self {
-    //         self.core = self.core.render_row(render_row_fn);
-    //         self
-    //     }
-    //
-    //     /// Render the table cells.
-    //     #[inline]
-    //     pub fn render_cell(
-    //         mut self,
-    //         column: usize,
-    //         render_cell_fn: impl FnMut(T, Rect, &mut Buffer, &$crate::TableContext) + 'a,
-    //     ) -> Self {
-    //         self.core = self.core.render_cell(column, render_cell_fn);
-    //         self
-    //     }
-    // };
     (REF_T) => {
-        /// Calculate the row-height from the data.
+        /// A closure that calculates the row-height for a given row-value.
         #[inline]
         pub fn row_height(mut self, row_height_fn: fn(&T, &$crate::TableContext) -> u8) -> Self {
             self.core = self.core.row_height(row_height_fn);
             self
         }
 
-        /// Render the full row-area.
-        /// The closure returns true if individual cells should be rendered.
+        /// A closure for row-level rendering.
+        /// The area covers the full row.
+        ///
+        /// Return
+        ///
+        /// Returns true if the individual cells should be rendered too.
+        ///
         #[inline]
         pub fn render_row(
             mut self,
@@ -305,7 +279,14 @@ macro_rules! derive_table_widget {
             self
         }
 
-        /// Render the table cells.
+        /// A closure for rendering a single column.
+        ///
+        /// The area covers the exact column. Extra information is
+        /// available in the TableContext.
+        ///
+        /// The given Buffer covers the full row so you could
+        /// render something outside the cells bounds. Cells for a
+        /// given row are always rendered in ascending order.
         #[inline]
         pub fn render_cell(
             mut self,

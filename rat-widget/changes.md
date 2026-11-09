@@ -1,3 +1,7 @@
+# 3.3.1
+
+* fix: Table: scroll_to_pos used the wrong area.
+
 # 3.3.0
 
 * break: List was quite broken. Replicating the ratatui List 

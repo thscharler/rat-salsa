@@ -1,3 +1,7 @@
+# 2.3.1
+
+* fix: scroll_to_pos used the wrong area.
+
 # 2.3.0
 
 * feat: add *rat-ftable2* with a new API. 

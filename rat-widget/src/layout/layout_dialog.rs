@@ -2,6 +2,7 @@ use crate::layout::GenericLayout;
 use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
 use ratatui_widgets::block::Padding;
 
+/// Identifiers for the calculated layout.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum DialogItem {
     /// Area inside the border.

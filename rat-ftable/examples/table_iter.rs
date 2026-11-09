@@ -87,7 +87,7 @@ fn render(
         }
 
         fn row_height(&self) -> u16 {
-            2
+            1
         }
 
         fn render_cell(&self, _ctx: &TableContext, column: usize, area: Rect, buf: &mut Buffer) {

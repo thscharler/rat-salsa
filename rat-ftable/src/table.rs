@@ -2210,10 +2210,10 @@ impl<Selection: TableSelection> TableState<Selection> {
     pub fn scroll_to_row(&mut self, mut pos: usize) -> bool {
         if pos >= self.rows {
             false
-        } else if self.inner.is_empty() {
+        } else if self.table_area.is_empty() {
             self.set_row_offset(pos)
         } else if let RowHeights::Uniform(row_height) = &self.row_heights {
-            let page_len = self.inner.height.div_ceil(*row_height as u16) as usize;
+            let page_len = self.table_area.height.div_ceil(*row_height as u16) as usize;
             if pos >= self.row_offset().saturating_add(page_len - 1) {
                 if page_len as u16 * (*row_height) as u16 > self.table_area.height {
                     self.set_row_offset(pos.saturating_sub(page_len - 2))
