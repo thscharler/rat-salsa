@@ -992,10 +992,11 @@ impl FileDialogState {
 
         #[cfg(feature = "user_directories")]
         {
-            let disks = Disks::new_with_refreshed_list();
-            for d in disks.list() {
-                self.roots
-                    .push((d.name().to_os_string(), d.mount_point().to_path_buf()));
+            if let Ok(disks) = Disks::new_with_refreshed_list() {
+                for d in disks.iter() {
+                    self.roots
+                        .push((d.name().to_os_string(), d.mount_point().to_path_buf()));
+                }
             }
         }
 
