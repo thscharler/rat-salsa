@@ -4,21 +4,16 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-/// Stores layout data resulting from some layout algorithm.
+/// Stores labels and areas for a calculated layout,
+/// a widget-key is used to access the stored layout.
 ///
-/// Widgets and labels are stored for some key that identifies
-/// the widget. It is also possible to store the label text.
-///
-/// [Block]s can be added too. It is expected that blocks
-/// will be rendered in order of addition.
-///
-/// There is a concept for pages too. The page-height defines
-/// the pages. The page-width is not used to constrain
-/// the pages and is just informational. It can be used
-/// to find if the layout has to be rebuilt after a resize.
-///
-/// The page-count is available too, but there may be
-/// areas that map beyond the page-count.
+/// * You can keep the layout in some state and
+/// only rebuild on [GenericLayout::area_changed].
+/// * It can support the concept of a multipage layout.
+///     * A widgets y-position divided by the page-height
+///       gives a page.
+///     * Query widgets based on page.
+/// * As extra Blocks can be added for some visual structure.
 ///
 /// __See__
 /// [LayoutForm](crate::layout::LayoutForm)
@@ -35,6 +30,8 @@ where
     page_size: Size,
     /// Pages.
     page_count: usize,
+    ///
+    place: Position,
 
     /// Widget keys.
     widgets: HashMap<W, usize>,
@@ -61,6 +58,7 @@ where
             area: Default::default(),
             page_size: Size::new(u16::MAX, u16::MAX),
             page_count: 1,
+            place: Default::default(),
             widgets: Default::default(),
             rwidgets: Default::default(),
             widget_areas: Default::default(),
@@ -86,6 +84,7 @@ where
             area: Default::default(),
             page_size: Size::new(u16::MAX, u16::MAX),
             page_count: Default::default(),
+            place: Default::default(),
             widgets: HashMap::with_capacity(num_widgets),
             rwidgets: HashMap::with_capacity(num_widgets),
             widget_areas: Vec::with_capacity(num_widgets),
@@ -101,6 +100,7 @@ where
         self.area = Rect::default();
         self.page_size = Size::default();
         self.page_count = 0;
+        self.place = Position::default();
         self.widgets.clear();
         self.rwidgets.clear();
         self.widget_areas.clear();
@@ -110,14 +110,16 @@ where
         self.blocks.clear();
     }
 
-    /// Set the area used for this layout.
-    /// The area may or may not have anything to do with the page-size.
+    /// Set an area that was used to build the layout.
+    /// This doesn't limit the layout, its sole use is to
+    /// invalidate the layout.
     pub fn set_area(&mut self, area: Rect) {
         self.area = area;
     }
 
-    /// The area used for this layout.
-    /// The area may or may not have anything to do with the page-size.
+    /// The area used to build this layout.
+    /// This doesn't limit the layout, its sole use is to
+    /// invalidate the layout.
     pub fn area(&self) -> Rect {
         self.area
     }
@@ -144,12 +146,12 @@ where
         self.page_size != size
     }
 
-    /// Number of pages
+    /// Number of pages.
     pub fn set_page_count(&mut self, page_count: usize) {
         self.page_count = page_count;
     }
 
-    /// Number of pages
+    /// Number of pages.
     pub fn page_count(&self) -> usize {
         self.page_count
     }
@@ -181,7 +183,7 @@ where
     }
 
     /// Places the layout at the given position.
-    /// This shifts all area right by the given offset.
+    /// This shifts all areas by the given offset.
     ///
     /// Most layout functions create a layout that starts at (0,0).
     /// That is ok, as the widgets __using__ such a layout
@@ -190,17 +192,13 @@ where
     ///
     /// If you want to use the layout without such a widget,
     /// this one is nice.
+    ///
+    /// __Caution__
+    /// Calling this twice doesn't accumulate the shifts,
+    /// the new place replaces the old one.
     #[inline]
-    pub fn place(mut self, pos: Position) -> Self {
-        for v in self.widget_areas.iter_mut() {
-            *v = place(*v, pos);
-        }
-        for v in self.label_areas.iter_mut() {
-            *v = place(*v, pos);
-        }
-        for v in self.block_areas.iter_mut() {
-            *v = place(*v, pos);
-        }
+    pub fn place(mut self, place: Position) -> Self {
+        self.place = place;
         self
     }
 
@@ -276,7 +274,7 @@ where
     /// Panics if the key doesn't exist.
     #[inline]
     pub fn label_for(&self, widget: W) -> Rect {
-        self.label_areas[self.index_of(widget)]
+        place(self.label_areas[self.index_of(widget)], self.place)
     }
 
     /// Access label area.
@@ -285,7 +283,7 @@ where
     /// Panics on out of bounds.
     #[inline]
     pub fn label(&self, idx: usize) -> Rect {
-        self.label_areas[idx]
+        place(self.label_areas[idx], self.place)
     }
 
     /// Set the label area.
@@ -304,7 +302,7 @@ where
     /// Panics if the key doesn't exist.
     #[inline]
     pub fn widget_for(&self, widget: W) -> Rect {
-        self.widget_areas[self.index_of(widget)]
+        place(self.widget_areas[self.index_of(widget)], self.place)
     }
 
     /// Access widget area.
@@ -313,7 +311,7 @@ where
     /// Panics on out of bounds.
     #[inline]
     pub fn widget(&self, idx: usize) -> Rect {
-        self.widget_areas[idx]
+        place(self.widget_areas[idx], self.place)
     }
 
     /// Change the widget area.
@@ -433,18 +431,17 @@ where
     ///
     /// If the given layout uses the same widget-identifiers, they
     /// will simply overwrite existing ones.
-    pub fn append(&mut self, place: Position, mut layout: GenericLayout<W>) {
-        layout = layout.place(place);
-
+    pub fn append(&mut self, pos: Position, mut layout: GenericLayout<W>) {
         for (w, idx) in layout.widgets {
             let new_idx = self.widget_areas.len();
-            self.widget_areas.push(layout.widget_areas[idx]);
+            self.widget_areas.push(place(layout.widget_areas[idx], pos));
             self.labels.push(layout.labels[idx].take());
-            self.label_areas.push(layout.label_areas[idx]);
+            self.label_areas.push(place(layout.label_areas[idx], pos));
             self.widgets.insert(w.clone(), new_idx);
             self.rwidgets.insert(new_idx, w);
         }
-        self.block_areas.extend(layout.block_areas);
+        self.block_areas
+            .extend(layout.block_areas.into_iter().map(|v| place(v, pos)));
         self.blocks.extend(layout.blocks);
     }
 }
