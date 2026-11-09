@@ -1,5 +1,9 @@
 //!
-//! Extensions for ratatui List.
+//! A list widget.
+//!
+//! Supports all of ratatui's List features and adds
+//! * different selection models.
+//! * exact navigation for lists with varying row-heights.
 //!
 
 use crate::_private::NonExhaustive;
@@ -91,10 +95,16 @@ pub struct ListItem<'a> {
 pub struct ListStyle {
     /// Style
     pub style: Style,
+    /// List Block
     pub block: Option<Block<'static>>,
+    /// Border
     pub border_style: Option<Style>,
+    /// Title
     pub title_style: Option<Style>,
+    /// Scroll
     pub scroll: Option<ScrollStyle>,
+
+    /// Always show some items above and below the selection.
     pub scroll_padding: Option<usize>,
 
     /// Style for selection
@@ -102,17 +112,24 @@ pub struct ListStyle {
     /// Style for selection when focused.
     pub focus: Option<Style>,
 
+    /// Selection marker.
     pub highlight_spacing: Option<HighlightSpacing>,
+    /// Selection marker.
     pub highlight_symbol: Option<&'static str>,
+    /// Selection marker.
     pub repeat_highlight_symbol: Option<bool>,
+    /// Selection marker.
     pub highlight_style: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
 
+/// Stores row-heights in the state.
 #[derive(Debug, Clone)]
 pub enum RowHeights {
+    /// One row-height for all the list-items.
     Uniform(u8),
+    /// Each list-item has its own row-height.
     Varying(Vec<u8>),
 }
 
@@ -196,6 +213,7 @@ pub struct ListState<Selection = RowSelection> {
     /// __readonly__. renewed for each render.
     pub row_areas: Vec<Rect>,
     /// Row heights for all list rows.
+    /// __readonly__. renewed for each render.
     pub row_heights: RowHeights,
     /// Scroll padding.
     /// __readonly__. renewed for each render.
@@ -413,40 +431,73 @@ impl<'a, Selection> List<'a, Selection> {
     }
 
     /// If your list uses varying row-heights for each row
-    /// all page calculations will fail (somewhat).
-    /// If you enable this flag, the row-heights for
-    /// each row will be stored in the state to allow
-    /// accurate page-calculations.
+    /// calculating the correct offset to show a specific
+    /// item will fail.
+    ///
+    /// With this flag the row-height for each row is
+    /// stored as part of the state.
     pub fn varying_heights(mut self, varying: bool) -> Self {
         self.varying_heights = varying;
         self
     }
 
-    /// List direction.
+    /// Defines the direction how the items are displayed.
+    ///
+    /// With bottom to top, the item at offset is rendered at
+    /// the bottom of the area and moves up for the next items.
+    /// Navigation with the arrow keys will also reverse and
+    /// follows the screen directions.
     #[inline]
     pub fn direction(mut self, direction: ListDirection) -> Self {
         self.direction = direction;
         self
     }
 
+    /// Set the symbol to be displayed in front of the selected item.
+    /// By default, there are no highlight symbol.
     #[inline]
     pub fn highlight_symbol<L: Into<Line<'a>>>(mut self, highlight_symbol: L) -> Self {
         self.highlight_symbol = Some(highlight_symbol.into());
         self
     }
 
+    /// Separate style for the highlight symbol.
+    ///
+    /// When no set the symbol uses the list-style and the select-style.
     #[inline]
     pub fn highlight_style<S: Into<Style>>(mut self, style: S) -> Self {
         self.highlight_style = Some(style.into());
         self
     }
 
+    /// Set whether to repeat the highlight symbol and style over
+    /// selected multi-line items.
+    /// This is false by default.
     #[inline]
     pub fn repeat_highlight_symbol(mut self, repeat: bool) -> Self {
         self.repeat_highlight_symbol = repeat;
         self
     }
 
+    /// Set when to show the highlight spacing
+    ///
+    /// The highlight spacing is the spacing that is allocated for
+    /// the selection symbol (if enabled) and is used to shift the
+    /// list when an item is selected. This method allows you to
+    /// configure when this spacing is allocated.
+    ///
+    /// * HighlightSpacing::Always will always allocate the spacing,
+    /// regardless of whether an item is selected or not. This means
+    /// that the table will never change size, regardless of if an
+    /// item is selected or not.
+    /// * HighlightSpacing::WhenSelected will only allocate the
+    /// spacing if an item is selected. This means that the table
+    /// will shift when an item is selected. This is the default
+    /// setting for backwards compatibility, but it is recommended
+    /// to use HighlightSpacing::Always for a better user experience.
+    /// * HighlightSpacing::Never will never allocate the spacing,
+    /// regardless of whether an item is selected or not. This means
+    /// that the highlight symbol will never be drawn.
     pub fn highlight_spacing(mut self, value: HighlightSpacing) -> Self {
         self.highlight_spacing = value;
         self
@@ -614,8 +665,8 @@ fn render_list<Selection: ListSelection>(
                         high_area.width,
                         1,
                     );
-                    buf.set_style(high_area, high_style);
                     if widget.repeat_highlight_symbol || yy == row_area.y {
+                        buf.set_style(high_area, high_style);
                         (&high_sym).render(high_area, buf);
                     }
                 }
@@ -672,8 +723,8 @@ fn render_list<Selection: ListSelection>(
                         high_area.width,
                         1,
                     );
-                    buf.set_style(high_area, high_style);
                     if widget.repeat_highlight_symbol || yy == row_area.y {
+                        buf.set_style(high_area, high_style);
                         (&high_sym).render(high_area, buf);
                     }
                 }
