@@ -1069,12 +1069,13 @@ fn fs_roots() -> Vec<(String, PathBuf)> {
         roots.push(("Videos".into(), p));
     }
 
-    let disks = Disks::new_with_refreshed_list();
-    for d in disks.list() {
-        roots.push((
-            d.name().to_string_lossy().to_string(),
-            d.mount_point().to_path_buf(),
-        ));
+    if let Ok(disks) = Disks::new_with_refreshed_list() {
+        for d in disks.iter() {
+            roots.push((
+                d.name().to_string_lossy().to_string(),
+                d.mount_point().to_path_buf(),
+            ));
+        }
     }
 
     roots

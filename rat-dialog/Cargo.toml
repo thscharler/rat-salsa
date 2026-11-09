@@ -32,7 +32,7 @@ rat-widget = { workspace = true }
 [dev-dependencies]
 anyhow = "1.0"
 fern = "0.7"
-dirs = "6.0"
+dirs = "7.0"
 rat-salsa = { workspace = true }
 rat-theme4 = { workspace = true }
 
