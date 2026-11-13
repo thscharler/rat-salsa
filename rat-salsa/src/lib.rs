@@ -22,9 +22,6 @@ use std::time::Duration;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 
-#[cfg(feature = "dialog")]
-pub use try_as_traits::{TryAsMut, TryAsRef, TypedContainer};
-
 mod control;
 mod framework;
 mod run_config;
@@ -38,6 +35,8 @@ pub use run_config::{RunConfig, TermInit};
 
 #[cfg(feature = "dialog")]
 pub mod dialog_stack;
+#[cfg(feature = "dialog")]
+pub use try_as_traits::{TryAsMut, TryAsRef, TypedContainer};
 /// Event types.
 pub mod event;
 /// Provides dummy implementations for some functions.

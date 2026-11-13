@@ -16,6 +16,7 @@ workspace = true
 
 [features]
 default = []
+
 # enable tokio support for async tasks.
 async = ["dep:tokio"]
 # enable support for dialog windows
