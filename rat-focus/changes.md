@@ -1,3 +1,7 @@
+# 2.2.1
+
+fix: tmp-vecs need to be cleared.
+
 # 2.2.0
 
 * break: rename the 'mouse_focus' features to 'obscured'. 

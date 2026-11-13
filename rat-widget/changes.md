@@ -1,3 +1,13 @@
+# 3.3.2
+
+* fix: highlight style only repeated when repeat_highlight_symbol is set.
+* feat: change GenericLayout::place() to do its work lazy. This way placing
+a layout doesn't break the page information.
+
+## Table + Table2
+
+fix: Table::scroll_to_pos used the wrong area for the widget height.
+
 # 3.3.1
 
 * fix: Table: scroll_to_pos used the wrong area.

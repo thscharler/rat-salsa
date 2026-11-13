@@ -1,3 +1,7 @@
+# 2.3.2
+
+fix: Table::scroll_to_pos used the wrong area for the widget height.
+
 # 2.3.1
 
 * fix: scroll_to_pos used the wrong area.

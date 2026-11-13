@@ -1,3 +1,7 @@
+# 2.1.2
+
+* fix some docs
+
 # 2.1.1
 
 * fix some docs
