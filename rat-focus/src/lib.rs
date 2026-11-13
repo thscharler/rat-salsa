@@ -225,36 +225,43 @@ pub trait HasFocus {
         Navigation::Regular
     }
 
-    /// Does this widget have the focus.
-    /// Or, if the flag is used for a container, does any of
-    /// widget inside the container have the focus.
+    /// Does this widget have the focus or if the flag is
+    /// used for a container, does any of widgets inside
+    /// the container have the focus.
     ///
-    /// This flag is set by [Focus::handle].
+    /// This flag is set by `Focus::handle`.
+    ///
+    /// See [match_focus!].
     fn is_focused(&self) -> bool {
         self.focus().get()
     }
 
-    /// This widget just lost the focus. This flag is set by [Focus::handle]
-    /// if there is a focus transfer, and will be reset by the next
-    /// call to [Focus::handle].
+    /// This widget just lost the focus.
     ///
-    /// See [on_lost!](crate::on_lost!)
+    /// This flag is set by `Focus::handle` if there is a focus transfer,
+    /// and will be reset by the next call to `Focus::handle`.
+    ///
+    /// See [on_lost!].
     fn lost_focus(&self) -> bool {
         self.focus().lost()
     }
 
-    /// This widget just gained the focus. This flag is set by [Focus::handle]
-    /// if there is a focus transfer, and will be reset by the next
-    /// call to [Focus::handle].
+    /// This widget just gained the focus.
     ///
-    /// See [on_gained!](crate::on_gained!)
+    /// This flag is set by `Focus::handle` if there is a focus transfer,
+    /// and will be reset by the next call to `Focus::handle`.
+    ///
+    /// See [on_gained!].
     fn gained_focus(&self) -> bool {
         self.focus().gained()
     }
 
-    /// Is the widget area hit by the current mouse-position
-    /// and is there no other widget/container with a
-    /// higher z-index. Then this widget is *not* obscured.
+    /// This widget is not beneath the mouse-cursor.
+    ///
+    /// Focus runs a hit-test with the current mouse position
+    /// for all the widgets. A widget is not obscured
+    /// if the widget area matches and there is no other
+    /// matching widget/container with a higher z-index.
     ///
     /// This flag is set when handling a mouse-event.
     fn is_obscured(&self) -> bool {

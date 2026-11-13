@@ -663,7 +663,8 @@ where
     ///
     /// This is for rendering widgets that split in two parts,
     /// the main widget and a popup. The popup must be rendered later
-    /// to be 'above' all other widgets. Use [render_pop] for this.
+    /// to be 'above' all other widgets.
+    /// Use [render_pop](FormBuffer::render_popup) for this.
     #[inline(always)]
     #[allow(clippy::question_mark)]
     pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>

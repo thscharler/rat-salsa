@@ -766,7 +766,7 @@ impl<'a, Selection> Table<'a, Selection> {
 
     /// Use the sum of all column-lengths as the layout width.
     ///
-    /// If a [layout_width] is set too, that one will win.
+    /// If a [layout_width](Table::layout_width) is set too, that one will win.
     ///
     /// __Panic__
     ///
@@ -2065,8 +2065,13 @@ impl<Selection> TableState<Selection> {
 impl<Selection: TableSelection> TableState<Selection> {
     /// Update the state to match adding items.
     /// This corrects the number of rows, offset and selection.
-    /// Caveat: This also corrects the stored row-heights, but it
-    /// uses a row-height 1 for the inserted rows. Use [items_added_with_heigths]
+    ///
+    /// __Caveat__:
+    ///
+    /// This also corrects the stored row-heights, but it
+    /// uses a row-height 1 for the inserted rows.
+    /// Use [TableState::items_added_with_heigths] if you
+    /// are in that situtation.
     pub fn items_added(&mut self, pos: usize, n: usize) {
         self.rows = self.rows.saturating_add(n);
         self.vscroll.items_added(pos, n);
@@ -2440,7 +2445,7 @@ impl TableState<RowSetSelection> {
     /// Add to selection. Only works for retired selections, not for the
     /// active anchor-lead range.
     ///
-    /// To be sure call [retire_selection] first.
+    /// To be sure call [TableState::retire_selection] first.
     #[inline]
     pub fn add_selected(&mut self, idx: usize) {
         self.selection.add(idx);
@@ -2449,7 +2454,7 @@ impl TableState<RowSetSelection> {
     /// Remove from selection. Only works for retired selections, not for the
     /// active anchor-lead range.
     ///
-    /// To be sure call [retire_selection] first.
+    /// To be sure call [retire_selection](TableState::retire_selection) first.
     #[inline]
     pub fn remove_selected(&mut self, idx: usize) {
         self.selection.remove(idx);

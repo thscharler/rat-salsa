@@ -4,7 +4,7 @@
 
 Event handling is implemented for crossterm. Focus implements
 [HandleEvent][refHandleEvent], and there is also the function
-[handle_focus](handle_focus) to invoke it.
+[handle_focus](crate::handle_focus) to invoke it.
 
 It uses Tab/BackTab for navigation and handles mouse clicks on the widget's area.
 
@@ -47,7 +47,7 @@ widget. Or you may want to write a wrapper.
 
 # Trait HasFocus
 
-[HasFocus] is the main interface for widgets.
+[HasFocus](crate::HasFocus) is the main interface for widgets.
 
 ## Widgets
 

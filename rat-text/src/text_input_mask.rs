@@ -290,7 +290,7 @@ impl<'a> MaskedInput<'a> {
     }
 
     /// Style for a rendered cursor.
-    /// Only used if [cursor_type](crate::cursor::cursor_type) is `RenderedCursor`.
+    /// Only used if [cursor_type] is `RenderedCursor`.
     #[inline]
     pub fn cursor_style(mut self, style: impl Into<Style>) -> Self {
         self.cursor_style = Some(style.into());
@@ -299,7 +299,7 @@ impl<'a> MaskedInput<'a> {
 
     /// Indexed text-style.
     ///
-    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// Use [add_style](MaskedInputState::add_style) to refer a text range to
     /// one of these styles.
     pub fn text_style_idx(mut self, idx: usize, style: Style) -> Self {
         self.text_style.insert(idx, style);
@@ -308,7 +308,7 @@ impl<'a> MaskedInput<'a> {
 
     /// List of text-styles.
     ///
-    /// Use [MaskedInputState::add_style()] to refer a text range to
+    /// Use [add_style](MaskedInputState::add_style) to refer a text range to
     /// one of these styles.
     pub fn text_style<T: IntoIterator<Item = Style>>(mut self, styles: T) -> Self {
         for (i, s) in styles.into_iter().enumerate() {
@@ -319,7 +319,7 @@ impl<'a> MaskedInput<'a> {
 
     /// Map of style_id -> text_style.
     ///
-    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// Use [add_style](MaskedInputState::add_style) to refer a text range to
     /// one of these styles.
     pub fn text_style_map<T: Into<Style>>(mut self, styles: HashMap<usize, T>) -> Self {
         for (i, s) in styles.into_iter() {

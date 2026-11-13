@@ -672,7 +672,7 @@ where
     }
 
     /// Add a manual column break after the last widget.
-    /// This is a synonym for [page_break].
+    /// This is a synonym for [page_break](LayoutForm::page_break).
     ///
     /// This will panic if the widget list is empty.
     pub fn column_break(&mut self) {

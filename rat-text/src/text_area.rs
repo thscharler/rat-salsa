@@ -293,7 +293,7 @@ impl<'a> TextArea<'a> {
     }
 
     /// Style for a rendered cursor.
-    /// Only used if [cursor_type](crate::cursor::cursor_type) is `RenderedCursor`.
+    /// Only used if [cursor_type] is `RenderedCursor`.
     #[inline]
     pub fn cursor_style(mut self, style: impl Into<Style>) -> Self {
         self.cursor_style = Some(style.into());
@@ -302,7 +302,7 @@ impl<'a> TextArea<'a> {
 
     /// Indexed text-style.
     ///
-    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// Use [add_style](TextAreaState::add_style) to refer a text range to
     /// one of these styles.
     pub fn text_style_idx(mut self, idx: usize, style: Style) -> Self {
         self.text_style.insert(idx, style);
@@ -311,7 +311,7 @@ impl<'a> TextArea<'a> {
 
     /// List of text-styles.
     ///
-    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// Use [add_style](TextAreaState::add_style) to refer a text range to
     /// one of these styles.
     pub fn text_style<T: IntoIterator<Item = Style>>(mut self, styles: T) -> Self {
         for (i, s) in styles.into_iter().enumerate() {
@@ -322,7 +322,7 @@ impl<'a> TextArea<'a> {
 
     /// Map of style_id -> text_style.
     ///
-    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// Use [add_style](TextAreaState::add_style) to refer a text range to
     /// one of these styles.
     pub fn text_style_map<T: Into<Style>>(mut self, styles: HashMap<usize, T>) -> Self {
         for (i, s) in styles.into_iter() {
@@ -1731,8 +1731,9 @@ impl TextAreaState {
     /// Search for a regex.
     ///
     /// Uses MATCH_STYLE for highlighting the matches.
-    /// This doesn't change the cursor/selection, use [move_to_next_match] or
-    /// [move_to_prev_match] for this.
+    /// This doesn't change the cursor/selection, use
+    /// [move_to_next_match](TextAreaState::move_to_next_match) or
+    /// [move_to_prev_match](TextAreaState::move_to_prev_match) for this.
     ///
     /// Return
     ///

@@ -286,7 +286,7 @@ pub(crate) mod event {
         Cancel,
         /// Ok
         Ok(PathBuf),
-        /// Ok, when started as [open_many_dialog].
+        /// Ok, when started as [open_many_dialog](super::FileDialogState::open_many_dialog).
         OkList(Vec<PathBuf>),
     }
 

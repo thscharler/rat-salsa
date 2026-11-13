@@ -59,7 +59,7 @@ There are predefined qualifiers
   as generally needed as other mouse behaviour.
 
 * [Popup](Popup) - __obsolete__
-  With the latest changes in [Focus] this is now obsolete. 
+  With the latest changes in focus handling this is now obsolete. 
 
   Popup event-handlers are regular event-handlers,
   but they need processing before regular event-handlers.

@@ -81,7 +81,7 @@ pub struct PairedState<'a, TS, US> {
 }
 
 /// New-type for Span without Widget trait.
-/// Used for [new_labeled].
+/// Used for [new_labeled](Paired::new_labeled).
 pub struct NSpan<'a> {
     pub span: Span<'a>,
 }

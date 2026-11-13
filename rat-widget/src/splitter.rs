@@ -319,8 +319,9 @@ impl Default for SplitStyle {
 impl<'a> Split<'a> {
     /// Create a new split.
     ///
-    /// To have any split-areas you must set a list of [constraints]
-    /// for both the number and initial sizes of the areas.
+    /// To have any split-areas you must set a list of
+    /// [constraints](Split::constraints) for both the number
+    /// and initial sizes of the areas.
     pub fn new() -> Self {
         Self {
             direction: Direction::Horizontal,

@@ -638,7 +638,8 @@ where
     ///
     /// This is for rendering widgets that split in two parts,
     /// the main widget and a popup. The popup must be rendered later
-    /// to be 'above' all other widgets. Use [render_pop] for this.
+    /// to be 'above' all other widgets.
+    /// Use [render_popup](ClipperBuffer::render_popup) for this.
     #[inline(always)]
     pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
     where
@@ -664,8 +665,6 @@ where
     }
 
     /// Render an additional popup widget for the given main widget.
-    ///
-    /// Doesn't call relocate() at all.
     #[inline(always)]
     pub fn render_popup<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
     where
@@ -739,13 +738,13 @@ where
     ///
     /// Call this function to correct this after rendering.
     ///
-    /// Note:
+    /// __Note__:
     ///
     /// This is only necessary if you do some manual rendering
-    /// of stateful widgets. If you use [render] this will
+    /// of stateful widgets. If you use [render](ClipperBuffer::render) this will
     /// happen automatically
     ///
-    /// Parameter:
+    /// __Parameter__:
     ///
     /// widget: The visibility of this widget will determine
     /// if the areas in state are shifted or hidden altogether.
