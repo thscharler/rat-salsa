@@ -10,6 +10,7 @@ cargo publish -p rat-menu
 cargo publish -p rat-text
 cargo publish -p rat-markdown
 cargo publish -p rat-ftable
+cargo publish -p rat-ftable2
 cargo publish -p rat-widget
 cargo publish -p rat-widget-extra
 cargo publish -p rat-theme4
