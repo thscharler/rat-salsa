@@ -1,6 +1,5 @@
 #![doc = include_str!("../readme.md")]
-#![allow(clippy::uninlined_format_args)]
-use crate::framework::control_queue::ControlQueue;
+
 use crate::tasks::{Cancel, Liveness};
 use crate::thread_pool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
@@ -9,18 +8,20 @@ use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
-use ratatui_core::buffer::Buffer;
 use ratatui_core::terminal::Terminal;
-use ratatui_crossterm::CrosstermBackend;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
-#[cfg(feature = "async")]
-use std::future::Future;
-use std::io::Stdout;
 use std::rc::Rc;
 use std::time::Duration;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
+
+use crate::framework::control_queue::ControlQueue;
+use ratatui_core::buffer::Buffer;
+use ratatui_crossterm::CrosstermBackend;
+#[cfg(feature = "async")]
+use std::future::Future;
+use std::io::Stdout;
 
 mod control;
 mod framework;
