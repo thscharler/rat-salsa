@@ -1,5 +1,6 @@
 #![doc = include_str!("../readme.md")]
 
+use crate::framework::control_queue::ControlQueue;
 use crate::tasks::{Cancel, Liveness};
 use crate::thread_pool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
@@ -13,15 +14,16 @@ use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use std::time::Duration;
+use std::rc;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 
-use crate::framework::control_queue::ControlQueue;
 use ratatui_core::buffer::Buffer;
 use ratatui_crossterm::CrosstermBackend;
 #[cfg(feature = "async")]
 use std::future::Future;
 use std::io::Stdout;
+
 
 mod control;
 mod framework;
@@ -358,7 +360,7 @@ where
     /// Access the terminal.
     #[inline]
     fn terminal(&mut self) -> Rc<RefCell<Terminal<CrosstermBackend<Stdout>>>> {
-        self.salsa_ctx().term.clone().expect("terminal")
+        self.salsa_ctx().term.upgrade().expect("terminal")
     }
 
     /// Clear the terminal and do a full redraw before the next draw.
@@ -397,7 +399,7 @@ where
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
-    pub(crate) term: Option<Rc<RefCell<Terminal<CrosstermBackend<Stdout>>>>>,
+    pub(crate) term: rc::Weak<RefCell<Terminal<CrosstermBackend<Stdout>>>>,
     /// Set the window title.
     pub(crate) window_title: Cell<Option<String>>,
     /// Clear terminal before next draw.

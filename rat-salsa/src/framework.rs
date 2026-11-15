@@ -29,6 +29,7 @@ use std::io::stdout;
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::time::{Duration, SystemTime};
 use std::{io, thread};
+use std::rc::Rc;
 
 pub(crate) mod control_queue;
 mod poll_queue;
@@ -97,7 +98,7 @@ where
         focus: Default::default(),
         count: Default::default(),
         cursor: Default::default(),
-        term: Some(term.clone()),
+        term: Rc::downgrade(&term),
         window_title: Default::default(),
         clear_terminal: Default::default(),
         insert_before: Default::default(),
