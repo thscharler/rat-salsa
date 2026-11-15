@@ -14,6 +14,7 @@ use crate::text_store::TextStore;
 use crate::text_store::text_rope::TextRope;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{HasScreenCursor, TextError, TextPosition, TextRange, TextStyle, ipos_type, upos_type};
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{HandleEvent, MouseOnly, Regular, ct_event, flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
@@ -429,7 +430,6 @@ fn render_text_area(
     state: &mut TextAreaState,
 ) {
     state.area = area;
-    state.screen_cursor = None;
     if let Some(text_wrap) = widget.text_wrap {
         state.text_wrap = text_wrap;
     }
@@ -538,7 +538,6 @@ fn render_text_area(
             (0, page_rows.end),
         ))
         .expect("valid_rows");
-    // let mut screen_cursor = None;
     let selection = state.selection();
     let cursor = state.cursor();
     let mut styles = Vec::new();
@@ -608,6 +607,7 @@ fn render_text_area(
     }
 
     if cursor_type == CursorType::RenderedCursor {
+        debug!("rendered cursor");
         if focused
             && selection.is_empty()
             && cursor == TextPosition::new(0, state.len_lines().saturating_sub(1))
@@ -618,8 +618,10 @@ fn render_text_area(
             }
         }
     } else if cursor_type == CursorType::TerminalCursor {
+        debug!("terminal cursor {:?}", state.pos_to_screen(state.cursor()));
         state.screen_cursor = state.pos_to_screen(state.cursor());
     } else {
+        debug!("other cursor");
         state.screen_cursor = None;
     }
 }
@@ -1846,10 +1848,14 @@ impl HasScreenCursor for TextAreaState {
     /// Cursor position on the screen.
     #[allow(clippy::question_mark)]
     fn screen_cursor(&self) -> Option<(u16, u16)> {
+        debug!("screen_cursor");
         if self.is_focused() {
+            debug!("  focused");
             if self.has_selection() {
+                debug!("  no selection");
                 None
             } else {
+                debug!("  rendered {:?}", self.screen_cursor);
                 let Some(scr_cursor) = self.screen_cursor else {
                     return None;
                 };
@@ -1859,6 +1865,7 @@ impl HasScreenCursor for TextAreaState {
                     && scr_cursor.1 >= self.inner.y
                     && scr_cursor.1 < self.inner.bottom())
                 {
+                    debug!("  out of bounds");
                     return None;
                 }
                 Some(scr_cursor)
@@ -2308,8 +2315,9 @@ impl TextAreaState {
     ///
     #[inline]
     pub fn pos_to_screen(&self, pos: impl Into<TextPosition>) -> Option<(u16, u16)> {
-        let scr_pos = self.pos_to_relative_screen(pos.into())?;
-        if scr_pos.0 + self.inner.x as i16 > 0 && scr_pos.1 + self.inner.y as i16 > 0 {
+        let pos = pos.into();
+        let scr_pos = self.pos_to_relative_screen(pos)?;
+        if scr_pos.0 + self.inner.x as i16 >= 0 && scr_pos.1 + self.inner.y as i16 >= 0 {
             Some((
                 (scr_pos.0 + self.inner.x as i16) as u16,
                 (scr_pos.1 + self.inner.y as i16) as u16,
