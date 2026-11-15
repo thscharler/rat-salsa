@@ -1,3 +1,7 @@
+# 3.1.4
+
+* missed some logging...
+
 # 3.1.3
 
 * fix: a cursor in the first row or column of the screen was hidden.
