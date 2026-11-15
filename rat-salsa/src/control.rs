@@ -33,7 +33,7 @@ pub enum Control<Event> {
     /// Break event-handling and repaints/renders the application.
     /// In the event-loop this calls `render`.
     Changed,
-    /// Eventhandling can cause secondary application specific events.
+    /// Event handling can cause secondary application specific events.
     /// One common way is to return this `Control::Message(my_event)`
     /// to reenter the event-loop with your own secondary event.
     ///
@@ -41,8 +41,9 @@ pub enum Control<Event> {
     /// disconnected parts of your application. And indeed there is
     /// a hidden message-queue as part of the event-loop.
     ///
-    /// The other way is to call [SalsaContext::queue](crate::SalsaContext::queue) to initiate such
-    /// events.
+    /// The other way is to call
+    /// [SalsaContext::queue](crate::SalsaContext::queue) to
+    /// initiate such events.
     Event(Event),
     /// A dialog close event. In the main loop it will be handled
     /// just like [Control::Event]. But the DialogStack can react
