@@ -2635,8 +2635,7 @@ impl TextAreaState {
     pub fn scroll_up(&mut self, delta: upos_type) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, -(delta as i16))) {
             self.sub_row_offset = pos.x;
-            self.vscroll.set_offset(pos.y as usize);
-            true
+            self.vscroll.set_offset(pos.y as usize)
         } else {
             false
         }
@@ -2650,8 +2649,7 @@ impl TextAreaState {
     pub fn scroll_down(&mut self, delta: upos_type) -> bool {
         if let Some(pos) = self.relative_screen_to_pos((0, delta as i16)) {
             self.sub_row_offset = pos.x;
-            self.vscroll.set_offset(pos.y as usize);
-            true
+            self.vscroll.set_offset(pos.y as usize)
         } else {
             false
         }
