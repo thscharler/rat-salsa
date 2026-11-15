@@ -1,3 +1,7 @@
+# 3.1.3
+
+* fix: a cursor in the first row or column of the screen was hidden.
+
 # 3.1.2
 
 * fix: some docs
