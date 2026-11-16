@@ -299,6 +299,7 @@ pub fn load_palette(mut r: impl io::Read) -> Result<Palette, io::Error> {
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn split_comma<const N: usize>(s: &str) -> Result<[Color; N], io::Error> {
     let mut r: [Color; N] = array::from_fn(|_| Color::default());
     let mut vv = s.split(',');

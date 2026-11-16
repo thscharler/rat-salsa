@@ -2733,7 +2733,7 @@ impl HandleEvent<Event, Regular, TextOutcome> for TextAreaState {
                     | ct_event!(keycode press ALT-Delete) => tc(self.delete_next_word()),
                     ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
                     ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
-                    ct_event!(paste v) => tc(self.insert_str(&v)),
+                    ct_event!(paste v) => tc(self.insert_str(v)),
                     ct_event!(key press CONTROL-'d') => tc(self.duplicate_text()),
                     ct_event!(key press CONTROL-'y') => tc(self.delete_line()),
                     ct_event!(key press CONTROL-'z') => tc(self.undo()),

@@ -178,7 +178,7 @@ impl RowHeights {
             RowHeights::Uniform(_) => {}
             RowHeights::Varying(h) => {
                 if pos <= h.len() {
-                    h.splice(pos..pos, height.into_iter().copied());
+                    h.splice(pos..pos, height.iter().copied());
                 }
             }
         }
@@ -487,17 +487,17 @@ impl<'a, Selection> List<'a, Selection> {
     /// configure when this spacing is allocated.
     ///
     /// * HighlightSpacing::Always will always allocate the spacing,
-    /// regardless of whether an item is selected or not. This means
-    /// that the table will never change size, regardless of if an
-    /// item is selected or not.
+    ///   regardless of whether an item is selected or not. This means
+    ///   that the table will never change size, regardless of if an
+    ///   item is selected or not.
     /// * HighlightSpacing::WhenSelected will only allocate the
-    /// spacing if an item is selected. This means that the table
-    /// will shift when an item is selected. This is the default
-    /// setting for backwards compatibility, but it is recommended
-    /// to use HighlightSpacing::Always for a better user experience.
+    ///   spacing if an item is selected. This means that the table
+    ///   will shift when an item is selected. This is the default
+    ///   setting for backwards compatibility, but it is recommended
+    ///   to use HighlightSpacing::Always for a better user experience.
     /// * HighlightSpacing::Never will never allocate the spacing,
-    /// regardless of whether an item is selected or not. This means
-    /// that the highlight symbol will never be drawn.
+    ///   regardless of whether an item is selected or not. This means
+    ///   that the highlight symbol will never be drawn.
     pub fn highlight_spacing(mut self, value: HighlightSpacing) -> Self {
         self.highlight_spacing = value;
         self

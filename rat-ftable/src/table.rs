@@ -322,7 +322,7 @@ impl RowHeights {
             RowHeights::Uniform(_) => {}
             RowHeights::Varying(h) => {
                 if pos <= h.len() {
-                    h.splice(pos..pos, height.into_iter().copied());
+                    h.splice(pos..pos, height.iter().copied());
                 }
             }
         }
@@ -1786,7 +1786,6 @@ where
         }
     }
 
-    #[expect(clippy::collapsible_else_if)]
     fn patch_select(&self, style: Option<Style>, focus: bool, show: bool) -> Option<Style> {
         if let Some(style) = style {
             if let Some(focus_style) = self.focus_style {

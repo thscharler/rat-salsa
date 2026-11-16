@@ -128,7 +128,7 @@ impl RowHeights {
             RowHeights::Uniform(_) => {}
             RowHeights::Varying(h) => {
                 if pos <= h.len() {
-                    h.splice(pos..pos, height.into_iter().copied());
+                    h.splice(pos..pos, height.iter().copied());
                 }
             }
         }

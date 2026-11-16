@@ -172,8 +172,8 @@ fn empty_md_row(txt: &str, newline: &str) -> (upos_type, String) {
     let mut new_row = String::new();
     new_row.push_str(newline);
     new_row.push('|');
-    for idx in 1..row.row.len() - 1 {
-        for _ in row.row[idx].txt.graphemes(true) {
+    for cell in row.row.iter().take(row.row.len() - 1).skip(1) {
+        for _ in cell.txt.graphemes(true) {
             new_row.push(' ');
         }
         new_row.push('|');
@@ -251,8 +251,8 @@ fn create_md_title(txt: &str, newline: &str) -> (upos_type, String) {
     new_row.push_str(newline);
     new_row.push_str(row.row[0].txt);
     new_row.push('|');
-    for idx in 1..row.row.len() - 1 {
-        for _ in row.row[idx].txt.graphemes(true) {
+    for cell in row.row.iter().take(row.row.len() - 1).skip(1) {
+        for _ in cell.txt.graphemes(true) {
             new_row.push('-');
         }
         new_row.push('|');
@@ -401,10 +401,7 @@ fn md_prev_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
             let mut sty = Vec::new();
             state.styles_in(list_byte.start..item_byte.start, &mut sty);
 
-            let prev = sty
-                .iter()
-                .filter(|v| v.1 == MDStyle::Item as usize)
-                .next_back();
+            let prev = sty.iter().rfind(|v| v.1 == MDStyle::Item as usize);
 
             if let Some((prev_bytes, _)) = prev {
                 let prev = state.byte_range(prev_bytes.clone());

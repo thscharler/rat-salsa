@@ -395,7 +395,7 @@ impl Default for MenubarState {
 
 impl HasFocus for MenubarState {
     fn build(&self, builder: &mut FocusBuilder) {
-        MenubarState::build_nav(&self, self.navigable(), builder);
+        MenubarState::build_nav(self, self.navigable(), builder);
     }
 
     fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {

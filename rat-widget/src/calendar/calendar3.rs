@@ -68,8 +68,8 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     /// Locale for month-names, day-names.
     #[inline]
     pub fn locale(mut self, loc: chrono::Locale) -> Self {
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).locale(loc);
+        for month in &mut self.months {
+            *month = mem::take(month).locale(loc);
         }
         self
     }
@@ -83,8 +83,8 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     /// Show weekday titles
     #[inline]
     pub fn show_weekdays(mut self) -> Self {
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).show_weekdays();
+        for month in &mut self.months {
+            *month = mem::take(month).show_weekdays();
         }
         self
     }
@@ -92,24 +92,24 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     /// Set the composite style.
     #[inline]
     pub fn styles(mut self, s: CalendarStyle) -> Self {
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).styles(s.clone());
+        for month in &mut self.months {
+            *month = mem::take(month).styles(s.clone());
         }
         self
     }
 
     /// Style for the selected tab.
     pub fn select_style(mut self, style: Style) -> Self {
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).select_style(style);
+        for month in &mut self.months {
+            *month = mem::take(month).select_style(style);
         }
         self
     }
 
     /// Style for a focused tab.
     pub fn focus_style(mut self, style: Style) -> Self {
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).focus_style(style);
+        for month in &mut self.months {
+            *month = mem::take(month).focus_style(style);
         }
         self
     }
@@ -118,8 +118,8 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     #[inline]
     pub fn day_style(mut self, s: impl Into<Style>) -> Self {
         let s = s.into();
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).day_style(s);
+        for month in &mut self.months {
+            *month = mem::take(month).day_style(s);
         }
         self
     }
@@ -127,8 +127,8 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     /// Sets all the day-styles.
     #[inline]
     pub fn day_styles(mut self, styles: &'a HashMap<NaiveDate, Style>) -> Self {
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).day_styles(styles);
+        for month in &mut self.months {
+            *month = mem::take(month).day_styles(styles);
         }
         self
     }
@@ -137,8 +137,8 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     #[inline]
     pub fn week_style(mut self, s: impl Into<Style>) -> Self {
         let s = s.into();
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).week_style(s);
+        for month in &mut self.months {
+            *month = mem::take(month).week_style(s);
         }
         self
     }
@@ -147,8 +147,8 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     #[inline]
     pub fn weekday_style(mut self, s: impl Into<Style>) -> Self {
         let s = s.into();
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).weekday_style(s);
+        for month in &mut self.months {
+            *month = mem::take(month).weekday_style(s);
         }
         self
     }
@@ -157,8 +157,8 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     #[inline]
     pub fn title_style(mut self, s: impl Into<Style>) -> Self {
         let s = s.into();
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).title_style(s);
+        for month in &mut self.months {
+            *month = mem::take(month).title_style(s);
         }
         self
     }
@@ -166,8 +166,8 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     /// Set the mont-name align.
     #[inline]
     pub fn title_align(mut self, a: Alignment) -> Self {
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).title_align(a);
+        for month in &mut self.months {
+            *month = mem::take(month).title_align(a);
         }
         self
     }
@@ -175,8 +175,8 @@ impl<'a, Selection> Calendar3<'a, Selection> {
     /// Block
     #[inline]
     pub fn block(mut self, b: Block<'a>) -> Self {
-        for i in 0..3 {
-            self.months[i] = mem::take(&mut self.months[i]).block(b.clone());
+        for month in &mut self.months {
+            *month = mem::take(month).block(b.clone());
         }
         self
     }

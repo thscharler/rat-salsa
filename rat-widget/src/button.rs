@@ -288,8 +288,10 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
         buf.set_style(area, style);
     }
 
-    if state.mouse.hover.get() && widget.hover_style.is_some() {
-        buf.set_style(state.inner, widget.hover_style.expect("style"))
+    if let Some(hover_style) = widget.hover_style
+        && state.mouse.hover.get()
+    {
+        buf.set_style(state.inner, hover_style)
     } else if state.is_focused() {
         buf.set_style(state.inner, focus_style);
     }

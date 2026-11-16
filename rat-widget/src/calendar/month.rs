@@ -463,12 +463,8 @@ fn render_ref<Selection: CalendarSelection>(
     }
 
     // reset areas
-    for i in 0..31 {
-        state.area_days[i] = Rect::default();
-    }
-    for i in 0..6 {
-        state.area_weeks[i] = Rect::default();
-    }
+    state.area_days = [Rect::default(); 31];
+    state.area_weeks = [Rect::default(); 6];
     state.area_cal = Rect::new(x + 3, y, 7 * 3, state.week_len() as u16);
     state.area_weeknum = Rect::new(x, y, 3, state.week_len() as u16);
 

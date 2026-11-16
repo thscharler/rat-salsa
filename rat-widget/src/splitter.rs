@@ -755,6 +755,7 @@ impl HasFocus for SplitState {
         self.focus.clone()
     }
 
+    #[allow(clippy::misnamed_getters)]
     fn area(&self) -> Rect {
         self.inner
     }

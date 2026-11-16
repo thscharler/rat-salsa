@@ -27,6 +27,7 @@ enum Tool<'a> {
     Text(Line<'a>),
 }
 
+#[allow(clippy::large_enum_variant)]
 /// States for the different toolbar-widgets.
 #[derive(Debug)]
 pub enum ToolState {
@@ -310,6 +311,7 @@ impl<'a> Toolbar<'a> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum ToolLayout<'a> {
     CollapsedButton(Line<'a>),
     BasicButton(u16, Button<'a>, Line<'a>, bool),
@@ -453,9 +455,9 @@ fn layout<'a>(
             }
         }
 
-        for i in 0..layout2.len() {
-            if matches!(layout2[i], ToolLayout2::CollapsedPlaceHolder()) {
-                layout2[i] = ToolLayout2::CollapsedButton(collapsed);
+        for layout2 in &mut layout2 {
+            if matches!(layout2, ToolLayout2::CollapsedPlaceHolder()) {
+                *layout2 = ToolLayout2::CollapsedButton(collapsed);
                 break;
             }
         }

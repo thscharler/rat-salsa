@@ -8,7 +8,7 @@ use std::hash::Hash;
 /// a widget-key is used to access the stored layout.
 ///
 /// * You can keep the layout in some state and
-/// only rebuild on [GenericLayout::area_changed].
+///   only rebuild on [GenericLayout::area_changed].
 /// * It can support the concept of a multipage layout.
 ///     * A widgets y-position divided by the page-height
 ///       gives a page.
@@ -30,7 +30,7 @@ where
     page_size: Size,
     /// Pages.
     page_count: usize,
-    ///
+    /// Position for the layout. Moves every area.
     place: Position,
 
     /// Widget keys.

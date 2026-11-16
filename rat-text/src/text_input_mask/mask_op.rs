@@ -359,11 +359,8 @@ fn can_insert_integer_left(
         .grapheme_at(TextPosition::new(left.sub_start, 0))
         .expect("valid_position")
         .expect("grapheme");
-    if !mask0.right.can_drop(g0.grapheme()) {
-        return false;
-    }
 
-    true
+    mask0.right.can_drop(g0.grapheme())
 }
 
 // Is this the correct input position for a rtol field
@@ -493,11 +490,7 @@ fn can_move_left_in_fraction(
         .expect("grapheme");
 
     // is there space to the left?
-    if gl != " " {
-        return false;
-    }
-
-    true
+    gl == " "
 }
 
 // Can insert fraction.

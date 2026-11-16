@@ -40,5 +40,14 @@ rat-widget-extra = { path = "rat-widget-extra", version = "2.1" }
 [workspace.lints.clippy]
 collapsible_else_if = "allow"
 collapsible_if = "allow"
-if_same_then_else = "allow"
+collapsible_match = "allow"
 comparison_chain = "allow"
+if_same_then_else = "allow"
+iter_nth_zero = "allow"
+manual_unwrap_or_default = "allow"
+question_mark = "allow"
+single_match = "allow"
+while_let_loop = "allow"
+
+[workspace.lints.cargo]
+unused_dependencies = "allow"
