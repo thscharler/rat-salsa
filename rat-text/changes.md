@@ -1,3 +1,7 @@
+# 3.1.5
+
+* fix: textarea scrolling should detect changes. avoids a repaint.
+
 # 3.1.4
 
 * missed some logging...
