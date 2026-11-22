@@ -213,11 +213,10 @@ where
         }
 
         let value = self.editor.create_value(ctx)?;
-        self.editor.set_value(value.clone(), ctx)?;
-        self._start(None, row, Mode::Insert, ctx)?;
-
-        self.data.insert(row, value);
+        self.data.insert(row, value.clone());
         self.table.items_added(row, 1);
+        self.editor.set_value(value, ctx)?;
+        self._start(None, row, Mode::Insert, ctx)?;
 
         Ok(())
     }
@@ -251,9 +250,9 @@ where
             return Ok(());
         };
 
-        self._stop(ctx)?;
+        let last_mode = self._stop(ctx)?;
 
-        if self.mode == Mode::Insert {
+        if last_mode == Mode::Insert {
             self.data.remove(row);
             self.table.items_removed(row, 1);
         }
@@ -328,11 +327,12 @@ where
         Ok(())
     }
 
-    fn _stop<'a>(&mut self, ctx: &'a E::Context<'a>) -> Result<(), E::Err> {
+    fn _stop<'a>(&mut self, ctx: &'a E::Context<'a>) -> Result<Mode, E::Err> {
+        let old_mode = self.mode;
         self.mode = Mode::View;
         self.editor.stop(ctx)?;
         self.table.scroll_to_col(0);
-        Ok(())
+        Ok(old_mode)
     }
 }
 
@@ -379,10 +379,6 @@ where
                         self.commit(ctx)?;
                         if self.data.is_empty() {
                             self.edit_new(0, ctx)?;
-                        } else if let Some(row) = self.table.selected_checked()
-                            && row > 0
-                        {
-                            self.table.select(Some(row - 1));
                         }
                         Outcome::Changed
                     }
@@ -390,10 +386,6 @@ where
                         self.commit(ctx)?;
                         if self.data.is_empty() {
                             self.edit_new(0, ctx)?;
-                        } else if let Some(row) = self.table.selected_checked()
-                            && row + 1 < self.data.len()
-                        {
-                            self.table.select(Some(row + 1));
                         }
                         Outcome::Changed
                     }
