@@ -416,7 +416,7 @@ where
             if self.is_focused() {
                 event_flow!(match event {
                     ct_event!(keycode press Insert) => {
-                        if let Some(row) = self.table.selected() {
+                        if let Some(row) = self.table.selected_checked() {
                             self.edit_new(row, ctx)?;
                         }
                         Outcome::Changed
@@ -442,7 +442,7 @@ where
                         }
                     }
                     ct_event!(keycode press Down) => {
-                        if let Some(row) = self.table.selected() {
+                        if let Some(row) = self.table.selected_checked() {
                             if row == self.table.rows().saturating_sub(1) {
                                 self.edit_new(row + 1, ctx)?;
                                 Outcome::Changed

@@ -53,7 +53,7 @@ where
         self.core.render(area, buf, &mut state.table);
 
         if state.mode == Mode::Insert || state.mode == Mode::Edit {
-            if let Some(row) = state.table.selected() {
+            if let Some(row) = state.table.selected_checked() {
                 // but it might be out of view
                 if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
                     self.editor
