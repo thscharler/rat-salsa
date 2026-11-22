@@ -78,27 +78,30 @@ impl Focus {
             widget_state.focus().name(),
             flip_focus
         );
-        let flag = widget_state.focus();
-        if self.core.is_widget(&flag) {
-            if flag.is_focused() {
+        let widget = widget_state.focus();
+        if self.core.is_widget(&widget) {
+            if widget.is_focused() {
                 if let Some(flip_focus) = flip_focus {
                     self.focus(flip_focus);
                 } else {
                     focus_fail!(self.core, "    => no previous widget");
                 }
+                *flip_focus = None;
             } else {
                 *flip_focus = self.focused();
-                self.focus(&flag);
+                self.focus(&widget);
             }
-        } else if self.core.is_container(&flag) {
-            if flag.is_focused() {
+        } else if self.core.is_container(&widget) {
+            if widget.is_focused() {
                 if let Some(flip_focus) = flip_focus {
                     self.focus(flip_focus);
                 } else {
                     focus_fail!(self.core, "    => no previous widget");
                 }
+                *flip_focus = None;
             } else {
-                self.core.first_container(&flag);
+                *flip_focus = self.focused();
+                self.core.first_container(&widget);
             }
         } else {
             focus_fail!(self.core, "    => not a valid widget");
