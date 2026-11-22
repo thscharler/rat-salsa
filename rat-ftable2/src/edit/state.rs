@@ -24,6 +24,7 @@ use ratatui_core::layout::Rect;
 /// Focus for all the widgets and navigates independently of
 /// the main application Focus.
 ///
+#[derive(Debug)]
 pub struct TableEditState<T, E> {
     /// Editing mode.
     pub mode: Mode,

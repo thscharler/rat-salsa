@@ -13,6 +13,7 @@ use ratatui_core::layout::Rect;
 use std::collections::HashSet;
 
 /// State for [TableVec][crate::TableVec].
+#[derive(Debug)]
 pub struct TableVecState<T, Selection = RowSelection> {
     pub table: TableState<Selection>,
     pub data: Vec<T>,
