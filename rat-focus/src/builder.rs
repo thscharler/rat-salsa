@@ -280,6 +280,29 @@ impl FocusBuilder {
         self
     }
 
+    /// Directly add the given widget's flags. Doesn't call
+    /// build() instead it uses focus(), etc. and appends a single widget.
+    /// This function overrides the Navigation flag provided by
+    /// the widget.
+    ///
+    /// This is intended to be used when __implementing__
+    /// HasFocus::build() for a widget.
+    ///
+    /// In all other situations it's better to use [widget](FocusBuilder::widget)
+    /// or [widget_navigate](FocusBuilder::widget_navigate)
+    ///
+    /// __Panic__
+    ///
+    /// Panics if the same focus-flag is added twice.
+    pub fn leaf_with_navigation(
+        &mut self,
+        widget: &dyn HasFocus,
+        navigable: Navigation,
+    ) -> &mut Self {
+        self.leaf_with_flags(widget.focus(), widget.area(), widget.area_z(), navigable);
+        self
+    }
+
     #[deprecated(since = "2.0.2", note = "use leaf_with_flags instead")]
     pub fn widget_with_flags(
         &mut self,
