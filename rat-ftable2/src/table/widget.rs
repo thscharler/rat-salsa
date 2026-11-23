@@ -657,22 +657,22 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
         non_exhaustive: NonExhaustive,
     };
 
+    let mut row = None;
+    let mut row_heights = Vec::new();
     'll: {
         let Some(data) = data else {
             break 'll;
         };
 
         // iterate to offset row.
-        let mut row = None;
         let mut value;
         let mut row_y = state.table_area.y;
-        let mut row_heights = Vec::new();
         let mut row_buf = Buffer::empty(Rect::new(0, 0, width, 1));
 
         // skip to offset.
         if widget.varying_heights {
             loop {
-                value = if let Some(v) = data.nth(0) {
+                value = if let Some(v) = data.next() {
                     v
                 } else {
                     break 'll;
@@ -708,6 +708,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
             value = if let Some(v) = data.nth(state.vscroll.offset()) {
                 v
             } else {
+                // todo: questionable, won't get a row count...
                 break 'll;
             };
             row = Some(state.vscroll.offset());
@@ -845,7 +846,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                 );
             }
 
-            value = if let Some(value) = data.nth(0) {
+            value = if let Some(value) = data.next() {
                 value
             } else {
                 break 'll;
@@ -876,6 +877,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                 row = Some(row.map_or(skip_rows, |row| row + skip_rows + 1));
                 value
             } else {
+                // todo: questionable, won't get a row count...
                 break 'll;
             }
         }
@@ -901,7 +903,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                 sum_height -= lost_height;
             }
 
-            value = if let Some(value) = data.nth(0) {
+            value = if let Some(value) = data.next() {
                 value
             } else {
                 break;
@@ -909,25 +911,25 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
 
             row = Some(row.expect("row") + 1);
         }
-
-        state.rows = row.map_or(0, |v| v + 1);
-        // have we got a page worth of data?
-        if let Some(last_page) = calc_last_page(state.table_area.height, row_heights) {
-            state.vscroll.set_max_offset(state.rows - last_page);
-        } else {
-            // we don't have enough data to establish the last page.
-            // either there are not enough rows or the given row-count
-            // was off. make a guess.
-            state
-                .vscroll
-                .set_max_offset(state.rows.saturating_sub(state.table_area.height as usize));
-        }
-        state
-            .hscroll
-            .set_max_offset(width.saturating_sub(state.table_area.width) as usize);
-        state.selection.validate_rows(state.rows);
-        state.selection.validate_cols(state.columns);
     }
+
+    state.rows = row.map_or(0, |v| v + 1);
+    // have we got a page worth of data?
+    if let Some(last_page) = calc_last_page(state.table_area.height, row_heights) {
+        state.vscroll.set_max_offset(state.rows - last_page);
+    } else {
+        // we don't have enough data to establish the last page.
+        // either there are not enough rows or the given row-count
+        // was off. make a guess.
+        state
+            .vscroll
+            .set_max_offset(state.rows.saturating_sub(state.table_area.height as usize));
+    }
+    state
+        .hscroll
+        .set_max_offset(width.saturating_sub(state.table_area.width) as usize);
+    state.selection.validate_rows(state.rows);
+    state.selection.validate_cols(state.columns);
 
     // render only the scrollbars.
     ScrollArea::new()
