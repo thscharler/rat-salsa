@@ -496,6 +496,13 @@ impl<'a, T: Copy, Selection> Table<'a, T, Selection> {
 
         1 + header + footer + padding.top + padding.bottom
     }
+
+    fn eval_row_height(&mut self, value: T, ctx: &TableContext) -> u8 {
+        self.row_height_fn.as_mut().map_or(
+            1, //
+            |f| (*f)(value, &ctx),
+        )
+    }
 }
 
 fn total_width<T: Copy, Selection>(widget: &Table<'_, T, Selection>, area_width: u16) -> u16 {
@@ -681,20 +688,14 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                 if let Some(rr) = row {
                     if rr + 1 < state.vscroll.offset() {
                         ctx.row = rr;
-                        let row_height = widget
-                            .row_height_fn
-                            .as_mut()
-                            .map_or(1, |f| (*f)(value, &ctx));
+                        let row_height = widget.eval_row_height(value, &ctx);
                         state.row_heights.push(row_height, true)
                     }
                     row = Some(rr + 1);
                 } else {
                     if 0 < state.vscroll.offset() {
                         ctx.row = 0;
-                        let row_height = widget
-                            .row_height_fn
-                            .as_mut()
-                            .map_or(1, |f| (*f)(value, &ctx));
+                        let row_height = widget.eval_row_height(value, &ctx);
                         state.row_heights.push(row_height, true)
                     }
                     row = Some(0);
@@ -726,10 +727,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
             ctx.space_area = Rect::default();
 
             // Render each row to a temporary buffer.
-            let row_height = widget
-                .row_height_fn
-                .as_mut()
-                .map_or(1, |f| (*f)(value, &ctx)) as u16;
+            let row_height = widget.eval_row_height(value, &ctx) as u16;
             let render_row_area = Rect::new(0, 0, width, row_height);
             ctx.row_area = render_row_area;
             row_buf.resize(render_row_area);
@@ -884,10 +882,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
 
         let mut sum_height = row_heights.iter().sum::<u16>();
         loop {
-            let row_height = widget
-                .row_height_fn
-                .as_mut()
-                .map_or(1, |f| (*f)(value, &ctx)) as u16;
+            let row_height = widget.eval_row_height(value, &ctx) as u16;
             state
                 .row_heights
                 .push(row_height as u8, widget.varying_heights);
