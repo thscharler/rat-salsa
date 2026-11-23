@@ -583,6 +583,7 @@ fn toolbar(th: &SalsaTheme) -> rat_widget::toolbar::ToolbarStyle {
             },
             popup_style: Some(th.style_style(Style::POPUP_BASE)),
             popup_border: Some(th.style_style(Style::POPUP_BORDER_FG)),
+            popup_scroll: Some(th.style(WidgetStyle::SCROLL_POPUP)),
             behave_focus: Some(rat_widget::choice::ChoiceFocus::OpenOnFocusGained),
             behave_select: Some(rat_widget::choice::ChoiceSelect::MouseClick),
             behave_close: Some(rat_widget::choice::ChoiceClose::SingleClick),
