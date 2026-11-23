@@ -9,6 +9,7 @@ use crate::paired::{PairSplit, Paired, PairedState, PairedWidget};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Popup, Regular, event_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
+use rat_scrolled::Scroll;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Style;
@@ -391,6 +392,7 @@ fn layout<'a>(
                 let key = Line::from(key).style(key_style.clone());
                 let c = Choice::new()
                     .items(items.into_iter().enumerate())
+                    .popup_scroll(Scroll::new())
                     .styles(widget.choice_style.clone());
                 let w_width = key.width() as u16 + c.width() + widget.spacing;
                 total_width += w_width;
