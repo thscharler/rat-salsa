@@ -1,7 +1,7 @@
 use crate::_private::NonExhaustive;
 use crate::TableStyle;
 use crate::selection::RowSelection;
-use crate::table::TableState;
+use crate::table::{RowHeights, TableState};
 use crate::util::{fallback_select_style, revert_style, transfer_buffer};
 use crate::{LayoutWidth, TableContext, TableSelection};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState};
@@ -727,14 +727,18 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
             ctx.space_area = Rect::default();
 
             // Render each row to a temporary buffer.
-            let row_height = widget.eval_row_height(value, &ctx) as u16;
+            let row_height = if let RowHeights::Uniform(h) = state.row_heights {
+                h as u16
+            } else {
+                let h = widget.eval_row_height(value, &ctx);
+                state.row_heights.push(h, true);
+                h as u16
+            };
             let render_row_area = Rect::new(0, 0, width, row_height);
             ctx.row_area = render_row_area;
             row_buf.resize(render_row_area);
             row_heights.push(row_height);
-            state
-                .row_heights
-                .push(row_height as u8, widget.varying_heights);
+
             // Target area for the finished row.
             let visible_row_area = Rect::new(
                 state.table_area.x,
@@ -882,10 +886,14 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
 
         let mut sum_height = row_heights.iter().sum::<u16>();
         loop {
-            let row_height = widget.eval_row_height(value, &ctx) as u16;
-            state
-                .row_heights
-                .push(row_height as u8, widget.varying_heights);
+            let row_height = if let RowHeights::Uniform(h) = state.row_heights {
+                h as u16
+            } else {
+                let h = widget.eval_row_height(value, &ctx);
+                state.row_heights.push(h, true);
+                h as u16
+            };
+
             row_heights.push(row_height);
 
             // Keep a rolling sum of the heights and drop unnecessary info.
