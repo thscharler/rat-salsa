@@ -67,17 +67,14 @@ fn render(
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l0 = Layout::horizontal([
-        Constraint::Percentage(30),
-        Constraint::Percentage(30),
-        Constraint::Percentage(39),
-    ])
-    .flex(Flex::Center)
-    .split(area);
+    let l0 = Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
+        .flex(Flex::Center)
+        .split(area);
 
     let mut tmp = String::default();
-    let fmt1 = NumberFormat::new("000000").expect("fmt");
-    let fmt2 = NumberFormat::new("####0.00").expect("fmt");
+    let mut fmt1 = NumberFormat::new("000000").expect("fmt");
+    let mut fmt2 = NumberFormat::new("####0.00").expect("fmt");
+    let mut fmt3 = fmt1.clone();
 
     Table::default()
         .data(state.table_data.iter())
@@ -88,7 +85,7 @@ fn render(
             Constraint::Length(15),
             Constraint::Length(3),
         ])
-        .varying_heights(true)
+        .varying_heights()
         .row_height(|v, _| v.row_height)
         .render_row(|_v, mut area, buf, _ctx| {
             if area.height > 1 {
@@ -110,8 +107,12 @@ fn render(
             fmt1.fmt_u(ctx.row).render(area, buf)
         })
         .render_cell(1, |v, area, buf, _ctx| v.text.render(area, buf))
-        .render_cell(2, |v, area, buf, _ctx| fmt2.fmt_u(v.num1).render(area, buf))
-        .render_cell(3, |v, area, buf, _ctx| fmt1.fmt_u(v.num2).render(area, buf))
+        .render_cell(2, |v, area, buf, _ctx| {
+            fmt2.fmt_u_str(v.num1).render(area, buf)
+        })
+        .render_cell(3, |v, area, buf, _ctx| {
+            fmt3.fmt_u_str(v.num2).render(area, buf)
+        })
         .render_cell(4, |v, area, buf, _ctx| {
             let cc = if v.check { "\u{2622}" } else { "\u{2623}" };
             cc.render(area, buf)
@@ -129,7 +130,7 @@ fn render(
         .styles(table(&ctx.theme))
         .render(l0[0], buf, &mut state.table);
 
-    render_tablestate_row(&state.table, l0[2], buf);
+    render_tablestate_row(&state.table, l0[1], buf);
 
     Ok(())
 }

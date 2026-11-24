@@ -234,8 +234,8 @@ impl<'a, T: Copy, Selection> Table<'a, T, Selection> {
     /// If you set this flag the row-height for each row is
     /// stored in the state and will be used for positioning
     /// and offset.
-    pub fn varying_heights(mut self, varying: bool) -> Self {
-        self.varying_heights = varying;
+    pub fn varying_heights(mut self) -> Self {
+        self.varying_heights = true;
         self
     }
 
@@ -618,11 +618,12 @@ fn reserve_n<T>(vec: &mut Vec<T>, n: usize) {
 
 fn render_table<'a, T: Copy, Selection: TableSelection>(
     mut widget: Table<'a, T, Selection>,
-    data: Option<&mut dyn Iterator<Item=T>>,
+    mut data: Option<&mut dyn Iterator<Item=T>>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut TableState<Selection>,
 ) {
+    state.rows = data.as_mut().map(|v| v.size_hint().0).unwrap_or(0);
     state.columns = widget.widths.len();
     state.area = area;
 
@@ -670,7 +671,11 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
     // render table
     state.row_areas.clear();
     reserve_n(&mut state.row_areas, area.height as usize);
-    state.row_heights = RowHeights::default();
+    state.row_heights = if widget.varying_heights {
+        RowHeights::Varying(Default::default())
+    } else {
+        RowHeights::Uniform(1)
+    };
     state.vscroll.set_page_len(0);
     state.hscroll.set_page_len(area.width as usize);
 
@@ -703,32 +708,40 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
         row_buf.resize(Rect::new(0, 0, width, 1));
 
         // skip to offset.
-        loop {
-            value = if let Some(v) = data.next() {
+        if state.rows != 0 && !widget.varying_heights {
+            // fast path. iterator knows its len.
+            value = if let Some(v) = data.nth(state.vscroll.offset()) {
                 v
             } else {
                 break 'll;
             };
+            row = Some(state.vscroll.offset());
+        } else {
+            // loooop
+            loop {
+                value = if let Some(v) = data.next() {
+                    v
+                } else {
+                    break 'll;
+                };
 
-            if let Some(r) = row {
-                if r + 1 < state.vscroll.offset() {
-                    if widget.varying_heights {
-                        let row_height = widget.call_row_height_fn(value, &ctx);
-                        state.row_heights.push(row_height, true)
-                    }
+                row = row.map_or(Some(0), |v| Some(v + 1));
+
+                if row.expect("row") >= state.vscroll.offset() {
+                    break;
                 }
-                row = Some(r + 1);
-            } else {
-                if 0 < state.vscroll.offset() {
+
+                if widget.varying_heights {
                     let row_height = widget.call_row_height_fn(value, &ctx);
-                    state.row_heights.push(row_height, widget.varying_heights)
+                    state.row_heights.push(row_height, true)
                 }
-                row = Some(0);
             }
-
-            if row.expect("row") >= state.vscroll.offset() {
-                break;
-            }
+        }
+        if !widget.varying_heights {
+            // need to establish a fixed row-height.
+            // later only this cached value will be used.
+            let row_height = widget.call_row_height_fn(value, &ctx);
+            state.row_heights.push(row_height, false);
         }
 
         // render-loop
@@ -874,9 +887,12 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
 
         if !widget.varying_heights {
             // skip to a guess for the last page.
+            //
             // the guess uses row-height is 1, which may read a few more lines than
             // absolutely necessary.
-            let mut skip_rows = state
+            //
+            // if the iterator returns 0 rows this will still work and be slower.
+            let skip_rows = state
                 .rows
                 .saturating_sub(row.map_or(0, |v| v + 1))
                 .saturating_sub(state.table_area.height as usize);
@@ -885,23 +901,11 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                 row_heights.clear();
             }
 
-            loop {
-                value = if let Some(value) = data.next() {
-                    value
-                } else {
-                    break 'll;
-                };
-
-                row = if let Some(row) = row {
-                    Some(row + 1)
-                } else {
-                    Some(0)
-                };
-
-                if skip_rows == 0 {
-                    break;
-                }
-                skip_rows -= 1;
+            value = if let Some(value) = data.nth(skip_rows) {
+                row = Some(row.map_or(skip_rows, |row| row + skip_rows + 1));
+                value
+            } else {
+                break 'll;
             }
         }
 

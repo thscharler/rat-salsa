@@ -43,8 +43,8 @@ macro_rules! derive_table_widget {
         /// If you enable this flag, the row-heights for
         /// each row will be stored in the state to allow
         /// accurate page-calculations.
-        pub fn varying_heights(mut self, varying: bool) -> Self {
-            self.core = self.core.varying_heights(varying);
+        pub fn varying_heights(mut self) -> Self {
+            self.core = self.core.varying_heights();
             self
         }
 
