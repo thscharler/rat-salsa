@@ -615,7 +615,6 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
     buf: &mut Buffer,
     state: &mut TableState<Selection>,
 ) {
-    state.rows = data.as_mut().map(|v| v.size_hint().0).unwrap_or(0);
     state.columns = widget.widths.len();
     state.area = area;
 

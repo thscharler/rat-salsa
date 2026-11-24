@@ -1,3 +1,7 @@
+# 4.5.4
+
+* add popup-scroll style for Toolbar
+
 # 4.5.3
 
 * move to workspace dependencies

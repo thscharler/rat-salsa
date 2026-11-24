@@ -1,6 +1,17 @@
+# 0.5.0
+
+* fix: implement Debug for States
+* fix: some quirks with table-editing.
+* fix: row count was wrong if there is less than one page of data.
+* fix: for tables with a single row-height don't try
+  to find the row-height for every data-row.
+* fix: skip rows by iterating over them instead of using nth.
+  this gives an exact row-count even for iterators that
+  don't provide a size_hint.
+
 # 0.4.2
 
-fix: Table::scroll_to_pos used the wrong area for the widget height.
+* fix: Table::scroll_to_pos used the wrong area for the widget height.
 
 # 0.4.1
 

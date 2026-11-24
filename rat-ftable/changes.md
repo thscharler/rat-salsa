@@ -1,6 +1,10 @@
+# 2.3.3
+
+* fix: sync function names with ftable2
+
 # 2.3.2
 
-fix: Table::scroll_to_pos used the wrong area for the widget height.
+* fix: Table::scroll_to_pos used the wrong area for the widget height.
 
 # 2.3.1
 

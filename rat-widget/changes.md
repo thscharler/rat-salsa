@@ -1,3 +1,9 @@
+# 3.3.3
+
+* add Hyperlink widget.
+
+* Toolbar: add Scrollbar for choice tool.
+
 # 3.3.2
 
 * fix: highlight style only repeated when repeat_highlight_symbol is set.

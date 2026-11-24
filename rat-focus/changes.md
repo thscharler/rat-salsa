@@ -1,6 +1,11 @@
+# 2.3.0
+
+* feat: add FocusBuilder::leaf_with_navigation().
+* fix: flip_focus() should reset the temporary flag.
+
 # 2.2.1
 
-fix: tmp-vecs need to be cleared.
+* fix: tmp-vecs need to be cleared.
 
 # 2.2.0
 
