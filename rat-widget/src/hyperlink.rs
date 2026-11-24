@@ -74,7 +74,7 @@ impl<'a> Widget for Hyperlink<'a> {
             return;
         }
 
-        let Rect { mut x, y, .. } = area;
+        let Rect { mut x, .. } = area;
         let mut link_text = String::new();
         for grapheme in self.span.styled_graphemes(Style::default()) {
             let symbol_width = grapheme.symbol.cell_width();

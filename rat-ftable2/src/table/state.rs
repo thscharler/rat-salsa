@@ -94,7 +94,6 @@ impl RowHeights {
         match self {
             RowHeights::Uniform(_) => {}
             RowHeights::Varying(h) => h.clear(),
-            _ => {}
         }
     }
 
