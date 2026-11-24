@@ -577,6 +577,7 @@ fn toolbar(th: &SalsaTheme) -> rat_widget::toolbar::ToolbarStyle {
             button: Some(th.style_style(Style::BUTTON_BASE)),
             select: Some(th.style_style(Style::SELECT)),
             focus: Some(th.style_style(Style::BUTTON_BASE)),
+            hover: Some(th.style_style(Style::HOVER)),
             popup: rat_widget::popup::PopupStyle {
                 placement: Some(rat_widget::popup::Placement::BelowOrAbove),
                 ..Default::default()

@@ -1,8 +1,8 @@
 # 3.3.3
 
-* add Hyperlink widget.
-
-* Toolbar: add Scrollbar for choice tool.
+* feat: add Hyperlink widget.
+* feat: Choice: add hover functionality independent of the selection.
+* feat: Toolbar: add Scrollbar for choice tool.
 
 # 3.3.2
 

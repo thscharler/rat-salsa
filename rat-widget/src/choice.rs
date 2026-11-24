@@ -113,6 +113,7 @@ where
     select_style: Option<Style>,
     select_marker: Option<char>,
     focus_style: Option<Style>,
+    hover_style: Option<Style>,
     block: Option<Block<'a>>,
     skip_item_render: bool,
 
@@ -164,6 +165,7 @@ where
     style: Style,
     select_style: Option<Style>,
     select_marker: Option<char>,
+    hover_style: Option<Style>,
 
     popup_alignment: Alignment,
     popup_placement: Placement,
@@ -184,6 +186,7 @@ pub struct ChoiceStyle {
     pub select: Option<Style>,
     pub select_marker: Option<char>,
     pub focus: Option<Style>,
+    pub hover: Option<Style>,
     pub block: Option<Block<'static>>,
     pub border_style: Option<Style>,
     pub title_style: Option<Style>,
@@ -324,6 +327,8 @@ pub mod core {
         value: T,
         /// Index of value.
         selected: Option<usize>,
+        /// Index of hover.
+        hover: Option<usize>,
     }
 
     impl<T> ChoiceCore<T>
@@ -415,6 +420,18 @@ pub mod core {
             self.value.clone()
         }
 
+        /// Style this row as hover.
+        pub fn set_hover(&mut self, hover: Option<usize>) -> bool {
+            let old_hover = self.hover;
+            self.hover = hover;
+            old_hover != self.hover
+        }
+
+        /// Row styled as hover.
+        pub fn hover(&self) -> Option<usize> {
+            self.hover
+        }
+
         pub fn is_empty(&self) -> bool {
             self.values.is_empty()
         }
@@ -442,6 +459,7 @@ impl Default for ChoiceStyle {
             select: Default::default(),
             select_marker: Default::default(),
             focus: Default::default(),
+            hover: Default::default(),
             block: Default::default(),
             border_style: Default::default(),
             title_style: Default::default(),
@@ -474,9 +492,10 @@ where
             select_style: Default::default(),
             select_marker: Default::default(),
             focus_style: Default::default(),
+            hover_style: Default::default(),
             block: Default::default(),
             popup_len: Default::default(),
-            popup_alignment: Alignment::Left,
+            popup_alignment: Default::default(),
             popup_placement: Placement::BelowOrAbove,
             popup: Default::default(),
             popup_style: Default::default(),
@@ -590,6 +609,9 @@ where
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
+        if styles.hover.is_some() {
+            self.hover_style = styles.hover;
+        }
         if let Some(select) = styles.behave_focus {
             self.behave_focus = select;
         }
@@ -654,6 +676,12 @@ where
     /// Focused style.
     pub fn focus_style(mut self, style: Style) -> Self {
         self.focus_style = Some(style);
+        self
+    }
+
+    /// Hover style.
+    pub fn hover_style(mut self, style: Style) -> Self {
+        self.hover_style = Some(style);
         self
     }
 
@@ -808,6 +836,7 @@ where
                 style: self.style,
                 select_style: self.select_style,
                 select_marker: self.select_marker,
+                hover_style: self.hover_style,
                 popup: self.popup,
                 popup_style: self.popup_style,
                 popup_scroll: self.popup_scroll,
@@ -896,6 +925,7 @@ fn render_choice<T: PartialEq + Clone + Default>(
         if let Some(selected) = state.core.selected() {
             state.popup_scroll.scroll_to_pos(selected);
         }
+        state.core.set_hover(None);
     }
 
     state.nav_char.clear();
@@ -1029,6 +1059,7 @@ fn render_popup<T: PartialEq + Clone + Default>(
     if state.popup.is_active() {
         let popup_style = widget.popup_style;
         let select_style = widget.select_style.unwrap_or(revert_style(widget.style));
+        let hover_style = widget.hover_style;
 
         {
             let area = state.area;
@@ -1096,7 +1127,11 @@ fn render_popup<T: PartialEq + Clone + Default>(
             let item_area = Rect::new(inner.x, row, inner.width, 1);
             state.item_areas.push(item_area);
 
-            let (style, marker) = if state.core.selected() == Some(idx) {
+            let (style, marker) = if let Some(hover_style) = hover_style
+                && state.core.hover() == Some(idx)
+            {
+                (popup_style.patch(hover_style), no_marker)
+            } else if state.core.selected() == Some(idx) {
                 (popup_style.patch(select_style), marker)
             } else {
                 (popup_style, no_marker)
@@ -1627,8 +1662,9 @@ impl<T: PartialEq + Clone + Default> HandleEvent<Event, MouseOnly, ChoiceOutcome
         let r0 = handle_mouse(self, event);
         let r1 = handle_select(self, event);
         let r2 = handle_close(self, event);
+        let r3 = handle_hover(self, event);
 
-        let r = max(r0, max(r1, r2));
+        let r = max(r0, max(r1, max(r2, r3)));
         r.or_else(|| mouse_trap(event, self.popup.area).into())
     }
 }
@@ -1866,6 +1902,32 @@ fn handle_close<T: PartialEq + Clone + Default>(
             }
             _ => ChoiceOutcome::Continue,
         },
+    }
+}
+
+fn handle_hover<T: PartialEq + Clone + Default>(
+    state: &mut ChoiceState<T>,
+    event: &Event,
+) -> ChoiceOutcome {
+    if state.is_obscured() {
+        return ChoiceOutcome::Continue;
+    }
+
+    match event {
+        ct_event!(scroll up for x,y)
+        | ct_event!(scroll down for x,y)
+        | ct_event!(mouse moved for x,y) => {
+            if let Some(n) = item_at(&state.item_areas, *x, *y) {
+                if state.core.set_hover(Some(state.offset() + n)) {
+                    ChoiceOutcome::Changed
+                } else {
+                    ChoiceOutcome::Unchanged
+                }
+            } else {
+                ChoiceOutcome::Continue
+            }
+        }
+        _ => ChoiceOutcome::Continue,
     }
 }
 
