@@ -89,20 +89,20 @@ impl Default for RowHeights {
 }
 
 impl RowHeights {
-    pub(crate) fn clear(&mut self) {
+    /// Clears the vector of varying row-heights.
+    pub(crate) fn clear_varying(&mut self) {
         match self {
             RowHeights::Uniform(_) => {}
             RowHeights::Varying(h) => h.clear(),
+            _ => {}
         }
     }
 
     pub(crate) fn push(&mut self, row_height: u8, varying: bool) {
         if varying {
             match self {
-                RowHeights::Uniform(_) => {
-                    *self = RowHeights::Varying(vec![row_height]);
-                }
                 RowHeights::Varying(h) => h.push(row_height),
+                _ => *self = RowHeights::Varying(vec![row_height]),
             }
         } else {
             *self = RowHeights::Uniform(row_height);
@@ -111,7 +111,6 @@ impl RowHeights {
 
     pub(crate) fn items_added(&mut self, pos: usize, n: usize) {
         match self {
-            RowHeights::Uniform(_) => {}
             RowHeights::Varying(h) => {
                 if pos <= h.len() {
                     for _ in 0..n {
@@ -119,23 +118,23 @@ impl RowHeights {
                     }
                 }
             }
+            _ => {}
         }
     }
 
     pub(crate) fn items_added_with_heights(&mut self, pos: usize, height: &[u8]) {
         match self {
-            RowHeights::Uniform(_) => {}
             RowHeights::Varying(h) => {
                 if pos <= h.len() {
                     h.splice(pos..pos, height.iter().copied());
                 }
             }
+            _ => {}
         }
     }
 
     pub(crate) fn items_removed(&mut self, pos: usize, n: usize) {
         match self {
-            RowHeights::Uniform(_) => {}
             RowHeights::Varying(h) => {
                 if pos < h.len() {
                     if pos + n < h.len() {
@@ -145,6 +144,7 @@ impl RowHeights {
                     }
                 }
             }
+            _ => {}
         }
     }
 }
@@ -409,7 +409,7 @@ impl<Selection: TableSelection> TableState<Selection> {
     pub fn rows_changed(&mut self, rows: usize) {
         self.selection.validate_rows(rows);
         self.vscroll.rows_changed(rows);
-        self.row_heights.clear();
+        self.row_heights.clear_varying();
         self.rows = rows;
     }
 

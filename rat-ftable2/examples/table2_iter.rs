@@ -4,6 +4,8 @@
 
 use crate::mini_salsa::mock_init;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
+use crate::widget::render_tablestate::render_tablestate_row;
+use anyhow::Error;
 use format_num_pattern::NumberFormat;
 use rat_event::{HandleEvent, Regular, event_flow};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
@@ -23,6 +25,7 @@ use ratatui_widgets::borders::BorderType;
 
 mod data;
 mod mini_salsa;
+mod widget;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -41,7 +44,7 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
     };
 
-    run_ui("iter", mock_init, event, render, &mut state)
+    run_ui("iter", init, event, render, &mut state)
 }
 
 struct Sample {
@@ -56,15 +59,20 @@ struct State {
     table: TableState<RowSelection>,
 }
 
+fn init(_ctx: &mut MiniSalsaState, state: &mut State) -> Result<(), Error> {
+    focus(state).focus(&state.table);
+    state.table.select(Some(0));
+    Ok(())
+}
+
 fn render(
     buf: &mut Buffer,
     area: Rect,
     ctx: &mut MiniSalsaState,
     state: &mut State,
-) -> Result<(), anyhow::Error> {
-    let l0 = Layout::horizontal([Constraint::Percentage(61)])
-        .flex(Flex::Center)
-        .split(area);
+) -> Result<(), Error> {
+    let l0 =
+        Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)]).split(area);
 
     let row_fmt = NumberFormat::new("000000").expect("fmt");
     let num1_fmt = NumberFormat::new("####0.00").expect("fmt");
@@ -106,6 +114,9 @@ fn render(
         .vscroll(Scroll::new())
         .styles(table(&ctx.theme))
         .render(l0[0], buf, &mut state.table);
+
+    render_tablestate_row(&state.table, l0[1], buf);
+
     Ok(())
 }
 
@@ -141,11 +152,7 @@ fn focus(state: &mut State) -> Focus {
     fb.build()
 }
 
-fn event(
-    event: &Event,
-    ctx: &mut MiniSalsaState,
-    state: &mut State,
-) -> Result<Outcome, anyhow::Error> {
+fn event(event: &Event, ctx: &mut MiniSalsaState, state: &mut State) -> Result<Outcome, Error> {
     ctx.focus = Some(focus(state));
     ctx.handle_focus(event);
 

@@ -497,11 +497,27 @@ impl<'a, T: Copy, Selection> Table<'a, T, Selection> {
         1 + header + footer + padding.top + padding.bottom
     }
 
-    fn eval_row_height(&mut self, value: T, ctx: &TableContext) -> u8 {
+    fn call_row_height_fn(&mut self, value: T, ctx: &TableContext) -> u8 {
         self.row_height_fn.as_mut().map_or(
             1, //
             |f| (*f)(value, &ctx),
         )
+    }
+
+    // reuses and existing uniform row-height or evaluates a varying one.
+    fn load_row_height(
+        &mut self,
+        row_heights: &mut RowHeights,
+        value: T,
+        ctx: &TableContext,
+    ) -> u8 {
+        if let RowHeights::Uniform(h) = row_heights {
+            *h
+        } else {
+            let h = self.call_row_height_fn(value, &ctx);
+            row_heights.push(h, true);
+            h
+        }
     }
 }
 
@@ -646,7 +662,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
 
     // render table
     state.row_areas.clear();
-    state.row_heights.clear();
+    state.row_heights = RowHeights::default();
     state.vscroll.set_page_len(0);
     state.hscroll.set_page_len(area.width as usize);
 
@@ -677,42 +693,32 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
         let mut row_buf = Buffer::empty(Rect::new(0, 0, width, 1));
 
         // skip to offset.
-        if widget.varying_heights {
-            loop {
-                value = if let Some(v) = data.next() {
-                    v
-                } else {
-                    break 'll;
-                };
-
-                if let Some(rr) = row {
-                    if rr + 1 < state.vscroll.offset() {
-                        ctx.row = rr;
-                        let row_height = widget.eval_row_height(value, &ctx);
-                        state.row_heights.push(row_height, true)
-                    }
-                    row = Some(rr + 1);
-                } else {
-                    if 0 < state.vscroll.offset() {
-                        ctx.row = 0;
-                        let row_height = widget.eval_row_height(value, &ctx);
-                        state.row_heights.push(row_height, true)
-                    }
-                    row = Some(0);
-                }
-
-                if row.expect("row") >= state.vscroll.offset() {
-                    break;
-                }
-            }
-        } else {
-            value = if let Some(v) = data.nth(state.vscroll.offset()) {
+        loop {
+            value = if let Some(v) = data.next() {
                 v
             } else {
-                // todo: questionable, won't get a row count...
                 break 'll;
             };
-            row = Some(state.vscroll.offset());
+
+            if let Some(r) = row {
+                if r + 1 < state.vscroll.offset() {
+                    if widget.varying_heights {
+                        let row_height = widget.call_row_height_fn(value, &ctx);
+                        state.row_heights.push(row_height, true)
+                    }
+                }
+                row = Some(r + 1);
+            } else {
+                if 0 < state.vscroll.offset() {
+                    let row_height = widget.call_row_height_fn(value, &ctx);
+                    state.row_heights.push(row_height, widget.varying_heights)
+                }
+                row = Some(0);
+            }
+
+            if row.expect("row") >= state.vscroll.offset() {
+                break;
+            }
         }
 
         // render-loop
@@ -727,13 +733,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
             ctx.space_area = Rect::default();
 
             // Render each row to a temporary buffer.
-            let row_height = if let RowHeights::Uniform(h) = state.row_heights {
-                h as u16
-            } else {
-                let h = widget.eval_row_height(value, &ctx);
-                state.row_heights.push(h, true);
-                h as u16
-            };
+            let row_height = widget.load_row_height(&mut state.row_heights, value, &ctx) as u16;
             let render_row_area = Rect::new(0, 0, width, row_height);
             ctx.row_area = render_row_area;
             row_buf.resize(render_row_area);
@@ -866,7 +866,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
             // skip to a guess for the last page.
             // the guess uses row-height is 1, which may read a few more lines than
             // absolutely necessary.
-            let skip_rows = state
+            let mut skip_rows = state
                 .rows
                 .saturating_sub(row.map_or(0, |v| v + 1))
                 .saturating_sub(state.table_area.height as usize);
@@ -875,25 +875,29 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                 row_heights.clear();
             }
 
-            value = if let Some(value) = data.nth(skip_rows) {
-                row = Some(row.map_or(skip_rows, |row| row + skip_rows + 1));
-                value
-            } else {
-                // todo: questionable, won't get a row count...
-                break 'll;
+            loop {
+                value = if let Some(value) = data.next() {
+                    value
+                } else {
+                    break 'll;
+                };
+
+                row = if let Some(row) = row {
+                    Some(row + 1)
+                } else {
+                    Some(0)
+                };
+
+                if skip_rows == 0 {
+                    break;
+                }
+                skip_rows -= 1;
             }
         }
 
         let mut sum_height = row_heights.iter().sum::<u16>();
         loop {
-            let row_height = if let RowHeights::Uniform(h) = state.row_heights {
-                h as u16
-            } else {
-                let h = widget.eval_row_height(value, &ctx);
-                state.row_heights.push(h, true);
-                h as u16
-            };
-
+            let row_height = widget.load_row_height(&mut state.row_heights, value, &ctx) as u16;
             row_heights.push(row_height);
 
             // Keep a rolling sum of the heights and drop unnecessary info.
