@@ -93,6 +93,7 @@ pub mod dialog_frame;
 pub mod file_dialog;
 pub mod form;
 pub mod hover;
+pub mod hyperlink;
 pub mod line_number;
 pub mod list;
 pub mod menu;
