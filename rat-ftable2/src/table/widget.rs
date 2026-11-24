@@ -13,6 +13,7 @@ use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_widgets::block::Block;
 use std::cmp::max;
 use std::marker::PhantomData;
+use std::mem;
 use std::rc::Rc;
 
 /// Table widget that renders data from an Iterator.
@@ -568,7 +569,7 @@ fn layout_columns<T: Copy, Selection>(
 // Layout header/table/footer
 #[inline]
 fn layout_areas<T: Copy, Selection>(widget: &Table<'_, T, Selection>, area: Rect) -> Rc<[Rect]> {
-    let heights = vec![
+    let heights = [
         Constraint::Length(
             widget
                 .header
@@ -608,9 +609,16 @@ where
     }
 }
 
+#[inline]
+fn reserve_n<T>(vec: &mut Vec<T>, n: usize) {
+    if vec.capacity() < n {
+        vec.reserve(n - vec.capacity());
+    }
+}
+
 fn render_table<'a, T: Copy, Selection: TableSelection>(
     mut widget: Table<'a, T, Selection>,
-    mut data: Option<&mut dyn Iterator<Item = T>>,
+    data: Option<&mut dyn Iterator<Item=T>>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut TableState<Selection>,
@@ -661,6 +669,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
 
     // render table
     state.row_areas.clear();
+    reserve_n(&mut state.row_areas, area.height as usize);
     state.row_heights = RowHeights::default();
     state.vscroll.set_page_len(0);
     state.hscroll.set_page_len(area.width as usize);
@@ -680,7 +689,9 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
     };
 
     let mut row = None;
-    let mut row_heights = Vec::new();
+    let mut row_heights = mem::take(&mut state.tmp_row_heights);
+    reserve_n(&mut row_heights, area.height as usize);
+    let mut row_buf = mem::take(&mut state.tmp_row_buf);
     'll: {
         let Some(data) = data else {
             break 'll;
@@ -689,7 +700,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
         // iterate to offset row.
         let mut value;
         let mut row_y = state.table_area.y;
-        let mut row_buf = Buffer::empty(Rect::new(0, 0, width, 1));
+        row_buf.resize(Rect::new(0, 0, width, 1));
 
         // skip to offset.
         loop {
@@ -921,7 +932,7 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
 
     state.rows = row.map_or(0, |v| v + 1);
     // have we got a page worth of data?
-    if let Some(last_page) = calc_last_page(state.table_area.height, row_heights) {
+    if let Some(last_page) = calc_last_page(state.table_area.height, &mut row_heights) {
         state.vscroll.set_max_offset(state.rows - last_page);
     } else {
         // we don't have enough data to establish the last page.
@@ -950,6 +961,10 @@ fn render_table<'a, T: Copy, Selection: TableSelection>(
                 .h_scroll(&mut state.hscroll)
                 .v_scroll(&mut state.vscroll),
         );
+
+    row_heights.clear();
+    state.tmp_row_heights = row_heights;
+    state.tmp_row_buf = row_buf;
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -972,7 +987,8 @@ fn render_footer<T: Copy, Selection: TableSelection>(
 
     if height > 0 {
         let render_row_area = Rect::new(0, 0, width, height);
-        let mut row_buf = Buffer::empty(render_row_area);
+        let mut row_buf = mem::take(&mut state.tmp_row_buf);
+        row_buf.resize(render_row_area);
 
         row_buf.set_style(render_row_area, widget.style);
         if let Some(footer_style) = widget.footer_style {
@@ -1015,6 +1031,8 @@ fn render_footer<T: Copy, Selection: TableSelection>(
 
         // render shifted and clipped row.
         transfer_buffer(&mut row_buf, state.hscroll.offset() as u16, area, buf);
+
+        state.tmp_row_buf = row_buf;
     }
 }
 
@@ -1038,7 +1056,8 @@ fn render_header<T: Copy, Selection: TableSelection>(
 
     if height > 0 {
         let render_row_area = Rect::new(0, 0, width, height);
-        let mut row_buf = Buffer::empty(render_row_area);
+        let mut row_buf = mem::take(&mut state.tmp_row_buf);
+        row_buf.resize(render_row_area);
 
         row_buf.set_style(render_row_area, widget.style);
         if let Some(header_style) = widget.header_style {
@@ -1081,6 +1100,8 @@ fn render_header<T: Copy, Selection: TableSelection>(
 
         // render shifted and clipped row.
         transfer_buffer(&mut row_buf, state.hscroll.offset() as u16, area, buf);
+
+        state.tmp_row_buf = row_buf;
     }
 }
 
@@ -1091,7 +1112,9 @@ fn calculate_column_areas<Selection>(
     state: &mut TableState<Selection>,
 ) {
     state.column_areas.clear();
+    reserve_n(&mut state.column_areas, l_columns.len());
     state.column_layout.clear();
+    reserve_n(&mut state.column_layout, l_columns.len());
 
     let mut col = 0;
     let shift = state.hscroll.offset() as isize;
@@ -1155,7 +1178,7 @@ fn patch_select(
     }
 }
 
-fn calc_last_page(height: u16, mut row_heights: Vec<u16>) -> Option<usize> {
+fn calc_last_page(height: u16, row_heights: &mut Vec<u16>) -> Option<usize> {
     let mut sum_heights = 0;
     let mut n_rows = 0;
     while let Some(h) = row_heights.pop() {

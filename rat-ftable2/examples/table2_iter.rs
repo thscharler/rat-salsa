@@ -2,7 +2,6 @@
 //! Example for [TableDataIter] used with [StatefulWidget]
 //!
 
-use crate::mini_salsa::mock_init;
 use crate::mini_salsa::{MiniSalsaState, run_ui, setup_logging};
 use crate::widget::render_tablestate::render_tablestate_row;
 use anyhow::Error;
@@ -27,7 +26,7 @@ mod data;
 mod mini_salsa;
 mod widget;
 
-fn main() -> Result<(), anyhow::Error> {
+fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let mut state = State {
@@ -74,9 +73,9 @@ fn render(
     let l0 =
         Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)]).split(area);
 
-    let row_fmt = NumberFormat::new("000000").expect("fmt");
-    let num1_fmt = NumberFormat::new("####0.00").expect("fmt");
-    let num2_fmt = NumberFormat::new("####0.00").expect("fmt");
+    let mut row_fmt = NumberFormat::new("000000").expect("fmt");
+    let mut num1_fmt = NumberFormat::new("####0.00").expect("fmt");
+    let mut num2_fmt = NumberFormat::new("####0.00").expect("fmt");
 
     Table::default()
         .data(state.table_data.iter())
@@ -88,16 +87,16 @@ fn render(
             Constraint::Length(3),
         ])
         .render_cell(0, |_v, area, buf, ctx| {
-            row_fmt.fmt_u(ctx.row).render(area, buf)
+            row_fmt.fmt_u_str(ctx.row).render(area, buf)
         })
         .render_cell(1, |v, area, buf, _ctx| {
             v.text.render(area, buf) //
         })
         .render_cell(2, |v, area, buf, _ctx| {
-            num1_fmt.fmt_u(v.num1).render(area, buf)
+            num1_fmt.fmt_u_str(v.num1).render(area, buf)
         })
         .render_cell(3, |v, area, buf, _ctx| {
-            num2_fmt.fmt_u(v.num2).render(area, buf)
+            num2_fmt.fmt_u_str(v.num2).render(area, buf)
         })
         .render_cell(4, |v, area, buf, _ctx| {
             let cc = if v.check { "\u{2622}" } else { "\u{2623}" };

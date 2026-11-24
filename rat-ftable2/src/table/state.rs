@@ -12,6 +12,7 @@ use rat_scrolled::ScrollState;
 use ratatui_core::layout::Rect;
 use std::cmp::min;
 use std::collections::HashSet;
+use ratatui_core::buffer::Buffer;
 
 /// State for the table.
 #[derive(Debug)]
@@ -71,6 +72,10 @@ pub struct TableState<Selection = RowSelection> {
 
     /// Helper for mouse interactions.
     pub mouse: MouseFlags,
+
+    // internal tmp
+    pub(crate) tmp_row_heights: Vec<u16>,
+    pub(crate) tmp_row_buf: Buffer,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -167,6 +172,8 @@ impl<Selection: Clone> Clone for TableState<Selection> {
             hscroll: self.hscroll.clone(),
             selection: self.selection.clone(),
             mouse: Default::default(),
+            tmp_row_heights: Default::default(),
+            tmp_row_buf: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -191,6 +198,8 @@ impl<Selection: Default> Default for TableState<Selection> {
             hscroll: Default::default(),
             selection: Default::default(),
             mouse: Default::default(),
+            tmp_row_heights: Default::default(),
+            tmp_row_buf: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
