@@ -49,7 +49,7 @@ patch an existing one.
 
 ## Loadable palettes.
 
-It's doable. The .pal files are sufficient to create a Palette, but
-it's not implemented yet.
+Palettes can also be created directly from a .pal file. 
+And there is an alternative .json format too.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
