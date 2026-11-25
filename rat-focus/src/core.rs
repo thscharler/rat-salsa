@@ -406,21 +406,6 @@ impl FocusCore {
         }
     }
 
-    /// Clear the obscured flag and set it to false for
-    /// all widgets and containers.
-    pub(crate) fn clear_obscured(&self) -> bool {
-        let mut r = false;
-        for (sub, _) in self.containers.iter() {
-            r |= sub.container_flag.obscured();
-            sub.container_flag.set_obscured(false);
-        }
-        for w in self.focus_flags.iter() {
-            r |= w.obscured();
-            w.set_obscured(false);
-        }
-        r
-    }
-
     /// Set the initial focus.
     pub(crate) fn first(&self) {
         if let Some(n) = self.first_navigable(0) {

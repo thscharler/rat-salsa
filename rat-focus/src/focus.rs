@@ -218,13 +218,6 @@ impl Focus {
         }
     }
 
-    /// Reset the obscured flag to __false__.
-    #[inline(always)]
-    pub fn clear_obscured(&self) -> bool {
-        let core = self.core.borrow();
-        core.clear_obscured()
-    }
-
     /// Sets the obscured state for the given position.
     ///
     /// Hit-tests all widgets for the given position and
@@ -674,23 +667,7 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
         match event {
             Event::Mouse(crossterm::event::MouseEvent {
-                kind: crossterm::event::MouseEventKind::Drag(_),
-                ..
-            }) => {
-                self.clear_obscured();
-            }
-            Event::Mouse(crossterm::event::MouseEvent {
-                kind:
-                    crossterm::event::MouseEventKind::Moved
-                    | crossterm::event::MouseEventKind::Down(_)
-                    | crossterm::event::MouseEventKind::Up(_)
-                    | crossterm::event::MouseEventKind::ScrollDown
-                    | crossterm::event::MouseEventKind::ScrollUp
-                    | crossterm::event::MouseEventKind::ScrollLeft
-                    | crossterm::event::MouseEventKind::ScrollRight,
-                column: c,
-                row: r,
-                ..
+                             column: c, row: r, ..
             }) => {
                 self.find_obscured(*c, *r);
             }
