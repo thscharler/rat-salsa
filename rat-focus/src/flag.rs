@@ -314,13 +314,13 @@ impl FocusFlag {
 impl Default for FocusFlagCore {
     fn default() -> Self {
         Self {
-            name: RefCell::new(None),
-            focus: Cell::new(false),
-            gained: Cell::new(false),
-            on_gained: RefCell::new(None),
-            lost: Cell::new(false),
-            on_lost: RefCell::new(None),
-            obscured: Cell::new(false),
+            name: Default::default(),
+            focus: Default::default(),
+            gained: Default::default(),
+            on_gained: Default::default(),
+            lost: Default::default(),
+            on_lost: Default::default(),
+            obscured: Default::default(),
         }
     }
 }
@@ -338,9 +338,9 @@ impl FocusFlagCore {
             name: self.name.clone(),
             focus: Cell::new(self.focus.get()),
             gained: Cell::new(self.gained.get()),
-            on_gained: RefCell::new(None),
+            on_gained: Default::default(),
             lost: Cell::new(self.lost.get()),
-            on_lost: RefCell::new(None),
+            on_lost: Default::default(),
             obscured: Cell::new(self.obscured.get()),
         }
     }
