@@ -206,42 +206,37 @@ impl Focus {
     }
 
     /// This widget will have the focus, but it is not
-    /// yet part of the focus cycle. And the focus cycle
-    /// can't be properly rebuilt at this point.
+    /// yet part of the focus cycle.
     ///
-    /// If the widget *is* part of the focus this will do nothing.
-    ///
-    /// If the widget is a container, it will just set
-    /// the container-flag. If you want to set a future widget
-    /// and its container, call future() for the widget first,
-    /// then the container.
+    /// * If the widget is part of this focus-cycle this will work
+    ///   just as [focus](Focus::focus).
+    /// * Otherwise it will build a temp Focus and call [first](Focus::first).
+    ///   This will work for a container widget too.
     #[inline(always)]
     pub fn future(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(self.core, "focus {:?}", widget_state.focus().name());
         let flag = widget_state.focus();
         if self.core.is_widget(&flag) {
-            focus_fail!(
-                self.core,
-                "    => widget is part of focus. use focus() instead"
-            );
+            focus_debug!(self.core, "future called with known widget");
+            self.focus(&flag);
+            focus_debug!(self.core, "    -> done");
         } else if self.core.is_container(&flag) {
-            focus_debug!(self.core, "future container");
-            let had_focus = flag.get();
-            flag.set(true);
-            if !had_focus {
-                flag.set_gained(true);
-                flag.call_on_gained();
-            }
+            focus_debug!(self.core, "future called with known container");
+            self.focus(&flag);
             focus_debug!(self.core, "    -> done");
         } else {
             focus_debug!(self.core, "future focus");
+            // clear our focus.
             self.core.none();
-            let had_focus = flag.get();
-            flag.set(true);
-            if !had_focus {
-                flag.set_gained(true);
-                flag.call_on_gained();
+            // build focus for new widget. can't know wether it's
+            // a single widget or a container, so like this.
+            let mut builder = FocusBuilder::new(None);
+            builder.widget(widget_state);
+            let focus = builder.build();
+            if self.core.log.get() {
+                focus.enable_log();
             }
+            focus.first();
             focus_debug!(self.core, "    -> done");
         }
     }
