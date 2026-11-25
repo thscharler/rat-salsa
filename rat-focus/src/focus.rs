@@ -12,7 +12,7 @@ use std::ops::Range;
 /// This is usually quick enough to do it for each event.
 /// It has to be rebuilt if any area has changed, so
 /// rebuilding it after a render() is fine.
-#[derive(Default, Debug, Clone)]
+#[derive(Default)]
 pub struct Focus {
     pub(crate) last: FocusCore,
     pub(crate) core: FocusCore,
@@ -28,11 +28,10 @@ macro_rules! focus_debug {
 
 macro_rules! focus_fail {
     ($core:expr, $($arg:tt)+) => {
-        if $core.log.get() {
-            log::log!(log::Level::Debug, $($arg)+);
-        }
         if $core.insta_panic.get() {
             panic!($($arg)+)
+        } else if $core.log.get() {
+            log::log!(log::Level::Debug, $($arg)+);
         }
     }
 }
@@ -41,13 +40,11 @@ impl Focus {
     /// Writes a log for each operation.
     pub fn enable_log(&self) {
         self.core.log.set(true);
-        self.last.log.set(true);
     }
 
     /// Writes a log for each operation.
     pub fn disable_log(&self) {
         self.core.log.set(false);
-        self.last.log.set(false);
     }
 
     /// Enable insta-panic if any function is called
@@ -55,14 +52,12 @@ impl Focus {
     #[deprecated(since = "2.3.0", note = "overengineered")]
     pub fn enable_panic(&self) {
         self.core.insta_panic.set(true);
-        self.last.insta_panic.set(true);
     }
 
     /// Disable insta-panic.
     #[deprecated(since = "2.3.0", note = "overengineered")]
     pub fn disable_panic(&self) {
         self.core.insta_panic.set(false);
-        self.last.insta_panic.set(false);
     }
 
     /// Sets the focus to the given widget and remembers

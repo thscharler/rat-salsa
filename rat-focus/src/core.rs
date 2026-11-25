@@ -16,11 +16,10 @@ macro_rules! focus_debug {
 
 macro_rules! focus_fail {
     ($core:expr, $($arg:tt)+) => {
-        if $core.log.get() {
-            log::log!(log::Level::Debug, $($arg)+);
-        }
         if $core.insta_panic.get() {
             panic!($($arg)+)
+        } else if $core.log.get() {
+            log::log!(log::Level::Debug, $($arg)+);
         }
     }
 }
