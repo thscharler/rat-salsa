@@ -2,9 +2,10 @@ use crate::core::{Container, FocusCore};
 use crate::{Focus, FocusFlag, HasFocus, Navigation};
 use fxhash::FxBuildHasher;
 use ratatui_core::layout::Rect;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::ops::Range;
+use std::rc::Rc;
 
 macro_rules! focus_debug {
     ($core:expr, $($arg:tt)+) => {
@@ -50,6 +51,8 @@ pub struct FocusBuilder {
     navigable: Vec<Navigation>,
     container_ids: HashSet<usize, FxBuildHasher>,
     containers: Vec<(Container, Range<usize>)>,
+    tmp_widget: Vec<(usize, u16)>,
+    tmp_container: Vec<(usize, u16)>,
 }
 
 impl FocusBuilder {
@@ -61,22 +64,28 @@ impl FocusBuilder {
     ///
     /// It will also recycle the storage of the old Focus.
     pub fn new(last: Option<Focus>) -> FocusBuilder {
-        if let Some(mut last) = last {
+        if let Some(last) = last {
             // clear any data but retain the allocation.
-            last.last.clear();
+            let Focus { last, core } = last;
+            let mut last = last.take();
+            let core = core.take();
+
+            last.clear();
 
             Self {
-                last: last.core,
+                last: core,
                 log: Default::default(),
                 insta_panic: Default::default(),
                 z_base: 0,
-                focus_ids: last.last.focus_ids,
-                focus_flags: last.last.focus_flags,
-                duplicate: last.last.duplicate,
-                areas: last.last.areas,
-                navigable: last.last.navigable,
-                container_ids: last.last.container_ids,
-                containers: last.last.containers,
+                focus_ids: last.focus_ids,
+                focus_flags: last.focus_flags,
+                duplicate: last.duplicate,
+                areas: last.areas,
+                navigable: last.navigable,
+                container_ids: last.container_ids,
+                containers: last.containers,
+                tmp_widget: last.tmp_widget.take(),
+                tmp_container: last.tmp_container.take(),
             }
         } else {
             Self {
@@ -91,6 +100,8 @@ impl FocusBuilder {
                 navigable: Default::default(),
                 container_ids: Default::default(),
                 containers: Default::default(),
+                tmp_widget: Default::default(),
+                tmp_container: Default::default(),
             }
         }
     }
@@ -428,8 +439,8 @@ impl FocusBuilder {
         let insta_panic = self.last.insta_panic.get();
 
         Focus {
-            last: self.last,
-            core: FocusCore {
+            last: Rc::new(RefCell::new(self.last)),
+            core: Rc::new(RefCell::new(FocusCore {
                 log: Cell::new(log),
                 insta_panic: Cell::new(insta_panic),
                 focus_ids: self.focus_ids,
@@ -439,9 +450,9 @@ impl FocusBuilder {
                 navigable: self.navigable,
                 container_ids: self.container_ids,
                 containers: self.containers,
-                tmp_widget: Default::default(),
-                tmp_container: Default::default(),
-            },
+                tmp_widget: Cell::new(self.tmp_widget),
+                tmp_container: Cell::new(self.tmp_container),
+            })),
         }
     }
 }

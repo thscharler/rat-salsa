@@ -1,4 +1,4 @@
-use crate::{FocusFlag, Navigation};
+use crate::{FocusFlag, HasFocus, Navigation};
 use fxhash::FxBuildHasher;
 use ratatui_core::layout::Rect;
 use std::cell::Cell;
@@ -438,13 +438,17 @@ impl FocusCore {
         self.__accumulate();
     }
 
-    /// Set the initial focus.
-    pub(crate) fn first_container(&self, container: &FocusFlag) {
-        if let Some((_idx, range)) = self.container_index_of(container) {
+    /// Set the focus at the given widget.
+    pub(crate) fn focus(&self, widget: &FocusFlag, set_lost: bool) {
+        if let Some(n) = self.index_of(widget) {
+            self.__start_change(set_lost);
+            self.__focus(n, set_lost);
+            self.__accumulate();
+        } else if let Some((_idx, range)) = self.container_index_of(widget) {
             if let Some(n) = self.first_navigable(range.start) {
                 if n < range.end {
-                    self.__start_change(true);
-                    self.__focus(n, true);
+                    self.__start_change(set_lost);
+                    self.__focus(n, set_lost);
                     self.__accumulate();
                 } else {
                     focus_debug!(self, "    -> no navigable widget for container");
@@ -455,13 +459,6 @@ impl FocusCore {
         } else {
             focus_fail!(self, "    => container not found");
         }
-    }
-
-    /// Set the focus at the given index.
-    pub(crate) fn focus_idx(&self, n: usize, set_lost: bool) {
-        self.__start_change(set_lost);
-        self.__focus(n, set_lost);
-        self.__accumulate();
     }
 
     /// Set the obscured flag.
@@ -654,24 +651,46 @@ impl FocusCore {
     }
 
     /// Expel focus from the given container.
-    pub(crate) fn expel_container(&self, flag: FocusFlag) -> bool {
-        if let Some((_idx, range)) = self.container_index_of(&flag) {
-            self.__start_change(true);
-            let n = self.next_navigable(range.end);
-            self.__focus(n, true);
-            self.__accumulate();
-
-            // still focused?
-            if flag.get() {
-                focus_debug!(self, "    -> focus not usable. cleared");
-                self.none();
+    pub(crate) fn expel(&self, flag: &FocusFlag) {
+        if self.is_widget(flag) {
+            if self.index_of(flag).is_some() {
+                if flag.is_focused() {
+                    self.next();
+                    if flag.is_focused() {
+                        focus_debug!(self, "    -> no other focus, cleared");
+                        flag.clear();
+                    } else {
+                        focus_debug!(self, "    -> expelled");
+                    }
+                } else {
+                    focus_debug!(self, "    => widget not focused");
+                }
             } else {
-                focus_debug!(self, "    -> expelled.");
+                focus_fail!(self, "    => invalid widget");
             }
-            true
+        } else if self.is_container(flag) {
+            if flag.is_focused() {
+                if let Some((_idx, range)) = self.container_index_of(&flag) {
+                    self.__start_change(true);
+                    let n = self.next_navigable(range.end);
+                    self.__focus(n, true);
+                    self.__accumulate();
+
+                    // still focused?
+                    if flag.get() {
+                        focus_debug!(self, "    -> focus not usable. cleared");
+                        self.none();
+                    } else {
+                        focus_debug!(self, "    -> expelled.");
+                    }
+                } else {
+                    focus_fail!(self, "    => container not found");
+                }
+            } else {
+                focus_debug!(self, "    => container not focused");
+            }
         } else {
-            focus_fail!(self, "    => container not found");
-            false
+            focus_fail!(self, "    => not a valid widget");
         }
     }
 
@@ -848,29 +867,6 @@ impl FocusCore {
             }
         }
     }
-
-    /// Debug destructuring.
-    #[allow(clippy::type_complexity)]
-    pub(crate) fn clone_destruct(
-        &self,
-    ) -> (
-        Vec<FocusFlag>,
-        Vec<bool>,
-        Vec<(Rect, u16)>,
-        Vec<Navigation>,
-        Vec<(FocusFlag, (Rect, u16), Range<usize>)>,
-    ) {
-        (
-            self.focus_flags.clone(),
-            self.duplicate.clone(),
-            self.areas.clone(),
-            self.navigable.clone(),
-            self.containers
-                .iter()
-                .map(|(v, w)| (v.container_flag.clone(), v.area, w.clone()))
-                .collect::<Vec<_>>(),
-        )
-    }
 }
 
 #[cfg(test)]
@@ -939,9 +935,9 @@ mod test {
         fb.widget(&b);
         fb.widget(&c);
         let ff = fb.build();
-        assert_eq!(ff.core.focus_flags[0], a);
-        assert_eq!(ff.core.focus_flags[1], b);
-        assert_eq!(ff.core.focus_flags[2], c);
+        assert_eq!(ff.core.borrow().focus_flags[0], a);
+        assert_eq!(ff.core.borrow().focus_flags[1], b);
+        assert_eq!(ff.core.borrow().focus_flags[2], c);
 
         let cc = FocusFlag::new().with_name("cc");
         let mut fb = FocusBuilder::new(None);
@@ -954,13 +950,13 @@ mod test {
         fb.widget(&b);
         fb.widget(&c);
         let mut ff = fb.build();
-        assert_eq!(ff.core.focus_flags[0], a);
-        assert_eq!(ff.core.focus_flags[1], d);
-        assert_eq!(ff.core.focus_flags[2], e);
-        assert_eq!(ff.core.focus_flags[3], f);
-        assert_eq!(ff.core.focus_flags[4], b);
-        assert_eq!(ff.core.focus_flags[5], c);
-        assert_eq!(ff.core.containers[0].1, 1..4);
+        assert_eq!(ff.core.borrow().focus_flags[0], a);
+        assert_eq!(ff.core.borrow().focus_flags[1], d);
+        assert_eq!(ff.core.borrow().focus_flags[2], e);
+        assert_eq!(ff.core.borrow().focus_flags[3], f);
+        assert_eq!(ff.core.borrow().focus_flags[4], b);
+        assert_eq!(ff.core.borrow().focus_flags[5], c);
+        assert_eq!(ff.core.borrow().containers[0].1, 1..4);
 
         struct DD {
             dd: FocusFlag,
@@ -994,12 +990,12 @@ mod test {
             i: i.clone(),
         };
         ff.replace_container(&cc, &dd);
-        assert_eq!(ff.core.focus_flags[0], a);
-        assert_eq!(ff.core.focus_flags[1], g);
-        assert_eq!(ff.core.focus_flags[2], h);
-        assert_eq!(ff.core.focus_flags[3], i);
-        assert_eq!(ff.core.focus_flags[4], b);
-        assert_eq!(ff.core.focus_flags[5], c);
-        assert_eq!(ff.core.containers[0].1, 1..4);
+        assert_eq!(ff.core.borrow().focus_flags[0], a);
+        assert_eq!(ff.core.borrow().focus_flags[1], g);
+        assert_eq!(ff.core.borrow().focus_flags[2], h);
+        assert_eq!(ff.core.borrow().focus_flags[3], i);
+        assert_eq!(ff.core.borrow().focus_flags[4], b);
+        assert_eq!(ff.core.borrow().focus_flags[5], c);
+        assert_eq!(ff.core.borrow().containers[0].1, 1..4);
     }
 }
