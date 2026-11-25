@@ -1,4 +1,5 @@
-use crate::{FocusBuilder, HasFocus, Navigation, ratatui};
+use crate::core::FocusCore;
+use crate::{Focus, FocusBuilder, HasFocus, Navigation, ratatui};
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -129,6 +130,8 @@ struct FocusFlagCore {
     /// The purpose is to disable mouse-event handling where a
     /// popup is covering some widget.
     obscured: Cell<bool>,
+    /// Holds the active FocusCore.
+    focus_core: RefCell<Option<Rc<RefCell<FocusCore>>>>,
 }
 
 impl Debug for FocusFlag {
@@ -141,6 +144,7 @@ impl Debug for FocusFlag {
             .field("on_gained", &self.0.on_gained.borrow().is_some())
             .field("lost", &self.0.lost.get())
             .field("on_lost", &self.0.on_lost.borrow().is_some())
+            .field("focus", &self.0.focus_core.borrow().as_ref().map(|v| Rc::as_ptr(&v)))
             .finish()
     }
 }
@@ -307,7 +311,26 @@ impl FocusFlag {
         self.0.focus.set(false);
         self.0.lost.set(false);
         self.0.gained.set(false);
-        self.0.obscured.set(false);
+    }
+
+    /// Get access to the [Focus][crate::Focus] that this
+    /// widget is part of.
+    #[inline]
+    pub fn focus(&self) -> Option<Focus> {
+        let core = self.0.focus_core.borrow();
+        if let Some(core) = core.as_ref() {
+            Some(Focus {
+                last: Default::default(),
+                core: Rc::clone(core),
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Set the Focus core.
+    pub(crate) fn set_focus_core(&self, core: Option<Rc<RefCell<FocusCore>>>) {
+        self.0.focus_core.replace(core);
     }
 }
 
@@ -321,6 +344,7 @@ impl Default for FocusFlagCore {
             lost: Default::default(),
             on_lost: Default::default(),
             obscured: Default::default(),
+            focus_core: Default::default(),
         }
     }
 }
@@ -342,6 +366,7 @@ impl FocusFlagCore {
             lost: Cell::new(self.lost.get()),
             on_lost: Default::default(),
             obscured: Cell::new(self.obscured.get()),
+            focus_core: Default::default(),
         }
     }
 }

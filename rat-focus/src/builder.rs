@@ -410,6 +410,7 @@ impl FocusBuilder {
                     f.set_lost(false);
                     f.set_gained(false);
                     f.set_obscured(false);
+                    f.set_focus_core(None);
                 }
             }
             for (f, _) in &last.containers {
@@ -418,6 +419,7 @@ impl FocusBuilder {
                     f.container_flag.set_lost(false);
                     f.container_flag.set_gained(false);
                     f.container_flag.set_obscured(false);
+                    f.container_flag.set_focus_core(None);
                 }
             }
 
@@ -465,7 +467,20 @@ impl FocusBuilder {
             Default::default()
         };
         let core = Rc::new(RefCell::new(self.build_core()));
+        {
+            // set back references
+            let borrowed_core = core.borrow();
+            for f in &borrowed_core.focus_flags {
+                f.set_focus_core(Some(Rc::clone(&core)));
+            }
+            for (f, _) in &borrowed_core.containers {
+                f.container_flag.set_focus_core(Some(Rc::clone(&core)));
+            }
+        }
 
-        Focus { last, core }
+        Focus {
+            last,
+            core,
+        }
     }
 }
