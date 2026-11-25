@@ -29,7 +29,7 @@ macro_rules! focus_fail {
 /// Builder for the Focus.
 #[derive(Debug, Default)]
 pub struct FocusBuilder {
-    last: FocusCore,
+    last: Option<FocusCore>,
 
     log: Cell<bool>,
     insta_panic: Cell<bool>,
@@ -56,6 +56,14 @@ pub struct FocusBuilder {
 }
 
 impl FocusBuilder {
+    /// Create a FocusBuilder with old data directly from a FocusCore.
+    pub(crate) fn new_from_core(last: FocusCore) -> FocusBuilder {
+        Self {
+            last: Some(last),
+            ..Default::default()
+        }
+    }
+
     /// Create a new FocusBuilder.
     ///
     /// This can take the previous Focus and ensures that
@@ -65,44 +73,32 @@ impl FocusBuilder {
     /// It will also recycle the storage of the old Focus.
     pub fn new(last: Option<Focus>) -> FocusBuilder {
         if let Some(last) = last {
-            // clear any data but retain the allocation.
-            let Focus { last, core } = last;
-            let mut last = last.take();
-            let core = core.take();
+            // flip the cores
+            let (last, mut core) = {
+                let Focus { last, core, .. } = last;
+                (core.take(), last.take())
+            };
 
-            last.clear();
+            // clear storage, don't reset anything.
+            core.clear();
 
             Self {
-                last: core,
+                last: Some(last),
                 log: Default::default(),
                 insta_panic: Default::default(),
                 z_base: 0,
-                focus_ids: last.focus_ids,
-                focus_flags: last.focus_flags,
-                duplicate: last.duplicate,
-                areas: last.areas,
-                navigable: last.navigable,
-                container_ids: last.container_ids,
-                containers: last.containers,
-                tmp_widget: last.tmp_widget.take(),
-                tmp_container: last.tmp_container.take(),
+                focus_ids: core.focus_ids,
+                focus_flags: core.focus_flags,
+                duplicate: core.duplicate,
+                areas: core.areas,
+                navigable: core.navigable,
+                container_ids: core.container_ids,
+                containers: core.containers,
+                tmp_widget: core.tmp_widget.take(),
+                tmp_container: core.tmp_container.take(),
             }
         } else {
-            Self {
-                last: FocusCore::default(),
-                log: Default::default(),
-                insta_panic: Default::default(),
-                z_base: Default::default(),
-                focus_ids: Default::default(),
-                focus_flags: Default::default(),
-                duplicate: Default::default(),
-                areas: Default::default(),
-                navigable: Default::default(),
-                container_ids: Default::default(),
-                containers: Default::default(),
-                tmp_widget: Default::default(),
-                tmp_container: Default::default(),
-            }
+            Self::default()
         }
     }
 
@@ -405,6 +401,55 @@ impl FocusBuilder {
         container_flag
     }
 
+    // Cleanup widgets no longer in the Focus.
+    pub(crate) fn cleanup(&mut self) {
+        if let Some(last) = self.last.as_mut() {
+            for f in &last.focus_flags {
+                if !self.focus_ids.contains(&f.widget_id()) {
+                    f.set(false);
+                    f.set_lost(false);
+                    f.set_gained(false);
+                    f.set_obscured(false);
+                }
+            }
+            for (f, _) in &last.containers {
+                if !self.container_ids.contains(&f.container_flag.widget_id()) {
+                    f.container_flag.set(false);
+                    f.container_flag.set_lost(false);
+                    f.container_flag.set_gained(false);
+                    f.container_flag.set_obscured(false);
+                }
+            }
+
+            last.clear();
+        }
+    }
+
+    // Build the new core.
+    pub(crate) fn build_core(self) -> FocusCore {
+        // check new tree.
+        for (c, _) in self.containers.iter().rev() {
+            if !c.complete {
+                panic!("FocusBuilder: Unclosed container {:?}", c.container_flag);
+            }
+        }
+
+        // build new core
+        FocusCore {
+            log: Default::default(),
+            insta_panic: Default::default(),
+            focus_ids: self.focus_ids,
+            focus_flags: self.focus_flags,
+            duplicate: self.duplicate,
+            areas: self.areas,
+            navigable: self.navigable,
+            container_ids: self.container_ids,
+            containers: self.containers,
+            tmp_widget: Cell::new(self.tmp_widget),
+            tmp_container: Cell::new(self.tmp_container),
+        }
+    }
+
     /// Build the Focus.
     ///
     /// If the previous Focus is known, this will also
@@ -412,47 +457,15 @@ impl FocusBuilder {
     /// the Focus.
     pub fn build(mut self) -> Focus {
         // cleanup outcasts.
-        for v in &self.last.focus_flags {
-            if !self.focus_ids.contains(&v.widget_id()) {
-                v.clear();
-            }
-        }
-        for (v, _) in &self.last.containers {
-            let have_container = self
-                .containers
-                .iter()
-                .any(|(c, _)| v.container_flag == c.container_flag);
-            if !have_container {
-                v.container_flag.clear();
-            }
-        }
-        self.last.clear();
+        self.cleanup();
 
-        // check new tree.
-        for (c, _) in self.containers.iter_mut().rev() {
-            if !c.complete {
-                panic!("FocusBuilder: Unclosed container {:?}", c.container_flag);
-            }
-        }
+        let last = if let Some(last) = self.last.take() {
+            Rc::new(RefCell::new(last))
+        } else {
+            Default::default()
+        };
+        let core = Rc::new(RefCell::new(self.build_core()));
 
-        let log = self.last.log.get();
-        let insta_panic = self.last.insta_panic.get();
-
-        Focus {
-            last: Rc::new(RefCell::new(self.last)),
-            core: Rc::new(RefCell::new(FocusCore {
-                log: Cell::new(log),
-                insta_panic: Cell::new(insta_panic),
-                focus_ids: self.focus_ids,
-                focus_flags: self.focus_flags,
-                duplicate: self.duplicate,
-                areas: self.areas,
-                navigable: self.navigable,
-                container_ids: self.container_ids,
-                containers: self.containers,
-                tmp_widget: Cell::new(self.tmp_widget),
-                tmp_container: Cell::new(self.tmp_container),
-            })),
-        }
+        Focus { last, core }
     }
 }

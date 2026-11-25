@@ -534,7 +534,10 @@ impl Focus {
         if core.is_container(&flag) {
             if let Some((cidx, _)) = core.container_index_of(&flag) {
                 let removed = core.remove_container(cidx);
-                removed.reset();
+
+                let mut b = FocusBuilder::new_from_core(removed);
+                b.cleanup();
+
                 focus_debug!(core, "    -> removed");
             } else {
                 panic!("    => invalid container?");
@@ -562,15 +565,10 @@ impl Focus {
             if let Some((cidx, range)) = core.container_index_of(&flag) {
                 let removed = core.remove_container(cidx);
 
-                let mut b = FocusBuilder::new(Some(Focus {
-                    last: Default::default(),
-                    core: Rc::new(RefCell::new(removed)),
-                }));
+                let mut b = FocusBuilder::new_from_core(removed);
                 b.widget(container);
-                let insert = b.build();
-                let insert_core = insert.core.take();
-
-                core.insert_container(range.start, cidx, insert_core);
+                b.cleanup();
+                core.insert_container(range.start, cidx, b.build_core());
 
                 focus_debug!(core, "    -> updated");
             } else {
@@ -607,15 +605,10 @@ impl Focus {
             if let Some((cidx, range)) = core.container_index_of(&flag) {
                 let removed = core.remove_container(cidx);
 
-                let mut b = FocusBuilder::new(Some(Focus {
-                    last: Default::default(),
-                    core: Rc::new(RefCell::new(removed)),
-                }));
+                let mut b = FocusBuilder::new_from_core(removed);
                 b.widget(new);
-                let insert = b.build();
-                let insert_core = insert.core.take();
-
-                core.insert_container(range.start, cidx, insert_core);
+                b.cleanup();
+                core.insert_container(range.start, cidx, b.build_core());
 
                 focus_debug!(core, "    -> replaced");
             } else {

@@ -378,22 +378,6 @@ impl FocusCore {
         }
     }
 
-    /// Reset all flags.
-    pub(crate) fn reset(&self) {
-        for f in self.focus_flags.iter() {
-            f.set(false);
-            f.set_lost(false);
-            f.set_gained(false);
-            f.set_obscured(false);
-        }
-        for (f, _) in self.containers.iter() {
-            f.container_flag.set(false);
-            f.container_flag.set_gained(false);
-            f.container_flag.set_lost(false);
-            f.container_flag.set_obscured(false);
-        }
-    }
-
     /// Reset all lost+gained flags.
     pub(crate) fn reset_lost_gained(&self) {
         for f in self.focus_flags.iter() {
