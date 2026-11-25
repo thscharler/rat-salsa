@@ -12,7 +12,7 @@ use std::rc::Rc;
 /// This is usually quick enough to do it for each event.
 /// It has to be rebuilt if any area has changed, so
 /// rebuilding it after a render() is fine.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Focus {
     pub(crate) last: Rc<RefCell<FocusCore>>,
     pub(crate) core: Rc<RefCell<FocusCore>>,
