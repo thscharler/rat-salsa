@@ -153,7 +153,7 @@ impl FocusFlag {
 
     /// Create a deep copy of the FocusFlag.
     ///
-    /// Caution
+    /// __Caution__
     ///
     /// It will lose the on_gained() and on_lost() callbacks.
     /// Those can not be replicated/cloned as they

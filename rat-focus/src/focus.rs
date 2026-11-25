@@ -52,12 +52,14 @@ impl Focus {
 
     /// Enable insta-panic if any function is called
     /// with a widget that is not part of the Focus.
+    #[deprecated(since = "2.3.0", note = "overengineered")]
     pub fn enable_panic(&self) {
         self.core.insta_panic.set(true);
         self.last.insta_panic.set(true);
     }
 
     /// Disable insta-panic.
+    #[deprecated(since = "2.3.0", note = "overengineered")]
     pub fn disable_panic(&self) {
         self.core.insta_panic.set(false);
         self.last.insta_panic.set(false);
@@ -375,6 +377,7 @@ impl Focus {
     /// Sets the focus, gained and lost flags. If this ends up with
     /// the same widget as before focus, gained and lost flag are not set.
     #[inline]
+    #[deprecated(since = "2.3.0", note = "overengineered")]
     pub fn next_force(&self) -> bool {
         match self.navigation() {
             None => {
@@ -419,6 +422,7 @@ impl Focus {
     /// Sets the focus, gained and lost flags. If this ends up with
     /// the same widget as before focus, gained and lost flag are not set.
     #[inline]
+    #[deprecated(since = "2.3.0", note = "overengineered")]
     pub fn prev_force(&self) -> bool {
         match self.navigation() {
             None => {
@@ -526,6 +530,7 @@ impl Focus {
     /// It will set the focus to the first widget of the
     /// container.
     #[inline]
+    #[deprecated(since = "2.3.0", note = "overengineered")]
     pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(self.core, "focus no_lost {:?}", widget_state.focus().name());
         let flag = widget_state.focus();
@@ -545,12 +550,19 @@ impl Focus {
     /// This expels the focus from the given widget/container.
     ///
     /// This is sometimes useful to set the focus to **somewhere else**.
-    /// This is especially useful when used for a container-widget that will
+    /// This is especially useful when used for a popup-widget that will
     /// be hidden. Ensures there is still some widget with focus afterward.
     ///
     /// It will try to set the focus to the next widget or the
     /// next widget following the container. If this ends up within
     /// the given container it will set the focus to none.
+    ///
+    /// __Note__
+    ///
+    /// If you want to set the focus temporarily to a widget and later
+    /// restore the current focus try [flip_focus](Focus::flip_focus).
+    ///
+    /// __Note__
     ///
     /// This function doesn't use the Navigation of the current widget.
     #[inline]
@@ -709,6 +721,7 @@ impl Focus {
 
     /// Debug destructuring.
     #[allow(clippy::type_complexity)]
+    #[deprecated(since = "2.3.0", note = "overengineered")]
     pub fn clone_destruct(
         &self,
     ) -> (
