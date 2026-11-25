@@ -1314,7 +1314,7 @@ impl FileDialogState {
             } else {
                 self.dir_state.commit();
                 if self.mode == Mode::Save {
-                    self.build_focus().focus_no_lost(&self.save_name_state);
+                    self.build_focus().focus(&self.save_name_state);
                 }
                 self.set_path(&path)
             }
@@ -1542,7 +1542,7 @@ fn handle_path(state: &mut FileDialogState, event: &Event) -> Result<FileOutcome
         event_flow!(match event {
             ct_event!(keycode press Enter) => {
                 state.use_path_input()?;
-                state.build_focus().focus_no_lost(&state.dir_state.list);
+                state.build_focus().focus(&state.dir_state.list);
                 FileOutcome::Changed
             }
             _ => FileOutcome::Continue,
