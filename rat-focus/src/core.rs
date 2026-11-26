@@ -621,45 +621,37 @@ impl FocusCore {
 
     /// Expel focus from the given container.
     pub(crate) fn expel(&self, flag: &FocusFlag) {
-        if self.is_widget(flag) {
-            if self.index_of(flag).is_some() {
-                if flag.is_focused() {
-                    self.next();
-                    if flag.is_focused() {
-                        focus_debug!(self, "    -> no other focus, cleared");
-                        flag.clear();
-                    } else {
-                        focus_debug!(self, "    -> expelled");
-                    }
-                } else {
-                    focus_debug!(self, "    => widget not focused");
-                }
-            } else {
-                focus_fail!(self, "    => invalid widget");
-            }
-        } else if self.is_container(flag) {
+        if self.index_of(flag).is_some() {
             if flag.is_focused() {
-                if let Some((_idx, range)) = self.container_index_of(&flag) {
-                    self.__start_change(true);
-                    let n = self.next_navigable(range.end);
-                    self.__focus(n, true);
-                    self.__accumulate();
-
-                    // still focused?
-                    if flag.get() {
-                        focus_debug!(self, "    -> focus not usable. cleared");
-                        self.none();
-                    } else {
-                        focus_debug!(self, "    -> expelled.");
-                    }
+                self.next();
+                if flag.is_focused() {
+                    focus_debug!(self, "    -> no other focus. cleared");
+                    flag.clear();
                 } else {
-                    focus_fail!(self, "    => container not found");
+                    focus_debug!(self, "    -> expelled");
                 }
             } else {
-                focus_debug!(self, "    => container not focused");
+                focus_debug!(self, "    -> widget not focused. skip");
+            }
+        } else if let Some((_idx, range)) = self.container_index_of(&flag) {
+            if flag.is_focused() {
+                self.__start_change(true);
+                let n = self.next_navigable(range.end);
+                self.__focus(n, true);
+                self.__accumulate();
+
+                // still focused?
+                if flag.get() {
+                    focus_debug!(self, "    -> no other focus. cleared");
+                    self.none();
+                } else {
+                    focus_debug!(self, "    -> expelled");
+                }
+            } else {
+                focus_debug!(self, "    -> container not focused. skip");
             }
         } else {
-            focus_fail!(self, "    => not a valid widget");
+            focus_debug!(self, "ERR: not part of this Focus");
         }
     }
 
