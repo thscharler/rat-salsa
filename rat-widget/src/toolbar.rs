@@ -1,30 +1,64 @@
-//! **EXPERIMENTAL** Toolbar with Buttons, Checkbox and Choices.
+//!
+//! Toolbar with Buttons, Checkbox and Choices.
+//!
+//! ```
+//! # use rat_event::Regular;
+//! # use rat_theme4::{StyleName, WidgetStyle};
+//! # use rat_widget::event::{HandleEvent, Outcome, event_flow};
+//! # use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
+//! # use rat_widget::toolbar::{Toolbar, ToolbarOutcome, ToolbarState};
+//! # use ratatui_core::buffer::Buffer;
+//! # use ratatui_core::layout::{Constraint, Layout, Rect};
+//! # use ratatui_core::style::Style;
+//! # use ratatui_core::widgets::StatefulWidget;
+//! # use ratatui_crossterm::crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+//!
+//!     let (w, p) = Toolbar::new()
+//!         .text("ABC")
+//!         .button("F1", "Function")
+//!         .hotkey(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE))
+//!         .button("F2", "Function")
+//!         .hotkey(KeyEvent::new(KeyCode::F(2), KeyModifiers::NONE))
+//!         .checkbox("A", "nticipate", state.anticipate)
+//!         .hotkey(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE))
+//!         .button("F3", "Function")
+//!         .hotkey(KeyEvent::new(KeyCode::F(3), KeyModifiers::NONE))
+//!         .checkbox("B", "eatification", state.beatification)
+//!         .hotkey(KeyEvent::new(KeyCode::Char('b'), KeyModifiers::NONE))
+//!         .choice("F7", ["Choose 1", "Choose 2", "Choose 3"], state.chosen)
+//!         .hotkey(KeyEvent::new(KeyCode::F(7), KeyModifiers::NONE))
+//!         .styles(ctx.theme.style(WidgetStyle::TOOLBAR))
+//!         .into_widgets(l0[0], &mut state.tools);
+//!
+//!     w.render(l0[0], buf, &mut state.tools);
+//! ```
 
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::checkbox::{Checkbox, CheckboxState, CheckboxStyle};
-use crate::choice::{Choice, ChoicePopup, ChoiceSelect, ChoiceState, ChoiceStyle, ChoiceWidget};
+use crate::choice::{Choice, ChoicePopup, ChoiceState, ChoiceStyle, ChoiceWidget};
 use crate::event::{ButtonOutcome, CheckOutcome, ChoiceOutcome};
 use crate::paired::{PairSplit, Paired, PairedState, PairedWidget};
+use crate::util::block_size;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Popup, Regular, event_flow};
-use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use rat_scrolled::Scroll;
 use ratatui_core::buffer::Buffer;
-use ratatui_core::layout::Rect;
+use ratatui_core::layout::{Constraint, Flex, Layout, Rect, Spacing};
 use ratatui_core::style::Style;
 use ratatui_core::text::{Line, Span};
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm::event::{Event, KeyEvent, KeyEventKind};
 use ratatui_widgets::block::{Block, BlockExt};
 use std::borrow::Cow;
+use std::mem;
 
 #[derive(Debug)]
 enum Tool<'a> {
-    CollapsedButtons(Cow<'a, str>),
-    BasicButton(Cow<'a, str>, Cow<'a, str>, bool),
-    BasicCheckbox(Cow<'a, str>, Cow<'a, str>, bool),
-    BasicChoice(Cow<'a, str>, Vec<Line<'a>>, usize),
+    BasicButton(Cow<'a, str>, Cow<'a, str>, Option<KeyEvent>),
+    BasicCheckbox(Cow<'a, str>, Cow<'a, str>, bool, Option<KeyEvent>),
+    BasicChoice(Cow<'a, str>, Vec<Line<'a>>, usize, Option<KeyEvent>),
     Text(Line<'a>),
 }
 
@@ -32,26 +66,25 @@ enum Tool<'a> {
 /// States for the different toolbar-widgets.
 #[derive(Debug)]
 pub enum ToolState {
-    BasicButton(ButtonState, bool),
-    BasicCheckbox(CheckboxState),
-    BasicChoice(ChoiceState<usize>),
+    None,
+    BasicButton(ButtonState, Option<KeyEvent>),
+    BasicCheckbox(CheckboxState, Option<KeyEvent>),
+    BasicChoice(ChoiceState<usize>, Option<KeyEvent>),
+    Text,
 }
 
-/// A toolbar with Buttons, Checkboxes and Choics.
-///
-/// As an extra it can collapse a number of buttons into a Choice
-/// if there is not enough space available.
-#[derive(Debug)]
+/// A toolbar with Buttons, Checkboxes and Choices.
+#[derive(Debug, Default)]
 pub struct Toolbar<'a> {
     tools: Vec<Tool<'a>>,
     style: Style,
     block: Option<Block<'a>>,
-    spacing: u16,
+    spacing: Spacing,
+    flex: Flex,
     key_style: Option<Style>,
     button_style: ButtonStyle,
     checkbox_style: CheckboxStyle,
     choice_style: ChoiceStyle,
-    collapsed_style: ChoiceStyle,
 }
 
 /// Widget for the toolbar.
@@ -72,6 +105,8 @@ pub struct ToolbarPopup<'a> {
 #[derive(Debug, Clone)]
 pub struct ToolbarStyle {
     pub style: Style,
+    pub spacing: Option<Spacing>,
+    pub flex: Option<Flex>,
     pub block: Option<Block<'static>>,
     pub border_style: Option<Style>,
     pub title_style: Option<Style>,
@@ -81,7 +116,6 @@ pub struct ToolbarStyle {
     pub button: Option<ButtonStyle>,
     pub checkbox: Option<CheckboxStyle>,
     pub choice: Option<ChoiceStyle>,
-    pub collapsed: Option<ChoiceStyle>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -96,12 +130,8 @@ pub struct ToolbarState {
     /// __read only__
     pub inner: Rect,
 
-    /// State for the collapsed buttons.
-    pub collapsed: ChoiceState<Option<usize>>,
-    /// Collapsed buttons are active?
-    pub collapsed_active: bool,
-    /// Other tool-state.
-    pub tools: Vec<Option<ToolState>>,
+    /// Tool state.
+    pub tools: Vec<ToolState>,
     /// Choices can get the focus. This is to flip back to the
     /// focus before.
     pub focus_before: Option<FocusFlag>,
@@ -116,6 +146,8 @@ impl Default for ToolbarStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
+            spacing: Default::default(),
+            flex: Default::default(),
             block: Default::default(),
             border_style: Default::default(),
             title_style: Default::default(),
@@ -123,24 +155,7 @@ impl Default for ToolbarStyle {
             button: Default::default(),
             checkbox: Default::default(),
             choice: Default::default(),
-            collapsed: Default::default(),
             non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
-impl<'a> Default for Toolbar<'a> {
-    fn default() -> Self {
-        Self {
-            tools: Default::default(),
-            style: Default::default(),
-            block: Default::default(),
-            spacing: 1,
-            key_style: Default::default(),
-            button_style: Default::default(),
-            checkbox_style: Default::default(),
-            choice_style: Default::default(),
-            collapsed_style: Default::default(),
         }
     }
 }
@@ -151,29 +166,25 @@ impl<'a> Toolbar<'a> {
     }
 
     /// Spacing between tools.
-    pub fn spacing(mut self, sp: u16) -> Self {
-        self.spacing = sp;
+    pub fn spacing(mut self, sp: impl Into<Spacing>) -> Self {
+        self.spacing = sp.into();
         self
     }
 
-    /// Add a placeholder where the collapsed buttons will be rendered.
-    pub fn collapsed_buttons(mut self, text: impl Into<Cow<'a, str>>) -> Self {
-        self.tools.push(Tool::CollapsedButtons(text.into()));
+    /// Flex for the tool layout.
+    pub fn flex(mut self, flex: Flex) -> Self {
+        self.flex = flex;
         self
     }
 
     /// Add a button.
     /// * key - Hotkey text
     /// * text - Button text
-    /// * collapsible - yes or no
-    pub fn button(
-        mut self,
-        key: impl Into<Cow<'a, str>>,
-        text: impl Into<Cow<'a, str>>,
-        collapsible: bool,
-    ) -> Self {
+    ///
+    /// To set the actual hotkey call [hotkey](Toolbar::hotkey) next.
+    pub fn button(mut self, key: impl Into<Cow<'a, str>>, text: impl Into<Cow<'a, str>>) -> Self {
         self.tools
-            .push(Tool::BasicButton(key.into(), text.into(), collapsible));
+            .push(Tool::BasicButton(key.into(), text.into(), None));
         self
     }
 
@@ -181,6 +192,8 @@ impl<'a> Toolbar<'a> {
     /// * key - hotkey
     /// * text - text
     /// * checked
+    ///
+    /// To set the actual hotkey call [hotkey](Toolbar::hotkey) next.
     pub fn checkbox(
         mut self,
         key: impl Into<Cow<'a, str>>,
@@ -188,11 +201,13 @@ impl<'a> Toolbar<'a> {
         checked: bool,
     ) -> Self {
         self.tools
-            .push(Tool::BasicCheckbox(key.into(), text.into(), checked));
+            .push(Tool::BasicCheckbox(key.into(), text.into(), checked, None));
         self
     }
 
     /// Add a choice.
+    ///
+    /// To set the actual hotkey call [hotkey](Toolbar::hotkey) next.
     pub fn choice<V: Into<Line<'a>>>(
         mut self,
         key: impl Into<Cow<'a, str>>,
@@ -203,7 +218,22 @@ impl<'a> Toolbar<'a> {
             key.into(),
             items.into_iter().map(|v| v.into()).collect(),
             selected,
+            None,
         ));
+        self
+    }
+
+    /// Define the hotkey for the previously added tool.
+    pub fn hotkey(mut self, key: KeyEvent) -> Self {
+        match self.tools.last_mut() {
+            Some(Tool::BasicButton(_, _, k))
+            | Some(Tool::BasicCheckbox(_, _, _, k))
+            | Some(Tool::BasicChoice(_, _, _, k)) => {
+                *k = Some(key);
+            }
+            Some(Tool::Text(..)) => {}
+            None => {}
+        }
         self
     }
 
@@ -227,6 +257,13 @@ impl<'a> Toolbar<'a> {
         }
         self.block = self.block.map(|v| v.style(self.style));
 
+        if let Some(spacing) = styles.spacing {
+            self.spacing = spacing;
+        }
+        if let Some(flex) = styles.flex {
+            self.flex = flex;
+        }
+
         if styles.key_style.is_some() {
             self.key_style = styles.key_style;
         }
@@ -238,9 +275,6 @@ impl<'a> Toolbar<'a> {
         }
         if let Some(choice) = styles.choice {
             self.choice_style = choice;
-        }
-        if let Some(collapsed) = styles.collapsed {
-            self.collapsed_style = collapsed;
         }
         self
     }
@@ -283,13 +317,11 @@ impl<'a> Toolbar<'a> {
         self
     }
 
-    /// Collapsed style.
-    pub fn collapsed_style(mut self, style: ChoiceStyle) -> Self {
-        self.collapsed_style = style;
-        self
-    }
+    // no inherent width, at least none that can be calculated easily
 
-    // todo: width, height
+    pub fn height(&self) -> u16 {
+        block_size(&self.block).height + 1
+    }
 
     /// Create the final widgets for rendering.
     pub fn into_widgets(
@@ -307,36 +339,18 @@ impl<'a> Toolbar<'a> {
                 style,
                 block,
             },
-            ToolbarPopup { tools: t2 },
+            ToolbarPopup {
+                tools: t2 //
+            },
         )
     }
 }
 
-#[allow(clippy::large_enum_variant)]
-enum ToolLayout<'a> {
-    CollapsedButton(Line<'a>),
-    BasicButton(u16, Button<'a>, Line<'a>, bool),
-    BasicCheckbox(Checkbox<'a>),
-    BasicChoice(Line<'a>, Choice<'a, usize>, usize),
-    Text(Line<'a>),
-}
-
-enum ToolLayout2<'a> {
-    CollapsedPlaceHolder(),
-    CollapsedButton(Choice<'a, Option<usize>>),
-    BasicButton(usize, Button<'a>),
-    BasicCheckbox(usize, Checkbox<'a>),
-    BasicChoice(usize, Line<'a>, Choice<'a, usize>, usize),
-    Text(Line<'a>),
-}
-
 #[derive(Debug)]
 enum ToolWidget1<'a> {
-    CollapsedButton(Rect, ChoiceWidget<'a, Option<usize>>),
-    BasicButton(usize, Rect, Button<'a>),
-    BasicCheckbox(usize, Rect, Checkbox<'a>),
+    BasicButton(Rect, Button<'a>),
+    BasicCheckbox(Rect, Checkbox<'a>),
     BasicChoice(
-        usize,
         Rect,
         Paired<'a, PairedWidget<'a, Line<'a>>, ChoiceWidget<'a, usize>>,
     ),
@@ -345,244 +359,146 @@ enum ToolWidget1<'a> {
 
 #[derive(Debug)]
 enum ToolWidget2<'a> {
-    CollapsedButton(ChoicePopup<'a, Option<usize>>),
-    BasicChoice(usize, ChoicePopup<'a, usize>),
+    None,
+    BasicChoice(ChoicePopup<'a, usize>),
 }
 
 fn layout<'a>(
-    widget: Toolbar<'a>,
+    mut widget: Toolbar<'a>,
     area: Rect,
     state: &mut ToolbarState,
 ) -> (Vec<ToolWidget1<'a>>, Vec<ToolWidget2<'a>>) {
     let inner = widget.block.inner_if_some(area);
-
     let key_style = widget.key_style.unwrap_or_default();
 
-    // set up uncollapsed widgets
-    let mut layout1 = Vec::with_capacity(widget.tools.len());
-    let mut total_width = 0;
-    let mut have_collapsed = false;
-    for tool in widget.tools {
+    enum ToolLayout<'a> {
+        BasicButton(Button<'a>),
+        BasicCheckbox(Checkbox<'a>),
+        BasicChoice(Line<'a>, Choice<'a>, usize),
+        BasicText(Line<'a>),
+    }
+
+    let mut tools = Vec::with_capacity(widget.tools.len());
+    let mut layout = Vec::with_capacity(widget.tools.len());
+    for tool in &mut widget.tools {
         match tool {
-            Tool::CollapsedButtons(text) => {
-                let text = Line::from(text);
-                have_collapsed = true;
-                layout1.push(ToolLayout::CollapsedButton(text));
+            Tool::BasicButton(k, t, _) => {
+                let text = Line::from_iter([
+                    Span::from(mem::take(k)).style(key_style.clone()),
+                    Span::from(mem::take(t)),
+                ]);
+                let b = Button::new(text).styles(widget.button_style.clone());
+                let w = b.width();
+                tools.push(ToolLayout::BasicButton(b));
+                layout.push(Constraint::Length(w));
             }
-            Tool::BasicButton(key, text, collapse) => {
-                let text =
-                    Line::from_iter([Span::from(key).style(key_style.clone()), Span::from(text)]);
-                let w = Button::new(text.clone()).styles(widget.button_style.clone());
-                let w_width = w.width() + widget.spacing;
-                total_width += w_width;
-                layout1.push(ToolLayout::BasicButton(w_width, w, text, collapse));
-            }
-            Tool::BasicCheckbox(key, text, checked) => {
-                let text =
-                    Line::from_iter([Span::from(key).style(key_style.clone()), Span::from(text)]);
+            Tool::BasicCheckbox(k, t, c, _) => {
+                let text = Line::from_iter([
+                    Span::from(mem::take(k)).style(key_style.clone()),
+                    Span::from(mem::take(t)),
+                ]);
                 let c = Checkbox::new()
                     .text(text)
-                    .checked(checked)
+                    .checked(*c)
                     .styles(widget.checkbox_style.clone());
-                let w_width = c.width() + widget.spacing;
-                total_width += w_width;
-                layout1.push(ToolLayout::BasicCheckbox(c));
+                let w = c.width();
+                tools.push(ToolLayout::BasicCheckbox(c));
+                layout.push(Constraint::Length(w));
             }
-            Tool::BasicChoice(key, items, selected) => {
-                let key = Line::from(key).style(key_style.clone());
+            Tool::BasicChoice(k, i, s, _) => {
+                let k = Line::from(mem::take(k)).style(key_style.clone());
                 let c = Choice::new()
-                    .items(items.into_iter().enumerate())
+                    .items(mem::take(i).into_iter().enumerate())
                     .popup_scroll(Scroll::new())
                     .styles(widget.choice_style.clone());
-                let w_width = key.width() as u16 + c.width() + widget.spacing;
-                total_width += w_width;
-                layout1.push(ToolLayout::BasicChoice(key, c, selected));
+                let w = k.width() as u16 + c.width();
+                tools.push(ToolLayout::BasicChoice(k, c, *s));
+                layout.push(Constraint::Length(w));
             }
-            Tool::Text(txt) => {
-                let w_width = txt.width() as u16 + widget.spacing;
-                total_width += w_width;
-                layout1.push(ToolLayout::Text(txt.clone()));
+            Tool::Text(t) => {
+                let w = t.width() as u16;
+                tools.push(ToolLayout::BasicText(mem::take(t)));
+                layout.push(Constraint::Length(w));
             }
         }
     }
 
-    // reset collapsed active flag
-    state.collapsed_active = false;
-    for w in state.tools.iter_mut().flatten() {
-        if let ToolState::BasicButton(_, active) = w {
-            *active = false;
-        }
-    }
+    let ll = Layout::horizontal(&layout)
+        .spacing(widget.spacing)
+        .flex(widget.flex)
+        .horizontal_margin(0)
+        .split(inner);
 
-    // collapse buttons if necessary
-    let mut layout2 = Vec::with_capacity(layout1.len());
-    if total_width > inner.width && have_collapsed {
-        let mut collapsed_width = 0;
-        let mut collapsed = Choice::<Option<usize>>::new()
-            .styles(widget.collapsed_style.clone())
-            .behave_select(ChoiceSelect::MouseMove);
+    let mut widgets1 = Vec::with_capacity(ll.len());
+    let mut widgets2 = Vec::with_capacity(ll.len());
 
-        let mut n = 0;
-        for w in layout1.into_iter() {
-            match w {
-                ToolLayout::CollapsedButton(text) => {
-                    collapsed = collapsed.unknown_item(text);
-                    layout2.push(ToolLayout2::CollapsedPlaceHolder());
-                }
-                ToolLayout::BasicButton(w, button, text, collapse) => {
-                    if total_width > inner.width && collapse {
-                        total_width -= w;
-                        total_width -= collapsed_width;
+    state.tools.resize_with(tools.len(), || ToolState::None);
 
-                        collapsed = collapsed.item(Some(n), text);
+    for (n, tool) in tools.into_iter().enumerate() {
+        let hk = match &widget.tools[n] {
+            Tool::BasicButton(_, _, k) => k.clone(),
+            Tool::BasicCheckbox(_, _, _, k) => k.clone(),
+            Tool::BasicChoice(_, _, _, k) => k.clone(),
+            Tool::Text(_) => None,
+        };
 
-                        collapsed_width = collapsed.width() + widget.spacing;
-                        total_width += collapsed_width;
-                    } else {
-                        layout2.push(ToolLayout2::BasicButton(n, button));
+        match tool {
+            ToolLayout::BasicButton(b) => {
+                match &mut state.tools[n] {
+                    ToolState::BasicButton(_, hotkey) => {
+                        *hotkey = hk;
                     }
-                    n += 1;
+                    t => *t = ToolState::BasicButton(ButtonState::default(), hk),
                 }
-                ToolLayout::BasicCheckbox(c) => {
-                    layout2.push(ToolLayout2::BasicCheckbox(n, c));
-                    n += 1;
-                }
-                ToolLayout::BasicChoice(t, c, selected) => {
-                    layout2.push(ToolLayout2::BasicChoice(n, t, c, selected));
-                    n += 1;
-                }
-                ToolLayout::Text(t) => {
-                    layout2.push(ToolLayout2::Text(t));
-                }
-            }
-        }
 
-        for layout2 in &mut layout2 {
-            if matches!(layout2, ToolLayout2::CollapsedPlaceHolder()) {
-                *layout2 = ToolLayout2::CollapsedButton(collapsed);
-                break;
+                widgets1.push(ToolWidget1::BasicButton(ll[n], b));
+                widgets2.push(ToolWidget2::None);
             }
-        }
-    } else {
-        let mut n = 0;
-        for w in layout1.into_iter() {
-            match w {
-                ToolLayout::CollapsedButton(_) => {
-                    layout2.push(ToolLayout2::CollapsedPlaceHolder());
-                }
-                ToolLayout::BasicButton(_, b, _, _) => {
-                    layout2.push(ToolLayout2::BasicButton(n, b));
-                    n += 1;
-                }
-                ToolLayout::BasicCheckbox(c) => {
-                    layout2.push(ToolLayout2::BasicCheckbox(n, c));
-                    n += 1;
-                }
-                ToolLayout::BasicChoice(t, c, selected) => {
-                    layout2.push(ToolLayout2::BasicChoice(n, t, c, selected));
-                    n += 1;
-                }
-                ToolLayout::Text(t) => {
-                    layout2.push(ToolLayout2::Text(t));
-                }
-            }
-        }
-    }
-
-    // create effective widgets
-    let mut widgets1 = Vec::with_capacity(layout2.len());
-    let mut widgets2 = Vec::with_capacity(layout2.len());
-    let mut widget_area = inner;
-    for w in layout2 {
-        match w {
-            ToolLayout2::CollapsedPlaceHolder() => {
-                widget_area.width = 0;
-            }
-            ToolLayout2::CollapsedButton(w) => {
-                state.collapsed_active = true;
-
-                widget_area.width = w.width();
-                let (w, p) = w.into_widgets();
-                widgets1.push(ToolWidget1::CollapsedButton(widget_area, w));
-                widgets2.push(ToolWidget2::CollapsedButton(p));
-            }
-            ToolLayout2::BasicButton(n, w) => {
-                while state.tools.len() <= n {
-                    state.tools.push(None);
-                }
-                if state.tools[n].is_none() {
-                    state.tools[n] = Some(ToolState::BasicButton(ButtonState::default(), true));
-                } else {
-                    if let Some(ToolState::BasicButton(_, active)) = &mut state.tools[n] {
-                        *active = true;
+            ToolLayout::BasicCheckbox(c) => {
+                match &mut state.tools[n] {
+                    ToolState::BasicCheckbox(_, hotkey) => {
+                        *hotkey = hk;
                     }
+                    t => *t = ToolState::BasicCheckbox(CheckboxState::default(), hk),
                 }
 
-                widget_area.width = w.width();
-                widgets1.push(ToolWidget1::BasicButton(n, widget_area, w));
+                widgets1.push(ToolWidget1::BasicCheckbox(ll[n], c));
+                widgets2.push(ToolWidget2::None);
             }
-            ToolLayout2::BasicCheckbox(n, w) => {
-                while state.tools.len() <= n {
-                    state.tools.push(None);
+            ToolLayout::BasicChoice(k, c, selected) => {
+                match &mut state.tools[n] {
+                    ToolState::BasicChoice(_, hotkey) => {
+                        *hotkey = hk;
+                    }
+                    t => *t = ToolState::BasicChoice(ChoiceState::default(), hk),
                 }
-                if state.tools[n].is_none() {
-                    state.tools[n] = Some(ToolState::BasicCheckbox(CheckboxState::default()));
-                }
-                widget_area.width = w.width();
-                widgets1.push(ToolWidget1::BasicCheckbox(n, widget_area, w));
-            }
-            ToolLayout2::BasicChoice(n, key, w, selected) => {
-                while state.tools.len() <= n {
-                    state.tools.push(None);
-                }
-                if state.tools[n].is_none() {
-                    state.tools[n] = Some(ToolState::BasicChoice(ChoiceState::default()));
-                }
-                let Some(ToolState::BasicChoice(s)) = &mut state.tools[n] else {
+
+                let ToolState::BasicChoice(choice_state, _) = &mut state.tools[n] else {
                     unreachable!("invalid_state");
                 };
-                if !s.is_popup_active() {
-                    s.set_value(selected);
+                if !choice_state.is_popup_active() {
+                    choice_state.set_value(selected);
                 }
 
-                let key_len = key.width() as u16;
-                widget_area.width = key_len + w.width();
-                let (w, p) = w.into_widgets();
+                let key_len = k.width() as u16;
+                let (w, p) = c.into_widgets();
+
                 widgets1.push(ToolWidget1::BasicChoice(
-                    n,
-                    widget_area,
-                    Paired::new(PairedWidget::new(key), w)
+                    ll[n],
+                    Paired::new(PairedWidget::new(k), w)
                         .spacing(0)
                         .split(PairSplit::Fix1(key_len)),
                 ));
-                widgets2.push(ToolWidget2::BasicChoice(n, p));
+                widgets2.push(ToolWidget2::BasicChoice(p));
             }
-            ToolLayout2::Text(w) => {
-                widget_area.width = w.width() as u16;
-                widgets1.push(ToolWidget1::Text(widget_area, w));
-            }
-        }
+            ToolLayout::BasicText(t) => {
+                match &mut state.tools[n] {
+                    ToolState::Text => {}
+                    t => *t = ToolState::Text,
+                }
 
-        if widget_area.width > 0 {
-            widget_area.x += widget_area.width;
-            widget_area.x += widget.spacing;
-        }
-    }
-
-    // hide all.
-    state.collapsed.relocate_hidden();
-    state.collapsed.relocate_popup_hidden();
-    for w in state.tools.iter_mut().flatten() {
-        match w {
-            ToolState::BasicButton(w, _) => {
-                w.relocate_hidden();
-            }
-            ToolState::BasicCheckbox(w) => {
-                w.relocate_hidden();
-            }
-            ToolState::BasicChoice(w) => {
-                w.relocate_hidden();
-                w.relocate_popup_hidden();
+                widgets1.push(ToolWidget1::Text(ll[n], t));
+                widgets2.push(ToolWidget2::None);
             }
         }
     }
@@ -594,47 +510,38 @@ impl<'a> StatefulWidget for ToolbarWidget<'a> {
     type State = ToolbarState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
-    }
-}
+        state.area = area;
+        state.inner = self.block.inner_if_some(area);
 
-fn render_ref(widget: ToolbarWidget, area: Rect, buf: &mut Buffer, state: &mut ToolbarState) {
-    state.area = area;
-    state.inner = widget.block.inner_if_some(area);
+        if self.block.is_some() {
+            self.block.render(area, buf);
+        } else {
+            buf.set_style(area, self.style);
+        }
 
-    if widget.block.is_some() {
-        widget.block.render(area, buf);
-    } else {
-        buf.set_style(area, widget.style);
-    }
-
-    for w in widget.tools {
-        match w {
-            ToolWidget1::CollapsedButton(widget_area, w) => {
-                w.render(widget_area, buf, &mut state.collapsed);
-            }
-            ToolWidget1::BasicButton(n, widget_area, w) => {
-                let ToolState::BasicButton(state, _) = state.tools[n].as_mut().expect("state")
-                else {
-                    unreachable!("invalid_state");
-                };
-                w.render(widget_area, buf, state);
-            }
-            ToolWidget1::BasicCheckbox(n, widget_area, w) => {
-                let ToolState::BasicCheckbox(state) = state.tools[n].as_mut().expect("state")
-                else {
-                    unreachable!("invalid_state");
-                };
-                w.render(widget_area, buf, state);
-            }
-            ToolWidget1::BasicChoice(n, widget_area, w) => {
-                let ToolState::BasicChoice(state) = state.tools[n].as_mut().expect("state") else {
-                    unreachable!("invalid_state");
-                };
-                w.render(widget_area, buf, &mut PairedState::new(&mut (), state));
-            }
-            ToolWidget1::Text(widget_area, w) => {
-                w.render(widget_area, buf);
+        for (n, w) in self.tools.into_iter().enumerate() {
+            match w {
+                ToolWidget1::BasicButton(area, w) => {
+                    let ToolState::BasicButton(state, _) = &mut state.tools[n] else {
+                        panic!("state doesn't match tool-widget");
+                    };
+                    w.render(area, buf, state);
+                }
+                ToolWidget1::BasicCheckbox(area, w) => {
+                    let ToolState::BasicCheckbox(state, _) = &mut state.tools[n] else {
+                        panic!("state doesn't match tool-widget");
+                    };
+                    w.render(area, buf, state);
+                }
+                ToolWidget1::BasicChoice(area, w) => {
+                    let ToolState::BasicChoice(state, _) = &mut state.tools[n] else {
+                        panic!("state doesn't match tool-widget");
+                    };
+                    w.render(area, buf, &mut PairedState::new(&mut (), state));
+                }
+                ToolWidget1::Text(area, w) => {
+                    w.render(area, buf);
+                }
             }
         }
     }
@@ -643,22 +550,16 @@ fn render_ref(widget: ToolbarWidget, area: Rect, buf: &mut Buffer, state: &mut T
 impl<'a> StatefulWidget for ToolbarPopup<'a> {
     type State = ToolbarState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_popup(self, area, buf, state);
-    }
-}
-
-fn render_popup(widget: ToolbarPopup, _area: Rect, buf: &mut Buffer, state: &mut ToolbarState) {
-    for w in widget.tools {
-        match w {
-            ToolWidget2::CollapsedButton(w) => {
-                w.render(Rect::default(), buf, &mut state.collapsed);
-            }
-            ToolWidget2::BasicChoice(n, w) => {
-                let ToolState::BasicChoice(state) = state.tools[n].as_mut().expect("state") else {
-                    unreachable!("invalid_state");
-                };
-                w.render(Rect::default(), buf, state);
+    fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        for (n, w) in self.tools.into_iter().enumerate() {
+            match w {
+                ToolWidget2::BasicChoice(w) => {
+                    let ToolState::BasicChoice(state, _) = &mut state.tools[n] else {
+                        panic!("state doesn't match tool-widget");
+                    };
+                    w.render(Rect::default(), buf, state);
+                }
+                ToolWidget2::None => {}
             }
         }
     }
@@ -669,8 +570,6 @@ impl Default for ToolbarState {
         Self {
             area: Default::default(),
             inner: Default::default(),
-            collapsed: Default::default(),
-            collapsed_active: Default::default(),
             tools: Default::default(),
             focus_before: Default::default(),
             container: Default::default(),
@@ -681,19 +580,23 @@ impl Default for ToolbarState {
 
 impl HasFocus for ToolbarState {
     fn build(&self, builder: &mut FocusBuilder) {
-        for w in self.tools.iter().flatten() {
+        let f = builder.start(self);
+        for w in &self.tools {
             match w {
                 ToolState::BasicButton(w, _) => {
                     builder.widget_navigate(w, Navigation::None);
                 }
-                ToolState::BasicCheckbox(w) => {
+                ToolState::BasicCheckbox(w, _) => {
                     builder.widget_navigate(w, Navigation::None);
                 }
-                ToolState::BasicChoice(w) => {
+                ToolState::BasicChoice(w, _) => {
                     builder.widget_navigate(w, Navigation::Leave);
                 }
+                ToolState::None => {}
+                ToolState::Text => {}
             }
         }
+        builder.end(f);
     }
 
     fn focus(&self) -> FocusFlag {
@@ -711,21 +614,19 @@ impl RelocatableState for ToolbarState {
     fn relocate_popup(&mut self, shift: (i16, i16), clip: Rect) {
         self.area.relocate(shift, clip);
         self.inner.relocate(shift, clip);
-        self.collapsed.relocate(shift, clip);
-        self.collapsed.relocate_popup(shift, clip);
-        for w in self.tools.iter_mut().flatten() {
+        for w in &mut self.tools {
             match w {
-                ToolState::BasicButton(w, active) => {
-                    if *active {
-                        w.relocate(shift, clip);
-                    }
-                }
-                ToolState::BasicCheckbox(w) => {
+                ToolState::BasicButton(w, _) => {
                     w.relocate(shift, clip);
                 }
-                ToolState::BasicChoice(w) => {
+                ToolState::BasicCheckbox(w, _) => {
+                    w.relocate(shift, clip);
+                }
+                ToolState::BasicChoice(w, _) => {
                     w.relocate_popup(shift, clip);
                 }
+                ToolState::None => {}
+                ToolState::Text => {}
             }
         }
     }
@@ -737,9 +638,24 @@ impl ToolbarState {
     }
 }
 
+impl ToolState {
+    pub fn hotkey(&self) -> Option<KeyEvent> {
+        match self {
+            ToolState::BasicButton(_, hk) => hk.clone(),
+            ToolState::BasicCheckbox(_, hk) => hk.clone(),
+            ToolState::BasicChoice(_, hk) => hk.clone(),
+            ToolState::None => None,
+            ToolState::Text => None,
+        }
+    }
+}
+
 /// Result type for event-handling.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
 pub enum ToolbarOutcome {
     /// The given event was not handled at all.
+    #[default]
     Continue,
     /// The event was handled, no repaint necessary.
     Unchanged,
@@ -783,30 +699,17 @@ impl From<ToolbarOutcome> for Outcome {
     }
 }
 
-/// Event-handling uses this as parameters.
-///
-/// A Focus instance is needed to switch Focus between the toolbar
-/// and other widgets.
-///
-/// KeyEvents are in order of the tools.
-///
-pub struct ToolbarKeys<'a, const N: usize> {
-    /// Focus
-    pub focus: &'a Focus,
-    /// Keys.
-    pub keys: [Option<KeyEvent>; N],
-}
-
-impl<const N: usize> HandleEvent<Event, ToolbarKeys<'_, N>, ToolbarOutcome> for ToolbarState {
-    fn handle(&mut self, event: &Event, qualifier: ToolbarKeys<N>) -> ToolbarOutcome {
+impl<'a> HandleEvent<Event, Regular, ToolbarOutcome> for ToolbarState {
+    fn handle(&mut self, event: &Event, _: Regular) -> ToolbarOutcome {
         if let Event::Key(event) = event {
-            for (n, key) in qualifier.keys.iter().enumerate() {
-                if let Some(key) = key.as_ref()
-                    && event.code == key.code
-                    && event.modifiers == key.modifiers
-                {
-                    match &mut self.tools[n] {
-                        Some(ToolState::BasicButton(w, _)) => event_flow!(
+            for (n, tool) in self.tools.iter_mut().enumerate() {
+                let Some(hotkey) = tool.hotkey() else {
+                    continue;
+                };
+                if event.code == hotkey.code && event.modifiers == hotkey.modifiers {
+                    match tool {
+                        ToolState::None => {}
+                        ToolState::BasicButton(w, _) => event_flow!(
                             return {
                                 match w.pressed(event.kind == KeyEventKind::Press) {
                                     ButtonOutcome::Pressed => ToolbarOutcome::Pressed(n),
@@ -814,7 +717,7 @@ impl<const N: usize> HandleEvent<Event, ToolbarKeys<'_, N>, ToolbarOutcome> for 
                                 }
                             }
                         ),
-                        Some(ToolState::BasicCheckbox(w)) => event_flow!(
+                        ToolState::BasicCheckbox(w, _) => event_flow!(
                             return {
                                 if event.kind == KeyEventKind::Press {
                                     w.flip_checked();
@@ -824,18 +727,11 @@ impl<const N: usize> HandleEvent<Event, ToolbarKeys<'_, N>, ToolbarOutcome> for 
                                 }
                             }
                         ),
-                        Some(ToolState::BasicChoice(w)) => event_flow!(
+                        ToolState::BasicChoice(w, _) => event_flow!(
                             return {
                                 if event.kind == KeyEventKind::Press {
-                                    if w.is_focused() {
-                                        if let Some(focus_before) = self.focus_before.as_ref() {
-                                            qualifier.focus.focus(focus_before);
-                                        } else {
-                                            qualifier.focus.next();
-                                        }
-                                    } else {
-                                        qualifier.focus.focus(w);
-                                        self.focus_before = qualifier.focus.lost_focus();
+                                    if let Some(focus) = self.container.focus() {
+                                        focus.flip_focus(w, &mut self.focus_before);
                                     }
                                     ToolbarOutcome::Changed
                                 } else {
@@ -843,74 +739,49 @@ impl<const N: usize> HandleEvent<Event, ToolbarKeys<'_, N>, ToolbarOutcome> for 
                                 }
                             }
                         ),
-                        None => {}
+                        ToolState::Text => {}
                     }
                 }
-            }
-        }
-
-        if self.collapsed_active {
-            match self.collapsed.handle(event, Popup) {
-                ChoiceOutcome::Value | ChoiceOutcome::Changed => event_flow!(
-                    return {
-                        if !self.collapsed.is_popup_active() {
-                            if let Some(value) = self.collapsed.value() {
-                                self.collapsed.set_value(None);
-                                ToolbarOutcome::Pressed(value)
-                            } else {
-                                ToolbarOutcome::Changed
-                            }
-                        } else {
-                            ToolbarOutcome::Changed
-                        }
-                    }
-                ),
-                ChoiceOutcome::Continue => {
-                    if self.collapsed.lost_focus() {
-                        self.collapsed.set_value(None);
-                    }
-                }
-                r => event_flow!(return ToolbarOutcome::from(Outcome::from(r))),
             }
         }
 
         for (n, w) in self.tools.iter_mut().enumerate() {
             match w {
-                Some(ToolState::BasicButton(w, active)) => event_flow!(
-                    return {
-                        if !*active {
-                            continue;
-                        }
-                        match w.handle(event, Regular) {
-                            ButtonOutcome::Pressed => ToolbarOutcome::Pressed(n),
-                            r => ToolbarOutcome::from(Outcome::from(r)),
-                        }
+                ToolState::None => {}
+                ToolState::BasicButton(w, _) => event_flow!(
+                    return match w.handle(event, Regular) {
+                        ButtonOutcome::Pressed => ToolbarOutcome::Pressed(n),
+                        r => ToolbarOutcome::from(Outcome::from(r)),
                     }
                 ),
-                Some(ToolState::BasicCheckbox(w)) => event_flow!(
+                ToolState::BasicCheckbox(w, _) => event_flow!(
                     return match w.handle(event, Regular) {
                         CheckOutcome::Value => ToolbarOutcome::Checked(n, w.value()),
                         r => ToolbarOutcome::from(Outcome::from(r)),
                     }
                 ),
-                Some(ToolState::BasicChoice(w)) => event_flow!(
+                ToolState::BasicChoice(w, _) => event_flow!(
                     return match w.handle(event, Popup) {
                         ChoiceOutcome::Value | ChoiceOutcome::Changed => {
                             if !w.is_popup_active() {
-                                if let Some(focus_before) = self.focus_before.as_ref() {
-                                    qualifier.focus.focus(focus_before);
-                                } else {
-                                    qualifier.focus.next();
+                                if let Some(focus) = self.container.focus() {
+                                    if let Some(focus_before) = self.focus_before.as_ref() {
+                                        focus.focus(focus_before);
+                                    } else {
+                                        focus.next();
+                                    }
                                 }
                                 ToolbarOutcome::Selected(n, w.value())
                             } else {
                                 ToolbarOutcome::Changed
                             }
                         }
-                        r => ToolbarOutcome::from(Outcome::from(r)),
+                        r => {
+                            ToolbarOutcome::from(Outcome::from(r))
+                        }
                     }
                 ),
-                None => {}
+                ToolState::Text => {}
             }
         }
 
