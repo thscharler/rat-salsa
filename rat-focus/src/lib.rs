@@ -174,23 +174,30 @@ pub trait HasFocus {
 
     /// Build the focus-structure for the container/widget.
     ///
-    /// This function is called when the default navigation is
-    /// overridden by calling [FocusBuilder::widget_navigate].
-    /// You only need to implement this function, if you have
-    /// a container-widget, that wants to react to an
-    /// alternate navigation.
+    /// By default, this ignores the navigation flag and forwards
+    /// to build. Implement this function if your widget
+    /// needs to take an overridden navigation-flag into account.
     ///
-    /// For regular widgets this will be called too, but
-    /// the overridden flag will be used by Focus, regardless
-    /// of what you do. It's only useful to get a notification
-    /// of an alternate navigation.
+    /// __Note__
     ///
-    /// It defaults to calling build. If you don't have very
-    /// specific requirements, you need not concern with this;
-    /// just implement [HasFocus::build].
+    /// If you override build_nav() you can leave [build](HasFocus::build)
+    /// empty.
+    ///
+    /// __Return__
+    ///
+    /// * Returns true, if the default behavior is ok. The default is
+    /// that the navigation will be overridden after this call.
+    /// * Returns false, if the overridden flag is handled by the
+    /// widget manually.
+    ///
+    /// __Default__
+    ///
+    /// Default behavior is to call build() and return true.
     #[allow(unused_variables)]
-    fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {
+    #[inline]
+    fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) -> bool {
         self.build(builder);
+        true
     }
 
     /// Access to the focus flag.

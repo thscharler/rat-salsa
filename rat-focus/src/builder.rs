@@ -155,7 +155,7 @@ impl FocusBuilder {
 
     /// Add a widget by calling its `build` function.
     pub fn widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
-        widget.build(self);
+        widget.build_nav(widget.navigable(), self);
         self
     }
 
@@ -169,53 +169,57 @@ impl FocusBuilder {
     /// Enable log to check.
     #[allow(clippy::collapsible_else_if)]
     pub fn widget_navigate(&mut self, widget: &dyn HasFocus, navigation: Navigation) -> &mut Self {
-        widget.build_nav(navigation, self);
+        if widget.build_nav(navigation, self) {
+            self.override_navigation(widget.focus(), navigation);
+        }
+        self
+    }
 
-        let widget_flag = widget.focus();
+    fn override_navigation(&mut self, flag: FocusFlag, navigation: Navigation) {
         // override navigation for the widget
-        if let Some(idx) = self.focus_flags.iter().position(|v| *v == widget_flag) {
+        if let Some(idx) = self.focus_flags.iter().position(|v| *v == flag) {
             focus_debug!(
                 self,
                 "override navigation for {:?} with {:?}",
-                widget_flag,
+                flag,
                 navigation
             );
-
             self.navigable[idx] = navigation;
         } else {
-            if self.container_ids.contains(&widget_flag.widget_id()) {
+            if self.container_ids.contains(&flag.widget_id()) {
                 focus_debug!(
                     self,
-                    "FAIL to override navigation for {:?}. This is a container.",
-                    widget_flag,
+                    "fail to override navigation for {:?}. This is a container.",
+                    flag,
                 );
             } else {
                 focus_debug!(
                     self,
-                    "FAIL to override navigation for {:?}. Widget doesn't use this focus-flag",
-                    widget_flag,
+                    "fail to override navigation for {:?}. Widget doesn't use this focus-flag",
+                    flag,
                 );
             }
         }
-
-        self
     }
 
     /// Add a bunch of widgets.
     #[inline]
     pub fn widgets<const N: usize>(&mut self, widgets: [&dyn HasFocus; N]) -> &mut Self {
         for widget in widgets {
-            widget.build(self);
+            widget.build_nav(widget.navigable(), self);
         }
         self
     }
 
-    /// Start a container widget. Must be matched with
-    /// the equivalent [end](Self::end). Uses focus(), area() and
-    /// z_area() of the given container. navigable() is
-    /// currently not used, just leave it at the default.
+    /// Start a container widget.
     ///
-    /// __Attention__
+    /// Uses focus(), area() and z_area() of the given container.
+    /// navigable() is not used for containers.
+    ///
+    /// Containers can be nested but start/end calls must work
+    /// like braces.
+    ///
+    /// __Return__
     ///
     /// Use the returned value when calling [end](Self::end).
     ///
@@ -227,10 +231,66 @@ impl FocusBuilder {
         self.start_with_flags(container.focus(), container.area(), container.area_z())
     }
 
+    /// Start a container widget with manual flags.
+    ///
+    /// Returns the FocusFlag of the container. This flag must
+    /// be used to close the container with [end](Self::end).
+    ///
+    /// __Return__
+    ///
+    /// Use the returned value when calling [end](Self::end).
+    ///
+    /// __Panic__
+    ///
+    /// Panics if the same container-flag is added twice.
+    #[must_use]
+    pub fn start_with_flags(
+        &mut self,
+        container_flag: FocusFlag,
+        area: Rect,
+        area_z: u16,
+    ) -> FocusFlag {
+        focus_debug!(self, "start container {:?}", container_flag);
+
+        // no duplicates allowed for containers.
+        if self.container_ids.contains(&container_flag.widget_id()) {
+            panic!("Can't add the same container twice.");
+        }
+
+        self.z_base += area_z;
+
+        let len = self.focus_flags.len();
+        self.container_ids.insert(container_flag.widget_id());
+        self.containers.push((
+            Container {
+                container_flag: container_flag.clone(),
+                area: (area, self.z_base),
+                delta_z: area_z,
+                complete: false,
+            },
+            len..len,
+        ));
+
+        container_flag
+    }
+
     /// End a container widget.
+    ///
+    /// Must match the corresponding start().
+    ///
+    /// Containers can be nested, start and end calls must
+    /// work like braces.
+    ///
+    /// __Panic__
+    /// If the container has not been started.
+    /// If the matchup with start() fails.
+    ///
     pub fn end(&mut self, tag: FocusFlag) {
         focus_debug!(self, "end container {:?}", tag);
-        assert!(self.container_ids.contains(&tag.widget_id()));
+
+        if !self.container_ids.contains(&tag.widget_id()) {
+            panic!("Container has not been started");
+        }
 
         for (c, r) in self.containers.iter_mut().rev() {
             if c.container_flag != tag {
@@ -250,11 +310,10 @@ impl FocusBuilder {
         }
     }
 
-    /// Directly add the given widget's flags. Doesn't call
-    /// build() instead it uses focus(), etc. and appends a single widget.
+    /// Directly adds the given widgets flags.
     ///
-    /// This is intended to be used when __implementing__
-    /// HasFocus::build() for a widget.
+    /// Use this when implementing a widget, and you would write
+    /// `builder.widget(self)` which would recurse infinitely.
     ///
     /// In all other situations it's better to use [widget](FocusBuilder::widget)
     /// or [widget_navigate](FocusBuilder::widget_navigate)
@@ -272,29 +331,6 @@ impl FocusBuilder {
         self
     }
 
-    /// Directly add the given widget's flags. Doesn't call
-    /// build() instead it uses focus(), etc. and appends a single widget.
-    /// This function overrides the Navigation flag provided by
-    /// the widget.
-    ///
-    /// This is intended to be used when __implementing__
-    /// HasFocus::build() for a widget.
-    ///
-    /// In all other situations it's better to use [widget](FocusBuilder::widget)
-    /// or [widget_navigate](FocusBuilder::widget_navigate)
-    ///
-    /// __Panic__
-    ///
-    /// Panics if the same focus-flag is added twice.
-    pub fn leaf_with_navigation(
-        &mut self,
-        widget: &dyn HasFocus,
-        navigable: Navigation,
-    ) -> &mut Self {
-        self.leaf_with_flags(widget.focus(), widget.area(), widget.area_z(), navigable);
-        self
-    }
-
     #[deprecated(since = "2.0.2", note = "use leaf_with_flags instead")]
     pub fn widget_with_flags(
         &mut self,
@@ -306,10 +342,10 @@ impl FocusBuilder {
         self.leaf_with_flags(focus, area, area_z, navigable)
     }
 
-    /// Manually add a widgets flags.
+    /// Directly adds the given widgets flags.
     ///
-    /// This is intended to be used when __implementing__
-    /// HasFocus::build() for a widget.
+    /// Use this when implementing a widget, and you would write
+    /// `builder.widget(self)` which would recurse infinitely.
     ///
     /// In all other situations it's better to use [widget](FocusBuilder::widget)
     /// or [widget_navigate](FocusBuilder::widget_navigate)
@@ -317,7 +353,7 @@ impl FocusBuilder {
     /// __Panic__
     ///
     /// Panics if the same focus-flag is added twice.
-    /// Except it is allowable to add the flag a second time with
+    /// Except that it is allowable to add the flag a second time with
     /// Navigation::Mouse or Navigation::None
     pub fn leaf_with_flags(
         &mut self,
@@ -347,43 +383,6 @@ impl FocusBuilder {
         self.duplicate.push(duplicate);
         self.areas.push((area, self.z_base + area_z));
         self.navigable.push(navigable);
-    }
-
-    /// Start a container widget.
-    ///
-    /// Returns the FocusFlag of the container. This flag must
-    /// be used to close the container with [end](Self::end).
-    ///
-    /// __Panic__
-    ///
-    /// Panics if the same container-flag is added twice.
-    #[must_use]
-    pub fn start_with_flags(
-        &mut self,
-        container_flag: FocusFlag,
-        area: Rect,
-        area_z: u16,
-    ) -> FocusFlag {
-        focus_debug!(self, "start container {:?}", container_flag);
-
-        // no duplicates allowed for containers.
-        assert!(!self.container_ids.contains(&container_flag.widget_id()));
-
-        self.z_base += area_z;
-
-        let len = self.focus_flags.len();
-        self.container_ids.insert(container_flag.widget_id());
-        self.containers.push((
-            Container {
-                container_flag: container_flag.clone(),
-                area: (area, self.z_base),
-                delta_z: area_z,
-                complete: false,
-            },
-            len..len,
-        ));
-
-        container_flag
     }
 
     // Cleanup widgets no longer in the Focus.

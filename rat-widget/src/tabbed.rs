@@ -475,11 +475,9 @@ impl Clone for TabbedState {
 }
 
 impl HasFocus for TabbedState {
-    fn build(&self, builder: &mut FocusBuilder) {
-        builder.leaf_widget(self);
-    }
+    fn build(&self, _: &mut FocusBuilder) {}
 
-    fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) {
+    fn build_nav(&self, navigable: Navigation, builder: &mut FocusBuilder) -> bool {
         if !matches!(navigable, Navigation::None | Navigation::Leave) {
             builder.leaf_with_flags(
                 self.focus(),
@@ -488,8 +486,9 @@ impl HasFocus for TabbedState {
                 navigable,
             );
         } else {
-            self.build(builder);
+            builder.leaf_widget(self);
         }
+        false
     }
 
     fn focus(&self) -> FocusFlag {
