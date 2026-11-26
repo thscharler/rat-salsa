@@ -63,7 +63,8 @@ impl Focus {
             if let Some(flip_focus) = flip_focus {
                 core.focus(flip_focus, true);
             } else {
-                focus_debug!(core, "    -> no previous widget");
+                core.expel(&flag);
+                focus_debug!(core, "    -> no previous widget. expel");
             }
             *flip_focus = None;
         } else {
