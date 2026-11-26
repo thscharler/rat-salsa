@@ -15,24 +15,12 @@ macro_rules! focus_debug {
     }
 }
 
-macro_rules! focus_fail {
-    ($core:expr, $($arg:tt)+) => {
-        if $core.log.get() {
-            log::log!(log::Level::Debug, $($arg)+);
-        }
-        if $core.insta_panic.get() {
-            panic!($($arg)+)
-        }
-    }
-}
-
 /// Builder for the Focus.
 #[derive(Debug, Default)]
 pub struct FocusBuilder {
     last: Option<FocusCore>,
 
     log: Cell<bool>,
-    insta_panic: Cell<bool>,
 
     // base z value.
     // starting a container adds the z-value of the container
@@ -85,7 +73,6 @@ impl FocusBuilder {
             Self {
                 last: Some(last),
                 log: Default::default(),
-                insta_panic: Default::default(),
                 z_base: 0,
                 focus_ids: core.focus_ids,
                 focus_flags: core.focus_flags,
@@ -159,14 +146,12 @@ impl FocusBuilder {
     }
 
     /// Enable insta-panic for certain failures.
-    pub fn enable_panic(&self) {
-        self.insta_panic.set(true);
-    }
+    #[deprecated(since = "2.3.0", note = "no longer in use")]
+    pub fn enable_panic(&self) {}
 
     /// Disable insta-panic for certain failures.
-    pub fn disable_panic(&self) {
-        self.insta_panic.set(false);
-    }
+    #[deprecated(since = "2.3.0", note = "no longer in use")]
+    pub fn disable_panic(&self) {}
 
     /// Add a widget by calling its `build` function.
     pub fn widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
@@ -199,13 +184,13 @@ impl FocusBuilder {
             self.navigable[idx] = navigation;
         } else {
             if self.container_ids.contains(&widget_flag.widget_id()) {
-                focus_fail!(
+                focus_debug!(
                     self,
                     "FAIL to override navigation for {:?}. This is a container.",
                     widget_flag,
                 );
             } else {
-                focus_fail!(
+                focus_debug!(
                     self,
                     "FAIL to override navigation for {:?}. Widget doesn't use this focus-flag",
                     widget_flag,
@@ -439,7 +424,6 @@ impl FocusBuilder {
         // build new core
         FocusCore {
             log: Default::default(),
-            insta_panic: Default::default(),
             focus_ids: self.focus_ids,
             focus_flags: self.focus_flags,
             duplicate: self.duplicate,
@@ -478,9 +462,6 @@ impl FocusBuilder {
             }
         }
 
-        Focus {
-            last,
-            core,
-        }
+        Focus { last, core }
     }
 }

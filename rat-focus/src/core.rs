@@ -14,16 +14,6 @@ macro_rules! focus_debug {
     }
 }
 
-macro_rules! focus_fail {
-    ($core:expr, $($arg:tt)+) => {
-        if $core.insta_panic.get() {
-            panic!($($arg)+)
-        } else if $core.log.get() {
-            log::log!(log::Level::Debug, $($arg)+);
-        }
-    }
-}
-
 /// Struct for the data of the focus-container itself.
 #[derive(Debug, Clone)]
 pub(crate) struct Container {
@@ -45,7 +35,6 @@ pub(crate) struct Container {
 pub(crate) struct FocusCore {
     /// Focus logging
     pub(crate) log: Cell<bool>,
-    pub(crate) insta_panic: Cell<bool>,
 
     /// List of focus-ids.
     pub(crate) focus_ids: HashSet<usize, FxBuildHasher>,
@@ -89,7 +78,6 @@ impl Clone for FocusCore {
     fn clone(&self) -> Self {
         Self {
             log: self.log.clone(),
-            insta_panic: self.insta_panic.clone(),
             focus_ids: self.focus_ids.clone(),
             focus_flags: self.focus_flags.clone(),
             duplicate: self.duplicate.clone(),
@@ -230,7 +218,6 @@ impl FocusCore {
 
         FocusCore {
             log: Cell::new(false),
-            insta_panic: Cell::new(false),
             focus_ids,
             focus_flags,
             duplicate,
@@ -360,7 +347,7 @@ impl FocusCore {
                 if f.container_flag.call_on_lost() {
                     focus_debug!(
                         self,
-                        "-> notify_on_lost container {:?}",
+                        "    -> notify_on_lost container {:?}",
                         f.container_flag.name()
                     );
                 }
@@ -370,7 +357,7 @@ impl FocusCore {
                 if f.container_flag.call_on_gained() {
                     focus_debug!(
                         self,
-                        "-> notify_on_gained container {:?}",
+                        "    -> notify_on_gained container {:?}",
                         f.container_flag.name()
                     );
                 }
@@ -396,6 +383,7 @@ impl FocusCore {
             self.__start_change(true);
             self.__focus(n, true);
             self.__accumulate();
+            focus_debug!(self, "    -> first focus set");
         } else {
             focus_debug!(self, "    -> no navigable widget");
         }
@@ -405,6 +393,7 @@ impl FocusCore {
     pub(crate) fn none(&self) {
         self.__start_change(true);
         self.__accumulate();
+        focus_debug!(self, "    -> focus set to `None`",);
     }
 
     /// Set the focus at the given widget.
@@ -413,20 +402,30 @@ impl FocusCore {
             self.__start_change(set_lost);
             self.__focus(n, set_lost);
             self.__accumulate();
+            focus_debug!(
+                self,
+                "    -> focus set to {:?}",
+                self.focus_flags[n].name()
+            );
         } else if let Some((_idx, range)) = self.container_index_of(widget) {
             if let Some(n) = self.first_navigable(range.start) {
                 if n < range.end {
                     self.__start_change(set_lost);
                     self.__focus(n, set_lost);
                     self.__accumulate();
+                    focus_debug!(
+                        self,
+                        "    -> focus set to {:?}",
+                        self.focus_flags[n].name()
+                    );
                 } else {
                     focus_debug!(self, "    -> no navigable widget for container");
                 }
             } else {
-                focus_debug!(self, "    -> no navigable widget");
+                focus_debug!(self, "    -> no navigable widget for container");
             }
         } else {
-            focus_fail!(self, "    => container not found");
+            focus_debug!(self, "ERR: not part of this focus");
         }
     }
 
@@ -441,7 +440,7 @@ impl FocusCore {
             if sub.area.0.contains(pos) {
                 focus_debug!(
                     self,
-                    "    container area-match {:?} {:?} z={}",
+                    "    | container area-match {:?} {:?} z={}",
                     sub.container_flag.name(),
                     sub.area.0,
                     sub.area.1
@@ -467,7 +466,7 @@ impl FocusCore {
             if area.0.contains(pos) {
                 focus_debug!(
                     self,
-                    "    area-match {:?} {:?} z={}",
+                    "    | area-match {:?} {:?} z={}",
                     self.focus_flags[idx].name(),
                     area.0,
                     area.1
@@ -498,7 +497,7 @@ impl FocusCore {
         for (idx, _) in z_container.iter().copied() {
             focus_debug!(
                 self,
-                "    => unobscured {:?} {:?} z={}",
+                "    -> unobscured {:?} {:?} z={}",
                 self.containers[idx].0.container_flag.name(),
                 self.containers[idx].0.area.0,
                 self.containers[idx].0.area.1
@@ -509,7 +508,7 @@ impl FocusCore {
         for (idx, _) in z_widget.iter().copied() {
             focus_debug!(
                 self,
-                "    => unobscured {:?} {:?} z={}",
+                "    -> unobscured {:?} {:?} z={}",
                 self.focus_flags[idx].name(),
                 self.areas[idx].0,
                 self.areas[idx].1,
@@ -545,7 +544,7 @@ impl FocusCore {
             if sub.area.0.contains(pos) {
                 focus_debug!(
                     self,
-                    "    container area-match {:?} {:?}",
+                    "    | container area-match {:?} {:?}",
                     sub.container_flag.name(),
                     sub.area.0
                 );
@@ -566,7 +565,7 @@ impl FocusCore {
             if area.0.contains(pos) {
                 focus_debug!(
                     self,
-                    "    area-match {:?} {:?}",
+                    "    | area-match {:?} {:?}",
                     self.focus_flags[idx].name(),
                     area.0
                 );
@@ -591,6 +590,11 @@ impl FocusCore {
                         self.__start_change(true);
                         let r = self.__focus(idx, true);
                         self.__accumulate();
+                        focus_debug!(
+                            self,
+                            "    -> focus set to {:?}",
+                            self.focus_flags[idx].name()
+                        );
                         return r;
                     } else {
                         focus_debug!(
@@ -607,6 +611,11 @@ impl FocusCore {
                         self.__start_change(true);
                         let r = self.__focus(n, true);
                         self.__accumulate();
+                        focus_debug!(
+                            self,
+                            "    -> focus set to {:?}",
+                            self.focus_flags[idx].name()
+                        );
                         return r;
                     }
                 }
@@ -669,7 +678,7 @@ impl FocusCore {
         if let Some(n) = self.first_navigable(0) {
             focus_debug!(
                 self,
-                "    use first_navigable {}:{:?}",
+                "    | use first_navigable {}:{:?}",
                 n,
                 self.focus_flags[n].name()
             );
@@ -695,7 +704,7 @@ impl FocusCore {
         if let Some(n) = self.first_navigable(0) {
             focus_debug!(
                 self,
-                "    use first_navigable {}:{:?}",
+                "    | use first_navigable {}:{:?}",
                 n,
                 self.focus_flags[n].name()
             );
@@ -735,12 +744,12 @@ impl FocusCore {
     fn first_navigable(&self, start: usize) -> Option<usize> {
         focus_debug!(
             self,
-            "first navigable, start at {}:{:?} ",
+            "    | find first navigable. start at {}:{:?} ",
             start,
             if start < self.focus_flags.len() {
                 self.focus_flags[start].name()
             } else {
-                "beginning".into()
+                "0".into()
             }
         );
         for n in start..self.focus_flags.len() {
@@ -763,7 +772,7 @@ impl FocusCore {
     fn next_navigable(&self, start: usize) -> usize {
         focus_debug!(
             self,
-            "next navigable after {}:{:?}",
+            "    | find next navigable after {}:{:?}",
             start,
             if start < self.focus_flags.len() {
                 self.focus_flags[start].name()
@@ -790,7 +799,7 @@ impl FocusCore {
                 return n;
             }
             if n == start {
-                focus_debug!(self, "    -> {}:end at start", n);
+                focus_debug!(self, "    -> loop complete. none found");
                 return n;
             }
         }
@@ -800,7 +809,7 @@ impl FocusCore {
     fn prev_navigable(&self, start: usize) -> usize {
         focus_debug!(
             self,
-            "prev navigable before {}:{:?}",
+            "    | find prev navigable before {}:{:?}",
             start,
             self.focus_flags[start].name()
         );
@@ -823,7 +832,7 @@ impl FocusCore {
                 return n;
             }
             if n == start {
-                focus_debug!(self, "    -> {}:end at start", n);
+                focus_debug!(self, "    -> loop complete. none found");
                 return n;
             }
         }
