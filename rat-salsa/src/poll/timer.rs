@@ -1,7 +1,6 @@
 use crate::Control;
 use crate::poll::PollEvents;
 use crate::timer::{TimeOut, Timers};
-use std::any::Any;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -28,10 +27,6 @@ where
     Event: 'static + From<TimeOut>,
     Error: 'static + From<std::io::Error>,
 {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn sleep_time(&self) -> Option<Duration> {
         self.timers.sleep_time()
     }
