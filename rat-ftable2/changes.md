@@ -8,6 +8,7 @@
 * fix: skip rows by iterating over them instead of using nth.
   this gives an exact row-count even for iterators that
   don't provide a size_hint.
+* feat: move a few temporary allocations to the state and reuse them.
 
 # 0.4.2
 

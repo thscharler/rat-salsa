@@ -1,6 +1,6 @@
 # 4.5.4
 
-* add popup-scroll style for Toolbar
+* fix: Styles for Toolbar
 
 # 4.5.3
 

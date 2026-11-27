@@ -1,3 +1,7 @@
+# 3.1.3
+
+* fix: BREAK: build_nav() gets a bool return value.
+
 # 3.1.2
 
 * fix: Focus: rename mouse-focus to 'obscured', makes the 

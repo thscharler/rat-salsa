@@ -1,3 +1,8 @@
+# 2.1.3
+
+* docs
+* deprecate FromBool. It's not very memorable and just overengineering.
+
 # 2.1.2
 
 * fix some docs

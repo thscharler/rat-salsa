@@ -1,3 +1,8 @@
+# 4.0.5
+
+* fix: sync code with rat-salsa-wgpu. minor.
+* fix: use Rc::weak instead of Option<Rc<_>> in some places.
+
 # 4.0.4
 
 * fix TimerHandle default

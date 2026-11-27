@@ -51,3 +51,4 @@ while_let_loop = "allow"
 
 [workspace.lints.cargo]
 unused_dependencies = "allow"
+unused_workspace_dependencies = "allow"

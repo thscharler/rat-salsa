@@ -1,6 +1,6 @@
 [package]
 name = "rat-salsa"
-version = "4.0.4"
+version = "4.0.5"
 authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2024"
 description = "ratatui widgets and a crossterm event-loop"
@@ -25,18 +25,15 @@ dialog = ["try_as_traits"]
 dialog_widgets = ["dialog", "rat-widget"]
 
 [dependencies]
-log = "0.4"
 crossbeam = "0.8"
-try_as_traits = { version = "0.1", optional = true }
-tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
-
-ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
-#ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
-ratatui-crossterm = { version = "0.1" }
-
+log = "0.4"
 rat-event = { workspace = true }
 rat-focus = { workspace = true }
 rat-widget = { workspace = true, optional = true, features = ["user_directories"] }
+ratatui-core = { version = "0.1", features = ["std", "layout-cache"] }
+ratatui-crossterm = { version = "0.1" }
+tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
+try_as_traits = { version = "0.1", optional = true }
 
 [dev-dependencies]
 anyhow = "1.0"
@@ -45,16 +42,16 @@ configparser = { version = "3.1", features = ["indexmap"] }
 dirs = "7.0"
 fern = "0.7"
 rand = "0.10"
+rat-theme4 = { workspace = true }
+rat-widget = { workspace = true, features = ["user_directories", "cli-clipboard"] }
+ratatui-widgets = { version = "0.3", features = ["std", "unstable-rendered-line-info"] }
 regex-cursor = "0.1.5"
 ropey = "1.6.1"
 sysinfo = "0.40"
-unicode-segmentation = "1.11"
-unicode-width = "0.2.0"
 unic-ucd = "0.9"
 unicode-script = "0.5"
-
-rat-widget = { workspace = true, features = ["user_directories", "cli-clipboard"] }
-rat-theme4 = { workspace = true }
+unicode-segmentation = "1.11"
+unicode-width = "0.2.0"
 
 [[example]]
 name = "async1"

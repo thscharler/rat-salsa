@@ -2,7 +2,40 @@
 
 * feat: add Hyperlink widget.
 * feat: Choice: add hover functionality independent of the selection.
-* feat: Toolbar: add Scrollbar for choice tool.
+* feat: Toolbar: Radically simplified.
+  * remove collapsing buttons.
+  * use Layout for the actual layout with all features exposed.
+  * move hotkey definition to the widget.
+  * add Scroll for Choice tool
+* fix: Tabbed: BREAK: build_nav() gets a bool return value.
+
+## Focus
+
+* minor BREAK: build_nav() gets a bool return value.
+  This resolves the entanglement with build().
+  The FocusBuilder now *always* calls build_nav() which, by
+  default just forwards to build and returns true.
+  By returning false here the widget now can veto the
+  overridden navigation-flag and do whatever it needs.
+
+* feat: add the ability to access the Focus through FocusFlag.
+  This gives widget implementations access to the current Focus it joined.
+
+* fix: flip_focus() should reset the temporary flag.
+* fix: a few more functions are deprecated now, proven useless.
+
+## Table2
+
+* fix: implement Debug for States
+* fix: some quirks with table-editing.
+* fix: row count was wrong if there is less than one page of data.
+* fix: for tables with a single row-height don't try
+  to find the row-height for every data-row.
+* fix: skip rows by iterating over them instead of using nth.
+  this gives an exact row-count even for iterators that
+  don't provide a size_hint. assume that a size-hint other than
+  0 is correct and use the fast path with nth() for this case.
+* feat: move a few temporary allocations to the state and reuse them.
 
 # 3.3.2
 

@@ -1,7 +1,17 @@
 # 2.3.0
 
-* feat: add FocusBuilder::leaf_with_navigation().
+* minor BREAK: build_nav() gets a bool return value.
+  This resolves the entanglement with build().
+  The FocusBuilder now *always* calls build_nav() which, by
+  default just forwards to build and returns true.
+  By returning false here the widget now can veto the
+  overridden navigation-flag and do whatever it needs.
+
+* feat: add the ability to access the Focus through FocusFlag.
+  This gives widget implementations access to the current Focus it joined.
+
 * fix: flip_focus() should reset the temporary flag.
+* fix: a few more functions are deprecated now, proven useless.
 
 # 2.2.1
 
@@ -9,13 +19,13 @@
 
 # 2.2.0
 
-* break: rename the 'mouse_focus' features to 'obscured'. 
-the previous name is too confusing. It can now be described
-with a single sentence instead of 4 paragraphs.
-* feat: obscured needs to work with multiple widgets in the 
-same location. Widgets like Split and Tabbed occupy the same 
-space as their content and should not be inhibited to act 
-on mouse-events.
+* break: rename the 'mouse_focus' features to 'obscured'.
+  the previous name is too confusing. It can now be described
+  with a single sentence instead of 4 paragraphs.
+* feat: obscured needs to work with multiple widgets in the
+  same location. Widgets like Split and Tabbed occupy the same
+  space as their content and should not be inhibited to act
+  on mouse-events.
 
 * docs for macros
 
@@ -26,17 +36,17 @@ on mouse-events.
 # 2.1.0
 
 * feat: Add the new feature 'mouse-focus' to FocusFlag.
-When event-handling a mouse-event, Focus will run a hit-test for widgets
-and container areas and set the flag accordingly. This will consider any
-overlapping areas and the z-index of the area. This gives the widget a 
-clear marker whether a mouse-event is meant for it or some other widget.
+  When event-handling a mouse-event, Focus will run a hit-test for widgets
+  and container areas and set the flag accordingly. This will consider any
+  overlapping areas and the z-index of the area. This gives the widget a
+  clear marker whether a mouse-event is meant for it or some other widget.
 
-* refactor: rename widget_with_flags() to leaf_with_flags() 
+* refactor: rename widget_with_flags() to leaf_with_flags()
 
 # 2.0.2
 
 * fix: reexport types used in macros. they will not be available if
-the user imports ratatui instead of ratatui_core. 
+  the user imports ratatui instead of ratatui_core.
 
 # 2.0.1
 
@@ -92,8 +102,7 @@ and on_lost() callbacks:
 
 * docs
 * fix: don't reexport rat-event.
-* fix: when setting the focus to a container, set to the first
-  *navigable* widget instead of just the first.
+* fix: when setting the focus to a container, set to the first *navigable* widget instead of just the first.
 * fix: remove FocusTraversal. Not useful enough.
 
 * feature: add Focus::future() to set the focus to a widget
