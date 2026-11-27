@@ -1,3 +1,7 @@
+# 3.1.4
+
+* fix: don't need build_nav() in the end.
+
 # 3.1.3
 
 * fix: BREAK: build_nav() gets a bool return value.
