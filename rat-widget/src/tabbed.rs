@@ -609,7 +609,11 @@ impl HandleEvent<Event, Regular, TabbedOutcome> for TabbedState {
 impl HandleEvent<Event, MouseOnly, TabbedOutcome> for TabbedState {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> TabbedOutcome {
         if self.is_obscured() {
-            return TabbedOutcome::Continue;
+            if self.mouse.clear_hover() {
+                return TabbedOutcome::Changed;
+            } else {
+                return TabbedOutcome::Continue;
+            }
         }
 
         match event {
