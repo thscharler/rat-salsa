@@ -16,7 +16,7 @@ impl TabWidget for GluedTabs {
     fn layout(&self, area: Rect, tabbed: &Tabbed<'_>, state: &mut TabbedState) {
         state.area = area;
 
-        let margin_offset = 1 + if tabbed.block.is_some() { 1 } else { 0 };
+        let margin_offset = if tabbed.block.is_some() { 1 } else { 0 };
         let close_width = if tabbed.closeable { 2 } else { 0 };
 
         let max_width = tabbed
