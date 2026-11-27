@@ -1,5 +1,6 @@
 # 2.3.1
 
+* feat: better alternate debug format {:#?}
 * fix: obscured is not applicable for drag events. 
 
 # 2.3.0
