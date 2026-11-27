@@ -221,7 +221,7 @@ impl<'a> Tabbed<'a> {
     }
 
     /// Tab-text.
-    pub fn tabs(mut self, tabs: impl IntoIterator<Item = impl Into<Line<'a>>>) -> Self {
+    pub fn tabs(mut self, tabs: impl IntoIterator<Item=impl Into<Line<'a>>>) -> Self {
         self.tabs = tabs.into_iter().map(|v| v.into()).collect::<Vec<_>>();
         self
     }
@@ -323,7 +323,7 @@ impl<'a> Tabbed<'a> {
                 tab: rc.clone(), //
             },
             TabbedWidget {
-                tab:rc, //
+                tab: rc, //
             },
         )
     }
@@ -586,15 +586,24 @@ impl TabbedState {
 impl HandleEvent<Event, Regular, TabbedOutcome> for TabbedState {
     fn handle(&mut self, event: &Event, _qualifier: Regular) -> TabbedOutcome {
         if self.is_focused() {
-            event_flow!(
-                return match event {
-                    ct_event!(keycode press Left) => self.prev_tab().into(),
-                    ct_event!(keycode press Right) => self.next_tab().into(),
-                    ct_event!(keycode press Up) => self.prev_tab().into(),
-                    ct_event!(keycode press Down) => self.next_tab().into(),
-                    _ => TabbedOutcome::Continue,
+            event_flow!(return {
+                let tab_change = match event {
+                    ct_event!(keycode press Left) => Some(self.prev_tab()),
+                    ct_event!(keycode press Right) => Some(self.next_tab()),
+                    ct_event!(keycode press Up) => Some(self.prev_tab()),
+                    ct_event!(keycode press Down) => Some(self.next_tab()),
+                    _ => None,
+                };
+                if let Some(true) = tab_change {
+                    if let Some(selected) = self.selected {
+                        TabbedOutcome::Select(selected)
+                    } else {
+                        TabbedOutcome::Changed
+                    }
+                } else {
+                    TabbedOutcome::Continue
                 }
-            );
+            });
         }
 
         self.handle(event, MouseOnly)
@@ -620,17 +629,17 @@ impl HandleEvent<Event, MouseOnly, TabbedOutcome> for TabbedState {
                 }
             }
             ct_event!(mouse down Left for x, y)
-                if self.tab_title_area.contains((*x, *y).into()) =>
-            {
-                if let Some(sel) = self.mouse.item_at(&self.tab_title_close_areas, *x, *y) {
-                    TabbedOutcome::Close(sel)
-                } else if let Some(sel) = self.mouse.item_at(&self.tab_title_areas, *x, *y) {
-                    self.select(Some(sel));
-                    TabbedOutcome::Select(sel)
-                } else {
-                    TabbedOutcome::Continue
+            if self.tab_title_area.contains((*x, *y).into()) =>
+                {
+                    if let Some(sel) = self.mouse.item_at(&self.tab_title_close_areas, *x, *y) {
+                        TabbedOutcome::Close(sel)
+                    } else if let Some(sel) = self.mouse.item_at(&self.tab_title_areas, *x, *y) {
+                        self.select(Some(sel));
+                        TabbedOutcome::Select(sel)
+                    } else {
+                        TabbedOutcome::Continue
+                    }
                 }
-            }
 
             _ => TabbedOutcome::Continue,
         }
