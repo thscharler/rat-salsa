@@ -506,7 +506,11 @@ impl<'a> Split<'a> {
     /// Use [SplitState::widget_areas] to render your contents, and
     /// then render the SplitWidget. This allows it to render some
     /// decorations on top of your widgets.
-    #[deprecated(since = "2.4.0", note = "use into_widgets() instead")]
+    ///
+    /// __Note__
+    ///
+    /// If you don't use [SplitType::Scroll] you can just render
+    /// the splitter immediately and render your content next.
     pub fn into_widget(self, area: Rect, state: &mut SplitState) -> SplitWidget<'a> {
         layout_split(&self, area, state);
         SplitWidget {
@@ -522,7 +526,7 @@ impl<'a> Split<'a> {
     /// Render your content first, using the layout information.
     /// And the SplitWidget as last to allow rendering over
     /// the content widgets.
-    #[deprecated(since = "2.4.0", note = "use into_widgets() instead")]
+    #[deprecated(since = "2.4.0", note = "use into_widget() instead")]
     pub fn into_widget_layout(
         self,
         area: Rect,
@@ -548,6 +552,12 @@ impl<'a> Split<'a> {
     ///
     /// The SplitWidget actually renders the split itself.
     /// Render it after you finished with the content.
+    ///
+    /// __Note__
+    ///
+    /// Use this if you need to render the splitter inside a Clipper
+    /// or Form. The result fits in with [Clipper::render2][crate::Clipper::render2].
+    ///
     pub fn into_widgets(self) -> (LayoutWidget<'a>, SplitWidget<'a>) {
         let split = Rc::new(self);
         (
@@ -763,7 +773,6 @@ impl HasFocus for SplitState {
         self.focus.clone()
     }
 
-    #[allow(clippy::misnamed_getters)]
     fn area(&self) -> Rect {
         self.inner
     }
