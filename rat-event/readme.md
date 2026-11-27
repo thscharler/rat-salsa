@@ -58,16 +58,6 @@ There are predefined qualifiers
   often it requires a distinct return type and it's not
   as generally needed as other mouse behaviour.
 
-* [Popup](Popup) - __obsolete__
-  With the latest changes in focus handling this is now obsolete. 
-
-  Popup event-handlers are regular event-handlers,
-  but they need processing before regular event-handlers.
-  This is used for widgets that render popups above other widgets,
-  and must make sure that event-handling for the popup doesn't
-  interfere with widgets below the popup. By ensuring the order
-  of event-handling most of the problems can be solved.
-
 * [Dialog](Dialog) - Specialized event-handler for dialog-like
   popups. They want to be called first to be able to consume
   **all** events, thus blocking everything else.
