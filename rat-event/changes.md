@@ -1,3 +1,7 @@
+# 2.1.4
+
+* add clear_hover() and clear_drag()
+
 # 2.1.3
 
 * docs

@@ -219,6 +219,13 @@ impl MouseFlags {
         column_at_drag(encompassing, areas, x_pos)
     }
 
+    /// Resets the hover flag.
+    pub fn clear_hover(&self) -> bool {
+        let hover = self.hover.get();
+        self.hover.set(false);
+        hover
+    }
+
     /// Checks if this is a hover event for the widget.
     pub fn hover(&self, area: Rect, event: &MouseEvent) -> bool {
         match event {
@@ -238,6 +245,13 @@ impl MouseFlags {
             }
             _ => false,
         }
+    }
+
+    /// Resets the hover flags.
+    pub fn clear_drag(&self) -> bool {
+        let drag = self.drag.get();
+        self.drag.set(false);
+        drag
     }
 
     /// Checks if this is a drag event for the widget.
@@ -489,6 +503,13 @@ impl MouseFlagsN {
         column_at_drag(encompassing, areas, x_pos)
     }
 
+    /// Resets the hover flags.
+    pub fn clear_hover(&self) -> bool {
+        let hover = self.hover.get();
+        self.hover.set(None);
+        hover.is_some()
+    }
+
     /// Checks if this is a hover event for the widget.
     pub fn hover(&self, areas: &[Rect], event: &MouseEvent) -> bool {
         match event {
@@ -508,6 +529,13 @@ impl MouseFlagsN {
             }
             _ => false,
         }
+    }
+
+    /// Resets the hover flags.
+    pub fn clear_drag(&self) -> bool {
+        let drag = self.drag.get();
+        self.drag.set(None);
+        drag.is_some()
     }
 
     /// Checks if this is a drag event for the widget.
