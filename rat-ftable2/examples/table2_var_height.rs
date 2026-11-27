@@ -72,7 +72,7 @@ fn render(
         .split(area);
 
     let mut tmp = String::default();
-    let mut fmt1 = NumberFormat::new("000000").expect("fmt");
+    let fmt1 = NumberFormat::new("000000").expect("fmt");
     let mut fmt2 = NumberFormat::new("####0.00").expect("fmt");
     let mut fmt3 = fmt1.clone();
 

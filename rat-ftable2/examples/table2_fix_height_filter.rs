@@ -86,8 +86,8 @@ fn render(
             Constraint::Length(15),
             Constraint::Length(3),
         ])
-        .row_height(|v, _| 2)
-        .render_row(|_v, mut area, buf, _ctx| {
+        .row_height(|_, _| 2)
+        .render_row(|_, mut area, buf, _ctx| {
             if area.height > 1 {
                 area.x = 7;
                 area.y = 1;

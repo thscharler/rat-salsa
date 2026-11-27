@@ -4,6 +4,7 @@
 //! ```
 //! # use rat_event::Regular;
 //! # use rat_theme4::{StyleName, WidgetStyle};
+//! # use rat_theme4::theme::SalsaTheme;
 //! # use rat_widget::event::{HandleEvent, Outcome, event_flow};
 //! # use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
 //! # use rat_widget::toolbar::{Toolbar, ToolbarOutcome, ToolbarState};
@@ -13,24 +14,34 @@
 //! # use ratatui_core::widgets::StatefulWidget;
 //! # use ratatui_crossterm::crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 //!
+//! # let mut buf = Buffer::default();
+//! # let buf = &mut buf;
+//! # let mut theme = SalsaTheme::default();
+//! # let mut tools = ToolbarState::default();
+//! # let mut l0 = [Rect::default()];
+//!
+//!     let mut v1 = true;
+//!     let mut v2 = true;
+//!     let mut v3 = 0;
+//!
 //!     let (w, p) = Toolbar::new()
 //!         .text("ABC")
 //!         .button("F1", "Function")
 //!         .hotkey(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE))
 //!         .button("F2", "Function")
 //!         .hotkey(KeyEvent::new(KeyCode::F(2), KeyModifiers::NONE))
-//!         .checkbox("A", "nticipate", state.anticipate)
+//!         .checkbox("A", "nticipate", v1)
 //!         .hotkey(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE))
 //!         .button("F3", "Function")
 //!         .hotkey(KeyEvent::new(KeyCode::F(3), KeyModifiers::NONE))
-//!         .checkbox("B", "eatification", state.beatification)
+//!         .checkbox("B", "eatification", v2)
 //!         .hotkey(KeyEvent::new(KeyCode::Char('b'), KeyModifiers::NONE))
-//!         .choice("F7", ["Choose 1", "Choose 2", "Choose 3"], state.chosen)
+//!         .choice("F7", ["Choose 1", "Choose 2", "Choose 3"], v3)
 //!         .hotkey(KeyEvent::new(KeyCode::F(7), KeyModifiers::NONE))
-//!         .styles(ctx.theme.style(WidgetStyle::TOOLBAR))
-//!         .into_widgets(l0[0], &mut state.tools);
+//!         .styles(theme.style(WidgetStyle::TOOLBAR))
+//!         .into_widgets(l0[0], &mut tools);
 //!
-//!     w.render(l0[0], buf, &mut state.tools);
+//!     w.render(l0[0], buf, &mut tools);
 //! ```
 
 use crate::_private::NonExhaustive;

@@ -563,7 +563,7 @@ mod glyph_info {
 
 mod glyphs {
     use log::debug;
-    use rat_event::{FromBool, HandleEvent, Outcome, Regular, ct_event, event_flow};
+    use rat_event::{HandleEvent, Outcome, Regular, ct_event, event_flow};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::reloc::{RelocatableState, relocate_area, relocate_pos_tuple_opt};
     use rat_widget::text::HasScreenCursor;
@@ -896,8 +896,19 @@ mod glyphs {
             if self.is_focused() {
                 event_flow!(
                     return match event {
-                        ct_event!(keycode press Home) => self.first().as_changed_continue(),
-                        ct_event!(keycode press End) => self.last().as_changed_continue(),
+                        ct_event!(keycode press Home) =>
+                            if self.first() {
+                                Outcome::Changed
+                            } else {
+                                Outcome::Continue
+                            },
+
+                        ct_event!(keycode press End) =>
+                            if self.last() {
+                                Outcome::Changed
+                            } else {
+                                Outcome::Continue
+                            },
                         ct_event!(keycode press Left) => self.prev().into(),
                         ct_event!(keycode press Right) => self.next().into(),
                         ct_event!(keycode press Up) => self.up().into(),

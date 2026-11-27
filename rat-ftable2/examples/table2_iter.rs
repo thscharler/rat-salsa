@@ -15,7 +15,7 @@ use rat_scrolled::{Scroll, ScrollStyle};
 use rat_theme4::StyleName;
 use rat_theme4::theme::SalsaTheme;
 use ratatui_core::buffer::Buffer;
-use ratatui_core::layout::{Constraint, Flex, Layout, Rect};
+use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::Style;
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_crossterm::crossterm::event::Event;
