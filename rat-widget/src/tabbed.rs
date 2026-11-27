@@ -580,24 +580,26 @@ impl TabbedState {
 impl HandleEvent<Event, Regular, TabbedOutcome> for TabbedState {
     fn handle(&mut self, event: &Event, _qualifier: Regular) -> TabbedOutcome {
         if self.is_focused() {
-            event_flow!(return {
-                let tab_change = match event {
-                    ct_event!(keycode press Left) => Some(self.prev_tab()),
-                    ct_event!(keycode press Right) => Some(self.next_tab()),
-                    ct_event!(keycode press Up) => Some(self.prev_tab()),
-                    ct_event!(keycode press Down) => Some(self.next_tab()),
-                    _ => None,
-                };
-                if let Some(true) = tab_change {
-                    if let Some(selected) = self.selected {
-                        TabbedOutcome::Select(selected)
+            event_flow!(
+                return {
+                    let tab_change = match event {
+                        ct_event!(keycode press Left) => Some(self.prev_tab()),
+                        ct_event!(keycode press Right) => Some(self.next_tab()),
+                        ct_event!(keycode press Up) => Some(self.prev_tab()),
+                        ct_event!(keycode press Down) => Some(self.next_tab()),
+                        _ => None,
+                    };
+                    if let Some(true) = tab_change {
+                        if let Some(selected) = self.selected {
+                            TabbedOutcome::Select(selected)
+                        } else {
+                            TabbedOutcome::Changed
+                        }
                     } else {
-                        TabbedOutcome::Changed
+                        TabbedOutcome::Continue
                     }
-                } else {
-                    TabbedOutcome::Continue
                 }
-            });
+            );
         }
 
         self.handle(event, MouseOnly)
