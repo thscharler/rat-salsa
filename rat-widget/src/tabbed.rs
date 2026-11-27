@@ -316,6 +316,7 @@ impl<'a> Tabbed<'a> {
     ///
     /// The TabbedWidget actually renders the tabs.
     /// Render it after you finished with the content.
+    #[deprecated(since = "3.4.0", note = "not useful, just render Tabbed")]
     pub fn into_widgets(self) -> (LayoutWidget<'a>, TabbedWidget<'a>) {
         let rc = Rc::new(self);
         (
