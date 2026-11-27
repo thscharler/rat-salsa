@@ -748,7 +748,15 @@ impl Clone for SplitState {
 
 impl HasFocus for SplitState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.leaf_widget(self);
+        if matches!(self.split_type, SplitType::Scroll | SplitType::Widget) {
+            for area in &self.splitline_areas {
+                builder.leaf_with_flags(self.focus(), *area, 1, self.navigable());
+            }
+        } else {
+            for area in &self.splitline_areas {
+                builder.leaf_with_flags(self.focus(), *area, 0, self.navigable());
+            }
+        }
     }
 
     fn focus(&self) -> FocusFlag {
