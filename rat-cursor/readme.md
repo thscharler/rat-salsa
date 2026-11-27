@@ -39,17 +39,11 @@ Implement the trait for the widget state struct.
 
 Instead of setting the cursor position during rendering somehow,
 the rendering process stores the cursor position in the state
-struct, where it can be retrieved later on.
-
-The trait returns a screen-position, but only if it actually
-needs the cursor to be displayed:
-
-* The cursor is not scrolled off-screen.
-* The widget has some kind of input-focus.
+struct, where it can be retrieved later on. 
 
 ### Container widget
 
-A container widget can cascade down to its components.
+A container widget can easily cascade down to its components.
 
 ```rust ignore
     fn screen_cursor(&self) -> Option<(u16, u16)> {
