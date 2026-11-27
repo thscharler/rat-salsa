@@ -84,7 +84,7 @@ fn render(
             Constraint::Length(15),
             Constraint::Length(3),
         ])
-        .varying_heights(true)
+        .varying_heights()
         .row_height(|v, _| v.row_height)
         .render_row(|_v, mut area, buf, _ctx| {
             if area.height > 1 {
