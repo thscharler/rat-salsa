@@ -214,6 +214,10 @@ pub trait ConsumedEvent {
     }
 }
 
+/// Captures all ConsumedEvent inside a result.
+///
+/// * Ok() queries the result for is_consumed().
+/// * Err() is considered consumed all the time.
 impl<V, E> ConsumedEvent for Result<V, E>
 where
     V: ConsumedEvent,
@@ -292,11 +296,13 @@ impl From<bool> for Outcome {
 /// Hence, this trait.  
 ///
 #[allow(clippy::wrong_self_convention)]
+#[deprecated(since = "2.1.3", note = "not very useful in general")]
 pub trait FromBool {
     fn as_changed_unchanged(self) -> Outcome;
     fn as_changed_continue(self) -> Outcome;
 }
 
+#[allow(deprecated)]
 impl FromBool for bool {
     fn as_changed_unchanged(self) -> Outcome {
         match self {
