@@ -386,7 +386,7 @@ impl<'a> ViewBuffer<'a> {
 
     /// Render an additional popup widget for the given main widget.
     ///
-    /// Doesn't call relocate().
+    /// This calls into state.relocate_popup() instead of state.relocate().
     #[inline(always)]
     #[allow(deprecated)]
     pub fn render_popup<W, S>(&mut self, widget: W, area: Rect, state: &mut S) -> bool
