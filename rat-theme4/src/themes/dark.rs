@@ -7,7 +7,7 @@ use crate::{StyleName, WidgetStyle};
 use rat_widget;
 #[cfg(feature = "color-input")]
 use rat_widget_extra::color_input::ColorInputStyle;
-use ratatui_core::layout::Alignment;
+use ratatui_core::layout::{Alignment, Spacing};
 use ratatui_core::style::{Color, Style};
 use ratatui_core::symbols::border;
 use ratatui_widgets::block::Block;
@@ -559,6 +559,7 @@ fn textview(th: &SalsaTheme) -> rat_widget::text::TextStyle {
 #[cfg(feature = "rat-widget")]
 fn toolbar(th: &SalsaTheme) -> rat_widget::toolbar::ToolbarStyle {
     rat_widget::toolbar::ToolbarStyle {
+        spacing: Some(Spacing::Space(1)),
         style: th.style_style(Style::MENU_BASE),
         key_style: Some(th.style_style(Style::KEY_BINDING)),
         button: Some(rat_widget::button::ButtonStyle {
@@ -585,22 +586,6 @@ fn toolbar(th: &SalsaTheme) -> rat_widget::toolbar::ToolbarStyle {
             popup_style: Some(th.style_style(Style::POPUP_BASE)),
             popup_border: Some(th.style_style(Style::POPUP_BORDER_FG)),
             popup_scroll: Some(th.style(WidgetStyle::SCROLL_POPUP)),
-            behave_focus: Some(rat_widget::choice::ChoiceFocus::OpenOnFocusGained),
-            behave_select: Some(rat_widget::choice::ChoiceSelect::MouseClick),
-            behave_close: Some(rat_widget::choice::ChoiceClose::SingleClick),
-            ..Default::default()
-        }),
-        collapsed: Some(rat_widget::choice::ChoiceStyle {
-            style: th.style_style(Style::BUTTON_BASE),
-            button: Some(th.style_style(Style::BUTTON_BASE)),
-            select: Some(th.style_style(Style::SELECT)),
-            focus: Some(th.style_style(Style::BUTTON_BASE)),
-            popup: rat_widget::popup::PopupStyle {
-                placement: Some(rat_widget::popup::Placement::BelowOrAbove),
-                ..Default::default()
-            },
-            popup_style: Some(th.style_style(Style::POPUP_BASE)),
-            popup_border: Some(th.style_style(Style::POPUP_BORDER_FG)),
             behave_focus: Some(rat_widget::choice::ChoiceFocus::OpenOnFocusGained),
             behave_select: Some(rat_widget::choice::ChoiceSelect::MouseClick),
             behave_close: Some(rat_widget::choice::ChoiceClose::SingleClick),
