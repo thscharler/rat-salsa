@@ -222,6 +222,13 @@ impl Focus {
         core.find_obscured(col, row);
     }
 
+    /// Reset the obscured flag to __false__.
+    #[inline(always)]
+    pub fn clear_obscured(&self) -> bool {
+        let core = self.core.borrow();
+        core.clear_obscured()
+    }
+
     /// Focus the next widget in the cycle.
     ///
     /// This function will use the [Navigation] of the current widget
@@ -663,8 +670,27 @@ impl HandleEvent<Event, MouseOnly, Outcome> for Focus {
     fn handle(&mut self, event: &Event, _keymap: MouseOnly) -> Outcome {
         match event {
             Event::Mouse(crossterm::event::MouseEvent {
-                             column: c, row: r, ..
-            }) => {
+                             kind: crossterm::event::MouseEventKind::Drag(_),
+                             ..
+                         }) => {
+                // drag needs to be visible to every widget.
+                // otherwise dragging outside the originating widget
+                // is more complicated.
+                self.clear_obscured();
+            }
+            Event::Mouse(crossterm::event::MouseEvent {
+                             kind:
+                             crossterm::event::MouseEventKind::Moved
+                             | crossterm::event::MouseEventKind::Down(_)
+                             | crossterm::event::MouseEventKind::Up(_)
+                             | crossterm::event::MouseEventKind::ScrollDown
+                             | crossterm::event::MouseEventKind::ScrollUp
+                             | crossterm::event::MouseEventKind::ScrollLeft
+                             | crossterm::event::MouseEventKind::ScrollRight,
+                             column: c,
+                             row: r,
+                             ..
+                         }) => {
                 self.find_obscured(*c, *r);
             }
             _ => {}

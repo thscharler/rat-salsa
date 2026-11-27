@@ -1,3 +1,7 @@
+# 2.3.1
+
+* fix: obscured is not applicable for drag events. 
+
 # 2.3.0
 
 * minor BREAK: build_nav() gets a bool return value.
