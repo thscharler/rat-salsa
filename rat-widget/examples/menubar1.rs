@@ -1,5 +1,6 @@
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui};
-use rat_event::{Outcome, try_flow};
+use rat_event::{HandleEvent, Outcome, Regular, event_flow};
+use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
 use rat_menu::{MenuStyle, StaticMenu, menubar};
@@ -151,37 +152,44 @@ fn render(
     Ok(())
 }
 
+fn focus(state: &mut State) -> Focus {
+    let mut fb = FocusBuilder::new(None);
+    fb.widget(&state.menu);
+    fb.build()
+}
+
 fn event(
     event: &Event,
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    try_flow!(
-        match menubar::handle_popup_events(&mut state.menu, true, event) {
-            MenuOutcome::MenuSelected(v, w) => {
-                ctx.status[0] = format!("Selected {}-{}", v, w);
-                Outcome::Changed
-            }
-            MenuOutcome::MenuActivated(0, 3) => {
-                ctx.quit = true;
-                Outcome::Changed
-            }
-            MenuOutcome::MenuActivated(v, w) => {
-                ctx.status[0] = format!("Activated {}-{}", v, w);
-                state.menu.set_popup_active(false);
-                Outcome::Changed
-            }
-            MenuOutcome::Selected(v) => {
-                ctx.status[0] = format!("Selected {}", v);
-                Outcome::Changed
-            }
-            MenuOutcome::Activated(v) => {
-                ctx.status[0] = format!("Activated {}", v);
-                Outcome::Changed
-            }
-            r => r.into(),
-        }
-    );
+    let mut focus = focus(state);
+    focus.handle(event, Regular);
+
+    match menubar::handle_popup_events(&mut state.menu, true, event) {
+        MenuOutcome::MenuSelected(v, w) => event_flow!({
+            ctx.status[0] = format!("Selected {}-{}", v, w);
+            Outcome::Changed
+        }),
+        MenuOutcome::MenuActivated(0, 3) => event_flow!({
+            ctx.quit = true;
+            Outcome::Changed
+        }),
+        MenuOutcome::MenuActivated(v, w) => event_flow!({
+            ctx.status[0] = format!("Activated {}-{}", v, w);
+            state.menu.set_popup_active(false);
+            Outcome::Changed
+        }),
+        MenuOutcome::Selected(v) => event_flow!({
+            ctx.status[0] = format!("Selected {}", v);
+            Outcome::Changed
+        }),
+        MenuOutcome::Activated(v) => event_flow!({
+            ctx.status[0] = format!("Activated {}", v);
+            Outcome::Changed
+        }),
+        r => event_flow!(r),
+    }
 
     Ok(Outcome::Continue)
 }

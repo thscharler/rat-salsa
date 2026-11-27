@@ -1,12 +1,21 @@
+# 3.4.0
+
+* fix: hover doesn't work with new obscured-flag.
+  used by Button, Form, Splitter and Tabbed.
+* fix: Tabbed: Navigation didn't yield the correct Outcome.
+* fix: Tabbed: rendering tabs looked a bit off. 
+* fix: Tabbed: use more precise area for Focus.
+* fix: Splitter: use more precise areas for Focus.
+
 # 3.3.3
 
 * feat: add Hyperlink widget.
 * feat: Choice: add hover functionality independent of the selection.
 * feat: Toolbar: Radically simplified.
-  * remove collapsing buttons.
-  * use Layout for the actual layout with all features exposed.
-  * move hotkey definition to the widget.
-  * add Scroll for Choice tool
+    * remove collapsing buttons.
+    * use Layout for the actual layout with all features exposed.
+    * move hotkey definition to the widget.
+    * add Scroll for Choice tool
 * fix: Tabbed: BREAK: build_nav() gets a bool return value.
 
 ## Focus
@@ -41,7 +50,7 @@
 
 * fix: highlight style only repeated when repeat_highlight_symbol is set.
 * feat: change GenericLayout::place() to do its work lazy. This way placing
-a layout doesn't break the page information.
+  a layout doesn't break the page information.
 
 ## Table + Table2
 
@@ -53,23 +62,22 @@ fix: Table::scroll_to_pos used the wrong area for the widget height.
 
 # 3.3.0
 
-* break: List was quite broken. Replicating the ratatui List 
-  behavior is not trivial, rebuilt rendering from scratch.
-  *This necessitates a copy of ListItem.* 
+* break: List was quite broken. Replicating the ratatui List
+  behavior is not trivial, rebuilt rendering from scratch. *This necessitates a copy of ListItem.*
   So your list rendering might fail if you import the ratatui-ListItem.
   Changing the import is good enough, but it breaks.
-  
-  * feat: supports highlight markers.
-  * feat: supports scroll-padding.
-  * feat: navigation with variable row-heights.
-  * feat: supports ListDirection.
+
+    * feat: supports highlight markers.
+    * feat: supports scroll-padding.
+    * feat: navigation with variable row-heights.
+    * feat: supports ListDirection.
 
 * fix Splitter and Tabbed focus problems with new 'obscured' feature.
 
 * fix: #34
   ListState::scroll_to_pos() now scrolls to the given
   position if the area is empty. This occurs before the
-  first render. 
+  first render.
 
 * fix: break from rat-focus.
 * fix: focus issues from new 'obscured' feature.
@@ -77,7 +85,7 @@ fix: Table::scroll_to_pos used the wrong area for the widget height.
 ## rat-focus
 
 Adds a new 'obscured' feature that marks widgets as obscured/not obscured.
-A widget is not obscured if it succeeds a hit-test with the current 
+A widget is not obscured if it succeeds a hit-test with the current
 mouse position and there are no widgets/containers with a higher z-index
 that are hit first.
 
@@ -87,18 +95,18 @@ Works fine for all popup/dialog like widgets.
 
 * feat: add *rat-ftable2* with a new, easier API.
 
-  * Will keep both until the next major release. 
+    * Will keep both until the next major release.
 
-  * Table data is a regular Iterator.
-  * Rendering is done with specific closures per Cell
-    and for the full row.  
-  * Remove unused parameters.
-  * Merge layout_width and layout_column_widths
-  * Better support for varying row-heights.
+    * Table data is a regular Iterator.
+    * Rendering is done with specific closures per Cell
+      and for the full row.
+    * Remove unused parameters.
+    * Merge layout_width and layout_column_widths
+    * Better support for varying row-heights.
 
   It reuses some types and traits from rat-ftable and
   is included as the table2 module.
-  
+
 ## rat-ftable
 
 * Adds TableOutcome::Header and TableOutcome::Footer
@@ -106,13 +114,13 @@ Works fine for all popup/dialog like widgets.
 
 * fix scrolling behavior for scroll_to_pos().
 
-  * If the inner area is empty it uses the given position as offset.
-    This helps when setting the offset before the first render.
+    * If the inner area is empty it uses the given position as offset.
+      This helps when setting the offset before the first render.
 
-  * add Table::varying_heights().
-    If this is set, then the individual row-heights for all the
-    rows are stored as part of the state. If this flag is not used,
-    the height of the last rendered row is stored in the state.
+    * add Table::varying_heights().
+      If this is set, then the individual row-heights for all the
+      rows are stored as part of the state. If this flag is not used,
+      the height of the last rendered row is stored in the state.
 
   This information is used in scroll_to_row() to ensure that the
   row is made fully visible.
@@ -126,7 +134,7 @@ Works fine for all popup/dialog like widgets.
 
 ## rat-text
 
-* Fix cloning issues. 
+* Fix cloning issues.
 
 # 3.2.1
 
@@ -134,17 +142,17 @@ Works fine for all popup/dialog like widgets.
 
 # 3.2.0
 
-* feat: Add the concept of `mouse-focus` to focus-handling. 
+* feat: Add the concept of `mouse-focus` to focus-handling.
   This will be set for every mouse-event to find the widget-areas
   that pass the hit-test. Handles z-indexes and overlapping areas
-  correctly. 
+  correctly.
 
-  This makes the special event-handling for Choice and ComboBox obsolete. 
-  They can be used just as any other widget during event-handling now. 
-  
-  Any widget that is hidden underneath the popup will see that its 
+  This makes the special event-handling for Choice and ComboBox obsolete.
+  They can be used just as any other widget during event-handling now.
+
+  Any widget that is hidden underneath the popup will see that its
   mouse-focus is `false` even if the mouse-position is within its bounds.
-  This requires, that _every_ widget needs to check this flag. But 
+  This requires, that _every_ widget needs to check this flag. But
   moving this check from the widget _user_ to the widget _implementor_
   is still a nice win.
 
@@ -153,7 +161,7 @@ Works fine for all popup/dialog like widgets.
 # rat-event
 
 * Popup is now obsolete. There should no longer be a need to differentiate
-  between Regular and Popup event-handlers with mouse-focus now. 
+  between Regular and Popup event-handlers with mouse-focus now.
 
 # 3.1.1
 
@@ -697,7 +705,7 @@ feature: improved api for defining the view-area.
 * feature: calendar::Month uses ISO week-numbers now.
 * feature: calender::Month can now operate without setting start-date
   on the widget. It uses any start-date coming from the state.
-* feature: calender: better event-handing for &[[MonthState]].
+* feature: calender: better event-handing for `&[[MonthState]]`.
     - add a MultiMonth qualifier for event-handling. This allows
       setting a month-delta when moving beyond the displayed dates.
       It requires Focus now for correctly focusing the current Month widget.

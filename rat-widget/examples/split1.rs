@@ -2,7 +2,7 @@
 
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
-use rat_event::{HandleEvent, Regular, ct_event, try_flow};
+use rat_event::{HandleEvent, Regular, ct_event, event_flow};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -237,29 +237,27 @@ fn event(
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    state.focus = focus(state);
+    ctx.focus = Some(focus(state));
+    ctx.handle_focus(event);
 
-    // handle focus events
-    ctx.focus_outcome = state.focus.handle(event, Regular);
-
-    try_flow!(match event {
-        ct_event!(keycode press F(1)) => {
+    match event {
+        ct_event!(keycode press F(1)) => event_flow!({
             if state.split.is_hidden(0) {
                 state.split.show_split(0);
             } else {
                 state.split.hide_split(0);
             }
             Outcome::Changed
-        }
-        ct_event!(keycode press F(3)) => {
+        }),
+        ct_event!(keycode press F(3)) => event_flow!({
             if state.dir == Direction::Horizontal {
                 state.dir = Direction::Vertical;
             } else {
                 state.dir = Direction::Horizontal;
             }
             Outcome::Changed
-        }
-        ct_event!(keycode press F(4)) => {
+        }),
+        ct_event!(keycode press F(4)) => event_flow!({
             state.split_type = match state.split_type {
                 SplitType::FullEmpty => SplitType::Scroll,
                 SplitType::Scroll => SplitType::Widget,
@@ -271,8 +269,8 @@ fn event(
                 SplitType::FullQuadrantOutside => SplitType::FullEmpty,
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press SHIFT-F(4)) => {
+        }),
+        ct_event!(keycode press SHIFT-F(4)) => event_flow!({
             state.split_type = match state.split_type {
                 SplitType::FullEmpty => SplitType::FullQuadrantOutside,
                 SplitType::Scroll => SplitType::FullEmpty,
@@ -284,8 +282,8 @@ fn event(
                 SplitType::FullQuadrantOutside => SplitType::FullQuadrantInside,
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press F(5)) => {
+        }),
+        ct_event!(keycode press F(5)) => event_flow!({
             state.border_type = match state.border_type {
                 None => Some(BorderType::Plain),
                 Some(BorderType::Plain) => Some(BorderType::Double),
@@ -302,8 +300,8 @@ fn event(
                 Some(BorderType::HeavyQuadrupleDashed) => None,
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press SHIFT-F(5)) => {
+        }),
+        ct_event!(keycode press SHIFT-F(5)) => event_flow!({
             state.border_type = match state.border_type {
                 None => Some(BorderType::HeavyQuadrupleDashed),
                 Some(BorderType::Plain) => None,
@@ -320,8 +318,8 @@ fn event(
                 Some(BorderType::HeavyQuadrupleDashed) => Some(BorderType::LightQuadrupleDashed),
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press F(6)) => {
+        }),
+        ct_event!(keycode press F(6)) => event_flow!({
             state.inner_border_type = match state.inner_border_type {
                 None => Some(BorderType::Plain),
                 Some(BorderType::Plain) => Some(BorderType::Double),
@@ -338,8 +336,8 @@ fn event(
                 Some(BorderType::HeavyQuadrupleDashed) => None,
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press SHIFT-F(6)) => {
+        }),
+        ct_event!(keycode press SHIFT-F(6)) => event_flow!({
             state.inner_border_type = match state.inner_border_type {
                 None => Some(BorderType::HeavyQuadrupleDashed),
                 Some(BorderType::Plain) => None,
@@ -356,39 +354,37 @@ fn event(
                 Some(BorderType::HeavyQuadrupleDashed) => Some(BorderType::LightQuadrupleDashed),
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press F(7)) => {
+        }),
+        ct_event!(keycode press F(7)) => event_flow!({
             state.resize = match state.resize {
                 SplitResize::Neighbours => SplitResize::Full,
                 SplitResize::Full => SplitResize::Neighbours,
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press F(12)) => {
+        }),
+        ct_event!(keycode press F(12)) => event_flow!({
             if state.split.is_focused() {
                 state.split.focus.set(false);
             } else {
                 state.split.focus.set(true);
             }
             Outcome::Changed
-        }
-        _ => Outcome::Continue,
-    });
+        }),
+        _ => {}
+    }
 
-    try_flow!(state.split.handle(event, Regular));
-    try_flow!(match state.left.handle(event, Regular) {
-        Outcome::Changed => Outcome::Changed,
-        r => r,
-    });
-    try_flow!(state.right.handle(event, Regular));
-    try_flow!(state.right_right.handle(event, Regular));
-    try_flow!(match state.menu.handle(event, Regular) {
-        MenuOutcome::Activated(0) => {
+    event_flow!(state.split.handle(event, Regular));
+    event_flow!(state.left.handle(event, Regular));
+    event_flow!(state.right.handle(event, Regular));
+    event_flow!(state.right_right.handle(event, Regular));
+
+    match state.menu.handle(event, Regular) {
+        MenuOutcome::Activated(0) => event_flow!({
             ctx.quit = true;
             Outcome::Changed
-        }
-        _ => Outcome::Continue,
-    });
+        }),
+        r => event_flow!(r),
+    }
 
     Ok(Outcome::Continue)
 }

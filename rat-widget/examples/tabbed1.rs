@@ -2,13 +2,14 @@
 
 use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
 use crate::mini_salsa::{MiniSalsaState, mock_init, run_ui, setup_logging};
-use rat_event::{HandleEvent, Regular, ct_event, try_flow};
-use rat_focus::{Focus, FocusBuilder};
+use rat_event::{HandleEvent, Regular, ct_event, event_flow, try_flow};
+use rat_focus::{Focus, FocusBuilder, HasFocus, Navigation, match_focus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_reloc::RelocatableState;
 use rat_scrolled::Scroll;
 use rat_theme4::{StyleName, WidgetStyle};
-use rat_widget::event::Outcome;
+use rat_widget::event::{Outcome, TabbedOutcome};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
 use rat_widget::statusline::StatusLineState;
@@ -33,6 +34,7 @@ fn main() -> Result<(), anyhow::Error> {
         placement: TabPlacement::default(),
         style: TabType::default(),
         close: false,
+        nav_mode: 0,
         tabbed: TabbedState::default(),
         tabs_0: Default::default(),
         tabs_1: Default::default(),
@@ -52,6 +54,7 @@ struct State {
     placement: TabPlacement,
     style: TabType,
     close: bool,
+    nav_mode: u8,
 
     tabbed: TabbedState,
 
@@ -101,24 +104,36 @@ fn render(
     tab = tab.tabs(["Issues", "Numbers", "More numbers"]);
     tab.render(l2[1], buf, &mut state.tabbed);
 
-    match state.tabbed.selected().expect("tab") {
-        0 => List::<RowSelection>::new(LIST)
+    if state.tabbed.selected() == Some(0) {
+        List::<RowSelection>::new(LIST)
             .scroll(Scroll::new())
             .styles(ctx.theme.style(WidgetStyle::LIST))
-            .render(state.tabbed.widget_area, buf, &mut state.tabs_0),
-        1 => EndlessScroll::new()
+            .render(state.tabbed.widget_area, buf, &mut state.tabs_0)
+    } else {
+        // clear any areas from previous renders.
+        state.tabs_0.relocate_hidden();
+    }
+    if state.tabbed.selected() == Some(1) {
+        EndlessScroll::new()
             .max(2024)
             .style(ctx.theme.p.bluegreen(0))
             .focus_style(ctx.theme.style_style(Style::FOCUS))
             .v_scroll(Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL)))
-            .render(state.tabbed.widget_area, buf, &mut state.tabs_1),
-        2 => EndlessScroll::new()
+            .render(state.tabbed.widget_area, buf, &mut state.tabs_1)
+    } else {
+        // clear any areas from previous renders.
+        state.tabs_1.relocate_hidden();
+    }
+    if state.tabbed.selected() == Some(2) {
+        EndlessScroll::new()
             .max(2024)
             .style(ctx.theme.p.cyan(0))
             .focus_style(ctx.theme.style_style(Style::FOCUS))
             .v_scroll(Scroll::new().styles(ctx.theme.style(WidgetStyle::SCROLL)))
-            .render(state.tabbed.widget_area, buf, &mut state.tabs_2),
-        _ => {}
+            .render(state.tabbed.widget_area, buf, &mut state.tabs_2)
+    } else {
+        // clear any areas from previous renders.
+        state.tabs_2.relocate_hidden();
     }
 
     let mut area = Rect::new(l2[0].x, l2[0].y, l2[0].width, 1);
@@ -130,6 +145,8 @@ fn render(
     Line::from("F3: alignment").yellow().render(area, buf);
     area.y += 1;
     Line::from("F5: border").yellow().render(area, buf);
+    area.y += 1;
+    Line::from("F11: nav-mode").yellow().render(area, buf);
     area.y += 1;
     Line::from("F12: key-nav").yellow().render(area, buf);
 
@@ -144,20 +161,51 @@ fn render(
 }
 
 fn focus(state: &State) -> Focus {
-    let mut fb = FocusBuilder::default();
-    fb.widget(&state.tabbed);
-    if let Some(sel) = state.tabbed.selected {
-        match sel {
-            0 => _ = fb.widget(&state.tabs_0),
-            1 => _ = fb.widget(&state.tabs_1),
-            2 => _ = fb.widget(&state.tabs_2),
-            _ => {}
+    match state.nav_mode {
+        0 => {
+            // default tabbed behaviour
+            let mut fb = FocusBuilder::default();
+            fb.widget(&state.tabbed);
+            match state.tabbed.selected {
+                Some(0) => _ = fb.widget(&state.tabs_0),
+                Some(1) => _ = fb.widget(&state.tabs_1),
+                Some(2) => _ = fb.widget(&state.tabs_2),
+                _ => {}
+            }
+            fb.widget(&state.menu);
+            let f = fb.build();
+            f.enable_log();
+            f
         }
+        1 => {
+            // tabbed as regular widget
+            let mut fb = FocusBuilder::default();
+            fb.widget_navigate(&state.tabbed, Navigation::Regular);
+            match state.tabbed.selected {
+                Some(0) => _ = fb.widget(&state.tabs_0),
+                Some(1) => _ = fb.widget(&state.tabs_1),
+                Some(2) => _ = fb.widget(&state.tabs_2),
+                _ => {}
+            }
+            fb.widget(&state.menu);
+            let f = fb.build();
+            f.enable_log();
+            f
+        }
+        2 => {
+            // tabs follow focus
+            let mut fb = FocusBuilder::default();
+            fb.widget(&state.tabbed);
+            fb.widget(&state.tabs_0);
+            fb.widget(&state.tabs_1);
+            fb.widget(&state.tabs_2);
+            fb.widget(&state.menu);
+            let f = fb.build();
+            f.enable_log();
+            f
+        }
+        _ => unimplemented!(),
     }
-    fb.widget(&state.menu);
-    let f = fb.build();
-    f.enable_log();
-    f
 }
 
 fn event(
@@ -165,30 +213,33 @@ fn event(
     ctx: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    ctx.focus_outcome = focus(state).handle(event, Regular);
+    ctx.focus = Some(focus(state));
+    ctx.handle_focus(event);
 
-    try_flow!(match event {
-        ct_event!(keycode press F(1)) => {
+    // debug!("{:#?}", ctx.focus);
+
+    match event {
+        ct_event!(keycode press F(1)) => event_flow!({
             state.close = !state.close;
             Outcome::Changed
-        }
-        ct_event!(keycode press F(2)) => {
+        }),
+        ct_event!(keycode press F(2)) => event_flow!({
             state.style = match state.style {
                 TabType::Glued => TabType::Attached,
                 TabType::Attached => TabType::Glued,
                 _ => TabType::Glued,
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press SHIFT-F(2)) => {
+        }),
+        ct_event!(keycode press SHIFT-F(2)) => event_flow!({
             state.style = match state.style {
                 TabType::Glued => TabType::Attached,
                 TabType::Attached => TabType::Glued,
                 _ => TabType::Glued,
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press F(3)) => {
+        }),
+        ct_event!(keycode press F(3)) => event_flow!({
             state.placement = match state.placement {
                 TabPlacement::Top => TabPlacement::Right,
                 TabPlacement::Right => TabPlacement::Bottom,
@@ -196,8 +247,8 @@ fn event(
                 TabPlacement::Left => TabPlacement::Top,
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press SHIFT-F(3)) => {
+        }),
+        ct_event!(keycode press SHIFT-F(3)) => event_flow!({
             state.placement = match state.placement {
                 TabPlacement::Top => TabPlacement::Left,
                 TabPlacement::Right => TabPlacement::Top,
@@ -205,8 +256,8 @@ fn event(
                 TabPlacement::Left => TabPlacement::Bottom,
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press F(5)) => {
+        }),
+        ct_event!(keycode press F(5)) => event_flow!({
             state.border_type = match state.border_type {
                 None => Some((BorderType::Plain, border::PLAIN)),
                 Some((BorderType::Plain, border::PLAIN)) => {
@@ -240,8 +291,8 @@ fn event(
                 _ => Some((BorderType::Plain, border::PLAIN)),
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press SHIFT-F(5)) => {
+        }),
+        ct_event!(keycode press SHIFT-F(5)) => event_flow!({
             state.border_type = match state.border_type {
                 None => Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)),
                 Some((BorderType::Plain, border::PLAIN)) => None,
@@ -275,36 +326,67 @@ fn event(
                 _ => Some((BorderType::Plain, border::PLAIN)),
             };
             Outcome::Changed
-        }
-        ct_event!(keycode press F(12)) => {
+        }),
+        ct_event!(keycode press F(10)) => event_flow!({
+            state.nav_mode = (state.nav_mode + 1) % 3;
+            Outcome::Changed
+        }),
+        ct_event!(keycode press F(12)) => event_flow!({
             focus(state).focus(&state.tabbed);
             Outcome::Changed
+        }),
+        _ => {}
+    }
+
+    if state.nav_mode == 2 {
+        'x: {
+            let sel = match_focus!(
+                state.tabbed => break 'x,
+                state.tabs_0 => Some(0),
+                state.tabs_1 => Some(1),
+                state.tabs_2 => Some(2),
+                else => None
+            );
+            state.tabbed.select(sel)
         }
-        _ => Outcome::Continue,
-    });
+    }
 
-    try_flow!(HandleEvent::handle(&mut state.tabbed, event, Regular));
-
-    try_flow!({
-        if let Some(sel) = state.tabbed.selected() {
-            match sel {
-                0 => state.tabs_0.handle(event, Regular),
-                1 => state.tabs_1.handle(event, Regular),
-                2 => state.tabs_2.handle(event, Regular),
-                _ => Outcome::Continue,
+    match HandleEvent::handle(&mut state.tabbed, event, Regular) {
+        TabbedOutcome::Select(0) => event_flow!({
+            if !state.tabbed.is_focused() {
+                ctx.focus().future(&state.tabs_0)
+            };
+            Outcome::Changed
+        }),
+        TabbedOutcome::Select(1) => event_flow!({
+            if !state.tabbed.is_focused() {
+                ctx.focus().future(&state.tabs_1);
             }
-        } else {
-            Outcome::Continue
-        }
-    });
+            Outcome::Changed
+        }),
+        TabbedOutcome::Select(2) => event_flow!({
+            if !state.tabbed.is_focused() {
+                ctx.focus().future(&state.tabs_2);
+            }
+            Outcome::Changed
+        }),
+        r => event_flow!(r),
+    }
 
-    try_flow!(match state.menu.handle(event, Regular) {
-        MenuOutcome::Activated(0) => {
+    match state.tabbed.selected() {
+        Some(0) => event_flow!(state.tabs_0.handle(event, Regular)),
+        Some(1) => event_flow!(state.tabs_1.handle(event, Regular)),
+        Some(2) => event_flow!(state.tabs_2.handle(event, Regular)),
+        _ => {}
+    }
+
+    match state.menu.handle(event, Regular) {
+        MenuOutcome::Activated(0) => event_flow!({
             ctx.quit = true;
             Outcome::Changed
-        }
-        _ => Outcome::Continue,
-    });
+        }),
+        r => event_flow!(r),
+    }
 
     Ok(Outcome::Continue)
 }
