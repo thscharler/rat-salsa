@@ -1075,7 +1075,11 @@ where
 {
     fn handle(&mut self, event: &Event, _qualifier: MouseOnly) -> FormOutcome {
         if self.is_obscured() {
-            return FormOutcome::Continue;
+            if self.mouse.clear_hover() {
+                return FormOutcome::Changed;
+            } else {
+                return FormOutcome::Continue;
+            }
         }
 
         if !self.layout.is_endless() {
