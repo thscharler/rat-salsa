@@ -26,7 +26,7 @@ use std::rc::Rc;
 /// [on_lost!](crate::on_lost!).
 ///
 #[derive(Clone, Default)]
-pub struct FocusFlag(Rc<FocusFlagCore>);
+pub struct FocusFlag(pub(crate) Rc<FocusFlagCore>);
 
 /// Equality for FocusFlag means pointer equality of the underlying
 /// Rc using Rc::ptr_eq.
@@ -77,21 +77,21 @@ impl HasFocus for FocusFlag {
     }
 }
 
-struct FocusFlagCore {
+pub(crate) struct FocusFlagCore {
     /// Field name for debugging purposes.
-    name: RefCell<Option<Box<str>>>,
+    pub(crate) name: RefCell<Option<Box<str>>>,
     /// Does this widget have the focus.
     /// Or, if the flag is used for a container, does any of
     /// widget inside the container have the focus.
     ///
     /// This flag is set by [Focus::handle].
-    focus: Cell<bool>,
+    pub(crate) focus: Cell<bool>,
     /// This widget just gained the focus. This flag is set by [Focus::handle]
     /// if there is a focus transfer, and will be reset by the next
     /// call to [Focus::handle].
     ///
     /// See [on_gained!](crate::on_gained!)
-    gained: Cell<bool>,
+    pub(crate) gained: Cell<bool>,
     /// Callback for set of gained.
     ///
     /// A widget can set this callback and will be notified
@@ -102,13 +102,13 @@ struct FocusFlagCore {
     /// But it's still preferable to relying on the fact that
     /// the `handle` event for a widget will be called while
     /// the gained flag is still set.
-    on_gained: RefCell<Option<Box<dyn Fn()>>>,
+    pub(crate) on_gained: RefCell<Option<Box<dyn Fn()>>>,
     /// This widget just lost the focus. This flag is set by [Focus::handle]
     /// if there is a focus transfer, and will be reset by the next
     /// call to [Focus::handle].
     ///
     /// See [on_lost!](crate::on_lost!)
-    lost: Cell<bool>,
+    pub(crate) lost: Cell<bool>,
     /// Callback for set of lost.
     ///
     /// A widget can set this callback and will be notified
@@ -119,7 +119,7 @@ struct FocusFlagCore {
     /// But it's still preferable to relying on the fact that
     /// the `handle` event for a widget will be called while
     /// the lost flag is still set.
-    on_lost: RefCell<Option<Box<dyn Fn()>>>,
+    pub(crate) on_lost: RefCell<Option<Box<dyn Fn()>>>,
     /// Hit-tests all widgets for the given position.
     /// Obscured is set to false if the widget-area is hit
     /// and there are no containers/widgets with a *higher*
@@ -129,22 +129,31 @@ struct FocusFlagCore {
     ///
     /// The purpose is to disable mouse-event handling where a
     /// popup is covering some widget.
-    obscured: Cell<bool>,
+    pub(crate) obscured: Cell<bool>,
     /// Holds the active FocusCore.
-    focus_core: RefCell<Option<Rc<RefCell<FocusCore>>>>,
+    pub(crate) focus_core: RefCell<Option<Rc<RefCell<FocusCore>>>>,
 }
 
 impl Debug for FocusFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FocusFlag")
-            .field("name", &self.0.name)
+            .field("name", &self.0.name.borrow().as_ref())
             .field("focus", &self.0.focus.get())
             .field("widget_id", &self.widget_id())
             .field("gained", &self.0.gained.get())
             .field("on_gained", &self.0.on_gained.borrow().is_some())
             .field("lost", &self.0.lost.get())
             .field("on_lost", &self.0.on_lost.borrow().is_some())
-            .field("focus", &self.0.focus_core.borrow().as_ref().map(|v| Rc::as_ptr(&v)))
+            .field("obscured", &self.0.obscured.get())
+            .field(
+                "focus",
+                &self
+                    .0
+                    .focus_core
+                    .borrow()
+                    .as_ref()
+                    .map(|v| Rc::as_ptr(&v) as usize),
+            )
             .finish()
     }
 }

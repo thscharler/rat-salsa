@@ -184,7 +184,11 @@ impl FocusBuilder {
                 flag,
                 navigation
             );
-            self.navigable[idx] = navigation;
+            // only change the flag for the main area.
+            // the rest necessarily is Mouse or None.
+            if !self.duplicate[idx] {
+                self.navigable[idx] = navigation;
+            }
         } else {
             if self.container_ids.contains(&flag.widget_id()) {
                 focus_debug!(

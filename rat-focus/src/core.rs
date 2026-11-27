@@ -62,15 +62,111 @@ pub(crate) struct FocusCore {
     pub(crate) tmp_container: Cell<Vec<(usize, u16)>>,
 }
 
+struct RectZ {
+    pub x: u16,
+    pub y: u16,
+    pub z: u16,
+    pub w: u16,
+    pub h: u16,
+    pub obscured: bool,
+}
+
+impl From<(&(Rect, u16), bool)> for RectZ {
+    fn from(value: (&(Rect, u16), bool)) -> Self {
+        Self {
+            x: value.0.0.x,
+            y: value.0.0.y,
+            z: value.0.1,
+            w: value.0.0.width,
+            h: value.0.0.height,
+            obscured: value.1,
+        }
+    }
+}
+
+impl Debug for RectZ {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{},{}+{}x{} z{} {}]",
+            self.x,
+            self.y,
+            self.w,
+            self.h,
+            self.z,
+            if self.obscured { "obscured" } else { "visible" }
+        )
+    }
+}
+
+struct FieldFlags<'a> {
+    w: &'a FocusFlag,
+    dup: bool,
+    nav: Navigation,
+    area: RectZ,
+}
+
+impl Debug for FieldFlags<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:?}{} [{} {} {}] {:?} keys={:?} id={} {}{}{}",
+            self.w.name(),
+            if self.dup { "*" } else { " " },
+            if self.w.get() { "focused" } else { "" },
+            if self.w.gained() { "gained" } else { "" },
+            if self.w.lost() { "lost" } else { "" },
+            self.area,
+            self.nav,
+            self.w.id(),
+            if self.w.0.on_gained.borrow().is_some() {
+                "->on_gained "
+            } else {
+                ""
+            },
+            if self.w.0.on_lost.borrow().is_some() {
+                "->on_lost "
+            } else {
+                ""
+            },
+            if self.w.0.focus_core.borrow().is_some() {
+                "Focus set"
+            } else {
+                "Focus none"
+            },
+        )
+    }
+}
+
 impl Debug for FocusCore {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FocusCore")
-            .field("focus_flags", &self.focus_flags)
-            .field("duplicate", &self.duplicate)
-            .field("areas", &self.areas)
-            .field("navigable", &self.navigable)
-            .field("containers", &self.containers)
-            .finish()
+        if f.alternate() {
+            let mut ds = f.debug_struct("Focus");
+            for flag in self
+                .focus_flags
+                .iter()
+                .zip(self.duplicate.iter())
+                .zip(self.areas.iter())
+                .zip(self.navigable.iter())
+                .map(|v| FieldFlags {
+                    w: v.0.0.0,
+                    dup: *v.0.0.1,
+                    nav: *v.1,
+                    area: RectZ::from((v.0.1, v.0.0.0.obscured())),
+                })
+            {
+                ds.field("widget", &flag);
+            }
+            ds.field("containers", &self.containers).finish()
+        } else {
+            f.debug_struct("FocusCore")
+                .field("focus_flags", &self.focus_flags)
+                .field("duplicate", &self.duplicate)
+                .field("areas", &self.areas)
+                .field("navigable", &self.navigable)
+                .field("containers", &self.containers)
+                .finish()
+        }
     }
 }
 
@@ -402,22 +498,14 @@ impl FocusCore {
             self.__start_change(set_lost);
             self.__focus(n, set_lost);
             self.__accumulate();
-            focus_debug!(
-                self,
-                "    -> focus set to {:?}",
-                self.focus_flags[n].name()
-            );
+            focus_debug!(self, "    -> focus set to {:?}", self.focus_flags[n].name());
         } else if let Some((_idx, range)) = self.container_index_of(widget) {
             if let Some(n) = self.first_navigable(range.start) {
                 if n < range.end {
                     self.__start_change(set_lost);
                     self.__focus(n, set_lost);
                     self.__accumulate();
-                    focus_debug!(
-                        self,
-                        "    -> focus set to {:?}",
-                        self.focus_flags[n].name()
-                    );
+                    focus_debug!(self, "    -> focus set to {:?}", self.focus_flags[n].name());
                 } else {
                     focus_debug!(self, "    -> no navigable widget for container");
                 }

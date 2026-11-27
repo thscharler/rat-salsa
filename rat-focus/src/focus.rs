@@ -3,6 +3,7 @@ use crate::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular, crossterm, ct_event};
 use ratatui_crossterm::crossterm::event::Event;
 use std::cell::RefCell;
+use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
 /// Focus deals with all focus-related issues.
@@ -12,7 +13,7 @@ use std::rc::Rc;
 /// This is usually quick enough to do it for each event.
 /// It has to be rebuilt if any area has changed, so
 /// rebuilding it after a render() is fine.
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Focus {
     pub(crate) last: Rc<RefCell<FocusCore>>,
     pub(crate) core: Rc<RefCell<FocusCore>>,
@@ -621,6 +622,16 @@ impl Focus {
     pub fn reset_lost_gained(&self) {
         let core = self.core.borrow();
         core.reset_lost_gained();
+    }
+}
+
+impl Debug for Focus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            write!(f, "{:#?}", &self.core.borrow())
+        } else {
+            f.debug_struct("Focus").field("core", &self.core).finish()
+        }
     }
 }
 
