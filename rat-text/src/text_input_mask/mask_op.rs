@@ -2,7 +2,7 @@ use crate::core::{TextCore, TextString};
 use crate::text_input_mask::MaskedInputState;
 use crate::text_input_mask::mask_token::{EditDirection, Mask, MaskToken};
 use crate::{TextError, TextPosition, TextRange, upos_type};
-use format_num_pattern::core::{clean_num, map_num};
+use format_num_pattern::core::map_num;
 use format_num_pattern::{CurrencySym, NumberFormat, NumberSymbols};
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
@@ -171,6 +171,35 @@ pub fn remove_range(
     state.value.end_undo_seq();
 
     Ok(true)
+}
+
+/// Get the clean number.
+///
+/// Takes only digits and maps backwards according to the symbol table.
+/// This will only work if you don't use separators that can be mistaken
+/// with one of those symbols.
+///
+/// Removes any leading zeros too.
+pub fn clean_num(formatted: &str, sym: &NumberSymbols, out: &mut String) {
+    let mut seen_non_0 = false;
+    for c in formatted.chars() {
+        if c.is_ascii_digit() {
+            seen_non_0 |= c != '0';
+            if seen_non_0 {
+                out.push(c);
+            }
+        } else if c == sym.negative_sym {
+            out.push('-');
+        } else if c == sym.positive_sym {
+            // noop
+        } else if c == '+' {
+            // noop
+        } else if c == sym.decimal_sep {
+            out.push('.');
+        } else if c == sym.exponent_lower_sym || c == sym.exponent_upper_sym {
+            out.push('e');
+        }
+    }
 }
 
 /// Rebuild a section according to number-formatting.
