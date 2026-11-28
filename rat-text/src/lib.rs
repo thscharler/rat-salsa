@@ -77,6 +77,19 @@ pub mod event {
         }
     }
 
+    pub(crate) trait TextBool {
+        fn into_text_changed(self) -> TextOutcome;
+    }
+
+    impl TextBool for bool {
+        fn into_text_changed(self) -> TextOutcome {
+            match self {
+                true => TextOutcome::TextChanged,
+                false => TextOutcome::Unchanged,
+            }
+        }
+    }
+
     impl From<Outcome> for TextOutcome {
         fn from(value: Outcome) -> Self {
             match value {

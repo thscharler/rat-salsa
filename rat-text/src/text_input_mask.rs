@@ -77,7 +77,7 @@ use crate::_private::NonExhaustive;
 use crate::clipboard::{Clipboard, global_clipboard};
 use crate::core::{TextCore, TextString};
 use crate::cursor::{CursorType, cursor_type};
-use crate::event::{ReadOnly, TextOutcome};
+use crate::event::{ReadOnly, TextBool, TextOutcome};
 use crate::glyph2::{Glyph2, GlyphIter2, TextWrap2};
 use crate::text_input::TextInputState;
 use crate::text_input_mask::mask_token::{EditDirection, Mask, MaskToken};
@@ -2167,81 +2167,72 @@ impl MaskedInputState {
 
 impl HandleEvent<Event, Regular, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &Event, _keymap: Regular) -> TextOutcome {
-        // small helper ...
-        fn tc(r: bool) -> TextOutcome {
-            if r {
-                TextOutcome::TextChanged
-            } else {
-                TextOutcome::Unchanged
-            }
-        }
-        fn overwrite(state: &mut MaskedInputState) {
-            if state.overwrite.get() {
-                state.overwrite.set(false);
-                state.delete_range(0..state.len());
-            }
-        }
-        fn clear_overwrite(state: &mut MaskedInputState) {
-            state.overwrite.set(false);
-        }
-
         let mut r = if self.is_focused() {
             match event {
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
                 | ct_event!(key press CONTROL_ALT-c) => {
-                    overwrite(self);
-                    tc(self.insert_char(*c))
+                    if self.overwrite() {
+                        self.set_overwrite(false);
+                        self.delete_range(0..self.len());
+                    }
+                    self.insert_char(*c).into_text_changed()
                 }
                 ct_event!(keycode press Backspace) | ct_event!(keycode press SHIFT-Backspace) => {
-                    clear_overwrite(self);
-                    tc(self.delete_prev_char())
+                    self.set_overwrite(false);
+                    self.delete_prev_char().into_text_changed()
                 }
                 ct_event!(keycode press Delete) | ct_event!(keycode press SHIFT-Delete) => {
-                    clear_overwrite(self);
-                    tc(self.delete_next_char())
+                    self.set_overwrite(false);
+                    self.delete_next_char().into_text_changed()
                 }
                 ct_event!(keycode press CONTROL-Backspace)
                 | ct_event!(keycode press ALT-Backspace) => {
-                    clear_overwrite(self);
-                    tc(self.delete_prev_section())
+                    self.set_overwrite(false);
+                    self.delete_prev_section().into_text_changed()
                 }
                 ct_event!(keycode press CONTROL-Delete) => {
-                    clear_overwrite(self);
-                    tc(self.delete_next_section())
+                    self.set_overwrite(false);
+                    self.delete_next_section().into_text_changed()
                 }
                 ct_event!(key press CONTROL-'x') => {
-                    clear_overwrite(self);
-                    tc(self.cut_to_clip())
+                    self.set_overwrite(false);
+                    self.cut_to_clip().into_text_changed()
                 }
                 ct_event!(key press CONTROL-'v') => {
-                    overwrite(self);
-                    tc(self.paste_from_clip())
+                    if self.overwrite() {
+                        self.set_overwrite(false);
+                        self.delete_range(0..self.len());
+                    }
+                    self.paste_from_clip().into_text_changed()
                 }
                 ct_event!(paste v) => {
-                    overwrite(self);
+                    if self.overwrite() {
+                        self.set_overwrite(false);
+                        self.delete_range(0..self.len());
+                    }
                     for c in v.chars() {
                         self.insert_char(c);
                     }
                     TextOutcome::TextChanged
                 }
                 ct_event!(key press CONTROL-'d') => {
-                    clear_overwrite(self);
-                    tc(self.clear())
+                    self.set_overwrite(false);
+                    self.clear().into_text_changed()
                 }
                 ct_event!(key press CONTROL-'z') => {
-                    clear_overwrite(self);
-                    tc(self.undo())
+                    self.set_overwrite(false);
+                    self.undo().into_text_changed()
                 }
                 ct_event!(key press CONTROL_SHIFT-'Z') => {
-                    clear_overwrite(self);
-                    tc(self.redo())
+                    self.set_overwrite(false);
+                    self.redo().into_text_changed()
                 }
                 ct_event!(keycode press Tab) => {
                     if self.on_tab == TextTab::MoveToNextSection {
                         // ignore tab from focus
                         if !self.focus.gained() {
-                            clear_overwrite(self);
+                            self.set_overwrite(false);
                             self.select_next_section().into()
                         } else {
                             TextOutcome::Unchanged
@@ -2254,7 +2245,7 @@ impl HandleEvent<Event, Regular, TextOutcome> for MaskedInputState {
                     if self.on_tab == TextTab::MoveToNextSection {
                         // ignore tab from focus
                         if !self.focus.gained() {
-                            clear_overwrite(self);
+                            self.set_overwrite(false);
                             self.select_prev_section().into()
                         } else {
                             TextOutcome::Unchanged
@@ -2264,11 +2255,11 @@ impl HandleEvent<Event, Regular, TextOutcome> for MaskedInputState {
                     }
                 }
                 ct_event!(keycode press ALT-Left) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.select_prev_section().into()
                 }
                 ct_event!(keycode press ALT-Right) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.select_next_section().into()
                 }
 
@@ -2301,66 +2292,62 @@ impl HandleEvent<Event, Regular, TextOutcome> for MaskedInputState {
 
 impl HandleEvent<Event, ReadOnly, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &Event, _keymap: ReadOnly) -> TextOutcome {
-        fn clear_overwrite(state: &mut MaskedInputState) {
-            state.overwrite.set(false);
-        }
-
         let mut r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Left) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_left(false).into()
                 }
                 ct_event!(keycode press Right) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_right(false).into()
                 }
                 ct_event!(keycode press CONTROL-Left) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_to_prev_section(false).into()
                 }
                 ct_event!(keycode press CONTROL-Right) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_to_next_section(false).into()
                 }
                 ct_event!(keycode press Home) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_to_line_start(false).into()
                 }
                 ct_event!(keycode press End) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_to_line_end(false).into()
                 }
                 ct_event!(keycode press SHIFT-Left) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_left(true).into()
                 }
                 ct_event!(keycode press SHIFT-Right) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_right(true).into()
                 }
                 ct_event!(keycode press CONTROL_SHIFT-Left) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_to_prev_section(true).into()
                 }
                 ct_event!(keycode press CONTROL_SHIFT-Right) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_to_next_section(true).into()
                 }
                 ct_event!(keycode press SHIFT-Home) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_to_line_start(true).into()
                 }
                 ct_event!(keycode press SHIFT-End) => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.move_to_line_end(true).into()
                 }
                 ct_event!(key press CONTROL-'a') => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.select_all().into()
                 }
                 ct_event!(key press CONTROL-'c') => {
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.copy_to_clip().into()
                 }
 
@@ -2398,24 +2385,20 @@ impl HandleEvent<Event, MouseOnly, TextOutcome> for MaskedInputState {
             return TextOutcome::Continue;
         }
 
-        fn clear_overwrite(state: &mut MaskedInputState) {
-            state.overwrite.set(false);
-        }
-
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
                 let c = (m.column as i16) - (self.inner.x as i16);
-                clear_overwrite(self);
+                self.set_overwrite(false);
                 self.set_screen_cursor(c, true).into()
             }
             ct_event!(mouse any for m) if self.mouse.drag2(self.inner, m, KeyModifiers::ALT) => {
                 let cx = m.column as i16 - self.inner.x as i16;
-                clear_overwrite(self);
+                self.set_overwrite(false);
                 self.set_screen_cursor_sections(cx, true).into()
             }
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
                 let tx = self.screen_to_col(m.column as i16 - self.inner.x as i16);
-                clear_overwrite(self);
+                self.set_overwrite(false);
                 if let Some(range) = self.section_range(tx) {
                     self.set_selection(range.start, range.end).into()
                 } else {
@@ -2429,7 +2412,7 @@ impl HandleEvent<Event, MouseOnly, TextOutcome> for MaskedInputState {
                     TextOutcome::Unchanged
                 } else if self.inner.contains((*column, *row).into()) {
                     let c = (column - self.inner.x) as i16;
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.set_screen_cursor(c, false).into()
                 } else {
                     TextOutcome::Continue
@@ -2438,7 +2421,7 @@ impl HandleEvent<Event, MouseOnly, TextOutcome> for MaskedInputState {
             ct_event!(mouse down CONTROL-Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
                     let cx = (column - self.inner.x) as i16;
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.set_screen_cursor(cx, true).into()
                 } else {
                     TextOutcome::Continue
@@ -2447,7 +2430,7 @@ impl HandleEvent<Event, MouseOnly, TextOutcome> for MaskedInputState {
             ct_event!(mouse down ALT-Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
                     let cx = (column - self.inner.x) as i16;
-                    clear_overwrite(self);
+                    self.set_overwrite(false);
                     self.set_screen_cursor_sections(cx, true).into()
                 } else {
                     TextOutcome::Continue
